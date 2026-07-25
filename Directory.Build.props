@@ -1,0 +1,121 @@
+<Project>
+
+  <!--
+    Vixen — shared build properties for every project in the repository.
+    Spec: docs/plan/02-repository-layout.md § "Shared MSBuild"
+    Policy: docs/plan/00-vision-and-principles.md § "Non-negotiables"
+  -->
+
+  <PropertyGroup Label="Identity">
+    <Product>Vixen</Product>
+    <Company>Vixen</Company>
+    <Authors>Vixen contributors</Authors>
+    <Copyright>Copyright (c) Vixen contributors</Copyright>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/jiu/Vixen</PackageProjectUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Language">
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Analysis">
+    <!--
+      TreatWarningsAsErrors is a stated non-negotiable (docs/plan/00 § Non-negotiables).
+      Raven currently carries 6 pre-existing warnings; they are suppressed narrowly and
+      visibly in Raven/Directory.Build.props as tracked debt rather than by relaxing this.
+    -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <!--
+      docs/plan/00 § Non-negotiables specifies AnalysisLevel=latest-all. That is the
+      destination, not the starting point: dropping it onto existing code produces
+      57 build errors in Raven alone. Adopted incrementally instead —
+        now:  latest-default   (the SDK's default set; Raven passes it)
+        next: latest-recommended, once Raven's ~57 findings are cleared
+        goal: latest-all
+      Raising this is a deliberate, reviewable commit with a burn-down, not a
+      flag someone flips and then suppresses their way out of.
+    -->
+    <AnalysisLevel>latest-default</AnalysisLevel>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Determinism and symbols">
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <DebugType>portable</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Generated code visibility">
+    <!--
+      ADR-002 requires generated C# be on disk and steppable. Deliberately NOT
+      setting CompilerGeneratedFilesOutputPath: the default lands under obj/,
+      which the SDK excludes from the **/*.cs compile glob. Redirecting it
+      anywhere inside the project directory makes the compiler pick the emitted
+      files up as sources *in addition to* the in-memory generator output, which
+      produces thousands of CS0111 duplicate-member errors.
+    -->
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+  </PropertyGroup>
+
+  <!--
+    Not setting ArtifactsPath. The .NET artifacts output layout relocates every
+    project's bin/obj and is an opt-in migration in its own right, not something
+    to enable in passing while wiring up a solution file.
+  -->
+
+  <!--
+    ============================================================================
+    Profile: RUNTIME  —  Core/** and Platform/**, excluding tests.
+    AOT- and trim-clean is mandatory here; iOS is NativeAOT-only.
+    ============================================================================
+  -->
+  <PropertyGroup Condition="($(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Core')) OR
+                             $(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Platform'))) AND
+                            !$(MSBuildProjectName.EndsWith('.Tests'))">
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!--
+    ============================================================================
+    Profile: TOOLING  —  Editor/**, Tools/**, Raven/**.
+    Reflection and LINQ permitted; these are compilers and editors, not frame code.
+    ============================================================================
+  -->
+  <PropertyGroup Condition="($(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Editor')) OR
+                             $(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Tools')) OR
+                             $(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Raven'))) AND
+                            !$(MSBuildProjectName.EndsWith('.Tests'))">
+    <IsAotCompatible>false</IsAotCompatible>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!--
+    ============================================================================
+    Profile: TEST  —  any project named *.Tests.
+    ============================================================================
+  -->
+  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Tests')) OR '$(MSBuildProjectName)' == 'Tests'">
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <IsAotCompatible>false</IsAotCompatible>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+</Project>

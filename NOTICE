@@ -1,0 +1,39 @@
+Vixen
+Copyright (c) Vixen contributors
+
+This product includes software developed as part of the Vixen project
+(https://github.com/jiu/Vixen), licensed under the Apache License, Version 2.0.
+
+--------------------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------------------
+
+The full attribution manifest is generated at build time by the Nuke `Pack`
+target and published to docs/manual/third-party.md. See
+docs/plan/01-technology-decisions.md § ADR-015 for the dependency licence audit.
+
+Components currently in use:
+
+  ANTLR 4 (Antlr4.Runtime, Antlr4.CodeGenerator)
+    BSD-3-Clause — https://github.com/antlr/antlr4
+
+  Microsoft.CodeAnalysis (Roslyn)
+    MIT — https://github.com/dotnet/roslyn
+
+  xunit
+    Apache-2.0 — https://github.com/xunit/xunit
+
+--------------------------------------------------------------------------------
+Reference material — read, not incorporated
+--------------------------------------------------------------------------------
+
+The following projects were studied during design. No code is copied from them;
+where an algorithm is re-derived, the origin is credited at the call site and the
+upstream licence is recorded here.
+
+  Stride                MIT           https://github.com/stride3d/stride
+  Arch                  Apache-2.0    https://github.com/genaray/Arch
+  Yoga                  MIT           https://github.com/facebook/yoga
+  Flexbox (ru-ace)      BSD           https://github.com/ru-ace/Flexbox
+  SignalsDotnet         MIT           https://github.com/fedeAlterio/SignalsDotnet
+  PurrNet               MIT           https://github.com/PurrNet/PurrNet

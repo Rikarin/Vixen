@@ -1,0 +1,33 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+artifacts/
+*.user
+*.suo
+
+# Vixen project-local caches (never committed — reproducible from source + .meta)
+Library/
+Build/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.DotSettings.user
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test / coverage
+TestResults/
+*.trx
+coverage*.json
+coverage*.xml
+BenchmarkDotNet.Artifacts/
+
+# Native deps restored by `nuke RestoreNativeDeps`
+/native/
+
+# Reference clones (see docs/plan/02 § references/) — submodules or local clones
+/references/

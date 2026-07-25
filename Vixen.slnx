@@ -1,0 +1,55 @@
+<Solution>
+
+  <Folder Name="/_root/">
+    <File Path="Directory.Build.props" />
+    <File Path="global.json" />
+    <File Path=".editorconfig" />
+    <File Path=".gitattributes" />
+    <File Path="nuget.config" />
+    <File Path="LICENSE" />
+    <File Path="NOTICE" />
+    <File Path="README.md" />
+  </Folder>
+
+  <Folder Name="/docs/">
+    <File Path="docs/plan/README.md" />
+    <File Path="docs/plan/00-vision-and-principles.md" />
+    <File Path="docs/plan/01-technology-decisions.md" />
+    <File Path="docs/plan/02-repository-layout.md" />
+    <File Path="docs/plan/03-core-foundation.md" />
+    <File Path="docs/plan/04-ecs-and-scripting.md" />
+    <File Path="docs/plan/05-graphics-rhi.md" />
+    <File Path="docs/plan/06-rendering-pipeline.md" />
+    <File Path="docs/plan/07-raven-shader-pipeline.md" />
+    <File Path="docs/plan/08-asset-pipeline-and-addressables.md" />
+    <File Path="docs/plan/09-ui-framework.md" />
+    <File Path="docs/plan/10-platforms.md" />
+    <File Path="docs/plan/11-editor.md" />
+    <File Path="docs/plan/12-build-ci-and-testing.md" />
+    <File Path="docs/plan/13-diagnostics.md" />
+    <File Path="docs/plan/14-roadmap.md" />
+    <File Path="docs/plan/15-risks-and-open-questions.md" />
+    <File Path="docs/plan/16-networking.md" />
+    <File Path="docs/plan/17-app-heads-and-shipping.md" />
+  </Folder>
+
+  <!--
+    Raven — the shader compiler.
+    Project folders keep their current on-disk names until the Phase 0 rename
+    (docs/plan/02-repository-layout.md § "Raven/"). After renaming, update the
+    paths here in the same commit.
+  -->
+  <Folder Name="/Raven/">
+    <File Path="Raven/Directory.Build.props" />
+    <File Path="Raven/README.md" />
+    <File Path="Raven/docs/IMPLEMENTATION_PLAN.md" />
+    <Project Path="Raven/Compiler/Compiler.csproj" />
+    <Project Path="Raven/Cli/Cli.csproj" />
+    <Project Path="Raven/Tests/Tests.csproj" />
+  </Folder>
+
+  <Folder Name="/Raven/Tools/">
+    <Project Path="Raven/Tools/SyntaxGenerator/SyntaxGenerator.csproj" />
+  </Folder>
+
+</Solution>

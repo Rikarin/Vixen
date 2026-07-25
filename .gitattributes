@@ -1,0 +1,42 @@
+* text=auto eol=lf
+
+# Vixen source and asset text formats
+*.cs          text eol=lf diff=csharp
+*.csproj      text eol=lf
+*.slnx        text eol=lf
+*.props       text eol=lf
+*.targets     text eol=lf
+*.rvn         text eol=lf
+*.vxml        text eol=lf
+*.vcss        text eol=lf
+*.g4          text eol=lf
+*.meta        text eol=lf
+*.vxasset     text eol=lf
+*.md          text eol=lf
+*.json        text eol=lf
+*.yaml        text eol=lf
+*.yml         text eol=lf
+
+# Golden/snapshot fixtures must never be normalised
+*.tree        text eol=lf -diff
+*.approved.*  text eol=lf -diff
+
+# Windows-only scripts
+*.cmd         text eol=crlf
+*.bat         text eol=crlf
+*.ps1         text eol=crlf
+
+# Binary
+*.png  binary
+*.jpg  binary
+*.ktx2 binary
+*.dds  binary
+*.fbx  binary
+*.gltf binary
+*.glb  binary
+*.ttf  binary
+*.otf  binary
+*.wasm binary
+*.dll  binary
+*.so   binary
+*.dylib binary

@@ -1,0 +1,102 @@
+# Vixen — see docs/plan/00-vision-and-principles.md § "Coding standards"
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{json,yaml,yml,csproj,props,targets,slnx,xml,g4}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
+indent_size = 4
+csharp_using_directive_placement = outside_namespace:warning
+csharp_style_namespace_declarations = file_scoped:warning
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+
+# Modern C# the plan leans on
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_prefer_braces = when_multiline:suggestion
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+csharp_style_expression_bodied_properties = when_on_single_line:silent
+csharp_style_prefer_primary_constructors = true:suggestion
+csharp_style_prefer_collection_expression = true:suggestion
+csharp_style_prefer_pattern_matching = true:suggestion
+csharp_style_prefer_switch_expression = true:suggestion
+csharp_style_prefer_readonly_struct = true:suggestion
+csharp_style_prefer_readonly_struct_member = true:suggestion
+csharp_prefer_static_local_function = true:suggestion
+csharp_prefer_static_anonymous_function = true:suggestion
+dotnet_style_readonly_field = true:warning
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
+dotnet_style_prefer_conditional_expression_over_assignment = true:silent
+dotnet_style_namespace_match_folder = true:suggestion
+
+# Naming: _camelCase private fields, PascalCase everything public
+dotnet_naming_rule.private_fields_underscore.severity = warning
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel.required_prefix = _
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+
+dotnet_naming_rule.public_members_pascal.severity = warning
+dotnet_naming_rule.public_members_pascal.symbols = public_members
+dotnet_naming_rule.public_members_pascal.style = pascal
+dotnet_naming_symbols.public_members.applicable_kinds = property,method,event,field
+dotnet_naming_symbols.public_members.applicable_accessibilities = public,protected,internal
+dotnet_naming_style.pascal.capitalization = pascal_case
+
+# Performance analyzers the "zero allocation in the frame loop" rule depends on.
+# Kept at `suggestion` repo-wide so the IDE surfaces them without breaking the
+# build on existing code. Escalate to `warning` under Core/ and Platform/ (below)
+# where the allocation budget is actually enforced.
+dotnet_diagnostic.CA1852.severity = suggestion   # seal internal types
+dotnet_diagnostic.CA1859.severity = suggestion   # concrete types for performance
+dotnet_diagnostic.CA1860.severity = suggestion   # avoid Enumerable.Any()
+dotnet_diagnostic.CA1861.severity = suggestion   # no constant arrays as arguments
+dotnet_diagnostic.CA1863.severity = suggestion   # use CompositeFormat
+dotnet_diagnostic.CA2016.severity = suggestion   # forward CancellationToken
+
+# ADR-002: no runtime IL generation, no reflection-driven activation in runtime code.
+# Escalated to error under Core/ and Platform/ below.
+dotnet_diagnostic.IL2026.severity = warning
+dotnet_diagnostic.IL3050.severity = warning
+
+# Generated code is not ours to style
+[**/{obj,bin}/**]
+generated_code = true
+
+[Raven/Compiler/Grammar/gen/**]
+generated_code = true
+
+[**/*.g.cs]
+generated_code = true
+
+# Runtime assemblies: trimming and AOT violations are errors, not suggestions
+[{Core,Platform}/**/*.cs]
+dotnet_diagnostic.CA1852.severity = warning
+dotnet_diagnostic.CA1859.severity = warning
+dotnet_diagnostic.CA1860.severity = warning
+dotnet_diagnostic.CA1861.severity = warning
+dotnet_diagnostic.CA1863.severity = warning
+dotnet_diagnostic.CA2016.severity = warning
+dotnet_diagnostic.IL2026.severity = error
+dotnet_diagnostic.IL2067.severity = error
+dotnet_diagnostic.IL2075.severity = error
+dotnet_diagnostic.IL3050.severity = error
+
+# Tests may allocate, mock, and be verbose
+[**/*.Tests/**/*.cs]
+dotnet_diagnostic.CA1852.severity = none
+dotnet_diagnostic.CA1859.severity = none
