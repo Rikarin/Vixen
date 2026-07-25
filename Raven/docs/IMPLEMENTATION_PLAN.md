@@ -16,9 +16,20 @@ These were chosen deliberately and shape the whole plan:
 2. **Backends share a target-independent IR from the start.** The bound tree is
    lowered to a Raven IR (SSA-friendly); GLSL, SPIR-V, HLSL, and Metal are all
    emitters over that IR. No backend reads the bound tree directly.
-3. **ANTLR stays as the parser.** `RavenLexer`/`RavenParser` produce an ANTLR
-   parse tree; `SyntaxAntlrVisitor` translates it into the green tree. We keep the
-   Roslyn-shaped tree as the public API and let ANTLR own tokenizing/parsing.
+3. **ANTLR is the parser — for the bootstrap.** `RavenLexer`/`RavenParser` produce
+   an ANTLR parse tree; `SyntaxAntlrVisitor` translates it into the green tree. We
+   keep the Roslyn-shaped tree as the public API and let ANTLR own
+   tokenizing/parsing.
+
+   ⚠️ **Superseded as an end state.** Roslyn's design is an XML-generated tree
+   *plus a hand-written parser* — there is no grammar file anywhere in it. Raven
+   took the first half verbatim and bolted ANTLR onto the front through a
+   1 490-line translator, which is why incremental reparse is impossible and error
+   recovery produces trees the translator has to discard. Hand-writing the parser
+   completes the design rather than reversing it. Finding, plan and timing:
+   `docs/plan/18-raven-parser-migration.md` (Vixen monorepo). Sequenced after the
+   shader library and before the editor's code editor; the `.g4` files are kept
+   afterwards as a differential oracle.
 
 ## Current state (baseline)
 

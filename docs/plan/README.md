@@ -28,6 +28,7 @@ treat each file as the spec for its subsystem.
 | 15 | [Risks and Open Questions](15-risks-and-open-questions.md) | Ranked risks, mitigations, decisions that need your input |
 | 16 | [Networking](16-networking.md) | Transports, tick, replication, interest management, lag compensation, security |
 | 17 | [App Heads and Shipping](17-app-heads-and-shipping.md) | What a shipped game *is*, build variants, dedicated server, play-mode topology, trimming policy |
+| 18 | [Raven Parser Migration](18-raven-parser-migration.md) | ⚠️ Amends ADR-009 — why ANTLR should give way to a hand-written parser, and the plan to swap it safely |
 | — | [spikes/web-webgl2](spikes/web-webgl2/RESULT.md) | ✅ Executed spike: Silk.NET.OpenGLES on `browser-wasm`, with working code and measurements |
 
 ## Read this first

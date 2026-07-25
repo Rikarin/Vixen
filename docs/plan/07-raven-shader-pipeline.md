@@ -241,6 +241,10 @@ call site. A shader is small enough that a full reparse fits the < 500 ms budget
 a 2 000-line `.vxml` is the case that will actually need it, and that front end is hand-written
 recursive descent, where node reuse is achievable.
 
+This is the concrete cost of Raven's parser being ANTLR rather than hand-written, and it is what
+[18-raven-parser-migration.md](18-raven-parser-migration.md) plans to fix. The blender belongs in
+`Vixen.Core.Syntax`, where all three front ends would share it — and Raven is the one that cannot.
+
 **Reported as absent rather than guessed:** `PushConstants` and `SpecConstants` are always empty.
 Raven has no syntax for push constants, and a `[Permutation]` key is resolved at compile time rather
 than left specialisable — that is what makes the dead branch disappear. An empty array is honest; a

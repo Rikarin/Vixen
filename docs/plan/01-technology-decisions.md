@@ -265,20 +265,46 @@ ZLogger for file/console. The editor console reads the ring buffer directly.
 compile-time format validation and works on AOT. Standard interface means users can plug Serilog or
 OpenTelemetry if they want. See [13](13-diagnostics.md).
 
-### ADR-009 — Two markup parsers, both hand-written recursive descent
+### ADR-009 — Hand-written recursive descent for every front end — ⚠️ **amended**
 
 **Decision.** VXML and the utility-class extractor are hand-written parsers producing full-fidelity
-syntax trees with trivia, in the same shape as Raven's `Compiler/Syntax`. VCSS uses ExCSS for
+syntax trees with trivia, in the same shape as Raven's `Syntax/`. VCSS uses ExCSS for
 tokenizing/parsing and a Vixen-owned cascade/selector-matching engine on top.
 
-**Rationale.** ANTLR is right for Raven (a real programming language, grammar evolves, error recovery
-is table-driven). It is wrong for VXML: we need sub-millisecond incremental reparse for hot reload,
-precise squiggle positions for the editor, and error recovery tuned to the "user is mid-typing an
-attribute" case. Hand-written parsers are also what Roslyn, TypeScript, and every serious IDE
-front-end use, for these reasons.
+**Amended:** *and Raven, eventually, too.* ANTLR was right for Raven's **bootstrap** — it is not the
+right end state. See [18-raven-parser-migration.md](18-raven-parser-migration.md) for the finding, the
+plan and the timing. Summary of why the original rationale below no longer holds:
+
+- **"Error recovery is table-driven"** was listed as a reason *for* ANTLR. In practice its recovery
+  produces trees the ANTLR→green translator cannot map, and `SyntaxTree.ParseText` has to *discard the
+  tree* to cope. Messages are of the "no viable alternative at input" and "expecting {…40 tokens…}"
+  kind — fine for a CLI, wrong under an editor squiggle.
+- **The Raven/VXML split does not hold.** The reason given for hand-writing VXML was sub-millisecond
+  incremental reparse for hot reload. [Doc 09](09-ui-framework.md) specifies a `CodeEditor` doing
+  *"syntax highlighting via `Vixen.Core.Syntax` (Raven/VXML/VCSS/C#)"* — so `.rvn` gets typed in an
+  editor with live squiggles as well, and needs the same thing.
+- **Sharing the tree turned into an argument against ANTLR.** With `Vixen.Core.Syntax` extracted, the
+  node-reuse blender belongs in the shared layer and VXML/VCSS both get it. Raven cannot use it — ANTLR
+  has no notion of reusing an existing tree — so Raven becomes the one front end that cannot benefit
+  from the shared investment, inverting the point of extracting it.
+
+**What has not changed:** ANTLR is genuinely better while a grammar is churning, and the `.g4` files
+are readable specification. The migration is therefore sequenced *after* the language surface settles,
+and the grammar is **kept afterwards as a differential oracle** rather than deleted.
+
+**The framing that was wrong.** ADR-009 read this as a per-language judgement between two parser
+technologies. The sharper statement: Roslyn's design is an **XML-generated tree plus a hand-written
+parser**, with no grammar file or parser generator anywhere in it. Raven adopted the first half
+verbatim — same `Syntax.xml`, same generator, same three generated files — and bolted ANTLR onto the
+front through a 1 490-line translator. Hand-writing Raven's parser *completes* that design rather than
+reversing a decision.
+
+**Rationale (original, retained).** Hand-written parsers are what Roslyn, TypeScript, and every serious
+IDE front-end use: incremental reparse, precise squiggle positions, and error recovery tuned to
+"the user is mid-typing".
 
 Reusing Raven's `GreenNode`/red-tree infrastructure across all three front ends (Raven, VXML, VCSS)
-is an explicit goal — it gets extracted into `Vixen.Core.Syntax` in Phase 0.
+is an explicit goal — ✅ extracted into `Vixen.Core.Syntax` in Phase 0.
 
 ### ADR-010 — Fine-grained reactivity, not a virtual DOM
 

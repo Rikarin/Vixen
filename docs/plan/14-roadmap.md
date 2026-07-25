@@ -14,20 +14,22 @@ took, not against optimism.
 | 3 | Asset pipeline + mobile bring-up | 4.0 |
 | 4 | UI framework | 7.0 |
 | 5 | Renderer (forward+, PBR, shadows, post FX) | 4.5 |
+| 5b | **Raven parser migration** (ANTLR → hand-written) | 1.5 |
 | 6 | Editor shell | 4.5 |
 | 7 | Node graphs + VFX | 3.5 |
 | 8 | Gameplay subsystems (physics, audio, animation, input) | 3.5 |
 | 9 | **Networking and multiplayer** | 5.0 |
 | 10 | Deferred, advanced rendering, Web | 2.5 |
 | 11 | Polish, docs, 1.0 | 2.5 |
-| | **Total** | **≈ 46.5 EM** |
+| | **Total** | **≈ 48.0 EM** |
 
 Plus Raven's remaining work (semantic → IR → GLSL+SPIR-V → CLI → interaction classes), which your brief places
 before Phase 1 and which is roughly **6–9 EM** on its own based on its current state.
 
-So: **~53 engineer-months.** (Was ~50: deferring D3D12 saved ~1 EM per Q4 and demoting the canvas-stress
-sample ~0.5 per Q3, then networking added 5.0 per Q7.) With two strong engineers that is ~2 years; with four, ~15 months
-allowing for coordination overhead. A solo effort is a 4-year project, which is achievable — Stride's
+So: **~55 engineer-months.** (Was ~50: deferring D3D12 saved ~1 EM per Q4 and demoting the canvas-stress
+sample ~0.5 per Q3, then networking added 5.0 per Q7, then the parser migration added 1.5 —
+see [18](18-raven-parser-migration.md).) With two strong engineers that is ~2.3 years; with four, ~16 months
+allowing for coordination overhead. A solo effort is a ~4.5-year project, which is achievable — Stride's
 predecessor and several notable engines were built that way — but the plan should not pretend
 otherwise.
 
@@ -220,6 +222,31 @@ green. **Zero runtime shader compilation** in a shipping build of `Samples/03`, 
 Shader hot reload under 500 ms.
 
 ---
+
+## Phase 5b — Raven parser migration *(1.5 EM)*
+
+**Goal:** replace Raven's ANTLR front end with a hand-written Roslyn-style lexer and recursive-descent
+parser, and land incremental reparse in `Vixen.Core.Syntax`. Full finding and step-by-step plan in
+[18](18-raven-parser-migration.md); ADR-009 is amended accordingly.
+
+**Why here.** After Phase 5 because `Raven/Library` is what shakes out the last of the syntax, and
+migrating into a churning grammar pays the cost twice. Before Phase 6 because the editor's `CodeEditor`
+needs incremental reparse and squiggle-grade diagnostics for `.rvn`, and ANTLR can give neither.
+
+- Freeze the corpus: golden trees and byte-exact round-trip over every construct and every
+  `Raven/Library` file. The safety net, and worth having regardless.
+- `SlidingTextWindow`, `SyntaxParser` base and `Blender` into `Vixen.Core.Syntax` — VXML and VCSS need
+  all three anyway, so this cost was already committed by ADR-009.
+- `RavenLexer.cs` and `RavenParser.cs`, emitting green nodes directly. Delete `SyntaxAntlrVisitor`
+  (1 490 lines), the ANTLR package references, and the `catch` that discards trees ANTLR's recovery
+  mangled.
+- **Keep the `.g4` files** in a test-only project as a permanent differential oracle: parse every corpus
+  file with both and compare trees. Same technique as the SPIR-V-vs-`shaderc` oracle.
+- Then incremental reparse via the blender, as a separate change — one hard problem at a time.
+- Then diagnostics worth reading: expected-token messages instead of "no viable alternative".
+
+**Exit criteria.** Byte-identical trees to the ANTLR front end across the whole corpus; ANTLR gone from
+the shipping projects; a `.rvn` edit reparsing incrementally; the differential oracle green in CI.
 
 ## Phase 6 — Editor shell *(4.5 EM)*
 
