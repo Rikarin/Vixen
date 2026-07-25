@@ -13,7 +13,7 @@ public class DiagnosticsTests {
     [Theory]
     [InlineData("package A.B\n")]
     [InlineData("package A.B\n\nshader Foo {\n    val x: int\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val f = (a: int) => 42\n    }\n}\n")]
+    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val f = 1 + 2 * 3\n    }\n}\n")]
     public void Valid_source_has_no_diagnostics(string source) {
         var tree = SyntaxTree.ParseText(source);
         Assert.Empty(tree.Diagnostics);

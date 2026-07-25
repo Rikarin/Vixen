@@ -1,22 +1,20 @@
 namespace Vixen.Raven.Symbols;
 
 /// <summary>
-/// Type-level conversion rules. The binder layers expression-aware cases on top
-/// (constant literals, the <c>null</c> literal) — everything decidable from the
+/// Type-level conversion rules. The binder layers the expression-aware case on
+/// top (a constant literal that fits the target); everything decidable from the
 /// two types alone lives here.
 /// </summary>
 public static class Conversions {
     /// <summary>Widening scalar conversions, keyed by source.</summary>
     static readonly Dictionary<SpecialType, SpecialType[]> ImplicitScalar = new() {
-        [SpecialType.Char] = [SpecialType.Int, SpecialType.UInt, SpecialType.Long, SpecialType.Float, SpecialType.Double],
-        [SpecialType.Int] = [SpecialType.Long, SpecialType.Float, SpecialType.Double],
-        [SpecialType.UInt] = [SpecialType.Long, SpecialType.Float, SpecialType.Double],
-        [SpecialType.Long] = [SpecialType.Float, SpecialType.Double],
+        [SpecialType.Int] = [SpecialType.Float, SpecialType.Double],
+        [SpecialType.UInt] = [SpecialType.Float, SpecialType.Double],
         [SpecialType.Float] = [SpecialType.Double]
     };
 
     static readonly SpecialType[] NumericScalars = [
-        SpecialType.Char, SpecialType.Int, SpecialType.UInt, SpecialType.Long, SpecialType.Float, SpecialType.Double
+        SpecialType.Int, SpecialType.UInt, SpecialType.Float, SpecialType.Double
     ];
 
     /// <summary>Classifies the conversion from <paramref name="source"/> to <paramref name="target"/>.</summary>
@@ -35,21 +33,6 @@ public static class Conversions {
             return Conversion.None;
         }
 
-        if (ReferenceEquals(source, NullTypeSymbol.Instance)) {
-            return AdmitsNull(target) ? new Conversion(ConversionKind.ImplicitNullLiteral) : Conversion.None;
-        }
-
-        // T -> T?  /  T? -> T
-        if (target is NullableTypeSymbol targetNullable) {
-            var inner = Classify(Unwrap(source), targetNullable.UnderlyingType);
-            return inner.Exists && inner.IsImplicit ? new Conversion(ConversionKind.ImplicitNullable) : Conversion.None;
-        }
-
-        if (source is NullableTypeSymbol sourceNullable) {
-            var inner = Classify(sourceNullable.UnderlyingType, target);
-            return inner.Exists ? new Conversion(ConversionKind.ExplicitNullable) : Conversion.None;
-        }
-
         if (ClassifyNumeric(source, target) is { Exists: true } numeric) {
             return numeric;
         }
@@ -64,10 +47,6 @@ public static class Conversions {
             return new Conversion(ConversionKind.ImplicitReference);
         }
 
-        if (ReferenceEquals(target, BuiltInTypes.Object)) {
-            return new Conversion(ConversionKind.Boxing);
-        }
-
         if (target.IsSubtypeOf(source)) {
             return new Conversion(ConversionKind.ExplicitReference);
         }
@@ -80,11 +59,6 @@ public static class Conversions {
         var conversion = Classify(source, target);
         return conversion.Exists && conversion.IsImplicit;
     }
-
-    /// <summary>True when <c>null</c> is a legal value of this type.</summary>
-    public static bool AdmitsNull(TypeSymbol type) =>
-        type.TypeKind is TypeKind.Nullable or TypeKind.Class or TypeKind.Protocol or TypeKind.Array
-            or TypeKind.Resource or TypeKind.Error;
 
     /// <summary>
     /// The type both operands of a binary operator are converted to, or null if
@@ -115,8 +89,6 @@ public static class Conversions {
 
         return null;
     }
-
-    static TypeSymbol Unwrap(TypeSymbol type) => type is NullableTypeSymbol nullable ? nullable.UnderlyingType : type;
 
     static SpecialType? FindCommonScalar(SpecialType left, SpecialType right) {
         if (left == right) {

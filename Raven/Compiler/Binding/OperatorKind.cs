@@ -34,7 +34,5 @@ public enum UnaryOperatorKind {
     PostIncrement,
     PostDecrement,
     /// <summary><c>^i</c> — an index counted from the end.</summary>
-    IndexFromEnd,
-    /// <summary><c>x!</c> — asserts the operand is not null.</summary>
-    SuppressNullable
+    IndexFromEnd
 }

@@ -38,19 +38,3 @@ public sealed class SynthesizedParameterSymbol : ParameterSymbol {
     public override int Ordinal { get; }
 }
 
-/// <summary>A lambda parameter, whose type may be inferred from context.</summary>
-public sealed class LambdaParameterSymbol : ParameterSymbol {
-    internal LambdaParameterSymbol(Symbol? container, string name, TypeSymbol type, int ordinal, SyntaxNode? syntax) {
-        ContainingSymbol = container;
-        Name = name;
-        Type = type;
-        Ordinal = ordinal;
-        DeclaringSyntax = syntax;
-    }
-
-    public override string Name { get; }
-    public override Symbol? ContainingSymbol { get; }
-    public override TypeSymbol Type { get; }
-    public override int Ordinal { get; }
-    public override SyntaxNode? DeclaringSyntax { get; }
-}

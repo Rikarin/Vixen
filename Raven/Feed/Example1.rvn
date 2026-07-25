@@ -3,106 +3,152 @@ package Vixen.Test
 import Vixen.Core
 import Vixen.BaseShaders
 
-// Test shader
+// A syntax sample: everything the language has, in one file.
 [FooBar, BarFoo]
 shader TestShader : ExampleBase, CustomShader {
     const val Multiplier = 42
-    var test = "str"
-    var mat: mat3x4 = mat3x4(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)
-    
-    var prop {
-        get => test
-        set => test = value
-    }
-    
-    [property: FooBar(test: "random_literal")]
-    public abstract var didTest {
-        willSet {
-            printf(value)
-            
-            val foo = () => 42
-            val bar = asd => 42
-            val baz = (asd: int) => 42
-            val baz = (asd: int): string => 42
-        }
-        
-        didSet => printf(value)
-    }
-    
-    var anonymousObject: object = {
-        Test = 42,
-        FooBar = "string"
-    }
-    
-    val len: int
-    val test: FooBar = [1, 2, 3, 4]
-    val test = [1, 2, 3, 4]
-    
-    var test: FooBar = [
-        "string",
-        'c',
-        'a'
-    ]
-    
-    func fooBar() => 42
-    func fooBar(): int => 42
-    
-    init() {
-        Test()
-        
-        for (i in 1..10) {
-            a++
-            ++a
-            FooBar(i)
-        }
-        
-        if (a > 42) {
-            Call()
-        } else {
-            Not()
-        }
-    }
-    
-    init(test: string?) {
-        long.SomeMethod()
-        
-        func test(): int { }
-        len = CoreClass.GetLength<int, Class>(test)
-        
-        len = p[42]
-        len = p[1..12]
-    }
-    
-    func Generic<int>.Test<Asd>() { }
-    
-    func GetLength2(): int {
-        return len
-    }
-    
-    func GetLength() => len
+    const val Epsilon = 0.0001
 
-    func VSMain() {
-        var bar = 7 + 4 * "test" / 42f
-        var foo = 7 + 4 * "test" / 42f
-        var tst = 7 + 4 * "test" / 42f
-        
-        var test: int[]
-        var test: double[][]
-        
-        Test()
+    var world: mat4
+    var tint: float4 = float4(1, 1, 1, 1)
+    var albedo: Texture2D
+    var albedoSampler: Sampler
+
+    var lookup: int[]
+    var grid: float[][]
+
+    var prop: float {
+        get => Epsilon
+        set => tint = float4(value, value, value, 1)
     }
-    
-    func TestMethod(name: string, count: int = 42): float4 {
-        var test = "string"
-        val res = name + test
-        
-        val hash = res.GetHashCode()
-        return hash.ToInt()
+
+    [property: FooBar(mode: "linear")]
+    public abstract var observed: float {
+        willSet {
+            counter++
+        }
+
+        didSet => counter--
+    }
+
+    var counter: int
+
+    func Fold(): int {
+        var total = 0
+
+        for (i in 1 .. 10) {
+            total += i * Multiplier
+            counter++
+            ++counter
+        }
+
+        while (total > 0) {
+            total -= 1
+        }
+
+        if (total > 42) {
+            total = 0
+        } else {
+            total = 1
+        }
+
+        return total
+    }
+
+    init() {
+        counter = 0
+    }
+
+    init(seed: int) {
+        counter = seed
+        counter = lookup[0]
+        counter = CoreClass.GetLength<int, Class>(seed)
+    }
+
+    func Generic<T>.Test<Asd>() { }
+
+    func Classify(x: int): int {
+        val kind = x switch {
+            0 => 1,
+            > 10 when x < 20 => 2,
+            _ => 3
+        }
+
+        val isSmall = x is < 5
+        val isNotFive = x is not 5
+        val ranged = x is > 0 and < 10
+
+        return kind
+    }
+
+    func Bounds(): (int, float) {
+        val pair = (Multiplier, Epsilon)
+        val named = (count: Multiplier, scale: Epsilon)
+        return pair
+    }
+
+    func Collect(): int[] {
+        val direct = [1, 2, 3, 4]
+        val spread = [1, ..direct, 5]
+        return direct
+    }
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func VSMain(position: float3): float4 {
+        val scaled = position * Epsilon
+        return world * float4(scaled, 1)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func PSMain(uv: float2): float4 {
+        val sampled = albedo.Sample(albedoSampler, uv)
+        val lit = saturate(dot(sampled.rgb, tint.rgb))
+        return float4(sampled.rgb * lit, sampled.a)
+    }
+
+    func TestMethod(count: int = 42, scale: float = 1f): float4 {
+        val widened: double = count
+        val picked = count > 0 ? tint : float4(0, 0, 0, 1)
+        return picked
+    }
+}
+
+protocol Shaded {
+    var Tint: float4 {
+        get => float4(0, 0, 0, 1)
     }
 }
 
 struct FooBar {
+    var value: float
 
+    init(initial: float) {
+        value = initial
+    }
+
+    func Scaled(by: float): float => value * by
+
+    float self[i: int] => value
+
+    FooBar operator +(a: FooBar, b: FooBar) => a
+
+    implicit operator float(v: FooBar) => v.value
 }
 
-readonly record struct Messenger(userId: int, message: string)
+enum Mode {
+    Off,
+    On = 5,
+    Auto
+}
+
+class Widget<T> where T : Shaded {
+    var item: T
+
+    func Item(): T {
+        return item
+    }
+}
+
+readonly record struct Messenger(userId: int, channel: int)

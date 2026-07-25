@@ -79,10 +79,10 @@ public class SymbolTests {
             package A
 
             protocol Vehicle {
-                var Name: string
+                var Tint: float4
 
                 func Start()
-                func Describe(): string
+                func Describe(): float3
             }
 
             """;
@@ -98,9 +98,9 @@ public class SymbolTests {
         var vehicle = FindType(compilation, "Vehicle");
         Assert.Equal(TypeKind.Protocol, vehicle.TypeKind);
 
-        Assert.Equal("string", GetMember<FieldSymbol>(vehicle, "Name").Type.ToDisplayString());
+        Assert.Equal("float4", GetMember<FieldSymbol>(vehicle, "Tint").Type.ToDisplayString());
         Assert.True(GetMember<MethodSymbol>(vehicle, "Start").ReturnType.IsVoid);
-        Assert.Equal("string", GetMember<MethodSymbol>(vehicle, "Describe").ReturnType.ToDisplayString());
+        Assert.Equal("float3", GetMember<MethodSymbol>(vehicle, "Describe").ReturnType.ToDisplayString());
     }
 
     [Fact]

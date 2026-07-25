@@ -20,7 +20,6 @@ public class RoundTripTests {
     [InlineData("package A.B\n\nshader First {\n\n}\n\nshader Second {\n\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    val len: int\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    const val Multiplier = 42\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    val a = true\n    val b = null\n    val c = 3.14\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func Bar() {\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func Answer() => 42\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func Get(): int => 42\n}\n")]
@@ -42,7 +41,7 @@ public class RoundTripTests {
     // Bodiless members: a protocol declares signatures only
     [InlineData("package A.B\n\nprotocol P {\n    func Test()\n}\n")]
     [InlineData("package A.B\n\nprotocol P {\n    func Get(): int\n}\n")]
-    [InlineData("package A.B\n\nprotocol P {\n    var Name: string\n}\n")]
+    [InlineData("package A.B\n\nprotocol P {\n    var Tint: float4\n}\n")]
     [InlineData("package A.B\n\nprotocol P {\n    func First()\n    func Second(a: int): int\n}\n")]
     [InlineData("package A.B\n\nprotocol P { func Test() }\n")]
     // Inline parameter attributes (no newline after the attribute list)
@@ -66,11 +65,10 @@ public class RoundTripTests {
     [InlineData("package A.B\n\nclass Foo {\n    var P.Q {\n        get => test\n    }\n}\n")]
     [InlineData("package A.B\n\nclass Foo {\n    int P.self[i: int] => a\n}\n")]
     [InlineData("package A.B\n\nclass Foo {\n    func P.Q() {\n    }\n}\n")]
-    // Conditional, null-coalescing.
+    // Conditional.
     // NOTE: `a[i]` parses as an array type (`type array_rank_specifier`), shadowing
     // element access — a grammar ambiguity like invocation; visitor is wired.
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val x = a ? b : c\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val x = a ?? b\n    }\n}\n")]
     // String literals
     [InlineData("package A.B\n\nshader Foo {\n    val name = \"hello\"\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val s = \"a b c\"\n    }\n}\n")]
@@ -118,21 +116,6 @@ public class RoundTripTests {
     // Conversion operators
     [InlineData("package A.B\n\nshader Foo {\n    implicit operator int(v: Vec) => a\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    explicit operator float(v: Vec) {\n    }\n}\n")]
-    // Nullable types
-    [InlineData("package A.B\n\nshader Foo {\n    val x: int?\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    init(test: string?) {\n    }\n}\n")]
-    // Character literals
-    [InlineData("package A.B\n\nshader Foo {\n    val c = 'a'\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val c = 'x'\n    }\n}\n")]
-    // Lambdas
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val f = () => 42\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val f = asd => 42\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val f = (asd: int) => 42\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val f = (asd: int): string => 42\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val f = (a: int, b: int) => 42\n    }\n}\n")]
-    // Anonymous objects
-    [InlineData("package A.B\n\nshader Foo {\n    var o: object = {\n        Test = 42,\n        FooBar = \"string\"\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val o = { A = 1 }\n    }\n}\n")]
     // Struct / class / record declarations
     [InlineData("package A.B\n\nstruct FooBar {\n\n}\n")]
     [InlineData("package A.B\n\nclass Widget {\n\n}\n")]
@@ -160,11 +143,11 @@ public class RoundTripTests {
 }
 
 /// <summary>
-/// End-to-end full-fidelity round-trip over the realistic <c>Example1.rvn</c> sample,
-/// which exercises attributes (targeted + args), properties with willSet/didSet,
-/// lambdas, anonymous objects, tuples, generics, explicit-interface methods, local
-/// functions, element access, string/char literals, nullable/array types, and
-/// struct/class/record type declarations.
+/// End-to-end full-fidelity round-trip over the realistic <c>Example1.rvn</c>
+/// sample, which exercises attributes (targeted + args), properties with
+/// willSet/didSet, tuples, generics, explicit-interface methods, operators and
+/// an indexer, element access, patterns and switch expressions, array types, and
+/// struct/class/record/enum/protocol declarations.
 /// </summary>
 public class Example1RoundTripTests {
     [Fact]

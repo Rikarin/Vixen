@@ -211,15 +211,13 @@ public class ShaderSemanticsTests {
 
                 [VertexShader]
                 func Vertex(position: float3): float4 {
-                    val local = float4(position, 1)
-                    return world * local
+                    return world * float4(position, 1)
                 }
 
                 [PixelShader]
                 func Pixel(normal: float3, uv: float2): float4 {
                     val sampled = albedo.Sample(albedoSampler, uv)
-                    val lit = Diffuse(normal)
-                    return float4(sampled.rgb * baseColor.rgb * lit, sampled.a)
+                    return float4(sampled.rgb * baseColor.rgb * Diffuse(normal), sampled.a)
                 }
             }
 

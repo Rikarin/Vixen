@@ -3,10 +3,10 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Symbols;
 
 /// <summary>
-/// The compiler's intrinsic type table: scalars, vectors, matrices, the two
-/// reference-ish types the language assumes (<c>string</c>, <c>object</c>) and
-/// the GPU resource types. All instances are singletons, so reference equality
-/// is type identity for everything in here.
+/// The compiler's intrinsic type table: scalars, vectors, matrices and the GPU
+/// resource types — everything Raven has, because everything Raven has must
+/// exist on a GPU. All instances are singletons, so reference equality is type
+/// identity for everything in here.
 /// </summary>
 public static class BuiltInTypes {
     public static readonly PrimitiveTypeSymbol Void = new("void", SpecialType.Void, TypeKind.Void);
@@ -14,13 +14,8 @@ public static class BuiltInTypes {
     public static readonly PrimitiveTypeSymbol Bool = new("bool", SpecialType.Bool, TypeKind.Scalar);
     public static readonly PrimitiveTypeSymbol Int = new("int", SpecialType.Int, TypeKind.Scalar);
     public static readonly PrimitiveTypeSymbol UInt = new("uint", SpecialType.UInt, TypeKind.Scalar);
-    public static readonly PrimitiveTypeSymbol Long = new("long", SpecialType.Long, TypeKind.Scalar);
     public static readonly PrimitiveTypeSymbol Float = new("float", SpecialType.Float, TypeKind.Scalar);
     public static readonly PrimitiveTypeSymbol Double = new("double", SpecialType.Double, TypeKind.Scalar);
-    public static readonly PrimitiveTypeSymbol Char = new("char", SpecialType.Char, TypeKind.Scalar);
-
-    public static readonly BuiltInNamedTypeSymbol String = new("string", SpecialType.String, TypeKind.Class);
-    public static readonly BuiltInNamedTypeSymbol Object = new("object", SpecialType.Object, TypeKind.Class);
 
     public static readonly PrimitiveTypeSymbol Bool2 = Vec("bool2", SpecialType.Bool2, SpecialType.Bool, 2);
     public static readonly PrimitiveTypeSymbol Bool3 = Vec("bool3", SpecialType.Bool3, SpecialType.Bool, 3);
@@ -66,13 +61,13 @@ public static class BuiltInTypes {
 
     static BuiltInTypes() {
         PrimitiveTypeSymbol[] primitives = [
-            Void, Bool, Int, UInt, Long, Float, Double, Char,
+            Void, Bool, Int, UInt, Float, Double,
             Bool2, Bool3, Bool4, Int2, Int3, Int4, UInt2, UInt3, UInt4,
             Float2, Float3, Float4, Double2, Double3, Double4,
             Mat2, Mat2x3, Mat2x4, Mat3, Mat3x2, Mat3x4, Mat4, Mat4x2, Mat4x3
         ];
 
-        NamedTypeSymbol[] named = [String, Object, Sampler, Texture2D, Texture3D, TextureCube];
+        NamedTypeSymbol[] named = [Sampler, Texture2D, Texture3D, TextureCube];
 
         byName = new Dictionary<string, NamedTypeSymbol>(StringComparer.Ordinal);
         bySpecialType = [];
@@ -173,10 +168,6 @@ public static class BuiltInTypes {
 
         TextureCube.SetMembers([
             new SynthesizedMethodSymbol(TextureCube, "Sample", Float4, [("sampler", Sampler), ("direction", Float3)])
-        ]);
-
-        String.SetMembers([
-            new SynthesizedFieldSymbol(String, "Length", Int, isReadOnly: true)
         ]);
     }
 }

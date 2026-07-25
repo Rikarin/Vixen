@@ -22,7 +22,7 @@ took, not against optimism.
 | 11 | Polish, docs, 1.0 | 2.5 |
 | | **Total** | **≈ 46.5 EM** |
 
-Plus Raven's remaining work (semantic → IR → SPIR-V → interaction classes), which your brief places
+Plus Raven's remaining work (semantic → IR → GLSL+SPIR-V → CLI → interaction classes), which your brief places
 before Phase 1 and which is roughly **6–9 EM** on its own based on its current state.
 
 So: **~53 engineer-months.** (Was ~50: deferring D3D12 saved ~1 EM per Q4 and demoting the canvas-stress
@@ -191,8 +191,8 @@ scroll/focus/selection. A `DockingHost` layout round-trips through serialisation
 
 ## Phase 5 — Renderer *(4.5 EM)*
 
-**Goal:** the forward+ pipeline with full PBR, shadows, and post FX. Depends on Raven's SPIR-V backend
-being complete.
+**Goal:** the forward+ pipeline with full PBR, shadows, and post FX. Depends on Raven's codegen phase
+(GLSL + SPIR-V) being complete.
 
 - `Vixen.Shaders`: effect system, permutation keys and cache (three tiers), `Vixen.Shaders.Generators`
   for parameter keys, build-time permutation pre-generation, `Tools/Vixen.ShaderCompilerService`.
@@ -476,11 +476,10 @@ stopping point is one of these rather than an arbitrary 60 %.
 
 These constraints matter more than the phase numbers:
 
-1. **Raven gates Phase 5 only, and only loosely.** Per Q10 Raven's order is unchanged, so its *GLSL*
-   backend (its Phase 4) arrives before SPIR-V — and the engine bridges GLSL → SPIR-V with `shaderc`
-   ([07](07-raven-shader-pipeline.md)). So the renderer needs Raven at its Phase 4, not its Phase 6.
-   Phases 0–4 need no shaders beyond a triangle/UI pair, which can be checked-in SPIR-V blobs. Engine
-   work can begin as soon as Raven reaches its Phase 2.
+1. **Raven gates Phase 5 only, and only loosely.** Raven's GLSL and SPIR-V emitters land in the same
+   phase ([07](07-raven-shader-pipeline.md)), so the renderer gates on *one* codegen phase with no bridge
+   and no intermediate. Engine Phases 0–4 need no shaders beyond a triangle/UI pair, which can be
+   checked-in SPIR-V blobs, so engine work can begin as soon as Raven reaches its Phase 2.
 2. **iOS/NativeAOT lands in Phase 3.** Non-negotiable. It is the cheapest possible insurance against the
    reflection debt that kills AOT ports.
 3. ~~The Web spike happens in Phase 1~~ — ✅ **done up front**, and it paid for itself: it retired R1,

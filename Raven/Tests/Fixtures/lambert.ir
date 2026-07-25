@@ -1,0 +1,103 @@
+module Test
+
+struct Light
+  direction : vec<f32,3>
+  color : vec<f32,3>
+end
+
+shader Lambert
+  binding uniform @world : mat<f32,4,4> slot 0
+  binding uniform @baseColor : vec<f32,4> slot 1
+  binding texture @albedo : texture2d slot 0
+  binding sampler @albedoSampler : sampler slot 0
+  entry vertex Vertex(position : vec<f32,3>) -> result : vec<f32,4> "SV_Position"
+  entry pixel Pixel(normal : vec<f32,3>, uv : vec<f32,2>) -> result : vec<f32,4> "SV_Target"
+
+  init
+    %0 = const 1f : f32
+    %1 = const 1f : f32
+    %2 = const 1f : f32
+    %3 = const 1f : f32
+    %4 = construct %0, %1, %2, %3 : vec<f32,4>
+    store @baseColor, %4
+  end
+
+  func Diffuse($normal : vec<f32,3>, $light : vec<f32,3>) : f32
+    local !ndotl : f32
+    %0 = load $normal : vec<f32,3>
+    %1 = intrinsic.normalize %0 : vec<f32,3>
+    %2 = load $light : vec<f32,3>
+    %3 = negate %2 : vec<f32,3>
+    %4 = intrinsic.normalize %3 : vec<f32,3>
+    %5 = intrinsic.dot %1, %4 : f32
+    store !ndotl, %5
+    %6 = load !ndotl : f32
+    %7 = const 0.1f : f32
+    %8 = intrinsic.max %6, %7 : f32
+    return %8
+  end
+
+  func Vertex($position : vec<f32,3>) : vec<f32,4>
+    %0 = load @world : mat<f32,4,4>
+    %1 = load $position : vec<f32,3>
+    %2 = const 1f : f32
+    %3 = construct %1, %2 : vec<f32,4>
+    %4 = matrixMultiply %0, %3 : vec<f32,4>
+    return %4
+  end
+
+  func Pixel($normal : vec<f32,3>, $uv : vec<f32,2>) : vec<f32,4>
+    local !shade : f32
+    local !i : i32
+    local !i#limit : i32
+    local !sampled : vec<f32,4>
+    local !tint : vec<f32,3>
+    %0 = const 0f : f32
+    store !shade, %0
+    %1 = const 0 : i32
+    store !i, %1
+    %2 = const 2 : i32
+    store !i#limit, %2
+    loop
+      cond
+        %3 = load !i : i32
+        %4 = load !i#limit : i32
+        %5 = lessThanOrEqual %3, %4 : bool
+      test %5 before-body
+      body
+        %6 = load !shade : f32
+        %7 = load $normal : vec<f32,3>
+        %8 = const 0f : f32
+        %9 = const 1f : f32
+        %10 = const 0f : f32
+        %11 = construct %8, %9, %10 : vec<f32,3>
+        %12 = call Diffuse(%7, %11) : f32
+        %13 = add %6, %12 : f32
+        store !shade, %13
+      step
+        %14 = load !i : i32
+        %15 = const 1 : i32
+        %16 = add %14, %15 : i32
+        store !i, %16
+    end
+    %17 = load @albedo : texture2d
+    %18 = load @albedoSampler : sampler
+    %19 = load $uv : vec<f32,2>
+    %20 = intrinsic.sampleTexture %17, %18, %19 : vec<f32,4>
+    store !sampled, %20
+    %21 = load !shade : f32
+    %22 = const 1f : f32
+    %23 = greaterThan %21, %22 : bool
+    %24 = load @baseColor.xyz : vec<f32,3>
+    %25 = load !sampled.xyz : vec<f32,3>
+    %26 = select %23, %24, %25 : vec<f32,3>
+    store !tint, %26
+    %27 = load !tint : vec<f32,3>
+    %28 = load !shade : f32
+    %29 = convert.splat %28 : vec<f32,3>
+    %30 = multiply %27, %29 : vec<f32,3>
+    %31 = load !sampled.w : f32
+    %32 = construct %30, %31 : vec<f32,4>
+    return %32
+  end
+end

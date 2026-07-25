@@ -135,7 +135,7 @@ wrong by an order of magnitude. The `[JSImport]` hand-binding fallback is not ne
 **Consequence for the plan.** Web stays in scope with more confidence, and it stays last on the cut list
 rather than first — but the reason to cut it would now be *effort*, not *feasibility*.
 
-### R2 — Raven maturity *(was: medium · high → now: medium · medium, after Q10's bridge)*
+### R2 — Raven maturity *(was: medium · high → now: medium · medium)*
 
 Raven has a strong parser and no semantic analysis, IR, or codegen. The engine's renderer (Phase 5)
 cannot ship without shader compilation, and `compose` (shader-typed members with compile-time
@@ -143,22 +143,25 @@ resolution) is a non-trivial semantic feature the material system depends on abs
 
 **Mitigation, as decided:**
 
-- **Q10 declined the reorder**, so what was a contingency is now the design: the engine bridges Raven's
-  GLSL output to SPIR-V with `shaderc` behind `IRavenBackend` ([07](07-raven-shader-pipeline.md)). The
-  renderer therefore gates on Raven's **Phase 4**, not its Phase 6 — two phases earlier than the naive
-  reading, which is most of what the reordering would have bought, without touching Raven's roadmap.
+- **GLSL and SPIR-V are built in the same Raven phase** ([07](07-raven-shader-pipeline.md)), which
+  supersedes both the reorder recommendation and the `shaderc` bridge that replaced it. The renderer gates
+  on *one* codegen phase. No bridge, no dual-backend abstraction, no swap-over milestone, and no
+  lossy intermediate — subgroup ops, `float64`, and mesh shaders are available as soon as the emitter
+  supports them.
 - The engine consumes Raven through **one interface with a stub implementation**, so Phases 0–4 use
   checked-in SPIR-V blobs for the triangle and UI shaders and are not blocked at all.
 - The two engine-critical Raven semantic features (**`compose`** and **permutation constants**) are named
   explicitly in [07](07-raven-shader-pipeline.md) so they can be prioritised inside Raven's Phase 2.
-- Two requirements are handed to Raven's GLSL backend early because retrofitting them is expensive: emit
-  **Vulkan-flavoured** GLSL with explicit `layout(set, binding)`, and keep reflection coming from the
-  semantic phase rather than from the emitted GLSL.
+- The GLSL emitter must be **Vulkan-flavoured** (explicit `layout(set, binding)`) and reflection must come
+  from the semantic phase, never from emitted code. Under the bridge this was mandatory because GLSL was a
+  production path; now it is what enables the **differential oracle** — Raven's SPIR-V compared against
+  `shaderc`(Raven's GLSL), which is the strongest correctness signal available and is free once both
+  emitters exist.
 
-**Residual risk:** the bridge means two codegen paths golden-tested in parallel until Raven's native
-SPIR-V backend lands, and GLSL is a lossy intermediate for subgroup ops, `float64`, and mesh shaders —
-none of which are in the P1 feature set. The bridge is a designed path with an exit, not the permanent
-compromise Stride was stuck with.
+**Residual risk:** the remaining exposure is simply that Raven's semantic phase and codegen are unbuilt
+work on the engine's critical path for Phase 5, with `compose` the single most important feature in it.
+The mitigations above are structural rather than contingent — there is no interim compromise to unwind
+later, which is a better position than the bridge left us in.
 
 ### R3 — UI framework scope *(likelihood: high · impact: high)*
 
@@ -260,7 +263,7 @@ than deleted, so the reasoning behind each decision stays discoverable and numbe
 | ~~Q7~~ | ~~Networking/multiplayer — in scope for 1.0?~~ | ✅ **Resolved: in scope**, designed in [16](16-networking.md) against PurrNet as reference. Server-authoritative + interpolation + lag compensation; client-side prediction is P2 but designed for. New Phase 9, **+5.0 EM**. |
 | ~~Q8~~ | ~~Team size and timeline expectation?~~ | ✅ **Resolved: one person, AI-assisted.** Phase order stays sequential (already was). [14](14-roadmap.md) gains a *Delivering this solo* section: four publishable milestones (M1 "it runs" → M2 "it is a game engine" → M3 "it has an editor" → M4 1.0), a recommendation to **swap Phases 4 and 5** so a working renderer ships before the 7 EM UI investment, and the practices that matter most without a reviewer. |
 | ~~Q9~~ | ~~Should Vixen aim for Unity project *import*?~~ | ✅ **Resolved: no. No Unity compatibility is expected or attempted.** Unity is an implementation *reference* only; Vixen does not adhere to Unity's standards, formats, or conventions where its own judgement differs. This retroactively removes the last constraint from ADR-005 and closes the question permanently. |
-| ~~Q10~~ | ~~Raven phase reorder (SPIR-V before GLSL)?~~ | ✅ **Resolved: do not reorder.** Raven keeps `Semantic → IR → GLSL → CLI → SPIR-V`. The engine bridges with **`shaderc` (GLSL → SPIR-V)**, already a dependency, behind `IRavenBackend` — so the renderer is not gated on Raven's Phase 6 and the swap to native SPIR-V later is a config change. Two requirements handed to Raven: emit **Vulkan** GLSL (`layout(set,binding)` via `GL_KHR_vulkan_glsl`), and keep reflection coming from the semantic phase, never from the GLSL. See [07](07-raven-shader-pipeline.md). |
+| ~~Q10~~ | ~~Raven phase reorder (SPIR-V before GLSL)?~~ | ✅ **Superseded: neither. GLSL and SPIR-V land in the same phase.** Order becomes `Semantic → IR → GLSL + SPIR-V → CLI → Interaction classes`. This removes the `shaderc` bridge, `IRavenBackend`, the dual-codegen test burden, and GLSL's lossiness — and creates a **differential oracle** (Raven SPIR-V vs `shaderc`(Raven GLSL)). Requirements retained: Vulkan-flavoured GLSL, reflection from the semantic phase. See [07](07-raven-shader-pipeline.md). |
 
 ## Where this plan could be wrong
 

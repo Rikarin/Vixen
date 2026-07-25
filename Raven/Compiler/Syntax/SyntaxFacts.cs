@@ -51,7 +51,6 @@ public static class SyntaxFacts {
             SyntaxKind.ValKeyword => "val",
             SyntaxKind.TrueKeyword => "true",
             SyntaxKind.FalseKeyword => "false",
-            SyntaxKind.NullKeyword => "null",
             SyntaxKind.DefaultKeyword => "default",
             SyntaxKind.GlobalKeyword => "global",
             SyntaxKind.StaticKeyword => "static",

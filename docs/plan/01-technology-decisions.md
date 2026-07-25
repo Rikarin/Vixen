@@ -349,8 +349,10 @@ Raven backend measurably wins.
 
 **Rationale.** One well-tested backend beats five half-tested ones. SPIR-V has a validator
 (`spirv-val`), an optimiser (`spirv-opt`), and a reference cross-compiler, all shipped by Khronos and
-available via `Silk.NET.SPIRV.Cross.Native`. The GLSL transpiler Raven's README currently plans as
-the easy first target becomes a *debug convenience* rather than a shipping path.
+available via `Silk.NET.SPIRV.Cross.Native`. Raven's GLSL emitter is built in the same phase as the
+SPIR-V one, and serves two non-shipping jobs: readable output for the frame debugger, and a
+**differential oracle** — `shaderc`(Raven GLSL) compared against Raven's own SPIR-V
+([07](07-raven-shader-pipeline.md)).
 
 **Consequence for Raven.** Its semantic phase must produce enough type/binding information to emit
 valid SPIR-V with explicit descriptor set/binding decorations, which is a stricter bar than

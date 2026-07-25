@@ -48,6 +48,13 @@ public abstract partial class Binder {
     BoundExpression BindExpressionCore(ExpressionSyntax syntax) {
         switch (syntax) {
             case LiteralExpressionSyntax literal: {
+                // Strings exist for attributes, which are read off the syntax and
+                // never bound; a string in expression position has no value.
+                if (literal.Kind == SyntaxKind.StringLiteralExpression) {
+                    Report(SemanticDiagnostics.StringLiteralIsNotAValue, literal);
+                    return new BoundErrorExpression(literal);
+                }
+
                 var (type, value) = LiteralParser.Parse(literal);
                 return new BoundLiteralExpression(literal, type, value);
             }
@@ -55,7 +62,7 @@ public abstract partial class Binder {
             case ParenthesizedExpressionSyntax parenthesized:
                 return BindExpression(parenthesized.Expression);
 
-            case PredefinedTypeSyntax or ArrayTypeSyntax or NullableTypeSyntax or TupleTypeSyntax:
+            case PredefinedTypeSyntax or ArrayTypeSyntax or TupleTypeSyntax:
                 return new BoundTypeExpression(syntax, BindType((TypeSyntax)syntax));
 
             case SimpleNameSyntax simple:
@@ -94,10 +101,6 @@ public abstract partial class Binder {
             case ConditionalExpressionSyntax conditional:
                 return BindConditional(conditional);
 
-            case ConditionalAccessExpressionSyntax coalescing:
-                // The grammar labels `a ?? b` a conditional access.
-                return BindNullCoalescing(coalescing, coalescing.Left, coalescing.Right);
-
             case CastExpressionSyntax cast:
                 return ConvertExplicit(BindValue(cast.Expression), BindType(cast.Type), cast);
 
@@ -122,15 +125,6 @@ public abstract partial class Binder {
 
             case CollectionExpressionSyntax collection:
                 return BindCollection(collection);
-
-            case SimpleLambdaExpressionSyntax simpleLambda:
-                return BindSimpleLambda(simpleLambda);
-
-            case ParenthesizedLambdaExpressionSyntax lambda:
-                return BindParenthesizedLambda(lambda);
-
-            case AnonymousObjectCreationExpressionSyntax anonymous:
-                return BindAnonymousObject(anonymous);
 
             case IsPatternExpressionSyntax isPattern: {
                 var operand = BindValue(isPattern.Expression);
@@ -311,9 +305,6 @@ public abstract partial class Binder {
         var operatorText = syntax.OperatorToken.Text;
 
         switch (operatorText) {
-            case "??":
-                return BindNullCoalescing(syntax, syntax.Left, syntax.Right);
-
             case "is": {
                 var operand = BindValue(syntax.Left);
                 BindType(syntax.Right as TypeSyntax);
@@ -323,11 +314,8 @@ public abstract partial class Binder {
             case "as": {
                 var operand = BindValue(syntax.Left);
                 var target = BindType(syntax.Right as TypeSyntax);
-                var result = target.IsErrorType || target is NullableTypeSymbol
-                    ? target
-                    : new NullableTypeSymbol(target);
                 return new BoundConversionExpression(
-                    syntax, operand, result, new Conversion(ConversionKind.ExplicitReference));
+                    syntax, operand, target, new Conversion(ConversionKind.ExplicitReference));
             }
         }
 
@@ -363,19 +351,6 @@ public abstract partial class Binder {
             Convert(left, signature.LeftType, syntax.Left),
             Convert(right, signature.RightType, syntax.Right),
             signature.ResultType);
-    }
-
-    BoundExpression BindNullCoalescing(ExpressionSyntax syntax, ExpressionSyntax leftSyntax, ExpressionSyntax rightSyntax) {
-        var left = BindValue(leftSyntax);
-        var right = BindValue(rightSyntax);
-
-        var resultType = left.Type is NullableTypeSymbol nullable ? nullable.UnderlyingType : left.Type;
-
-        if (resultType.IsErrorType || right.Type.IsErrorType) {
-            return new BoundNullCoalescingExpression(syntax, left, right, resultType);
-        }
-
-        return new BoundNullCoalescingExpression(syntax, left, Convert(right, resultType, rightSyntax), resultType);
     }
 
     BoundExpression BindUnary(ExpressionSyntax syntax, ExpressionSyntax operandSyntax, UnaryOperatorKind? kind) {
@@ -421,7 +396,6 @@ public abstract partial class Binder {
     static UnaryOperatorKind? MapPostfixOperator(SyntaxKind kind) => kind switch {
         SyntaxKind.PostIncrementExpression => UnaryOperatorKind.PostIncrement,
         SyntaxKind.PostDecrementExpression => UnaryOperatorKind.PostDecrement,
-        SyntaxKind.SuppressNullableWarningExpression => UnaryOperatorKind.SuppressNullable,
         _ => null
     };
 
@@ -447,11 +421,6 @@ public abstract partial class Binder {
 
         if (operatorText == "=") {
             return new BoundAssignmentExpression(syntax, target, Convert(value, target.Type, syntax.Right), null);
-        }
-
-        if (operatorText == "??=") {
-            var underlying = target.Type is NullableTypeSymbol nullable ? nullable.UnderlyingType : target.Type;
-            return new BoundAssignmentExpression(syntax, target, Convert(value, underlying, syntax.Right), null);
         }
 
         if (MapCompoundAssignment(operatorText) is not { } kind ||
@@ -599,16 +568,6 @@ public abstract partial class Binder {
             new ArrayTypeSymbol(elementType ?? ErrorTypeSymbol.Instance));
     }
 
-    BoundExpression BindAnonymousObject(AnonymousObjectCreationExpressionSyntax syntax) {
-        foreach (var initializer in syntax.Initializers) {
-            // Members bind as ordinary expressions; anonymous types are not
-            // modelled as symbols yet, so the whole thing is typed `object`.
-            BindExpression(initializer.Expression);
-        }
-
-        return new BoundObjectCreationExpression(syntax, BuiltInTypes.Object, null, []);
-    }
-
     BoundExpression BindDeclarationExpression(DeclarationExpressionSyntax syntax) {
         var type = BindType(syntax.Type);
         DeclarePatternVariables(syntax.Designation, type);
@@ -616,49 +575,6 @@ public abstract partial class Binder {
     }
 
     // --- Lambdas -----------------------------------------------------------
-
-    BoundExpression BindSimpleLambda(SimpleLambdaExpressionSyntax syntax) {
-        // `x => …` gives no type for `x`; without a target type to infer from,
-        // the parameter takes the error type and absorbs uses of it.
-        var parameter = new LambdaParameterSymbol(
-            ContainingMember, syntax.Parameter.ValueText, ErrorTypeSymbol.Instance, 0, syntax);
-
-        return BindLambdaBody(syntax, [parameter], syntax.Body, null);
-    }
-
-    BoundExpression BindParenthesizedLambda(ParenthesizedLambdaExpressionSyntax syntax) {
-        List<ParameterSymbol> parameters = [];
-        var ordinal = 0;
-
-        foreach (var parameter in syntax.ParameterList.Parameters) {
-            var type = parameter.Type is null ? ErrorTypeSymbol.Instance : BindType(parameter.Type);
-            parameters.Add(
-                new LambdaParameterSymbol(ContainingMember, parameter.Identifier.ValueText, type, ordinal++, parameter));
-        }
-
-        var declaredReturnType = syntax.ReturnType is null ? null : BindType(syntax.ReturnType);
-        return BindLambdaBody(syntax, parameters, syntax.Body, declaredReturnType);
-    }
-
-    BoundExpression BindLambdaBody(
-        ExpressionSyntax syntax,
-        IReadOnlyList<ParameterSymbol> parameters,
-        ExpressionSyntax bodySyntax,
-        TypeSymbol? declaredReturnType
-    ) {
-        var lambdaSymbol = ContainingMember ?? Compilation.GlobalNamespace;
-        var binder = new MemberBinder(this, lambdaSymbol, declaredReturnType, parameters);
-        var body = binder.BindValue(bodySyntax);
-
-        var returnType = declaredReturnType ?? body.Type;
-        var type = new FunctionTypeSymbol(parameters.Select(p => p.Type).ToArray(), returnType);
-
-        if (declaredReturnType is not null) {
-            body = binder.Convert(body, declaredReturnType, bodySyntax);
-        }
-
-        return new BoundLambdaExpression(syntax, parameters, body, type);
-    }
 
     // --- Patterns (shallow) ------------------------------------------------
 

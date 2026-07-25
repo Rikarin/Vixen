@@ -27,10 +27,6 @@ public sealed class TypeMap {
                 return element.Equals(array.ElementType) ? array : new ArrayTypeSymbol(element, array.Rank);
             }
 
-            case NullableTypeSymbol nullable: {
-                var underlying = Substitute(nullable.UnderlyingType);
-                return underlying.Equals(nullable.UnderlyingType) ? nullable : new NullableTypeSymbol(underlying);
-            }
 
             case TupleTypeSymbol tuple: {
                 var elements = tuple.ElementTypes.Select(Substitute).ToArray();
@@ -39,13 +35,6 @@ public sealed class TypeMap {
                     : new TupleTypeSymbol(elements, tuple.ElementNames);
             }
 
-            case FunctionTypeSymbol function: {
-                var parameters = function.ParameterTypes.Select(Substitute).ToArray();
-                var returnType = Substitute(function.ReturnType);
-                return parameters.SequenceEqual(function.ParameterTypes) && returnType.Equals(function.ReturnType)
-                    ? function
-                    : new FunctionTypeSymbol(parameters, returnType);
-            }
 
             case NamedTypeSymbol { IsConstructed: true } constructed: {
                 var arguments = constructed.TypeArguments.Select(Substitute).ToArray();

@@ -31,7 +31,7 @@ public abstract partial class Binder {
             return false;
         }
 
-        if (source.TypeKind != TypeKind.Scalar || source.SpecialType is SpecialType.Bool or SpecialType.Char) {
+        if (source.TypeKind != TypeKind.Scalar || source.SpecialType is SpecialType.Bool) {
             return false;
         }
 
@@ -43,13 +43,12 @@ public abstract partial class Binder {
             // Only a non-negative value may take an unsigned shape.
             SpecialType.UInt => value switch {
                 int i => i >= 0,
-                long l => l >= 0,
                 uint => true,
                 _ => false
             },
             // A real constant never silently becomes an integer.
-            SpecialType.Int or SpecialType.Long or SpecialType.Char => value is int or long or uint,
-            SpecialType.Float or SpecialType.Double => value is int or long or uint or float or double,
+            SpecialType.Int => value is int or uint,
+            SpecialType.Float or SpecialType.Double => value is int or uint or float or double,
             _ => false
         };
     }

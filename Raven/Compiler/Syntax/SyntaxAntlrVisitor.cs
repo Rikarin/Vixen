@@ -157,37 +157,12 @@ public class SyntaxAntlrVisitor : RavenParser2BaseVisitor<SyntaxNode> {
         return SyntaxFactory.CastExpression(type!, expression!);
     }
 
-    public override SyntaxNode VisitAnonymousObjectCreationExpression(
-        RavenParser2.AnonymousObjectCreationExpressionContext context
-    ) {
-        var open = Token(TerminalOf(context, RavenLexer2.OPEN_BRACE), SyntaxKind.OpenBraceToken);
-        var initializers = SeparatedList<AnonymousObjectMemberDeclaratorSyntax>(
-            context.anonymous_member_declarator().Select(Visit).ToArray(), Commas(context));
-        var close = Token(TerminalOf(context, RavenLexer2.CLOSE_BRACE), SyntaxKind.CloseBraceToken);
-        return SyntaxFactory.AnonymousObjectCreationExpression(open, initializers, close);
-    }
-
-    public override SyntaxNode VisitAnonymous_member_declarator(
-        RavenParser2.Anonymous_member_declaratorContext context
-    ) {
-        var expression = Visit(context.expression()) as ExpressionSyntax;
-        return SyntaxFactory.AnonymousObjectMemberDeclarator(expression!);
-    }
-
     public override SyntaxNode VisitCollectionExpression(RavenParser2.CollectionExpressionContext context) {
         var open = Token(TerminalOf(context, RavenLexer2.OPEN_BRACKET), SyntaxKind.OpenBracketToken);
         var elements = SeparatedList<CollectionElementSyntax>(
             context.collection_element().Select(Visit).ToArray(), Commas(context));
         var close = Token(TerminalOf(context, RavenLexer2.CLOSE_BRACKET), SyntaxKind.CloseBracketToken);
         return SyntaxFactory.CollectionExpression(open, elements, close);
-    }
-
-    public override SyntaxNode
-        VisitConditionalAccessExpression(RavenParser2.ConditionalAccessExpressionContext context) {
-        var left = Visit(context.expression(0)) as ExpressionSyntax;
-        var op = Token(TerminalOf(context, RavenLexer2.OP_COALESCING), SyntaxKind.OperatorToken);
-        var right = Visit(context.expression(1)) as ExpressionSyntax;
-        return SyntaxFactory.ConditionalAccessExpression(left!, op, right!);
     }
 
     public override SyntaxNode VisitConditionalExpression(RavenParser2.ConditionalExpressionContext context) {
@@ -203,25 +178,6 @@ public class SyntaxAntlrVisitor : RavenParser2BaseVisitor<SyntaxNode> {
         var type = Visit(context.type()) as TypeSyntax;
         var designation = Visit(context.variable_designation()) as VariableDesignationSyntax;
         return SyntaxFactory.DeclarationExpression(type!, designation!);
-    }
-
-    public override SyntaxNode VisitSimpleLambdaExpression(RavenParser2.SimpleLambdaExpressionContext context) {
-        var parameter = Visit(context.identifier_token()) as SyntaxToken;
-        var arrow = Token(TerminalOf(context, RavenLexer2.LAMBDA), SyntaxKind.ArrowToken);
-        var body = Visit(context.expression()) as ExpressionSyntax;
-        return SyntaxFactory.SimpleLambdaExpression(parameter!, arrow, body!);
-    }
-
-    public override SyntaxNode VisitParenthesizedLambdaExpression(
-        RavenParser2.ParenthesizedLambdaExpressionContext context
-    ) {
-        var parameters = Visit(context.parameter_list()) as ParameterListSyntax;
-        var colonTerminal = TerminalOrNull(context, RavenLexer2.COLON);
-        var colon = colonTerminal != null ? Token(colonTerminal, SyntaxKind.ColonToken) : null;
-        var returnType = context.type() != null ? Visit(context.type()) as TypeSyntax : null;
-        var arrow = Token(TerminalOf(context, RavenLexer2.LAMBDA), SyntaxKind.ArrowToken);
-        var body = Visit(context.expression()) as ExpressionSyntax;
-        return SyntaxFactory.ParenthesizedLambdaExpression(parameters!, colon, returnType, arrow, body!);
     }
 
     public override SyntaxNode VisitDefaultExpression(RavenParser2.DefaultExpressionContext context) {
@@ -267,10 +223,8 @@ public class SyntaxAntlrVisitor : RavenParser2BaseVisitor<SyntaxNode> {
         var (expressionKind, tokenKind) = literal.Type switch {
             RavenLexer2.TRUE => (SyntaxKind.TrueLiteralExpression, SyntaxKind.TrueKeyword),
             RavenLexer2.FALSE => (SyntaxKind.FalseLiteralExpression, SyntaxKind.FalseKeyword),
-            RavenLexer2.NULL_ => (SyntaxKind.NullLiteralExpression, SyntaxKind.NullKeyword),
             RavenLexer2.DEFAULT => (SyntaxKind.DefaultLiteralExpression, SyntaxKind.DefaultKeyword),
             RavenLexer2.STRING_LITERAL => (SyntaxKind.StringLiteralExpression, SyntaxKind.StringLiteralToken),
-            RavenLexer2.CHARACTER_LITERAL => (SyntaxKind.CharacterLiteralExpression, SyntaxKind.CharacterLiteralToken),
             _ => (SyntaxKind.NumericLiteralExpression, SyntaxKind.NumericLiteralToken)
         };
 
@@ -300,7 +254,6 @@ public class SyntaxAntlrVisitor : RavenParser2BaseVisitor<SyntaxNode> {
         var kind = context.op.Type switch {
             RavenLexer2.OP_INC => SyntaxKind.PostIncrementExpression,
             RavenLexer2.OP_DEC => SyntaxKind.PostDecrementExpression,
-            RavenLexer2.BANG => SyntaxKind.SuppressNullableWarningExpression,
             _ => throw new NotSupportedException()
         };
         var expression = Visit(context.expression()) as ExpressionSyntax;
@@ -476,12 +429,6 @@ public class SyntaxAntlrVisitor : RavenParser2BaseVisitor<SyntaxNode> {
         var type = Visit(context.type()) as TypeSyntax;
         var rankSpecifiers = SyntaxList.List(context.array_rank_specifier().Select(Visit).ToArray());
         return SyntaxFactory.ArrayType(type!, new(rankSpecifiers));
-    }
-
-    public override SyntaxNode VisitNullableType(RavenParser2.NullableTypeContext context) {
-        var element = Visit(context.type()) as TypeSyntax;
-        var question = Token(TerminalOf(context, RavenLexer2.INTERR), SyntaxKind.QuestionToken);
-        return SyntaxFactory.NullableType(element!, question);
     }
 
     // A name used as a type — the name node (IdentifierName/QualifiedName) is

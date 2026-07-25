@@ -330,9 +330,6 @@ public abstract partial class Binder {
                     syntax, receiver, ConvertIndices(indices, arguments), row ?? (TypeSymbol)ErrorTypeSymbol.Instance);
             }
 
-            case { SpecialType: SpecialType.String }:
-                return new BoundArrayAccessExpression(
-                    syntax, receiver, ConvertIndices(indices, arguments), BuiltInTypes.Char);
         }
 
         // A user-defined indexer, declared as `self[…]`.

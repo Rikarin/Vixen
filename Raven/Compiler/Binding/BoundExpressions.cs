@@ -222,20 +222,6 @@ public sealed class BoundConditionalExpression(
     public override IEnumerable<BoundNode> Children => [Condition, WhenTrue, WhenFalse];
 }
 
-/// <summary><c>a ?? b</c>.</summary>
-public sealed class BoundNullCoalescingExpression(
-    SyntaxNode syntax,
-    BoundExpression left,
-    BoundExpression right,
-    TypeSymbol type
-) : BoundExpression(syntax) {
-    public BoundExpression Left { get; } = left;
-    public BoundExpression Right { get; } = right;
-    public override BoundKind Kind => BoundKind.NullCoalescingExpression;
-    public override TypeSymbol Type { get; } = type;
-    public override IEnumerable<BoundNode> Children => [Left, Right];
-}
-
 /// <summary>Indexing into an array or a vector/matrix.</summary>
 public sealed class BoundArrayAccessExpression(
     SyntaxNode syntax,
@@ -296,19 +282,6 @@ public sealed class BoundCollectionExpression(
     public override BoundKind Kind => BoundKind.CollectionExpression;
     public override TypeSymbol Type { get; } = type;
     public override IEnumerable<BoundNode> Children => Elements;
-}
-
-public sealed class BoundLambdaExpression(
-    SyntaxNode syntax,
-    IReadOnlyList<ParameterSymbol> parameters,
-    BoundNode body,
-    FunctionTypeSymbol type
-) : BoundExpression(syntax) {
-    public IReadOnlyList<ParameterSymbol> Parameters { get; } = parameters;
-    public BoundNode Body { get; } = body;
-    public override BoundKind Kind => BoundKind.LambdaExpression;
-    public override TypeSymbol Type { get; } = type;
-    public override IEnumerable<BoundNode> Children => [Body];
 }
 
 /// <summary>

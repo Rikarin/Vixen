@@ -11,17 +11,9 @@ public enum ConversionKind {
     ImplicitConstant,
     /// <summary>A scalar broadcast across a vector's lanes (<c>float3(0)</c>, <c>v * 2</c>).</summary>
     ImplicitSplat,
-    /// <summary><c>T</c> → <c>T?</c>.</summary>
-    ImplicitNullable,
-    /// <summary><c>null</c> → any type that admits it.</summary>
-    ImplicitNullLiteral,
     /// <summary>Derived → base, or a type → a protocol it conforms to.</summary>
     ImplicitReference,
-    /// <summary>Any type → <c>object</c>.</summary>
-    Boxing,
     ExplicitNumeric,
-    /// <summary><c>T?</c> → <c>T</c>.</summary>
-    ExplicitNullable,
     /// <summary>Base → derived.</summary>
     ExplicitReference,
     ExplicitEnumeration
@@ -46,10 +38,7 @@ public readonly struct Conversion {
         or ConversionKind.ImplicitNumeric
         or ConversionKind.ImplicitConstant
         or ConversionKind.ImplicitSplat
-        or ConversionKind.ImplicitNullable
-        or ConversionKind.ImplicitNullLiteral
-        or ConversionKind.ImplicitReference
-        or ConversionKind.Boxing;
+        or ConversionKind.ImplicitReference;
 
     /// <summary>True when the conversion changes representation and must be materialized.</summary>
     public bool IsIdentity => Kind == ConversionKind.Identity;
@@ -59,11 +48,8 @@ public readonly struct Conversion {
         ConversionKind.Identity => 0,
         ConversionKind.ImplicitNumeric => 1,
         ConversionKind.ImplicitConstant => 1,
-        ConversionKind.ImplicitNullable => 2,
-        ConversionKind.ImplicitNullLiteral => 2,
         ConversionKind.ImplicitSplat => 3,
         ConversionKind.ImplicitReference => 4,
-        ConversionKind.Boxing => 5,
         _ => int.MaxValue
     };
 

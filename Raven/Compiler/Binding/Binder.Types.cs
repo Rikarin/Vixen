@@ -53,13 +53,6 @@ public abstract partial class Binder {
                 return element;
             }
 
-            case NullableTypeSyntax nullable: {
-                var underlying = BindType(nullable.ElementType);
-                return underlying is NullableTypeSymbol or ErrorTypeSymbol
-                    ? underlying
-                    : new NullableTypeSymbol(underlying);
-            }
-
             case TupleTypeSyntax tuple: {
                 List<TypeSymbol> types = [];
                 List<string?> names = [];

@@ -35,15 +35,12 @@ public class BindingTests {
 
     [Theory]
     [InlineData("42", "int")]
-    [InlineData("42L", "long")]
     [InlineData("42u", "uint")]
     [InlineData("4.5", "double")]
     [InlineData("4.5f", "float")]
     [InlineData("0x1F", "int")]
     [InlineData("0b1010", "int")]
     [InlineData("true", "bool")]
-    [InlineData("\"text\"", "string")]
-    [InlineData("'c'", "char")]
     public void Literals_get_their_type(string literal, string expected) =>
         Assert.Equal(expected, TypeOfExpression(literal));
 
@@ -54,7 +51,6 @@ public class BindingTests {
     [InlineData("1 < 2", "bool")]
     [InlineData("true && false", "bool")]
     [InlineData("1 == 2", "bool")]
-    [InlineData("\"a\" + 1", "string")]
     [InlineData("-1", "int")]
     [InlineData("!true", "bool")]
     [InlineData("1 ..  4", "int..")]
@@ -109,43 +105,19 @@ public class BindingTests {
     [InlineData("numbers[1 .. 2]", "int[]")]
     [InlineData("v[0]", "float")]
     [InlineData("m[0]", "float3")]
-    [InlineData("text[0]", "char")]
     public void Indexing_yields_the_element_type(string expression, string expected) =>
         Assert.Equal(
             expected,
-            TypeOfExpression(expression, "    val numbers: int[]\n    val v: float3\n    val m: mat3\n    val text: string\n"));
+            TypeOfExpression(expression, "    val numbers: int[]\n    val v: float3\n    val m: mat3\n"));
 
     [Fact]
     public void Tuples_and_collections_infer_a_structural_type() {
-        Assert.Equal("(int, string)", TypeOfExpression("(1, \"a\")"));
-        Assert.Equal("(code: int, message: string)", TypeOfExpression("(code: 1, message: \"a\")"));
+        Assert.Equal("(int, float)", TypeOfExpression("(1, 2f)"));
+        Assert.Equal("(code: int, scale: float)", TypeOfExpression("(code: 1, scale: 2f)"));
         Assert.Equal("int[]", TypeOfExpression("[1, 2, 3]"));
         Assert.Equal("float[]", TypeOfExpression("[1, 2f, 3]"));
     }
 
-    [Fact]
-    public void Lambdas_get_a_structural_function_type() {
-        Assert.Equal("() -> int", TypeOfExpression("() => 42"));
-        Assert.Equal("(int) -> int", TypeOfExpression("(x: int) => x + 1"));
-    }
-
-    [Fact]
-    public void Nullable_types_and_the_null_literal_interact() {
-        var compilation = AssertNoDiagnostics("""
-            package A
-
-            shader S {
-                var maybe: int? = null
-
-                func Use(): int {
-                    return maybe ?? 0
-                }
-            }
-
-            """);
-
-        Assert.Equal("int?", GetMember<FieldSymbol>(FindType(compilation, "S"), "maybe").Type.ToDisplayString());
-    }
 
     [Fact]
     public void Member_access_resolves_through_the_base_chain() {
