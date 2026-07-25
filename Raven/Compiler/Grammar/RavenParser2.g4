@@ -349,7 +349,7 @@ default_switch_label
 // ANTLR gives a left-recursive rule's alternatives DECREASING precedence in the
 // order they are written, so this list runs from tightest binding to loosest:
 // postfix, prefix, the arithmetic/relational/logical ladder, conditional,
-// lambdas, assignment, and finally the primaries (whose order among themselves
+// assignment, and finally the primaries (whose order among themselves
 // only resolves ambiguity — e.g. a collection literal must outrank an implicit
 // element access, and a cast must outrank a parenthesized expression).
 expression
@@ -357,7 +357,7 @@ expression
     : expression argument_list                  #InvocationExpression
     | expression bracketed_argument_list        #ElementAccessExpression
     | expression '.' simple_name                #MemberAccessExpression
-    | expression op=('++' | '--' | '!')         #PostfixUnaryExpression
+    | expression op=('++' | '--')               #PostfixUnaryExpression
     // --- prefix ---
     | op=('!' | '+' | '++' | '-' | '--' | '^' | '~') expression #PrefixUnaryExpression
     | '(' type ')' expression                   #CastExpression
@@ -376,19 +376,11 @@ expression
     | expression op='|' expression              #BinaryExpression
     | expression op='&&' expression             #BinaryExpression
     | expression op='||' expression             #BinaryExpression
-    | <assoc=right> expression op='??' expression #BinaryExpression
-    // Unreachable, and was before this rule was reordered: '??' is null-coalescing
-    // and the binary alternative above claims it. Conditional access is '?.',
-    // which the grammar does not have yet; this alternative is where it will go.
-    | expression '??' expression                #ConditionalAccessExpression
     | expression SWITCH '{' NL* (switch_expression_arm (',' NL* switch_expression_arm)*)? NL* '}' #SwitchExpression
     | <assoc=right> expression '?' expression ':' expression #ConditionalExpression
-    // --- lambdas and assignment bind loosest, so their bodies swallow the rest ---
-    | identifier_token '=>' expression          #SimpleLambdaExpression
-    | parameter_list (':' type)? '=>' expression #ParenthesizedLambdaExpression
-    | <assoc=right> expression op=('=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '^=' | '|=' | '<<=' | '>>=' | '>>>=' | '??=') expression #AssignmentExpression
+    // --- assignment binds loosest, so its right-hand side swallows the rest ---
+    | <assoc=right> expression op=('=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '^=' | '|=' | '<<=' | '>>=' | '>>>=') expression #AssignmentExpression
     // --- primaries ---
-    | '{' NL* (anonymous_member_declarator (',' NL* anonymous_member_declarator)*)? NL* '}' #AnonymousObjectCreationExpression
     | '[' NL* (collection_element (',' NL* collection_element)*)? NL* ']' #CollectionExpression
     | bracketed_argument_list                   #ImplicitElementAccess
     | DEFAULT '(' type ')'                      #DefaultExpression
@@ -406,10 +398,10 @@ literal_expression
     : DEFAULT
     | FALSE
     | TRUE
-    | NULL_
     | numeric_literal_token
+    // A string literal is metadata only: it may appear in an attribute
+    // argument, never as a runtime value. The binder enforces that.
     | STRING_LITERAL
-    | CHARACTER_LITERAL
     ;
 
 equals_value_clause
@@ -425,9 +417,6 @@ collection_element
     | '..' expression   #SpreadElement
     ;
 
-anonymous_member_declarator
-    : expression
-    ;
     
 switch_expression_arm
     : pattern when_clause? '=>' expression
@@ -462,7 +451,6 @@ when_clause
 // =====================================================================================================================
 type
     : type array_rank_specifier+    #ArrayType
-    | type '?'                      #NullableType
     | name                          #NameType
     | pType=(BOOL | BOOL2 | BOOL3 | BOOL4 | INT | INT2 | INT3 | INT4 | UINT | UINT2 | UINT3 | UINT4 | FLOAT | FLOAT2 | FLOAT3 | FLOAT4 | DOUBLE | DOUBLE2 | DOUBLE3 | DOUBLE4 | MAT2 | MAT2X3 | MAT2X4 | MAT3 | MAT3X2 | MAT3X4 | MAT4 | MAT4X2 | MAT4X3 | MAT4X4) #PredefinedType
     | '(' tuple_element (',' tuple_element)+ ')' #TupleType

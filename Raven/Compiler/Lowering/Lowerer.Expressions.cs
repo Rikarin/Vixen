@@ -87,10 +87,8 @@ public sealed partial class Lowerer {
     }
 
     static string Describe(BoundExpression expression) => expression switch {
-        BoundLambdaExpression => "A lambda",
         BoundTupleExpression => "A tuple",
         BoundRangeExpression => "A range outside a 'for' loop",
-        BoundNullCoalescingExpression => "The '??' operator",
         BoundIsPatternExpression => "An 'is' test",
         BoundSwitchExpression => "A switch expression",
         BoundTypeExpression => "A type used as a value",
@@ -275,7 +273,7 @@ public sealed partial class Lowerer {
 
     IrValue LowerUnary(BoundUnaryExpression unary, IrType type) {
         switch (unary.OperatorKind) {
-            case UnaryOperatorKind.Plus or UnaryOperatorKind.SuppressNullable:
+            case UnaryOperatorKind.Plus:
                 return LowerExpression(unary.Operand);
 
             case UnaryOperatorKind.Minus:

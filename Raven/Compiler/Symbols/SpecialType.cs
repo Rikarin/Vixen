@@ -12,12 +12,8 @@ public enum SpecialType {
     Bool,
     Int,
     UInt,
-    Long,
     Float,
     Double,
-    Char,
-    String,
-    Object,
 
     Bool2,
     Bool3,

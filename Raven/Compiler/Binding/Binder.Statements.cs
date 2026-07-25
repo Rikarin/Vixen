@@ -144,7 +144,6 @@ public abstract partial class Binder {
     static TypeSymbol? GetElementType(TypeSymbol type) => type switch {
         ArrayTypeSymbol array => array.ElementType,
         SequenceTypeSymbol sequence => sequence.ElementType,
-        { SpecialType: SpecialType.String } => BuiltInTypes.Char,
         { IsErrorType: true } => ErrorTypeSymbol.Instance,
         _ => null
     };

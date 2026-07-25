@@ -4,7 +4,7 @@ shader Precedence {
     func Ladder() {
         val arithmetic = 1 + 2 * 3 - 4 / 5
         val comparison = a + b < c == d
-        val logic = a && b || c ?? d
+        val logic = a && b || c
         val call = 1 + f(x) * g(y)
         val indexed = 1 + xs[0]
         val unary = -a * b + c++

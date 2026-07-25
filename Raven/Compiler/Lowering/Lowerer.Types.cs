@@ -85,8 +85,8 @@ public sealed partial class Lowerer {
     }
 
     /// <summary>
-    /// GPUs have no 64-bit integers or characters in this IR, so <c>long</c> and
-    /// <c>char</c> deliberately have no mapping.
+    /// Every scalar Raven has maps straight through — the types that had no GPU
+    /// representation were removed from the language rather than handled here.
     /// </summary>
     static IrScalarType? LowerScalar(SpecialType type) => type switch {
         SpecialType.Bool => IrScalarType.Bool,

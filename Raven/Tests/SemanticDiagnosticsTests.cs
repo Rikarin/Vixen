@@ -78,7 +78,7 @@ public class SemanticDiagnosticsTests {
     [Fact]
     public void No_applicable_overload_lists_the_argument_types() {
         var diagnostic = Assert.Single(AssertDiagnostics(
-            InMethod("        var x = dot(1, \"text\")"), "RVN2031"));
+            InMethod("        var x = dot(1, true)"), "RVN2031"));
 
         Assert.Contains("dot", diagnostic.GetMessage());
     }

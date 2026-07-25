@@ -8,31 +8,37 @@ namespace Vixen.Raven.Binding;
 /// <summary>
 /// Turns a literal token's source text into a typed value. The lexer keeps
 /// tokens verbatim (quotes, escapes, suffixes and all), so this is where
-/// <c>42f</c> becomes a <c>float</c> and <c>"a\nb"</c> becomes three characters.
+/// <c>42f</c> becomes a <c>float</c>.
 /// </summary>
+/// <remarks>
+/// A string literal has no runtime type: strings do not exist on a GPU. It
+/// still parses, because attribute arguments such as
+/// <c>[Semantic("SV_Target")]</c> are compile-time metadata read straight off
+/// the syntax. In expression position the binder rejects it.
+/// </remarks>
 public static class LiteralParser {
+    const string IntegerSuffixes = "uU";
+    const string AllSuffixes = "uUfFdDmM";
+
     /// <summary>The type and value a literal expression denotes.</summary>
     public static (TypeSymbol Type, object? Value) Parse(LiteralExpressionSyntax syntax) => syntax.Kind switch {
         SyntaxKind.TrueLiteralExpression => (BuiltInTypes.Bool, true),
         SyntaxKind.FalseLiteralExpression => (BuiltInTypes.Bool, false),
-        SyntaxKind.NullLiteralExpression => (NullTypeSymbol.Instance, null),
         // `default` takes its type from context, which this phase does not track;
         // the error type lets it flow anywhere without reporting.
         SyntaxKind.DefaultLiteralExpression => (ErrorTypeSymbol.Instance, null),
-        SyntaxKind.StringLiteralExpression => (BuiltInTypes.String, ParseString(syntax.Token.Text)),
-        SyntaxKind.CharacterLiteralExpression => (BuiltInTypes.Char, ParseCharacter(syntax.Token.Text)),
+        // Metadata only — the value is here for attribute readers, the type is
+        // deliberately absent.
+        SyntaxKind.StringLiteralExpression => (ErrorTypeSymbol.Instance, ParseString(syntax.Token.Text)),
         _ => ParseNumeric(syntax.Token.Text)
     };
-
-    const string IntegerSuffixes = "uUlL";
-    const string AllSuffixes = "uUlLfFdDmM";
 
     static (TypeSymbol Type, object? Value) ParseNumeric(string text) {
         var digits = text.Replace("_", string.Empty);
 
         // A radix prefix takes only integer suffixes: in `0x1F` the trailing `F`
         // is a digit, not a float marker.
-        if (digits.Length > 2 && digits[0] == '0' && (digits[1] is 'x' or 'X' or 'b' or 'B')) {
+        if (digits.Length > 2 && digits[0] == '0' && digits[1] is 'x' or 'X' or 'b' or 'B') {
             var radix = digits[1] is 'x' or 'X' ? 16 : 2;
             var (prefixed, prefixedSuffix) = SplitSuffix(digits[2..], IntegerSuffixes);
             return FromInteger(ParseUnsigned(prefixed, radix), prefixedSuffix);
@@ -60,16 +66,8 @@ public static class LiteralParser {
     }
 
     static (TypeSymbol Type, object? Value) FromInteger(ulong value, string suffix) {
-        if (suffix.Contains('u') && suffix.Contains('l')) {
-            return (BuiltInTypes.Long, (long)value);
-        }
-
         if (suffix.Contains('u')) {
             return (BuiltInTypes.UInt, (uint)value);
-        }
-
-        if (suffix.Contains('l')) {
-            return (BuiltInTypes.Long, (long)value);
         }
 
         if (suffix == "f") {
@@ -80,11 +78,11 @@ public static class LiteralParser {
             return (BuiltInTypes.Double, (double)value);
         }
 
-        // An untyped integer literal is `int` unless it does not fit. Both
-        // branches box explicitly so the value keeps the type named alongside it.
+        // An untyped integer literal is `int`; one too large for it takes the
+        // unsigned shape, which is as far as a GPU's integers go.
         return value <= int.MaxValue
             ? (BuiltInTypes.Int, (object)(int)value)
-            : (BuiltInTypes.Long, (object)(long)value);
+            : (BuiltInTypes.UInt, (object)(uint)value);
     }
 
     static ulong ParseUnsigned(string digits, int radix) {
@@ -106,18 +104,7 @@ public static class LiteralParser {
         return (text[..end], text[end..].ToLowerInvariant());
     }
 
-    static string ParseString(string text) {
-        if (text.Length < 2) {
-            return string.Empty;
-        }
-
-        return Unescape(text[1..^1]);
-    }
-
-    static char ParseCharacter(string text) {
-        var body = text.Length < 2 ? string.Empty : Unescape(text[1..^1]);
-        return body.Length > 0 ? body[0] : '\0';
-    }
+    static string ParseString(string text) => text.Length < 2 ? string.Empty : Unescape(text[1..^1]);
 
     static string Unescape(string text) {
         if (!text.Contains('\\')) {

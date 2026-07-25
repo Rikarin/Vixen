@@ -142,6 +142,13 @@ public static class SemanticDiagnostics {
         Binding,
         DiagnosticSeverity.Error);
 
+    public static readonly DiagnosticDescriptor StringLiteralIsNotAValue = new(
+        "RVN2025",
+        "String literal is not a value",
+        "A string literal is metadata only; it is valid in an attribute argument, not as a value",
+        Binding,
+        DiagnosticSeverity.Error);
+
     // --- Calls ------------------------------------------------------------
 
     public static readonly DiagnosticDescriptor NotInvocable = new(

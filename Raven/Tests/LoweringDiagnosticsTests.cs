@@ -7,6 +7,12 @@ namespace Tests;
 /// Phase 3: constructs the binder accepts but a GPU cannot represent are caught
 /// at the IR boundary rather than in a backend.
 /// </summary>
+/// <remarks>
+/// The list is short because most of what used to land here — lambdas, nullable
+/// types, <c>string</c>, <c>char</c>, <c>long</c>, <c>object</c> — was removed
+/// from the language instead. What remains is either implementable and not
+/// implemented yet, or a type built structurally from parts.
+/// </remarks>
 public class LoweringDiagnosticsTests {
     static void AssertLowering(string source, params string[] expectedIds) {
         var diagnostics = LoweringDiagnosticsOf(source);
@@ -18,42 +24,15 @@ public class LoweringDiagnosticsTests {
             + string.Join("\n", diagnostics.Select(d => d.ToString())));
     }
 
-    [Theory]
-    [InlineData("string")]
-    [InlineData("long")]
-    [InlineData("char")]
-    [InlineData("object")]
-    [InlineData("int?")]
-    public void A_type_with_no_gpu_representation_is_rejected(string type) =>
-        AssertLowering($$"""
-            package A
-
-            shader S {
-                var value: {{type}}
-            }
-
-            """, "RVN3001");
-
     [Fact]
     public void A_tuple_field_is_rejected() =>
+        // Tuples are implementable as synthesized structs; lowering does not do
+        // it yet, so they are rejected rather than miscompiled.
         AssertLowering("""
             package A
 
             shader S {
                 var pair: (int, int)
-            }
-
-            """, "RVN3001");
-
-    [Fact]
-    public void A_lambda_is_rejected() =>
-        AssertLowering("""
-            package A
-
-            shader S {
-                func Probe() {
-                    val f = (x: int) => x
-                }
             }
 
             """, "RVN3001");
@@ -105,7 +84,7 @@ public class LoweringDiagnosticsTests {
             """, "RVN3002");
 
     [Fact]
-    public void An_abstract_member_with_no_body_is_reported() =>
+    public void An_ordinary_member_reports_nothing() =>
         AssertLowering("""
             package A
 

@@ -72,18 +72,14 @@ CompilationUnit
                 Token(EqualsToken) "="
                 BinaryExpression
                   BinaryExpression
-                    BinaryExpression
-                      IdentifierName
-                        Token(IdentifierToken) "a"
-                      Token(OperatorToken) "&&"
-                      IdentifierName
-                        Token(IdentifierToken) "b"
-                    Token(OperatorToken) "||"
                     IdentifierName
-                      Token(IdentifierToken) "c"
-                  Token(OperatorToken) "??"
+                      Token(IdentifierToken) "a"
+                    Token(OperatorToken) "&&"
+                    IdentifierName
+                      Token(IdentifierToken) "b"
+                  Token(OperatorToken) "||"
                   IdentifierName
-                    Token(IdentifierToken) "d"
+                    Token(IdentifierToken) "c"
           LocalDeclarationStatement
             ConstDeclaration
               Token(ValKeyword) "val"
@@ -198,19 +194,19 @@ CompilationUnit
               Token(IdentifierToken) "lambda"
               EqualsValueClause
                 Token(EqualsToken) "="
-                SimpleLambdaExpression
+                IdentifierName
                   Token(IdentifierToken) "v"
-                  Token(ArrowToken) "=>"
-                  BinaryExpression
-                    BinaryExpression
-                      IdentifierName
-                        Token(IdentifierToken) "v"
-                      Token(OperatorToken) "*"
-                      NumericLiteralExpression
-                        Token(NumericLiteralToken) "2"
-                    Token(OperatorToken) "+"
-                    NumericLiteralExpression
-                      Token(NumericLiteralToken) "1"
+          ExpressionStatement
+            BinaryExpression
+              BinaryExpression
+                IdentifierName
+                  Token(IdentifierToken) "v"
+                Token(OperatorToken) "*"
+                NumericLiteralExpression
+                  Token(NumericLiteralToken) "2"
+              Token(OperatorToken) "+"
+              NumericLiteralExpression
+                Token(NumericLiteralToken) "1"
           LocalDeclarationStatement
             ConstDeclaration
               Token(ValKeyword) "val"

@@ -18,19 +18,28 @@ Project is in it initial phase. Mostly as a research project.
 
 ## Not supported compared to Roslyn
 
-- goto_statement
-- labeled_statement
-- lock_statement
-- throw_statement
-- try_statement
-- unsafe_statement
-- yield_statement
-- stack_alloc_array_creation_expression
-- throw_expression
+Never had them:
 
-//    | function_pointer_type // TODO: not sure if this is possible to implement
-//    | 'ref' 'readonly'? type #RefType // TODO: not sure if this is possible to implement
-//    | scoped_type // TODO: same
+- goto_statement, labeled_statement, lock_statement
+- throw_statement, throw_expression, try_statement
+- unsafe_statement, yield_statement
+- stack_alloc_array_creation_expression
+- function pointers, `ref readonly` types, `scoped` types
+
+**Removed, because a GPU has no way to represent them:**
+
+- **lambdas** — no function pointers, no closures
+- **nullable types (`T?`), `null`, `??`, `??=`, postfix `!`** — there are no null references
+- **anonymous objects** — no boxing, no dynamic dispatch
+- **`char` and character literals**
+- **`long`** — no 64-bit integers
+- **`object`**
+- **`string` as a type.** String *literals* still exist, because attribute
+  arguments such as `[Semantic("SV_Target")]` are compile-time metadata. Using
+  one as a value is an error.
+
+An integer literal too large for `int` takes the `uint` shape rather than
+widening to a type that does not exist.
 
 ## Usage
 
@@ -76,75 +85,49 @@ Console.WriteLine(IrPrinter.Print(module));   // readable IR dump
 ## Language Example
 
 ```typescript
-package Vixen.Test
+package Vixen.Shaders
 
-import Vixen.Core
-import Vixen.BaseShaders
+shader Lambert {
+    const val Ambient = 0.1
 
-// Test class
-shader TestShader : ExampleBase, CustomShader {
-    const val Multiplier = 42
-    
-    val len: int
-    val test: FooBar = [1, 2, 3, 4]
-    val test = [1, 2, 3, 4]
-    
-    var test: FooBar = [
-        "string",
-        'c',
-        'a'
-    ]
-    
-    init() {
-        Test()
-        
-        for (i in 1..10) {
-            a++
-            ++a
-            FooBar(i)
-        }
-        
-        if (a > 42) {
-            Call()
-        } else {
-            Not()
-        }
-    }
-    
-    init(test: string?) {
-        long.SomeMethod()
-        
-        func test(): int { }
-        len = CoreClass.GetLength<int, Class>(test)
-        
-        len = p[42]
-        len = p[1..12]
-    }
-    
-    func Generic<int>.Test<Asd>() { }
-    
-    func GetLength2(): int {
-        return len
-    }
-    
-    func GetLength() => len
+    var world: mat4
+    var lightDirection: float3
+    var baseColor: float4 = float4(1, 1, 1, 1)
 
-    func VSMain() {
-        var bar = 7 + 4 * "test" / 42f
-        var foo = 7 + 4 * "test" / 42f
-        var tst = 7 + 4 * "test" / 42f
-        //Test();
+    var albedo: Texture2D
+    var albedoSampler: Sampler
+
+    var exposure: float {
+        get => baseColor.a
+        set => baseColor = float4(baseColor.rgb, value)
     }
-    
-    func TestMethod(name: string, count: int = 42): float4 {
-       // var test = "string";
-      //  val res = name + test;
-        
-        //val hash = res.GetHashCode();
-    
-      //  return 42.3f;
+
+    func Diffuse(normal: float3): float {
+        val ndotl = dot(normalize(normal), normalize(-lightDirection))
+        return max(ndotl, Ambient)
+    }
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float3): float4 {
+        return world * float4(position, 1)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(normal: float3, uv: float2): float4 {
+        val sampled = albedo.Sample(albedoSampler, uv)
+        val lit = Diffuse(normal)
+        return float4(sampled.rgb * baseColor.rgb * lit, sampled.a)
     }
 }
 
+struct Ray {
+    var origin: float3
+    var direction: float3
 
+    func At(t: float): float3 => origin + direction * t
+}
 ```
+
+The full syntax sample lives in [`Feed/Example1.rvn`](Feed/Example1.rvn).

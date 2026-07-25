@@ -310,34 +310,6 @@
         </FactoryComment>
     </Node>
 
-    <Node Name="SimpleLambdaExpressionSyntax" Base="ExpressionSyntax">
-        <Kind Name="SimpleLambdaExpression"/>
-        <Field Name="Parameter" Type="SyntaxToken">
-            <Kind Name="IdentifierToken"/>
-        </Field>
-        <Field Name="ArrowToken" Type="SyntaxToken">
-            <Kind Name="ArrowToken"/>
-        </Field>
-        <Field Name="Body" Type="ExpressionSyntax"/>
-        <TypeComment>
-            <summary>Simple lambda: x => body.</summary>
-        </TypeComment>
-    </Node>
-    <Node Name="ParenthesizedLambdaExpressionSyntax" Base="ExpressionSyntax">
-        <Kind Name="ParenthesizedLambdaExpression"/>
-        <Field Name="ParameterList" Type="ParameterListSyntax"/>
-        <Field Name="ColonToken" Type="SyntaxToken" Optional="true">
-            <Kind Name="ColonToken"/>
-        </Field>
-        <Field Name="ReturnType" Type="TypeSyntax" Optional="true"/>
-        <Field Name="ArrowToken" Type="SyntaxToken">
-            <Kind Name="ArrowToken"/>
-        </Field>
-        <Field Name="Body" Type="ExpressionSyntax"/>
-        <TypeComment>
-            <summary>Parenthesized lambda: (params): ret => body.</summary>
-        </TypeComment>
-    </Node>
 
     <Node Name="DeclarationExpressionSyntax" Base="ExpressionSyntax">
         <Kind Name="DeclarationExpression"/>
@@ -387,7 +359,6 @@
     <Node Name="PostfixUnaryExpressionSyntax" Base="ExpressionSyntax">
         <Kind Name="PostIncrementExpression"/>
         <Kind Name="PostDecrementExpression"/>
-        <Kind Name="SuppressNullableWarningExpression"/>
         <Field Name="Operand" Type="ExpressionSyntax">
             <PropertyComment>
                 <summary>ExpressionSyntax representing the operand of the postfix unary expression.</summary>
@@ -618,23 +589,6 @@
             <Kind Name="CloseBracketToken"/>
         </Field>
     </Node>
-    <Node Name="NullableTypeSyntax" Base="TypeSyntax">
-        <Kind Name="NullableType"/>
-        <Field Name="ElementType" Type="TypeSyntax">
-            <PropertyComment>
-                <summary>TypeSyntax node representing the type of the element.</summary>
-            </PropertyComment>
-        </Field>
-        <Field Name="QuestionToken" Type="SyntaxToken">
-            <Kind Name="QuestionToken"/>
-        </Field>
-        <TypeComment>
-            <summary>Class which represents the syntax node for a nullable type.</summary>
-        </TypeComment>
-        <FactoryComment>
-            <summary>Creates a NullableTypeSyntax node.</summary>
-        </FactoryComment>
-    </Node>
 
     <Node Name="TupleElementSyntax" Base="SyntaxNode">
         <TypeComment>
@@ -746,30 +700,6 @@
     <!-- TODO member declarations -->
 
 
-    <Node Name="AnonymousObjectCreationExpressionSyntax" Base="ExpressionSyntax">
-        <Kind Name="AnonymousObjectCreationExpression"/>
-        <Field Name="OpenBraceToken" Type="SyntaxToken">
-            <Kind Name="OpenBraceToken"/>
-        </Field>
-        <Field Name="Initializers" Type="SeparatedSyntaxList&lt;AnonymousObjectMemberDeclaratorSyntax&gt;"/>
-        <Field Name="CloseBraceToken" Type="SyntaxToken">
-            <Kind Name="CloseBraceToken"/>
-        </Field>
-        <TypeComment>
-            <summary>Anonymous object creation: { a = 1, b = 2 }.</summary>
-        </TypeComment>
-    </Node>
-    <Node Name="AnonymousObjectMemberDeclaratorSyntax" Base="SyntaxNode">
-        <Kind Name="AnonymousObjectMemberDeclarator"/>
-        <Field Name="Expression" Type="ExpressionSyntax">
-            <PropertyComment>
-                <summary>ExpressionSyntax representing the member (typically an assignment).</summary>
-            </PropertyComment>
-        </Field>
-        <FactoryComment>
-            <summary>Creates an AnonymousObjectMemberDeclaratorSyntax node.</summary>
-        </FactoryComment>
-    </Node>
 
     
 
@@ -940,15 +870,6 @@
         </Field>
         <Field Name="WhenFalse" Type="ExpressionSyntax"/>
     </Node>
-    <Node Name="ConditionalAccessExpressionSyntax" Base="ExpressionSyntax">
-        <TypeComment><summary>Null-coalescing: <c>left ?? right</c>.</summary></TypeComment>
-        <Kind Name="ConditionalAccessExpression"/>
-        <Field Name="Left" Type="ExpressionSyntax"/>
-        <Field Name="OperatorToken" Type="SyntaxToken">
-            <Kind Name="OperatorToken"/>
-        </Field>
-        <Field Name="Right" Type="ExpressionSyntax"/>
-    </Node>
     <Node Name="MemberAccessExpressionSyntax" Base="ExpressionSyntax">
         <TypeComment><summary>Member access expression: <c>expr.name</c>.</summary></TypeComment>
         <Kind Name="MemberAccessExpression"/>
@@ -982,10 +903,8 @@
         </TypeComment>
         <Kind Name="NumericLiteralExpression"/>
         <Kind Name="StringLiteralExpression"/>
-        <Kind Name="CharacterLiteralExpression"/>
         <Kind Name="TrueLiteralExpression"/>
         <Kind Name="FalseLiteralExpression"/>
-        <Kind Name="NullLiteralExpression"/>
         <Kind Name="DefaultLiteralExpression"/>
         <Field Name="Token" Type="SyntaxToken"/>
     </Node>

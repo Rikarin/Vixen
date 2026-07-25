@@ -54,9 +54,6 @@ public abstract partial class Binder {
         }
 
         switch (kind) {
-            case BinaryOperatorKind.Add when IsString(left) || IsString(right):
-                return new BinaryOperatorSignature(left, right, BuiltInTypes.String);
-
             case BinaryOperatorKind.Multiply when ResolveLinearAlgebraMultiply(left, right) is { } product:
                 return product;
 
@@ -100,13 +97,6 @@ public abstract partial class Binder {
 
             case BinaryOperatorKind.Equal:
             case BinaryOperatorKind.NotEqual: {
-                if (IsNull(left) || IsNull(right)) {
-                    var other = IsNull(left) ? right : left;
-                    return Conversions.AdmitsNull(other)
-                        ? new BinaryOperatorSignature(left, right, BuiltInTypes.Bool)
-                        : null;
-                }
-
                 var common = Conversions.FindCommonType(left, right);
                 return common is null
                     ? null
@@ -147,9 +137,6 @@ public abstract partial class Binder {
                 or UnaryOperatorKind.PostIncrement
                 or UnaryOperatorKind.PostDecrement => operand.IsNumericLike ? operand : null,
             UnaryOperatorKind.IndexFromEnd => IsIntegral(operand) ? BuiltInTypes.Int : null,
-            UnaryOperatorKind.SuppressNullable => operand is NullableTypeSymbol nullable
-                ? nullable.UnderlyingType
-                : operand,
             _ => null
         };
     }
@@ -216,10 +203,6 @@ public abstract partial class Binder {
             ? BuiltInTypes.Vector(SpecialType.Bool, vector.ComponentCount) ?? BuiltInTypes.Bool
             : BuiltInTypes.Bool;
 
-    static bool IsString(TypeSymbol type) => type.SpecialType == SpecialType.String;
-
-    static bool IsNull(TypeSymbol type) => ReferenceEquals(type, NullTypeSymbol.Instance);
-
     static bool IsBool(TypeSymbol type) => type.SpecialType == SpecialType.Bool;
 
     static bool IsBoolLike(TypeSymbol type) =>
@@ -230,6 +213,5 @@ public abstract partial class Binder {
     static bool IsIntegral(TypeSymbol type) =>
         type is PrimitiveTypeSymbol primitive
         && primitive.TypeKind is TypeKind.Scalar or TypeKind.Vector
-        && primitive.ComponentSpecialType is SpecialType.Int or SpecialType.UInt or SpecialType.Long
-            or SpecialType.Char;
+        && primitive.ComponentSpecialType is SpecialType.Int or SpecialType.UInt;
 }

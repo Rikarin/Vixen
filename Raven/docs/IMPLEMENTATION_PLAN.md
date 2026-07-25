@@ -169,10 +169,11 @@ and now member/type declaration):
 - [x] **Expressions**: literal, name, invocation, member access, element access, binary, assignment,
   prefix/postfix unary, range (`..`), ref, conditional (`?:`), null-coalescing (`??`), parenthesized.
 - [x] **The hard/specialized set — all landed & round-tripping:**
-  - **String & char literals** — added `STRING_LITERAL`/`CHARACTER_LITERAL` to the lexer +
+  - **String & char literals** *(char later removed — see "Pruning the language")* — added
+    `STRING_LITERAL`/`CHARACTER_LITERAL` to the lexer +
     `literal_expression`; new `String/CharacterLiteralExpression` kinds. (Interpolation deferred — see
     below; not present in `Example1.rvn`.)
-  - **Lambdas** — grammar `#SimpleLambdaExpression` (`x => e`) + `#ParenthesizedLambdaExpression`
+  - **Lambdas** *(later removed)* — grammar `#SimpleLambdaExpression` (`x => e`) + `#ParenthesizedLambdaExpression`
     (`(a: int): ret => e`, reusing `parameter_list`), placed before `#TypeExpression` so ANTLR predicts
     them; no ambiguity warnings.
   - **Tuples** — full-fidelity `TupleType` (parens + separated elements) and `TupleExpression`.
@@ -182,8 +183,8 @@ and now member/type declaration):
     variable designations (simple / parenthesized / discard). All carry their real tokens.
   - **Generics** — `TypeArgumentList` and `TypeParameterList` made full-fidelity (`<`/`>` + separators);
     type-parameter **constraints** (`where T : Base, Other`, `default`).
-  - **Nullable types** (`T?`) — added `type '?'` to the grammar.
-  - **Anonymous objects** (`{ a = 1, b = 2 }`) — members parse as (assignment) expressions, so no
+  - **Nullable types** (`T?`) *(later removed)* — added `type '?'` to the grammar.
+  - **Anonymous objects** (`{ a = 1, b = 2 }`) *(later removed)* — members parse as (assignment) expressions, so no
     `name_equals`/assignment ambiguity.
   - **Attributes** — full-fidelity `AttributeList` (brackets + separated), targeted specifiers
     (`[property: …]`), argument lists (`FooBar(test: "x")`) with `NameColon` (fixed to carry its `:`).
@@ -196,7 +197,7 @@ and now member/type declaration):
   restricted `array_rank_specifier` to empty/comma-only rank (`T[]`, `T[,]`), so bracketed content
   can only be indexing.
 - [x] **`Test_SyntaxTree` un-skipped and passing** — the full realistic `Example1.rvn` (attributes,
-  properties w/ willSet/didSet, lambdas, anonymous objects, tuples, generics, explicit-interface
+  properties w/ willSet/didSet, tuples, generics, explicit-interface
   methods, local functions, element access, string/char literals, nullable/array types,
   struct/class/record) round-trips **byte-for-byte**.
 - [x] **100 tests pass, zero skipped**; clean rebuild, no generated-code warnings.
@@ -268,7 +269,7 @@ This is the "semantic passes" the README flags as the hard, fun part.
   `double`/`char`), vectors (`bool2..4`, `int2..4`, `uint2..4`, `float2..4`, `double2..4`),
   matrices (`mat2` … `mat4x3`), `string`/`object`, and the resource types `Texture2D`/
   `Texture3D`/`TextureCube`/`Sampler`. Structural types: `ArrayTypeSymbol`,
-  `NullableTypeSymbol`, `TupleTypeSymbol`, `FunctionTypeSymbol` (lambdas),
+  `TupleTypeSymbol`,
   `SequenceTypeSymbol` (ranges), `ErrorTypeSymbol`, `NullTypeSymbol`.
 - [x] **Vector swizzles** as synthesized members: `v.x`, `v.xy`, `c.rgb`; a swizzle over
   distinct lanes is assignable, `v.xx` is not.
@@ -346,7 +347,7 @@ These are **Phase 1 grammar bugs**:
 ladder, written tightest-first: postfix (invocation, element access, member access, postfix
 unary) → prefix unary → cast → multiplicative → additive → shift → range → relational →
 `is`/`as` → equality → `&` → `^` → `|` → `&&` → `||` → `??` → switch expression →
-conditional `?:` → lambdas → assignment, with the primaries last (their order among
+conditional `?:` → assignment, with the primaries last (their order among
 themselves only resolves ambiguity — a collection literal must outrank an implicit element
 access, a cast must outrank a parenthesized expression). Assignment, `??` and `?:` are
 marked `<assoc=right>`. ANTLR accepts the shared `#BinaryExpression` label across the
@@ -403,10 +404,11 @@ pass can promote later if a backend prefers registers.
   `IrIntrinsic` opcode, and `mul` becomes the `matrixMultiply` operator.
 - [x] **Constant folding** of `const` fields and of literals used at another numeric type.
 - [x] **Diagnostics** (`LoweringDiagnostics`, `RVN3xxx`): `RVN3001` for a type with no GPU
-  representation (`string`, `long`, `char`, `object`, nullables, tuples, lambdas), `RVN3002`
-  for a construct lowering does not implement (local functions, user-defined operators,
-  switch expressions, `??`, patterns), `RVN3003` for an unaddressable assignment target,
-  `RVN3004` for a member with no body.
+  representation (tuples, for now), `RVN3002` for a construct lowering does not implement
+  (local functions, user-defined operators, switch expressions, patterns), `RVN3003` for an
+  unaddressable assignment target, `RVN3004` for a member with no body. The list is short
+  because most of what used to land here was removed from the language instead — see
+  "Pruning the language" below.
 
 ### 3c. Verifier and dump — **✅ done**
 - [x] **`IrVerifier`**: values defined once and used only where they are in scope (a value
@@ -433,7 +435,55 @@ Deliberate gaps, each of which reports rather than miscompiling:
 - **Stream I/O declarations between stages** and **`Buffer<T>`** — still blocked on grammar
   and generic built-in types respectively (see Phase 2c).
 - **Local functions, user-defined operators, conversion operators, indexers, destructors,
-  patterns and switch** — reported as `RVN3002`.
+  patterns, switch and tuples** — reported as `RVN3002`/`RVN3001`. All of these *are*
+  implementable on a GPU (hoisting, plain calls, `switch`, synthesized structs); they are
+  simply not lowered yet.
+
+---
+
+## Pruning the language *(after Phase 3)*
+
+Phase 3 made the boundary concrete: lowering had to reject a list of constructs the binder
+happily accepted. Rather than carry them as permanent `RVN300x` errors, the ones that can
+**never** work on a GPU were removed from the language outright — grammar, syntax tree,
+symbols, binder and lowerer.
+
+**Removed:**
+
+| Construct | Why |
+|-----------|-----|
+| Lambdas (`x => e`, `(a: int) => e`) | No function pointers, no closures |
+| Nullable types `T?`, `null`, `??`, `??=`, postfix `!` | There are no null references |
+| Anonymous objects (`{ a = 1 }`) | No boxing, no dynamic dispatch |
+| `char` and character literals | No character type |
+| `long` (and the `l`/`L` literal suffix) | No 64-bit integers |
+| `object` | No common base, no boxing |
+| `string` **as a type** | No string values on a GPU |
+
+String *literals* survive as syntax: attribute arguments such as `[Semantic("SV_Target")]`
+are compile-time metadata read straight off the syntax, never bound. Using one as a value is
+`RVN2025`. An integer literal too large for `int` now takes the `uint` shape instead of
+widening to a type that no longer exists.
+
+**Deliberately kept**, because they *are* implementable on a GPU even though lowering does
+not do them yet: local functions (hoist to module scope), user-defined and conversion
+operators (plain calls — vector maths on user types wants these), indexers (calls), tuples
+(synthesized structs), and `switch`/patterns (both GLSL and HLSL have `switch`).
+
+`Tests/RemovedConstructsTests.cs` pins every removal, and
+`Tests/ReadmeExampleTests.cs` compiles the README's language example so the docs cannot
+drift from the language.
+
+### Full-fidelity gaps found while rewriting the sample
+
+`Feed/Example1.rvn` must round-trip byte-for-byte, which surfaced three nodes that do not
+carry all their tokens. They were never in the round-trip corpus, so nothing caught them:
+
+- `RepeatStatementSyntax` — no `repeat`/`while` keywords or parens
+- `CastExpressionSyntax` — no parentheses
+- `SelfExpressionSyntax` / `BaseExpressionSyntax` — no keyword token
+
+Each needs token slots in `Syntax.xml` plus visitor wiring, the same recipe Phase 1b used.
 
 ---
 

@@ -96,7 +96,6 @@ IF:             'if';
 IMPLICIT:       'implicit';
 IN:             'in';
 IS:             'is';
-NULL_:          'null';
 OPERATOR:       'operator';
 OUT:            'out';
 //PARAMS: 'params';
@@ -142,7 +141,6 @@ BIN_INTEGER_LITERAL: '0' [bB] ('_'* [01])+ IntegerTypeSuffix?;
 REAL_LITERAL:        ([0-9] ('_'* [0-9])*)? '.' [0-9] ('_'* [0-9])* ExponentPart? [FfDdMm]? | [0-9] ('_'* [0-9])* ([FfDdMm] | ExponentPart [FfDdMm]?);
 
 STRING_LITERAL:      '"'  (~["\\\r\n\u0085\u2028\u2029] | CommonCharacter)* '"';
-CHARACTER_LITERAL:   '\'' (~['\\\r\n\u0085\u2028\u2029] | CommonCharacter) '\'';
 
 
 // Punctuations
@@ -176,7 +174,6 @@ TILDE:                    '~';
 ASSIGNMENT:               '=';
 LT:                       '<';
 GT:                       '>';
-OP_COALESCING:            '??';
 OP_INC:                   '++';
 OP_DEC:                   '--';
 OP_AND:                   '&&';
@@ -195,7 +192,6 @@ OP_OR_ASSIGNMENT:         '|=';
 OP_XOR_ASSIGNMENT:        '^=';
 OP_LEFT_SHIFT:            '<<';
 OP_LEFT_SHIFT_ASSIGNMENT: '<<=';
-OP_COALESCING_ASSIGNMENT: '??=';
 OP_RIGHT_SHIFT:           '>>';
 OP_RIGHT_SHIFT_ASSIGNMENT: '>>=';
 OP_UNSIGNED_RIGHT_SHIFT:   '>>>';
@@ -242,7 +238,7 @@ TEXT_NEW_LINE:                 NewLine                          -> channel(DIREC
 // Fragments
 // Everything except new line character. Used for comments
 fragment InputCharacter:     ~[\r\n\u0085\u2028\u2029];
-fragment IntegerTypeSuffix:  [lL]? [uU] | [uU]? [lL];
+fragment IntegerTypeSuffix:  [uU];
 fragment ExponentPart:       [eE] ('+' | '-')? [0-9] ('_'* [0-9])*;
 	
 fragment CommonCharacter

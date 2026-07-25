@@ -7,7 +7,7 @@ namespace Tests;
 /// The <c>expression</c> rule's precedence ladder. ANTLR gives a left-recursive
 /// rule's alternatives <em>decreasing</em> precedence in the order they are
 /// written, so <c>RavenParser2.g4</c> lists them tightest-first: postfix, prefix,
-/// the arithmetic ladder, conditional, lambdas, then assignment.
+/// the arithmetic ladder, conditional, then assignment.
 /// </summary>
 /// <remarks>
 /// These started life as characterization tests for the inverted ordering the
@@ -71,7 +71,7 @@ public class ExpressionPrecedenceTests {
     }
 
     [Fact]
-    public void The_arithmetic_ladder_runs_from_multiplicative_to_null_coalescing() {
+    public void The_arithmetic_ladder_runs_from_multiplicative_to_logical_or() {
         // `(a * b) + c` — same level associates left.
         var additive = Assert.IsType<BinaryExpressionSyntax>(ParseExpression("a * b + c"));
         Assert.Equal("+", additive.OperatorToken.Text);
@@ -92,11 +92,6 @@ public class ExpressionPrecedenceTests {
         // `(a && b) || c`
         var or = Assert.IsType<BinaryExpressionSyntax>(ParseExpression("a && b || c"));
         Assert.Equal("||", or.OperatorToken.Text);
-
-        // `a ?? (b || c)`
-        var coalescing = Assert.IsType<BinaryExpressionSyntax>(ParseExpression("a ?? b || c"));
-        Assert.Equal("??", coalescing.OperatorToken.Text);
-        Assert.Equal("||", Assert.IsType<BinaryExpressionSyntax>(coalescing.Right).OperatorToken.Text);
     }
 
     [Fact]
@@ -141,11 +136,6 @@ public class ExpressionPrecedenceTests {
         Assert.IsType<ConditionalExpressionSyntax>(assignment.Right);
     }
 
-    [Fact]
-    public void A_lambda_body_extends_to_the_end_of_the_expression() {
-        var lambda = Assert.IsType<SimpleLambdaExpressionSyntax>(ParseExpression("x => x + 1"));
-        Assert.Equal("+", Assert.IsType<BinaryExpressionSyntax>(lambda.Body).OperatorToken.Text);
-    }
 
     [Fact]
     public void A_range_sits_between_shifts_and_comparisons() {
