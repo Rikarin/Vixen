@@ -6,7 +6,7 @@ namespace Tests;
 /// <summary>
 ///     The <c>expression</c> rule's precedence ladder. ANTLR gives a left-recursive
 ///     rule's alternatives <em>decreasing</em> precedence in the order they are
-///     written, so <c>RavenParser2.g4</c> lists them tightest-first: postfix, prefix,
+///     written, so <c>RavenParser.g4</c> lists them tightest-first: postfix, prefix,
 ///     the arithmetic ladder, conditional, then assignment.
 /// </summary>
 /// <remarks>

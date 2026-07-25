@@ -76,9 +76,6 @@ dotnet_diagnostic.IL3050.severity = warning
 [**/{obj,bin}/**]
 generated_code = true
 
-[Raven/Compiler/Grammar/gen/**]
-generated_code = true
-
 [**/*.g.cs]
 generated_code = true
 

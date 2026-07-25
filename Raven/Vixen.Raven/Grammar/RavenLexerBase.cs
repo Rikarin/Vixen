@@ -5,7 +5,7 @@ namespace Vixen.Raven.Grammar;
 
 /// <summary>
 ///     Base class for the generated lexer, supplying the action methods that
-///     <c>RavenLexer2.g4</c> invokes inline.
+///     <c>RavenLexer.g4</c> invokes inline.
 /// </summary>
 /// <remarks>
 ///     Raven has no interpolated strings: the lexer grammar declares no
@@ -17,7 +17,7 @@ namespace Vixen.Raven.Grammar;
     "Performance",
     "CA1822:Mark members as static",
     Justification = "ANTLR emits `this.OnOpenBrace()`; CS0176 rejects an instance-qualified call to a static member.")]
-public abstract class RavenLexerBase2(ICharStream input) : Lexer(input) {
+public abstract class RavenLexerBase(ICharStream input) : Lexer(input) {
     protected void OnOpenBrace() { }
 
     protected void OnCloseBrace() { }

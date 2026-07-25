@@ -31,10 +31,10 @@
 
     One warning is knowingly left standing:
 
-      AC0125  RavenParser2.g4 implicitly defines token 'MAT4X4' in the parser
+      AC0125  RavenParser.g4 implicitly defines token 'MAT4X4' in the parser
               rather than the lexer. It comes from the ANTLR tool, not the C#
               compiler, so TreatWarningsAsErrors does not escalate it. Fixing it
-              means declaring MAT4X4 in RavenLexer2.g4 — a grammar change, and
+              means declaring MAT4X4 in RavenLexer.g4 — a grammar change, and
               therefore a language decision rather than a build-hygiene one.
   -->
 

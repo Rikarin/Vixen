@@ -9,6 +9,13 @@ artifacts/
 Library/
 Build/
 
+# ANTLR: the IDE plugin's scratch dir, and the .tokens/.interp vocabularies.
+# The build regenerates these into obj/ from the .g4 files; a committed copy only
+# ever goes stale against the grammar.
+.antlr/
+*.tokens
+*.interp
+
 # IDE
 .vs/
 .vscode/

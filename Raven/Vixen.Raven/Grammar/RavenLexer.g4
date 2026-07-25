@@ -1,8 +1,8 @@
-lexer grammar RavenLexer2;
+lexer grammar RavenLexer;
 import UnicodeClasses;
 
 channels { COMMENTS_CHANNEL, DIRECTIVE }
-options { superClass = RavenLexerBase2; }
+options { superClass = RavenLexerBase; }
 
 SINGLE_LINE_DOC_COMMENT:     '///' InputCharacter* -> channel(COMMENTS_CHANNEL);
 EMPTY_DELIMITED_DOC_COMMENT: '/***/'               -> channel(COMMENTS_CHANNEL);
@@ -240,7 +240,7 @@ TEXT_NEW_LINE:                 NewLine                          -> channel(DIREC
 fragment InputCharacter:     ~[\r\n\u0085\u2028\u2029];
 fragment IntegerTypeSuffix:  [uU];
 fragment ExponentPart:       [eE] ('+' | '-')? [0-9] ('_'* [0-9])*;
-	
+
 fragment CommonCharacter
 	: SimpleEscapeSequence
 	| HexEscapeSequence
@@ -280,8 +280,8 @@ fragment Whitespace
 	| '\u0009' // '<Horizontal Tab Character (U+0009)>'
 	| '\u000B' // '<Vertical Tab Character (U+000B)>'
 	| '\u000C' // '<Form Feed Character (U+000C)>'
-	;	
-	
+	;
+
 fragment IdentifierOrKeyword
 	: IdentifierStartCharacter IdentifierPartCharacter*
 	;
@@ -309,8 +309,8 @@ fragment LetterCharacter
 	| UNICODE_CLASS_LO
 	| UNICODE_CLASS_NL
 	| UnicodeEscapeSequence
-	;	
-	
+	;
+
 // '<A Unicode Character Of The Class Nd>'
 // WARNING: ignores UnicodeEscapeSequence
 fragment DecimalDigitCharacter
@@ -346,4 +346,4 @@ fragment UnicodeEscapeSequence
 	| '\\U' HexDigit HexDigit HexDigit HexDigit HexDigit HexDigit HexDigit HexDigit
 	;
 
-fragment HexDigit : [0-9] | [A-F] | [a-f];	
+fragment HexDigit : [0-9] | [A-F] | [a-f];

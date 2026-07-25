@@ -1,16 +1,16 @@
-parser grammar RavenParser2;
+parser grammar RavenParser;
 
-options { tokenVocab=RavenLexer2; superClass=RavenParserBase2; }
+options { tokenVocab=RavenLexer; superClass=RavenParserBase; }
 
 
 compilation_unit
     : package_declaration import_directive* member_declaration* EOF
     ;
-    
+
 package_declaration
     : PACKAGE name NL+
     ;
-    
+
 import_directive
     : GLOBAL? IMPORT STATIC? name NL+
     ;
@@ -28,15 +28,15 @@ attribute_list
 attribute_target_specifier
     : (type? | identifier_token?) ':'
     ;
-  
+
 attribute
     : name attribute_argument_list?
     ;
-    
+
 attribute_argument_list
     : '(' (attribute_argument (',' attribute_argument)*)? ')'
     ;
-    
+
 attribute_argument
     : name_colon? expression
     ;
@@ -91,16 +91,16 @@ member_declaration
     | base_property_declaration NL*
     | base_type_declaration NL*
     ;
-    
+
 base_property_declaration
     : indexer_declaration
     | property_declaration
     ;
-    
+
 field_declaration
     : (attribute_list NL*)* modifier* variable_declaration NL+
     ;
-    
+
 base_method_declaration
     : constructor_declaration
     | conversion_operator_declaration
@@ -112,32 +112,32 @@ base_method_declaration
 constructor_declaration
     : (attribute_list NL*)* modifier* INIT parameter_list constructor_initializer? (block | (arrow_expression_clause NL))
     ;
-  
+
 constructor_initializer
   : ':' init=(BASE | SELF) argument_list
   ;
-  
+
 destructor_declaration
     : (attribute_list NL*)* modifier* '~' INIT parameter_list (block | (arrow_expression_clause NL))
     ;
-    
+
 // The body is optional: a `protocol` member (and an `abstract` method) declares a
 // signature only — `func Draw()`. The trailing newline is left to the enclosing
 // member_declaration, which already ends in `NL*`.
 method_declaration
   : (attribute_list NL*)* modifier* FUNC explicit_interface_specifier? identifier_token type_parameter_list? parameter_list type_parameter_constraint_clause* (':' type)? (block | (arrow_expression_clause NL))?
   ;
-  
+
 explicit_interface_specifier
     : name '.'
     ;
-  
+
 // Accessors are optional for the same reason a method body is: a protocol
 // property declares `var Name: string` and nothing more.
 property_declaration
     : (attribute_list NL*)* modifier* VAR explicit_interface_specifier? identifier_token (':' type)? (accessor_list | ((arrow_expression_clause | equals_value_clause) NL))?
     ;
-    
+
 accessor_list
     : '{' NL* accessor_declaration* NL* '}'
     ;
@@ -153,15 +153,15 @@ indexer_declaration
 bracketed_parameter_list
     : '[' parameter (',' parameter)* ']'
     ;
-  
+
 conversion_operator_declaration
     : (attribute_list NL*)* modifier* ct=(IMPLICIT | EXPLICIT) explicit_interface_specifier? OPERATOR type parameter_list (block | (arrow_expression_clause NL))
-    ; 
-    
+    ;
+
 operator_declaration
     : (attribute_list NL*)* modifier* type explicit_interface_specifier? OPERATOR op=('+' | '-' | '!' | '~' | '++' | '--' | '*' | '/' | '%' | '<<' | '>>' | '>>>' | '|' | '&' | '^' | '==' | '!=' | '<' | '<=' | '>' | '>=' | 'false' | 'true' | 'is') parameter_list (block | (arrow_expression_clause NL))
     ;
-  
+
 base_type_declaration
     : enum_declaration
     | type_declaration
@@ -193,7 +193,7 @@ protocol_declaration
 enum_declaration
     : (attribute_list NL*)* modifier* ENUM identifier_token base_list? '{' NL* (enum_member_declaration (',' NL* enum_member_declaration)*)? NL* '}' NL
     ;
-    
+
 enum_member_declaration
     : (attribute_list NL*)* modifier* identifier_token equals_value_clause?
     ;
@@ -205,16 +205,16 @@ type_parameter_list
 type_parameter
     : (attribute_list NL*)* variance=(IN | OUT)? identifier_token
     ;
-    
+
 type_parameter_constraint_clause
     : WHERE identifier_name ':' type_parameter_constraint (',' type_parameter_constraint)*
     ;
-    
+
 type_parameter_constraint
     : DEFAULT          #DefaultConstraint
     | type             #TypeContraint
     ;
-    
+
 base_list
     : ':' base_type (',' base_type)*
     ;
@@ -235,7 +235,7 @@ simple_base_type
 variable_declaration
     : (VAR | VAL) identifier_token (':' type)? equals_value_clause?
     ;
-    
+
 argument_list
     : '(' (argument (',' argument)*)? ')'
     ;
@@ -284,11 +284,11 @@ continue_statement
 repeat_statement
     : (attribute_list NL*)* REPEAT statement WHILE '(' expression ')' NL+
     ;
-    
+
 empty_statement
     : (attribute_list NL*)* NL+
     ;
-    
+
 expression_statement
     : (attribute_list NL*)* expression NL+
     ;
@@ -312,11 +312,11 @@ return_statement
 local_function_statement
     : (attribute_list NL*)* modifier* FUNC identifier_token type_parameter_list? parameter_list type_parameter_constraint_clause* (':' type)? (block | (arrow_expression_clause NL))
     ;
-    
+
 local_declaration_statement
     : (attribute_list NL*)* USING? modifier* variable_declaration NL
     ;
-    
+
 while_statement
     : (attribute_list NL*)* WHILE '(' expression ')' statement
     ;
@@ -342,7 +342,7 @@ switch_label
 case_pattern_switch_label
   : CASE pattern when_clause? ':'
   ;
-  
+
 case_switch_label
     : CASE expression ':'
     ;
@@ -402,7 +402,7 @@ expression
     | type                                      #TypeExpression
     | type variable_designation                 #DeclarationExpression
   ;
-    
+
 literal_expression
     : DEFAULT
     | FALSE
@@ -415,7 +415,7 @@ literal_expression
 
 equals_value_clause
     : '=' expression
-    ; 
+    ;
 
 arrow_expression_clause
     : '=>' expression
@@ -426,11 +426,11 @@ collection_element
     | '..' expression   #SpreadElement
     ;
 
-    
+
 switch_expression_arm
     : pattern when_clause? '=>' expression
     ;
-    
+
 pattern
     : pattern op=(OR | AND) pattern                             #BinaryPattern
     | expression                                                #ConstantPattern
@@ -464,7 +464,7 @@ type
     | pType=(BOOL | BOOL2 | BOOL3 | BOOL4 | INT | INT2 | INT3 | INT4 | UINT | UINT2 | UINT3 | UINT4 | FLOAT | FLOAT2 | FLOAT3 | FLOAT4 | DOUBLE | DOUBLE2 | DOUBLE3 | DOUBLE4 | MAT2 | MAT2X3 | MAT2X4 | MAT3 | MAT3X2 | MAT3X4 | MAT4 | MAT4X2 | MAT4X3 | MAT4X4) #PredefinedType
     | '(' tuple_element (',' tuple_element)+ ')' #TupleType
     ;
-    
+
 tuple_element
   : type identifier_token?
   ;
@@ -476,7 +476,7 @@ array_rank_specifier
 identifier_token
     : AT? IDENTIFIER
     ;
-    
+
 numeric_literal_token
     : integer_literal_token
     | real_literal_token
@@ -504,4 +504,3 @@ modifier
     | RECORD
     | STATIC
     ;
-    

@@ -60,12 +60,12 @@ public sealed class SyntaxTree {
         // collects diagnostics with real spans.
         var listener = new RavenSyntaxErrorListener(bag, sourceText, filePath);
         var stream = new AntlrInputStream(text);
-        var lexer = new RavenLexer2(stream);
+        var lexer = new RavenLexer(stream);
         lexer.RemoveErrorListeners();
         lexer.AddErrorListener(listener);
 
         var tokenStream = new CommonTokenStream(lexer);
-        var parser = new RavenParser2(tokenStream);
+        var parser = new RavenParser(tokenStream);
         parser.RemoveErrorListeners();
         parser.AddErrorListener(listener);
 

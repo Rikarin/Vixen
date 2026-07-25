@@ -16,7 +16,7 @@ These were chosen deliberately and shape the whole plan:
 2. **Backends share a target-independent IR from the start.** The bound tree is
    lowered to a Raven IR (SSA-friendly); GLSL, SPIR-V, HLSL, and Metal are all
    emitters over that IR. No backend reads the bound tree directly.
-3. **ANTLR stays as the parser.** `RavenLexer2`/`RavenParser2` produce an ANTLR
+3. **ANTLR stays as the parser.** `RavenLexer`/`RavenParser` produce an ANTLR
    parse tree; `SyntaxAntlrVisitor` translates it into the green tree. We keep the
    Roslyn-shaped tree as the public API and let ANTLR own tokenizing/parsing.
 
@@ -25,7 +25,7 @@ These were chosen deliberately and shape the whole plan:
 | Area | Status |
 |------|--------|
 | Source generator (`Tools/SyntaxGenerator`, reads `Syntax.xml`) | Working; emits red tree (~3.3k lines, 83 concrete + 18 abstract nodes) |
-| ANTLR grammar (`RavenLexer2`/`RavenParser2`) | Working; parses package/imports/example files |
+| ANTLR grammar (`RavenLexer`/`RavenParser`) | Working; parses package/imports/example files |
 | `SyntaxAntlrVisitor` | ~70% wired — 44 methods still `base.Visit` stubs (Shader, Method, most expressions) |
 | `SyntaxToken` | Shell — no real text/value storage, no trivia |
 | Spans / `Parent` / `SyntaxTree` back-ref | **Missing** |
@@ -332,7 +332,7 @@ diagnostics and correct types; `SemanticDiagnosticsTests` covers 24 targeted err
 These are **Phase 1 grammar bugs**:
 
 1. ~~**Expression precedence is inverted.**~~ **Fixed.** ANTLR gives a left-recursive rule's
-   alternatives *decreasing* precedence in the order written, but `RavenParser2.g4`'s
+   alternatives *decreasing* precedence in the order written, but `RavenParser.g4`'s
    `expression` rule listed assignment first (binding tightest) and invocation/indexing/member
    access last (binding loosest), so `1 + f(x)` parsed as `(1 + f)(x)` and `x = a + b` as
    `(x = a) + b`.
