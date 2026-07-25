@@ -29,13 +29,7 @@
     written reason: CA1707 (test naming), CA1720 (shader type names), and the
     CA1002/CA2227/CA1819 trio imposed by XmlSerializer on the generator's DTOs.
 
-    One warning is knowingly left standing:
-
-      AC0125  RavenParser.g4 implicitly defines token 'MAT4X4' in the parser
-              rather than the lexer. It comes from the ANTLR tool, not the C#
-              compiler, so TreatWarningsAsErrors does not escalate it. Fixing it
-              means declaring MAT4X4 in RavenLexer.g4 — a grammar change, and
-              therefore a language decision rather than a build-hygiene one.
+    The build is warning-free.
   -->
 
 </Project>

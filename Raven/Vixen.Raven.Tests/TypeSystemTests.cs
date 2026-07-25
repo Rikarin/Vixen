@@ -1,5 +1,6 @@
 using Vixen.Raven.Symbols;
 using Xunit;
+using static Tests.SemanticTestBase;
 
 namespace Tests;
 
@@ -15,6 +16,39 @@ public class TypeSystemTests {
         var type = BuiltInTypes.Lookup(name);
         Assert.NotNull(type);
         Assert.Equal(expected, type.TypeKind);
+    }
+
+    /// <summary>
+    ///     Square matrices have exactly one spelling: <c>mat2</c>, <c>mat3</c>, <c>mat4</c>.
+    ///     The <c>NxN</c> forms are not tokens and are not aliases.
+    /// </summary>
+    [Theory]
+    [InlineData("mat2x2")]
+    [InlineData("mat3x3")]
+    [InlineData("mat4x4")]
+    public void Square_matrices_have_no_NxN_spelling(string name) => Assert.Null(BuiltInTypes.Lookup(name));
+
+    /// <summary>
+    ///     End-to-end: <c>mat4x4</c> has no MAT4X4 token, so it reaches the binder as a
+    ///     plain identifier and is rejected like any other unknown type name.
+    /// </summary>
+    [Fact]
+    public void Mat4x4_is_not_a_type() {
+        var diagnostic = Assert.Single(
+            AssertDiagnostics(
+                """
+                package A
+
+                shader S {
+                    var m: mat4x4
+                }
+
+                """,
+                "RVN2002"
+            )
+        );
+
+        Assert.Contains("mat4x4", diagnostic.GetMessage(), StringComparison.Ordinal);
     }
 
     [Fact]

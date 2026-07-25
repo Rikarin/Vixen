@@ -461,7 +461,7 @@ when_clause
 type
     : type array_rank_specifier+    #ArrayType
     | name                          #NameType
-    | pType=(BOOL | BOOL2 | BOOL3 | BOOL4 | INT | INT2 | INT3 | INT4 | UINT | UINT2 | UINT3 | UINT4 | FLOAT | FLOAT2 | FLOAT3 | FLOAT4 | DOUBLE | DOUBLE2 | DOUBLE3 | DOUBLE4 | MAT2 | MAT2X3 | MAT2X4 | MAT3 | MAT3X2 | MAT3X4 | MAT4 | MAT4X2 | MAT4X3 | MAT4X4) #PredefinedType
+    | pType=(BOOL | BOOL2 | BOOL3 | BOOL4 | INT | INT2 | INT3 | INT4 | UINT | UINT2 | UINT3 | UINT4 | FLOAT | FLOAT2 | FLOAT3 | FLOAT4 | DOUBLE | DOUBLE2 | DOUBLE3 | DOUBLE4 | MAT2 | MAT2X3 | MAT2X4 | MAT3 | MAT3X2 | MAT3X4 | MAT4 | MAT4X2 | MAT4X3) #PredefinedType
     | '(' tuple_element (',' tuple_element)+ ')' #TupleType
     ;
 

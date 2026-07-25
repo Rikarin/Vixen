@@ -84,10 +84,6 @@ public static class BuiltInTypes {
             byName[type.Name] = type;
         }
 
-        // `mat4x4` is not a lexer keyword; `mat4` is the 4×4 matrix. The alias
-        // keeps a name-based lookup (imports, docs) from surprising anyone.
-        byName["mat4x4"] = Mat4;
-
         byKeyword = new() {
             [SyntaxKind.BoolKeyword] = Bool,
             [SyntaxKind.Bool2Keyword] = Bool2,
