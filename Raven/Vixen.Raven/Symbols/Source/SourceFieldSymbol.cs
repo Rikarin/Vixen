@@ -22,14 +22,35 @@ public sealed class SourceFieldSymbol : FieldSymbol {
     public override Symbol? ContainingSymbol { get; }
     public override SyntaxNode DeclaringSyntax => syntax;
 
-    public override bool IsConst => DeclarationFacts.Has(syntax.Modifiers, SyntaxKind.ConstKeyword);
+    public override bool IsPermutation => DeclarationFacts.IsPermutation(syntax.AttributeLists);
+
+    /// <summary>
+    ///     A permutation key is const in every sense that matters downstream: its value is
+    ///     known when the shader is compiled, so folding and dead-branch elimination pick
+    ///     it up without a special case. The only difference from a <c>const</c> field is
+    ///     where the value comes from.
+    /// </summary>
+    public override bool IsConst =>
+        IsPermutation || DeclarationFacts.Has(syntax.Modifiers, SyntaxKind.ConstKeyword);
 
     public override bool IsStatic => IsConst || DeclarationFacts.Has(syntax.Modifiers, SyntaxKind.StaticKeyword);
 
-    public override bool IsReadOnly =>
-        IsConst
-        || Declaration.Keyword.Kind == SyntaxKind.ValKeyword
+    /// <summary>
+    ///     Whether the source itself says the field cannot be reassigned — <c>val</c>,
+    ///     <c>const</c> or <c>readonly</c>.
+    /// </summary>
+    /// <remarks>
+    ///     Distinct from <see cref="IsReadOnly" />, which a <c>[Permutation]</c> marker also
+    ///     forces true. Validation has to ask this one: otherwise
+    ///     <c>[Permutation] var Flag</c> would report itself read-only and the diagnostic
+    ///     for a mutable permutation could never fire.
+    /// </remarks>
+    internal bool IsDeclaredReadOnly =>
+        Declaration.Keyword.Kind == SyntaxKind.ValKeyword
+        || DeclarationFacts.Has(syntax.Modifiers, SyntaxKind.ConstKeyword)
         || DeclarationFacts.Has(syntax.Modifiers, SyntaxKind.ReadOnlyKeyword);
+
+    public override bool IsReadOnly => IsConst || IsDeclaredReadOnly;
 
     public override Accessibility DeclaredAccessibility =>
         DeclarationFacts.GetAccessibility(syntax.Modifiers, Accessibility.Private);
@@ -38,10 +59,46 @@ public sealed class SourceFieldSymbol : FieldSymbol {
 
     public override string? SemanticName => DeclarationFacts.GetSemanticName(syntax.AttributeLists);
 
-    public override object? ConstantValue =>
-        IsConst && Declaration.Initializer?.Value is LiteralExpressionSyntax literal
-            ? LiteralParser.Parse(literal).Value
-            : null;
+    public override object? ConstantValue {
+        get {
+            if (!IsConst) {
+                return null;
+            }
+
+            var declared = Declaration.Initializer?.Value is LiteralExpressionSyntax literal
+                ? LiteralParser.Parse(literal).Value
+                : null;
+
+            if (!IsPermutation) {
+                return declared;
+            }
+
+            // Reading a permutation key is the moment the output starts depending on it,
+            // so that is where the dependency is recorded — see Compilation.UsedPermutationKeys.
+            binder.Compilation.RecordPermutationUse(Name);
+
+            var supplied = binder.Compilation.PermutationValues.GetValueOrDefault(Name);
+            if (supplied is null) {
+                return declared;
+            }
+
+            // A mismatch is reported once, at the declaration, by ReportPermutationIssues.
+            // Here it just falls back, so binding sees a well-typed value either way.
+            return MatchesDeclaredType(supplied) ? supplied : declared;
+        }
+    }
+
+    /// <summary>
+    ///     Whether a supplied permutation value has the field's declared type.
+    ///     <see cref="PermutationValues" /> has already narrowed it to bool/int/uint.
+    /// </summary>
+    internal bool MatchesDeclaredType(object value) =>
+        (Type as PrimitiveTypeSymbol)?.SpecialType switch {
+            SpecialType.Bool => value is bool,
+            SpecialType.Int => value is int,
+            SpecialType.UInt => value is uint,
+            _ => false
+        };
 
     public override ResourceKind ResourceKind {
         get {

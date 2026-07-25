@@ -286,8 +286,69 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
         return true;
     }
 
+    /// <summary>
+    ///     Checks that every <c>[Permutation]</c> field can actually behave as a
+    ///     compile-time constant: declared on a shader, never reassigned, of a type a
+    ///     define can carry, and with a default for when no value is supplied.
+    /// </summary>
+    void ReportPermutationIssues() {
+        foreach (var member in members!) {
+            if (member is not SourceFieldSymbol { IsPermutation: true } field) {
+                continue;
+            }
+
+            var location = field.DeclaringSyntax?.GetLocation() ?? Location.None;
+
+            if (TypeKind != TypeKind.Shader) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.PermutationMustBeShaderField,
+                    location,
+                    field.Name
+                );
+                continue;
+            }
+
+            // IsDeclaredReadOnly, not IsReadOnly: the [Permutation] marker forces the
+            // latter true, so it would never report a `var` key.
+            if (!field.IsDeclaredReadOnly) {
+                outerBinder.Diagnostics.Add(SemanticDiagnostics.PermutationMustBeReadOnly, location, field.Name);
+            }
+
+            // bool for flags, int/uint for counts (tap counts, cascade counts, light
+            // limits). Floats are deliberately excluded: they make poor cache keys and a
+            // shader wanting one should take a uniform.
+            var special = (field.Type as PrimitiveTypeSymbol)?.SpecialType;
+            if (special is not (SpecialType.Bool or SpecialType.Int or SpecialType.UInt)) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.PermutationTypeNotSupported,
+                    location,
+                    field.Name,
+                    field.Type.ToDisplayString()
+                );
+                continue;
+            }
+
+            if (field.Declaration.Initializer?.Value is not LiteralExpressionSyntax) {
+                outerBinder.Diagnostics.Add(SemanticDiagnostics.PermutationNeedsDefault, location, field.Name);
+            }
+
+            if (outerBinder.Compilation.PermutationValues.GetValueOrDefault(field.Name) is { } supplied
+                && !field.MatchesDeclaredType(supplied)) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.PermutationValueTypeMismatch,
+                    location,
+                    field.Name,
+                    supplied.GetType() == typeof(uint) ? "uint" : supplied.GetType() == typeof(int) ? "int" : "bool",
+                    field.Type.ToDisplayString()
+                );
+            }
+        }
+    }
+
     void ReportShaderIssues() {
         Dictionary<ShaderStage, MethodSymbol> stages = [];
+
+        ReportPermutationIssues();
 
         foreach (var member in members!) {
             // Textures, samplers and the like bind to the pipeline, so they only

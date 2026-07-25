@@ -32,6 +32,14 @@ public static class RavenCommand {
 
         target.AcceptOnlyFromAmong([.. TargetBackends.Names]);
 
+        var define = new Option<string[]>("--define", "-D") {
+            Description =
+                "Set a [Permutation] key: --define UseSkinning=true, --define TapCount=8. "
+                + "A bare name means true. Repeatable.",
+            AllowMultipleArgumentsPerToken = true,
+            DefaultValueFactory = _ => []
+        };
+
         var emitIr = new Option<bool>("--emit-ir") { Description = "Also write the target-independent IR dump." };
 
         var emitListing = new Option<bool>("--emit-listing") {
@@ -46,6 +54,7 @@ public static class RavenCommand {
             input,
             outputPath,
             target,
+            define,
             emitIr,
             emitListing,
             verbose,
@@ -57,6 +66,7 @@ public static class RavenCommand {
                     Inputs = [parseResult.GetRequiredValue(input)],
                     Output = parseResult.GetRequiredValue(outputPath),
                     Target = parseResult.GetRequiredValue(target),
+                    Defines = parseResult.GetValue(define) ?? [],
                     EmitIr = parseResult.GetValue(emitIr),
                     EmitListing = parseResult.GetValue(emitListing),
                     Verbose = parseResult.GetValue(verbose),

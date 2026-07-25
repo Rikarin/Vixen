@@ -472,6 +472,13 @@ public abstract partial class Binder {
                 Report(SemanticDiagnostics.NotAssignable, syntax, local.Local.Name);
                 break;
 
+            // Before the read-only case, and with no initializer exemption: a permutation
+            // key's value is fixed when the shader is compiled, so even a constructor
+            // cannot set it. The dedicated message says why; "not assignable" would not.
+            case BoundFieldExpression { Field.IsPermutation: true } permutation:
+                Report(SemanticDiagnostics.PermutationCannotBeAssigned, syntax, permutation.Field.Name);
+                break;
+
             case BoundFieldExpression { Field.IsReadOnly: true } field
                 when !IsInsideInitializerOf(field.Field):
                 Report(SemanticDiagnostics.NotAssignable, syntax, field.Field.Name);

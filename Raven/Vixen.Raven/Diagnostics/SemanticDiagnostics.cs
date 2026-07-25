@@ -298,4 +298,59 @@ public static class SemanticDiagnostics {
         Shader,
         DiagnosticSeverity.Error
     );
+
+    // --- Permutations -----------------------------------------------------
+    //
+    // A [Permutation] field is a constant whose value arrives from outside the source
+    // — the engine supplies it per effect variant. The rules below exist so that a
+    // permutation key is always resolvable at compile time and always has a value:
+    // the whole point is that branches on it fold away before codegen.
+
+    public static readonly DiagnosticDescriptor PermutationMustBeShaderField = new(
+        "RVN2060",
+        "Permutation outside a shader",
+        "'{0}' is marked [Permutation] but is not a shader field; only a shader declares permutation keys",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    public static readonly DiagnosticDescriptor PermutationMustBeReadOnly = new(
+        "RVN2061",
+        "Mutable permutation",
+        "Permutation key '{0}' must be declared 'val' or 'const' — it is fixed when the shader is compiled",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    public static readonly DiagnosticDescriptor PermutationTypeNotSupported = new(
+        "RVN2062",
+        "Unsupported permutation type",
+        "Permutation key '{0}' has type '{1}'; a permutation key must be bool, int or uint",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    public static readonly DiagnosticDescriptor PermutationNeedsDefault = new(
+        "RVN2063",
+        "Permutation without a default",
+        "Permutation key '{0}' needs a literal initializer: it is the value used when the key is not supplied",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    public static readonly DiagnosticDescriptor PermutationValueTypeMismatch = new(
+        "RVN2064",
+        "Permutation value has the wrong type",
+        "Permutation key '{0}' was supplied a value of type '{1}' but is declared '{2}'",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    public static readonly DiagnosticDescriptor PermutationCannotBeAssigned = new(
+        "RVN2065",
+        "Assignment to a permutation key",
+        "Permutation key '{0}' cannot be assigned; its value is fixed when the shader is compiled",
+        Shader,
+        DiagnosticSeverity.Error
+    );
 }

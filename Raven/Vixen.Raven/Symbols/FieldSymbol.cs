@@ -19,6 +19,18 @@ public abstract class FieldSymbol : Symbol {
     /// <summary>The folded value of a <c>const</c> field, when it could be computed.</summary>
     public virtual object? ConstantValue => null;
 
+    /// <summary>
+    ///     Declared <c>[Permutation]</c>: a constant whose value the caller supplies per
+    ///     effect variant rather than the source fixing it.
+    /// </summary>
+    /// <remarks>
+    ///     A permutation key behaves as a constant everywhere downstream —
+    ///     <see cref="IsConst" /> is true and <see cref="ConstantValue" /> answers with the
+    ///     supplied value, or the declared default when none was supplied — so folding and
+    ///     dead-branch elimination need no special case for it.
+    /// </remarks>
+    public virtual bool IsPermutation => false;
+
     /// <summary>How this field binds on the GPU when it is a shader member.</summary>
     public virtual ResourceKind ResourceKind => ResourceKind.None;
 

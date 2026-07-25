@@ -15,6 +15,10 @@ public sealed partial class Lowerer {
                 // Scoping is already resolved, so a nested block adds nothing;
                 // flatten it into the enclosing one.
                 foreach (var nested in block.Statements) {
+                    if (CurrentBlockIsTerminated) {
+                        break;
+                    }
+
                     LowerStatement(nested);
                 }
 
@@ -28,6 +32,22 @@ public sealed partial class Lowerer {
                 LowerExpressionForEffect(expression.Expression);
                 break;
 
+            case BoundIfStatement { Condition.ConstantValue: bool known } conditional: {
+                // The branch not taken is dropped rather than emitted and left for the
+                // driver to strip. This is what makes a [Permutation] key pay for itself:
+                // `if (UseSkinning)` against a false key emits no skinning code, no
+                // uniforms it referenced, and no branch.
+                //
+                // The dead branch was still bound, so it is still type-checked — a
+                // permutation you have switched off cannot rot. That is the main thing
+                // this has over textual `#if`.
+                if ((known ? conditional.Consequence : conditional.Alternative) is { } live) {
+                    LowerStatement(live);
+                }
+
+                break;
+            }
+
             case BoundIfStatement conditional: {
                 var condition = LowerExpression(conditional.Condition);
                 var then = EmitInto(() => LowerStatement(conditional.Consequence));
@@ -38,6 +58,11 @@ public sealed partial class Lowerer {
                 Emit(new IrIfStatement(condition, then, otherwise));
                 break;
             }
+
+            // `while (false)` never runs. `while (true)` is left alone: it is a real
+            // infinite loop, and only the condition is constant, not the body.
+            case BoundWhileStatement { Condition.ConstantValue: false }:
+                break;
 
             case BoundWhileStatement loop:
                 EmitLoop(

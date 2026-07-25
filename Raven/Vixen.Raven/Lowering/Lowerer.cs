@@ -361,6 +361,19 @@ public sealed partial class Lowerer {
 
     void Emit(IrStatement statement) => currentBlock.Add(statement);
 
+    /// <summary>
+    ///     Whether the block being emitted into already ends in a terminator, making
+    ///     anything further unreachable.
+    /// </summary>
+    /// <remarks>
+    ///     Only reachable once a constant condition has been folded: <c>if (Flag) return x</c>
+    ///     against a true key lowers to a bare <c>return x</c>, and whatever followed the
+    ///     <c>if</c> in source is then dead. Before folding, the code after an <c>if</c> was
+    ///     always reachable through the other branch.
+    /// </remarks>
+    bool CurrentBlockIsTerminated =>
+        currentBlock.Statements is [.., IrReturnStatement or IrBreakStatement or IrContinueStatement];
+
     /// <summary>Emits an instruction and hands back the value it defines.</summary>
     IrValue Emit(Func<IrValue, IrInstruction> build, IrType resultType) {
         var result = Function.NewValue(resultType);

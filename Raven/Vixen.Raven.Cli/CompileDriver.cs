@@ -53,7 +53,14 @@ public static class CompileDriver {
             return ExitCode.CompilationFailed;
         }
 
-        var compilation = Compilation.Create(AssemblyName(request), trees);
+        // A malformed define is the caller's mistake, not the shader's, so it is a usage
+        // error rather than a compilation failure.
+        if (!PermutationValues.TryParse(request.Defines, out var permutations, out var defineError)) {
+            error.WriteLine($"error: {defineError}");
+            return ExitCode.UsageError;
+        }
+
+        var compilation = Compilation.Create(AssemblyName(request), permutations, trees);
 
         if (Report(compilation.GetDiagnostics(), error, formatting)) {
             return ExitCode.CompilationFailed;

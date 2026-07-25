@@ -18,6 +18,13 @@ public sealed record CompileRequest {
     /// <summary>Backend name, as <see cref="CodeGen.TargetBackends" /> knows it.</summary>
     public string Target { get; init; } = "glsl";
 
+    /// <summary>
+    ///     Values for the shader's <c>[Permutation]</c> keys, as <c>Name=Value</c> strings.
+    ///     <c>Name</c> alone means <c>Name=true</c>. Keys not named here take the default in
+    ///     the source.
+    /// </summary>
+    public IReadOnlyList<string> Defines { get; init; } = [];
+
     /// <summary>Also write the IR dump next to the generated sources.</summary>
     public bool EmitIr { get; init; }
 

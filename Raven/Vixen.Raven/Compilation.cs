@@ -28,9 +28,37 @@ public sealed class Compilation {
     Binder? globalBinder;
     NamespaceSymbol? globalNamespace;
 
+    readonly SortedSet<string> usedPermutationKeys = new(StringComparer.Ordinal);
+
     public string AssemblyName { get; }
 
     public IReadOnlyList<SyntaxTree> SyntaxTrees => syntaxTrees;
+
+    /// <summary>
+    ///     Values supplied for this compilation's <c>[Permutation]</c> keys. Keys with no
+    ///     value here take the initializer in the source.
+    /// </summary>
+    public PermutationValues PermutationValues { get; }
+
+    /// <summary>
+    ///     The permutation keys this compilation actually consulted, sorted by name.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         This is the cache key the engine should use, and it is why it must come from
+    ///         the semantic phase rather than from the caller's define list. A shader
+    ///         declaring twenty independent flags has a million possible define
+    ///         combinations, but any one entry point usually reads a handful; keying the
+    ///         cache on the declared set produces a million entries where a dozen are
+    ///         distinct.
+    ///     </para>
+    ///     <para>
+    ///         Only meaningful once something has been bound — a key is recorded when its
+    ///         value is read, so an unqueried compilation reports nothing. Read it after
+    ///         <see cref="GetDiagnostics" /> or after lowering.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyCollection<string> UsedPermutationKeys => usedPermutationKeys;
 
     /// <summary>Root of the symbol table; every package hangs off it.</summary>
     public NamespaceSymbol GlobalNamespace {
@@ -44,16 +72,40 @@ public sealed class Compilation {
 
     internal Binder GlobalBinder => globalBinder ??= new GlobalBinder(DeclarationContext);
 
-    Compilation(string assemblyName, SyntaxTree[] syntaxTrees) {
+    Compilation(string assemblyName, SyntaxTree[] syntaxTrees, PermutationValues permutationValues) {
         AssemblyName = assemblyName;
         this.syntaxTrees = syntaxTrees;
+        PermutationValues = permutationValues;
     }
 
     public static Compilation Create(string assemblyName, params SyntaxTree[] syntaxTrees) =>
-        new(assemblyName, syntaxTrees);
+        new(assemblyName, syntaxTrees, PermutationValues.Empty);
 
     public static Compilation Create(string assemblyName, IEnumerable<SyntaxTree> syntaxTrees) =>
-        new(assemblyName, syntaxTrees.ToArray());
+        new(assemblyName, syntaxTrees.ToArray(), PermutationValues.Empty);
+
+    /// <summary>
+    ///     Creates one permutation of a compilation. Each distinct
+    ///     <paramref name="permutationValues" /> is a separate compilation, because the
+    ///     values change what the code means.
+    /// </summary>
+    public static Compilation Create(
+        string assemblyName,
+        PermutationValues permutationValues,
+        IEnumerable<SyntaxTree> syntaxTrees
+    ) {
+        ArgumentNullException.ThrowIfNull(permutationValues);
+        ArgumentNullException.ThrowIfNull(syntaxTrees);
+
+        return new(assemblyName, syntaxTrees.ToArray(), permutationValues);
+    }
+
+    /// <summary>
+    ///     Records that <paramref name="key" /> was consulted. Called when a permutation
+    ///     field's value is read, which is the point at which the output starts depending
+    ///     on it.
+    /// </summary>
+    internal void RecordPermutationUse(string key) => usedPermutationKeys.Add(key);
 
     public SemanticModel GetSemanticModel(SyntaxTree syntaxTree) {
         if (!semanticModels.TryGetValue(syntaxTree, out var model)) {

@@ -95,6 +95,20 @@ public static class DeclarationFacts {
     public static bool IsStageAttributeName(string name) => StageAttributes.ContainsKey(name);
 
     /// <summary>
+    ///     Whether the declaration is marked <c>[Permutation]</c>, making it a compile-time
+    ///     key whose value the caller supplies per effect variant.
+    /// </summary>
+    public static bool IsPermutation(SyntaxList<AttributeListSyntax> attributeLists) {
+        foreach (var attribute in GetAttributes(attributeLists)) {
+            if (GetAttributeName(attribute) == "Permutation") {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     ///     The pipeline semantic a declaration is tagged with —
     ///     <c>[Semantic("POSITION")]</c>, <c>[Semantic("SV_Target")]</c> — or null.
     ///     This is what the backends key stage inputs and outputs off.
