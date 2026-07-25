@@ -2,7 +2,6 @@
 <Tree Root="SyntaxNode">
     <PredefinedNode Name="SyntaxToken" Base="SyntaxNode"/>
 
-
     <!-- Names -->
     <AbstractNode Name="NameSyntax" Base="TypeSyntax">
         <TypeComment>
@@ -202,14 +201,6 @@
         </Field>
         <Field Name="Pattern" Type="PatternSyntax" Optional="true"/>
     </Node>
-    <!--    <Node Name="TypePatternSyntax" Base="PatternSyntax">-->
-    <!--        <Kind Name="TypePattern"/>-->
-    <!--        <Field Name="Type" Type="TypeSyntax">-->
-    <!--            <PropertyComment>-->
-    <!--                <summary>The type for the type pattern.</summary>-->
-    <!--            </PropertyComment>-->
-    <!--        </Field>-->
-    <!--    </Node>-->
     <Node Name="RelationalPatternSyntax" Base="PatternSyntax">
         <Kind Name="EqualsRelationalPattern"/>
         <Kind Name="NotEqualsRelationalPattern"/>
@@ -231,7 +222,6 @@
     <AbstractNode Name="BaseExpressionColonSyntax" Base="SyntaxNode">
         <Field Name="Expression" Type="ExpressionSyntax"/>
     </AbstractNode>
-    <!-- TODO PARSE -->
     <Node Name="ExpressionColonSyntax" Base="BaseExpressionColonSyntax">
         <Kind Name="ExpressionColon"/>
         <Field Name="Expression" Type="ExpressionSyntax" Override="true"/>
@@ -390,20 +380,6 @@
             <summary>Creates a MemberBindingExpressionSyntax node.</summary>
         </FactoryComment>
     </Node>
-    <!--    <Node Name="TypeOfExpressionSyntax" Base="ExpressionSyntax">-->
-    <!--        <Kind Name="TypeOfExpression"/>-->
-    <!--        <Field Name="Type" Type="TypeSyntax">-->
-    <!--            <PropertyComment>-->
-    <!--                <summary>The expression to return type of.</summary>-->
-    <!--            </PropertyComment>-->
-    <!--        </Field>-->
-    <!--        <TypeComment>-->
-    <!--            <summary>Class which represents the syntax node for TypeOf expression.</summary>-->
-    <!--        </TypeComment>-->
-    <!--        <FactoryComment>-->
-    <!--            <summary>Creates a TypeOfExpressionSyntax node.</summary>-->
-    <!--        </FactoryComment>-->
-    <!--    </Node>-->
     <Node Name="SizeOfExpressionSyntax" Base="ExpressionSyntax">
         <Kind Name="SizeOfExpression"/>
         <Field Name="Type" Type="TypeSyntax">
@@ -701,9 +677,6 @@
         </Field>
     </Node>
 
-    <!-- TODO member declarations -->
-
-
     <Node Name="ConstructorInitializerSyntax" Base="SyntaxNode">
         <TypeComment>
             <summary>Constructor initializer syntax.</summary>
@@ -800,21 +773,6 @@
             </PropertyComment>
         </Field>
     </Node>
-
-
-    <!--    <Node Name="NameEqualsSyntax" Base="SyntaxNode">-->
-    <!--        <TypeComment>-->
-    <!--            <summary>Class representing an identifier name followed by an equals token.</summary>-->
-    <!--        </TypeComment>-->
-    <!--        <Kind Name="NameEquals"/>-->
-    <!--        <Field Name="Name" Type="IdentifierNameSyntax">-->
-    <!--            <PropertyComment>-->
-    <!--                <summary>Gets the identifier name.</summary>-->
-    <!--            </PropertyComment>-->
-    <!--            <Kind Name="IdentifierName"/>-->
-    <!--        </Field>-->
-    <!--    </Node>-->
-
 
     <!-- Types -->
     <AbstractNode Name="BaseTypeSyntax" Base="SyntaxNode">
@@ -1098,8 +1056,6 @@
         </FactoryComment>
     </Node>
 
-
-    <!-- TODO: Can block have attributes? it's not currently implemented in ANTLR -->
     <!-- Statements -->
     <AbstractNode Name="StatementSyntax" Base="SyntaxNode">
         <TypeComment>
@@ -1502,25 +1458,6 @@
             <summary>Base type for type parameter constraint syntax.</summary>
         </TypeComment>
     </AbstractNode>
-    <!--    <Node Name="ClassOrStructConstraintSyntax" Base="TypeParameterConstraintSyntax">-->
-    <!--        <TypeComment>-->
-    <!--            <summary>Class or struct constraint syntax.</summary>-->
-    <!--        </TypeComment>-->
-    <!--        <Kind Name="ClassConstraint"/>-->
-    <!--        <Kind Name="StructConstraint"/>-->
-    <!--        <Field Name="QuestionToken" Type="SyntaxToken" Optional="true">-->
-    <!--            <Kind Name="QuestionToken"/>-->
-    <!--            <PropertyComment>-->
-    <!--                <summary>SyntaxToken representing the question mark.</summary>-->
-    <!--            </PropertyComment>-->
-    <!--        </Field>-->
-    <!--    </Node>-->
-    <!--    <Node Name="ConstructorConstraintSyntax" Base="TypeParameterConstraintSyntax">-->
-    <!--        <TypeComment>-->
-    <!--            <summary>Constructor constraint syntax.</summary>-->
-    <!--        </TypeComment>-->
-    <!--        <Kind Name="ConstructorConstraint"/>-->
-    <!--    </Node>-->
     <Node Name="TypeConstraintSyntax" Base="TypeParameterConstraintSyntax">
         <TypeComment>
             <summary>Type constraint syntax.</summary>
