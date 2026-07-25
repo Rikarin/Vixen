@@ -34,6 +34,17 @@
   </Folder>
 
   <!--
+    Core — the shared foundation (docs/plan/02-repository-layout.md § "Core/").
+    Vixen.Core.Syntax was lifted out of Raven so that Raven, VXML and VCSS are three
+    grammars over one tested tree rather than three trees (doc 07 § A).
+  -->
+  <Folder Name="/Core/">
+    <Project Path="Core/Vixen.Core.Syntax/Vixen.Core.Syntax.csproj" />
+    <Project Path="Core/Vixen.Core.Syntax.Tests/Vixen.Core.Syntax.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Syntax.Generator/Vixen.Core.Syntax.Generator.csproj" />
+  </Folder>
+
+  <!--
     Raven — the shader compiler.
     Layout follows docs/plan/02-repository-layout.md § "Raven/": one folder per
     project, named after the assembly, with tests as a sibling (ADR-014).
@@ -45,7 +56,6 @@
     <Project Path="Raven/Vixen.Raven/Vixen.Raven.csproj" />
     <Project Path="Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj" />
     <Project Path="Raven/Vixen.Raven.Cli/Vixen.Raven.Cli.csproj" />
-    <Project Path="Raven/Vixen.Raven.SyntaxGenerator/Vixen.Raven.SyntaxGenerator.csproj" />
   </Folder>
 
 </Solution>

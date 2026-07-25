@@ -1,3 +1,4 @@
+
 namespace Vixen.Raven.Binding;
 
 /// <summary>The operation a <see cref="BoundBinaryExpression" /> performs.</summary>

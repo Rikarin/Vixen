@@ -2,11 +2,13 @@ using Antlr4.Runtime;
 using System.Text;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Grammar;
-using Vixen.Raven.Text;
+using Vixen.Core.Syntax.Text;
+using Vixen.Core.Syntax;
+using Vixen.Core.Syntax.Diagnostics;
 
 namespace Vixen.Raven.Syntax;
 
-public sealed class SyntaxTree {
+public sealed class SyntaxTree : ISyntaxTree {
     SyntaxNode? root;
     Diagnostic[] diagnostics = [];
 

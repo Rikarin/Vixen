@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Tree Root="SyntaxNode">
-    <PredefinedNode Name="SyntaxToken" Base="SyntaxNode"/>
+<Tree Root="RavenSyntaxNode" Namespace="Vixen.Raven.Syntax">
+    <PredefinedNode Name="SyntaxToken" Base="RavenSyntaxNode"/>
 
     <!-- Names -->
     <AbstractNode Name="NameSyntax" Base="TypeSyntax">
@@ -92,7 +92,7 @@
             <summary>Creates a GenericNameSyntax node.</summary>
         </FactoryComment>
     </Node>
-    <Node Name="TypeArgumentListSyntax" Base="SyntaxNode">
+    <Node Name="TypeArgumentListSyntax" Base="RavenSyntaxNode">
         <Kind Name="TypeArgumentList"/>
         <Field Name="LessThanToken" Type="SyntaxToken">
             <Kind Name="LessThanToken"/>
@@ -134,7 +134,7 @@
 
 
     <!-- Expressions -->
-    <AbstractNode Name="ExpressionOrPatternSyntax" Base="SyntaxNode"/>
+    <AbstractNode Name="ExpressionOrPatternSyntax" Base="RavenSyntaxNode"/>
     <AbstractNode Name="ExpressionSyntax" Base="ExpressionOrPatternSyntax">
         <TypeComment>
             <summary>
@@ -219,7 +219,7 @@
             <Kind Name="UnderscoreToken"/>
         </Field>
     </Node>
-    <AbstractNode Name="BaseExpressionColonSyntax" Base="SyntaxNode">
+    <AbstractNode Name="BaseExpressionColonSyntax" Base="RavenSyntaxNode">
         <Field Name="Expression" Type="ExpressionSyntax"/>
     </AbstractNode>
     <Node Name="ExpressionColonSyntax" Base="BaseExpressionColonSyntax">
@@ -271,7 +271,7 @@
             <summary>Creates a BaseExpressionSyntax node.</summary>
         </FactoryComment>
     </Node>
-    <Node Name="ArrowExpressionClauseSyntax" Base="SyntaxNode">
+    <Node Name="ArrowExpressionClauseSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>The syntax for the expression body of an expression-bodied member.</summary>
         </TypeComment>
@@ -450,7 +450,7 @@
         </FactoryComment>
     </Node>
 
-    <Node Name="WhenClauseSyntax" Base="SyntaxNode">
+    <Node Name="WhenClauseSyntax" Base="RavenSyntaxNode">
         <Kind Name="WhenClause"/>
         <Field Name="WhenKeyword" Type="SyntaxToken">
             <Kind Name="WhenKeyword"/>
@@ -475,7 +475,7 @@
             <summary>Switch expression: expr switch { pattern => value, ... }.</summary>
         </TypeComment>
     </Node>
-    <Node Name="SwitchExpressionArmSyntax" Base="SyntaxNode">
+    <Node Name="SwitchExpressionArmSyntax" Base="RavenSyntaxNode">
         <Kind Name="SwitchExpressionArm"/>
         <Field Name="Pattern" Type="PatternSyntax"/>
         <Field Name="WhenClause" Type="WhenClauseSyntax" Optional="true"/>
@@ -559,7 +559,7 @@
             <summary>Creates an ArrayTypeSyntax node.</summary>
         </FactoryComment>
     </Node>
-    <Node Name="ArrayRankSpecifierSyntax" Base="SyntaxNode">
+    <Node Name="ArrayRankSpecifierSyntax" Base="RavenSyntaxNode">
         <Kind Name="ArrayRankSpecifier"/>
         <Field Name="OpenBracketToken" Type="SyntaxToken">
             <Kind Name="OpenBracketToken"/>
@@ -570,7 +570,7 @@
         </Field>
     </Node>
 
-    <Node Name="TupleElementSyntax" Base="SyntaxNode">
+    <Node Name="TupleElementSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Tuple type element.</summary>
         </TypeComment>
@@ -606,7 +606,7 @@
 
 
     <!-- Declarations -->
-    <Node Name="CompilationUnitSyntax" Base="SyntaxNode">
+    <Node Name="CompilationUnitSyntax" Base="RavenSyntaxNode">
         <Kind Name="CompilationUnit"/>
         <Field Name="Package" Type="PackageDirectiveSyntax"/>
         <Field Name="Imports" Type="SyntaxList&lt;ImportDirectiveSyntax&gt;"/>
@@ -615,14 +615,14 @@
             <Kind Name="EndOfFileToken"/>
         </Field>
     </Node>
-    <Node Name="PackageDirectiveSyntax" Base="SyntaxNode">
+    <Node Name="PackageDirectiveSyntax" Base="RavenSyntaxNode">
         <Kind Name="PackageDirective"/>
         <Field Name="PackageKeyword" Type="SyntaxToken">
             <Kind Name="PackageKeyword"/>
         </Field>
         <Field Name="PackageName" Type="NameSyntax"/>
     </Node>
-    <Node Name="ImportDirectiveSyntax" Base="SyntaxNode">
+    <Node Name="ImportDirectiveSyntax" Base="RavenSyntaxNode">
         <Kind Name="ImportDirective"/>
         <Field Name="GlobalKeyword" Type="SyntaxToken" Optional="true">
             <Kind Name="GlobalKeyword"/>
@@ -635,7 +635,7 @@
         </Field>
         <Field Name="Name" Type="NameSyntax"/>
     </Node>
-    <AbstractNode Name="MemberDeclarationSyntax" Base="SyntaxNode">
+    <AbstractNode Name="MemberDeclarationSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Member declaration syntax.</summary>
         </TypeComment>
@@ -659,7 +659,7 @@
         <Field Name="Modifiers" Type="SyntaxList&lt;SyntaxToken&gt;" Override="true"/>
         <Field Name="Declaration" Type="VariableDeclarationSyntax" Override="true"/>
     </Node>
-    <Node Name="TypeParameterListSyntax" Base="SyntaxNode">
+    <Node Name="TypeParameterListSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Type parameter list syntax.</summary>
         </TypeComment>
@@ -677,7 +677,7 @@
         </Field>
     </Node>
 
-    <Node Name="ConstructorInitializerSyntax" Base="SyntaxNode">
+    <Node Name="ConstructorInitializerSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Constructor initializer syntax.</summary>
         </TypeComment>
@@ -686,7 +686,7 @@
         <Field Name="ArgumentList" Type="ArgumentListSyntax"/>
     </Node>
 
-    <Node Name="ExplicitInterfaceSpecifierSyntax" Base="SyntaxNode">
+    <Node Name="ExplicitInterfaceSpecifierSyntax" Base="RavenSyntaxNode">
         <Kind Name="ExplicitInterfaceSpecifier"/>
         <Field Name="Name" Type="NameSyntax"/>
         <Field Name="DotToken" Type="SyntaxToken">
@@ -696,7 +696,7 @@
 
 
     <!-- Attributes -->
-    <Node Name="AttributeListSyntax" Base="SyntaxNode">
+    <Node Name="AttributeListSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Class representing one or more attributes applied to a language construct.</summary>
         </TypeComment>
@@ -718,7 +718,7 @@
             <Kind Name="CloseBracketToken"/>
         </Field>
     </Node>
-    <Node Name="AttributeTargetSpecifierSyntax" Base="SyntaxNode">
+    <Node Name="AttributeTargetSpecifierSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Class representing what language construct an attribute targets.</summary>
         </TypeComment>
@@ -732,7 +732,7 @@
             <Kind Name="ColonToken"/>
         </Field>
     </Node>
-    <Node Name="AttributeSyntax" Base="SyntaxNode">
+    <Node Name="AttributeSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Attribute syntax.</summary>
         </TypeComment>
@@ -744,7 +744,7 @@
         </Field>
         <Field Name="ArgumentList" Type="AttributeArgumentListSyntax" Optional="true"/>
     </Node>
-    <Node Name="AttributeArgumentListSyntax" Base="SyntaxNode">
+    <Node Name="AttributeArgumentListSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Attribute argument list syntax.</summary>
         </TypeComment>
@@ -761,7 +761,7 @@
             <Kind Name="CloseParenToken"/>
         </Field>
     </Node>
-    <Node Name="AttributeArgumentSyntax" Base="SyntaxNode">
+    <Node Name="AttributeArgumentSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Attribute argument syntax.</summary>
         </TypeComment>
@@ -775,7 +775,7 @@
     </Node>
 
     <!-- Types -->
-    <AbstractNode Name="BaseTypeSyntax" Base="SyntaxNode">
+    <AbstractNode Name="BaseTypeSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Provides the base class from which the classes that represent base type syntax nodes are derived.
                 This is an abstract class.
@@ -798,7 +798,7 @@
 
     <!--    Variables??-->
 
-    <Node Name="EqualsValueClauseSyntax" Base="SyntaxNode">
+    <Node Name="EqualsValueClauseSyntax" Base="RavenSyntaxNode">
         <Kind Name="EqualsValueClause"/>
         <Field Name="EqualsToken" Type="SyntaxToken">
             <Kind Name="EqualsToken"/>
@@ -887,7 +887,7 @@
         <Field Name="Token" Type="SyntaxToken"/>
     </Node>
 
-    <Node Name="ParameterSyntax" Base="SyntaxNode">
+    <Node Name="ParameterSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Parameter syntax.</summary>
         </TypeComment>
@@ -914,7 +914,7 @@
         <Field Name="Type" Type="TypeSyntax" Optional="true"/>
         <Field Name="Default" Type="EqualsValueClauseSyntax" Optional="true"/>
     </Node>
-    <AbstractNode Name="BaseParameterListSyntax" Base="SyntaxNode">
+    <AbstractNode Name="BaseParameterListSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Base type for parameter list syntax.</summary>
         </TypeComment>
@@ -951,7 +951,7 @@
         </Field>
     </Node>
 
-    <AbstractNode Name="VariableDesignationSyntax" Base="SyntaxNode"/>
+    <AbstractNode Name="VariableDesignationSyntax" Base="RavenSyntaxNode"/>
     <Node Name="DiscardDesignationSyntax" Base="VariableDesignationSyntax">
         <Kind Name="DiscardDesignation"/>
         <Field Name="UnderscoreToken" Type="SyntaxToken">
@@ -976,7 +976,7 @@
     </Node>
 
 
-    <AbstractNode Name="BaseArgumentListSyntax" Base="SyntaxNode">
+    <AbstractNode Name="BaseArgumentListSyntax" Base="RavenSyntaxNode">
         <Field Name="Arguments" Type="SeparatedSyntaxList&lt;ArgumentSyntax&gt;">
             <PropertyComment>
                 <summary>SyntaxList of ArgumentSyntax nodes representing the list of arguments.</summary>
@@ -1028,7 +1028,7 @@
             <summary>Creates a BracketedArgumentListSyntax node.</summary>
         </FactoryComment>
     </Node>
-    <Node Name="ArgumentSyntax" Base="SyntaxNode">
+    <Node Name="ArgumentSyntax" Base="RavenSyntaxNode">
         <Kind Name="Argument"/>
         <Field Name="NameColon" Type="NameColonSyntax" Optional="true">
             <PropertyComment>
@@ -1057,7 +1057,7 @@
     </Node>
 
     <!-- Statements -->
-    <AbstractNode Name="StatementSyntax" Base="SyntaxNode">
+    <AbstractNode Name="StatementSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Represents the base class for all statements' syntax classes.</summary>
         </TypeComment>
@@ -1164,7 +1164,7 @@
             <summary>Creates an IfStatementSyntax node</summary>
         </FactoryComment>
     </Node>
-    <Node Name="ElseClauseSyntax" Base="SyntaxNode">
+    <Node Name="ElseClauseSyntax" Base="RavenSyntaxNode">
         <Kind Name="ElseClause"/>
         <Field Name="ElseKeyword" Type="SyntaxToken">
             <Kind Name="ElseKeyword"/>
@@ -1293,7 +1293,7 @@
             <summary>Creates a SwitchStatementSyntax node.</summary>
         </FactoryComment>
     </Node>
-    <Node Name="SwitchSectionSyntax" Base="SyntaxNode">
+    <Node Name="SwitchSectionSyntax" Base="RavenSyntaxNode">
         <Kind Name="SwitchSection"/>
         <Field Name="Labels" Type="SyntaxList&lt;SwitchLabelSyntax&gt;" MinCount="1">
             <PropertyComment>
@@ -1318,7 +1318,7 @@
             <summary>Creates a SwitchSectionSyntax node.</summary>
         </FactoryComment>
     </Node>
-    <AbstractNode Name="SwitchLabelSyntax" Base="SyntaxNode">
+    <AbstractNode Name="SwitchLabelSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Represents a switch label within a switch statement.</summary>
         </TypeComment>
@@ -1368,7 +1368,7 @@
     </Node>
 
 
-    <Node Name="VariableDeclarationSyntax" Base="SyntaxNode">
+    <Node Name="VariableDeclarationSyntax" Base="RavenSyntaxNode">
         <Kind Name="VariableDeclaration"/>
         <Kind Name="ConstDeclaration"/>
         <Field Name="Keyword" Type="SyntaxToken">
@@ -1390,7 +1390,7 @@
         <Field Name="Type" Type="TypeSyntax" Optional="true"/>
         <Field Name="Initializer" Type="EqualsValueClauseSyntax" Optional="true"/>
     </Node>
-    <Node Name="TypeParameterSyntax" Base="SyntaxNode">
+    <Node Name="TypeParameterSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Type parameter syntax.</summary>
         </TypeComment>
@@ -1411,7 +1411,7 @@
             <Kind Name="IdentifierToken"/>
         </Field>
     </Node>
-    <Node Name="BaseListSyntax" Base="SyntaxNode">
+    <Node Name="BaseListSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Base list syntax.</summary>
         </TypeComment>
@@ -1439,7 +1439,7 @@
             <summary>Collection expression: [a, b, ..c].</summary>
         </TypeComment>
     </Node>
-    <AbstractNode Name="CollectionElementSyntax" Base="SyntaxNode"/>
+    <AbstractNode Name="CollectionElementSyntax" Base="RavenSyntaxNode"/>
     <Node Name="ExpressionElementSyntax" Base="CollectionElementSyntax">
         <Kind Name="ExpressionElement"/>
         <Field Name="Expression" Type="ExpressionSyntax"/>
@@ -1453,7 +1453,7 @@
     </Node>
 
 
-    <AbstractNode Name="TypeParameterConstraintSyntax" Base="SyntaxNode">
+    <AbstractNode Name="TypeParameterConstraintSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Base type for type parameter constraint syntax.</summary>
         </TypeComment>
@@ -1634,7 +1634,7 @@
         <Field Name="ExpressionBody" Type="ArrowExpressionClauseSyntax" Optional="true"/>
         <Field Name="Initializer" Type="EqualsValueClauseSyntax" Optional="true"/>
     </Node>
-    <Node Name="AccessorListSyntax" Base="SyntaxNode">
+    <Node Name="AccessorListSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Accessor list: <c>{ get set }</c>.
             </summary>
@@ -1648,7 +1648,7 @@
             <Kind Name="CloseBraceToken"/>
         </Field>
     </Node>
-    <Node Name="AccessorDeclarationSyntax" Base="SyntaxNode">
+    <Node Name="AccessorDeclarationSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Accessor declaration (get/set/willSet/didSet).</summary>
         </TypeComment>
@@ -1777,7 +1777,7 @@
         <Field Name="Body" Type="BlockSyntax" Optional="true"/>
         <Field Name="ExpressionBody" Type="ArrowExpressionClauseSyntax" Optional="true"/>
     </Node>
-    <Node Name="TypeParameterConstraintClauseSyntax" Base="SyntaxNode">
+    <Node Name="TypeParameterConstraintClauseSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Type parameter constraint clause: the name being constrained and its constraints.</summary>
         </TypeComment>

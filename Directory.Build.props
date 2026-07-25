@@ -27,8 +27,8 @@
   <PropertyGroup Label="Analysis">
     <!--
       TreatWarningsAsErrors is a stated non-negotiable (docs/plan/00 § Non-negotiables).
-      Raven currently carries 6 pre-existing warnings; they are suppressed narrowly and
-      visibly in Raven/Directory.Build.props as tracked debt rather than by relaxing this.
+      The tree is warning-free; Raven/Directory.Build.props records what was fixed to
+      get there and suppresses nothing.
     -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
@@ -83,7 +83,9 @@
   -->
   <PropertyGroup Condition="($(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Core')) OR
                              $(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Platform'))) AND
-                            !$(MSBuildProjectName.EndsWith('.Tests'))">
+                            !$(MSBuildProjectName.EndsWith('.Tests')) AND
+                            !$(MSBuildProjectName.EndsWith('.Generator')) AND
+                            !$(MSBuildProjectName.EndsWith('.Generators'))">
     <IsPackable>true</IsPackable>
     <IsAotCompatible>true</IsAotCompatible>
     <IsTrimmable>true</IsTrimmable>
@@ -91,6 +93,22 @@
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
     <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!--
+    ============================================================================
+    Profile: GENERATOR  —  *.Generator / *.Generators, wherever they live.
+    Source generators run inside the compiler, so they target netstandard2.0/2.1
+    and are never published: AOT, trimming and single-file analysis do not apply
+    to them, and the Runtime profile above would demand all three of a project
+    that cannot satisfy them. Excluded there, handled here.
+    ============================================================================
+  -->
+  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Generator')) OR
+                            $(MSBuildProjectName.EndsWith('.Generators'))">
+    <IsPackable>false</IsPackable>
+    <IsAotCompatible>false</IsAotCompatible>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
   <!--

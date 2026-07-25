@@ -2,6 +2,7 @@ using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Symbols;
 using Vixen.Raven.Syntax;
+using Vixen.Core.Syntax;
 
 namespace Vixen.Raven.Lowering;
 

@@ -1,3 +1,4 @@
+
 namespace Vixen.Raven.Symbols;
 
 /// <summary>How one type reaches another.</summary>

@@ -1,7 +1,8 @@
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Syntax;
-using Vixen.Raven.Text;
+using Vixen.Core.Syntax.Text;
 using Xunit;
+using Vixen.Core.Syntax.Diagnostics;
 
 namespace Tests;
 

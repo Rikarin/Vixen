@@ -1,6 +1,7 @@
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Symbols;
+using Vixen.Core.Syntax.Diagnostics;
 
 namespace Vixen.Raven.CodeGen.Glsl;
 

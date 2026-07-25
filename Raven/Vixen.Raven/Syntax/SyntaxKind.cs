@@ -1,9 +1,18 @@
+using Vixen.Core.Syntax;
+
 namespace Vixen.Raven.Syntax;
 
 public enum SyntaxKind : ushort {
     None,
+
+    /// <summary>
+    ///     The anonymous list node. Pinned to <see cref="SyntaxKinds.List" /> because the
+    ///     shared tree creates list nodes without knowing Raven's enum; if the values
+    ///     diverged, casting a list node's <c>RawKind</c> would name the wrong member.
+    /// </summary>
+    ListKind = SyntaxKinds.List,
+
     IdentifierName,
-    ListKind,
     GlobalKeyword,
     IdentifierToken,
     QualifiedName,

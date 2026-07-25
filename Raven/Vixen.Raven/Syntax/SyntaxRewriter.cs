@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Vixen.Core.Syntax;
 
 namespace Vixen.Raven.Syntax;
 
@@ -32,7 +33,7 @@ public partial class SyntaxRewriter {
 
             if (rewritten is not null) {
                 Debug.Assert(
-                    visited is not null && visited.Kind != SyntaxKind.None,
+                    visited is not null && visited.RawKind != (int)SyntaxKind.None,
                     "A rewriter cannot remove a node from a list; return the original to keep it."
                 );
 

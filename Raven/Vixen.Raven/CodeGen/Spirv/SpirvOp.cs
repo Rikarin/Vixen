@@ -1,3 +1,4 @@
+
 namespace Vixen.Raven.CodeGen.Spirv;
 
 /// <summary>

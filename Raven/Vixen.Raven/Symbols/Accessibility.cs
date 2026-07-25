@@ -1,3 +1,4 @@
+
 namespace Vixen.Raven.Symbols;
 
 /// <summary>Declared accessibility of a symbol.</summary>

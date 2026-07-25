@@ -1,3 +1,4 @@
+
 namespace Vixen.Raven.CodeGen.Glsl;
 
 /// <summary>Knobs for the GLSL backend.</summary>

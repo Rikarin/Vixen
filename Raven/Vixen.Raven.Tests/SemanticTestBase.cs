@@ -3,6 +3,8 @@ using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Symbols;
 using Vixen.Raven.Syntax;
 using Xunit;
+using Vixen.Core.Syntax;
+using Vixen.Core.Syntax.Diagnostics;
 
 namespace Tests;
 

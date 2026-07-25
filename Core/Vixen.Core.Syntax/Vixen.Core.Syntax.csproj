@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Core.Syntax</RootNamespace>
+        <Description>
+            Language-agnostic green/red syntax tree infrastructure, source text with
+            span tracking, and the compiler diagnostics model. Shared by Raven, VXML
+            and VCSS — each supplies its own Syntax.xml and kind enum.
+        </Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Core.Syntax.Tests"/>
+        <!--
+          The green tree is `internal`: GreenNode, the internal token/trivia/list types
+          and SyntaxNode.Green are implementation detail of whichever language builds a
+          tree. A front end has to reach them to construct nodes, so each one is named
+          here rather than made public.
+        -->
+        <InternalsVisibleTo Include="Vixen.Raven"/>
+        <InternalsVisibleTo Include="Vixen.Raven.Tests"/>
+    </ItemGroup>
+
+</Project>

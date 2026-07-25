@@ -24,7 +24,7 @@ These were chosen deliberately and shape the whole plan:
 
 | Area | Status |
 |------|--------|
-| Source generator (`Tools/SyntaxGenerator`, reads `Syntax.xml`) | Working; emits red tree (~3.3k lines, 83 concrete + 18 abstract nodes) |
+| Source generator (`Core/Vixen.Core.Syntax.Generator`, reads `Syntax.xml`) | Working; emits red tree (~3.3k lines, 83 concrete + 18 abstract nodes) |
 | ANTLR grammar (`RavenLexer`/`RavenParser`) | Working; parses package/imports/example files |
 | `SyntaxAntlrVisitor` | ~70% wired — 44 methods still `base.Visit` stubs (Shader, Method, most expressions) |
 | `SyntaxToken` | Shell — no real text/value storage, no trivia |

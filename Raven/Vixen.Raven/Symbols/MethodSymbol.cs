@@ -1,3 +1,4 @@
+
 namespace Vixen.Raven.Symbols;
 
 /// <summary>What a <see cref="MethodSymbol" /> was declared as.</summary>

@@ -1,3 +1,5 @@
+using Vixen.Core.Syntax.Diagnostics;
+
 namespace Vixen.Raven.CodeGen.Spirv;
 
 /// <summary>Values a module declares support for.</summary>

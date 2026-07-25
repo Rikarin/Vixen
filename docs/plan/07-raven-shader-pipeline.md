@@ -17,15 +17,29 @@ documents. **Criticality**: 🔴 engine-blocking · 🟡 needed for 1.0 · ⚪ m
 
 ### A. Structural — Phase 0, mechanical ([02](02-repository-layout.md), [14](14-roadmap.md))
 
-| | Change |
-|---|---|
-| ⚪ | Absorb `Raven/` into the Vixen monorepo **with git history preserved** (`read-tree --prefix=Raven/`, do not squash), then delete `Raven/.git` |
-| ⚪ | Rename to the monorepo convention: `Compiler/` → `Vixen.Raven`, `Tests/` → `Vixen.Raven.Tests`, `Tools/SyntaxGenerator/` → `Vixen.Raven.SyntaxGenerator`, `Cli/` → `Vixen.Raven.Cli`, `Feed/` → `Library/` |
-| ⚪ | Add projects: `Vixen.Raven.Spirv`, `Vixen.Raven.Transpile` (SPIRV-Cross wrapper), `Vixen.Raven.Reflection` — each with a sibling `.Tests` |
-| 🔴 | **Extract `Vixen.Core.Syntax`**: lift `GreenNode`, `SyntaxNode`, `SyntaxToken`, `SyntaxTrivia`, `SyntaxList<T>`, `SeparatedSyntaxList`, `SourceText`, the `Diagnostic`/`DiagnosticBag` model, and the `Syntax.xml` → node-classes generator out of Raven into shared `Core/` projects, then retarget Raven onto them. VXML and VCSS then declare their own `Syntax.xml` against the same infrastructure. **This is the single highest-leverage refactor in the plan** — it turns three parser front ends into one tested foundation plus three grammars |
-| ⚪ | Raven lands in the **Tooling** MSBuild profile ([02](02-repository-layout.md)): reflection and LINQ permitted, `IsAotCompatible` off. It is a compiler, not runtime code |
-| ⚪ | `Vixen.Raven` and `Vixen.Raven.Cli` become shipped NuGet packages ([12](12-build-ci-and-testing.md)); the compiler is useful standalone |
-| ⚪ | Relicense to **Apache-2.0** with SPDX headers and NOTICE (ADR-015) |
+| | Change | |
+|---|---|---|
+| ⚪ | Absorb `Raven/` into the Vixen monorepo **with git history preserved** (`read-tree --prefix=Raven/`, do not squash), then delete `Raven/.git` | ✅ |
+| ⚪ | Rename to the monorepo convention: `Compiler/` → `Vixen.Raven`, `Tests/` → `Vixen.Raven.Tests`, `Cli/` → `Vixen.Raven.Cli`, `Feed/` → `Library/` | ✅ |
+| ⚪ | Add projects: `Vixen.Raven.Transpile` (SPIRV-Cross wrapper), `Vixen.Raven.Reflection` — each with a sibling `.Tests`. *`Vixen.Raven.Spirv` was listed here in error: both emitters land together and live in `Vixen.Raven`, per [02](02-repository-layout.md) § Raven, which the code already follows.* | |
+| 🔴 | **Extract `Vixen.Core.Syntax`**: lift `GreenNode`, `SyntaxNode`, `SyntaxToken`, `SyntaxTrivia`, `SyntaxList<T>`, `SeparatedSyntaxList`, `SourceText`, the `Diagnostic`/`DiagnosticBag` model, and the `Syntax.xml` → node-classes generator out of Raven into shared `Core/` projects, then retarget Raven onto them. VXML and VCSS then declare their own `Syntax.xml` against the same infrastructure. **This is the single highest-leverage refactor in the plan** — it turns three parser front ends into one tested foundation plus three grammars | ✅ |
+| ⚪ | Raven lands in the **Tooling** MSBuild profile ([02](02-repository-layout.md)): reflection and LINQ permitted, `IsAotCompatible` off. It is a compiler, not runtime code | ✅ |
+| ⚪ | `Vixen.Raven` and `Vixen.Raven.Cli` become shipped NuGet packages ([12](12-build-ci-and-testing.md)); the compiler is useful standalone | |
+| ⚪ | Relicense to **Apache-2.0** with SPDX headers and NOTICE (ADR-015) | partial — `LICENSE` and `NOTICE` are in place, per-file SPDX headers are not |
+
+**How the extraction landed.** Two decisions are worth knowing before touching the tree:
+
+- **Kinds are `int` below the language line.** `GreenNode.RawKind` and `SyntaxNode.RawKind` are
+  integers; each front end re-exposes its own enum (`RavenSyntaxNode.Kind` is `(SyntaxKind)RawKind`).
+  List-ness is answered by `GreenNode.IsList`, never by comparing kinds. The one value the shared
+  tree reserves is `SyntaxKinds.List`, and a language's list member must equal it
+  (`SyntaxKind.ListKind = SyntaxKinds.List`) or projecting a list node's kind names the wrong member.
+- **`Accept` stays in the language.** A generated `Accept` calls `visitor.VisitIdentifierName(this)`,
+  so its parameter must be the language's visitor type — the shared `SyntaxNode` therefore declares
+  no `Accept`, and `RavenSyntaxNode` adds it. This is the split Roslyn makes between `SyntaxNode` and
+  `CSharpSyntaxNode`. The shared `SyntaxToken` and `SyntaxListNode` are outside that hierarchy;
+  `SyntaxVisitor.Visit` routes them with a single type test rather than an override per node.
+  `Syntax.xml` names the language's base in `Root`, and its output namespace in `Namespace`.
 
 ### B. Language and semantic features — Raven's Phase 2
 

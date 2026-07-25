@@ -1,3 +1,4 @@
+
 namespace Vixen.Raven.Symbols;
 
 /// <summary>A parameter of a method, constructor, indexer or lambda.</summary>

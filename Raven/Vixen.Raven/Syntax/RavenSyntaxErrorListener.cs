@@ -1,6 +1,7 @@
 using Antlr4.Runtime;
 using Vixen.Raven.Diagnostics;
-using Vixen.Raven.Text;
+using Vixen.Core.Syntax.Text;
+using Vixen.Core.Syntax.Diagnostics;
 
 namespace Vixen.Raven.Syntax;
 

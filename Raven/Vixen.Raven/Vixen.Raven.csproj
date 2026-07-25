@@ -31,7 +31,11 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Vixen.Raven.SyntaxGenerator\Vixen.Raven.SyntaxGenerator.csproj"
+        <!-- The shared green/red tree, SourceText and diagnostics model. -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Syntax\Vixen.Core.Syntax.csproj"/>
+
+        <!-- Turns Syntax\Syntax.xml into the node classes. Analyzer-only, no reference. -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Syntax.Generator\Vixen.Core.Syntax.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false"
         />

@@ -6,6 +6,7 @@ using Vixen.Raven.Lowering;
 using Vixen.Raven.Symbols;
 using Vixen.Raven.Syntax;
 using Xunit;
+using Vixen.Core.Syntax.Diagnostics;
 
 namespace Tests;
 

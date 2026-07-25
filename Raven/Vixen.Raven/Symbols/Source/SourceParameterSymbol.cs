@@ -1,6 +1,7 @@
 using Vixen.Raven.Binding;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Syntax;
+using Vixen.Core.Syntax;
 
 namespace Vixen.Raven.Symbols.Source;
 

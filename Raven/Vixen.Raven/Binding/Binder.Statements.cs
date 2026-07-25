@@ -2,6 +2,7 @@ using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Symbols;
 using Vixen.Raven.Symbols.Source;
 using Vixen.Raven.Syntax;
+using Vixen.Core.Syntax;
 
 namespace Vixen.Raven.Binding;
 

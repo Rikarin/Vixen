@@ -1,3 +1,4 @@
+
 namespace Vixen.Raven.Symbols;
 
 /// <summary>A <c>val</c>/<c>var</c> member of a type, or an enum member.</summary>

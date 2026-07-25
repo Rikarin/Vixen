@@ -4,6 +4,7 @@ using Vixen.Raven.Symbols;
 using Xunit;
 using static Tests.CodeGenTestBase;
 using static Tests.SpirvTestBase;
+using Vixen.Core.Syntax.Diagnostics;
 
 namespace Tests;
 

@@ -1,3 +1,4 @@
+
 namespace Vixen.Raven.Syntax;
 
 public partial class NameColonSyntax {

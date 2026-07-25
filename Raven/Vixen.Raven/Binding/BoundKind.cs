@@ -1,3 +1,4 @@
+
 namespace Vixen.Raven.Binding;
 
 /// <summary>Discriminator for <see cref="BoundNode" />, mirroring Roslyn's bound tree.</summary>

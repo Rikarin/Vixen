@@ -1,7 +1,8 @@
 using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
 using Vixen.Raven.Grammar;
-using Vixen.Raven.Syntax.InternalSyntax;
+using Vixen.Core.Syntax;
+using Green = Vixen.Core.Syntax.InternalSyntax;
 
 namespace Vixen.Raven.Syntax;
 
@@ -1381,7 +1382,7 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
         // tree models end-of-file as a zero-width marker.
         var text = source.Type == TokenConstants.Eof ? string.Empty : source.Text ?? SyntaxFacts.GetText(kind);
         var leading = GatherLeadingTrivia(source.TokenIndex);
-        return (SyntaxToken)new InternalSyntax.SyntaxToken(kind, text, leading).CreateRed(null, 0);
+        return (SyntaxToken)new Green.SyntaxToken((int)kind, text, leading).CreateRed(null, 0);
     }
 
     // A token is "trivia" for the syntax tree if it sits off the default channel
@@ -1437,12 +1438,12 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
     static bool IsTrivia(IToken token) =>
         token.Channel != TokenConstants.DefaultChannel || token.Type == RavenLexer.NL;
 
-    GreenNode? GatherLeadingTrivia(int tokenIndex) {
+    Green.GreenNode? GatherLeadingTrivia(int tokenIndex) {
         if (tokens == null || tokenIndex <= 0) {
             return null;
         }
 
-        var collected = new List<GreenNode>();
+        var collected = new List<Green.GreenNode>();
         for (var i = tokenIndex - 1; i >= 0; i--) {
             var token = tokens.Get(i);
             if (!IsTrivia(token)) {
@@ -1457,10 +1458,10 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
         }
 
         collected.Reverse();
-        return collected.Count == 1 ? collected[0] : InternalSyntax.SyntaxList.List(collected.ToArray());
+        return collected.Count == 1 ? collected[0] : Green.SyntaxList.List(collected.ToArray());
     }
 
-    static InternalSyntax.SyntaxTrivia MapTrivia(IToken token) {
+    static Green.SyntaxTrivia MapTrivia(IToken token) {
         var kind = token.Type switch {
             RavenLexer.NL => SyntaxKind.EndOfLineTrivia,
             RavenLexer.WHITESPACES => SyntaxKind.WhitespaceTrivia,
@@ -1473,6 +1474,6 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
             _ => SyntaxKind.WhitespaceTrivia
         };
 
-        return new(kind, token.Text);
+        return new((int)kind, token.Text);
     }
 }

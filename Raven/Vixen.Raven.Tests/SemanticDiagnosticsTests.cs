@@ -1,6 +1,7 @@
 using Vixen.Raven.Diagnostics;
 using Xunit;
 using static Tests.SemanticTestBase;
+using Vixen.Core.Syntax.Diagnostics;
 
 namespace Tests;
 

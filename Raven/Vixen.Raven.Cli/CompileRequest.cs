@@ -1,3 +1,4 @@
+
 namespace Vixen.Raven.Cli;
 
 /// <summary>Everything <see cref="CompileDriver" /> needs, with no console in it.</summary>

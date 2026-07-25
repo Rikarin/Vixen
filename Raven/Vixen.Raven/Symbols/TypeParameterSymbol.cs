@@ -1,4 +1,5 @@
 using Vixen.Raven.Syntax;
+using Vixen.Core.Syntax;
 
 namespace Vixen.Raven.Symbols;
 

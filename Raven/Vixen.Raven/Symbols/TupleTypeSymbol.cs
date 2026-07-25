@@ -1,3 +1,4 @@
+
 namespace Vixen.Raven.Symbols;
 
 /// <summary>A tuple type: <c>(int, string)</c> or <c>(code: int, message: string)</c>.</summary>

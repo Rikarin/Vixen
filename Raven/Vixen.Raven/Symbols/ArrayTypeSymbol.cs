@@ -1,3 +1,4 @@
+
 namespace Vixen.Raven.Symbols;
 
 /// <summary>An array type: <c>T[]</c>, <c>T[,]</c>, <c>T[][]</c>.</summary>

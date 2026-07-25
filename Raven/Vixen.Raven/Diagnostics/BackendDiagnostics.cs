@@ -1,3 +1,5 @@
+using Vixen.Core.Syntax.Diagnostics;
+
 namespace Vixen.Raven.Diagnostics;
 
 /// <summary>

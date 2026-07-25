@@ -1,5 +1,6 @@
 using Vixen.Raven.Syntax;
 using Xunit;
+using Vixen.Core.Syntax;
 
 namespace Tests;
 

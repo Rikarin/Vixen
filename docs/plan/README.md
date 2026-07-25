@@ -69,7 +69,7 @@ working project, the required emcc flags, and a silent-WebGL1-downgrade trap wor
 ├── Raven/                  ← existing, own git repo, net10.0, RootNamespace = Vixen.Raven
 │   ├── Compiler/           ← ANTLR grammar + Roslyn-style green/red syntax trees; parse only
 │   ├── Cli/                ← `raven compile --target glsl`
-│   ├── Tools/SyntaxGenerator/  ← source generator driven by Syntax.xml
+│   ├── Syntax/Syntax.xml      ← node model; the generator lives in Core/
 │   ├── Tests/              ← xunit; golden syntax, round-trip, red/green tree tests
 │   └── Feed/               ← .rvn samples
 └── docs/plan/              ← this directory

@@ -118,19 +118,6 @@ dotnet_diagnostic.CA1720.severity = none
 dotnet_diagnostic.CA1062.severity = none
 
 # ------------------------------------------------------------------------------
-# Raven's SyntaxGenerator: XmlSerializer DTOs for Syntax.xml.
-# XmlSerializer dictates the shape of these types — it requires public types,
-# needs settable List<T> properties to populate collections, and needs a real
-# array for [XmlAnyElement]. The rules below all describe good *public API*
-# design, which is not what these types are: nothing consumes this assembly's
-# API (it is referenced as an analyzer with ReferenceOutputAssembly=false).
-# ------------------------------------------------------------------------------
-[Raven/Vixen.Raven.SyntaxGenerator/**.cs]
-dotnet_diagnostic.CA1002.severity = none   # List<T> in API — XmlSerializer collection contract
-dotnet_diagnostic.CA2227.severity = none   # settable collection — XmlSerializer assigns it
-dotnet_diagnostic.CA1819.severity = none   # XmlElement[] — required by [XmlAnyElement]
-
-# ------------------------------------------------------------------------------
 # Test projects.
 # ------------------------------------------------------------------------------
 [**/*.Tests/**.cs]

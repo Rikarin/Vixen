@@ -257,11 +257,15 @@ Raven/                            ✅ renamed — this layout is live
 ├── Directory.Build.props         # tracked analyzer debt, scoped per project
 ├── Vixen.Raven/                  # was Compiler/  — syntax, semantic, IR, GLSL + SPIR-V emit
 ├── Vixen.Raven.Tests/            # was Tests/     — sibling, per ADR-014
-├── Vixen.Raven.SyntaxGenerator/  # was Tools/SyntaxGenerator/
 ├── Vixen.Raven.Cli/              # was Cli/       — AssemblyName stays `raven`
 ├── Library/                      # was Feed/ — the shipped .rvn standard library (PBR, math, etc.)
 └── docs/IMPLEMENTATION_PLAN.md   # Raven's own roadmap
 ```
+
+`Tools/SyntaxGenerator/` is not in this tree: the `Syntax.xml` generator is not
+Raven-specific and now lives at `Core/Vixen.Core.Syntax.Generator/`, alongside the tree
+it generates against. Raven references it as an analyzer and supplies its own
+`Syntax.xml`.
 
 Projects the plan anticipates but that do not exist yet — add them when the code needs
 splitting out of `Vixen.Raven`, not before:

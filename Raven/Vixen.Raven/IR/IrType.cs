@@ -1,3 +1,4 @@
+
 namespace Vixen.Raven.IR;
 
 /// <summary>The closed set of shapes a Raven IR type can take.</summary>

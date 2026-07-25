@@ -9,7 +9,7 @@
     Everything this file previously carried has been fixed at the source rather
     than silenced:
 
-      CA1051 (27)  public fields in the SyntaxGenerator XML model → properties
+      CA1051 (27)  public fields in the Syntax.xml model → properties
       CA1822 (5)   members that never read instance state → static
       CA1051 (4)   ANTLR lexer-base fields → private protected
       CA1512 (2)   → ArgumentOutOfRangeException.ThrowIfNegative/ThrowIfLessThan
@@ -19,15 +19,19 @@
       CA1816 (1)   Dispose → GC.SuppressFinalize
       CA2000 (1)   StringBuilderReader → using
       CA1847/1820  string.Contains(char), string.Length
-      CA1050 (1)   generator entry point → namespace SyntaxGenerator
+      CA1050 (1)   generator entry point given a namespace
       RS2008 (3)   → AnalyzerReleases.{Shipped,Unshipped}.md
       CS8602 (2)   → Assert.IsType/IsAssignableFrom instead of `as` + dereference
       CS9113 (1)   unused ITestOutputHelper parameter removed
       NU1903, CS3021, CA1852, CA1859 — no longer reported at all
 
+    The syntax tree, SourceText, the diagnostics model and the Syntax.xml generator
+    now live in Core/Vixen.Core.Syntax{,.Generator}; anything above that referred to
+    them describes code this folder no longer owns.
+
     Three rules are excluded by name in the repository .editorconfig, each with a
-    written reason: CA1707 (test naming), CA1720 (shader type names), and the
-    CA1002/CA2227/CA1819 trio imposed by XmlSerializer on the generator's DTOs.
+    written reason: CA1707 (test naming), CA1720 (shader type names) and CA1062
+    (argument validation in hot paths).
 
     The build is warning-free.
   -->
