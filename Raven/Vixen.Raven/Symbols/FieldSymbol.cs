@@ -47,6 +47,18 @@ public abstract class FieldSymbol : Symbol {
     /// <summary>How this field binds on the GPU when it is a shader member.</summary>
     public virtual ResourceKind ResourceKind => ResourceKind.None;
 
+    /// <summary>
+    ///     The descriptor set this field's binding belongs to, from a <c>[PerFrame]</c> /
+    ///     <c>[PerView]</c> / <c>[PerMaterial]</c> / <c>[PerDraw]</c> marker.
+    /// </summary>
+    /// <remarks>
+    ///     Defaults to <see cref="Symbols.ResourceSet.PerMaterial" />: an unmarked field is a
+    ///     material parameter, which is what set 2 is for. Defaulting to set 0 instead would
+    ///     drop every unannotated shader into the engine's per-frame set, where it would
+    ///     collide with the camera and lighting buffers.
+    /// </remarks>
+    public virtual ResourceSet ResourceSet => ResourceSet.PerMaterial;
+
     /// <summary>The pipeline semantic from a <c>[Semantic("…")]</c> attribute, or null.</summary>
     public virtual string? SemanticName => null;
 

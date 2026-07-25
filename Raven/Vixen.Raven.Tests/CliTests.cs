@@ -146,9 +146,10 @@ public class CliTests : IDisposable {
 
     [Fact]
     public void An_informational_diagnostic_is_reported_once_and_does_not_fail_the_run() {
-        // The shader has one sampler; GLSL folds it away and says so — once,
-        // however many stages come out of the shader.
-        Assert.Equal(0, Invoke("compile", Fixture("lambert.rvn"), At("")));
+        // The shader gives a binding a default; a descriptor-backed variable cannot carry
+        // one, so it stays host-side data and SPIR-V says so — once, however many stages
+        // come out of the shader.
+        Assert.Equal(0, Invoke("compile", "-t", "spirv", Fixture("lambert.rvn"), At("")));
 
         var reported = error.ToString();
         Assert.Contains("info RVN4003", reported);

@@ -8,10 +8,10 @@ OpCapability Matrix
 %6 = OpExtInstImport "GLSL.std.450"
 OpMemoryModel Logical GLSL450
 OpEntryPoint Vertex %37 "main" %20 %22
-OpName %9 "LambertUniforms"
+OpName %9 "LambertPerMaterialUniforms"
 OpMemberName %9 0 "world"
 OpMemberName %9 1 "baseColor"
-OpName %11 "lambertUniforms"
+OpName %11 "lambertPerMaterialUniforms"
 OpName %14 "albedo"
 OpName %17 "albedoSampler"
 OpName %20 "in_position"
@@ -25,11 +25,11 @@ OpMemberDecorate %9 0 Offset 0
 OpMemberDecorate %9 0 ColMajor
 OpMemberDecorate %9 0 MatrixStride 16
 OpMemberDecorate %9 1 Offset 64
-OpDecorate %11 DescriptorSet 0
+OpDecorate %11 DescriptorSet 2
 OpDecorate %11 Binding 0
-OpDecorate %14 DescriptorSet 0
+OpDecorate %14 DescriptorSet 2
 OpDecorate %14 Binding 1
-OpDecorate %17 DescriptorSet 0
+OpDecorate %17 DescriptorSet 2
 OpDecorate %17 Binding 2
 OpDecorate %20 Location 0
 OpDecorate %22 BuiltIn Position

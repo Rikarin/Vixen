@@ -157,15 +157,92 @@ deleted whenever the grammar is next touched. The row above is complete as it st
 
 ### C. Emitter requirements — GLSL and SPIR-V together
 
-| | Requirement |
-|---|---|
-| 🔴 | **SPIR-V emitter** — the canonical output (ADR-012). The engine consumes it directly; no bridge, no intermediate |
-| 🔴 | **GLSL emitter, Vulkan-flavoured**: `#version 450`+, explicit `layout(set = N, binding = M)` via `GL_KHR_vulkan_glsl`, `layout(push_constant)`, `layout(location = N)` on every stage in/out, explicit `std140`/`std430`. Required so `shaderc` can compile it back to SPIR-V for the **differential oracle** below, and because it is the most readable form for the frame debugger |
-| 🔴 | **Reflection comes from the semantic phase**, never from either emitted form. The engine writes constant buffers by generated offset |
-| 🔴 | Honour the **four-set descriptor convention** (set 0 per-frame, 1 per-view, 2 per-material, 3 per-draw) when assigning bindings ([05](05-graphics-rhi.md)) — both emitters must agree, which the differential test enforces |
-| 🟡 | **Differential test**: Raven's SPIR-V vs `shaderc`(Raven's GLSL) must be semantically equivalent. The strongest correctness signal available, and free once both emitters exist |
-| ⚪ | HLSL / MSL / WGSL emitters are **not required** — SPIRV-Cross covers them (ADR-012) |
-| ⚪ | `IRavenBackend` with swappable implementations is **not required** — the bridge is gone, so there is one code path |
+| | Requirement | |
+|---|---|---|
+| 🔴 | **SPIR-V emitter** — the canonical output (ADR-012). The engine consumes it directly; no bridge, no intermediate | ✅ |
+| 🔴 | **GLSL emitter, Vulkan-flavoured**: `#version 450`+, explicit `layout(set = N, binding = M)` via `GL_KHR_vulkan_glsl`, `layout(push_constant)`, `layout(location = N)` on every stage in/out, explicit `std140`/`std430`. Required so `shaderc` can compile it back to SPIR-V for the **differential oracle** below, and because it is the most readable form for the frame debugger | ✅ except `push_constant`, which needs syntax Raven has not got |
+| 🔴 | **Reflection comes from the semantic phase**, never from either emitted form. The engine writes constant buffers by generated offset | ✅ |
+| 🔴 | Honour the **four-set descriptor convention** (set 0 per-frame, 1 per-view, 2 per-material, 3 per-draw) when assigning bindings ([05](05-graphics-rhi.md)) — both emitters must agree, which the differential test enforces | ✅ |
+| 🟡 | **Differential test**: Raven's SPIR-V vs `shaderc`(Raven's GLSL) must be semantically equivalent. The strongest correctness signal available, and free once both emitters exist | ✅ interface-level |
+| ⚪ | HLSL / MSL / WGSL emitters are **not required** — SPIRV-Cross covers them (ADR-012) | |
+| ⚪ | `IRavenBackend` with swappable implementations is **not required** — the bridge is gone, so there is one code path | ✅ never built |
+
+**The four-set convention is named, not numbered.** A binding is marked `[PerFrame]`, `[PerView]`,
+`[PerMaterial]` or `[PerDraw]`, and the set index follows from the marker — a shader never spells
+`set = 3`, because the number is the engine's to choose and `[PerDraw]` says *why* the value is
+where it is. An unmarked field is **per-material**, since a shader's own `var`s are its material
+parameters; defaulting to set 0 instead would drop every unannotated shader on top of the engine's
+camera and lighting buffers. Two markers on one field is `RVN2090`; a marker on something that
+never becomes a binding — a `const`, a `[Permutation]` key, a `compose` slot — is the warning
+`RVN2091`, because the shader is still correct but the author believes something untrue about where
+that value lives.
+
+**Bindings restart at 0 in each set,** which is what a Vulkan descriptor set layout is: one
+namespace per set. Within a set the uniform block comes first so that adding a texture never
+renumbers it, then textures, then samplers, each in declaration order.
+
+**"Both emitters must agree" is structural rather than checked.** `Vixen.Raven.Reflection.BindingPlan`
+is the only code that assigns a `(set, binding)` pair; both emitters and `ReflectionBuilder` read
+the plan. There is nothing to keep in step, which is the same reasoning as the shared `ShaderLayout`
+one level down. The differential test verifies it, but the plan is what makes it true.
+
+**Vulkan GLSL is now a faithful mirror of the SPIR-V, not a lossy sibling.** The emitter previously
+folded a texture and its sampler into one combined `sampler2D` and reported the dropped sampler
+binding as an informational diagnostic. It now emits separate `texture2D` and `sampler` objects and
+pairs them at the sample site as `texture(sampler2D(albedo, linear), uv)` — the same shape SPIR-V
+has always had, and the reason the two backends' binding indices can be compared at all. A
+`.Load(…)` becomes `texelFetch` on the bare texture under
+`GL_EXT_samplerless_texture_functions`, declared only in the units that need it because a driver may
+reject an extension the shader does not use. Nothing about a sampler is dropped any more, so nothing
+is reported as dropped.
+
+#### The differential oracle, and what it does and does not prove
+
+Two independent paths from one source to one target:
+
+```
+              ┌── Raven SPIR-V emitter ─────────────────▶ SPIR-V (A)   ← what the engine uses
+.rvn ─IR─────┤
+              └── Raven GLSL emitter ──▶ Vulkan GLSL ──glslc──▶ SPIR-V (B)   ← the oracle
+```
+
+`SpirvDifferentialTests` compiles both, disassembles both with `spirv-dis`, and compares the
+**host-visible interface**: the `(set, binding)` of every descriptor, every member's `Offset`,
+`MatrixStride`, `ArrayStride` and majorness, every stage `Location`, and the entry point's execution
+model. Variables are matched by *name*, since the two compilers number ids in their own order — and
+a uniform block by the struct name inside its pointer type, because glslang leaves the block
+variable unnamed.
+
+**It bites, and that was verified rather than assumed.** Two faults were injected and the test
+caught both:
+
+- offsetting GLSL's `set` by one → all four fixtures fail on the descriptor comparison;
+- making `float3` align to 12 bytes instead of 16 in `ShaderLayout` — the classic std140 mistake,
+  and exactly the failure § D warns about — → the packing fixtures fail on member offsets.
+
+The second is the interesting one. Raven's SPIR-V offsets come from `ShaderLayout`; the GLSL's come
+from **glslang computing std140 itself**. So the layout engine is now checked against a second,
+independent implementation of the same spec, not only against the literals in `ShaderLayoutTests`.
+
+Honestly bounded:
+
+- **Instruction streams are not compared.** glslang structures a body differently for the same
+  meaning, so a body-level diff would be noise. Arithmetic correctness is the numeric BRDF tests'
+  job (§ G), and that is why both techniques are in the plan.
+- **A bug in the shared IR shows up in both paths and stays invisible here.** Both emitters read the
+  same lowered IR; the oracle compares emitters, not the lowering.
+- **`ArrayStride` is not yet covered against the oracle.** Raven cannot declare a sized array — its
+  `array_rank_specifier` is `[]` only — and an unsized array is not legal in a uniform block. The
+  stride rules are pinned against the spec as literals, but not against a second implementation.
+- **The tools are found on PATH, not restored.** `glslc` (brew install shaderc) and `spirv-dis`
+  (brew install spirv-tools); the CLI tools rather than `Silk.NET.Shaderc`, so shaderc's native
+  binaries never enter the restore graph of a project that must not ship them. Absence is reported
+  through the test output rather than silently passing — the same treatment `spirv-val` already had.
+
+The weaker half is asserted separately, so a failure reads as *"the GLSL does not compile"* rather
+than *"the interfaces differ"*: `glslc` accepting Raven's output at all is a full GLSL front end
+reading every line the emitter produced, which is a check the GLSL path never had before — its
+`glslangValidator` test had been silently skipping.
 
 ### D. Public API contract the engine codes against
 
@@ -276,7 +353,7 @@ ClearCoat, Sheen, Hair, Subsurface, Transmission, Ibl, Lighting) · `Geometry/` 
 | | Addition |
 |---|---|
 | 🟡 | Extend the existing golden-tree and round-trip corpus to **the whole `Raven/Library` tree** — every shipped shader must round-trip byte-identically |
-| 🟡 | `spirv-val` on every emitted module; golden `spirv-dis` disassembly snapshots so codegen changes are reviewable |
+| 🟡 | `spirv-val` on every emitted module; golden `spirv-dis` disassembly snapshots so codegen changes are reviewable — ✅ both, plus the § C differential oracle |
 | 🟡 | Cross-compile every module through SPIRV-Cross to GLSL 450 / ESSL 300 / HLSL 60 / MSL / WGSL without error; GLSL/ESSL additionally through `glslang` |
 | 🟡 | **Numeric BRDF tests**: CPU ports of the shading functions compared against a GPU compute readback over a parameter sweep, agreeing to 1e-4. This is the test that catches "the shader is subtly wrong" |
 | 🟡 | Constant-buffer layout: reflection offsets verified against a GPU readback of a known pattern, **per backend** |
@@ -325,6 +402,9 @@ sits in between. Concretely gone:
   which is what [01](01-technology-decisions.md) always listed it as.
 
 ### What this creates: a differential oracle
+
+✅ **Built.** See [§ C](#the-differential-oracle-and-what-it-does-and-does-not-prove) for what it
+compares, the two injected faults that proved it bites, and where its coverage stops.
 
 Building both emitters against one IR gives something neither previous plan had — **two independent
 paths from the same source to the same target**, which can be diffed:

@@ -72,7 +72,11 @@ Two tiers, both expressed in the RHI:
    - set 2: per-material (textures, material constants)
    - set 3: per-draw (transforms via dynamic offset, instance data)
 
-   This mirrors Stride's logical-group model and matches how Raven emits its bindings.
+   This mirrors Stride's logical-group model and matches how Raven emits its bindings. Concretely:
+   a Raven binding is marked `[PerFrame]`, `[PerView]`, `[PerMaterial]` or `[PerDraw]` and the set
+   index follows from the marker; an unmarked field is per-material. Both of Raven's backends and
+   its reflection take the pair from one `BindingPlan`, so the set and binding the RHI builds a
+   layout from are the ones the module was decorated with ([07 § C](07-raven-shader-pipeline.md)).
 2. **Bindless** (`VK_EXT_descriptor_indexing` / D3D12 SM6.6 dynamic resources) behind a capability
    flag, exposed as a global `TextureHandle → uint` bindless index table. GPU-driven culling and
    material batching use it where available; there is a non-bindless path for GL/WebGL and older

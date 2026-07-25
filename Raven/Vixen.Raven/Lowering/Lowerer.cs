@@ -173,7 +173,7 @@ public sealed partial class Lowerer {
 
             var variable = new IrVariable(field.Name, irType, IrVariableKind.Global);
             globals[field] = variable;
-            shader.Add(new IrBinding(variable, kind, slot, field.SemanticName));
+            shader.Add(new IrBinding(variable, kind, slot, field.SemanticName, field.ResourceSet));
         }
 
         LowerMemberFunctions(type, shader.Add);

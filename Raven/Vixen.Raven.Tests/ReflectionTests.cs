@@ -67,15 +67,83 @@ public class ReflectionTests {
         var reflection = Describe(Material);
         var set = Assert.Single(reflection.Sets);
 
-        Assert.Equal(0, set.Set);
+        // Unmarked fields are material parameters, which is set 2 in the engine's
+        // convention — not set 0, which is the per-frame camera and lighting state.
+        Assert.Equal((int)ResourceSet.PerMaterial, set.Set);
         Assert.Equal(2, set.Bindings.Length);
 
         Assert.Equal(DescriptorType.UniformBuffer, set.Bindings[0].Type);
-        Assert.Equal("SUniforms", set.Bindings[0].Name);
+        Assert.Equal("SPerMaterialUniforms", set.Bindings[0].Name);
 
         Assert.Equal(DescriptorType.SampledTexture, set.Bindings[1].Type);
         Assert.Equal("albedo", set.Bindings[1].Name);
         Assert.Empty(set.Bindings[1].Members);
+    }
+
+    /// <summary>
+    ///     The four-set convention of docs/plan/05: a marker names the update frequency and the
+    ///     set index follows from it, so a shader never spells a set number.
+    /// </summary>
+    [Fact]
+    public void A_marker_places_a_binding_in_its_set_and_bindings_restart_within_each_set() {
+        var reflection = Describe(
+            """
+            package A
+
+            shader S {
+                [PerFrame] var time: float
+                [PerView] var viewProjection: mat4
+                var tint: float4
+                var albedo: Texture2D
+                var linear: Sampler
+                [PerDraw] var world: mat4
+
+                [PixelShader]
+                func Pixel(uv: float2): float4 {
+                    return albedo.Sample(linear, uv) * tint * time + viewProjection * world * tint
+                }
+            }
+
+            """
+        );
+
+        Assert.Equal([0, 1, 2, 3], reflection.Sets.Select(s => s.Set));
+
+        Assert.Equal(["SPerFrameUniforms"], reflection.Sets[0].Bindings.Select(b => b.Name));
+        Assert.Equal(["SPerViewUniforms"], reflection.Sets[1].Bindings.Select(b => b.Name));
+        Assert.Equal(["SPerDrawUniforms"], reflection.Sets[3].Bindings.Select(b => b.Name));
+
+        // Each set is its own binding namespace, so every set starts again at 0.
+        Assert.Equal([0], reflection.Sets[0].Bindings.Select(b => b.Binding));
+        Assert.Equal([0, 1, 2], reflection.Sets[2].Bindings.Select(b => b.Binding));
+        Assert.Equal(
+            ["SPerMaterialUniforms", "albedo", "linear"],
+            reflection.Sets[2].Bindings.Select(b => b.Name)
+        );
+    }
+
+    [Fact]
+    public void A_parameter_reports_the_set_its_marker_put_it_in() {
+        var parameters = Describe(
+                """
+                package A
+
+                shader S {
+                    [PerFrame] var time: float
+                    var tint: float4
+
+                    [PixelShader]
+                    func Pixel(): float4 {
+                        return tint * time
+                    }
+                }
+
+                """
+            )
+            .Parameters;
+
+        Assert.Equal((int)ResourceSet.PerFrame, Assert.Single(parameters, p => p.Name == "time").Set);
+        Assert.Equal((int)ResourceSet.PerMaterial, Assert.Single(parameters, p => p.Name == "tint").Set);
     }
 
     /// <summary>
@@ -200,7 +268,7 @@ public class ReflectionTests {
         var parameters = Describe(Material).Parameters;
 
         var direction = Assert.Single(parameters, p => p.Name == "direction");
-        Assert.Equal(0, direction.Set);
+        Assert.Equal((int)ResourceSet.PerMaterial, direction.Set);
         Assert.Equal(0, direction.Binding);
         Assert.Equal(32, direction.Offset);
         Assert.Equal(12, direction.Size);
@@ -338,6 +406,6 @@ public class ReflectionTests {
         var all = ReflectionBuilder.Describe(module, compilation.UsedPermutationKeys);
 
         Assert.Equal(["First", "Second"], all.Keys.Order(StringComparer.Ordinal));
-        Assert.Equal("FirstUniforms", Assert.Single(all["First"].Sets).Bindings[0].Name);
+        Assert.Equal("FirstPerMaterialUniforms", Assert.Single(all["First"].Sets).Bindings[0].Name);
     }
 }

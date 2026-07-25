@@ -147,7 +147,7 @@ public class CompiledEffectTests {
         var effect = CompiledEffectReader.Read(CompiledEffectWriter.Write(Build()));
         var block = Assert.Single(effect.Reflection.Sets).Bindings[0];
 
-        Assert.Equal("LitUniforms", block.Name);
+        Assert.Equal("LitPerMaterialUniforms", block.Name);
         Assert.Equal(DescriptorType.UniformBuffer, block.Type);
         Assert.Equal(0, Assert.Single(block.Members, m => m.Name == "tint").Offset);
         Assert.Equal(["position"], effect.Reflection.VertexInputs.Select(i => i.Name));

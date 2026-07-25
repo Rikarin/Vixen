@@ -160,7 +160,9 @@ public class SpirvBackendTests {
         );
 
         var block = BlockStruct(code);
-        Assert.Contains("DescriptorSet 0", code);
+
+        // Unmarked fields are material parameters: set 2 in the four-set convention.
+        Assert.Contains("DescriptorSet 2", code);
         Assert.Contains("Binding 0", code);
 
         // SPIR-V has no implicit layout: a float then a vec4 puts the vector at
@@ -193,8 +195,8 @@ public class SpirvBackendTests {
             "func Pixel(uv: float2): float4"
         );
 
-        // This is what SPIR-V has and GLSL does not: nothing is folded away, and
-        // the two only meet at the sample itself.
+        // Nothing is folded away: the two meet only at the sample itself. The GLSL
+        // backend emits the same shape, which is why their binding indices match.
         Assert.Contains("OpTypeImage", code);
         Assert.Contains("OpTypeSampler\n", code);
         Assert.Contains("OpSampledImage", code);

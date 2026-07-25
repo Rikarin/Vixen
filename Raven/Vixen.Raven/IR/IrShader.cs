@@ -17,10 +17,25 @@ public enum IrBindingKind {
 ///     One resource a shader expects from the host. Slots are assigned per kind, in
 ///     declaration order, so a host can bind against them deterministically.
 /// </summary>
-public sealed class IrBinding(IrVariable variable, IrBindingKind kind, int slot, string? semantic) {
+/// <remarks>
+///     <see cref="Slot" /> is not the descriptor binding index. It numbers each kind
+///     separately, which is what the IR verifier checks for duplicates and what the IR dump
+///     prints; the <c>(set, binding)</c> pair a backend emits is assigned by
+///     <c>Vixen.Raven.Reflection.BindingPlan</c>, once, for every consumer.
+/// </remarks>
+public sealed class IrBinding(
+    IrVariable variable,
+    IrBindingKind kind,
+    int slot,
+    string? semantic,
+    ResourceSet set = ResourceSet.PerMaterial
+) {
     public IrVariable Variable { get; } = variable;
     public IrBindingKind Kind { get; } = kind;
     public int Slot { get; } = slot;
+
+    /// <summary>The descriptor set this binding belongs to.</summary>
+    public ResourceSet Set { get; } = set;
 
     /// <summary>The pipeline semantic from <c>[Semantic("…")]</c>, if any.</summary>
     public string? Semantic { get; } = semantic;

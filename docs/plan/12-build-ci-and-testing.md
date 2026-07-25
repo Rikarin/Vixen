@@ -186,6 +186,24 @@ exact allocation via a `GCHeapAllocationEventSource` listener in the failure mes
   and the bundle reader. Parsers and binary readers are exactly where fuzzing pays, and all five parse
   untrusted-ish input. Run nightly with a persistent corpus.
 
+### Optional external tools
+
+Some checks are worth more than they are worth *blocking* on, so they run when the tool is present
+and report their absence through the test output rather than failing or silently passing:
+
+| Tool | Install | What it unlocks |
+|---|---|---|
+| `spirv-val`, `spirv-dis` | `brew install spirv-tools` | validation of every emitted SPIR-V module, and the disassembly the differential oracle reads |
+| `glslc` (shaderc) | `brew install shaderc` | compiles Raven's GLSL back to SPIR-V for the differential oracle ([07 § C](07-raven-shader-pipeline.md)) |
+
+The command-line tools rather than their NuGet bindings, deliberately: an oracle is a test-time
+thing, and a native package would put shaderc's binaries in the restore graph of projects that must
+never ship them.
+
+**`ci.yml` must install both**, so these are optional locally and mandatory on a PR — a green local
+run with the tools missing is a weaker signal than a green CI run, and the test output says which one
+you got. That is a requirement on the workflow when it is written; nothing enforces it today.
+
 ### What is explicitly *not* tested
 
 Stated so nobody pretends otherwise: real-GPU-specific driver behaviour (covered by manual pre-release

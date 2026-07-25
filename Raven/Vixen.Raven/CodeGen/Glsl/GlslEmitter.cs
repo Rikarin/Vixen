@@ -5,13 +5,14 @@ using System.Globalization;
 using System.Text;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
+using Vixen.Raven.Reflection;
 using Vixen.Raven.Symbols;
 using Vixen.Core.Syntax.Diagnostics;
 
 namespace Vixen.Raven.CodeGen.Glsl;
 
 /// <summary>
-///     Emits one GLSL translation unit for one entry point.
+///     Emits one Vulkan-flavoured GLSL translation unit for one entry point.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -21,9 +22,16 @@ namespace Vixen.Raven.CodeGen.Glsl;
 ///         rather than given a name, which removes most of the noise.
 ///     </para>
 ///     <para>
-///         Two things GLSL cannot mirror. It has no separate sampler object outside
-///         Vulkan, so a texture binding becomes a combined <c>sampler2D</c> and the
-///         sampler binding is dropped. And a uniform cannot carry an initializer, so a
+///         Vulkan GLSL rather than desktop GLSL: <c>#version 450</c>, an explicit
+///         <c>set</c> and <c>binding</c> on every descriptor, <c>location</c> on every stage
+///         in/out, explicit <c>std140</c>, and separate <c>texture2D</c>/<c>sampler</c>
+///         objects. That is not decoration. It is what lets <c>shaderc</c> compile this back
+///         to SPIR-V that binds the same way Raven's own SPIR-V does, which is the
+///         differential oracle in docs/plan/07 § C — and it is also the most useful form to
+///         read in a frame debugger.
+///     </para>
+///     <para>
+///         One thing GLSL still cannot mirror: a uniform cannot carry an initializer, so a
 ///         binding's declared default stays host-side metadata on
 ///         <see cref="IrShader.Initializer" />.
 ///     </para>
@@ -48,6 +56,7 @@ sealed class GlslEmitter {
 
     int loopCounter;
     string? outputName;
+    bool samplerlessFetch;
 
     internal GlslEmitter(
         IrModule module,
@@ -84,24 +93,45 @@ sealed class GlslEmitter {
         }
     }
 
+    /// <summary>
+    ///     Declares the bindings, each with the explicit <c>set</c> and <c>binding</c> that
+    ///     <see cref="BindingPlan" /> assigned.
+    /// </summary>
+    /// <remarks>
+    ///     The plan is shared with the SPIR-V backend and with the reflection, which is what
+    ///     makes the two outputs bind identically — and is the precondition for compiling this
+    ///     GLSL back to SPIR-V and diffing the two.
+    /// </remarks>
     void EmitBindings() {
-        var uniforms = shader.Bindings.Where(b => b.Kind == IrBindingKind.Uniform).ToArray();
-        var textures = shader.Bindings.Where(b => b.Kind == IrBindingKind.Texture).ToArray();
+        var opaque = false;
 
-        // Sampler bindings emit nothing — GlslBackend says so once per shader,
-        // rather than once per stage.
+        foreach (var planned in BindingPlan.Of(shader)) {
+            var layout = $"set = {(int)planned.Set}, binding = {planned.Binding}";
 
-        // A uniform block and the textures share one binding space; the block
-        // takes slot 0 so the textures keep a stable order after it.
-        var nextBinding = 0;
+            if (planned.Resource is { } resource) {
+                var name = ReserveVariable(resource.Variable);
+                writer.Line(
+                    $"layout({layout}) uniform {Declare(resource.Type, name, resource.Name)};"
+                    + Comment(resource.Semantic)
+                );
 
-        if (uniforms.Length > 0) {
-            writer.Line($"layout(std140, binding = {nextBinding++}) uniform {Reserve(shader.Name + "Uniforms")} {{");
+                opaque = true;
+                continue;
+            }
+
+            if (opaque) {
+                // A set's block comes before its resources, so this only happens between
+                // sets; the blank line keeps them visually apart.
+                writer.Blank();
+                opaque = false;
+            }
+
+            writer.Line($"layout(std140, {layout}) uniform {Reserve(planned.Name)} {{");
             writer.Indent();
 
-            foreach (var binding in uniforms) {
-                var name = ReserveVariable(binding.Variable);
-                writer.Line(Declare(binding.Type, name, binding.Name) + ";" + Comment(binding.Semantic));
+            foreach (var uniform in planned.Members) {
+                var name = ReserveVariable(uniform.Variable);
+                writer.Line(Declare(uniform.Type, name, uniform.Name) + ";" + Comment(uniform.Semantic));
             }
 
             writer.Outdent();
@@ -109,13 +139,7 @@ sealed class GlslEmitter {
             writer.Blank();
         }
 
-        foreach (var binding in textures) {
-            var name = ReserveVariable(binding.Variable);
-            var declaration = Declare(binding.Type, name, binding.Name);
-            writer.Line($"layout(binding = {nextBinding++}) uniform {declaration};{Comment(binding.Semantic)}");
-        }
-
-        if (textures.Length > 0) {
+        if (opaque) {
             writer.Blank();
         }
 
@@ -417,8 +441,20 @@ sealed class GlslEmitter {
                 return $"{TypeName(convert.Result.Type)}({Value(convert.Operand)})";
 
             case IrIntrinsicInstruction intrinsic: {
+                if (intrinsic.Intrinsic == IrIntrinsic.LoadTexture) {
+                    // texelFetch on a separate texture, with no sampler to pair it with,
+                    // is what this extension adds. Recorded here so the prologue declares
+                    // it only in the units that need it.
+                    samplerlessFetch = true;
+                }
+
                 var arguments = intrinsic.Arguments.Select(Value).ToArray();
-                var call = GlslIntrinsics.Call(intrinsic.Intrinsic, arguments, TypeName(intrinsic.Result!.Type));
+                var call = GlslIntrinsics.Call(
+                    intrinsic.Intrinsic,
+                    arguments,
+                    [.. intrinsic.Arguments.Select(a => a.Type)],
+                    TypeName(intrinsic.Result!.Type)
+                );
 
                 if (call is not null) {
                     return call;
@@ -642,19 +678,39 @@ sealed class GlslEmitter {
         };
 
     /// <summary>Emits the whole unit.</summary>
+    /// <remarks>
+    ///     The body is emitted first and the prologue prepended, because which extensions the
+    ///     unit requires is only known once the body has been walked. Declaring an extension
+    ///     a unit does not use is not harmless: a driver may reject it.
+    /// </remarks>
     internal string Emit() {
-        writer.Line($"#version {options.Version}");
-        writer.Blank();
-        writer.Line($"// Generated by Raven from shader '{shader.Name}' ({entryPoint.Stage} stage).");
-        writer.Blank();
-
         EmitStructs();
         EmitBindings();
         EmitStageInterface();
         EmitFunctions();
         EmitMain();
 
-        return writer.ToString();
+        return Prologue() + writer;
+    }
+
+    /// <summary>
+    ///     The version, the extensions the body turned out to need, and a line saying where
+    ///     this came from.
+    /// </summary>
+    string Prologue() {
+        var prologue = new Writer();
+        prologue.Line($"#version {options.Version}");
+
+        if (samplerlessFetch) {
+            prologue.Line("#extension GL_EXT_samplerless_texture_functions : require");
+        }
+
+        prologue.Blank();
+        prologue.Line($"// Generated by Raven from shader '{shader.Name}' ({entryPoint.Stage} stage).");
+        prologue.Line("// Vulkan GLSL: explicit sets and bindings, separate textures and samplers.");
+        prologue.Blank();
+
+        return prologue.ToString();
     }
 
     /// <summary>Indent-tracking line writer, so the emitters stay declarative.</summary>

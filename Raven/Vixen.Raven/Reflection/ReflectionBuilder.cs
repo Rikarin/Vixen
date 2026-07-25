@@ -27,24 +27,16 @@ public static class ReflectionBuilder {
     ///     rather than read from the IR because it is a fact about how this variant was
     ///     produced, not about its contents.
     /// </param>
-    /// <param name="set">
-    ///     The descriptor set these bindings belong to. Raven has no per-binding set syntax yet,
-    ///     so a shader lands in one set; the four-set convention lives in docs/plan/05.
-    /// </param>
     public static RavenReflection Describe(
         IrShader shader,
-        IEnumerable<string>? usedPermutationKeys = null,
-        int set = 0
+        IEnumerable<string>? usedPermutationKeys = null
     ) {
         ArgumentNullException.ThrowIfNull(shader);
 
         var stages = shader.EntryPoints.Select(e => e.Stage).Distinct().Order().ToImmutableArray();
         var stageFlags = shader.EntryPoints.Aggregate(ShaderStages.None, (flags, e) => flags | Flag(e.Stage));
 
-        var bindings = BuildBindings(shader, stageFlags);
-        var sets = bindings.IsEmpty
-            ? ImmutableArray<DescriptorSetInfo>.Empty
-            : [new DescriptorSetInfo(set, bindings)];
+        var sets = BuildSets(shader, stageFlags);
 
         return new() {
             Sets = sets,
@@ -60,50 +52,61 @@ public static class ReflectionBuilder {
     /// <summary>Describes every shader in a module, keyed by name.</summary>
     public static ImmutableDictionary<string, RavenReflection> Describe(
         IrModule module,
-        IEnumerable<string>? usedPermutationKeys = null,
-        int set = 0
+        IEnumerable<string>? usedPermutationKeys = null
     ) {
         ArgumentNullException.ThrowIfNull(module);
 
         var keys = usedPermutationKeys?.ToArray() ?? [];
-        return module.Shaders.ToImmutableDictionary(s => s.Name, s => Describe(s, keys, set), StringComparer.Ordinal);
+        return module.Shaders.ToImmutableDictionary(s => s.Name, s => Describe(s, keys), StringComparer.Ordinal);
     }
 
-    static ImmutableArray<BindingInfo> BuildBindings(IrShader shader, ShaderStages stages) {
-        // A shader's loose uniforms are gathered into one block, exactly as the backends
-        // emit them, so the reported offsets are the offsets that were generated.
-        var uniforms = shader.Bindings.Where(b => b.Kind == IrBindingKind.Uniform).ToArray();
-        var resources = shader.Bindings.Where(b => b.Kind != IrBindingKind.Uniform).ToArray();
+    /// <summary>
+    ///     Reads the descriptor sets off <see cref="BindingPlan" />, so the set and binding
+    ///     indices reported here are the ones the backends decorated.
+    /// </summary>
+    static ImmutableArray<DescriptorSetInfo> BuildSets(IrShader shader, ShaderStages stages) {
+        var sets = ImmutableArray.CreateBuilder<DescriptorSetInfo>();
 
-        var result = ImmutableArray.CreateBuilder<BindingInfo>();
-        var index = 0;
+        foreach (var group in BindingPlan.Of(shader).GroupBy(b => b.Set)) {
+            var bindings = ImmutableArray.CreateBuilder<BindingInfo>();
 
-        if (uniforms.Length > 0) {
-            var (offsets, size) = ShaderLayout.Members([.. uniforms.Select(u => u.Type)]);
-            var members = ImmutableArray.CreateBuilder<MemberInfo>();
-
-            for (var i = 0; i < uniforms.Length; i++) {
-                Flatten(uniforms[i].Name, uniforms[i].Type, offsets[i], LayoutRule.Std140, members);
+            foreach (var planned in group) {
+                bindings.Add(planned.Resource is { } resource ? Describe(planned, resource, stages) : Describe(planned, stages));
             }
 
-            result.Add(
-                new BindingInfo(
-                    index++,
-                    shader.Name + "Uniforms",
-                    DescriptorType.UniformBuffer,
-                    1,
-                    stages,
-                    members.ToImmutable()
-                ) { Size = size }
-            );
+            sets.Add(new((int)group.Key, bindings.ToImmutable()));
         }
 
-        foreach (var resource in resources) {
-            var (type, count) = Describe(resource.Type, resource.Kind);
-            result.Add(new(index++, resource.Name, type, count, stages, []));
+        return sets.ToImmutable();
+    }
+
+    /// <summary>
+    ///     Describes a set's uniform block. The loose uniforms are gathered into one block
+    ///     exactly as the backends emit them, so the reported offsets are the offsets that
+    ///     were generated.
+    /// </summary>
+    static BindingInfo Describe(PlannedBinding planned, ShaderStages stages) {
+        var uniforms = planned.Members;
+        var (offsets, size) = ShaderLayout.Members([.. uniforms.Select(u => u.Type)]);
+        var members = ImmutableArray.CreateBuilder<MemberInfo>();
+
+        for (var i = 0; i < uniforms.Length; i++) {
+            Flatten(uniforms[i].Name, uniforms[i].Type, offsets[i], LayoutRule.Std140, members);
         }
 
-        return result.ToImmutable();
+        return new BindingInfo(
+            planned.Binding,
+            planned.Name,
+            DescriptorType.UniformBuffer,
+            1,
+            stages,
+            members.ToImmutable()
+        ) { Size = size };
+    }
+
+    static BindingInfo Describe(PlannedBinding planned, IrBinding resource, ShaderStages stages) {
+        var (type, count) = Describe(resource.Type, resource.Kind);
+        return new(planned.Binding, resource.Name, type, count, stages, []);
     }
 
     static (DescriptorType Type, int Count) Describe(IrType type, IrBindingKind kind) {

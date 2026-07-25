@@ -521,12 +521,57 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
         }
     }
 
+    /// <summary>
+    ///     Checks the descriptor-set markers: at most one per field, and only on a field that
+    ///     actually becomes a binding.
+    /// </summary>
+    /// <remarks>
+    ///     A marker on a <c>const</c>, a <c>[Permutation]</c> key or a <c>compose</c> slot is a
+    ///     warning rather than an error — the shader is still correct, but the author believes
+    ///     something about where that value lives that is not true.
+    /// </remarks>
+    void ReportResourceSetIssues() {
+        foreach (var member in members!) {
+            if (member is not SourceFieldSymbol field) {
+                continue;
+            }
+
+            var markers = DeclarationFacts.GetResourceSets(field.AttributeLists).ToArray();
+
+            if (markers.Length == 0) {
+                continue;
+            }
+
+            var location = field.DeclaringSyntax?.GetLocation() ?? Location.None;
+
+            if (markers.Length > 1) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ResourceSetConflict,
+                    location,
+                    field.Name,
+                    markers[0].Name,
+                    markers[1].Name
+                );
+            }
+
+            if (field.ResourceKind == ResourceKind.None) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ResourceSetOnNonBinding,
+                    location,
+                    field.Name,
+                    markers[0].Name
+                );
+            }
+        }
+    }
+
     void ReportShaderIssues() {
         Dictionary<ShaderStage, MethodSymbol> stages = [];
 
         ReportPermutationIssues();
         ReportComposeIssues();
         ReportValueParameterIssues();
+        ReportResourceSetIssues();
 
         foreach (var member in members!) {
             // Textures, samplers and the like bind to the pipeline, so they only

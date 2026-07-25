@@ -83,15 +83,31 @@ public static class GlslTypes {
             IrVectorType vector => VectorName(vector),
             IrMatrixType matrix => MatrixName(matrix),
             IrStructType structType => structType.Name,
-            // GLSL has no separate texture and sampler objects outside Vulkan, so a
-            // texture becomes the combined sampler and the sampler itself vanishes.
+            // Vulkan GLSL has separate texture and sampler objects, so both survive as
+            // themselves and pair up at the sample site — the same shape as SPIR-V, and
+            // the reason the two backends agree about binding indices.
             IrTextureType texture => texture.Dimension switch {
-                IrTextureDimension.Texture2D => "sampler2D",
-                IrTextureDimension.Texture3D => "sampler3D",
-                _ => "samplerCube"
+                IrTextureDimension.Texture2D => "texture2D",
+                IrTextureDimension.Texture3D => "texture3D",
+                _ => "textureCube"
             },
+            IrSamplerType => "sampler",
             _ => null
         };
+
+    /// <summary>
+    ///     The combined sampler type a texture pairs into — what <c>sampler2D(t, s)</c>
+    ///     constructs at the sample site.
+    /// </summary>
+    public static string Combined(IrTextureType texture) {
+        ArgumentNullException.ThrowIfNull(texture);
+
+        return texture.Dimension switch {
+            IrTextureDimension.Texture2D => "sampler2D",
+            IrTextureDimension.Texture3D => "sampler3D",
+            _ => "samplerCube"
+        };
+    }
 
     /// <summary>
     ///     A declaration of <paramref name="name" /> at <paramref name="type" />.

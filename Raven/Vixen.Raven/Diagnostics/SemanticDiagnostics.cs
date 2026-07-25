@@ -469,4 +469,26 @@ public static class SemanticDiagnostics {
         Shader,
         DiagnosticSeverity.Error
     );
+
+    // --- Descriptor sets ---------------------------------------------------
+    //
+    // `[PerFrame] var time: float` places a binding in the engine's four-set convention
+    // (docs/plan/05). A field carries at most one marker, and only a field that becomes a
+    // binding has anything to place.
+
+    public static readonly DiagnosticDescriptor ResourceSetConflict = new(
+        "RVN2090",
+        "Conflicting descriptor-set markers",
+        "'{0}' is marked both '{1}' and '{2}'; a binding belongs to exactly one descriptor set",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    public static readonly DiagnosticDescriptor ResourceSetOnNonBinding = new(
+        "RVN2091",
+        "Descriptor-set marker on something that is not a binding",
+        "'{0}' is not a descriptor binding, so '{1}' has no effect",
+        Shader,
+        DiagnosticSeverity.Warning
+    );
 }

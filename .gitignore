@@ -29,6 +29,8 @@ Thumbs.db
 # Test / coverage
 TestResults/
 *.trx
+# Written beside a golden file when it does not match, for eyeballing the diff.
+*.actual
 coverage*.json
 coverage*.xml
 BenchmarkDotNet.Artifacts/

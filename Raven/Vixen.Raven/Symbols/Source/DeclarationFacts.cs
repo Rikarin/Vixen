@@ -18,6 +18,17 @@ public static class DeclarationFacts {
         ["ComputeShader"] = ShaderStage.Compute
     };
 
+    /// <summary>
+    ///     Attribute names that place a binding in a descriptor set. One name per set, so the
+    ///     four-set convention is spelled rather than numbered — see <see cref="ResourceSet" />.
+    /// </summary>
+    static readonly Dictionary<string, ResourceSet> SetAttributes = new(StringComparer.Ordinal) {
+        ["PerFrame"] = ResourceSet.PerFrame,
+        ["PerView"] = ResourceSet.PerView,
+        ["PerMaterial"] = ResourceSet.PerMaterial,
+        ["PerDraw"] = ResourceSet.PerDraw
+    };
+
     public static bool Has(SyntaxList<SyntaxToken> modifiers, SyntaxKind kind) {
         foreach (var modifier in modifiers) {
             if (modifier.Kind == kind) {
@@ -107,6 +118,41 @@ public static class DeclarationFacts {
 
         return false;
     }
+
+    /// <summary>
+    ///     Every descriptor-set marker on the declaration, in source order, with the name it
+    ///     was written as.
+    /// </summary>
+    /// <remarks>
+    ///     All of them rather than the first, because two markers on one field is a mistake
+    ///     worth naming both halves of. <see cref="GetResourceSet" /> is what callers that
+    ///     only need the answer should use.
+    /// </remarks>
+    public static IEnumerable<(string Name, ResourceSet Set)> GetResourceSets(
+        SyntaxList<AttributeListSyntax> attributeLists
+    ) {
+        foreach (var attribute in GetAttributes(attributeLists)) {
+            var name = GetAttributeName(attribute);
+            if (SetAttributes.TryGetValue(name, out var set)) {
+                yield return (name, set);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     The descriptor set the declaration is marked with, or null when it carries no
+    ///     marker and the default applies.
+    /// </summary>
+    public static ResourceSet? GetResourceSet(SyntaxList<AttributeListSyntax> attributeLists) {
+        foreach (var (_, set) in GetResourceSets(attributeLists)) {
+            return set;
+        }
+
+        return null;
+    }
+
+    /// <summary>True when the name is one of the recognised descriptor-set markers.</summary>
+    public static bool IsResourceSetAttributeName(string name) => SetAttributes.ContainsKey(name);
 
     /// <summary>
     ///     The pipeline semantic a declaration is tagged with —

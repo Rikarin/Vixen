@@ -97,38 +97,71 @@ public class GlslBackendTests {
             "func Pixel(uv: float2): float4"
         );
 
-        Assert.Contains("layout(std140, binding = 0) uniform SUniforms {", code);
+        Assert.Contains("layout(std140, set = 2, binding = 0) uniform SPerMaterialUniforms {", code);
         Assert.Contains("vec4 tint;", code);
-        Assert.Contains("layout(binding = 1) uniform sampler2D albedo;", code);
-
-        // GLSL has no standalone sampler object, so the sampler binding folds away.
-        Assert.DoesNotContain("uniform sampler linear", code);
-        Assert.Contains("texture(albedo,", code);
+        Assert.Contains("layout(set = 2, binding = 1) uniform texture2D albedo;", code);
     }
 
+    /// <summary>
+    ///     Vulkan GLSL keeps the texture and the sampler as two bindings and pairs them at the
+    ///     sample site, exactly as SPIR-V does. That is what makes the two backends agree about
+    ///     binding indices — a combined <c>sampler2D</c> would consume one binding where SPIR-V
+    ///     consumes two.
+    /// </summary>
     [Fact]
-    public void Dropping_the_sampler_binding_is_reported_rather_than_silent() {
-        Generate(
-            """
-            package A
-
-            shader S {
-                var albedo: Texture2D
-                var linear: Sampler
-
-                [PixelShader]
-                func Pixel(uv: float2): float4 {
-                    return albedo.Sample(linear, uv)
-                }
-            }
-
-            """,
-            out var diagnostics
+    public void A_texture_and_a_sampler_stay_two_bindings_and_combine_at_the_sample() {
+        var code = GeneratePixel(
+            "        return albedo.Sample(linear, uv)",
+            "    var albedo: Texture2D\n    var linear: Sampler\n",
+            "func Pixel(uv: float2): float4"
         );
 
-        var dropped = Assert.Single(diagnostics.Where(d => d.Id == "RVN4003").Distinct());
-        Assert.Contains("linear", dropped.GetMessage());
-        Assert.False(dropped.IsError);
+        Assert.Contains("layout(set = 2, binding = 0) uniform texture2D albedo;", code);
+        Assert.Contains("layout(set = 2, binding = 1) uniform sampler linear;", code);
+        Assert.Contains("texture(sampler2D(albedo, linear),", code);
+
+        // Nothing is dropped any more, so nothing is reported as dropped.
+        Assert.DoesNotContain("sampler2D albedo", code);
+    }
+
+    /// <summary>
+    ///     A fetch by integer coordinate has no sampler to pair with, which is what the
+    ///     extension is for — declared only in the units that need it, because a driver may
+    ///     reject an extension the shader does not use.
+    /// </summary>
+    [Fact]
+    public void A_texel_fetch_declares_the_samplerless_extension() {
+        var fetching = GeneratePixel(
+            "        return albedo.Load(int3(1, 2, 0))",
+            "    var albedo: Texture2D\n",
+            "func Pixel(): float4"
+        );
+
+        Assert.Contains("#extension GL_EXT_samplerless_texture_functions : require", fetching);
+        Assert.Contains("texelFetch(albedo,", fetching);
+
+        var sampling = GeneratePixel(
+            "        return albedo.Sample(linear, uv)",
+            "    var albedo: Texture2D\n    var linear: Sampler\n",
+            "func Pixel(uv: float2): float4"
+        );
+
+        Assert.DoesNotContain("GL_EXT_samplerless_texture_functions", sampling);
+    }
+
+    /// <summary>
+    ///     One <c>layout(set = …)</c> per marker, from the same plan the SPIR-V backend reads.
+    /// </summary>
+    [Fact]
+    public void Every_set_gets_its_own_block_named_for_the_set() {
+        var code = GeneratePixel(
+            "        return tint * time",
+            "    [PerFrame] var time: float\n    var tint: float4\n",
+            "func Pixel(): float4"
+        );
+
+        Assert.Contains("layout(std140, set = 0, binding = 0) uniform SPerFrameUniforms {", code);
+        Assert.Contains("layout(std140, set = 2, binding = 0) uniform SPerMaterialUniforms {", code);
     }
 
     [Fact]

@@ -11,10 +11,4 @@ public sealed class SpirvOptions {
     ///     what Vulkan 1.0 accepts, and nothing this backend emits needs a later one.
     /// </summary>
     public uint Version { get; init; } = 0x00010000;
-
-    /// <summary>
-    ///     The descriptor set every binding is decorated with. Raven has no syntax for
-    ///     sets yet, so everything lands in one.
-    /// </summary>
-    public uint DescriptorSet { get; init; }
 }

@@ -20,6 +20,9 @@ public sealed class SourceFieldSymbol : FieldSymbol {
 
     public VariableDeclarationSyntax Declaration => syntax.Declaration;
 
+    /// <summary>The declaration's attribute lists, for validation that reads them directly.</summary>
+    internal SyntaxList<AttributeListSyntax> AttributeLists => syntax.AttributeLists;
+
     public override string Name => Declaration.Identifier.ValueText;
     public override Symbol? ContainingSymbol { get; }
     public override SyntaxNode DeclaringSyntax => syntax;
@@ -147,6 +150,9 @@ public sealed class SourceFieldSymbol : FieldSymbol {
                 : ResourceKind.None;
         }
     }
+
+    public override ResourceSet ResourceSet =>
+        DeclarationFacts.GetResourceSet(syntax.AttributeLists) ?? base.ResourceSet;
 
     internal SourceFieldSymbol(NamedTypeSymbol containingType, FieldDeclarationSyntax syntax, Binder binder) {
         ContainingSymbol = containingType;

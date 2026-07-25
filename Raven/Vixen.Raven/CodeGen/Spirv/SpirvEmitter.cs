@@ -3,6 +3,7 @@
 
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
+using Vixen.Raven.Reflection;
 using Vixen.Raven.Symbols;
 using Vixen.Core.Syntax.Diagnostics;
 
@@ -74,32 +75,28 @@ sealed partial class SpirvEmitter {
     // --- Declarations ------------------------------------------------------
 
     void EmitBindings() {
-        var uniforms = shader.Bindings.Where(b => b.Kind == IrBindingKind.Uniform).ToArray();
-        var textures = shader.Bindings.Where(b => b.Kind == IrBindingKind.Texture).ToArray();
-        var samplers = shader.Bindings.Where(b => b.Kind == IrBindingKind.Sampler).ToArray();
+        // Which (set, binding) each resource gets is BindingPlan's decision, not this
+        // emitter's — the GLSL emitter and the reflection read the same plan, so the three
+        // cannot drift apart.
+        foreach (var planned in BindingPlan.Of(shader)) {
+            if (planned.Resource is { } resource) {
+                globals[resource.Variable] = new(
+                    DeclareOpaque(resource, planned),
+                    SpirvStorageClass.UniformConstant
+                );
+                continue;
+            }
 
-        // The IR numbers each kind of binding from zero, but Vulkan wants one
-        // descriptor-set namespace, so they are laid end to end: the block first,
-        // then textures, then samplers.
-        var binding = 0u;
-
-        if (uniforms.Length > 0) {
-            EmitUniformBlock(uniforms, binding++);
-        }
-
-        foreach (var texture in textures) {
-            globals[texture.Variable] = new(DeclareOpaque(texture, binding++), SpirvStorageClass.UniformConstant);
-        }
-
-        foreach (var sampler in samplers) {
-            globals[sampler.Variable] = new(DeclareOpaque(sampler, binding++), SpirvStorageClass.UniformConstant);
+            EmitUniformBlock(planned);
         }
 
         // Binding defaults are a property of the shader rather than of any one
         // stage, so SpirvBackend says that once however many modules come out.
     }
 
-    void EmitUniformBlock(IrBinding[] uniforms, uint binding) {
+    void EmitUniformBlock(PlannedBinding planned) {
+        var uniforms = planned.Members;
+
         foreach (var uniform in uniforms.Where(u => ContainsBool(u.Type))) {
             // A SPIR-V bool has no size and no memory layout, so it cannot live
             // anywhere the host can see. GLSL hides this by giving it four bytes
@@ -114,7 +111,7 @@ sealed partial class SpirvEmitter {
             [.. members.Select(m => SpirvOperand.Id(types.Type(m, true)))]
         );
 
-        module.AddName(structId, shader.Name + "Uniforms");
+        module.AddName(structId, planned.Name);
         module.Decorate(structId, SpirvDecoration.Block);
         types.DecorateLayout(structId, members);
 
@@ -128,16 +125,15 @@ sealed partial class SpirvEmitter {
             SpirvOperand.Enumerant(SpirvStorageClass.Uniform)
         );
 
-        module.AddName(variable, shader.Name.ToLowerInvariant() + "Uniforms");
-        module.Decorate(variable, SpirvDecoration.DescriptorSet, SpirvOperand.Literal(options.DescriptorSet));
-        module.Decorate(variable, SpirvDecoration.Binding, SpirvOperand.Literal(binding));
+        module.AddName(variable, char.ToLowerInvariant(planned.Name[0]) + planned.Name[1..]);
+        DecorateBinding(variable, planned);
 
         for (var i = 0; i < uniforms.Length; i++) {
             globals[uniforms[i].Variable] = new(variable, SpirvStorageClass.Uniform, i);
         }
     }
 
-    uint DeclareOpaque(IrBinding resource, uint binding) {
+    uint DeclareOpaque(IrBinding resource, PlannedBinding planned) {
         var variable = module.AddDeclaration(
             SpirvOp.Variable,
             types.Pointer(SpirvStorageClass.UniformConstant, types.Type(resource.Type)),
@@ -145,9 +141,18 @@ sealed partial class SpirvEmitter {
         );
 
         module.AddName(variable, resource.Name);
-        module.Decorate(variable, SpirvDecoration.DescriptorSet, SpirvOperand.Literal(options.DescriptorSet));
-        module.Decorate(variable, SpirvDecoration.Binding, SpirvOperand.Literal(binding));
+        DecorateBinding(variable, planned);
         return variable;
+    }
+
+    void DecorateBinding(uint variable, PlannedBinding planned) {
+        module.Decorate(
+            variable,
+            SpirvDecoration.DescriptorSet,
+            SpirvOperand.Literal((uint)(int)planned.Set)
+        );
+
+        module.Decorate(variable, SpirvDecoration.Binding, SpirvOperand.Literal((uint)planned.Binding));
     }
 
     void EmitStageInterface() {
