@@ -52,7 +52,6 @@
   <Folder Name="/Raven/">
     <File Path="Raven/Directory.Build.props" />
     <File Path="Raven/README.md" />
-    <File Path="Raven/docs/IMPLEMENTATION_PLAN.md" />
     <Project Path="Raven/Vixen.Raven/Vixen.Raven.csproj" />
     <Project Path="Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj" />
     <Project Path="Raven/Vixen.Raven.Cli/Vixen.Raven.Cli.csproj" />
