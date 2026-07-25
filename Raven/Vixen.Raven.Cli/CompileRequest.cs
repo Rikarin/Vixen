@@ -37,6 +37,12 @@ public sealed record CompileRequest {
     /// <summary>For a binary target, also write the readable listing beside the bytes.</summary>
     public bool EmitListing { get; init; }
 
+    /// <summary>
+    ///     Print the target features the module requires, so a host can see what it will be
+    ///     asked to support.
+    /// </summary>
+    public bool ShowCapabilities { get; init; }
+
     /// <summary>Name every file as it is written.</summary>
     public bool Verbose { get; init; }
 

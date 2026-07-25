@@ -1404,11 +1404,25 @@
             <Kind Name="InKeyword"/>
             <Kind Name="OutKeyword"/>
         </Field>
+        <Field Name="ValKeyword" Type="SyntaxToken" Optional="true">
+            <PropertyComment>
+                <summary>
+                    Present on a value parameter — <c>shader Blur&lt;val TapCount: int&gt;</c> —
+                    which parameterises the shader by a compile-time constant rather than by a type.
+                </summary>
+            </PropertyComment>
+            <Kind Name="ValKeyword"/>
+        </Field>
         <Field Name="Identifier" Type="SyntaxToken">
             <PropertyComment>
                 <summary>Gets the identifier.</summary>
             </PropertyComment>
             <Kind Name="IdentifierToken"/>
+        </Field>
+        <Field Name="Type" Type="TypeSyntax" Optional="true">
+            <PropertyComment>
+                <summary>The value parameter's type. Null for an ordinary type parameter.</summary>
+            </PropertyComment>
         </Field>
     </Node>
     <Node Name="BaseListSyntax" Base="RavenSyntaxNode">

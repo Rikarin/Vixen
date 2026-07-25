@@ -59,12 +59,12 @@ stood up yet ([12](12-build-ci-and-testing.md)) — so this is a real gap, not a
 | | Feature | Why the engine needs it | |
 |---|---|---|---|
 | 🔴 | **`compose` — shader-typed members resolved at compile time.** `compose val diffuse: IDiffuseModel` inside a shader, bound to a concrete `shader` per material | This is *the* load-bearing feature. It lets `ForwardPlus.rvn` be written once against `IMaterialSurface` and instantiated per material. Without it the material system falls back to string-templating shader source — where Stride was fifteen years ago | ✅ |
-| 🔴 | **Permutation constants** — `[Permutation] val UseSkinning: bool`, plus `#if`-style conditional compilation driven by `defines` passed to `Emit` | The whole effect/permutation system ([06](06-rendering-pipeline.md)) is built on it | ✅ constants; `#if` not done |
+| 🔴 | **Permutation constants** — `[Permutation] val UseSkinning: bool`, plus `#if`-style conditional compilation driven by `defines` passed to `Emit` | The whole effect/permutation system ([06](06-rendering-pipeline.md)) is built on it | ✅ (`#if` dropped by decision) |
 | 🔴 | **`UsedPermutationKeys`** — the semantic phase must report *which* defines actually affected the output | Without it, 20 independent flags yield 2²⁰ cache entries where a handful are distinct. This is why Stride's shader cache is tractable and it cannot be added later | ✅ |
 | 🟡 | `protocol` (interface) declarations usable as `compose` targets — already in the language per `Example2.rvn` | Material feature contracts | ✅ |
 | 🟡 | Shader inheritance `shader X : Base, Other` — already in the README | Feature composition | ✅ resolves, with cycle detection |
-| 🟡 | Compile-time generics: `shader Blur<val TapCount: int>` | Parameterised post-FX without duplication | |
-| ⚪ | Explicit `RequiredCapabilities` reporting (e.g. `"DescriptorIndexing"`, `"Float64"`) | RHI capability gating ([05](05-graphics-rhi.md)) | |
+| 🟡 | Compile-time generics: `shader Blur<val TapCount: int>` | Parameterised post-FX without duplication | ✅ one instantiation per compilation |
+| ⚪ | Explicit `RequiredCapabilities` reporting (e.g. `"DescriptorIndexing"`, `"Float64"`) | RHI capability gating ([05](05-graphics-rhi.md)) | ✅ |
 
 **Permutation constants, as built.** A `[Permutation]` field is a constant whose value arrives
 from outside the source. `PermutationValues` is supplied at `Compilation.Create`; a key with no
@@ -117,10 +117,43 @@ Two things this uncovered, both fixed here:
   membership was never the right filter. The SPIR-V emitter walks the call graph and was already
   correct.
 
-**`#if` is not implemented.** The lexer has a `DIRECTIVE_MODE`, but every directive token is routed
-to a non-default channel and silently dropped, and `DIRECTIVE_IF`/`DIRECTIVE_ELSE` are commented
-out. Typed permutation constants cover the same ground for shader code and cover it better, so the
-open question is whether textual `#if` is wanted at all rather than when to build it.
+**Value type parameters, as built.** `shader Blur<val TapCount: int>` parameterises a shader by a
+compile-time constant. The parameter is modelled as a constant *member*, not a
+`TypeParameterSymbol` — it is not a type, the shader's arity is unchanged, and every existing
+generic path is untouched. Because it reports `IsConst` with a known value, folding and
+dead-branch elimination handle it through the same route a `[Permutation]` field takes; values
+arrive on the same channel (`Blur.TapCount=8` or `TapCount=8`) and appear in
+`UsedPermutationKeys`, since they change codegen and so belong in the cache key. The difference
+from a permutation field is that there is **no default**: a value is part of the signature, so
+compiling without one is `RVN2082` rather than a fallback.
+
+**Scope boundary, deliberate.** One instantiation per compilation. `shader Blur8 : Blur<8>` —
+two instantiations side by side in one module — is *not* supported: value arguments would have to
+be threaded through `TypeMap`, `ConstructedNamedTypeSymbol` and `SubstitutedSymbols`, and the
+lowerer would have to enumerate constructed instantiations rather than declared types. That is a
+large change to the generic type subsystem for a case the engine does not have — it compiles one
+effect variant at a time. Revisit only if a real consumer needs two variants in one module.
+
+**`RequiredCapabilities`.** `IrCapabilities.Of(module)` and `.Of(shader)` report the target
+features needed — `Float64`, `Texture3D`, `TextureCube`, `Geometry`, `Compute` — as sorted
+strings, with `raven compile --capabilities` printing them per shader. Names rather than an enum,
+so a host does not need recompiling against a new Raven to understand a capability it has not seen.
+
+Two decisions inside it:
+
+- **Collected from the lowered IR, not from the symbols.** By then a branch behind a false
+  permutation is gone and an unbound `compose` implementation was never pulled in, so a variant
+  that does not reach the `double` maths does not require `Float64`. There is a test for exactly
+  that, and it is the whole reason for the choice: asking the host for a feature this build has no
+  use for would narrow the hardware a game runs on for nothing.
+- **Reported per shader as well as per module,** because an engine gates a pipeline; what one
+  shader needs says nothing about another in the same module.
+
+**`#if` will not be implemented** — decided, not deferred. Typed permutation constants cover the
+same ground and cover it better: the switched-off branch stays type-checked, so a variant nobody is
+currently building cannot rot. The lexer's `DIRECTIVE_MODE` is vestigial (every directive token is
+routed to a dropped channel, and `DIRECTIVE_IF`/`DIRECTIVE_ELSE` are commented out); it can be
+deleted whenever the grammar is next touched. The row above is complete as it stands.
 
 ### C. Emitter requirements — GLSL and SPIR-V together
 

@@ -205,8 +205,11 @@ type_parameter_list
     : '<' type_parameter (',' type_parameter)* '>'
     ;
 
+// A `val` parameter parameterises by a compile-time constant rather than by a type:
+// `shader Blur<val TapCount: int>`.
 type_parameter
     : (attribute_list NL*)* variance=(IN | OUT)? identifier_token
+    | (attribute_list NL*)* VAL identifier_token ':' type
     ;
 
 type_parameter_constraint_clause

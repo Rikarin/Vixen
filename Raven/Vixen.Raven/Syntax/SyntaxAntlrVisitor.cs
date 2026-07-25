@@ -1004,7 +1004,14 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
             : null;
         var identifier = Visit(context.identifier_token()) as SyntaxToken;
 
-        return SyntaxFactory.TypeParameter(new(attributes), variance, identifier!);
+        // TerminalOrNull, not TerminalOf: `val` is only present on a value parameter.
+        var val = TerminalOrNull(context, RavenLexer.VAL) is { } valToken
+            ? Token(valToken, SyntaxKind.ValKeyword)
+            : null;
+
+        var type = context.type() is { } typeContext ? Visit(typeContext) as TypeSyntax : null;
+
+        return SyntaxFactory.TypeParameter(new(attributes), variance, val, identifier!, type);
     }
 
     public override SyntaxNode VisitType_parameter_constraint_clause(

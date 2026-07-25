@@ -423,4 +423,50 @@ public static class SemanticDiagnostics {
         Shader,
         DiagnosticSeverity.Error
     );
+
+    // --- Value type parameters --------------------------------------------
+    //
+    // `shader Blur<val TapCount: int>` parameterises a shader by a compile-time constant.
+    // Unlike a [Permutation] field it has no default: the value is part of the signature,
+    // so compiling without one is an error rather than a fallback.
+
+    public static readonly DiagnosticDescriptor ValueParameterMustBeOnShader = new(
+        "RVN2080",
+        "Value parameter outside a shader",
+        "'{0}' is a value parameter, which only a shader may declare",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    public static readonly DiagnosticDescriptor ValueParameterTypeNotSupported = new(
+        "RVN2081",
+        "Unsupported value parameter type",
+        "Value parameter '{0}' has type '{1}'; a value parameter must be bool, int or uint",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    public static readonly DiagnosticDescriptor ValueParameterNotSupplied = new(
+        "RVN2082",
+        "Value parameter without a value",
+        "Value parameter '{0}' of '{1}' has no value; supply one as '{1}.{0}=…' or '{0}=…'",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    public static readonly DiagnosticDescriptor ValueParameterTypeMismatch = new(
+        "RVN2083",
+        "Value parameter has the wrong type",
+        "Value parameter '{0}' was supplied a value of type '{1}' but is declared '{2}'",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    public static readonly DiagnosticDescriptor ValueParameterCannotBeAssigned = new(
+        "RVN2084",
+        "Assignment to a value parameter",
+        "Value parameter '{0}' cannot be assigned; its value is fixed when the shader is compiled",
+        Shader,
+        DiagnosticSeverity.Error
+    );
 }

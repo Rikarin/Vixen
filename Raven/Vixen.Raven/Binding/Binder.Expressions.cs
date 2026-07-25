@@ -483,6 +483,10 @@ public abstract partial class Binder {
                 Report(SemanticDiagnostics.ComposeCannotBeAssigned, syntax, slot.Field.Name);
                 break;
 
+            case BoundFieldExpression { Field: Symbols.Source.SourceValueParameterSymbol } parameter:
+                Report(SemanticDiagnostics.ValueParameterCannotBeAssigned, syntax, parameter.Field.Name);
+                break;
+
             case BoundFieldExpression { Field.IsReadOnly: true } field
                 when !IsInsideInitializerOf(field.Field):
                 Report(SemanticDiagnostics.NotAssignable, syntax, field.Field.Name);

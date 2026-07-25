@@ -99,6 +99,13 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
             if (Declaration.TypeParameterList is { } list) {
                 var ordinal = 0;
                 foreach (var parameter in list.Parameters) {
+                    // A `val` parameter is a constant, not a type: it becomes a member (see
+                    // BuildMembers) and must not count towards arity, or `Blur<val N: int>`
+                    // would look like it takes a type argument.
+                    if (parameter.ValKeyword is not null) {
+                        continue;
+                    }
+
                     parameters.Add(new(this, parameter.Identifier.ValueText, ordinal++, parameter));
                 }
             }
@@ -196,6 +203,17 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
 
     Symbol[] BuildMembers() {
         List<Symbol> result = [];
+
+        // `val` type parameters first: they are declared in the signature, so they are in
+        // scope for every member below.
+        if (Declaration.TypeParameterList is { } typeParameterList) {
+            var ordinal = 0;
+            foreach (var parameter in typeParameterList.Parameters) {
+                if (parameter.ValKeyword is not null) {
+                    result.Add(new SourceValueParameterSymbol(this, parameter, ordinal++, TypeBinder));
+                }
+            }
+        }
 
         foreach (var member in Declaration.Members) {
             switch (member) {
@@ -439,11 +457,76 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
         return false;
     }
 
+    /// <summary>
+    ///     Checks that every <c>val</c> type parameter can be a compile-time constant: declared
+    ///     on a shader, of a type a value can carry, and actually supplied.
+    /// </summary>
+    void ReportValueParameterIssues() {
+        foreach (var member in members!) {
+            if (member is not SourceValueParameterSymbol parameter) {
+                continue;
+            }
+
+            var location = parameter.DeclaringSyntax?.GetLocation() ?? Location.None;
+
+            if (TypeKind != TypeKind.Shader) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ValueParameterMustBeOnShader,
+                    location,
+                    parameter.Name
+                );
+                continue;
+            }
+
+            // Same restriction as a permutation key, for the same reason: these are cache
+            // keys, and a float makes a poor one.
+            var special = (parameter.Type as PrimitiveTypeSymbol)?.SpecialType;
+            if (special is not (SpecialType.Bool or SpecialType.Int or SpecialType.UInt)) {
+                if (!parameter.Type.IsErrorType) {
+                    outerBinder.Diagnostics.Add(
+                        SemanticDiagnostics.ValueParameterTypeNotSupported,
+                        location,
+                        parameter.Name,
+                        parameter.Type.ToDisplayString()
+                    );
+                }
+
+                continue;
+            }
+
+            var values = outerBinder.Compilation.PermutationValues;
+            var supplied = values.GetValueOrDefault($"{Name}.{parameter.Name}")
+                ?? values.GetValueOrDefault(parameter.Name);
+
+            if (supplied is null) {
+                // No default to fall back on: a value parameter is part of the signature.
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ValueParameterNotSupplied,
+                    location,
+                    parameter.Name,
+                    Name
+                );
+                continue;
+            }
+
+            if (!parameter.MatchesDeclaredType(supplied)) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ValueParameterTypeMismatch,
+                    location,
+                    parameter.Name,
+                    supplied.GetType() == typeof(uint) ? "uint" : supplied.GetType() == typeof(int) ? "int" : "bool",
+                    parameter.Type.ToDisplayString()
+                );
+            }
+        }
+    }
+
     void ReportShaderIssues() {
         Dictionary<ShaderStage, MethodSymbol> stages = [];
 
         ReportPermutationIssues();
         ReportComposeIssues();
+        ReportValueParameterIssues();
 
         foreach (var member in members!) {
             // Textures, samplers and the like bind to the pipeline, so they only

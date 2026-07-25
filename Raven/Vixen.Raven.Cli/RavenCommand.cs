@@ -54,6 +54,10 @@ public static class RavenCommand {
             Description = "For a binary target, also write the readable listing (.spvasm) beside the bytes."
         };
 
+        var showCapabilities = new Option<bool>("--capabilities") {
+            Description = "Print the target features each shader requires (Float64, Texture3D, …)."
+        };
+
         var verbose = new Option<bool>("--verbose", "-v") { Description = "Name every file as it is written." };
 
         var noColor = new Option<bool>("--no-color") { Description = "Never colour the diagnostics." };
@@ -66,6 +70,7 @@ public static class RavenCommand {
             compose,
             emitIr,
             emitListing,
+            showCapabilities,
             verbose,
             noColor
         };
@@ -79,6 +84,7 @@ public static class RavenCommand {
                     Composes = parseResult.GetValue(compose) ?? [],
                     EmitIr = parseResult.GetValue(emitIr),
                     EmitListing = parseResult.GetValue(emitListing),
+                    ShowCapabilities = parseResult.GetValue(showCapabilities),
                     Verbose = parseResult.GetValue(verbose),
                     UseColor = !parseResult.GetValue(noColor) && ColorIsWelcome()
                 },

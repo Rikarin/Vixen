@@ -83,6 +83,18 @@ public static class CompileDriver {
             return ExitCode.CompilationFailed;
         }
 
+        if (request.ShowCapabilities) {
+            // Per shader, because a host gates a pipeline, not a compilation.
+            foreach (var shader in module.Shaders) {
+                var required = IrCapabilities.Of(shader);
+                output.WriteLine(
+                    required.Count == 0
+                        ? $"{shader.Name}: no capabilities required"
+                        : $"{shader.Name}: {string.Join(", ", required)}"
+                );
+            }
+        }
+
         var generated = backend.Generate(module, bag);
 
         if (ReportNew(bag, ref seen, error, formatting)) {
