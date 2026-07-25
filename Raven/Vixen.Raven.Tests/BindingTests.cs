@@ -109,7 +109,7 @@ public class BindingTests {
             """
             package A
 
-            class Base {
+            struct Base {
                 val count: int
             }
 

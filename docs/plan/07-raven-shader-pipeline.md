@@ -579,6 +579,93 @@ Not gaps — decisions that make the code deliberately unlike Roslyn, recorded s
   stores, which is what both target families want to consume. A mem2reg pass can promote to registers
   later if a backend prefers them.
 
+### J. Language-surface audit: does the syntax fit a shader language?
+
+Asked directly, and answered by probing every construct through the real pipeline rather than by
+reading the grammar. **The core fits well. Roughly a third of the syntax is inherited C# that does
+not, and five constructs were compiling to the wrong thing.**
+
+#### What fits
+
+`shader` plus stage attributes and `[Semantic]`; `compose`/`protocol` for static zero-dispatch mixins;
+`[Permutation]` and `val` type parameters for compile-time specialisation; the `[PerFrame]`…`[PerDraw]`
+markers; structs, functions, `for..in`/`while`/`repeat`, vectors, matrices, swizzles, intrinsics.
+Properties with `get`/`set`/`willSet`/`didSet` compile end to end, which was worth checking rather than
+assuming. Nothing important is *missing* except the items already in § I.
+
+The first pruning pass — lambdas, nullables, anonymous objects, `char`/`long`/`object`/`string` —
+established the right rule: **if it can never work on a GPU, remove it rather than diagnose it.** The
+finding here is that it stopped too early.
+
+#### The measured gap
+
+| Construct | Parses | Binds | Lowers | Emits |
+|---|---|---|---|---|
+| property, `willSet`/`didSet`, protocol dispatch | ✓ | ✓ | ✓ | ✓ |
+| collection expression | ✓ | ✓ | ✓ | ✗ `RVN4001` |
+| tuple, range as a value | ✓ | ✓ | ✗ `RVN3001` | |
+| `switch` statement and expression, `is`, patterns, local function, indexer, destructor | ✓ | ✓ | ✗ `RVN3002` | |
+| operator overload | ✓ | ✗ `RVN2022` | | |
+| conversion operator | ✓ | ✗ `RVN2020` | | |
+| generic struct `Box<float>` | ✓ | ✓ | ✗ `RVN3001`/`3003` | |
+
+#### Tier A — compiled to the wrong thing ✅ **removed**
+
+Not "unimplemented". Each of these produced a **valid module** that meant something the target cannot
+do, with no diagnostic:
+
+| Written | What it did |
+|---|---|
+| `sizeof(float4)` | bound to a literal `null` typed `int` → evaluated to **0**, never a size |
+| `ref x` | binder returned the operand; `ref` silently discarded |
+| `f(out x)`, `f(in x)` | modifier parsed and ignored; the IR has no by-reference parameters |
+| `using (val x = 1f) { }` | kept the block, **discarded the declaration** — `x` was not even in scope |
+| `class Widget` | `TypeKind.Struct or TypeKind.Class` everywhere: value semantics under a name promising references |
+
+A rejection is recoverable; a wrong answer is not. All five are gone — grammar, tokens, syntax nodes,
+kinds, translator, binder and `TypeKind` — and `RemovedConstructsTests` pins each with the reason. Two
+of them (`sizeof`, `ref`) now read as ordinary undefined names, exactly the treatment `null` got in the
+first pass. `TypeKind.Nullable` went with them: nothing had referenced it since nullables were removed.
+
+Cost: 113 → 109 syntax nodes, 9,518 → 9,124 generated lines, and `Example1.rvn` still round-trips
+byte-for-byte.
+
+#### Tier B — parses and binds, cannot compile
+
+Recommended disposition, not yet acted on. **Finish** `switch` (both targets have it), operator
+overloads (`Spectrum + Spectrum` is a real shader idiom), and tuples — the last because Raven has no
+`out` parameters, so a tuple is the *only* way to return two values, and lowering it to a synthesized
+struct is straightforward. **Drop** pattern matching and `is` (C# flow-typing), local functions (a
+private method is the same thing), indexers, conversion operators, and ranges as first-class values.
+
+#### Tier C — C# shapes with no shader meaning
+
+`ExpressionColonSyntax` is the clearest case: **zero grammar rules, zero translator references**, yet a
+green node, a red node, a visitor entry, a rewriter entry and a factory are generated for it. It exists
+only as `NameColonSyntax`'s sibling under an abstract base copied from Roslyn, where it serves property
+patterns. Also: `Foo::Bar` alias-qualified names (the language has no alias declaration, so they can
+never resolve), `?.` (nullables are gone — there is no null to guard), explicit interface specifiers,
+destructors, attribute target specifiers, `record` with primary constructors.
+
+#### Two things that show this is not hypothetical
+
+- **`Library/Example1.rvn`** — the language showcase and the centrepiece of the round-trip corpus —
+  parses and round-trips but **does not bind**: 5 semantic errors. It demonstrates syntax with no
+  semantics behind it.
+- **`Library/Example2.rvn`** — tracked in the shipped library folder — **does not parse**: 13 syntax
+  errors.
+
+So the two files that define "what Raven looks like" are a syntax fixture and a broken file. Both should
+be fixed or retired as part of Tier B/C, and § F's real library should replace them as the definition.
+
+#### Why the remaining tiers are cheapest now
+
+Each node costs a `Syntax.xml` entry, five pieces of generated code, a translator method and a permanent
+round-trip obligation — and [doc 18](18-raven-parser-migration.md) prices the hand-written parser
+migration **per production**. Cutting before that migration is a direct discount on it. Nothing outside
+`Library/` is written in Raven yet, so there is no user code to break; this is the cheapest the pruning
+will ever be.
+
 ---
 
 ## Raven's codegen: ✅ **GLSL and SPIR-V land together** *(supersedes Q10)*

@@ -72,17 +72,6 @@ public sealed class TypeDeclarationInfo {
                 Materialize(s.Members),
                 TypeKind.Struct
             ),
-            ClassDeclarationSyntax s => new(
-                s,
-                s.AttributeLists,
-                s.Modifiers,
-                s.Identifier,
-                s.TypeParameterList,
-                s.BaseList,
-                s.ConstraintClauses,
-                Materialize(s.Members),
-                TypeKind.Class
-            ),
             ProtocolDeclarationSyntax s => new(
                 s,
                 s.AttributeLists,

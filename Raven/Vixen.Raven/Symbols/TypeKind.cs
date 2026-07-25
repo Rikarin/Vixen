@@ -20,12 +20,10 @@ public enum TypeKind {
     /// <summary>A GPU resource: texture, sampler or buffer.</summary>
     Resource,
     Struct,
-    Class,
     Shader,
     Protocol,
     Enum,
     Array,
-    Nullable,
     Tuple,
     TypeParameter
 }

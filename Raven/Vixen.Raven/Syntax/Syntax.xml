@@ -380,20 +380,6 @@
             <summary>Creates a MemberBindingExpressionSyntax node.</summary>
         </FactoryComment>
     </Node>
-    <Node Name="SizeOfExpressionSyntax" Base="ExpressionSyntax">
-        <Kind Name="SizeOfExpression"/>
-        <Field Name="Type" Type="TypeSyntax">
-            <PropertyComment>
-                <summary>Argument of the primary function.</summary>
-            </PropertyComment>
-        </Field>
-        <TypeComment>
-            <summary>Class which represents the syntax node for SizeOf expression.</summary>
-        </TypeComment>
-        <FactoryComment>
-            <summary>Creates a SizeOfExpressionSyntax node.</summary>
-        </FactoryComment>
-    </Node>
     <Node Name="DefaultExpressionSyntax" Base="ExpressionSyntax">
         <Kind Name="DefaultExpression"/>
         <Field Name="Type" Type="TypeSyntax">
@@ -1035,14 +1021,6 @@
                 <summary>NameColonSyntax node representing the optional name arguments.</summary>
             </PropertyComment>
         </Field>
-        <Field Name="RefKindKeyword" Type="SyntaxToken" Optional="true">
-            <Kind Name="RefKeyword"/>
-            <Kind Name="OutKeyword"/>
-            <Kind Name="InKeyword"/>
-            <PropertyComment>
-                <summary>SyntaxToken representing the optional ref or out keyword.</summary>
-            </PropertyComment>
-        </Field>
         <Field Name="Expression" Type="ExpressionSyntax">
             <PropertyComment>
                 <summary>ExpressionSyntax node representing the argument.</summary>
@@ -1211,9 +1189,6 @@
     <Node Name="LocalDeclarationStatementSyntax" Base="StatementSyntax">
         <Kind Name="LocalDeclarationStatement"/>
         <Field Name="AttributeLists" Type="SyntaxList&lt;AttributeListSyntax&gt;" Override="true"/>
-        <Field Name="UsingKeyword" Type="SyntaxToken" Optional="true">
-            <Kind Name="UsingKeyword"/>
-        </Field>
         <Field Name="Modifiers" Type="SyntaxList&lt;SyntaxToken&gt;">
             <PropertyComment>
                 <summary>Gets the modifier list.</summary>
@@ -1247,26 +1222,6 @@
             <Kind Name="DotDotToken"/>
         </Field>
         <Field Name="Right" Type="ExpressionSyntax"/>
-    </Node>
-    <Node Name="RefExpressionSyntax" Base="ExpressionSyntax">
-        <TypeComment>
-            <summary>Ref expression: <c>ref expr</c>.
-            </summary>
-        </TypeComment>
-        <Kind Name="RefExpression"/>
-        <Field Name="RefKeyword" Type="SyntaxToken">
-            <Kind Name="RefKeyword"/>
-        </Field>
-        <Field Name="Expression" Type="ExpressionSyntax"/>
-    </Node>
-    <Node Name="UsingStatementSyntax" Base="StatementSyntax">
-        <Kind Name="UsingStatement"/>
-        <Field Name="AttributeLists" Type="SyntaxList&lt;AttributeListSyntax&gt;" Override="true"/>
-        <Choice>
-            <Field Name="Declaration" Type="VariableDeclarationSyntax"/>
-            <Field Name="Expression" Type="ExpressionSyntax"/>
-        </Choice>
-        <Field Name="Statement" Type="StatementSyntax"/>
     </Node>
     <Node Name="SwitchStatementSyntax" Base="StatementSyntax">
         <Kind Name="SwitchStatement"/>
@@ -1526,31 +1481,6 @@
         <Field Name="Modifiers" Type="SyntaxList&lt;SyntaxToken&gt;" Override="true"/>
         <Field Name="Keyword" Type="SyntaxToken">
             <Kind Name="StructKeyword"/>
-        </Field>
-        <Field Name="Identifier" Type="SyntaxToken">
-            <Kind Name="IdentifierToken"/>
-        </Field>
-        <Field Name="TypeParameterList" Type="TypeParameterListSyntax" Optional="true"/>
-        <Field Name="ParameterList" Type="ParameterListSyntax" Optional="true"/>
-        <Field Name="BaseList" Type="BaseListSyntax" Optional="true"/>
-        <Field Name="ConstraintClauses" Type="SyntaxList&lt;TypeParameterConstraintClauseSyntax&gt;"/>
-        <Field Name="OpenBraceToken" Type="SyntaxToken" Optional="true">
-            <Kind Name="OpenBraceToken"/>
-        </Field>
-        <Field Name="Members" Type="SyntaxList&lt;MemberDeclarationSyntax&gt;"/>
-        <Field Name="CloseBraceToken" Type="SyntaxToken" Optional="true">
-            <Kind Name="CloseBraceToken"/>
-        </Field>
-    </Node>
-    <Node Name="ClassDeclarationSyntax" Base="MemberDeclarationSyntax">
-        <TypeComment>
-            <summary>Class type declaration.</summary>
-        </TypeComment>
-        <Kind Name="ClassDeclaration"/>
-        <Field Name="AttributeLists" Type="SyntaxList&lt;AttributeListSyntax&gt;" Override="true"/>
-        <Field Name="Modifiers" Type="SyntaxList&lt;SyntaxToken&gt;" Override="true"/>
-        <Field Name="Keyword" Type="SyntaxToken">
-            <Kind Name="ClassKeyword"/>
         </Field>
         <Field Name="Identifier" Type="SyntaxToken">
             <Kind Name="IdentifierToken"/>

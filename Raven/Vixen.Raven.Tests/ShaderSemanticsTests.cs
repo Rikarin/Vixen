@@ -93,7 +93,7 @@ public class ShaderSemanticsTests {
             """
             package A
 
-            class Helpers {
+            struct Helpers {
                 [VertexShader]
                 func Vertex(): float4 {
                     return float4(0, 0, 0, 1)

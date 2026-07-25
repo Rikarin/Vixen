@@ -45,8 +45,6 @@ public class SymbolTests {
 
             struct T { }
 
-            class C { }
-
             protocol P { }
 
             enum E {
@@ -59,7 +57,6 @@ public class SymbolTests {
 
         Assert.Equal(TypeKind.Shader, FindType(compilation, "S").TypeKind);
         Assert.Equal(TypeKind.Struct, FindType(compilation, "T").TypeKind);
-        Assert.Equal(TypeKind.Class, FindType(compilation, "C").TypeKind);
         Assert.Equal(TypeKind.Protocol, FindType(compilation, "P").TypeKind);
         Assert.Equal(TypeKind.Enum, FindType(compilation, "E").TypeKind);
     }
@@ -72,9 +69,9 @@ public class SymbolTests {
 
             protocol Drawable { }
 
-            class Base { }
+            struct Base { }
 
-            class Derived : Base, Drawable { }
+            struct Derived : Base, Drawable { }
 
             """
         );
@@ -120,11 +117,11 @@ public class SymbolTests {
             """
             package A
 
-            class Base {
+            struct Base {
                 val count: int
             }
 
-            class Derived : Base { }
+            struct Derived : Base { }
 
             """
         );
@@ -214,14 +211,14 @@ public class SymbolTests {
             """
             package A
 
-            class C {
+            struct R {
                 init(value: int) { }
             }
 
             """
         );
 
-        var constructor = Assert.Single(FindType(compilation, "C").Constructors);
+        var constructor = Assert.Single(FindType(compilation, "R").Constructors);
         Assert.Equal(MethodKind.Constructor, constructor.MethodKind);
         Assert.True(constructor.ReturnType.IsVoid);
         Assert.Equal("int", Assert.Single(constructor.Parameters).Type.ToDisplayString());
@@ -309,7 +306,7 @@ public class SymbolTests {
             """
             package A
 
-            class Box<T> {
+            struct Box<T> {
                 val value: T
 
                 func Get(): T {
@@ -317,7 +314,7 @@ public class SymbolTests {
                 }
             }
 
-            class Holder {
+            struct Holder {
                 val boxed: Box<int>
             }
 
@@ -349,7 +346,7 @@ public class SymbolTests {
                 func Draw() { }
             }
 
-            class Renderer<T> where T : Drawable {
+            struct Renderer<T> where T : Drawable {
                 val item: T
             }
 

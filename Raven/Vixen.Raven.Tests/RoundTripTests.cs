@@ -67,12 +67,12 @@ public class RoundTripTests {
     [InlineData("package A.B\n\nshader Foo {\n    var prop {\n        get => test\n        set => test\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    var count: int => a\n}\n")]
     // Explicit interface implementations (`var P.Q`, `int P.self[…]`)
-    [InlineData("package A.B\n\nclass Foo {\n    var P.Q: int => a\n}\n")]
-    [InlineData("package A.B\n\nclass Foo {\n    var P.Q: int\n}\n")]
-    [InlineData("package A.B\n\nclass Foo {\n    var Outer.Inner.Q: int => a\n}\n")]
-    [InlineData("package A.B\n\nclass Foo {\n    var P.Q {\n        get => test\n    }\n}\n")]
-    [InlineData("package A.B\n\nclass Foo {\n    int P.self[i: int] => a\n}\n")]
-    [InlineData("package A.B\n\nclass Foo {\n    func P.Q() {\n    }\n}\n")]
+    [InlineData("package A.B\n\nstruct Foo {\n    var P.Q: int => a\n}\n")]
+    [InlineData("package A.B\n\nstruct Foo {\n    var P.Q: int\n}\n")]
+    [InlineData("package A.B\n\nstruct Foo {\n    var Outer.Inner.Q: int => a\n}\n")]
+    [InlineData("package A.B\n\nstruct Foo {\n    var P.Q {\n        get => test\n    }\n}\n")]
+    [InlineData("package A.B\n\nstruct Foo {\n    int P.self[i: int] => a\n}\n")]
+    [InlineData("package A.B\n\nstruct Foo {\n    func P.Q() {\n    }\n}\n")]
     // Conditional.
     // NOTE: `a[i]` parses as an array type (`type array_rank_specifier`), shadowing
     // element access — a grammar ambiguity like invocation; visitor is wired.
@@ -132,7 +132,7 @@ public class RoundTripTests {
     [InlineData("package A.B\n\nshader Foo {\n    explicit operator float(v: Vec) {\n    }\n}\n")]
     // Struct / class / record declarations
     [InlineData("package A.B\n\nstruct FooBar {\n\n}\n")]
-    [InlineData("package A.B\n\nclass Widget {\n\n}\n")]
+    [InlineData("package A.B\n\nstruct Widget {\n\n}\n")]
     [InlineData("package A.B\n\nreadonly record struct Messenger(userId: int, message: string)\n")]
     // Array types (empty / jagged rank)
     [InlineData("package A.B\n\nshader Foo {\n    var xs: int[]\n}\n")]

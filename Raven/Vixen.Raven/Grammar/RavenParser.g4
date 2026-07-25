@@ -174,7 +174,6 @@ type_declaration
     : shader_declaration
     | protocol_declaration
     | struct_declaration
-    | class_declaration
     ;
 
 shader_declaration
@@ -183,10 +182,6 @@ shader_declaration
 
 struct_declaration
      : (attribute_list NL*)* modifier* STRUCT identifier_token type_parameter_list? parameter_list? base_list? type_parameter_constraint_clause* ('{' NL* member_declaration* NL* '}')? NL
-     ;
-
-class_declaration
-     : (attribute_list NL*)* modifier* CLASS identifier_token type_parameter_list? parameter_list? base_list? type_parameter_constraint_clause* ('{' NL* member_declaration* NL* '}')? NL
      ;
 
 protocol_declaration
@@ -247,7 +242,7 @@ argument_list
     ;
 
 argument
-    : name_colon? kind=(REF | OUT | IN)? expression
+    : name_colon? expression
     ;
 
 bracketed_argument_list
@@ -275,7 +270,6 @@ statement
     | local_function_statement
     | return_statement
     | switch_statement
-    | using_statement
     | while_statement
     ;
 
@@ -320,15 +314,11 @@ local_function_statement
     ;
 
 local_declaration_statement
-    : (attribute_list NL*)* USING? modifier* variable_declaration NL
+    : (attribute_list NL*)* modifier* variable_declaration NL
     ;
 
 while_statement
     : (attribute_list NL*)* WHILE '(' expression ')' statement
-    ;
-
-using_statement
-    : (attribute_list NL*)* USING '(' (variable_declaration | expression) ')' statement
     ;
 
 switch_statement
@@ -376,7 +366,6 @@ expression
     // --- prefix ---
     | op=('!' | '+' | '++' | '-' | '--' | '^' | '~') expression #PrefixUnaryExpression
     | '(' type ')' expression                   #CastExpression
-    | REF expression                            #RefExpression
     // --- binary operators, tightest first ---
     | expression op=('*' | '/' | '%') expression #BinaryExpression
     | expression op=('+' | '-') expression      #BinaryExpression
@@ -399,7 +388,6 @@ expression
     | '[' NL* (collection_element (',' NL* collection_element)*)? NL* ']' #CollectionExpression
     | bracketed_argument_list                   #ImplicitElementAccess
     | DEFAULT '(' type ')'                      #DefaultExpression
-    | SIZEOF '(' type ')'                       #SizeofExpression
     | op=(BASE | SELF)                          #InstanceExpression
     | literal_expression                        #LiteralExpression
     | '.' simple_name                           #MemberBindingExpression

@@ -195,17 +195,6 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
         return SyntaxFactory.RangeExpression(left!, op, right!);
     }
 
-    public override SyntaxNode VisitRefExpression(RavenParser.RefExpressionContext context) {
-        var refKeyword = Token(context.REF().Symbol, SyntaxKind.RefKeyword);
-        var expression = Visit(context.expression()) as ExpressionSyntax;
-        return SyntaxFactory.RefExpression(refKeyword, expression!);
-    }
-
-    public override SyntaxNode VisitSizeofExpression(RavenParser.SizeofExpressionContext context) {
-        var type = Visit(context.type()) as TypeSyntax;
-        return SyntaxFactory.SizeOfExpression(type!);
-    }
-
     public override SyntaxNode VisitSwitchExpression(RavenParser.SwitchExpressionContext context) {
         var governing = Visit(context.expression()) as ExpressionSyntax;
         var switchKeyword = Token(TerminalOf(context, RavenLexer.SWITCH), SyntaxKind.SwitchKeyword);
@@ -880,40 +869,6 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
         );
     }
 
-    public override SyntaxNode VisitClass_declaration(RavenParser.Class_declarationContext context) {
-        var attributes = SyntaxList.List(context.attribute_list().Select(Visit).ToArray());
-        var modifiers = SyntaxList.List(context.modifier().Select(Visit).ToArray());
-        var keyword = Token(context.CLASS().Symbol, SyntaxKind.ClassKeyword);
-        var identifier = Visit(context.identifier_token()) as SyntaxToken;
-        var typeParameters = context.type_parameter_list() != null
-            ? Visit(context.type_parameter_list()) as TypeParameterListSyntax
-            : null;
-        var parameters = context.parameter_list() != null
-            ? Visit(context.parameter_list()) as ParameterListSyntax
-            : null;
-        var baseList = context.base_list() != null ? Visit(context.base_list()) as BaseListSyntax : null;
-        var constraints = SyntaxList.List(context.type_parameter_constraint_clause().Select(Visit).ToArray());
-        var openBraceToken = TerminalOrNull(context, RavenLexer.OPEN_BRACE);
-        var openBrace = openBraceToken != null ? Token(openBraceToken, SyntaxKind.OpenBraceToken) : null;
-        var members = SyntaxList.List(context.member_declaration().Select(Visit).ToArray());
-        var closeBraceToken = TerminalOrNull(context, RavenLexer.CLOSE_BRACE);
-        var closeBrace = closeBraceToken != null ? Token(closeBraceToken, SyntaxKind.CloseBraceToken) : null;
-
-        return SyntaxFactory.ClassDeclaration(
-            new(attributes),
-            new(modifiers),
-            keyword,
-            identifier!,
-            typeParameters,
-            parameters,
-            baseList,
-            new(constraints),
-            openBrace,
-            new(members),
-            closeBrace
-        );
-    }
-
     public override SyntaxNode VisitProtocol_declaration(RavenParser.Protocol_declarationContext context) {
         var attributes = SyntaxList.List(context.attribute_list().Select(Visit).ToArray());
         var modifiers = SyntaxList.List(context.modifier().Select(Visit).ToArray());
@@ -1084,15 +1039,8 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
             ? Visit(context.name_colon()) as NameColonSyntax
             : null;
 
-        var refKind = context.kind?.Type switch {
-            RavenLexer.REF => Token(context.kind, SyntaxKind.RefKeyword),
-            RavenLexer.OUT => Token(context.kind, SyntaxKind.OutKeyword),
-            RavenLexer.IN => Token(context.kind, SyntaxKind.InKeyword),
-            _ => null
-        };
-
         var expression = Visit(context.expression()) as ExpressionSyntax;
-        return SyntaxFactory.Argument(nameColon, refKind, expression!);
+        return SyntaxFactory.Argument(nameColon, expression!);
     }
 
     public override SyntaxNode VisitBracketed_argument_list(RavenParser.Bracketed_argument_listContext context) {
@@ -1233,7 +1181,6 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
 
     public override SyntaxNode VisitLocal_declaration_statement(RavenParser.Local_declaration_statementContext context) {
         var attributes = SyntaxList.List(context.attribute_list().Select(Visit).ToArray());
-        var @using = context.USING() != null ? SyntaxFactory.Token(SyntaxKind.UsingKeyword) : null;
         var modifiers = context.modifier().Select(Visit).ToArray();
         var declaration = context.variable_declaration() != null
             ? Visit(context.variable_declaration()) as VariableDeclarationSyntax
@@ -1241,7 +1188,6 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
 
         return SyntaxFactory.LocalDeclarationStatement(
             new(attributes),
-            @using,
             new(SyntaxList.List(modifiers)),
             declaration!
         );
@@ -1256,17 +1202,6 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
         var block = Visit(context.statement()) as StatementSyntax;
 
         return SyntaxFactory.WhileStatement(new(attributes), whileKeyword, openParen, expression!, closeParen, block!);
-    }
-
-    public override SyntaxNode VisitUsing_statement(RavenParser.Using_statementContext context) {
-        var attributes = SyntaxList.List(context.attribute_list().Select(Visit).ToArray());
-        var declaration = context.variable_declaration() != null
-            ? Visit(context.variable_declaration()) as VariableDeclarationSyntax
-            : null;
-        var expression = context.expression() != null ? Visit(context.expression()) as ExpressionSyntax : null;
-        var block = Visit(context.statement()) as StatementSyntax;
-
-        return SyntaxFactory.UsingStatement(new(attributes), declaration, expression, block!);
     }
 
     public override SyntaxNode VisitSwitch_statement(RavenParser.Switch_statementContext context) {

@@ -143,7 +143,7 @@ enum Mode {
     Auto
 }
 
-class Widget<T> where T : Shaded {
+struct Widget<T> where T : Shaded {
     var item: T
 
     func Item(): T {

@@ -94,7 +94,7 @@ public sealed partial class Lowerer {
         // struct can hold a field of a struct declared later.
         foreach (var type in types) {
             switch (type.TypeKind) {
-                case TypeKind.Struct or TypeKind.Class:
+                case TypeKind.Struct:
                     structs[type] = new(type.Name);
                     break;
             }
@@ -109,7 +109,7 @@ public sealed partial class Lowerer {
         // filling a slot sits wherever the material author put it — but it was always
         // possible between two structs.
         foreach (var type in types) {
-            if (type.TypeKind is TypeKind.Shader or TypeKind.Struct or TypeKind.Class) {
+            if (type.TypeKind is TypeKind.Shader or TypeKind.Struct) {
                 DeclareMemberFunctions(type);
             }
         }
@@ -119,7 +119,7 @@ public sealed partial class Lowerer {
                 case TypeKind.Shader:
                     LowerShader(type);
                     break;
-                case TypeKind.Struct or TypeKind.Class:
+                case TypeKind.Struct:
                     LowerStruct(type);
                     break;
             }
@@ -361,7 +361,7 @@ public sealed partial class Lowerer {
     void LowerMemberFunctions(NamedTypeSymbol type, Action<IrFunction> add) {
         // A struct's methods take the receiver explicitly; a shader's do not,
         // because its fields are globals.
-        var selfType = type.TypeKind is TypeKind.Struct or TypeKind.Class ? structs[type] : null;
+        var selfType = type.TypeKind is TypeKind.Struct ? structs[type] : null;
 
         foreach (var (name, body) in MemberBodies(type, report: true)) {
             add(LowerFunction(name, body, type, selfType));
@@ -373,7 +373,7 @@ public sealed partial class Lowerer {
     ///     any body lowered later can call it.
     /// </summary>
     void DeclareMemberFunctions(NamedTypeSymbol type) {
-        var selfType = type.TypeKind is TypeKind.Struct or TypeKind.Class ? structs[type] : null;
+        var selfType = type.TypeKind is TypeKind.Struct ? structs[type] : null;
 
         foreach (var (name, body) in MemberBodies(type, report: false)) {
             DeclareFunction(name, body, type, selfType);

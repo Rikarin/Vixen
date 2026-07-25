@@ -28,7 +28,6 @@ GET: 'get';
 SET: 'set';
 WILL_SET: 'willSet';
 DID_SET: 'didSet';
-USING: 'using';
 
 
 
@@ -39,7 +38,6 @@ PROTOCOL:       'protocol';     // Replaceing 'interface'
 SELF:           'self';         // Replacing 'this'
 SHADER:         'shader';
 STRUCT:         'struct';
-CLASS:          'class';
 RECORD:         'record';
 VAR:            'var';
 VAL:            'val';
@@ -102,9 +100,7 @@ IS:             'is';
 OPERATOR:       'operator';
 OUT:            'out';
 //PARAMS: 'params';
-REF:            'ref';
 RETURN:         'return';
-SIZEOF:         'sizeof';
 SWITCH:         'switch';
 TRUE:           'true';
 WHILE:          'while';

@@ -105,16 +105,6 @@ public abstract partial class Binder {
             case DefaultExpressionSyntax @default:
                 return new BoundLiteralExpression(@default, BindType(@default.Type), null);
 
-            case SizeOfExpressionSyntax sizeOf: {
-                BindType(sizeOf.Type);
-                return new BoundLiteralExpression(sizeOf, BuiltInTypes.Int, null);
-            }
-
-            case RefExpressionSyntax @ref: {
-                var operand = BindValue(@ref.Expression);
-                return operand;
-            }
-
             case RangeExpressionSyntax range:
                 return BindRange(range);
 

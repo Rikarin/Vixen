@@ -80,12 +80,6 @@ public abstract partial class Binder {
             case SwitchStatementSyntax switchStatement:
                 return BindSwitch(switchStatement);
 
-            case UsingStatementSyntax usingStatement:
-                return new BoundBlockStatement(
-                    usingStatement,
-                    [new BlockBinder(this).BindStatement(usingStatement.Statement)]
-                );
-
             case EmptyStatementSyntax:
                 return new BoundNoOpStatement(syntax);
 
