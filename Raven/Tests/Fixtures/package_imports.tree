@@ -1,0 +1,27 @@
+CompilationUnit
+  PackageDirective
+    Token(PackageKeyword) "package"
+    QualifiedName
+      IdentifierName
+        Token(IdentifierToken) "Vixen"
+      Token(DotToken) "."
+      IdentifierName
+        Token(IdentifierToken) "Test"
+  ListKind
+    ImportDirective
+      Token(ImportKeyword) "import"
+      QualifiedName
+        IdentifierName
+          Token(IdentifierToken) "Vixen"
+        Token(DotToken) "."
+        IdentifierName
+          Token(IdentifierToken) "Core"
+    ImportDirective
+      Token(ImportKeyword) "import"
+      QualifiedName
+        IdentifierName
+          Token(IdentifierToken) "Vixen"
+        Token(DotToken) "."
+        IdentifierName
+          Token(IdentifierToken) "BaseShaders"
+  Token(EndOfFileToken)

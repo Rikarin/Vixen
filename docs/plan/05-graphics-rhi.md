@@ -1,0 +1,209 @@
+# 05 — Graphics RHI
+
+Per ADR-001: one explicit, Vulkan-shaped abstraction; five backends; Vulkan is the reference.
+
+## Package reality check
+
+Verified against the live NuGet index. Silk.NET 2.23.0 ships: `Vulkan` (+ KHR/EXT/AMD/NV extension
+packages), `Direct3D11`, `Direct3D12`, `DXGI`, `Direct3D.Compilers`, `OpenGL`, `OpenGL.Legacy`,
+`OpenGLES`, `EGL`, `WebGPU`, `SPIRV`, `SPIRV.Cross.Native`, `Shaderc`, `SDL`, `GLFW`, `Input`,
+`OpenAL`, `OpenXR`, `Assimp`, `Maths`, `Core`.
+
+**There is no `Silk.NET.Metal`.** Apple support is MoltenVK under the Vulkan backend (ADR-011).
+
+| Target | Backend | Notes |
+|---|---|---|
+| Windows | Vulkan (primary). **D3D12 postponed past 1.0** but designed for — ADR-001 | Vulkan is the only Windows path at 1.0. The D3D12 project/package slot exists with stub implementations so adding it later is additive, not breaking. PIX/GPU-crash-dump parity is the eventual motivation. |
+| Linux | Vulkan | Only. GL exists as a last-resort fallback for ancient hardware |
+| macOS | Vulkan → MoltenVK (**v1.4.2, Vulkan 1.4**) | Direct-linked for shipping; Vulkan Loader + validation layers bundled for dev builds — MoltenVK does not load layers itself. Dev instance creation needs `VK_KHR_portability_enumeration` + `ENUMERATE_PORTABILITY_BIT`, or the Loader reports no devices. |
+| iOS | Vulkan → MoltenVK, static-linked | `CAMetalLayer` surface via `VK_EXT_metal_surface`; Simulator supported |
+| Android | Vulkan 1.1+ (API 26+), GLES 3.2 fallback | Real device fragmentation makes the GLES fallback mandatory, not optional |
+| Web | WebGL2 (via `Silk.NET.OpenGLES` over the browser context), WebGPU when available | See [10](10-platforms.md) — this is the highest-risk target |
+
+## The RHI surface
+
+`Vixen.Graphics` is deliberately *not* a thin Vulkan wrapper and *not* a GL-era façade. It is the
+minimum abstraction that D3D12 and Vulkan both map to natively.
+
+### Objects and handles
+
+Everything is a generation-checked `Handle<T>` (see [03](03-core-foundation.md)) into a backend-owned
+table. No `IDisposable` GPU wrappers, no finalisers, no GC pressure per resource.
+
+```
+GraphicsDevice            — logical device, queues, feature caps, allocator, resource tables
+GraphicsAdapter           — enumerable physical device with capability record
+CommandQueue              — Graphics | Compute | Transfer, submitted independently
+CommandList               — recorded on any thread; one per thread per frame; pooled
+SwapChain                 — surface + images + present mode + resize handling
+
+BufferHandle              — usage flags: Vertex|Index|Uniform|Storage|Indirect|Staging
+TextureHandle             — 1D/2D/3D/Cube/Array, mips, samples, usage flags
+TextureViewHandle         — format/subresource reinterpretation
+SamplerHandle
+PipelineHandle            — graphics | compute | (mesh, later)
+PipelineLayoutHandle
+DescriptorSetLayoutHandle
+DescriptorSetHandle
+QueryPoolHandle           — timestamp, occlusion, pipeline statistics
+FenceHandle / SemaphoreHandle
+```
+
+### Pipeline state
+
+Created ahead of time from a full `GraphicsPipelineDescription` (shaders, vertex layout, raster
+state, blend state, depth-stencil state, render-pass compatibility). This is Vulkan's and D3D12's
+model. The GL backend hashes the description and maps it to a program + cached GL state block, applying
+state lazily on bind with a shadow-state diff — the standard technique, and the reason the GL backend
+is the biggest one.
+
+Pipelines are **cached and pre-warmed**: a build step records every pipeline description the content
+needs into a `pipelines.cache` artefact, and boot creates them on background threads before first
+frame. This eliminates the first-encounter hitch that plagues Vulkan titles and is the single
+highest-value ergonomic feature in a modern RHI.
+
+### Descriptor model
+
+Two tiers, both expressed in the RHI:
+
+1. **Descriptor sets** (Vulkan sets / D3D12 root-signature tables). Fixed four-set convention:
+   - set 0: per-frame (camera, time, lighting environment)
+   - set 1: per-view (shadow matrices, view-dependent buffers)
+   - set 2: per-material (textures, material constants)
+   - set 3: per-draw (transforms via dynamic offset, instance data)
+
+   This mirrors Stride's logical-group model and matches how Raven emits its bindings.
+2. **Bindless** (`VK_EXT_descriptor_indexing` / D3D12 SM6.6 dynamic resources) behind a capability
+   flag, exposed as a global `TextureHandle → uint` bindless index table. GPU-driven culling and
+   material batching use it where available; there is a non-bindless path for GL/WebGL and older
+   Android.
+
+### Synchronisation
+
+- **Explicit barriers** in the RHI (`CommandList.Barrier(in BarrierGroup)`), because implicit
+  tracking is where every abstraction layer either becomes slow or becomes wrong.
+- On top of it, an **optional automatic barrier tracker** (`RenderGraph`, below) that most engine code
+  uses. Hand-written barriers remain available for the hot paths that need them.
+- Frame pacing: N in-flight frames (default 2, configurable to 3), per-frame fence, per-frame
+  descriptor pools and command allocators reset in bulk.
+
+### Render graph
+
+`Vixen.Graphics.RenderGraph` — a transient-resource, automatic-barrier pass graph:
+
+- Passes declare reads/writes of virtual resources; the graph culls unreferenced passes, aliases
+  transient memory (a 4 K GBuffer and a 4 K post-FX target that never coexist share memory), inserts
+  barriers and layout transitions, and orders queue submissions.
+- This is not optional garnish: with six backends, hand-maintaining barrier correctness across a
+  Stride-scale pipeline (deferred, shadows, SSAO, SSR, TAA, bloom, DoF) is not achievable. The graph
+  is how the pipeline stays correct on Vulkan while remaining expressible as no-ops on GL.
+- Graph validation in debug: a pass that reads a resource nobody wrote is an error naming both passes;
+  a resource written twice in a frame without a barrier is an error. Plus a Graphviz dump per frame
+  for the frame debugger.
+
+### Capability record
+
+`GraphicsDeviceFeatures` is a flat `readonly record struct` of ~40 booleans/limits queried once:
+compute, geometry/tessellation, mesh shaders, bindless, multi-draw-indirect, timeline semaphores,
+async compute, sparse residency, `float64`, subgroup ops and size, max texture size, max anisotropy,
+MSAA sample masks, format support table, texture-compression families available, UMA/discrete,
+line width range, viewport count.
+
+Feature use is **capability-gated with a documented fallback**, never a hard requirement, except a
+hard floor:
+
+**Minimum spec:** Vulkan 1.1 / D3D12 feature level 11_0 / GLES 3.0 / WebGL2. Below that, Vixen does
+not run. Stated once, in the docs, and enforced at device selection with a readable error.
+
+## Backend implementation order and shape
+
+### `Vixen.Graphics.Null` — first
+
+Written before Vulkan. Records the command stream into a structured, comparable log. This is what
+makes RHI unit tests possible in CI without a GPU, and what makes "did my render feature emit the
+right calls" a unit test rather than a screenshot diff. Every RHI unit test runs on Null.
+
+**It is also a shipping backend, not only a test one.** A dedicated server
+([17](17-app-heads-and-shipping.md)) runs on `Null` — no GPU, no window, no display server. That is a
+pleasant consequence of the existing design rather than new work: this backend already exists, and
+because every RHI unit test targets it, it is the most thoroughly exercised backend in the engine. The
+one addition it needs is that resource creation must genuinely no-op rather than allocate, so a
+long-running server does not accumulate phantom GPU objects.
+
+### `Vixen.Graphics.Vulkan` — the reference
+
+- `Silk.NET.Vulkan` + `.Extensions.KHR` (`swapchain`, `surface`, `dynamic_rendering`,
+  `timeline_semaphore`, `synchronization2`) + `.EXT` (`debug_utils`, `descriptor_indexing`,
+  `memory_budget`).
+- **Dynamic rendering** (`VK_KHR_dynamic_rendering`, core in 1.3) as the primary path — no
+  `VkFramebuffer`/`VkRenderPass` object management. A 1.1/1.2 fallback path using real render passes
+  exists for older Android drivers, behind a capability flag, because a meaningful slice of Android
+  devices are still on 1.1.
+- Own memory allocator (buddy over large heaps) rather than binding VMA — one less native dependency
+  across six RIDs, and the allocator is ~1 500 lines of testable managed code.
+- `VK_EXT_debug_utils` object naming wired to the engine's resource names, so RenderDoc and the
+  validation layers show `"ShadowMap.Cascade2"` instead of `"VkImage 0x7f...".`
+- Validation layers auto-enabled in debug builds, with the layer's messages routed into `ILogger` at
+  matching severity and *failing the test run* in CI.
+
+### `Vixen.Graphics.Direct3D12` — **postponed past 1.0, reserved from Phase 1**
+
+Per ADR-001. The project and package exist from Phase 1 with every RHI entry point implemented as a
+`NotSupportedException` stub and the capability record reporting nothing, so package identity, RID
+mapping, and the reference graph are settled early and the real implementation is purely additive.
+
+When it is built: `Silk.NET.Direct3D12` + `DXGI` + `Direct3D.Compilers` (DXC for HLSL→DXIL); root
+signature generated from the four-set convention; descriptor heaps as ring allocators; placed resources
+over committed heaps; **Enhanced Barriers** (Agility SDK), which is why the RHI's barrier model is
+specified against Vulkan `synchronization2` rather than legacy resource states.
+
+### `Vixen.Graphics.OpenGL` — **now the abstraction validator**
+
+One project, three profiles: GL 4.5 core (desktop), GLES 3.0/3.2 (Android), WebGL2 (browser), selected
+at construction. Shares the state-shadowing, pipeline-emulation, and barrier-elision logic; differs in
+extension availability and shader dialect.
+
+With D3D12 deferred, this backend carries the job D3D12 was going to do: proving the RHI is genuinely
+API-neutral. It is a *harder* test than D3D12 would have been — GL has no PSOs, no descriptor sets, no
+explicit barriers, and no multithreaded recording, so anything Vulkan-shaped that leaked into the
+abstraction shows up here immediately. Consequence: **GL must not also be deferred**, and its WebGL2
+profile is already verified working ([spikes/web-webgl2](spikes/web-webgl2/RESULT.md)).
+
+Known concessions, documented up front so nobody is surprised:
+- No true multithreaded command recording. Command lists are recorded into a deferred, replayable
+  command buffer in managed memory and replayed on the GL thread at submit. This preserves the RHI's
+  threading contract at a modest CPU cost.
+- No bindless, no async compute, no timeline semaphores, no sparse resources.
+- Uniform buffers only (no storage buffers on WebGL2 — compute is unavailable there entirely, which
+  cascades into the post-FX chain having a non-compute fallback for every effect).
+
+### `Vixen.Graphics.WebGPU`
+
+`Silk.NET.WebGPU` binds native Dawn/wgpu. In the browser, WebGPU is reached through JS interop, not
+through the native binding — so `Vixen.Graphics.WebGPU` has two surface implementations (native
+Dawn for desktop testing, `JSImport` for browser) behind one backend. WebGPU maps well to the RHI
+(bind groups ≈ descriptor sets, render pipelines ≈ PSOs, explicit passes), which makes it a better
+long-term web story than WebGL2. It is sequenced after WebGL2 because browser availability, while good
+in 2026, still needs the WebGL2 floor.
+
+## Shader interface
+
+`Vixen.Shaders` owns effects; the RHI only consumes bytecode + a reflection record:
+
+```
+ShaderBytecode { Stage, byte[] Data, ShaderFormat Format }   // Spirv | Dxil | GlslSource | EsslSource | Wgsl | Msl
+ShaderReflection { DescriptorSetLayout[] Sets, VertexInput[] Inputs, PushConstantRange[] , ThreadGroupSize }
+```
+
+Raven produces both (see [07](07-raven-shader-pipeline.md)). The RHI never parses shader source.
+
+## Testing
+
+| Level | Mechanism |
+|---|---|
+| Unit | Every RHI operation tested against `Null`, asserting the recorded command stream. Handle lifetime/generation tests. Allocator tests (fragmentation, alignment, OOM behaviour). |
+| Render graph | Property tests: random pass DAGs produce correct barrier placement, verified against an independent reference tracker; aliasing never overlaps live ranges |
+| Validation | Vulkan validation layers + `spirv-val` run in CI on Linux with **lavapipe** (Mesa software Vulkan) — a real Vulkan driver with no GPU, so full API conformance is CI-testable |
+| Golden image | `Samples/01-HelloTriangle` and a suite of ~40 rendering fixtures rendered headless on lavapipe, compared with a perceptual (not bitwise) diff and a tolerance per fixture. Bitwise comparison across drivers is a maintenance sinkhole; perceptual with an explicit threshold is the workable version. |
+| Cross-backend equivalence | The same fixture rendered on Vulkan/lavapipe and on GL/Mesa-softpipe must match within tolerance. This catches the class of bug where a backend silently ignores a state bit. |
+| Device loss | A fault-injection mode in `Null` and Vulkan (`VK_ERROR_DEVICE_LOST` on demand) proving the engine recreates the device and reloads resources rather than crashing — Android and driver-update reality make this mandatory |

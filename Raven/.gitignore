@@ -1,0 +1,4 @@
+**/obj/*
+**/bin/*
+# Golden-test mismatch output
+*.tree.actual

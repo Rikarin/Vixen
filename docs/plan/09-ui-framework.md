@@ -1,0 +1,476 @@
+# 09 — UI Framework
+
+The largest net-new subsystem, and the one that makes the "framework for Photoshop/Blender-class
+applications" claim either true or marketing. It is built from six independently testable pieces:
+
+```
+Vixen.Ui.Markup      .vxml → syntax tree → bound component model → generated C#
+Vixen.Ui.Reactive    signals: Signal<T>, Computed<T>, Effect  (ADR-007)
+Vixen.Ui.Layout      flexbox (Yoga algorithm) + grid + block  (ADR-006)
+Vixen.Ui.Styling     .vcss via ExCSS + cascade + selector matching + transitions
+  └─ .Utilities      the Tailwind-like utility generator and design-token system
+Vixen.Ui.Text        HarfBuzz shaping + MSDF atlas + line breaking + bidi
+Vixen.Ui             element tree, property system, event routing, input, rendering, focus
+  └─ .Controls       the widget library
+  └─ .Controls.Advanced  DataGrid, TreeView, Docking, PropertyGrid, Timeline, Canvas
+  └─ .HotReload      dev-only watcher + state-preserving reload
+```
+
+## VXML — markup
+
+### Syntax
+
+```html
+<!-- Assets/Ui/Counter.vxml -->
+@component Counter
+@using Vixen.Ui.Controls
+
+@code {
+    private readonly Signal<int> _count = new(0);
+    private readonly IReadOnlySignal<string> _label;
+
+    [Parameter] public required string Title { get; init; }
+    [Parameter] public int Step { get; init; } = 1;
+    [Event]     public Action<int>? CountChanged { get; init; }
+
+    public Counter() => _label = Computed(() => _count.Value == 1 ? "time" : "times");
+
+    private void Increment()
+    {
+        _count.Value += Step;
+        CountChanged?.Invoke(_count.Value);
+    }
+}
+
+<div class="flex flex-col gap-2 p-4 rounded-lg bg-surface-2">
+    <Text class="text-lg font-semibold">@Title</Text>
+
+    <Text class="text-sm text-muted">
+        Clicked @_count.Value @_label.Value
+    </Text>
+
+    @if (_count.Value > 10) {
+        <Callout kind="warning">That's a lot of clicking.</Callout>
+    }
+
+    <div class="flex flex-row gap-1">
+        @for (var i in Enumerable.Range(0, 3)) {
+            <Button key="@i" variant="ghost" onclick="@Increment">+@Step</Button>
+        }
+    </div>
+
+    <slot name="footer" />
+</div>
+
+<style scoped>
+    .bg-surface-2 { background-color: var(--color-surface-2); }
+    :host:hover   { outline: 1px solid var(--color-accent); }
+</style>
+```
+
+Design choices, each with a reason:
+
+| Choice | Reason |
+|---|---|
+| `@component Name` header, not a wrapping element | Keeps the file's top level a valid element list; avoids the Razor `@page`/`@inherits` soup |
+| `@code { }` block for C# | Familiar from Razor; keeps logic out of attributes. Multiple `@code` blocks concatenate |
+| `@expr` for interpolation, `@if`/`@for`/`@switch` with **braces, not `}` sentinels** | Razor's `}`-terminated blocks are the single worst part of its syntax and the hardest to parse and error-recover |
+| `[Parameter]`/`[Event]` attributes on properties | Explicit public surface; the generator produces a typed builder so `<Counter Title="x" Step="2" />` is compile-checked |
+| PascalCase tag ⇒ component, lowercase tag ⇒ intrinsic element | Same rule as React/Blazor; unambiguous for the parser, no registry lookup needed at parse time |
+| `onclick="@Handler"` | Attribute-shaped event binding; `@` marks the value as an expression. Also `on:click` accepted as an alias for symmetry with modifiers (`on:click.stop`, `on:keydown.escape`) |
+| `key="@i"` on `@for` children | Required for the keyed reconciler; a missing `key` in a `@for` is a **warning** with a documented perf consequence, not a silent index-keyed fallback |
+| `<slot name="…" />` + `bind:` two-way | Content projection and two-way binding are table stakes for a widget library |
+| `<style scoped>` in-file | Component-local CSS with an auto-generated scope attribute; also `class="…"` utilities from the global system |
+
+### Parser (`Vixen.Ui.Markup`)
+
+Hand-written recursive descent (ADR-009), built on `Vixen.Core.Syntax` — the same green/red tree
+infrastructure Raven already has, extracted in Phase 0. This means VXML gets, for free: full trivia
+fidelity (so a formatter can round-trip), precise spans (so squiggles land on the right character),
+`WithChanges` incremental reparse (so hot reload is fast), and the shared `Diagnostic` model (so the
+editor's error list has one implementation for Raven, VXML, and VCSS).
+
+Pipeline:
+
+```
+SourceText
+  → VxmlLexer      (element/attribute/text/interpolation modes; a small mode stack, not regex)
+  → VxmlParser     (recursive descent; error recovery: unclosed tag, unknown attribute,
+                    dangling @, mid-typing states — each has a targeted diagnostic and a
+                    recovery that keeps the rest of the file parseable)
+  → VxmlSyntaxTree (green/red, from Syntax.xml via the shared generator)
+  → Binder         (resolves tags → component types, attributes → parameters, expressions →
+                    Roslyn semantic model; produces BoundComponent with diagnostics)
+  → Emitter        (BoundComponent → C# partial class)
+```
+
+The **binder is the interesting part**: it must resolve `<Counter Title="x" />` against the C# type
+`Counter` and typecheck `Title`. It does this by running inside the source generator, where the Roslyn
+`Compilation` is available — so `@_count.Value == 1 ? "time" : "times"` is typechecked by Roslyn
+itself, not by a hand-rolled expression evaluator. Expressions are emitted verbatim into the generated
+C# and Roslyn reports errors against a mapped span (`#line` directives point diagnostics back at the
+`.vxml`).
+
+That last detail — `#line` mapping — is what makes the whole approach viable. Without it, a typo in an
+interpolation produces an error in generated code the user has never seen.
+
+### Compilation output (ADR-010 — fine-grained, no VDOM)
+
+```csharp
+// generated: Counter.g.cs
+partial class Counter : Component
+{
+    protected override void Build(BuildContext ctx)
+    {
+        var root = ctx.Element("div", static e => e.Class("flex flex-col gap-2 p-4 rounded-lg bg-surface-2"));
+
+        var title = ctx.Child<Text>(root, static t => t.Class("text-lg font-semibold"));
+        ctx.Bind(title, static (t, s) => t.Content = s.Title, this);          // no closure alloc
+
+        var counterText = ctx.Child<Text>(root, …);
+        ctx.Effect(() => counterText.Content = $"Clicked {_count.Value} {_label.Value}");
+
+        ctx.If(root, () => _count.Value > 10, static (c, p) => c.Child<Callout>(p, …));
+
+        var row = ctx.Element(root, "div", …);
+        ctx.For(row, Enumerable.Range(0, 3), static i => i, (p, i) => { … });  // keyed
+
+        ctx.Slot(root, "footer");
+    }
+}
+```
+
+- `ctx.Effect(…)` registers one effect per dynamic expression. Setting `_count.Value` invalidates
+  exactly that effect, which assigns exactly that property. **No tree walk, no diff, no allocation.**
+- `ctx.If` swaps a subtree in/out on a boolean signal, disposing the branch's effects on exit.
+- `ctx.For` is a keyed reconciler over a collection signal: computes a minimal
+  move/insert/remove set (longest-increasing-subsequence based, as Solid and Vue Vapor do) and touches
+  only changed children.
+- Static lambdas plus explicit state parameters throughout, so a steady-state UI allocates nothing.
+
+## Signals (`Vixen.Ui.Reactive`)
+
+Per ADR-007: own implementation, SignalsDotnet's API as the reference, Angular's push-invalidate /
+pull-evaluate semantics.
+
+```csharp
+Signal<T>            // writable; .Value get/set; optional custom comparer
+IReadOnlySignal<T>   // read-only view
+Computed<T>          // derived; lazy; memoised; auto-tracked dependencies
+Effect               // side effect; runs on dependency change at a scheduled frame phase
+CollectionSignal<T>  // fine-grained add/remove/move notifications (for @for)
+AsyncComputed<T>     // async derivation with loading/error/value states, cancellation on re-run
+LinkedSignal<T>      // writable but resets when its source changes (Angular's linkedSignal)
+Untracked(() => …)   // read without subscribing
+Batch(() => …)       // coalesce writes; effects run once at the end
+```
+
+Implementation:
+
+- **Versioned push-pull.** A global `uint` version counter; writing a signal bumps its own version and
+  walks its dependent list marking them `Dirty` (no evaluation). Reading a `Computed` checks whether any
+  dependency's version changed since last evaluation; if so it re-runs, then compares the result and
+  only bumps its own version if the value actually differs (equality short-circuit stops propagation —
+  the "glitch-free" property).
+- **Auto-tracking** via an ambient `[ThreadStatic] ConsumerNode? _activeConsumer`; reading a signal
+  while a consumer is active adds the edge.
+- **Pooled edge storage.** Dependency lists are slices of a shared `ChunkedArray<Edge>` with free
+  lists, not `List<T>` per node. A steady-state UI does zero allocation on signal reads/writes.
+- **Effects are queued, not immediate.** `EffectScheduler` drains in a defined frame phase
+  (`UiSystem.FlushEffects()` between input and layout), with a per-frame budget and a "runaway effect"
+  detector (an effect that re-dirties itself > N times in a frame is logged with its stack and
+  suspended, instead of hanging the app).
+- **Diamond correctness** test: `a → b, a → c, b+c → d` evaluates `d` exactly once per `a` change.
+- **Thread affinity.** Signals are main-thread by default with a debug-mode assertion. A separate
+  `AsyncComputed` handles off-thread work and marshals results back.
+
+Signals also serve non-UI use: the editor's document model, the inspector's property bindings, and
+`Vixen.Ecs` change-version bridging (`world.Observe<Position>(entity)` yields a signal).
+
+## Layout (`Vixen.Ui.Layout`)
+
+Per ADR-006: Yoga's flexbox algorithm, re-implemented over a struct-of-arrays node store, validated
+against Yoga's own conformance suite.
+
+### Storage
+
+```csharp
+// SoA: parallel NativeArrays indexed by LayoutNodeId (dense int)
+struct LayoutStore
+{
+    NativeArray<LayoutStyle>  Styles;     // ~120 bytes, all values as (float, Unit) pairs
+    NativeArray<LayoutResult> Results;    // x, y, w, h, borders[4], padding[4], margin[4], direction
+    NativeArray<LayoutLinks>  Links;      // parent, firstChild, nextSibling, childCount
+    NativeArray<LayoutFlags>  Flags;      // IsDirty, HasNewLayout, HasMeasureFunc, HasBaselineFunc
+    NativeArray<CachedMeasurement> Cache; // Yoga's measure cache, 16 entries per node
+}
+```
+
+One allocation per array, growing geometrically. 100 000 nodes ≈ 30 MB and zero GC objects, versus the
+reference port's ~400 000 heap objects for the same tree.
+
+### Algorithm scope
+
+- **Flexbox**, complete: `flex-direction`, `wrap`, `justify-content`, `align-items`, `align-self`,
+  `align-content`, `flex-grow/shrink/basis`, `gap`/`row-gap`/`column-gap`, `order`, `position`
+  (relative/absolute/static), `inset`, `margin`/`padding`/`border` (with `auto` margins),
+  `width`/`height`/`min`/`max` (px, %, `auto`), `aspect-ratio`, `overflow`, `display: none/flex`,
+  `direction: ltr/rtl`, box-sizing, baseline alignment.
+- **Measure functions** for leaf content (text, images) with Yoga's measure cache — text measurement is
+  the dominant cost in a real UI and the cache is what makes it tractable.
+- **Dirty propagation**: setting a style marks the node and its ancestors dirty; layout descends only
+  into dirty subtrees. A static panel costs zero per frame.
+- **Grid** as a *separate* algorithm on the same store (Yoga has no grid): `grid-template-rows/columns`
+  with `fr`/`minmax`/`repeat`/`auto-fill`, named lines and areas, `grid-auto-flow`, item placement,
+  `align/justify-items/self`. This is a genuinely large piece of work (CSS Grid is a harder spec than
+  flexbox) and is scheduled explicitly.
+- **Block/inline flow**: minimal — enough for a paragraph of mixed inline text and images. A full
+  CSS inline formatting context is out of scope and stated as such.
+- **Parallel layout**: independent subtrees (those with a fixed available size) layout as jobs. Text
+  measurement of siblings parallelises well and is where the win is.
+
+### Correctness
+
+Yoga's repository generates its test suite from HTML fixtures rendered in a real browser. That
+generator is run against Vixen (`references/yoga` → a T4-free C# emitter in
+`Vixen.Ui.Layout.Tests/Generated/`), producing several hundred conformance tests. **Flexbox is not
+"implemented" until that suite is green.** This is the single most important de-risking decision in the
+UI plan: it turns "re-implement a subtle CSS algorithm" from a research project into a red/green loop.
+
+## Styling (`Vixen.Ui.Styling`)
+
+### VCSS
+
+CSS as understood by ExCSS 4.3.2, with a documented supported-subset. Parsing is ExCSS; **everything
+after parsing is Vixen's**, because ExCSS is a parser, not a style engine.
+
+Supported: type/class/id/universal selectors, descendant/child/sibling combinators, attribute
+selectors, `:hover`/`:active`/`:focus`/`:focus-visible`/`:disabled`/`:checked`/`:first-child`/
+`:last-child`/`:nth-child()`/`:not()`/`:is()`/`:where()`, pseudo-elements `::before`/`::after`,
+custom properties (`--x`) with `var()` and fallbacks, `@media` (width/height/orientation/
+prefers-color-scheme/dpi), `@supports`, `@keyframes`, `@font-face`, `@import`, `@layer` (cascade
+layers — worth having, it is how the utility system and component styles coexist cleanly).
+
+Not supported, and documented: floats, tables, `position: fixed` relative to viewport (there is no
+viewport in a game overlay), CSS filters beyond a curated set, `calc()` beyond `+ - * /` on
+compatible units, container queries (P2), `:has()` (P2 — expensive to match incrementally).
+
+### Cascade and matching
+
+The performance-critical part. Naive selector matching is O(elements × rules).
+
+- **Rule bucketing** by rightmost simple selector into hash maps keyed by id, class, and type. An
+  element only tests rules whose rightmost key it could match — the standard browser technique, and it
+  reduces candidate rules from thousands to single digits.
+- **Ancestor bloom filter**: each element carries a 128-bit bloom of its ancestors' ids/classes/types;
+  a descendant combinator is rejected without walking the tree if the bloom says the ancestor cannot
+  exist. This is Gecko/Servo's technique.
+- **Right-to-left matching** of the remaining candidates.
+- **Style sharing cache**: elements with identical (tag, class set, inline style, parent computed
+  style, pseudo state) share a `ComputedStyle` instance by hash. In a DataGrid with 10 000 identical
+  cells, one `ComputedStyle` is computed. This is *the* reason browsers can render large tables and it
+  is the reason a Vixen `DataGrid` can too.
+- **Invalidation**, not recomputation: a class change on an element invalidates only that element's
+  computed style plus descendants whose rules could depend on it (determined from the rule set's
+  descendant-dependency map). Toggling `.selected` on one row does not restyle the grid.
+- **`ComputedStyle` is immutable, interned, and reference-compared.** Layout reads it and only marks
+  itself dirty when the reference changed *and* a layout-affecting property differs.
+
+### Transitions and animations
+
+`transition` and `@keyframes`/`animation` with a fixed-timestep animator driven from the UI system,
+interpolating on a per-property basis (colours in OkLab so gradients and fades look right, lengths
+numerically, transforms decomposed). Springs (`transition: 200ms spring(1, 100, 10)`) as a Vixen
+extension, because game UI wants them and CSS still does not have them.
+
+### The utility preprocessor (`Vixen.Ui.Styling.Utilities`)
+
+A Tailwind-shaped system, written for the engine, running as part of the build.
+
+**Design tokens** in a config asset, not a JS file:
+
+```yaml
+# Assets/Ui/vixen.ui.yaml
+theme:
+  colors:
+    surface:  { 1: "#101014", 2: "#17171d", 3: "#1f1f26" }
+    accent:   { DEFAULT: "#4f7cff", hover: "#6a91ff" }
+    muted:    "#8a8a99"
+  spacing:    { base: 4 }          # spacing scale unit → p-4 == 16px
+  radius:     { sm: 2, md: 4, lg: 8, full: 9999 }
+  fontSize:   { xs: [11,16], sm: [12,18], base: [14,20], lg: [17,24], xl: [21,28] }
+  fontWeight: { normal: 400, medium: 500, semibold: 600, bold: 700 }
+  screens:    { sm: 640, md: 768, lg: 1024, xl: 1280 }
+darkMode: media
+content: ["Assets/**/*.vxml", "Assets/**/*.cs"]
+```
+
+**Generation** happens in the build, driven by a scanner:
+
+1. Scan `content` globs for class-name-shaped string literals (in VXML `class` attributes and in C#
+   string literals — the same "candidate extraction" heuristic Tailwind uses; deliberately
+   over-inclusive, since a false positive costs one unused rule).
+2. Parse each candidate against the utility grammar: `[variant:]*utility[-value][/opacity][!important]`.
+   Variants: `hover:`, `focus:`, `active:`, `disabled:`, `first:`, `last:`, `odd:`, `even:`, `dark:`,
+   `sm:`/`md:`/`lg:`/`xl:`, `group-hover:`, `peer-checked:`, `aria-*:`, `data-*:`, arbitrary
+   `[&>*]:`.
+3. Emit only the used rules into a generated VCSS stylesheet in cascade layer `@layer utilities`, so
+   component styles in `@layer components` and user overrides win predictably without `!important`
+   wars.
+4. Arbitrary values: `w-[37px]`, `text-[#ff0000]`, `grid-cols-[1fr_auto]` — parsed and emitted
+   directly.
+5. `@apply` support inside VCSS so components can compose utilities.
+
+**Utility families for 1.0** (the set an editor actually needs): layout (`flex`, `grid`, `hidden`,
+`inline`), flex/grid properties, `gap`, spacing (`p`/`m`/`space`), sizing (`w`/`h`/`min`/`max`),
+position/`inset`/`z`, typography (`text`, `font`, `leading`, `tracking`, `truncate`, `whitespace`,
+`align`), colours (`bg`, `text`, `border`, `ring`, `fill`, `stroke`), borders/`rounded`/`divide`,
+effects (`shadow`, `opacity`, `blur`, `mix-blend`), transforms (`translate`, `scale`, `rotate`,
+`origin`), transitions/`duration`/`ease`, interactivity (`cursor`, `select`, `pointer-events`,
+`overflow`, `scroll`), and `aspect`.
+
+**Why build this rather than hand-write CSS.** The editor has ~200 distinct visual components. A
+utility system means the design-token change ("accent is now teal") is one file, and the styling of a
+new panel is zero new CSS. It is the same argument that made Tailwind win, and it applies more
+strongly to a monolithic application than to a website.
+
+**Hot reload of tokens**: changing `vixen.ui.yaml` regenerates utilities and re-resolves `var()`
+values without a restart — a live theme editor becomes trivial, and is a good demo.
+
+## Text (`Vixen.Ui.Text`)
+
+Underestimating text is the classic UI-framework mistake.
+
+- **Shaping**: HarfBuzzSharp. Non-negotiable for ligatures, kerning, Arabic/Hebrew/Indic/Thai, emoji
+  clusters, and variable fonts.
+- **Bidi**: UAX#9 implementation (or ICU4X bindings if the size cost is acceptable; measure first).
+- **Line breaking**: UAX#14 with a compact rule table; UAX#29 grapheme/word segmentation for cursor
+  movement and double-click selection.
+- **Rasterisation**: **MSDF** atlas — multi-channel signed distance fields give crisp text at any
+  scale with one texture and one shader, and support outlines/glows/shadows for free. Atlas is
+  dynamically packed with an LRU eviction; CJK's glyph count makes a static atlas impossible.
+  A subpixel-AA raster path exists for small desktop text where MSDF is visibly softer, selected per
+  font size.
+- **Font fallback chains** per script, with a system-font enumerator per platform.
+- **Rich text**: an inline model (runs with per-run style) supporting bold/italic/colour/size/link/
+  inline image/inline component. Needed by the console, the inspector, and any tooltip.
+- **Editing**: `TextEditor` model with grapheme-correct cursor movement, selection, IME composition
+  (all six platforms have different IME plumbing — this is real work and is scheduled), undo/redo,
+  and platform clipboard.
+
+## The element tree and property system (`Vixen.Ui`)
+
+```csharp
+public abstract class UiElement
+{
+    internal LayoutNodeId LayoutNode;      // index into LayoutStore
+    internal ComputedStyle Style;          // interned, shared
+    internal ElementFlags Flags;           // dirty bits: style, layout, render, transform
+    public   UiElement? Parent { get; }
+    public   ChildCollection Children { get; }
+}
+```
+
+- **Elements are classes** (unlike ECS components) — a UI node has identity, virtual behaviour, and
+  event handlers, and there are 10⁴ of them, not 10⁶. The struct-of-arrays discipline lives in the
+  layout store and the render list, which is where the loops are.
+- **Property system**: source-generated attached/dependency properties (`[UiProperty]`) with change
+  callbacks, coercion, inheritance (font, colour, direction), and animation targets. Generated, not
+  reflection-based — Stride's `DependencyPropertyFactory` does this at runtime; a generator is strictly
+  better.
+- **Event routing**: capture → target → bubble, with `Handled`, plus explicit `PointerCapture`,
+  focus management with a focus scope tree, keyboard navigation (tab order, arrow navigation,
+  `accesskey`), and gesture recognisers (tap, double-tap, long-press, drag, pinch, rotate, flick)
+  shared with `Vixen.Input`.
+- **Hit testing** against the layout results with a per-frame spatial acceleration (a simple quadtree
+  over the top-level, then linear within a panel — measured to be sufficient) and `pointer-events`
+  honoured.
+- **Rendering**: the element tree emits a retained **draw list** of primitives (rounded rect, border,
+  gradient, texture quad, MSDF text run, path fill/stroke, clip push/pop, blur backdrop, custom
+  callback). The draw list is diffed against the previous frame at the *command* level, so a static UI
+  re-submits a cached command buffer. Batching merges by (texture, shader, clip, blend); clipping uses
+  scissor for rect clips and stencil for arbitrary paths; the whole thing is one `RootRenderFeature`
+  in the renderer ([06](06-rendering-pipeline.md)).
+- **Path rendering** for icons/vector art: analytic coverage AA for stroked/filled paths, with a
+  tessellation cache keyed on (path, transform scale bucket). Needed for the node graph editor's
+  bezier wires and for SVG icons.
+- **Virtualisation** is a first-class primitive (`VirtualizingPanel`), not a control feature —
+  a 1 000 000-row table must be a supported case.
+- **Multi-window and per-monitor DPI** from the start. A Blender-class app has floating tool windows;
+  retrofitting multi-window into a single-surface UI is a rewrite.
+- **Accessibility**: a UIA/AT-SPI/NSAccessibility bridge exposing the element tree with roles, names,
+  values, and actions. Scoped as P2, but the element model reserves the hooks (`AutomationPeer`) now,
+  because bolting accessibility onto a custom-drawn UI later is famously expensive.
+
+## Control library
+
+**`Vixen.Ui.Controls`** — Text, Button, IconButton, ToggleButton, RadioGroup, CheckBox, Switch,
+TextBox, TextArea, NumericInput (with drag-scrub), SearchBox, Slider, RangeSlider, ProgressBar,
+Spinner, ComboBox, Select, MultiSelect, Tabs, Accordion, Expander, Card, Panel, Separator, ScrollView,
+Tooltip, Popover, ContextMenu, MenuBar, Dialog, Drawer, Toast, Badge, Avatar, Breadcrumb, Pagination,
+Image, Icon, Link, Skeleton, EmptyState, Alert/Callout, KeyboardShortcut.
+
+**`Vixen.Ui.Controls.Advanced`** — the ones that prove the framework:
+
+| Control | Why it is the proof |
+|---|---|
+| `DockingHost` | Splitters, tab groups, float/dock/undock, drag preview, layout serialisation. The editor shell. No other single control exercises as much of the framework. |
+| `DataGrid` | Virtualised rows *and* columns, frozen columns, resize/reorder, sort, group, inline edit, cell templates. Exercises style sharing and virtualisation to their limits. |
+| `TreeView` | Virtualised, lazy children, drag-reorder with drop indicators, multi-select, rename-in-place. The project browser and hierarchy. |
+| `PropertyGrid` | Attribute-driven editor generation, nested objects, multi-object editing with mixed-value states, reset-to-default, search. The inspector. |
+| `NodeCanvas` | Infinite pan/zoom canvas, bezier wires, marquee select, snapping, minimap, groups. Shader and VFX graphs. |
+| `Timeline` | Tracks, keyframes, curves, playhead, zoom, snapping. Animation and VFX. |
+| `CurveEditor` | Bezier handles, presets, tangent modes. |
+| `ColorPicker` | HSV/OkLCH wheel, eyedropper, palettes, alpha, HDR values. |
+| `GradientEditor` | Stop editing, interpolation-space selection. |
+| `Viewport` | Hosts a 3D render target with input capture and gizmo overlay. |
+| `CodeEditor` | Syntax highlighting via `Vixen.Core.Syntax` (Raven/VXML/VCSS/C#), line numbers, folding, diagnostics gutter, autocomplete popup. Needed for the in-editor shader editor. |
+| `Canvas2D` | Layers, huge scrollable surface, tool overlays, selection marching ants. P2 — no editor consumer; see `Samples/06-CanvasStress`. |
+
+## Hot reload (`Vixen.Ui.HotReload`)
+
+Three independent reload channels, because they fail differently:
+
+| Channel | Trigger | Mechanism | Preserved |
+|---|---|---|---|
+| **Style** | `.vcss` / `vixen.ui.yaml` saved | Reparse stylesheet, regenerate utilities, invalidate all `ComputedStyle`s, re-layout | Everything — no tree change |
+| **Markup** | `.vxml` saved | Incremental reparse → rebind → **re-execute `Build`** for affected component instances, reconciling against the existing element tree by key/position | Component field state, scroll offsets, focus, selection, expansion state, signal values |
+| **Code** | `.cs` saved | .NET Hot Reload (`dotnet watch` / the IDE's EnC) + `[MetadataUpdateHandler]` to clear caches and rebuild affected components | Whatever EnC preserves; a rude-edit falls back to a full component rebuild with `[HotReloadState]`-marked fields round-tripped |
+
+Details that make it actually work:
+
+- **`[HotReloadState]`** on a field marks it for serialise-out/serialise-in across a rebuild. Everything
+  else is reconstructed. Users opt in per field, which is honest about what can survive.
+- **Keyed identity.** Every element gets a stable identity from its source span + `key`. Reconciliation
+  matches old and new trees on that, so inserting an element above a scrolled list does not reset the
+  scroll.
+- **`MetadataUpdateHandler`** clears: the component-type cache, the utility scanner's results, the
+  style-sharing cache, generated-property metadata, and the effect dependency graph for rebuilt
+  components.
+- **Failure is visible and non-fatal.** A reload that throws leaves the previous UI running and shows
+  the error in an overlay plus the log. Hot reload that can crash the editor is hot reload nobody
+  turns on.
+- **The engine's other hot-reload channels** (shaders per [07](07-raven-shader-pipeline.md), assets per
+  [08](08-asset-pipeline-and-addressables.md)) share the same file-watch infrastructure and the same
+  "reload is a first-class, tested operation" discipline.
+- **`Vixen.Ui.HotReload` is not referenced in release builds** — the whole assembly is
+  `Condition="'$(Configuration)'!='Release'"`.
+
+## Testing
+
+| Area | Test |
+|---|---|
+| Lexer/parser | Golden syntax trees over a corpus (as Raven already does); round-trip byte fidelity; one error-recovery test per diagnostic, including mid-typing states |
+| Binder | Positive/negative fixtures; `#line` mapping verified by asserting a deliberate expression error reports the `.vxml` line |
+| Generator | Snapshot tests on emitted C#; compile-and-run tests asserting the generated component behaves correctly |
+| Signals | Diamond evaluates once; equality short-circuit stops propagation; `Batch` coalesces; no allocation after warm-up (BenchmarkDotNet `MemoryDiagnoser` asserting 0 bytes); runaway-effect detection fires; disposal removes all edges |
+| Layout | **The ported Yoga conformance suite** (several hundred cases) — the primary gate. Plus: dirty propagation (a static tree costs 0 measured nodes), parallel layout equals serial layout, 100 k-node throughput benchmark |
+| Grid | Ported WPT (web-platform-tests) CSS Grid cases where they can be expressed without a full browser |
+| Styling | Cascade/specificity/`@layer` order tests against known CSS semantics; selector-matching oracle (bucketed matcher vs. brute-force over randomised trees); style-sharing correctness (shared instances are genuinely identical); invalidation minimality (toggling a class restyles exactly N elements) |
+| Utilities | Candidate extraction over fixture files; each utility family emits the expected declarations; arbitrary values; variant combinations; unused utilities are absent from output |
+| Text | Shaping golden tests per script (Latin/Arabic/Devanagari/Thai/CJK/emoji-ZWJ) against HarfBuzz reference output; line-break conformance against UAX#14 test data; grapheme segmentation against UAX#29 test data; MSDF glyph rendering golden images |
+| Rendering | Draw-list golden tests (element tree → expected primitive list) — pure CPU, no GPU needed, which makes control rendering unit-testable. Plus golden images per control on the Null/lavapipe path |
+| Input/events | Routing order, capture, focus traversal, gesture recognition state machines |
+| Controls | Per control: keyboard interaction matrix, ARIA-role snapshot, virtualisation (a 10⁶-row grid realises O(viewport) elements), and a golden image in light and dark themes |
+| Hot reload | Automated: mutate a `.vxml`/`.vcss` on disk, assert the running tree updated and that scroll/focus/selection/state survived; assert a deliberately broken file leaves the previous UI intact |
+| Perf | **Editor-shell benchmark is the gate**: 5 panels + viewport + 500-node graph + a 10⁶-row virtualised grid holds the [00](00-vision-and-principles.md) budget. Per the decided audience order, the editor — not a sample — is the application-platform proof. |

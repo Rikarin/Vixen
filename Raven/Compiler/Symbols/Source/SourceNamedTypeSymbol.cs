@@ -1,0 +1,335 @@
+using Vixen.Raven.Binding;
+using Vixen.Raven.Diagnostics;
+using Vixen.Raven.Syntax;
+
+namespace Vixen.Raven.Symbols.Source;
+
+/// <summary>
+/// A type declared in source. Everything beyond its name and arity is computed
+/// lazily: members are created without their signatures, and each signature
+/// resolves the first time it is read. That ordering is what lets a type refer to
+/// its own members while its members refer back to the type.
+/// </summary>
+public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
+    readonly Binder outerBinder;
+    readonly List<SourceNamedTypeSymbol> nestedTypes = [];
+
+    NamedTypeSymbol? baseType;
+    bool basesResolved;
+    Dictionary<string, Symbol[]>? membersByName;
+    Symbol[]? members;
+    NamedTypeSymbol[] interfaces = [];
+    bool resolvingBases;
+    Binder? typeBinder;
+    bool typeParameterConstraintsResolved;
+    TypeParameterSymbol[]? typeParameters;
+
+    internal SourceNamedTypeSymbol(Symbol container, TypeDeclarationInfo declaration, Binder outerBinder) {
+        ContainingSymbol = container;
+        Declaration = declaration;
+        this.outerBinder = outerBinder;
+    }
+
+    public TypeDeclarationInfo Declaration { get; }
+
+    public override string Name => Declaration.Name;
+    public override Symbol? ContainingSymbol { get; }
+    public override TypeKind TypeKind => Declaration.Kind;
+    public override SyntaxNode DeclaringSyntax => Declaration.Syntax;
+    public override bool IsAbstract => DeclarationFacts.Has(Declaration.Modifiers, SyntaxKind.AbstractKeyword);
+    public override bool IsStatic => DeclarationFacts.Has(Declaration.Modifiers, SyntaxKind.StaticKeyword);
+
+    public override Accessibility DeclaredAccessibility =>
+        DeclarationFacts.GetAccessibility(Declaration.Modifiers, Accessibility.Internal);
+
+    /// <summary>The scope member bodies are bound in: this type's parameters and members.</summary>
+    internal Binder TypeBinder => typeBinder ??= new NamedTypeBinder(outerBinder, this);
+
+    public override IReadOnlyList<TypeParameterSymbol> TypeParameters {
+        get {
+            EnsureTypeParameters();
+            return typeParameters!;
+        }
+    }
+
+    public override NamedTypeSymbol? BaseType {
+        get {
+            EnsureBases();
+            return baseType;
+        }
+    }
+
+    public override IReadOnlyList<NamedTypeSymbol> Interfaces {
+        get {
+            EnsureBases();
+            return interfaces;
+        }
+    }
+
+    /// <summary>Types declared inside this one.</summary>
+    public IReadOnlyList<SourceNamedTypeSymbol> NestedTypes {
+        get {
+            EnsureMembers();
+            return nestedTypes;
+        }
+    }
+
+    /// <summary>Entry-point methods declared on this type, keyed by the stage they target.</summary>
+    public IReadOnlyList<MethodSymbol> EntryPoints =>
+        GetMembers().OfType<MethodSymbol>().Where(m => m.Stage != ShaderStage.None).ToArray();
+
+    public override IReadOnlyList<Symbol> GetMembers() {
+        EnsureMembers();
+        return members!;
+    }
+
+    public override IReadOnlyList<Symbol> GetMembers(string name) {
+        EnsureMembers();
+        return membersByName!.GetValueOrDefault(name) ?? (IReadOnlyList<Symbol>)[];
+    }
+
+    /// <summary>
+    /// Resolves everything about the declaration that is computed lazily, so its
+    /// diagnostics appear even when nothing in the program refers to it.
+    /// </summary>
+    internal void EnsureSignatureResolved() {
+        EnsureTypeParameters();
+        EnsureBases();
+        EnsureMembers();
+    }
+
+    void EnsureTypeParameters() {
+        if (typeParameters is null) {
+            List<TypeParameterSymbol> parameters = [];
+            if (Declaration.TypeParameterList is { } list) {
+                var ordinal = 0;
+                foreach (var parameter in list.Parameters) {
+                    parameters.Add(
+                        new TypeParameterSymbol(this, parameter.Identifier.ValueText, ordinal++, parameter));
+                }
+            }
+
+            typeParameters = parameters.ToArray();
+        }
+
+        if (typeParameterConstraintsResolved || typeParameters.Length == 0) {
+            return;
+        }
+
+        typeParameterConstraintsResolved = true;
+        ConstraintResolution.Apply(typeParameters, Declaration.ConstraintClauses, TypeBinder);
+    }
+
+    void EnsureBases() {
+        if (basesResolved || resolvingBases) {
+            return;
+        }
+
+        resolvingBases = true;
+        try {
+            List<NamedTypeSymbol> protocols = [];
+
+            if (Declaration.BaseList is { } list) {
+                foreach (var entry in list.Types) {
+                    if (TypeBinder.BindType(entry.Type) is not NamedTypeSymbol resolved || resolved.IsErrorType) {
+                        continue;
+                    }
+
+                    if (ReferenceEquals(resolved.OriginalDefinition, this)) {
+                        outerBinder.Diagnostics.Add(
+                            SemanticDiagnostics.CyclicBaseType,
+                            entry.Type.GetLocation(),
+                            Name);
+                        continue;
+                    }
+
+                    if (resolved.TypeKind == TypeKind.Protocol) {
+                        protocols.Add(resolved);
+                    }
+                    else if (baseType is null) {
+                        baseType = resolved;
+                    }
+                    else {
+                        protocols.Add(resolved);
+                    }
+                }
+            }
+
+            interfaces = protocols.ToArray();
+
+            // A base list that ends up pointing back at this type would make
+            // member lookup loop; drop it and report once.
+            if (baseType is not null && ContainsSelf(baseType)) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.CyclicBaseType,
+                    Declaration.Identifier.GetLocation(),
+                    Name);
+                baseType = null;
+            }
+        }
+        finally {
+            resolvingBases = false;
+            basesResolved = true;
+        }
+    }
+
+    bool ContainsSelf(NamedTypeSymbol candidate) {
+        for (var current = candidate; current is not null; current = current.BaseType) {
+            if (ReferenceEquals(current.OriginalDefinition, this)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    void EnsureMembers() {
+        if (members is not null) {
+            return;
+        }
+
+        var built = BuildMembers();
+
+        // Publish before validating: the checks below read member signatures,
+        // which resolve types through this type's own scope.
+        members = built;
+        membersByName = built
+            .GroupBy(m => m.Name, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.ToArray(), StringComparer.Ordinal);
+
+        ReportDuplicates();
+        ReportShaderIssues();
+    }
+
+    Symbol[] BuildMembers() {
+        List<Symbol> result = [];
+
+        foreach (var member in Declaration.Members) {
+            switch (member) {
+                case FieldDeclarationSyntax field:
+                    result.Add(new SourceFieldSymbol(this, field, TypeBinder));
+                    break;
+
+                case PropertyDeclarationSyntax property:
+                    result.Add(new SourcePropertySymbol(this, property, TypeBinder));
+                    break;
+
+                case IndexerDeclarationSyntax indexer:
+                    result.Add(new SourcePropertySymbol(this, indexer, TypeBinder));
+                    break;
+
+                case EnumMemberDeclarationSyntax enumMember:
+                    result.Add(new SourceEnumMemberSymbol(this, enumMember, result.Count));
+                    break;
+
+                case MethodDeclarationSyntax
+                    or ConstructorDeclarationSyntax
+                    or DestructorDeclarationSyntax
+                    or OperatorDeclarationSyntax
+                    or ConversionOperatorDeclarationSyntax:
+                    result.Add(new SourceMethodSymbol(this, member, TypeBinder));
+                    break;
+
+                default: {
+                    if (TypeDeclarationInfo.From(member) is { } nested) {
+                        var symbol = new SourceNamedTypeSymbol(this, nested, TypeBinder);
+                        nestedTypes.Add(symbol);
+                        result.Add(symbol);
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        return result.ToArray();
+    }
+
+    void ReportDuplicates() {
+        foreach (var group in membersByName!) {
+            if (group.Value.Length < 2) {
+                continue;
+            }
+
+            // Methods may share a name; anything else may not, and a method
+            // cannot share a name with a non-method.
+            var seenSignatures = new List<MethodSymbol>();
+            var seenNonMethod = false;
+
+            foreach (var symbol in group.Value) {
+                var isDuplicate = symbol is MethodSymbol method
+                    ? seenNonMethod || seenSignatures.Any(m => HaveSameSignature(m, method))
+                    : seenNonMethod || seenSignatures.Count > 0;
+
+                if (isDuplicate) {
+                    ReportDuplicate(symbol);
+                }
+
+                if (symbol is MethodSymbol declared) {
+                    seenSignatures.Add(declared);
+                }
+                else {
+                    seenNonMethod = true;
+                }
+            }
+        }
+    }
+
+    void ReportDuplicate(Symbol symbol) {
+        var location = symbol.DeclaringSyntax?.GetLocation() ?? Location.None;
+        outerBinder.Diagnostics.Add(SemanticDiagnostics.DuplicateDeclaration, location, symbol.Name);
+    }
+
+    static bool HaveSameSignature(MethodSymbol left, MethodSymbol right) {
+        if (left.Parameters.Count != right.Parameters.Count || left.Arity != right.Arity) {
+            return false;
+        }
+
+        for (var i = 0; i < left.Parameters.Count; i++) {
+            if (!left.Parameters[i].Type.Equals(right.Parameters[i].Type)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    void ReportShaderIssues() {
+        Dictionary<ShaderStage, MethodSymbol> stages = [];
+
+        foreach (var member in members!) {
+            // Textures, samplers and the like bind to the pipeline, so they only
+            // make sense as shader state.
+            if (member is FieldSymbol field
+                && field.Type is BuiltInNamedTypeSymbol { ResourceKind: not ResourceKind.None } resource
+                && TypeKind != TypeKind.Shader) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ResourceMustBeShaderField,
+                    field.DeclaringSyntax?.GetLocation() ?? Location.None,
+                    resource.Name);
+                continue;
+            }
+
+            if (member is not MethodSymbol { Stage: not ShaderStage.None } method) {
+                continue;
+            }
+
+            var location = method.DeclaringSyntax?.GetLocation() ?? Location.None;
+
+            if (TypeKind != TypeKind.Shader) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.StageAttributeOutsideShader, location, method.Stage + "Shader");
+                continue;
+            }
+
+            if (method.Arity > 0) {
+                outerBinder.Diagnostics.Add(SemanticDiagnostics.EntryPointCannotBeGeneric, location, method.Name);
+            }
+
+            if (!stages.TryAdd(method.Stage, method)) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.DuplicateEntryPoint, location, Name, method.Stage);
+            }
+        }
+    }
+}

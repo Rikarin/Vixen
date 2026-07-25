@@ -1,0 +1,108 @@
+package Vixen.Test
+
+import Vixen.Core
+import Vixen.BaseShaders
+
+// Test shader
+[FooBar, BarFoo]
+shader TestShader : ExampleBase, CustomShader {
+    const val Multiplier = 42
+    var test = "str"
+    var mat: mat3x4 = mat3x4(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)
+    
+    var prop {
+        get => test
+        set => test = value
+    }
+    
+    [property: FooBar(test: "random_literal")]
+    public abstract var didTest {
+        willSet {
+            printf(value)
+            
+            val foo = () => 42
+            val bar = asd => 42
+            val baz = (asd: int) => 42
+            val baz = (asd: int): string => 42
+        }
+        
+        didSet => printf(value)
+    }
+    
+    var anonymousObject: object = {
+        Test = 42,
+        FooBar = "string"
+    }
+    
+    val len: int
+    val test: FooBar = [1, 2, 3, 4]
+    val test = [1, 2, 3, 4]
+    
+    var test: FooBar = [
+        "string",
+        'c',
+        'a'
+    ]
+    
+    func fooBar() => 42
+    func fooBar(): int => 42
+    
+    init() {
+        Test()
+        
+        for (i in 1..10) {
+            a++
+            ++a
+            FooBar(i)
+        }
+        
+        if (a > 42) {
+            Call()
+        } else {
+            Not()
+        }
+    }
+    
+    init(test: string?) {
+        long.SomeMethod()
+        
+        func test(): int { }
+        len = CoreClass.GetLength<int, Class>(test)
+        
+        len = p[42]
+        len = p[1..12]
+    }
+    
+    func Generic<int>.Test<Asd>() { }
+    
+    func GetLength2(): int {
+        return len
+    }
+    
+    func GetLength() => len
+
+    func VSMain() {
+        var bar = 7 + 4 * "test" / 42f
+        var foo = 7 + 4 * "test" / 42f
+        var tst = 7 + 4 * "test" / 42f
+        
+        var test: int[]
+        var test: double[][]
+        
+        Test()
+    }
+    
+    func TestMethod(name: string, count: int = 42): float4 {
+        var test = "string"
+        val res = name + test
+        
+        val hash = res.GetHashCode()
+        return hash.ToInt()
+    }
+}
+
+struct FooBar {
+
+}
+
+readonly record struct Messenger(userId: int, message: string)

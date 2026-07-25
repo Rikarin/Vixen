@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <RootNamespace>Vixen.Raven</RootNamespace>
+        <!-- NU1903: transitive vuln advisory. CS3021: ANTLR-generated lexer/parser
+             carry [CLSCompliant] attrs the assembly doesn't need (third-party noise). -->
+        <NoWarn>NU1903;CS3021</NoWarn>
+
+        <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Tests"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Antlr4.CodeGenerator" Version="4.6.6">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="Antlr4.Runtime" Version="4.6.6"/>
+    </ItemGroup>
+    
+    <ItemGroup>
+        <Content Include="Grammar\RavenLexer2.g4"/>
+        <Content Include="Grammar\RavenParser2.g4"/>
+        <Content Include="Grammar\UnicodeClasses.g4"/>
+        <AdditionalFiles Include="Syntax\Syntax.xml"/>
+    </ItemGroup>
+    
+    <ItemGroup>
+        <ProjectReference Include="..\Tools\SyntaxGenerator\SyntaxGenerator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false"
+        />
+    </ItemGroup>
+</Project>

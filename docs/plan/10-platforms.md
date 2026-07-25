@@ -1,0 +1,263 @@
+# 10 — Platforms
+
+Six targets. They are not equally hard, and pretending they are is how multi-platform plans fail. This
+document gives each one an honest assessment, a concrete implementation path, and its own gate.
+
+## Summary
+
+| Target | RID | Runtime | Graphics | Difficulty | Risk |
+|---|---|---|---|---|---|
+| Windows | `win-x64`, `win-arm64` | CoreCLR (JIT) | Vulkan (D3D12 post-1.0) | Low | Low |
+| Linux | `linux-x64`, `linux-arm64` | CoreCLR (JIT) | Vulkan | Low | Low |
+| macOS | `osx-x64`, `osx-arm64` | CoreCLR (JIT) | Vulkan/MoltenVK | Medium | Medium |
+| Android | `android-arm64`, `android-x64` | CoreCLR or Mono (SDK's choice) | Vulkan 1.1+, GLES 3.2 | Medium-High | Medium |
+| iOS | `ios-arm64` | **NativeAOT only** (no JIT permitted) | Vulkan/MoltenVK | High | Medium |
+| Web | `browser-wasm` | Mono-based WASM runtime | WebGL2 ✅ *verified*, WebGPU | High (labour) | Low-Medium |
+
+## Shared foundation
+
+`Vixen.Platform` defines the contracts; each platform assembly implements them. Nothing above
+`Vixen.Platform` has a `#if ANDROID`.
+
+```csharp
+IWindow            create/destroy/resize/title/icon/fullscreen/cursor/DPI/events, multi-window
+ISurface           native handle for swapchain creation (HWND, Wayland surface, CAMetalLayer, ANativeWindow, canvas)
+IDisplayInfo       monitors, resolutions, refresh rates, HDR capability, per-monitor scale
+IFileSystemHost    platform paths (app/data/cache/temp), sandbox rules, permission requests
+IClipboard         text, image, custom formats
+INativeDialogs     open/save/folder pickers, message boxes — must be native, users notice
+ILifecycle         suspend/resume/low-memory/focus-lost/orientation/back-button
+IInputSource       raw device enumeration and events (feeds Vixen.Input)
+ITextInput         IME composition, on-screen keyboard, candidate window positioning
+IHaptics           rumble, taptic
+IPowerInfo         battery, thermal state, power mode — mobile quality scaling depends on this
+```
+
+**`Vixen.Platform.Headless`** implements the same contracts with no window, no GPU, no audio device, and
+no display server — what a dedicated server and batch-tooling head run on
+([17](17-app-heads-and-shipping.md)). Every subsystem must tolerate the absence of a window rather than
+assuming one exists; a headless CI leg enforces it.
+
+**`Vixen.Platform.Desktop`** implements most of this once, via `Silk.NET.SDL` 2.23.0 (SDL3): windowing,
+input, gamepads with haptics, clipboard, display enumeration, IME. The three desktop assemblies then
+add only what SDL does not cover well: native file dialogs, OS-specific window chrome, per-OS path
+conventions, and platform-specific graphics-loader details.
+
+**App heads.** Each platform gets a project template producing the platform's native entry point
+(`Program.cs` + SDL loop on desktop, `Activity` on Android, `UIApplicationDelegate` on iOS, a JS
+bootstrap on Web). Game/app code lives in a platform-neutral library that all heads reference — no
+`#if` in user code.
+
+## Windows
+
+**Easiest target; it is the development baseline alongside Linux.**
+
+- **Vulkan only at 1.0. D3D12 is postponed** (Q4) but designed for, with a stub project reserved from
+  Phase 1 so it lands additively — see ADR-001 for the five measures that keep the RHI mappable, chiefly
+  specifying barriers against Vulkan `synchronization2` so D3D12 *Enhanced Barriers* map directly.
+  The eventual motivation is Windows GPU tooling (PIX, GPU crash dumps), IHV driver reliability, and
+  `DirectStorage`/HDR interop. Until then, Windows Vulkan driver quality is good enough on all three IHVs.
+- `net10.0-windows` for `Vixen.Platform.Windows` only, for WinRT file pickers, jump lists, taskbar
+  progress, and `DXGI` output enumeration for HDR.
+- Publish: `PublishSingleFile` + `PublishReadyToRun`; NativeAOT for the editor as an opt-in build
+  variant (measured startup win, but rules out editor plugin loading — hence opt-in).
+- Gates: `Samples/01` renders; editor runs; all tests green on `windows-latest` CI.
+
+## Linux
+
+- Vulkan only. GL exists as a documented fallback but is not gated on.
+- Wayland primary, X11 fallback — SDL3 handles the selection; the engine must not assume either
+  (a `IDisplayInfo` implementation that assumes X11 breaks on modern GNOME).
+- XDG base directories for paths; XDG desktop portal for file dialogs when sandboxed (Flatpak).
+- **CI's most valuable target** because of **lavapipe** (Mesa's software Vulkan): a real, conformant
+  Vulkan 1.3 driver with no GPU, so the full Vulkan backend, validation layers, and golden-image
+  rendering tests run on a standard GitHub runner. This is how graphics testing becomes routine instead
+  of aspirational.
+- Publish: framework-dependent + self-contained tarballs, AppImage for the editor, Flatpak manifest
+  as a P2 nice-to-have.
+- Gates: `Samples/01` renders on lavapipe *and* on a real GPU (a self-hosted runner or a manual
+  pre-release check); all tests green on `ubuntu-latest`.
+
+## macOS
+
+**Medium difficulty, entirely because of MoltenVK and Apple's packaging rules.**
+
+- **MoltenVK** (ADR-011), verified at **v1.4.2** — a layered implementation of **Vulkan 1.4**, minimum
+  macOS 12.0 / iOS 15, shipped as a universal `XCFramework` or `libMoltenVK.dylib`.
+- **Two build flavours, because MoltenVK does not load Vulkan layers itself.** This corrects an earlier
+  draft of this plan, which recommended linking MoltenVK directly and skipping the Vulkan Loader —
+  that would have silently cost us validation layers on macOS, and validation-clean-in-debug is a
+  stated non-negotiable ([00](00-vision-and-principles.md)).
+  | Flavour | Assembly |
+  |---|---|
+  | **Shipping** | Link MoltenVK directly (`XCFramework` in the bundle). No Loader, no layers, one fewer moving part, no dependency on a user-installed Vulkan SDK. |
+  | **Development** | Bundle the **Vulkan Loader + validation layers** from the Vulkan SDK alongside MoltenVK as an ICD. Requires `VK_ICD_FILENAMES`/`VK_DRIVER_FILES` set before `vkCreateInstance`, **and** `VK_KHR_portability_enumeration` + the `VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR` flag — without that bit the Loader will not return MoltenVK's `VkPhysicalDevice` at all, which presents as "no Vulkan devices found" on a machine that works fine. |
+  The instance-creation code paths differ only by that flag and the layer list, so this is a
+  configuration switch in `Vixen.Graphics.Vulkan`, not two code paths.
+- Constraints to design around, all capability-gated in the RHI (full list in ADR-011): descriptor
+  indexing requires Metal argument buffers enabled and is Tier-1-limited; buffer-device-address needs
+  Tier 2; **primitive restart cannot be disabled**; **pipeline-statistics queries are unsupported**;
+  PVRTC uploads must be host-mapped rather than staged. None affect the P1 feature set.
+- **The iOS and tvOS Simulators are supported targets** for MoltenVK, which is what makes the
+  simulator smoke tests in CI meaningful rather than theatre.
+- Surface: `VK_EXT_metal_surface` over a `CAMetalLayer` attached to the SDL window's `NSView`.
+- ObjC interop in `Vixen.Platform.MacOS` via `[LibraryImport]` against `objc_msgSend` for the handful
+  of calls needed (window chrome, `NSOpenPanel`, `NSPasteboard`, accessibility). No Xamarin.Mac
+  bindings.
+- **Packaging is the real work**: `.app` bundle layout, `Info.plist`, universal binary (`osx-x64` +
+  `osx-arm64` via `lipo`), hardened runtime entitlements, codesigning with a Developer ID, and
+  notarisation. All scripted in Nuke (`Build.Release.cs`) and run in CI on `macos-14`.
+- Gates: `Samples/01` renders via MoltenVK; the editor runs notarised from a signed `.dmg`; the
+  golden-image suite passes within tolerance (MoltenVK's output will differ slightly from lavapipe's —
+  hence perceptual comparison per [05](05-graphics-rhi.md)).
+
+## Android
+
+- `net10.0-android`, API level 26 minimum (Vulkan 1.0 guaranteed, 1.1 on the overwhelming majority of
+  API 28+ devices).
+- **Vulkan primary with a GLES 3.2 fallback that is genuinely maintained**, not aspirational. Android
+  driver fragmentation is real: some devices report Vulkan support and then fail on specific
+  extensions. The engine must degrade, and the device-capability database (a curated deny-list keyed on
+  GPU/driver version, shipped as content and updatable) is how commercial engines handle this. Build it
+  small but build it.
+- `VK_KHR_dynamic_rendering` is not available on all Vulkan 1.1 drivers → the real-render-pass fallback
+  path in the Vulkan backend ([05](05-graphics-rhi.md)) is mandatory here, not optional.
+- **Lifecycle is the biggest source of bugs**: `onPause`/`onResume` destroys and recreates the surface;
+  the engine must handle swapchain loss, and on some devices device loss, at arbitrary points. A
+  fault-injection test (`ILifecycle` simulated suspend/resume in a loop) belongs in CI.
+- Asset access via `AAssetManager` through a `IFileProvider` — assets inside the APK are not seekable
+  files, so the VFS abstraction earns its keep here.
+- Input: touch (multi-touch, pressure, stylus), sensors (accelerometer/gyro/gravity/compass), gamepad,
+  soft keyboard with IME. Stride's input model covers all of these and is a good reference for the
+  device abstraction.
+- Runtime: .NET 10 on Android uses CoreCLR or Mono depending on SDK configuration. Vixen does not care
+  — no IL weaving means either works (see [15](15-risks-and-open-questions.md) on the "no Mono"
+  constraint). Prefer CoreCLR where it is stable for better JIT throughput; the choice is a publish
+  property, not an engine dependency.
+- Packaging: AAB with per-ABI splits; **Play Asset Delivery** is the natural pairing with addressable
+  remote groups and should be a supported `loadPath` provider.
+- Gates: `Samples/01` and `Samples/05` run on a physical mid-range device and on an emulator; suspend/
+  resume 100 times without leaking or crashing; APK size budget for the sample.
+
+## iOS
+
+**High difficulty, but well-understood difficulty.**
+
+- `net10.0-ios`, **NativeAOT is mandatory** — Apple forbids JIT. This is the reason the entire plan is
+  built on source generators (ADR-002). If any subsystem needs runtime code generation, iOS is where it
+  dies, so iOS must be brought up **early** (Phase 3, not Phase 10) as a forcing function.
+- MoltenVK **statically linked** (dynamic frameworks are permitted but static avoids codesigning and
+  load-time friction), surface from `CAMetalLayer` on a `UIView`.
+- Constraints to design for: no background threads for GPU submission during suspension; strict memory
+  limits with `didReceiveMemoryWarning` → the streaming manager must actually respond; thermal
+  throttling → quality scaling from `IPowerInfo`; no file writes outside the sandbox.
+- ObjC interop via `[LibraryImport]`, same approach as macOS.
+- Packaging: `.ipa`, provisioning profiles, entitlements, App Store Connect upload — scripted in Nuke,
+  run on `macos-14` CI with certificates from GitHub secrets.
+- **Trimming is not optional** — a NativeAOT iOS binary with the full engine must fit a reasonable size
+  budget, so `IsTrimmable` correctness across every runtime assembly is load-bearing. CI publishes an
+  AOT+trimmed iOS binary on **every PR** and fails on any IL2xxx/IL3xxx warning, from Phase 3 onward.
+- Gates: `Samples/01` and `Samples/05` run on a physical device; zero trim/AOT warnings; binary size
+  under budget; memory-warning handling verified.
+
+## Web
+
+**Was the highest-risk target. The core unknown has been retired by a working spike** —
+[`spikes/web-webgl2/RESULT.md`](spikes/web-webgl2/RESULT.md). Still the most *labour-intensive* target,
+but no longer the most uncertain one.
+
+### Verified facts (measured, not assumed)
+
+Spike run on .NET SDK 10.0.302 + `wasm-tools`/`wasm-experimental` 10.0.110, Emscripten 3.1.56,
+Silk.NET 2.23.0, Chromium.
+
+- ✅ **`Silk.NET.OpenGLES` drives real WebGL2 from `browser-wasm`.** Verified end to end with a rendered
+  triangle: context creation, shader compile/link, VAO/VBO, `BufferData(void*)`, `DrawArrays`,
+  `glGetString` → `OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))`. No Silk.NET fork needed.
+- ✅ **The bridge is ~40 lines.** `[DllImport("*", EntryPoint = "emscripten_GetProcAddress")]` plus
+  Silk.NET.Core's `LamdaNativeContext`, which adapts any `Func<string, nint>` into the `INativeContext`
+  every Silk.NET binding resolves through. Context creation via `emscripten_webgl_create_context` /
+  `_make_context_current`. Every P/Invoke shape the RHI needs works: `string` in, `out int`, `void*`,
+  struct by `ref`, and runtime-resolved function-pointer dispatch.
+- ✅ **Payload floor is ~930 KB Brotli**, not tens of megabytes. Measured: 1.99 MB Brotli by default,
+  **0.93 MB** with `InvariantGlobalization` + `PublishTrimmed`. The Mono runtime is 911 KB of it, ICU
+  ~600 KB (fully removable), and the trimmer reduces `Silk.NET.OpenGLES` from ~2 MB to **25 KB**. An
+  earlier draft of this plan estimated "tens of megabytes" — that was wrong by an order of magnitude.
+- ⚠ **TFM is `net10.0` with `Sdk="Microsoft.NET.Sdk.WebAssembly"`**, not `net10.0-browser`. Plus
+  `<WasmBuildNative>true</WasmBuildNative>` to relink with emcc.
+- ⚠ **Required emcc flags: `-lGL -sMAX_WEBGL_VERSION=2 -sMIN_WEBGL_VERSION=2`.** Omitting them does not
+  error — the context request silently returns **WebGL 1**, ES 3.00 shaders then fail to compile, and
+  Silk.NET's `GetShaderInfoLog` throws `ArgumentOutOfRangeException` instead of reporting the compile
+  error, hiding the cause completely. Verified by building without the flags. Mitigations: assert
+  `GL_VERSION` contains `WebGL 2` right after context creation and fail with a message naming the flag;
+  wrap the info-log getters to query length first; ship the flags in `Vixen.Platform.Web`'s `.targets`
+  so a consumer cannot omit them.
+- **Runtime is Mono**, confirmed by pack name (`Microsoft.NETCore.App.Runtime.Mono.browser-wasm`).
+  "AOT on WASM" means **Mono AOT** (`Microsoft.NET.Runtime.MonoAOTCompiler.Task`), *not* NativeAOT.
+  `Microsoft.DotNet.ILCompiler.LLVM` is not on nuget.org at all — only on the `dotnet-experimental`
+  feed, all prerelease. Settled and acceptable per [15](15-risks-and-open-questions.md) §2.
+- **`Silk.NET.Windowing` has no browser TFM** (groups exist for android/ios/maccatalyst but not
+  browser; no Silk.NET package mentions browser/wasm/emscripten). Windowing, surface, and input on the
+  web are ours to write — as already assumed.
+
+### Still true, still work
+
+- **`Silk.NET.WebGPU` binds native Dawn/wgpu**, not the browser's `navigator.gpu`. Browser WebGPU needs
+  JS interop, so `Vixen.Graphics.WebGPU` carries two surface implementations behind one backend.
+- **WebGL2 has no compute shaders.** This cascades: clustered-lighting binning, GPU particle
+  simulation, GTAO, compute post FX, and GPU culling all need fullscreen-fragment or CPU fallbacks.
+  [06](06-rendering-pipeline.md) requires every post effect to declare a non-compute variant for exactly
+  this reason — designed in, not discovered late.
+- **Threads** need `SharedArrayBuffer` and therefore COOP/COEP headers. The job system must have a
+  correct single-threaded mode (a `workerCount == 0` CI leg already enforces this).
+- **Size beyond the floor.** 930 KB is the runtime baseline; the engine's own IL adds to it. Lazy
+  assembly loading and splitting so a 2D/UI app does not download the 3D renderer remain worthwhile.
+
+### Path
+
+1. ~~Spike~~ ✅ **done** — [`spikes/web-webgl2/`](spikes/web-webgl2/) holds the working project and the
+   full write-up. The fallback plan (hand-written WebGL2 binding via `[JSImport]`) is no longer needed.
+2. `Vixen.Platform.Web`: canvas surface, pointer/keyboard/gamepad/touch events,
+   `requestAnimationFrame` loop, resize observer, DPI, fullscreen, clipboard (async API),
+   IndexedDB-backed `/data` and `/cache`, `fetch`-based `/app` provider with HTTP range requests for
+   streaming. Ships the emcc flags and the WebGL2 version assertion in its `.targets`.
+3. `Vixen.Graphics.OpenGL` in its WebGL2 profile, using the verified bridge.
+4. Addressable remote groups map naturally to HTTP — Web is where the addressable design pays off most,
+   since everything is remote by definition.
+5. WebGPU backend once the WebGL2 path is stable, as the performance story.
+
+### Honest scoping
+
+**`Samples/02-HelloUi` and a UI-heavy application are the Web target's real goal, not
+`Samples/05-PlatformerGame`.** A UI/2D application in the browser is achievable and genuinely
+valuable (the editor's asset browser or a documentation playground running in a page). A full 3D
+game at parity with desktop is a stretch goal, and committing to it early distorts the whole
+renderer's design toward the weakest platform.
+
+Gates: `Samples/01` (triangle) and `Samples/02` (UI) run in Chrome, Firefox, and Safari; download size
+under budget; single-threaded job-system mode verified.
+
+## Cross-platform discipline
+
+| Concern | Rule |
+|---|---|
+| Paths | Only virtual paths in engine code. `System.IO.Path` is banned outside `Vixen.Platform.*` and editor code (analyzer-enforced). |
+| Case sensitivity | Virtual paths are case-sensitive everywhere, including Windows. A CI check on Linux catches `Texture.PNG` vs `texture.png` before a user does. |
+| Endianness | Content is little-endian; no big-endian target exists, but the serializer asserts rather than assumes. |
+| Floating point | No reliance on cross-platform FP bit-identity for gameplay. Deterministic simulation, where needed, uses fixed-point or a documented deterministic subset. |
+| Feature detection | Always a runtime capability query with a fallback, never `#if PLATFORM`. `#if` is for P/Invoke surface only. |
+| Time | `Stopwatch`-based monotonic time; never `DateTime.Now` in the loop. |
+| Threading | Every subsystem works with `workerCount == 0`. Enforced by a test mode that runs the whole test suite single-threaded. |
+| Native binaries | One `Vixen.Platform.Native` project owns RID→binary mapping, `runtimes/<rid>/native/` layout, checksum verification at acquisition time, and a licence manifest. Native binaries are never committed; they are restored by a Nuke target from pinned, checksummed URLs. |
+
+## Platform CI matrix
+
+| Job | Runner | Runs |
+|---|---|---|
+| build+test | `windows-latest`, `ubuntu-latest`, `macos-14` | full test suite, every PR |
+| graphics | `ubuntu-latest` + lavapipe | Vulkan conformance, validation layers, golden images, every PR |
+| aot-trim | `ubuntu-latest`, `macos-14` | `PublishAot` + `PublishTrimmed` smoke, zero warnings, every PR |
+| android | `ubuntu-latest` | build AAB + emulator smoke test, every PR; physical-device suite nightly |
+| ios | `macos-14` | build + simulator smoke test, every PR; physical-device suite nightly |
+| web | `ubuntu-latest` | build + Playwright headless Chrome/Firefox smoke test, every PR |
+| release | matrix | signed/notarised artefacts, on tag |

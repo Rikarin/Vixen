@@ -1,0 +1,401 @@
+# 02 — Repository Layout
+
+You asked for `Core`, `Editor`, `Platform` as the three main folders, each containing one subfolder
+per `.csproj` library. That is the spine below, with four additions the build genuinely needs
+(`Raven`, `Tools`, `Samples`, `build`) and one convention decision (tests as siblings — ADR-014).
+
+## Top level
+
+```
+Vixen/
+├── .config/
+│   └── dotnet-tools.json          # nuke.globaltool, dotnet-coverage, dotnet-counters, dotnet-trace
+├── .github/
+│   ├── workflows/                 # ci.yml, release.yml, nightly-platforms.yml, docs.yml
+│   └── ISSUE_TEMPLATE/
+├── build/                         # Nuke — the single entry point for every build action
+│   ├── _build.csproj
+│   ├── Build.cs                   # partial: target graph
+│   ├── Build.Compile.cs
+│   ├── Build.Test.cs
+│   ├── Build.Pack.cs
+│   ├── Build.Native.cs            # native deps acquisition/verification
+│   ├── Build.Shaders.cs           # Raven core-library compilation
+│   ├── Build.Platforms.cs         # android/ios/web app-head builds
+│   ├── Build.ArchitectureRules.cs # layer-violation gate
+│   └── Build.Release.cs
+├── Core/                          # ── the engine and framework runtime ──
+├── Platform/                      # ── per-OS/backend implementations ──
+├── Editor/                        # ── the editor, built on Core ──
+├── Raven/                         # ── the shader compiler (existing project, absorbed) ──
+├── Tools/                         # ── CLI, workers, SDK, templates ──
+├── Samples/
+├── Benchmarks/
+├── references/                    # git submodules / vendored read-only reference code — NOT built
+│   ├── stride/                    # symlink or submodule → /Users/jiu/Projects/stride
+│   ├── arch/                      # github.com/genaray/Arch          (ADR-004)
+│   ├── flexbox/                   # github.com/ru-ace/Flexbox        (ADR-006)
+│   ├── yoga/                      # github.com/facebook/yoga — conformance fixtures
+│   ├── signals-dotnet/            # github.com/fedeAlterio/SignalsDotnet (ADR-007)
+│   └── purrnet/                   # github.com/PurrNet/PurrNet — networking reference (MIT), see 16
+├── docs/
+│   ├── plan/                      # this directory
+│   ├── adr/                       # ADRs promoted out of 01 as they accumulate
+│   └── manual/                    # user-facing docs (DocFX)
+├── .editorconfig
+├── .gitattributes                 # binary/lfs rules, .meta text merge
+├── .gitignore
+├── Directory.Build.props          # shared properties, analyzers, versioning
+├── Directory.Build.targets        # shared targets, PublicAPI wiring
+├── Directory.Packages.props       # Central Package Management — every version pinned
+├── global.json                    # SDK pin
+├── nuget.config
+├── Vixen.slnx                     # full solution
+├── Vixen.Core.slnf                # filter: Core + Platform + tests  (fast IDE load)
+├── Vixen.Editor.slnf              # filter: Editor + deps
+├── Vixen.Raven.slnf               # filter: Raven + tests
+├── LICENSE.md
+└── README.md
+```
+
+`references/` is excluded from the solution and from every glob. It exists so that "how did Stride
+solve this" is a `grep` away rather than a browser tab away. CI does not restore or build it.
+
+## `Core/`
+
+Every folder here is one `net10.0` class library plus its sibling test project. `Vixen.` prefix on
+every assembly; folder name == assembly name == root namespace.
+
+```
+Core/
+├── Vixen.Core/                          # annotations, service registry, IDs, time, disposables, pooling
+├── Vixen.Core.Tests/
+├── Vixen.Core.Mathematics/              # ADR-003
+├── Vixen.Core.Mathematics.Tests/
+├── Vixen.Core.Memory/                  # allocators, arenas, NativeArray<T>, MemoryOwner, ring buffers
+├── Vixen.Core.Memory.Tests/
+├── Vixen.Core.Collections/             # SparseSet, ChunkedList, SmallList, PooledDictionary, BitSet
+├── Vixen.Core.Collections.Tests/
+├── Vixen.Core.Threading/               # job system, JobHandle, ParallelFor, MainThread affinity
+├── Vixen.Core.Threading.Tests/
+├── Vixen.Core.IO/                      # VFS, virtual paths, async streams, mmap, file watcher
+├── Vixen.Core.IO.Tests/
+├── Vixen.Core.Serialization/           # binary serializer runtime, chunks, content refs, LZ4/Zstd
+├── Vixen.Core.Serialization.Generators/ # ── source generator ──
+├── Vixen.Core.Serialization.Tests/
+├── Vixen.Core.Reflection/              # generated type registry, attribute discovery, no runtime scan
+├── Vixen.Core.Reflection.Generators/    # ── source generator ──
+├── Vixen.Core.Reflection.Tests/
+├── Vixen.Core.Syntax/                  # GreenNode/red-tree infra shared by Raven, VXML, VCSS
+├── Vixen.Core.Syntax.Tests/
+├── Vixen.Core.Yaml/                    # .meta / .vxasset read-write, tagged-type polymorphic emitter
+├── Vixen.Core.Yaml.Tests/
+├── Vixen.Core.Diagnostics/             # ILogger sink, profiler, counters, trace export
+├── Vixen.Core.Diagnostics.Tests/
+├── Vixen.Core.Imaging/                 # engine texture formats, BCn/ASTC/ETC2 encode-decode, mip gen
+├── Vixen.Core.Imaging.Tests/
+│
+├── Vixen.Ecs/                          # ADR-004 — archetype ECS
+├── Vixen.Ecs.Generators/               # ── source generator: queries, systems ──
+├── Vixen.Ecs.Tests/
+│
+├── Vixen.Graphics/                     # RHI abstraction — ADR-001
+├── Vixen.Graphics.Tests/
+├── Vixen.Shaders/                      # effect system, permutations, bytecode cache, param keys
+├── Vixen.Shaders.Generators/           # ── source generator: Raven reflection → C# keys ──
+├── Vixen.Shaders.Tests/
+├── Vixen.Rendering/                    # render system, features, stages, materials, lights, shadows
+├── Vixen.Rendering.Tests/
+├── Vixen.Rendering.PostFx/             # post-processing chain (own project: heavy, optional)
+├── Vixen.Rendering.PostFx.Tests/
+│
+├── Vixen.Assets/                       # runtime: ContentManager, catalog, addressables, streaming
+├── Vixen.Assets.Tests/
+│
+├── Vixen.Engine/                       # game loop, scenes, entities-as-facade, prefabs, Behavior
+├── Vixen.Engine.Tests/
+├── Vixen.Input/                        # action-map input system
+├── Vixen.Input.Tests/
+├── Vixen.Audio/
+├── Vixen.Audio.Tests/
+├── Vixen.Physics/                      # Jolt integration
+├── Vixen.Physics.Tests/
+├── Vixen.Animation/                    # skeletal, blend trees, IK, state machine
+├── Vixen.Animation.Tests/
+├── Vixen.Vfx/                          # particles + node-graph VFX runtime
+├── Vixen.Vfx.Tests/
+├── Vixen.Navigation/                   # navmesh (Recast/Detour binding)
+├── Vixen.Navigation.Tests/
+├── Vixen.Net/                          # session, tick, channels, replication, rules — see 16
+├── Vixen.Net.Generators/               # ── source generator: RPC senders, serializers, delta ──
+├── Vixen.Net.Tests/
+├── Vixen.Net.Transport.Udp/            # + .Tests
+├── Vixen.Net.Transport.WebSocket/      # + .Tests
+├── Vixen.Net.Transport.Local/          # in-process: host mode, offline, and every test
+├── Vixen.Net.Transport.Relay/          # + .Tests
+├── Vixen.Video/
+├── Vixen.Video.Tests/
+│
+├── Vixen.Ui/                           # element tree, properties, events, input routing, rendering
+├── Vixen.Ui.Tests/
+├── Vixen.Ui.Reactive/                  # signals — ADR-007
+├── Vixen.Ui.Reactive.Tests/
+├── Vixen.Ui.Layout/                    # flexbox + grid + block — ADR-006
+├── Vixen.Ui.Layout.Tests/              #   ← hosts the ported Yoga conformance suite
+├── Vixen.Ui.Styling/                   # VCSS parse (ExCSS), cascade, selector matcher, transitions
+├── Vixen.Ui.Styling.Tests/
+├── Vixen.Ui.Styling.Utilities/         # the Tailwind-like preprocessor + design tokens
+├── Vixen.Ui.Styling.Utilities.Tests/
+├── Vixen.Ui.Markup/                    # VXML syntax tree, parser, binder, diagnostics
+├── Vixen.Ui.Markup.Generators/         # ── source generator: .vxml/.vcss → C# ──
+├── Vixen.Ui.Markup.Tests/
+├── Vixen.Ui.Text/                      # HarfBuzz shaping, MSDF atlas, line breaking, bidi
+├── Vixen.Ui.Text.Tests/
+├── Vixen.Ui.Controls/                  # the standard widget library
+├── Vixen.Ui.Controls.Tests/
+├── Vixen.Ui.Controls.Advanced/         # DataGrid, TreeView, Docking, PropertyGrid, Timeline, Canvas
+├── Vixen.Ui.Controls.Advanced.Tests/
+└── Vixen.Ui.HotReload/                 # dev-only: watcher, reparse, state preservation
+    └── Vixen.Ui.HotReload.Tests/
+```
+
+**Why `Vixen.Ui.*` is this granular.** It is the largest new subsystem and the one with the most
+independent testability. Splitting layout, styling, markup, and text apart means the Yoga conformance
+suite, the CSS cascade tests, the parser golden tests, and the shaping tests are four independent
+gates that can go green at different times. It also lets an application consumer take
+`Vixen.Ui + Vixen.Ui.Controls` without pulling `Vixen.Engine`.
+
+**Why `Vixen.Ui` does not depend on `Vixen.Engine`.** See [00](00-vision-and-principles.md). `Vixen.Ui`
+depends on `Vixen.Graphics`, `Vixen.Assets`, `Vixen.Input`, `Vixen.Core.*` — and nothing else. The
+`Vixen.Engine` integration (a `UiComponent` that renders a UI tree into a 3D scene) lives in
+`Vixen.Engine`, pointing the other way.
+
+## `Platform/`
+
+```
+Platform/
+├── Vixen.Platform/                     # contracts only: IWindow, ISurface, IFileSystem, IClipboard,
+│   │                                   #   IDisplayInfo, ILifecycle, INativeDialogs, IHapticDevice
+│   └── Vixen.Platform.Tests/
+├── Vixen.Platform.Desktop/             # SDL3 via Silk.NET.SDL — shared by Win/Linux/macOS
+│   └── Vixen.Platform.Desktop.Tests/
+├── Vixen.Platform.Headless/            # no window/GPU/audio: dedicated server + batch tooling (17)
+│   └── Vixen.Platform.Headless.Tests/
+├── Vixen.Platform.Windows/             # net10.0-windows: DXGI enumeration, WinRT file dialogs, jump lists
+├── Vixen.Platform.Linux/               # Wayland/X11 quirks, XDG paths, portal dialogs
+├── Vixen.Platform.MacOS/               # net10.0 + ObjC interop: NSWindow chrome, sandbox paths, MoltenVK load
+├── Vixen.Platform.Android/             # net10.0-android: Activity lifecycle, JNI, AAssetManager, IME
+├── Vixen.Platform.iOS/                 # net10.0-ios: UIViewController, CAMetalLayer for MoltenVK, IME
+├── Vixen.Platform.Web/                 # net10.0 + Sdk.WebAssembly: JSImport/JSExport, canvas, WebGL2 surface
+│
+├── Vixen.Graphics.Vulkan/              # primary
+│   └── Vixen.Graphics.Vulkan.Tests/
+├── Vixen.Graphics.Direct3D12/
+│   └── Vixen.Graphics.Direct3D12.Tests/
+├── Vixen.Graphics.OpenGL/              # GL 4.5 core (desktop) + GLES 3.0/3.2 (mobile) + WebGL2 (browser)
+│   └── Vixen.Graphics.OpenGL.Tests/
+├── Vixen.Graphics.WebGPU/
+│   └── Vixen.Graphics.WebGPU.Tests/
+├── Vixen.Graphics.Null/                # headless: CI graphics tests AND the shipping dedicated-server backend (17)
+│   └── Vixen.Graphics.Null.Tests/
+│
+├── Vixen.Audio.Backend.OpenAL/
+├── Vixen.Audio.Backend.WebAudio/
+└── Vixen.Platform.Native/              # native binary acquisition, RID mapping, runtimes/ layout
+```
+
+Backend projects live under `Platform/` rather than `Core/` because they are *platform
+implementations* of a `Core/` contract, and because it makes the "one folder per deployment concern"
+story clean: to add a platform you add folders in exactly one place.
+
+**Runtime backend selection.** `Vixen.Graphics.Null` is the only backend referenced by tests.
+Applications reference `Vixen.App` (a meta-package in `Tools/`) which brings in the backends valid for
+its RID via conditional `PackageReference`. Selection at boot is
+`GraphicsBackendSelector.Select(preferences, platform)` — no reflection-based plugin scanning;
+the app head's generated `VixenBackendRegistry` (source generator over referenced assemblies)
+lists what is linked in, which keeps it trimming-safe.
+
+## `Editor/`
+
+```
+Editor/
+├── Vixen.Editor.Core/            # project model, asset database, GUID index, undo/redo, selection,
+│   │                             #   property system, import orchestration, build orchestration
+│   └── Vixen.Editor.Core.Tests/
+├── Vixen.Editor.Assets/          # importers (Assimp, ImageSharp, fonts, audio) + asset compilers
+│   └── Vixen.Editor.Assets.Tests/
+├── Vixen.Editor.Ui/              # editor shell: docking, command palette, menus, dialogs, theming
+│   └── Vixen.Editor.Ui.Tests/
+├── Vixen.Editor.Inspector/       # property drawers, attribute-driven editors, multi-object editing
+│   └── Vixen.Editor.Inspector.Tests/
+├── Vixen.Editor.SceneView/       # viewport, gizmos, picking, camera nav, grid, selection outline
+│   └── Vixen.Editor.SceneView.Tests/
+├── Vixen.Editor.NodeGraph/       # reusable node-graph framework: model, layout, wiring, undo, groups
+│   └── Vixen.Editor.NodeGraph.Tests/
+├── Vixen.Editor.ShaderGraph/     # nodes → Raven source generation
+│   └── Vixen.Editor.ShaderGraph.Tests/
+├── Vixen.Editor.VfxGraph/        # nodes → VFX runtime graph
+│   └── Vixen.Editor.VfxGraph.Tests/
+├── Vixen.Editor.AnimationGraph/  # blend trees / state machines
+│   └── Vixen.Editor.AnimationGraph.Tests/
+├── Vixen.Editor.Profiler/        # in-editor profiler, frame debugger, memory view
+│   └── Vixen.Editor.Profiler.Tests/
+├── Vixen.Editor.Debugger/        # remote inspector client, live entity/property editing
+│   └── Vixen.Editor.Debugger.Tests/
+├── Vixen.Editor.Plugin/          # public extensibility API for third-party editor plugins
+│   └── Vixen.Editor.Plugin.Tests/
+└── Vixen.Editor.App/             # the standalone executable; PublishSingleFile per RID
+```
+
+## `Raven/`
+
+The existing project, moved in with history (see migration below) and renamed to the monorepo
+convention. Its current `RootNamespace` is already `Vixen.Raven`.
+
+```
+Raven/
+├── Vixen.Raven/                  # was Compiler/  — syntax, semantic, emit
+│   └── Vixen.Raven.Tests/        # was Tests/
+├── Vixen.Raven.Spirv/            # SPIR-V emitter (ADR-012)
+│   └── Vixen.Raven.Spirv.Tests/
+├── Vixen.Raven.Transpile/        # SPIRV-Cross wrapper → GLSL/ESSL/HLSL/MSL/WGSL
+│   └── Vixen.Raven.Transpile.Tests/
+├── Vixen.Raven.Reflection/       # binding/layout metadata surfaced to Vixen.Shaders.Generators
+│   └── Vixen.Raven.Reflection.Tests/
+├── Vixen.Raven.SyntaxGenerator/  # was Tools/SyntaxGenerator/
+├── Vixen.Raven.Cli/              # was Cli/
+└── Library/                      # was Feed/ — the shipped .rvn standard library (PBR, math, etc.)
+```
+
+`Vixen.Core.Syntax` extraction: Raven's `SyntaxNode`/`GreenNode`/`SyntaxToken`/`SyntaxTrivia`/
+`SeparatedSyntaxList`/`SyntaxList<T>` and the `SyntaxGenerator` (`Syntax.xml` → node classes) are
+generic infrastructure. Phase 0 lifts them into `Core/Vixen.Core.Syntax` and
+`Core/Vixen.Core.Syntax.Generator`, with Raven, VXML, and VCSS all declaring their own `Syntax.xml`.
+This is the single highest-leverage refactor available: it turns three parser front ends into one
+piece of tested infrastructure plus three grammars.
+
+## `Tools/`
+
+```
+Tools/
+├── Vixen.Cli/                    # `dotnet vixen` global tool: new, build, run, import, pack, serve, doctor
+│   └── Vixen.Cli.Tests/
+├── Vixen.AssetCompiler/          # out-of-process import/compile worker (parallel, crash-isolated)
+│   └── Vixen.AssetCompiler.Tests/
+├── Vixen.ContentServer/          # local CDN emulator for addressable remote-catalog testing
+│   └── Vixen.ContentServer.Tests/
+├── Vixen.ShaderCompilerService/  # remote shader compile service for mobile/console iteration
+│   └── Vixen.ShaderCompilerService.Tests/
+├── Vixen.Sdk/                    # MSBuild SDK: props/targets that wire .meta import + content build
+│   └── Vixen.Sdk.Tests/          #   into `dotnet build` for consumer projects
+├── Vixen.App/                    # meta-package: sensible default reference set for an app head
+├── Vixen.Templates/              # dotnet new templates: vixen-game, vixen-app, vixen-lib, vixen-plugin
+│   └── Vixen.Templates.Tests/
+└── Vixen.ApiCheck/               # public API surface diffing, run in CI
+```
+
+## `Samples/` and `Benchmarks/`
+
+```
+Samples/
+├── 01-HelloTriangle/             # RHI only, all six platforms — the platform smoke test
+├── 02-HelloUi/                   # Vixen.Ui only, no engine — proves the UI/Engine boundary
+├── 03-PbrShowcase/               # materials, IBL, shadows, post FX
+├── 04-EcsStressTest/             # 100k entities
+├── 05-PlatformerGame/            # physics, input, animation, audio, VFX end to end
+├── 06-CanvasStress/              # P2: huge scrollable 2D canvas, layers, tool overlays, floating palettes
+└── 07-AddressablesRemote/        # remote catalog + delta update on mobile
+
+Benchmarks/
+├── Vixen.Benchmarks.Ecs/         # ported from Arch's suite (ADR-004)
+├── Vixen.Benchmarks.Layout/      # flexbox throughput, 10⁴/10⁵ nodes
+├── Vixen.Benchmarks.Reactive/    # signal propagation, alloc == 0
+├── Vixen.Benchmarks.Math/
+├── Vixen.Benchmarks.Serialization/
+└── Vixen.Benchmarks.Rendering/   # CPU-side: culling, sorting, command recording
+```
+
+**On `Samples/06-CanvasStress` (was `06-ImageEditor`).** Per the decided audience order
+([00](00-vision-and-principles.md)), **the editor is the large-scale application-platform proof**, so this
+sample no longer carries that burden and is demoted from phase gate to P2. What it still uniquely
+exercises is the one thing the editor does not: a multi-megapixel scrollable paint canvas with layer
+compositing, tool overlays, and marching-ants selection. Those specific stress requirements are now
+listed against the editor's own gates in [11](11-editor.md) where they overlap, and this sample covers
+the remainder if and when it is built.
+
+## Shared MSBuild
+
+**`Directory.Build.props`** (root) sets for every project:
+
+```xml
+<PropertyGroup>
+  <LangVersion>latest</LangVersion>
+  <Nullable>enable</Nullable>
+  <ImplicitUsings>enable</ImplicitUsings>
+  <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  <AnalysisLevel>latest-all</AnalysisLevel>
+  <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  <EnableNETAnalyzers>true</EnableNETAnalyzers>
+  <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  <Deterministic>true</Deterministic>
+  <ContinuousIntegrationBuild Condition="'$(CI)'=='true'">true</ContinuousIntegrationBuild>
+  <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+  <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)generated</CompilerGeneratedFilesOutputPath>
+  <InvariantGlobalization>true</InvariantGlobalization>
+  <PublishRepositoryUrl>true</PublishRepositoryUrl>
+  <EmbedUntrackedSources>true</EmbedUntrackedSources>
+  <IncludeSymbols>true</IncludeSymbols>
+  <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+</PropertyGroup>
+```
+
+Then, conditioned on the folder, three profiles:
+
+| Profile | Applies to | Adds |
+|---|---|---|
+| **Runtime** | `Core/**`, `Platform/**` (non-test) | `IsAotCompatible=true`, `IsTrimmable=true`, `EnableTrimAnalyzer`, `EnableAotAnalyzer`, `EnableSingleFileAnalyzer`, `IsPackable=true`, PublicAPI analyzer |
+| **Tooling** | `Editor/**`, `Tools/**`, `Raven/**` | reflection/LINQ allowed, `IsAotCompatible` off except `Vixen.Editor.App` |
+| **Test** | `**/*.Tests` | xunit v3 + NSubstitute + Shouldly refs auto-added, `IsPackable=false`, `InternalsVisibleTo` back-reference generated |
+
+Auto-wiring test references from `Directory.Build.targets` (rather than repeating them in 60 csproj
+files) is worth the small amount of MSBuild magic; it also guarantees nobody quietly uses MSTest.
+
+**Versioning.** Single `VersionPrefix` in `Directory.Build.props`, with build metadata from Nuke via
+GitVersion-style computation. All packages version in lockstep — the engine is one product, and
+independently versioned packages for a monorepo this coupled produce a support matrix nobody can
+reason about.
+
+## Monorepo migration (Phase 0, day 1)
+
+Raven has its own git history worth keeping.
+
+```bash
+cd /Users/jiu/Projects/Vixen
+git init
+git commit --allow-empty -m "chore: initialise Vixen monorepo"
+
+# bring Raven in with history under a Raven/ prefix
+git remote add raven-origin ./Raven
+git fetch raven-origin
+git merge -s ours --no-commit --allow-unrelated-histories raven-origin/main
+git read-tree --prefix=Raven/ -u raven-origin/main
+git commit -m "chore: absorb Raven shader compiler into the monorepo (history preserved)"
+git remote remove raven-origin
+```
+
+Then, as separate reviewable commits: delete `Raven/.git`, rename projects to the
+`Vixen.Raven.*` convention, lift `Vixen.Core.Syntax` out, and add `references/` as submodules. Do
+**not** squash — the Raven parser history is the most valuable existing artefact in this repo.
+
+`.gitattributes` essentials:
+
+```
+*.meta        text eol=lf                 # typed schema ⇒ a conflict here is real; do not auto-union
+*.vxasset     text eol=lf
+*.vxml        text eol=lf
+*.vcss        text eol=lf
+*.rvn         text eol=lf
+*.png  filter=lfs diff=lfs merge=lfs -text
+*.ktx2 filter=lfs diff=lfs merge=lfs -text
+*.fbx  filter=lfs diff=lfs merge=lfs -text
+```

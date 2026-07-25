@@ -1,0 +1,61 @@
+package Core.Test
+
+import System
+import System.Core
+
+
+protocol Vehicle {
+    var Name: string
+    val Count: int
+    
+    init(name: string)
+    func Test()
+
+}
+
+
+class CarBase : Vehicle {
+    const val constant = "test string"
+    
+    var variable: string
+    var variable: int
+    val constant = 42
+    val constant2 = 50f
+    val constant3: long
+    
+    init() {
+        constant3 = 420L
+        print("test")
+        print(constant2)
+    }
+    
+    func Test1() {
+        if (a != null) {
+        
+        } else if (a < 42) {
+        
+        } else if (a == "test") {
+        
+        }
+        
+        val (statusCode, statusMessage) = TupleTest()
+        val (onlyCode, _) = TupleTest()
+        
+        val namedTuple = (statusCode: 200, description: "OK")
+        print("Status code is {namedTuple.description}")
+        
+        val convertedNumber: int? = int("123")
+        convertedNumber = null
+        
+        // force unwrap
+        val number: int = convertedNumber!
+    }
+    
+    func TupleTest(): (int, string) {
+        return (404, "Not Found")
+    }
+}
+
+class Car : CarBase, Vehicle {
+
+}
