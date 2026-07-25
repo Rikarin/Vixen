@@ -8,12 +8,12 @@
 
   <PropertyGroup Label="Identity">
     <Product>Vixen</Product>
-    <Company>Vixen</Company>
-    <Authors>Vixen contributors</Authors>
-    <Copyright>Copyright (c) Vixen contributors</Copyright>
+    <Company>Rikarin</Company>
+    <Authors>Jiu</Authors>
+    <Copyright>Copyright (c) Rikarin</Copyright>
     <VersionPrefix>0.1.0</VersionPrefix>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/jiu/Vixen</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/rikarin/Vixen</PackageProjectUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
