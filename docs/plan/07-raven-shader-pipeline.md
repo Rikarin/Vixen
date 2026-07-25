@@ -261,7 +261,7 @@ Detailed below. Summary: `RavenCompilation.Create/GetDiagnostics/GetSemanticMode
 | 🟡 | **Incremental reparse** via `SourceText.WithChanges` — the < 500 ms shader hot-reload budget ([00](00-vision-and-principles.md)) depends on it. Comes free from `Vixen.Core.Syntax` | ✅ API and change tracking; the reparse is still full-file |
 | 🟡 | Diagnostics surfaced through the shared model so the editor's error list, the engine log, and the on-screen shader-error overlay all use one implementation | ✅ via `Vixen.Core.Syntax` |
 | 🟡 | Accept **generated** source with span fidelity, so `Vixen.Editor.ShaderGraph` can emit Raven and map diagnostics back to node ports ([11](11-editor.md)) | ✅ `ParseText(text, path:)` already |
-| ⚪ | "Interaction classes" (Raven's Phase 7) feed `Vixen.Shaders.Generators`, which emits the C# `ParameterKey`/`PermutationKey` classes | engine-side |
+| ⚪ | "Interaction classes" (Raven's Phase 7) feed `Vixen.Shaders.Generators`, which emits the C# `ParameterKey`/`PermutationKey` classes | ✅ everything Raven owes it; the generator itself is engine-side |
 
 **The layout engine is shared, and that is the point.** `Vixen.Raven.Reflection.ShaderLayout` is the
 only implementation of the packing rules. It was private to the SPIR-V backend as `Std140Layout`;
@@ -330,6 +330,37 @@ This is the concrete cost of Raven's parser being ANTLR rather than hand-written
 Raven has no syntax for push constants, and a `[Permutation]` key is resolved at compile time rather
 than left specialisable — that is what makes the dead branch disappear. An empty array is honest; a
 fabricated one would be a bug the engine could not see.
+
+**What the shader can be varied by is reported too, and it is not the cache key.** `Permutations`
+holds every `[Permutation]` key the shader *declares*, with its type and default; `ValueParameters`
+holds its `val` type parameters, which have no default because a value is part of the signature
+(`RVN2082`). Both are what `Vixen.Shaders.Generators` needs to emit a `PermutationKey`, and what doc
+06's build-time permutation pre-generator needs to *enumerate* variants.
+
+Keeping this separate from `UsedPermutationKeys` is the point rather than duplication:
+
+| | Holds | Same across variants? |
+|---|---|---|
+| `Permutations` | what the shader **declares** | yes — necessarily |
+| `UsedPermutationKeys` | what this variant **read** | no — that is the whole economy |
+
+Generating a C# key class from the read set would give an API whose members depend on which variant
+happened to compile: build with `UseDetail=false` and a key only read in the true branch vanishes from
+the surface. `ReflectionTests` pins that a declared-but-unread key is still reported, and that the
+declared set is byte-identical across two variants whose read sets differ.
+
+Two things had to change for this. A `[Permutation]` key is folded to a constant and leaves **no trace
+in the lowered IR** — that is what makes the dead branch disappear — so `IrShader` now records what was
+declared before the folding erases it, keeping reflection IR-derived rather than reaching back into the
+symbol table. And reading a key's value is exactly what *records a use*, so lowering reads
+`FieldSymbol.DeclaredValue` instead: describing a shader must not add keys the body never touched, or
+the cache fills with variants that differ in nothing. Reverting that one accessor fails eight tests,
+six of which predate this work.
+
+Defaults travel as **text**, matching `CompiledEffect.PermutationKey`. A boxed `object` survives
+`System.Text.Json` as a `JsonElement` and stops comparing equal to what went in, which would make a
+`.rvnfx` round-trip quietly lossy; the type is in the same record, so nothing is lost by rendering the
+value the way a `--define` spells it.
 
 ### E. Conventions Raven must bake in
 
@@ -525,7 +556,10 @@ Recorded so nobody reintroduces them from the retired file's Phase 7:
 - **HLSL and Metal emitters** → § C: not required, SPIRV-Cross covers them (ADR-012).
 - **A shader package manager** → § H: `.rvnlib` references plus addressable content.
 - **ANTLR as the end-state parser** → [doc 18](18-raven-parser-migration.md).
-- **Interaction classes** → § D, engine-side as `Vixen.Shaders.Generators`.
+- **Interaction classes** → § D. Raven's half is done — the reflection reports declared permutation
+  keys and value parameters; the generator that turns them into C# is engine-side, and
+  [§ Generated C# bindings](#status-ravens-side-is-done-the-generator-waits-for-the-engine) records
+  what it is waiting for.
 - **Raven's own `.github/workflows/ci.yml`** — it did not survive the merge into the monorepo, which
   has no workflows at all yet. [Doc 12](12-build-ci-and-testing.md) specifies them.
 
@@ -792,6 +826,33 @@ public static class LightingKeys
 This is Stride's `ParameterKey`/`ParameterCollection` idea (which its shader generators also produce),
 with the reflection cost moved entirely to compile time. Permutation keys are typed and enumerable, so
 the build-time permutation pre-generator ([06](06-rendering-pipeline.md)) can iterate them.
+
+### Status: Raven's side is done, the generator waits for the engine
+
+**Raven now supplies everything this needs.** `Parameters` gives every writable value its dotted name,
+type and baked offset — so the constant-buffer writer above is pure data plus `Span<byte>`, with no
+engine types involved. `Permutations` gives each key its type and default, and `ValueParameters` gives
+the required ones. Nothing is missing on the compiler side.
+
+**The `AdditionalFiles` design is also right, for a reason worth recording.** A Roslyn generator targets
+netstandard2.0/2.1 and runs inside the compiler ([Directory.Build.props](../../Directory.Build.props)
+§ Generator profile), while `Vixen.Raven` targets net10.0 — so a generator *could not* call the compiler
+even if it wanted to. Reading the emitted reflection is not a workaround; it is the only shape that
+works.
+
+**What still blocks the generator is engine-side, and deliberately so.** The C# above references
+`ParameterKey<T>`, `ParameterKeys`, `PermutationKey<T>` and `Buffer` — none of which exist, because
+`Vixen.Shaders` and the RHI do not exist. Their shape should follow from how the renderer binds them
+and how `ParameterCollection` is consumed, which is why [14](14-roadmap.md) sequences
+`Vixen.Shaders.Generators` in Phase 5 next to the effect system rather than earlier. Designing that API
+against no consumer is how it gets designed twice.
+
+**If output is wanted before then, emit from the CLI rather than from an analyzer.** A
+`raven compile --emit-bindings` writing the C# beside the `.rvnfx` is the same emission with strictly
+less machinery: no `Vixen.Shaders` project in a repo with no engine, no JSON reader shipped inside an
+analyzer, and Raven's own test suite can pin the generated text. A build step has to run before the C#
+compiles either way — that is what the Nuke `CompileShaderLibrary` target is. The analyzer can wrap the
+same schema later.
 
 ## Development-time flow
 

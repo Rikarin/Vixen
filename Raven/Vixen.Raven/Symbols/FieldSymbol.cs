@@ -32,10 +32,28 @@ public abstract class FieldSymbol : Symbol {
     public virtual bool IsPermutation => false;
 
     /// <summary>
+    ///     A <c>val</c> type parameter — <c>shader Blur&lt;val TapCount: int&gt;</c> — rather than a
+    ///     field. Like a <c>[Permutation]</c> key it is a compile-time constant, but it has no
+    ///     default: a value is part of the shader's signature.
+    /// </summary>
+    public virtual bool IsValueParameter => false;
+
+    /// <summary>
     ///     Declared <c>compose</c>: a protocol-typed slot filled by a concrete shader chosen
     ///     when the shader is compiled.
     /// </summary>
     public virtual bool IsCompose => false;
+
+    /// <summary>
+    ///     The literal written in the declaration, or null when there is none.
+    /// </summary>
+    /// <remarks>
+    ///     Distinct from <see cref="ConstantValue" />, which for a <c>[Permutation]</c> key answers
+    ///     with the value this compilation was <em>given</em>. This one answers with what the source
+    ///     says, and — the reason it exists — reading it never records a permutation use. Describing
+    ///     a shader must not change its cache key.
+    /// </remarks>
+    public virtual object? DeclaredValue => null;
 
     /// <summary>
     ///     The shader bound to this <c>compose</c> slot, or null when the field is not a slot

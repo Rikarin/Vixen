@@ -151,6 +151,8 @@ public sealed partial class Lowerer {
 
         var slots = new Dictionary<IrBindingKind, int>();
 
+        DeclareCompileTimeConstants(type, shader);
+
         foreach (var member in type.GetMembers()) {
             // A `const` field is folded at every use, so it needs no binding.
             if (member is not FieldSymbol { IsConst: false, IsCompose: false } field) {
@@ -183,6 +185,46 @@ public sealed partial class Lowerer {
             if (member is MethodSymbol { Stage: not ShaderStage.None } method
                 && functions.TryGetValue((method, BoundBodyKind.Method), out var function)) {
                 shader.Add(BuildEntryPoint(method, function));
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Records what the shader can be varied by: its <c>[Permutation]</c> keys and its
+    ///     <c>val</c> type parameters.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Both are gone from the lowered body by design — folded to constants, their dead
+    ///         branches eliminated — so this is the only place the fact survives. Without it nothing
+    ///         downstream can answer "what variants does this shader have?", which is what a host
+    ///         needs to enumerate them and what the C# key generator turns into a
+    ///         <c>PermutationKey</c>.
+    ///     </para>
+    ///     <para>
+    ///         Read through <see cref="FieldSymbol.DeclaredValue" /> rather than
+    ///         <c>ConstantValue</c>, deliberately: the latter records a permutation use, so
+    ///         describing a shader here would add keys to the cache key that the body never read.
+    ///     </para>
+    /// </remarks>
+    void DeclareCompileTimeConstants(NamedTypeSymbol type, IrShader shader) {
+        foreach (var member in type.GetMembers()) {
+            switch (member) {
+                case FieldSymbol { IsValueParameter: true } parameter: {
+                    if (LowerType(parameter.Type, parameter.DeclaringSyntax) is { IsVoid: false } irType) {
+                        shader.Add(new IrValueParameter(parameter.Name, irType));
+                    }
+
+                    break;
+                }
+
+                case FieldSymbol { IsPermutation: true } key: {
+                    if (LowerType(key.Type, key.DeclaringSyntax) is { IsVoid: false } irType) {
+                        shader.Add(new IrPermutation(key.Name, irType, key.DeclaredValue));
+                    }
+
+                    break;
+                }
             }
         }
     }

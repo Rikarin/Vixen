@@ -57,6 +57,20 @@ public static class IrPrinter {
         writer.Line($"shader {shader.Name}");
         writer.Indent();
 
+        // What the shader can be varied by. Folded out of every body by this point, so the dump
+        // is the only place it is visible.
+        foreach (var parameter in shader.ValueParameters) {
+            writer.Line($"parameter {parameter.Name} : {parameter.Type.Name}");
+        }
+
+        foreach (var permutation in shader.Permutations) {
+            var value = permutation.DefaultValue is null
+                ? string.Empty
+                : $" = {FormatConstant(permutation.DefaultValue)}";
+
+            writer.Line($"permutation {permutation.Name} : {permutation.Type.Name}{value}");
+        }
+
         foreach (var binding in shader.Bindings) {
             var semantic = binding.Semantic is null ? string.Empty : $" semantic \"{binding.Semantic}\"";
             writer.Line(

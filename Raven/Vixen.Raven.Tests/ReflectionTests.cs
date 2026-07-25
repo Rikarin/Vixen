@@ -348,6 +348,117 @@ public class ReflectionTests {
         Assert.Equal(["UseDetail"], on.UsedPermutationKeys);
     }
 
+    // --- What the shader can be varied by -----------------------------------
+
+    const string Variants = """
+                            package A
+
+                            shader S<val TapCount: int> {
+                                [Permutation] val UseDetail: bool = false
+                                [Permutation] val CascadeCount: int = 4
+                                [Permutation] val Unread: uint = 7u
+
+                                var tint: float4
+
+                                [PixelShader]
+                                func Pixel(): float4 {
+                                    if (UseDetail) {
+                                        return tint * float(CascadeCount) * float(TapCount)
+                                    }
+
+                                    return tint
+                                }
+                            }
+
+                            """;
+
+    static RavenReflection DescribeVariants(PermutationValues? values = null) =>
+        Describe(Variants, values ?? PermutationValues.Parse(["TapCount=8"]));
+
+    /// <summary>
+    ///     The declared keys, with their types and defaults — what a host varies and what the C#
+    ///     key generator turns into a <c>PermutationKey</c>.
+    /// </summary>
+    [Fact]
+    public void Declared_permutation_keys_are_reported_with_their_type_and_default() {
+        var permutations = DescribeVariants().Permutations;
+
+        Assert.Equal(["UseDetail", "CascadeCount", "Unread"], permutations.Select(p => p.Name));
+        Assert.Equal(["false", "4", "7"], permutations.Select(p => p.DefaultValue));
+        Assert.Equal(
+            [IrTypeKind.Bool, IrTypeKind.Int, IrTypeKind.UInt],
+            permutations.Select(p => p.Type.Scalar)
+        );
+    }
+
+    /// <summary>
+    ///     The distinction that makes this worth having: <c>Unread</c> is declared but never read,
+    ///     so it is absent from the cache key and present here. A generator using the cache key
+    ///     would emit an API that changed shape with the variant.
+    /// </summary>
+    [Fact]
+    public void A_declared_key_is_reported_even_when_this_variant_never_read_it() {
+        var reflection = DescribeVariants();
+
+        Assert.Contains("Unread", reflection.Permutations.Select(p => p.Name));
+        Assert.DoesNotContain("Unread", reflection.UsedPermutationKeys);
+    }
+
+    /// <summary>
+    ///     And the shape is stable across variants, which is the property a generated C# API
+    ///     depends on — even when folding makes the variants read wildly different key sets.
+    /// </summary>
+    [Fact]
+    public void The_declared_keys_are_the_same_for_every_variant() {
+        var off = DescribeVariants(PermutationValues.Parse(["TapCount=8", "UseDetail=false"]));
+        var on = DescribeVariants(PermutationValues.Parse(["TapCount=8", "UseDetail=true"]));
+
+        Assert.Equal(off.Permutations, on.Permutations);
+        Assert.Equal(off.ValueParameters, on.ValueParameters);
+
+        // The read set does differ, which is exactly why the two are separate.
+        Assert.NotEqual(off.UsedPermutationKeys, on.UsedPermutationKeys);
+    }
+
+    /// <summary>
+    ///     Describing a shader must not change what it compiled to. Reading a permutation key is
+    ///     what records a use, so a reflection pass that read values the body never touched would
+    ///     silently add cache entries — the exact waste the used-key economy exists to avoid.
+    /// </summary>
+    [Fact]
+    public void Describing_a_shader_does_not_add_to_the_used_keys() {
+        var (compilation, module) = Compile(Variants, PermutationValues.Parse(["TapCount=8"]));
+        var before = compilation.UsedPermutationKeys.ToArray();
+
+        var reflection = ReflectionBuilder.Describe(FindShader(module, "S"), compilation.UsedPermutationKeys);
+
+        Assert.NotEmpty(reflection.Permutations);
+        Assert.Equal(before, compilation.UsedPermutationKeys);
+    }
+
+    /// <summary>
+    ///     A value parameter is reported without a default, because it has none: a host must supply
+    ///     one, so a generator emits it as a required argument rather than a key with a fallback.
+    /// </summary>
+    [Fact]
+    public void A_value_parameter_is_reported_as_required_rather_than_defaulted() {
+        var parameter = Assert.Single(DescribeVariants().ValueParameters);
+
+        Assert.Equal("TapCount", parameter.Name);
+        Assert.Equal(IrTypeKind.Int, parameter.Type.Scalar);
+
+        // It is not mixed in with the defaulted keys.
+        Assert.DoesNotContain("TapCount", DescribeVariants().Permutations.Select(p => p.Name));
+    }
+
+    [Fact]
+    public void A_shader_with_nothing_to_vary_reports_neither() {
+        var reflection = Describe(Material);
+
+        Assert.Empty(reflection.Permutations);
+        Assert.Empty(reflection.ValueParameters);
+    }
+
     [Fact]
     public void Push_and_spec_constants_are_reported_as_absent_rather_than_guessed() {
         var reflection = Describe(Material);

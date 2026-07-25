@@ -43,6 +43,16 @@ public static class ReflectionBuilder {
             VertexInputs = BuildVertexInputs(shader),
             Outputs = BuildOutputs(shader),
             Parameters = BuildParameters(sets),
+            Permutations = [
+                .. shader.Permutations.Select(p => new PermutationInfo(
+                    p.Name,
+                    ShaderDataType.From(p.Type),
+                    Format(p.DefaultValue)
+                ))
+            ],
+            ValueParameters = [
+                .. shader.ValueParameters.Select(p => new ValueParameterInfo(p.Name, ShaderDataType.From(p.Type)))
+            ],
             RequiredCapabilities = [.. IrCapabilities.Of(shader)],
             UsedPermutationKeys = [.. (usedPermutationKeys ?? []).Order(StringComparer.Ordinal)],
             Stages = stages
@@ -211,6 +221,17 @@ public static class ReflectionBuilder {
 
         return result.ToImmutable();
     }
+
+    /// <summary>
+    ///     Renders a declared default as text, in the spelling a host supplies it in — so
+    ///     <c>--define UseDetail=true</c> and the reported default read the same way round.
+    /// </summary>
+    static string Format(object? value) =>
+        value switch {
+            null => string.Empty,
+            bool flag => flag ? "true" : "false",
+            _ => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty
+        };
 
     static ShaderStages Flag(ShaderStage stage) =>
         stage switch {

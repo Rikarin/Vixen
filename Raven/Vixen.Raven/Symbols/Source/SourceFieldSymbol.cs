@@ -98,15 +98,16 @@ public sealed class SourceFieldSymbol : FieldSymbol {
 
     public override string? SemanticName => DeclarationFacts.GetSemanticName(syntax.AttributeLists);
 
+    public override object? DeclaredValue =>
+        Declaration.Initializer?.Value is LiteralExpressionSyntax literal ? LiteralParser.Parse(literal).Value : null;
+
     public override object? ConstantValue {
         get {
             if (!IsConst) {
                 return null;
             }
 
-            var declared = Declaration.Initializer?.Value is LiteralExpressionSyntax literal
-                ? LiteralParser.Parse(literal).Value
-                : null;
+            var declared = DeclaredValue;
 
             if (!IsPermutation) {
                 return declared;

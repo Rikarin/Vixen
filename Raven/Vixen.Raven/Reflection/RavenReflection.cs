@@ -157,8 +157,54 @@ public sealed record PushConstantInfo(
 /// <param name="Id">The constant's specialisation id.</param>
 /// <param name="Name">Declared name.</param>
 /// <param name="Type">The constant's shape.</param>
-/// <param name="DefaultValue">The value compiled in, which a host may override.</param>
-public sealed record SpecConstantInfo(int Id, string Name, ShaderDataType Type, object? DefaultValue);
+/// <param name="DefaultValue">
+///     The value compiled in, which a host may override, rendered as text. See
+///     <see cref="PermutationInfo.DefaultValue" /> for why it is text.
+/// </param>
+public sealed record SpecConstantInfo(int Id, string Name, ShaderDataType Type, string? DefaultValue);
+
+/// <summary>
+///     One <c>[Permutation]</c> key the shader declares: something a host may vary to get a
+///     different compiled variant.
+/// </summary>
+/// <remarks>
+///     <para>
+///         Not a <see cref="SpecConstantInfo" />, and the difference is the whole design. A
+///         specialisation constant is overridable when the pipeline is created, so the module has to
+///         keep both branches; a permutation key is resolved when the shader is <em>compiled</em>,
+///         which is what lets the dead branch disappear. Raven has no spec constants for exactly
+///         that reason.
+///     </para>
+///     <para>
+///         This is also not <see cref="RavenReflection.UsedPermutationKeys" />. That is what the
+///         variant read and it is the cache key; this is what the shader declares and it is the same
+///         for every variant — which it must be, or generated C# would change shape depending on
+///         which variant happened to compile.
+///     </para>
+/// </remarks>
+/// <param name="Name">The declared name, as a host supplies it.</param>
+/// <param name="Type">Its shape: <c>bool</c>, <c>int</c> or <c>uint</c>.</param>
+/// <param name="DefaultValue">
+///     The declared default, which every permutation key has. Text rather than <c>object</c> so it
+///     survives the JSON header of a <c>.rvnfx</c> unchanged — a boxed value comes back as a
+///     <c>JsonElement</c> and stops comparing equal. <paramref name="Type" /> says how to read it,
+///     and it matches how <c>CompiledEffect.PermutationKey</c> already stores values.
+/// </param>
+public sealed record PermutationInfo(string Name, ShaderDataType Type, string DefaultValue);
+
+/// <summary>
+///     One <c>val</c> type parameter the shader declares —
+///     <c>shader Blur&lt;val TapCount: int&gt;</c>.
+/// </summary>
+/// <remarks>
+///     There is no default, and that is the point rather than a gap: a value parameter is part of
+///     the shader's signature, so a host <em>must</em> supply one (RVN2082). A generator emits it as
+///     a required argument, not as a key with a fallback. The value a given variant was built with is
+///     in <c>CompiledEffect.PermutationKey</c>.
+/// </remarks>
+/// <param name="Name">The declared name.</param>
+/// <param name="Type">Its shape: <c>bool</c>, <c>int</c> or <c>uint</c>.</param>
+public sealed record ValueParameterInfo(string Name, ShaderDataType Type);
 
 /// <summary>
 ///     One writable value, flattened out of the descriptor sets.
@@ -221,11 +267,28 @@ public sealed record RavenReflection {
     public ImmutableArray<PushConstantInfo> PushConstants { get; init; } = [];
 
     /// <summary>
-    ///     Specialisation constants. Always empty for now — a <c>[Permutation]</c> key is
-    ///     resolved at compile time rather than left specialisable, which is what makes the
-    ///     dead branch disappear.
+    ///     Specialisation constants. Always empty, and always will be while permutation keys are
+    ///     resolved at compile time: see <see cref="Permutations" />, which is what Raven has
+    ///     instead.
     /// </summary>
     public ImmutableArray<SpecConstantInfo> SpecConstants { get; init; } = [];
+
+    /// <summary>
+    ///     The <c>[Permutation]</c> keys this shader declares, with their defaults — what a host may
+    ///     vary to get a different variant.
+    /// </summary>
+    /// <remarks>
+    ///     The same for every variant of a shader, unlike <see cref="UsedPermutationKeys" />. A host
+    ///     enumerating variants and a generator emitting a <c>PermutationKey</c> both need this one;
+    ///     using the other would make the answer depend on which variant it happened to be handed.
+    /// </remarks>
+    public ImmutableArray<PermutationInfo> Permutations { get; init; } = [];
+
+    /// <summary>
+    ///     The <c>val</c> type parameters this shader declares. Required rather than defaulted —
+    ///     see <see cref="ValueParameterInfo" />.
+    /// </summary>
+    public ImmutableArray<ValueParameterInfo> ValueParameters { get; init; } = [];
 
     /// <summary>Every writable value, flattened out of <see cref="Sets" />.</summary>
     public ImmutableArray<ParameterInfo> Parameters { get; init; } = [];

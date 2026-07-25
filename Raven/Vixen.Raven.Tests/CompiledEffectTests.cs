@@ -153,6 +153,27 @@ public class CompiledEffectTests {
         Assert.Equal(["position"], effect.Reflection.VertexInputs.Select(i => i.Name));
     }
 
+    /// <summary>
+    ///     The declared keys have to survive the trip, because they are what a host reads to know
+    ///     which variants exist — including the one this variant never read. Defaults travel as
+    ///     text for exactly this reason: a boxed value comes back from JSON as a
+    ///     <c>JsonElement</c> and stops comparing equal to what went in.
+    /// </summary>
+    [Fact]
+    public void The_declared_permutation_keys_survive_the_trip() {
+        var original = Build();
+        var restored = CompiledEffectReader.Read(CompiledEffectWriter.Write(original));
+
+        Assert.Equal(original.Reflection.Permutations, restored.Reflection.Permutations);
+        Assert.Equal(
+            [("UseDetail", "false"), ("Unread", "true")],
+            restored.Reflection.Permutations.Select(p => (p.Name, p.DefaultValue))
+        );
+
+        // Declared and read are different sets, and both make the trip.
+        Assert.Equal(["UseDetail"], restored.Reflection.UsedPermutationKeys);
+    }
+
     // --- The cache key -------------------------------------------------------
 
     /// <summary>
