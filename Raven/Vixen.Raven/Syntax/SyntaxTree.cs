@@ -21,8 +21,6 @@ public sealed class SyntaxTree {
     /// <summary>Lexer/parser diagnostics produced while parsing (empty for a valid parse).</summary>
     public IReadOnlyList<Diagnostic> Diagnostics => diagnostics;
 
-    // public SyntaxTree() { }
-
     public SyntaxNode GetRoot() => root!;
 
     public bool TryGetRoot(out SyntaxNode? root) {

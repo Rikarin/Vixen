@@ -3,9 +3,11 @@ using Vixen.Raven.Syntax.InternalSyntax;
 namespace Vixen.Raven.Syntax;
 
 public partial class SyntaxFactory {
-    // TODO (1b): keyword/punctuation text should come from SyntaxFacts.GetText(kind)
-    // so these tokens round-trip. For now they carry no text.
-    public static SyntaxToken Token(SyntaxKind kind) => RedToken(new(kind, string.Empty));
+    /// <summary>
+    ///     Creates a keyword or punctuation token carrying its canonical text, so a
+    ///     factory-built tree round-trips to source the same way a parsed one does.
+    /// </summary>
+    public static SyntaxToken Token(SyntaxKind kind) => RedToken(new(kind, SyntaxFacts.GetText(kind)));
 
     public static SyntaxToken Identifier(string text) => RedToken(new SyntaxIdentifier(text));
 

@@ -95,10 +95,6 @@ class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancellationT
     }
 
     string GetPropertyType(Field field) {
-        // if (field.Type == "SyntaxList<SyntaxToken>") {
-        //     return "SyntaxTokenList";
-        // }
-
         if (field.IsOptional && IsNode(field.Type) && field.Type != "SyntaxToken") {
             return field.Type + "?";
         }
@@ -113,19 +109,8 @@ class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancellationT
             Write($"public abstract partial class {abstractNode.Name} : {abstractNode.Base}");
             OpenBlock();
 
-            // ctor with diagnostics and annotations
-            // TODO: not supported, yet
-            // WriteLine(
-            //     $"internal {node.Name}(SyntaxKind kind, DiagnosticInfo[]? diagnostics, SyntaxAnnotation[]? annotations)"
-            // );
-            // WriteLine("  : base(kind, diagnostics, annotations)");
-            // OpenBlock();
-            // if (node.Name == "DirectiveTriviaSyntax") {
-            //     WriteLine("SetFlags(NodeFlags.ContainsDirectives);");
-            // }
-            //
-            // CloseBlock();
-            // WriteLine();
+            // No diagnostic/annotation constructor: Raven green nodes carry neither.
+            // Parse errors live in a DiagnosticBag on the SyntaxTree.
 
             // red ctor: wraps a green node with parent + absolute position
             WriteLine(
@@ -149,8 +134,6 @@ class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancellationT
                     }
 
 
-                    // TODO: merging this
-
                     WriteLine();
                     WriteLine(
                         $"public {node.Name} With{field.Name}({field.Type} {CamelCase(field.Name)}) => With{field.Name}Core({CamelCase(field.Name)});"
@@ -159,32 +142,10 @@ class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancellationT
                         $"internal abstract {node.Name} With{field.Name}Core({field.Type} {CamelCase(field.Name)});"
                     );
 
-                    // TODO Add*
-                    // if (IsAnyList(field.Type)) {
-                    //     var argType = GetElementType(field.Type);
-                    //     WriteLine();
-                    //     WriteLine(
-                    //         $"public {node.Name} Add{field.Name}(params {argType}[] items) => Add{field.Name}Core(items);"
-                    //     );
-                    //     WriteLine($"internal abstract {node.Name} Add{field.Name}Core(params {argType}[] items);");
-                    // } else {
-                    //     var referencedNode = TryGetNodeForNestedList(field);
-                    //     if (referencedNode != null) {
-                    //         foreach (var referencedNodeField in referencedNode.Fields) {
-                    //             if (IsAnyList(referencedNodeField.Type)) {
-                    //                 var argType = GetElementType(referencedNodeField.Type);
-                    //
-                    //                 WriteLine();
-                    //                 WriteLine(
-                    //                     $"public {node.Name} Add{StripPost(field.Name, "Opt")}{referencedNodeField.Name}(params {argType}[] items) => Add{StripPost(field.Name, "Opt")}{referencedNodeField.Name}Core(items);"
-                    //                 );
-                    //                 WriteLine(
-                    //                     $"internal abstract {node.Name} Add{StripPost(field.Name, "Opt")}{referencedNodeField.Name}Core(params {argType}[] items);"
-                    //                 );
-                    //             }
-                    //         }
-                    //     }
-                    // }
+                    // No Add* convenience methods are generated. `With*` covers every
+                    // case (`AddX(items)` is `WithX(X.AddRange(items))`); the sugar is
+                    // absent, not the capability. SyntaxList<T>.AddRange exists ready
+                    // for it.
                 }
             }
 
@@ -244,9 +205,6 @@ class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancellationT
 
             WriteAcceptMethods(nNode);
             WriteUpdateMethod(nNode);
-            // TODO: not supported yet
-            // this.WriteSetDiagnostics(nd);
-            // this.WriteSetAnnotations(nd);
             WriteWithMethods(nNode);
             WriteListHelperMethods(nNode);
 
@@ -263,9 +221,6 @@ class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancellationT
                     wroteNewLine = true;
                 }
 
-                // write list helper methods for list properties
-                // TODO
-                // WriteListHelperMethods(node, field);
             } else {
                 var referencedNode = TryGetNodeForNestedList(field);
                 if (referencedNode != null) {
@@ -277,8 +232,6 @@ class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancellationT
                                 wroteNewLine = true;
                             }
 
-                            // TODO
-                            // WriteNestedListHelperMethods(node, field, referencedNode, referencedNodeField);
                         }
                     }
                 }
@@ -444,13 +397,6 @@ class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancellationT
                     )
                 );
                 WriteLine(");");
-
-                // WriteLine("var diags = GetDiagnostics();");
-                // WriteLine("if (diags?.Length > 0)");
-                // WriteLine("    newNode = newNode.WithDiagnosticsGreen(diags);");
-                // WriteLine("var annotations = GetAnnotations();");
-                // WriteLine("if (annotations?.Length > 0)");
-                // WriteLine("    newNode = newNode.WithAnnotationsGreen(annotations);");
                 WriteLine("return newNode;");
                 CloseBlock();
             }
@@ -468,7 +414,11 @@ class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancellationT
             $"public override void Accept(SyntaxVisitor visitor) => visitor.Visit{StripPost(node.Name, "Syntax")}(this);"
         );
 
-        // TODO: Fix nullable
+        // The `!` is required, not laziness: SyntaxNode declares `TResult Accept<TResult>`
+        // while every generated `VisitXxx` returns `TResult?` (it falls back to
+        // DefaultVisit). Widening the override to `TResult?` does not compile — for an
+        // unconstrained type parameter the compiler reads it as Nullable<TResult>
+        // (CS0453/CS0508) — so the null-forgiving operator is the correct bridge.
         WriteLine(
             $"public override TResult Accept<TResult>(SyntaxVisitor<TResult> visitor) => visitor.Visit{StripPost(node.Name, "Syntax")}(this)!;"
         );
@@ -485,26 +435,12 @@ class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancellationT
     }
 
     void WriteCtorBody(Node node, List<Field> valueFields, List<Field> nodeFields) {
-        // TODO
-        // if (node.Name == "AttributeSyntax") {
-        //     WriteLine("SetFlags(NodeFlags.ContainsAttributes);");
-        // }
-
-        // constructor body
+        // GreenNode has no NodeFlags and no AdjustFlagsAndWidth — width is derived
+        // from the slots — so the constructor only has to assign them.
         WriteLine($"this.SlotCount = {nodeFields.Count};");
 
         foreach (var field in nodeFields) {
-            // TODO: Flags??
-            // if (IsAnyList(field.Type) || field.IsOptional) {
-            //     WriteLine($"if ({CamelCase(field.Name)} != null)");
-            //     OpenBlock();
-            //     WriteLine($"this.AdjustFlagsAndWidth({CamelCase(field.Name)});");
-            //     WriteLine($"this.{CamelCase(field.Name)} = {CamelCase(field.Name)};");
-            //     CloseBlock();
-            // } else {
-            // WriteLine($"this.AdjustFlagsAndWidth({CamelCase(field.Name)});");
             WriteLine($"this.{CamelCase(field.Name)} = {CamelCase(field.Name)};");
-            // }
         }
 
         foreach (var field in valueFields) {
@@ -697,47 +633,10 @@ class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancellationT
 
         WriteLineWithoutIndent("#endif");
 
-        // TODO: cache not supported now
-        if (false
-            && nd.Name != "SkippedTokensTriviaSyntax"
-            && nd.Name != "DocumentationCommentTriviaSyntax"
-            && nd.Name != "IncompleteMemberSyntax"
-            && nd.Name != "AttributeSyntax"
-            && valueFields.Count + nodeFields.Count <= 3
-           ) {
-            WriteLine();
-            //int hash;
-            WriteLine("int hash;");
-            //SyntaxNode cached = SyntaxNodeCache.TryGetNode(SyntaxKind.IdentifierName, identifier, this.context, out hash);
-            if (withSyntaxFactoryContext) {
-                Write("var cached = CSharpSyntaxNodeCache.TryGetNode((int)");
-            } else {
-                Write("var cached = SyntaxNodeCache.TryGetNode((int)");
-            }
-
-            WriteCtorArgList(nd, withSyntaxFactoryContext, valueFields, nodeFields);
-            WriteLine(", out hash);");
-            //    if (cached != null) return (IdentifierNameSyntax)cached;
-            WriteLine($"if (cached != null) return ({nd.Name})cached;");
-            WriteLine();
-
-            //var result = new IdentifierNameSyntax(SyntaxKind.IdentifierName, identifier);
-            Write($"var result = new {nd.Name}(");
-            WriteCtorArgList(nd, withSyntaxFactoryContext, valueFields, nodeFields);
-            WriteLine(");");
-            //if (hash >= 0)
-            WriteLine("if (hash >= 0)");
-            //{
-            OpenBlock();
-            //    SyntaxNodeCache.AddNode(result, hash);
-            WriteLine("SyntaxNodeCache.AddNode(result, hash);");
-            //}
-            CloseBlock();
-            WriteLine();
-
-            //return result;
-            WriteLine("return result;");
-        }
+        // No green-node caching. Roslyn interns small green nodes through a
+        // SyntaxNodeCache; Vixen.Raven has no such cache, so every factory call
+        // constructs a fresh node. If parse allocation ever shows up in a profile,
+        // this is the place to add it.
 
         // Build the immutable green node, then project the red root.
         WriteLine();

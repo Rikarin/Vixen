@@ -105,7 +105,7 @@ public class SyntaxAntlrVisitor : RavenParser2BaseVisitor<SyntaxNode> {
         context.op.Type switch {
             RavenLexer2.BASE => SyntaxFactory.BaseExpression(),
             RavenLexer2.SELF => SyntaxFactory.SelfExpression(),
-            _ => throw new NotSupportedException()
+            _ => throw ExceptionUtilities.Unreachable()
         };
 
     public override SyntaxNode VisitInvocationExpression(RavenParser2.InvocationExpressionContext context) {
@@ -159,7 +159,7 @@ public class SyntaxAntlrVisitor : RavenParser2BaseVisitor<SyntaxNode> {
         var kind = context.op.Type switch {
             RavenLexer2.OP_INC => SyntaxKind.PostIncrementExpression,
             RavenLexer2.OP_DEC => SyntaxKind.PostDecrementExpression,
-            _ => throw new NotSupportedException()
+            _ => throw ExceptionUtilities.Unreachable()
         };
         var expression = Visit(context.expression()) as ExpressionSyntax;
         var op = Token(context.op, SyntaxKind.OperatorToken);
@@ -176,7 +176,7 @@ public class SyntaxAntlrVisitor : RavenParser2BaseVisitor<SyntaxNode> {
             RavenLexer2.OP_INC => SyntaxKind.PreIncrementExpression,
             RavenLexer2.OP_DEC => SyntaxKind.PreDecrementExpression,
             RavenLexer2.CARET => SyntaxKind.IndexExpression,
-            _ => throw new NotSupportedException()
+            _ => throw ExceptionUtilities.Unreachable()
         };
         var op = Token(context.op, SyntaxKind.OperatorToken);
         var expression = Visit(context.expression()) as ExpressionSyntax;
@@ -284,7 +284,7 @@ public class SyntaxAntlrVisitor : RavenParser2BaseVisitor<SyntaxNode> {
             RavenLexer2.OP_LE => SyntaxKind.LessThanEqualsRelationalPattern,
             RavenLexer2.GT => SyntaxKind.GreaterThanRelationalPattern,
             RavenLexer2.OP_GE => SyntaxKind.GreaterThanEqualsRelationalPattern,
-            _ => throw new NotSupportedException()
+            _ => throw ExceptionUtilities.Unreachable()
         };
 
         var op = Token(context.op, SyntaxKind.OperatorToken);
@@ -376,7 +376,7 @@ public class SyntaxAntlrVisitor : RavenParser2BaseVisitor<SyntaxNode> {
             RavenLexer2.MAT4 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Mat4Keyword)),
             RavenLexer2.MAT4X2 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Mat4x2Keyword)),
             RavenLexer2.MAT4X3 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Mat4x3Keyword)),
-            _ => throw new NotSupportedException()
+            _ => throw ExceptionUtilities.Unreachable()
         };
 
     public override SyntaxNode VisitTupleType(RavenParser2.TupleTypeContext context) {
@@ -521,8 +521,10 @@ public class SyntaxAntlrVisitor : RavenParser2BaseVisitor<SyntaxNode> {
     }
 
     public override SyntaxNode VisitIdentifier_name(RavenParser2.Identifier_nameContext context) {
-        if (context.GLOBAL() != null) {
-            throw new NotImplementedException();
+        // `global` is a keyword standing in an identifier-name position; it is what
+        // makes `global::Name` parse as an AliasQualifiedName.
+        if (context.GLOBAL() is { } global) {
+            return SyntaxFactory.IdentifierName(Token(global.Symbol, SyntaxKind.GlobalKeyword));
         }
 
         var token = Visit(context.identifier_token()) as SyntaxToken;
@@ -687,7 +689,7 @@ public class SyntaxAntlrVisitor : RavenParser2BaseVisitor<SyntaxNode> {
             RavenLexer2.SET => (SyntaxKind.SetAccessorDeclaration, SyntaxKind.SetKeyword),
             RavenLexer2.WILL_SET => (SyntaxKind.WillSetAccessorDeclaration, SyntaxKind.WillSetKeyword),
             RavenLexer2.DID_SET => (SyntaxKind.DidSetAccessorDeclaration, SyntaxKind.DidSetKeyword),
-            _ => throw new NotSupportedException()
+            _ => throw ExceptionUtilities.Unreachable()
         };
         var keyword = Token(context.op, tokenKind);
         var body = context.block() != null ? Visit(context.block()) as BlockSyntax : null;
@@ -1285,8 +1287,10 @@ public class SyntaxAntlrVisitor : RavenParser2BaseVisitor<SyntaxNode> {
     public override SyntaxNode VisitDefault_switch_label(RavenParser2.Default_switch_labelContext context) =>
         SyntaxFactory.DefaultSwitchLabel();
 
-    // NOTE: never dispatched — literals reach the tree via the labeled #LiteralExpression
-    // alternative (VisitLiteralExpression), not this bare rule visitor.
+    // Never dispatched: literals reach the tree via the labeled #LiteralExpression
+    // alternative (VisitLiteralExpression). Kept as an explicit no-op override so the
+    // base visitor's default child-walk cannot silently produce a stray node here.
+    // Numeric text is parsed once, by LiteralParser during binding.
     public override SyntaxNode VisitLiteral_expression(RavenParser2.Literal_expressionContext context) =>
         base.VisitLiteral_expression(context);
 
@@ -1341,29 +1345,11 @@ public class SyntaxAntlrVisitor : RavenParser2BaseVisitor<SyntaxNode> {
     }
 
     public override SyntaxNode VisitIdentifier_token(RavenParser2.Identifier_tokenContext context) =>
-        // TODO: verbatim '@' identifiers not yet modeled as part of the token text.
+        // The token carries the identifier verbatim, so a leading '@' (if the lexer
+        // ever admits one) survives into the text and round-trips unchanged.
         Token(context.IDENTIFIER().Symbol, SyntaxKind.IdentifierToken);
 
-    public override SyntaxNode VisitReal_literal_token(RavenParser2.Real_literal_tokenContext context) {
-        var text = context.REAL_LITERAL().GetText();
-        if (text.EndsWith('f')) {
-            return SyntaxFactory.Literal(float.Parse(context.REAL_LITERAL().GetText()[..^1]));
-        }
 
-        return SyntaxFactory.Literal(double.Parse(context.REAL_LITERAL().GetText()));
-    }
-
-    public override SyntaxNode VisitInteger_literal_token(RavenParser2.Integer_literal_tokenContext context) {
-        // TODO: how to parse ulong, etc?
-        var type = context.GetChild(0) as ITerminalNode;
-
-        return type?.Symbol.Type switch {
-            RavenLexer2.INTEGER_LITERAL => SyntaxFactory.Literal(long.Parse(type.GetText())),
-            RavenLexer2.HEX_INTEGER_LITERAL => SyntaxFactory.Literal(long.Parse(type.GetText())),
-            RavenLexer2.BIN_INTEGER_LITERAL => SyntaxFactory.Literal(long.Parse(type.GetText())),
-            _ => throw new NotSupportedException()
-        };
-    }
 
     public override SyntaxNode VisitModifier(RavenParser2.ModifierContext context) {
         var token = (ITerminalNode)context.GetChild(0);
@@ -1379,7 +1365,7 @@ public class SyntaxAntlrVisitor : RavenParser2BaseVisitor<SyntaxNode> {
             RavenLexer2.PUBLIC => SyntaxKind.PublicKeyword,
             RavenLexer2.READONLY => SyntaxKind.ReadOnlyKeyword,
             RavenLexer2.STATIC => SyntaxKind.StaticKeyword,
-            _ => throw new NotSupportedException()
+            _ => throw ExceptionUtilities.Unreachable()
         };
 
         return Token(token.Symbol, kind);

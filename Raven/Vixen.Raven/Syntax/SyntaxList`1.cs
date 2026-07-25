@@ -57,9 +57,20 @@ public readonly struct SyntaxList<TNode> : IEquatable<SyntaxList<TNode>> where T
     public static implicit operator SyntaxList<TNode>(TNode node) => new(node);
 
 
-    public SyntaxList<TNode> AddRange(IEnumerable<TNode> nodes) => throw new NotImplementedException();
+    /// <summary>Returns a new list with <paramref name="nodes" /> appended.</summary>
+    public SyntaxList<TNode> AddRange(IEnumerable<TNode> nodes) {
+        ArgumentNullException.ThrowIfNull(nodes);
 
-    // return this.InsertRange(this.Count, nodes);
+        var count = Count;
+        var combined = new List<SyntaxNode?>(count);
+        for (var i = 0; i < count; i++) {
+            combined.Add(this[i]);
+        }
+
+        combined.AddRange(nodes);
+        return new(SyntaxList.List([.. combined]));
+    }
+
     public struct Enumerator {
         readonly SyntaxList<TNode> list;
         int index;

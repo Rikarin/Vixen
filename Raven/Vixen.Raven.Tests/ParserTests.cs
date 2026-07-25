@@ -1,42 +1,16 @@
-﻿using Antlr4.Runtime;
-using Vixen.Raven.Grammar;
 using Vixen.Raven.Syntax;
 using Xunit;
 
 namespace Tests;
 
+/// <summary>
+///     End-to-end parse of the shipped language sample: the tree that comes back
+///     must expose the package name and imports the source declares.
+/// </summary>
 public class ParserTests {
     [Fact]
-    void TestAntlrParser() {
-        var stream = new AntlrInputStream(File.ReadAllText("../../../../Library/Example1.rvn"));
-        var lexer = new RavenLexer2(stream);
-        var tokenStream = new CommonTokenStream(lexer);
-        var parser = new RavenParser2(tokenStream);
-
-        // var visitor = new BuildAstVisitor2();
-
-        // Entrypoint?
-        // var tree = parser.compilation_unit();
-        // var module = tree.Accept(visitor) as Module;
-        //
-        // Assert.Equal("Vixen.Test", module.Package.Name.Text);
-        //
-        // var shader = module.Declarations.OfType<Shader>().First();
-        // Assert.Equal("TestShader", shader.Name.Text);
-        //
-        // Assert.Equal(2, shader.Declarations.OfType<ConstructorDeclaration>().Count());
-        //
-        // var testMethod = shader.Declarations.OfType<MethodDeclaration>().First(x => x.Name == "TestMethod");
-        // Assert.Equal("name", testMethod.Parameters[0].Name);
-        // Assert.Equal("count", testMethod.Parameters[1].Name);
-        //
-        // Assert.Equal(12, shader.Declarations.Count);
-    }
-
-    [Fact]
     void Test_SyntaxTree() {
-        var path = "../../../../Library/Example1.rvn";
-        var text = File.ReadAllText(path);
+        var text = File.ReadAllText("../../../../Library/Example1.rvn");
 
         var tree = SyntaxTree.ParseText(text);
 
