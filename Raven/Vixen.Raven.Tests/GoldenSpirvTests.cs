@@ -140,7 +140,7 @@ public partial class GoldenSpirvTests(ITestOutputHelper output) {
         return generated;
     }
 
-    static string Suffix(GeneratedSource unit) => ShaderStages.Suffix(unit.Stage);
+    static string Suffix(GeneratedSource unit) => ShaderStageNames.Suffix(unit.Stage);
 
     static string Normalize(string text) => text.Replace("\r\n", "\n").TrimEnd('\n');
 

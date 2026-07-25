@@ -175,8 +175,8 @@ Detailed below. Summary: `RavenCompilation.Create/GetDiagnostics/GetSemanticMode
 | | Requirement | |
 |---|---|---|
 | 🔴 | `RavenReflection` with **explicit `Offset`, `Size`, `ArrayStride`, `MatrixStride` on every block member.** The engine writes constant buffers by generated offset, not by runtime reflection. Get the std140/std430-vs-HLSL packing rules pinned and golden-tested or every backend disagrees about `float3` padding | ✅ |
-| 🟡 | `.rvnlib` (compiled library: symbols + IR, referenced without reparsing source) and `.rvnfx` (compiled effect: modules + reflection + permutation key + source hash) artefact formats | |
-| 🟡 | **Incremental reparse** via `SourceText.WithChanges` — the < 500 ms shader hot-reload budget ([00](00-vision-and-principles.md)) depends on it. Comes free from `Vixen.Core.Syntax` | |
+| 🟡 | `.rvnlib` (compiled library: symbols + IR, referenced without reparsing source) and `.rvnfx` (compiled effect: modules + reflection + permutation key + source hash) artefact formats | ✅ `.rvnfx`; `.rvnlib` needs its own phase |
+| 🟡 | **Incremental reparse** via `SourceText.WithChanges` — the < 500 ms shader hot-reload budget ([00](00-vision-and-principles.md)) depends on it. Comes free from `Vixen.Core.Syntax` | ✅ API and change tracking; the reparse is still full-file |
 | 🟡 | Diagnostics surfaced through the shared model so the editor's error list, the engine log, and the on-screen shader-error overlay all use one implementation | ✅ via `Vixen.Core.Syntax` |
 | 🟡 | Accept **generated** source with span fidelity, so `Vixen.Editor.ShaderGraph` can emit Raven and map diagnostics back to node ports ([11](11-editor.md)) | ✅ `ParseText(text, path:)` already |
 | ⚪ | "Interaction classes" (Raven's Phase 7) feed `Vixen.Shaders.Generators`, which emits the C# `ParameterKey`/`PermutationKey` classes | engine-side |
@@ -204,6 +204,42 @@ not the layout.
 `[Permutation]` is already gone and the reported interface is the one this variant actually has.
 `raven compile --emit-reflection` writes it as JSON; `--capabilities` prints the required features
 per shader.
+
+**`.rvnfx` is done.** A magic number, a version, a JSON header and the modules' bytes appended
+raw. The split is deliberate: the header is JSON so a shipped artefact is inspectable without a
+bespoke viewer and can grow fields, while SPIR-V goes in verbatim because base64 would cost a third
+of its size for nothing. The reader rejects a wrong magic, an unknown version and a truncation
+rather than half-loading — a partly-read effect surfaces as a driver error with no trace of the real
+cause. `raven compile --emit-effect` writes one per shader.
+
+The `PermutationKey` in it holds **only the keys that were read**, with the values they were read as.
+That is the economy of the whole permutation system: two variants differing only in an unread flag
+produce the same key and share one artefact, instead of filling the cache with duplicates.
+`SourceHash` is SHA-256 over the sources, so a stale artefact is detectable without recompiling to
+compare.
+
+**`.rvnlib` is a phase, not a task, and is deliberately not started.** It is not a serialization
+problem. For a library to be "referenced without reparsing source", its loaded symbols have to
+*participate in binding* as `NamedTypeSymbol`/`MethodSymbol`/`FieldSymbol` — which means a second
+symbol hierarchy backed by metadata rather than syntax (Roslyn's PE symbols, and nothing analogous
+exists here), plus cross-package reference resolution in `Compilation`, on top of serializers for a
+3.5k-line symbol graph and a 1.6k-line IR graph. Shipping a JSON dump of the IR would *look* done
+while doing nothing for the actual requirement, which is worse than an empty row. It wants planning
+alongside [08](08-asset-pipeline-and-addressables.md)'s object database.
+
+**Incremental reparse: the API landed, the optimisation did not.** `SourceText.WithChanges` applies
+sorted, non-overlapping edits in the old text's coordinates and remembers where the result differs;
+`GetChangeRanges` answers exactly for the immediate predecessor and conservatively — whole document —
+for anything else, because being silently wrong about a region would let a reparser trust a subtree
+the edit had invalidated. `SyntaxTree.WithChangedText` is the hot-reload entry point.
+
+The doc said this "comes free from `Vixen.Core.Syntax`". **It does not.** The green tree is ready for
+node reuse — immutable, position-independent, already shared — but ANTLR owns parsing and has no
+notion of reusing an existing tree, so `WithChangedText` reparses the whole file today. The shape is
+what matters: callers pass edits rather than documents, so making it incremental later changes no
+call site. A shader is small enough that a full reparse fits the < 500 ms budget with room to spare;
+a 2 000-line `.vxml` is the case that will actually need it, and that front end is hand-written
+recursive descent, where node reuse is achievable.
 
 **Reported as absent rather than guessed:** `PushConstants` and `SpecConstants` are always empty.
 Raven has no syntax for push constants, and a `[Permutation]` key is resolved at compile time rather

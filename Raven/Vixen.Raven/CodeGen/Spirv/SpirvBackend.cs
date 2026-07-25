@@ -52,7 +52,7 @@ public sealed class SpirvBackend(SpirvOptions? options = null) : ITargetBackend 
 
                 generated.Add(
                     new(
-                        $"{shader.Name}.{ShaderStages.Suffix(entryPoint.Stage)}",
+                        $"{shader.Name}.{ShaderStageNames.Suffix(entryPoint.Stage)}",
                         entryPoint.Stage,
                         built.ToAssembly(),
                         built.ToBytes()

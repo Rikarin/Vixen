@@ -43,6 +43,33 @@ public sealed class SyntaxTree : ISyntaxTree {
             Encoding = encoding, FilePath = path ?? string.Empty, Options = options ?? new ParseOptions(), root = root
         };
 
+    /// <summary>
+    ///     Reparses this tree against edited text, keeping the path, options and encoding.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The entry point a hot reload calls: an editor holds the previous
+    ///         <see cref="SourceText" />, applies <c>WithChanges</c>, and hands the result here.
+    ///     </para>
+    ///     <para>
+    ///         <b>The reparse is currently full-file.</b> ANTLR owns parsing and has no notion of
+    ///         reusing an existing tree, so the changed ranges are computed and then not used yet.
+    ///         The shape is what matters: callers already pass edits rather than whole documents,
+    ///         so making this incremental later changes no call site. A shader is small enough
+    ///         that a full reparse fits the &lt; 500 ms reload budget with room to spare; a
+    ///         2 000-line <c>.vxml</c> is the case that will need the real thing.
+    ///     </para>
+    /// </remarks>
+    public SyntaxTree WithChangedText(SourceText newText) {
+        ArgumentNullException.ThrowIfNull(newText);
+
+        // Computed, and deliberately unused: it is what an incremental parser consumes, and
+        // asking for it here keeps the contract honest about what callers must supply.
+        _ = Text is { } oldText ? newText.GetChangeRanges(oldText) : [];
+
+        return ParseText(newText.ToString(), Options, FilePath, Encoding);
+    }
+
     public static SyntaxTree ParseText(
         string text,
         ParseOptions? options = default,

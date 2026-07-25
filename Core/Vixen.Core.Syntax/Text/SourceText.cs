@@ -15,6 +15,12 @@ public sealed class SourceText {
     /// <summary>Start offset of each line; always begins with 0.</summary>
     readonly int[] lineStarts;
 
+    /// <summary>The text this one was edited from, when it was.</summary>
+    readonly SourceText? predecessor;
+
+    /// <summary>The edits that produced this text from <see cref="predecessor" />.</summary>
+    readonly TextChangeRange[] changes;
+
     /// <summary>Number of characters in the text.</summary>
     public int Length => text.Length;
 
@@ -24,13 +30,93 @@ public sealed class SourceText {
     /// <summary>The character at <paramref name="position" />.</summary>
     public char this[int position] => text[position];
 
-    SourceText(string text) {
+    SourceText(string text, SourceText? predecessor = null, TextChangeRange[]? changes = null) {
         this.text = text;
+        this.predecessor = predecessor;
+        this.changes = changes ?? [];
         lineStarts = ComputeLineStarts(text);
     }
 
     /// <summary>Snapshots a string. A null string is treated as empty.</summary>
     public static SourceText From(string text) => new(text ?? string.Empty);
+
+    /// <summary>
+    ///     Applies edits and returns the result, remembering where it differs so a reparse can
+    ///     ask.
+    /// </summary>
+    /// <remarks>
+    ///     Spans are in <em>this</em> text's coordinates, so a caller describes a batch of edits
+    ///     without adjusting for its own earlier ones. They must be sorted and must not overlap —
+    ///     an overlapping pair has no single well-defined result, so it is rejected rather than
+    ///     silently resolved.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">A change lies outside the text.</exception>
+    /// <exception cref="ArgumentException">Changes are unsorted or overlap.</exception>
+    public SourceText WithChanges(IEnumerable<TextChange> changes) {
+        ArgumentNullException.ThrowIfNull(changes);
+
+        var ordered = changes.ToArray();
+        if (ordered.Length == 0) {
+            return this;
+        }
+
+        var builder = new System.Text.StringBuilder(text.Length);
+        var ranges = new TextChangeRange[ordered.Length];
+        var position = 0;
+
+        for (var i = 0; i < ordered.Length; i++) {
+            var change = ordered[i];
+
+            if (change.Span.Start < 0 || change.Span.End > text.Length) {
+                throw new ArgumentOutOfRangeException(
+                    nameof(changes),
+                    $"Change {change} lies outside a text of length {text.Length}."
+                );
+            }
+
+            if (change.Span.Start < position) {
+                throw new ArgumentException(
+                    $"Changes must be sorted and must not overlap; {change} starts before {position}.",
+                    nameof(changes)
+                );
+            }
+
+            builder.Append(text, position, change.Span.Start - position);
+            builder.Append(change.NewText);
+
+            ranges[i] = new(change.Span, change.NewText?.Length ?? 0);
+            position = change.Span.End;
+        }
+
+        builder.Append(text, position, text.Length - position);
+        return new(builder.ToString(), this, ranges);
+    }
+
+    /// <inheritdoc cref="WithChanges(IEnumerable{TextChange})" />
+    public SourceText WithChanges(params TextChange[] changes) => WithChanges((IEnumerable<TextChange>)changes);
+
+    /// <summary>
+    ///     Where this text differs from <paramref name="oldText" />, for an incremental reparse.
+    /// </summary>
+    /// <remarks>
+    ///     Exact when <paramref name="oldText" /> is in this text's edit history — the usual case,
+    ///     since an editor holds the previous snapshot. Otherwise the whole document is reported
+    ///     as changed: conservative, always correct, and never silently wrong about a region a
+    ///     reparser would then have trusted.
+    /// </remarks>
+    public IReadOnlyList<TextChangeRange> GetChangeRanges(SourceText oldText) {
+        ArgumentNullException.ThrowIfNull(oldText);
+
+        if (ReferenceEquals(this, oldText)) {
+            return [];
+        }
+
+        if (ReferenceEquals(predecessor, oldText)) {
+            return changes;
+        }
+
+        return [new TextChangeRange(new TextSpan(0, oldText.Length), Length)];
+    }
 
     /// <summary>The substring covered by <paramref name="span" />.</summary>
     public string ToString(TextSpan span) => text.Substring(span.Start, span.Length);

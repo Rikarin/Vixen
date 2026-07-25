@@ -49,6 +49,13 @@ public sealed record CompileRequest {
     /// </summary>
     public bool EmitReflection { get; init; }
 
+    /// <summary>
+    ///     Also write a <c>.rvnfx</c> per shader — the compiled effect the runtime loads instead
+    ///     of compiling: every stage's module, the reflection, the permutation key and a source
+    ///     hash.
+    /// </summary>
+    public bool EmitEffect { get; init; }
+
     /// <summary>Name every file as it is written.</summary>
     public bool Verbose { get; init; }
 

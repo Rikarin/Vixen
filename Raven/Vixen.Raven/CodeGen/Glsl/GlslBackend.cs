@@ -51,5 +51,5 @@ public sealed class GlslBackend(GlslOptions? options = null) : ITargetBackend {
     }
 
     /// <summary>The conventional file-name suffix for a stage.</summary>
-    public static string StageSuffix(ShaderStage stage) => ShaderStages.Suffix(stage);
+    public static string StageSuffix(ShaderStage stage) => ShaderStageNames.Suffix(stage);
 }

@@ -7,6 +7,7 @@ using Vixen.Raven.IR;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Vixen.Raven.Lowering;
+using Vixen.Raven.Artefacts;
 using Vixen.Raven.Reflection;
 using Vixen.Raven.Syntax;
 using Vixen.Core.Syntax.Diagnostics;
@@ -118,7 +119,7 @@ public static class CompileDriver {
             return ExitCode.CompilationFailed;
         }
 
-        return Write(request, backend, module, generated, compilation.UsedPermutationKeys, output, error);
+        return Write(request, backend, module, generated, compilation, permutations, output, error);
     }
 
     static ExitCode Write(
@@ -126,7 +127,8 @@ public static class CompileDriver {
         ITargetBackend backend,
         IrModule module,
         IReadOnlyList<GeneratedSource> generated,
-        IReadOnlyCollection<string> usedPermutationKeys,
+        Compilation compilation,
+        PermutationValues permutations,
         TextWriter output,
         TextWriter error
     ) {
@@ -177,13 +179,44 @@ public static class CompileDriver {
                 }
             }
 
+            if (request.EmitEffect) {
+                var sources = compilation.SyntaxTrees.Select(tree => tree.Text?.ToString() ?? string.Empty).ToArray();
+
+                foreach (var shader in module.Shaders) {
+                    var path = single
+                        ? Path.ChangeExtension(request.Output, ".rvnfx")
+                        : Path.Combine(request.Output, shader.Name + ".rvnfx");
+
+                    // The backend names each unit "<shader>.<stage>", which is how a unit is
+                    // attributed back to the shader that produced it.
+                    var units = generated
+                        .Where(unit => unit.Name.StartsWith(shader.Name + ".", StringComparison.Ordinal))
+                        .ToArray();
+
+                    var effect = CompiledEffect.Create(
+                        shader.Name,
+                        request.Target,
+                        units,
+                        ReflectionBuilder.Describe(shader, compilation.UsedPermutationKeys),
+                        permutations,
+                        sources
+                    );
+
+                    CompiledEffectWriter.WriteFile(path, effect);
+
+                    if (request.Verbose) {
+                        output.WriteLine(path);
+                    }
+                }
+            }
+
             if (request.EmitReflection) {
                 foreach (var shader in module.Shaders) {
                     var path = single
                         ? Path.ChangeExtension(request.Output, ".reflect.json")
                         : Path.Combine(request.Output, shader.Name + ".reflect.json");
 
-                    var reflection = ReflectionBuilder.Describe(shader, usedPermutationKeys);
+                    var reflection = ReflectionBuilder.Describe(shader, compilation.UsedPermutationKeys);
                     File.WriteAllText(path, JsonSerializer.Serialize(reflection, ReflectionJson));
 
                     if (request.Verbose) {

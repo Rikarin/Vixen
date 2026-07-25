@@ -54,6 +54,10 @@ public static class RavenCommand {
             Description = "For a binary target, also write the readable listing (.spvasm) beside the bytes."
         };
 
+        var emitEffect = new Option<bool>("--emit-effect") {
+            Description = "Also write a .rvnfx per shader — the compiled effect the runtime loads."
+        };
+
         var emitReflection = new Option<bool>("--emit-reflection") {
             Description = "Also write the reflection (descriptor sets, offsets, parameters) as JSON."
         };
@@ -75,6 +79,7 @@ public static class RavenCommand {
             emitIr,
             emitListing,
             emitReflection,
+            emitEffect,
             showCapabilities,
             verbose,
             noColor
@@ -90,6 +95,7 @@ public static class RavenCommand {
                     EmitIr = parseResult.GetValue(emitIr),
                     EmitListing = parseResult.GetValue(emitListing),
                     EmitReflection = parseResult.GetValue(emitReflection),
+                    EmitEffect = parseResult.GetValue(emitEffect),
                     ShowCapabilities = parseResult.GetValue(showCapabilities),
                     Verbose = parseResult.GetValue(verbose),
                     UseColor = !parseResult.GetValue(noColor) && ColorIsWelcome()
