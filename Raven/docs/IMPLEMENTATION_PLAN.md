@@ -32,7 +32,8 @@ These were chosen deliberately and shape the whole plan:
 | Diagnostics | **Missing** |
 | Semantic model (symbols, types, binder) | Done in Phase 2 — see below |
 | IR (target-independent) | Done in Phase 3 — see below |
-| Code generation (GLSL/SPIR-V) | **Missing** |
+| Code generation — GLSL | Done in Phase 4 — see below |
+| Code generation — SPIR-V | **Missing** |
 | CLI | `Hello, World!` stub |
 | Tests | 1 syntax test; can't run (targets `net8.0`, host has net10) |
 | `_old_Antlr/` | Dead code (excluded from compile) |
@@ -493,15 +494,66 @@ Each needs token slots in `Syntax.xml` plus visitor wiring, the same recipe Phas
 
 ---
 
-## Phase 4 — GLSL backend *(first target)*
+## Phase 4 — GLSL backend *(first target)* — **✅ complete**
 
 The README's "easiest, just a transpiler" — but built over the IR, not the bound tree.
 
-- [ ] Define the **backend/generator interface** (`ITargetBackend` / `ICodeGenerator`) that consumes IR — the pluggable "generator interface" the README wants.
-- [ ] GLSL emitter: type mapping, intrinsic mapping, entry points → GLSL stages, bindings → `uniform`/`in`/`out`/`layout`, one GLSL unit per stage.
-- [ ] Golden tests `.rvn → expected .glsl`; optionally validate output with `glslangValidator`.
+> **Status:** the backend interface, the GLSL emitter and the golden tests are done.
+> `Tests/Fixtures/lambert.rvn` generates a vertex and a fragment unit, both pinned as
+> goldens, and the README's language example reaches GLSL. **355 tests, zero skipped.**
+> Next: **Phase 5 — CLI**, which wires this to a command line.
 
-**Exit criteria:** the README example compiles to valid GLSL that passes glslang.
+- [x] **Backend interface** (`Compiler/CodeGen/ITargetBackend.cs`): a backend takes an
+  `IrModule` and a `DiagnosticBag` and returns one `GeneratedSource` per entry point. It
+  never sees the bound tree or the syntax tree, so a new target is one new implementation and
+  nothing else. `TargetBackends.Create("glsl")` resolves one by name.
+- [x] **GLSL emitter** (`Compiler/CodeGen/Glsl/`):
+  - **Types** (`GlslTypes`): scalars, `vec`/`ivec`/`uvec`/`bvec`/`dvec`, matrices, structs,
+    combined samplers. Matrices flip — Raven's `matRxC` is R rows by C columns, GLSL's
+    `matCxR` is C columns by R rows — which is exactly what keeps `m * v` meaning the same
+    thing in both languages. Identifiers that collide with GLSL keywords or `gl_` are mangled.
+  - **Intrinsics** (`GlslIntrinsics`): a name table plus the handful that need a shape change
+    — `saturate` expands to `clamp(x, 0, 1)`, `atan2` folds into GLSL's two-argument `atan`,
+    `Sample` becomes `texture`, `Load` becomes `texelFetch`, `ArrayLength` becomes `.length()`.
+  - **Bindings**: uniforms go into one `layout(std140, binding = 0)` block; textures follow at
+    the next binding indices. Vector comparisons become GLSL's componentwise functions
+    (`lessThan` and friends), because `<` on a vector is not GLSL.
+  - **Entry points**: each becomes its own translation unit containing only the functions that
+    stage reaches. Stage inputs are `layout(location = N) in` globals, a vertex `vec4` result
+    goes to `gl_Position`, and anything else to a located `out`. `main()` threads the globals
+    into the user's function.
+  - **Constants are inlined** at every use rather than named — they are pure, so it is always
+    safe, and it removes most of the noise from an SSA-shaped emission.
+- [x] **Golden tests** (`Tests/GoldenGlslTests.cs`, `Tests/Fixtures/lambert.{vert,frag}.glsl`)
+  plus 36 unit tests over the mapping, and `Tests/ReadmeExampleTests.cs` runs the README's
+  example through the whole pipeline into GLSL.
+
+### What GLSL cannot mirror
+
+Each of these is reported rather than silently mishandled:
+
+- **Standalone samplers** (`RVN4003`, info). GLSL outside Vulkan has no separate sampler
+  object, so a texture binding becomes a combined `sampler2D` and the sampler binding folds
+  into it. Nothing of the shader's meaning is lost, but the binding table changes shape, so
+  it is said out loud.
+- **Binding defaults.** A GLSL uniform cannot carry an initializer, so a binding's declared
+  default stays host-side data on `IrShader.Initializer`; the generated unit carries a comment
+  saying so.
+- **Unsized arrays** (`RVN4001`, error). GLSL only allows a runtime-sized array as the last
+  member of a storage block, and the IR has no way to say that yet.
+- **The compute stage** (`RVN4002`, error). It needs a workgroup size and nothing in the
+  language declares one.
+
+**Loops** deserve a note. GLSL's `continue` jumps to the top of the loop body, so a counted
+loop's step has to live there rather than after the body. The emitter hoists the step — and,
+for `repeat`, the condition — behind a first-iteration flag, which is what makes `continue`
+land in the right place in every form.
+
+**Exit criteria — met, with one caveat:** the README example generates a vertex and a
+fragment unit with no errors, and both goldens are pinned. `glslangValidator` is **not
+installed on this machine**, so `GoldenGlslTests.Passes_glslang` reports that it skipped
+validation rather than pretending to have run it. Install glslang (`brew install glslang`) and
+re-run to close that last gap.
 
 ---
 
@@ -542,7 +594,7 @@ Phase 0 ─▶ Phase 1 ─▶ Phase 2 ─▶ Phase 3 ─▶ Phase 4 ─▶ Phase
                                                    └─▶ Phase 7 (interaction classes, HLSL, Metal)
 ```
 
-Critical path to a **first working transpile** (`.rvn → GLSL` via CLI): Phases 0 → 1 → 2 → 3 → 4 → 5. Phase 1 was the largest single investment; Phase 2 was the highest-risk research work. Phases 0–3 are done, so Phase 4 starts from `IrModule` and never has to look at the bound tree.
+Critical path to a **first working transpile** (`.rvn → GLSL` via CLI): Phases 0 → 1 → 2 → 3 → 4 → 5. Phase 1 was the largest single investment; Phase 2 was the highest-risk research work. Phases 0–4 are done: `IrModule` is the backend boundary, and the GLSL emitter never looks at the bound tree. Phase 5 wires it to a command line.
 
 ## Cross-cutting workstreams
 

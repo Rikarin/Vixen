@@ -78,7 +78,14 @@ IrVerifier.Verify(module, bag);
 
 Console.WriteLine(IrPrinter.Print(module));   // readable IR dump
 
-// TODO: code generation (GLSL, SPIR-V, ...)
+// Code generation — one translation unit per pipeline stage
+var backend = TargetBackends.Create("glsl")!;
+
+foreach (var unit in backend.Generate(module, bag)) {
+    File.WriteAllText($"{unit.Name}{backend.FileExtension}", unit.Code);
+}
+
+// TODO: SPIR-V, HLSL, Metal
 ```
 
 
