@@ -1,0 +1,232 @@
+CompilationUnit
+  PackageDirective
+    Token(PackageKeyword) "package"
+    QualifiedName
+      IdentifierName
+        Token(IdentifierToken) "Vixen"
+      Token(DotToken) "."
+      IdentifierName
+        Token(IdentifierToken) "Test"
+  ShaderDeclaration
+    Token(ShaderKeyword) "shader"
+    Token(IdentifierToken) "Precedence"
+    Token(OpenBraceToken) "{"
+    MethodDeclaration
+      Token(FuncKeyword) "func"
+      Token(IdentifierToken) "Ladder"
+      ParameterList
+        Token(OpenParenToken) "("
+        Token(CloseParenToken) ")"
+      Block
+        Token(OpenBraceToken) "{"
+        ListKind
+          LocalDeclarationStatement
+            ConstDeclaration
+              Token(ValKeyword) "val"
+              Token(IdentifierToken) "arithmetic"
+              EqualsValueClause
+                Token(EqualsToken) "="
+                BinaryExpression
+                  BinaryExpression
+                    NumericLiteralExpression
+                      Token(NumericLiteralToken) "1"
+                    Token(OperatorToken) "+"
+                    BinaryExpression
+                      NumericLiteralExpression
+                        Token(NumericLiteralToken) "2"
+                      Token(OperatorToken) "*"
+                      NumericLiteralExpression
+                        Token(NumericLiteralToken) "3"
+                  Token(OperatorToken) "-"
+                  BinaryExpression
+                    NumericLiteralExpression
+                      Token(NumericLiteralToken) "4"
+                    Token(OperatorToken) "/"
+                    NumericLiteralExpression
+                      Token(NumericLiteralToken) "5"
+          LocalDeclarationStatement
+            ConstDeclaration
+              Token(ValKeyword) "val"
+              Token(IdentifierToken) "comparison"
+              EqualsValueClause
+                Token(EqualsToken) "="
+                BinaryExpression
+                  BinaryExpression
+                    BinaryExpression
+                      IdentifierName
+                        Token(IdentifierToken) "a"
+                      Token(OperatorToken) "+"
+                      IdentifierName
+                        Token(IdentifierToken) "b"
+                    Token(OperatorToken) "<"
+                    IdentifierName
+                      Token(IdentifierToken) "c"
+                  Token(OperatorToken) "=="
+                  IdentifierName
+                    Token(IdentifierToken) "d"
+          LocalDeclarationStatement
+            ConstDeclaration
+              Token(ValKeyword) "val"
+              Token(IdentifierToken) "logic"
+              EqualsValueClause
+                Token(EqualsToken) "="
+                BinaryExpression
+                  BinaryExpression
+                    BinaryExpression
+                      IdentifierName
+                        Token(IdentifierToken) "a"
+                      Token(OperatorToken) "&&"
+                      IdentifierName
+                        Token(IdentifierToken) "b"
+                    Token(OperatorToken) "||"
+                    IdentifierName
+                      Token(IdentifierToken) "c"
+                  Token(OperatorToken) "??"
+                  IdentifierName
+                    Token(IdentifierToken) "d"
+          LocalDeclarationStatement
+            ConstDeclaration
+              Token(ValKeyword) "val"
+              Token(IdentifierToken) "call"
+              EqualsValueClause
+                Token(EqualsToken) "="
+                BinaryExpression
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "1"
+                  Token(OperatorToken) "+"
+                  BinaryExpression
+                    InvocationExpression
+                      IdentifierName
+                        Token(IdentifierToken) "f"
+                      ArgumentList
+                        Token(OpenParenToken) "("
+                        Argument
+                          IdentifierName
+                            Token(IdentifierToken) "x"
+                        Token(CloseParenToken) ")"
+                    Token(OperatorToken) "*"
+                    InvocationExpression
+                      IdentifierName
+                        Token(IdentifierToken) "g"
+                      ArgumentList
+                        Token(OpenParenToken) "("
+                        Argument
+                          IdentifierName
+                            Token(IdentifierToken) "y"
+                        Token(CloseParenToken) ")"
+          LocalDeclarationStatement
+            ConstDeclaration
+              Token(ValKeyword) "val"
+              Token(IdentifierToken) "indexed"
+              EqualsValueClause
+                Token(EqualsToken) "="
+                BinaryExpression
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "1"
+                  Token(OperatorToken) "+"
+                  ElementAccessExpression
+                    IdentifierName
+                      Token(IdentifierToken) "xs"
+                    BracketedArgumentList
+                      Token(OpenBracketToken) "["
+                      Argument
+                        NumericLiteralExpression
+                          Token(NumericLiteralToken) "0"
+                      Token(CloseBracketToken) "]"
+          LocalDeclarationStatement
+            ConstDeclaration
+              Token(ValKeyword) "val"
+              Token(IdentifierToken) "unary"
+              EqualsValueClause
+                Token(EqualsToken) "="
+                BinaryExpression
+                  BinaryExpression
+                    UnaryMinusExpression
+                      Token(OperatorToken) "-"
+                      IdentifierName
+                        Token(IdentifierToken) "a"
+                    Token(OperatorToken) "*"
+                    IdentifierName
+                      Token(IdentifierToken) "b"
+                  Token(OperatorToken) "+"
+                  PostIncrementExpression
+                    IdentifierName
+                      Token(IdentifierToken) "c"
+                    Token(OperatorToken) "++"
+          LocalDeclarationStatement
+            ConstDeclaration
+              Token(ValKeyword) "val"
+              Token(IdentifierToken) "conditional"
+              EqualsValueClause
+                Token(EqualsToken) "="
+                ConditionalExpression
+                  BinaryExpression
+                    IdentifierName
+                      Token(IdentifierToken) "a"
+                    Token(OperatorToken) "||"
+                    IdentifierName
+                      Token(IdentifierToken) "b"
+                  Token(QuestionToken) "?"
+                  IdentifierName
+                    Token(IdentifierToken) "c"
+                  Token(ColonToken) ":"
+                  IdentifierName
+                    Token(IdentifierToken) "d"
+          LocalDeclarationStatement
+            ConstDeclaration
+              Token(ValKeyword) "val"
+              Token(IdentifierToken) "chained"
+              EqualsValueClause
+                Token(EqualsToken) "="
+                AssignmentExpression
+                  IdentifierName
+                    Token(IdentifierToken) "x"
+                  Token(OperatorToken) "="
+                  AssignmentExpression
+                    IdentifierName
+                      Token(IdentifierToken) "y"
+                    Token(OperatorToken) "="
+                    BinaryExpression
+                      IdentifierName
+                        Token(IdentifierToken) "a"
+                      Token(OperatorToken) "+"
+                      IdentifierName
+                        Token(IdentifierToken) "b"
+          LocalDeclarationStatement
+            ConstDeclaration
+              Token(ValKeyword) "val"
+              Token(IdentifierToken) "lambda"
+              EqualsValueClause
+                Token(EqualsToken) "="
+                SimpleLambdaExpression
+                  Token(IdentifierToken) "v"
+                  Token(ArrowToken) "=>"
+                  BinaryExpression
+                    BinaryExpression
+                      IdentifierName
+                        Token(IdentifierToken) "v"
+                      Token(OperatorToken) "*"
+                      NumericLiteralExpression
+                        Token(NumericLiteralToken) "2"
+                    Token(OperatorToken) "+"
+                    NumericLiteralExpression
+                      Token(NumericLiteralToken) "1"
+          LocalDeclarationStatement
+            ConstDeclaration
+              Token(ValKeyword) "val"
+              Token(IdentifierToken) "range"
+              EqualsValueClause
+                Token(EqualsToken) "="
+                RangeExpression
+                  IdentifierName
+                    Token(IdentifierToken) "a"
+                  Token(DotDotToken) ".."
+                  BinaryExpression
+                    IdentifierName
+                      Token(IdentifierToken) "b"
+                    Token(OperatorToken) "+"
+                    IdentifierName
+                      Token(IdentifierToken) "c"
+        Token(CloseBraceToken) "}"
+    Token(CloseBraceToken) "}"
+  Token(EndOfFileToken)

@@ -346,32 +346,57 @@ default_switch_label
 // =====================================================================================================================
 // ================================================= Expressions =======================================================
 // =====================================================================================================================
+// ANTLR gives a left-recursive rule's alternatives DECREASING precedence in the
+// order they are written, so this list runs from tightest binding to loosest:
+// postfix, prefix, the arithmetic/relational/logical ladder, conditional,
+// lambdas, assignment, and finally the primaries (whose order among themselves
+// only resolves ambiguity — e.g. a collection literal must outrank an implicit
+// element access, and a cast must outrank a parenthesized expression).
 expression
-    : expression op=('=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '^=' | '|=' | '<<=' | '>>=' | '>>>=' | '??=') expression #AssignmentExpression
-    | expression op=('+' | '-' | '*' | '/' | '%' | '<<' | '>>' | '>>>' | '||' | '&&' | '|' | '&' | '^' | '==' | '!=' | '<' | '<=' | '>' | '>=' | 'is' | 'as' | '??') expression #BinaryExpression
+    // --- postfix ---
+    : expression argument_list                  #InvocationExpression
+    | expression bracketed_argument_list        #ElementAccessExpression
+    | expression '.' simple_name                #MemberAccessExpression
+    | expression op=('++' | '--' | '!')         #PostfixUnaryExpression
+    // --- prefix ---
+    | op=('!' | '+' | '++' | '-' | '--' | '^' | '~') expression #PrefixUnaryExpression
     | '(' type ')' expression                   #CastExpression
+    | REF expression                            #RefExpression
+    // --- binary operators, tightest first ---
+    | expression op=('*' | '/' | '%') expression #BinaryExpression
+    | expression op=('+' | '-') expression      #BinaryExpression
+    | expression op=('<<' | '>>' | '>>>') expression #BinaryExpression
+    | expression DOUBLE_DOT expression          #RangeExpression
+    | expression op=('<' | '<=' | '>' | '>=') expression #BinaryExpression
+    | expression op=('is' | 'as') expression    #BinaryExpression
+    | expression IS pattern                     #IsPatternExpression
+    | expression op=('==' | '!=') expression    #BinaryExpression
+    | expression op='&' expression              #BinaryExpression
+    | expression op='^' expression              #BinaryExpression
+    | expression op='|' expression              #BinaryExpression
+    | expression op='&&' expression             #BinaryExpression
+    | expression op='||' expression             #BinaryExpression
+    | <assoc=right> expression op='??' expression #BinaryExpression
+    // Unreachable, and was before this rule was reordered: '??' is null-coalescing
+    // and the binary alternative above claims it. Conditional access is '?.',
+    // which the grammar does not have yet; this alternative is where it will go.
+    | expression '??' expression                #ConditionalAccessExpression
+    | expression SWITCH '{' NL* (switch_expression_arm (',' NL* switch_expression_arm)*)? NL* '}' #SwitchExpression
+    | <assoc=right> expression '?' expression ':' expression #ConditionalExpression
+    // --- lambdas and assignment bind loosest, so their bodies swallow the rest ---
     | identifier_token '=>' expression          #SimpleLambdaExpression
     | parameter_list (':' type)? '=>' expression #ParenthesizedLambdaExpression
+    | <assoc=right> expression op=('=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '^=' | '|=' | '<<=' | '>>=' | '>>>=' | '??=') expression #AssignmentExpression
+    // --- primaries ---
     | '{' NL* (anonymous_member_declarator (',' NL* anonymous_member_declarator)*)? NL* '}' #AnonymousObjectCreationExpression
     | '[' NL* (collection_element (',' NL* collection_element)*)? NL* ']' #CollectionExpression
-    | expression '??' expression                #ConditionalAccessExpression
-    | expression '?' expression ':' expression  #ConditionalExpression
-    | expression argument_list                  #InvocationExpression
-    | DEFAULT '(' type ')'                      #DefaultExpression
-    | expression bracketed_argument_list        #ElementAccessExpression
     | bracketed_argument_list                   #ImplicitElementAccess
+    | DEFAULT '(' type ')'                      #DefaultExpression
+    | SIZEOF '(' type ')'                       #SizeofExpression
     | op=(BASE | SELF)                          #InstanceExpression
-    | expression IS pattern                     #IsPatternExpression
     | literal_expression                        #LiteralExpression
-    | expression '.' simple_name                #MemberAccessExpression
     | '.' simple_name                           #MemberBindingExpression
     | '(' expression ')'                        #ParenthesizedExpression
-    | expression op=('++' | '--' | '!')         #PostfixUnaryExpression
-    | op=('!' | '+' | '++' | '-' | '--' | '^' | '~') expression #PrefixUnaryExpression
-    | expression DOUBLE_DOT expression          #RangeExpression
-    | REF expression                            #RefExpression
-    | SIZEOF '(' type ')'                       #SizeofExpression
-    | expression SWITCH '{' NL* (switch_expression_arm (',' NL* switch_expression_arm)*)? NL* '}' #SwitchExpression
     | '(' argument (',' argument)+ ')'?         #TupleExpression
     | type                                      #TypeExpression
     | type variable_designation                 #DeclarationExpression

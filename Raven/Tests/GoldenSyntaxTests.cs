@@ -15,6 +15,7 @@ namespace Tests;
 public class GoldenSyntaxTests {
     [Theory]
     [InlineData("package_imports")]
+    [InlineData("expression_precedence")]
     public void Matches_golden(string name) {
         var rvnPath = FixturePath(name + ".rvn");
         var goldenPath = FixturePath(name + ".tree");

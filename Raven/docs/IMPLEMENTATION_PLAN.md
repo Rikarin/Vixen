@@ -327,22 +327,32 @@ diagnostics and correct types; `SemanticDiagnosticsTests` covers 24 targeted err
 ### Defects in earlier phases found while building Phase 2
 
 These are **Phase 1 grammar bugs**, pinned by
-`Tests/GrammarPrecedenceCharacterizationTests.cs` so the fix has something to flip:
+These are **Phase 1 grammar bugs**:
 
-1. **Expression precedence is inverted.** ANTLR gives a left-recursive rule's alternatives
-   *decreasing* precedence in the order written, but `RavenParser2.g4`'s `expression` rule
-   lists assignment first (binding tightest) and invocation/indexing/member access last
-   (binding loosest). So `1 + f(x)` parses as `(1 + f)(x)` and `x = a + b` as `(x = a) + b`.
-   Dotted names are unaffected — `a.b` reaches the tree as a `QualifiedName` primary.
-2. **All binary operators share one precedence level**, so `1 + 2 * 3` parses as `(1 + 2) * 3`.
+1. ~~**Expression precedence is inverted.**~~ **Fixed.** ANTLR gives a left-recursive rule's
+   alternatives *decreasing* precedence in the order written, but `RavenParser2.g4`'s
+   `expression` rule listed assignment first (binding tightest) and invocation/indexing/member
+   access last (binding loosest), so `1 + f(x)` parsed as `(1 + f)(x)` and `x = a + b` as
+   `(x = a) + b`.
+2. ~~**All binary operators share one precedence level.**~~ **Fixed.** `1 + 2 * 3` parsed as
+   `(1 + 2) * 3`.
 3. **`attribute_list` requires a trailing `NL+`**, so parameters cannot carry inline
    attributes (`func f([Semantic("TEXCOORD0")] uv: float2)`).
 4. **Method declarations require a body**, so a bodiless `protocol` member (`func Draw()`)
    does not parse — which makes protocols much less useful than intended.
 
-Fixing 1 and 2 means restructuring the `expression` rule into proper precedence levels and
-regenerating the parser; it will move golden trees, so it is its own piece of work rather
-than something to fold into Phase 2.
+**1 and 2 were fixed by restructuring the `expression` rule** into a proper precedence
+ladder, written tightest-first: postfix (invocation, element access, member access, postfix
+unary) → prefix unary → cast → multiplicative → additive → shift → range → relational →
+`is`/`as` → equality → `&` → `^` → `|` → `&&` → `||` → `??` → switch expression →
+conditional `?:` → lambdas → assignment, with the primaries last (their order among
+themselves only resolves ambiguity — a collection literal must outrank an implicit element
+access, a cast must outrank a parenthesized expression). Assignment, `??` and `?:` are
+marked `<assoc=right>`. ANTLR accepts the shared `#BinaryExpression` label across the
+operator levels and merges them into one context class, so `SyntaxAntlrVisitor` needed no
+change. `Tests/ExpressionPrecedenceTests.cs` pins the resulting shapes and
+`Tests/Fixtures/expression_precedence.rvn` gives the golden harness expression coverage;
+`package_imports.tree` was unchanged, and the round-trip corpus still passes byte-for-byte.
 
 ---
 
