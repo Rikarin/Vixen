@@ -54,6 +54,10 @@ public static class RavenCommand {
             Description = "For a binary target, also write the readable listing (.spvasm) beside the bytes."
         };
 
+        var emitReflection = new Option<bool>("--emit-reflection") {
+            Description = "Also write the reflection (descriptor sets, offsets, parameters) as JSON."
+        };
+
         var showCapabilities = new Option<bool>("--capabilities") {
             Description = "Print the target features each shader requires (Float64, Texture3D, …)."
         };
@@ -70,6 +74,7 @@ public static class RavenCommand {
             compose,
             emitIr,
             emitListing,
+            emitReflection,
             showCapabilities,
             verbose,
             noColor
@@ -84,6 +89,7 @@ public static class RavenCommand {
                     Composes = parseResult.GetValue(compose) ?? [],
                     EmitIr = parseResult.GetValue(emitIr),
                     EmitListing = parseResult.GetValue(emitListing),
+                    EmitReflection = parseResult.GetValue(emitReflection),
                     ShowCapabilities = parseResult.GetValue(showCapabilities),
                     Verbose = parseResult.GetValue(verbose),
                     UseColor = !parseResult.GetValue(noColor) && ColorIsWelcome()

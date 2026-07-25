@@ -4,7 +4,10 @@
 using Vixen.Raven.CodeGen;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Vixen.Raven.Lowering;
+using Vixen.Raven.Reflection;
 using Vixen.Raven.Syntax;
 using Vixen.Core.Syntax.Diagnostics;
 
@@ -18,6 +21,15 @@ namespace Vixen.Raven.Cli;
 ///     a parse failure never cascades into a wall of semantic noise.
 /// </summary>
 public static class CompileDriver {
+    /// <summary>
+    ///     Indented, with enums as names: this file is read by people as often as by the engine,
+    ///     and a bare number for a DescriptorType tells a reader nothing.
+    /// </summary>
+    static readonly JsonSerializerOptions ReflectionJson = new() {
+        WriteIndented = true,
+        Converters = { new JsonStringEnumConverter() }
+    };
+
     public static ExitCode Run(CompileRequest request, TextWriter output, TextWriter error) {
         var formatting = new DiagnosticFormatterOptions { UseColor = request.UseColor };
 
@@ -106,7 +118,7 @@ public static class CompileDriver {
             return ExitCode.CompilationFailed;
         }
 
-        return Write(request, backend, module, generated, output, error);
+        return Write(request, backend, module, generated, compilation.UsedPermutationKeys, output, error);
     }
 
     static ExitCode Write(
@@ -114,6 +126,7 @@ public static class CompileDriver {
         ITargetBackend backend,
         IrModule module,
         IReadOnlyList<GeneratedSource> generated,
+        IReadOnlyCollection<string> usedPermutationKeys,
         TextWriter output,
         TextWriter error
     ) {
@@ -160,6 +173,21 @@ public static class CompileDriver {
 
                     if (request.Verbose) {
                         output.WriteLine(listing);
+                    }
+                }
+            }
+
+            if (request.EmitReflection) {
+                foreach (var shader in module.Shaders) {
+                    var path = single
+                        ? Path.ChangeExtension(request.Output, ".reflect.json")
+                        : Path.Combine(request.Output, shader.Name + ".reflect.json");
+
+                    var reflection = ReflectionBuilder.Describe(shader, usedPermutationKeys);
+                    File.WriteAllText(path, JsonSerializer.Serialize(reflection, ReflectionJson));
+
+                    if (request.Verbose) {
+                        output.WriteLine(path);
                     }
                 }
             }

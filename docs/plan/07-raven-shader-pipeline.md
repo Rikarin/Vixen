@@ -172,14 +172,43 @@ deleted whenever the grammar is next touched. The row above is complete as it st
 Detailed below. Summary: `RavenCompilation.Create/GetDiagnostics/GetSemanticModel/Emit` (Roslyn-shaped),
 `RavenEmitResult`, `RavenShaderModule`, and the full `RavenReflection` schema.
 
-| | Requirement |
-|---|---|
-| 🔴 | `RavenReflection` with **explicit `Offset`, `Size`, `ArrayStride`, `MatrixStride` on every block member.** The engine writes constant buffers by generated offset, not by runtime reflection. Get the std140/std430-vs-HLSL packing rules pinned and golden-tested or every backend disagrees about `float3` padding |
-| 🟡 | `.rvnlib` (compiled library: symbols + IR, referenced without reparsing source) and `.rvnfx` (compiled effect: modules + reflection + permutation key + source hash) artefact formats |
-| 🟡 | **Incremental reparse** via `SourceText.WithChanges` — the < 500 ms shader hot-reload budget ([00](00-vision-and-principles.md)) depends on it. Comes free from `Vixen.Core.Syntax` |
-| 🟡 | Diagnostics surfaced through the shared model so the editor's error list, the engine log, and the on-screen shader-error overlay all use one implementation |
-| 🟡 | Accept **generated** source with span fidelity, so `Vixen.Editor.ShaderGraph` can emit Raven and map diagnostics back to node ports ([11](11-editor.md)) |
-| ⚪ | "Interaction classes" (Raven's Phase 7) feed `Vixen.Shaders.Generators`, which emits the C# `ParameterKey`/`PermutationKey` classes |
+| | Requirement | |
+|---|---|---|
+| 🔴 | `RavenReflection` with **explicit `Offset`, `Size`, `ArrayStride`, `MatrixStride` on every block member.** The engine writes constant buffers by generated offset, not by runtime reflection. Get the std140/std430-vs-HLSL packing rules pinned and golden-tested or every backend disagrees about `float3` padding | ✅ |
+| 🟡 | `.rvnlib` (compiled library: symbols + IR, referenced without reparsing source) and `.rvnfx` (compiled effect: modules + reflection + permutation key + source hash) artefact formats | |
+| 🟡 | **Incremental reparse** via `SourceText.WithChanges` — the < 500 ms shader hot-reload budget ([00](00-vision-and-principles.md)) depends on it. Comes free from `Vixen.Core.Syntax` | |
+| 🟡 | Diagnostics surfaced through the shared model so the editor's error list, the engine log, and the on-screen shader-error overlay all use one implementation | ✅ via `Vixen.Core.Syntax` |
+| 🟡 | Accept **generated** source with span fidelity, so `Vixen.Editor.ShaderGraph` can emit Raven and map diagnostics back to node ports ([11](11-editor.md)) | ✅ `ParseText(text, path:)` already |
+| ⚪ | "Interaction classes" (Raven's Phase 7) feed `Vixen.Shaders.Generators`, which emits the C# `ParameterKey`/`PermutationKey` classes | engine-side |
+
+**The layout engine is shared, and that is the point.** `Vixen.Raven.Reflection.ShaderLayout` is the
+only implementation of the packing rules. It was private to the SPIR-V backend as `Std140Layout`;
+lifting it out and generalising it to `std430` means the SPIR-V `Offset`/`ArrayStride`/`MatrixStride`
+decorations and the reflection the engine writes buffers from are computed by the same code. Two
+copies is how backends come to disagree about `float3` padding, so there is one.
+
+Verified rather than assumed: for a block of `float4, float, float3, mat4` the reflection reports
+offsets 0/16/32/48 with size 112 and `MatrixStride 16`, and the emitted SPIR-V decorates
+`Offset 0/16/32/48` and `MatrixStride 16`. `ShaderLayoutTests` pins the numbers themselves against
+the spec as literals — `float3` aligning to 16 while occupying 12, `float[4]` costing 64 bytes in
+std140 and 16 in std430, a matrix's stride following its column count.
+
+**Matrices are column-major.** GLSL's default inside a laid-out block, and what the SPIR-V backend's
+`ColMajor` decoration says, so the two already agree. Worth flagging: [ADR-003](01-technology-decisions.md)
+describes the convention as "row-major storage", which reads as a contradiction. The implementation
+is self-consistent and both backends match, so nothing is broken — but the wording and the code
+should be reconciled, and if ADR-003 is meant literally then matrix *indexing* is the thing to check,
+not the layout.
+
+**Reflection comes from the IR, never from parsing emitted output back.** So a value behind a false
+`[Permutation]` is already gone and the reported interface is the one this variant actually has.
+`raven compile --emit-reflection` writes it as JSON; `--capabilities` prints the required features
+per shader.
+
+**Reported as absent rather than guessed:** `PushConstants` and `SpecConstants` are always empty.
+Raven has no syntax for push constants, and a `[Permutation]` key is resolved at compile time rather
+than left specialisable — that is what makes the dead branch disappear. An empty array is honest; a
+fabricated one would be a bug the engine could not see.
 
 ### E. Conventions Raven must bake in
 
@@ -369,7 +398,7 @@ public sealed record RavenReflection
 public sealed record DescriptorSetInfo(int Set, ImmutableArray<BindingInfo> Bindings);
 public sealed record BindingInfo(
     int Binding, string Name, DescriptorType Type, int Count,   // Count > 1 ⇒ array; 0 ⇒ runtime array
-    ShaderStageFlags Stages, ImmutableArray<MemberInfo> Members); // Members for uniform/storage blocks
+    ShaderStages Stages, ImmutableArray<MemberInfo> Members);      // Members for uniform/storage blocks
 public sealed record MemberInfo(string Name, ShaderDataType Type, int Offset, int Size, int ArrayStride, int MatrixStride);
 ```
 

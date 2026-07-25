@@ -43,6 +43,12 @@ public sealed record CompileRequest {
     /// </summary>
     public bool ShowCapabilities { get; init; }
 
+    /// <summary>
+    ///     Also write the reflection as JSON — the descriptor sets, member offsets and flattened
+    ///     parameter list the engine binds against.
+    /// </summary>
+    public bool EmitReflection { get; init; }
+
     /// <summary>Name every file as it is written.</summary>
     public bool Verbose { get; init; }
 

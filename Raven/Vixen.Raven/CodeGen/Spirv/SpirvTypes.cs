@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using Vixen.Raven.IR;
+using Vixen.Raven.Reflection;
 
 namespace Vixen.Raven.CodeGen.Spirv;
 
@@ -81,7 +82,7 @@ sealed class SpirvTypes {
         );
 
         if (layout) {
-            module.Decorate(id, SpirvDecoration.ArrayStride, SpirvOperand.Literal(Std140Layout.ArrayStride(array)));
+            module.Decorate(id, SpirvDecoration.ArrayStride, SpirvOperand.Literal(ShaderLayout.ArrayStride(array)));
         }
 
         return id;
@@ -293,7 +294,7 @@ sealed class SpirvTypes {
 
     /// <summary>Writes the offsets and matrix strides an explicitly laid out struct needs.</summary>
     internal void DecorateLayout(uint structId, IReadOnlyList<IrType> members) {
-        var (offsets, _) = Std140Layout.Members(members);
+        var (offsets, _) = ShaderLayout.Members(members);
 
         for (var i = 0; i < members.Count; i++) {
             module.DecorateMember(structId, i, SpirvDecoration.Offset, SpirvOperand.Literal(offsets[i]));
@@ -307,7 +308,7 @@ sealed class SpirvTypes {
                     structId,
                     i,
                     SpirvDecoration.MatrixStride,
-                    SpirvOperand.Literal(Std140Layout.MatrixStride(matrix))
+                    SpirvOperand.Literal(ShaderLayout.MatrixStride(matrix))
                 );
             }
         }
