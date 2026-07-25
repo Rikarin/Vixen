@@ -1360,6 +1360,7 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
 
         var kind = token.Symbol.Type switch {
             RavenLexer.ABSTRACT => SyntaxKind.AbstractKeyword,
+            RavenLexer.COMPOSE => SyntaxKind.ComposeKeyword,
             RavenLexer.CONST => SyntaxKind.ConstKeyword,
             RavenLexer.OVERRIDE => SyntaxKind.OverrideKeyword,
             RavenLexer.RECORD => SyntaxKind.RecordKeyword,

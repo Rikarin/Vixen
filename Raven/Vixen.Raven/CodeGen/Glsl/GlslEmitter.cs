@@ -193,9 +193,15 @@ sealed class GlslEmitter {
     ///     one stage, so emitting another stage's functions would be dead code — and
     ///     dead code that references the wrong stage's built-ins.
     /// </summary>
+    /// <remarks>
+    ///     Reachability is what excludes other stages, not shader membership: a
+    ///     <c>compose</c> slot puts the implementation's functions in a different shader,
+    ///     and filtering to this shader's own list would drop the very function the entry
+    ///     point calls.
+    /// </remarks>
     IEnumerable<IrFunction> Reachable() {
         var reached = CallGraph.Reachable(entryPoint.Function);
-        return module.Functions.Concat(shader.Functions).Where(reached.Contains);
+        return module.AllFunctions.Where(reached.Contains);
     }
 
     string Signature(IrFunction function) {

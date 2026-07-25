@@ -448,12 +448,29 @@ public sealed partial class Lowerer {
             return LowerIntrinsic(invocation, definition, type);
         }
 
+        var receiver = invocation.Receiver;
+
+        // A call through a compose slot was bound against the protocol, whose method has no
+        // body. Swap in the bound shader's implementation, and drop the receiver: the slot
+        // holds no value, and a shader method is a free function.
+        if (receiver is BoundFieldExpression { Field: { IsCompose: true } slot }) {
+            if (slot.ComposedType is not { } bound
+                || FindImplementation(bound, definition) is not { } implementation) {
+                // Why it could not be resolved was already reported at the declaration.
+                ReportUnsupported(invocation, $"A call to '{method.Name}' through compose slot '{slot.Name}'");
+                return null;
+            }
+
+            definition = implementation;
+            receiver = null;
+        }
+
         if (!functions.TryGetValue((definition, BoundBodyKind.Method), out var function)) {
             ReportUnsupported(invocation, $"A call to '{method.Name}'");
             return null;
         }
 
-        var arguments = BuildArguments(invocation.Receiver, definition, invocation.Arguments);
+        var arguments = BuildArguments(receiver, definition, invocation.Arguments);
 
         if (function.ReturnType.IsVoid) {
             Emit(new IrCallInstruction(null, function, arguments));
@@ -543,6 +560,39 @@ public sealed partial class Lowerer {
     ///     Builds a call's argument list, prepending the receiver for a member of a
     ///     struct. A shader's members take no receiver: their state is global.
     /// </summary>
+    /// <summary>
+    ///     The method on <paramref name="implementer" /> that satisfies
+    ///     <paramref name="declaration" />: same name, same parameter types.
+    /// </summary>
+    /// <remarks>
+    ///     Matching is by signature rather than through an <c>override</c> link, because a
+    ///     protocol member and its implementation are separate declarations that the
+    ///     compilation relates only through the compose binding.
+    /// </remarks>
+    static MethodSymbol? FindImplementation(NamedTypeSymbol implementer, MethodSymbol declaration) {
+        for (var current = implementer; current is not null; current = current.BaseType) {
+            foreach (var candidate in current.GetMembers(declaration.Name).OfType<MethodSymbol>()) {
+                if (candidate.Parameters.Count != declaration.Parameters.Count) {
+                    continue;
+                }
+
+                var matches = true;
+                for (var i = 0; i < candidate.Parameters.Count; i++) {
+                    if (!candidate.Parameters[i].Type.Equals(declaration.Parameters[i].Type)) {
+                        matches = false;
+                        break;
+                    }
+                }
+
+                if (matches) {
+                    return candidate;
+                }
+            }
+        }
+
+        return null;
+    }
+
     IrValue[] BuildArguments(BoundExpression? receiver, Symbol member, IReadOnlyList<BoundExpression> arguments) {
         var lowered = arguments.Select(LowerExpression).ToArray();
 

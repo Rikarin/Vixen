@@ -40,6 +40,14 @@ public static class RavenCommand {
             DefaultValueFactory = _ => []
         };
 
+        var compose = new Option<string[]>("--compose", "-C") {
+            Description =
+                "Fill a compose slot: --compose diffuse=Lambert. Qualify with the shader when two "
+                + "declare the same slot name: Lit.diffuse=Lambert. Repeatable.",
+            AllowMultipleArgumentsPerToken = true,
+            DefaultValueFactory = _ => []
+        };
+
         var emitIr = new Option<bool>("--emit-ir") { Description = "Also write the target-independent IR dump." };
 
         var emitListing = new Option<bool>("--emit-listing") {
@@ -55,6 +63,7 @@ public static class RavenCommand {
             outputPath,
             target,
             define,
+            compose,
             emitIr,
             emitListing,
             verbose,
@@ -67,6 +76,7 @@ public static class RavenCommand {
                     Output = parseResult.GetRequiredValue(outputPath),
                     Target = parseResult.GetRequiredValue(target),
                     Defines = parseResult.GetValue(define) ?? [],
+                    Composes = parseResult.GetValue(compose) ?? [],
                     EmitIr = parseResult.GetValue(emitIr),
                     EmitListing = parseResult.GetValue(emitListing),
                     Verbose = parseResult.GetValue(verbose),

@@ -41,6 +41,12 @@ public sealed class Compilation {
     public PermutationValues PermutationValues { get; }
 
     /// <summary>
+    ///     Which concrete shader fills each <c>compose</c> slot. A slot with nothing bound is
+    ///     an error, so this is required for any shader that composes.
+    /// </summary>
+    public ComposeBindings ComposeBindings { get; }
+
+    /// <summary>
     ///     The permutation keys this compilation actually consulted, sorted by name.
     /// </summary>
     /// <remarks>
@@ -72,32 +78,48 @@ public sealed class Compilation {
 
     internal Binder GlobalBinder => globalBinder ??= new GlobalBinder(DeclarationContext);
 
-    Compilation(string assemblyName, SyntaxTree[] syntaxTrees, PermutationValues permutationValues) {
+    Compilation(
+        string assemblyName,
+        SyntaxTree[] syntaxTrees,
+        PermutationValues permutationValues,
+        ComposeBindings composeBindings
+    ) {
         AssemblyName = assemblyName;
         this.syntaxTrees = syntaxTrees;
         PermutationValues = permutationValues;
+        ComposeBindings = composeBindings;
     }
 
     public static Compilation Create(string assemblyName, params SyntaxTree[] syntaxTrees) =>
-        new(assemblyName, syntaxTrees, PermutationValues.Empty);
+        new(assemblyName, syntaxTrees, PermutationValues.Empty, ComposeBindings.Empty);
 
     public static Compilation Create(string assemblyName, IEnumerable<SyntaxTree> syntaxTrees) =>
-        new(assemblyName, syntaxTrees.ToArray(), PermutationValues.Empty);
+        new(assemblyName, syntaxTrees.ToArray(), PermutationValues.Empty, ComposeBindings.Empty);
 
     /// <summary>
-    ///     Creates one permutation of a compilation. Each distinct
-    ///     <paramref name="permutationValues" /> is a separate compilation, because the
-    ///     values change what the code means.
+    ///     Creates one variant of a compilation. Each distinct combination of
+    ///     <paramref name="permutationValues" /> and <paramref name="composeBindings" /> is a
+    ///     separate compilation, because both change what the code means.
     /// </summary>
     public static Compilation Create(
         string assemblyName,
         PermutationValues permutationValues,
         IEnumerable<SyntaxTree> syntaxTrees
+    ) =>
+        Create(assemblyName, permutationValues, ComposeBindings.Empty, syntaxTrees);
+
+    /// <inheritdoc cref="Create(string,PermutationValues,IEnumerable{SyntaxTree})" />
+    public static Compilation Create(
+        string assemblyName,
+        PermutationValues permutationValues,
+        ComposeBindings composeBindings,
+        IEnumerable<SyntaxTree> syntaxTrees
     ) {
         ArgumentNullException.ThrowIfNull(permutationValues);
+        ArgumentNullException.ThrowIfNull(composeBindings);
         ArgumentNullException.ThrowIfNull(syntaxTrees);
 
-        return new(assemblyName, syntaxTrees.ToArray(), permutationValues);
+        return new(assemblyName, syntaxTrees.ToArray(), permutationValues, composeBindings);
     }
 
     /// <summary>

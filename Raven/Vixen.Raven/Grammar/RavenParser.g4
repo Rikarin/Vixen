@@ -497,6 +497,7 @@ integer_literal_token
 
 modifier
     : ABSTRACT
+    | COMPOSE
     | CONST
     | OVERRIDE
     | PARTIAL

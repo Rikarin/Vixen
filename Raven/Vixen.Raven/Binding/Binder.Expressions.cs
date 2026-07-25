@@ -479,6 +479,10 @@ public abstract partial class Binder {
                 Report(SemanticDiagnostics.PermutationCannotBeAssigned, syntax, permutation.Field.Name);
                 break;
 
+            case BoundFieldExpression { Field.IsCompose: true } slot:
+                Report(SemanticDiagnostics.ComposeCannotBeAssigned, syntax, slot.Field.Name);
+                break;
+
             case BoundFieldExpression { Field.IsReadOnly: true } field
                 when !IsInsideInitializerOf(field.Field):
                 Report(SemanticDiagnostics.NotAssignable, syntax, field.Field.Name);

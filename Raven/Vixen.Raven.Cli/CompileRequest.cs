@@ -25,6 +25,12 @@ public sealed record CompileRequest {
     /// </summary>
     public IReadOnlyList<string> Defines { get; init; } = [];
 
+    /// <summary>
+    ///     Which shader fills each <c>compose</c> slot, as <c>slot=Shader</c> strings. The
+    ///     slot may be qualified by shader: <c>Lit.diffuse=Lambert</c>.
+    /// </summary>
+    public IReadOnlyList<string> Composes { get; init; } = [];
+
     /// <summary>Also write the IR dump next to the generated sources.</summary>
     public bool EmitIr { get; init; }
 

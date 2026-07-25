@@ -345,10 +345,105 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
         }
     }
 
+    /// <summary>
+    ///     Checks that every <c>compose</c> slot can be resolved to a concrete shader before
+    ///     codegen: declared on a shader, typed against a protocol, and filled by a shader
+    ///     that actually implements it.
+    /// </summary>
+    void ReportComposeIssues() {
+        foreach (var member in members!) {
+            if (member is not SourceFieldSymbol { IsCompose: true } slot) {
+                continue;
+            }
+
+            var location = slot.DeclaringSyntax?.GetLocation() ?? Location.None;
+
+            if (TypeKind != TypeKind.Shader) {
+                outerBinder.Diagnostics.Add(SemanticDiagnostics.ComposeMustBeShaderField, location, slot.Name);
+                continue;
+            }
+
+            if (slot.Declaration.Initializer is not null) {
+                outerBinder.Diagnostics.Add(SemanticDiagnostics.ComposeCannotHaveInitializer, location, slot.Name);
+            }
+
+            // The slot's declared type has to be a protocol: that is what lets one shader be
+            // written against a feature rather than against a particular implementation.
+            if (slot.Type is not NamedTypeSymbol { TypeKind: TypeKind.Protocol } protocol) {
+                if (!slot.Type.IsErrorType) {
+                    outerBinder.Diagnostics.Add(
+                        SemanticDiagnostics.ComposeMustBeProtocolTyped,
+                        location,
+                        slot.Name,
+                        slot.Type.ToDisplayString()
+                    );
+                }
+
+                continue;
+            }
+
+            var boundName = outerBinder.Compilation.ComposeBindings.Resolve(Name, slot.Name);
+            if (boundName is null) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ComposeNotBound,
+                    location,
+                    slot.Name,
+                    protocol.ToDisplayString()
+                );
+                continue;
+            }
+
+            if (slot.ComposedType is not { } bound) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ComposeBindingNotFound,
+                    location,
+                    slot.Name,
+                    boundName
+                );
+                continue;
+            }
+
+            if (bound.TypeKind != TypeKind.Shader) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ComposeBindingMustBeShader,
+                    location,
+                    slot.Name,
+                    bound.Name,
+                    bound.TypeKind.ToString().ToLowerInvariant()
+                );
+                continue;
+            }
+
+            if (!Implements(bound, protocol)) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ComposeBindingDoesNotImplement,
+                    location,
+                    slot.Name,
+                    bound.Name,
+                    protocol.ToDisplayString()
+                );
+            }
+        }
+    }
+
+    /// <summary>Whether <paramref name="candidate" /> lists <paramref name="protocol" />, directly or through a base.</summary>
+    static bool Implements(NamedTypeSymbol candidate, NamedTypeSymbol protocol) {
+        for (var current = candidate; current is not null; current = current.BaseType) {
+            foreach (var declared in current.Interfaces) {
+                if (declared.Equals(protocol) || Implements(declared, protocol)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     void ReportShaderIssues() {
         Dictionary<ShaderStage, MethodSymbol> stages = [];
 
         ReportPermutationIssues();
+        ReportComposeIssues();
 
         foreach (var member in members!) {
             // Textures, samplers and the like bind to the pipeline, so they only

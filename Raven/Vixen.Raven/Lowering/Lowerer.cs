@@ -44,6 +44,23 @@ public sealed partial class Lowerer {
     IrVariable? selfParameter;
     readonly Dictionary<Symbol, IrVariable> variables = [];
     readonly Dictionary<(Symbol Member, BoundBodyKind Kind), IrFunction> functions = [];
+    readonly Dictionary<(Symbol Member, BoundBodyKind Kind), FunctionShell> shells = [];
+
+    /// <summary>
+    ///     A function created before its body was lowered: the signature, and the mapping
+    ///     from parameter symbols to the IR variables holding them.
+    /// </summary>
+    /// <remarks>
+    ///     Parameters are created with the shell rather than with the body because an entry
+    ///     point reads them off the function, and an entry point can be built before the
+    ///     body it belongs to has been lowered.
+    /// </remarks>
+    sealed record FunctionShell(
+        IrFunction Function,
+        IrVariable? SelfParameter,
+        IrVariable? SelfLocal,
+        (Symbol Symbol, IrVariable Variable)[] Parameters
+    );
 
     /// <summary>The receiver's storage, whether it arrived as a parameter or is being built.</summary>
     IrPlace? SelfPlace =>
@@ -87,6 +104,16 @@ public sealed partial class Lowerer {
             module.Add(structType);
         }
 
+        // Function shells, for the same reason the struct shells exist: a body can call a
+        // function declared later in the module. `compose` makes that ordinary — the shader
+        // filling a slot sits wherever the material author put it — but it was always
+        // possible between two structs.
+        foreach (var type in types) {
+            if (type.TypeKind is TypeKind.Shader or TypeKind.Struct or TypeKind.Class) {
+                DeclareMemberFunctions(type);
+            }
+        }
+
         foreach (var type in types) {
             switch (type.TypeKind) {
                 case TypeKind.Shader:
@@ -126,7 +153,7 @@ public sealed partial class Lowerer {
 
         foreach (var member in type.GetMembers()) {
             // A `const` field is folded at every use, so it needs no binding.
-            if (member is not FieldSymbol { IsConst: false } field) {
+            if (member is not FieldSymbol { IsConst: false, IsCompose: false } field) {
                 continue;
             }
 
@@ -179,10 +206,10 @@ public sealed partial class Lowerer {
     void LowerBindingInitializers(NamedTypeSymbol type, IrShader shader) {
         var initializer = new IrFunction($"{type.Name}.<init>", IrScalarType.Void);
 
-        BeginFunction(initializer, type, null);
+        BeginFunction(initializer, type);
 
         foreach (var member in type.GetMembers()) {
-            if (member is not FieldSymbol { IsConst: false } field
+            if (member is not FieldSymbol { IsConst: false, IsCompose: false } field
                 || !globals.TryGetValue(field, out var variable)
                 || FindBody(field, BoundBodyKind.FieldInitializer) is not { } body) {
                 continue;
@@ -211,7 +238,7 @@ public sealed partial class Lowerer {
 
         List<IrField> fields = [];
         foreach (var member in type.GetMembers()) {
-            if (member is not FieldSymbol { IsConst: false } field) {
+            if (member is not FieldSymbol { IsConst: false, IsCompose: false } field) {
                 continue;
             }
 
@@ -229,13 +256,15 @@ public sealed partial class Lowerer {
     // --- Functions ---------------------------------------------------------
 
     /// <summary>
-    ///     Creates and fills a function for every method and property accessor of a
-    ///     type, handing each finished function to <paramref name="add" />.
+    ///     Every method and property accessor of a type that has a body, with the IR name it
+    ///     gets. Walked twice — once to declare the signatures, once to lower the bodies — so
+    ///     the two passes agree by construction.
     /// </summary>
-    void LowerMemberFunctions(NamedTypeSymbol type, Action<IrFunction> add) {
-        // A struct's methods take the receiver explicitly; a shader's do not,
-        // because its fields are globals.
-        var selfType = type.TypeKind is TypeKind.Struct or TypeKind.Class ? structs[type] : null;
+    /// <param name="report">
+    ///     Whether to report a missing body or an unsupported member kind. Only the second
+    ///     pass does, so nothing is said twice.
+    /// </param>
+    IEnumerable<(string Name, BoundBody Body)> MemberBodies(NamedTypeSymbol type, bool report) {
         HashSet<string> used = [];
 
         foreach (var member in type.GetMembers()) {
@@ -243,32 +272,37 @@ public sealed partial class Lowerer {
                 case MethodSymbol method when method.MethodKind is MethodKind.Ordinary or MethodKind.Constructor: {
                     var kind = method.IsConstructor ? BoundBodyKind.Constructor : BoundBodyKind.Method;
                     if (FindBody(method, kind) is not { } body) {
-                        diagnostics.Add(
-                            LoweringDiagnostics.MissingBody,
-                            LocationOf(method.DeclaringSyntax),
-                            method.ToDisplayString()
-                        );
+                        if (report) {
+                            diagnostics.Add(
+                                LoweringDiagnostics.MissingBody,
+                                LocationOf(method.DeclaringSyntax),
+                                method.ToDisplayString()
+                            );
+                        }
+
                         continue;
                     }
 
-                    var name = Unique(used, method.IsConstructor ? $"{type.Name}.init" : method.Name);
-                    add(LowerFunction(name, body, type, selfType));
+                    yield return (Unique(used, method.IsConstructor ? $"{type.Name}.init" : method.Name), body);
                     break;
                 }
 
                 case MethodSymbol method:
-                    diagnostics.Add(
-                        LoweringDiagnostics.ConstructNotSupported,
-                        LocationOf(method.DeclaringSyntax),
-                        $"A {Describe(method.MethodKind)} declaration"
-                    );
+                    if (report) {
+                        diagnostics.Add(
+                            LoweringDiagnostics.ConstructNotSupported,
+                            LocationOf(method.DeclaringSyntax),
+                            $"A {Describe(method.MethodKind)} declaration"
+                        );
+                    }
+
                     break;
 
                 case PropertySymbol property: {
                     foreach (var (kind, prefix) in
                              new[] { (BoundBodyKind.PropertyGetter, "get_"), (BoundBodyKind.PropertySetter, "set_") }) {
                         if (FindBody(property, kind) is { } body) {
-                            add(LowerFunction(Unique(used, prefix + property.Name), body, type, selfType));
+                            yield return (Unique(used, prefix + property.Name), body);
                         }
                     }
 
@@ -278,7 +312,33 @@ public sealed partial class Lowerer {
         }
     }
 
-    IrFunction LowerFunction(string name, BoundBody body, NamedTypeSymbol type, IrStructType? selfType) {
+    /// <summary>
+    ///     Lowers the body of every method and property accessor of a type, handing each
+    ///     finished function to <paramref name="add" />.
+    /// </summary>
+    void LowerMemberFunctions(NamedTypeSymbol type, Action<IrFunction> add) {
+        // A struct's methods take the receiver explicitly; a shader's do not,
+        // because its fields are globals.
+        var selfType = type.TypeKind is TypeKind.Struct or TypeKind.Class ? structs[type] : null;
+
+        foreach (var (name, body) in MemberBodies(type, report: true)) {
+            add(LowerFunction(name, body, type, selfType));
+        }
+    }
+
+    /// <summary>
+    ///     Creates the signature for every method and property accessor of a type, so that
+    ///     any body lowered later can call it.
+    /// </summary>
+    void DeclareMemberFunctions(NamedTypeSymbol type) {
+        var selfType = type.TypeKind is TypeKind.Struct or TypeKind.Class ? structs[type] : null;
+
+        foreach (var (name, body) in MemberBodies(type, report: false)) {
+            DeclareFunction(name, body, type, selfType);
+        }
+    }
+
+    void DeclareFunction(string name, BoundBody body, NamedTypeSymbol type, IrStructType? selfType) {
         // A struct's constructor builds a value and hands it back, rather than
         // mutating a receiver: the IR has no by-reference parameters.
         var constructsSelf = body.Kind == BoundBodyKind.Constructor && selfType is not null;
@@ -288,13 +348,41 @@ public sealed partial class Lowerer {
             : LowerType(body.ReturnType, body.Member.DeclaringSyntax);
 
         var function = new IrFunction(name, returnType);
-        functions[(body.Member, body.Kind)] = function;
+        IrVariable? shellSelfParameter = null;
+        IrVariable? shellSelfLocal = null;
 
-        BeginFunction(function, type, selfType, constructsSelf);
+        // Order matters: `self` occupies the first parameter slot.
+        if (selfType is not null) {
+            if (constructsSelf) {
+                shellSelfLocal = function.AddLocal("self", selfType);
+            } else {
+                shellSelfParameter = function.AddParameter("self", selfType);
+            }
+        }
 
+        List<(Symbol, IrVariable)> parameters = [];
         foreach (var parameter in body.Parameters) {
             var parameterType = LowerType(parameter.Type, parameter.DeclaringSyntax);
-            variables[parameter] = function.AddParameter(parameter.Name, parameterType);
+            parameters.Add((parameter, function.AddParameter(parameter.Name, parameterType)));
+        }
+
+        functions[(body.Member, body.Kind)] = function;
+        shells[(body.Member, body.Kind)] = new(function, shellSelfParameter, shellSelfLocal, [.. parameters]);
+    }
+
+    IrFunction LowerFunction(string name, BoundBody body, NamedTypeSymbol type, IrStructType? selfType) {
+        var constructsSelf = body.Kind == BoundBodyKind.Constructor && selfType is not null;
+        var shell = shells[(body.Member, body.Kind)];
+        var function = shell.Function;
+
+        BeginFunction(function, type);
+
+        // The shell already created the parameters; restore the mapping the body needs
+        // rather than adding them a second time.
+        selfParameter = shell.SelfParameter;
+        selfLocal = shell.SelfLocal;
+        foreach (var (symbol, variable) in shell.Parameters) {
+            variables[symbol] = variable;
         }
 
         LowerStatement(body.Body);
@@ -308,28 +396,21 @@ public sealed partial class Lowerer {
         return function;
     }
 
-    void BeginFunction(
-        IrFunction function,
-        NamedTypeSymbol type,
-        IrStructType? selfType,
-        bool constructsSelf = false
-    ) {
+    /// <summary>
+    ///     Points emission at <paramref name="function" /> and clears the per-function state.
+    /// </summary>
+    /// <remarks>
+    ///     Does not create the receiver or the parameters — the function shell already did
+    ///     (see <see cref="DeclareFunction" />). A caller with a receiver restores it from the
+    ///     shell straight after.
+    /// </remarks>
+    void BeginFunction(IrFunction function, NamedTypeSymbol type) {
         currentFunction = function;
         currentType = type;
         currentBlock = function.Body;
         variables.Clear();
         selfParameter = null;
         selfLocal = null;
-
-        if (selfType is null) {
-            return;
-        }
-
-        if (constructsSelf) {
-            selfLocal = function.AddLocal("self", selfType);
-        } else {
-            selfParameter = function.AddParameter("self", selfType);
-        }
     }
 
     void EndFunction() {

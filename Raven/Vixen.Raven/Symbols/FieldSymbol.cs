@@ -31,6 +31,19 @@ public abstract class FieldSymbol : Symbol {
     /// </remarks>
     public virtual bool IsPermutation => false;
 
+    /// <summary>
+    ///     Declared <c>compose</c>: a protocol-typed slot filled by a concrete shader chosen
+    ///     when the shader is compiled.
+    /// </summary>
+    public virtual bool IsCompose => false;
+
+    /// <summary>
+    ///     The shader bound to this <c>compose</c> slot, or null when the field is not a slot
+    ///     or nothing valid is bound. Calls through the slot go straight to this type's
+    ///     members, so there is no dispatch at runtime.
+    /// </summary>
+    public virtual NamedTypeSymbol? ComposedType => null;
+
     /// <summary>How this field binds on the GPU when it is a shader member.</summary>
     public virtual ResourceKind ResourceKind => ResourceKind.None;
 

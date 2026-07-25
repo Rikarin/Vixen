@@ -353,4 +353,74 @@ public static class SemanticDiagnostics {
         Shader,
         DiagnosticSeverity.Error
     );
+
+    // --- Composition ------------------------------------------------------
+    //
+    // `compose val diffuse: IDiffuseModel` is a slot: the shader is written against the
+    // protocol, and each material says which shader fills it. Resolution is at compile
+    // time, so every rule here exists to make the slot resolvable before codegen.
+
+    public static readonly DiagnosticDescriptor ComposeMustBeShaderField = new(
+        "RVN2070",
+        "compose outside a shader",
+        "'{0}' is declared 'compose' but is not a shader field; only a shader composes",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    public static readonly DiagnosticDescriptor ComposeMustBeProtocolTyped = new(
+        "RVN2071",
+        "compose slot is not protocol-typed",
+        "Compose slot '{0}' has type '{1}'; a slot must be declared against a protocol so any implementation fits",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    public static readonly DiagnosticDescriptor ComposeCannotHaveInitializer = new(
+        "RVN2072",
+        "compose slot with an initializer",
+        "Compose slot '{0}' cannot have an initializer; the implementation is chosen when the shader is compiled",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    public static readonly DiagnosticDescriptor ComposeNotBound = new(
+        "RVN2073",
+        "Unfilled compose slot",
+        "Compose slot '{0}' of type '{1}' has no implementation bound",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    public static readonly DiagnosticDescriptor ComposeBindingNotFound = new(
+        "RVN2074",
+        "compose binding names an unknown shader",
+        "Compose slot '{0}' is bound to '{1}', which is not a type in this compilation",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    public static readonly DiagnosticDescriptor ComposeBindingMustBeShader = new(
+        "RVN2075",
+        "compose binding is not a shader",
+        "Compose slot '{0}' is bound to '{1}', which is a {2}; only a shader can fill a slot",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    public static readonly DiagnosticDescriptor ComposeBindingDoesNotImplement = new(
+        "RVN2076",
+        "compose binding does not implement the protocol",
+        "Shader '{1}' does not implement '{2}', so it cannot fill compose slot '{0}'",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    public static readonly DiagnosticDescriptor ComposeCannotBeAssigned = new(
+        "RVN2077",
+        "Assignment to a compose slot",
+        "Compose slot '{0}' cannot be assigned; its implementation is chosen when the shader is compiled",
+        Shader,
+        DiagnosticSeverity.Error
+    );
 }

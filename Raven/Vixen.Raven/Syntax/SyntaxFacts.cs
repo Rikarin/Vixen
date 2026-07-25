@@ -59,6 +59,7 @@ public static class SyntaxFacts {
             SyntaxKind.GlobalKeyword => "global",
             SyntaxKind.StaticKeyword => "static",
             SyntaxKind.AbstractKeyword => "abstract",
+            SyntaxKind.ComposeKeyword => "compose",
             SyntaxKind.ConstKeyword => "const",
             SyntaxKind.OverrideKeyword => "override",
             SyntaxKind.PartialKeyword => "partial",

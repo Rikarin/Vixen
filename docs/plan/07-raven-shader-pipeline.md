@@ -58,10 +58,10 @@ stood up yet ([12](12-build-ci-and-testing.md)) — so this is a real gap, not a
 
 | | Feature | Why the engine needs it | |
 |---|---|---|---|
-| 🔴 | **`compose` — shader-typed members resolved at compile time.** `compose val diffuse: IDiffuseModel` inside a shader, bound to a concrete `shader` per material | This is *the* load-bearing feature. It lets `ForwardPlus.rvn` be written once against `IMaterialSurface` and instantiated per material. Without it the material system falls back to string-templating shader source — where Stride was fifteen years ago | |
+| 🔴 | **`compose` — shader-typed members resolved at compile time.** `compose val diffuse: IDiffuseModel` inside a shader, bound to a concrete `shader` per material | This is *the* load-bearing feature. It lets `ForwardPlus.rvn` be written once against `IMaterialSurface` and instantiated per material. Without it the material system falls back to string-templating shader source — where Stride was fifteen years ago | ✅ |
 | 🔴 | **Permutation constants** — `[Permutation] val UseSkinning: bool`, plus `#if`-style conditional compilation driven by `defines` passed to `Emit` | The whole effect/permutation system ([06](06-rendering-pipeline.md)) is built on it | ✅ constants; `#if` not done |
 | 🔴 | **`UsedPermutationKeys`** — the semantic phase must report *which* defines actually affected the output | Without it, 20 independent flags yield 2²⁰ cache entries where a handful are distinct. This is why Stride's shader cache is tractable and it cannot be added later | ✅ |
-| 🟡 | `protocol` (interface) declarations usable as `compose` targets — already in the language per `Example2.rvn` | Material feature contracts | declarations resolve; `compose` pending |
+| 🟡 | `protocol` (interface) declarations usable as `compose` targets — already in the language per `Example2.rvn` | Material feature contracts | ✅ |
 | 🟡 | Shader inheritance `shader X : Base, Other` — already in the README | Feature composition | ✅ resolves, with cycle detection |
 | 🟡 | Compile-time generics: `shader Blur<val TapCount: int>` | Parameterised post-FX without duplication | |
 | ⚪ | Explicit `RequiredCapabilities` reporting (e.g. `"DescriptorIndexing"`, `"Float64"`) | RHI capability gating ([05](05-graphics-rhi.md)) | |
@@ -85,6 +85,37 @@ Two properties worth keeping:
 - **`UsedPermutationKeys` records a key when its value is read**, which means a read that folding
   made unreachable does not count. `if (A) return 1` with `A` true leaves `B` below it unread, and
   the variants differing only in `B` correctly share a cache entry.
+
+**`compose`, as built.** `compose val diffuse: IDiffuseModel` declares a slot; `ComposeBindings`
+supplied at `Compilation.Create` says which shader fills it, and `raven compile --compose
+diffuse=Lambert` drives it from the command line. A binding may be qualified (`Lit.diffuse=Lambert`)
+when two shaders declare a slot of the same name, and a qualified binding beats a bare one so a
+compilation can bind most slots once and override per shader.
+
+Resolution is entirely static. The call is bound against the protocol, so the shader type-checks
+against the feature rather than an implementation; at lowering the protocol's (bodyless) method is
+swapped for the bound shader's, matched by signature, and the receiver is dropped — a shader method
+is a free function because its fields are globals. **There is no dispatch and no indirection**: the
+emitted unit contains a direct call, and the emitter's reachability walk means an implementation
+nobody bound is never emitted. `compose` costs nothing at runtime.
+
+The slot itself is not data — no uniform, no constant-buffer field, nothing about it survives to the
+target. Diagnostics RVN2070..RVN2077 cover every way a slot can fail to resolve, including a binding
+to a shader that does not implement the protocol, which is the check that makes the whole thing
+type-safe.
+
+Two things this uncovered, both fixed here:
+
+- **The lowering driver only created shells for structs, not functions.** A body was lowered the
+  moment its function was registered, so a call to anything declared later in the module failed.
+  Latent before — nothing generated cross-type calls — but `compose` makes it ordinary, since a
+  material's implementation shader sits wherever its author put it. `Lowerer` now declares every
+  signature before lowering any body, which is what the "shells first" comment always claimed.
+- **The GLSL emitter filtered reachable functions by shader membership.** A composed
+  implementation lives in a different `IrShader`, so the very function the entry point called was
+  dropped and the emitter crashed on a missing key. Reachability alone excludes other stages;
+  membership was never the right filter. The SPIR-V emitter walks the call graph and was already
+  correct.
 
 **`#if` is not implemented.** The lexer has a `DIRECTIVE_MODE`, but every directive token is routed
 to a non-default channel and silently dropped, and `DIRECTIVE_IF`/`DIRECTIVE_ELSE` are commented

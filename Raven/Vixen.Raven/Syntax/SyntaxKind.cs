@@ -51,6 +51,7 @@ public enum SyntaxKind : ushort {
     ParameterList,
     BracketedParameterList,
     AbstractKeyword,
+    ComposeKeyword,
     ConstKeyword,
     OverrideKeyword,
     PartialKeyword,

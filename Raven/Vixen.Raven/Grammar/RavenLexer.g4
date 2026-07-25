@@ -114,6 +114,7 @@ WHERE:          'where';
 
 // ===== Modifiers =====
 ABSTRACT:       'abstract';
+COMPOSE:        'compose';      // Shader-typed member, bound to a concrete shader at compile time
 CONST:          'const';
 //FILE:           'file';
 //INTERNAL:       'internal';

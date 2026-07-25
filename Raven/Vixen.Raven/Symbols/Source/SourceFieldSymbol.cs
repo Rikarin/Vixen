@@ -15,6 +15,8 @@ public sealed class SourceFieldSymbol : FieldSymbol {
 
     bool resolving;
     TypeSymbol? type;
+    NamedTypeSymbol? composedType;
+    bool composeResolved;
 
     public VariableDeclarationSyntax Declaration => syntax.Declaration;
 
@@ -23,6 +25,40 @@ public sealed class SourceFieldSymbol : FieldSymbol {
     public override SyntaxNode DeclaringSyntax => syntax;
 
     public override bool IsPermutation => DeclarationFacts.IsPermutation(syntax.AttributeLists);
+
+    public override bool IsCompose => DeclarationFacts.Has(syntax.Modifiers, SyntaxKind.ComposeKeyword);
+
+    /// <summary>
+    ///     The shader bound to this slot, or null when the field is not a slot or the
+    ///     binding is missing or invalid.
+    /// </summary>
+    /// <remarks>
+    ///     Resolution is by name against the compilation's own types. Whether it succeeded is
+    ///     reported once, at the declaration, by <c>ReportComposeIssues</c>; this property
+    ///     stays silent so that lowering can ask it freely.
+    /// </remarks>
+    public override NamedTypeSymbol? ComposedType {
+        get {
+            if (!IsCompose || composeResolved) {
+                return composedType;
+            }
+
+            composeResolved = true;
+
+            if (ContainingType is not { } containing
+                || binder.Compilation.ComposeBindings.Resolve(containing.Name, Name) is not { } boundName) {
+                return null;
+            }
+
+            if (binder.Compilation.GetAllTypes().FirstOrDefault(t => t.Name == boundName) is not { } bound) {
+                return null;
+            }
+
+            // The kind and protocol checks are the validation pass's job; storing the
+            // resolved type either way keeps its diagnostics specific.
+            return composedType = bound;
+        }
+    }
 
     /// <summary>
     ///     A permutation key is const in every sense that matters downstream: its value is

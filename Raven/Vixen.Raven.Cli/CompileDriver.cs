@@ -60,7 +60,12 @@ public static class CompileDriver {
             return ExitCode.UsageError;
         }
 
-        var compilation = Compilation.Create(AssemblyName(request), permutations, trees);
+        if (!ComposeBindings.TryParse(request.Composes, out var composes, out var composeError)) {
+            error.WriteLine($"error: {composeError}");
+            return ExitCode.UsageError;
+        }
+
+        var compilation = Compilation.Create(AssemblyName(request), permutations, composes, trees);
 
         if (Report(compilation.GetDiagnostics(), error, formatting)) {
             return ExitCode.CompilationFailed;
