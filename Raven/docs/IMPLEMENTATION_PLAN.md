@@ -31,7 +31,8 @@ These were chosen deliberately and shape the whole plan:
 | Spans / `Parent` / `SyntaxTree` back-ref | **Missing** |
 | Diagnostics | **Missing** |
 | Semantic model (symbols, types, binder) | Done in Phase 2 — see below |
-| IR + code generation (GLSL/SPIR-V) | **Missing** |
+| IR (target-independent) | Done in Phase 3 — see below |
+| Code generation (GLSL/SPIR-V) | **Missing** |
 | CLI | `Hello, World!` stub |
 | Tests | 1 syntax test; can't run (targets `net8.0`, host has net10) |
 | `_old_Antlr/` | Dead code (excluded from compile) |
@@ -356,13 +357,83 @@ change. `Tests/ExpressionPrecedenceTests.cs` pins the resulting shapes and
 
 ---
 
-## Phase 3 — Lowering to shared IR
+## Phase 3 — Lowering to shared IR — **✅ complete**
 
-- [ ] Define a **target-independent Raven IR**: SSA-friendly, explicit types, resolved intrinsics, explicit resource/stream bindings, per-stage entry points.
-- [ ] Lowering pass: bound tree → IR (desugar control flow, materialize conversions, flatten member access, resolve intrinsics to IR ops).
-- [ ] IR verifier + textual dump (for golden tests and debugging).
+> **Status:** the IR, the lowering pass, the verifier and the textual dump are
+> done. A realistic shader lowers to IR that verifies clean and round-trips
+> through a golden snapshot. **314 tests, zero skipped.** Next: **Phase 4 — GLSL
+> backend**, which is the first consumer of `IrModule`.
 
-**Exit criteria:** shaders lower to verifiable IR; IR dump is stable in golden tests.
+### 3a. The Raven IR *(`Compiler/IR/`)* — **✅ done**
+- [x] **Type model** (`IrType`): a deliberately small closed set — `void`/`bool`/`i32`/`u32`/
+  `f32`/`f64`, vectors, matrices, arrays, nominal structs, textures and samplers. Everything
+  else is rejected during lowering rather than in an emitter, so a backend can switch on
+  `IrTypeKind` exhaustively.
+- [x] **SSA values** (`IrValue`): every instruction defines one value, numbered per function
+  and never reassigned. What mutates is memory.
+- [x] **Variables and places** (`IrVariable`, `IrPlace`, `IrAccess`): storage is a variable
+  plus an access chain of field / index / swizzle steps — SPIR-V's access chain, which also
+  emits directly as `a.b[i].xy` in a source-level target. `IrExtractInstruction` covers the
+  non-addressable case (reading a field out of a call result).
+- [x] **Instructions**: constant, load, store, unary, binary, convert, intrinsic, call,
+  composite construct, extract, select.
+- [x] **Structured control flow** (`IrIfStatement`, `IrLoopStatement`) rather than a basic-block
+  graph: SPIR-V requires structured merges in shaders and the source-level targets want the
+  same shape. A loop carries its condition block, the value to test, the body, and the step a
+  `for` runs before re-testing.
+- [x] **Shader shape** (`IrShader`): bindings with per-kind slots, an initializer block for
+  bindings with declared defaults, entry points with their stage IO, and the functions.
+
+**Deviation from the plan, documented:** the plan said "SSA-friendly", and this is the
+LLVM-pre-mem2reg reading of that — instructions are SSA, locals stay in memory behind
+explicit loads and stores. That is what both target families want to consume, and a mem2reg
+pass can promote later if a backend prefers registers.
+
+### 3b. Lowering pass *(`Compiler/Lowering/`)* — **✅ done**
+- [x] **Erasure:** a shader's fields have no runtime object, so `self.scale` becomes a global
+  binding and `self` disappears. A struct's methods take the receiver explicitly, and a
+  struct's constructor returns the value it builds (the IR has no by-reference parameters).
+- [x] **Explicitness:** every conversion is an `IrConvertInstruction`, every read a load,
+  every write a store. Scalar-to-vector widening becomes `convert.splat`.
+- [x] **Desugaring:** `for … in` over a range becomes a counted loop with the bound hoisted;
+  over an array, a counted loop over indices. Compound assignment and `++`/`--` become load,
+  operate, store — reading the target before the right-hand side, as the source language does.
+- [x] **Flattening:** member access and swizzles become access chain steps.
+- [x] **Intrinsic resolution:** an overload of the intrinsic library becomes a single
+  `IrIntrinsic` opcode, and `mul` becomes the `matrixMultiply` operator.
+- [x] **Constant folding** of `const` fields and of literals used at another numeric type.
+- [x] **Diagnostics** (`LoweringDiagnostics`, `RVN3xxx`): `RVN3001` for a type with no GPU
+  representation (`string`, `long`, `char`, `object`, nullables, tuples, lambdas), `RVN3002`
+  for a construct lowering does not implement (local functions, user-defined operators,
+  switch expressions, `??`, patterns), `RVN3003` for an unaddressable assignment target,
+  `RVN3004` for a member with no body.
+
+### 3c. Verifier and dump — **✅ done**
+- [x] **`IrVerifier`**: values defined once and used only where they are in scope (a value
+  defined inside an `if` branch does not escape it), operand and result types on every
+  instruction, well-formed access chains, call arity and argument types, `break`/`continue`
+  only inside a loop, a value-returning function that cannot fall off the end, one entry point
+  per stage, and no two bindings sharing a slot.
+- [x] **`IrPrinter`**: a stable, deterministic textual dump — no hash codes, no dictionary
+  ordering, invariant number formatting — used by the golden test and for debugging.
+
+**Exit criteria — met:** `Tests/Fixtures/lambert.rvn` (struct, uniforms, a texture and
+sampler, a binding initializer, a counted loop, a conditional, swizzles, an intrinsic call and
+two entry points) lowers to IR that the verifier accepts with zero diagnostics, and its dump
+is pinned in `Tests/Fixtures/lambert.ir`.
+
+### Not lowered yet
+
+Deliberate gaps, each of which reports rather than miscompiling:
+
+- **Short-circuit `&&`/`||`.** They lower to `logicalAnd`/`logicalOr`, which evaluate both
+  operands. Sound for the side-effect-free expressions shaders are made of; making them
+  branch is Phase 4 work if a backend needs it.
+- **`?:` lowers to `select`,** which also evaluates both arms, matching SPIR-V's `OpSelect`.
+- **Stream I/O declarations between stages** and **`Buffer<T>`** — still blocked on grammar
+  and generic built-in types respectively (see Phase 2c).
+- **Local functions, user-defined operators, conversion operators, indexers, destructors,
+  patterns and switch** — reported as `RVN3002`.
 
 ---
 
@@ -415,7 +486,7 @@ Phase 0 ─▶ Phase 1 ─▶ Phase 2 ─▶ Phase 3 ─▶ Phase 4 ─▶ Phase
                                                    └─▶ Phase 7 (interaction classes, HLSL, Metal)
 ```
 
-Critical path to a **first working transpile** (`.rvn → GLSL` via CLI): Phases 0 → 1 → 2 → 3 → 4 → 5. Phase 1 was the largest single investment; Phase 2 was the highest-risk research work. Both are done — Phase 3 starts from the bound tree.
+Critical path to a **first working transpile** (`.rvn → GLSL` via CLI): Phases 0 → 1 → 2 → 3 → 4 → 5. Phase 1 was the largest single investment; Phase 2 was the highest-risk research work. Phases 0–3 are done, so Phase 4 starts from `IrModule` and never has to look at the bound tree.
 
 ## Cross-cutting workstreams
 

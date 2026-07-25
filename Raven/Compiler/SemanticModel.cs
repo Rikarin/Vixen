@@ -17,6 +17,7 @@ namespace Vixen.Raven;
 /// one place at the cost of doing the whole tree at once.
 /// </remarks>
 public sealed class SemanticModel {
+    readonly List<BoundBody> boundBodies = [];
     readonly BindingContext context;
     bool bound;
 
@@ -73,6 +74,15 @@ public sealed class SemanticModel {
         EnsureBound();
         return context.DeclaredSymbols.GetValueOrDefault(node)
             ?? Compilation.DeclarationContext.DeclaredSymbols.GetValueOrDefault(node);
+    }
+
+    /// <summary>
+    /// Every member body in this tree, normalized to a block with an explicit
+    /// parameter list and return type. This is the entry point for lowering.
+    /// </summary>
+    public IReadOnlyList<BoundBody> GetBoundBodies() {
+        EnsureBound();
+        return boundBodies;
     }
 
     /// <summary>The bound node produced for a syntax node, for inspection and testing.</summary>
@@ -143,8 +153,10 @@ public sealed class SemanticModel {
         // Only check the initializer when the type was declared; otherwise the
         // type came from the initializer and always matches.
         if (field.Declaration.Type is not null) {
-            binder.Convert(initializer, field.Type, value);
+            initializer = binder.Convert(initializer, field.Type, value);
         }
+
+        Record(field, BoundBodyKind.FieldInitializer, [], field.Type, Wrap(initializer, field.Type, value));
     }
 
     void BindProperty(SourceNamedTypeSymbol type, SourcePropertySymbol property) {
@@ -187,9 +199,10 @@ public sealed class SemanticModel {
 
         var returnType = isGetter ? property.Type : BuiltInTypes.Void;
         var binder = MemberScope(type, property, returnType, parameters);
+        var kind = isGetter ? BoundBodyKind.PropertyGetter : BoundBodyKind.PropertySetter;
 
         if (accessor.Body is { } block) {
-            binder.BindBlock(block);
+            Record(property, kind, parameters, returnType, binder.BindBlock(block));
             return;
         }
 
@@ -199,8 +212,10 @@ public sealed class SemanticModel {
 
         var bound = binder.BindValue(expression);
         if (isGetter) {
-            binder.Convert(bound, property.Type, expression);
+            bound = binder.Convert(bound, property.Type, expression);
         }
+
+        Record(property, kind, parameters, returnType, Wrap(bound, returnType, expression));
     }
 
     void BindMethod(SourceNamedTypeSymbol type, SourceMethodSymbol method) {
@@ -214,9 +229,10 @@ public sealed class SemanticModel {
         }
 
         var binder = MemberScope(type, method, method.ReturnType, method.Parameters, method.TypeParameters);
+        var kind = method.IsConstructor ? BoundBodyKind.Constructor : BoundBodyKind.Method;
 
         if (method.Body is { } body) {
-            binder.BindBlock(body);
+            Record(method, kind, method.Parameters, method.ReturnType, binder.BindBlock(body));
             return;
         }
 
@@ -226,8 +242,31 @@ public sealed class SemanticModel {
 
         var bound = binder.BindValue(expression);
         if (!method.ReturnType.IsVoid && !method.ReturnType.IsErrorType) {
-            binder.Convert(bound, method.ReturnType, expression);
+            bound = binder.Convert(bound, method.ReturnType, expression);
         }
+
+        Record(method, kind, method.Parameters, method.ReturnType, Wrap(bound, method.ReturnType, expression));
+    }
+
+    void Record(
+        Symbol member,
+        BoundBodyKind kind,
+        IReadOnlyList<ParameterSymbol> parameters,
+        TypeSymbol returnType,
+        BoundBlockStatement body
+    ) =>
+        boundBodies.Add(new BoundBody(member, kind, parameters, returnType, body));
+
+    /// <summary>
+    /// Wraps a single expression body in a block, so an arrow body and a braced
+    /// body reach lowering in the same shape.
+    /// </summary>
+    static BoundBlockStatement Wrap(BoundExpression expression, TypeSymbol returnType, SyntaxNode syntax) {
+        BoundStatement statement = returnType.IsVoid
+            ? new BoundExpressionStatement(syntax, expression)
+            : new BoundReturnStatement(syntax, expression);
+
+        return new BoundBlockStatement(syntax, [statement]);
     }
 
     /// <summary>

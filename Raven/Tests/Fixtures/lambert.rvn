@@ -1,0 +1,39 @@
+package Vixen.Shaders
+
+struct Light {
+    var direction: float3
+    var color: float3
+}
+
+shader Lambert {
+    const val Ambient = 0.1
+
+    var world: mat4
+    var baseColor: float4 = float4(1, 1, 1, 1)
+    var albedo: Texture2D
+    var albedoSampler: Sampler
+
+    func Diffuse(normal: float3, light: float3): float {
+        val ndotl = dot(normalize(normal), normalize(-light))
+        return max(ndotl, Ambient)
+    }
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float3): float4 {
+        return world * float4(position, 1)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(normal: float3, uv: float2): float4 {
+        var shade = 0f
+        for (i in 0 .. 2) {
+            shade += Diffuse(normal, float3(0, 1, 0))
+        }
+
+        val sampled = albedo.Sample(albedoSampler, uv)
+        val tint = shade > 1f ? baseColor.rgb : sampled.rgb
+        return float4(tint * shade, sampled.a)
+    }
+}

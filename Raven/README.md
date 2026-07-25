@@ -62,7 +62,14 @@ foreach (var entryPoint in compilation.GetEntryPoints()) {
     Console.WriteLine($"{entryPoint.Stage}: {entryPoint.ToDisplayString()}");
 }
 
-// TODO: lowering to IR, code generation, ...
+// Lowering to the target-independent IR
+var bag = new DiagnosticBag();
+var module = Lowerer.Lower(compilation, bag);
+IrVerifier.Verify(module, bag);
+
+Console.WriteLine(IrPrinter.Print(module));   // readable IR dump
+
+// TODO: code generation (GLSL, SPIR-V, ...)
 ```
 
 
