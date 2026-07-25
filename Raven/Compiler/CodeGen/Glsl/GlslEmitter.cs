@@ -204,68 +204,8 @@ sealed class GlslEmitter {
     /// dead code that references the wrong stage's built-ins.
     /// </summary>
     IEnumerable<IrFunction> Reachable() {
-        HashSet<IrFunction> reached = [];
-        Queue<IrFunction> pending = new();
-        pending.Enqueue(entryPoint.Function);
-
-        while (pending.Count > 0) {
-            var function = pending.Dequeue();
-            if (!reached.Add(function)) {
-                continue;
-            }
-
-            foreach (var call in Calls(function.Body)) {
-                pending.Enqueue(call);
-            }
-        }
-
+        var reached = CallGraph.Reachable(entryPoint.Function);
         return module.Functions.Concat(shader.Functions).Where(reached.Contains);
-    }
-
-    static IEnumerable<IrFunction> Calls(IrStatement statement) {
-        switch (statement) {
-            case IrCallInstruction call:
-                yield return call.Function;
-                break;
-
-            case IrBlock block: {
-                foreach (var nested in block.Statements) {
-                    foreach (var call in Calls(nested)) {
-                        yield return call;
-                    }
-                }
-
-                break;
-            }
-
-            case IrIfStatement conditional: {
-                foreach (var call in Calls(conditional.Then)) {
-                    yield return call;
-                }
-
-                if (conditional.Else is { } otherwise) {
-                    foreach (var call in Calls(otherwise)) {
-                        yield return call;
-                    }
-                }
-
-                break;
-            }
-
-            case IrLoopStatement loop: {
-                foreach (var part in new[] { loop.Condition, loop.Body, loop.Continue }) {
-                    if (part is null) {
-                        continue;
-                    }
-
-                    foreach (var call in Calls(part)) {
-                        yield return call;
-                    }
-                }
-
-                break;
-            }
-        }
     }
 
     string Signature(IrFunction function) {

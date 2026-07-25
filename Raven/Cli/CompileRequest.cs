@@ -17,6 +17,9 @@ public sealed record CompileRequest {
     /// <summary>Also write the IR dump next to the generated sources.</summary>
     public bool EmitIr { get; init; }
 
+    /// <summary>For a binary target, also write the readable listing beside the bytes.</summary>
+    public bool EmitListing { get; init; }
+
     /// <summary>Name every file as it is written.</summary>
     public bool Verbose { get; init; }
 

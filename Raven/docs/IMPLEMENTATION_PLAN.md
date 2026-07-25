@@ -33,7 +33,7 @@ These were chosen deliberately and shape the whole plan:
 | Semantic model (symbols, types, binder) | Done in Phase 2 — see below |
 | IR (target-independent) | Done in Phase 3 — see below |
 | Code generation — GLSL | Done in Phase 4 — see below |
-| Code generation — SPIR-V | **Missing** |
+| Code generation — SPIR-V | Done in Phase 6 — see below |
 | CLI | Done in Phase 5 — see below |
 | Tests | 1 syntax test; can't run (targets `net8.0`, host has net10) |
 | `_old_Antlr/` | Dead code (excluded from compile) |
@@ -561,7 +561,7 @@ re-run to close that last gap.
 
 > **Status:** `raven compile --target glsl <input> <output>` runs the whole pipeline and
 > writes GLSL. Diagnostics render with the source line and a caret under the span.
-> **380 tests, zero skipped.** Next: **Phase 6 — SPIR-V**, the second backend over the
+> **381 tests, zero skipped.** Next: **Phase 6 — SPIR-V**, the second backend over the
 > same IR.
 
 - [x] **Real `raven` CLI** (`Cli/`, System.CommandLine 2.0, assembly name `raven`):
@@ -616,13 +616,88 @@ tests had been papering over it with `.Distinct()`.
 
 ---
 
-## Phase 6 — SPIR-V backend *(second big lift)*
+## Phase 6 — SPIR-V backend *(second big lift)* — **✅ complete**
 
-- [ ] SPIR-V module builder: id management, type/constant dedup, capability/decoration/entry-point handling.
-- [ ] SPIR-V emitter over the IR.
-- [ ] Validate output with `spirv-val`; golden tests `.rvn → .spv` (disassembled).
+> **Status:** `raven compile -t spirv Lambert.rvn out/` writes `.spv` that
+> `spirv-val --target-env vulkan1.0` accepts. **465 tests, zero skipped**, and every SPIR-V
+> module any test produces is put through the reference validator. Next: **Phase 7 —
+> interaction classes, HLSL and Metal**.
 
-**Exit criteria:** shaders emit valid SPIR-V passing `spirv-val`.
+The second target over the same `IrModule`, and the one that proves the boundary was worth
+drawing: the emitter never looks at the bound tree, and nothing in Phases 1–3 had to move.
+
+- [x] **Module builder** (`Compiler/CodeGen/Spirv/SpirvModule.cs`, `SpirvInstruction.cs`):
+  instructions are held as opcode + result type + result + operands rather than as raw words,
+  so **the same objects both encode the binary and render the listing** — a golden file over
+  the listing cannot say one thing while the bytes hold another. Instructions go into the ten
+  sections the spec's logical layout demands, and ids, types, constants and pointer types are
+  interned (SPIR-V makes two `OpTypeFloat 32` instructions *invalid*, not merely wasteful).
+- [x] **Types and layout** (`SpirvTypes.cs`, `Std140Layout.cs`): SPIR-V has no implicit memory
+  layout, so a uniform block carries `Offset` on every member, `MatrixStride` and `ColMajor`
+  on every matrix and `ArrayStride` on every array — all computed from Vulkan's standard
+  uniform layout rules. Types come in two flavours, plain and explicitly laid out, because
+  Vulkan will not accept one type serving both roles; the flag propagates down through
+  members.
+- [x] **Emitter** (`SpirvEmitter.cs`, `SpirvEmitter.Instructions.cs`): structured control flow
+  becomes basic blocks with `OpSelectionMerge`/`OpLoopMerge`, locals become `OpVariable`s
+  reached through access chains, and an entry point gets a generated `main` that threads the
+  stage globals into the user's function. Functions are emitted **callee-first**, so a call
+  never points forward.
+- [x] **Validation** (`Tests/SpirvValidationTests.cs`, 23 shapes; `Tests/SpirvBackendTests.cs`,
+  35 cases; `Tests/GoldenSpirvTests.cs`): everything goes through `spirv-val`. The golden test
+  also **cross-checks the listing against `spirv-dis`** — if the two agree on the whole opcode
+  sequence, the words that were encoded are the words the listing claims, which is the one
+  thing a hand-written encoder can get wrong without anything else noticing.
+
+### Where SPIR-V is the easier target
+
+GLSL outside Vulkan has no standalone sampler, so the GLSL backend folds a `Sampler` binding
+into the texture and says so (`RVN4003`). **SPIR-V has `OpTypeSampler`**: the texture and the
+sampler stay two descriptors and meet only at `OpSampledImage`, so nothing is dropped.
+
+Loops are the other one. GLSL's `continue` jumps to the top of the loop *body*, so a counted
+loop's step has to be hoisted there behind a first-iteration flag. **SPIR-V names the continue
+target**, so the step simply goes in that block and `continue` branches straight to it.
+
+### What SPIR-V will not take
+
+- **A boolean in a uniform** (`RVN4001`). `OpTypeBool` has no size and no memory layout, so it
+  cannot live anywhere the host can see. GLSL hides this by giving it four bytes in a `std140`
+  block; SPIR-V does not, and the validator says so.
+- **A boolean or an aggregate as stage I/O** (`RVN4001`) — same reason for the boolean; an
+  aggregate would need a location for every leaf.
+- **Unsized arrays** (`RVN4001`) and **the compute stage** (`RVN4002`), exactly as in GLSL.
+- **Binding defaults** (`RVN4003`, info) — a descriptor-backed variable cannot carry an
+  initializer, so the declared default stays host-side data.
+- **Reading a whole struct out of a uniform block** (`RVN4002`). Its laid-out type is a
+  different type from the plain one, so it needs a member-by-member copy that is not built
+  yet. Field-by-field reads, which is what the lowerer actually produces, are unaffected.
+
+### Defect found while building Phase 6
+
+**`m[i]` means a row in the IR and a column in every target.** `IrIndexAccess.ResultType`
+hands back `IrMatrixType.RowType` — a vector of `Columns` lanes — and the binder agrees
+(`Binder.BindElementAccess` types `m[i]` as `Vector(component, matrix.Columns)`). But GLSL and
+SPIR-V both index a matrix by *column*, so for `var m: mat2x3` the GLSL backend emits
+`vec3 _1 = m[0];` against a `mat3x2` — which glslang rejects — and the SPIR-V backend built an
+access chain whose result type did not match its base, which `spirv-val` rejects. The same
+convention question affects **constructing a matrix from a flat run of scalars**: the IR
+documents `mat3(a…i)` as rows, GLSL fills columns.
+
+This is a **Phase 3 convention bug, not a Phase 6 one**, and settling it is a language
+decision (HLSL indexes rows, GLSL indexes columns) rather than an emitter fix. Phase 6 does
+not paper over it: the SPIR-V backend now **refuses** to index a matrix (`RVN4002`,
+`SpirvBackendTests.Indexing_a_matrix_is_refused_because_the_conventions_disagree`) rather than
+emit a module the validator would reject. The GLSL backend still emits the wrong thing
+silently. Matrix *construction* is emitted the way GLSL does it in both backends, so the two
+targets at least agree with each other.
+
+**Exit criteria — met:** `Tests/GoldenSpirvTests.Passes_spirv_val` puts both stages of the
+README example through `spirv-val --target-env vulkan1.0`, and
+`ReadmeExampleTests.The_readme_language_example_reaches_valid_spirv` does the same for the
+README's own listing. SPIR-V Tools v2026.2 is installed on this machine, and
+`SpirvBackendTests.The_validator_is_installed_so_these_tests_mean_something` fails loudly if
+it ever is not — a silent skip would make every other SPIR-V assertion vacuous.
 
 ---
 
@@ -644,7 +719,7 @@ Phase 0 ─▶ Phase 1 ─▶ Phase 2 ─▶ Phase 3 ─▶ Phase 4 ─▶ Phase
                                                    └─▶ Phase 7 (interaction classes, HLSL, Metal)
 ```
 
-Critical path to a **first working transpile** (`.rvn → GLSL` via CLI): Phases 0 → 1 → 2 → 3 → 4 → 5. Phase 1 was the largest single investment; Phase 2 was the highest-risk research work. **Phases 0–5 are done** — `raven compile --target glsl Lambert.rvn out/` writes GLSL, so the critical path is closed. `IrModule` is the backend boundary and the GLSL emitter never looks at the bound tree, which is what makes Phase 6 a second emitter rather than a second compiler.
+Critical path to a **first working transpile** (`.rvn → GLSL` via CLI): Phases 0 → 1 → 2 → 3 → 4 → 5. Phase 1 was the largest single investment; Phase 2 was the highest-risk research work. **Phases 0–6 are done** — `raven compile Lambert.rvn out/` writes GLSL and `-t spirv` writes validated SPIR-V. Phase 6 is the evidence that the boundary was drawn in the right place: a second target that consumes `IrModule` and nothing else needed no change anywhere in Phases 1–3. Phase 7 adds HLSL and Metal the same way.
 
 ## Cross-cutting workstreams
 

@@ -7,7 +7,7 @@ Project is in it initial phase. Mostly as a research project.
 
 - Language is inspired by Typescript, C#, Kotlin and Stride shading language.
 - Library's API is based on Roslyn.
-- Targeting GLSL, SPIR-V, later HLSL and Metal.
+- Targeting GLSL and SPIR-V, later HLSL and Metal. Both are working.
 - GLSL is the easiest to implement as it's just a transpiler.
 - I have no idea how to do the semantic passes. LOL. It will be fun.
 - Compiler should be able to generate an "interaction" classes such as stride do.
@@ -57,12 +57,17 @@ named after the shader:
 ./raven compile Lambert.rvn out/
 out/Lambert.vert.glsl
 out/Lambert.frag.glsl
+
+./raven compile --target spirv Lambert.rvn out/
+out/Lambert.vert.spv
+out/Lambert.frag.spv
 ```
 
 | | |
 |---|---|
-| `-t`, `--target` | Backend to generate for. Currently `glsl`. |
+| `-t`, `--target` | Backend to generate for: `glsl` or `spirv`. |
 | `--emit-ir` | Also write the target-independent IR dump. |
+| `--emit-listing` | For `spirv`, also write the readable `.spvasm` listing beside the bytes. |
 | `-v`, `--verbose` | Name every file as it is written. Otherwise a successful run is silent. |
 | `--no-color` | Never colour the diagnostics. Colour is off anyway when stderr is redirected, or when `NO_COLOR` is set. |
 
@@ -109,14 +114,21 @@ IrVerifier.Verify(module, bag);
 
 Console.WriteLine(IrPrinter.Print(module));   // readable IR dump
 
-// Code generation — one translation unit per pipeline stage
+// Code generation — one translation unit per pipeline stage.
+// "spirv" works the same way; its units carry bytes as well as a listing.
 var backend = TargetBackends.Create("glsl")!;
 
 foreach (var unit in backend.Generate(module, bag)) {
-    File.WriteAllText($"{unit.Name}{backend.FileExtension}", unit.Code);
+    var path = $"{unit.Name}{backend.FileExtension}";
+
+    if (unit.Binary is { } binary) {
+        File.WriteAllBytes(path, binary);   // .spv
+    } else {
+        File.WriteAllText(path, unit.Code); // .glsl
+    }
 }
 
-// TODO: SPIR-V, HLSL, Metal
+// TODO: HLSL, Metal
 ```
 
 

@@ -113,10 +113,25 @@ public static class CompileDriver {
                     ? request.Output
                     : Path.Combine(request.Output, unit.Name + backend.FileExtension);
 
-                File.WriteAllText(path, unit.Code);
+                if (unit.Binary is { } binary) {
+                    File.WriteAllBytes(path, binary);
+                } else {
+                    File.WriteAllText(path, unit.Code);
+                }
 
                 if (request.Verbose) {
                     output.WriteLine(path);
+                }
+
+                // A binary target's readable form is worth keeping around; there
+                // is nothing to look at in the .spv itself.
+                if (request.EmitListing && unit.IsBinary) {
+                    var listing = Path.ChangeExtension(path, ".spvasm");
+                    File.WriteAllText(listing, unit.Code);
+
+                    if (request.Verbose) {
+                        output.WriteLine(listing);
+                    }
                 }
             }
 

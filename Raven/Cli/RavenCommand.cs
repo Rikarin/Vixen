@@ -35,6 +35,10 @@ public static class RavenCommand {
             Description = "Also write the target-independent IR dump."
         };
 
+        var emitListing = new Option<bool>("--emit-listing") {
+            Description = "For a binary target, also write the readable listing (.spvasm) beside the bytes."
+        };
+
         var verbose = new Option<bool>("--verbose", "-v") {
             Description = "Name every file as it is written."
         };
@@ -44,7 +48,7 @@ public static class RavenCommand {
         };
 
         var command = new Command("compile", "Compile shaders to a target language.") {
-            input, outputPath, target, emitIr, verbose, noColor
+            input, outputPath, target, emitIr, emitListing, verbose, noColor
         };
 
         command.SetAction(parseResult => (int)CompileDriver.Run(
@@ -53,6 +57,7 @@ public static class RavenCommand {
                 Output = parseResult.GetRequiredValue(outputPath),
                 Target = parseResult.GetRequiredValue(target),
                 EmitIr = parseResult.GetValue(emitIr),
+                EmitListing = parseResult.GetValue(emitListing),
                 Verbose = parseResult.GetValue(verbose),
                 UseColor = !parseResult.GetValue(noColor) && ColorIsWelcome()
             },

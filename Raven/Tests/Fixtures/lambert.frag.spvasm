@@ -1,0 +1,185 @@
+; SPIR-V
+; Version: 1.0
+; Generator: Raven
+; Bound: 111
+; Schema: 0
+OpCapability Shader
+OpCapability Matrix
+%6 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel Logical GLSL450
+OpEntryPoint Fragment %105 "main" %20 %23 %25
+OpExecutionMode %105 OriginUpperLeft
+OpName %9 "LambertUniforms"
+OpMemberName %9 0 "world"
+OpMemberName %9 1 "baseColor"
+OpName %11 "lambertUniforms"
+OpName %14 "albedo"
+OpName %17 "albedoSampler"
+OpName %20 "in_normal"
+OpName %23 "in_uv"
+OpName %25 "out_result"
+OpName %26 "Diffuse"
+OpName %29 "normal"
+OpName %30 "light"
+OpName %32 "normal"
+OpName %34 "light"
+OpName %35 "ndotl"
+OpName %27 "Pixel"
+OpName %47 "normal"
+OpName %48 "uv"
+OpName %50 "normal"
+OpName %51 "uv"
+OpName %53 "shade"
+OpName %54 "i"
+OpName %56 "i#limit"
+OpName %57 "sampled"
+OpName %59 "tint"
+OpName %105 "main"
+OpDecorate %9 Block
+OpMemberDecorate %9 0 Offset 0
+OpMemberDecorate %9 0 ColMajor
+OpMemberDecorate %9 0 MatrixStride 16
+OpMemberDecorate %9 1 Offset 64
+OpDecorate %11 DescriptorSet 0
+OpDecorate %11 Binding 0
+OpDecorate %14 DescriptorSet 0
+OpDecorate %14 Binding 1
+OpDecorate %17 DescriptorSet 0
+OpDecorate %17 Binding 2
+OpDecorate %20 Location 0
+OpDecorate %23 Location 1
+OpDecorate %25 Location 0
+%1 = OpTypeVoid
+%2 = OpTypeBool
+%3 = OpTypeInt 32 1
+%4 = OpTypeInt 32 0
+%5 = OpTypeFloat 32
+%7 = OpTypeVector %5 4
+%8 = OpTypeMatrix %7 4
+%9 = OpTypeStruct %8 %7
+%10 = OpTypePointer Uniform %9
+%11 = OpVariable %10 Uniform
+%12 = OpTypeImage %5 Dim2D 0 0 0 1 Unknown
+%13 = OpTypePointer UniformConstant %12
+%14 = OpVariable %13 UniformConstant
+%15 = OpTypeSampler
+%16 = OpTypePointer UniformConstant %15
+%17 = OpVariable %16 UniformConstant
+%18 = OpTypeVector %5 3
+%19 = OpTypePointer Input %18
+%20 = OpVariable %19 Input
+%21 = OpTypeVector %5 2
+%22 = OpTypePointer Input %21
+%23 = OpVariable %22 Input
+%24 = OpTypePointer Output %7
+%25 = OpVariable %24 Output
+%28 = OpTypeFunction %5 %18 %18
+%33 = OpTypePointer Function %18
+%36 = OpTypePointer Function %5
+%44 = OpConstant %5 0.1
+%46 = OpTypeFunction %7 %18 %21
+%52 = OpTypePointer Function %21
+%55 = OpTypePointer Function %3
+%58 = OpTypePointer Function %7
+%60 = OpConstant %5 0
+%61 = OpConstant %3 0
+%62 = OpConstant %3 2
+%73 = OpConstant %5 1
+%78 = OpConstant %3 1
+%83 = OpTypeSampledImage %12
+%88 = OpTypePointer Uniform %7
+%94 = OpTypeVector %2 3
+%101 = OpConstant %3 3
+%106 = OpTypeFunction %1
+%26 = OpFunction %5 None %28
+%29 = OpFunctionParameter %18
+%30 = OpFunctionParameter %18
+%31 = OpLabel
+%32 = OpVariable %33 Function
+%34 = OpVariable %33 Function
+%35 = OpVariable %36 Function
+OpStore %32 %29
+OpStore %34 %30
+%37 = OpLoad %18 %32
+%38 = OpExtInst %18 %6 69 %37
+%39 = OpLoad %18 %34
+%40 = OpFNegate %18 %39
+%41 = OpExtInst %18 %6 69 %40
+%42 = OpDot %5 %38 %41
+OpStore %35 %42
+%43 = OpLoad %5 %35
+%45 = OpExtInst %5 %6 40 %43 %44
+OpReturnValue %45
+OpFunctionEnd
+%27 = OpFunction %7 None %46
+%47 = OpFunctionParameter %18
+%48 = OpFunctionParameter %21
+%49 = OpLabel
+%50 = OpVariable %33 Function
+%51 = OpVariable %52 Function
+%53 = OpVariable %36 Function
+%54 = OpVariable %55 Function
+%56 = OpVariable %55 Function
+%57 = OpVariable %58 Function
+%59 = OpVariable %33 Function
+OpStore %50 %47
+OpStore %51 %48
+OpStore %53 %60
+OpStore %54 %61
+OpStore %56 %62
+OpBranch %63
+%63 = OpLabel
+OpLoopMerge %67 %66 None
+OpBranch %64
+%64 = OpLabel
+%68 = OpLoad %3 %54
+%69 = OpLoad %3 %56
+%70 = OpSLessThanEqual %2 %68 %69
+OpBranchConditional %70 %65 %67
+%65 = OpLabel
+%71 = OpLoad %5 %53
+%72 = OpLoad %18 %50
+%74 = OpCompositeConstruct %18 %60 %73 %60
+%75 = OpFunctionCall %5 %26 %72 %74
+%76 = OpFAdd %5 %71 %75
+OpStore %53 %76
+OpBranch %66
+%66 = OpLabel
+%77 = OpLoad %3 %54
+%79 = OpIAdd %3 %77 %78
+OpStore %54 %79
+OpBranch %63
+%67 = OpLabel
+%80 = OpLoad %12 %14
+%81 = OpLoad %15 %17
+%82 = OpLoad %21 %51
+%84 = OpSampledImage %83 %80 %81
+%85 = OpImageSampleImplicitLod %7 %84 %82
+OpStore %57 %85
+%86 = OpLoad %5 %53
+%87 = OpFOrdGreaterThan %2 %86 %73
+%89 = OpAccessChain %88 %11 %78
+%90 = OpLoad %7 %89
+%91 = OpVectorShuffle %18 %90 %90 0 1 2
+%92 = OpLoad %7 %57
+%93 = OpVectorShuffle %18 %92 %92 0 1 2
+%95 = OpCompositeConstruct %94 %87 %87 %87
+%96 = OpSelect %18 %95 %91 %93
+OpStore %59 %96
+%97 = OpLoad %18 %59
+%98 = OpLoad %5 %53
+%99 = OpCompositeConstruct %18 %98 %98 %98
+%100 = OpFMul %18 %97 %99
+%102 = OpAccessChain %36 %57 %101
+%103 = OpLoad %5 %102
+%104 = OpCompositeConstruct %7 %100 %103
+OpReturnValue %104
+OpFunctionEnd
+%105 = OpFunction %1 None %106
+%107 = OpLabel
+%108 = OpLoad %18 %20
+%109 = OpLoad %21 %23
+%110 = OpFunctionCall %7 %27 %108 %109
+OpStore %25 %110
+OpReturn
+OpFunctionEnd

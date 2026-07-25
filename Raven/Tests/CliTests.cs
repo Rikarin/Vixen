@@ -144,6 +144,20 @@ public class CliTests : IDisposable {
     }
 
     [Fact]
+    public void A_binary_target_writes_bytes_and_can_write_its_listing_too() {
+        Assert.Equal(0, Invoke("compile", "-t", "spirv", Fixture("lambert.rvn"), At(""), "--emit-listing"));
+
+        var binary = File.ReadAllBytes(At("Lambert.frag.spv"));
+        Assert.Equal(0x03, binary[0]);
+        Assert.Equal(0x02, binary[1]);
+        Assert.Equal(0x23, binary[2]);
+        Assert.Equal(0x07, binary[3]);
+
+        // The listing is a separate file, because the .spv itself is unreadable.
+        Assert.StartsWith("; SPIR-V", File.ReadAllText(At("Lambert.frag.spvasm")));
+    }
+
+    [Fact]
     public void A_missing_input_is_a_usage_error_not_a_compilation_failure() {
         Assert.Equal(2, Invoke("compile", At("nothing.rvn"), At("")));
         Assert.Contains("input file not found", error.ToString());

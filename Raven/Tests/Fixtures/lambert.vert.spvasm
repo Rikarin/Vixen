@@ -1,0 +1,81 @@
+; SPIR-V
+; Version: 1.0
+; Generator: Raven
+; Bound: 42
+; Schema: 0
+OpCapability Shader
+OpCapability Matrix
+%6 = OpExtInstImport "GLSL.std.450"
+OpMemoryModel Logical GLSL450
+OpEntryPoint Vertex %37 "main" %20 %22
+OpName %9 "LambertUniforms"
+OpMemberName %9 0 "world"
+OpMemberName %9 1 "baseColor"
+OpName %11 "lambertUniforms"
+OpName %14 "albedo"
+OpName %17 "albedoSampler"
+OpName %20 "in_position"
+OpName %22 "out_result"
+OpName %23 "Vertex"
+OpName %25 "position"
+OpName %27 "position"
+OpName %37 "main"
+OpDecorate %9 Block
+OpMemberDecorate %9 0 Offset 0
+OpMemberDecorate %9 0 ColMajor
+OpMemberDecorate %9 0 MatrixStride 16
+OpMemberDecorate %9 1 Offset 64
+OpDecorate %11 DescriptorSet 0
+OpDecorate %11 Binding 0
+OpDecorate %14 DescriptorSet 0
+OpDecorate %14 Binding 1
+OpDecorate %17 DescriptorSet 0
+OpDecorate %17 Binding 2
+OpDecorate %20 Location 0
+OpDecorate %22 BuiltIn Position
+%1 = OpTypeVoid
+%2 = OpTypeBool
+%3 = OpTypeInt 32 1
+%4 = OpTypeInt 32 0
+%5 = OpTypeFloat 32
+%7 = OpTypeVector %5 4
+%8 = OpTypeMatrix %7 4
+%9 = OpTypeStruct %8 %7
+%10 = OpTypePointer Uniform %9
+%11 = OpVariable %10 Uniform
+%12 = OpTypeImage %5 Dim2D 0 0 0 1 Unknown
+%13 = OpTypePointer UniformConstant %12
+%14 = OpVariable %13 UniformConstant
+%15 = OpTypeSampler
+%16 = OpTypePointer UniformConstant %15
+%17 = OpVariable %16 UniformConstant
+%18 = OpTypeVector %5 3
+%19 = OpTypePointer Input %18
+%20 = OpVariable %19 Input
+%21 = OpTypePointer Output %7
+%22 = OpVariable %21 Output
+%24 = OpTypeFunction %7 %18
+%28 = OpTypePointer Function %18
+%29 = OpConstant %3 0
+%30 = OpTypePointer Uniform %8
+%34 = OpConstant %5 1
+%38 = OpTypeFunction %1
+%23 = OpFunction %7 None %24
+%25 = OpFunctionParameter %18
+%26 = OpLabel
+%27 = OpVariable %28 Function
+OpStore %27 %25
+%31 = OpAccessChain %30 %11 %29
+%32 = OpLoad %8 %31
+%33 = OpLoad %18 %27
+%35 = OpCompositeConstruct %7 %33 %34
+%36 = OpMatrixTimesVector %7 %32 %35
+OpReturnValue %36
+OpFunctionEnd
+%37 = OpFunction %1 None %38
+%39 = OpLabel
+%40 = OpLoad %18 %20
+%41 = OpFunctionCall %7 %23 %40
+OpStore %22 %41
+OpReturn
+OpFunctionEnd
