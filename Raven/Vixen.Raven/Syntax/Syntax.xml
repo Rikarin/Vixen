@@ -112,25 +112,6 @@
             <summary>Creates a TypeArgumentListSyntax node.</summary>
         </FactoryComment>
     </Node>
-    <Node Name="AliasQualifiedNameSyntax" Base="NameSyntax">
-        <Kind Name="AliasQualifiedName"/>
-        <Field Name="Alias" Type="IdentifierNameSyntax">
-            <PropertyComment>
-                <summary>IdentifierNameSyntax node representing the name of the alias</summary>
-            </PropertyComment>
-        </Field>
-        <Field Name="Name" Type="SimpleNameSyntax">
-            <PropertyComment>
-                <summary>SimpleNameSyntax node representing the name that is being alias qualified.</summary>
-            </PropertyComment>
-        </Field>
-        <TypeComment>
-            <summary>Class which represents the syntax node for alias qualified name.</summary>
-        </TypeComment>
-        <FactoryComment>
-            <summary>Creates an AliasQualifiedNameSyntax node.</summary>
-        </FactoryComment>
-    </Node>
 
 
     <!-- Expressions -->
@@ -219,14 +200,7 @@
             <Kind Name="UnderscoreToken"/>
         </Field>
     </Node>
-    <AbstractNode Name="BaseExpressionColonSyntax" Base="RavenSyntaxNode">
-        <Field Name="Expression" Type="ExpressionSyntax"/>
-    </AbstractNode>
-    <Node Name="ExpressionColonSyntax" Base="BaseExpressionColonSyntax">
-        <Kind Name="ExpressionColon"/>
-        <Field Name="Expression" Type="ExpressionSyntax" Override="true"/>
-    </Node>
-    <Node Name="NameColonSyntax" Base="BaseExpressionColonSyntax">
+    <Node Name="NameColonSyntax" Base="RavenSyntaxNode">
         <Kind Name="NameColon"/>
         <Field Name="Name" Type="IdentifierNameSyntax">
             <Kind Name="IdentifierName"/>
@@ -364,20 +338,6 @@
         </TypeComment>
         <FactoryComment>
             <summary>Creates a PostfixUnaryExpressionSyntax node.</summary>
-        </FactoryComment>
-    </Node>
-    <Node Name="MemberBindingExpressionSyntax" Base="ExpressionSyntax">
-        <Kind Name="MemberBindingExpression"/>
-        <Field Name="Name" Type="SimpleNameSyntax">
-            <PropertyComment>
-                <summary>SimpleNameSyntax node representing the member being bound to.</summary>
-            </PropertyComment>
-        </Field>
-        <TypeComment>
-            <summary>Class which represents the syntax node for member binding expression.</summary>
-        </TypeComment>
-        <FactoryComment>
-            <summary>Creates a MemberBindingExpressionSyntax node.</summary>
         </FactoryComment>
     </Node>
     <Node Name="DefaultExpressionSyntax" Base="ExpressionSyntax">
@@ -663,22 +623,7 @@
         </Field>
     </Node>
 
-    <Node Name="ConstructorInitializerSyntax" Base="RavenSyntaxNode">
-        <TypeComment>
-            <summary>Constructor initializer syntax.</summary>
-        </TypeComment>
-        <Kind Name="BaseConstructorInitializer"/>
-        <Kind Name="SelfConstructorInitializer"/>
-        <Field Name="ArgumentList" Type="ArgumentListSyntax"/>
-    </Node>
 
-    <Node Name="ExplicitInterfaceSpecifierSyntax" Base="RavenSyntaxNode">
-        <Kind Name="ExplicitInterfaceSpecifier"/>
-        <Field Name="Name" Type="NameSyntax"/>
-        <Field Name="DotToken" Type="SyntaxToken">
-            <Kind Name="DotToken"/>
-        </Field>
-    </Node>
 
 
     <!-- Attributes -->
@@ -690,11 +635,6 @@
         <Field Name="OpenBracketToken" Type="SyntaxToken">
             <Kind Name="OpenBracketToken"/>
         </Field>
-        <Field Name="Target" Type="AttributeTargetSpecifierSyntax" Optional="true">
-            <PropertyComment>
-                <summary>Gets the optional construct targeted by the attribute.</summary>
-            </PropertyComment>
-        </Field>
         <Field Name="Attributes" Type="SeparatedSyntaxList&lt;AttributeSyntax&gt;" MinCount="1">
             <PropertyComment>
                 <summary>Gets the attribute declaration list.</summary>
@@ -702,20 +642,6 @@
         </Field>
         <Field Name="CloseBracketToken" Type="SyntaxToken">
             <Kind Name="CloseBracketToken"/>
-        </Field>
-    </Node>
-    <Node Name="AttributeTargetSpecifierSyntax" Base="RavenSyntaxNode">
-        <TypeComment>
-            <summary>Class representing what language construct an attribute targets.</summary>
-        </TypeComment>
-        <Kind Name="AttributeTargetSpecifier"/>
-        <Field Name="Identifier" Type="SyntaxToken">
-            <PropertyComment>
-                <summary>Gets the identifier.</summary>
-            </PropertyComment>
-        </Field>
-        <Field Name="ColonToken" Type="SyntaxToken">
-            <Kind Name="ColonToken"/>
         </Field>
     </Node>
     <Node Name="AttributeSyntax" Base="RavenSyntaxNode">
@@ -774,11 +700,6 @@
         <Kind Name="SimpleBaseType"/>
         <Field Name="Type" Type="TypeSyntax" Override="true">
         </Field>
-    </Node>
-    <Node Name="PrimaryConstructorBaseTypeSyntax" Base="BaseTypeSyntax">
-        <Kind Name="PrimaryConstructorBaseType"/>
-        <Field Name="Type" Type="TypeSyntax" Override="true"/>
-        <Field Name="ArgumentList" Type="ArgumentListSyntax"/>
     </Node>
 
 
@@ -1461,7 +1382,6 @@
             <Kind Name="IdentifierToken"/>
         </Field>
         <Field Name="TypeParameterList" Type="TypeParameterListSyntax" Optional="true"/>
-        <Field Name="ParameterList" Type="ParameterListSyntax" Optional="true"/>
         <Field Name="BaseList" Type="BaseListSyntax" Optional="true"/>
         <Field Name="ConstraintClauses" Type="SyntaxList&lt;TypeParameterConstraintClauseSyntax&gt;"/>
         <Field Name="OpenBraceToken" Type="SyntaxToken" Optional="true">
@@ -1486,7 +1406,6 @@
             <Kind Name="IdentifierToken"/>
         </Field>
         <Field Name="TypeParameterList" Type="TypeParameterListSyntax" Optional="true"/>
-        <Field Name="ParameterList" Type="ParameterListSyntax" Optional="true"/>
         <Field Name="BaseList" Type="BaseListSyntax" Optional="true"/>
         <Field Name="ConstraintClauses" Type="SyntaxList&lt;TypeParameterConstraintClauseSyntax&gt;"/>
         <Field Name="OpenBraceToken" Type="SyntaxToken" Optional="true">
@@ -1511,7 +1430,6 @@
             <Kind Name="IdentifierToken"/>
         </Field>
         <Field Name="TypeParameterList" Type="TypeParameterListSyntax" Optional="true"/>
-        <Field Name="ParameterList" Type="ParameterListSyntax" Optional="true"/>
         <Field Name="BaseList" Type="BaseListSyntax" Optional="true"/>
         <Field Name="ConstraintClauses" Type="SyntaxList&lt;TypeParameterConstraintClauseSyntax&gt;"/>
         <Field Name="OpenBraceToken" Type="SyntaxToken" Optional="true">
@@ -1566,7 +1484,6 @@
         <Field Name="Keyword" Type="SyntaxToken">
             <Kind Name="VarKeyword"/>
         </Field>
-        <Field Name="ExplicitInterfaceSpecifier" Type="ExplicitInterfaceSpecifierSyntax" Optional="true"/>
         <Field Name="Identifier" Type="SyntaxToken">
             <Kind Name="IdentifierToken"/>
         </Field>
@@ -1625,23 +1542,6 @@
         <Field Name="Body" Type="BlockSyntax" Optional="true"/>
         <Field Name="ExpressionBody" Type="ArrowExpressionClauseSyntax" Optional="true"/>
     </Node>
-    <Node Name="DestructorDeclarationSyntax" Base="MemberDeclarationSyntax">
-        <TypeComment>
-            <summary>Destructor (~init) declaration.</summary>
-        </TypeComment>
-        <Kind Name="DestructorDeclaration"/>
-        <Field Name="AttributeLists" Type="SyntaxList&lt;AttributeListSyntax&gt;" Override="true"/>
-        <Field Name="Modifiers" Type="SyntaxList&lt;SyntaxToken&gt;" Override="true"/>
-        <Field Name="TildeToken" Type="SyntaxToken">
-            <Kind Name="TildeToken"/>
-        </Field>
-        <Field Name="Keyword" Type="SyntaxToken">
-            <Kind Name="InitKeyword"/>
-        </Field>
-        <Field Name="ParameterList" Type="ParameterListSyntax"/>
-        <Field Name="Body" Type="BlockSyntax" Optional="true"/>
-        <Field Name="ExpressionBody" Type="ArrowExpressionClauseSyntax" Optional="true"/>
-    </Node>
     <Node Name="IndexerDeclarationSyntax" Base="MemberDeclarationSyntax">
         <TypeComment>
             <summary>Indexer (self[...]) declaration.</summary>
@@ -1650,7 +1550,6 @@
         <Field Name="AttributeLists" Type="SyntaxList&lt;AttributeListSyntax&gt;" Override="true"/>
         <Field Name="Modifiers" Type="SyntaxList&lt;SyntaxToken&gt;" Override="true"/>
         <Field Name="Type" Type="TypeSyntax"/>
-        <Field Name="ExplicitInterfaceSpecifier" Type="ExplicitInterfaceSpecifierSyntax" Optional="true"/>
         <Field Name="SelfKeyword" Type="SyntaxToken">
             <Kind Name="SelfKeyword"/>
         </Field>
@@ -1666,7 +1565,6 @@
         <Field Name="AttributeLists" Type="SyntaxList&lt;AttributeListSyntax&gt;" Override="true"/>
         <Field Name="Modifiers" Type="SyntaxList&lt;SyntaxToken&gt;" Override="true"/>
         <Field Name="Type" Type="TypeSyntax"/>
-        <Field Name="ExplicitInterfaceSpecifier" Type="ExplicitInterfaceSpecifierSyntax" Optional="true"/>
         <Field Name="OperatorKeyword" Type="SyntaxToken">
             <Kind Name="OperatorKeyword"/>
         </Field>
@@ -1688,7 +1586,6 @@
             <Kind Name="ImplicitKeyword"/>
             <Kind Name="ExplicitKeyword"/>
         </Field>
-        <Field Name="ExplicitInterfaceSpecifier" Type="ExplicitInterfaceSpecifierSyntax" Optional="true"/>
         <Field Name="OperatorKeyword" Type="SyntaxToken">
             <Kind Name="OperatorKeyword"/>
         </Field>
@@ -1707,7 +1604,6 @@
         <Field Name="Keyword" Type="SyntaxToken">
             <Kind Name="FuncKeyword"/>
         </Field>
-        <Field Name="ExplicitInterfaceSpecifier" Type="ExplicitInterfaceSpecifierSyntax" Optional="true"/>
         <Field Name="Identifier" Type="SyntaxToken">
             <Kind Name="IdentifierToken"/>
         </Field>

@@ -25,11 +25,7 @@ import_directive
 // while a parameter writes `attribute_list*` and carries them inline —
 // `func Pixel([Semantic("TEXCOORD0")] uv: float2)`.
 attribute_list
-    : '[' attribute_target_specifier? attribute (',' attribute)* ']'
-    ;
-
-attribute_target_specifier
-    : (type? | identifier_token?) ':'
+    : '[' attribute (',' attribute)* ']'
     ;
 
 attribute
@@ -56,8 +52,7 @@ parameter
 
 // Names
 name
-    : identifier_name '::' simple_name  #AliasQualifiedName
-    | name '.' simple_name              #QualifiedName
+    : name '.' simple_name              #QualifiedName
     | simple_name                       #SimpleName
     ;
 
@@ -107,38 +102,25 @@ field_declaration
 base_method_declaration
     : constructor_declaration
     | conversion_operator_declaration
-    | destructor_declaration
     | method_declaration
     | operator_declaration
     ;
 
 constructor_declaration
-    : (attribute_list NL*)* modifier* INIT parameter_list constructor_initializer? (block | (arrow_expression_clause NL))
-    ;
-
-constructor_initializer
-  : ':' init=(BASE | SELF) argument_list
-  ;
-
-destructor_declaration
-    : (attribute_list NL*)* modifier* '~' INIT parameter_list (block | (arrow_expression_clause NL))
+    : (attribute_list NL*)* modifier* INIT parameter_list (block | (arrow_expression_clause NL))
     ;
 
 // The body is optional: a `protocol` member (and an `abstract` method) declares a
 // signature only — `func Draw()`. The trailing newline is left to the enclosing
 // member_declaration, which already ends in `NL*`.
 method_declaration
-  : (attribute_list NL*)* modifier* FUNC explicit_interface_specifier? identifier_token type_parameter_list? parameter_list type_parameter_constraint_clause* (':' type)? (block | (arrow_expression_clause NL))?
+  : (attribute_list NL*)* modifier* FUNC identifier_token type_parameter_list? parameter_list type_parameter_constraint_clause* (':' type)? (block | (arrow_expression_clause NL))?
   ;
-
-explicit_interface_specifier
-    : name '.'
-    ;
 
 // Accessors are optional for the same reason a method body is: a protocol
 // property declares `var Name: string` and nothing more.
 property_declaration
-    : (attribute_list NL*)* modifier* VAR explicit_interface_specifier? identifier_token (':' type)? (accessor_list | ((arrow_expression_clause | equals_value_clause) NL))?
+    : (attribute_list NL*)* modifier* VAR identifier_token (':' type)? (accessor_list | ((arrow_expression_clause | equals_value_clause) NL))?
     ;
 
 accessor_list
@@ -150,7 +132,7 @@ accessor_declaration
     ;
 
 indexer_declaration
-    : (attribute_list NL*)* modifier* type explicit_interface_specifier? SELF bracketed_parameter_list (accessor_list | (arrow_expression_clause NL))
+    : (attribute_list NL*)* modifier* type SELF bracketed_parameter_list (accessor_list | (arrow_expression_clause NL))
     ;
 
 bracketed_parameter_list
@@ -158,11 +140,11 @@ bracketed_parameter_list
     ;
 
 conversion_operator_declaration
-    : (attribute_list NL*)* modifier* ct=(IMPLICIT | EXPLICIT) explicit_interface_specifier? OPERATOR type parameter_list (block | (arrow_expression_clause NL))
+    : (attribute_list NL*)* modifier* ct=(IMPLICIT | EXPLICIT) OPERATOR type parameter_list (block | (arrow_expression_clause NL))
     ;
 
 operator_declaration
-    : (attribute_list NL*)* modifier* type explicit_interface_specifier? OPERATOR op=('+' | '-' | '!' | '~' | '++' | '--' | '*' | '/' | '%' | '<<' | '>>' | '>>>' | '|' | '&' | '^' | '==' | '!=' | '<' | '<=' | '>' | '>=' | 'false' | 'true' | 'is') parameter_list (block | (arrow_expression_clause NL))
+    : (attribute_list NL*)* modifier* type OPERATOR op=('+' | '-' | '!' | '~' | '++' | '--' | '*' | '/' | '%' | '<<' | '>>' | '>>>' | '|' | '&' | '^' | '==' | '!=' | '<' | '<=' | '>' | '>=' | 'false' | 'true' | 'is') parameter_list (block | (arrow_expression_clause NL))
     ;
 
 base_type_declaration
@@ -177,15 +159,15 @@ type_declaration
     ;
 
 shader_declaration
-     : (attribute_list NL*)* modifier* SHADER identifier_token type_parameter_list? parameter_list? base_list? type_parameter_constraint_clause* ('{' NL* member_declaration* NL* '}')? NL
+     : (attribute_list NL*)* modifier* SHADER identifier_token type_parameter_list? base_list? type_parameter_constraint_clause* ('{' NL* member_declaration* NL* '}')? NL
      ;
 
 struct_declaration
-     : (attribute_list NL*)* modifier* STRUCT identifier_token type_parameter_list? parameter_list? base_list? type_parameter_constraint_clause* ('{' NL* member_declaration* NL* '}')? NL
+     : (attribute_list NL*)* modifier* STRUCT identifier_token type_parameter_list? base_list? type_parameter_constraint_clause* ('{' NL* member_declaration* NL* '}')? NL
      ;
 
 protocol_declaration
-    : (attribute_list NL*)* modifier* PROTOCOL identifier_token type_parameter_list? parameter_list? base_list? type_parameter_constraint_clause* ('{' NL* member_declaration* NL* '}')? NL
+    : (attribute_list NL*)* modifier* PROTOCOL identifier_token type_parameter_list? base_list? type_parameter_constraint_clause* ('{' NL* member_declaration* NL* '}')? NL
     ;
 
 enum_declaration
@@ -221,12 +203,7 @@ base_list
     ;
 
 base_type
-    : primary_constructor_base_type
-    | simple_base_type
-    ;
-
-primary_constructor_base_type
-    : type argument_list
+    : simple_base_type
     ;
 
 simple_base_type
@@ -390,7 +367,6 @@ expression
     | DEFAULT '(' type ')'                      #DefaultExpression
     | op=(BASE | SELF)                          #InstanceExpression
     | literal_expression                        #LiteralExpression
-    | '.' simple_name                           #MemberBindingExpression
     | '(' expression ')'                        #ParenthesizedExpression
     | '(' argument (',' argument)+ ')'?         #TupleExpression
     | type                                      #TypeExpression
@@ -496,6 +472,5 @@ modifier
     | PROTECTED
     | PUBLIC
     | READONLY
-    | RECORD
     | STATIC
     ;

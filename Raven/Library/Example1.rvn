@@ -22,7 +22,7 @@ shader TestShader : ExampleBase, CustomShader {
         set => tint = float4(value, value, value, 1)
     }
 
-    [property: FooBar(mode: "linear")]
+    [FooBar(mode: "linear")]
     public abstract var observed: float {
         willSet {
             counter++
@@ -65,7 +65,7 @@ shader TestShader : ExampleBase, CustomShader {
         counter = CoreClass.GetLength<int, Class>(seed)
     }
 
-    func Generic<T>.Test<Asd>() { }
+    func Test<Asd>() { }
 
     func Classify(x: int): int {
         val kind = x switch {
@@ -151,4 +151,7 @@ struct Widget<T> where T : Shaded {
     }
 }
 
-readonly record struct Messenger(userId: int, channel: int)
+readonly struct Messenger {
+    val userId: int
+    val channel: int
+}

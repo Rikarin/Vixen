@@ -475,7 +475,6 @@ public sealed partial class Lowerer {
 
     static string Describe(MethodKind kind) =>
         kind switch {
-            MethodKind.Destructor => "destructor",
             MethodKind.Operator => "user-defined operator",
             MethodKind.Conversion => "conversion operator",
             MethodKind.LocalFunction => "local function",

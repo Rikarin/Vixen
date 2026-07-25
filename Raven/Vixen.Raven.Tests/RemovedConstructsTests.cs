@@ -78,6 +78,46 @@ public class RemovedConstructsTests {
         Assert.NotEmpty(tree.Diagnostics);
     }
 
+    /// <summary>
+    ///     Declaration forms that were C# shapes with nothing behind them on a GPU. Each one
+    ///     cost a syntax node, five pieces of generated code, a translator method and a
+    ///     permanent round-trip obligation — see docs/plan/07 § J.
+    /// </summary>
+    [Theory]
+    // No object lifetime, so nothing to run at the end of one. This was at least reported
+    // (RVN3002) rather than silently accepted.
+    [InlineData("package A\n\nstruct F {\n    ~init() {\n    }\n}\n")]
+    // Protocol members resolve statically, so there is no diamond to disambiguate. This was
+    // silently ignored: the method bound and was callable as an ordinary member.
+    [InlineData("package A\n\nstruct F {\n    func P.Q() {\n    }\n}\n")]
+    [InlineData("package A\n\nstruct F {\n    var P.Q: int\n}\n")]
+    // Primary constructors declared parameters that became neither fields nor a constructor,
+    // so the call site failed with RVN2034 while the declaration looked fine.
+    [InlineData("package A\n\nstruct Point(x: float, y: float)\n")]
+    // `record` promised value equality, ToString and Deconstruct; none of the three existed.
+    [InlineData("package A\n\nreadonly record struct Msg(a: int)\n")]
+    // A base initializer produced malformed IR (RVN3010) rather than a diagnostic.
+    [InlineData("package A\n\nstruct F {\n    init(a: float) : base(a) {\n    }\n}\n")]
+    // There is no alias table, so `::` could never resolve to anything.
+    [InlineData("package A\n\nshader S {\n    var x: Foo::Bar\n}\n")]
+    // Attribute targets were parsed and dropped, so `[property: X]` silently meant `[X]`.
+    [InlineData("package A\n\nshader S {\n    [property: Semantic(\"SV_Target\")]\n    var tint: float4\n}\n")]
+    public void The_declaration_form_no_longer_parses(string source) {
+        var tree = SyntaxTree.ParseText(source);
+
+        Assert.NotEmpty(tree.Diagnostics);
+    }
+
+    /// <summary>
+    ///     A leading-dot member reference (<c>.Name</c>) only means something inside a
+    ///     conditional-access chain, and nullable types went in the first pass — so there is no
+    ///     null to guard and nothing for the chain to be. The binder had already given up on it,
+    ///     returning an error node with that exact reasoning in a comment.
+    /// </summary>
+    [Fact]
+    public void A_leading_dot_member_reference_no_longer_parses() =>
+        AssertDoesNotParse("        val x = .Foo");
+
     [Fact]
     public void Null_is_no_longer_a_keyword_so_it_reads_as_an_undefined_name() =>
         AssertDiagnostics("package A\n\nshader S {\n    func M() {\n        val x = null\n    }\n}\n", "RVN2010");

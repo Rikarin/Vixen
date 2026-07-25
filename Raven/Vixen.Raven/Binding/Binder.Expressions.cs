@@ -127,11 +127,6 @@ public abstract partial class Binder {
             case DeclarationExpressionSyntax declaration:
                 return BindDeclarationExpression(declaration);
 
-            case MemberBindingExpressionSyntax:
-                // `.Name` only means something inside a conditional-access chain,
-                // which the grammar does not currently produce.
-                return new BoundErrorExpression(syntax);
-
             default:
                 Report(SemanticDiagnostics.UndefinedName, syntax, syntax.ToString().Trim());
                 return new BoundErrorExpression(syntax);

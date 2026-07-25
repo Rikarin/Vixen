@@ -68,10 +68,6 @@ public abstract partial class Binder {
                 return new TupleTypeSymbol(types, names);
             }
 
-            case AliasQualifiedNameSyntax aliased:
-                // `global::X` — there is no alias table yet; resolve the right side.
-                return BindNamedType(aliased.Name.Identifier.ValueText, [], aliased);
-
             default:
                 Report(SemanticDiagnostics.NotAType, syntax, syntax.ToString().Trim());
                 return ErrorTypeSymbol.Instance;

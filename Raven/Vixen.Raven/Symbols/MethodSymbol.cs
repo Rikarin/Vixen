@@ -8,7 +8,6 @@ namespace Vixen.Raven.Symbols;
 public enum MethodKind {
     Ordinary,
     Constructor,
-    Destructor,
     PropertyGet,
     PropertySet,
 

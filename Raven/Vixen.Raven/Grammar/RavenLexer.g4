@@ -38,7 +38,6 @@ PROTOCOL:       'protocol';     // Replaceing 'interface'
 SELF:           'self';         // Replacing 'this'
 SHADER:         'shader';
 STRUCT:         'struct';
-RECORD:         'record';
 VAR:            'var';
 VAL:            'val';
 REPEAT:         'repeat';       // Replacing 'do' in do-while
@@ -154,7 +153,6 @@ DOT:                      '.';
 DOUBLE_DOT:               '..';
 COMMA:                    ',';
 COLON:                    ':' { this.OnColon(); };
-DOUBLE_COLON:             '::';
 SEMICOLON:                ';';
 INTERR:                   '?';
 LAMBDA:                   '=>';

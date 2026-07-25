@@ -627,8 +627,8 @@ kinds, translator, binder and `TypeKind` — and `RemovedConstructsTests` pins e
 of them (`sizeof`, `ref`) now read as ordinary undefined names, exactly the treatment `null` got in the
 first pass. `TypeKind.Nullable` went with them: nothing had referenced it since nullables were removed.
 
-Cost: 113 → 109 syntax nodes, 9,518 → 9,124 generated lines, and `Example1.rvn` still round-trips
-byte-for-byte.
+`Example1.rvn` still round-trips byte-for-byte. The combined cost of both passes is tabulated after
+Tier C.
 
 #### Tier B — parses and binds, cannot compile
 
@@ -638,14 +638,42 @@ overloads (`Spectrum + Spectrum` is a real shader idiom), and tuples — the las
 struct is straightforward. **Drop** pattern matching and `is` (C# flow-typing), local functions (a
 private method is the same thing), indexers, conversion operators, and ranges as first-class values.
 
-#### Tier C — C# shapes with no shader meaning
+#### Tier C — C# shapes with no shader meaning ✅ **removed**
 
-`ExpressionColonSyntax` is the clearest case: **zero grammar rules, zero translator references**, yet a
-green node, a red node, a visitor entry, a rewriter entry and a factory are generated for it. It exists
-only as `NameColonSyntax`'s sibling under an abstract base copied from Roslyn, where it serves property
-patterns. Also: `Foo::Bar` alias-qualified names (the language has no alias declaration, so they can
-never resolve), `?.` (nullables are gone — there is no null to guard), explicit interface specifiers,
-destructors, attribute target specifiers, `record` with primary constructors.
+Probing these first changed the verdict on half of them: several were not merely unused but **silently
+ignored**, which puts them in Tier A's category rather than this one.
+
+| Construct | What it did |
+|---|---|
+| `ExpressionColonSyntax` | **zero grammar rules, zero translator references** — five pieces of generated code for a node no input could produce |
+| `[property: Semantic(…)]` | target parsed and dropped, so it silently meant `[Semantic(…)]` |
+| `func P.Q()` explicit interface | silently ignored — the method bound and was callable as an ordinary member |
+| `struct Point(x: float, y: float)` | parameters became neither fields nor a constructor; the declaration looked fine and the call site failed with `RVN2034` |
+| `readonly record struct` | promised value equality, `ToString` and `Deconstruct`; none of the three existed |
+| `init(a) : base(a)` | produced **malformed IR** (`RVN3010`) rather than a diagnostic |
+| `Foo::Bar` | no alias table exists, so it could never resolve (`RVN2010` — at least honest) |
+| `.Foo` leading-dot member | the binder had already given up, returning an error node with that reasoning in a comment |
+| `~init()` | reported (`RVN3002`); no object lifetime on a GPU |
+
+All gone, along with `MethodKind.Destructor` and the `record` modifier. `ExpressionColonSyntax` took its
+abstract base with it: `BaseExpressionColonSyntax` existed only to hold it beside `NameColonSyntax`, so
+`NameColon` now derives from the root and the hand-written bridge that manufactured an `ExpressionColon`
+when a name was not an identifier is gone too.
+
+#### What the two passes cost the surface
+
+| | Before | After |
+|---|---|---|
+| concrete syntax nodes | 113 | **101** |
+| abstract nodes | 18 | **17** |
+| syntax kinds | 247 | **229** |
+| generated lines | 9 518 | **8 487** |
+| grammar lines (lexer + parser) | 866 | **823** |
+| translator lines | 1 490 | **1 317** |
+
+Nothing was lost that compiled: three `Library/Example1.rvn` lines changed (a `[property:]` target, an
+explicit-interface method, a `record struct`), it still round-trips byte-for-byte, and the golden GLSL,
+SPIR-V and IR are untouched.
 
 #### Two things that show this is not hypothetical
 

@@ -32,7 +32,6 @@ public sealed class SourceMethodSymbol : MethodSymbol {
     public override MethodKind MethodKind =>
         Syntax switch {
             ConstructorDeclarationSyntax => MethodKind.Constructor,
-            DestructorDeclarationSyntax => MethodKind.Destructor,
             OperatorDeclarationSyntax => MethodKind.Operator,
             ConversionOperatorDeclarationSyntax => MethodKind.Conversion,
             LocalFunctionStatementSyntax => MethodKind.LocalFunction,
@@ -44,7 +43,6 @@ public sealed class SourceMethodSymbol : MethodSymbol {
             MethodDeclarationSyntax method => method.Identifier.ValueText,
             LocalFunctionStatementSyntax local => local.Identifier.ValueText,
             ConstructorDeclarationSyntax => ".ctor",
-            DestructorDeclarationSyntax => ".dtor",
             OperatorDeclarationSyntax @operator => "operator" + @operator.OperatorToken.Text,
             ConversionOperatorDeclarationSyntax conversion => "op_" + conversion.ImplicitOrExplicitKeyword.Text,
             _ => string.Empty
@@ -77,7 +75,6 @@ public sealed class SourceMethodSymbol : MethodSymbol {
             MethodDeclarationSyntax method => method.Body,
             LocalFunctionStatementSyntax local => local.Body,
             ConstructorDeclarationSyntax constructor => constructor.Body,
-            DestructorDeclarationSyntax destructor => destructor.Body,
             OperatorDeclarationSyntax @operator => @operator.Body,
             ConversionOperatorDeclarationSyntax conversion => conversion.Body,
             _ => null
@@ -89,7 +86,6 @@ public sealed class SourceMethodSymbol : MethodSymbol {
             MethodDeclarationSyntax method => method.ExpressionBody,
             LocalFunctionStatementSyntax local => local.ExpressionBody,
             ConstructorDeclarationSyntax constructor => constructor.ExpressionBody,
-            DestructorDeclarationSyntax destructor => destructor.ExpressionBody,
             OperatorDeclarationSyntax @operator => @operator.ExpressionBody,
             ConversionOperatorDeclarationSyntax conversion => conversion.ExpressionBody,
             _ => null
@@ -118,7 +114,6 @@ public sealed class SourceMethodSymbol : MethodSymbol {
             MethodDeclarationSyntax method => method.ParameterList,
             LocalFunctionStatementSyntax local => local.ParameterList,
             ConstructorDeclarationSyntax constructor => constructor.ParameterList,
-            DestructorDeclarationSyntax destructor => destructor.ParameterList,
             OperatorDeclarationSyntax @operator => @operator.ParameterList,
             ConversionOperatorDeclarationSyntax conversion => conversion.ParameterList,
             _ => null
@@ -199,7 +194,7 @@ public sealed class SourceMethodSymbol : MethodSymbol {
     }
 
     TypeSymbol ResolveReturnType() {
-        if (MethodKind is MethodKind.Constructor or MethodKind.Destructor) {
+        if (MethodKind is MethodKind.Constructor) {
             return BuiltInTypes.Void;
         }
 

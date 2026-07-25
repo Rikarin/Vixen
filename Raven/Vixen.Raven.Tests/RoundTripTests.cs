@@ -66,13 +66,6 @@ public class RoundTripTests {
     // Properties + accessors
     [InlineData("package A.B\n\nshader Foo {\n    var prop {\n        get => test\n        set => test\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    var count: int => a\n}\n")]
-    // Explicit interface implementations (`var P.Q`, `int P.self[…]`)
-    [InlineData("package A.B\n\nstruct Foo {\n    var P.Q: int => a\n}\n")]
-    [InlineData("package A.B\n\nstruct Foo {\n    var P.Q: int\n}\n")]
-    [InlineData("package A.B\n\nstruct Foo {\n    var Outer.Inner.Q: int => a\n}\n")]
-    [InlineData("package A.B\n\nstruct Foo {\n    var P.Q {\n        get => test\n    }\n}\n")]
-    [InlineData("package A.B\n\nstruct Foo {\n    int P.self[i: int] => a\n}\n")]
-    [InlineData("package A.B\n\nstruct Foo {\n    func P.Q() {\n    }\n}\n")]
     // Conditional.
     // NOTE: `a[i]` parses as an array type (`type array_rank_specifier`), shadowing
     // element access — a grammar ambiguity like invocation; visitor is wired.
@@ -84,9 +77,6 @@ public class RoundTripTests {
         "package A.B\n\nshader Foo {\n    func M() {\n        print(\"escaped: \\n \\t \\\" done\")\n    }\n}\n"
     )]
     [InlineData("package A.B\n\nshader Foo {\n    val empty = \"\"\n}\n")]
-    // Destructor
-    [InlineData("package A.B\n\nshader Foo {\n    ~init() {\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    ~init() => cleanup\n}\n")]
     // Tuple expression & tuple type
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val p = (a, b)\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val p = (a, b, c)\n    }\n}\n")]
@@ -130,10 +120,10 @@ public class RoundTripTests {
     // Conversion operators
     [InlineData("package A.B\n\nshader Foo {\n    implicit operator int(v: Vec) => a\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    explicit operator float(v: Vec) {\n    }\n}\n")]
-    // Struct / class / record declarations
+    // Struct declarations
     [InlineData("package A.B\n\nstruct FooBar {\n\n}\n")]
     [InlineData("package A.B\n\nstruct Widget {\n\n}\n")]
-    [InlineData("package A.B\n\nreadonly record struct Messenger(userId: int, message: string)\n")]
+    [InlineData("package A.B\n\nreadonly struct Messenger {\n    val userId: int\n}\n")]
     // Array types (empty / jagged rank)
     [InlineData("package A.B\n\nshader Foo {\n    var xs: int[]\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    var xs: double[][]\n}\n")]

@@ -235,7 +235,6 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
 
                 case MethodDeclarationSyntax
                     or ConstructorDeclarationSyntax
-                    or DestructorDeclarationSyntax
                     or OperatorDeclarationSyntax
                     or ConversionOperatorDeclarationSyntax:
                     result.Add(new SourceMethodSymbol(this, member, TypeBinder));
