@@ -7,24 +7,8 @@ namespace Vixen.Raven.Binding;
 /// <summary>Expression-aware conversion classification and insertion.</summary>
 public abstract partial class Binder {
     /// <summary>
-    /// Classifies the conversion from an expression to a target type. This adds
-    /// the cases that depend on the expression rather than just its type — a
-    /// constant literal that fits the target, above all.
-    /// </summary>
-    internal static Conversion ClassifyConversion(BoundExpression expression, TypeSymbol target) {
-        var direct = Conversions.Classify(expression.Type, target);
-        if (direct.Exists && direct.IsImplicit) {
-            return direct;
-        }
-
-        return IsConstantConvertible(expression, target)
-            ? new Conversion(ConversionKind.ImplicitConstant)
-            : direct;
-    }
-
-    /// <summary>
-    /// An untyped integer literal takes the shape the context asks for:
-    /// <c>val x: uint = 1</c> and <c>val v: float3 = 0</c> both work.
+    ///     An untyped integer literal takes the shape the context asks for:
+    ///     <c>val x: uint = 1</c> and <c>val v: float3 = 0</c> both work.
     /// </summary>
     static bool IsConstantConvertible(BoundExpression expression, TypeSymbol target) {
         if (expression.ConstantValue is not { } value || expression.Type is not PrimitiveTypeSymbol source) {
@@ -54,8 +38,24 @@ public abstract partial class Binder {
     }
 
     /// <summary>
-    /// Converts an expression to <paramref name="target"/>, materializing the
-    /// conversion in the bound tree. Reports when no implicit conversion exists.
+    ///     Classifies the conversion from an expression to a target type. This adds
+    ///     the cases that depend on the expression rather than just its type — a
+    ///     constant literal that fits the target, above all.
+    /// </summary>
+    internal static Conversion ClassifyConversion(BoundExpression expression, TypeSymbol target) {
+        var direct = Conversions.Classify(expression.Type, target);
+        if (direct.Exists && direct.IsImplicit) {
+            return direct;
+        }
+
+        return IsConstantConvertible(expression, target)
+            ? new(ConversionKind.ImplicitConstant)
+            : direct;
+    }
+
+    /// <summary>
+    ///     Converts an expression to <paramref name="target" />, materializing the
+    ///     conversion in the bound tree. Reports when no implicit conversion exists.
     /// </summary>
     internal BoundExpression Convert(BoundExpression expression, TypeSymbol target, SyntaxNode syntax) {
         var conversion = ClassifyConversion(expression, target);
@@ -67,13 +67,16 @@ public abstract partial class Binder {
                     SemanticDiagnostics.CannotConvert,
                     syntax,
                     expression.Type.ToDisplayString(),
-                    target.ToDisplayString());
+                    target.ToDisplayString()
+                );
             }
 
             return new BoundConversionExpression(syntax, expression, target, Conversion.None);
         }
 
-        return conversion.IsIdentity ? expression : new BoundConversionExpression(syntax, expression, target, conversion);
+        return conversion.IsIdentity
+            ? expression
+            : new BoundConversionExpression(syntax, expression, target, conversion);
     }
 
     /// <summary>Converts for an explicit cast, where non-implicit conversions are allowed.</summary>
@@ -87,13 +90,16 @@ public abstract partial class Binder {
                     SemanticDiagnostics.NoExplicitConversion,
                     syntax,
                     expression.Type.ToDisplayString(),
-                    target.ToDisplayString());
+                    target.ToDisplayString()
+                );
             }
 
             return new BoundConversionExpression(syntax, expression, target, Conversion.None);
         }
 
-        return conversion.IsIdentity ? expression : new BoundConversionExpression(syntax, expression, target, conversion);
+        return conversion.IsIdentity
+            ? expression
+            : new BoundConversionExpression(syntax, expression, target, conversion);
     }
 
     /// <summary>Checks an expression is usable as a condition and converts it to <c>bool</c>.</summary>

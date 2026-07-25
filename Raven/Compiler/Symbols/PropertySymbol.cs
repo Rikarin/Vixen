@@ -1,9 +1,9 @@
 namespace Vixen.Raven.Symbols;
 
 /// <summary>
-/// A <c>var</c> member with accessors. Raven's accessor set is wider than C#'s:
-/// besides <c>get</c>/<c>set</c> a property may observe assignment through
-/// <c>willSet</c>/<c>didSet</c>.
+///     A <c>var</c> member with accessors. Raven's accessor set is wider than C#'s:
+///     besides <c>get</c>/<c>set</c> a property may observe assignment through
+///     <c>willSet</c>/<c>didSet</c>.
 /// </summary>
 public abstract class PropertySymbol : Symbol {
     public override SymbolKind Kind => SymbolKind.Property;
@@ -22,6 +22,5 @@ public abstract class PropertySymbol : Symbol {
 
     public bool IsIndexer => Parameters.Count > 0;
 
-    public override string ToDisplayString() =>
-        ContainingType is { } type ? $"{type.ToDisplayString()}.{Name}" : Name;
+    public override string ToDisplayString() => ContainingType is { } type ? $"{type.ToDisplayString()}.{Name}" : Name;
 }

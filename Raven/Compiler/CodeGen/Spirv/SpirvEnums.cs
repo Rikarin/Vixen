@@ -86,8 +86,8 @@ public enum SpirvMemorySemantics {
 }
 
 /// <summary>
-/// The GLSL.std.450 extended instruction set, which is where most of the maths
-/// intrinsics live. Numbers are from the extended instruction spec.
+///     The GLSL.std.450 extended instruction set, which is where most of the maths
+///     intrinsics live. Numbers are from the extended instruction spec.
 /// </summary>
 public enum GlslStd450 {
     Round = 1,

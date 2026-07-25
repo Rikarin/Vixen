@@ -6,8 +6,8 @@ using Vixen.Raven.Symbols;
 namespace Vixen.Raven.Lowering;
 
 /// <summary>
-/// Expression lowering. Every expression becomes a sequence of instructions
-/// ending in one value; nothing stays implicit.
+///     Expression lowering. Every expression becomes a sequence of instructions
+///     ending in one value; nothing stays implicit.
 /// </summary>
 public sealed partial class Lowerer {
     /// <summary>Lowers an expression and returns the value it produces.</summary>
@@ -21,7 +21,9 @@ public sealed partial class Lowerer {
             case BoundConversionExpression conversion:
                 return LowerConversion(conversion, type);
 
-            case BoundLocalExpression or BoundParameterExpression or BoundFieldExpression
+            case BoundLocalExpression
+                or BoundParameterExpression
+                or BoundFieldExpression
                 or BoundArrayAccessExpression:
                 return LowerAccess(expression, type);
 
@@ -55,8 +57,7 @@ public sealed partial class Lowerer {
                 var condition = LowerExpression(conditional.Condition);
                 var whenTrue = LowerExpression(conditional.WhenTrue);
                 var whenFalse = LowerExpression(conditional.WhenFalse);
-                return Emit(
-                    result => new IrSelectInstruction(result, condition, whenTrue, whenFalse), type);
+                return Emit(result => new IrSelectInstruction(result, condition, whenTrue, whenFalse), type);
             }
 
             case BoundCollectionExpression collection: {
@@ -86,20 +87,21 @@ public sealed partial class Lowerer {
         LowerExpression(expression);
     }
 
-    static string Describe(BoundExpression expression) => expression switch {
-        BoundTupleExpression => "A tuple",
-        BoundRangeExpression => "A range outside a 'for' loop",
-        BoundIsPatternExpression => "An 'is' test",
-        BoundSwitchExpression => "A switch expression",
-        BoundTypeExpression => "A type used as a value",
-        _ => "This expression"
-    };
+    static string Describe(BoundExpression expression) =>
+        expression switch {
+            BoundTupleExpression => "A tuple",
+            BoundRangeExpression => "A range outside a 'for' loop",
+            BoundIsPatternExpression => "An 'is' test",
+            BoundSwitchExpression => "A switch expression",
+            BoundTypeExpression => "A type used as a value",
+            _ => "This expression"
+        };
 
     // --- Places and access -------------------------------------------------
 
     /// <summary>
-    /// The storage an expression designates, or null when it has none — the
-    /// result of a call, for instance.
+    ///     The storage an expression designates, or null when it has none — the
+    ///     result of a call, for instance.
     /// </summary>
     IrPlace? TryGetPlace(BoundExpression expression) {
         switch (expression) {
@@ -140,7 +142,7 @@ public sealed partial class Lowerer {
 
         // A shader's fields are globals; there is no receiver at runtime.
         if (globals.TryGetValue(field, out var global)) {
-            return new IrPlace(global);
+            return new(global);
         }
 
         if (field.ContainingType is not { } containing || !structs.TryGetValue(containing, out var structType)) {
@@ -155,7 +157,9 @@ public sealed partial class Lowerer {
         var basePlace = expression.Receiver is BoundSelfExpression && SelfPlace is { } self
             ? self
             // A constructor's field writes target the value it is building.
-            : expression.Receiver is { } receiver ? TryGetPlace(receiver) : SelfPlace;
+            : expression.Receiver is { } receiver
+                ? TryGetPlace(receiver)
+                : SelfPlace;
 
         return basePlace?.With(new IrFieldAccess(index));
     }
@@ -199,7 +203,9 @@ public sealed partial class Lowerer {
             && arrayReceiver.Type is ArrayTypeSymbol) {
             var array = LowerExpression(arrayReceiver);
             return Emit(
-                result => new IrIntrinsicInstruction(result, IrIntrinsic.ArrayLength, [array]), IrScalarType.Int);
+                result => new IrIntrinsicInstruction(result, IrIntrinsic.ArrayLength, [array]),
+                IrScalarType.Int
+            );
         }
 
         if (TryGetPlace(expression) is { } place) {
@@ -214,8 +220,10 @@ public sealed partial class Lowerer {
                 result => new IrExtractInstruction(
                     result,
                     LowerExpression(access.Receiver),
-                    [new IrIndexAccess(LowerExpression(access.Indices[0]))]),
-                type),
+                    [new IrIndexAccess(LowerExpression(access.Indices[0]))]
+                ),
+                type
+            ),
             _ => Constant(type, null)
         };
     }
@@ -253,8 +261,10 @@ public sealed partial class Lowerer {
 
         var kind = conversion.Conversion.Kind switch {
             ConversionKind.ImplicitSplat => IrConversionKind.Splat,
-            ConversionKind.ImplicitNumeric or ConversionKind.ExplicitNumeric
-                or ConversionKind.ImplicitConstant or ConversionKind.Identity => IrConversionKind.Numeric,
+            ConversionKind.ImplicitNumeric
+                or ConversionKind.ExplicitNumeric
+                or ConversionKind.ImplicitConstant
+                or ConversionKind.Identity => IrConversionKind.Numeric,
             _ => (IrConversionKind?)null
         };
 
@@ -285,8 +295,10 @@ public sealed partial class Lowerer {
             case UnaryOperatorKind.BitwiseNot:
                 return EmitUnary(IrUnaryOp.BitwiseNot, unary.Operand, type);
 
-            case UnaryOperatorKind.PreIncrement or UnaryOperatorKind.PreDecrement
-                or UnaryOperatorKind.PostIncrement or UnaryOperatorKind.PostDecrement:
+            case UnaryOperatorKind.PreIncrement
+                or UnaryOperatorKind.PreDecrement
+                or UnaryOperatorKind.PostIncrement
+                or UnaryOperatorKind.PostDecrement:
                 return LowerIncrement(unary, type);
 
             default:
@@ -313,9 +325,9 @@ public sealed partial class Lowerer {
         var current = Load(place);
         var one = Constant(type, 1);
         var updated = Emit(
-            result => new IrBinaryInstruction(
-                result, isIncrement ? IrBinaryOp.Add : IrBinaryOp.Subtract, current, one),
-            type);
+            result => new IrBinaryInstruction(result, isIncrement ? IrBinaryOp.Add : IrBinaryOp.Subtract, current, one),
+            type
+        );
 
         Emit(new IrStoreInstruction(place, updated));
         return isPrefix ? updated : current;
@@ -328,34 +340,35 @@ public sealed partial class Lowerer {
         // A product involving a matrix is a real matrix multiply, not
         // componentwise; the binder already checked the shapes line up.
         var op = binary.OperatorKind == BinaryOperatorKind.Multiply
-                 && (left.Type.Kind == IrTypeKind.Matrix || right.Type.Kind == IrTypeKind.Matrix)
-            ? IrBinaryOp.MatrixMultiply
-            : MapBinary(binary.OperatorKind);
+            && (left.Type.Kind == IrTypeKind.Matrix || right.Type.Kind == IrTypeKind.Matrix)
+                ? IrBinaryOp.MatrixMultiply
+                : MapBinary(binary.OperatorKind);
 
         return Emit(result => new IrBinaryInstruction(result, op, left, right), type);
     }
 
-    static IrBinaryOp MapBinary(BinaryOperatorKind kind) => kind switch {
-        BinaryOperatorKind.Add => IrBinaryOp.Add,
-        BinaryOperatorKind.Subtract => IrBinaryOp.Subtract,
-        BinaryOperatorKind.Multiply => IrBinaryOp.Multiply,
-        BinaryOperatorKind.Divide => IrBinaryOp.Divide,
-        BinaryOperatorKind.Modulo => IrBinaryOp.Modulo,
-        BinaryOperatorKind.LeftShift => IrBinaryOp.ShiftLeft,
-        BinaryOperatorKind.RightShift => IrBinaryOp.ShiftRight,
-        BinaryOperatorKind.UnsignedRightShift => IrBinaryOp.UnsignedShiftRight,
-        BinaryOperatorKind.BitwiseAnd => IrBinaryOp.BitwiseAnd,
-        BinaryOperatorKind.BitwiseOr => IrBinaryOp.BitwiseOr,
-        BinaryOperatorKind.BitwiseXor => IrBinaryOp.BitwiseXor,
-        BinaryOperatorKind.LogicalAnd => IrBinaryOp.LogicalAnd,
-        BinaryOperatorKind.LogicalOr => IrBinaryOp.LogicalOr,
-        BinaryOperatorKind.Equal => IrBinaryOp.Equal,
-        BinaryOperatorKind.NotEqual => IrBinaryOp.NotEqual,
-        BinaryOperatorKind.LessThan => IrBinaryOp.LessThan,
-        BinaryOperatorKind.LessThanOrEqual => IrBinaryOp.LessThanOrEqual,
-        BinaryOperatorKind.GreaterThan => IrBinaryOp.GreaterThan,
-        _ => IrBinaryOp.GreaterThanOrEqual
-    };
+    static IrBinaryOp MapBinary(BinaryOperatorKind kind) =>
+        kind switch {
+            BinaryOperatorKind.Add => IrBinaryOp.Add,
+            BinaryOperatorKind.Subtract => IrBinaryOp.Subtract,
+            BinaryOperatorKind.Multiply => IrBinaryOp.Multiply,
+            BinaryOperatorKind.Divide => IrBinaryOp.Divide,
+            BinaryOperatorKind.Modulo => IrBinaryOp.Modulo,
+            BinaryOperatorKind.LeftShift => IrBinaryOp.ShiftLeft,
+            BinaryOperatorKind.RightShift => IrBinaryOp.ShiftRight,
+            BinaryOperatorKind.UnsignedRightShift => IrBinaryOp.UnsignedShiftRight,
+            BinaryOperatorKind.BitwiseAnd => IrBinaryOp.BitwiseAnd,
+            BinaryOperatorKind.BitwiseOr => IrBinaryOp.BitwiseOr,
+            BinaryOperatorKind.BitwiseXor => IrBinaryOp.BitwiseXor,
+            BinaryOperatorKind.LogicalAnd => IrBinaryOp.LogicalAnd,
+            BinaryOperatorKind.LogicalOr => IrBinaryOp.LogicalOr,
+            BinaryOperatorKind.Equal => IrBinaryOp.Equal,
+            BinaryOperatorKind.NotEqual => IrBinaryOp.NotEqual,
+            BinaryOperatorKind.LessThan => IrBinaryOp.LessThan,
+            BinaryOperatorKind.LessThanOrEqual => IrBinaryOp.LessThanOrEqual,
+            BinaryOperatorKind.GreaterThan => IrBinaryOp.GreaterThan,
+            _ => IrBinaryOp.GreaterThanOrEqual
+        };
 
     // --- Assignment --------------------------------------------------------
 
@@ -379,8 +392,7 @@ public sealed partial class Lowerer {
             var current = Load(place);
             var operand = LowerExpression(assignment.Value);
             value = Emit(result => new IrBinaryInstruction(result, MapBinary(op), current, operand), type);
-        }
-        else {
+        } else {
             value = LowerExpression(assignment.Value);
         }
 
@@ -403,8 +415,8 @@ public sealed partial class Lowerer {
             value = Emit(result => new IrBinaryInstruction(result, MapBinary(op), current, value), type);
         }
 
-        var arguments = BuildArguments(property.Receiver, property.Property, [..property.Arguments]);
-        Emit(new IrCallInstruction(null, setter, [..arguments, value]));
+        var arguments = BuildArguments(property.Receiver, property.Property, [.. property.Arguments]);
+        Emit(new IrCallInstruction(null, setter, [.. arguments, value]));
         return value;
     }
 
@@ -414,7 +426,7 @@ public sealed partial class Lowerer {
             return Constant(type, null);
         }
 
-        var arguments = BuildArguments(property.Receiver, property.Property, [..property.Arguments]);
+        var arguments = BuildArguments(property.Receiver, property.Property, [.. property.Arguments]);
         return Emit(result => new IrCallInstruction(result, getter, arguments), getter.ReturnType);
     }
 
@@ -456,13 +468,14 @@ public sealed partial class Lowerer {
             : null;
 
         var lowered = invocation.Arguments.Select(LowerExpression);
-        var arguments = receiver is null ? lowered.ToArray() : [receiver, ..lowered];
+        var arguments = receiver is null ? lowered.ToArray() : [receiver, .. lowered];
 
         // `mul` is a matrix product, which the IR expresses as an operator.
         if (method.Name == "mul" && arguments.Length == 2) {
             return Emit(
                 result => new IrBinaryInstruction(result, IrBinaryOp.MatrixMultiply, arguments[0], arguments[1]),
-                type);
+                type
+            );
         }
 
         if (MapIntrinsic(method.Name) is not { } intrinsic) {
@@ -473,58 +486,59 @@ public sealed partial class Lowerer {
         return Emit(result => new IrIntrinsicInstruction(result, intrinsic, arguments), type);
     }
 
-    static IrIntrinsic? MapIntrinsic(string name) => name switch {
-        "abs" => IrIntrinsic.Abs,
-        "sign" => IrIntrinsic.Sign,
-        "floor" => IrIntrinsic.Floor,
-        "ceil" => IrIntrinsic.Ceil,
-        "round" => IrIntrinsic.Round,
-        "trunc" => IrIntrinsic.Truncate,
-        "frac" => IrIntrinsic.Fract,
-        "saturate" => IrIntrinsic.Saturate,
-        "sqrt" => IrIntrinsic.Sqrt,
-        "rsqrt" => IrIntrinsic.InverseSqrt,
-        "exp" => IrIntrinsic.Exp,
-        "exp2" => IrIntrinsic.Exp2,
-        "log" => IrIntrinsic.Log,
-        "log2" => IrIntrinsic.Log2,
-        "sin" => IrIntrinsic.Sin,
-        "cos" => IrIntrinsic.Cos,
-        "tan" => IrIntrinsic.Tan,
-        "asin" => IrIntrinsic.Asin,
-        "acos" => IrIntrinsic.Acos,
-        "atan" => IrIntrinsic.Atan,
-        "atan2" => IrIntrinsic.Atan2,
-        "radians" => IrIntrinsic.Radians,
-        "degrees" => IrIntrinsic.Degrees,
-        "ddx" => IrIntrinsic.DdX,
-        "ddy" => IrIntrinsic.DdY,
-        "min" => IrIntrinsic.Min,
-        "max" => IrIntrinsic.Max,
-        "pow" => IrIntrinsic.Pow,
-        "mod" => IrIntrinsic.Mod,
-        "step" => IrIntrinsic.Step,
-        "clamp" => IrIntrinsic.Clamp,
-        "lerp" or "mix" => IrIntrinsic.Lerp,
-        "smoothstep" => IrIntrinsic.SmoothStep,
-        "length" => IrIntrinsic.Length,
-        "distance" => IrIntrinsic.Distance,
-        "dot" => IrIntrinsic.Dot,
-        "cross" => IrIntrinsic.Cross,
-        "normalize" => IrIntrinsic.Normalize,
-        "reflect" => IrIntrinsic.Reflect,
-        "refract" => IrIntrinsic.Refract,
-        "transpose" => IrIntrinsic.Transpose,
-        "all" => IrIntrinsic.All,
-        "any" => IrIntrinsic.Any,
-        "Sample" => IrIntrinsic.SampleTexture,
-        "Load" => IrIntrinsic.LoadTexture,
-        _ => null
-    };
+    static IrIntrinsic? MapIntrinsic(string name) =>
+        name switch {
+            "abs" => IrIntrinsic.Abs,
+            "sign" => IrIntrinsic.Sign,
+            "floor" => IrIntrinsic.Floor,
+            "ceil" => IrIntrinsic.Ceil,
+            "round" => IrIntrinsic.Round,
+            "trunc" => IrIntrinsic.Truncate,
+            "frac" => IrIntrinsic.Fract,
+            "saturate" => IrIntrinsic.Saturate,
+            "sqrt" => IrIntrinsic.Sqrt,
+            "rsqrt" => IrIntrinsic.InverseSqrt,
+            "exp" => IrIntrinsic.Exp,
+            "exp2" => IrIntrinsic.Exp2,
+            "log" => IrIntrinsic.Log,
+            "log2" => IrIntrinsic.Log2,
+            "sin" => IrIntrinsic.Sin,
+            "cos" => IrIntrinsic.Cos,
+            "tan" => IrIntrinsic.Tan,
+            "asin" => IrIntrinsic.Asin,
+            "acos" => IrIntrinsic.Acos,
+            "atan" => IrIntrinsic.Atan,
+            "atan2" => IrIntrinsic.Atan2,
+            "radians" => IrIntrinsic.Radians,
+            "degrees" => IrIntrinsic.Degrees,
+            "ddx" => IrIntrinsic.DdX,
+            "ddy" => IrIntrinsic.DdY,
+            "min" => IrIntrinsic.Min,
+            "max" => IrIntrinsic.Max,
+            "pow" => IrIntrinsic.Pow,
+            "mod" => IrIntrinsic.Mod,
+            "step" => IrIntrinsic.Step,
+            "clamp" => IrIntrinsic.Clamp,
+            "lerp" or "mix" => IrIntrinsic.Lerp,
+            "smoothstep" => IrIntrinsic.SmoothStep,
+            "length" => IrIntrinsic.Length,
+            "distance" => IrIntrinsic.Distance,
+            "dot" => IrIntrinsic.Dot,
+            "cross" => IrIntrinsic.Cross,
+            "normalize" => IrIntrinsic.Normalize,
+            "reflect" => IrIntrinsic.Reflect,
+            "refract" => IrIntrinsic.Refract,
+            "transpose" => IrIntrinsic.Transpose,
+            "all" => IrIntrinsic.All,
+            "any" => IrIntrinsic.Any,
+            "Sample" => IrIntrinsic.SampleTexture,
+            "Load" => IrIntrinsic.LoadTexture,
+            _ => null
+        };
 
     /// <summary>
-    /// Builds a call's argument list, prepending the receiver for a member of a
-    /// struct. A shader's members take no receiver: their state is global.
+    ///     Builds a call's argument list, prepending the receiver for a member of a
+    ///     struct. A shader's members take no receiver: their state is global.
     /// </summary>
     IrValue[] BuildArguments(BoundExpression? receiver, Symbol member, IReadOnlyList<BoundExpression> arguments) {
         var lowered = arguments.Select(LowerExpression).ToArray();
@@ -540,7 +554,7 @@ public sealed partial class Lowerer {
             _ => null
         };
 
-        return self is null ? lowered : [self, ..lowered];
+        return self is null ? lowered : [self, .. lowered];
     }
 
     // --- Construction ------------------------------------------------------
@@ -601,8 +615,7 @@ public sealed partial class Lowerer {
                 IrTypeKind.Vector or IrTypeKind.Matrix => Coerce(value, type.ComponentType),
                 _ => value
             };
-        }
-        catch (Exception exception) when (exception is FormatException or InvalidCastException or OverflowException) {
+        } catch (Exception exception) when (exception is FormatException or InvalidCastException or OverflowException) {
             return value;
         }
     }

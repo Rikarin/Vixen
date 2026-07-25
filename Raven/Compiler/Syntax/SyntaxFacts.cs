@@ -1,14 +1,14 @@
 namespace Vixen.Raven.Syntax;
 
 /// <summary>
-/// Static facts about syntax kinds. Currently the canonical source text of
-/// fixed-text tokens (keywords, punctuation) used when a token is synthesized
-/// without an originating source token.
+///     Static facts about syntax kinds. Currently the canonical source text of
+///     fixed-text tokens (keywords, punctuation) used when a token is synthesized
+///     without an originating source token.
 /// </summary>
 public static class SyntaxFacts {
     /// <summary>
-    /// Canonical text for a fixed-text token kind, or empty string if the kind
-    /// has no fixed text (identifiers, literals, end-of-file).
+    ///     Canonical text for a fixed-text token kind, or empty string if the kind
+    ///     has no fixed text (identifiers, literals, end-of-file).
     /// </summary>
     public static string GetText(SyntaxKind kind) =>
         kind switch {

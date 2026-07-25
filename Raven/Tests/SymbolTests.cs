@@ -1,3 +1,5 @@
+using Vixen.Raven;
+using Vixen.Raven.Binding;
 using Vixen.Raven.Symbols;
 using Vixen.Raven.Syntax;
 using Xunit;
@@ -9,12 +11,14 @@ namespace Tests;
 public class SymbolTests {
     [Fact]
     public void Package_directive_creates_a_namespace_chain() {
-        var compilation = AssertNoDiagnostics("""
+        var compilation = AssertNoDiagnostics(
+            """
             package Vixen.Test.Deep
 
             shader Empty { }
 
-            """);
+            """
+        );
 
         var vixen = compilation.GlobalNamespace.GetNamespace("Vixen");
         Assert.NotNull(vixen);
@@ -30,7 +34,8 @@ public class SymbolTests {
 
     [Fact]
     public void Type_declarations_get_their_declared_kind() {
-        var compilation = AssertNoDiagnostics("""
+        var compilation = AssertNoDiagnostics(
+            """
             package A
 
             shader S { }
@@ -46,7 +51,8 @@ public class SymbolTests {
                 Two
             }
 
-            """);
+            """
+        );
 
         Assert.Equal(TypeKind.Shader, FindType(compilation, "S").TypeKind);
         Assert.Equal(TypeKind.Struct, FindType(compilation, "T").TypeKind);
@@ -57,7 +63,8 @@ public class SymbolTests {
 
     [Fact]
     public void Base_list_separates_the_base_type_from_protocols() {
-        var compilation = AssertNoDiagnostics("""
+        var compilation = AssertNoDiagnostics(
+            """
             package A
 
             protocol Drawable { }
@@ -66,7 +73,8 @@ public class SymbolTests {
 
             class Derived : Base, Drawable { }
 
-            """);
+            """
+        );
 
         var derived = FindType(compilation, "Derived");
         Assert.Equal("Base", derived.BaseType?.Name);
@@ -76,16 +84,16 @@ public class SymbolTests {
     [Fact]
     public void Protocol_members_declare_a_signature_without_a_body() {
         const string Source = """
-            package A
+                              package A
 
-            protocol Vehicle {
-                var Tint: float4
+                              protocol Vehicle {
+                                  var Tint: float4
 
-                func Start()
-                func Describe(): float3
-            }
+                                  func Start()
+                                  func Describe(): float3
+                              }
 
-            """;
+                              """;
 
         var (compilation, tree, _) = Compile(Source);
         Assert.Empty(compilation.GetDiagnostics());
@@ -105,7 +113,8 @@ public class SymbolTests {
 
     [Fact]
     public void Inherited_members_are_reachable_through_the_base_chain() {
-        var compilation = AssertNoDiagnostics("""
+        var compilation = AssertNoDiagnostics(
+            """
             package A
 
             class Base {
@@ -114,14 +123,14 @@ public class SymbolTests {
 
             class Derived : Base { }
 
-            """);
+            """
+        );
 
         var derived = FindType(compilation, "Derived");
 
         Assert.Empty(derived.GetMembers("count"));
 
-        var inherited = Assert.IsAssignableFrom<FieldSymbol>(
-            Assert.Single(Vixen.Raven.Binding.Binder.LookupMembers(derived, "count")));
+        var inherited = Assert.IsAssignableFrom<FieldSymbol>(Assert.Single(Binder.LookupMembers(derived, "count")));
 
         Assert.Equal("int", inherited.Type.ToDisplayString());
         Assert.Equal("Base", inherited.ContainingType?.Name);
@@ -129,7 +138,8 @@ public class SymbolTests {
 
     [Fact]
     public void Fields_carry_their_type_mutability_and_constant_value() {
-        var compilation = AssertNoDiagnostics("""
+        var compilation = AssertNoDiagnostics(
+            """
             package A
 
             shader S {
@@ -138,7 +148,8 @@ public class SymbolTests {
                 var mutable: int
             }
 
-            """);
+            """
+        );
 
         var shader = FindType(compilation, "S");
 
@@ -155,7 +166,8 @@ public class SymbolTests {
 
     [Fact]
     public void Method_signatures_resolve_parameters_and_return_type() {
-        var compilation = AssertNoDiagnostics("""
+        var compilation = AssertNoDiagnostics(
+            """
             package A
 
             shader S {
@@ -164,7 +176,8 @@ public class SymbolTests {
                 }
             }
 
-            """);
+            """
+        );
 
         var method = GetMember<MethodSymbol>(FindType(compilation, "S"), "Blend");
 
@@ -178,28 +191,32 @@ public class SymbolTests {
 
     [Fact]
     public void Expression_bodied_method_infers_its_return_type() {
-        var compilation = AssertNoDiagnostics("""
+        var compilation = AssertNoDiagnostics(
+            """
             package A
 
             shader S {
                 func Answer() => 42
             }
 
-            """);
+            """
+        );
 
         Assert.Equal("int", GetMember<MethodSymbol>(FindType(compilation, "S"), "Answer").ReturnType.ToDisplayString());
     }
 
     [Fact]
     public void Constructors_are_methods_named_ctor() {
-        var compilation = AssertNoDiagnostics("""
+        var compilation = AssertNoDiagnostics(
+            """
             package A
 
             class C {
                 init(value: int) { }
             }
 
-            """);
+            """
+        );
 
         var constructor = Assert.Single(FindType(compilation, "C").Constructors);
         Assert.Equal(MethodKind.Constructor, constructor.MethodKind);
@@ -209,7 +226,8 @@ public class SymbolTests {
 
     [Fact]
     public void Properties_report_their_accessors() {
-        var compilation = AssertNoDiagnostics("""
+        var compilation = AssertNoDiagnostics(
+            """
             package A
 
             shader S {
@@ -225,7 +243,8 @@ public class SymbolTests {
                 }
             }
 
-            """);
+            """
+        );
 
         var shader = FindType(compilation, "S");
 
@@ -240,7 +259,8 @@ public class SymbolTests {
 
     [Fact]
     public void Enum_members_are_constants_of_the_enum_type() {
-        var compilation = AssertNoDiagnostics("""
+        var compilation = AssertNoDiagnostics(
+            """
             package A
 
             enum Mode {
@@ -249,7 +269,8 @@ public class SymbolTests {
                 Auto
             }
 
-            """);
+            """
+        );
 
         var mode = FindType(compilation, "Mode");
 
@@ -261,7 +282,8 @@ public class SymbolTests {
 
     [Fact]
     public void Nested_types_belong_to_their_container() {
-        var compilation = AssertNoDiagnostics("""
+        var compilation = AssertNoDiagnostics(
+            """
             package A
 
             shader Outer {
@@ -270,7 +292,8 @@ public class SymbolTests {
                 }
             }
 
-            """);
+            """
+        );
 
         var inner = FindType(compilation, "Inner");
         Assert.Equal("Outer", inner.ContainingType?.Name);
@@ -279,7 +302,8 @@ public class SymbolTests {
 
     [Fact]
     public void Generic_types_expose_parameters_and_substitute_on_construction() {
-        var compilation = AssertNoDiagnostics("""
+        var compilation = AssertNoDiagnostics(
+            """
             package A
 
             class Box<T> {
@@ -294,7 +318,8 @@ public class SymbolTests {
                 val boxed: Box<int>
             }
 
-            """);
+            """
+        );
 
         var box = FindType(compilation, "Box");
         Assert.Equal(1, box.Arity);
@@ -305,12 +330,16 @@ public class SymbolTests {
 
         var constructed = Assert.IsType<ConstructedNamedTypeSymbol>(boxed);
         Assert.Equal("int", Assert.Single(constructed.GetMembers("value")).As<FieldSymbol>().Type.ToDisplayString());
-        Assert.Equal("int", Assert.Single(constructed.GetMembers("Get")).As<MethodSymbol>().ReturnType.ToDisplayString());
+        Assert.Equal(
+            "int",
+            Assert.Single(constructed.GetMembers("Get")).As<MethodSymbol>().ReturnType.ToDisplayString()
+        );
     }
 
     [Fact]
     public void Type_parameter_constraints_are_resolved() {
-        var compilation = AssertNoDiagnostics("""
+        var compilation = AssertNoDiagnostics(
+            """
             package A
 
             protocol Drawable {
@@ -321,7 +350,8 @@ public class SymbolTests {
                 val item: T
             }
 
-            """);
+            """
+        );
 
         var parameter = Assert.Single(FindType(compilation, "Renderer").TypeParameters);
         Assert.Equal("Drawable", Assert.Single(parameter.ConstraintTypes).ToDisplayString().Split('.').Last());
@@ -329,7 +359,8 @@ public class SymbolTests {
 
     [Fact]
     public void Modifiers_map_to_accessibility_and_staticness() {
-        var compilation = AssertNoDiagnostics("""
+        var compilation = AssertNoDiagnostics(
+            """
             package A
 
             shader S {
@@ -339,7 +370,8 @@ public class SymbolTests {
                 abstract func Later() { }
             }
 
-            """);
+            """
+        );
 
         var shader = FindType(compilation, "S");
 
@@ -351,16 +383,20 @@ public class SymbolTests {
 
     [Fact]
     public void Imports_bring_another_package_into_scope() {
-        var libraryTree = SyntaxTree.ParseText("""
+        var libraryTree = SyntaxTree.ParseText(
+            """
             package Vixen.Core
 
             struct Ray {
                 val origin: float3
             }
 
-            """, path: "Library.rvn");
+            """,
+            path: "Library.rvn"
+        );
 
-        var shaderTree = SyntaxTree.ParseText("""
+        var shaderTree = SyntaxTree.ParseText(
+            """
             package Vixen.App
 
             import Vixen.Core
@@ -369,9 +405,11 @@ public class SymbolTests {
                 val ray: Ray
             }
 
-            """, path: "Shader.rvn");
+            """,
+            path: "Shader.rvn"
+        );
 
-        var compilation = Vixen.Raven.Compilation.Create("Test", libraryTree, shaderTree);
+        var compilation = Compilation.Create("Test", libraryTree, shaderTree);
         Assert.Empty(compilation.GetDiagnostics());
 
         var field = GetMember<FieldSymbol>(FindType(compilation, "S"), "ray");

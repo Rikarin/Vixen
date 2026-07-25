@@ -10,13 +10,6 @@ public sealed class SourceParameterSymbol : ParameterSymbol {
     readonly ParameterSyntax syntax;
     TypeSymbol? type;
 
-    internal SourceParameterSymbol(Symbol container, ParameterSyntax syntax, int ordinal, Binder binder) {
-        ContainingSymbol = container;
-        this.syntax = syntax;
-        this.binder = binder;
-        Ordinal = ordinal;
-    }
-
     public override string Name => syntax.Identifier.ValueText;
     public override Symbol? ContainingSymbol { get; }
     public override int Ordinal { get; }
@@ -30,6 +23,13 @@ public sealed class SourceParameterSymbol : ParameterSymbol {
 
     public override string? SemanticName => DeclarationFacts.GetSemanticName(syntax.AttributeLists);
 
+    internal SourceParameterSymbol(Symbol container, ParameterSyntax syntax, int ordinal, Binder binder) {
+        ContainingSymbol = container;
+        this.syntax = syntax;
+        this.binder = binder;
+        Ordinal = ordinal;
+    }
+
     TypeSymbol ResolveType() {
         if (syntax.Type is { } annotation) {
             return binder.BindType(annotation);
@@ -41,8 +41,7 @@ public sealed class SourceParameterSymbol : ParameterSymbol {
             return binder.InferType(@default);
         }
 
-        binder.Diagnostics.Add(
-            SemanticDiagnostics.MissingTypeOrInitializer, syntax.Identifier.GetLocation(), Name);
+        binder.Diagnostics.Add(SemanticDiagnostics.MissingTypeOrInitializer, syntax.Identifier.GetLocation(), Name);
         return ErrorTypeSymbol.Instance;
     }
 }

@@ -7,21 +7,21 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Lowering;
 
 /// <summary>
-/// Lowers a bound compilation to the target-independent <see cref="IrModule"/>.
+///     Lowers a bound compilation to the target-independent <see cref="IrModule" />.
 /// </summary>
 /// <remarks>
-/// <para>
-/// The three jobs here are erasure, explicitness and desugaring. Erasure: a
-/// shader's fields have no runtime object, so <c>self.scale</c> becomes a global
-/// binding and <c>self</c> disappears. Explicitness: every conversion, every
-/// load and every store is its own instruction. Desugaring: <c>for</c> loops,
-/// compound assignment and <c>++</c> become plain loops, loads and stores.
-/// </para>
-/// <para>
-/// Lowering assumes the compilation bound cleanly. Anything the binder already
-/// reported flows in as <see cref="ErrorTypeSymbol"/> and is passed over
-/// silently rather than reported twice.
-/// </para>
+///     <para>
+///         The three jobs here are erasure, explicitness and desugaring. Erasure: a
+///         shader's fields have no runtime object, so <c>self.scale</c> becomes a global
+///         binding and <c>self</c> disappears. Explicitness: every conversion, every
+///         load and every store is its own instruction. Desugaring: <c>for</c> loops,
+///         compound assignment and <c>++</c> become plain loops, loads and stores.
+///     </para>
+///     <para>
+///         Lowering assumes the compilation bound cleanly. Anything the binder already
+///         reported flows in as <see cref="ErrorTypeSymbol" /> and is passed over
+///         silently rather than reported twice.
+///     </para>
 /// </remarks>
 public sealed partial class Lowerer {
     readonly Dictionary<Symbol, List<BoundBody>> bodies = [];
@@ -40,10 +40,23 @@ public sealed partial class Lowerer {
     readonly Dictionary<Symbol, IrVariable> variables = [];
     readonly Dictionary<(Symbol Member, BoundBodyKind Kind), IrFunction> functions = [];
 
+    /// <summary>The receiver's storage, whether it arrived as a parameter or is being built.</summary>
+    IrPlace? SelfPlace =>
+        selfParameter is not null ? new(selfParameter)
+        : selfLocal is not null ? new IrPlace(selfLocal)
+        : null;
+
+    /// <summary>True while lowering a constructor that returns the value it builds.</summary>
+    bool IsConstructingSelf => selfLocal is not null;
+
+    // --- Emission helpers --------------------------------------------------
+
+    IrFunction Function => currentFunction!;
+
     Lowerer(Compilation compilation, DiagnosticBag diagnostics) {
         this.compilation = compilation;
         this.diagnostics = diagnostics;
-        module = new IrModule(compilation.AssemblyName);
+        module = new(compilation.AssemblyName);
     }
 
     /// <summary>Lowers every shader and type in the compilation.</summary>
@@ -60,7 +73,7 @@ public sealed partial class Lowerer {
         foreach (var type in types) {
             switch (type.TypeKind) {
                 case TypeKind.Struct or TypeKind.Class:
-                    structs[type] = new IrStructType(type.Name);
+                    structs[type] = new(type.Name);
                     break;
             }
         }
@@ -135,8 +148,8 @@ public sealed partial class Lowerer {
         LowerBindingInitializers(type, shader);
 
         foreach (var member in type.GetMembers()) {
-            if (member is MethodSymbol { Stage: not ShaderStage.None } method &&
-                functions.TryGetValue((method, BoundBodyKind.Method), out var function)) {
+            if (member is MethodSymbol { Stage: not ShaderStage.None } method
+                && functions.TryGetValue((method, BoundBodyKind.Method), out var function)) {
                 shader.Add(BuildEntryPoint(method, function));
             }
         }
@@ -151,17 +164,17 @@ public sealed partial class Lowerer {
             ? null
             : new IrStageIo("result", function.ReturnType, method.SemanticName);
 
-        return new IrEntryPoint(method.Stage, function, inputs, output);
+        return new(method.Stage, function, inputs, output);
     }
 
     /// <summary>
-    /// Emits the stores that give bindings their declared defaults, as one block
-    /// a backend can run before the first stage invocation.
+    ///     Emits the stores that give bindings their declared defaults, as one block
+    ///     a backend can run before the first stage invocation.
     /// </summary>
     void LowerBindingInitializers(NamedTypeSymbol type, IrShader shader) {
         var initializer = new IrFunction($"{type.Name}.<init>", IrScalarType.Void);
 
-        BeginFunction(initializer, type, selfType: null);
+        BeginFunction(initializer, type, null);
 
         foreach (var member in type.GetMembers()) {
             if (member is not FieldSymbol { IsConst: false } field
@@ -176,7 +189,7 @@ public sealed partial class Lowerer {
             }
 
             var value = LowerExpression(expression);
-            Emit(new IrStoreInstruction(new IrPlace(variable), value));
+            Emit(new IrStoreInstruction(new(variable), value));
         }
 
         EndFunction();
@@ -199,7 +212,7 @@ public sealed partial class Lowerer {
 
             var irType = LowerType(field.Type, field.DeclaringSyntax);
             if (!irType.IsVoid) {
-                fields.Add(new IrField(field.Name, irType));
+                fields.Add(new(field.Name, irType));
             }
         }
 
@@ -211,8 +224,8 @@ public sealed partial class Lowerer {
     // --- Functions ---------------------------------------------------------
 
     /// <summary>
-    /// Creates and fills a function for every method and property accessor of a
-    /// type, handing each finished function to <paramref name="add"/>.
+    ///     Creates and fills a function for every method and property accessor of a
+    ///     type, handing each finished function to <paramref name="add" />.
     /// </summary>
     void LowerMemberFunctions(NamedTypeSymbol type, Action<IrFunction> add) {
         // A struct's methods take the receiver explicitly; a shader's do not,
@@ -228,7 +241,8 @@ public sealed partial class Lowerer {
                         diagnostics.Add(
                             LoweringDiagnostics.MissingBody,
                             LocationOf(method.DeclaringSyntax),
-                            method.ToDisplayString());
+                            method.ToDisplayString()
+                        );
                         continue;
                     }
 
@@ -241,7 +255,8 @@ public sealed partial class Lowerer {
                     diagnostics.Add(
                         LoweringDiagnostics.ConstructNotSupported,
                         LocationOf(method.DeclaringSyntax),
-                        $"A {Describe(method.MethodKind)} declaration");
+                        $"A {Describe(method.MethodKind)} declaration"
+                    );
                     break;
 
                 case PropertySymbol property: {
@@ -307,8 +322,7 @@ public sealed partial class Lowerer {
 
         if (constructsSelf) {
             selfLocal = function.AddLocal("self", selfType);
-        }
-        else {
+        } else {
             selfParameter = function.AddParameter("self", selfType);
         }
     }
@@ -321,15 +335,6 @@ public sealed partial class Lowerer {
         variables.Clear();
     }
 
-    /// <summary>The receiver's storage, whether it arrived as a parameter or is being built.</summary>
-    IrPlace? SelfPlace =>
-        selfParameter is not null ? new IrPlace(selfParameter)
-        : selfLocal is not null ? new IrPlace(selfLocal)
-        : null;
-
-    /// <summary>True while lowering a constructor that returns the value it builds.</summary>
-    bool IsConstructingSelf => selfLocal is not null;
-
     static string Unique(HashSet<string> used, string name) {
         var candidate = name;
         var suffix = 1;
@@ -340,17 +345,14 @@ public sealed partial class Lowerer {
         return candidate;
     }
 
-    static string Describe(MethodKind kind) => kind switch {
-        MethodKind.Destructor => "destructor",
-        MethodKind.Operator => "user-defined operator",
-        MethodKind.Conversion => "conversion operator",
-        MethodKind.LocalFunction => "local function",
-        _ => "member"
-    };
-
-    // --- Emission helpers --------------------------------------------------
-
-    IrFunction Function => currentFunction!;
+    static string Describe(MethodKind kind) =>
+        kind switch {
+            MethodKind.Destructor => "destructor",
+            MethodKind.Operator => "user-defined operator",
+            MethodKind.Conversion => "conversion operator",
+            MethodKind.LocalFunction => "local function",
+            _ => "member"
+        };
 
     void Emit(IrStatement statement) => currentBlock.Add(statement);
 
@@ -361,7 +363,7 @@ public sealed partial class Lowerer {
         return result;
     }
 
-    /// <summary>Collects everything <paramref name="body"/> emits into a fresh block.</summary>
+    /// <summary>Collects everything <paramref name="body" /> emits into a fresh block.</summary>
     IrBlock EmitInto(Action body) {
         var previous = currentBlock;
         var block = new IrBlock();
@@ -369,8 +371,7 @@ public sealed partial class Lowerer {
 
         try {
             body();
-        }
-        finally {
+        } finally {
             currentBlock = previous;
         }
 

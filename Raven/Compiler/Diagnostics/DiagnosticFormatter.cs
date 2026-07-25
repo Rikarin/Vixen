@@ -2,14 +2,14 @@ using System.Text;
 
 namespace Vixen.Raven.Diagnostics;
 
-/// <summary>Knobs for <see cref="DiagnosticFormatter"/>.</summary>
+/// <summary>Knobs for <see cref="DiagnosticFormatter" />.</summary>
 public sealed record DiagnosticFormatterOptions {
     /// <summary>The plain one-line form, with no source excerpt and no colour.</summary>
     public static readonly DiagnosticFormatterOptions Plain = new() { ShowSource = false };
 
     /// <summary>
-    /// Show the offending source line with a caret under the span. Only possible
-    /// when the location is backed by its <see cref="Text.SourceText"/>.
+    ///     Show the offending source line with a caret under the span. Only possible
+    ///     when the location is backed by its <see cref="Text.SourceText" />.
     /// </summary>
     public bool ShowSource { get; init; } = true;
 
@@ -18,13 +18,12 @@ public sealed record DiagnosticFormatterOptions {
 }
 
 /// <summary>
-/// Renders a <see cref="Diagnostic"/> for a human: the Roslyn-style
-/// <c>path(line,col): severity ID: message</c> header, and under it the source
-/// line with the span underlined.
-///
-/// <code>
+///     Renders a <see cref="Diagnostic" /> for a human: the Roslyn-style
+///     <c>path(line,col): severity ID: message</c> header, and under it the source
+///     line with the span underlined.
+///     <code>
 /// Shader.rvn(6,16): error RVN2003: The name 'nrmalize' could not be found
-///
+/// 
 ///   6 |     return nrmalize(v)
 ///     |            ^^^^^^^^
 /// </code>
@@ -41,7 +40,7 @@ public static class DiagnosticFormatter {
 
     /// <summary>Formats a run of diagnostics, one blank line between them.</summary>
     public static string Format(IEnumerable<Diagnostic> diagnostics, DiagnosticFormatterOptions? options = null) {
-        options ??= new DiagnosticFormatterOptions();
+        options ??= new();
 
         var builder = new StringBuilder();
         var first = true;
@@ -113,15 +112,16 @@ public static class DiagnosticFormatter {
         builder
             .Append(Colored($"  {gutter} | ", Dim, options))
             .Append(padding)
-            .AppendLine(Colored(new string('^', width), Color(diagnostic.Severity), options));
+            .AppendLine(Colored(new('^', width), Color(diagnostic.Severity), options));
     }
 
-    static string Color(DiagnosticSeverity severity) => severity switch {
-        DiagnosticSeverity.Error => "\u001b[31m",
-        DiagnosticSeverity.Warning => "\u001b[33m",
-        DiagnosticSeverity.Info => "\u001b[36m",
-        _ => Dim
-    };
+    static string Color(DiagnosticSeverity severity) =>
+        severity switch {
+            DiagnosticSeverity.Error => "\u001b[31m",
+            DiagnosticSeverity.Warning => "\u001b[33m",
+            DiagnosticSeverity.Info => "\u001b[36m",
+            _ => Dim
+        };
 
     static string Colored(string value, string color, DiagnosticFormatterOptions options) =>
         options.UseColor ? color + value + Reset : value;

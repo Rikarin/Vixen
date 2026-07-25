@@ -4,9 +4,9 @@ using Xunit;
 namespace Tests;
 
 /// <summary>
-/// Full-fidelity round-trip: <see cref="SyntaxNode.ToFullString"/> must reproduce
-/// the original source byte-for-byte (text + all trivia, including whitespace,
-/// comments, and newlines) for the fully-wired subset of the grammar.
+///     Full-fidelity round-trip: <see cref="SyntaxNode.ToFullString" /> must reproduce
+///     the original source byte-for-byte (text + all trivia, including whitespace,
+///     comments, and newlines) for the fully-wired subset of the grammar.
 /// </summary>
 public class RoundTripTests {
     [Theory]
@@ -30,7 +30,9 @@ public class RoundTripTests {
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        a.b(x, y)\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        x = 1 + 2\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val y = a < 42\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        if (a) {\n        } else {\n        }\n    }\n}\n")]
+    [InlineData(
+        "package A.B\n\nshader Foo {\n    func M() {\n        if (a) {\n        } else {\n        }\n    }\n}\n"
+    )]
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val z = (a + b)\n    }\n}\n")]
     // Separated lists (commas)
     [InlineData("package A.B\n\nshader S : X, Y {\n\n}\n")]
@@ -47,7 +49,9 @@ public class RoundTripTests {
     // Inline parameter attributes (no newline after the attribute list)
     [InlineData("package A.B\n\nshader Foo {\n    func Pixel([Semantic(\"TEXCOORD0\")] uv: float2) {\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func Pixel([A] [B] uv: float2) {\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func Vertex([Semantic(\"POSITION\")] p: float3, [Semantic(\"NORMAL\")] n: float3) {\n    }\n}\n")]
+    [InlineData(
+        "package A.B\n\nshader Foo {\n    func Vertex([Semantic(\"POSITION\")] p: float3, [Semantic(\"NORMAL\")] n: float3) {\n    }\n}\n"
+    )]
     [InlineData("package A.B\n\nenum E {\n    A, B, C\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    init() {\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    init(x: int) => bar\n}\n")]
@@ -72,7 +76,9 @@ public class RoundTripTests {
     // String literals
     [InlineData("package A.B\n\nshader Foo {\n    val name = \"hello\"\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val s = \"a b c\"\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        print(\"escaped: \\n \\t \\\" done\")\n    }\n}\n")]
+    [InlineData(
+        "package A.B\n\nshader Foo {\n    func M() {\n        print(\"escaped: \\n \\t \\\" done\")\n    }\n}\n"
+    )]
     [InlineData("package A.B\n\nshader Foo {\n    val empty = \"\"\n}\n")]
     // Destructor
     [InlineData("package A.B\n\nshader Foo {\n    ~init() {\n    }\n}\n")]
@@ -95,8 +101,12 @@ public class RoundTripTests {
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val b = x is _\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val b = x is (5)\n    }\n}\n")]
     // switch expression
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val r = x switch {\n            1 => a,\n            _ => b\n        }\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val r = x switch {\n            > 0 when a => b,\n            _ => c\n        }\n    }\n}\n")]
+    [InlineData(
+        "package A.B\n\nshader Foo {\n    func M() {\n        val r = x switch {\n            1 => a,\n            _ => b\n        }\n    }\n}\n"
+    )]
+    [InlineData(
+        "package A.B\n\nshader Foo {\n    func M() {\n        val r = x switch {\n            > 0 when a => b,\n            _ => c\n        }\n    }\n}\n"
+    )]
     // Generics
     [InlineData("package A.B\n\nshader Foo {\n    val items: List<int>\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    val m: Map<int, float>\n}\n")]
@@ -135,7 +145,8 @@ public class RoundTripTests {
     [Fact]
     public void Fixture_round_trips() {
         var source = File.ReadAllText(
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Fixtures", "package_imports.rvn"));
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Fixtures", "package_imports.rvn")
+        );
         var tree = SyntaxTree.ParseText(source);
         Assert.Equal(source, tree.GetRoot().ToFullString());
         Assert.Empty(tree.Diagnostics);
@@ -143,17 +154,16 @@ public class RoundTripTests {
 }
 
 /// <summary>
-/// End-to-end full-fidelity round-trip over the realistic <c>Example1.rvn</c>
-/// sample, which exercises attributes (targeted + args), properties with
-/// willSet/didSet, tuples, generics, explicit-interface methods, operators and
-/// an indexer, element access, patterns and switch expressions, array types, and
-/// struct/class/record/enum/protocol declarations.
+///     End-to-end full-fidelity round-trip over the realistic <c>Example1.rvn</c>
+///     sample, which exercises attributes (targeted + args), properties with
+///     willSet/didSet, tuples, generics, explicit-interface methods, operators and
+///     an indexer, element access, patterns and switch expressions, array types, and
+///     struct/class/record/enum/protocol declarations.
 /// </summary>
 public class Example1RoundTripTests {
     [Fact]
     public void Example1_round_trips_byte_for_byte() {
-        var path = System.IO.Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "Feed", "Example1.rvn");
+        var path = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Feed", "Example1.rvn");
         var text = File.ReadAllText(path);
         var tree = SyntaxTree.ParseText(text);
         Assert.Equal(text, tree.GetRoot().ToFullString());

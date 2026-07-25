@@ -4,15 +4,16 @@ using Xunit;
 namespace Tests;
 
 /// <summary>
-/// Golden-file parser tests. Each fixture <c>Fixtures/&lt;name&gt;.rvn</c> is parsed,
-/// dumped with <see cref="SyntaxDumper"/>, and compared against the committed
-/// <c>Fixtures/&lt;name&gt;.tree</c> snapshot.
-///
-/// To (re)generate snapshots after an intentional change, run the suite with
-/// the environment variable <c>UPDATE_GOLDEN=1</c>; the <c>.tree</c> files are
-/// rewritten from the current output. Review the diff before committing.
+///     Golden-file parser tests. Each fixture <c>Fixtures/&lt;name&gt;.rvn</c> is parsed,
+///     dumped with <see cref="SyntaxDumper" />, and compared against the committed
+///     <c>Fixtures/&lt;name&gt;.tree</c> snapshot.
+///     To (re)generate snapshots after an intentional change, run the suite with
+///     the environment variable <c>UPDATE_GOLDEN=1</c>; the <c>.tree</c> files are
+///     rewritten from the current output. Review the diff before committing.
 /// </summary>
 public class GoldenSyntaxTests {
+    static bool ShouldUpdate => Environment.GetEnvironmentVariable("UPDATE_GOLDEN") is "1" or "true";
+
     [Theory]
     [InlineData("package_imports")]
     [InlineData("expression_precedence")]
@@ -38,9 +39,6 @@ public class GoldenSyntaxTests {
 
         Assert.Equal(expected, actual);
     }
-
-    static bool ShouldUpdate =>
-        Environment.GetEnvironmentVariable("UPDATE_GOLDEN") is "1" or "true";
 
     static string Normalize(string s) => s.Replace("\r\n", "\n").TrimEnd('\n');
 

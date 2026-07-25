@@ -13,10 +13,10 @@ readonly record struct SpirvPointer(uint Id, IrType Type, bool Layout, IrSwizzle
 
 partial class SpirvEmitter {
     /// <summary>
-    /// The IR reads <c>m[i]</c> as a row — <see cref="IrIndexAccess.ResultType"/>
-    /// hands back <see cref="IrMatrixType.RowType"/> — while SPIR-V and GLSL both
-    /// index a matrix by column. Emitting it would be a type error the validator
-    /// catches, so it is refused instead. See the plan doc's defect list.
+    ///     The IR reads <c>m[i]</c> as a row — <see cref="IrIndexAccess.ResultType" />
+    ///     hands back <see cref="IrMatrixType.RowType" /> — while SPIR-V and GLSL both
+    ///     index a matrix by column. Emitting it would be a type error the validator
+    ///     catches, so it is refused instead. See the plan doc's defect list.
     /// </summary>
     const string MatrixIndexing =
         "Indexing a matrix (the IR reads m[i] as a row, and SPIR-V indexes columns)";
@@ -35,12 +35,12 @@ partial class SpirvEmitter {
 
     uint Emit(SpirvOp op, uint resultType, params SpirvOperand[] operands) {
         var id = module.AllocateId();
-        Add(new SpirvInstruction(op, resultType, id, operands));
+        Add(new(op, resultType, id, operands));
         return id;
     }
 
     void BeginBlock(uint label) {
-        Add(new SpirvInstruction(SpirvOp.Label, null, label));
+        Add(new(SpirvOp.Label, null, label));
         terminated = false;
     }
 
@@ -50,7 +50,7 @@ partial class SpirvEmitter {
             return false;
         }
 
-        Add(new SpirvInstruction(SpirvOp.Branch, null, null, SpirvOperand.Id(target)));
+        Add(new(SpirvOp.Branch, null, null, SpirvOperand.Id(target)));
         terminated = true;
         return true;
     }
@@ -88,12 +88,12 @@ partial class SpirvEmitter {
                 break;
 
             case IrReturnStatement { Value: { } value }:
-                Add(new SpirvInstruction(SpirvOp.ReturnValue, null, null, SpirvOperand.Id(Value(value))));
+                Add(new(SpirvOp.ReturnValue, null, null, SpirvOperand.Id(Value(value))));
                 terminated = true;
                 break;
 
             case IrReturnStatement:
-                Add(new SpirvInstruction(SpirvOp.Return, null, null));
+                Add(new(SpirvOp.Return, null, null));
                 terminated = true;
                 break;
 
@@ -108,8 +108,8 @@ partial class SpirvEmitter {
     }
 
     /// <summary>
-    /// A two-way branch with the merge block declared up front, which is what
-    /// makes the construct structured rather than an arbitrary jump.
+    ///     A two-way branch with the merge block declared up front, which is what
+    ///     makes the construct structured rather than an arbitrary jump.
     /// </summary>
     void EmitIf(IrIfStatement conditional) {
         var condition = Value(conditional.Condition);
@@ -117,20 +117,26 @@ partial class SpirvEmitter {
         var then = module.AllocateId();
         var otherwise = conditional.Else is null ? merge : module.AllocateId();
 
-        Add(new SpirvInstruction(
-            SpirvOp.SelectionMerge,
-            null,
-            null,
-            SpirvOperand.Id(merge),
-            SpirvOperand.Enumerant(SpirvSelectionControl.None)));
+        Add(
+            new(
+                SpirvOp.SelectionMerge,
+                null,
+                null,
+                SpirvOperand.Id(merge),
+                SpirvOperand.Enumerant(SpirvSelectionControl.None)
+            )
+        );
 
-        Add(new SpirvInstruction(
-            SpirvOp.BranchConditional,
-            null,
-            null,
-            SpirvOperand.Id(condition),
-            SpirvOperand.Id(then),
-            SpirvOperand.Id(otherwise)));
+        Add(
+            new(
+                SpirvOp.BranchConditional,
+                null,
+                null,
+                SpirvOperand.Id(condition),
+                SpirvOperand.Id(then),
+                SpirvOperand.Id(otherwise)
+            )
+        );
 
         terminated = true;
 
@@ -152,20 +158,20 @@ partial class SpirvEmitter {
         // has to exist — OpSelectionMerge named it — so it gets a terminator that
         // says it is never entered.
         if (!reachable) {
-            Add(new SpirvInstruction(SpirvOp.Unreachable, null, null));
+            Add(new(SpirvOp.Unreachable, null, null));
             terminated = true;
         }
     }
 
     /// <summary>
-    /// A structured loop: a header that declares the merge and continue targets,
-    /// a block that recomputes the condition, the body, and the step.
+    ///     A structured loop: a header that declares the merge and continue targets,
+    ///     a block that recomputes the condition, the body, and the step.
     /// </summary>
     /// <remarks>
-    /// This is where SPIR-V is kinder than GLSL. Its <c>continue</c> target is a
-    /// block of its own, so a counted loop's step simply goes there and a
-    /// <c>continue</c> branches straight to it — none of the first-iteration flag
-    /// the GLSL backend needs.
+    ///     This is where SPIR-V is kinder than GLSL. Its <c>continue</c> target is a
+    ///     block of its own, so a counted loop's step simply goes there and a
+    ///     <c>continue</c> branches straight to it — none of the first-iteration flag
+    ///     the GLSL backend needs.
     /// </remarks>
     void EmitLoop(IrLoopStatement loop) {
         var header = module.AllocateId();
@@ -177,18 +183,20 @@ partial class SpirvEmitter {
         Branch(header);
         BeginBlock(header);
 
-        Add(new SpirvInstruction(
-            SpirvOp.LoopMerge,
-            null,
-            null,
-            SpirvOperand.Id(merge),
-            SpirvOperand.Id(@continue),
-            SpirvOperand.Enumerant(SpirvLoopControl.None)));
+        Add(
+            new(
+                SpirvOp.LoopMerge,
+                null,
+                null,
+                SpirvOperand.Id(merge),
+                SpirvOperand.Id(@continue),
+                SpirvOperand.Enumerant(SpirvLoopControl.None)
+            )
+        );
 
         // A `repeat` tests after the body, so the header goes straight to it and
         // the test lives at the end of the continue block instead.
-        Add(new SpirvInstruction(
-            SpirvOp.Branch, null, null, SpirvOperand.Id(loop.TestBeforeBody ? condition : body)));
+        Add(new(SpirvOp.Branch, null, null, SpirvOperand.Id(loop.TestBeforeBody ? condition : body)));
 
         terminated = true;
 
@@ -221,13 +229,16 @@ partial class SpirvEmitter {
     }
 
     void BranchOnCondition(IrLoopStatement loop, uint whenTrue, uint whenFalse) {
-        Add(new SpirvInstruction(
-            SpirvOp.BranchConditional,
-            null,
-            null,
-            SpirvOperand.Id(Value(loop.ConditionValue)),
-            SpirvOperand.Id(whenTrue),
-            SpirvOperand.Id(whenFalse)));
+        Add(
+            new(
+                SpirvOp.BranchConditional,
+                null,
+                null,
+                SpirvOperand.Id(Value(loop.ConditionValue)),
+                SpirvOperand.Id(whenTrue),
+                SpirvOperand.Id(whenFalse)
+            )
+        );
 
         terminated = true;
     }
@@ -255,7 +266,11 @@ partial class SpirvEmitter {
                 var result = Emit(
                     SpirvOp.FunctionCall,
                     types.Type(call.Function.ReturnType),
-                    [SpirvOperand.Id(functions[call.Function]), .. call.Arguments.Select(a => SpirvOperand.Id(Value(a)))]);
+                    [
+                        SpirvOperand.Id(functions[call.Function]),
+                        .. call.Arguments.Select(a => SpirvOperand.Id(Value(a)))
+                    ]
+                );
 
                 if (call.Result is { } value) {
                     values[value.Id] = result;
@@ -334,20 +349,32 @@ partial class SpirvEmitter {
                 : Real(component) ? SpirvOp.FOrdNotEqual : SpirvOp.INotEqual,
             IrBinaryOp.LessThan => Comparison(component, SpirvOp.FOrdLessThan, SpirvOp.SLessThan, SpirvOp.ULessThan),
             IrBinaryOp.LessThanOrEqual => Comparison(
-                component, SpirvOp.FOrdLessThanEqual, SpirvOp.SLessThanEqual, SpirvOp.ULessThanEqual),
+                component,
+                SpirvOp.FOrdLessThanEqual,
+                SpirvOp.SLessThanEqual,
+                SpirvOp.ULessThanEqual
+            ),
             IrBinaryOp.GreaterThan => Comparison(
-                component, SpirvOp.FOrdGreaterThan, SpirvOp.SGreaterThan, SpirvOp.UGreaterThan),
+                component,
+                SpirvOp.FOrdGreaterThan,
+                SpirvOp.SGreaterThan,
+                SpirvOp.UGreaterThan
+            ),
             _ => Comparison(
-                component, SpirvOp.FOrdGreaterThanEqual, SpirvOp.SGreaterThanEqual, SpirvOp.UGreaterThanEqual)
+                component,
+                SpirvOp.FOrdGreaterThanEqual,
+                SpirvOp.SGreaterThanEqual,
+                SpirvOp.UGreaterThanEqual
+            )
         };
 
         return Emit(op, resultType, left, right);
     }
 
     /// <summary>
-    /// The products whose operands have different shapes. SPIR-V spells each of
-    /// them as its own instruction with a fixed operand order, so a vector times a
-    /// scalar is not the same instruction as two vectors multiplied.
+    ///     The products whose operands have different shapes. SPIR-V spells each of
+    ///     them as its own instruction with a fixed operand order, so a vector times a
+    ///     scalar is not the same instruction as two vectors multiplied.
     /// </summary>
     static (SpirvOp Op, bool Swap)? Shaped(IrBinaryInstruction binary) {
         var left = binary.Left.Type;
@@ -402,16 +429,18 @@ partial class SpirvEmitter {
         };
 
         return op == SpirvOp.Nop
-            ? Unimplemented($"The conversion from '{convert.Operand.Type.Name}' to '{convert.Result.Type.Name}'",
-                convert.Result.Type)
+            ? Unimplemented(
+                $"The conversion from '{convert.Operand.Type.Name}' to '{convert.Result.Type.Name}'",
+                convert.Result.Type
+            )
             : Emit(op, resultType, SpirvOperand.Id(value));
     }
 
     /// <summary>
-    /// Builds an aggregate. A vector is easy — SPIR-V lets constituents be
-    /// scalars or shorter vectors and concatenates them, so <c>float4(v3, w)</c>
-    /// passes straight through. A matrix is not: it takes its columns and nothing
-    /// else, so a flat run of scalars has to be gathered into them first.
+    ///     Builds an aggregate. A vector is easy — SPIR-V lets constituents be
+    ///     scalars or shorter vectors and concatenates them, so <c>float4(v3, w)</c>
+    ///     passes straight through. A matrix is not: it takes its columns and nothing
+    ///     else, so a flat run of scalars has to be gathered into them first.
     /// </summary>
     uint EmitConstruct(IrConstructInstruction construct) {
         var resultType = types.Type(construct.Result.Type);
@@ -420,7 +449,8 @@ partial class SpirvEmitter {
             return Emit(
                 SpirvOp.CompositeConstruct,
                 resultType,
-                [.. construct.Arguments.Select(a => SpirvOperand.Id(Value(a)))]);
+                [.. construct.Arguments.Select(a => SpirvOperand.Id(Value(a)))]
+            );
         }
 
         var columnType = new IrVectorType(matrix.Component, matrix.Rows);
@@ -430,7 +460,8 @@ partial class SpirvEmitter {
             return Emit(
                 SpirvOp.CompositeConstruct,
                 resultType,
-                [.. construct.Arguments.Select(a => SpirvOperand.Id(Value(a)))]);
+                [.. construct.Arguments.Select(a => SpirvOperand.Id(Value(a)))]
+            );
         }
 
         // Flatten whatever came in, then take Rows of them per column — the same
@@ -441,11 +472,14 @@ partial class SpirvEmitter {
         foreach (var argument in construct.Arguments) {
             if (argument.Type is IrVectorType vector) {
                 for (var lane = 0; lane < vector.Size; lane++) {
-                    scalars.Add(Emit(
-                        SpirvOp.CompositeExtract,
-                        componentType,
-                        SpirvOperand.Id(Value(argument)),
-                        SpirvOperand.Literal(lane)));
+                    scalars.Add(
+                        Emit(
+                            SpirvOp.CompositeExtract,
+                            componentType,
+                            SpirvOperand.Id(Value(argument)),
+                            SpirvOperand.Literal(lane)
+                        )
+                    );
                 }
             } else {
                 scalars.Add(Value(argument));
@@ -459,10 +493,13 @@ partial class SpirvEmitter {
         var columns = new SpirvOperand[matrix.Columns];
 
         for (var column = 0; column < matrix.Columns; column++) {
-            columns[column] = SpirvOperand.Id(Emit(
-                SpirvOp.CompositeConstruct,
-                types.Type(columnType),
-                [.. scalars.Skip(column * matrix.Rows).Take(matrix.Rows).Select(SpirvOperand.Id)]));
+            columns[column] = SpirvOperand.Id(
+                Emit(
+                    SpirvOp.CompositeConstruct,
+                    types.Type(columnType),
+                    [.. scalars.Skip(column * matrix.Rows).Take(matrix.Rows).Select(SpirvOperand.Id)]
+                )
+            );
         }
 
         return Emit(SpirvOp.CompositeConstruct, resultType, columns);
@@ -475,18 +512,21 @@ partial class SpirvEmitter {
                 return Emit(
                     SpirvOp.CompositeConstruct,
                     types.Type(vector),
-                    [.. Enumerable.Repeat(SpirvOperand.Id(scalar), vector.Size)]);
+                    [.. Enumerable.Repeat(SpirvOperand.Id(scalar), vector.Size)]
+                );
 
             case IrMatrixType matrix: {
                 var column = Emit(
                     SpirvOp.CompositeConstruct,
                     types.Type(new IrVectorType(matrix.Component, matrix.Rows)),
-                    [.. Enumerable.Repeat(SpirvOperand.Id(scalar), matrix.Rows)]);
+                    [.. Enumerable.Repeat(SpirvOperand.Id(scalar), matrix.Rows)]
+                );
 
                 return Emit(
                     SpirvOp.CompositeConstruct,
                     types.Type(matrix),
-                    [.. Enumerable.Repeat(SpirvOperand.Id(column), matrix.Columns)]);
+                    [.. Enumerable.Repeat(SpirvOperand.Id(column), matrix.Columns)]
+                );
             }
 
             default:
@@ -503,7 +543,8 @@ partial class SpirvEmitter {
             condition = Emit(
                 SpirvOp.CompositeConstruct,
                 types.Type(new IrVectorType(IrScalarType.Bool, vector.Size)),
-                [.. Enumerable.Repeat(SpirvOperand.Id(condition), vector.Size)]);
+                [.. Enumerable.Repeat(SpirvOperand.Id(condition), vector.Size)]
+            );
         }
 
         return Emit(
@@ -511,7 +552,8 @@ partial class SpirvEmitter {
             types.Type(select.Result.Type),
             SpirvOperand.Id(condition),
             SpirvOperand.Id(Value(select.WhenTrue)),
-            SpirvOperand.Id(Value(select.WhenFalse)));
+            SpirvOperand.Id(Value(select.WhenFalse))
+        );
     }
 
     uint EmitExtract(IrExtractInstruction extract) {
@@ -535,7 +577,8 @@ partial class SpirvEmitter {
                 SpirvOp.VectorExtractDynamic,
                 resultType,
                 SpirvOperand.Id(source),
-                SpirvOperand.Id(Value(dynamic.Index)));
+                SpirvOperand.Id(Value(dynamic.Index))
+            );
         }
 
         List<SpirvOperand> indices = [];
@@ -577,7 +620,8 @@ partial class SpirvEmitter {
                     resultType,
                     arguments[0],
                     SpirvOperand.Id(Splat(result.Type, types.ConstantFloat(0))),
-                    SpirvOperand.Id(Splat(result.Type, types.ConstantFloat(1))));
+                    SpirvOperand.Id(Splat(result.Type, types.ConstantFloat(1)))
+                );
 
             case IrIntrinsic.SampleTexture:
                 return EmitSample(intrinsic, resultType, arguments);
@@ -588,7 +632,8 @@ partial class SpirvEmitter {
             case IrIntrinsic.ArrayLength:
                 // Unsized arrays are rejected before this, so the length is known.
                 return types.ConstantInt(
-                    intrinsic.Arguments[0].Type is IrArrayType { Length: { } length } ? length : 0);
+                    intrinsic.Arguments[0].Type is IrArrayType { Length: { } length } ? length : 0
+                );
         }
 
         var mapping = SpirvIntrinsics.Map(intrinsic.Intrinsic, result.Type.ComponentType.Kind);
@@ -604,25 +649,24 @@ partial class SpirvEmitter {
         Emit(
             SpirvOp.ExtInst,
             resultType,
-            [SpirvOperand.Id(extendedInstructions), SpirvOperand.Literal((uint)instruction), .. operands]);
+            [SpirvOperand.Id(extendedInstructions), SpirvOperand.Literal((uint)instruction), .. operands]
+        );
 
     /// <summary>
-    /// Pairs an image with a sampler and samples it. This is what SPIR-V has that
-    /// GLSL does not: the two bindings stay separate right up to the sample.
+    ///     Pairs an image with a sampler and samples it. This is what SPIR-V has that
+    ///     GLSL does not: the two bindings stay separate right up to the sample.
     /// </summary>
     uint EmitSample(IrIntrinsicInstruction intrinsic, uint resultType, SpirvOperand[] arguments) {
         if (intrinsic.Arguments is not [{ Type: IrTextureType image }, { Type: IrSamplerType }, _]) {
             return Unimplemented("This form of texture sampling", intrinsic.Result!.Type);
         }
 
-        var combined = Emit(
-            SpirvOp.SampledImage, types.SampledImage(types.Type(image)), arguments[0], arguments[1]);
+        var combined = Emit(SpirvOp.SampledImage, types.SampledImage(types.Type(image)), arguments[0], arguments[1]);
 
         // An implicit level of detail needs derivatives, which only a fragment
         // shader has; every other stage has to ask for an explicit one.
         if (entryPoint.Stage == ShaderStage.Pixel) {
-            return Emit(
-                SpirvOp.ImageSampleImplicitLod, resultType, SpirvOperand.Id(combined), arguments[2]);
+            return Emit(SpirvOp.ImageSampleImplicitLod, resultType, SpirvOperand.Id(combined), arguments[2]);
         }
 
         return Emit(
@@ -632,12 +676,13 @@ partial class SpirvEmitter {
             arguments[2],
             // Image operands: bit 1 is Lod, and the level follows.
             SpirvOperand.Literal(0x2),
-            SpirvOperand.Id(types.ConstantFloat(0)));
+            SpirvOperand.Id(types.ConstantFloat(0))
+        );
     }
 
     /// <summary>
-    /// Fetches a texel by integer coordinate. The IR packs the level into the
-    /// coordinate's last lane, exactly as the GLSL backend reads it.
+    ///     Fetches a texel by integer coordinate. The IR packs the level into the
+    ///     coordinate's last lane, exactly as the GLSL backend reads it.
     /// </summary>
     uint EmitFetch(IrIntrinsicInstruction intrinsic, uint resultType, SpirvOperand[] arguments) {
         if (intrinsic.Arguments is not [{ Type: IrTextureType image }, { Type: IrVectorType coordinate } source]) {
@@ -651,14 +696,14 @@ partial class SpirvEmitter {
         }
 
         var coordinateType = types.Type(new IrVectorType(coordinate.Component, wanted));
-        var trimmed = Shuffle(
-            Value(source), Value(source), [.. Enumerable.Range(0, wanted)], coordinateType);
+        var trimmed = Shuffle(Value(source), Value(source), [.. Enumerable.Range(0, wanted)], coordinateType);
 
         var level = Emit(
             SpirvOp.CompositeExtract,
             types.Type(coordinate.Component),
             SpirvOperand.Id(Value(source)),
-            SpirvOperand.Literal(wanted));
+            SpirvOperand.Literal(wanted)
+        );
 
         return Emit(
             SpirvOp.ImageFetch,
@@ -666,7 +711,8 @@ partial class SpirvEmitter {
             arguments[0],
             SpirvOperand.Id(trimmed),
             SpirvOperand.Literal(0x2),
-            SpirvOperand.Id(level));
+            SpirvOperand.Id(level)
+        );
     }
 
     // --- Places ------------------------------------------------------------
@@ -679,7 +725,7 @@ partial class SpirvEmitter {
 
         var pointer = Resolve(place);
         var plain = types.Type(pointer.Type);
-        var pointee = pointer.Layout ? types.Type(pointer.Type, layout: true) : plain;
+        var pointee = pointer.Layout ? types.Type(pointer.Type, true) : plain;
 
         if (pointee != plain) {
             // The laid-out form of an aggregate is a different type from the plain
@@ -699,8 +745,7 @@ partial class SpirvEmitter {
         var pointer = Resolve(place);
 
         if (pointer.Swizzle is not { } swizzle) {
-            Add(new SpirvInstruction(
-                SpirvOp.Store, null, null, SpirvOperand.Id(pointer.Id), SpirvOperand.Id(value)));
+            Add(new(SpirvOp.Store, null, null, SpirvOperand.Id(pointer.Id), SpirvOperand.Id(value)));
             return;
         }
 
@@ -719,9 +764,10 @@ partial class SpirvEmitter {
         var merged = Emit(
             SpirvOp.VectorShuffle,
             whole,
-            [SpirvOperand.Id(original), SpirvOperand.Id(value), .. selectors.Select(SpirvOperand.Literal)]);
+            [SpirvOperand.Id(original), SpirvOperand.Id(value), .. selectors.Select(SpirvOperand.Literal)]
+        );
 
-        Add(new SpirvInstruction(SpirvOp.Store, null, null, SpirvOperand.Id(pointer.Id), SpirvOperand.Id(merged)));
+        Add(new(SpirvOp.Store, null, null, SpirvOperand.Id(pointer.Id), SpirvOperand.Id(merged)));
     }
 
     /// <summary>Turns a place into a pointer, building an access chain when it needs one.</summary>
@@ -742,7 +788,7 @@ partial class SpirvEmitter {
             storage = SpirvStorageClass.Function;
         } else {
             Report(BackendDiagnostics.NotImplemented, $"Reaching the variable '{place.Root.Name}'");
-            return new SpirvPointer(types.ConstantInt(0), place.Type, false);
+            return new(types.ConstantInt(0), place.Type, false);
         }
 
         var layout = storage == SpirvStorageClass.Uniform;
@@ -758,7 +804,7 @@ partial class SpirvEmitter {
                 case IrIndexAccess index:
                     if (type is IrMatrixType) {
                         Report(BackendDiagnostics.NotImplemented, MatrixIndexing);
-                        return new SpirvPointer(baseId, place.Type, layout);
+                        return new(baseId, place.Type, layout);
                     }
 
                     indices.Add(SpirvOperand.Id(Value(index.Index)));
@@ -784,15 +830,16 @@ partial class SpirvEmitter {
         }
 
         if (indices.Count == 0) {
-            return new SpirvPointer(baseId, type, layout, trailing);
+            return new(baseId, type, layout, trailing);
         }
 
         var chain = Emit(
             SpirvOp.AccessChain,
             types.Pointer(storage, types.Type(type, layout)),
-            [SpirvOperand.Id(baseId), .. indices]);
+            [SpirvOperand.Id(baseId), .. indices]
+        );
 
-        return new SpirvPointer(chain, type, layout, trailing);
+        return new(chain, type, layout, trailing);
     }
 
     // --- Values ------------------------------------------------------------
@@ -804,13 +851,18 @@ partial class SpirvEmitter {
         // vector, and one component of a vector is a scalar.
         if (components.Count == 1) {
             return Emit(
-                SpirvOp.CompositeExtract, resultType, SpirvOperand.Id(left), SpirvOperand.Literal(components[0]));
+                SpirvOp.CompositeExtract,
+                resultType,
+                SpirvOperand.Id(left),
+                SpirvOperand.Literal(components[0])
+            );
         }
 
         return Emit(
             SpirvOp.VectorShuffle,
             resultType,
-            [SpirvOperand.Id(left), SpirvOperand.Id(right), .. components.Select(SpirvOperand.Literal)]);
+            [SpirvOperand.Id(left), SpirvOperand.Id(right), .. components.Select(SpirvOperand.Literal)]
+        );
     }
 
     uint Unimplemented(string what, IrType type) {

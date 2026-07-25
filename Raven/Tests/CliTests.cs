@@ -5,21 +5,22 @@ using Xunit;
 namespace Tests;
 
 /// <summary>
-/// Phase 5: the compiler as a command line. Each test gets its own scratch
-/// directory so the files written are real files, as they are in anger.
+///     Phase 5: the compiler as a command line. Each test gets its own scratch
+///     directory so the files written are real files, as they are in anger.
 /// </summary>
 public class CliTests : IDisposable {
-    readonly string directory = Path.Combine(
-        Path.GetTempPath(), "raven-cli-" + Guid.NewGuid().ToString("n")[..8]);
+    readonly string directory = Path.Combine(Path.GetTempPath(), "raven-cli-" + Guid.NewGuid().ToString("n")[..8]);
 
     readonly StringWriter output = new();
     readonly StringWriter error = new();
 
-    public CliTests() => Directory.CreateDirectory(directory);
+    public CliTests() {
+        Directory.CreateDirectory(directory);
+    }
 
     public void Dispose() {
         if (Directory.Exists(directory)) {
-            Directory.Delete(directory, recursive: true);
+            Directory.Delete(directory, true);
         }
     }
 
@@ -56,7 +57,9 @@ public class CliTests : IDisposable {
 
     [Fact]
     public void A_single_stage_shader_can_be_written_to_a_named_file() {
-        var input = Write("one.rvn", """
+        var input = Write(
+            "one.rvn",
+            """
             package A
 
             shader One {
@@ -66,7 +69,8 @@ public class CliTests : IDisposable {
                 }
             }
 
-            """);
+            """
+        );
 
         Assert.Equal(0, Invoke("compile", input, At("one.frag.glsl")));
         Assert.Contains("#version 450", File.ReadAllText(At("one.frag.glsl")));
@@ -97,7 +101,9 @@ public class CliTests : IDisposable {
 
     [Fact]
     public void A_semantic_error_is_rendered_with_its_source_and_fails_the_run() {
-        var input = Write("bad.rvn", """
+        var input = Write(
+            "bad.rvn",
+            """
             package A
 
             shader S {
@@ -107,7 +113,8 @@ public class CliTests : IDisposable {
                 }
             }
 
-            """);
+            """
+        );
 
         Assert.Equal(1, Invoke("compile", input, At("")));
 
@@ -166,9 +173,10 @@ public class CliTests : IDisposable {
     [Fact]
     public void An_unknown_target_is_rejected_and_the_known_ones_are_listed() {
         var code = CompileDriver.Run(
-            new CompileRequest { Inputs = [Fixture("lambert.rvn")], Output = At(""), Target = "hlsl" },
+            new() { Inputs = [Fixture("lambert.rvn")], Output = At(""), Target = "hlsl" },
             output,
-            error);
+            error
+        );
 
         Assert.Equal(ExitCode.UsageError, code);
         Assert.Contains("unknown target 'hlsl'", error.ToString());
@@ -188,14 +196,17 @@ public class CliTests : IDisposable {
 
     [Fact]
     public void A_shader_with_no_entry_point_generates_nothing_and_says_so() {
-        var input = Write("empty.rvn", """
+        var input = Write(
+            "empty.rvn",
+            """
             package A
 
             shader S {
                 var tint: float4
             }
 
-            """);
+            """
+        );
 
         Assert.Equal(1, Invoke("compile", input, At("")));
         Assert.Contains("no entry points", error.ToString());
@@ -208,7 +219,7 @@ public class CliTests : IDisposable {
 
     ParseResult Parse(params string[] args) => RavenCommand.Create(output, error).Parse(args);
 
-    string At(string relative) => System.IO.Path.Combine(directory, relative);
+    string At(string relative) => Path.Combine(directory, relative);
 
     string Write(string name, string source) {
         var path = At(name);
@@ -218,7 +229,8 @@ public class CliTests : IDisposable {
 
     static int Occurrences(string text, string value) {
         var count = 0;
-        for (var i = text.IndexOf(value, StringComparison.Ordinal); i >= 0;
+        for (var i = text.IndexOf(value, StringComparison.Ordinal);
+             i >= 0;
              i = text.IndexOf(value, i + value.Length, StringComparison.Ordinal)) {
             count++;
         }
@@ -227,6 +239,5 @@ public class CliTests : IDisposable {
     }
 
     // bin/Debug/net10.0 -> Tests project root -> Fixtures
-    static string Fixture(string file) =>
-        System.IO.Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Fixtures", file);
+    static string Fixture(string file) => Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Fixtures", file);
 }

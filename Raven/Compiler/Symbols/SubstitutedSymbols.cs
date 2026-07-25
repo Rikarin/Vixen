@@ -3,18 +3,19 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Symbols;
 
 /// <summary>
-/// Views of a member seen through a <see cref="TypeMap"/>: same declaration,
-/// signature types substituted. Produced when reading members of a constructed
-/// generic type or calling a generic method with explicit type arguments.
+///     Views of a member seen through a <see cref="TypeMap" />: same declaration,
+///     signature types substituted. Produced when reading members of a constructed
+///     generic type or calling a generic method with explicit type arguments.
 /// </summary>
 public static class SubstitutedSymbols {
-    /// <summary>Wraps <paramref name="member"/> so its signature reads through <paramref name="map"/>.</summary>
-    public static Symbol Substitute(Symbol member, Symbol container, TypeMap map) => member switch {
-        FieldSymbol field => new SubstitutedFieldSymbol(field, container, map),
-        PropertySymbol property => new SubstitutedPropertySymbol(property, container, map),
-        MethodSymbol method => new SubstitutedMethodSymbol(method, container, map, []),
-        _ => member
-    };
+    /// <summary>Wraps <paramref name="member" /> so its signature reads through <paramref name="map" />.</summary>
+    public static Symbol Substitute(Symbol member, Symbol container, TypeMap map) =>
+        member switch {
+            FieldSymbol field => new SubstitutedFieldSymbol(field, container, map),
+            PropertySymbol property => new SubstitutedPropertySymbol(property, container, map),
+            MethodSymbol method => new SubstitutedMethodSymbol(method, container, map, []),
+            _ => member
+        };
 }
 
 /// <summary>A field of a constructed generic type.</summary>
@@ -37,15 +38,6 @@ public sealed class SubstitutedFieldSymbol(FieldSymbol definition, Symbol contai
 public sealed class SubstitutedPropertySymbol : PropertySymbol {
     readonly ParameterSymbol[] parameters;
 
-    internal SubstitutedPropertySymbol(PropertySymbol definition, Symbol container, TypeMap map) {
-        OriginalDefinition = definition;
-        ContainingSymbol = container;
-        Type = map.Substitute(definition.Type);
-        parameters = definition.Parameters
-            .Select(p => (ParameterSymbol)new SubstitutedParameterSymbol(p, this, map))
-            .ToArray();
-    }
-
     public PropertySymbol OriginalDefinition { get; }
     public override string Name => OriginalDefinition.Name;
     public override Symbol? ContainingSymbol { get; }
@@ -56,29 +48,23 @@ public sealed class SubstitutedPropertySymbol : PropertySymbol {
     public override bool IsStatic => OriginalDefinition.IsStatic;
     public override Accessibility DeclaredAccessibility => OriginalDefinition.DeclaredAccessibility;
     public override SyntaxNode? DeclaringSyntax => OriginalDefinition.DeclaringSyntax;
-}
 
-/// <summary>
-/// A method read through a type map: a member of a constructed generic type, or
-/// a generic method supplied with explicit type arguments.
-/// </summary>
-public sealed class SubstitutedMethodSymbol : MethodSymbol {
-    readonly ParameterSymbol[] parameters;
-
-    internal SubstitutedMethodSymbol(
-        MethodSymbol definition,
-        Symbol? container,
-        TypeMap map,
-        IReadOnlyList<TypeSymbol> typeArguments
-    ) {
+    internal SubstitutedPropertySymbol(PropertySymbol definition, Symbol container, TypeMap map) {
         OriginalDefinition = definition;
         ContainingSymbol = container;
-        ReturnType = map.Substitute(definition.ReturnType);
-        TypeArguments = typeArguments;
+        Type = map.Substitute(definition.Type);
         parameters = definition.Parameters
             .Select(p => (ParameterSymbol)new SubstitutedParameterSymbol(p, this, map))
             .ToArray();
     }
+}
+
+/// <summary>
+///     A method read through a type map: a member of a constructed generic type, or
+///     a generic method supplied with explicit type arguments.
+/// </summary>
+public sealed class SubstitutedMethodSymbol : MethodSymbol {
+    readonly ParameterSymbol[] parameters;
 
     public MethodSymbol OriginalDefinition { get; }
 
@@ -97,6 +83,21 @@ public sealed class SubstitutedMethodSymbol : MethodSymbol {
     public override bool IsAbstract => OriginalDefinition.IsAbstract;
     public override Accessibility DeclaredAccessibility => OriginalDefinition.DeclaredAccessibility;
     public override SyntaxNode? DeclaringSyntax => OriginalDefinition.DeclaringSyntax;
+
+    internal SubstitutedMethodSymbol(
+        MethodSymbol definition,
+        Symbol? container,
+        TypeMap map,
+        IReadOnlyList<TypeSymbol> typeArguments
+    ) {
+        OriginalDefinition = definition;
+        ContainingSymbol = container;
+        ReturnType = map.Substitute(definition.ReturnType);
+        TypeArguments = typeArguments;
+        parameters = definition.Parameters
+            .Select(p => (ParameterSymbol)new SubstitutedParameterSymbol(p, this, map))
+            .ToArray();
+    }
 }
 
 /// <summary>A parameter whose type is read through a type map.</summary>

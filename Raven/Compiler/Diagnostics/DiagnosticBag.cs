@@ -3,9 +3,9 @@ using System.Collections;
 namespace Vixen.Raven.Diagnostics;
 
 /// <summary>
-/// A mutable accumulator of <see cref="Diagnostic"/>s produced during a compilation
-/// phase. Enumerable and cheaply mergeable; call <see cref="ToArray"/> for an
-/// immutable snapshot.
+///     A mutable accumulator of <see cref="Diagnostic" />s produced during a compilation
+///     phase. Enumerable and cheaply mergeable; call <see cref="ToArray" /> for an
+///     immutable snapshot.
 /// </summary>
 public sealed class DiagnosticBag : IEnumerable<Diagnostic> {
     readonly List<Diagnostic> diagnostics = [];

@@ -30,7 +30,8 @@ public static class SemanticTestBase {
 
         Assert.True(
             diagnostics.Count == 0,
-            "Expected no diagnostics, got:\n" + string.Join("\n", diagnostics.Select(d => d.ToString())));
+            "Expected no diagnostics, got:\n" + string.Join("\n", diagnostics.Select(d => d.ToString()))
+        );
 
         return compilation;
     }
@@ -43,7 +44,8 @@ public static class SemanticTestBase {
         Assert.True(
             expectedIds.SequenceEqual(actual),
             $"Expected [{string.Join(", ", expectedIds)}] but got:\n"
-            + string.Join("\n", diagnostics.Select(d => d.ToString())));
+            + string.Join("\n", diagnostics.Select(d => d.ToString()))
+        );
 
         return diagnostics;
     }

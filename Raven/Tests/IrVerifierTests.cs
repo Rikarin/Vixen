@@ -1,39 +1,16 @@
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
+using Vixen.Raven.Symbols;
 using Xunit;
 
 namespace Tests;
 
 /// <summary>
-/// Phase 3: the verifier rejects malformed IR, so a backend can assume what it
-/// is given is well formed. The modules here are hand-built to be wrong in one
-/// specific way each.
+///     Phase 3: the verifier rejects malformed IR, so a backend can assume what it
+///     is given is well formed. The modules here are hand-built to be wrong in one
+///     specific way each.
 /// </summary>
 public class IrVerifierTests {
-    static IReadOnlyList<Diagnostic> Verify(IrModule module) {
-        var bag = new DiagnosticBag();
-        IrVerifier.Verify(module, bag);
-        return bag.ToArray();
-    }
-
-    static IrModule ModuleWith(IrFunction function) {
-        var module = new IrModule("Test");
-        module.Add(function);
-        return module;
-    }
-
-    /// <summary>A function that loads its one parameter and returns it.</summary>
-    static IrFunction Identity() {
-        var function = new IrFunction("Identity", IrScalarType.Float);
-        var parameter = function.AddParameter("x", IrScalarType.Float);
-
-        var loaded = function.NewValue(IrScalarType.Float);
-        function.Body.Add(new IrLoadInstruction(loaded, new IrPlace(parameter)));
-        function.Body.Add(new IrReturnStatement(loaded));
-
-        return function;
-    }
-
     [Fact]
     public void A_well_formed_function_verifies() => Assert.Empty(Verify(ModuleWith(Identity())));
 
@@ -100,7 +77,7 @@ public class IrVerifierTests {
 
         var value = function.NewValue(IrScalarType.Int);
         function.Body.Add(new IrConstantInstruction(value, 1));
-        function.Body.Add(new IrStoreInstruction(new IrPlace(local), value));
+        function.Body.Add(new IrStoreInstruction(new(local), value));
 
         Assert.Contains(Verify(ModuleWith(function)), d => d.GetMessage().Contains("store"));
     }
@@ -111,7 +88,7 @@ public class IrVerifierTests {
 
         var condition = function.NewValue(IrScalarType.Int);
         function.Body.Add(new IrConstantInstruction(condition, 1));
-        function.Body.Add(new IrIfStatement(condition, new IrBlock(), null));
+        function.Body.Add(new IrIfStatement(condition, new(), null));
 
         Assert.Contains(Verify(ModuleWith(function)), d => d.GetMessage().Contains("expected bool"));
     }
@@ -123,7 +100,7 @@ public class IrVerifierTests {
 
         // A field access into a scalar is meaningless.
         var value = function.NewValue(IrScalarType.Float);
-        function.Body.Add(new IrLoadInstruction(value, new IrPlace(local, [new IrFieldAccess(0)])));
+        function.Body.Add(new IrLoadInstruction(value, new(local, [new IrFieldAccess(0)])));
 
         Assert.Contains(Verify(ModuleWith(function)), d => d.GetMessage().Contains("is not valid on"));
     }
@@ -160,7 +137,7 @@ public class IrVerifierTests {
         var body = new IrBlock();
         body.Add(new IrBreakStatement());
 
-        function.Body.Add(new IrLoopStatement(condition, flag, body, null, testBeforeBody: true));
+        function.Body.Add(new IrLoopStatement(condition, flag, body, null, true));
 
         Assert.Empty(Verify(ModuleWith(function)));
     }
@@ -171,15 +148,15 @@ public class IrVerifierTests {
 
         Assert.Contains(
             Verify(ModuleWith(function)),
-            d => d.GetMessage().Contains("can finish without returning"));
+            d => d.GetMessage().Contains("can finish without returning")
+        );
     }
 
     [Fact]
     public void An_entry_point_must_belong_to_its_shader() {
         var stray = Identity();
         var shader = new IrShader("S");
-        shader.Add(new IrEntryPoint(
-            Vixen.Raven.Symbols.ShaderStage.Vertex, stray, [new IrStageIo("x", IrScalarType.Float, null)], null));
+        shader.Add(new IrEntryPoint(ShaderStage.Vertex, stray, [new("x", IrScalarType.Float, null)], null));
 
         var module = new IrModule("Test");
         module.Add(shader);
@@ -206,7 +183,8 @@ public class IrVerifierTests {
     public void Everything_the_lowerer_produces_verifies() {
         // The lowering suite runs the verifier on every module it builds; this
         // pins the contract explicitly for a realistic shader.
-        var module = LoweringTestBase.Lower("""
+        var module = LoweringTestBase.Lower(
+            """
             package A
 
             shader Lit {
@@ -230,8 +208,33 @@ public class IrVerifierTests {
                 }
             }
 
-            """);
+            """
+        );
 
         Assert.Empty(Verify(module));
+    }
+
+    static IReadOnlyList<Diagnostic> Verify(IrModule module) {
+        var bag = new DiagnosticBag();
+        IrVerifier.Verify(module, bag);
+        return bag.ToArray();
+    }
+
+    static IrModule ModuleWith(IrFunction function) {
+        var module = new IrModule("Test");
+        module.Add(function);
+        return module;
+    }
+
+    /// <summary>A function that loads its one parameter and returns it.</summary>
+    static IrFunction Identity() {
+        var function = new IrFunction("Identity", IrScalarType.Float);
+        var parameter = function.AddParameter("x", IrScalarType.Float);
+
+        var loaded = function.NewValue(IrScalarType.Float);
+        function.Body.Add(new IrLoadInstruction(loaded, new(parameter)));
+        function.Body.Add(new IrReturnStatement(loaded));
+
+        return function;
     }
 }

@@ -1,8 +1,8 @@
 namespace Vixen.Raven.Text;
 
 /// <summary>
-/// A zero-based (line, character) coordinate into source text. <see cref="Character"/>
-/// counts UTF-16 code units from the start of the line.
+///     A zero-based (line, character) coordinate into source text. <see cref="Character" />
+///     counts UTF-16 code units from the start of the line.
 /// </summary>
 public readonly record struct LinePosition(int Line, int Character) : IComparable<LinePosition> {
     public int CompareTo(LinePosition other) {
@@ -14,7 +14,7 @@ public readonly record struct LinePosition(int Line, int Character) : IComparabl
     public override string ToString() => $"{Line + 1},{Character + 1}";
 }
 
-/// <summary>A half-open span between two <see cref="LinePosition"/>s.</summary>
+/// <summary>A half-open span between two <see cref="LinePosition" />s.</summary>
 public readonly record struct LinePositionSpan(LinePosition Start, LinePosition End) {
     public override string ToString() => $"({Start})-({End})";
 }

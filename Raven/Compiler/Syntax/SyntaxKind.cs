@@ -33,6 +33,7 @@ public enum SyntaxKind : ushort {
     OutKeyword,
     InKeyword,
     EqualsValueClause,
+
     // ArgListKeyword
     Parameter,
     ParameterList,
@@ -67,6 +68,7 @@ public enum SyntaxKind : ushort {
     UsingStatement,
     SwitchStatement,
     SwitchSection,
+
     // CaseKeyword,
     CasePatternSwitchLabel,
     CaseSwitchLabel,
@@ -105,6 +107,7 @@ public enum SyntaxKind : ushort {
     ClassConstraint,
     StructConstraint,
     QuestionToken,
+
     // ConstructorConstraint,
     IsPatternExpression,
     TypeConstraint,
@@ -115,7 +118,7 @@ public enum SyntaxKind : ushort {
     TupleElement,
     TupleType,
     DiscardDesignation,
-    
+
     VarPattern,
     NotPattern,
     TypePattern,
@@ -130,7 +133,7 @@ public enum SyntaxKind : ushort {
     SimpleVariableDesignation,
     ParenthesizedVariableDesignation,
     TypeParameterList,
-    
+
     BoolKeyword,
     Bool2Keyword,
     Bool3Keyword,
@@ -261,7 +264,6 @@ public enum SyntaxKind : ushort {
     SingleLineCommentTrivia,
     MultiLineCommentTrivia
 }
-
 
 static class SyntaxKindExtensions {
     internal static SyntaxToken AsToken(this SyntaxKind kind) => SyntaxFactory.Token(kind);

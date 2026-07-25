@@ -4,10 +4,10 @@ using System.Text;
 namespace Vixen.Raven.IR;
 
 /// <summary>
-/// Renders an <see cref="IrModule"/> as stable, readable text. This is the IR's
-/// debug view and the format the golden tests snapshot, so its output is
-/// deterministic: no hash codes, no dictionary ordering, no culture-sensitive
-/// number formatting.
+///     Renders an <see cref="IrModule" /> as stable, readable text. This is the IR's
+///     debug view and the format the golden tests snapshot, so its output is
+///     deterministic: no hash codes, no dictionary ordering, no culture-sensitive
+///     number formatting.
 /// </summary>
 public static class IrPrinter {
     public static string Print(IrModule module) {
@@ -58,7 +58,8 @@ public static class IrPrinter {
             var semantic = binding.Semantic is null ? string.Empty : $" semantic \"{binding.Semantic}\"";
             writer.Line(
                 $"binding {binding.Kind.ToString().ToLowerInvariant()} {binding.Variable} : "
-                + $"{binding.Type.Name} slot {binding.Slot}{semantic}");
+                + $"{binding.Type.Name} slot {binding.Slot}{semantic}"
+            );
         }
 
         foreach (var entryPoint in shader.EntryPoints) {
@@ -68,7 +69,8 @@ public static class IrPrinter {
             var inputs = string.Join(", ", entryPoint.Inputs.Select(Describe));
             writer.Line(
                 $"entry {entryPoint.Stage.ToString().ToLowerInvariant()} "
-                + $"{entryPoint.Function.Name}({inputs}){output}");
+                + $"{entryPoint.Function.Name}({inputs}){output}"
+            );
         }
 
         if (shader.Initializer.Statements.Count > 0) {
@@ -203,13 +205,14 @@ public static class IrPrinter {
 
     static string Join(IReadOnlyList<IrValue> values) => string.Join(", ", values);
 
-    static string FormatConstant(object? value) => value switch {
-        null => "zero",
-        bool flag => flag ? "true" : "false",
-        float number => number.ToString("R", CultureInfo.InvariantCulture) + "f",
-        double number => number.ToString("R", CultureInfo.InvariantCulture),
-        _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "?"
-    };
+    static string FormatConstant(object? value) =>
+        value switch {
+            null => "zero",
+            bool flag => flag ? "true" : "false",
+            float number => number.ToString("R", CultureInfo.InvariantCulture) + "f",
+            double number => number.ToString("R", CultureInfo.InvariantCulture),
+            _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "?"
+        };
 
     static string Lower(Enum value) {
         var name = value.ToString();

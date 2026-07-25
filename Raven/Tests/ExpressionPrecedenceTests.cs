@@ -4,42 +4,18 @@ using Xunit;
 namespace Tests;
 
 /// <summary>
-/// The <c>expression</c> rule's precedence ladder. ANTLR gives a left-recursive
-/// rule's alternatives <em>decreasing</em> precedence in the order they are
-/// written, so <c>RavenParser2.g4</c> lists them tightest-first: postfix, prefix,
-/// the arithmetic ladder, conditional, then assignment.
+///     The <c>expression</c> rule's precedence ladder. ANTLR gives a left-recursive
+///     rule's alternatives <em>decreasing</em> precedence in the order they are
+///     written, so <c>RavenParser2.g4</c> lists them tightest-first: postfix, prefix,
+///     the arithmetic ladder, conditional, then assignment.
 /// </summary>
 /// <remarks>
-/// These started life as characterization tests for the inverted ordering the
-/// grammar shipped with — <c>1 + f(x)</c> parsed as <c>(1 + f)(x)</c>,
-/// <c>1 + 2 * 3</c> as <c>(1 + 2) * 3</c>, and <c>x = a + b</c> as
-/// <c>(x = a) + b</c>. They now pin the corrected shapes.
+///     These started life as characterization tests for the inverted ordering the
+///     grammar shipped with — <c>1 + f(x)</c> parsed as <c>(1 + f)(x)</c>,
+///     <c>1 + 2 * 3</c> as <c>(1 + 2) * 3</c>, and <c>x = a + b</c> as
+///     <c>(x = a) + b</c>. They now pin the corrected shapes.
 /// </remarks>
 public class ExpressionPrecedenceTests {
-    static ExpressionSyntax ParseExpression(string expression) {
-        var tree = SyntaxTree.ParseText(
-            $"package A\n\nshader S {{\n    func M() {{\n        var probe = {expression}\n    }}\n}}\n");
-
-        Assert.Empty(tree.Diagnostics);
-
-        return Find(tree.GetRoot())
-               ?? throw new InvalidOperationException("No initializer found.");
-
-        static ExpressionSyntax? Find(SyntaxNode node) {
-            if (node is EqualsValueClauseSyntax clause) {
-                return clause.Value;
-            }
-
-            foreach (var child in node.ChildNodesAndTokens()) {
-                if (Find(child) is { } found) {
-                    return found;
-                }
-            }
-
-            return null;
-        }
-    }
-
     [Fact]
     public void Invocation_binds_tighter_than_arithmetic() {
         // `1 + f(x)`, not `(1 + f)(x)`.
@@ -142,5 +118,30 @@ public class ExpressionPrecedenceTests {
         // `a .. (b + c)`
         var range = Assert.IsType<RangeExpressionSyntax>(ParseExpression("a .. b + c"));
         Assert.Equal("+", Assert.IsType<BinaryExpressionSyntax>(range.Right).OperatorToken.Text);
+    }
+
+    static ExpressionSyntax ParseExpression(string expression) {
+        var tree = SyntaxTree.ParseText(
+            $"package A\n\nshader S {{\n    func M() {{\n        var probe = {expression}\n    }}\n}}\n"
+        );
+
+        Assert.Empty(tree.Diagnostics);
+
+        return Find(tree.GetRoot())
+            ?? throw new InvalidOperationException("No initializer found.");
+
+        static ExpressionSyntax? Find(SyntaxNode node) {
+            if (node is EqualsValueClauseSyntax clause) {
+                return clause.Value;
+            }
+
+            foreach (var child in node.ChildNodesAndTokens()) {
+                if (Find(child) is { } found) {
+                    return found;
+                }
+            }
+
+            return null;
+        }
     }
 }

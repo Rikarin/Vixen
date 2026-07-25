@@ -7,10 +7,10 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven;
 
 /// <summary>
-/// A set of syntax trees compiled together, and the entry point to the semantic
-/// model. Modelled on Roslyn's <c>CSharpCompilation</c>: it owns the symbol
-/// table, hands out a <see cref="SemanticModel"/> per tree, and aggregates
-/// diagnostics from every phase.
+///     A set of syntax trees compiled together, and the entry point to the semantic
+///     model. Modelled on Roslyn's <c>CSharpCompilation</c>: it owns the symbol
+///     table, hands out a <see cref="SemanticModel" /> per tree, and aggregates
+///     diagnostics from every phase.
 /// </summary>
 public sealed class Compilation {
     readonly DiagnosticBag declarationDiagnostics = new();
@@ -24,11 +24,6 @@ public sealed class Compilation {
     Binder? globalBinder;
     NamespaceSymbol? globalNamespace;
 
-    Compilation(string assemblyName, SyntaxTree[] syntaxTrees) {
-        AssemblyName = assemblyName;
-        this.syntaxTrees = syntaxTrees;
-    }
-
     public string AssemblyName { get; }
 
     public IReadOnlyList<SyntaxTree> SyntaxTrees => syntaxTrees;
@@ -41,10 +36,14 @@ public sealed class Compilation {
         }
     }
 
-    internal BindingContext DeclarationContext =>
-        declarationContext ??= new BindingContext(this, declarationDiagnostics);
+    internal BindingContext DeclarationContext => declarationContext ??= new(this, declarationDiagnostics);
 
     internal Binder GlobalBinder => globalBinder ??= new GlobalBinder(DeclarationContext);
+
+    Compilation(string assemblyName, SyntaxTree[] syntaxTrees) {
+        AssemblyName = assemblyName;
+        this.syntaxTrees = syntaxTrees;
+    }
 
     public static Compilation Create(string assemblyName, params SyntaxTree[] syntaxTrees) =>
         new(assemblyName, syntaxTrees);
@@ -54,7 +53,7 @@ public sealed class Compilation {
 
     public SemanticModel GetSemanticModel(SyntaxTree syntaxTree) {
         if (!semanticModels.TryGetValue(syntaxTree, out var model)) {
-            semanticModels[syntaxTree] = model = new SemanticModel(this, syntaxTree);
+            semanticModels[syntaxTree] = model = new(this, syntaxTree);
         }
 
         return model;
@@ -96,8 +95,8 @@ public sealed class Compilation {
             .ToArray();
 
     /// <summary>
-    /// Syntax, declaration and binding diagnostics for the whole compilation,
-    /// ordered by file and position.
+    ///     Syntax, declaration and binding diagnostics for the whole compilation,
+    ///     ordered by file and position.
     /// </summary>
     public IReadOnlyList<Diagnostic> GetDiagnostics() {
         List<Diagnostic> all = [];
@@ -121,12 +120,6 @@ public sealed class Compilation {
             .ToArray();
     }
 
-    /// <summary>The scope a compilation unit's declarations and bodies live in.</summary>
-    internal ImportBinder GetImportBinder(SyntaxTree syntaxTree) {
-        EnsureDeclarations();
-        return importBinders[syntaxTree];
-    }
-
     void EnsureDeclarations() {
         if (declarationsBuilt) {
             return;
@@ -135,7 +128,7 @@ public sealed class Compilation {
         // Published before building: creating a type symbol can look names up,
         // and lookup reads the (still growing) global namespace.
         declarationsBuilt = true;
-        globalNamespace = new NamespaceSymbol(string.Empty, null);
+        globalNamespace = new(string.Empty, null);
 
         // Pass 1 — namespaces and per-file scopes. Imports inside those scopes
         // resolve lazily, once every declaration below exists.
@@ -145,7 +138,7 @@ public sealed class Compilation {
             }
 
             var package = globalNamespace.GetOrAddNamespace(ImportBinder.FlattenName(unit.Package?.PackageName));
-            importBinders[tree] = new ImportBinder(GlobalBinder, package, unit);
+            importBinders[tree] = new(GlobalBinder, package, unit);
         }
 
         // Pass 2 — the types themselves.
@@ -163,12 +156,16 @@ public sealed class Compilation {
 
                 var symbol = new SourceNamedTypeSymbol(binder.PackageNamespace, declaration, binder);
 
-                if (binder.PackageNamespace.GetTypeMember(symbol.Name, declaration.TypeParameterList?.Parameters.Count ?? 0)
+                if (binder.PackageNamespace.GetTypeMember(
+                        symbol.Name,
+                        declaration.TypeParameterList?.Parameters.Count ?? 0
+                    )
                     is not null) {
                     declarationDiagnostics.Add(
                         SemanticDiagnostics.DuplicateDeclaration,
                         declaration.Identifier.GetLocation(),
-                        symbol.Name);
+                        symbol.Name
+                    );
                     continue;
                 }
 
@@ -178,5 +175,11 @@ public sealed class Compilation {
 
             typesByTree[tree] = declared;
         }
+    }
+
+    /// <summary>The scope a compilation unit's declarations and bodies live in.</summary>
+    internal ImportBinder GetImportBinder(SyntaxTree syntaxTree) {
+        EnsureDeclarations();
+        return importBinders[syntaxTree];
     }
 }

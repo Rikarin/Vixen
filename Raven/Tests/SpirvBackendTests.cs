@@ -1,6 +1,5 @@
 using Vixen.Raven.CodeGen;
 using Vixen.Raven.CodeGen.Spirv;
-using Vixen.Raven.IR;
 using Vixen.Raven.Symbols;
 using Xunit;
 using static Tests.CodeGenTestBase;
@@ -9,9 +8,9 @@ using static Tests.SpirvTestBase;
 namespace Tests;
 
 /// <summary>
-/// Phase 6: the IR becomes SPIR-V. Every case here is run through
-/// <c>spirv-val</c> as well as read, so a passing assertion means a module a
-/// driver would actually accept.
+///     Phase 6: the IR becomes SPIR-V. Every case here is run through
+///     <c>spirv-val</c> as well as read, so a passing assertion means a module a
+///     driver would actually accept.
 /// </summary>
 public class SpirvBackendTests {
     [Fact]
@@ -26,7 +25,8 @@ public class SpirvBackendTests {
 
     [Fact]
     public void A_unit_carries_the_bytes_and_a_listing_of_the_same_instructions() {
-        var unit = One("""
+        var unit = One(
+            """
             package A
 
             shader S {
@@ -36,7 +36,8 @@ public class SpirvBackendTests {
                 }
             }
 
-            """);
+            """
+        );
 
         Assert.True(unit.IsBinary);
 
@@ -57,7 +58,8 @@ public class SpirvBackendTests {
 
     [Fact]
     public void Each_entry_point_becomes_its_own_module() {
-        var generated = GenerateClean("""
+        var generated = GenerateClean(
+            """
             package A
 
             shader Lit {
@@ -72,7 +74,9 @@ public class SpirvBackendTests {
                 }
             }
 
-            """, "spirv");
+            """,
+            "spirv"
+        );
 
         Assert.Equal(["Lit.vert", "Lit.frag"], generated.Select(g => g.Name));
         Assert.All(generated, Validate);
@@ -80,7 +84,8 @@ public class SpirvBackendTests {
 
     [Fact]
     public void A_module_only_carries_the_functions_its_stage_reaches() {
-        var generated = GenerateClean("""
+        var generated = GenerateClean(
+            """
             package A
 
             shader Lit {
@@ -103,7 +108,9 @@ public class SpirvBackendTests {
                 }
             }
 
-            """, "spirv");
+            """,
+            "spirv"
+        );
 
         var vertex = generated.Single(g => g.Stage == ShaderStage.Vertex).Code;
         var pixel = generated.Single(g => g.Stage == ShaderStage.Pixel).Code;
@@ -123,7 +130,8 @@ public class SpirvBackendTests {
                     return 1
                 }
 
-            """);
+            """
+        );
 
         // SPIR-V is read in one pass, so a call never points forward: Helper,
         // then Pixel, then the main that the pipeline calls.
@@ -144,7 +152,8 @@ public class SpirvBackendTests {
     public void Uniforms_become_one_explicitly_laid_out_block() {
         var code = Pixel(
             "        return tint",
-            "    var scale: float\n    var tint: float4\n");
+            "    var scale: float\n    var tint: float4\n"
+        );
 
         var block = BlockStruct(code);
         Assert.Contains("DescriptorSet 0", code);
@@ -160,7 +169,8 @@ public class SpirvBackendTests {
     public void A_matrix_member_carries_its_stride_and_ordering() {
         var code = Pixel(
             "        return m * float4(0, 0, 0, 1)",
-            "    var m: mat4\n");
+            "    var m: mat4\n"
+        );
 
         var block = BlockStruct(code);
 
@@ -176,7 +186,8 @@ public class SpirvBackendTests {
         var code = Pixel(
             "        return albedo.Sample(linear, uv)",
             "    var albedo: Texture2D\n    var linear: Sampler\n",
-            "func Pixel(uv: float2): float4");
+            "func Pixel(uv: float2): float4"
+        );
 
         // This is what SPIR-V has and GLSL does not: nothing is folded away, and
         // the two only meet at the sample itself.
@@ -191,7 +202,8 @@ public class SpirvBackendTests {
 
     [Fact]
     public void Sampling_outside_a_fragment_stage_asks_for_an_explicit_level() {
-        var unit = One("""
+        var unit = One(
+            """
             package A
 
             shader S {
@@ -204,7 +216,8 @@ public class SpirvBackendTests {
                 }
             }
 
-            """);
+            """
+        );
 
         // Only a fragment shader has the derivatives an implicit level needs.
         Assert.Contains("OpImageSampleExplicitLod", unit.Code);
@@ -215,7 +228,8 @@ public class SpirvBackendTests {
 
     [Fact]
     public void A_vertex_position_becomes_the_Position_built_in() {
-        var unit = One("""
+        var unit = One(
+            """
             package A
 
             shader S {
@@ -226,7 +240,8 @@ public class SpirvBackendTests {
                 }
             }
 
-            """);
+            """
+        );
 
         Assert.Contains("BuiltIn Position", unit.Code);
         Assert.Contains("Location 0", unit.Code);
@@ -246,7 +261,8 @@ public class SpirvBackendTests {
     public void Stage_inputs_get_consecutive_locations() {
         var code = Pixel(
             "        return float4(a, b, 0, 1)",
-            signature: "func Pixel(a: float, b: float): float4");
+            signature: "func Pixel(a: float, b: float): float4"
+        );
 
         Assert.Contains("Location 0", code);
         Assert.Contains("Location 1", code);
@@ -261,8 +277,7 @@ public class SpirvBackendTests {
     [InlineData("float", "OpTypeFloat 32")]
     [InlineData("double", "OpTypeFloat 64")]
     public void Scalars_map_onto_their_spirv_type(string raven, string expected) {
-        var code = Pixel(
-            $"        var probe: {raven}\n        return float4(0, 0, 0, 1)");
+        var code = Pixel($"        var probe: {raven}\n        return float4(0, 0, 0, 1)");
 
         Assert.Contains(expected, code);
     }
@@ -270,8 +285,7 @@ public class SpirvBackendTests {
     [Fact]
     public void A_matrix_becomes_a_repeated_column() {
         // Raven's mat2x3 is 2 rows by 3 columns, so SPIR-V holds 3 columns of 2.
-        var code = Pixel(
-            "        var probe: mat2x3\n        return float4(0, 0, 0, 1)");
+        var code = Pixel("        var probe: mat2x3\n        return float4(0, 0, 0, 1)");
 
         var matrix = Lines(code).Single(line => line.Contains("OpTypeMatrix")).Split(' ');
         var column = matrix[^2];
@@ -290,25 +304,28 @@ public class SpirvBackendTests {
 
     [Fact]
     public void A_struct_keeps_its_field_names_and_is_built_by_composite() {
-        var code = One("""
-            package A
+        var code = One(
+                """
+                package A
 
-            struct Ray {
-                var origin: float3
-                var direction: float3
+                struct Ray {
+                    var origin: float3
+                    var direction: float3
 
-                func At(t: float): float3 => origin + direction * t
-            }
-
-            shader S {
-                [PixelShader]
-                func Pixel(): float4 {
-                    var ray: Ray
-                    return float4(ray.At(1f), 1)
+                    func At(t: float): float3 => origin + direction * t
                 }
-            }
 
-            """).Code;
+                shader S {
+                    [PixelShader]
+                    func Pixel(): float4 {
+                        var ray: Ray
+                        return float4(ray.At(1f), 1)
+                    }
+                }
+
+                """
+            )
+            .Code;
 
         Assert.Contains("OpName", code);
         Assert.Contains("\"Ray\"", code);
@@ -320,13 +337,16 @@ public class SpirvBackendTests {
 
     [Fact]
     public void An_if_declares_its_merge_before_it_branches() {
-        var code = Pixel("""
+        var code = Pixel(
+            """
                     if (level > 1f) {
                         return float4(1, 0, 0, 1)
                     } else {
                         return float4(0, 1, 0, 1)
                     }
-            """, "    var level: float\n");
+            """,
+            "    var level: float\n"
+        );
 
         Assert.Contains("OpSelectionMerge", code);
         Assert.Contains("OpBranchConditional", code);
@@ -338,14 +358,16 @@ public class SpirvBackendTests {
 
     [Fact]
     public void A_loop_puts_its_step_in_the_continue_target() {
-        var code = Pixel("""
+        var code = Pixel(
+            """
                     var total = 0f
                     for (i in 0 .. 3) {
                         total += 1f
                     }
 
                     return float4(total, 0, 0, 1)
-            """);
+            """
+        );
 
         // SPIR-V names the continue target, so the step simply goes there — none
         // of the first-iteration flag the GLSL backend has to invent.
@@ -364,7 +386,8 @@ public class SpirvBackendTests {
 
     [Fact]
     public void Break_and_continue_branch_to_the_targets_the_header_declared() {
-        var code = Pixel("""
+        var code = Pixel(
+            """
                     var total = 0f
                     for (i in 0 .. 8) {
                         if (i == 2) {
@@ -379,7 +402,8 @@ public class SpirvBackendTests {
                     }
 
                     return float4(total, 0, 0, 1)
-            """);
+            """
+        );
 
         var loopMerge = code.Split('\n').Single(l => l.Contains("OpLoopMerge"));
         var operands = loopMerge.Split(' ');
@@ -393,14 +417,16 @@ public class SpirvBackendTests {
 
     [Fact]
     public void A_repeat_loop_tests_after_its_body() {
-        var code = Pixel("""
+        var code = Pixel(
+            """
                     var total = 0f
                     repeat {
                         total += 1f
                     } while (total < 4f)
 
                     return float4(total, 0, 0, 1)
-            """);
+            """
+        );
 
         Assert.Contains("OpLoopMerge", code);
 
@@ -418,7 +444,8 @@ public class SpirvBackendTests {
     public void A_select_over_vectors_gets_a_condition_per_lane() {
         var code = Pixel(
             "        val picked = level > 1f ? a : b\n        return float4(picked, 1)",
-            "    var level: float\n    var a: float3\n    var b: float3\n");
+            "    var level: float\n    var a: float3\n    var b: float3\n"
+        );
 
         // Before SPIR-V 1.4 a vector select needs a bvec, so a scalar test is
         // broadcast rather than passed through.
@@ -430,7 +457,8 @@ public class SpirvBackendTests {
     public void A_swizzle_read_becomes_a_shuffle_and_one_lane_an_extract() {
         var code = Pixel(
             "        return float4(v.xyz, v.w)",
-            "    var v: float4\n");
+            "    var v: float4\n"
+        );
 
         // Several lanes are not a location, so they are shuffled out of the
         // loaded value; a single lane is one, so the pointer reaches it directly.
@@ -440,11 +468,13 @@ public class SpirvBackendTests {
 
     [Fact]
     public void Writing_some_lanes_reads_the_vector_shuffles_and_writes_it_back() {
-        var code = Pixel("""
+        var code = Pixel(
+            """
                     var v = float4(0, 0, 0, 1)
                     v.xy = float2(1, 1)
                     return v
-            """);
+            """
+        );
 
         // A vector's lanes are not separately addressable, so a partial write is
         // a read, a shuffle and a whole write.
@@ -464,10 +494,11 @@ public class SpirvBackendTests {
     public void Intrinsics_reach_the_glsl_extended_instruction_set(string expression, string expected) {
         var code = Pixel(
             $"        val probe = {expression}\n        return float4(0, 0, 0, 1)",
-            "    var v: float3\n    var f: float\n");
+            "    var v: float3\n    var f: float\n"
+        );
 
         Assert.Contains("OpExtInstImport \"GLSL.std.450\"", code);
-        Assert.Contains($"OpExtInst", code);
+        Assert.Contains("OpExtInst", code);
         Assert.Contains(((int)Enum.Parse<GlslStd450>(expected)).ToString(), Operands(code, "OpExtInst"));
     }
 
@@ -480,7 +511,8 @@ public class SpirvBackendTests {
     public void Some_intrinsics_are_core_opcodes(string expression, string expected) {
         var code = Pixel(
             $"        val probe = {expression}\n        return float4(0, 0, 0, 1)",
-            "    var v: float3\n    var f: float\n    var m: mat3\n");
+            "    var v: float3\n    var f: float\n    var m: mat3\n"
+        );
 
         Assert.Contains(expected, code);
     }
@@ -489,7 +521,8 @@ public class SpirvBackendTests {
     public void Saturate_becomes_a_clamp_against_constants_it_has_to_build() {
         var code = Pixel(
             "        val probe = saturate(v)\n        return float4(probe, 1)",
-            "    var v: float3\n");
+            "    var v: float3\n"
+        );
 
         // There is no saturate instruction, and the bounds have to match the
         // argument's shape, so two vector constants are constructed first.
@@ -508,7 +541,8 @@ public class SpirvBackendTests {
     public void Integer_operators_pick_the_signed_instruction(string expression, string expected) {
         var code = Pixel(
             $"        val probe = {expression}\n        return float4(0, 0, 0, 1)",
-            "    var a: int\n    var b: int\n");
+            "    var a: int\n    var b: int\n"
+        );
 
         Assert.Contains(expected, code);
     }
@@ -517,7 +551,8 @@ public class SpirvBackendTests {
     public void An_unsigned_divide_is_a_different_instruction_from_a_signed_one() {
         var code = Pixel(
             "        val probe = a / b\n        return float4(0, 0, 0, 1)",
-            "    var a: uint\n    var b: uint\n");
+            "    var a: uint\n    var b: uint\n"
+        );
 
         Assert.Contains("OpUDiv", code);
         Assert.DoesNotContain("OpSDiv", code);
@@ -527,7 +562,8 @@ public class SpirvBackendTests {
     public void A_vector_times_a_scalar_is_its_own_instruction() {
         var code = Pixel(
             "        return float4(v * f, 1)",
-            "    var v: float3\n    var f: float\n");
+            "    var v: float3\n    var f: float\n"
+        );
 
         // The IR splats the scalar first, so this is a plain componentwise
         // multiply — the shaped instruction is there for the forms that reach it.
@@ -538,7 +574,8 @@ public class SpirvBackendTests {
     public void A_conversion_names_the_direction_it_goes() {
         var code = Pixel(
             "        val probe: float = i\n        return float4(probe, 0, 0, 1)",
-            "    var i: int\n");
+            "    var i: int\n"
+        );
 
         Assert.Contains("OpConvertSToF", code);
     }
@@ -547,7 +584,8 @@ public class SpirvBackendTests {
 
     [Fact]
     public void An_unsized_array_is_rejected_rather_than_emitted() {
-        Generate("""
+        Generate(
+            """
             package A
 
             shader S {
@@ -559,14 +597,18 @@ public class SpirvBackendTests {
                 }
             }
 
-            """, out var diagnostics, "spirv");
+            """,
+            out var diagnostics,
+            "spirv"
+        );
 
         Assert.Contains(diagnostics, d => d.Id == "RVN4001" && d.IsError);
     }
 
     [Fact]
     public void A_compute_entry_point_is_reported_rather_than_guessed_at() {
-        Generate("""
+        Generate(
+            """
             package A
 
             shader S {
@@ -574,14 +616,18 @@ public class SpirvBackendTests {
                 func Main() { }
             }
 
-            """, out var diagnostics, "spirv");
+            """,
+            out var diagnostics,
+            "spirv"
+        );
 
         Assert.Contains(diagnostics, d => d.Id == "RVN4002" && d.IsError);
     }
 
     [Fact]
     public void A_boolean_stage_input_is_rejected_because_vulkan_has_no_such_interface() {
-        Generate("""
+        Generate(
+            """
             package A
 
             shader S {
@@ -591,14 +637,18 @@ public class SpirvBackendTests {
                 }
             }
 
-            """, out var diagnostics, "spirv");
+            """,
+            out var diagnostics,
+            "spirv"
+        );
 
         Assert.Contains(diagnostics, d => d.Id == "RVN4001" && d.IsError);
     }
 
     [Fact]
     public void Dropping_a_binding_default_is_reported_once_rather_than_per_stage() {
-        Generate("""
+        Generate(
+            """
             package A
 
             shader S {
@@ -615,7 +665,10 @@ public class SpirvBackendTests {
                 }
             }
 
-            """, out var diagnostics, "spirv");
+            """,
+            out var diagnostics,
+            "spirv"
+        );
 
         var dropped = Assert.Single(diagnostics, d => d.Id == "RVN4003");
         Assert.False(dropped.IsError);
@@ -623,7 +676,8 @@ public class SpirvBackendTests {
 
     [Fact]
     public void Indexing_a_matrix_is_refused_because_the_conventions_disagree() {
-        Generate("""
+        Generate(
+            """
             package A
 
             shader S {
@@ -635,7 +689,10 @@ public class SpirvBackendTests {
                 }
             }
 
-            """, out var diagnostics, "spirv");
+            """,
+            out var diagnostics,
+            "spirv"
+        );
 
         // The IR reads m[i] as a row; SPIR-V and GLSL index columns. Emitting it
         // would be a type error the validator catches, so it is refused. This is
@@ -650,7 +707,8 @@ public class SpirvBackendTests {
         Assert.True(
             ValidatorAvailable,
             "spirv-val was not found. Install SPIR-V Tools (brew install spirv-tools) — without it "
-            + "the SPIR-V tests only check the listing, not whether the module is valid.");
+            + "the SPIR-V tests only check the listing, not whether the module is valid."
+        );
     }
 
     // --- Helpers -----------------------------------------------------------
@@ -669,12 +727,12 @@ public class SpirvBackendTests {
     static string[] Lines(string listing) => listing.Split('\n');
 
     /// <summary>The id of the uniform block struct, which ids alone would not pin down.</summary>
-    static string BlockStruct(string listing) =>
-        Lines(listing).Single(line => line.EndsWith(" Block")).Split(' ')[1];
+    static string BlockStruct(string listing) => Lines(listing).Single(line => line.EndsWith(" Block")).Split(' ')[1];
 
     /// <summary>Everything after the opcode, for every instruction using it.</summary>
     static string Operands(string listing, string op) =>
         string.Join(
             "\n",
-            listing.Split('\n').Where(line => line.Contains(op + " ", StringComparison.Ordinal)));
+            listing.Split('\n').Where(line => line.Contains(op + " ", StringComparison.Ordinal))
+        );
 }

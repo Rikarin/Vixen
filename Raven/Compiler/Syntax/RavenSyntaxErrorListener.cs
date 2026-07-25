@@ -5,10 +5,10 @@ using Vixen.Raven.Text;
 namespace Vixen.Raven.Syntax;
 
 /// <summary>
-/// Routes ANTLR lexer and parser errors into a <see cref="DiagnosticBag"/> with
-/// real source spans instead of writing to the console. Implements both listener
-/// interfaces: <c>int</c> for the lexer (offending char), <c>IToken</c> for the
-/// parser (offending token).
+///     Routes ANTLR lexer and parser errors into a <see cref="DiagnosticBag" /> with
+///     real source spans instead of writing to the console. Implements both listener
+///     interfaces: <c>int</c> for the lexer (offending char), <c>IToken</c> for the
+///     parser (offending token).
 /// </summary>
 sealed class RavenSyntaxErrorListener(DiagnosticBag diagnostics, SourceText text, string filePath)
     : IAntlrErrorListener<int>, IAntlrErrorListener<IToken> {
@@ -51,7 +51,7 @@ sealed class RavenSyntaxErrorListener(DiagnosticBag diagnostics, SourceText text
         // ANTLR lines are 1-based; columns are 0-based.
         var lineIndex = line - 1;
         if (lineIndex < 0 || lineIndex >= text.LineCount) {
-            return new TextSpan(Clamp(0), 0);
+            return new(Clamp(0), 0);
         }
 
         var start = Clamp(text.GetLineStart(lineIndex) + charPositionInLine);

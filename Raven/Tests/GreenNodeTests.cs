@@ -7,8 +7,8 @@ using SyntaxList = Vixen.Raven.Syntax.InternalSyntax.SyntaxList;
 namespace Tests;
 
 /// <summary>
-/// Foundation tests for the internal green tree: width accounting, trivia
-/// separation, and byte-for-byte full-text round-tripping.
+///     Foundation tests for the internal green tree: width accounting, trivia
+///     separation, and byte-for-byte full-text round-tripping.
 /// </summary>
 public class GreenNodeTests {
     static SyntaxTrivia Space => new(SyntaxKind.WhitespaceTrivia, " ");

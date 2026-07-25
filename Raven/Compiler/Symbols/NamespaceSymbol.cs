@@ -1,18 +1,13 @@
 namespace Vixen.Raven.Symbols;
 
 /// <summary>
-/// A package namespace. <c>package A.B</c> creates the chain
-/// <c>&lt;global&gt; → A → B</c>; every type declared in that file lands in
-/// <c>B</c>.
+///     A package namespace. <c>package A.B</c> creates the chain
+///     <c>&lt;global&gt; → A → B</c>; every type declared in that file lands in
+///     <c>B</c>.
 /// </summary>
 public sealed class NamespaceSymbol : Symbol {
     readonly Dictionary<string, NamespaceSymbol> namespaces = [];
     readonly Dictionary<string, List<NamedTypeSymbol>> types = [];
-
-    internal NamespaceSymbol(string name, NamespaceSymbol? container) {
-        Name = name;
-        ContainingSymbol = container;
-    }
 
     public override SymbolKind Kind => SymbolKind.Namespace;
     public override string Name { get; }
@@ -36,7 +31,12 @@ public sealed class NamespaceSymbol : Symbol {
 
     public IReadOnlyList<NamedTypeSymbol> Types => types.Values.SelectMany(t => t).ToArray();
 
-    public IReadOnlyList<Symbol> GetMembers() => [..Namespaces, ..Types];
+    internal NamespaceSymbol(string name, NamespaceSymbol? container) {
+        Name = name;
+        ContainingSymbol = container;
+    }
+
+    public IReadOnlyList<Symbol> GetMembers() => [.. Namespaces, .. Types];
 
     public IReadOnlyList<Symbol> GetMembers(string name) {
         List<Symbol> found = [];
@@ -68,6 +68,8 @@ public sealed class NamespaceSymbol : Symbol {
         return null;
     }
 
+    public override string ToDisplayString() => IsGlobalNamespace ? "<global namespace>" : QualifiedName;
+
     /// <summary>Gets or creates the child namespace with this name.</summary>
     internal NamespaceSymbol GetOrAddNamespace(string name) {
         if (namespaces.TryGetValue(name, out var existing)) {
@@ -96,6 +98,4 @@ public sealed class NamespaceSymbol : Symbol {
 
         list.Add(type);
     }
-
-    public override string ToDisplayString() => IsGlobalNamespace ? "<global namespace>" : QualifiedName;
 }

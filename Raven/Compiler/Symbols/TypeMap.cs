@@ -1,20 +1,20 @@
 namespace Vixen.Raven.Symbols;
 
 /// <summary>
-/// Replaces type parameters with type arguments. One map is built per
-/// construction (<c>Box&lt;int&gt;</c>) and reused for every signature read
-/// through it.
+///     Replaces type parameters with type arguments. One map is built per
+///     construction (<c>Box&lt;int&gt;</c>) and reused for every signature read
+///     through it.
 /// </summary>
 public sealed class TypeMap {
     readonly Dictionary<TypeParameterSymbol, TypeSymbol> substitutions = [];
+
+    public bool IsEmpty => substitutions.Count == 0;
 
     public TypeMap(IReadOnlyList<TypeParameterSymbol> parameters, IReadOnlyList<TypeSymbol> arguments) {
         for (var i = 0; i < parameters.Count && i < arguments.Count; i++) {
             substitutions[parameters[i]] = arguments[i];
         }
     }
-
-    public bool IsEmpty => substitutions.Count == 0;
 
     /// <summary>The type with every mapped parameter replaced, recursively.</summary>
     public TypeSymbol Substitute(TypeSymbol type) {
@@ -24,7 +24,7 @@ public sealed class TypeMap {
 
             case ArrayTypeSymbol array: {
                 var element = Substitute(array.ElementType);
-                return element.Equals(array.ElementType) ? array : new ArrayTypeSymbol(element, array.Rank);
+                return element.Equals(array.ElementType) ? array : new(element, array.Rank);
             }
 
 
@@ -32,7 +32,7 @@ public sealed class TypeMap {
                 var elements = tuple.ElementTypes.Select(Substitute).ToArray();
                 return elements.SequenceEqual(tuple.ElementTypes)
                     ? tuple
-                    : new TupleTypeSymbol(elements, tuple.ElementNames);
+                    : new(elements, tuple.ElementNames);
             }
 
 

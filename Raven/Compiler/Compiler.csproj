@@ -22,14 +22,14 @@
         </PackageReference>
         <PackageReference Include="Antlr4.Runtime" Version="4.6.6"/>
     </ItemGroup>
-    
+
     <ItemGroup>
         <Content Include="Grammar\RavenLexer2.g4"/>
         <Content Include="Grammar\RavenParser2.g4"/>
         <Content Include="Grammar\UnicodeClasses.g4"/>
         <AdditionalFiles Include="Syntax\Syntax.xml"/>
     </ItemGroup>
-    
+
     <ItemGroup>
         <ProjectReference Include="..\Tools\SyntaxGenerator\SyntaxGenerator.csproj"
                           OutputItemType="Analyzer"

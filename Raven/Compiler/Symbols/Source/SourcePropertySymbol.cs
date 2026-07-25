@@ -5,9 +5,9 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Symbols.Source;
 
 /// <summary>
-/// A <c>var</c> property or a <c>self[…]</c> indexer. Raven properties may carry
-/// <c>willSet</c>/<c>didSet</c> observers in addition to <c>get</c>/<c>set</c>;
-/// any of them makes the property writable.
+///     A <c>var</c> property or a <c>self[…]</c> indexer. Raven properties may carry
+///     <c>willSet</c>/<c>didSet</c> observers in addition to <c>get</c>/<c>set</c>;
+///     any of them makes the property writable.
 /// </summary>
 public sealed class SourcePropertySymbol : PropertySymbol {
     readonly Binder binder;
@@ -15,19 +15,14 @@ public sealed class SourcePropertySymbol : PropertySymbol {
     bool resolving;
     TypeSymbol? type;
 
-    internal SourcePropertySymbol(NamedTypeSymbol containingType, MemberDeclarationSyntax syntax, Binder binder) {
-        ContainingSymbol = containingType;
-        Syntax = syntax;
-        this.binder = binder;
-    }
-
     public MemberDeclarationSyntax Syntax { get; }
 
-    public override string Name => Syntax switch {
-        PropertyDeclarationSyntax property => property.Identifier.ValueText,
-        IndexerDeclarationSyntax => "self[]",
-        _ => string.Empty
-    };
+    public override string Name =>
+        Syntax switch {
+            PropertyDeclarationSyntax property => property.Identifier.ValueText,
+            IndexerDeclarationSyntax => "self[]",
+            _ => string.Empty
+        };
 
     public override Symbol? ContainingSymbol { get; }
     public override SyntaxNode DeclaringSyntax => Syntax;
@@ -40,25 +35,26 @@ public sealed class SourcePropertySymbol : PropertySymbol {
     public override TypeSymbol Type => type ??= ResolveType();
 
     /// <summary>The accessor block, when the property declares one.</summary>
-    public AccessorListSyntax? AccessorList => Syntax switch {
-        PropertyDeclarationSyntax property => property.AccessorList,
-        IndexerDeclarationSyntax indexer => indexer.AccessorList,
-        _ => null
-    };
+    public AccessorListSyntax? AccessorList =>
+        Syntax switch {
+            PropertyDeclarationSyntax property => property.AccessorList,
+            IndexerDeclarationSyntax indexer => indexer.AccessorList,
+            _ => null
+        };
 
     /// <summary>The <c>=&gt; expression</c> body, when the property is expression-bodied.</summary>
-    public ArrowExpressionClauseSyntax? ExpressionBody => Syntax switch {
-        PropertyDeclarationSyntax property => property.ExpressionBody,
-        IndexerDeclarationSyntax indexer => indexer.ExpressionBody,
-        _ => null
-    };
+    public ArrowExpressionClauseSyntax? ExpressionBody =>
+        Syntax switch {
+            PropertyDeclarationSyntax property => property.ExpressionBody,
+            IndexerDeclarationSyntax indexer => indexer.ExpressionBody,
+            _ => null
+        };
 
     /// <summary>The <c>= value</c> initializer, when present.</summary>
     public EqualsValueClauseSyntax? Initializer =>
         Syntax is PropertyDeclarationSyntax property ? property.Initializer : null;
 
-    public override bool HasGetter =>
-        ExpressionBody is not null || HasAccessor(SyntaxKind.GetAccessorDeclaration);
+    public override bool HasGetter => ExpressionBody is not null || HasAccessor(SyntaxKind.GetAccessorDeclaration);
 
     public override bool HasSetter =>
         HasAccessor(SyntaxKind.SetAccessorDeclaration)
@@ -67,12 +63,10 @@ public sealed class SourcePropertySymbol : PropertySymbol {
 
     public override IReadOnlyList<ParameterSymbol> Parameters => parameters ??= ResolveParameters();
 
-    /// <summary>Resolves the declared type and parameters, so their diagnostics appear unprompted.</summary>
-    internal void EnsureSignatureResolved() {
-        _ = Type;
-        foreach (var parameter in Parameters) {
-            _ = parameter.Type;
-        }
+    internal SourcePropertySymbol(NamedTypeSymbol containingType, MemberDeclarationSyntax syntax, Binder binder) {
+        ContainingSymbol = containingType;
+        Syntax = syntax;
+        this.binder = binder;
     }
 
     bool HasAccessor(SyntaxKind kind) {
@@ -132,19 +126,25 @@ public sealed class SourcePropertySymbol : PropertySymbol {
 
             if (AccessorList is { } list) {
                 foreach (var accessor in list.Accessors) {
-                    if (accessor.Kind == SyntaxKind.GetAccessorDeclaration &&
-                        accessor.ExpressionBody?.Expression is { } getter) {
+                    if (accessor.Kind == SyntaxKind.GetAccessorDeclaration
+                        && accessor.ExpressionBody?.Expression is { } getter) {
                         return binder.InferType(getter);
                     }
                 }
             }
 
-            binder.Diagnostics.Add(
-                SemanticDiagnostics.MissingTypeOrInitializer, DeclaringSyntax.GetLocation(), Name);
+            binder.Diagnostics.Add(SemanticDiagnostics.MissingTypeOrInitializer, DeclaringSyntax.GetLocation(), Name);
             return ErrorTypeSymbol.Instance;
-        }
-        finally {
+        } finally {
             resolving = false;
+        }
+    }
+
+    /// <summary>Resolves the declared type and parameters, so their diagnostics appear unprompted.</summary>
+    internal void EnsureSignatureResolved() {
+        _ = Type;
+        foreach (var parameter in Parameters) {
+            _ = parameter.Type;
         }
     }
 }

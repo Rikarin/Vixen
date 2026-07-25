@@ -1,17 +1,16 @@
 namespace Vixen.Raven.Syntax.InternalSyntax;
 
 /// <summary>
-/// Green list node: an anonymous <see cref="SyntaxKind.ListKind"/> node whose
-/// slots are its elements. Specialized shapes avoid array allocation for the
-/// common small cases.
+///     Green list node: an anonymous <see cref="SyntaxKind.ListKind" /> node whose
+///     slots are its elements. Specialized shapes avoid array allocation for the
+///     common small cases.
 /// </summary>
-internal abstract class SyntaxList : GreenNode {
+abstract class SyntaxList : GreenNode {
+    public override bool IsList => true;
     protected SyntaxList() : base(SyntaxKind.ListKind) { }
 
-    public override bool IsList => true;
-
-    public override Vixen.Raven.Syntax.SyntaxNode CreateRed(Vixen.Raven.Syntax.SyntaxNode? parent, int position) =>
-        new Vixen.Raven.Syntax.SyntaxListNode(this, parent, position);
+    public override SyntaxNode CreateRed(SyntaxNode? parent, int position) =>
+        new SyntaxListNode(this, parent, position);
 
     public static GreenNode? List(GreenNode?[] children) =>
         children.Length switch {
@@ -54,13 +53,12 @@ internal abstract class SyntaxList : GreenNode {
             }
         }
 
-        public override GreenNode? GetSlot(int index) =>
-            index >= 0 && index < children.Length ? children[index] : null;
+        public override GreenNode? GetSlot(int index) => index >= 0 && index < children.Length ? children[index] : null;
     }
 }
 
-/// <summary>Accumulates green children before materializing a <see cref="SyntaxList"/>.</summary>
-internal sealed class SyntaxListBuilder {
+/// <summary>Accumulates green children before materializing a <see cref="SyntaxList" />.</summary>
+sealed class SyntaxListBuilder {
     readonly List<GreenNode?> nodes = [];
 
     public int Count => nodes.Count;

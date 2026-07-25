@@ -5,17 +5,39 @@ using Vixen.Raven.Text;
 namespace Vixen.Raven.Syntax;
 
 /// <summary>
-/// Base of the public <em>red</em> tree: a lazy overlay over an immutable
-/// <see cref="GreenNode"/> that adds a <see cref="Parent"/> pointer and an
-/// absolute <see cref="Position"/>. Child red nodes are realized on demand from
-/// the green tree and cached, so navigation is cheap and identity-stable.
+///     Base of the public <em>red</em> tree: a lazy overlay over an immutable
+///     <see cref="GreenNode" /> that adds a <see cref="Parent" /> pointer and an
+///     absolute <see cref="Position" />. Child red nodes are realized on demand from
+///     the green tree and cached, so navigation is cheap and identity-stable.
 /// </summary>
 public abstract class SyntaxNode {
     SyntaxNode?[]? cachedSlots;
     SyntaxTree? syntaxTree;
+    public SyntaxNode? Parent { get; }
+
+    public SyntaxKind Kind => Green.Kind;
+    public int SlotCount => Green.SlotCount;
+
+    /// <summary>
+    ///     The tree this node belongs to. Only the root carries the back-reference;
+    ///     every other node walks up to it.
+    /// </summary>
+    public SyntaxTree? SyntaxTree {
+        get => syntaxTree ?? Parent?.SyntaxTree;
+        internal set => syntaxTree = value;
+    }
+
+    /// <summary>Absolute span including leading/trailing trivia.</summary>
+    public TextSpan FullSpan => new(Position, Green.FullWidth);
+
+    /// <summary>Absolute span of the significant text, excluding surrounding trivia.</summary>
+    public TextSpan Span =>
+        TextSpan.FromBounds(
+            Position + Green.GetLeadingTriviaWidth(),
+            Position + Green.FullWidth - Green.GetTrailingTriviaWidth()
+        );
 
     internal GreenNode Green { get; }
-    public SyntaxNode? Parent { get; }
     internal int Position { get; }
 
     internal SyntaxNode(GreenNode green, SyntaxNode? parent, int position) {
@@ -24,52 +46,10 @@ public abstract class SyntaxNode {
         Position = position;
     }
 
-    public SyntaxKind Kind => Green.Kind;
-    public int SlotCount => Green.SlotCount;
-
-    /// <summary>
-    /// The tree this node belongs to. Only the root carries the back-reference;
-    /// every other node walks up to it.
-    /// </summary>
-    public SyntaxTree? SyntaxTree {
-        get => syntaxTree ?? Parent?.SyntaxTree;
-        internal set => syntaxTree = value;
-    }
-
-    /// <summary>This node's <see cref="Span"/> as a diagnostic <see cref="Diagnostics.Location"/>.</summary>
+    /// <summary>This node's <see cref="Span" /> as a diagnostic <see cref="Diagnostics.Location" />.</summary>
     public Location GetLocation() {
         var tree = SyntaxTree;
         return tree?.Text is { } text ? Location.Create(tree.FilePath, Span, text) : Location.None;
-    }
-
-    /// <summary>Absolute span including leading/trailing trivia.</summary>
-    public TextSpan FullSpan => new(Position, Green.FullWidth);
-
-    /// <summary>Absolute span of the significant text, excluding surrounding trivia.</summary>
-    public TextSpan Span => TextSpan.FromBounds(
-        Position + Green.GetLeadingTriviaWidth(),
-        Position + Green.FullWidth - Green.GetTrailingTriviaWidth()
-    );
-
-    /// <summary>Absolute position of the child occupying green slot <paramref name="index"/>.</summary>
-    internal int GetChildPosition(int index) {
-        var position = Position;
-        for (var i = 0; i < index; i++) {
-            position += Green.GetSlot(i)?.FullWidth ?? 0;
-        }
-
-        return position;
-    }
-
-    /// <summary>Realize (and cache) the red child at the given green slot, or null if empty.</summary>
-    protected SyntaxNode? GetRed(int index) {
-        var green = Green.GetSlot(index);
-        if (green == null) {
-            return null;
-        }
-
-        cachedSlots ??= new SyntaxNode?[SlotCount];
-        return cachedSlots[index] ??= green.CreateRed(this, GetChildPosition(index));
     }
 
     /// <summary>Red child at the given slot (node or token), or null.</summary>
@@ -97,4 +77,25 @@ public abstract class SyntaxNode {
 
     public abstract void Accept(SyntaxVisitor visitor);
     public abstract TResult? Accept<TResult>(SyntaxVisitor<TResult> visitor);
+
+    /// <summary>Absolute position of the child occupying green slot <paramref name="index" />.</summary>
+    internal int GetChildPosition(int index) {
+        var position = Position;
+        for (var i = 0; i < index; i++) {
+            position += Green.GetSlot(i)?.FullWidth ?? 0;
+        }
+
+        return position;
+    }
+
+    /// <summary>Realize (and cache) the red child at the given green slot, or null if empty.</summary>
+    protected SyntaxNode? GetRed(int index) {
+        var green = Green.GetSlot(index);
+        if (green == null) {
+            return null;
+        }
+
+        cachedSlots ??= new SyntaxNode?[SlotCount];
+        return cachedSlots[index] ??= green.CreateRed(this, GetChildPosition(index));
+    }
 }

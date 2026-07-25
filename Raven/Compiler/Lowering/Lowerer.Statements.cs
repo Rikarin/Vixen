@@ -40,16 +40,18 @@ public sealed partial class Lowerer {
                 EmitLoop(
                     () => LowerExpression(loop.Condition),
                     () => LowerStatement(loop.Body),
-                    continueStep: null,
-                    testBeforeBody: true);
+                    null,
+                    true
+                );
                 break;
 
             case BoundRepeatStatement loop:
                 EmitLoop(
                     () => LowerExpression(loop.Condition),
                     () => LowerStatement(loop.Body),
-                    continueStep: null,
-                    testBeforeBody: false);
+                    null,
+                    false
+                );
                 break;
 
             case BoundForStatement loop:
@@ -57,12 +59,15 @@ public sealed partial class Lowerer {
                 break;
 
             case BoundReturnStatement @return:
-                Emit(new IrReturnStatement(
-                    @return.Expression is { } value ? LowerExpression(value)
-                    // A bare `return` in a constructor still hands back the value
-                    // being built.
-                    : IsConstructingSelf ? Load(SelfPlace!)
-                    : null));
+                Emit(
+                    new IrReturnStatement(
+                        @return.Expression is { } value ? LowerExpression(value)
+                            // A bare `return` in a constructor still hands back the value
+                            // being built.
+                        : IsConstructingSelf ? Load(SelfPlace!)
+                        : null
+                    )
+                );
                 break;
 
             case BoundBreakStatement:
@@ -100,14 +105,14 @@ public sealed partial class Lowerer {
         variables[declaration.Local] = variable;
 
         if (declaration.Initializer is { } initializer) {
-            Emit(new IrStoreInstruction(new IrPlace(variable), LowerExpression(initializer)));
+            Emit(new IrStoreInstruction(new(variable), LowerExpression(initializer)));
         }
     }
 
     /// <summary>
-    /// Emits a structured loop, running each part into its own block.
-    /// <paramref name="continueStep"/> is the work a <c>for</c> loop does before
-    /// re-testing.
+    ///     Emits a structured loop, running each part into its own block.
+    ///     <paramref name="continueStep" /> is the work a <c>for</c> loop does before
+    ///     re-testing.
     /// </summary>
     void EmitLoop(Func<IrValue> condition, Action body, Action? continueStep, bool testBeforeBody) {
         IrValue? conditionValue = null;
@@ -119,9 +124,9 @@ public sealed partial class Lowerer {
     }
 
     /// <summary>
-    /// Desugars <c>for (i in …)</c>. A range becomes a counted loop over its
-    /// bounds; an array becomes a counted loop over its indices, with the
-    /// element loaded into the iteration variable at the top of the body.
+    ///     Desugars <c>for (i in …)</c>. A range becomes a counted loop over its
+    ///     bounds; an array becomes a counted loop over its indices, with the
+    ///     element loaded into the iteration variable at the top of the body.
     /// </summary>
     void LowerFor(BoundForStatement loop) {
         var elementType = LowerType(loop.IterationVariable.Type, loop.Syntax);
@@ -153,30 +158,31 @@ public sealed partial class Lowerer {
     ) {
         // i = start
         var start = range.Left is { } left ? LowerExpression(left) : Constant(elementType, 0);
-        Emit(new IrStoreInstruction(new IrPlace(iteration), start));
+        Emit(new IrStoreInstruction(new(iteration), start));
 
         // The bound is evaluated once, not on every iteration.
         var limit = Function.AddLocal($"{iteration.Name}#limit", elementType);
         var end = range.Right is { } right ? LowerExpression(right) : Constant(elementType, 0);
-        Emit(new IrStoreInstruction(new IrPlace(limit), end));
+        Emit(new IrStoreInstruction(new(limit), end));
 
         EmitLoop(
             () => {
-                var current = Load(new IrPlace(iteration));
-                var bound = Load(new IrPlace(limit));
+                var current = Load(new(iteration));
+                var bound = Load(new(limit));
                 return Emit(
                     result => new IrBinaryInstruction(result, IrBinaryOp.LessThanOrEqual, current, bound),
-                    IrScalarType.Bool);
+                    IrScalarType.Bool
+                );
             },
             () => LowerStatement(loop.Body),
             () => {
-                var current = Load(new IrPlace(iteration));
+                var current = Load(new(iteration));
                 var one = Constant(elementType, 1);
-                var next = Emit(
-                    result => new IrBinaryInstruction(result, IrBinaryOp.Add, current, one), elementType);
-                Emit(new IrStoreInstruction(new IrPlace(iteration), next));
+                var next = Emit(result => new IrBinaryInstruction(result, IrBinaryOp.Add, current, one), elementType);
+                Emit(new IrStoreInstruction(new(iteration), next));
             },
-            testBeforeBody: true);
+            true
+        );
     }
 
     void LowerArrayFor(IrVariable iteration, BoundForStatement loop) {
@@ -189,39 +195,44 @@ public sealed partial class Lowerer {
         var source = TryGetPlace(loop.Sequence);
         if (source is null) {
             var temporary = Function.AddLocal($"{iteration.Name}#source", arrayType);
-            Emit(new IrStoreInstruction(new IrPlace(temporary), LowerExpression(loop.Sequence)));
-            source = new IrPlace(temporary);
+            Emit(new IrStoreInstruction(new(temporary), LowerExpression(loop.Sequence)));
+            source = new(temporary);
         }
 
         var index = Function.AddLocal($"{iteration.Name}#index", IrScalarType.Int);
-        Emit(new IrStoreInstruction(new IrPlace(index), Constant(IrScalarType.Int, 0)));
+        Emit(new IrStoreInstruction(new(index), Constant(IrScalarType.Int, 0)));
 
         var sequence = source;
 
         EmitLoop(
             () => {
-                var current = Load(new IrPlace(index));
+                var current = Load(new(index));
                 var length = Emit(
                     result => new IrIntrinsicInstruction(result, IrIntrinsic.ArrayLength, [Load(sequence)]),
-                    IrScalarType.Int);
+                    IrScalarType.Int
+                );
 
                 return Emit(
                     result => new IrBinaryInstruction(result, IrBinaryOp.LessThan, current, length),
-                    IrScalarType.Bool);
+                    IrScalarType.Bool
+                );
             },
             () => {
-                var current = Load(new IrPlace(index));
+                var current = Load(new(index));
                 var element = Load(sequence.With(new IrIndexAccess(current)));
-                Emit(new IrStoreInstruction(new IrPlace(iteration), element));
+                Emit(new IrStoreInstruction(new(iteration), element));
                 LowerStatement(loop.Body);
             },
             () => {
-                var current = Load(new IrPlace(index));
+                var current = Load(new(index));
                 var one = Constant(IrScalarType.Int, 1);
                 var next = Emit(
-                    result => new IrBinaryInstruction(result, IrBinaryOp.Add, current, one), IrScalarType.Int);
-                Emit(new IrStoreInstruction(new IrPlace(index), next));
+                    result => new IrBinaryInstruction(result, IrBinaryOp.Add, current, one),
+                    IrScalarType.Int
+                );
+                Emit(new IrStoreInstruction(new(index), next));
             },
-            testBeforeBody: true);
+            true
+        );
     }
 }

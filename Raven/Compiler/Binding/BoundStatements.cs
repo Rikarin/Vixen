@@ -96,7 +96,7 @@ public sealed class BoundLocalFunctionStatement(SyntaxNode syntax, MethodSymbol 
     public override IEnumerable<BoundNode> Children => Body is null ? [] : [Body];
 }
 
-/// <summary><c>switch</c> statement; sections are bound shallowly (see <see cref="BoundIsPatternExpression"/>).</summary>
+/// <summary><c>switch</c> statement; sections are bound shallowly (see <see cref="BoundIsPatternExpression" />).</summary>
 public sealed class BoundSwitchStatement(
     SyntaxNode syntax,
     BoundExpression governingExpression,
@@ -105,7 +105,7 @@ public sealed class BoundSwitchStatement(
     public BoundExpression GoverningExpression { get; } = governingExpression;
     public IReadOnlyList<BoundStatement> Statements { get; } = statements;
     public override BoundKind Kind => BoundKind.SwitchStatement;
-    public override IEnumerable<BoundNode> Children => [GoverningExpression, ..Statements];
+    public override IEnumerable<BoundNode> Children => [GoverningExpression, .. Statements];
 }
 
 /// <summary>An empty statement, or one the binder chose not to model.</summary>

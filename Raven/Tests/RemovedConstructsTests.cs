@@ -1,3 +1,4 @@
+using Vixen.Raven.Symbols;
 using Vixen.Raven.Syntax;
 using Xunit;
 using static Tests.SemanticTestBase;
@@ -5,16 +6,11 @@ using static Tests.SemanticTestBase;
 namespace Tests;
 
 /// <summary>
-/// Constructs deliberately removed from the language because a GPU has no way to
-/// represent them. These are pinned so nobody reintroduces one by accident, and
-/// so the reason is written down next to the evidence.
+///     Constructs deliberately removed from the language because a GPU has no way to
+///     represent them. These are pinned so nobody reintroduces one by accident, and
+///     so the reason is written down next to the evidence.
 /// </summary>
 public class RemovedConstructsTests {
-    static void AssertDoesNotParse(string body) {
-        var tree = SyntaxTree.ParseText($"package A\n\nshader S {{\n    func M() {{\n{body}\n    }}\n}}\n");
-        Assert.NotEmpty(tree.Diagnostics);
-    }
-
     [Theory]
     // No function pointers or closures on a GPU.
     [InlineData("        val f = x => x")]
@@ -51,7 +47,8 @@ public class RemovedConstructsTests {
 
     [Fact]
     public void A_string_literal_still_parses_because_attributes_need_it() {
-        var tree = SyntaxTree.ParseText("""
+        var tree = SyntaxTree.ParseText(
+            """
             package A
 
             shader S {
@@ -59,14 +56,16 @@ public class RemovedConstructsTests {
                 var tint: float4
             }
 
-            """);
+            """
+        );
 
         Assert.Empty(tree.Diagnostics);
     }
 
     [Fact]
     public void An_attribute_keeps_reading_its_string_argument() {
-        var compilation = AssertNoDiagnostics("""
+        var compilation = AssertNoDiagnostics(
+            """
             package A
 
             shader S {
@@ -74,15 +73,20 @@ public class RemovedConstructsTests {
                 var tint: float4
             }
 
-            """);
+            """
+        );
 
-        Assert.Equal("SV_Target", GetMember<Vixen.Raven.Symbols.FieldSymbol>(FindType(compilation, "S"), "tint")
-            .SemanticName);
+        Assert.Equal(
+            "SV_Target",
+            GetMember<FieldSymbol>(FindType(compilation, "S"), "tint")
+                .SemanticName
+        );
     }
 
     [Fact]
     public void A_string_literal_in_expression_position_is_rejected() =>
-        AssertDiagnostics("""
+        AssertDiagnostics(
+            """
             package A
 
             shader S {
@@ -91,11 +95,14 @@ public class RemovedConstructsTests {
                 }
             }
 
-            """, "RVN2025");
+            """,
+            "RVN2025"
+        );
 
     [Fact]
     public void An_integer_literal_too_large_for_int_takes_the_unsigned_shape() {
-        var (compilation, tree, model) = Compile("""
+        var (compilation, tree, model) = Compile(
+            """
             package A
 
             shader S {
@@ -104,12 +111,18 @@ public class RemovedConstructsTests {
                 }
             }
 
-            """);
+            """
+        );
 
         Assert.Empty(compilation.GetDiagnostics());
 
         var declaration = FindNode<VariableDeclarationSyntax>(tree, d => d.Identifier.ValueText == "big");
-        var local = Assert.IsType<Vixen.Raven.Symbols.LocalSymbol>(model.GetDeclaredSymbol(declaration));
+        var local = Assert.IsType<LocalSymbol>(model.GetDeclaredSymbol(declaration));
         Assert.Equal("uint", local.Type.ToDisplayString());
+    }
+
+    static void AssertDoesNotParse(string body) {
+        var tree = SyntaxTree.ParseText($"package A\n\nshader S {{\n    func M() {{\n{body}\n    }}\n}}\n");
+        Assert.NotEmpty(tree.Diagnostics);
     }
 }

@@ -1,6 +1,6 @@
 ﻿using Antlr4.Runtime;
-using Vixen.Raven.Syntax;
 using Vixen.Raven.Grammar;
+using Vixen.Raven.Syntax;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -38,7 +38,7 @@ public class ParserTests(ITestOutputHelper log) {
     void Test_SyntaxTree() {
         var path = "../../../../Feed/Example1.rvn";
         var text = File.ReadAllText(path);
-        
+
         var tree = SyntaxTree.ParseText(text);
 
         var root = tree.GetRoot();
@@ -47,7 +47,7 @@ public class ParserTests(ITestOutputHelper log) {
         var name = compilationUnit.Package.PackageName as QualifiedNameSyntax;
         Assert.Equal("Vixen", (name.Left as SimpleNameSyntax).Identifier.Text);
         Assert.Equal("Test", name.Right.Identifier.Text);
-        
+
         Assert.Equal(2, compilationUnit.Imports.Count);
     }
 }

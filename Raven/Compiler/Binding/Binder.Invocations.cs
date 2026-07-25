@@ -35,10 +35,13 @@ public abstract partial class Binder {
     IReadOnlyList<BoundArgument> BindArguments(SeparatedSyntaxList<ArgumentSyntax> arguments) {
         List<BoundArgument> result = [];
         foreach (var argument in arguments) {
-            result.Add(new BoundArgument(
-                argument.NameColon?.Name.Identifier.ValueText,
-                BindValue(argument.Expression),
-                argument.Expression));
+            result.Add(
+                new(
+                    argument.NameColon?.Name.Identifier.ValueText,
+                    BindValue(argument.Expression),
+                    argument.Expression
+                )
+            );
         }
 
         return result;
@@ -63,8 +66,9 @@ public abstract partial class Binder {
                 method = new SubstitutedMethodSymbol(
                     candidate,
                     candidate.ContainingSymbol,
-                    new TypeMap(candidate.TypeParameters, group.TypeArguments),
-                    group.TypeArguments);
+                    new(candidate.TypeParameters, group.TypeArguments),
+                    group.TypeArguments
+                );
             }
 
             if (TryMapArguments(method, arguments, syntax, out var mapped, out var cost)) {
@@ -91,7 +95,8 @@ public abstract partial class Binder {
                 SemanticDiagnostics.AmbiguousInvocation,
                 syntax,
                 name,
-                string.Join(" and ", tied.Take(2).Select(c => c.Method.ToDisplayString())));
+                string.Join(" and ", tied.Take(2).Select(c => c.Method.ToDisplayString()))
+            );
             return new BoundErrorExpression(syntax, arguments.Select(a => a.Expression).ToArray());
         }
 
@@ -105,15 +110,16 @@ public abstract partial class Binder {
         SyntaxNode syntax
     ) {
         // A single candidate with the wrong arity gets the more specific message.
-        if (candidates.Count == 1 &&
-            (arguments.Count > candidates[0].Parameters.Count ||
-             arguments.Count < candidates[0].MinimumArgumentCount)) {
+        if (candidates.Count == 1
+            && (arguments.Count > candidates[0].Parameters.Count
+                || arguments.Count < candidates[0].MinimumArgumentCount)) {
             Report(
                 SemanticDiagnostics.WrongArgumentCount,
                 syntax,
                 candidates[0].ToDisplayString(),
                 candidates[0].Parameters.Count,
-                arguments.Count);
+                arguments.Count
+            );
             return;
         }
 
@@ -192,8 +198,8 @@ public abstract partial class Binder {
     // --- Construction ------------------------------------------------------
 
     /// <summary>
-    /// Binds <c>T(args)</c>. For scalars that is a conversion, for vectors and
-    /// matrices a componentwise build, and for named types a constructor call.
+    ///     Binds <c>T(args)</c>. For scalars that is a conversion, for vectors and
+    ///     matrices a componentwise build, and for named types a constructor call.
     /// </summary>
     BoundExpression BindConstruction(
         TypeSymbol type,
@@ -254,7 +260,11 @@ public abstract partial class Binder {
             && type.TypeKind is TypeKind.Vector or TypeKind.Matrix
             && values[0].Type is PrimitiveTypeSymbol { TypeKind: TypeKind.Scalar }) {
             return new BoundObjectCreationExpression(
-                syntax, type, null, [Convert(values[0], type.ComponentType, arguments[0].Syntax)]);
+                syntax,
+                type,
+                null,
+                [Convert(values[0], type.ComponentType, arguments[0].Syntax)]
+            );
         }
 
         // Any other single argument is a conversion.
@@ -311,31 +321,42 @@ public abstract partial class Binder {
         switch (receiver.Type) {
             case ArrayTypeSymbol array:
                 return new BoundArrayAccessExpression(
-                    syntax, receiver, ConvertIndices(indices, arguments), isSlice ? array : array.ElementType);
+                    syntax,
+                    receiver,
+                    ConvertIndices(indices, arguments),
+                    isSlice ? array : array.ElementType
+                );
 
             case SequenceTypeSymbol sequence:
                 return new BoundArrayAccessExpression(
                     syntax,
                     receiver,
                     ConvertIndices(indices, arguments),
-                    isSlice ? sequence : sequence.ElementType);
+                    isSlice ? sequence : sequence.ElementType
+                );
 
             case PrimitiveTypeSymbol { TypeKind: TypeKind.Vector } vector:
                 return new BoundArrayAccessExpression(
-                    syntax, receiver, ConvertIndices(indices, arguments), vector.ComponentType);
+                    syntax,
+                    receiver,
+                    ConvertIndices(indices, arguments),
+                    vector.ComponentType
+                );
 
             case PrimitiveTypeSymbol { TypeKind: TypeKind.Matrix } matrix: {
                 var row = BuiltInTypes.Vector(matrix.ComponentSpecialType, matrix.Columns);
                 return new BoundArrayAccessExpression(
-                    syntax, receiver, ConvertIndices(indices, arguments), row ?? (TypeSymbol)ErrorTypeSymbol.Instance);
+                    syntax,
+                    receiver,
+                    ConvertIndices(indices, arguments),
+                    row ?? (TypeSymbol)ErrorTypeSymbol.Instance
+                );
             }
-
         }
 
         // A user-defined indexer, declared as `self[…]`.
         foreach (var member in LookupMembers(receiver.Type, "self[]")) {
-            if (member is PropertySymbol indexer &&
-                TryMapIndexerArguments(indexer, arguments, out var mapped)) {
+            if (member is PropertySymbol indexer && TryMapIndexerArguments(indexer, arguments, out var mapped)) {
                 return new BoundPropertyExpression(syntax, receiver, indexer, mapped);
             }
         }
@@ -375,7 +396,11 @@ public abstract partial class Binder {
             result[i] = conversion.IsIdentity
                 ? arguments[i].Expression
                 : new BoundConversionExpression(
-                    arguments[i].Syntax, arguments[i].Expression, indexer.Parameters[i].Type, conversion);
+                    arguments[i].Syntax,
+                    arguments[i].Expression,
+                    indexer.Parameters[i].Type,
+                    conversion
+                );
         }
 
         mapped = result;

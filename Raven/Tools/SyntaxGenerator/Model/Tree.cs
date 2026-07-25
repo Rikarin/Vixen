@@ -5,8 +5,7 @@ namespace SyntaxGenerator.Model;
 
 [XmlRoot]
 public class Tree {
-    [XmlAttribute]
-    public string Root;
+    [XmlAttribute] public string Root;
 
     [XmlElement(ElementName = "Node", Type = typeof(Node))]
     [XmlElement(ElementName = "AbstractNode", Type = typeof(AbstractNode))]

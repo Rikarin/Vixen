@@ -1,8 +1,8 @@
 namespace Vixen.Raven.Cli;
 
 /// <summary>
-/// What the process returns. Separating a bad command line from a bad shader
-/// lets a build script tell "I invoked you wrong" from "the shader is wrong".
+///     What the process returns. Separating a bad command line from a bad shader
+///     lets a build script tell "I invoked you wrong" from "the shader is wrong".
 /// </summary>
 public enum ExitCode {
     /// <summary>Everything compiled and was written.</summary>

@@ -110,6 +110,18 @@ abstract class AbstractFileWriter {
         }
     }
 
+    bool IsDerivedType(string? typeName, string? derivedTypeName) {
+        if (typeName == derivedTypeName) {
+            return true;
+        }
+
+        if (derivedTypeName != null && parentMap.TryGetValue(derivedTypeName, out var baseType)) {
+            return IsDerivedType(typeName, baseType);
+        }
+
+        return false;
+    }
+
     protected static string GetFieldType(Field field) {
         if (IsNodeList(field.Type)) {
             return "SyntaxNode" + (field.IsOptional ? "?" : "");
@@ -131,18 +143,6 @@ abstract class AbstractFileWriter {
 
         var sub = typeName.Substring(iStart + 1, iEnd - iStart - 1);
         return sub;
-    }
-
-    bool IsDerivedType(string? typeName, string? derivedTypeName) {
-        if (typeName == derivedTypeName) {
-            return true;
-        }
-
-        if (derivedTypeName != null && parentMap.TryGetValue(derivedTypeName, out var baseType)) {
-            return IsDerivedType(typeName, baseType);
-        }
-
-        return false;
     }
 
     protected bool IsDerivedOrListOfDerived(string baseType, string derivedType) =>
@@ -198,8 +198,7 @@ abstract class AbstractFileWriter {
     protected string Join(string separator, params object[] values) =>
         string.Join(
             separator,
-            values.SelectMany(
-                v => (v switch {
+            values.SelectMany(v => (v switch {
                     string s => [s],
                     IEnumerable<string> ss => ss,
                     _ => throw new InvalidOperationException("Join must be passed strings or collections of strings")

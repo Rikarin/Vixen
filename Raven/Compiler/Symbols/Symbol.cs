@@ -3,10 +3,10 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Symbols;
 
 /// <summary>
-/// Root of the semantic model's entity hierarchy — a namespace, type, member,
-/// parameter or local. Mirrors Roslyn's symbol model; the concrete classes are
-/// the public surface (Raven does not split them into <c>ISymbol</c> interfaces
-/// plus internal implementations).
+///     Root of the semantic model's entity hierarchy — a namespace, type, member,
+///     parameter or local. Mirrors Roslyn's symbol model; the concrete classes are
+///     the public surface (Raven does not split them into <c>ISymbol</c> interfaces
+///     plus internal implementations).
 /// </summary>
 public abstract class Symbol {
     public abstract SymbolKind Kind { get; }

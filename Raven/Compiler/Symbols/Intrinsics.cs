@@ -1,10 +1,10 @@
 namespace Vixen.Raven.Symbols;
 
 /// <summary>
-/// The built-in shader function library. Every entry is a
-/// <see cref="MethodSymbol"/> in the global scope, so calls to <c>dot</c> or
-/// <c>normalize</c> go through ordinary overload resolution and end up in the
-/// bound tree like any other call.
+///     The built-in shader function library. Every entry is a
+///     <see cref="MethodSymbol" /> in the global scope, so calls to <c>dot</c> or
+///     <c>normalize</c> go through ordinary overload resolution and end up in the
+///     bound tree like any other call.
 /// </summary>
 public static class Intrinsics {
     static readonly PrimitiveTypeSymbol[] FloatTypes = [
@@ -40,6 +40,9 @@ public static class Intrinsics {
     static readonly string[] FloatBinary = ["min", "max", "pow", "atan2", "mod", "step"];
 
     static readonly Dictionary<string, MethodSymbol[]> ByName;
+
+    /// <summary>Every intrinsic overload, for scope population and tests.</summary>
+    public static IEnumerable<MethodSymbol> All => ByName.Values.SelectMany(m => m);
 
     static Intrinsics() {
         List<MethodSymbol> methods = [];
@@ -92,9 +95,6 @@ public static class Intrinsics {
             .ToDictionary(g => g.Key, g => g.ToArray(), StringComparer.Ordinal);
     }
 
-    /// <summary>Every intrinsic overload, for scope population and tests.</summary>
-    public static IEnumerable<MethodSymbol> All => ByName.Values.SelectMany(m => m);
-
     /// <summary>Overloads of the intrinsic with this name, or an empty list.</summary>
     public static IReadOnlyList<MethodSymbol> Lookup(string name) =>
         ByName.GetValueOrDefault(name) ?? (IReadOnlyList<MethodSymbol>)[];
@@ -135,6 +135,7 @@ public static class Intrinsics {
     static PrimitiveTypeSymbol? FindMatrix(int rows, int columns) =>
         Matrices.FirstOrDefault(m => m.Rows == rows && m.Columns == columns);
 
-    static MethodSymbol Method(string name, TypeSymbol returnType, params (string Name, TypeSymbol Type)[] parameters) =>
+    static MethodSymbol
+        Method(string name, TypeSymbol returnType, params (string Name, TypeSymbol Type)[] parameters) =>
         new SynthesizedMethodSymbol(null, name, returnType, parameters);
 }

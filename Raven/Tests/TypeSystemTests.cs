@@ -51,7 +51,6 @@ public class TypeSystemTests {
     }
 
 
-
     [Fact]
     public void The_error_type_converts_anywhere_so_one_mistake_reports_once() {
         Assert.True(Conversions.Classify(ErrorTypeSymbol.Instance, BuiltInTypes.Int).IsImplicit);
@@ -68,14 +67,15 @@ public class TypeSystemTests {
 
     [Fact]
     public void Structural_types_compare_by_shape_not_identity() {
-        Assert.Equal(new ArrayTypeSymbol(BuiltInTypes.Int), new ArrayTypeSymbol(BuiltInTypes.Int));
-        Assert.NotEqual(new ArrayTypeSymbol(BuiltInTypes.Int), new ArrayTypeSymbol(BuiltInTypes.Float));
-        Assert.NotEqual(new ArrayTypeSymbol(BuiltInTypes.Int), new ArrayTypeSymbol(BuiltInTypes.Int, 2));
+        Assert.Equal(new(BuiltInTypes.Int), new ArrayTypeSymbol(BuiltInTypes.Int));
+        Assert.NotEqual(new(BuiltInTypes.Int), new ArrayTypeSymbol(BuiltInTypes.Float));
+        Assert.NotEqual(new(BuiltInTypes.Int), new ArrayTypeSymbol(BuiltInTypes.Int, 2));
 
         // Element names are not part of tuple identity, matching C#.
         Assert.Equal(
-            new TupleTypeSymbol([BuiltInTypes.Int, BuiltInTypes.Float], ["code", "value"]),
-            new TupleTypeSymbol([BuiltInTypes.Int, BuiltInTypes.Float], [null, null]));
+            new([BuiltInTypes.Int, BuiltInTypes.Float], ["code", "value"]),
+            new TupleTypeSymbol([BuiltInTypes.Int, BuiltInTypes.Float], [null, null])
+        );
     }
 
     [Fact]
@@ -84,7 +84,8 @@ public class TypeSystemTests {
         Assert.Equal("int[,]", new ArrayTypeSymbol(BuiltInTypes.Int, 2).ToDisplayString());
         Assert.Equal(
             "(code: int, float)",
-            new TupleTypeSymbol([BuiltInTypes.Int, BuiltInTypes.Float], ["code", null]).ToDisplayString());
+            new TupleTypeSymbol([BuiltInTypes.Int, BuiltInTypes.Float], ["code", null]).ToDisplayString()
+        );
         Assert.Equal("int..", new SequenceTypeSymbol(BuiltInTypes.Int).ToDisplayString());
     }
 

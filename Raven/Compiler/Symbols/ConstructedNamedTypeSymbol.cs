@@ -3,20 +3,14 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Symbols;
 
 /// <summary>
-/// A generic type with its arguments supplied — <c>Box&lt;int&gt;</c>. Members
-/// are read through the definition and substituted on the way out, so
-/// <c>Box&lt;int&gt;.Value</c> has type <c>int</c>.
+///     A generic type with its arguments supplied — <c>Box&lt;int&gt;</c>. Members
+///     are read through the definition and substituted on the way out, so
+///     <c>Box&lt;int&gt;.Value</c> has type <c>int</c>.
 /// </summary>
 public sealed class ConstructedNamedTypeSymbol : NamedTypeSymbol, IEquatable<ConstructedNamedTypeSymbol> {
     readonly TypeMap map;
     readonly TypeSymbol[] typeArguments;
     Symbol[]? members;
-
-    public ConstructedNamedTypeSymbol(NamedTypeSymbol definition, IReadOnlyList<TypeSymbol> typeArguments) {
-        OriginalDefinition = definition;
-        this.typeArguments = typeArguments.ToArray();
-        map = new TypeMap(definition.TypeParameters, this.typeArguments);
-    }
 
     public override NamedTypeSymbol OriginalDefinition { get; }
     public override bool IsConstructed => true;
@@ -34,6 +28,12 @@ public sealed class ConstructedNamedTypeSymbol : NamedTypeSymbol, IEquatable<Con
 
     public override IReadOnlyList<NamedTypeSymbol> Interfaces =>
         OriginalDefinition.Interfaces.Select(i => map.Substitute(i) as NamedTypeSymbol ?? i).ToArray();
+
+    public ConstructedNamedTypeSymbol(NamedTypeSymbol definition, IReadOnlyList<TypeSymbol> typeArguments) {
+        OriginalDefinition = definition;
+        this.typeArguments = typeArguments.ToArray();
+        map = new(definition.TypeParameters, this.typeArguments);
+    }
 
     public override IReadOnlyList<Symbol> GetMembers() =>
         members ??= OriginalDefinition.GetMembers().Select(m => SubstitutedSymbols.Substitute(m, this, map)).ToArray();

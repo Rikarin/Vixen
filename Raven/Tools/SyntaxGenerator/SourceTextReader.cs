@@ -23,7 +23,7 @@ sealed class SourceTextReader(SourceText sourceText) : TextReader {
         var charsToCopy = Math.Min(count, sourceText.Length - position);
         sourceText.CopyTo(position, buffer, index, charsToCopy);
         position += charsToCopy;
-        
+
         return charsToCopy;
     }
 }

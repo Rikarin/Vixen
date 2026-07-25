@@ -7,25 +7,19 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven;
 
 /// <summary>
-/// Semantic answers about one syntax tree: what a name refers to, what type an
-/// expression has, and what a declaration declares.
+///     Semantic answers about one syntax tree: what a name refers to, what type an
+///     expression has, and what a declaration declares.
 /// </summary>
 /// <remarks>
-/// Unlike Roslyn, which binds on demand around the node you ask about, this
-/// model binds every member body in the tree the first time it is queried and
-/// answers from the resulting maps. That keeps the binder chain construction in
-/// one place at the cost of doing the whole tree at once.
+///     Unlike Roslyn, which binds on demand around the node you ask about, this
+///     model binds every member body in the tree the first time it is queried and
+///     answers from the resulting maps. That keeps the binder chain construction in
+///     one place at the cost of doing the whole tree at once.
 /// </remarks>
 public sealed class SemanticModel {
     readonly List<BoundBody> boundBodies = [];
     readonly BindingContext context;
     bool bound;
-
-    internal SemanticModel(Compilation compilation, SyntaxTree syntaxTree) {
-        Compilation = compilation;
-        SyntaxTree = syntaxTree;
-        context = new BindingContext(compilation, new DiagnosticBag());
-    }
 
     public Compilation Compilation { get; }
 
@@ -35,8 +29,14 @@ public sealed class SemanticModel {
     public IReadOnlyList<Diagnostic> Diagnostics {
         get {
             EnsureBound();
-            return context.Diagnostics.ToArray();
+            return [..context.Diagnostics];
         }
+    }
+
+    internal SemanticModel(Compilation compilation, SyntaxTree syntaxTree) {
+        Compilation = compilation;
+        SyntaxTree = syntaxTree;
+        context = new(compilation, new());
     }
 
     /// <summary>The symbol a name or expression refers to.</summary>
@@ -48,9 +48,8 @@ public sealed class SemanticModel {
         }
 
         return expression switch {
-            BoundMethodGroupExpression group => new SymbolInfo(
-                group.Methods.Count == 1 ? group.Methods[0] : null, group.Methods),
-            { Symbol: { } symbol } => new SymbolInfo(symbol, [symbol]),
+            BoundMethodGroupExpression group => new(group.Methods.Count == 1 ? group.Methods[0] : null, group.Methods),
+            { Symbol: { } symbol } => new(symbol, [symbol]),
             _ => SymbolInfo.None
         };
     }
@@ -66,7 +65,7 @@ public sealed class SemanticModel {
         var converted = context.ConvertedTypes.GetValueOrDefault(node)
             ?? Compilation.DeclarationContext.ConvertedTypes.GetValueOrDefault(node);
 
-        return new TypeInfo(expression.Type, converted);
+        return new(expression.Type, converted);
     }
 
     /// <summary>The symbol a declaration introduces.</summary>
@@ -77,8 +76,8 @@ public sealed class SemanticModel {
     }
 
     /// <summary>
-    /// Every member body in this tree, normalized to a block with an explicit
-    /// parameter list and return type. This is the entry point for lowering.
+    ///     Every member body in this tree, normalized to a block with an explicit
+    ///     parameter list and return type. This is the entry point for lowering.
     /// </summary>
     public IReadOnlyList<BoundBody> GetBoundBodies() {
         EnsureBound();
@@ -192,7 +191,7 @@ public sealed class SemanticModel {
         var isGetter = accessor.Kind == SyntaxKind.GetAccessorDeclaration;
 
         // A setter and the two observers all see the incoming value as `value`.
-        List<ParameterSymbol> parameters = [..property.Parameters];
+        List<ParameterSymbol> parameters = [.. property.Parameters];
         if (!isGetter) {
             parameters.Add(new SynthesizedParameterSymbol(property, "value", property.Type, parameters.Count));
         }
@@ -255,23 +254,23 @@ public sealed class SemanticModel {
         TypeSymbol returnType,
         BoundBlockStatement body
     ) =>
-        boundBodies.Add(new BoundBody(member, kind, parameters, returnType, body));
+        boundBodies.Add(new(member, kind, parameters, returnType, body));
 
     /// <summary>
-    /// Wraps a single expression body in a block, so an arrow body and a braced
-    /// body reach lowering in the same shape.
+    ///     Wraps a single expression body in a block, so an arrow body and a braced
+    ///     body reach lowering in the same shape.
     /// </summary>
     static BoundBlockStatement Wrap(BoundExpression expression, TypeSymbol returnType, SyntaxNode syntax) {
         BoundStatement statement = returnType.IsVoid
             ? new BoundExpressionStatement(syntax, expression)
             : new BoundReturnStatement(syntax, expression);
 
-        return new BoundBlockStatement(syntax, [statement]);
+        return new(syntax, [statement]);
     }
 
     /// <summary>
-    /// The scope a member body binds in: the declaring type's scope, redirected
-    /// to this model's context so bodies' diagnostics stay here.
+    ///     The scope a member body binds in: the declaring type's scope, redirected
+    ///     to this model's context so bodies' diagnostics stay here.
     /// </summary>
     Binder MemberScope(
         SourceNamedTypeSymbol type,
@@ -280,6 +279,5 @@ public sealed class SemanticModel {
         IReadOnlyList<ParameterSymbol>? parameters = null,
         IReadOnlyList<TypeParameterSymbol>? typeParameters = null
     ) =>
-        new MemberBinder(
-            new ContextBinder(type.TypeBinder, context), member, returnType, parameters, typeParameters);
+        new MemberBinder(new ContextBinder(type.TypeBinder, context), member, returnType, parameters, typeParameters);
 }

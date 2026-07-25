@@ -1,12 +1,13 @@
 using Vixen.Raven.Diagnostics;
+using Vixen.Raven.Symbols;
 
 namespace Vixen.Raven.IR;
 
 /// <summary>
-/// Checks that a module is internally consistent before a backend ever sees it:
-/// values are defined once and only used where they are in scope, types line up
-/// on every instruction, access chains are well formed, and control flow is sane.
-/// A backend can then assume the IR is valid instead of re-checking it.
+///     Checks that a module is internally consistent before a backend ever sees it:
+///     values are defined once and only used where they are in scope, types line up
+///     on every instruction, access chains are well formed, and control flow is sane.
+///     A backend can then assume the IR is valid instead of re-checking it.
 /// </summary>
 public static class IrVerifier {
     /// <summary>Verifies a module, reporting <c>RVN3010</c> for each problem found.</summary>
@@ -41,11 +42,12 @@ public static class IrVerifier {
             if (!slots.Add((binding.Kind, binding.Slot))) {
                 Report(
                     diagnostics,
-                    $"shader '{shader.Name}' reuses {binding.Kind} slot {binding.Slot} for '{binding.Name}'");
+                    $"shader '{shader.Name}' reuses {binding.Kind} slot {binding.Slot} for '{binding.Name}'"
+                );
             }
         }
 
-        var stages = new HashSet<Symbols.ShaderStage>();
+        var stages = new HashSet<ShaderStage>();
 
         foreach (var entryPoint in shader.EntryPoints) {
             if (!stages.Add(entryPoint.Stage)) {
@@ -55,14 +57,16 @@ public static class IrVerifier {
             if (!shader.Functions.Contains(entryPoint.Function)) {
                 Report(
                     diagnostics,
-                    $"entry point '{entryPoint.Function.Name}' is not a function of shader '{shader.Name}'");
+                    $"entry point '{entryPoint.Function.Name}' is not a function of shader '{shader.Name}'"
+                );
             }
 
             if (entryPoint.Inputs.Count != entryPoint.Function.Parameters.Count) {
                 Report(
                     diagnostics,
                     $"entry point '{entryPoint.Function.Name}' declares {entryPoint.Inputs.Count} inputs "
-                    + $"but takes {entryPoint.Function.Parameters.Count} parameters");
+                    + $"but takes {entryPoint.Function.Parameters.Count} parameters"
+                );
             }
         }
     }
@@ -149,8 +153,7 @@ public static class IrVerifier {
                     if (@return.Value is { } value) {
                         RequireDefined(value);
                         RequireType(value, function.ReturnType, $"return from '{function.Name}'");
-                    }
-                    else if (!function.ReturnType.IsVoid) {
+                    } else if (!function.ReturnType.IsVoid) {
                         Report($"'{function.Name}' returns {function.ReturnType.Name} but a return has no value");
                     }
 
@@ -244,8 +247,12 @@ public static class IrVerifier {
 
                     break;
 
-                case IrBinaryOp.Equal or IrBinaryOp.NotEqual or IrBinaryOp.LessThan or IrBinaryOp.LessThanOrEqual
-                    or IrBinaryOp.GreaterThan or IrBinaryOp.GreaterThanOrEqual:
+                case IrBinaryOp.Equal
+                    or IrBinaryOp.NotEqual
+                    or IrBinaryOp.LessThan
+                    or IrBinaryOp.LessThanOrEqual
+                    or IrBinaryOp.GreaterThan
+                    or IrBinaryOp.GreaterThanOrEqual:
                     RequireSame(binary.Left.Type, binary.Right.Type, $"'{binary.Op}' operands");
 
                     if (binary.Result.Type.ComponentType != IrScalarType.Bool) {
@@ -269,7 +276,8 @@ public static class IrVerifier {
             if (call.Arguments.Count != call.Function.Parameters.Count) {
                 Report(
                     $"call to '{call.Function.Name}' passes {call.Arguments.Count} arguments "
-                    + $"but it takes {call.Function.Parameters.Count}");
+                    + $"but it takes {call.Function.Parameters.Count}"
+                );
                 return;
             }
 
@@ -277,13 +285,13 @@ public static class IrVerifier {
                 RequireSame(
                     call.Function.Parameters[i].Type,
                     call.Arguments[i].Type,
-                    $"argument {i} of '{call.Function.Name}'");
+                    $"argument {i} of '{call.Function.Name}'"
+                );
             }
 
             if (call.Result is { } result) {
                 RequireSame(result.Type, call.Function.ReturnType, $"result of '{call.Function.Name}'");
-            }
-            else if (!call.Function.ReturnType.IsVoid) {
+            } else if (!call.Function.ReturnType.IsVoid) {
                 Report($"call to '{call.Function.Name}' discards its {call.Function.ReturnType.Name} result");
             }
         }
@@ -292,9 +300,10 @@ public static class IrVerifier {
             switch (construct.Result.Type) {
                 case IrVectorType vector: {
                     var lanes = construct.Arguments.Sum(a => a.Type switch {
-                        IrVectorType part => part.Size,
-                        _ => 1
-                    });
+                            IrVectorType part => part.Size,
+                            _ => 1
+                        }
+                    );
 
                     if (lanes != vector.Size) {
                         Report($"{construct.Result} builds a {vector.Name} from {lanes} components");
@@ -306,7 +315,8 @@ public static class IrVerifier {
                 case IrStructType structType when construct.Arguments.Count != structType.Fields.Count:
                     Report(
                         $"{construct.Result} builds '{structType.Name}' from {construct.Arguments.Count} values "
-                        + $"but it has {structType.Fields.Count} fields");
+                        + $"but it has {structType.Fields.Count} fields"
+                    );
                     break;
 
                 case IrArrayType array: {

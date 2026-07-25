@@ -1,17 +1,19 @@
 namespace Vixen.Raven.Symbols;
 
-/// <summary>What a <see cref="MethodSymbol"/> was declared as.</summary>
+/// <summary>What a <see cref="MethodSymbol" /> was declared as.</summary>
 public enum MethodKind {
     Ordinary,
     Constructor,
     Destructor,
     PropertyGet,
     PropertySet,
+
     /// <summary>A <c>willSet</c>/<c>didSet</c> observer body.</summary>
     PropertyObserver,
     Operator,
     Conversion,
     LocalFunction,
+
     /// <summary>A compiler-supplied function such as <c>dot</c> or <c>normalize</c>.</summary>
     Intrinsic
 }
@@ -59,11 +61,19 @@ public abstract class MethodSymbol : Symbol {
 }
 
 /// <summary>
-/// A method the compiler supplies: an intrinsic function, or a method on a
-/// built-in type such as <c>Texture2D.Sample</c>.
+///     A method the compiler supplies: an intrinsic function, or a method on a
+///     built-in type such as <c>Texture2D.Sample</c>.
 /// </summary>
 public sealed class SynthesizedMethodSymbol : MethodSymbol {
     readonly ParameterSymbol[] parameters;
+
+    public override string Name { get; }
+    public override Symbol? ContainingSymbol { get; }
+    public override MethodKind MethodKind { get; }
+    public override TypeSymbol ReturnType { get; }
+    public override IReadOnlyList<ParameterSymbol> Parameters => parameters;
+    public override Accessibility DeclaredAccessibility => Accessibility.Public;
+    public override bool IsStatic => ContainingSymbol is null;
 
     internal SynthesizedMethodSymbol(
         Symbol? container,
@@ -80,12 +90,4 @@ public sealed class SynthesizedMethodSymbol : MethodSymbol {
             .Select((p, i) => (ParameterSymbol)new SynthesizedParameterSymbol(this, p.Name, p.Type, i))
             .ToArray();
     }
-
-    public override string Name { get; }
-    public override Symbol? ContainingSymbol { get; }
-    public override MethodKind MethodKind { get; }
-    public override TypeSymbol ReturnType { get; }
-    public override IReadOnlyList<ParameterSymbol> Parameters => parameters;
-    public override Accessibility DeclaredAccessibility => Accessibility.Public;
-    public override bool IsStatic => ContainingSymbol is null;
 }

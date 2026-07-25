@@ -1,6 +1,6 @@
 namespace Vixen.Raven.Diagnostics;
 
-/// <summary>Severity of a <see cref="Diagnostic"/>, ordered least to most severe.</summary>
+/// <summary>Severity of a <see cref="Diagnostic" />, ordered least to most severe.</summary>
 public enum DiagnosticSeverity {
     /// <summary>Diagnostic hidden from normal output (e.g. IDE-only).</summary>
     Hidden,
@@ -12,5 +12,5 @@ public enum DiagnosticSeverity {
     Warning,
 
     /// <summary>An error that prevents successful compilation.</summary>
-    Error,
+    Error
 }

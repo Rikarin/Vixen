@@ -1,9 +1,9 @@
 namespace Vixen.Raven.Diagnostics;
 
 /// <summary>
-/// The stable, reusable definition of a diagnostic: its id, a message template,
-/// its category and default severity. One descriptor is shared by every
-/// <see cref="Diagnostic"/> instance of that kind (à la Roslyn).
+///     The stable, reusable definition of a diagnostic: its id, a message template,
+///     its category and default severity. One descriptor is shared by every
+///     <see cref="Diagnostic" /> instance of that kind (à la Roslyn).
 /// </summary>
 public sealed class DiagnosticDescriptor(
     string id,

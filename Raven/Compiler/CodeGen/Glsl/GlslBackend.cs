@@ -5,8 +5,8 @@ using Vixen.Raven.Symbols;
 namespace Vixen.Raven.CodeGen.Glsl;
 
 /// <summary>
-/// Generates GLSL from the Raven IR — one translation unit per entry point,
-/// because a GLSL program is compiled a stage at a time.
+///     Generates GLSL from the Raven IR — one translation unit per entry point,
+///     because a GLSL program is compiled a stage at a time.
 /// </summary>
 public sealed class GlslBackend(GlslOptions? options = null) : ITargetBackend {
     readonly GlslOptions options = options ?? new GlslOptions();
@@ -26,21 +26,20 @@ public sealed class GlslBackend(GlslOptions? options = null) : ITargetBackend {
                     BackendDiagnostics.Dropped,
                     Location.None,
                     $"GLSL has no standalone sampler object, so binding '{sampler.Name}' is folded into the "
-                    + "textures it is used with");
+                    + "textures it is used with"
+                );
             }
 
             foreach (var entryPoint in shader.EntryPoints) {
                 if (entryPoint.Stage == ShaderStage.Compute) {
                     // A compute stage needs a workgroup size, which nothing in the
                     // language declares yet.
-                    diagnostics.Add(
-                        BackendDiagnostics.NotImplemented, Location.None, "The compute stage", "GLSL");
+                    diagnostics.Add(BackendDiagnostics.NotImplemented, Location.None, "The compute stage", "GLSL");
                     continue;
                 }
 
-                var emitter = new GlslEmitter(module, shader, entryPoint, this.options, diagnostics);
-                generated.Add(new GeneratedSource(
-                    $"{shader.Name}.{StageSuffix(entryPoint.Stage)}", entryPoint.Stage, emitter.Emit()));
+                var emitter = new GlslEmitter(module, shader, entryPoint, options, diagnostics);
+                generated.Add(new($"{shader.Name}.{StageSuffix(entryPoint.Stage)}", entryPoint.Stage, emitter.Emit()));
             }
         }
 

@@ -1,8 +1,8 @@
 namespace Vixen.Raven.Text;
 
 /// <summary>
-/// An immutable half-open interval <c>[Start, End)</c> into source text,
-/// measured in characters. The primary currency for spans and diagnostics.
+///     An immutable half-open interval <c>[Start, End)</c> into source text,
+///     measured in characters. The primary currency for spans and diagnostics.
 /// </summary>
 public readonly record struct TextSpan(int Start, int Length) : IComparable<TextSpan> {
     public int End => Start + Length;
@@ -12,8 +12,7 @@ public readonly record struct TextSpan(int Start, int Length) : IComparable<Text
 
     public bool Contains(TextSpan span) => span.Start >= Start && span.End <= End;
 
-    public bool OverlapsWith(TextSpan other) =>
-        Math.Max(Start, other.Start) < Math.Min(End, other.End);
+    public bool OverlapsWith(TextSpan other) => Math.Max(Start, other.Start) < Math.Min(End, other.End);
 
     public static TextSpan FromBounds(int start, int end) {
         if (start < 0) {
@@ -24,7 +23,7 @@ public readonly record struct TextSpan(int Start, int Length) : IComparable<Text
             throw new ArgumentOutOfRangeException(nameof(end));
         }
 
-        return new TextSpan(start, end - start);
+        return new(start, end - start);
     }
 
     public int CompareTo(TextSpan other) {

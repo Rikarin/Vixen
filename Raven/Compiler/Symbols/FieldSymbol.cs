@@ -21,25 +21,24 @@ public abstract class FieldSymbol : Symbol {
     /// <summary>The pipeline semantic from a <c>[Semantic("…")]</c> attribute, or null.</summary>
     public virtual string? SemanticName => null;
 
-    public override string ToDisplayString() =>
-        ContainingType is { } type ? $"{type.ToDisplayString()}.{Name}" : Name;
+    public override string ToDisplayString() => ContainingType is { } type ? $"{type.ToDisplayString()}.{Name}" : Name;
 }
 
 /// <summary>
-/// A field the compiler makes up rather than reading from source: vector
-/// swizzles (<c>v.xy</c>), tuple elements, <c>array.Length</c>.
+///     A field the compiler makes up rather than reading from source: vector
+///     swizzles (<c>v.xy</c>), tuple elements, <c>array.Length</c>.
 /// </summary>
 public sealed class SynthesizedFieldSymbol : FieldSymbol {
+    public override string Name { get; }
+    public override Symbol? ContainingSymbol { get; }
+    public override TypeSymbol Type { get; }
+    public override bool IsReadOnly { get; }
+    public override Accessibility DeclaredAccessibility => Accessibility.Public;
+
     internal SynthesizedFieldSymbol(TypeSymbol containingType, string name, TypeSymbol type, bool isReadOnly) {
         ContainingSymbol = containingType;
         Name = name;
         Type = type;
         IsReadOnly = isReadOnly;
     }
-
-    public override string Name { get; }
-    public override Symbol? ContainingSymbol { get; }
-    public override TypeSymbol Type { get; }
-    public override bool IsReadOnly { get; }
-    public override Accessibility DeclaredAccessibility => Accessibility.Public;
 }

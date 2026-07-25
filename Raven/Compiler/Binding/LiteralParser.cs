@@ -6,32 +6,33 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Binding;
 
 /// <summary>
-/// Turns a literal token's source text into a typed value. The lexer keeps
-/// tokens verbatim (quotes, escapes, suffixes and all), so this is where
-/// <c>42f</c> becomes a <c>float</c>.
+///     Turns a literal token's source text into a typed value. The lexer keeps
+///     tokens verbatim (quotes, escapes, suffixes and all), so this is where
+///     <c>42f</c> becomes a <c>float</c>.
 /// </summary>
 /// <remarks>
-/// A string literal has no runtime type: strings do not exist on a GPU. It
-/// still parses, because attribute arguments such as
-/// <c>[Semantic("SV_Target")]</c> are compile-time metadata read straight off
-/// the syntax. In expression position the binder rejects it.
+///     A string literal has no runtime type: strings do not exist on a GPU. It
+///     still parses, because attribute arguments such as
+///     <c>[Semantic("SV_Target")]</c> are compile-time metadata read straight off
+///     the syntax. In expression position the binder rejects it.
 /// </remarks>
 public static class LiteralParser {
     const string IntegerSuffixes = "uU";
     const string AllSuffixes = "uUfFdDmM";
 
     /// <summary>The type and value a literal expression denotes.</summary>
-    public static (TypeSymbol Type, object? Value) Parse(LiteralExpressionSyntax syntax) => syntax.Kind switch {
-        SyntaxKind.TrueLiteralExpression => (BuiltInTypes.Bool, true),
-        SyntaxKind.FalseLiteralExpression => (BuiltInTypes.Bool, false),
-        // `default` takes its type from context, which this phase does not track;
-        // the error type lets it flow anywhere without reporting.
-        SyntaxKind.DefaultLiteralExpression => (ErrorTypeSymbol.Instance, null),
-        // Metadata only — the value is here for attribute readers, the type is
-        // deliberately absent.
-        SyntaxKind.StringLiteralExpression => (ErrorTypeSymbol.Instance, ParseString(syntax.Token.Text)),
-        _ => ParseNumeric(syntax.Token.Text)
-    };
+    public static (TypeSymbol Type, object? Value) Parse(LiteralExpressionSyntax syntax) =>
+        syntax.Kind switch {
+            SyntaxKind.TrueLiteralExpression => (BuiltInTypes.Bool, true),
+            SyntaxKind.FalseLiteralExpression => (BuiltInTypes.Bool, false),
+            // `default` takes its type from context, which this phase does not track;
+            // the error type lets it flow anywhere without reporting.
+            SyntaxKind.DefaultLiteralExpression => (ErrorTypeSymbol.Instance, null),
+            // Metadata only — the value is here for attribute readers, the type is
+            // deliberately absent.
+            SyntaxKind.StringLiteralExpression => (ErrorTypeSymbol.Instance, ParseString(syntax.Token.Text)),
+            _ => ParseNumeric(syntax.Token.Text)
+        };
 
     static (TypeSymbol Type, object? Value) ParseNumeric(string text) {
         var digits = text.Replace("_", string.Empty);
@@ -58,7 +59,7 @@ public static class LiteralParser {
             // Each branch boxes its own type: without the cast the conditional
             // would unify on `double` and a `float` literal would carry a double.
             return suffix == "f"
-                ? (BuiltInTypes.Float, (object)(float)value)
+                ? (BuiltInTypes.Float, (float)value)
                 : (BuiltInTypes.Double, (object)value);
         }
 
@@ -81,8 +82,8 @@ public static class LiteralParser {
         // An untyped integer literal is `int`; one too large for it takes the
         // unsigned shape, which is as far as a GPU's integers go.
         return value <= int.MaxValue
-            ? (BuiltInTypes.Int, (object)(int)value)
-            : (BuiltInTypes.UInt, (object)(uint)value);
+            ? (BuiltInTypes.Int, (int)value)
+            : (BuiltInTypes.UInt, (uint)value);
     }
 
     static ulong ParseUnsigned(string digits, int radix) {
@@ -133,8 +134,7 @@ public static class LiteralParser {
                     if (ushort.TryParse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var code)) {
                         builder.Append((char)code);
                         i += 4;
-                    }
-                    else {
+                    } else {
                         builder.Append(escape);
                     }
 

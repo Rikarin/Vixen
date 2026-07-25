@@ -5,11 +5,10 @@ public partial class SyntaxRewriter {
     // public SeparatedSyntaxList<TNode> VisitList<TNode>(SeparatedSyntaxList<TNode> list) where TNode : SyntaxNode {
     //     throw new NotImplementedException();
     // }
-    
 
-    public SyntaxList<TNode> VisitList<TNode>(SyntaxList<TNode> list) where TNode : SyntaxNode {
+
+    public SyntaxList<TNode> VisitList<TNode>(SyntaxList<TNode> list) where TNode : SyntaxNode =>
         // TODO: review how to implement this
-        
         // SyntaxListBuilder alternate = null;
         // List<SyntaxNode>? alternate = null;
         //
@@ -35,6 +34,5 @@ public partial class SyntaxRewriter {
         //     return alternate.ToList();
         // }
         //
-        return list;
-    }
+        list;
 }

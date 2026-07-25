@@ -4,6 +4,13 @@ namespace Vixen.Raven.Symbols;
 public sealed class TupleTypeSymbol : TypeSymbol, IEquatable<TupleTypeSymbol> {
     readonly SynthesizedFieldSymbol[] elements;
 
+    public IReadOnlyList<TypeSymbol> ElementTypes { get; }
+    public IReadOnlyList<string?> ElementNames { get; }
+
+    public override SymbolKind Kind => SymbolKind.TupleType;
+    public override TypeKind TypeKind => TypeKind.Tuple;
+    public override string Name => string.Empty;
+
     public TupleTypeSymbol(IReadOnlyList<TypeSymbol> elementTypes, IReadOnlyList<string?> elementNames) {
         ElementTypes = elementTypes;
         ElementNames = elementNames;
@@ -14,24 +21,18 @@ public sealed class TupleTypeSymbol : TypeSymbol, IEquatable<TupleTypeSymbol> {
             var name = elementNames.Count > i && elementNames[i] is { Length: > 0 } given
                 ? given
                 : "Item" + (i + 1);
-            elements[i] = new SynthesizedFieldSymbol(this, name, elementTypes[i], isReadOnly: true);
+            elements[i] = new(this, name, elementTypes[i], true);
         }
     }
-
-    public IReadOnlyList<TypeSymbol> ElementTypes { get; }
-    public IReadOnlyList<string?> ElementNames { get; }
-
-    public override SymbolKind Kind => SymbolKind.TupleType;
-    public override TypeKind TypeKind => TypeKind.Tuple;
-    public override string Name => string.Empty;
 
     public override IReadOnlyList<Symbol> GetMembers() => elements;
 
     public override string ToDisplayString() {
         var parts = ElementTypes.Select((type, index) => {
-            var name = ElementNames.Count > index ? ElementNames[index] : null;
-            return name is { Length: > 0 } ? $"{name}: {type.ToDisplayString()}" : type.ToDisplayString();
-        });
+                var name = ElementNames.Count > index ? ElementNames[index] : null;
+                return name is { Length: > 0 } ? $"{name}: {type.ToDisplayString()}" : type.ToDisplayString();
+            }
+        );
 
         return "(" + string.Join(", ", parts) + ")";
     }

@@ -4,14 +4,11 @@ using Xunit;
 namespace Tests;
 
 /// <summary>
-/// Verifies the red overlay over the green tree: lazy child realization with
-/// stable identity, parent linkage back to the root, and absolute positions
-/// derived from green widths.
+///     Verifies the red overlay over the green tree: lazy child realization with
+///     stable identity, parent linkage back to the root, and absolute positions
+///     derived from green widths.
 /// </summary>
 public class RedTreeTests {
-    static CompilationUnitSyntax Parse(string text) =>
-        Assert.IsType<CompilationUnitSyntax>(SyntaxTree.ParseText(text).GetRoot());
-
     [Fact]
     public void Children_are_cached_and_identity_stable() {
         var root = Parse("package A.B\n");
@@ -50,4 +47,7 @@ public class RedTreeTests {
         Assert.Equal("Vixen", left.Identifier.Text);
         Assert.Equal("Test", right.Identifier.Text);
     }
+
+    static CompilationUnitSyntax Parse(string text) =>
+        Assert.IsType<CompilationUnitSyntax>(SyntaxTree.ParseText(text).GetRoot());
 }

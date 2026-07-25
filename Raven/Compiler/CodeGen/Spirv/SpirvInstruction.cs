@@ -18,15 +18,8 @@ public enum SpirvOperandKind {
     Enumerant
 }
 
-/// <summary>One operand of a <see cref="SpirvInstruction"/>.</summary>
+/// <summary>One operand of a <see cref="SpirvInstruction" />.</summary>
 public readonly struct SpirvOperand {
-    SpirvOperand(SpirvOperandKind kind, uint value, ulong wide, string? text) {
-        Kind = kind;
-        Value = value;
-        Wide = wide;
-        Text = text;
-    }
-
     public SpirvOperandKind Kind { get; }
 
     /// <summary>The single word, for ids, enumerants and 32-bit literals.</summary>
@@ -41,6 +34,21 @@ public readonly struct SpirvOperand {
     /// <summary>True for a literal that occupies two words.</summary>
     public bool IsWide { get; init; }
 
+    /// <summary>How many words this operand occupies.</summary>
+    public int WordCount =>
+        Kind switch {
+            SpirvOperandKind.String => StringWords(Text ?? string.Empty),
+            SpirvOperandKind.Literal when IsWide => 2,
+            _ => 1
+        };
+
+    SpirvOperand(SpirvOperandKind kind, uint value, ulong wide, string? text) {
+        Kind = kind;
+        Value = value;
+        Wide = wide;
+        Text = text;
+    }
+
     public static SpirvOperand Id(uint id) => new(SpirvOperandKind.Id, id, 0, null);
 
     public static SpirvOperand Literal(uint value) => new(SpirvOperandKind.Literal, value, 0, null);
@@ -54,31 +62,52 @@ public readonly struct SpirvOperand {
     public static SpirvOperand String(string value) => new(SpirvOperandKind.String, 0, 0, value);
 
     /// <summary>
-    /// A float literal. SPIR-V stores the bit pattern, but the listing keeps the
-    /// number, because <c>1065353216</c> tells a reader nothing about 1.0.
+    ///     A float literal. SPIR-V stores the bit pattern, but the listing keeps the
+    ///     number, because <c>1065353216</c> tells a reader nothing about 1.0.
     /// </summary>
     public static SpirvOperand FloatLiteral(float value) =>
-        new(SpirvOperandKind.Literal, BitConverter.SingleToUInt32Bits(value), 0,
-            value.ToString("R", CultureInfo.InvariantCulture));
+        new(
+            SpirvOperandKind.Literal,
+            BitConverter.SingleToUInt32Bits(value),
+            0,
+            value.ToString("R", CultureInfo.InvariantCulture)
+        );
 
     public static SpirvOperand DoubleLiteral(double value) {
         var bits = BitConverter.DoubleToUInt64Bits(value);
-        return new SpirvOperand(
+        return new(
             SpirvOperandKind.Literal,
             (uint)(bits & 0xFFFFFFFF),
             bits,
-            value.ToString("R", CultureInfo.InvariantCulture)) { IsWide = true };
+            value.ToString("R", CultureInfo.InvariantCulture)
+        ) { IsWide = true };
     }
 
     public static SpirvOperand Enumerant<T>(T value) where T : struct, Enum =>
         new(SpirvOperandKind.Enumerant, Convert.ToUInt32(value), 0, value.ToString());
 
-    /// <summary>How many words this operand occupies.</summary>
-    public int WordCount => Kind switch {
-        SpirvOperandKind.String => StringWords(Text ?? string.Empty),
-        SpirvOperandKind.Literal when IsWide => 2,
-        _ => 1
-    };
+    public override string ToString() =>
+        Kind switch {
+            SpirvOperandKind.Id => "%" + Value,
+            SpirvOperandKind.String => "\"" + Text + "\"",
+            SpirvOperandKind.Enumerant => Text ?? Value.ToString(),
+            _ when Text is not null => Text,
+            _ when IsWide => Wide.ToString(),
+            _ => Value.ToString()
+        };
+
+    static void EncodeString(List<uint> words, string value) {
+        var bytes = Encoding.UTF8.GetBytes(value);
+        var padded = new byte[StringWords(value) * 4];
+        bytes.CopyTo(padded, 0);
+
+        for (var i = 0; i < padded.Length; i += 4) {
+            words.Add(BitConverter.ToUInt32(padded, i));
+        }
+    }
+
+    /// <summary>A literal string is UTF-8, null-terminated, padded with nulls to a word boundary.</summary>
+    internal static int StringWords(string value) => Encoding.UTF8.GetByteCount(value) / 4 + 1;
 
     internal void Encode(List<uint> words) {
         switch (Kind) {
@@ -96,36 +125,14 @@ public readonly struct SpirvOperand {
                 break;
         }
     }
-
-    /// <summary>A literal string is UTF-8, null-terminated, padded with nulls to a word boundary.</summary>
-    internal static int StringWords(string value) => Encoding.UTF8.GetByteCount(value) / 4 + 1;
-
-    static void EncodeString(List<uint> words, string value) {
-        var bytes = Encoding.UTF8.GetBytes(value);
-        var padded = new byte[StringWords(value) * 4];
-        bytes.CopyTo(padded, 0);
-
-        for (var i = 0; i < padded.Length; i += 4) {
-            words.Add(BitConverter.ToUInt32(padded, i));
-        }
-    }
-
-    public override string ToString() => Kind switch {
-        SpirvOperandKind.Id => "%" + Value,
-        SpirvOperandKind.String => "\"" + Text + "\"",
-        SpirvOperandKind.Enumerant => Text ?? Value.ToString(),
-        _ when Text is not null => Text,
-        _ when IsWide => Wide.ToString(),
-        _ => Value.ToString()
-    };
 }
 
 /// <summary>
-/// One SPIR-V instruction, kept in the shape the spec describes: an opcode, an
-/// optional result type, an optional result id, and operands. Holding it this way
-/// rather than as raw words means the same object both encodes to the binary and
-/// renders as the assembly listing, so the listing can never drift from what was
-/// actually emitted.
+///     One SPIR-V instruction, kept in the shape the spec describes: an opcode, an
+///     optional result type, an optional result id, and operands. Holding it this way
+///     rather than as raw words means the same object both encodes to the binary and
+///     renders as the assembly listing, so the listing can never drift from what was
+///     actually emitted.
 /// </summary>
 public sealed class SpirvInstruction(SpirvOp op, uint? resultType, uint? result, params SpirvOperand[] operands) {
     public SpirvOp Op { get; } = op;

@@ -6,13 +6,6 @@ namespace Vixen.Raven.Symbols;
 public sealed class TypeParameterSymbol : TypeSymbol {
     TypeSymbol[] constraintTypes = [];
 
-    internal TypeParameterSymbol(Symbol container, string name, int ordinal, SyntaxNode? syntax = null) {
-        ContainingSymbol = container;
-        Name = name;
-        Ordinal = ordinal;
-        DeclaringSyntax = syntax;
-    }
-
     public override SymbolKind Kind => SymbolKind.TypeParameter;
     public override string Name { get; }
     public override TypeKind TypeKind => TypeKind.TypeParameter;
@@ -25,6 +18,15 @@ public sealed class TypeParameterSymbol : TypeSymbol {
     /// <summary>Types named by the parameter's <c>where</c> clause.</summary>
     public IReadOnlyList<TypeSymbol> ConstraintTypes => constraintTypes;
 
+    public override IReadOnlyList<NamedTypeSymbol> Interfaces => constraintTypes.OfType<NamedTypeSymbol>().ToArray();
+
+    internal TypeParameterSymbol(Symbol container, string name, int ordinal, SyntaxNode? syntax = null) {
+        ContainingSymbol = container;
+        Name = name;
+        Ordinal = ordinal;
+        DeclaringSyntax = syntax;
+    }
+
     /// <summary>Members reachable on a value of this parameter come from its constraints.</summary>
     public override IReadOnlyList<Symbol> GetMembers(string name) {
         foreach (var constraint in constraintTypes) {
@@ -36,9 +38,6 @@ public sealed class TypeParameterSymbol : TypeSymbol {
 
         return [];
     }
-
-    public override IReadOnlyList<NamedTypeSymbol> Interfaces =>
-        constraintTypes.OfType<NamedTypeSymbol>().ToArray();
 
     internal void SetConstraintTypes(TypeSymbol[] types) => constraintTypes = types;
 }

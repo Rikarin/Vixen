@@ -5,13 +5,14 @@ using static Tests.SemanticTestBase;
 namespace Tests;
 
 /// <summary>
-/// Phase 2c: the parts of the semantic model that exist because the target is a
-/// GPU — the intrinsic library, entry points, and resource bindings.
+///     Phase 2c: the parts of the semantic model that exist because the target is a
+///     GPU — the intrinsic library, entry points, and resource bindings.
 /// </summary>
 public class ShaderSemanticsTests {
     [Fact]
     public void Stage_attributes_mark_entry_points() {
-        var compilation = AssertNoDiagnostics("""
+        var compilation = AssertNoDiagnostics(
+            """
             package A
 
             shader Lit {
@@ -30,7 +31,8 @@ public class ShaderSemanticsTests {
                 }
             }
 
-            """);
+            """
+        );
 
         var shader = FindType(compilation, "Lit");
 
@@ -45,7 +47,8 @@ public class ShaderSemanticsTests {
 
     [Fact]
     public void Two_entry_points_for_one_stage_are_rejected() =>
-        AssertDiagnostics("""
+        AssertDiagnostics(
+            """
             package A
 
             shader Lit {
@@ -60,11 +63,14 @@ public class ShaderSemanticsTests {
                 }
             }
 
-            """, "RVN2050");
+            """,
+            "RVN2050"
+        );
 
     [Fact]
     public void A_generic_entry_point_is_rejected() =>
-        AssertDiagnostics("""
+        AssertDiagnostics(
+            """
             package A
 
             shader Lit {
@@ -74,11 +80,14 @@ public class ShaderSemanticsTests {
                 }
             }
 
-            """, "RVN2051");
+            """,
+            "RVN2051"
+        );
 
     [Fact]
     public void A_stage_attribute_outside_a_shader_is_rejected() =>
-        AssertDiagnostics("""
+        AssertDiagnostics(
+            """
             package A
 
             class Helpers {
@@ -88,11 +97,14 @@ public class ShaderSemanticsTests {
                 }
             }
 
-            """, "RVN2052");
+            """,
+            "RVN2052"
+        );
 
     [Fact]
     public void Shader_fields_are_classified_as_bindings() {
-        var compilation = AssertNoDiagnostics("""
+        var compilation = AssertNoDiagnostics(
+            """
             package A
 
             shader Lit {
@@ -102,7 +114,8 @@ public class ShaderSemanticsTests {
                 var linearSampler: Sampler
             }
 
-            """);
+            """
+        );
 
         var shader = FindType(compilation, "Lit");
 
@@ -116,18 +129,22 @@ public class ShaderSemanticsTests {
 
     [Fact]
     public void A_resource_outside_a_shader_is_rejected() =>
-        AssertDiagnostics("""
+        AssertDiagnostics(
+            """
             package A
 
             struct Material {
                 var albedo: Texture2D
             }
 
-            """, "RVN2053");
+            """,
+            "RVN2053"
+        );
 
     [Fact]
     public void Texture_sampling_binds_to_the_built_in_method() =>
-        AssertNoDiagnostics("""
+        AssertNoDiagnostics(
+            """
             package A
 
             shader Lit {
@@ -140,11 +157,13 @@ public class ShaderSemanticsTests {
                 }
             }
 
-            """);
+            """
+        );
 
     [Fact]
     public void Stage_io_semantics_are_read_off_declarations() {
-        var compilation = AssertNoDiagnostics("""
+        var compilation = AssertNoDiagnostics(
+            """
             package A
 
             shader Lit {
@@ -158,7 +177,8 @@ public class ShaderSemanticsTests {
                 }
             }
 
-            """);
+            """
+        );
 
         var shader = FindType(compilation, "Lit");
 
@@ -178,7 +198,8 @@ public class ShaderSemanticsTests {
         Assert.NotEmpty(Intrinsics.Lookup("mul"));
         Assert.Empty(Intrinsics.Lookup("definitelyNotAnIntrinsic"));
 
-        AssertNoDiagnostics("""
+        AssertNoDiagnostics(
+            """
             package A
 
             shader Lit {
@@ -187,12 +208,14 @@ public class ShaderSemanticsTests {
                 }
             }
 
-            """);
+            """
+        );
     }
 
     [Fact]
     public void A_realistic_shader_binds_with_no_diagnostics() {
-        var compilation = AssertNoDiagnostics("""
+        var compilation = AssertNoDiagnostics(
+            """
             package Vixen.Shaders
 
             shader Lambert {
@@ -221,7 +244,8 @@ public class ShaderSemanticsTests {
                 }
             }
 
-            """);
+            """
+        );
 
         var shader = FindType(compilation, "Lambert");
         Assert.Equal(TypeKind.Shader, shader.TypeKind);

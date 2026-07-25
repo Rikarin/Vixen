@@ -3,8 +3,8 @@
         <TargetFramework>netstandard2.1</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-<!--        <RootNamespace>Vixen.Raven</RootNamespace>-->
-        
+        <!--        <RootNamespace>Vixen.Raven</RootNamespace>-->
+
         <IsShipping>false</IsShipping>
         <ExcludeFromSourceBuild>false</ExcludeFromSourceBuild>
         <LangVersion>latest</LangVersion>
@@ -13,9 +13,9 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4">
-          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-          <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0"/>
     </ItemGroup>
 </Project>

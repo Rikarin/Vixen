@@ -5,8 +5,8 @@ using Vixen.Raven.Symbols;
 namespace Vixen.Raven.CodeGen.Spirv;
 
 /// <summary>
-/// Where a global lives. A uniform is a member of one block rather than a
-/// variable of its own, so reaching it always begins with a member index.
+///     Where a global lives. A uniform is a member of one block rather than a
+///     variable of its own, so reaching it always begins with a member index.
 /// </summary>
 /// <param name="Variable">The <c>OpVariable</c> id to start an access chain from.</param>
 /// <param name="Storage">Its storage class, which decides the pointer types along the chain.</param>
@@ -14,20 +14,20 @@ namespace Vixen.Raven.CodeGen.Spirv;
 sealed record SpirvGlobal(uint Variable, SpirvStorageClass Storage, int? Member = null);
 
 /// <summary>
-/// Emits one SPIR-V module for one entry point.
+///     Emits one SPIR-V module for one entry point.
 /// </summary>
 /// <remarks>
-/// <para>
-/// This is a bigger step down than GLSL. The IR's structured control flow has to
-/// become basic blocks with explicit merge declarations; its named locals become
-/// <c>OpVariable</c>s reached through access chains; and its types have to carry
-/// an explicit memory layout, because SPIR-V has no implicit one.
-/// </para>
-/// <para>
-/// What SPIR-V gives back is a separate sampler object, which GLSL lacks — a
-/// texture and a sampler stay two bindings and pair up at the sample site, so
-/// nothing is dropped.
-/// </para>
+///     <para>
+///         This is a bigger step down than GLSL. The IR's structured control flow has to
+///         become basic blocks with explicit merge declarations; its named locals become
+///         <c>OpVariable</c>s reached through access chains; and its types have to carry
+///         an explicit memory layout, because SPIR-V has no implicit one.
+///     </para>
+///     <para>
+///         What SPIR-V gives back is a separate sampler object, which GLSL lacks — a
+///         texture and a sampler stay two bindings and pair up at the sample site, so
+///         nothing is dropped.
+///     </para>
 /// </remarks>
 sealed partial class SpirvEmitter {
     /// <summary>Output semantics that belong in a built-in rather than a located variable.</summary>
@@ -63,32 +63,8 @@ sealed partial class SpirvEmitter {
         this.options = options;
         this.diagnostics = diagnostics;
 
-        module = new SpirvModule(options.Version);
-        types = new SpirvTypes(module, (type, what) => Report(BackendDiagnostics.NotExpressible, Describe(type, what)));
-    }
-
-    /// <summary>Builds the module and hands it back for encoding.</summary>
-    internal SpirvModule Emit() {
-        module.AddCapability(SpirvCapability.Shader);
-        extendedInstructions = module.AddExtendedInstructionSet("GLSL.std.450");
-        module.SetMemoryModel(SpirvAddressingModel.Logical, SpirvMemoryModel.GLSL450);
-
-        EmitBindings();
-        EmitStageInterface();
-
-        // Callees before callers: SPIR-V is read in one pass, and emitting a call
-        // to a function that has not been defined yet would mean a forward
-        // reference the reader is not obliged to accept.
-        foreach (var function in CallGraph.InCallOrder(entryPoint.Function)) {
-            functions[function] = module.AllocateId();
-        }
-
-        foreach (var function in CallGraph.InCallOrder(entryPoint.Function)) {
-            EmitFunction(function);
-        }
-
-        EmitEntryPoint();
-        return module;
+        module = new(options.Version);
+        types = new(module, (type, what) => Report(BackendDiagnostics.NotExpressible, Describe(type, what)));
     }
 
     // --- Declarations ------------------------------------------------------
@@ -108,13 +84,11 @@ sealed partial class SpirvEmitter {
         }
 
         foreach (var texture in textures) {
-            globals[texture.Variable] = new SpirvGlobal(
-                DeclareOpaque(texture, binding++), SpirvStorageClass.UniformConstant);
+            globals[texture.Variable] = new(DeclareOpaque(texture, binding++), SpirvStorageClass.UniformConstant);
         }
 
         foreach (var sampler in samplers) {
-            globals[sampler.Variable] = new SpirvGlobal(
-                DeclareOpaque(sampler, binding++), SpirvStorageClass.UniformConstant);
+            globals[sampler.Variable] = new(DeclareOpaque(sampler, binding++), SpirvStorageClass.UniformConstant);
         }
 
         // Binding defaults are a property of the shader rather than of any one
@@ -131,7 +105,10 @@ sealed partial class SpirvEmitter {
 
         var members = uniforms.Select(u => u.Type).ToArray();
         var structId = module.AddDeclaration(
-            SpirvOp.TypeStruct, null, [.. members.Select(m => SpirvOperand.Id(types.Type(m, layout: true)))]);
+            SpirvOp.TypeStruct,
+            null,
+            [.. members.Select(m => SpirvOperand.Id(types.Type(m, true)))]
+        );
 
         module.AddName(structId, shader.Name + "Uniforms");
         module.Decorate(structId, SpirvDecoration.Block);
@@ -144,14 +121,15 @@ sealed partial class SpirvEmitter {
         var variable = module.AddDeclaration(
             SpirvOp.Variable,
             types.Pointer(SpirvStorageClass.Uniform, structId),
-            SpirvOperand.Enumerant(SpirvStorageClass.Uniform));
+            SpirvOperand.Enumerant(SpirvStorageClass.Uniform)
+        );
 
         module.AddName(variable, shader.Name.ToLowerInvariant() + "Uniforms");
         module.Decorate(variable, SpirvDecoration.DescriptorSet, SpirvOperand.Literal(options.DescriptorSet));
         module.Decorate(variable, SpirvDecoration.Binding, SpirvOperand.Literal(binding));
 
         for (var i = 0; i < uniforms.Length; i++) {
-            globals[uniforms[i].Variable] = new SpirvGlobal(variable, SpirvStorageClass.Uniform, i);
+            globals[uniforms[i].Variable] = new(variable, SpirvStorageClass.Uniform, i);
         }
     }
 
@@ -159,7 +137,8 @@ sealed partial class SpirvEmitter {
         var variable = module.AddDeclaration(
             SpirvOp.Variable,
             types.Pointer(SpirvStorageClass.UniformConstant, types.Type(resource.Type)),
-            SpirvOperand.Enumerant(SpirvStorageClass.UniformConstant));
+            SpirvOperand.Enumerant(SpirvStorageClass.UniformConstant)
+        );
 
         module.AddName(variable, resource.Name);
         module.Decorate(variable, SpirvDecoration.DescriptorSet, SpirvOperand.Literal(options.DescriptorSet));
@@ -184,7 +163,10 @@ sealed partial class SpirvEmitter {
 
         if (OutputGoesToBuiltIn()) {
             module.Decorate(
-                outputVariable.Value, SpirvDecoration.BuiltIn, SpirvOperand.Enumerant(SpirvBuiltIn.Position));
+                outputVariable.Value,
+                SpirvDecoration.BuiltIn,
+                SpirvOperand.Enumerant(SpirvBuiltIn.Position)
+            );
         } else {
             module.Decorate(outputVariable.Value, SpirvDecoration.Location, SpirvOperand.Literal(0));
         }
@@ -193,17 +175,20 @@ sealed partial class SpirvEmitter {
     uint DeclareStageVariable(IrStageIo io, SpirvStorageClass storage, string name) {
         // Vulkan has no boolean interface type, and an aggregate would need a
         // location for every leaf. Both are rejected rather than mis-emitted.
-        if (io.Type is not (IrScalarType { Kind: not IrTypeKind.Bool } or IrVectorType { Component.Kind: not IrTypeKind.Bool })) {
+        if (io.Type is not (IrScalarType { Kind: not IrTypeKind.Bool }
+            or IrVectorType { Component.Kind: not IrTypeKind.Bool })) {
             Report(
                 BackendDiagnostics.NotExpressible,
                 $"The type '{io.Type.Name}' of stage {(storage == SpirvStorageClass.Input ? "input" : "output")} "
-                + $"'{io.Name}'");
+                + $"'{io.Name}'"
+            );
         }
 
         var variable = module.AddDeclaration(
             SpirvOp.Variable,
             types.Pointer(storage, types.Type(io.Type)),
-            SpirvOperand.Enumerant(storage));
+            SpirvOperand.Enumerant(storage)
+        );
 
         module.AddName(variable, name);
         interfaceIds.Add(variable);
@@ -230,19 +215,22 @@ sealed partial class SpirvEmitter {
         var id = functions[function];
 
         module.AddName(id, function.Name);
-        Add(new SpirvInstruction(
-            SpirvOp.Function,
-            returnType,
-            id,
-            SpirvOperand.Enumerant(SpirvFunctionControl.None),
-            SpirvOperand.Id(types.Function(returnType, parameterTypes))));
+        Add(
+            new(
+                SpirvOp.Function,
+                returnType,
+                id,
+                SpirvOperand.Enumerant(SpirvFunctionControl.None),
+                SpirvOperand.Id(types.Function(returnType, parameterTypes))
+            )
+        );
 
         var parameterIds = new uint[function.Parameters.Count];
 
         for (var i = 0; i < function.Parameters.Count; i++) {
             parameterIds[i] = module.AllocateId();
             module.AddName(parameterIds[i], function.Parameters[i].Name);
-            Add(new SpirvInstruction(SpirvOp.FunctionParameter, parameterTypes[i], parameterIds[i]));
+            Add(new(SpirvOp.FunctionParameter, parameterTypes[i], parameterIds[i]));
         }
 
         BeginBlock(module.AllocateId());
@@ -269,7 +257,7 @@ sealed partial class SpirvEmitter {
         }
 
         foreach (var (pointer, value) in copies) {
-            Add(new SpirvInstruction(SpirvOp.Store, null, null, SpirvOperand.Id(pointer), SpirvOperand.Id(value)));
+            Add(new(SpirvOp.Store, null, null, SpirvOperand.Id(pointer), SpirvOperand.Id(value)));
         }
 
         EmitBlock(function.Body);
@@ -278,21 +266,26 @@ sealed partial class SpirvEmitter {
         // right for a void function; for any other the verifier has already
         // ruled the path out, so it can only be unreachable.
         if (!terminated) {
-            Add(function.ReturnType.IsVoid
-                ? new SpirvInstruction(SpirvOp.Return, null, null)
-                : new SpirvInstruction(SpirvOp.Unreachable, null, null));
+            Add(
+                function.ReturnType.IsVoid
+                    ? new(SpirvOp.Return, null, null)
+                    : new SpirvInstruction(SpirvOp.Unreachable, null, null)
+            );
         }
 
-        Add(new SpirvInstruction(SpirvOp.FunctionEnd, null, null));
+        Add(new(SpirvOp.FunctionEnd, null, null));
     }
 
     uint DeclareLocal(IrVariable variable) {
         var pointer = module.AllocateId();
-        Add(new SpirvInstruction(
-            SpirvOp.Variable,
-            types.Pointer(SpirvStorageClass.Function, types.Type(variable.Type)),
-            pointer,
-            SpirvOperand.Enumerant(SpirvStorageClass.Function)));
+        Add(
+            new(
+                SpirvOp.Variable,
+                types.Pointer(SpirvStorageClass.Function, types.Type(variable.Type)),
+                pointer,
+                SpirvOperand.Enumerant(SpirvStorageClass.Function)
+            )
+        );
 
         module.AddName(pointer, variable.Name);
         pointers[variable] = pointer;
@@ -300,8 +293,8 @@ sealed partial class SpirvEmitter {
     }
 
     /// <summary>
-    /// The <c>main</c> the pipeline calls: it reads the stage inputs, hands them
-    /// to the user's function, and writes the result to the stage output.
+    ///     The <c>main</c> the pipeline calls: it reads the stage inputs, hands them
+    ///     to the user's function, and writes the result to the stage output.
     /// </summary>
     void EmitEntryPoint() {
         values.Clear();
@@ -311,12 +304,15 @@ sealed partial class SpirvEmitter {
         var main = module.AllocateId();
         module.AddName(main, "main");
 
-        Add(new SpirvInstruction(
-            SpirvOp.Function,
-            types.Void,
-            main,
-            SpirvOperand.Enumerant(SpirvFunctionControl.None),
-            SpirvOperand.Id(types.Function(types.Void, []))));
+        Add(
+            new(
+                SpirvOp.Function,
+                types.Void,
+                main,
+                SpirvOperand.Enumerant(SpirvFunctionControl.None),
+                SpirvOperand.Id(types.Function(types.Void, []))
+            )
+        );
 
         BeginBlock(module.AllocateId());
 
@@ -331,11 +327,11 @@ sealed partial class SpirvEmitter {
         var call = Emit(SpirvOp.FunctionCall, returnType, [SpirvOperand.Id(functions[target]), .. arguments]);
 
         if (outputVariable is { } output && !target.ReturnType.IsVoid) {
-            Add(new SpirvInstruction(SpirvOp.Store, null, null, SpirvOperand.Id(output), SpirvOperand.Id(call)));
+            Add(new(SpirvOp.Store, null, null, SpirvOperand.Id(output), SpirvOperand.Id(call)));
         }
 
-        Add(new SpirvInstruction(SpirvOp.Return, null, null));
-        Add(new SpirvInstruction(SpirvOp.FunctionEnd, null, null));
+        Add(new(SpirvOp.Return, null, null));
+        Add(new(SpirvOp.FunctionEnd, null, null));
 
         module.AddEntryPoint(ExecutionModel(entryPoint.Stage), main, "main", interfaceIds);
 
@@ -346,25 +342,51 @@ sealed partial class SpirvEmitter {
         }
     }
 
-    static SpirvExecutionModel ExecutionModel(ShaderStage stage) => stage switch {
-        ShaderStage.Vertex => SpirvExecutionModel.Vertex,
-        ShaderStage.Geometry => SpirvExecutionModel.Geometry,
-        ShaderStage.Compute => SpirvExecutionModel.GLCompute,
-        _ => SpirvExecutionModel.Fragment
-    };
+    static SpirvExecutionModel ExecutionModel(ShaderStage stage) =>
+        stage switch {
+            ShaderStage.Vertex => SpirvExecutionModel.Vertex,
+            ShaderStage.Geometry => SpirvExecutionModel.Geometry,
+            ShaderStage.Compute => SpirvExecutionModel.GLCompute,
+            _ => SpirvExecutionModel.Fragment
+        };
 
     void Report(DiagnosticDescriptor descriptor, string subject) =>
         diagnostics.Add(descriptor, Location.None, subject, "SPIR-V");
 
     /// <summary>Whether a bool is anywhere inside a type, however deeply.</summary>
-    static bool ContainsBool(IrType type) => type switch {
-        { Kind: IrTypeKind.Bool } => true,
-        IrVectorType vector => vector.Component.Kind == IrTypeKind.Bool,
-        IrArrayType array => ContainsBool(array.Element),
-        IrStructType structType => structType.Fields.Any(field => ContainsBool(field.Type)),
-        _ => false
-    };
+    static bool ContainsBool(IrType type) =>
+        type switch {
+            { Kind: IrTypeKind.Bool } => true,
+            IrVectorType vector => vector.Component.Kind == IrTypeKind.Bool,
+            IrArrayType array => ContainsBool(array.Element),
+            IrStructType structType => structType.Fields.Any(field => ContainsBool(field.Type)),
+            _ => false
+        };
 
     static string Describe(IrType type, string what) =>
         type is IrArrayType { Length: null } ? $"The unsized array type of '{what}'" : $"The type '{what}'";
+
+    /// <summary>Builds the module and hands it back for encoding.</summary>
+    internal SpirvModule Emit() {
+        module.AddCapability(SpirvCapability.Shader);
+        extendedInstructions = module.AddExtendedInstructionSet("GLSL.std.450");
+        module.SetMemoryModel(SpirvAddressingModel.Logical, SpirvMemoryModel.GLSL450);
+
+        EmitBindings();
+        EmitStageInterface();
+
+        // Callees before callers: SPIR-V is read in one pass, and emitting a call
+        // to a function that has not been defined yet would mean a forward
+        // reference the reader is not obliged to accept.
+        foreach (var function in CallGraph.InCallOrder(entryPoint.Function)) {
+            functions[function] = module.AllocateId();
+        }
+
+        foreach (var function in CallGraph.InCallOrder(entryPoint.Function)) {
+            EmitFunction(function);
+        }
+
+        EmitEntryPoint();
+        return module;
+    }
 }

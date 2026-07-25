@@ -1,5 +1,3 @@
-using Vixen.Raven.Syntax;
-
 namespace Vixen.Raven.Symbols;
 
 /// <summary>A parameter of a method, constructor, indexer or lambda.</summary>
@@ -25,16 +23,15 @@ public abstract class ParameterSymbol : Symbol {
 
 /// <summary>A parameter of a built-in signature (intrinsic function, resource method).</summary>
 public sealed class SynthesizedParameterSymbol : ParameterSymbol {
+    public override string Name { get; }
+    public override Symbol? ContainingSymbol { get; }
+    public override TypeSymbol Type { get; }
+    public override int Ordinal { get; }
+
     internal SynthesizedParameterSymbol(Symbol container, string name, TypeSymbol type, int ordinal) {
         ContainingSymbol = container;
         Name = name;
         Type = type;
         Ordinal = ordinal;
     }
-
-    public override string Name { get; }
-    public override Symbol? ContainingSymbol { get; }
-    public override TypeSymbol Type { get; }
-    public override int Ordinal { get; }
 }
-

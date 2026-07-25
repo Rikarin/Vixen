@@ -1,6 +1,6 @@
 namespace Vixen.Raven.Binding;
 
-/// <summary>The operation a <see cref="BoundBinaryExpression"/> performs.</summary>
+/// <summary>The operation a <see cref="BoundBinaryExpression" /> performs.</summary>
 public enum BinaryOperatorKind {
     Add,
     Subtract,
@@ -23,7 +23,7 @@ public enum BinaryOperatorKind {
     GreaterThanOrEqual
 }
 
-/// <summary>The operation a <see cref="BoundUnaryExpression"/> performs.</summary>
+/// <summary>The operation a <see cref="BoundUnaryExpression" /> performs.</summary>
 public enum UnaryOperatorKind {
     Plus,
     Minus,
@@ -33,6 +33,7 @@ public enum UnaryOperatorKind {
     PreDecrement,
     PostIncrement,
     PostDecrement,
+
     /// <summary><c>^i</c> — an index counted from the end.</summary>
     IndexFromEnd
 }

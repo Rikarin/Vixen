@@ -7,12 +7,11 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Cli;
 
 /// <summary>
-/// Runs a compilation front to back — parse, bind, lower, verify, generate,
-/// write — and reports what happened. Console-free on purpose: it takes the two
-/// writers, so a test can drive it exactly as the command does.
-///
-/// Each stage reports its diagnostics and stops if any of them was an error, so
-/// a parse failure never cascades into a wall of semantic noise.
+///     Runs a compilation front to back — parse, bind, lower, verify, generate,
+///     write — and reports what happened. Console-free on purpose: it takes the two
+///     writers, so a test can drive it exactly as the command does.
+///     Each stage reports its diagnostics and stops if any of them was an error, so
+///     a parse failure never cascades into a wall of semantic noise.
 /// </summary>
 public static class CompileDriver {
     public static ExitCode Run(CompileRequest request, TextWriter output, TextWriter error) {
@@ -20,7 +19,8 @@ public static class CompileDriver {
 
         if (TargetBackends.Create(request.Target) is not { } backend) {
             error.WriteLine(
-                $"error: unknown target '{request.Target}'. Available: {string.Join(", ", TargetBackends.Names)}");
+                $"error: unknown target '{request.Target}'. Available: {string.Join(", ", TargetBackends.Names)}"
+            );
             return ExitCode.UsageError;
         }
 
@@ -97,7 +97,8 @@ public static class CompileDriver {
             var names = string.Join(", ", generated.Select(unit => unit.Name));
             error.WriteLine(
                 $"error: {generated.Count} translation units were generated ({names}), "
-                + $"but '{request.Output}' names a single file. Pass a directory instead.");
+                + $"but '{request.Output}' names a single file. Pass a directory instead."
+            );
             return ExitCode.UsageError;
         }
 

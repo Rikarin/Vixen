@@ -1,3 +1,4 @@
+using Vixen.Raven;
 using Vixen.Raven.Binding;
 using Vixen.Raven.Symbols;
 using Vixen.Raven.Syntax;
@@ -7,32 +8,10 @@ using static Tests.SemanticTestBase;
 namespace Tests;
 
 /// <summary>
-/// Phase 2b: expressions bind to typed bound nodes with their symbols resolved
-/// and their conversions made explicit.
+///     Phase 2b: expressions bind to typed bound nodes with their symbols resolved
+///     and their conversions made explicit.
 /// </summary>
 public class BindingTests {
-    /// <summary>Wraps an expression in a shader method and reports the type it binds to.</summary>
-    static string TypeOfExpression(string expression, string members = "") {
-        var source = $$"""
-            package A
-
-            shader S {
-            {{members}}
-                func Probe() {
-                    var probe = {{expression}}
-                }
-            }
-
-            """;
-
-        var (compilation, tree, model) = Compile(source);
-        Assert.Empty(compilation.GetDiagnostics());
-
-        var declaration = FindNode<VariableDeclarationSyntax>(tree, d => d.Identifier.ValueText == "probe");
-        var local = Assert.IsType<LocalSymbol>(model.GetDeclaredSymbol(declaration));
-        return local.Type.ToDisplayString();
-    }
-
     [Theory]
     [InlineData("42", "int")]
     [InlineData("42u", "uint")]
@@ -108,7 +87,8 @@ public class BindingTests {
     public void Indexing_yields_the_element_type(string expression, string expected) =>
         Assert.Equal(
             expected,
-            TypeOfExpression(expression, "    val numbers: int[]\n    val v: float3\n    val m: mat3\n"));
+            TypeOfExpression(expression, "    val numbers: int[]\n    val v: float3\n    val m: mat3\n")
+        );
 
     [Fact]
     public void Tuples_and_collections_infer_a_structural_type() {
@@ -121,7 +101,8 @@ public class BindingTests {
 
     [Fact]
     public void Member_access_resolves_through_the_base_chain() {
-        var (compilation, tree, model) = Compile("""
+        var (compilation, tree, model) = Compile(
+            """
             package A
 
             class Base {
@@ -134,12 +115,16 @@ public class BindingTests {
                 }
             }
 
-            """);
+            """
+        );
 
         Assert.Empty(compilation.GetDiagnostics());
 
-        var name = FindNode<IdentifierNameSyntax>(tree, n => n.Identifier.ValueText == "count"
-            && n.Parent is ReturnStatementSyntax);
+        var name = FindNode<IdentifierNameSyntax>(
+            tree,
+            n => n.Identifier.ValueText == "count"
+                && n.Parent is ReturnStatementSyntax
+        );
 
         var symbol = model.GetSymbolInfo(name).Symbol;
         var field = Assert.IsAssignableFrom<FieldSymbol>(symbol);
@@ -148,7 +133,8 @@ public class BindingTests {
 
     [Fact]
     public void An_unqualified_instance_member_gets_an_implicit_self_receiver() {
-        var (compilation, tree, model) = Compile("""
+        var (compilation, tree, model) = Compile(
+            """
             package A
 
             shader S {
@@ -159,12 +145,16 @@ public class BindingTests {
                 }
             }
 
-            """);
+            """
+        );
 
         Assert.Empty(compilation.GetDiagnostics());
 
-        var name = FindNode<IdentifierNameSyntax>(tree, n => n.Identifier.ValueText == "scale"
-            && n.Parent is ReturnStatementSyntax);
+        var name = FindNode<IdentifierNameSyntax>(
+            tree,
+            n => n.Identifier.ValueText == "scale"
+                && n.Parent is ReturnStatementSyntax
+        );
 
         var bound = Assert.IsType<BoundFieldExpression>(model.GetBoundNode(name));
         Assert.IsType<BoundSelfExpression>(bound.Receiver);
@@ -172,7 +162,8 @@ public class BindingTests {
 
     [Fact]
     public void Conversions_are_materialized_in_the_bound_tree() {
-        var (compilation, tree, model) = Compile("""
+        var (compilation, tree, model) = Compile(
+            """
             package A
 
             shader S {
@@ -182,12 +173,16 @@ public class BindingTests {
                 }
             }
 
-            """);
+            """
+        );
 
         Assert.Empty(compilation.GetDiagnostics());
 
-        var name = FindNode<IdentifierNameSyntax>(tree, n => n.Identifier.ValueText == "narrow"
-            && n.Parent is ReturnStatementSyntax);
+        var name = FindNode<IdentifierNameSyntax>(
+            tree,
+            n => n.Identifier.ValueText == "narrow"
+                && n.Parent is ReturnStatementSyntax
+        );
 
         var info = model.GetTypeInfo(name);
         Assert.Equal("int", info.Type?.ToDisplayString());
@@ -196,7 +191,8 @@ public class BindingTests {
 
     [Fact]
     public void Overload_resolution_prefers_the_closer_match() {
-        var (compilation, tree, model) = Compile("""
+        var (compilation, tree, model) = Compile(
+            """
             package A
 
             shader S {
@@ -214,7 +210,8 @@ public class BindingTests {
                 }
             }
 
-            """);
+            """
+        );
 
         Assert.Empty(compilation.GetDiagnostics());
 
@@ -227,7 +224,8 @@ public class BindingTests {
 
     [Fact]
     public void Named_arguments_are_matched_by_parameter_name() {
-        var (compilation, tree, model) = Compile("""
+        var (compilation, tree, model) = Compile(
+            """
             package A
 
             shader S {
@@ -240,7 +238,8 @@ public class BindingTests {
                 }
             }
 
-            """);
+            """
+        );
 
         Assert.Empty(compilation.GetDiagnostics());
 
@@ -254,7 +253,8 @@ public class BindingTests {
 
     [Fact]
     public void Default_arguments_fill_the_missing_parameters() {
-        var (compilation, tree, model) = Compile("""
+        var (compilation, tree, model) = Compile(
+            """
             package A
 
             shader S {
@@ -267,7 +267,8 @@ public class BindingTests {
                 }
             }
 
-            """);
+            """
+        );
 
         Assert.Empty(compilation.GetDiagnostics());
 
@@ -278,7 +279,8 @@ public class BindingTests {
 
     [Fact]
     public void For_over_a_range_binds_an_int_iteration_variable() {
-        var (compilation, tree, model) = Compile("""
+        var (compilation, tree, model) = Compile(
+            """
             package A
 
             shader S {
@@ -290,7 +292,8 @@ public class BindingTests {
                 }
             }
 
-            """);
+            """
+        );
 
         Assert.Empty(compilation.GetDiagnostics());
 
@@ -301,7 +304,8 @@ public class BindingTests {
 
     [Fact]
     public void Generic_method_type_arguments_substitute_into_the_signature() {
-        var (compilation, tree, model) = Compile("""
+        var (compilation, tree, model) = Compile(
+            """
             package A
 
             shader S {
@@ -314,7 +318,8 @@ public class BindingTests {
                 }
             }
 
-            """);
+            """
+        );
 
         Assert.Empty(compilation.GetDiagnostics());
 
@@ -324,7 +329,29 @@ public class BindingTests {
         Assert.Equal("int", bound.Type.ToDisplayString());
     }
 
-    static string ReturnTypeOfCall(Vixen.Raven.SemanticModel model, InvocationExpressionSyntax call) =>
+    /// <summary>Wraps an expression in a shader method and reports the type it binds to.</summary>
+    static string TypeOfExpression(string expression, string members = "") {
+        var source = $$"""
+                       package A
+
+                       shader S {
+                       {{members}}
+                           func Probe() {
+                               var probe = {{expression}}
+                           }
+                       }
+
+                       """;
+
+        var (compilation, tree, model) = Compile(source);
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var declaration = FindNode<VariableDeclarationSyntax>(tree, d => d.Identifier.ValueText == "probe");
+        var local = Assert.IsType<LocalSymbol>(model.GetDeclaredSymbol(declaration));
+        return local.Type.ToDisplayString();
+    }
+
+    static string ReturnTypeOfCall(SemanticModel model, InvocationExpressionSyntax call) =>
         Assert.IsType<BoundInvocationExpression>(model.GetBoundNode(call)).Type.ToDisplayString();
 
     static IEnumerable<T> FindAll<T>(SyntaxTree tree) where T : SyntaxNode {

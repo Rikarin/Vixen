@@ -13,6 +13,20 @@ public abstract partial class Binder {
         return bound;
     }
 
+    /// <summary>Binds a block in its own scope.</summary>
+    public BoundBlockStatement BindBlock(BlockSyntax syntax) {
+        var binder = new BlockBinder(this);
+        List<BoundStatement> statements = [];
+
+        foreach (var statement in syntax.Statements) {
+            statements.Add(binder.BindStatement(statement));
+        }
+
+        var bound = new BoundBlockStatement(syntax, statements);
+        Context.Record(syntax, bound);
+        return bound;
+    }
+
     BoundStatement BindStatementCore(StatementSyntax syntax) {
         switch (syntax) {
             case BlockSyntax block:
@@ -35,12 +49,12 @@ public abstract partial class Binder {
 
             case WhileStatementSyntax whileStatement: {
                 var condition = BindCondition(whileStatement.Condition);
-                var body = new BlockBinder(this, isLoopBody: true).BindStatement(whileStatement.Statement);
+                var body = new BlockBinder(this, true).BindStatement(whileStatement.Statement);
                 return new BoundWhileStatement(whileStatement, condition, body);
             }
 
             case RepeatStatementSyntax repeat: {
-                var body = new BlockBinder(this, isLoopBody: true).BindStatement(repeat.Statement);
+                var body = new BlockBinder(this, true).BindStatement(repeat.Statement);
                 return new BoundRepeatStatement(repeat, body, BindCondition(repeat.Condition));
             }
 
@@ -64,7 +78,9 @@ public abstract partial class Binder {
 
             case UsingStatementSyntax usingStatement:
                 return new BoundBlockStatement(
-                    usingStatement, [new BlockBinder(this).BindStatement(usingStatement.Statement)]);
+                    usingStatement,
+                    [new BlockBinder(this).BindStatement(usingStatement.Statement)]
+                );
 
             case EmptyStatementSyntax:
                 return new BoundNoOpStatement(syntax);
@@ -72,20 +88,6 @@ public abstract partial class Binder {
             default:
                 return new BoundNoOpStatement(syntax);
         }
-    }
-
-    /// <summary>Binds a block in its own scope.</summary>
-    public BoundBlockStatement BindBlock(BlockSyntax syntax) {
-        var binder = new BlockBinder(this);
-        List<BoundStatement> statements = [];
-
-        foreach (var statement in syntax.Statements) {
-            statements.Add(binder.BindStatement(statement));
-        }
-
-        var bound = new BoundBlockStatement(syntax, statements);
-        Context.Record(syntax, bound);
-        return bound;
     }
 
     BoundStatement BindLocalDeclaration(LocalDeclarationStatementSyntax syntax) {
@@ -111,7 +113,8 @@ public abstract partial class Binder {
             declaration.Identifier.ValueText,
             type,
             declaration.Keyword.Kind == SyntaxKind.ValKeyword,
-            declaration);
+            declaration
+        );
 
         DeclareLocal(local, declaration);
         Context.RecordDeclaration(syntax, local);
@@ -131,9 +134,14 @@ public abstract partial class Binder {
             elementType = ErrorTypeSymbol.Instance;
         }
 
-        var binder = new BlockBinder(this, isLoopBody: true);
+        var binder = new BlockBinder(this, true);
         var iterationVariable = new LocalSymbol(
-            ContainingMember, syntax.Identifier.ValueText, elementType, isReadOnly: true, syntax);
+            ContainingMember,
+            syntax.Identifier.ValueText,
+            elementType,
+            true,
+            syntax
+        );
 
         binder.DeclareLocal(iterationVariable, syntax);
         var body = binder.BindStatement(syntax.Statement);
@@ -141,12 +149,13 @@ public abstract partial class Binder {
         return new BoundForStatement(syntax, iterationVariable, sequence, body);
     }
 
-    static TypeSymbol? GetElementType(TypeSymbol type) => type switch {
-        ArrayTypeSymbol array => array.ElementType,
-        SequenceTypeSymbol sequence => sequence.ElementType,
-        { IsErrorType: true } => ErrorTypeSymbol.Instance,
-        _ => null
-    };
+    static TypeSymbol? GetElementType(TypeSymbol type) =>
+        type switch {
+            ArrayTypeSymbol array => array.ElementType,
+            SequenceTypeSymbol sequence => sequence.ElementType,
+            { IsErrorType: true } => ErrorTypeSymbol.Instance,
+            _ => null
+        };
 
     BoundStatement BindReturn(ReturnStatementSyntax syntax) {
         var returnType = ReturnType;

@@ -1,14 +1,13 @@
 namespace Vixen.Raven.IR;
 
 /// <summary>
-/// A function in the IR: a signature, its local storage, and a structured body.
-/// The function owns value numbering, so <c>%0</c> means the same thing
-/// throughout one function and nothing outside it.
+///     A function in the IR: a signature, its local storage, and a structured body.
+///     The function owns value numbering, so <c>%0</c> means the same thing
+///     throughout one function and nothing outside it.
 /// </summary>
 public sealed class IrFunction(string name, IrType returnType) {
     readonly List<IrVariable> locals = [];
     readonly List<IrVariable> parameters = [];
-    int nextValueId;
 
     public string Name { get; } = name;
     public IrType ReturnType { get; } = returnType;
@@ -20,10 +19,13 @@ public sealed class IrFunction(string name, IrType returnType) {
     public IrBlock Body { get; } = new();
 
     /// <summary>How many values this function defines; also the next free id.</summary>
-    public int ValueCount => nextValueId;
+    public int ValueCount { get; private set; }
+
+    public override string ToString() =>
+        $"{Name}({string.Join(", ", parameters.Select(p => p.Type.Name))}) : {ReturnType.Name}";
 
     /// <summary>Allocates the next SSA value of the given type.</summary>
-    internal IrValue NewValue(IrType type) => new(nextValueId++, type);
+    internal IrValue NewValue(IrType type) => new(ValueCount++, type);
 
     internal IrVariable AddParameter(string name, IrType type) {
         var variable = new IrVariable(name, type, IrVariableKind.Parameter);
@@ -44,7 +46,4 @@ public sealed class IrFunction(string name, IrType returnType) {
         locals.Add(variable);
         return variable;
     }
-
-    public override string ToString() =>
-        $"{Name}({string.Join(", ", parameters.Select(p => p.Type.Name))}) : {ReturnType.Name}";
 }

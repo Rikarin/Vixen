@@ -10,21 +10,11 @@ using Xunit;
 namespace Tests;
 
 /// <summary>
-/// The README's language example has to survive the whole pipeline — it is the
-/// first thing anyone reads, and it is the exit criterion for both backends:
-/// valid GLSL in Phase 4, valid SPIR-V in Phase 6.
+///     The README's language example has to survive the whole pipeline — it is the
+///     first thing anyone reads, and it is the exit criterion for both backends:
+///     valid GLSL in Phase 4, valid SPIR-V in Phase 6.
 /// </summary>
 public class ReadmeExampleTests {
-    static string ReadExample() {
-        var readme = File.ReadAllText(Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "README.md"));
-
-        var start = readme.IndexOf("## Language Example", StringComparison.Ordinal);
-        var open = readme.IndexOf("```typescript", start, StringComparison.Ordinal) + "```typescript\n".Length;
-        var close = readme.IndexOf("```", open, StringComparison.Ordinal);
-        return readme[open..close];
-    }
-
     [Fact]
     public void The_readme_language_example_compiles_cleanly() {
         var tree = SyntaxTree.ParseText(ReadExample(), path: "README.rvn");
@@ -45,7 +35,8 @@ public class ReadmeExampleTests {
 
         Assert.True(
             IrVerifier.Verify(module, bag),
-            "IR did not verify:\n" + string.Join("\n", bag.Select(d => d.ToString())));
+            "IR did not verify:\n" + string.Join("\n", bag.Select(d => d.ToString()))
+        );
 
         var generated = TargetBackends.Create("glsl")!.Generate(module, bag);
 
@@ -77,5 +68,14 @@ public class ReadmeExampleTests {
 
         // The verdict that matters is the reference validator's.
         Assert.All(generated, SpirvTestBase.Validate);
+    }
+
+    static string ReadExample() {
+        var readme = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "README.md"));
+
+        var start = readme.IndexOf("## Language Example", StringComparison.Ordinal);
+        var open = readme.IndexOf("```typescript", start, StringComparison.Ordinal) + "```typescript\n".Length;
+        var close = readme.IndexOf("```", open, StringComparison.Ordinal);
+        return readme[open..close];
     }
 }

@@ -12,14 +12,15 @@ using Xunit.Abstractions;
 namespace Tests;
 
 /// <summary>
-/// Golden-file GLSL tests: each fixture <c>Fixtures/&lt;name&gt;.rvn</c> is
-/// compiled all the way through and each generated stage is compared against
-/// <c>Fixtures/&lt;name&gt;.&lt;stage&gt;.glsl</c>. This is what makes a change in
-/// code generation visible in review.
-///
-/// Regenerate with <c>UPDATE_GOLDEN=1</c> and read the diff.
+///     Golden-file GLSL tests: each fixture <c>Fixtures/&lt;name&gt;.rvn</c> is
+///     compiled all the way through and each generated stage is compared against
+///     <c>Fixtures/&lt;name&gt;.&lt;stage&gt;.glsl</c>. This is what makes a change in
+///     code generation visible in review.
+///     Regenerate with <c>UPDATE_GOLDEN=1</c> and read the diff.
 /// </summary>
 public class GoldenGlslTests(ITestOutputHelper output) {
+    static bool ShouldUpdate => Environment.GetEnvironmentVariable("UPDATE_GOLDEN") is "1" or "true";
+
     [Theory]
     [InlineData("lambert")]
     public void Matches_golden(string name) {
@@ -47,13 +48,14 @@ public class GoldenGlslTests(ITestOutputHelper output) {
 
         Assert.True(
             regenerated.Count == 0,
-            $"Goldens were (re)generated: {string.Join(", ", regenerated)}. Review the diff and re-run.");
+            $"Goldens were (re)generated: {string.Join(", ", regenerated)}. Review the diff and re-run."
+        );
     }
 
     /// <summary>
-    /// The exit criterion for this phase: real GLSL that a real compiler accepts.
-    /// Runs only when <c>glslangValidator</c> is on PATH — it is not a build
-    /// dependency, and its absence is reported rather than silently ignored.
+    ///     The exit criterion for this phase: real GLSL that a real compiler accepts.
+    ///     Runs only when <c>glslangValidator</c> is on PATH — it is not a build
+    ///     dependency, and its absence is reported rather than silently ignored.
     /// </summary>
     [Theory]
     [InlineData("lambert")]
@@ -61,7 +63,8 @@ public class GoldenGlslTests(ITestOutputHelper output) {
         if (FindGlslang() is not { } glslang) {
             output.WriteLine(
                 "glslangValidator was not found on PATH, so the generated GLSL was not validated. "
-                + "Install it (brew install glslang) to check this properly.");
+                + "Install it (brew install glslang) to check this properly."
+            );
             return;
         }
 
@@ -70,10 +73,9 @@ public class GoldenGlslTests(ITestOutputHelper output) {
             var path = Path.Combine(Path.GetTempPath(), $"raven_{name}_{suffix}.{suffix}");
             File.WriteAllText(path, unit.Code);
 
-            var process = Process.Start(new ProcessStartInfo(glslang, path) {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            })!;
+            var process = Process.Start(
+                new ProcessStartInfo(glslang, path) { RedirectStandardOutput = true, RedirectStandardError = true }
+            )!;
 
             process.WaitForExit();
             var log = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
@@ -105,8 +107,6 @@ public class GoldenGlslTests(ITestOutputHelper output) {
     }
 
     static string StageSuffix(GeneratedSource unit) => GlslBackend.StageSuffix(unit.Stage);
-
-    static bool ShouldUpdate => Environment.GetEnvironmentVariable("UPDATE_GOLDEN") is "1" or "true";
 
     static string Normalize(string text) => text.Replace("\r\n", "\n").TrimEnd('\n');
 

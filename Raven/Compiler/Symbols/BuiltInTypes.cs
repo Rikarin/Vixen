@@ -3,10 +3,10 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Symbols;
 
 /// <summary>
-/// The compiler's intrinsic type table: scalars, vectors, matrices and the GPU
-/// resource types — everything Raven has, because everything Raven has must
-/// exist on a GPU. All instances are singletons, so reference equality is type
-/// identity for everything in here.
+///     The compiler's intrinsic type table: scalars, vectors, matrices and the GPU
+///     resource types — everything Raven has, because everything Raven has must
+///     exist on a GPU. All instances are singletons, so reference equality is type
+///     identity for everything in here.
 /// </summary>
 public static class BuiltInTypes {
     public static readonly PrimitiveTypeSymbol Void = new("void", SpecialType.Void, TypeKind.Void);
@@ -59,6 +59,9 @@ public static class BuiltInTypes {
     static readonly Dictionary<SpecialType, PrimitiveTypeSymbol> bySpecialType;
     static readonly Dictionary<SyntaxKind, PrimitiveTypeSymbol> byKeyword;
 
+    /// <summary>Every intrinsic type, for scope population and tests.</summary>
+    public static IReadOnlyCollection<NamedTypeSymbol> All => byName.Values;
+
     static BuiltInTypes() {
         PrimitiveTypeSymbol[] primitives = [
             Void, Bool, Int, UInt, Float, Double,
@@ -69,7 +72,7 @@ public static class BuiltInTypes {
 
         NamedTypeSymbol[] named = [Sampler, Texture2D, Texture3D, TextureCube];
 
-        byName = new Dictionary<string, NamedTypeSymbol>(StringComparer.Ordinal);
+        byName = new(StringComparer.Ordinal);
         bySpecialType = [];
 
         foreach (var type in primitives) {
@@ -85,7 +88,7 @@ public static class BuiltInTypes {
         // keeps a name-based lookup (imports, docs) from surprising anyone.
         byName["mat4x4"] = Mat4;
 
-        byKeyword = new Dictionary<SyntaxKind, PrimitiveTypeSymbol> {
+        byKeyword = new() {
             [SyntaxKind.BoolKeyword] = Bool,
             [SyntaxKind.Bool2Keyword] = Bool2,
             [SyntaxKind.Bool3Keyword] = Bool3,
@@ -120,19 +123,16 @@ public static class BuiltInTypes {
         AddResourceMembers();
     }
 
-    /// <summary>Every intrinsic type, for scope population and tests.</summary>
-    public static IReadOnlyCollection<NamedTypeSymbol> All => byName.Values;
-
     /// <summary>Resolves an intrinsic type by its source name (<c>float3</c>, <c>Texture2D</c>).</summary>
     public static NamedTypeSymbol? Lookup(string name) => byName.GetValueOrDefault(name);
 
-    /// <summary>The primitive type for a <see cref="SpecialType"/>; throws for non-primitives.</summary>
+    /// <summary>The primitive type for a <see cref="SpecialType" />; throws for non-primitives.</summary>
     public static PrimitiveTypeSymbol FromSpecialType(SpecialType specialType) => bySpecialType[specialType];
 
     /// <summary>The type behind a <c>PredefinedType</c> keyword token, or null.</summary>
     public static PrimitiveTypeSymbol? FromKeyword(SyntaxKind kind) => byKeyword.GetValueOrDefault(kind);
 
-    /// <summary>The vector of <paramref name="component"/> with this many lanes, or null if there is none.</summary>
+    /// <summary>The vector of <paramref name="component" /> with this many lanes, or null if there is none.</summary>
     public static PrimitiveTypeSymbol? Vector(SpecialType component, int count) {
         if (count == 1) {
             return bySpecialType.GetValueOrDefault(component);
@@ -147,7 +147,9 @@ public static class BuiltInTypes {
             _ => null
         };
 
-        return name is null || count is < 2 or > 4 ? null : (PrimitiveTypeSymbol?)byName.GetValueOrDefault(name + count);
+        return name is null || count is < 2 or > 4
+            ? null
+            : (PrimitiveTypeSymbol?)byName.GetValueOrDefault(name + count);
     }
 
     static PrimitiveTypeSymbol Vec(string name, SpecialType specialType, SpecialType component, int count) =>
@@ -157,17 +159,28 @@ public static class BuiltInTypes {
         new(name, specialType, TypeKind.Matrix, SpecialType.Float, rows, columns);
 
     static void AddResourceMembers() {
-        Texture2D.SetMembers([
-            new SynthesizedMethodSymbol(Texture2D, "Sample", Float4, [("sampler", Sampler), ("uv", Float2)]),
-            new SynthesizedMethodSymbol(Texture2D, "Load", Float4, [("coordinate", Int3)])
-        ]);
+        Texture2D.SetMembers(
+            [
+                new SynthesizedMethodSymbol(Texture2D, "Sample", Float4, [("sampler", Sampler), ("uv", Float2)]),
+                new SynthesizedMethodSymbol(Texture2D, "Load", Float4, [("coordinate", Int3)])
+            ]
+        );
 
-        Texture3D.SetMembers([
-            new SynthesizedMethodSymbol(Texture3D, "Sample", Float4, [("sampler", Sampler), ("uvw", Float3)])
-        ]);
+        Texture3D.SetMembers(
+            [
+                new SynthesizedMethodSymbol(Texture3D, "Sample", Float4, [("sampler", Sampler), ("uvw", Float3)])
+            ]
+        );
 
-        TextureCube.SetMembers([
-            new SynthesizedMethodSymbol(TextureCube, "Sample", Float4, [("sampler", Sampler), ("direction", Float3)])
-        ]);
+        TextureCube.SetMembers(
+            [
+                new SynthesizedMethodSymbol(
+                    TextureCube,
+                    "Sample",
+                    Float4,
+                    [("sampler", Sampler), ("direction", Float3)]
+                )
+            ]
+        );
     }
 }

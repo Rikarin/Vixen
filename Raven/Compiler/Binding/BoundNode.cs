@@ -4,14 +4,12 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Binding;
 
 /// <summary>
-/// A node of the <em>bound tree</em>: the syntax tree with every name resolved
-/// to a <see cref="Symbol"/>, every expression given a
-/// <see cref="TypeSymbol"/>, and every conversion made explicit. Phase 3 lowers
-/// this to the target-independent IR.
+///     A node of the <em>bound tree</em>: the syntax tree with every name resolved
+///     to a <see cref="Symbol" />, every expression given a
+///     <see cref="TypeSymbol" />, and every conversion made explicit. Phase 3 lowers
+///     this to the target-independent IR.
 /// </summary>
 public abstract class BoundNode {
-    protected BoundNode(SyntaxNode syntax) => Syntax = syntax;
-
     /// <summary>The syntax this node was bound from.</summary>
     public SyntaxNode Syntax { get; }
 
@@ -19,6 +17,10 @@ public abstract class BoundNode {
 
     /// <summary>Child bound nodes, in source order.</summary>
     public virtual IEnumerable<BoundNode> Children => [];
+
+    protected BoundNode(SyntaxNode syntax) {
+        Syntax = syntax;
+    }
 
     /// <summary>This node and every node beneath it.</summary>
     public IEnumerable<BoundNode> DescendantsAndSelf() {
@@ -33,9 +35,7 @@ public abstract class BoundNode {
 
 /// <summary>A bound node that produces a value (or, for statements' sake, a type).</summary>
 public abstract class BoundExpression : BoundNode {
-    protected BoundExpression(SyntaxNode syntax) : base(syntax) { }
-
-    /// <summary>The expression's type; <see cref="ErrorTypeSymbol"/> when it could not be determined.</summary>
+    /// <summary>The expression's type; <see cref="ErrorTypeSymbol" /> when it could not be determined.</summary>
     public abstract TypeSymbol Type { get; }
 
     /// <summary>The compile-time value, when the expression is a constant.</summary>
@@ -43,6 +43,8 @@ public abstract class BoundExpression : BoundNode {
 
     /// <summary>The symbol this expression refers to, if it refers to one.</summary>
     public virtual Symbol? Symbol => null;
+
+    protected BoundExpression(SyntaxNode syntax) : base(syntax) { }
 }
 
 /// <summary>A bound node that performs an action rather than producing a value.</summary>

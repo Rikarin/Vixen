@@ -7,9 +7,9 @@ namespace Vixen.Raven.Binding;
 /// <summary>Expression binding: names to symbols, expressions to types.</summary>
 public abstract partial class Binder {
     /// <summary>
-    /// Binds an expression. The result may denote a namespace, a type or a
-    /// method group as well as a value — use <see cref="BindValue"/> where only a
-    /// value will do.
+    ///     Binds an expression. The result may denote a namespace, a type or a
+    ///     method group as well as a value — use <see cref="BindValue" /> where only a
+    ///     value will do.
     /// </summary>
     public BoundExpression BindExpression(ExpressionSyntax syntax) {
         var bound = BindExpressionCore(syntax);
@@ -37,12 +37,6 @@ public abstract partial class Binder {
             default:
                 return bound;
         }
-    }
-
-    /// <summary>Binds an expression only to learn its type; its diagnostics are discarded.</summary>
-    internal TypeSymbol InferType(ExpressionSyntax syntax) {
-        var speculative = new BindingContext(Compilation, new DiagnosticBag());
-        return new ContextBinder(this, speculative).BindExpression(syntax).Type;
     }
 
     BoundExpression BindExpressionCore(ExpressionSyntax syntax) {
@@ -181,7 +175,8 @@ public abstract partial class Binder {
                 syntax,
                 typeArguments.Length > 0 && type is NamedTypeSymbol named
                     ? new ConstructedNamedTypeSymbol(named, typeArguments)
-                    : type),
+                    : type
+            ),
             _ => new BoundErrorExpression(syntax)
         };
     }
@@ -228,7 +223,8 @@ public abstract partial class Binder {
                         case NamedTypeSymbol type when type.Arity == typeArguments.Length:
                             return new BoundTypeExpression(
                                 syntax,
-                                typeArguments.Length > 0 ? new ConstructedNamedTypeSymbol(type, typeArguments) : type);
+                                typeArguments.Length > 0 ? new ConstructedNamedTypeSymbol(type, typeArguments) : type
+                            );
                     }
                 }
 
@@ -271,7 +267,8 @@ public abstract partial class Binder {
                 new BoundPropertyExpression(syntax, property.IsStatic ? null : receiver, property, []),
             NamedTypeSymbol nested => new BoundTypeExpression(
                 syntax,
-                typeArguments.Count > 0 ? new ConstructedNamedTypeSymbol(nested, typeArguments) : nested),
+                typeArguments.Count > 0 ? new ConstructedNamedTypeSymbol(nested, typeArguments) : nested
+            ),
             _ => new BoundErrorExpression(syntax)
         };
     }
@@ -314,8 +311,7 @@ public abstract partial class Binder {
             case "as": {
                 var operand = BindValue(syntax.Left);
                 var target = BindType(syntax.Right as TypeSyntax);
-                return new BoundConversionExpression(
-                    syntax, operand, target, new Conversion(ConversionKind.ExplicitReference));
+                return new BoundConversionExpression(syntax, operand, target, new(ConversionKind.ExplicitReference));
             }
         }
 
@@ -328,7 +324,8 @@ public abstract partial class Binder {
                 syntax,
                 operatorText,
                 left.Type.ToDisplayString(),
-                right.Type.ToDisplayString());
+                right.Type.ToDisplayString()
+            );
             return new BoundErrorExpression(syntax, [left, right]);
         }
 
@@ -339,7 +336,8 @@ public abstract partial class Binder {
                     syntax,
                     operatorText,
                     left.Type.ToDisplayString(),
-                    right.Type.ToDisplayString());
+                    right.Type.ToDisplayString()
+                );
             }
 
             return new BoundErrorExpression(syntax, [left, right]);
@@ -350,15 +348,20 @@ public abstract partial class Binder {
             kind,
             Convert(left, signature.LeftType, syntax.Left),
             Convert(right, signature.RightType, syntax.Right),
-            signature.ResultType);
+            signature.ResultType
+        );
     }
 
     BoundExpression BindUnary(ExpressionSyntax syntax, ExpressionSyntax operandSyntax, UnaryOperatorKind? kind) {
         var operand = BindValue(operandSyntax);
 
         if (kind is not { } operatorKind) {
-            Report(SemanticDiagnostics.UnaryOperatorNotDefined, syntax, syntax.ToString().Trim(),
-                operand.Type.ToDisplayString());
+            Report(
+                SemanticDiagnostics.UnaryOperatorNotDefined,
+                syntax,
+                syntax.ToString().Trim(),
+                operand.Type.ToDisplayString()
+            );
             return new BoundErrorExpression(syntax, [operand]);
         }
 
@@ -368,47 +371,53 @@ public abstract partial class Binder {
                     SemanticDiagnostics.UnaryOperatorNotDefined,
                     syntax,
                     OperatorText(operatorKind),
-                    operand.Type.ToDisplayString());
+                    operand.Type.ToDisplayString()
+                );
             }
 
             return new BoundErrorExpression(syntax, [operand]);
         }
 
-        if (operatorKind is UnaryOperatorKind.PreIncrement or UnaryOperatorKind.PreDecrement
-            or UnaryOperatorKind.PostIncrement or UnaryOperatorKind.PostDecrement) {
+        if (operatorKind is UnaryOperatorKind.PreIncrement
+            or UnaryOperatorKind.PreDecrement
+            or UnaryOperatorKind.PostIncrement
+            or UnaryOperatorKind.PostDecrement) {
             CheckAssignable(operand, operandSyntax);
         }
 
         return new BoundUnaryExpression(syntax, operatorKind, operand, resultType);
     }
 
-    static UnaryOperatorKind? MapPrefixOperator(SyntaxKind kind) => kind switch {
-        SyntaxKind.UnaryPlusExpression => UnaryOperatorKind.Plus,
-        SyntaxKind.UnaryMinusExpression => UnaryOperatorKind.Minus,
-        SyntaxKind.BitwiseNotExpression => UnaryOperatorKind.BitwiseNot,
-        SyntaxKind.LogicalNotExpression => UnaryOperatorKind.LogicalNot,
-        SyntaxKind.PreIncrementExpression => UnaryOperatorKind.PreIncrement,
-        SyntaxKind.PreDecrementExpression => UnaryOperatorKind.PreDecrement,
-        SyntaxKind.IndexExpression => UnaryOperatorKind.IndexFromEnd,
-        _ => null
-    };
+    static UnaryOperatorKind? MapPrefixOperator(SyntaxKind kind) =>
+        kind switch {
+            SyntaxKind.UnaryPlusExpression => UnaryOperatorKind.Plus,
+            SyntaxKind.UnaryMinusExpression => UnaryOperatorKind.Minus,
+            SyntaxKind.BitwiseNotExpression => UnaryOperatorKind.BitwiseNot,
+            SyntaxKind.LogicalNotExpression => UnaryOperatorKind.LogicalNot,
+            SyntaxKind.PreIncrementExpression => UnaryOperatorKind.PreIncrement,
+            SyntaxKind.PreDecrementExpression => UnaryOperatorKind.PreDecrement,
+            SyntaxKind.IndexExpression => UnaryOperatorKind.IndexFromEnd,
+            _ => null
+        };
 
-    static UnaryOperatorKind? MapPostfixOperator(SyntaxKind kind) => kind switch {
-        SyntaxKind.PostIncrementExpression => UnaryOperatorKind.PostIncrement,
-        SyntaxKind.PostDecrementExpression => UnaryOperatorKind.PostDecrement,
-        _ => null
-    };
+    static UnaryOperatorKind? MapPostfixOperator(SyntaxKind kind) =>
+        kind switch {
+            SyntaxKind.PostIncrementExpression => UnaryOperatorKind.PostIncrement,
+            SyntaxKind.PostDecrementExpression => UnaryOperatorKind.PostDecrement,
+            _ => null
+        };
 
-    static string OperatorText(UnaryOperatorKind kind) => kind switch {
-        UnaryOperatorKind.Plus => "+",
-        UnaryOperatorKind.Minus => "-",
-        UnaryOperatorKind.BitwiseNot => "~",
-        UnaryOperatorKind.LogicalNot => "!",
-        UnaryOperatorKind.PreIncrement or UnaryOperatorKind.PostIncrement => "++",
-        UnaryOperatorKind.PreDecrement or UnaryOperatorKind.PostDecrement => "--",
-        UnaryOperatorKind.IndexFromEnd => "^",
-        _ => "!"
-    };
+    static string OperatorText(UnaryOperatorKind kind) =>
+        kind switch {
+            UnaryOperatorKind.Plus => "+",
+            UnaryOperatorKind.Minus => "-",
+            UnaryOperatorKind.BitwiseNot => "~",
+            UnaryOperatorKind.LogicalNot => "!",
+            UnaryOperatorKind.PreIncrement or UnaryOperatorKind.PostIncrement => "++",
+            UnaryOperatorKind.PreDecrement or UnaryOperatorKind.PostDecrement => "--",
+            UnaryOperatorKind.IndexFromEnd => "^",
+            _ => "!"
+        };
 
     // --- Assignment --------------------------------------------------------
 
@@ -423,15 +432,16 @@ public abstract partial class Binder {
             return new BoundAssignmentExpression(syntax, target, Convert(value, target.Type, syntax.Right), null);
         }
 
-        if (MapCompoundAssignment(operatorText) is not { } kind ||
-            ResolveBinaryOperator(kind, target.Type, value.Type) is not { } signature) {
+        if (MapCompoundAssignment(operatorText) is not { } kind
+            || ResolveBinaryOperator(kind, target.Type, value.Type) is not { } signature) {
             if (!target.Type.IsErrorType && !value.Type.IsErrorType) {
                 Report(
                     SemanticDiagnostics.BinaryOperatorNotDefined,
                     syntax,
                     operatorText,
                     target.Type.ToDisplayString(),
-                    value.Type.ToDisplayString());
+                    value.Type.ToDisplayString()
+                );
             }
 
             return new BoundErrorExpression(syntax, [target, value]);
@@ -439,12 +449,14 @@ public abstract partial class Binder {
 
         // The result of the operation has to fit back into the target.
         var converted = Convert(value, signature.RightType, syntax.Right);
-        if (!signature.ResultType.IsErrorType && !Conversions.HasImplicitConversion(signature.ResultType, target.Type)) {
+        if (!signature.ResultType.IsErrorType
+            && !Conversions.HasImplicitConversion(signature.ResultType, target.Type)) {
             Report(
                 SemanticDiagnostics.CannotConvert,
                 syntax,
                 signature.ResultType.ToDisplayString(),
-                target.Type.ToDisplayString());
+                target.Type.ToDisplayString()
+            );
         }
 
         return new BoundAssignmentExpression(syntax, target, converted, kind);
@@ -465,8 +477,12 @@ public abstract partial class Binder {
                 Report(SemanticDiagnostics.NotAssignable, syntax, property.Property.Name);
                 break;
 
-            case BoundLocalExpression or BoundFieldExpression or BoundPropertyExpression or BoundParameterExpression
-                or BoundArrayAccessExpression or BoundErrorExpression:
+            case BoundLocalExpression
+                or BoundFieldExpression
+                or BoundPropertyExpression
+                or BoundParameterExpression
+                or BoundArrayAccessExpression
+                or BoundErrorExpression:
                 break;
 
             default:
@@ -494,7 +510,8 @@ public abstract partial class Binder {
                     SemanticDiagnostics.CannotConvert,
                     syntax,
                     whenFalse.Type.ToDisplayString(),
-                    whenTrue.Type.ToDisplayString());
+                    whenTrue.Type.ToDisplayString()
+                );
             }
 
             common = ErrorTypeSymbol.Instance;
@@ -505,7 +522,8 @@ public abstract partial class Binder {
             condition,
             Convert(whenTrue, common, syntax.WhenTrue),
             Convert(whenFalse, common, syntax.WhenFalse),
-            common);
+            common
+        );
     }
 
     BoundExpression BindRange(RangeExpressionSyntax syntax) {
@@ -557,7 +575,12 @@ public abstract partial class Binder {
             elementType = elementType is null ? contributed : Conversions.FindCommonType(elementType, contributed);
 
             if (elementType is null) {
-                Report(SemanticDiagnostics.CannotConvert, expression, contributed.ToDisplayString(), "the element type");
+                Report(
+                    SemanticDiagnostics.CannotConvert,
+                    expression,
+                    contributed.ToDisplayString(),
+                    "the element type"
+                );
                 elementType = ErrorTypeSymbol.Instance;
             }
         }
@@ -565,7 +588,8 @@ public abstract partial class Binder {
         return new BoundCollectionExpression(
             syntax,
             elements,
-            new ArrayTypeSymbol(elementType ?? ErrorTypeSymbol.Instance));
+            new ArrayTypeSymbol(elementType ?? ErrorTypeSymbol.Instance)
+        );
     }
 
     BoundExpression BindDeclarationExpression(DeclarationExpressionSyntax syntax) {
@@ -579,9 +603,9 @@ public abstract partial class Binder {
     // --- Patterns (shallow) ------------------------------------------------
 
     /// <summary>
-    /// Walks a pattern, binding the expressions inside it and declaring any
-    /// variables it introduces. Type-test narrowing and exhaustiveness are not
-    /// modelled in this phase.
+    ///     Walks a pattern, binding the expressions inside it and declaring any
+    ///     variables it introduces. Type-test narrowing and exhaustiveness are not
+    ///     modelled in this phase.
     /// </summary>
     void BindPattern(PatternSyntax? syntax, List<BoundNode> parts) {
         switch (syntax) {
@@ -631,8 +655,7 @@ public abstract partial class Binder {
     void DeclarePatternVariables(VariableDesignationSyntax? designation, TypeSymbol type) {
         switch (designation) {
             case SimpleVariableDesignationSyntax simple: {
-                var local = new LocalSymbol(
-                    ContainingMember, simple.Identifier.ValueText, type, isReadOnly: false, simple);
+                var local = new LocalSymbol(ContainingMember, simple.Identifier.ValueText, type, false, simple);
                 DeclareLocal(local, simple);
                 break;
             }
@@ -668,5 +691,11 @@ public abstract partial class Binder {
         }
 
         return new BoundSwitchExpression(syntax, governing, arms, common ?? ErrorTypeSymbol.Instance);
+    }
+
+    /// <summary>Binds an expression only to learn its type; its diagnostics are discarded.</summary>
+    internal TypeSymbol InferType(ExpressionSyntax syntax) {
+        var speculative = new BindingContext(Compilation, new());
+        return new ContextBinder(this, speculative).BindExpression(syntax).Type;
     }
 }

@@ -23,7 +23,7 @@ sealed class StringBuilderReader(StringBuilder stringBuilder) : TextReader {
         var charsToCopy = Math.Min(count, stringBuilder.Length - position);
         stringBuilder.CopyTo(position, buffer, index, charsToCopy);
         position += charsToCopy;
-        
+
         return charsToCopy;
     }
 }

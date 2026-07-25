@@ -6,8 +6,8 @@ using Xunit;
 namespace Tests;
 
 /// <summary>
-/// Phase 1d: lexer/parser errors surface as <see cref="Diagnostic"/>s with stable
-/// ids, severities, and correct source spans; valid input reports none.
+///     Phase 1d: lexer/parser errors surface as <see cref="Diagnostic" />s with stable
+///     ids, severities, and correct source spans; valid input reports none.
 /// </summary>
 public class DiagnosticsTests {
     [Theory]
@@ -71,9 +71,9 @@ public class DiagnosticsTests {
     public void SourceText_maps_offsets_to_line_and_column() {
         var text = SourceText.From("ab\ncde\nf");
 
-        Assert.Equal(new LinePosition(0, 0), text.GetLinePosition(0)); // 'a'
-        Assert.Equal(new LinePosition(0, 2), text.GetLinePosition(2)); // '\n'
-        Assert.Equal(new LinePosition(1, 0), text.GetLinePosition(3)); // 'c'
-        Assert.Equal(new LinePosition(2, 0), text.GetLinePosition(7)); // 'f'
+        Assert.Equal(new(0, 0), text.GetLinePosition(0)); // 'a'
+        Assert.Equal(new(0, 2), text.GetLinePosition(2)); // '\n'
+        Assert.Equal(new(1, 0), text.GetLinePosition(3)); // 'c'
+        Assert.Equal(new(2, 0), text.GetLinePosition(7)); // 'f'
     }
 }

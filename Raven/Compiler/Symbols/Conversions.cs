@@ -1,9 +1,9 @@
 namespace Vixen.Raven.Symbols;
 
 /// <summary>
-/// Type-level conversion rules. The binder layers the expression-aware case on
-/// top (a constant literal that fits the target); everything decidable from the
-/// two types alone lives here.
+///     Type-level conversion rules. The binder layers the expression-aware case on
+///     top (a constant literal that fits the target); everything decidable from the
+///     two types alone lives here.
 /// </summary>
 public static class Conversions {
     /// <summary>Widening scalar conversions, keyed by source.</summary>
@@ -17,7 +17,7 @@ public static class Conversions {
         SpecialType.Int, SpecialType.UInt, SpecialType.Float, SpecialType.Double
     ];
 
-    /// <summary>Classifies the conversion from <paramref name="source"/> to <paramref name="target"/>.</summary>
+    /// <summary>Classifies the conversion from <paramref name="source" /> to <paramref name="target" />.</summary>
     public static Conversion Classify(TypeSymbol source, TypeSymbol target) {
         // An unresolved type already produced a diagnostic; let it convert
         // anywhere so a single mistake reports once.
@@ -38,32 +38,32 @@ public static class Conversions {
         }
 
         // enum <-> its underlying integral representation
-        if (source.TypeKind == TypeKind.Enum && target.SpecialType is SpecialType.Int or SpecialType.UInt ||
-            target.TypeKind == TypeKind.Enum && source.SpecialType is SpecialType.Int or SpecialType.UInt) {
-            return new Conversion(ConversionKind.ExplicitEnumeration);
+        if ((source.TypeKind == TypeKind.Enum && target.SpecialType is SpecialType.Int or SpecialType.UInt)
+            || (target.TypeKind == TypeKind.Enum && source.SpecialType is SpecialType.Int or SpecialType.UInt)) {
+            return new(ConversionKind.ExplicitEnumeration);
         }
 
         if (source.IsSubtypeOf(target)) {
-            return new Conversion(ConversionKind.ImplicitReference);
+            return new(ConversionKind.ImplicitReference);
         }
 
         if (target.IsSubtypeOf(source)) {
-            return new Conversion(ConversionKind.ExplicitReference);
+            return new(ConversionKind.ExplicitReference);
         }
 
         return Conversion.None;
     }
 
-    /// <summary>True when a value of <paramref name="source"/> may be used where <paramref name="target"/> is expected.</summary>
+    /// <summary>True when a value of <paramref name="source" /> may be used where <paramref name="target" /> is expected.</summary>
     public static bool HasImplicitConversion(TypeSymbol source, TypeSymbol target) {
         var conversion = Classify(source, target);
         return conversion.Exists && conversion.IsImplicit;
     }
 
     /// <summary>
-    /// The type both operands of a binary operator are converted to, or null if
-    /// there is no such type. Vectors win over the scalars they mix with, so
-    /// <c>float3 * 2</c> yields <c>float3</c>.
+    ///     The type both operands of a binary operator are converted to, or null if
+    ///     there is no such type. Vectors win over the scalars they mix with, so
+    ///     <c>float3 * 2</c> yields <c>float3</c>.
     /// </summary>
     public static TypeSymbol? FindCommonType(TypeSymbol left, TypeSymbol right) {
         if (left.Equals(right)) {
@@ -80,9 +80,9 @@ public static class Conversions {
 
         // int2 + float2 -> float2: no direct conversion either way when the
         // component types widen in opposite directions, so widen componentwise.
-        if (left is PrimitiveTypeSymbol { TypeKind: TypeKind.Vector } leftVector &&
-            right is PrimitiveTypeSymbol { TypeKind: TypeKind.Vector } rightVector &&
-            leftVector.ComponentCount == rightVector.ComponentCount) {
+        if (left is PrimitiveTypeSymbol { TypeKind: TypeKind.Vector } leftVector
+            && right is PrimitiveTypeSymbol { TypeKind: TypeKind.Vector } rightVector
+            && leftVector.ComponentCount == rightVector.ComponentCount) {
             var component = FindCommonScalar(leftVector.ComponentSpecialType, rightVector.ComponentSpecialType);
             return component is null ? null : BuiltInTypes.Vector(component.Value, leftVector.ComponentCount);
         }
@@ -119,11 +119,11 @@ public static class Conversions {
 
         if (fromScalar && toScalar) {
             if (IsImplicitScalar(from.SpecialType, to.SpecialType)) {
-                return new Conversion(ConversionKind.ImplicitNumeric);
+                return new(ConversionKind.ImplicitNumeric);
             }
 
             return IsNumericScalar(from.SpecialType) && IsNumericScalar(to.SpecialType)
-                ? new Conversion(ConversionKind.ExplicitNumeric)
+                ? new(ConversionKind.ExplicitNumeric)
                 : Conversion.None;
         }
 
@@ -131,22 +131,23 @@ public static class Conversions {
         if (fromScalar && to.TypeKind == TypeKind.Vector) {
             var component = to.ComponentSpecialType;
             if (from.SpecialType == component || IsImplicitScalar(from.SpecialType, component)) {
-                return new Conversion(ConversionKind.ImplicitSplat);
+                return new(ConversionKind.ImplicitSplat);
             }
 
             return IsNumericScalar(from.SpecialType) && IsNumericScalar(component)
-                ? new Conversion(ConversionKind.ExplicitNumeric)
+                ? new(ConversionKind.ExplicitNumeric)
                 : Conversion.None;
         }
 
-        if (from.TypeKind == TypeKind.Vector && to.TypeKind == TypeKind.Vector &&
-            from.ComponentCount == to.ComponentCount) {
+        if (from.TypeKind == TypeKind.Vector
+            && to.TypeKind == TypeKind.Vector
+            && from.ComponentCount == to.ComponentCount) {
             if (IsImplicitScalar(from.ComponentSpecialType, to.ComponentSpecialType)) {
-                return new Conversion(ConversionKind.ImplicitNumeric);
+                return new(ConversionKind.ImplicitNumeric);
             }
 
             return IsNumericScalar(from.ComponentSpecialType) && IsNumericScalar(to.ComponentSpecialType)
-                ? new Conversion(ConversionKind.ExplicitNumeric)
+                ? new(ConversionKind.ExplicitNumeric)
                 : Conversion.None;
         }
 

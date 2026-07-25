@@ -5,10 +5,10 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Symbols.Source;
 
 /// <summary>
-/// A type declared in source. Everything beyond its name and arity is computed
-/// lazily: members are created without their signatures, and each signature
-/// resolves the first time it is read. That ordering is what lets a type refer to
-/// its own members while its members refer back to the type.
+///     A type declared in source. Everything beyond its name and arity is computed
+///     lazily: members are created without their signatures, and each signature
+///     resolves the first time it is read. That ordering is what lets a type refer to
+///     its own members while its members refer back to the type.
 /// </summary>
 public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
     readonly Binder outerBinder;
@@ -24,12 +24,6 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
     bool typeParameterConstraintsResolved;
     TypeParameterSymbol[]? typeParameters;
 
-    internal SourceNamedTypeSymbol(Symbol container, TypeDeclarationInfo declaration, Binder outerBinder) {
-        ContainingSymbol = container;
-        Declaration = declaration;
-        this.outerBinder = outerBinder;
-    }
-
     public TypeDeclarationInfo Declaration { get; }
 
     public override string Name => Declaration.Name;
@@ -41,9 +35,6 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
 
     public override Accessibility DeclaredAccessibility =>
         DeclarationFacts.GetAccessibility(Declaration.Modifiers, Accessibility.Internal);
-
-    /// <summary>The scope member bodies are bound in: this type's parameters and members.</summary>
-    internal Binder TypeBinder => typeBinder ??= new NamedTypeBinder(outerBinder, this);
 
     public override IReadOnlyList<TypeParameterSymbol> TypeParameters {
         get {
@@ -78,6 +69,15 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
     public IReadOnlyList<MethodSymbol> EntryPoints =>
         GetMembers().OfType<MethodSymbol>().Where(m => m.Stage != ShaderStage.None).ToArray();
 
+    /// <summary>The scope member bodies are bound in: this type's parameters and members.</summary>
+    internal Binder TypeBinder => typeBinder ??= new NamedTypeBinder(outerBinder, this);
+
+    internal SourceNamedTypeSymbol(Symbol container, TypeDeclarationInfo declaration, Binder outerBinder) {
+        ContainingSymbol = container;
+        Declaration = declaration;
+        this.outerBinder = outerBinder;
+    }
+
     public override IReadOnlyList<Symbol> GetMembers() {
         EnsureMembers();
         return members!;
@@ -88,24 +88,13 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
         return membersByName!.GetValueOrDefault(name) ?? (IReadOnlyList<Symbol>)[];
     }
 
-    /// <summary>
-    /// Resolves everything about the declaration that is computed lazily, so its
-    /// diagnostics appear even when nothing in the program refers to it.
-    /// </summary>
-    internal void EnsureSignatureResolved() {
-        EnsureTypeParameters();
-        EnsureBases();
-        EnsureMembers();
-    }
-
     void EnsureTypeParameters() {
         if (typeParameters is null) {
             List<TypeParameterSymbol> parameters = [];
             if (Declaration.TypeParameterList is { } list) {
                 var ordinal = 0;
                 foreach (var parameter in list.Parameters) {
-                    parameters.Add(
-                        new TypeParameterSymbol(this, parameter.Identifier.ValueText, ordinal++, parameter));
+                    parameters.Add(new(this, parameter.Identifier.ValueText, ordinal++, parameter));
                 }
             }
 
@@ -139,17 +128,16 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
                         outerBinder.Diagnostics.Add(
                             SemanticDiagnostics.CyclicBaseType,
                             entry.Type.GetLocation(),
-                            Name);
+                            Name
+                        );
                         continue;
                     }
 
                     if (resolved.TypeKind == TypeKind.Protocol) {
                         protocols.Add(resolved);
-                    }
-                    else if (baseType is null) {
+                    } else if (baseType is null) {
                         baseType = resolved;
-                    }
-                    else {
+                    } else {
                         protocols.Add(resolved);
                     }
                 }
@@ -163,11 +151,11 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
                 outerBinder.Diagnostics.Add(
                     SemanticDiagnostics.CyclicBaseType,
                     Declaration.Identifier.GetLocation(),
-                    Name);
+                    Name
+                );
                 baseType = null;
             }
-        }
-        finally {
+        } finally {
             resolvingBases = false;
             basesResolved = true;
         }
@@ -267,8 +255,7 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
 
                 if (symbol is MethodSymbol declared) {
                     seenSignatures.Add(declared);
-                }
-                else {
+                } else {
                     seenNonMethod = true;
                 }
             }
@@ -306,7 +293,8 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
                 outerBinder.Diagnostics.Add(
                     SemanticDiagnostics.ResourceMustBeShaderField,
                     field.DeclaringSyntax?.GetLocation() ?? Location.None,
-                    resource.Name);
+                    resource.Name
+                );
                 continue;
             }
 
@@ -318,7 +306,10 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
 
             if (TypeKind != TypeKind.Shader) {
                 outerBinder.Diagnostics.Add(
-                    SemanticDiagnostics.StageAttributeOutsideShader, location, method.Stage + "Shader");
+                    SemanticDiagnostics.StageAttributeOutsideShader,
+                    location,
+                    method.Stage + "Shader"
+                );
                 continue;
             }
 
@@ -327,9 +318,18 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
             }
 
             if (!stages.TryAdd(method.Stage, method)) {
-                outerBinder.Diagnostics.Add(
-                    SemanticDiagnostics.DuplicateEntryPoint, location, Name, method.Stage);
+                outerBinder.Diagnostics.Add(SemanticDiagnostics.DuplicateEntryPoint, location, Name, method.Stage);
             }
         }
+    }
+
+    /// <summary>
+    ///     Resolves everything about the declaration that is computed lazily, so its
+    ///     diagnostics appear even when nothing in the program refers to it.
+    /// </summary>
+    internal void EnsureSignatureResolved() {
+        EnsureTypeParameters();
+        EnsureBases();
+        EnsureMembers();
     }
 }

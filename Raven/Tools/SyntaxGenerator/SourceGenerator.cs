@@ -2,7 +2,6 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 using SyntaxGenerator;
 using SyntaxGenerator.Model;
-using System.Collections.Immutable;
 using System.Text;
 using System.Xml;
 using System.Xml.Serialization;
@@ -97,8 +96,14 @@ public class SourceGenerator : IIncrementalGenerator {
         TreeFlattening.FlattenChildren(tree);
 
         AddResult(writer => SourceWriter.WriteMain(writer, tree, cancellationToken), "Syntax.xml.Main.Generated.cs");
-        AddResult(writer => SourceWriter.WriteSyntax(writer, tree, cancellationToken), "Syntax.xml.Syntax.Generated.cs");
-        AddResult(writer => SourceWriter.WriteInternal(writer, tree, cancellationToken), "Syntax.xml.Internal.Generated.cs");
+        AddResult(
+            writer => SourceWriter.WriteSyntax(writer, tree, cancellationToken),
+            "Syntax.xml.Syntax.Generated.cs"
+        );
+        AddResult(
+            writer => SourceWriter.WriteInternal(writer, tree, cancellationToken),
+            "Syntax.xml.Internal.Generated.cs"
+        );
 
         void AddResult(Action<TextWriter> writeFunction, string hintName) {
             // Write out the contents to a StringBuilder to avoid creating a single large string

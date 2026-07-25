@@ -1,3 +1,4 @@
+using Vixen.Raven;
 using Vixen.Raven.Symbols;
 using Vixen.Raven.Syntax;
 using Xunit;
@@ -8,18 +9,18 @@ namespace Tests;
 /// <summary>Phase 2b: the public <c>SemanticModel</c> surface.</summary>
 public class SemanticModelTests {
     const string Source = """
-        package Vixen.Test
+                          package Vixen.Test
 
-        shader Lit {
-            var tint: float4
+                          shader Lit {
+                              var tint: float4
 
-            func Shade(factor: float): float4 {
-                val scaled = tint * factor
-                return scaled
-            }
-        }
+                              func Shade(factor: float): float4 {
+                                  val scaled = tint * factor
+                                  return scaled
+                              }
+                          }
 
-        """;
+                          """;
 
     [Fact]
     public void GetDeclaredSymbol_answers_for_every_declaration_kind() {
@@ -27,23 +28,28 @@ public class SemanticModelTests {
         Assert.Empty(compilation.GetDiagnostics());
 
         var shader = Assert.IsAssignableFrom<NamedTypeSymbol>(
-            model.GetDeclaredSymbol(FindNode<ShaderDeclarationSyntax>(tree)));
+            model.GetDeclaredSymbol(FindNode<ShaderDeclarationSyntax>(tree))
+        );
         Assert.Equal("Lit", shader.Name);
 
         var method = Assert.IsAssignableFrom<MethodSymbol>(
-            model.GetDeclaredSymbol(FindNode<MethodDeclarationSyntax>(tree)));
+            model.GetDeclaredSymbol(FindNode<MethodDeclarationSyntax>(tree))
+        );
         Assert.Equal("Shade", method.Name);
 
         var parameter = Assert.IsAssignableFrom<ParameterSymbol>(
-            model.GetDeclaredSymbol(FindNode<ParameterSyntax>(tree)));
+            model.GetDeclaredSymbol(FindNode<ParameterSyntax>(tree))
+        );
         Assert.Equal("factor", parameter.Name);
 
         var field = Assert.IsAssignableFrom<FieldSymbol>(
-            model.GetDeclaredSymbol(FindNode<FieldDeclarationSyntax>(tree)));
+            model.GetDeclaredSymbol(FindNode<FieldDeclarationSyntax>(tree))
+        );
         Assert.Equal("tint", field.Name);
 
         var local = Assert.IsType<LocalSymbol>(
-            model.GetDeclaredSymbol(FindNode<VariableDeclarationSyntax>(tree, d => d.Identifier.ValueText == "scaled")));
+            model.GetDeclaredSymbol(FindNode<VariableDeclarationSyntax>(tree, d => d.Identifier.ValueText == "scaled"))
+        );
         Assert.Equal("float4", local.Type.ToDisplayString());
     }
 
@@ -52,8 +58,11 @@ public class SemanticModelTests {
         var (compilation, tree, model) = Compile(Source);
         Assert.Empty(compilation.GetDiagnostics());
 
-        var name = FindNode<IdentifierNameSyntax>(tree, n => n.Identifier.ValueText == "tint"
-            && n.Parent is BinaryExpressionSyntax);
+        var name = FindNode<IdentifierNameSyntax>(
+            tree,
+            n => n.Identifier.ValueText == "tint"
+                && n.Parent is BinaryExpressionSyntax
+        );
 
         var symbol = model.GetSymbolInfo(name).Symbol;
         var field = Assert.IsAssignableFrom<FieldSymbol>(symbol);
@@ -62,7 +71,8 @@ public class SemanticModelTests {
 
     [Fact]
     public void GetSymbolInfo_on_a_call_resolves_the_chosen_overload() {
-        var (compilation, tree, model) = Compile("""
+        var (compilation, tree, model) = Compile(
+            """
             package A
 
             shader S {
@@ -71,7 +81,8 @@ public class SemanticModelTests {
                 }
             }
 
-            """);
+            """
+        );
 
         Assert.Empty(compilation.GetDiagnostics());
 
@@ -110,7 +121,8 @@ public class SemanticModelTests {
     [Fact]
     public void Compilation_diagnostics_gather_syntax_declaration_and_binding_errors() {
         // A syntax error, an unresolved type, and an undefined name in one file.
-        var tree = SyntaxTree.ParseText("""
+        var tree = SyntaxTree.ParseText(
+            """
             package A
 
             shader S {
@@ -121,9 +133,11 @@ public class SemanticModelTests {
                 }
             }
 
-            """, path: "Test.rvn");
+            """,
+            path: "Test.rvn"
+        );
 
-        var compilation = Vixen.Raven.Compilation.Create("Test", tree);
+        var compilation = Compilation.Create("Test", tree);
         var ids = compilation.GetDiagnostics().Select(d => d.Id).ToArray();
 
         Assert.Equal(["RVN2002", "RVN2010"], ids);
@@ -131,7 +145,8 @@ public class SemanticModelTests {
 
     [Fact]
     public void Diagnostics_are_ordered_by_position() {
-        var diagnostics = Diagnose("""
+        var diagnostics = Diagnose(
+            """
             package A
 
             shader S {
@@ -144,7 +159,8 @@ public class SemanticModelTests {
                 }
             }
 
-            """);
+            """
+        );
 
         Assert.Equal(2, diagnostics.Count);
         Assert.True(diagnostics[0].Location.SourceSpan.Start < diagnostics[1].Location.SourceSpan.Start);

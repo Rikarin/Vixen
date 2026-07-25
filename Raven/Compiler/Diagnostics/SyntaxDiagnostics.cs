@@ -1,9 +1,9 @@
 namespace Vixen.Raven.Diagnostics;
 
 /// <summary>
-/// Stable descriptors for syntax (lexer/parser) diagnostics. The <c>RVN1xxx</c>
-/// range is reserved for syntax; later phases claim their own ranges (semantics,
-/// lowering, emit).
+///     Stable descriptors for syntax (lexer/parser) diagnostics. The <c>RVN1xxx</c>
+///     range is reserved for syntax; later phases claim their own ranges (semantics,
+///     lowering, emit).
 /// </summary>
 public static class SyntaxDiagnostics {
     const string Category = "Syntax";
@@ -14,7 +14,8 @@ public static class SyntaxDiagnostics {
         "Syntax error",
         "Syntax error: {0}",
         Category,
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error
+    );
 
     /// <summary>A lexer error: the input contained a character the lexer could not tokenize.</summary>
     public static readonly DiagnosticDescriptor InvalidCharacter = new(
@@ -22,5 +23,6 @@ public static class SyntaxDiagnostics {
         "Invalid character",
         "Invalid character in input: {0}",
         Category,
-        DiagnosticSeverity.Error);
+        DiagnosticSeverity.Error
+    );
 }

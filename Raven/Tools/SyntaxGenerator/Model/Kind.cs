@@ -3,8 +3,7 @@ using System.Xml.Serialization;
 namespace SyntaxGenerator.Model;
 
 public class Kind : IEquatable<Kind> {
-    [XmlAttribute]
-    public string? Name;
+    [XmlAttribute] public string? Name;
 
     public override bool Equals(object? obj) => Equals(obj as Kind);
 

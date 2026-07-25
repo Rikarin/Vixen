@@ -1,6 +1,6 @@
 namespace Vixen.Raven.Symbols;
 
-/// <summary>What kind of entity a <see cref="Symbol"/> denotes.</summary>
+/// <summary>What kind of entity a <see cref="Symbol" /> denotes.</summary>
 public enum SymbolKind {
     Namespace,
     NamedType,

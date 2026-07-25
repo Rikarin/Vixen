@@ -7,9 +7,11 @@ namespace Vixen.Raven.Lowering;
 
 /// <summary>Mapping the semantic type system onto the much smaller IR one.</summary>
 public sealed partial class Lowerer {
+    static IrVectorType Float4 => new(IrScalarType.Float, 4);
+
     /// <summary>
-    /// Lowers a semantic type. Anything with no GPU representation reports
-    /// <c>RVN3001</c> and yields <c>void</c>, which callers treat as "skip".
+    ///     Lowers a semantic type. Anything with no GPU representation reports
+    ///     <c>RVN3001</c> and yields <c>void</c>, which callers treat as "skip".
     /// </summary>
     IrType LowerType(TypeSymbol type, SyntaxNode? syntax) {
         if (typeCache.TryGetValue(type, out var cached)) {
@@ -85,23 +87,21 @@ public sealed partial class Lowerer {
     }
 
     /// <summary>
-    /// Every scalar Raven has maps straight through — the types that had no GPU
-    /// representation were removed from the language rather than handled here.
+    ///     Every scalar Raven has maps straight through — the types that had no GPU
+    ///     representation were removed from the language rather than handled here.
     /// </summary>
-    static IrScalarType? LowerScalar(SpecialType type) => type switch {
-        SpecialType.Bool => IrScalarType.Bool,
-        SpecialType.Int => IrScalarType.Int,
-        SpecialType.UInt => IrScalarType.UInt,
-        SpecialType.Float => IrScalarType.Float,
-        SpecialType.Double => IrScalarType.Double,
-        _ => null
-    };
+    static IrScalarType? LowerScalar(SpecialType type) =>
+        type switch {
+            SpecialType.Bool => IrScalarType.Bool,
+            SpecialType.Int => IrScalarType.Int,
+            SpecialType.UInt => IrScalarType.UInt,
+            SpecialType.Float => IrScalarType.Float,
+            SpecialType.Double => IrScalarType.Double,
+            _ => null
+        };
 
     IrType NotRepresentable(TypeSymbol type, SyntaxNode? syntax) {
-        diagnostics.Add(
-            LoweringDiagnostics.TypeNotRepresentable, LocationOf(syntax), type.ToDisplayString());
+        diagnostics.Add(LoweringDiagnostics.TypeNotRepresentable, LocationOf(syntax), type.ToDisplayString());
         return IrScalarType.Void;
     }
-
-    static IrVectorType Float4 => new(IrScalarType.Float, 4);
 }

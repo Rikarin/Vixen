@@ -3,9 +3,9 @@ using Vixen.Raven.Syntax.InternalSyntax;
 namespace Vixen.Raven.Syntax;
 
 /// <summary>
-/// Red wrapper over a green list node (<see cref="SyntaxKind.ListKind"/>). Not
-/// part of the typed node hierarchy — it is the backing node behind a
-/// <see cref="SyntaxList{TNode}"/> and realizes its elements lazily.
+///     Red wrapper over a green list node (<see cref="SyntaxKind.ListKind" />). Not
+///     part of the typed node hierarchy — it is the backing node behind a
+///     <see cref="SyntaxList{TNode}" /> and realizes its elements lazily.
 /// </summary>
 public sealed class SyntaxListNode : SyntaxNode {
     internal SyntaxListNode(GreenNode green, SyntaxNode? parent, int position)

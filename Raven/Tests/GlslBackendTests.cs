@@ -23,7 +23,8 @@ public class GlslBackendTests {
 
     [Fact]
     public void Each_entry_point_becomes_its_own_unit() {
-        var generated = GenerateClean("""
+        var generated = GenerateClean(
+            """
             package A
 
             shader Lit {
@@ -38,7 +39,8 @@ public class GlslBackendTests {
                 }
             }
 
-            """);
+            """
+        );
 
         Assert.Equal(2, generated.Count);
         Assert.Equal(["Lit.vert", "Lit.frag"], generated.Select(g => g.Name));
@@ -48,7 +50,8 @@ public class GlslBackendTests {
 
     [Fact]
     public void A_unit_only_carries_the_functions_its_stage_reaches() {
-        var generated = GenerateClean("""
+        var generated = GenerateClean(
+            """
             package A
 
             shader Lit {
@@ -71,7 +74,8 @@ public class GlslBackendTests {
                 }
             }
 
-            """);
+            """
+        );
 
         var vertex = generated.Single(g => g.Stage == ShaderStage.Vertex).Code;
         var pixel = generated.Single(g => g.Stage == ShaderStage.Pixel).Code;
@@ -87,7 +91,8 @@ public class GlslBackendTests {
         var code = GeneratePixel(
             "        return albedo.Sample(linear, uv) * tint",
             "    var tint: float4\n    var albedo: Texture2D\n    var linear: Sampler\n",
-            "func Pixel(uv: float2): float4");
+            "func Pixel(uv: float2): float4"
+        );
 
         Assert.Contains("layout(std140, binding = 0) uniform SUniforms {", code);
         Assert.Contains("vec4 tint;", code);
@@ -100,7 +105,8 @@ public class GlslBackendTests {
 
     [Fact]
     public void Dropping_the_sampler_binding_is_reported_rather_than_silent() {
-        Generate("""
+        Generate(
+            """
             package A
 
             shader S {
@@ -113,7 +119,9 @@ public class GlslBackendTests {
                 }
             }
 
-            """, out var diagnostics);
+            """,
+            out var diagnostics
+        );
 
         var dropped = Assert.Single(diagnostics.Where(d => d.Id == "RVN4003").Distinct());
         Assert.Contains("linear", dropped.GetMessage());
@@ -122,7 +130,8 @@ public class GlslBackendTests {
 
     [Fact]
     public void A_vertex_position_goes_to_gl_Position_rather_than_an_out_variable() {
-        var code = GenerateOne("""
+        var code = GenerateOne(
+            """
             package A
 
             shader S {
@@ -133,7 +142,8 @@ public class GlslBackendTests {
                 }
             }
 
-            """);
+            """
+        );
 
         Assert.Contains("layout(location = 0) in vec3 in_position;", code);
         Assert.Contains("gl_Position = Vertex(in_position);", code);
@@ -163,7 +173,8 @@ public class GlslBackendTests {
     public void Types_map_onto_their_glsl_spelling(string raven, string glsl) {
         var code = GeneratePixel(
             "        return float4(0, 0, 0, 1)",
-            $"    var probe: {raven}\n");
+            $"    var probe: {raven}\n"
+        );
 
         Assert.Contains($"{glsl} probe;", code);
     }
@@ -177,7 +188,8 @@ public class GlslBackendTests {
         // Which is what keeps `m * v` meaning the same thing in both languages.
         var code = GeneratePixel(
             "        return float4(m * v, 1)",
-            "    var m: mat3x4\n    var v: float4\n");
+            "    var m: mat3x4\n    var v: float4\n"
+        );
 
         Assert.Contains("mat4x3 m;", code);
     }
@@ -193,7 +205,8 @@ public class GlslBackendTests {
     public void Intrinsics_map_onto_glsl_builtins(string expression, string expected) {
         var code = GeneratePixel(
             $"        val probe = {expression}\n        return float4(0, 0, 0, 1)",
-            "    var v: float3\n    var f: float\n");
+            "    var v: float3\n    var f: float\n"
+        );
 
         Assert.Contains(expected, code);
     }
@@ -202,7 +215,8 @@ public class GlslBackendTests {
     public void Saturate_expands_because_glsl_has_no_such_builtin() {
         var code = GeneratePixel(
             "        val probe = saturate(f)\n        return float4(0, 0, 0, 1)",
-            "    var f: float\n");
+            "    var f: float\n"
+        );
 
         Assert.Contains("clamp(", code);
         Assert.Contains("float(0.0), float(1.0)", code);
@@ -212,7 +226,8 @@ public class GlslBackendTests {
     public void Comparing_vectors_uses_glsls_component_wise_functions() {
         var code = GeneratePixel(
             "        val mask = v < v\n        return float4(0, 0, 0, 1)",
-            "    var v: float3\n");
+            "    var v: float3\n"
+        );
 
         // `a < b` on vectors is a function in GLSL, and it yields a bvec.
         Assert.Contains("bvec3", code);
@@ -221,14 +236,16 @@ public class GlslBackendTests {
 
     [Fact]
     public void A_counted_loop_runs_its_step_where_continue_can_reach_it() {
-        var code = GeneratePixel("""
+        var code = GeneratePixel(
+            """
                     var total = 0f
                     for (i in 0 .. 3) {
                         total += 1f
                     }
 
                     return float4(total, 0, 0, 1)
-            """);
+            """
+        );
 
         // The step is hoisted to the top of the body behind a first-iteration
         // flag, because GLSL's `continue` jumps there.
@@ -240,13 +257,16 @@ public class GlslBackendTests {
 
     [Fact]
     public void An_if_statement_survives_as_an_if_statement() {
-        var code = GeneratePixel("""
+        var code = GeneratePixel(
+            """
                     if (flag) {
                         return float4(1, 0, 0, 1)
                     } else {
                         return float4(0, 1, 0, 1)
                     }
-            """, "    var flag: bool\n");
+            """,
+            "    var flag: bool\n"
+        );
 
         // The condition is loaded into a temporary first, as every read is.
         Assert.Contains("bool _0 = flag;", code);
@@ -265,8 +285,7 @@ public class GlslBackendTests {
 
     [Fact]
     public void Float_literals_keep_a_decimal_point_and_uints_keep_their_suffix() {
-        var code = GeneratePixel(
-            "        val a = 1f\n        val b = 2u\n        return float4(0, 0, 0, 1)");
+        var code = GeneratePixel("        val a = 1f\n        val b = 2u\n        return float4(0, 0, 0, 1)");
 
         Assert.Contains("= 1.0;", code);
         Assert.Contains("= 2u;", code);
@@ -276,7 +295,8 @@ public class GlslBackendTests {
     public void Identifiers_that_collide_with_glsl_keywords_are_mangled() {
         var code = GeneratePixel(
             "        return float4(sample, 0, 0, 1)",
-            "    var sample: float\n");
+            "    var sample: float\n"
+        );
 
         // `sample` is a GLSL keyword.
         Assert.Contains("float sample_;", code);
@@ -285,7 +305,8 @@ public class GlslBackendTests {
 
     [Fact]
     public void A_struct_and_its_methods_come_through_with_an_explicit_receiver() {
-        var code = GenerateOne("""
+        var code = GenerateOne(
+            """
             package A
 
             struct Ray {
@@ -303,7 +324,8 @@ public class GlslBackendTests {
                 }
             }
 
-            """);
+            """
+        );
 
         Assert.Contains("struct Ray {", code);
         Assert.Contains("vec3 origin;", code);
@@ -312,7 +334,8 @@ public class GlslBackendTests {
 
     [Fact]
     public void An_unsized_array_is_rejected_rather_than_emitted() {
-        Generate("""
+        Generate(
+            """
             package A
 
             shader S {
@@ -324,14 +347,17 @@ public class GlslBackendTests {
                 }
             }
 
-            """, out var diagnostics);
+            """,
+            out var diagnostics
+        );
 
         Assert.Contains(diagnostics, d => d.Id == "RVN4001" && d.IsError);
     }
 
     [Fact]
     public void A_compute_entry_point_is_reported_rather_than_guessed_at() {
-        Generate("""
+        Generate(
+            """
             package A
 
             shader S {
@@ -339,7 +365,9 @@ public class GlslBackendTests {
                 func Main() { }
             }
 
-            """, out var diagnostics);
+            """,
+            out var diagnostics
+        );
 
         // A workgroup size has to come from somewhere, and nothing declares one.
         Assert.Contains(diagnostics, d => d.Id == "RVN4002" && d.IsError);

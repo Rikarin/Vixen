@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Vixen.Raven;
 using Vixen.Raven.CodeGen;
-using Vixen.Raven.CodeGen.Spirv;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
@@ -13,14 +12,15 @@ using Xunit.Abstractions;
 namespace Tests;
 
 /// <summary>
-/// Golden-file SPIR-V tests. The golden is the assembly listing rather than the
-/// bytes, because a diff over 4 kB of hex tells a reviewer nothing — and the
-/// listing is rendered from the very instructions that get encoded, so it cannot
-/// say one thing while the binary holds another.
-///
-/// Regenerate with <c>UPDATE_GOLDEN=1</c> and read the diff.
+///     Golden-file SPIR-V tests. The golden is the assembly listing rather than the
+///     bytes, because a diff over 4 kB of hex tells a reviewer nothing — and the
+///     listing is rendered from the very instructions that get encoded, so it cannot
+///     say one thing while the binary holds another.
+///     Regenerate with <c>UPDATE_GOLDEN=1</c> and read the diff.
 /// </summary>
 public partial class GoldenSpirvTests(ITestOutputHelper output) {
+    static bool ShouldUpdate => Environment.GetEnvironmentVariable("UPDATE_GOLDEN") is "1" or "true";
+
     [Theory]
     [InlineData("lambert")]
     public void Matches_golden(string name) {
@@ -47,19 +47,21 @@ public partial class GoldenSpirvTests(ITestOutputHelper output) {
 
         Assert.True(
             regenerated.Count == 0,
-            $"Goldens were (re)generated: {string.Join(", ", regenerated)}. Review the diff and re-run.");
+            $"Goldens were (re)generated: {string.Join(", ", regenerated)}. Review the diff and re-run."
+        );
     }
 
     /// <summary>
-    /// The exit criterion for this phase: SPIR-V the reference validator accepts,
-    /// under Vulkan's rules rather than the looser universal ones.
+    ///     The exit criterion for this phase: SPIR-V the reference validator accepts,
+    ///     under Vulkan's rules rather than the looser universal ones.
     /// </summary>
     [Theory]
     [InlineData("lambert")]
     public void Passes_spirv_val(string name) {
         Assert.True(
             SpirvTestBase.ValidatorAvailable,
-            "spirv-val was not found. Install SPIR-V Tools (brew install spirv-tools).");
+            "spirv-val was not found. Install SPIR-V Tools (brew install spirv-tools)."
+        );
 
         foreach (var unit in Compile(name)) {
             SpirvTestBase.Validate(unit);
@@ -68,10 +70,10 @@ public partial class GoldenSpirvTests(ITestOutputHelper output) {
     }
 
     /// <summary>
-    /// Cross-checks the listing against a real disassembler. If the two agree on
-    /// the whole opcode sequence, then the words that were encoded are the words
-    /// the listing claims — which is the one thing a hand-written encoder can
-    /// plausibly get wrong without anything else noticing.
+    ///     Cross-checks the listing against a real disassembler. If the two agree on
+    ///     the whole opcode sequence, then the words that were encoded are the words
+    ///     the listing claims — which is the one thing a hand-written encoder can
+    ///     plausibly get wrong without anything else noticing.
     /// </summary>
     [Theory]
     [InlineData("lambert")]
@@ -86,10 +88,11 @@ public partial class GoldenSpirvTests(ITestOutputHelper output) {
             File.WriteAllBytes(path, unit.Binary!);
 
             try {
-                var process = Process.Start(new ProcessStartInfo(disassembler, ["--no-color", "--raw-id", path]) {
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                })!;
+                var process = Process.Start(
+                    new ProcessStartInfo(disassembler, ["--no-color", "--raw-id", path]) {
+                        RedirectStandardOutput = true, RedirectStandardError = true
+                    }
+                )!;
 
                 process.WaitForExit();
                 var disassembled = process.StandardOutput.ReadToEnd();
@@ -135,8 +138,6 @@ public partial class GoldenSpirvTests(ITestOutputHelper output) {
     }
 
     static string Suffix(GeneratedSource unit) => ShaderStages.Suffix(unit.Stage);
-
-    static bool ShouldUpdate => Environment.GetEnvironmentVariable("UPDATE_GOLDEN") is "1" or "true";
 
     static string Normalize(string text) => text.Replace("\r\n", "\n").TrimEnd('\n');
 

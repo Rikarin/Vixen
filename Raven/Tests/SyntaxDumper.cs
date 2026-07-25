@@ -4,10 +4,10 @@ using Vixen.Raven.Syntax;
 namespace Tests;
 
 /// <summary>
-/// Serializes a Raven syntax tree into a stable, indented text form for
-/// golden-file (snapshot) testing. Traversal is slot-based so the dump reflects
-/// exactly what the tree exposes today; as the frontend grows (real tokens,
-/// trivia, spans) the golden files change and make that growth reviewable.
+///     Serializes a Raven syntax tree into a stable, indented text form for
+///     golden-file (snapshot) testing. Traversal is slot-based so the dump reflects
+///     exactly what the tree exposes today; as the frontend grows (real tokens,
+///     trivia, spans) the golden files change and make that growth reviewable.
 /// </summary>
 public static class SyntaxDumper {
     public static string Dump(SyntaxNode node) {
@@ -45,8 +45,7 @@ public static class SyntaxDumper {
     static string? SafeText(SyntaxToken token) {
         try {
             return token.Text;
-        }
-        catch {
+        } catch {
             return null;
         }
     }

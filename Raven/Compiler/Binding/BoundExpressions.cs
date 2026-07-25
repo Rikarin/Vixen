@@ -27,7 +27,7 @@ public sealed class BoundParameterExpression(SyntaxNode syntax, ParameterSymbol 
     public override Symbol Symbol => Parameter;
 }
 
-/// <summary>A field access; <paramref name="receiver"/> is null for statics.</summary>
+/// <summary>A field access; <paramref name="receiver" /> is null for statics.</summary>
 public sealed class BoundFieldExpression(SyntaxNode syntax, BoundExpression? receiver, FieldSymbol field)
     : BoundExpression(syntax) {
     public BoundExpression? Receiver { get; } = receiver;
@@ -53,8 +53,7 @@ public sealed class BoundPropertyExpression(
     public override TypeSymbol Type => Property.Type;
     public override Symbol Symbol => Property;
 
-    public override IEnumerable<BoundNode> Children =>
-        Receiver is null ? Arguments : [Receiver, ..Arguments];
+    public override IEnumerable<BoundNode> Children => Receiver is null ? Arguments : [Receiver, .. Arguments];
 }
 
 /// <summary><c>self</c>.</summary>
@@ -70,8 +69,8 @@ public sealed class BoundBaseExpression(SyntaxNode syntax, TypeSymbol type) : Bo
 }
 
 /// <summary>
-/// A type in expression position — the receiver of a static member access, or
-/// the callee of a construction such as <c>float4(…)</c>.
+///     A type in expression position — the receiver of a static member access, or
+///     the callee of a construction such as <c>float4(…)</c>.
 /// </summary>
 public sealed class BoundTypeExpression(SyntaxNode syntax, TypeSymbol type) : BoundExpression(syntax) {
     public TypeSymbol ReferencedType { get; } = type;
@@ -90,9 +89,9 @@ public sealed class BoundNamespaceExpression(SyntaxNode syntax, NamespaceSymbol 
 }
 
 /// <summary>
-/// An unresolved set of same-named methods, produced when a method name appears
-/// outside a call. Overload resolution turns it into a
-/// <see cref="BoundInvocationExpression"/>.
+///     An unresolved set of same-named methods, produced when a method name appears
+///     outside a call. Overload resolution turns it into a
+///     <see cref="BoundInvocationExpression" />.
 /// </summary>
 public sealed class BoundMethodGroupExpression(
     SyntaxNode syntax,
@@ -123,14 +122,13 @@ public sealed class BoundInvocationExpression(
     public override TypeSymbol Type => Method.ReturnType;
     public override Symbol Symbol => Method;
 
-    public override IEnumerable<BoundNode> Children =>
-        Receiver is null ? Arguments : [Receiver, ..Arguments];
+    public override IEnumerable<BoundNode> Children => Receiver is null ? Arguments : [Receiver, .. Arguments];
 }
 
 /// <summary>
-/// Construction of a value: <c>float3(1, 2, 3)</c>, <c>mat3(…)</c>, or a
-/// user-defined type's <c>init</c>. <see cref="Constructor"/> is null for
-/// built-in vector/matrix construction.
+///     Construction of a value: <c>float3(1, 2, 3)</c>, <c>mat3(…)</c>, or a
+///     user-defined type's <c>init</c>. <see cref="Constructor" /> is null for
+///     built-in vector/matrix construction.
 /// </summary>
 public sealed class BoundObjectCreationExpression(
     SyntaxNode syntax,
@@ -190,8 +188,8 @@ public sealed class BoundBinaryExpression(
 }
 
 /// <summary>
-/// An assignment. Compound forms (<c>x += y</c>) carry the underlying
-/// <see cref="OperatorKind"/>; a simple assignment leaves it null.
+///     An assignment. Compound forms (<c>x += y</c>) carry the underlying
+///     <see cref="OperatorKind" />; a simple assignment leaves it null.
 /// </summary>
 public sealed class BoundAssignmentExpression(
     SyntaxNode syntax,
@@ -233,7 +231,7 @@ public sealed class BoundArrayAccessExpression(
     public IReadOnlyList<BoundExpression> Indices { get; } = indices;
     public override BoundKind Kind => BoundKind.ArrayAccessExpression;
     public override TypeSymbol Type { get; } = type;
-    public override IEnumerable<BoundNode> Children => [Receiver, ..Indices];
+    public override IEnumerable<BoundNode> Children => [Receiver, .. Indices];
 }
 
 /// <summary><c>a..b</c>.</summary>
@@ -285,9 +283,9 @@ public sealed class BoundCollectionExpression(
 }
 
 /// <summary>
-/// <c>expr is pattern</c>. Patterns are checked shallowly in this phase: the
-/// expressions and designations inside them are bound, but exhaustiveness and
-/// type-test narrowing are not modelled yet.
+///     <c>expr is pattern</c>. Patterns are checked shallowly in this phase: the
+///     expressions and designations inside them are bound, but exhaustiveness and
+///     type-test narrowing are not modelled yet.
 /// </summary>
 public sealed class BoundIsPatternExpression(
     SyntaxNode syntax,
@@ -298,7 +296,7 @@ public sealed class BoundIsPatternExpression(
     public IReadOnlyList<BoundNode> PatternParts { get; } = patternParts;
     public override BoundKind Kind => BoundKind.IsPatternExpression;
     public override TypeSymbol Type => BuiltInTypes.Bool;
-    public override IEnumerable<BoundNode> Children => [Expression, ..PatternParts];
+    public override IEnumerable<BoundNode> Children => [Expression, .. PatternParts];
 }
 
 /// <summary><c>expr switch { … }</c>; typed as the common type of its arms.</summary>
@@ -312,12 +310,12 @@ public sealed class BoundSwitchExpression(
     public IReadOnlyList<BoundExpression> Arms { get; } = arms;
     public override BoundKind Kind => BoundKind.SwitchExpression;
     public override TypeSymbol Type { get; } = type;
-    public override IEnumerable<BoundNode> Children => [GoverningExpression, ..Arms];
+    public override IEnumerable<BoundNode> Children => [GoverningExpression, .. Arms];
 }
 
 /// <summary>
-/// Stands in for an expression that failed to bind. It carries any operands that
-/// did bind, so the semantic model still answers questions about them.
+///     Stands in for an expression that failed to bind. It carries any operands that
+///     did bind, so the semantic model still answers questions about them.
 /// </summary>
 public sealed class BoundErrorExpression(SyntaxNode syntax, IReadOnlyList<BoundExpression>? operands = null)
     : BoundExpression(syntax) {

@@ -1,14 +1,14 @@
 namespace Vixen.Raven.Symbols;
 
 /// <summary>
-/// Base of everything usable as a type. Type identity is <em>structural</em>:
-/// two <c>int[]</c> symbols built independently compare equal, so the binder can
-/// construct types on demand without interning them.
+///     Base of everything usable as a type. Type identity is <em>structural</em>:
+///     two <c>int[]</c> symbols built independently compare equal, so the binder can
+///     construct types on demand without interning them.
 /// </summary>
 public abstract class TypeSymbol : Symbol {
     public abstract TypeKind TypeKind { get; }
 
-    /// <summary>The intrinsic type this is, or <see cref="SpecialType.None"/>.</summary>
+    /// <summary>The intrinsic type this is, or <see cref="SpecialType.None" />.</summary>
     public virtual SpecialType SpecialType => SpecialType.None;
 
     /// <summary>True when this type stands in for a type that failed to resolve.</summary>
@@ -39,8 +39,8 @@ public abstract class TypeSymbol : Symbol {
     }
 
     /// <summary>
-    /// This type plus its base types and protocols, nearest first. Member lookup
-    /// walks this sequence and stops at the first type that has a match.
+    ///     This type plus its base types and protocols, nearest first. Member lookup
+    ///     walks this sequence and stops at the first type that has a match.
     /// </summary>
     public IEnumerable<TypeSymbol> TypeAndBases() {
         var seen = new HashSet<TypeSymbol>();
@@ -65,7 +65,7 @@ public abstract class TypeSymbol : Symbol {
         }
     }
 
-    /// <summary>True when <paramref name="other"/> is this type or one of its bases/protocols.</summary>
+    /// <summary>True when <paramref name="other" /> is this type or one of its bases/protocols.</summary>
     public bool IsSubtypeOf(TypeSymbol other) {
         foreach (var type in TypeAndBases()) {
             if (type.Equals(other)) {

@@ -36,7 +36,9 @@ public sealed class SyntaxTree {
         string? path = "",
         Encoding? encoding = default
     ) =>
-        new() { Encoding = encoding, FilePath = path ?? string.Empty, Options = options ?? new ParseOptions(), root = root };
+        new() {
+            Encoding = encoding, FilePath = path ?? string.Empty, Options = options ?? new ParseOptions(), root = root
+        };
 
     public static SyntaxTree ParseText(
         string text,

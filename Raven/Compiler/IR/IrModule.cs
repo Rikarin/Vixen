@@ -1,9 +1,9 @@
 namespace Vixen.Raven.IR;
 
 /// <summary>
-/// The whole compilation, lowered. This is the boundary the backends work
-/// against: GLSL, SPIR-V, HLSL and Metal all consume an <see cref="IrModule"/>
-/// and none of them reads the bound tree or the syntax tree.
+///     The whole compilation, lowered. This is the boundary the backends work
+///     against: GLSL, SPIR-V, HLSL and Metal all consume an <see cref="IrModule" />
+///     and none of them reads the bound tree or the syntax tree.
 /// </summary>
 public sealed class IrModule(string name) {
     readonly List<IrFunction> functions = [];
@@ -22,9 +22,9 @@ public sealed class IrModule(string name) {
     /// <summary>Every function in the module, shaders' included.</summary>
     public IEnumerable<IrFunction> AllFunctions => functions.Concat(shaders.SelectMany(s => s.Functions));
 
+    public override string ToString() => Name;
+
     internal void Add(IrStructType structType) => structs.Add(structType);
     internal void Add(IrFunction function) => functions.Add(function);
     internal void Add(IrShader shader) => shaders.Add(shader);
-
-    public override string ToString() => Name;
 }

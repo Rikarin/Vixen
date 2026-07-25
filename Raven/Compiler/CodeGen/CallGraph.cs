@@ -3,9 +3,9 @@ using Vixen.Raven.IR;
 namespace Vixen.Raven.CodeGen;
 
 /// <summary>
-/// Which functions an entry point can actually reach. Every backend needs this:
-/// a translation unit is one stage, so emitting another stage's functions would
-/// be dead code — and dead code that refers to the wrong stage's built-ins.
+///     Which functions an entry point can actually reach. Every backend needs this:
+///     a translation unit is one stage, so emitting another stage's functions would
+///     be dead code — and dead code that refers to the wrong stage's built-ins.
 /// </summary>
 public static class CallGraph {
     /// <summary>The functions called anywhere inside a statement, nested ones included.</summary>
@@ -70,9 +70,9 @@ public static class CallGraph {
     }
 
     /// <summary>
-    /// Reachable functions with every callee before its callers. Targets that
-    /// cannot forward-reference a function need this; the language has no
-    /// recursion, but the visited set keeps a cycle from looping forever.
+    ///     Reachable functions with every callee before its callers. Targets that
+    ///     cannot forward-reference a function need this; the language has no
+    ///     recursion, but the visited set keeps a cycle from looping forever.
     /// </summary>
     public static IReadOnlyList<IrFunction> InCallOrder(IrFunction entry) {
         List<IrFunction> ordered = [];

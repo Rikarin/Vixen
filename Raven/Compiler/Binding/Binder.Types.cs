@@ -4,11 +4,11 @@ using Vixen.Raven.Syntax;
 
 namespace Vixen.Raven.Binding;
 
-/// <summary>Resolution of type syntax to <see cref="TypeSymbol"/>s.</summary>
+/// <summary>Resolution of type syntax to <see cref="TypeSymbol" />s.</summary>
 public abstract partial class Binder {
     /// <summary>
-    /// Resolves a type annotation. Failures report once and yield
-    /// <see cref="ErrorTypeSymbol"/> so callers need no null checks.
+    ///     Resolves a type annotation. Failures report once and yield
+    ///     <see cref="ErrorTypeSymbol" /> so callers need no null checks.
     /// </summary>
     public TypeSymbol BindType(TypeSyntax? syntax) {
         if (syntax is null) {
@@ -85,7 +85,8 @@ public abstract partial class Binder {
                     syntax,
                     name,
                     mismatched.Arity,
-                    typeArguments.Count);
+                    typeArguments.Count
+                );
                 return ErrorTypeSymbol.Instance;
             }
 
@@ -125,7 +126,8 @@ public abstract partial class Binder {
 
         var member = container switch {
             NamespaceSymbol ns => ns.GetTypeMember(name, typeArguments.Count) as TypeSymbol,
-            TypeSymbol type => LookupMembers(type, name).OfType<NamedTypeSymbol>()
+            TypeSymbol type => LookupMembers(type, name)
+                .OfType<NamedTypeSymbol>()
                 .FirstOrDefault(t => t.Arity == typeArguments.Count),
             _ => null
         };
@@ -149,10 +151,11 @@ public abstract partial class Binder {
 
                 var (name, typeArguments) = SplitSimpleName(qualified.Right);
 
-                Symbol? member = container switch {
+                var member = container switch {
                     NamespaceSymbol ns =>
                         (Symbol?)ns.GetTypeMember(name, typeArguments.Count) ?? ns.GetNamespace(name),
-                    TypeSymbol type => LookupMembers(type, name).OfType<NamedTypeSymbol>()
+                    TypeSymbol type => LookupMembers(type, name)
+                        .OfType<NamedTypeSymbol>()
                         .FirstOrDefault(t => t.Arity == typeArguments.Count),
                     _ => null
                 };

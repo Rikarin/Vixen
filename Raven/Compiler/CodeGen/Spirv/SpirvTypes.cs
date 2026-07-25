@@ -4,22 +4,28 @@ using Vixen.Raven.IR;
 namespace Vixen.Raven.CodeGen.Spirv;
 
 /// <summary>
-/// Maps Raven IR types and constants onto SPIR-V type and constant ids, interning
-/// as it goes. SPIR-V requires type uniqueness — two <c>OpTypeFloat 32</c>
-/// instructions are invalid, not merely wasteful — so every lookup goes through
-/// here.
+///     Maps Raven IR types and constants onto SPIR-V type and constant ids, interning
+///     as it goes. SPIR-V requires type uniqueness — two <c>OpTypeFloat 32</c>
+///     instructions are invalid, not merely wasteful — so every lookup goes through
+///     here.
 /// </summary>
 /// <remarks>
-/// Types come in two flavours. A type reached through a uniform block is
-/// <em>explicitly laid out</em>: its structs carry <c>Offset</c> on every member
-/// and its arrays an <c>ArrayStride</c>. The same struct used as a local carries
-/// none of that, and Vulkan will not accept one type serving both roles — so the
-/// two are interned separately and the flag propagates down through members.
+///     Types come in two flavours. A type reached through a uniform block is
+///     <em>explicitly laid out</em>: its structs carry <c>Offset</c> on every member
+///     and its arrays an <c>ArrayStride</c>. The same struct used as a local carries
+///     none of that, and Vulkan will not accept one type serving both roles — so the
+///     two are interned separately and the flag propagates down through members.
 /// </remarks>
 sealed class SpirvTypes {
     readonly Dictionary<(IrStructType, bool), uint> structs = [];
     readonly SpirvModule module;
     readonly Action<IrType, string> unsupported;
+
+    internal uint Void { get; }
+    internal uint Bool { get; }
+    internal uint Int { get; }
+    internal uint UInt { get; }
+    internal uint Float { get; }
 
     internal SpirvTypes(SpirvModule module, Action<IrType, string> unsupported) {
         this.module = module;
@@ -27,17 +33,108 @@ sealed class SpirvTypes {
 
         Void = module.Intern("void", () => module.AddDeclaration(SpirvOp.TypeVoid, null));
         Bool = module.Intern("bool", () => module.AddDeclaration(SpirvOp.TypeBool, null));
-        Int = Integer(signed: true);
-        UInt = Integer(signed: false);
-        Float = module.Intern("f32", () => module.AddDeclaration(
-            SpirvOp.TypeFloat, null, SpirvOperand.Literal(32)));
+        Int = Integer(true);
+        UInt = Integer(false);
+        Float = module.Intern("f32", () => module.AddDeclaration(SpirvOp.TypeFloat, null, SpirvOperand.Literal(32)));
     }
 
-    internal uint Void { get; }
-    internal uint Bool { get; }
-    internal uint Int { get; }
-    internal uint UInt { get; }
-    internal uint Float { get; }
+    // --- Building blocks ---------------------------------------------------
+
+    uint Scalar(IrScalarType scalar) =>
+        scalar.Kind switch {
+            IrTypeKind.Void => Void,
+            IrTypeKind.Bool => Bool,
+            IrTypeKind.Int => Int,
+            IrTypeKind.UInt => UInt,
+            IrTypeKind.Float => Float,
+            IrTypeKind.Double => Double(),
+            _ => Float
+        };
+
+    uint Double() {
+        module.AddCapability(SpirvCapability.Float64);
+        return module.Intern("f64", () => module.AddDeclaration(SpirvOp.TypeFloat, null, SpirvOperand.Literal(64)));
+    }
+
+    uint Integer(bool signed) =>
+        module.Intern(
+            signed ? "i32" : "u32",
+            () => module.AddDeclaration(
+                SpirvOp.TypeInt,
+                null,
+                SpirvOperand.Literal(32),
+                SpirvOperand.Literal(signed ? 1 : 0)
+            )
+        );
+
+    uint Array(IrArrayType array, int length, bool layout) {
+        // The length is an operand id, not a literal: SPIR-V spells array extents
+        // as constants so they can be specialization constants.
+        var id = module.AddDeclaration(
+            SpirvOp.TypeArray,
+            null,
+            SpirvOperand.Id(Type(array.Element, layout)),
+            SpirvOperand.Id(ConstantUInt((uint)length))
+        );
+
+        if (layout) {
+            module.Decorate(id, SpirvDecoration.ArrayStride, SpirvOperand.Literal(Std140Layout.ArrayStride(array)));
+        }
+
+        return id;
+    }
+
+    uint Struct(IrStructType structType, bool layout) {
+        if (structs.TryGetValue((structType, layout), out var existing)) {
+            return existing;
+        }
+
+        var members = structType.Fields.Select(f => f.Type).ToArray();
+        var id = module.AddDeclaration(
+            SpirvOp.TypeStruct,
+            null,
+            [.. members.Select(m => SpirvOperand.Id(Type(m, layout)))]
+        );
+
+        structs[(structType, layout)] = id;
+        module.AddName(id, structType.Name);
+
+        for (var i = 0; i < structType.Fields.Count; i++) {
+            module.AddMemberName(id, i, structType.Fields[i].Name);
+        }
+
+        if (layout) {
+            DecorateLayout(id, members);
+        }
+
+        return id;
+    }
+
+    uint Image(IrTextureType texture) {
+        var dimension = texture.Dimension switch {
+            IrTextureDimension.Texture3D => SpirvDim.Dim3D,
+            IrTextureDimension.Cube => SpirvDim.Cube,
+            _ => SpirvDim.Dim2D
+        };
+
+        return module.Intern(
+            $"image {dimension} {texture.SampledType.ComponentType.Name}",
+            () => module.AddDeclaration(
+                SpirvOp.TypeImage,
+                null,
+                // Sampled type is the component, not the vector a sample returns.
+                SpirvOperand.Id(Scalar(texture.SampledType.ComponentType)),
+                SpirvOperand.Enumerant(dimension),
+                // Not a depth image, not arrayed, not multisampled, and known to be
+                // used with a sampler (1) rather than as storage (2).
+                SpirvOperand.Literal(0),
+                SpirvOperand.Literal(0),
+                SpirvOperand.Literal(0),
+                SpirvOperand.Literal(1),
+                SpirvOperand.Enumerant(SpirvImageFormat.Unknown)
+            )
+        );
+    }
 
     // --- Types -------------------------------------------------------------
 
@@ -53,7 +150,9 @@ sealed class SpirvTypes {
                         SpirvOp.TypeVector,
                         null,
                         SpirvOperand.Id(Scalar(vector.Component)),
-                        SpirvOperand.Literal(vector.Size)));
+                        SpirvOperand.Literal(vector.Size)
+                    )
+                );
 
             case IrMatrixType matrix:
                 // A SPIR-V matrix is a repeated *column*, so Raven's R rows by C
@@ -67,12 +166,15 @@ sealed class SpirvTypes {
                         SpirvOp.TypeMatrix,
                         null,
                         SpirvOperand.Id(Type(new IrVectorType(matrix.Component, matrix.Rows))),
-                        SpirvOperand.Literal(matrix.Columns)));
+                        SpirvOperand.Literal(matrix.Columns)
+                    )
+                );
 
             case IrArrayType { Length: { } length } array:
                 return module.Intern(
                     $"array{(layout ? ".laid-out" : "")} {array.Element.Name} {length}",
-                    () => Array(array, length, layout));
+                    () => Array(array, length, layout)
+                );
 
             case IrArrayType unsized:
                 // A runtime-sized array is only legal as the last member of a
@@ -102,7 +204,9 @@ sealed class SpirvTypes {
                 SpirvOp.TypePointer,
                 null,
                 SpirvOperand.Enumerant(storage),
-                SpirvOperand.Id(pointee)));
+                SpirvOperand.Id(pointee)
+            )
+        );
 
     internal uint Function(uint returnType, IReadOnlyList<uint> parameters) =>
         module.Intern(
@@ -110,43 +214,53 @@ sealed class SpirvTypes {
             () => module.AddDeclaration(
                 SpirvOp.TypeFunction,
                 null,
-                [SpirvOperand.Id(returnType), .. parameters.Select(SpirvOperand.Id)]));
+                [SpirvOperand.Id(returnType), .. parameters.Select(SpirvOperand.Id)]
+            )
+        );
 
     /// <summary>An image paired with a sampler, which is what a sample instruction takes.</summary>
     internal uint SampledImage(uint image) =>
         module.Intern(
             $"sampled-image {image}",
-            () => module.AddDeclaration(SpirvOp.TypeSampledImage, null, SpirvOperand.Id(image)));
+            () => module.AddDeclaration(SpirvOp.TypeSampledImage, null, SpirvOperand.Id(image))
+        );
 
     // --- Constants ---------------------------------------------------------
 
     internal uint ConstantBool(bool value) =>
         module.Intern(
             $"const bool {value}",
-            () => module.AddDeclaration(value ? SpirvOp.ConstantTrue : SpirvOp.ConstantFalse, Bool));
+            () => module.AddDeclaration(value ? SpirvOp.ConstantTrue : SpirvOp.ConstantFalse, Bool)
+        );
 
     internal uint ConstantInt(int value) =>
         module.Intern(
             $"const i32 {value}",
-            () => module.AddDeclaration(SpirvOp.Constant, Int, SpirvOperand.Literal(value)));
+            () => module.AddDeclaration(SpirvOp.Constant, Int, SpirvOperand.Literal(value))
+        );
 
     internal uint ConstantUInt(uint value) =>
         module.Intern(
             $"const u32 {value}",
-            () => module.AddDeclaration(SpirvOp.Constant, UInt, SpirvOperand.Literal(value)));
+            () => module.AddDeclaration(SpirvOp.Constant, UInt, SpirvOperand.Literal(value))
+        );
 
     internal uint ConstantFloat(float value) =>
         module.Intern(
             // Round-trip formatting, so -0.0 and 0.0 stay distinct constants.
             $"const f32 {value.ToString("R", CultureInfo.InvariantCulture)}",
-            () => module.AddDeclaration(
-                SpirvOp.Constant, Float, SpirvOperand.FloatLiteral(value)));
+            () => module.AddDeclaration(SpirvOp.Constant, Float, SpirvOperand.FloatLiteral(value))
+        );
 
     internal uint ConstantDouble(double value) =>
         module.Intern(
             $"const f64 {value.ToString("R", CultureInfo.InvariantCulture)}",
             () => module.AddDeclaration(
-                SpirvOp.Constant, Scalar(IrScalarType.Double), SpirvOperand.DoubleLiteral(value)));
+                SpirvOp.Constant,
+                Scalar(IrScalarType.Double),
+                SpirvOperand.DoubleLiteral(value)
+            )
+        );
 
     /// <summary>The all-zero value of a type, for a constant with no explicit value.</summary>
     internal uint ConstantNull(IrType type) =>
@@ -158,82 +272,21 @@ sealed class SpirvTypes {
             { Kind: IrTypeKind.Double } => ConstantDouble(0),
             _ => module.Intern(
                 $"null {Type(type)}",
-                () => module.AddDeclaration(SpirvOp.ConstantNull, Type(type)))
+                () => module.AddDeclaration(SpirvOp.ConstantNull, Type(type))
+            )
         };
 
     /// <summary>A boxed IR constant as a SPIR-V constant of the given type.</summary>
-    internal uint Constant(object? value, IrType type) => value switch {
-        null => ConstantNull(type),
-        bool flag => ConstantBool(flag),
-        int number => ConstantInt(number),
-        uint number => ConstantUInt(number),
-        float number => ConstantFloat(number),
-        double number => ConstantDouble(number),
-        _ => ConstantNull(type)
-    };
-
-    // --- Building blocks ---------------------------------------------------
-
-    uint Scalar(IrScalarType scalar) => scalar.Kind switch {
-        IrTypeKind.Void => Void,
-        IrTypeKind.Bool => Bool,
-        IrTypeKind.Int => Int,
-        IrTypeKind.UInt => UInt,
-        IrTypeKind.Float => Float,
-        IrTypeKind.Double => Double(),
-        _ => Float
-    };
-
-    uint Double() {
-        module.AddCapability(SpirvCapability.Float64);
-        return module.Intern("f64", () => module.AddDeclaration(
-            SpirvOp.TypeFloat, null, SpirvOperand.Literal(64)));
-    }
-
-    uint Integer(bool signed) =>
-        module.Intern(
-            signed ? "i32" : "u32",
-            () => module.AddDeclaration(
-                SpirvOp.TypeInt, null, SpirvOperand.Literal(32), SpirvOperand.Literal(signed ? 1 : 0)));
-
-    uint Array(IrArrayType array, int length, bool layout) {
-        // The length is an operand id, not a literal: SPIR-V spells array extents
-        // as constants so they can be specialization constants.
-        var id = module.AddDeclaration(
-            SpirvOp.TypeArray,
-            null,
-            SpirvOperand.Id(Type(array.Element, layout)),
-            SpirvOperand.Id(ConstantUInt((uint)length)));
-
-        if (layout) {
-            module.Decorate(id, SpirvDecoration.ArrayStride, SpirvOperand.Literal(Std140Layout.ArrayStride(array)));
-        }
-
-        return id;
-    }
-
-    uint Struct(IrStructType structType, bool layout) {
-        if (structs.TryGetValue((structType, layout), out var existing)) {
-            return existing;
-        }
-
-        var members = structType.Fields.Select(f => f.Type).ToArray();
-        var id = module.AddDeclaration(
-            SpirvOp.TypeStruct, null, [.. members.Select(m => SpirvOperand.Id(Type(m, layout)))]);
-
-        structs[(structType, layout)] = id;
-        module.AddName(id, structType.Name);
-
-        for (var i = 0; i < structType.Fields.Count; i++) {
-            module.AddMemberName(id, i, structType.Fields[i].Name);
-        }
-
-        if (layout) {
-            DecorateLayout(id, members);
-        }
-
-        return id;
-    }
+    internal uint Constant(object? value, IrType type) =>
+        value switch {
+            null => ConstantNull(type),
+            bool flag => ConstantBool(flag),
+            int number => ConstantInt(number),
+            uint number => ConstantUInt(number),
+            float number => ConstantFloat(number),
+            double number => ConstantDouble(number),
+            _ => ConstantNull(type)
+        };
 
     /// <summary>Writes the offsets and matrix strides an explicitly laid out struct needs.</summary>
     internal void DecorateLayout(uint structId, IReadOnlyList<IrType> members) {
@@ -248,33 +301,12 @@ sealed class SpirvTypes {
                 // the gap between them.
                 module.DecorateMember(structId, i, SpirvDecoration.ColMajor);
                 module.DecorateMember(
-                    structId, i, SpirvDecoration.MatrixStride,
-                    SpirvOperand.Literal(Std140Layout.MatrixStride(matrix)));
+                    structId,
+                    i,
+                    SpirvDecoration.MatrixStride,
+                    SpirvOperand.Literal(Std140Layout.MatrixStride(matrix))
+                );
             }
         }
-    }
-
-    uint Image(IrTextureType texture) {
-        var dimension = texture.Dimension switch {
-            IrTextureDimension.Texture3D => SpirvDim.Dim3D,
-            IrTextureDimension.Cube => SpirvDim.Cube,
-            _ => SpirvDim.Dim2D
-        };
-
-        return module.Intern(
-            $"image {dimension} {texture.SampledType.ComponentType.Name}",
-            () => module.AddDeclaration(
-                SpirvOp.TypeImage,
-                null,
-                // Sampled type is the component, not the vector a sample returns.
-                SpirvOperand.Id(Scalar(texture.SampledType.ComponentType)),
-                SpirvOperand.Enumerant(dimension),
-                // Not a depth image, not arrayed, not multisampled, and known to be
-                // used with a sampler (1) rather than as storage (2).
-                SpirvOperand.Literal(0),
-                SpirvOperand.Literal(0),
-                SpirvOperand.Literal(0),
-                SpirvOperand.Literal(1),
-                SpirvOperand.Enumerant(SpirvImageFormat.Unknown)));
     }
 }

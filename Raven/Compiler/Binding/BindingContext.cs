@@ -5,9 +5,9 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Binding;
 
 /// <summary>
-/// State shared by every binder in one binding session: where diagnostics go,
-/// and the syntax → bound-node / syntax → symbol maps the
-/// <see cref="SemanticModel"/> answers queries from.
+///     State shared by every binder in one binding session: where diagnostics go,
+///     and the syntax → bound-node / syntax → symbol maps the
+///     <see cref="SemanticModel" /> answers queries from.
 /// </summary>
 public sealed class BindingContext(Compilation compilation, DiagnosticBag diagnostics) {
     public Compilation Compilation { get; } = compilation;

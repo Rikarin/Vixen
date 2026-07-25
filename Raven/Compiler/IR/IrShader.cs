@@ -11,8 +11,8 @@ public enum IrBindingKind {
 }
 
 /// <summary>
-/// One resource a shader expects from the host. Slots are assigned per kind, in
-/// declaration order, so a host can bind against them deterministically.
+///     One resource a shader expects from the host. Slots are assigned per kind, in
+///     declaration order, so a host can bind against them deterministically.
 /// </summary>
 public sealed class IrBinding(IrVariable variable, IrBindingKind kind, int slot, string? semantic) {
     public IrVariable Variable { get; } = variable;
@@ -45,8 +45,8 @@ public sealed class IrEntryPoint(
 }
 
 /// <summary>
-/// A lowered shader: its bindings, the functions it is made of, and the entry
-/// points a backend generates a pipeline stage for.
+///     A lowered shader: its bindings, the functions it is made of, and the entry
+///     points a backend generates a pipeline stage for.
 /// </summary>
 public sealed class IrShader(string name) {
     readonly List<IrBinding> bindings = [];
@@ -62,9 +62,9 @@ public sealed class IrShader(string name) {
     /// <summary>Statements that initialize bindings with a declared default.</summary>
     public IrBlock Initializer { get; } = new();
 
+    public override string ToString() => Name;
+
     internal void Add(IrBinding binding) => bindings.Add(binding);
     internal void Add(IrFunction function) => functions.Add(function);
     internal void Add(IrEntryPoint entryPoint) => entryPoints.Add(entryPoint);
-
-    public override string ToString() => Name;
 }

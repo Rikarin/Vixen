@@ -1,13 +1,13 @@
 namespace Vixen.Raven.Syntax.InternalSyntax;
 
 /// <summary>
-/// Base of the internal <em>green</em> tree: immutable, position-independent
-/// nodes that store only widths (never absolute positions or parent pointers),
-/// so identical subtrees can be shared. The public <em>red</em> tree
-/// (<see cref="Vixen.Raven.Syntax.SyntaxNode"/>) is a lazy overlay that adds
-/// parent and absolute position on top of green nodes.
+///     Base of the internal <em>green</em> tree: immutable, position-independent
+///     nodes that store only widths (never absolute positions or parent pointers),
+///     so identical subtrees can be shared. The public <em>red</em> tree
+///     (<see cref="Vixen.Raven.Syntax.SyntaxNode" />) is a lazy overlay that adds
+///     parent and absolute position on top of green nodes.
 /// </summary>
-internal abstract class GreenNode {
+abstract class GreenNode {
     public SyntaxKind Kind { get; }
 
     /// <summary>Number of child slots. Terminals (tokens, trivia) report 0.</summary>
@@ -16,7 +16,16 @@ internal abstract class GreenNode {
     /// <summary>Total width in characters, <em>including</em> leading and trailing trivia.</summary>
     public int FullWidth { get; protected set; }
 
-    protected GreenNode(SyntaxKind kind) => Kind = kind;
+    public virtual bool IsToken => false;
+    public virtual bool IsList => false;
+    public virtual bool IsTrivia => false;
+
+    /// <summary>Width of the node excluding surrounding trivia (the "significant" width).</summary>
+    public int Width => FullWidth - GetLeadingTriviaWidth() - GetTrailingTriviaWidth();
+
+    protected GreenNode(SyntaxKind kind) {
+        Kind = kind;
+    }
 
     protected GreenNode(SyntaxKind kind, int fullWidth) {
         Kind = kind;
@@ -26,29 +35,14 @@ internal abstract class GreenNode {
     public abstract GreenNode? GetSlot(int index);
 
     /// <summary>
-    /// Projects this green node into a public red node anchored at the given
-    /// parent and absolute <paramref name="position"/>. Generated concrete green
-    /// nodes new up their matching red class; terminals/lists have hand-written
-    /// projections.
+    ///     Projects this green node into a public red node anchored at the given
+    ///     parent and absolute <paramref name="position" />. Generated concrete green
+    ///     nodes new up their matching red class; terminals/lists have hand-written
+    ///     projections.
     /// </summary>
-    public abstract Vixen.Raven.Syntax.SyntaxNode CreateRed(Vixen.Raven.Syntax.SyntaxNode? parent, int position);
+    public abstract SyntaxNode CreateRed(SyntaxNode? parent, int position);
 
-    public virtual bool IsToken => false;
-    public virtual bool IsList => false;
-    public virtual bool IsTrivia => false;
-
-    /// <summary>Accumulate a child's width into this node's <see cref="FullWidth"/>.</summary>
-    protected void AdjustWidth(GreenNode? child) {
-        if (child != null) {
-            FullWidth += child.FullWidth;
-        }
-    }
-
-    /// <summary>Width of the node excluding surrounding trivia (the "significant" width).</summary>
-    public int Width => FullWidth - GetLeadingTriviaWidth() - GetTrailingTriviaWidth();
-
-    public virtual int GetLeadingTriviaWidth() =>
-        FullWidth == 0 ? 0 : GetFirstTerminal()?.GetLeadingTriviaWidth() ?? 0;
+    public virtual int GetLeadingTriviaWidth() => FullWidth == 0 ? 0 : GetFirstTerminal()?.GetLeadingTriviaWidth() ?? 0;
 
     public virtual int GetTrailingTriviaWidth() =>
         FullWidth == 0 ? 0 : GetLastTerminal()?.GetTrailingTriviaWidth() ?? 0;
@@ -101,5 +95,12 @@ internal abstract class GreenNode {
         using var sw = new StringWriter();
         WriteTo(sw);
         return sw.ToString();
+    }
+
+    /// <summary>Accumulate a child's width into this node's <see cref="FullWidth" />.</summary>
+    protected void AdjustWidth(GreenNode? child) {
+        if (child != null) {
+            FullWidth += child.FullWidth;
+        }
     }
 }

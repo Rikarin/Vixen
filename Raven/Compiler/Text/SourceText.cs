@@ -1,16 +1,23 @@
 namespace Vixen.Raven.Text;
 
 /// <summary>
-/// An immutable snapshot of source text with a precomputed line index, so a
-/// character offset (or <see cref="TextSpan"/>) can be mapped to a
-/// <see cref="LinePosition"/> for diagnostics. Line breaks recognised are
-/// <c>\r\n</c>, <c>\n</c>, and <c>\r</c>.
+///     An immutable snapshot of source text with a precomputed line index, so a
+///     character offset (or <see cref="TextSpan" />) can be mapped to a
+///     <see cref="LinePosition" /> for diagnostics. Line breaks recognised are
+///     <c>\r\n</c>, <c>\n</c>, and <c>\r</c>.
 /// </summary>
 public sealed class SourceText {
     readonly string text;
 
     /// <summary>Start offset of each line; always begins with 0.</summary>
     readonly int[] lineStarts;
+
+    public int Length => text.Length;
+
+    /// <summary>Number of lines. A trailing newline yields a final empty line.</summary>
+    public int LineCount => lineStarts.Length;
+
+    public char this[int position] => text[position];
 
     SourceText(string text) {
         this.text = text;
@@ -19,20 +26,13 @@ public sealed class SourceText {
 
     public static SourceText From(string text) => new(text ?? string.Empty);
 
-    public int Length => text.Length;
-
-    public char this[int position] => text[position];
-
-    /// <summary>Number of lines. A trailing newline yields a final empty line.</summary>
-    public int LineCount => lineStarts.Length;
-
     public string ToString(TextSpan span) => text.Substring(span.Start, span.Length);
 
     public override string ToString() => text;
 
     /// <summary>
-    /// Maps a character offset to its zero-based (line, character). Offsets are
-    /// clamped to <c>[0, Length]</c> so end-of-file positions resolve cleanly.
+    ///     Maps a character offset to its zero-based (line, character). Offsets are
+    ///     clamped to <c>[0, Length]</c> so end-of-file positions resolve cleanly.
     /// </summary>
     public LinePosition GetLinePosition(int position) {
         if (position < 0) {
@@ -42,7 +42,7 @@ public sealed class SourceText {
         }
 
         var line = FindLineIndex(position);
-        return new LinePosition(line, position - lineStarts[line]);
+        return new(line, position - lineStarts[line]);
     }
 
     public LinePositionSpan GetLinePositionSpan(TextSpan span) =>
@@ -58,8 +58,8 @@ public sealed class SourceText {
     }
 
     /// <summary>
-    /// The text of the given zero-based line, without its line break. Used when
-    /// rendering a diagnostic under the source it points at.
+    ///     The text of the given zero-based line, without its line break. Used when
+    ///     rendering a diagnostic under the source it points at.
     /// </summary>
     public string GetLineText(int line) {
         var start = GetLineStart(line);

@@ -1,9 +1,9 @@
 namespace Vixen.Raven.Symbols;
 
 /// <summary>
-/// Identifies a type the compiler knows intrinsically. Everything the binder
-/// special-cases (numeric promotion, literal typing, swizzles, intrinsic
-/// signatures) keys off this rather than off a name.
+///     Identifies a type the compiler knows intrinsically. Everything the binder
+///     special-cases (numeric promotion, literal typing, swizzles, intrinsic
+///     signatures) keys off this rather than off a name.
 /// </summary>
 public enum SpecialType {
     None,

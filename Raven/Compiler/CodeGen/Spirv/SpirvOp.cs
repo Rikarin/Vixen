@@ -1,9 +1,9 @@
 namespace Vixen.Raven.CodeGen.Spirv;
 
 /// <summary>
-/// The SPIR-V opcodes this backend emits, with their spec numbers. Only the ones
-/// actually used are listed — an enum of all 400 would be noise, and anything
-/// missing is a compile error rather than a silently wrong word.
+///     The SPIR-V opcodes this backend emits, with their spec numbers. Only the ones
+///     actually used are listed — an enum of all 400 would be noise, and anything
+///     missing is a compile error rather than a silently wrong word.
 /// </summary>
 public enum SpirvOp {
     Nop = 0,
@@ -86,6 +86,7 @@ public enum SpirvOp {
     SRem = 138,
     SMod = 139,
     FRem = 140,
+
     // GLSL's `mod` takes the sign of the divisor, which is OpFMod; C's `%` takes
     // the sign of the dividend, which is OpFRem. The IR keeps them apart.
     FMod = 141,

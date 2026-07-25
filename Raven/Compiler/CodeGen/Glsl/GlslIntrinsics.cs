@@ -52,8 +52,8 @@ public static class GlslIntrinsics {
     };
 
     /// <summary>
-    /// The GLSL expression for an intrinsic call, or null when GLSL has no way
-    /// to spell it.
+    ///     The GLSL expression for an intrinsic call, or null when GLSL has no way
+    ///     to spell it.
     /// </summary>
     /// <param name="intrinsic">The opcode.</param>
     /// <param name="arguments">Already-emitted argument expressions.</param>

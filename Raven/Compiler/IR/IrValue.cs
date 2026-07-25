@@ -1,9 +1,9 @@
 namespace Vixen.Raven.IR;
 
 /// <summary>
-/// A value produced by exactly one instruction. Ids are unique within a
-/// function and never reassigned, so the instruction stream is in SSA form —
-/// what mutates is memory, reached through <see cref="IrPlace"/>.
+///     A value produced by exactly one instruction. Ids are unique within a
+///     function and never reassigned, so the instruction stream is in SSA form —
+///     what mutates is memory, reached through <see cref="IrPlace" />.
 /// </summary>
 public sealed class IrValue(int id, IrType type) {
     public int Id { get; } = id;
@@ -21,27 +21,28 @@ public enum IrVariableKind {
 }
 
 /// <summary>
-/// A named, addressable storage slot. Locals stay in memory in this IR rather
-/// than being promoted to SSA registers — the backends want declarations they
-/// can name, and a later mem2reg pass can promote them if a target prefers it.
+///     A named, addressable storage slot. Locals stay in memory in this IR rather
+///     than being promoted to SSA registers — the backends want declarations they
+///     can name, and a later mem2reg pass can promote them if a target prefers it.
 /// </summary>
 public sealed class IrVariable(string name, IrType type, IrVariableKind kind) {
     public string Name { get; } = name;
     public IrType Type { get; } = type;
     public IrVariableKind Kind { get; } = kind;
 
-    public override string ToString() => $"{Prefix}{Name}";
+    string Prefix =>
+        Kind switch {
+            IrVariableKind.Global => "@",
+            IrVariableKind.Parameter => "$",
+            _ => "!"
+        };
 
-    string Prefix => Kind switch {
-        IrVariableKind.Global => "@",
-        IrVariableKind.Parameter => "$",
-        _ => "!"
-    };
+    public override string ToString() => $"{Prefix}{Name}";
 }
 
-/// <summary>One step of an <see cref="IrPlace"/>'s access chain.</summary>
+/// <summary>One step of an <see cref="IrPlace" />'s access chain.</summary>
 public abstract class IrAccess {
-    /// <summary>The type reached by applying this step to <paramref name="input"/>.</summary>
+    /// <summary>The type reached by applying this step to <paramref name="input" />.</summary>
     public abstract IrType ResultType(IrType input);
 }
 
@@ -61,19 +62,20 @@ public sealed class IrFieldAccess(int index) : IrAccess {
 public sealed class IrIndexAccess(IrValue index) : IrAccess {
     public IrValue Index { get; } = index;
 
-    public override IrType ResultType(IrType input) => input switch {
-        IrArrayType array => array.Element,
-        IrVectorType vector => vector.Component,
-        IrMatrixType matrix => matrix.RowType,
-        _ => IrScalarType.Void
-    };
+    public override IrType ResultType(IrType input) =>
+        input switch {
+            IrArrayType array => array.Element,
+            IrVectorType vector => vector.Component,
+            IrMatrixType matrix => matrix.RowType,
+            _ => IrScalarType.Void
+        };
 
     public override string ToString() => $"[{Index}]";
 }
 
 /// <summary>
-/// Selects lanes of a vector: <c>v.xy</c> is <c>Swizzle(0, 1)</c>. A single
-/// component yields the scalar, more than one a shorter vector.
+///     Selects lanes of a vector: <c>v.xy</c> is <c>Swizzle(0, 1)</c>. A single
+///     component yields the scalar, more than one a shorter vector.
 /// </summary>
 public sealed class IrSwizzleAccess(int[] components) : IrAccess {
     public IReadOnlyList<int> Components { get; } = components;
@@ -89,9 +91,9 @@ public sealed class IrSwizzleAccess(int[] components) : IrAccess {
 }
 
 /// <summary>
-/// A storage location: a variable plus a chain of accesses into it. This is
-/// SPIR-V's access chain, and it emits directly as <c>a.b[i].xy</c> in a
-/// source-level target.
+///     A storage location: a variable plus a chain of accesses into it. This is
+///     SPIR-V's access chain, and it emits directly as <c>a.b[i].xy</c> in a
+///     source-level target.
 /// </summary>
 public sealed class IrPlace(IrVariable root, IReadOnlyList<IrAccess>? chain = null) {
     public IrVariable Root { get; } = root;
@@ -110,7 +112,7 @@ public sealed class IrPlace(IrVariable root, IReadOnlyList<IrAccess>? chain = nu
     }
 
     /// <summary>This place with one more access step appended.</summary>
-    public IrPlace With(IrAccess access) => new(Root, [..Chain, access]);
+    public IrPlace With(IrAccess access) => new(Root, [.. Chain, access]);
 
     public override string ToString() => Root + string.Concat(Chain.Select(a => a.ToString()));
 }

@@ -3,18 +3,11 @@ using System.Globalization;
 namespace Vixen.Raven.Diagnostics;
 
 /// <summary>
-/// A single reported problem: a <see cref="DiagnosticDescriptor"/> plus the
-/// <see cref="Location"/> it applies to and the arguments that fill its message.
+///     A single reported problem: a <see cref="DiagnosticDescriptor" /> plus the
+///     <see cref="Location" /> it applies to and the arguments that fill its message.
 /// </summary>
 public sealed class Diagnostic {
     readonly object[] arguments;
-
-    Diagnostic(DiagnosticDescriptor descriptor, Location location, DiagnosticSeverity severity, object[] arguments) {
-        Descriptor = descriptor;
-        Location = location;
-        Severity = severity;
-        this.arguments = arguments;
-    }
 
     public DiagnosticDescriptor Descriptor { get; }
 
@@ -25,6 +18,13 @@ public sealed class Diagnostic {
     public string Id => Descriptor.Id;
 
     public bool IsError => Severity == DiagnosticSeverity.Error;
+
+    Diagnostic(DiagnosticDescriptor descriptor, Location location, DiagnosticSeverity severity, object[] arguments) {
+        Descriptor = descriptor;
+        Location = location;
+        Severity = severity;
+        this.arguments = arguments;
+    }
 
     public static Diagnostic Create(DiagnosticDescriptor descriptor, Location location, params object[] arguments) =>
         new(descriptor, location ?? Location.None, descriptor.DefaultSeverity, arguments ?? []);

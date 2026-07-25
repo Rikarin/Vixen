@@ -1,9 +1,9 @@
 namespace Vixen.Raven.Symbols;
 
 /// <summary>
-/// A type referred to by name: a source <c>shader</c>/<c>struct</c>/<c>class</c>/
-/// <c>protocol</c>/<c>enum</c>, or a compiler-supplied type such as <c>string</c>
-/// or <c>Texture2D</c>.
+///     A type referred to by name: a source <c>shader</c>/<c>struct</c>/<c>class</c>/
+///     <c>protocol</c>/<c>enum</c>, or a compiler-supplied type such as <c>string</c>
+///     or <c>Texture2D</c>.
 /// </summary>
 public abstract class NamedTypeSymbol : TypeSymbol {
     public override SymbolKind Kind => SymbolKind.NamedType;
@@ -11,8 +11,8 @@ public abstract class NamedTypeSymbol : TypeSymbol {
     public virtual IReadOnlyList<TypeParameterSymbol> TypeParameters => [];
 
     /// <summary>
-    /// The arguments this type was constructed with. For a generic definition
-    /// these are its own type parameters.
+    ///     The arguments this type was constructed with. For a generic definition
+    ///     these are its own type parameters.
     /// </summary>
     public virtual IReadOnlyList<TypeSymbol> TypeArguments => TypeParameters;
 

@@ -1,3 +1,4 @@
+using Vixen.Raven.Binding;
 using Vixen.Raven.Syntax;
 
 namespace Vixen.Raven.Symbols.Source;
@@ -24,8 +25,8 @@ public static class DeclarationFacts {
     }
 
     /// <summary>
-    /// The declared accessibility, or <paramref name="fallback"/> when no access
-    /// modifier is present.
+    ///     The declared accessibility, or <paramref name="fallback" /> when no access
+    ///     modifier is present.
     /// </summary>
     public static Accessibility GetAccessibility(SyntaxList<SyntaxToken> modifiers, Accessibility fallback) {
         var isProtected = false;
@@ -73,8 +74,8 @@ public static class DeclarationFacts {
     }
 
     /// <summary>
-    /// The pipeline stage named by a stage attribute on this declaration, or
-    /// <see cref="ShaderStage.None"/>.
+    ///     The pipeline stage named by a stage attribute on this declaration, or
+    ///     <see cref="ShaderStage.None" />.
     /// </summary>
     public static ShaderStage GetShaderStage(SyntaxList<AttributeListSyntax> attributeLists) {
         foreach (var attribute in GetAttributes(attributeLists)) {
@@ -90,9 +91,9 @@ public static class DeclarationFacts {
     public static bool IsStageAttributeName(string name) => StageAttributes.ContainsKey(name);
 
     /// <summary>
-    /// The pipeline semantic a declaration is tagged with —
-    /// <c>[Semantic("POSITION")]</c>, <c>[Semantic("SV_Target")]</c> — or null.
-    /// This is what the backends key stage inputs and outputs off.
+    ///     The pipeline semantic a declaration is tagged with —
+    ///     <c>[Semantic("POSITION")]</c>, <c>[Semantic("SV_Target")]</c> — or null.
+    ///     This is what the backends key stage inputs and outputs off.
     /// </summary>
     public static string? GetSemanticName(SyntaxList<AttributeListSyntax> attributeLists) {
         foreach (var attribute in GetAttributes(attributeLists)) {
@@ -101,8 +102,10 @@ public static class DeclarationFacts {
             }
 
             foreach (var argument in arguments.Arguments) {
-                if (argument.Expression is LiteralExpressionSyntax { Kind: SyntaxKind.StringLiteralExpression } literal) {
-                    return Binding.LiteralParser.Parse(literal).Value as string;
+                if (argument.Expression is LiteralExpressionSyntax {
+                        Kind: SyntaxKind.StringLiteralExpression
+                    } literal) {
+                    return LiteralParser.Parse(literal).Value as string;
                 }
             }
         }

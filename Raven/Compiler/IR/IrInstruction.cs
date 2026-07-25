@@ -1,9 +1,9 @@
 namespace Vixen.Raven.IR;
 
 /// <summary>
-/// A step inside a function body. Control flow stays structured — there is no
-/// basic-block graph — because both SPIR-V (which requires structured merges in
-/// shaders) and the source-level targets want it that way.
+///     A step inside a function body. Control flow stays structured — there is no
+///     basic-block graph — because both SPIR-V (which requires structured merges in
+///     shaders) and the source-level targets want it that way.
 /// </summary>
 public abstract class IrStatement;
 
@@ -19,8 +19,8 @@ public sealed class IrBlock : IrStatement {
 }
 
 /// <summary>
-/// An operation. Most define a value; those that act purely on memory or control
-/// (<see cref="IrStoreInstruction"/>, a void call) leave <see cref="Result"/> null.
+///     An operation. Most define a value; those that act purely on memory or control
+///     (<see cref="IrStoreInstruction" />, a void call) leave <see cref="Result" /> null.
 /// </summary>
 public abstract class IrInstruction : IrStatement {
     public virtual IrValue? Result => null;
@@ -52,7 +52,7 @@ public sealed class IrStoreInstruction(IrPlace place, IrValue value) : IrInstruc
     public IrPlace Place { get; } = place;
     public IrValue Value { get; } = value;
 
-    public override IEnumerable<IrValue> Operands => [Value, ..IrLoadInstruction.IndicesOf(Place)];
+    public override IEnumerable<IrValue> Operands => [Value, .. IrLoadInstruction.IndicesOf(Place)];
 }
 
 public sealed class IrUnaryInstruction(IrValue result, IrUnaryOp op, IrValue operand) : IrInstruction {
@@ -99,8 +99,8 @@ public sealed class IrCallInstruction(IrValue? result, IrFunction function, IrVa
 }
 
 /// <summary>
-/// Builds an aggregate from its parts: <c>float3(x, y, z)</c>, a matrix from
-/// its rows, or a struct from its fields.
+///     Builds an aggregate from its parts: <c>float3(x, y, z)</c>, a matrix from
+///     its rows, or a struct from its fields.
 /// </summary>
 public sealed class IrConstructInstruction(IrValue result, IrValue[] arguments) : IrInstruction {
     public override IrValue Result { get; } = result;
@@ -109,8 +109,8 @@ public sealed class IrConstructInstruction(IrValue result, IrValue[] arguments) 
 }
 
 /// <summary>
-/// Reads part of a value that has no storage — the result of a call, say. The
-/// addressable case goes through <see cref="IrLoadInstruction"/> instead.
+///     Reads part of a value that has no storage — the result of a call, say. The
+///     addressable case goes through <see cref="IrLoadInstruction" /> instead.
 /// </summary>
 public sealed class IrExtractInstruction(IrValue result, IrValue source, IReadOnlyList<IrAccess> chain)
     : IrInstruction {
@@ -118,13 +118,12 @@ public sealed class IrExtractInstruction(IrValue result, IrValue source, IReadOn
     public IrValue Source { get; } = source;
     public IReadOnlyList<IrAccess> Chain { get; } = chain;
 
-    public override IEnumerable<IrValue> Operands =>
-        [Source, ..Chain.OfType<IrIndexAccess>().Select(a => a.Index)];
+    public override IEnumerable<IrValue> Operands => [Source, .. Chain.OfType<IrIndexAccess>().Select(a => a.Index)];
 }
 
 /// <summary>
-/// Picks one of two values. Both operands are evaluated, matching SPIR-V's
-/// <c>OpSelect</c>; lowering only produces it where that is sound.
+///     Picks one of two values. Both operands are evaluated, matching SPIR-V's
+///     <c>OpSelect</c>; lowering only produces it where that is sound.
 /// </summary>
 public sealed class IrSelectInstruction(IrValue result, IrValue condition, IrValue whenTrue, IrValue whenFalse)
     : IrInstruction {
@@ -143,10 +142,10 @@ public sealed class IrIfStatement(IrValue condition, IrBlock then, IrBlock? othe
 }
 
 /// <summary>
-/// A structured loop. <see cref="Condition"/> holds the instructions that
-/// recompute <see cref="ConditionValue"/> on every iteration, and
-/// <see cref="Continue"/> is the step a <c>for</c> loop runs before re-testing —
-/// which is also where a <c>continue</c> lands.
+///     A structured loop. <see cref="Condition" /> holds the instructions that
+///     recompute <see cref="ConditionValue" /> on every iteration, and
+///     <see cref="Continue" /> is the step a <c>for</c> loop runs before re-testing —
+///     which is also where a <c>continue</c> lands.
 /// </summary>
 public sealed class IrLoopStatement(
     IrBlock condition,

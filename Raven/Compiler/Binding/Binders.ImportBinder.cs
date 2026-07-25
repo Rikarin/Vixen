@@ -4,9 +4,9 @@ using Vixen.Raven.Syntax;
 namespace Vixen.Raven.Binding;
 
 /// <summary>
-/// A compilation unit's scope: its <c>package</c> namespace and each enclosing
-/// one, plus everything its <c>import</c> directives bring in. Imports resolve on
-/// first use, after every declaration in the compilation exists.
+///     A compilation unit's scope: its <c>package</c> namespace and each enclosing
+///     one, plus everything its <c>import</c> directives bring in. Imports resolve on
+///     first use, after every declaration in the compilation exists.
 /// </summary>
 public sealed class ImportBinder(Binder next, NamespaceSymbol packageNamespace, CompilationUnitSyntax unit)
     : Binder(next) {
@@ -17,26 +17,6 @@ public sealed class ImportBinder(Binder next, NamespaceSymbol packageNamespace, 
     /// <summary>The namespace this file's declarations go into.</summary>
     public NamespaceSymbol PackageNamespace { get; } = packageNamespace;
 
-    private protected override void LookupInScope(string name, List<Symbol> results) {
-        EnsureResolved();
-
-        foreach (var ns in packageChain!) {
-            results.AddRange(ns.GetMembers(name));
-        }
-
-        foreach (var ns in importedNamespaces!) {
-            results.AddRange(ns.GetMembers(name));
-        }
-
-        foreach (var type in staticImports!) {
-            foreach (var member in LookupMembers(type, name)) {
-                if (member.IsStatic) {
-                    results.Add(member);
-                }
-            }
-        }
-    }
-
     void EnsureResolved() {
         if (packageChain is not null) {
             return;
@@ -44,7 +24,9 @@ public sealed class ImportBinder(Binder next, NamespaceSymbol packageNamespace, 
 
         // `package A.B` puts both A.B and A in scope, innermost first.
         List<NamespaceSymbol> chain = [];
-        for (var ns = PackageNamespace; ns is { IsGlobalNamespace: false }; ns = (NamespaceSymbol?)ns.ContainingSymbol) {
+        for (var ns = PackageNamespace;
+             ns is { IsGlobalNamespace: false };
+             ns = (NamespaceSymbol?)ns.ContainingSymbol) {
             chain.Add(ns);
         }
 
@@ -60,8 +42,8 @@ public sealed class ImportBinder(Binder next, NamespaceSymbol packageNamespace, 
             }
 
             if (import.StaticKeyword is not null) {
-                if (ResolveNamespace(path.Take(path.Count - 1)) is { } container &&
-                    container.GetTypeMember(path[^1]) is { } type) {
+                if (ResolveNamespace(path.Take(path.Count - 1)) is { } container
+                    && container.GetTypeMember(path[^1]) is { } type) {
                     types.Add(type);
                 }
 
@@ -111,5 +93,25 @@ public sealed class ImportBinder(Binder next, NamespaceSymbol packageNamespace, 
 
         Walk(syntax);
         return segments;
+    }
+
+    private protected override void LookupInScope(string name, List<Symbol> results) {
+        EnsureResolved();
+
+        foreach (var ns in packageChain!) {
+            results.AddRange(ns.GetMembers(name));
+        }
+
+        foreach (var ns in importedNamespaces!) {
+            results.AddRange(ns.GetMembers(name));
+        }
+
+        foreach (var type in staticImports!) {
+            foreach (var member in LookupMembers(type, name)) {
+                if (member.IsStatic) {
+                    results.Add(member);
+                }
+            }
+        }
     }
 }
