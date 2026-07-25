@@ -1722,6 +1722,7 @@
         <Field Name="Keyword" Type="SyntaxToken">
             <Kind Name="VarKeyword"/>
         </Field>
+        <Field Name="ExplicitInterfaceSpecifier" Type="ExplicitInterfaceSpecifierSyntax" Optional="true"/>
         <Field Name="Identifier" Type="SyntaxToken">
             <Kind Name="IdentifierToken"/>
         </Field>

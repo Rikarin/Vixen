@@ -763,6 +763,8 @@ public class SyntaxAntlrVisitor : RavenParser2BaseVisitor<SyntaxNode> {
         var attributes = SyntaxList.List(context.attribute_list().Select(Visit).ToArray());
         var modifiers = SyntaxList.List(context.modifier().Select(Visit).ToArray());
         var keyword = Token(context.VAR().Symbol, SyntaxKind.VarKeyword);
+        var explicitInterface = context.explicit_interface_specifier() != null
+            ? Visit(context.explicit_interface_specifier()) as ExplicitInterfaceSpecifierSyntax : null;
         var identifier = Visit(context.identifier_token()) as SyntaxToken;
         var colonToken = TerminalOrNull(context, RavenLexer2.COLON);
         var colon = colonToken != null ? Token(colonToken, SyntaxKind.ColonToken) : null;
@@ -775,7 +777,8 @@ public class SyntaxAntlrVisitor : RavenParser2BaseVisitor<SyntaxNode> {
             ? Visit(context.equals_value_clause()) as EqualsValueClauseSyntax : null;
 
         return SyntaxFactory.PropertyDeclaration(
-            new(attributes), new(modifiers), keyword, identifier!, colon, type, accessorList, expressionBody, initializer);
+            new(attributes), new(modifiers), keyword, explicitInterface, identifier!, colon, type, accessorList,
+            expressionBody, initializer);
     }
 
     public override SyntaxNode VisitAccessor_list(RavenParser2.Accessor_listContext context) {

@@ -74,6 +74,36 @@ public class SymbolTests {
     }
 
     [Fact]
+    public void Protocol_members_declare_a_signature_without_a_body() {
+        const string Source = """
+            package A
+
+            protocol Vehicle {
+                var Name: string
+
+                func Start()
+                func Describe(): string
+            }
+
+            """;
+
+        var (compilation, tree, _) = Compile(Source);
+        Assert.Empty(compilation.GetDiagnostics());
+
+        // Nothing in the syntax stands in for the missing body.
+        var start = FindNode<MethodDeclarationSyntax>(tree, m => m.Identifier.ValueText == "Start");
+        Assert.Null(start.Body);
+        Assert.Null(start.ExpressionBody);
+
+        var vehicle = FindType(compilation, "Vehicle");
+        Assert.Equal(TypeKind.Protocol, vehicle.TypeKind);
+
+        Assert.Equal("string", GetMember<FieldSymbol>(vehicle, "Name").Type.ToDisplayString());
+        Assert.True(GetMember<MethodSymbol>(vehicle, "Start").ReturnType.IsVoid);
+        Assert.Equal("string", GetMember<MethodSymbol>(vehicle, "Describe").ReturnType.ToDisplayString());
+    }
+
+    [Fact]
     public void Inherited_members_are_reachable_through_the_base_chain() {
         var compilation = AssertNoDiagnostics("""
             package A

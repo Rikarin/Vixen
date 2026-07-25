@@ -326,7 +326,7 @@ diagnostics and correct types; `SemanticDiagnosticsTests` covers 24 targeted err
 
 ### Defects in earlier phases found while building Phase 2
 
-These are **Phase 1 grammar bugs**, pinned by
+These are **Phase 1 grammar bugs**. 1 and 2 are pinned by
 `Tests/GrammarPrecedenceCharacterizationTests.cs` so the fix has something to flip:
 
 1. **Expression precedence is inverted.** ANTLR gives a left-recursive rule's alternatives
@@ -335,10 +335,17 @@ These are **Phase 1 grammar bugs**, pinned by
    (binding loosest). So `1 + f(x)` parses as `(1 + f)(x)` and `x = a + b` as `(x = a) + b`.
    Dotted names are unaffected — `a.b` reaches the tree as a `QualifiedName` primary.
 2. **All binary operators share one precedence level**, so `1 + 2 * 3` parses as `(1 + 2) * 3`.
-3. **`attribute_list` requires a trailing `NL+`**, so parameters cannot carry inline
-   attributes (`func f([Semantic("TEXCOORD0")] uv: float2)`).
-4. **Method declarations require a body**, so a bodiless `protocol` member (`func Draw()`)
-   does not parse — which makes protocols much less useful than intended.
+3. ~~**`attribute_list` requires a trailing `NL+`**, so parameters cannot carry inline
+   attributes (`func f([Semantic("TEXCOORD0")] uv: float2)`).~~ **Fixed:** the newline is no
+   longer part of `attribute_list`; a declaration spells its attributes
+   `(attribute_list NL*)*` and a parameter `attribute_list*`, so parameter semantics are
+   readable (`ShaderSemanticsTests.Stage_io_semantics_are_read_off_declarations`).
+4. ~~**Method declarations require a body**, so a bodiless `protocol` member (`func Draw()`)
+   does not parse — which makes protocols much less useful than intended.~~ **Fixed:** the
+   body of `method_declaration` and the accessors of `property_declaration` are optional
+   (`SymbolTests.Protocol_members_declare_a_signature_without_a_body`). A bodiless `init` is
+   still not accepted — protocol initialiser requirements are a language question, not a
+   grammar oversight.
 
 Fixing 1 and 2 means restructuring the `expression` rule into proper precedence levels and
 regenerating the parser; it will move golden trees, so it is its own piece of work rather

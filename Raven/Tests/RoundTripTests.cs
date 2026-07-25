@@ -39,6 +39,16 @@ public class RoundTripTests {
     [InlineData("package A.B\n\nshader Foo {\n    func Three(a: int, b: float, c: bool): int => 42\n}\n")]
     // Declarations: protocol, enum, constructor
     [InlineData("package A.B\n\nprotocol P {\n\n}\n")]
+    // Bodiless members: a protocol declares signatures only
+    [InlineData("package A.B\n\nprotocol P {\n    func Test()\n}\n")]
+    [InlineData("package A.B\n\nprotocol P {\n    func Get(): int\n}\n")]
+    [InlineData("package A.B\n\nprotocol P {\n    var Name: string\n}\n")]
+    [InlineData("package A.B\n\nprotocol P {\n    func First()\n    func Second(a: int): int\n}\n")]
+    [InlineData("package A.B\n\nprotocol P { func Test() }\n")]
+    // Inline parameter attributes (no newline after the attribute list)
+    [InlineData("package A.B\n\nshader Foo {\n    func Pixel([Semantic(\"TEXCOORD0\")] uv: float2) {\n    }\n}\n")]
+    [InlineData("package A.B\n\nshader Foo {\n    func Pixel([A] [B] uv: float2) {\n    }\n}\n")]
+    [InlineData("package A.B\n\nshader Foo {\n    func Vertex([Semantic(\"POSITION\")] p: float3, [Semantic(\"NORMAL\")] n: float3) {\n    }\n}\n")]
     [InlineData("package A.B\n\nenum E {\n    A, B, C\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    init() {\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    init(x: int) => bar\n}\n")]
@@ -49,6 +59,13 @@ public class RoundTripTests {
     // Properties + accessors
     [InlineData("package A.B\n\nshader Foo {\n    var prop {\n        get => test\n        set => test\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    var count: int => a\n}\n")]
+    // Explicit interface implementations (`var P.Q`, `int P.self[…]`)
+    [InlineData("package A.B\n\nclass Foo {\n    var P.Q: int => a\n}\n")]
+    [InlineData("package A.B\n\nclass Foo {\n    var P.Q: int\n}\n")]
+    [InlineData("package A.B\n\nclass Foo {\n    var Outer.Inner.Q: int => a\n}\n")]
+    [InlineData("package A.B\n\nclass Foo {\n    var P.Q {\n        get => test\n    }\n}\n")]
+    [InlineData("package A.B\n\nclass Foo {\n    int P.self[i: int] => a\n}\n")]
+    [InlineData("package A.B\n\nclass Foo {\n    func P.Q() {\n    }\n}\n")]
     // Conditional, null-coalescing.
     // NOTE: `a[i]` parses as an array type (`type array_rank_specifier`), shadowing
     // element access — a grammar ambiguity like invocation; visitor is wired.

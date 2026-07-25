@@ -153,7 +153,7 @@ public class ShaderSemanticsTests {
 
                 [PixelShader]
                 [Semantic("SV_Target")]
-                func Pixel(uv: float2): float4 {
+                func Pixel([Semantic("TEXCOORD0")] uv: float2): float4 {
                     return float4(uv, 0, 1)
                 }
             }
@@ -167,10 +167,8 @@ public class ShaderSemanticsTests {
         var pixel = GetMember<MethodSymbol>(shader, "Pixel");
         Assert.Equal("SV_Target", pixel.SemanticName);
 
-        // `ParameterSymbol.SemanticName` reads the same attribute, but the grammar
-        // requires a newline after an attribute list, so parameters cannot carry
-        // one inline yet.
-        Assert.Null(Assert.Single(pixel.Parameters).SemanticName);
+        // A parameter carries its semantic inline, on the same line as the parameter.
+        Assert.Equal("TEXCOORD0", Assert.Single(pixel.Parameters).SemanticName);
     }
 
     [Fact]

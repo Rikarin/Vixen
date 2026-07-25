@@ -17,8 +17,12 @@ import_directive
 
 
 // Attributes
+// The trailing newline is NOT part of this rule: a declaration writes its
+// attributes as `(attribute_list NL*)*` so they may sit on their own line(s),
+// while a parameter writes `attribute_list*` and carries them inline —
+// `func Pixel([Semantic("TEXCOORD0")] uv: float2)`.
 attribute_list
-    : '[' attribute_target_specifier? attribute (',' attribute)* ']' NL+
+    : '[' attribute_target_specifier? attribute (',' attribute)* ']'
     ;
 
 attribute_target_specifier
@@ -94,7 +98,7 @@ base_property_declaration
     ;
     
 field_declaration
-    : attribute_list* modifier* variable_declaration NL+
+    : (attribute_list NL*)* modifier* variable_declaration NL+
     ;
     
 base_method_declaration
@@ -106,7 +110,7 @@ base_method_declaration
     ;
 
 constructor_declaration
-    : attribute_list* modifier* INIT parameter_list constructor_initializer? (block | (arrow_expression_clause NL))
+    : (attribute_list NL*)* modifier* INIT parameter_list constructor_initializer? (block | (arrow_expression_clause NL))
     ;
   
 constructor_initializer
@@ -114,19 +118,24 @@ constructor_initializer
   ;
   
 destructor_declaration
-    : attribute_list* modifier* '~' INIT parameter_list (block | (arrow_expression_clause NL))
+    : (attribute_list NL*)* modifier* '~' INIT parameter_list (block | (arrow_expression_clause NL))
     ;
     
+// The body is optional: a `protocol` member (and an `abstract` method) declares a
+// signature only — `func Draw()`. The trailing newline is left to the enclosing
+// member_declaration, which already ends in `NL*`.
 method_declaration
-  : attribute_list* modifier* FUNC explicit_interface_specifier? identifier_token type_parameter_list? parameter_list type_parameter_constraint_clause* (':' type)? (block | (arrow_expression_clause NL))
+  : (attribute_list NL*)* modifier* FUNC explicit_interface_specifier? identifier_token type_parameter_list? parameter_list type_parameter_constraint_clause* (':' type)? (block | (arrow_expression_clause NL))?
   ;
   
 explicit_interface_specifier
     : name '.'
     ;
   
+// Accessors are optional for the same reason a method body is: a protocol
+// property declares `var Name: string` and nothing more.
 property_declaration
-    : attribute_list* modifier* VAR explicit_interface_specifier? identifier_token (':' type)? (accessor_list | ((arrow_expression_clause | equals_value_clause) NL))
+    : (attribute_list NL*)* modifier* VAR explicit_interface_specifier? identifier_token (':' type)? (accessor_list | ((arrow_expression_clause | equals_value_clause) NL))?
     ;
     
 accessor_list
@@ -134,11 +143,11 @@ accessor_list
     ;
 
 accessor_declaration
-    : attribute_list* modifier* op=(GET | SET | WILL_SET | DID_SET) (block | (arrow_expression_clause NL)) NL*
+    : (attribute_list NL*)* modifier* op=(GET | SET | WILL_SET | DID_SET) (block | (arrow_expression_clause NL)) NL*
     ;
 
 indexer_declaration
-    : attribute_list* modifier* type explicit_interface_specifier? SELF bracketed_parameter_list (accessor_list | (arrow_expression_clause NL))
+    : (attribute_list NL*)* modifier* type explicit_interface_specifier? SELF bracketed_parameter_list (accessor_list | (arrow_expression_clause NL))
     ;
 
 bracketed_parameter_list
@@ -146,11 +155,11 @@ bracketed_parameter_list
     ;
   
 conversion_operator_declaration
-    : attribute_list* modifier* ct=(IMPLICIT | EXPLICIT) explicit_interface_specifier? OPERATOR type parameter_list (block | (arrow_expression_clause NL))
+    : (attribute_list NL*)* modifier* ct=(IMPLICIT | EXPLICIT) explicit_interface_specifier? OPERATOR type parameter_list (block | (arrow_expression_clause NL))
     ; 
     
 operator_declaration
-    : attribute_list* modifier* type explicit_interface_specifier? OPERATOR op=('+' | '-' | '!' | '~' | '++' | '--' | '*' | '/' | '%' | '<<' | '>>' | '>>>' | '|' | '&' | '^' | '==' | '!=' | '<' | '<=' | '>' | '>=' | 'false' | 'true' | 'is') parameter_list (block | (arrow_expression_clause NL))
+    : (attribute_list NL*)* modifier* type explicit_interface_specifier? OPERATOR op=('+' | '-' | '!' | '~' | '++' | '--' | '*' | '/' | '%' | '<<' | '>>' | '>>>' | '|' | '&' | '^' | '==' | '!=' | '<' | '<=' | '>' | '>=' | 'false' | 'true' | 'is') parameter_list (block | (arrow_expression_clause NL))
     ;
   
 base_type_declaration
@@ -166,27 +175,27 @@ type_declaration
     ;
 
 shader_declaration
-     : attribute_list* modifier* SHADER identifier_token type_parameter_list? parameter_list? base_list? type_parameter_constraint_clause* ('{' NL* member_declaration* NL* '}')? NL
+     : (attribute_list NL*)* modifier* SHADER identifier_token type_parameter_list? parameter_list? base_list? type_parameter_constraint_clause* ('{' NL* member_declaration* NL* '}')? NL
      ;
 
 struct_declaration
-     : attribute_list* modifier* STRUCT identifier_token type_parameter_list? parameter_list? base_list? type_parameter_constraint_clause* ('{' NL* member_declaration* NL* '}')? NL
+     : (attribute_list NL*)* modifier* STRUCT identifier_token type_parameter_list? parameter_list? base_list? type_parameter_constraint_clause* ('{' NL* member_declaration* NL* '}')? NL
      ;
 
 class_declaration
-     : attribute_list* modifier* CLASS identifier_token type_parameter_list? parameter_list? base_list? type_parameter_constraint_clause* ('{' NL* member_declaration* NL* '}')? NL
+     : (attribute_list NL*)* modifier* CLASS identifier_token type_parameter_list? parameter_list? base_list? type_parameter_constraint_clause* ('{' NL* member_declaration* NL* '}')? NL
      ;
 
 protocol_declaration
-    : attribute_list* modifier* PROTOCOL identifier_token type_parameter_list? parameter_list? base_list? type_parameter_constraint_clause* ('{' NL* member_declaration* NL* '}')? NL
+    : (attribute_list NL*)* modifier* PROTOCOL identifier_token type_parameter_list? parameter_list? base_list? type_parameter_constraint_clause* ('{' NL* member_declaration* NL* '}')? NL
     ;
 
 enum_declaration
-    : attribute_list* modifier* ENUM identifier_token base_list? '{' NL* (enum_member_declaration (',' NL* enum_member_declaration)*)? NL* '}' NL
+    : (attribute_list NL*)* modifier* ENUM identifier_token base_list? '{' NL* (enum_member_declaration (',' NL* enum_member_declaration)*)? NL* '}' NL
     ;
     
 enum_member_declaration
-    : attribute_list* modifier* identifier_token equals_value_clause?
+    : (attribute_list NL*)* modifier* identifier_token equals_value_clause?
     ;
 
 type_parameter_list
@@ -194,7 +203,7 @@ type_parameter_list
     ;
 
 type_parameter
-    : attribute_list* variance=(IN | OUT)? identifier_token
+    : (attribute_list NL*)* variance=(IN | OUT)? identifier_token
     ;
     
 type_parameter_constraint_clause
@@ -265,31 +274,31 @@ statement
     ;
 
 break_statement
-    : attribute_list* BREAK NL+
+    : (attribute_list NL*)* BREAK NL+
     ;
 
 continue_statement
-    : attribute_list* CONTINUE NL+
+    : (attribute_list NL*)* CONTINUE NL+
     ;
 
 repeat_statement
-    : attribute_list* REPEAT statement WHILE '(' expression ')' NL+
+    : (attribute_list NL*)* REPEAT statement WHILE '(' expression ')' NL+
     ;
     
 empty_statement
-    : attribute_list* NL+
+    : (attribute_list NL*)* NL+
     ;
     
 expression_statement
-    : attribute_list* expression NL+
+    : (attribute_list NL*)* expression NL+
     ;
 
 for_statement
-    : attribute_list* FOR '(' identifier_token IN expression ')' block
+    : (attribute_list NL*)* FOR '(' identifier_token IN expression ')' block
     ;
 
 if_statement
-    : attribute_list* IF '(' expression ')' block else_clause?
+    : (attribute_list NL*)* IF '(' expression ')' block else_clause?
     ;
 
 else_clause
@@ -297,27 +306,27 @@ else_clause
     ;
 
 return_statement
-    : attribute_list* RETURN expression? NL
+    : (attribute_list NL*)* RETURN expression? NL
     ;
 
 local_function_statement
-    : attribute_list* modifier* FUNC identifier_token type_parameter_list? parameter_list type_parameter_constraint_clause* (':' type)? (block | (arrow_expression_clause NL))
+    : (attribute_list NL*)* modifier* FUNC identifier_token type_parameter_list? parameter_list type_parameter_constraint_clause* (':' type)? (block | (arrow_expression_clause NL))
     ;
     
 local_declaration_statement
-    : attribute_list* USING? modifier* variable_declaration NL
+    : (attribute_list NL*)* USING? modifier* variable_declaration NL
     ;
     
 while_statement
-    : attribute_list* WHILE '(' expression ')' statement
+    : (attribute_list NL*)* WHILE '(' expression ')' statement
     ;
 
 using_statement
-    : attribute_list* USING '(' (variable_declaration | expression) ')' statement
+    : (attribute_list NL*)* USING '(' (variable_declaration | expression) ')' statement
     ;
 
 switch_statement
-  : attribute_list* SWITCH '('? expression ')'? '{' switch_section* '}'
+  : (attribute_list NL*)* SWITCH '('? expression ')'? '{' switch_section* '}'
   ;
 
 switch_section
