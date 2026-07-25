@@ -258,9 +258,14 @@ Raven/                            ✅ renamed — this layout is live
 ├── Vixen.Raven/                  # was Compiler/  — syntax, semantic, IR, GLSL + SPIR-V emit
 ├── Vixen.Raven.Tests/            # was Tests/     — sibling, per ADR-014
 ├── Vixen.Raven.Cli/              # was Cli/       — AssemblyName stays `raven`
-├── Library/                      # was Feed/ — the shipped .rvn standard library (PBR, math, etc.)
-└── docs/IMPLEMENTATION_PLAN.md   # Raven's own roadmap
+└── Library/                      # was Feed/ — the shipped .rvn standard library (PBR, math, etc.)
 ```
+
+Raven carries **no roadmap of its own**. Its `docs/IMPLEMENTATION_PLAN.md` was retired once every
+phase in it was complete; [07](07-raven-shader-pipeline.md) is the plan of record, and what was still
+open in that file is
+[§ I](07-raven-shader-pipeline.md#i-gaps-carried-over-from-ravens-retired-implementation-plan) there.
+Two roadmaps for one compiler is how they come to disagree.
 
 `Tools/SyntaxGenerator/` is not in this tree: the `Syntax.xml` generator is not
 Raven-specific and now lives at `Core/Vixen.Core.Syntax.Generator/`, alongside the tree

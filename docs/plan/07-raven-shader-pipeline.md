@@ -3,8 +3,13 @@
 Raven already exists at `Vixen/Raven` with a real front end: an ANTLR grammar (353-line lexer,
 484-line parser), a Roslyn-style green/red syntax tree generated from `Syntax.xml` (83 concrete + 18
 abstract node types), full trivia and spans, a diagnostics model, golden-file parse tests, and
-round-trip fidelity on the sample corpus. Its own `docs/IMPLEMENTATION_PLAN.md` marks Phases 0 and 1
-complete, with semantic analysis (Phase 2) as the next work.
+round-trip fidelity on the sample corpus.
+
+Raven's own `docs/IMPLEMENTATION_PLAN.md` — the roadmap that carried it from "syntax front end, ~70%
+wired" through to two working backends — has been **retired**. Its phases are all complete, this
+document is the plan of record, and two roadmaps for one compiler is how they come to disagree. What
+was still open in it is [§ I](#i-gaps-carried-over-from-ravens-retired-implementation-plan) below,
+verified against the code rather than copied across.
 
 Your brief says Raven finishes before engine work starts. This document specifies **the contract the
 engine requires from Raven**, so that "finished" has a precise definition, and opens with a consolidated
@@ -352,7 +357,7 @@ ClearCoat, Sheen, Hair, Subsurface, Transmission, Ibl, Lighting) · `Geometry/` 
 
 | | Addition |
 |---|---|
-| 🟡 | Extend the existing golden-tree and round-trip corpus to **the whole `Raven/Library` tree** — every shipped shader must round-trip byte-identically |
+| 🟡 | Extend the existing golden-tree and round-trip corpus to **the whole `Raven/Library` tree** — every shipped shader must round-trip byte-identically. Blocked on § I's four token-dropping nodes, which cannot round-trip as they stand |
 | 🟡 | `spirv-val` on every emitted module; golden `spirv-dis` disassembly snapshots so codegen changes are reviewable — ✅ both, plus the § C differential oracle |
 | 🟡 | Cross-compile every module through SPIRV-Cross to GLSL 450 / ESSL 300 / HLSL 60 / MSL / WGSL without error; GLSL/ESSL additionally through `glslang` |
 | 🟡 | **Numeric BRDF tests**: CPU ports of the shading functions compared against a GPU compute readback over a parameter sweep, agreeing to 1e-4. This is the test that catches "the shader is subtly wrong" |
@@ -375,6 +380,101 @@ Worth stating, because it is a net reduction against Raven's own roadmap:
   `shaderc` remains only as a test oracle.
 - **No Unity-style interaction-class compatibility** — the generated-binding shape is ours to choose
   (Q9).
+
+### I. Gaps carried over from Raven's retired implementation plan
+
+`Raven/docs/IMPLEMENTATION_PLAN.md` is gone; every phase in it was complete, and keeping a second
+roadmap alive is how two roadmaps come to disagree. These are the items that were still open in it,
+**each re-checked against the code** — a stale gap recorded in the plan of record is worse than none.
+Nothing here is engine-blocking except where marked.
+
+#### Syntax fidelity
+
+| | Gap |
+|---|---|
+| 🔴 | **Four nodes silently drop their tokens.** `RepeatStatementSyntax` has no `repeat`/`while` keywords or parens, `CastExpressionSyntax` no parens, `SelfExpressionSyntax`/`BaseExpressionSyntax` no keyword at all. Fix is the recipe every other node already follows: token slots in `Syntax.xml`, then wire the visitor |
+| 🟡 | **String interpolation** — needs lexer modes for embedded expressions. Nothing shipped uses it |
+| 🟡 | **Sized array types as type syntax** — `array_rank_specifier` is `[]`/`[,]` only, deliberately, so that `a[i]` is unambiguously element access. Consequence: no sized-array uniform, so § C's oracle cannot check `ArrayStride` against a second implementation |
+
+The first is worse than "loses a keyword", and it is verified rather than inherited. All four parse
+with **zero diagnostics** and reprint as something else:
+
+| Source | `ToFullString()` |
+|---|---|
+| `repeat { x += 1 } while (x < 4)` | `{ x += 1 }x < 4` |
+| `(int)b` | `intb` |
+| `self.b` | `.b` |
+| `base.b` | `.b` |
+
+The output is not merely different, it is **not Raven** — and `self` and `base` become
+indistinguishable from each other. None of the four is in the round-trip corpus, which is why nothing
+catches it. This blocks step 1 of [doc 18](18-raven-parser-migration.md) (a frozen corpus that omits
+them is not a safety net) and anything that reprints the tree: a formatter, a refactoring, or the
+shader graph's generated-source span mapping.
+
+#### Semantics and lowering
+
+| | Gap |
+|---|---|
+| 🔴 | **`m[i]` means a row in the IR and a column in both targets** — detailed below |
+| 🟡 | **`&&` and `\|\|` do not short-circuit.** They lower to `logicalAnd`/`logicalOr`, which evaluate both operands, as `?:` lowers to `select`. Sound for the side-effect-free expressions shaders are made of; wrong the moment the right operand is a guard (`i < n && data[i] > 0`) |
+| 🟡 | **Stream I/O declarations between stages** — no `stream` keyword; interstage data passes as entry-point parameters and returns |
+| 🟡 | **`Buffer<T>`-style resources** — the built-in named types are not generic, so there are no storage buffers. This is also why `DescriptorType.StorageBuffer` and `LayoutRule.Std430` exist in the reflection with nothing that produces them |
+| 🟡 | **Kept in the language but not lowered** — local functions, user-defined and conversion operators, indexers, destructors, patterns, `switch`, tuples (`RVN3001`/`RVN3002`). Each *is* implementable on a GPU, which is why they survived the pruning pass; they are simply not lowered |
+| ⚪ | **Flow analysis** — definite assignment and reachability. Dead-branch elimination landed in § B, but that is constant folding, not reachability |
+
+#### Backends
+
+| | Gap |
+|---|---|
+| 🟡 | **The compute stage** — both backends report `RVN4002`: it needs a workgroup size and nothing in the language declares one. `IrCapability.Compute` is reported but unusable, and [doc 06](06-rendering-pipeline.md)'s VFX compute path depends on it |
+| 🟡 | **Reading a whole struct out of a uniform block** (`RVN4002`, SPIR-V). Its laid-out type is a distinct type from the plain one, so it needs a member-by-member copy that is not built. Field-by-field reads — what lowering actually emits — are unaffected |
+| 🟡 | **A boolean in a uniform, or a boolean/aggregate as stage I/O** (`RVN4001`). `OpTypeBool` has no size and no memory layout. Reported rather than mis-emitted, but note the targets **disagree about what is legal**: GLSL hides it by giving a bool four bytes in a std140 block |
+| 🟡 | **Unsized arrays** (`RVN4001`) — legal only as a storage block's last member, which the IR cannot express |
+
+**The matrix indexing defect, concretely.** `IrIndexAccess.ResultType` and `Binder.BindElementAccess`
+both type `m[i]` as a vector of `Columns` lanes — a *row*. GLSL and SPIR-V both index a matrix by
+*column*. SPIR-V refuses to emit it (`RVN4002`), but **GLSL emits the wrong thing silently**: for
+`var m: mat2x3` it writes `vec3 _1 = m[0];` against a `mat3x2`, and `glslc` rejects it with
+
+```
+error: '=' : cannot convert from '… 2-component vector of float' to '… 3-component vector of float'
+```
+
+Verified today, so it is live rather than historical. Constructing a matrix from a flat run of scalars
+raises the same question — the IR documents rows, both backends fill columns — and there at least the
+two targets agree with each other. This is the concrete form of the ADR-003 wording problem flagged in
+§ D, and settling it is a **language decision** (HLSL indexes rows, GLSL columns) rather than an
+emitter fix. Two notes on how it should land: the § C differential oracle would have caught the GLSL
+side had a non-square matrix been in a fixture, and whichever convention wins, the *other* backend's
+`RVN4002` refusal should become an emitted lowering rather than staying a refusal.
+
+#### Superseded rather than carried
+
+Recorded so nobody reintroduces them from the retired file's Phase 7:
+
+- **HLSL and Metal emitters** → § C: not required, SPIRV-Cross covers them (ADR-012).
+- **A shader package manager** → § H: `.rvnlib` references plus addressable content.
+- **ANTLR as the end-state parser** → [doc 18](18-raven-parser-migration.md).
+- **Interaction classes** → § D, engine-side as `Vixen.Shaders.Generators`.
+- **Raven's own `.github/workflows/ci.yml`** — it did not survive the merge into the monorepo, which
+  has no workflows at all yet. [Doc 12](12-build-ci-and-testing.md) specifies them.
+
+#### Design deviations worth keeping
+
+Not gaps — decisions that make the code deliberately unlike Roslyn, recorded so they are not
+"corrected" by someone who assumes they were oversights:
+
+- **Tokens are a class, not a value type.** Red `SyntaxToken` derives from `SyntaxNode` and wraps a
+  green token, so traversal, `GetSlot` and the tree dumper work uniformly over tokens and nodes.
+  Roslyn's value-type token avoids allocation at a scale Raven does not operate at.
+- **Symbols are an abstract class hierarchy, not `ISymbol` over internal implementations.** Roslyn's
+  split exists to keep its model private across assembly boundaries; Raven is one compiler assembly,
+  so the split would double the public surface for nothing. Interfaces stay a mechanical wrapper if
+  the API ever needs them.
+- **The IR is SSA pre-mem2reg.** Instructions are SSA; locals stay in memory behind explicit loads and
+  stores, which is what both target families want to consume. A mem2reg pass can promote to registers
+  later if a backend prefers them.
 
 ---
 

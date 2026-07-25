@@ -172,6 +172,13 @@ The green/red tree, `Syntax.xml`, the generator, binding, lowering, IR and both 
 1. **Freeze the corpus first.** Extend the golden-tree and round-trip fixtures until every construct in
    the grammar and every file in `Raven/Library/` is covered. This is the safety net, and it is worth
    doing even if the migration never happens.
+
+   **This step has a prerequisite.** Four nodes do not carry their own tokens, so they cannot go into a
+   round-trip corpus as they stand: `repeat`/`while`, a cast's parens, and the `self`/`base` keywords
+   are all dropped, silently and with no diagnostic — see
+   [07 § I](07-raven-shader-pipeline.md#i-gaps-carried-over-from-ravens-retired-implementation-plan).
+   A frozen corpus that omits them is not a safety net, and it would let the migration "preserve"
+   behaviour that is already wrong.
 2. **`SlidingTextWindow` + `RavenLexer`.** Test against the ANTLR lexer: for every corpus file, both
    must produce the same token sequence — kinds, text, trivia. A token-stream differential is a cheap,
    total check.
