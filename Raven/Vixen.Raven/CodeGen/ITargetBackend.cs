@@ -51,7 +51,7 @@ public interface ITargetBackend {
     ///     express through <paramref name="diagnostics" /> rather than emitting
     ///     something that does not compile.
     /// </summary>
-    IReadOnlyList<GeneratedSource> Generate(IrModule module, DiagnosticBag diagnostics);
+    IReadOnlyList<GeneratedSource> Generate(IrModule irModule, DiagnosticBag diagnostics);
 }
 
 /// <summary>The backends this compiler knows about.</summary>

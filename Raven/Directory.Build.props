@@ -1,64 +1,41 @@
 <Project>
 
-  <!-- Inherit the repository-wide policy first. -->
+  <!-- Inherit the repository-wide policy. -->
   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
 
   <!--
-    ==========================================================================
-    TRACKED ANALYZER DEBT — scoped per project, burn down and delete.
-    ==========================================================================
-    The repository sets TreatWarningsAsErrors=true with AnalysisLevel
-    latest-recommended (docs/plan/00 § Non-negotiables). Raven predates that
-    policy. Rather than weakening the repository rule or masking rules
-    repo-wide, each pre-existing violation is suppressed in the narrowest
-    scope that clears it — so any *new* violation, in any other rule or any
-    other project, still fails the build.
+    Raven adds nothing to the repository policy and suppresses nothing.
 
-    Verified state at the time this was written:
-      Vixen.Raven               2 suppressions
-      Vixen.Raven.Tests         2 suppressions
-      Vixen.Raven.Cli           clean
-      Vixen.Raven.SyntaxGenerator  36 violations, 6 CA rules  ← the only real debt
+    Everything this file previously carried has been fixed at the source rather
+    than silenced:
+
+      CA1051 (27)  public fields in the SyntaxGenerator XML model → properties
+      CA1822 (5)   members that never read instance state → static
+      CA1051 (4)   ANTLR lexer-base fields → private protected
+      CA1512 (2)   → ArgumentOutOfRangeException.ThrowIfNegative/ThrowIfLessThan
+      CA1036 (2)   IComparable types → comparison operators
+      CA1716 (1)   `module` parameter → `irModule`, propagated to implementations
+      CA1725 (1)   parameter name aligned with the overridden member
+      CA1816 (1)   Dispose → GC.SuppressFinalize
+      CA2000 (1)   StringBuilderReader → using
+      CA1847/1820  string.Contains(char), string.Length
+      CA1050 (1)   generator entry point → namespace SyntaxGenerator
+      RS2008 (3)   → AnalyzerReleases.{Shipped,Unshipped}.md
+      CS8602 (2)   → Assert.IsType/IsAssignableFrom instead of `as` + dereference
+      CS9113 (1)   unused ITestOutputHelper parameter removed
+      NU1903, CS3021, CA1852, CA1859 — no longer reported at all
+
+    Three rules are excluded by name in the repository .editorconfig, each with a
+    written reason: CA1707 (test naming), CA1720 (shader type names), and the
+    CA1002/CA2227/CA1819 trio imposed by XmlSerializer on the generator's DTOs.
+
+    One warning is knowingly left standing:
+
+      AC0125  RavenParser2.g4 implicitly defines token 'MAT4X4' in the parser
+              rather than the lexer. It comes from the ANTLR tool, not the C#
+              compiler, so TreatWarningsAsErrors does not escalate it. Fixing it
+              means declaring MAT4X4 in RavenLexer2.g4 — a grammar change, and
+              therefore a language decision rather than a build-hygiene one.
   -->
-
-  <!-- Vixen.Raven: third-party generated-code noise, not our logic. -->
-  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Vixen.Raven'">
-    <!-- NU1903: transitive vulnerability advisory reached through the ANTLR chain.
-         CS3021: ANTLR-generated lexer/parser carry [CLSCompliant] attributes the
-                 assembly does not need. -->
-    <NoWarn>$(NoWarn);NU1903;CS3021</NoWarn>
-  </PropertyGroup>
-
-  <!-- Vixen.Raven.Tests: two genuine but trivial fixes in ParserTests.cs. -->
-  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Vixen.Raven.Tests'">
-    <!-- CS8602: possible null dereference — ParserTests.cs:48
-         CS9113: unread primary-constructor parameter 'log' — ParserTests.cs:9
-         Both are one-line fixes; remove this block when done. -->
-    <NoWarn>$(NoWarn);CS8602;CS9113</NoWarn>
-  </PropertyGroup>
-
-  <!--
-    Vixen.Raven.SyntaxGenerator: the one project with real analyzer debt (36 violations).
-    It is held to the analyzer *default* set rather than latest-recommended
-    until cleaned. This is deliberately a lower bar for one project, not a
-    repo-wide relaxation.
-
-    To burn down: set AnalysisLevel back to inherit, then fix in this order —
-      CA1051 (54)  public instance fields in Model/*.cs → properties or a record
-      CA1859 (6)   IDictionary fields → Dictionary
-      CA1822 (6)   instance members that do not touch state → static
-      CA1852 (2)   internal types with no subtypes → sealed
-      CA1847 (2)   string.Contains("x") → string.Contains('x')
-      CA1050 (2)   SourceGenerator.cs declares a type outside a namespace
-    None affect behaviour; all are mechanical.
-  -->
-  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Vixen.Raven.SyntaxGenerator'">
-    <AnalysisLevel>latest-default</AnalysisLevel>
-    <!-- RS2008: analyzer release tracking. Real fix is to add
-                 AnalyzerReleases.Shipped.md / AnalyzerReleases.Unshipped.md.
-         CA1852/CA1859: escalated to warning repo-wide by .editorconfig, so
-                 latest-default does not clear them here. -->
-    <NoWarn>$(NoWarn);RS2008;CA1852;CA1859</NoWarn>
-  </PropertyGroup>
 
 </Project>

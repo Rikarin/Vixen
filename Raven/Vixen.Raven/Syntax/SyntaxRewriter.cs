@@ -7,7 +7,7 @@ public partial class SyntaxRewriter {
     // }
 
 
-    public SyntaxList<TNode> VisitList<TNode>(SyntaxList<TNode> list) where TNode : SyntaxNode =>
+    public static SyntaxList<TNode> VisitList<TNode>(SyntaxList<TNode> list) where TNode : SyntaxNode =>
         // TODO: review how to implement this
         // SyntaxListBuilder alternate = null;
         // List<SyntaxNode>? alternate = null;

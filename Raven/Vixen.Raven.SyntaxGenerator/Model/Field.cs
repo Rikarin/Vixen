@@ -4,23 +4,23 @@ using System.Xml.Serialization;
 namespace SyntaxGenerator.Model;
 
 public class Field : TreeTypeChild {
-    [XmlAttribute] public string Name;
+    [XmlAttribute] public string Name { get; set; }
 
-    [XmlAttribute] public string Type;
+    [XmlAttribute] public string Type { get; set; }
 
-    [XmlAttribute] public string Optional;
+    [XmlAttribute] public string Optional { get; set; }
 
-    [XmlAttribute] public string Override;
+    [XmlAttribute] public string Override { get; set; }
 
-    [XmlAttribute] public string New;
+    [XmlAttribute] public string New { get; set; }
 
-    [XmlAttribute] public int MinCount;
+    [XmlAttribute] public int MinCount { get; set; }
 
-    [XmlAttribute] public bool AllowTrailingSeparator;
+    [XmlAttribute] public bool AllowTrailingSeparator { get; set; }
 
-    [XmlElement(ElementName = "Kind", Type = typeof(Kind))] public List<Kind> Kinds = [];
+    [XmlElement(ElementName = "Kind", Type = typeof(Kind))] public List<Kind> Kinds { get; set; } = [];
 
-    [XmlElement] public Comment PropertyComment;
+    [XmlElement] public Comment PropertyComment { get; set; }
 
     public bool IsToken => Type == "SyntaxToken";
     public bool IsOptional => string.Equals(Optional, "true", StringComparison.OrdinalIgnoreCase);

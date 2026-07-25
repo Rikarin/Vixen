@@ -131,7 +131,7 @@ abstract class AbstractFileWriter {
     }
 
     protected static string GetElementType(string typeName) {
-        if (!typeName.Contains("<")) {
+        if (!typeName.Contains('<')) {
             return string.Empty;
         }
 
@@ -180,7 +180,7 @@ abstract class AbstractFileWriter {
     protected void WriteLine(string msg = "") {
         CancellationToken.ThrowIfCancellationRequested();
 
-        if (msg != "") {
+        if (msg.Length != 0) {
             WriteIndentIfNeeded();
         }
 
@@ -193,16 +193,16 @@ abstract class AbstractFileWriter {
         needIndent = true; // need an indent after each line break
     }
 
-    protected string CommaJoin(params object[] values) => Join(", ", values);
+    protected static string CommaJoin(params object[] values) => Join(", ", values);
 
-    protected string Join(string separator, params object[] values) =>
+    protected static string Join(string separator, params object[] values) =>
         string.Join(
             separator,
             values.SelectMany(v => (v switch {
                     string s => [s],
                     IEnumerable<string> ss => ss,
                     _ => throw new InvalidOperationException("Join must be passed strings or collections of strings")
-                }).Where(s => s != "")
+                }).Where(s => s.Length != 0)
             )
         );
 

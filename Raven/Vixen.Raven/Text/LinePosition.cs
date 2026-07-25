@@ -5,6 +5,11 @@ namespace Vixen.Raven.Text;
 ///     counts UTF-16 code units from the start of the line.
 /// </summary>
 public readonly record struct LinePosition(int Line, int Character) : IComparable<LinePosition> {
+    public static bool operator <(LinePosition left, LinePosition right) => left.CompareTo(right) < 0;
+    public static bool operator <=(LinePosition left, LinePosition right) => left.CompareTo(right) <= 0;
+    public static bool operator >(LinePosition left, LinePosition right) => left.CompareTo(right) > 0;
+    public static bool operator >=(LinePosition left, LinePosition right) => left.CompareTo(right) >= 0;
+
     public int CompareTo(LinePosition other) {
         var diff = Line - other.Line;
         return diff != 0 ? diff : Character - other.Character;

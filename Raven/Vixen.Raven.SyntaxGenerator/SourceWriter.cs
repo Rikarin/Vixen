@@ -61,7 +61,7 @@ class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancellationT
 
     bool CanBeAutoCreated(Node node, Field field) => IsAutoCreatableToken(node, field) || IsAutoCreatableNode(field);
 
-    bool IsAutoCreatableToken(Node node, Field field) =>
+    static bool IsAutoCreatableToken(Node node, Field field) =>
         field is { Type: "SyntaxToken", Kinds: not null }
         && ((field.Kinds.Count == 1
                 && field.Kinds[0].Name != "IdentifierToken"
@@ -796,7 +796,7 @@ class SourceWriter(TextWriter writer, Tree tree, CancellationToken cancellationT
     }
 
     // Abstract nodes rooted at the red SyntaxNode are rooted at GreenNode instead.
-    string GreenBaseName(string baseName) => baseName == "SyntaxNode" ? "GreenNode" : baseName;
+    static string GreenBaseName(string baseName) => baseName == "SyntaxNode" ? "GreenNode" : baseName;
 
     void WriteInternalType(TreeType node) {
         if (node is AbstractNode an) {

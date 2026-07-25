@@ -4,21 +4,9 @@
 	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003AArgumentOutOfRangeException_002Ecs_002Fl_003A_002E_002E_003F_002E_002E_003F_002E_002E_003FLibrary_003FApplication_0020Support_003FJetBrains_003FRider2024_002E2_003Fresharper_002Dhost_003FSourcesCache_003F31e72e62776b9d98691e517c21aff97687f39e03d37be35513da2b6183dedf5_003FArgumentOutOfRangeException_002Ecs/@EntryIndexedValue">ForceIncluded</s:String>
 	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003AEnumerable_002Ecs_002Fl_003A_002E_002E_003F_002E_002E_003F_002E_002E_003FLibrary_003FApplication_0020Support_003FJetBrains_003FRider2024_002E2_003Fresharper_002Dhost_003FDecompilerCache_003Fdecompiler_003Fecfd768dc16d4bba8915b9c970fed95a8118_003Fe1_003F4ea06751_003FEnumerable_002Ecs/@EntryIndexedValue">ForceIncluded</s:String>
 	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003AParserRuleContext_002Ecs_002Fl_003A_002E_002E_003F_002E_002E_003F_002E_002E_003FLibrary_003FApplication_0020Support_003FJetBrains_003FRider2024_002E2_003Fresharper_002Dhost_003FDecompilerCache_003Fdecompiler_003Ffd9722470dec41f1a857a84e3978f5b534200_003F2b_003F77f51597_003FParserRuleContext_002Ecs/@EntryIndexedValue">ForceIncluded</s:String>
-	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=21514236_002D5c6a_002D4c08_002D98b0_002Ddec881c15e2d/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" Name="TestAntlrParser" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;
-  &lt;TestAncestor&gt;
-    &lt;TestId&gt;xUnit::6022BEBC-D9F5-4F71-A003-20EA824FAA34::net8.0::Tests.ParserTests.TestAntlrParser&lt;/TestId&gt;
-    &lt;TestId&gt;xUnit::6022BEBC-D9F5-4F71-A003-20EA824FAA34::net8.0::Tests.ParserTests.Test_SyntaxTree&lt;/TestId&gt;
-  &lt;/TestAncestor&gt;
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=894d5848_002Daa1d_002D4d4d_002Da94c_002Db925c6ff0a05/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="All tests from Solution" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;
+  &lt;Solution /&gt;
 &lt;/SessionState&gt;</s:String>
-	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=58c56b00_002Df81e_002D48fd_002Da74f_002Dc8e84271fcf4/@EntryIndexedValue">&lt;SessionState ContinuousTestingIsOn="True" ContinuousTestingMode="3" IsActive="True" Name="Continuous Testing" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;
-  &lt;And&gt;
-    &lt;TestAncestor&gt;
-      &lt;TestId&gt;xUnit::6022BEBC-D9F5-4F71-A003-20EA824FAA34::net8.0::Tests.ParserTests.TestAntlrParser&lt;/TestId&gt;
-      &lt;TestId&gt;xUnit::6022BEBC-D9F5-4F71-A003-20EA824FAA34::net8.0::Tests.ParserTests.Test_SyntaxTree&lt;/TestId&gt;
-    &lt;/TestAncestor&gt;
-    &lt;TestAncestor&gt;
-      &lt;TestId&gt;xUnit::6022BEBC-D9F5-4F71-A003-20EA824FAA34::net8.0::Tests.ParserTests.Test_SyntaxTree&lt;/TestId&gt;
-    &lt;/TestAncestor&gt;
-  &lt;/And&gt;
-&lt;/SessionState&gt;</s:String>
+	
+	
 	</wpf:ResourceDictionary>

@@ -8,5 +8,5 @@ public class Sequence : TreeTypeChild {
     // child choice can just be inlined into the parent.
     [XmlElement(ElementName = "Field", Type = typeof(Field))]
     [XmlElement(ElementName = "Choice", Type = typeof(Choice))]
-    public List<TreeTypeChild> Children;
+    public List<TreeTypeChild> Children { get; set; }
 }

@@ -5,7 +5,7 @@ using Xunit;
 
 namespace Tests;
 
-public class ParserTests(ITestOutputHelper log) {
+public class ParserTests {
     [Fact]
     void TestAntlrParser() {
         var stream = new AntlrInputStream(File.ReadAllText("../../../../Library/Example1.rvn"));
@@ -43,8 +43,8 @@ public class ParserTests(ITestOutputHelper log) {
         var root = tree.GetRoot();
         var compilationUnit = Assert.IsType<CompilationUnitSyntax>(root);
 
-        var name = compilationUnit.Package.PackageName as QualifiedNameSyntax;
-        Assert.Equal("Vixen", (name.Left as SimpleNameSyntax).Identifier.Text);
+        var name = Assert.IsType<QualifiedNameSyntax>(compilationUnit.Package.PackageName);
+        Assert.Equal("Vixen", Assert.IsAssignableFrom<SimpleNameSyntax>(name.Left).Identifier.Text);
         Assert.Equal("Test", name.Right.Identifier.Text);
 
         Assert.Equal(2, compilationUnit.Imports.Count);

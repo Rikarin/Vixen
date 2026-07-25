@@ -8,7 +8,7 @@ public class Choice : TreeTypeChild {
     // choice can just be inlined into the parent.
     [XmlElement(ElementName = "Field", Type = typeof(Field))]
     [XmlElement(ElementName = "Sequence", Type = typeof(Sequence))]
-    public List<TreeTypeChild> Children;
+    public List<TreeTypeChild> Children { get; set; }
 
-    [XmlAttribute] public bool Optional;
+    [XmlAttribute] public bool Optional { get; set; }
 }

@@ -6,6 +6,8 @@ using System.Text;
 using System.Xml;
 using System.Xml.Serialization;
 
+namespace SyntaxGenerator;
+
 [Generator]
 public class SourceGenerator : IIncrementalGenerator {
     static readonly DiagnosticDescriptor MissingSyntaxXml = new(
@@ -114,11 +116,8 @@ public class SourceGenerator : IIncrementalGenerator {
             }
 
             // And create a SourceText from the StringBuilder, once again avoiding allocating a single massive string
-            var sourceText = SourceText.From(
-                new StringBuilderReader(stringBuilder),
-                stringBuilder.Length,
-                Encoding.UTF8
-            );
+            using var stringBuilderReader = new StringBuilderReader(stringBuilder);
+            var sourceText = SourceText.From(stringBuilderReader, stringBuilder.Length, Encoding.UTF8);
             context.AddSource(hintName, sourceText);
         }
     }

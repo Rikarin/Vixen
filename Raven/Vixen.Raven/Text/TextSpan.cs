@@ -5,6 +5,11 @@ namespace Vixen.Raven.Text;
 ///     measured in characters. The primary currency for spans and diagnostics.
 /// </summary>
 public readonly record struct TextSpan(int Start, int Length) : IComparable<TextSpan> {
+    public static bool operator <(TextSpan left, TextSpan right) => left.CompareTo(right) < 0;
+    public static bool operator <=(TextSpan left, TextSpan right) => left.CompareTo(right) <= 0;
+    public static bool operator >(TextSpan left, TextSpan right) => left.CompareTo(right) > 0;
+    public static bool operator >=(TextSpan left, TextSpan right) => left.CompareTo(right) >= 0;
+
     public int End => Start + Length;
     public bool IsEmpty => Length == 0;
 
@@ -15,13 +20,8 @@ public readonly record struct TextSpan(int Start, int Length) : IComparable<Text
     public bool OverlapsWith(TextSpan other) => Math.Max(Start, other.Start) < Math.Min(End, other.End);
 
     public static TextSpan FromBounds(int start, int end) {
-        if (start < 0) {
-            throw new ArgumentOutOfRangeException(nameof(start));
-        }
-
-        if (end < start) {
-            throw new ArgumentOutOfRangeException(nameof(end));
-        }
+        ArgumentOutOfRangeException.ThrowIfNegative(start);
+        ArgumentOutOfRangeException.ThrowIfLessThan(end, start);
 
         return new(start, end - start);
     }

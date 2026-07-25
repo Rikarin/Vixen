@@ -6,5 +6,5 @@ namespace SyntaxGenerator.Model;
 #nullable disable
 
 public class Comment {
-    [XmlAnyElement] public XmlElement[] Body;
+    [XmlAnyElement] public XmlElement[] Body { get; set; }
 }

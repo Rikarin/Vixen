@@ -15,10 +15,10 @@ public sealed class GlslBackend(GlslOptions? options = null) : ITargetBackend {
 
     public string FileExtension => ".glsl";
 
-    public IReadOnlyList<GeneratedSource> Generate(IrModule module, DiagnosticBag diagnostics) {
+    public IReadOnlyList<GeneratedSource> Generate(IrModule irModule, DiagnosticBag diagnostics) {
         List<GeneratedSource> generated = [];
 
-        foreach (var shader in module.Shaders) {
+        foreach (var shader in irModule.Shaders) {
             // A property of the shader, not of any one stage, so it is said once
             // however many translation units come out of it.
             foreach (var sampler in shader.Bindings.Where(b => b.Kind == IrBindingKind.Sampler)) {
@@ -38,7 +38,7 @@ public sealed class GlslBackend(GlslOptions? options = null) : ITargetBackend {
                     continue;
                 }
 
-                var emitter = new GlslEmitter(module, shader, entryPoint, options, diagnostics);
+                var emitter = new GlslEmitter(irModule, shader, entryPoint, options, diagnostics);
                 generated.Add(new($"{shader.Name}.{StageSuffix(entryPoint.Stage)}", entryPoint.Stage, emitter.Emit()));
             }
         }

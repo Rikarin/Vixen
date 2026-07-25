@@ -52,7 +52,7 @@ These are checked by CI, not by good intentions. See [12-build-ci-and-testing.md
 | Public API is deliberate | `PublicApiAnalyzers` with checked-in `PublicAPI.Shipped.txt` per package; API changes are a reviewed diff |
 | Determinism | Deterministic builds, `ContinuousIntegrationBuild`, fixed-seed simulation tests, content hashes reproducible across OS |
 | Every subsystem has tests | xunit v3 + NSubstitute + Shouldly; coverage floor per project in the Nuke `Test` target |
-| Warnings are errors | `TreatWarningsAsErrors`, `AnalysisLevel=latest-all`, nullable enabled everywhere, no `#pragma warning disable` without a linked issue |
+| Warnings are errors | `TreatWarningsAsErrors`, **`AnalysisLevel=latest-recommended`**, nullable enabled everywhere, no `#pragma warning disable` without a linked issue. *Corrected from `latest-all`, which was aspirational: measured against Raven it adds 49 findings dominated by API-design rules that are wrong for a compiler — enum zero-values that must mirror the SPIR-V spec, `ushort` enums chosen for memory, type names that collide with BCL namespaces. Rules that conflict with a deliberate decision are disabled **by name with a written reason** in `.editorconfig`; the level itself is never lowered.* |
 
 ## Layer discipline
 

@@ -19,6 +19,8 @@ public class CliTests : IDisposable {
     }
 
     public void Dispose() {
+        GC.SuppressFinalize(this);
+
         if (Directory.Exists(directory)) {
             Directory.Delete(directory, true);
         }

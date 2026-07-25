@@ -37,7 +37,6 @@ csharp_style_prefer_readonly_struct_member = true:suggestion
 csharp_prefer_static_local_function = true:suggestion
 csharp_prefer_static_anonymous_function = true:suggestion
 dotnet_style_readonly_field = true:warning
-dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
 dotnet_style_prefer_conditional_expression_over_assignment = true:silent
 dotnet_style_namespace_match_folder = true:suggestion
 
@@ -100,3 +99,47 @@ dotnet_diagnostic.IL3050.severity = error
 [**/*.Tests/**/*.cs]
 dotnet_diagnostic.CA1852.severity = none
 dotnet_diagnostic.CA1859.severity = none
+
+# ==============================================================================
+# Rules disabled by name under AnalysisLevel=latest-all.
+# Each needs a reason. Prefer fixing code over adding to this list.
+# ==============================================================================
+
+[*.cs]
+# CA1720 — identifier contains a type name.
+# Raven is a compiler for a shading language whose own type names are `int`,
+# `uint`, `float`, `double`, `string`. `SpecialType.Float`, `IrType.Double` and
+# friends are the domain vocabulary; renaming them to satisfy a .NET API-naming
+# rule would make the compiler harder to read, not easier. 19 findings.
+dotnet_diagnostic.CA1720.severity = none
+
+# CA1062 — validate arguments of public methods.
+# An engine cannot afford a null check on every public entry point: these sit in
+# frame-loop hot paths, and the "zero allocation / no overhead in the frame loop"
+# rule (docs/plan/00) outranks defensive validation. Nullable reference types are
+# the mechanism we rely on instead, enforced at compile time rather than runtime.
+dotnet_diagnostic.CA1062.severity = none
+
+# ------------------------------------------------------------------------------
+# Raven's SyntaxGenerator: XmlSerializer DTOs for Syntax.xml.
+# XmlSerializer dictates the shape of these types — it requires public types,
+# needs settable List<T> properties to populate collections, and needs a real
+# array for [XmlAnyElement]. The rules below all describe good *public API*
+# design, which is not what these types are: nothing consumes this assembly's
+# API (it is referenced as an analyzer with ReferenceOutputAssembly=false).
+# ------------------------------------------------------------------------------
+[Raven/Vixen.Raven.SyntaxGenerator/**.cs]
+dotnet_diagnostic.CA1002.severity = none   # List<T> in API — XmlSerializer collection contract
+dotnet_diagnostic.CA2227.severity = none   # settable collection — XmlSerializer assigns it
+dotnet_diagnostic.CA1819.severity = none   # XmlElement[] — required by [XmlAnyElement]
+
+# ------------------------------------------------------------------------------
+# Test projects.
+# ------------------------------------------------------------------------------
+[**/*.Tests/**.cs]
+# CA1707 — identifiers should not contain underscores.
+# docs/plan/12 mandates `MethodOrScenario_Condition_ExpectedResult` test naming.
+# The rule and our own standard are in direct conflict, and the standard wins:
+# it is the dominant xunit convention and it makes failure output readable.
+# 250 findings — this single rule was 88% of everything latest-recommended found.
+dotnet_diagnostic.CA1707.severity = none

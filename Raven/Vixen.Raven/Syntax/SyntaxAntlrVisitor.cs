@@ -1218,12 +1218,12 @@ public class SyntaxAntlrVisitor : RavenParser2BaseVisitor<SyntaxNode> {
         );
     }
 
-    public override SyntaxNode VisitLocal_declaration_statement(RavenParser2.Local_declaration_statementContext ctx) {
-        var attributes = SyntaxList.List(ctx.attribute_list().Select(Visit).ToArray());
-        var @using = ctx.USING() != null ? SyntaxFactory.Token(SyntaxKind.UsingKeyword) : null;
-        var modifiers = ctx.modifier().Select(Visit).ToArray();
-        var declaration = ctx.variable_declaration() != null
-            ? Visit(ctx.variable_declaration()) as VariableDeclarationSyntax
+    public override SyntaxNode VisitLocal_declaration_statement(RavenParser2.Local_declaration_statementContext context) {
+        var attributes = SyntaxList.List(context.attribute_list().Select(Visit).ToArray());
+        var @using = context.USING() != null ? SyntaxFactory.Token(SyntaxKind.UsingKeyword) : null;
+        var modifiers = context.modifier().Select(Visit).ToArray();
+        var declaration = context.variable_declaration() != null
+            ? Visit(context.variable_declaration()) as VariableDeclarationSyntax
             : null;
 
         return SyntaxFactory.LocalDeclarationStatement(

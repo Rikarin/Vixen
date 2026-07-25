@@ -4,11 +4,11 @@ using System.Xml.Serialization;
 namespace SyntaxGenerator.Model;
 
 public class Node : TreeType {
-    [XmlAttribute] public string Root;
+    [XmlAttribute] public string Root { get; set; }
 
-    [XmlAttribute] public string Errors;
+    [XmlAttribute] public string Errors { get; set; }
 
-    [XmlElement(ElementName = "Kind", Type = typeof(Kind))] public List<Kind> Kinds = [];
+    [XmlElement(ElementName = "Kind", Type = typeof(Kind))] public List<Kind> Kinds { get; set; } = [];
 
-    public readonly List<Field> Fields = [];
+    public List<Field> Fields { get; } = [];
 }

@@ -127,7 +127,7 @@ public abstract partial class Binder {
         Report(SemanticDiagnostics.NoApplicableOverload, syntax, name, signature);
     }
 
-    bool TryMapArguments(
+    static bool TryMapArguments(
         MethodSymbol method,
         IReadOnlyList<BoundArgument> arguments,
         SyntaxNode syntax,
@@ -376,7 +376,7 @@ public abstract partial class Binder {
         return result;
     }
 
-    bool TryMapIndexerArguments(
+    static bool TryMapIndexerArguments(
         PropertySymbol indexer,
         IReadOnlyList<BoundArgument> arguments,
         out BoundExpression[] mapped

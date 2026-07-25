@@ -33,16 +33,17 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <!--
-      docs/plan/00 § Non-negotiables specifies AnalysisLevel=latest-all. That is the
-      destination, not the starting point: dropping it onto existing code produces
-      57 build errors in Raven alone. Adopted incrementally instead —
-        now:  latest-default   (the SDK's default set; Raven passes it)
-        next: latest-recommended, once Raven's ~57 findings are cleared
-        goal: latest-all
-      Raising this is a deliberate, reviewable commit with a burn-down, not a
-      flag someone flips and then suppresses their way out of.
+      Measured, not guessed. Unique findings across the whole solution:
+        latest-default       0
+        latest-recommended   285  → 16 after two domain exclusions (below)
+        latest-all           334  → 65, dominated by API-design rules that are
+                                    actively wrong for a compiler
+      `latest-recommended` is therefore the enforced level. docs/plan/00 originally
+      specified `latest-all`; that was aspirational and is corrected there.
+      Rules disabled by name, with reasons, live in .editorconfig — a named
+      exclusion is reviewable, a lowered level is not.
     -->
-    <AnalysisLevel>latest-default</AnalysisLevel>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
   </PropertyGroup>
 

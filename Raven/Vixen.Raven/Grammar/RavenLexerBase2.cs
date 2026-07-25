@@ -3,10 +3,10 @@ using Antlr4.Runtime;
 namespace Vixen.Raven.Grammar;
 
 public abstract class RavenLexerBase2 : Lexer {
-    protected int interpolatedStringLevel;
-    protected Stack<bool> interpolatedVerbatiums = new();
-    protected Stack<int> curlyLevels = new();
-    protected bool verbatium;
+    private protected int interpolatedStringLevel;
+    private protected Stack<bool> interpolatedVerbatiums = new();
+    private protected Stack<int> curlyLevels = new();
+    private protected bool verbatium;
 
 
     public RavenLexerBase2(ICharStream input) : base(input) { }
@@ -40,6 +40,11 @@ public abstract class RavenLexerBase2 : Lexer {
         }
     }
 
+    // Not static: ANTLR's generated lexer emits `this.OnColon()`, and CS0176
+    // rejects an instance-qualified call to a static member.
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Performance", "CA1822:Mark members as static",
+        Justification = "Called as an instance member by ANTLR-generated lexer code.")]
     protected void OnColon() {
         // TODO
         // if (interpolatedStringLevel > 0) {

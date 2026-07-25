@@ -20,10 +20,10 @@ public sealed class SpirvBackend(SpirvOptions? options = null) : ITargetBackend 
 
     public string FileExtension => ".spv";
 
-    public IReadOnlyList<GeneratedSource> Generate(IrModule module, DiagnosticBag diagnostics) {
+    public IReadOnlyList<GeneratedSource> Generate(IrModule irModule, DiagnosticBag diagnostics) {
         List<GeneratedSource> generated = [];
 
-        foreach (var shader in module.Shaders) {
+        foreach (var shader in irModule.Shaders) {
             if (shader.Initializer.Statements.Count > 0) {
                 // A descriptor-backed variable cannot carry an initializer, so a
                 // binding's declared default stays host-side data. Said once per
@@ -44,7 +44,7 @@ public sealed class SpirvBackend(SpirvOptions? options = null) : ITargetBackend 
                     continue;
                 }
 
-                var built = new SpirvEmitter(module, shader, entryPoint, options, diagnostics).Emit();
+                var built = new SpirvEmitter(irModule, shader, entryPoint, options, diagnostics).Emit();
 
                 generated.Add(
                     new(
