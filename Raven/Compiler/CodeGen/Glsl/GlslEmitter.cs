@@ -100,13 +100,8 @@ sealed class GlslEmitter {
         var uniforms = shader.Bindings.Where(b => b.Kind == IrBindingKind.Uniform).ToArray();
         var textures = shader.Bindings.Where(b => b.Kind == IrBindingKind.Texture).ToArray();
 
-        foreach (var sampler in shader.Bindings.Where(b => b.Kind == IrBindingKind.Sampler)) {
-            diagnostics.Add(
-                BackendDiagnostics.Dropped,
-                Location.None,
-                $"GLSL has no standalone sampler object, so binding '{sampler.Name}' is folded into the "
-                + "textures it is used with");
-        }
+        // Sampler bindings emit nothing — GlslBackend says so once per shader,
+        // rather than once per stage.
 
         // A uniform block and the textures share one binding space; the block
         // takes slot 0 so the textures keep a stable order after it.

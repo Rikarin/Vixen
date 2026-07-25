@@ -34,7 +34,7 @@ These were chosen deliberately and shape the whole plan:
 | IR (target-independent) | Done in Phase 3 — see below |
 | Code generation — GLSL | Done in Phase 4 — see below |
 | Code generation — SPIR-V | **Missing** |
-| CLI | `Hello, World!` stub |
+| CLI | Done in Phase 5 — see below |
 | Tests | 1 syntax test; can't run (targets `net8.0`, host has net10) |
 | `_old_Antlr/` | Dead code (excluded from compile) |
 
@@ -500,7 +500,7 @@ The README's "easiest, just a transpiler" — but built over the IR, not the bou
 
 > **Status:** the backend interface, the GLSL emitter and the golden tests are done.
 > `Tests/Fixtures/lambert.rvn` generates a vertex and a fragment unit, both pinned as
-> goldens, and the README's language example reaches GLSL. **355 tests, zero skipped.**
+> goldens, and the README's language example reaches GLSL. **356 tests, zero skipped.**
 > Next: **Phase 5 — CLI**, which wires this to a command line.
 
 - [x] **Backend interface** (`Compiler/CodeGen/ITargetBackend.cs`): a backend takes an
@@ -557,12 +557,62 @@ re-run to close that last gap.
 
 ---
 
-## Phase 5 — CLI (end-to-end)
+## Phase 5 — CLI (end-to-end) — **✅ complete**
 
-- [ ] Real `raven` CLI (System.CommandLine): `raven compile --target glsl <input> <output>`.
-- [ ] Diagnostic rendering (severity, id, source span, caret), proper exit codes.
+> **Status:** `raven compile --target glsl <input> <output>` runs the whole pipeline and
+> writes GLSL. Diagnostics render with the source line and a caret under the span.
+> **380 tests, zero skipped.** Next: **Phase 6 — SPIR-V**, the second backend over the
+> same IR.
 
-**Exit criteria:** the README's documented CLI usage works front to back.
+- [x] **Real `raven` CLI** (`Cli/`, System.CommandLine 2.0, assembly name `raven`):
+  - `RavenCommand` builds the command surface: the two positional arguments plus
+    `--target`/`-t` (constrained to `TargetBackends.Names`, so an unknown target is a parse
+    error with the known ones listed), `--emit-ir`, `--verbose`/`-v`, `--no-color`.
+  - `CompileDriver` is the pipeline — parse, bind, lower, verify, generate, write — and takes
+    its two `TextWriter`s rather than touching the console, so the tests drive it exactly as
+    the command does.
+  - **Each stage stops on its own errors.** A parse failure never cascades into a wall of
+    semantic noise, which is the whole reason the stages report separately.
+  - **Output resolution.** A path with an extension names a file, and then the shader must
+    produce exactly one unit; anything else is a directory and gets one file per stage
+    (`Lambert.vert.glsl`, `Lambert.frag.glsl`). A two-stage shader aimed at a single file is
+    an error rather than a guess at a second name.
+  - `--verbose` names the files as they are written; a successful run is otherwise silent.
+    Diagnostics go to stderr, so stdout stays clean.
+- [x] **Diagnostic rendering** (`Compiler/Diagnostics/DiagnosticFormatter.cs`) — in the
+  compiler, not the CLI, because a library consumer wants the same output:
+
+  ```
+  Lambert.rvn(6,16): error RVN2010: The name 'nrmalize' does not exist in the current context
+
+    6 |     return nrmalize(v)
+      |            ^^^^^^^^
+  ```
+
+  A span running past its line underlines what fits; an empty span still gets one caret; the
+  caret row copies the source's leading whitespace verbatim, so a tab-indented line lines up
+  in any terminal. Colour is opt-in and the CLI turns it on only for a real terminal —
+  `--no-color`, a redirected stderr, `NO_COLOR` or `TERM=dumb` each turn it off. This needed
+  `Location.SourceText` and `SourceText.GetLineText`, neither of which existed.
+- [x] **Exit codes** (`Cli/ExitCode.cs`): `0` success, `1` the input produced errors, `2` the
+  command line or a path was wrong. A build script can tell "you invoked me wrong" from "the
+  shader is wrong", which one code for both would hide.
+- [x] **Tests** — `Tests/CliTests.cs` (15, each in its own scratch directory, driving the real
+  command through `RavenCommand`) and `Tests/DiagnosticFormatterTests.cs` (9).
+
+**A one-input command line.** `<input>` takes one file, not a list: a variadic argument
+followed by another positional one cannot be split unambiguously, and `<output>` is
+positional in the documented usage. `CompileDriver` still takes a list, because a compilation
+is many trees — the day multi-file compilation matters, it arrives as an option rather than
+by making the positional arguments ambiguous.
+
+**Found and fixed while wiring this up:** the GLSL backend reported the folded-sampler
+`RVN4003` once per *entry point*, so a two-stage shader said it twice. It is a property of the
+shader, not of any one stage, so it moved from `GlslEmitter` up to `GlslBackend`. The unit
+tests had been papering over it with `.Distinct()`.
+
+**Exit criteria — met:** the README's documented invocation works front to back, pinned by
+`CliTests.The_documented_invocation_works_front_to_back`.
 
 ---
 
@@ -594,7 +644,7 @@ Phase 0 ─▶ Phase 1 ─▶ Phase 2 ─▶ Phase 3 ─▶ Phase 4 ─▶ Phase
                                                    └─▶ Phase 7 (interaction classes, HLSL, Metal)
 ```
 
-Critical path to a **first working transpile** (`.rvn → GLSL` via CLI): Phases 0 → 1 → 2 → 3 → 4 → 5. Phase 1 was the largest single investment; Phase 2 was the highest-risk research work. Phases 0–4 are done: `IrModule` is the backend boundary, and the GLSL emitter never looks at the bound tree. Phase 5 wires it to a command line.
+Critical path to a **first working transpile** (`.rvn → GLSL` via CLI): Phases 0 → 1 → 2 → 3 → 4 → 5. Phase 1 was the largest single investment; Phase 2 was the highest-risk research work. **Phases 0–5 are done** — `raven compile --target glsl Lambert.rvn out/` writes GLSL, so the critical path is closed. `IrModule` is the backend boundary and the GLSL emitter never looks at the bound tree, which is what makes Phase 6 a second emitter rather than a second compiler.
 
 ## Cross-cutting workstreams
 

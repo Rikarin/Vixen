@@ -19,6 +19,16 @@ public sealed class GlslBackend(GlslOptions? options = null) : ITargetBackend {
         List<GeneratedSource> generated = [];
 
         foreach (var shader in module.Shaders) {
+            // A property of the shader, not of any one stage, so it is said once
+            // however many translation units come out of it.
+            foreach (var sampler in shader.Bindings.Where(b => b.Kind == IrBindingKind.Sampler)) {
+                diagnostics.Add(
+                    BackendDiagnostics.Dropped,
+                    Location.None,
+                    $"GLSL has no standalone sampler object, so binding '{sampler.Name}' is folded into the "
+                    + "textures it is used with");
+            }
+
             foreach (var entryPoint in shader.EntryPoints) {
                 if (entryPoint.Stage == ShaderStage.Compute) {
                     // A compute stage needs a workgroup size, which nothing in the

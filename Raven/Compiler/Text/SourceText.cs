@@ -57,6 +57,22 @@ public sealed class SourceText {
         return lineStarts[line];
     }
 
+    /// <summary>
+    /// The text of the given zero-based line, without its line break. Used when
+    /// rendering a diagnostic under the source it points at.
+    /// </summary>
+    public string GetLineText(int line) {
+        var start = GetLineStart(line);
+        var end = line + 1 < lineStarts.Length ? lineStarts[line + 1] : text.Length;
+
+        // Trim the break the next line's start sits after.
+        while (end > start && text[end - 1] is '\n' or '\r') {
+            end--;
+        }
+
+        return text[start..end];
+    }
+
     int FindLineIndex(int position) {
         // Binary search for the greatest line start <= position.
         var lo = 0;

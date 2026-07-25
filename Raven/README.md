@@ -48,6 +48,37 @@ As a CLI tool
 ./raven compile --target glsl <input> <output>
 ```
 
+`<output>` with an extension names a single file, and then the shader must have
+exactly one stage. Anything else is a directory, which is what a shader with
+both a vertex and a pixel entry point needs — it writes one file per stage,
+named after the shader:
+
+```
+./raven compile Lambert.rvn out/
+out/Lambert.vert.glsl
+out/Lambert.frag.glsl
+```
+
+| | |
+|---|---|
+| `-t`, `--target` | Backend to generate for. Currently `glsl`. |
+| `--emit-ir` | Also write the target-independent IR dump. |
+| `-v`, `--verbose` | Name every file as it is written. Otherwise a successful run is silent. |
+| `--no-color` | Never colour the diagnostics. Colour is off anyway when stderr is redirected, or when `NO_COLOR` is set. |
+
+Diagnostics go to stderr with the source under them:
+
+```
+Lambert.rvn(6,16): error RVN2010: The name 'nrmalize' does not exist in the current context
+
+  6 |     return nrmalize(v)
+    |            ^^^^^^^^
+```
+
+Exit codes are `0` for success, `1` when the input produced errors, and `2` when
+the command line or a path was wrong — so a build script can tell "you invoked
+me wrong" from "the shader is wrong".
+
 As a library
 ```csharp
 var text = File.ReadAllText("Shader.rvn");

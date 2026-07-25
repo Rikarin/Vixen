@@ -23,6 +23,12 @@ public sealed class Location {
 
     public TextSpan SourceSpan { get; }
 
+    /// <summary>
+    /// The text this location points into, or <c>null</c> when it is unbacked.
+    /// Rendering a diagnostic with the offending line needs it.
+    /// </summary>
+    public SourceText? SourceText => text;
+
     /// <summary>True when this is <see cref="None"/> (no meaningful source span).</summary>
     public bool IsNone => text is null && SourceSpan == default && FilePath.Length == 0;
 
