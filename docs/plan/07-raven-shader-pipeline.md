@@ -275,12 +275,11 @@ offsets 0/16/32/48 with size 112 and `MatrixStride 16`, and the emitted SPIR-V d
 the spec as literals — `float3` aligning to 16 while occupying 12, `float[4]` costing 64 bytes in
 std140 and 16 in std430, a matrix's stride following its column count.
 
-**Matrices are column-major.** GLSL's default inside a laid-out block, and what the SPIR-V backend's
-`ColMajor` decoration says, so the two already agree. Worth flagging: [ADR-003](01-technology-decisions.md)
-describes the convention as "row-major storage", which reads as a contradiction. The implementation
-is self-consistent and both backends match, so nothing is broken — but the wording and the code
-should be reconciled, and if ADR-003 is meant literally then matrix *indexing* is the thing to check,
-not the layout.
+**Matrices are column-major** in the shader, and that is now reconciled with ADR-003's "row-major
+storage" rather than merely flagged: the two describe the same bytes from the host's and the shader's
+side, and they compose to exactly `mul(v, M)`. The derivation, and the matrix *indexing* fix that the
+earlier flag correctly guessed was the real problem, are in
+[§ E](#e-conventions-raven-must-bake-in).
 
 **Reflection comes from the IR, never from parsing emitted output back.** So a value behind a false
 `[Permutation]` is already gone and the reported interface is the one this variant actually has.
@@ -336,13 +335,85 @@ fabricated one would be a bug the engine could not see.
 
 Get these wrong and every shader is subtly incorrect in a way that is painful to find later.
 
-| | Convention |
-|---|---|
-| 🔴 | **Right-handed, Y-up, column-vector with row-major storage** (`M11..M44`, translation in `M41..M43`), i.e. HLSL's `mul(v, M)` (ADR-003) |
-| 🔴 | **Reverse-Z, depth range 0..1** |
-| 🟡 | UV origin top-left |
-| 🟡 | Linear working space; sRGB decoded on sample; HDR render targets |
-| 🟡 | `Random.rvn` must match the CPU implementation **bit-for-bit** — the VFX system compiles one graph to both a C# job and a Raven compute shader, and their outputs are compared in a test ([06](06-rendering-pipeline.md)) |
+| | Convention | |
+|---|---|---|
+| 🔴 | **Right-handed, Y-up, row-vector with row-major storage** (`M11..M44`, translation in `M41..M43`), i.e. HLSL's `mul(v, M)` (ADR-003) | ✅ settled and pinned |
+| 🔴 | **Reverse-Z, depth range 0..1** | ✅ nothing to do, and now asserted |
+| 🟡 | UV origin top-left | ✅ `OriginUpperLeft` |
+| 🟡 | Linear working space; sRGB decoded on sample; HDR render targets | not the compiler's — format and § F |
+| 🟡 | `Random.rvn` must match the CPU implementation **bit-for-bit** — the VFX system compiles one graph to both a C# job and a Raven compute shader, and their outputs are compared in a test ([06](06-rendering-pipeline.md)) | § F, and blocked on the compute stage |
+
+Two of these are the compiler's to bake in, and both are done. The other three are not, which is worth
+saying plainly rather than leaving them looking outstanding.
+
+#### The matrix convention, settled
+
+ADR-003 said "column-vector convention with row-major storage … matching HLSL's `mul(v, M)`", and
+§ D previously flagged that as reading like a contradiction against a backend that decorates matrices
+`ColMajor`. It resolves into one wrong word and one thing that was never a contradiction.
+
+**The wrong word.** `mul(v, M)` puts the vector on the left and a translation in `M41..M43` is the last
+*row*: both are the **row-vector** convention, which is what Stride and HLSL do and what the
+implementation does. ADR-003 now says row-vector.
+
+**The part that was never a contradiction.** Row-major storage is a statement about the host's bytes;
+`ColMajor` is a statement about how the shader reads them. They are the same bytes:
+
+```
+host, row-major:   [M11 M12 M13 M14][M21 M22 M23 M24][M31 M32 M33 M34][M41 M42 M43 M44]
+                    └── row 1 ────┘                                    └── translation ┘
+
+shader, ColMajor,  [── column 0 ──][── column 1 ──][── column 2 ──][── column 3 ──]
+MatrixStride 16:                                                     └── translation ┘
+```
+
+So the matrix the shader sees is **Mᵀ**, obtained for free — no instruction transposes anything, the
+same 64 bytes are simply indexed differently. And then
+
+> `m * v` = Mᵀ·v = (vᵀ·M)ᵀ = **`mul(v, M)`**
+
+which is exactly ADR-003's multiplication order. Raven's existing emission already implemented the ADR
+precisely; nothing had to change. The translation lands in column 3, which is where `Mᵀ·v` expects it.
+
+**The convention that follows for shader source: matrix on the left.** Write `world * position`.
+`position * world` also compiles — it emits `OpVectorTimesMatrix` and computes the *untransposed*
+matrix applied to a column vector, which is a different and usually wrong transform. It stays legal
+because it is meaningful when deliberate, but the library and the shader graph emit matrix-first.
+
+**`m[i]` is a column** — `IrMatrixType.ColumnType`, as many lanes as the matrix has rows. This closes
+the 🔴 defect that § I inherited, and the choice made itself once the bytes were understood:
+
+- Both targets index a matrix by column, so a column is free and a row would need a gather.
+- Because the shader's matrix is the host's transpose, the shader's column *i* **is** the host
+  matrix's row *i* — so the free answer is also the intuitive one for anyone thinking in terms of the
+  `Matrix4x4` they wrote on the CPU.
+- Matrix construction already filled columns in both backends, so construction and indexing now agree:
+  `mat3(a, b, c, …)` fills the column that `m[0]` reads back.
+
+The GLSL backend had been emitting `vec3 _1 = m[0];` against a `mat3x2` for a `mat2x3` — which `glslc`
+rejects — and the SPIR-V backend refused to emit at all (`RVN4002`). Both are fixed, and a non-square
+matrix is now a differential-oracle fixture: on a square matrix a row and a column have the same lane
+count, which is exactly why this survived so long.
+
+#### What is pinned, and what is still owed
+
+`ConventionTests` reads the emitted artefact rather than restating the convention: the `ColMajor`
+decoration and `MatrixStride`, the reflection agreeing about both, `OpMatrixTimesVector` for
+matrix-first and `OpVectorTimesMatrix` for the other order, columns for construction and indexing, and
+`OriginUpperLeft` with no `DepthReplacing`. The `mul(v, M)` derivation above is a test too — it parses
+the stride and majorness **out of the compiled module** and uses them to unpack a host matrix, so
+switching the emitter to `RowMajor` fails it rather than silently invalidating this section.
+
+Still owed, and not the compiler's to give:
+
+- **Reverse-Z** lives in the host's projection matrix. Vulkan's depth range is already 0..1, so there
+  is nothing for Raven to bake in — only something to avoid disturbing, which is asserted.
+- **Linear working space, sRGB decode, HDR targets** are image-format decisions plus `ColorSpaces.rvn`
+  in § F. A shader never decodes sRGB itself; the view format does.
+- **`Random.rvn` bit-for-bit** needs § F's library *and* the compute stage (§ I), *and* a CPU port to
+  compare against. It is a § F exit criterion, not a § E one.
+- **Numeric agreement on a real device** — the GPU-readback tests in § G. Everything above pins the
+  *convention*; only a device proves the arithmetic.
 
 ### F. The shader library to write *in* Raven — Phase 5, ~the largest content task
 
@@ -414,9 +485,9 @@ shader graph's generated-source span mapping.
 
 #### Semantics and lowering
 
-| | Gap |
-|---|---|
-| 🔴 | **`m[i]` means a row in the IR and a column in both targets** — detailed below |
+| | Gap | |
+|---|---|---|
+| 🔴 | **`m[i]` meant a row in the IR and a column in both targets** | ✅ fixed in [§ E](#e-conventions-raven-must-bake-in) |
 | 🟡 | **`&&` and `\|\|` do not short-circuit.** They lower to `logicalAnd`/`logicalOr`, which evaluate both operands, as `?:` lowers to `select`. Sound for the side-effect-free expressions shaders are made of; wrong the moment the right operand is a guard (`i < n && data[i] > 0`) |
 | 🟡 | **Stream I/O declarations between stages** — no `stream` keyword; interstage data passes as entry-point parameters and returns |
 | 🟡 | **`Buffer<T>`-style resources** — the built-in named types are not generic, so there are no storage buffers. This is also why `DescriptorType.StorageBuffer` and `LayoutRule.Std430` exist in the reflection with nothing that produces them |
@@ -432,22 +503,20 @@ shader graph's generated-source span mapping.
 | 🟡 | **A boolean in a uniform, or a boolean/aggregate as stage I/O** (`RVN4001`). `OpTypeBool` has no size and no memory layout. Reported rather than mis-emitted, but note the targets **disagree about what is legal**: GLSL hides it by giving a bool four bytes in a std140 block |
 | 🟡 | **Unsized arrays** (`RVN4001`) — legal only as a storage block's last member, which the IR cannot express |
 
-**The matrix indexing defect, concretely.** `IrIndexAccess.ResultType` and `Binder.BindElementAccess`
-both type `m[i]` as a vector of `Columns` lanes — a *row*. GLSL and SPIR-V both index a matrix by
-*column*. SPIR-V refuses to emit it (`RVN4002`), but **GLSL emits the wrong thing silently**: for
-`var m: mat2x3` it writes `vec3 _1 = m[0];` against a `mat3x2`, and `glslc` rejects it with
+**The matrix indexing defect — fixed, and worth keeping the record of.** `IrIndexAccess.ResultType`
+and `Binder.BindElementAccess` both typed `m[i]` as a vector of `Columns` lanes — a *row* — while GLSL
+and SPIR-V both index by column. SPIR-V refused to emit it (`RVN4002`); GLSL emitted the wrong thing
+silently, writing `vec3 _1 = m[0];` against a `mat3x2` for a `mat2x3`, which `glslc` rejects with
 
 ```
 error: '=' : cannot convert from '… 2-component vector of float' to '… 3-component vector of float'
 ```
 
-Verified today, so it is live rather than historical. Constructing a matrix from a flat run of scalars
-raises the same question — the IR documents rows, both backends fill columns — and there at least the
-two targets agree with each other. This is the concrete form of the ADR-003 wording problem flagged in
-§ D, and settling it is a **language decision** (HLSL indexes rows, GLSL columns) rather than an
-emitter fix. Two notes on how it should land: the § C differential oracle would have caught the GLSL
-side had a non-square matrix been in a fixture, and whichever convention wins, the *other* backend's
-`RVN4002` refusal should become an emitted lowering rather than staying a refusal.
+It read as a language decision needing a coin-flip (HLSL indexes rows, GLSL columns). It was not: once
+the byte-level relationship between host and shader storage was worked out, exactly one answer was free
+in both backends *and* the intuitive one — see [§ E](#e-conventions-raven-must-bake-in). Both backends
+now emit it, and a non-square matrix is a differential-oracle fixture, because a square matrix hides
+the whole class of mistake.
 
 #### Superseded rather than carried
 

@@ -348,12 +348,15 @@ public abstract partial class Binder {
                 );
 
             case PrimitiveTypeSymbol { TypeKind: TypeKind.Matrix } matrix: {
-                var row = BuiltInTypes.Vector(matrix.ComponentSpecialType, matrix.Columns);
+                // A column, not a row: as many lanes as the matrix has rows. Both targets index a
+                // matrix by column, and storage makes that column the host matrix's row — see
+                // docs/plan/07 § E.
+                var column = BuiltInTypes.Vector(matrix.ComponentSpecialType, matrix.Rows);
                 return new BoundArrayAccessExpression(
                     syntax,
                     receiver,
                     ConvertIndices(indices, arguments),
-                    row ?? (TypeSymbol)ErrorTypeSymbol.Instance
+                    column ?? (TypeSymbol)ErrorTypeSymbol.Instance
                 );
             }
         }

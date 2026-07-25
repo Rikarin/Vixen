@@ -104,8 +104,12 @@ public sealed class IrCallInstruction(IrValue? result, IrFunction function, IrVa
 
 /// <summary>
 ///     Builds an aggregate from its parts: <c>float3(x, y, z)</c>, a matrix from
-///     its rows, or a struct from its fields.
+///     its columns, or a struct from its fields.
 /// </summary>
+/// <remarks>
+///     Columns, matching what both backends emit and what <c>m[i]</c> reads back, so
+///     <c>mat3(a, b, c, …)</c> fills the column that <c>m[0]</c> returns. See docs/plan/07 § E.
+/// </remarks>
 public sealed class IrConstructInstruction(IrValue result, IrValue[] arguments) : IrInstruction {
     public override IrValue Result { get; } = result;
     public IReadOnlyList<IrValue> Arguments { get; } = arguments;

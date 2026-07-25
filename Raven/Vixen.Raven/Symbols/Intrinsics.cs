@@ -114,13 +114,15 @@ public static class Intrinsics {
 
             methods.Add(Method("mul", matrix, ("m", matrix), ("s", BuiltInTypes.Float)));
 
-            // mul(matRxC, vecC) -> vecR   and   mul(vecR, matRxC) -> vecC
-            var columnVector = BuiltInTypes.Vector(SpecialType.Float, matrix.Columns);
-            var rowVector = BuiltInTypes.Vector(SpecialType.Float, matrix.Rows);
+            // mul(matRxC, vecC) -> vecR   and   mul(vecR, matRxC) -> vecC.
+            // Named for their lane counts, not their roles: vecC has one lane per column, so it is
+            // the operand a matrix multiplies and the result of being multiplied by one.
+            var vecC = BuiltInTypes.Vector(SpecialType.Float, matrix.Columns);
+            var vecR = BuiltInTypes.Vector(SpecialType.Float, matrix.Rows);
 
-            if (columnVector is not null && rowVector is not null) {
-                methods.Add(Method("mul", rowVector, ("m", matrix), ("v", columnVector)));
-                methods.Add(Method("mul", columnVector, ("v", rowVector), ("m", matrix)));
+            if (vecC is not null && vecR is not null) {
+                methods.Add(Method("mul", vecR, ("m", matrix), ("v", vecC)));
+                methods.Add(Method("mul", vecC, ("v", vecR), ("m", matrix)));
             }
 
             // mul(matRxK, matKxC) -> matRxC

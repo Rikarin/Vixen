@@ -123,11 +123,33 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
 
                          """;
 
+    /// <summary>
+    ///     A non-square matrix, indexed. This is the fixture whose absence let the indexing
+    ///     convention stay wrong: on a square matrix a row and a column have the same lane count, so
+    ///     confusing them is invisible. On a <c>mat2x3</c> it is a type error.
+    /// </summary>
+    const string Matrices = """
+                            package A
+
+                            shader S {
+                                var oblique: mat2x3
+                                var world: mat4
+
+                                [PixelShader]
+                                func Pixel(): float4 {
+                                    val column = oblique[0]
+                                    return world * float4(column, 0, 1)
+                                }
+                            }
+
+                            """;
+
     [Theory]
     [InlineData("lambert", Lambert)]
     [InlineData("four sets", FourSets)]
     [InlineData("std140 packing", Packing)]
     [InlineData("texel fetch", Fetch)]
+    [InlineData("non-square matrices", Matrices)]
     public void The_two_paths_agree_on_the_interface(string what, string source) {
         if (!ReferenceCompiler.Available) {
             output.WriteLine($"{what}: {ReferenceCompiler.HowToInstall}");
@@ -202,6 +224,7 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     [InlineData("four sets", FourSets)]
     [InlineData("std140 packing", Packing)]
     [InlineData("texel fetch", Fetch)]
+    [InlineData("non-square matrices", Matrices)]
     public void A_reference_compiler_accepts_Ravens_GLSL(string what, string source) {
         if (ReferenceCompiler.Glslc is null) {
             output.WriteLine($"{what}: {ReferenceCompiler.HowToInstall}");

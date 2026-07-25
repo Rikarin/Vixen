@@ -63,6 +63,12 @@ public sealed class IrFieldAccess(int index) : IrAccess {
 }
 
 /// <summary>Indexes an array, vector or matrix with a runtime value.</summary>
+/// <remarks>
+///     <c>m[i]</c> is the <em>i</em>-th column, which is what SPIR-V's access chain and GLSL's
+///     <c>[]</c> both give — so it costs nothing in either backend, where a row would cost a gather.
+///     Because storage makes the shader's matrix the transpose of the host's, that column is the
+///     host matrix's <em>row</em> i, which is also the intuitive reading. See docs/plan/07 § E.
+/// </remarks>
 public sealed class IrIndexAccess(IrValue index) : IrAccess {
     public IrValue Index { get; } = index;
 
@@ -70,7 +76,7 @@ public sealed class IrIndexAccess(IrValue index) : IrAccess {
         input switch {
             IrArrayType array => array.Element,
             IrVectorType vector => vector.Component,
-            IrMatrixType matrix => matrix.RowType,
+            IrMatrixType matrix => matrix.ColumnType,
             _ => IrScalarType.Void
         };
 

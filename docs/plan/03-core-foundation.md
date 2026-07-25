@@ -46,7 +46,11 @@ Per ADR-003. Implementation notes that matter:
   exists alongside the scalar version, because culling and skinning call it a million times a frame.
 - **Conventions doc.** A single `Conventions.md` in the project stating handedness, matrix storage,
   multiplication order, depth range (reverse-Z, 1→0), UV origin (top-left), and NDC. Every
-  disagreement about a sign flip gets settled by pointing at it.
+  disagreement about a sign flip gets settled by pointing at it. The shader half is already settled
+  and pinned by tests — including why row-major host storage and a `ColMajor`-decorated shader matrix
+  are the same bytes and compose to `mul(v, M)`, which is the one that looks wrong every time somebody
+  meets it: [07 § E](07-raven-shader-pipeline.md#e-conventions-raven-must-bake-in). `Conventions.md`
+  should link there rather than restate it.
 - **Interop.** `implicit operator System.Numerics.Vector3(Vector3)` and back;
   `Silk.NET.Maths.Vector3D<float>` conversions in a separate `Vixen.Graphics` internal extension so
   the math library does not reference Silk.NET.

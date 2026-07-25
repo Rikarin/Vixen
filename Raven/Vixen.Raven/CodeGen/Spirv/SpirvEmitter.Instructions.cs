@@ -15,15 +15,6 @@ namespace Vixen.Raven.CodeGen.Spirv;
 readonly record struct SpirvPointer(uint Id, IrType Type, bool Layout, IrSwizzleAccess? Swizzle = null);
 
 partial class SpirvEmitter {
-    /// <summary>
-    ///     The IR reads <c>m[i]</c> as a row — <see cref="IrIndexAccess.ResultType" />
-    ///     hands back <see cref="IrMatrixType.RowType" /> — while SPIR-V and GLSL both
-    ///     index a matrix by column. Emitting it would be a type error the validator
-    ///     catches, so it is refused instead. See the plan doc's defect list.
-    /// </summary>
-    const string MatrixIndexing =
-        "Indexing a matrix (the IR reads m[i] as a row, and SPIR-V indexes columns)";
-
     readonly Dictionary<IrVariable, uint> opaqueParameters = [];
     readonly Dictionary<IrVariable, uint> pointers = [];
     readonly Dictionary<int, uint> values = [];
@@ -569,10 +560,6 @@ partial class SpirvEmitter {
             return Shuffle(source, source, swizzle.Components, resultType);
         }
 
-        if (extract.Source.Type is IrMatrixType && extract.Chain.Any(a => a is IrIndexAccess)) {
-            return Unimplemented(MatrixIndexing, extract.Result.Type);
-        }
-
         // A runtime index into a value is only reachable for a vector; anything
         // else would need an address.
         if (extract.Chain is [IrIndexAccess dynamic] && extract.Source.Type is IrVectorType) {
@@ -804,12 +791,9 @@ partial class SpirvEmitter {
                     indices.Add(SpirvOperand.Id(types.ConstantInt(field.Index)));
                     break;
 
+                // A matrix indexes by column, which an access chain reaches exactly as it
+                // reaches an array element or a vector lane.
                 case IrIndexAccess index:
-                    if (type is IrMatrixType) {
-                        Report(BackendDiagnostics.NotImplemented, MatrixIndexing);
-                        return new(baseId, place.Type, layout);
-                    }
-
                     indices.Add(SpirvOperand.Id(Value(index.Index)));
                     break;
 

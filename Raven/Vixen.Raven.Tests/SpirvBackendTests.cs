@@ -680,9 +680,14 @@ public class SpirvBackendTests {
         Assert.False(dropped.IsError);
     }
 
+    /// <summary>
+    ///     A non-square matrix is the case that catches a wrong indexing convention: for a
+    ///     <c>mat2x3</c> a column has 2 lanes and a row has 3, so getting it backwards is a type
+    ///     error rather than a silently wrong value. The emitter used to refuse this outright.
+    /// </summary>
     [Fact]
-    public void Indexing_a_matrix_is_refused_because_the_conventions_disagree() {
-        Generate(
+    public void Indexing_a_matrix_yields_a_column() {
+        var unit = One(
             """
             package A
 
@@ -691,19 +696,20 @@ public class SpirvBackendTests {
 
                 [PixelShader]
                 func Pixel(): float4 {
-                    return float4(m[0], 1)
+                    val column = m[0]
+                    return float4(column, 0, 1)
                 }
             }
 
-            """,
-            out var diagnostics,
-            "spirv"
+            """
         );
 
-        // The IR reads m[i] as a row; SPIR-V and GLSL index columns. Emitting it
-        // would be a type error the validator catches, so it is refused. This is
-        // a defect in the IR's convention, recorded in the plan doc.
-        Assert.Contains(diagnostics, d => d.Id == "RVN4002" && d.IsError);
+        // An access chain, exactly as for an array element — no gather, no transpose.
+        Assert.Contains("OpAccessChain", unit.Code);
+
+        // `One` puts it through spirv-val, which is what proves the access chain's result
+        // type matches its base.
+        Assert.Contains("OpTypeMatrix", unit.Code);
     }
 
     [Fact]

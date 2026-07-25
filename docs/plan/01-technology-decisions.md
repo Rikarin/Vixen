@@ -157,9 +157,20 @@ SIMD intrinsics and bloats generic instantiation on AOT. Both get free bidirecti
 `implicit operator` conversions so interop is invisible at call sites, and
 `System.Numerics.Vector128/256/512` is used *inside* our implementations.
 
-**Convention (write it down once, never argue again):** right-handed, Y-up, **column-vector**
+**Convention (write it down once, never argue again):** right-handed, Y-up, **row-vector**
 convention with **row-major storage** (`M11..M44`, translation in `M41..M43`), matching Stride and
 HLSL's `mul(v, M)`. Depth range 0..1 with reverse-Z. Raven's generated code assumes this.
+
+> **Corrected wording.** This originally read "column-vector convention", which contradicted the rest
+> of its own sentence: `mul(v, M)` puts the vector on the left, and a translation in `M41..M43` is the
+> last *row*. Both are the row-vector convention, which is what Stride and HLSL use and what the
+> implementation does. Only the word was wrong.
+>
+> **The GPU side is not a contradiction either.** Raven decorates matrices `ColMajor` while the host
+> stores them row-major. Those are the same bytes read two ways, and they compose to exactly
+> `mul(v, M)` at no cost — the derivation is in
+> [07 § E](07-raven-shader-pipeline.md#e-conventions-raven-must-bake-in), pinned by a test that reads
+> the emitted decorations.
 
 ### ADR-004 — Vixen implements its own archetype ECS, informed by Arch
 
