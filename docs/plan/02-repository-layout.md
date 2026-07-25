@@ -253,19 +253,23 @@ The existing project, moved in with history (see migration below) and renamed to
 convention. Its current `RootNamespace` is already `Vixen.Raven`.
 
 ```
-Raven/
-├── Vixen.Raven/                  # was Compiler/  — syntax, semantic, emit
-│   └── Vixen.Raven.Tests/        # was Tests/
-├── Vixen.Raven.Spirv/            # SPIR-V emitter (ADR-012)
-│   └── Vixen.Raven.Spirv.Tests/
-├── Vixen.Raven.Transpile/        # SPIRV-Cross wrapper → GLSL/ESSL/HLSL/MSL/WGSL
-│   └── Vixen.Raven.Transpile.Tests/
-├── Vixen.Raven.Reflection/       # binding/layout metadata surfaced to Vixen.Shaders.Generators
-│   └── Vixen.Raven.Reflection.Tests/
+Raven/                            ✅ renamed — this layout is live
+├── Directory.Build.props         # tracked analyzer debt, scoped per project
+├── Vixen.Raven/                  # was Compiler/  — syntax, semantic, IR, GLSL + SPIR-V emit
+├── Vixen.Raven.Tests/            # was Tests/     — sibling, per ADR-014
 ├── Vixen.Raven.SyntaxGenerator/  # was Tools/SyntaxGenerator/
-├── Vixen.Raven.Cli/              # was Cli/
-└── Library/                      # was Feed/ — the shipped .rvn standard library (PBR, math, etc.)
+├── Vixen.Raven.Cli/              # was Cli/       — AssemblyName stays `raven`
+├── Library/                      # was Feed/ — the shipped .rvn standard library (PBR, math, etc.)
+└── docs/IMPLEMENTATION_PLAN.md   # Raven's own roadmap
 ```
+
+Projects the plan anticipates but that do not exist yet — add them when the code needs
+splitting out of `Vixen.Raven`, not before:
+`Vixen.Raven.Transpile` (SPIRV-Cross wrapper → ESSL/HLSL/MSL/WGSL) and
+`Vixen.Raven.Reflection` (binding/layout metadata for `Vixen.Shaders.Generators`).
+`Vixen.Raven.Spirv` is **not** listed: GLSL and SPIR-V emission land together in the same
+phase ([07](07-raven-shader-pipeline.md)), so both emitters live in `Vixen.Raven` unless
+there is a reason to separate them.
 
 `Vixen.Core.Syntax` extraction: Raven's `SyntaxNode`/`GreenNode`/`SyntaxToken`/`SyntaxTrivia`/
 `SeparatedSyntaxList`/`SyntaxList<T>` and the `SyntaxGenerator` (`Syntax.xml` → node classes) are

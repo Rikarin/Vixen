@@ -163,7 +163,7 @@ public class RoundTripTests {
 public class Example1RoundTripTests {
     [Fact]
     public void Example1_round_trips_byte_for_byte() {
-        var path = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Feed", "Example1.rvn");
+        var path = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Library", "Example1.rvn");
         var text = File.ReadAllText(path);
         var tree = SyntaxTree.ParseText(text);
         Assert.Equal(text, tree.GetRoot().ToFullString());

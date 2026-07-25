@@ -180,4 +180,4 @@ struct Ray {
 }
 ```
 
-The full syntax sample lives in [`Feed/Example1.rvn`](Feed/Example1.rvn).
+The full syntax sample lives in [`Library/Example1.rvn`](Library/Example1.rvn).

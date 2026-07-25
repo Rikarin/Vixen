@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!--
+            xunit v3 test projects are self-executing: the test assembly is an
+            executable that hosts the runner itself, rather than a library loaded
+            by an external one. This is the single required project change moving
+            from v2, and omitting it produces a confusing "no tests found".
+        -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk"/>
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Raven.Cli\Vixen.Raven.Cli.csproj"/>
+        <ProjectReference Include="..\Vixen.Raven\Vixen.Raven.csproj"/>
+    </ItemGroup>
+</Project>

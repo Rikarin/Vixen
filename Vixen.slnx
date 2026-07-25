@@ -35,21 +35,17 @@
 
   <!--
     Raven — the shader compiler.
-    Project folders keep their current on-disk names until the Phase 0 rename
-    (docs/plan/02-repository-layout.md § "Raven/"). After renaming, update the
-    paths here in the same commit.
+    Layout follows docs/plan/02-repository-layout.md § "Raven/": one folder per
+    project, named after the assembly, with tests as a sibling (ADR-014).
   -->
   <Folder Name="/Raven/">
     <File Path="Raven/Directory.Build.props" />
     <File Path="Raven/README.md" />
     <File Path="Raven/docs/IMPLEMENTATION_PLAN.md" />
-    <Project Path="Raven/Compiler/Compiler.csproj" />
-    <Project Path="Raven/Cli/Cli.csproj" />
-    <Project Path="Raven/Tests/Tests.csproj" />
-  </Folder>
-
-  <Folder Name="/Raven/Tools/">
-    <Project Path="Raven/Tools/SyntaxGenerator/SyntaxGenerator.csproj" />
+    <Project Path="Raven/Vixen.Raven/Vixen.Raven.csproj" />
+    <Project Path="Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj" />
+    <Project Path="Raven/Vixen.Raven.Cli/Vixen.Raven.Cli.csproj" />
+    <Project Path="Raven/Vixen.Raven.SyntaxGenerator/Vixen.Raven.SyntaxGenerator.csproj" />
   </Folder>
 
 </Solution>

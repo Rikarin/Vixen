@@ -7,7 +7,6 @@ using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Syntax;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Tests;
 

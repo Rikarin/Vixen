@@ -483,7 +483,7 @@ drift from the language.
 
 ### Full-fidelity gaps found while rewriting the sample
 
-`Feed/Example1.rvn` must round-trip byte-for-byte, which surfaced three nodes that do not
+`Library/Example1.rvn` must round-trip byte-for-byte, which surfaced three nodes that do not
 carry all their tokens. They were never in the round-trip corpus, so nothing caught them:
 
 - `RepeatStatementSyntax` — no `repeat`/`while` keywords or parens

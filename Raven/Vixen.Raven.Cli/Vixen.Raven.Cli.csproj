@@ -10,11 +10,11 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Compiler\Compiler.csproj"/>
+        <ProjectReference Include="..\Vixen.Raven\Vixen.Raven.csproj"/>
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="System.CommandLine" Version="2.0.10"/>
+        <PackageReference Include="System.CommandLine"/>
     </ItemGroup>
 
 </Project>

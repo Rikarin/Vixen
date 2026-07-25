@@ -12,15 +12,15 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <InternalsVisibleTo Include="Tests"/>
+        <InternalsVisibleTo Include="Vixen.Raven.Tests"/>
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Antlr4.CodeGenerator" Version="4.6.6">
+        <PackageReference Include="Antlr4.CodeGenerator">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>
         </PackageReference>
-        <PackageReference Include="Antlr4.Runtime" Version="4.6.6"/>
+        <PackageReference Include="Antlr4.Runtime"/>
     </ItemGroup>
 
     <ItemGroup>
@@ -31,7 +31,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Tools\SyntaxGenerator\SyntaxGenerator.csproj"
+        <ProjectReference Include="..\Vixen.Raven.SyntaxGenerator\Vixen.Raven.SyntaxGenerator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false"
         />

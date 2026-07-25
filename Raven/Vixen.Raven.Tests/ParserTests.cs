@@ -2,14 +2,13 @@
 using Vixen.Raven.Grammar;
 using Vixen.Raven.Syntax;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Tests;
 
 public class ParserTests(ITestOutputHelper log) {
     [Fact]
     void TestAntlrParser() {
-        var stream = new AntlrInputStream(File.ReadAllText("../../../../Feed/Example1.rvn"));
+        var stream = new AntlrInputStream(File.ReadAllText("../../../../Library/Example1.rvn"));
         var lexer = new RavenLexer2(stream);
         var tokenStream = new CommonTokenStream(lexer);
         var parser = new RavenParser2(tokenStream);
@@ -36,7 +35,7 @@ public class ParserTests(ITestOutputHelper log) {
 
     [Fact]
     void Test_SyntaxTree() {
-        var path = "../../../../Feed/Example1.rvn";
+        var path = "../../../../Library/Example1.rvn";
         var text = File.ReadAllText(path);
 
         var tree = SyntaxTree.ParseText(text);

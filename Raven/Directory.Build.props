@@ -15,22 +15,22 @@
     other project, still fails the build.
 
     Verified state at the time this was written:
-      Compiler         2 suppressions
-      Tests            2 suppressions
-      Cli              clean
-      SyntaxGenerator  36 violations across 6 CA rules  ← the only real debt
+      Vixen.Raven               2 suppressions
+      Vixen.Raven.Tests         2 suppressions
+      Vixen.Raven.Cli           clean
+      Vixen.Raven.SyntaxGenerator  36 violations, 6 CA rules  ← the only real debt
   -->
 
-  <!-- Compiler: third-party generated-code noise, not our logic. -->
-  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Compiler'">
+  <!-- Vixen.Raven: third-party generated-code noise, not our logic. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Vixen.Raven'">
     <!-- NU1903: transitive vulnerability advisory reached through the ANTLR chain.
          CS3021: ANTLR-generated lexer/parser carry [CLSCompliant] attributes the
                  assembly does not need. -->
     <NoWarn>$(NoWarn);NU1903;CS3021</NoWarn>
   </PropertyGroup>
 
-  <!-- Tests: two genuine but trivial fixes in ParserTests.cs. -->
-  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Tests'">
+  <!-- Vixen.Raven.Tests: two genuine but trivial fixes in ParserTests.cs. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Vixen.Raven.Tests'">
     <!-- CS8602: possible null dereference — ParserTests.cs:48
          CS9113: unread primary-constructor parameter 'log' — ParserTests.cs:9
          Both are one-line fixes; remove this block when done. -->
@@ -38,7 +38,7 @@
   </PropertyGroup>
 
   <!--
-    SyntaxGenerator: the one project with real analyzer debt (36 violations).
+    Vixen.Raven.SyntaxGenerator: the one project with real analyzer debt (36 violations).
     It is held to the analyzer *default* set rather than latest-recommended
     until cleaned. This is deliberately a lower bar for one project, not a
     repo-wide relaxation.
@@ -52,7 +52,7 @@
       CA1050 (2)   SourceGenerator.cs declares a type outside a namespace
     None affect behaviour; all are mechanical.
   -->
-  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'SyntaxGenerator'">
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Vixen.Raven.SyntaxGenerator'">
     <AnalysisLevel>latest-default</AnalysisLevel>
     <!-- RS2008: analyzer release tracking. Real fix is to add
                  AnalyzerReleases.Shipped.md / AnalyzerReleases.Unshipped.md.

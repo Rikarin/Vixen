@@ -1,0 +1,59 @@
+<Project>
+
+  <!--
+    Vixen — Central Package Management.
+    Spec: docs/plan/01-technology-decisions.md § "Platform baseline"
+
+    Every package version in the repository is pinned here. csproj files carry
+    <PackageReference Include="..." /> with no Version attribute; a stray inline
+    version is an NU1008 build error, which is the point.
+
+    Only packages actually in use are listed. The plan's full dependency register
+    (Silk.NET, Jolt, ImageSharp, ExCSS, HarfBuzz, …) is in docs/plan/01 and lands
+    here as each subsystem is built — not before, so that `dotnet list package`
+    always reflects reality.
+  -->
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!--
+      Fail the build if a csproj declares an inline version. Without this, CPM
+      silently ignores the central value in some SDK versions.
+    -->
+    <CentralPackageVersionOverrideEnabled>false</CentralPackageVersionOverrideEnabled>
+    <!-- Transitive pinning stays off: it makes the graph rigid and interacts
+         badly with analyzer/generator packages. Revisit if supply-chain policy
+         demands it. -->
+    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <!-- ===== Raven: parser front end ===== -->
+  <ItemGroup Label="ANTLR">
+    <PackageVersion Include="Antlr4.CodeGenerator" Version="4.6.6" />
+    <PackageVersion Include="Antlr4.Runtime" Version="4.6.6" />
+  </ItemGroup>
+
+  <!-- ===== Source generators / analyzers ===== -->
+  <ItemGroup Label="Roslyn">
+    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
+  </ItemGroup>
+
+  <!-- ===== CLI ===== -->
+  <ItemGroup Label="CLI">
+    <PackageVersion Include="System.CommandLine" Version="2.0.10" />
+  </ItemGroup>
+
+  <!-- ===== Test stack (docs/plan/12 § "Testing strategy") ===== -->
+  <ItemGroup Label="Test">
+    <PackageVersion Include="xunit.v3" Version="3.2.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <!--
+      NSubstitute and Shouldly are the specified assertion/mocking stack
+      (docs/plan/12). Added here when the first test needs them; listing unused
+      versions would make this file lie about what the repo depends on.
+    -->
+  </ItemGroup>
+
+</Project>
