@@ -137,4 +137,15 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
+  <!--
+    Apache-2.0 §4(d) requires the NOTICE to travel with every distribution, so it goes
+    into each package (ADR-015). The licence text itself does not need to be packed —
+    PackageLicenseExpression above is the machine-readable form NuGet wants.
+
+    This ItemGroup has to sit after the profiles: it reads IsPackable, which they set.
+  -->
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)NOTICE" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
+
 </Project>

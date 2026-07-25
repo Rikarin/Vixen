@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using Microsoft.CodeAnalysis.Text;
 
 sealed class SourceTextReader(SourceText sourceText) : TextReader {

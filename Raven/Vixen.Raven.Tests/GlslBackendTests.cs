@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using Vixen.Raven.CodeGen;
 using Vixen.Raven.CodeGen.Glsl;
 using Vixen.Raven.IR;

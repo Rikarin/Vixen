@@ -11,6 +11,21 @@
         <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
     </PropertyGroup>
 
+    <!-- Shipped package: the compiler is useful on its own, without the engine. -->
+    <PropertyGroup>
+        <Description>
+            Raven shader compiler: parses .rvn source into a Roslyn-shaped syntax tree, binds
+            and lowers it to a target-independent IR, and emits GLSL and SPIR-V. Usable as a
+            library; see Vixen.Raven.Cli for the command-line front end.
+        </Description>
+        <PackageTags>shader;compiler;glsl;spirv;vulkan;raven;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
     <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Raven.Tests"/>
     </ItemGroup>
@@ -24,9 +39,14 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Content Include="Grammar\RavenLexer.g4" />
-        <Content Include="Grammar\RavenParser.g4" />
-        <Content Include="Grammar\UnicodeClasses.g4"/>
+        <!--
+          Pack="false": these are build inputs for ANTLR, not content for consumers.
+          Content items are packed into contentFiles by default, which would copy the
+          grammars into every project that references this package.
+        -->
+        <Content Include="Grammar\RavenLexer.g4" Pack="false" />
+        <Content Include="Grammar\RavenParser.g4" Pack="false" />
+        <Content Include="Grammar\UnicodeClasses.g4" Pack="false" />
         <AdditionalFiles Include="Syntax\Syntax.xml"/>
     </ItemGroup>
 

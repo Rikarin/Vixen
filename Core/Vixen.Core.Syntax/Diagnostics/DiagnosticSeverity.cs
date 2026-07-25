@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 namespace Vixen.Core.Syntax.Diagnostics;
 
 /// <summary>Severity of a <see cref="Diagnostic" />, ordered least to most severe.</summary>

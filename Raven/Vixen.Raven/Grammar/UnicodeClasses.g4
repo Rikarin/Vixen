@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 lexer grammar UnicodeClasses;
 
 UNICODE_CLASS_CC:

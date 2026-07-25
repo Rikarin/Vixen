@@ -24,8 +24,21 @@ documents. **Criticality**: 🔴 engine-blocking · 🟡 needed for 1.0 · ⚪ m
 | ⚪ | Add projects: `Vixen.Raven.Transpile` (SPIRV-Cross wrapper), `Vixen.Raven.Reflection` — each with a sibling `.Tests`. *`Vixen.Raven.Spirv` was listed here in error: both emitters land together and live in `Vixen.Raven`, per [02](02-repository-layout.md) § Raven, which the code already follows.* | |
 | 🔴 | **Extract `Vixen.Core.Syntax`**: lift `GreenNode`, `SyntaxNode`, `SyntaxToken`, `SyntaxTrivia`, `SyntaxList<T>`, `SeparatedSyntaxList`, `SourceText`, the `Diagnostic`/`DiagnosticBag` model, and the `Syntax.xml` → node-classes generator out of Raven into shared `Core/` projects, then retarget Raven onto them. VXML and VCSS then declare their own `Syntax.xml` against the same infrastructure. **This is the single highest-leverage refactor in the plan** — it turns three parser front ends into one tested foundation plus three grammars | ✅ |
 | ⚪ | Raven lands in the **Tooling** MSBuild profile ([02](02-repository-layout.md)): reflection and LINQ permitted, `IsAotCompatible` off. It is a compiler, not runtime code | ✅ |
-| ⚪ | `Vixen.Raven` and `Vixen.Raven.Cli` become shipped NuGet packages ([12](12-build-ci-and-testing.md)); the compiler is useful standalone | |
-| ⚪ | Relicense to **Apache-2.0** with SPDX headers and NOTICE (ADR-015) | partial — `LICENSE` and `NOTICE` are in place, per-file SPDX headers are not |
+| ⚪ | `Vixen.Raven` and `Vixen.Raven.Cli` become shipped NuGet packages ([12](12-build-ci-and-testing.md)); the compiler is useful standalone | ✅ |
+| ⚪ | Relicense to **Apache-2.0** with SPDX headers and NOTICE (ADR-015) | ✅ headers; enforcement pending |
+
+**Packaging.** Three packages: `Vixen.Core.Syntax`, `Vixen.Raven` (library) and
+`Vixen.Raven.Cli` (a `dotnet tool` exposing `raven`). The generator is `IsPackable=false` —
+it is an analyzer, not a shipped assembly. `Directory.Build.props` packs `NOTICE` into every
+packable project, which Apache-2.0 §4(d) requires. Two things `dotnet pack` surfaced and that
+are now fixed: `Vixen.Raven.Cli` would have taken the package id `raven` from its
+`AssemblyName`, and the `.g4` grammars were being packed as `contentFiles` and copied into
+every consuming project.
+
+**SPDX enforcement is still outstanding.** Every hand-written `.cs` and `.g4` file now carries
+`SPDX-FileCopyrightText` and `SPDX-License-Identifier`, but nothing stops a new file from
+arriving without them. ADR-015 assigns that to the Nuke `CheckFormat` target, and Nuke is not
+stood up yet ([12](12-build-ci-and-testing.md)) — so this is a real gap, not a closed item.
 
 **How the extraction landed.** Two decisions are worth knowing before touching the tree:
 

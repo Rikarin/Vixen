@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using System.Xml.Serialization;
 
 namespace Vixen.Core.Syntax.Generator.Model;
