@@ -573,6 +573,17 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
         ReportResourceSetIssues();
 
         foreach (var member in members!) {
+            // A shader is the pipeline, not a value: nothing constructs one, so an `init`
+            // would be lowered and then dropped without ever running.
+            if (TypeKind == TypeKind.Shader && member is MethodSymbol { MethodKind: MethodKind.Constructor }) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ShaderCannotBeConstructed,
+                    member.DeclaringSyntax?.GetLocation() ?? Location.None,
+                    Name
+                );
+                continue;
+            }
+
             // Textures, samplers and the like bind to the pipeline, so they only
             // make sense as shader state.
             if (member is FieldSymbol field

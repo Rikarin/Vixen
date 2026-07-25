@@ -491,4 +491,22 @@ public static class SemanticDiagnostics {
         Shader,
         DiagnosticSeverity.Warning
     );
+
+    /// <summary>
+    ///     A shader declared an <c>init</c>. Nothing ever constructs a shader — it is the
+    ///     pipeline, not a value — so the body could never run.
+    /// </summary>
+    /// <remarks>
+    ///     An error rather than a warning because the code reads as initialising the bindings and
+    ///     does not. A binding default says the same thing honestly: it becomes host-side data,
+    ///     which the backend reports as <c>RVN4003</c>.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor ShaderCannotBeConstructed = new(
+        "RVN2092",
+        "Constructor on a shader",
+        "Shader '{0}' declares 'init', but a shader is never constructed, so it could never run; "
+        + "give the binding a default instead",
+        Shader,
+        DiagnosticSeverity.Error
+    );
 }

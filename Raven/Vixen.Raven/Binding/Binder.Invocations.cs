@@ -232,8 +232,7 @@ public abstract partial class Binder {
                 return new BoundObjectCreationExpression(syntax, named, null, []);
             }
 
-            Report(SemanticDiagnostics.NoConstructor, syntax, named.ToDisplayString());
-            return new BoundErrorExpression(syntax, values);
+            return BindPositionalConstruction(named, arguments, syntax);
         }
 
         List<(MethodSymbol Method, BoundExpression[] Arguments, int Cost)> applicable = [];
@@ -250,6 +249,81 @@ public abstract partial class Binder {
 
         var best = applicable.MinBy(c => c.Cost);
         return new BoundObjectCreationExpression(syntax, named, best.Method, best.Arguments);
+    }
+
+    /// <summary>
+    ///     Binds <c>S(a, b)</c> for a struct that declares no <c>init</c>: one argument per
+    ///     field, in declaration order.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         This is what every target already does. GLSL generates a positional constructor for
+    ///         each struct; HLSL and WGSL spell the same thing as an aggregate initialiser. Without
+    ///         it Raven was stricter than all of them — a plain data struct needed a hand-written
+    ///         <c>init</c> that assigned each field to the parameter of the same name, which is
+    ///         boilerplate for a library full of small types like <c>Surface</c> or <c>BrdfSample</c>.
+    ///     </para>
+    ///     <para>
+    ///         No synthesized symbol and no generated function: the result is the same
+    ///         constructor-less <see cref="BoundObjectCreationExpression" /> that a vector or matrix
+    ///         build produces, which lowering already turns into one
+    ///         <c>IrConstructInstruction</c>. That is why the field filter here has to mirror
+    ///         <c>Lowerer.LowerStruct</c>'s exactly — the arguments are matched to IR fields by
+    ///         position.
+    ///     </para>
+    /// </remarks>
+    BoundExpression BindPositionalConstruction(
+        NamedTypeSymbol type,
+        IReadOnlyList<BoundArgument> arguments,
+        ExpressionSyntax syntax
+    ) {
+        var values = arguments.Select(a => a.Expression).ToArray();
+
+        // Only a struct is data. A shader is a pipeline, a protocol has no storage, and an
+        // enum's members are constants.
+        if (type.TypeKind != TypeKind.Struct) {
+            Report(SemanticDiagnostics.NoConstructor, syntax, type.ToDisplayString());
+            return new BoundErrorExpression(syntax, values);
+        }
+
+        var fields = type.GetMembers().OfType<FieldSymbol>().Where(f => !f.IsConst && !f.IsCompose).ToArray();
+
+        if (fields.Length != arguments.Count) {
+            Report(
+                SemanticDiagnostics.WrongArgumentCount,
+                syntax,
+                type.ToDisplayString(),
+                fields.Length,
+                arguments.Count
+            );
+            return new BoundErrorExpression(syntax, values);
+        }
+
+        // Positional only. A named form would have to agree with the field order the IR uses,
+        // and there is no reason to offer two spellings of the same build.
+        List<BoundExpression> converted = [];
+
+        for (var i = 0; i < fields.Length; i++) {
+            if (arguments[i].Name is not null) {
+                Report(SemanticDiagnostics.NoConstructor, syntax, type.ToDisplayString());
+                return new BoundErrorExpression(syntax, values);
+            }
+
+            var conversion = ClassifyConversion(values[i], fields[i].Type);
+            if (!conversion.Exists || !conversion.IsImplicit) {
+                Report(
+                    SemanticDiagnostics.CannotConvert,
+                    arguments[i].Syntax,
+                    values[i].Type.ToDisplayString(),
+                    fields[i].Type.ToDisplayString()
+                );
+                return new BoundErrorExpression(syntax, values);
+            }
+
+            converted.Add(Convert(values[i], fields[i].Type, arguments[i].Syntax));
+        }
+
+        return new BoundObjectCreationExpression(syntax, type, null, [.. converted]);
     }
 
     BoundExpression BindPrimitiveConstruction(

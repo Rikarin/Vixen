@@ -675,6 +675,43 @@ Nothing was lost that compiled: three `Library/Example1.rvn` lines changed (a `[
 explicit-interface method, a `record struct`), it still round-trips byte-for-byte, and the golden GLSL,
 SPIR-V and IR are untouched.
 
+#### Constructors: valid, and now correct
+
+Asked separately and worth its own answer, because the intuition cuts both ways. **A constructor is
+valid on a GPU** — it needs nothing the machine lacks: no heap, no lifetime, no dispatch. It is a
+function that builds a value and returns it, and that is exactly how Raven lowers one:
+
+```glsl
+Ray Ray_init(vec3 o, vec3 d) { Ray self; …; return self; }
+```
+
+MSL (C++-based) and Slang (`__init`) both have constructors; GLSL generates a positional one per
+struct; HLSL and WGSL spell the same thing as an aggregate initialiser. The name `Ray_init` matters —
+it keeps out of the way of GLSL's own implicit `Ray(...)`. This is also the line that made removing
+`~init` right: **a destructor needs a lifetime, a constructor needs only a return value.**
+
+Probing found one bug and one gap, both now fixed.
+
+- 🔴 **`init` on a `shader` was a silent no-op.** A shader is the pipeline, not a value, so nothing
+  ever constructs one — the body was lowered to `func S.init(…)`, dropped by reachability, and never
+  ran, while reading exactly as though it initialised the bindings. Now `RVN2092`, pointing at the
+  honest alternative: a binding default, which the backend reports as host-side data (`RVN4003`).
+- 🟡 **A struct with no `init` is now constructible from its fields.** Raven had only the
+  zero-argument form, making it *stricter than every one of its targets*, and a library of small data
+  types (`Surface`, `Light`, `BrdfSample`) would have needed a hand-written `init` per struct that
+  assigned each field to the parameter of the same name. There is no synthesized symbol and no
+  generated function: it binds to the same constructor-less `BoundObjectCreationExpression` a vector
+  build produces, which lowering already turns into one `IrConstructInstruction`, so it emits as
+  GLSL's own `Ray(a, b)`. The field filter in the binder mirrors `Lowerer.LowerStruct`'s exactly,
+  because the arguments are matched to IR fields by position. A declared `init` takes over rather than
+  adding to it, so field order never becomes part of a struct's surface by accident.
+
+What a constructor still **cannot** do is enforce an invariant: `var r: Ray` skips it, and partial
+initialisation is silent for want of definite-assignment analysis (§ I). HLSL and GLSL behave the same
+way, so this is a property of a value language with no heap rather than a defect — but it means an
+`init` is convenience, not a guarantee, and `ConstructorTests` pins that so the C# reading does not
+carry over.
+
 #### Two things that show this is not hypothetical
 
 - **`Library/Example1.rvn`** — the language showcase and the centrepiece of the round-trip corpus —

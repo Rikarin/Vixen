@@ -35,9 +35,18 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class SpirvDifferentialTests(ITestOutputHelper output) {
-    /// <summary>Realistic shading, two stages, a texture and a matrix in one block.</summary>
+    /// <summary>
+    ///     Realistic shading, two stages, a texture and a matrix in one block — plus a struct built
+    ///     positionally, so <c>glslc</c> keeps checking that Raven's use of GLSL's own implicit
+    ///     struct constructor stays legal.
+    /// </summary>
     const string Lambert = """
                            package A
+
+                           struct Light {
+                               var direction: float3
+                               var colour: float3
+                           }
 
                            shader S {
                                var world: mat4
@@ -53,8 +62,10 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
 
                                [PixelShader]
                                func Pixel(normal: float3, uv: float2): float4 {
-                                   val shade = max(dot(normalize(normal), float3(0, 1, 0)), 0.1f)
-                                   return albedo.Sample(albedoSampler, uv) * baseColor * shade
+                                   val light = Light(float3(0, 1, 0), float3(1, 1, 1))
+                                   val shade = max(dot(normalize(normal), light.direction), 0.1f)
+                                   val tint = float4(light.colour, 1)
+                                   return albedo.Sample(albedoSampler, uv) * baseColor * shade * tint
                                }
                            }
 
