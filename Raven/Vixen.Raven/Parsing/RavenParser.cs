@@ -31,24 +31,33 @@ sealed class RavenParser : SyntaxParser {
     readonly DiagnosticBag diagnostics;
     readonly SourceText text;
     readonly string filePath;
+    readonly Blender? blender;
 
     /// <summary>Raw indices skipped during recovery; they travel as leading trivia.</summary>
     readonly HashSet<int> skipped = [];
 
-    RavenParser(IReadOnlyList<LexedToken> tokens, DiagnosticBag diagnostics, SourceText text, string filePath)
+    RavenParser(
+        IReadOnlyList<LexedToken> tokens,
+        DiagnosticBag diagnostics,
+        SourceText text,
+        string filePath,
+        Blender? blender
+    )
         : base(tokens) {
         this.diagnostics = diagnostics;
         this.text = text;
         this.filePath = filePath;
+        this.blender = blender;
     }
 
     public static CompilationUnitSyntax Parse(
         IReadOnlyList<LexedToken> tokens,
         DiagnosticBag diagnostics,
         SourceText text,
-        string filePath
+        string filePath,
+        Blender? blender = null
     ) =>
-        new RavenParser(tokens, diagnostics, text, filePath).ParseCompilationUnit();
+        new RavenParser(tokens, diagnostics, text, filePath, blender).ParseCompilationUnit();
 
     // ================================================================== Tokens
 
@@ -191,6 +200,19 @@ sealed class RavenParser : SyntaxParser {
         skipped.Add(Advance());
     }
 
+    /// <summary>
+    ///     Recovery at a declaration or statement boundary: one diagnostic at the
+    ///     first offending token, then the rest of the line is skipped silently —
+    ///     a broken line reads as one error, not one per token. The skipped source
+    ///     still travels as trivia, so the tree reproduces the file.
+    /// </summary>
+    void SkipToLineEnd() {
+        SkipCurrent();
+        while (!AtNewLine && !AtEnd && !At(RavenTokenKind.CloseBrace)) {
+            skipped.Add(Advance());
+        }
+    }
+
     // ================================================================== Compilation unit
 
     CompilationUnitSyntax ParseCompilationUnit() {
@@ -205,12 +227,15 @@ sealed class RavenParser : SyntaxParser {
         List<SyntaxNode?> members = [];
         while (!AtEnd) {
             var before = RawPosition;
-            members.Add(ParseMemberDeclaration());
-            SkipNewLines();
-            if (RawPosition == before) {
-                SkipCurrent();
+            var member = TryReuseMember() ?? ParseMemberDeclaration();
+            if (member is null || RawPosition == before) {
+                SkipToLineEnd();
                 SkipNewLines();
+                continue;
             }
+
+            members.Add(member);
+            SkipNewLines();
         }
 
         var endOfFile = TokenAt(RawPosition, SyntaxKind.EndOfFileToken);
@@ -652,7 +677,61 @@ sealed class RavenParser : SyntaxParser {
         return new(SyntaxList.List(modifiers.ToArray()));
     }
 
-    MemberDeclarationSyntax ParseMemberDeclaration() {
+    /// <summary>
+    ///     Incremental reparse (docs/plan/18 step 7): at a member boundary, take the
+    ///     previous tree's green node when the blender has one whose new position and
+    ///     width line up exactly with the token stream. Any mismatch falls through to
+    ///     a normal parse, so reuse can only ever skip work, not change the tree.
+    /// </summary>
+    MemberDeclarationSyntax? TryReuseMember() {
+        if (blender is null) {
+            return null;
+        }
+
+        // The candidate's full span starts at its leading trivia, so the lookup
+        // position is where the pending trivia run begins.
+        var firstTrivia = RawPosition;
+        while (firstTrivia > 0 && IsTriviaLike(firstTrivia - 1)) {
+            firstTrivia--;
+        }
+
+        var fullStart = Tokens[firstTrivia].Position;
+        if (blender.TryReuse(fullStart) is not { } green) {
+            return null;
+        }
+
+        var end = fullStart + green.FullWidth;
+        var next = RawIndexAt(end);
+        if (next is null) {
+            return null;
+        }
+
+        ResetTo(next.Value);
+        return green.CreateRed(null, 0) as MemberDeclarationSyntax;
+    }
+
+    /// <summary>The raw index of the token starting exactly at <paramref name="position" />, or null.</summary>
+    int? RawIndexAt(int position) {
+        int low = 0, high = Tokens.Count - 1;
+        while (low <= high) {
+            var middle = (low + high) / 2;
+            var start = Tokens[middle].Position;
+            if (start == position) {
+                return middle;
+            }
+
+            if (start < position) {
+                low = middle + 1;
+            } else {
+                high = middle - 1;
+            }
+        }
+
+        return null;
+    }
+
+    MemberDeclarationSyntax? ParseMemberDeclaration() {
+        var rawStart = RawPosition;
         var attributes = ParseAttributeListsWithNewlines();
         var modifiers = ParseModifiers();
 
@@ -682,8 +761,27 @@ sealed class RavenParser : SyntaxParser {
                 return ParseEnumDeclaration(attributes, modifiers);
 
             default:
-                return ParseOperatorDeclaration(attributes, modifiers);
+                // The only remaining member form starts with a type: an operator
+                // declaration. Anything else is not a member — surrender the tokens
+                // consumed so far back to trivia and let the caller skip the line
+                // with a single diagnostic, instead of cascading one per token.
+                if (ScanOperatorDeclaration()) {
+                    return ParseOperatorDeclaration(attributes, modifiers);
+                }
+
+                for (var i = rawStart; i < RawPosition; i++) {
+                    skipped.Add(i);
+                }
+
+                return null;
         }
+    }
+
+    bool ScanOperatorDeclaration() {
+        var mark = RawPosition;
+        var ok = TryScanType() && At(RavenTokenKind.OperatorKeyword);
+        ResetTo(mark);
+        return ok;
     }
 
     /// <summary>
@@ -1002,12 +1100,15 @@ sealed class RavenParser : SyntaxParser {
             List<SyntaxNode?> parsed = [];
             while (!At(RavenTokenKind.CloseBrace) && !AtEnd) {
                 var before = RawPosition;
-                parsed.Add(ParseMemberDeclaration());
-                SkipNewLines();
-                if (RawPosition == before) {
-                    SkipCurrent();
+                var member = TryReuseMember() ?? ParseMemberDeclaration();
+                if (member is null || RawPosition == before) {
+                    SkipToLineEnd();
                     SkipNewLines();
+                    continue;
                 }
+
+                parsed.Add(member);
+                SkipNewLines();
             }
 
             members = new(SyntaxList.List(parsed.ToArray()));
@@ -1241,7 +1342,7 @@ sealed class RavenParser : SyntaxParser {
             var before = RawPosition;
             statements.Add(ParseStatement());
             if (RawPosition == before) {
-                SkipCurrent();
+                SkipToLineEnd();
             }
         }
 
@@ -1487,7 +1588,7 @@ sealed class RavenParser : SyntaxParser {
             var before = RawPosition;
             statements.Add(ParseStatement());
             if (RawPosition == before) {
-                SkipCurrent();
+                SkipToLineEnd();
             }
         }
 

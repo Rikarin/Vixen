@@ -3,6 +3,7 @@
 
 using System.Text;
 using Vixen.Raven.Parsing;
+using Vixen.Core.Syntax.Parsing;
 using Vixen.Core.Syntax.Text;
 using Vixen.Core.Syntax;
 using Vixen.Core.Syntax.Diagnostics;
@@ -50,22 +51,47 @@ public sealed class SyntaxTree : ISyntaxTree {
     ///         <see cref="SourceText" />, applies <c>WithChanges</c>, and hands the result here.
     ///     </para>
     ///     <para>
-    ///         <b>The reparse is currently full-file.</b> ANTLR owns parsing and has no notion of
-    ///         reusing an existing tree, so the changed ranges are computed and then not used yet.
-    ///         The shape is what matters: callers already pass edits rather than whole documents,
-    ///         so making this incremental later changes no call site. A shader is small enough
-    ///         that a full reparse fits the &lt; 500 ms reload budget with room to spare; a
-    ///         2 000-line <c>.vxml</c> is the case that will need the real thing.
+    ///         <b>The reparse is incremental</b> (docs/plan/18 step 7): member declarations
+    ///         whose text a change did not touch are taken from this tree's green nodes rather
+    ///         than reparsed — editing one function body reparses that member and shifts the
+    ///         rest. The change ranges answer exactly only for the immediate predecessor text;
+    ///         anything else conservatively reports the whole document and parses fresh.
     ///     </para>
     /// </remarks>
     public SyntaxTree WithChangedText(SourceText newText) {
         ArgumentNullException.ThrowIfNull(newText);
 
-        // Computed, and deliberately unused: it is what an incremental parser consumes, and
-        // asking for it here keeps the contract honest about what callers must supply.
-        _ = Text is { } oldText ? newText.GetChangeRanges(oldText) : [];
+        if (Text is not { } oldText || root is null) {
+            return ParseText(newText.ToString(), Options, FilePath, Encoding);
+        }
 
-        return ParseText(newText.ToString(), Options, FilePath, Encoding);
+        var changes = newText.GetChangeRanges(oldText);
+        if (changes.Count == 0) {
+            return this;
+        }
+
+        var blender = new Blender(MemberCandidates(root), changes);
+        return ParseText(newText.ToString(), Options, FilePath, Encoding, blender);
+    }
+
+    /// <summary>
+    ///     The nodes offered for reuse: every member declaration, at every nesting
+    ///     level. A type whose whole span is untouched is reused wholesale; one that
+    ///     is not still offers its unaffected members.
+    /// </summary>
+    static IEnumerable<SyntaxNode> MemberCandidates(SyntaxNode node) {
+        foreach (var child in node.ChildNodesAndTokens()) {
+            if (child is MemberDeclarationSyntax member) {
+                yield return member;
+                foreach (var nested in MemberCandidates(member)) {
+                    yield return nested;
+                }
+            } else if (child is CompilationUnitSyntax or SyntaxListNode) {
+                foreach (var nested in MemberCandidates(child)) {
+                    yield return nested;
+                }
+            }
+        }
     }
 
     public static SyntaxTree ParseText(
@@ -73,6 +99,15 @@ public sealed class SyntaxTree : ISyntaxTree {
         ParseOptions? options = default,
         string? path = "",
         Encoding? encoding = default
+    ) =>
+        ParseText(text, options, path, encoding, blender: null);
+
+    static SyntaxTree ParseText(
+        string text,
+        ParseOptions? options,
+        string? path,
+        Encoding? encoding,
+        Blender? blender
     ) {
         var sourceText = SourceText.From(text);
         var filePath = path ?? string.Empty;
@@ -90,7 +125,7 @@ public sealed class SyntaxTree : ISyntaxTree {
         // tokens are zero-width, skipped source travels as trivia — so even an
         // erroneous parse yields a tree that reproduces the file byte-for-byte.
         var tokens = RavenLexer.Lex(text, bag, sourceText, filePath);
-        syntaxTree.root = RavenParser.Parse(tokens, bag, sourceText, filePath);
+        syntaxTree.root = RavenParser.Parse(tokens, bag, sourceText, filePath, blender);
         syntaxTree.root.SyntaxTree = syntaxTree;
 
         syntaxTree.diagnostics = bag.ToArray();

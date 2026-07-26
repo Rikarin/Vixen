@@ -20,9 +20,19 @@ What landed:
 - **§ Keep the grammar** — done as specified: the `.g4` files, generated parser and the old
   translator live in `Vixen.Raven.Tests/Oracle/` as a permanent differential oracle.
 
-**Still open: step 7 (`Blender`, incremental reparse) and the rest of step 8** — the parser's
-messages already name what was expected where, but the recovery-quality bar ("what belongs under
-a squiggle") deserves its own pass alongside the editor work in [doc 11](11-editor.md).
+- **Step 7** — `Blender` lives in `Vixen.Core.Syntax/Parsing`, consuming `GetChangeRanges`
+  output; `WithChangedText` is incremental at **member granularity** — editing one function body
+  reparses that member and reuses every other member's green node by reference, with a one-character
+  adjacency margin so an edit gluing onto a boundary (a field growing `=> expr` into a property)
+  invalidates its node. Reuse is verified against the new token stream and falls back to parsing,
+  so it can only skip work, never change the tree — `IncrementalParseTests` pins
+  incremental-equals-full-reparse across edit shapes, plus the reference-identity of untouched
+  members.
+- **Step 8** — recovery syncs to line ends: a broken line is one diagnostic naming what was
+  expected, not one per token; skipped source travels as `SkippedTokensTrivia`; and
+  `RecoveryTests` pins that error trees reproduce the file byte-for-byte and survive binding.
+  Statement-level reuse and editor-grade message polish can ride with the code-editor work in
+  [doc 11](11-editor.md), but nothing here blocks it.
 
 Raven's front end is an ANTLR grammar whose parse tree is translated into a Roslyn-shaped green/red
 tree. This document records why that arrangement should end, what replaces it, and how to do the
