@@ -57,11 +57,11 @@ remains front-loaded into Phase 3.
 - ✅ `Vixen.Core` — annotations, identity types, `GameTime`, `ServiceRegistry`, pooling, `DisposeBag`,
   `LeakTracker`, with 86 tests green in Debug and Release. What differs from
   [03](03-core-foundation.md) is written down there.
-- 🟡 `Vixen.Core.Mathematics` — `MathUtil`, `Vector2/3/4`, `Int2/3/4`, `Quaternion`, `Matrix4x4`,
-  `Matrix3x3`, `Conventions.md`, and 81 tests including CsCheck properties for the algebraic laws.
-  **Still owed:** `Plane`, `Ray`, `BoundingBox`, `BoundingSphere`, `BoundingFrustum`, `Rectangle`,
-  `Viewport`, `Color`/`Color3`/`Color4`, and `Benchmarks/Vixen.Benchmarks.Math` — until that exists
-  the SIMD paths are only asserted to agree with the scalar ones, not shown to be faster.
+- ✅ `Vixen.Core.Mathematics` — every type ADR-003 lists, plus `Matrix3x3` and `ColorSpace`, with
+  `Conventions.md` and 126 tests including CsCheck properties for the algebraic laws and a
+  clip-space oracle for frustum culling. `Half` is deliberately omitted: `System.Half` is in the BCL.
+  **Owed:** `Benchmarks/Vixen.Benchmarks.Math` — until it exists the SIMD paths are only asserted to
+  agree with the scalar ones, not shown to be faster.
 - `Vixen.Core.Collections`, `Vixen.Core.Memory` with full tests.
 - `Vixen.Core.Diagnostics`: `[LoggerMessage]` plumbing, ring-buffer sink, `ProfilingKey`/`Profiler`.
 

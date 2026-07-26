@@ -26,6 +26,10 @@ order, the depth range and the UV origin, once. Every line of it is asserted by
 | `Quaternion` | Rotations. Composition reads left to right, matching the matrices. |
 | `Matrix4x4` | The transform. Construction, composition, inversion, decomposition, the projections, and bulk transform helpers. |
 | `Matrix3x3` | Rotation and scale without translation — and `Normal`, the inverse transpose a shader needs for normals under non-uniform scale. |
+| `Plane`, `Ray` | Signed distances, classification, and ray casts against planes, boxes, spheres and triangles. |
+| `BoundingBox`, `BoundingSphere`, `BoundingFrustum` | Culling and spatial queries. The frustum's plane extraction is reverse-Z-correct, which is not the same as the textbook derivation. |
+| `Rectangle`, `Viewport` | The 2D half: half-open containment so tiles do not overlap, and `Project`/`Unproject`/`GetPickingRay`. |
+| `Color`, `Color3`, `Color4`, `ColorSpace` | 8-bit storage and linear working values, with the sRGB boundary spelled out at every crossing. |
 
 ## Equality is exact; `NearEqual` is the approximate one
 
@@ -36,11 +40,18 @@ given `==` meant. A tolerance hidden inside `==` is how a physics bug becomes un
 `GetHashCode` uses `float.GetHashCode`, which normalises both zeros and all NaN payloads, so equal
 values always hash equally.
 
-## Still to come
+## Colour: nothing converts behind your back
 
-The types ADR-003 lists that are not built yet: `Plane`, `Ray`, `BoundingBox`, `BoundingSphere`,
-`BoundingFrustum`, `Rectangle`, `Viewport`, `Color`, `Color3`, `Color4`. They are the next slice and
-they build on everything here.
+`Color` holds four bytes and **does not declare a colour space**, because the bytes on their own do
+not have one. Every conversion says which it means: `ToColor4()` divides by 255 and nothing else,
+`ToLinear()` also decodes sRGB. Colours a human picked — every hex code, every colour-picker value —
+are sRGB and need `ToLinear()`. `#808080` is 0.216 linear, not 0.5, and treating it as 0.5 is what
+washes a render out in a way nobody can trace back.
+
+`Color3` and `Color4` are linear and deliberately **unbounded above**: an HDR light is a colour past
+1, and clamping before tonemapping throws away the range tonemapping exists to compress.
+
+## Still to come
 
 `Half` is **not** planned as a Vixen type: `System.Half` has existed since .NET 5, is
 hardware-accelerated, and re-declaring it would buy nothing.
@@ -48,5 +59,13 @@ hardware-accelerated, and re-declaring it would buy nothing.
 The SIMD paths (matrix multiply, `TransformVector4`, the bulk transforms) are written but not yet
 measured — `Benchmarks/Vixen.Benchmarks.Math` is owed, and until it exists the scalar fallbacks are
 the reference and the vectorised paths are asserted only to agree with them.
+
+## One C# wrinkle worth knowing
+
+A target-typed `new(…)` carries no type, so overload resolution cannot use its arguments. Where the
+natural call is `new(…)` and the overloads are peers, the API avoids the collision by name —
+`Matrix4x4.FromScale(Vector3)` and `Matrix4x4.FromUniformScale(float)`. Where callers normally pass a
+variable, the overloads stay (`Rectangle.Contains`, `BoundingBox.Contains`) and a `new(…)` call site
+just has to name the type.
 
 Licensed under Apache-2.0.
