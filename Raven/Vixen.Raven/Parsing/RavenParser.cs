@@ -1493,8 +1493,18 @@ sealed class RavenParser : SyntaxParser {
         ElseClauseSyntax? elseClause = null;
         if (At(RavenTokenKind.ElseKeyword)) {
             var elseKeyword = Take(SyntaxKind.ElseKeyword);
-            var elseBlock = ParseBlock();
-            elseClause = (ElseClauseSyntax)SyntaxFactory.ElseClause(elseKeyword, elseBlock);
+
+            // `else if` chains: the clause holds a statement, not a block, so the nested
+            // `if` is the alternative directly rather than a block wrapping one. Nothing
+            // downstream needs to know — the binder and the lowerer both take whatever
+            // statement the clause carries. The nested `if` gets no attributes of its own:
+            // there is no position to write them in, since they would attach to the outer
+            // statement.
+            StatementSyntax alternative = At(RavenTokenKind.IfKeyword)
+                ? ParseIfStatement(default)
+                : ParseBlock();
+
+            elseClause = (ElseClauseSyntax)SyntaxFactory.ElseClause(elseKeyword, alternative);
         }
 
         return (IfStatementSyntax)SyntaxFactory.IfStatement(

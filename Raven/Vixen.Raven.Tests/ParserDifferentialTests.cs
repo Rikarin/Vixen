@@ -53,6 +53,11 @@ public class ParserDifferentialTests {
     [InlineData("if (a) {\n}\n\n\nreturn\n")]
     [InlineData("x = 1\n\n\ny = 2\n")]
     [InlineData("while (a) {\n    x = 1\n}\n")]
+    // `else if` chains: the clause takes the nested `if` directly, so both parsers have to
+    // nest rather than wrap it in a block, and the last `else` has to stay a block.
+    [InlineData("if (a) {\n} else {\n}\n")]
+    [InlineData("if (a) {\n} else if (b) {\n}\n")]
+    [InlineData("if (a) {\n} else if (b) {\n} else if (c) {\n} else {\n}\n")]
     // Attributes on statements, on their own line and inline.
     [InlineData("[Unroll] for (i in 0 .. 4) {\n}\n")]
     [InlineData("[Unroll]\nfor (i in 0 .. 4) {\n}\n")]

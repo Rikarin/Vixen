@@ -840,8 +840,14 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
 
     public override SyntaxNode VisitElse_clause(RavenParser.Else_clauseContext context) {
         var elseKeyword = Token(context.ELSE().Symbol, SyntaxKind.ElseKeyword);
-        var block = Visit(context.block()) as StatementSyntax;
-        return SyntaxFactory.ElseClause(elseKeyword, block!);
+
+        // `else if` carries the nested if directly, so the alternative is whichever of the
+        // two the grammar matched.
+        var alternative = context.block() is { } block
+            ? Visit(block) as StatementSyntax
+            : Visit(context.if_statement()) as StatementSyntax;
+
+        return SyntaxFactory.ElseClause(elseKeyword, alternative!);
     }
 
     public override SyntaxNode VisitReturn_statement(RavenParser.Return_statementContext context) {

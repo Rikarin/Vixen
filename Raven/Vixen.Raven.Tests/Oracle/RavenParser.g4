@@ -265,7 +265,7 @@ if_statement
     ;
 
 else_clause
-    : ELSE block
+    : ELSE (block | if_statement)
     ;
 
 return_statement
