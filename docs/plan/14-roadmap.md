@@ -263,7 +263,24 @@ plumbing that everything else stands on.
     yet — every one of them on a fresh account, in a container, on a runner. `StandardFileSystemHost`
     was therefore producing relative paths, and the engine would have written its saves into whatever
     the working directory happened to be. It passed every macOS and Windows run.
-- `GoldenImages` target with the first fixture.
+- ✅ **`GoldenImages` target**, with five fixtures: clear, triangle, indexed quad with push constants,
+  reversed-Z depth, and alpha blending. Rendered headless through the render graph, compared
+  perceptually with a per-fixture tolerance, and — the part that matters — **generated on MoltenVK and
+  verified against lavapipe**, so the tolerances are what cross-driver agreement needs rather than what
+  one machine produces. A failure writes the rendering, the reference and a red-on-dimmed diff, which
+  CI uploads. `--update-golden` rewrites the references, with a warning to look at them first.
+
+  It justified itself before it had a reference image: every fixture initially rendered undefined
+  memory, because the colour target was a graph transient nothing inside the graph read, so the graph
+  correctly derived `StoreAction.DontCare` and discarded the picture. Importing the target is what says
+  it outlives the frame. Verified by sabotage: inverting the depth comparison moves 76% of the
+  reversed-Z fixture's pixels.
+
+  The PNG codec is hand-written — ADR-015 keeps ImageSharp out of runtime assemblies, and a golden
+  image nobody can open is one nobody will look at. Round-trip and filtered-input tested.
+
+  **Owed:** the suite grows towards doc 05's ~40 fixtures with the rendering pipeline in Phase 4, and
+  cross-backend equivalence waits for a second backend to compare against.
 - ~~Web graphics spike~~ ✅ **already done, before Phase 0** — see
   [`spikes/web-webgl2/RESULT.md`](spikes/web-webgl2/RESULT.md). `Silk.NET.OpenGLES` renders a WebGL2
   triangle from `browser-wasm`; bridge is ~40 lines; trimmed payload 0.93 MB Brotli. R1 retired. The
