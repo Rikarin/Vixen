@@ -168,6 +168,19 @@ plumbing that everything else stands on.
   that creates a 4K target every frame stays flat. `NullSwapChain.NextStatus` makes the out-of-date
   and device-lost paths reachable from a test, which is the fault injection [05](05-graphics-rhi.md)
   asks for.
+- ⚠ **Prerequisite, discovered rather than planned: there is no Vulkan on the development machine.**
+  No loader, no MoltenVK, no ICD — verified. So `Vixen.Graphics.Vulkan` cannot be written test-first
+  locally: every test would skip, and a backend developed against a driver that is not there is the
+  exact failure mode [00](00-vision-and-principles.md) warns about, code that reads plausibly and is
+  wrong. Two things have to happen before it starts, in this order:
+  1. **Install the Vulkan SDK** (MoltenVK + the Loader + validation layers) on macOS, per the
+     two-flavour scheme in [10](10-platforms.md) § macOS. The development flavour is the one needed
+     here, and it needs `VK_ICD_FILENAMES` and the `VK_KHR_portability_enumeration` flag or the
+     Loader reports no devices on a machine that works.
+  2. **Stand up the lavapipe CI leg first**, not last. [10](10-platforms.md) already calls Linux the
+     most valuable CI target because lavapipe is a conformant Vulkan 1.3 driver with no GPU; making
+     it the *primary* verification for this backend rather than a later addition is the difference
+     between a backend that is tested on every push and one that is tested on one laptop.
 - `Vixen.Graphics.Vulkan`: instance/device/queues, allocator, swapchain, command lists, PSOs,
   descriptor sets, barriers, dynamic rendering + render-pass fallback, validation-layer wiring.
 - `Vixen.Graphics.RenderGraph` with validation and transient aliasing.
