@@ -149,7 +149,13 @@ plumbing that everything else stands on.
   empty. **Owed:** content (`--vixen-loose-content` is parsed and not yet honoured), rendering, and
   the fixed-step accumulator, which arrives with `Vixen.Engine` in Phase 2.
   `vixen-game`/`vixen-app` templates follow in Phase 3 with the CLI.
-- `Vixen.Graphics` RHI surface + `Vixen.Graphics.Null` + `RecordingBackend` test harness.
+- 🟡 `Vixen.Graphics` RHI surface — the vocabulary is built: `PixelFormat` with block sizes, sRGB
+  pairing and level arithmetic; the enum set including the `synchronization2`-shaped `ResourceState`
+  barrier model; `GraphicsDeviceFeatures`; typed handles; and self-validating resource descriptions.
+  46 tests. Reversed depth is in the defaults rather than only in `Conventions.md` — an attachment
+  clears to 0 and the shadow sampler compares `GreaterEqual`. **Next:** `IGraphicsDevice`,
+  `ICommandList`, `ICommandQueue`, `ISwapChain`.
+- `Vixen.Graphics.Null` + `RecordingBackend` test harness.
 - `Vixen.Graphics.Vulkan`: instance/device/queues, allocator, swapchain, command lists, PSOs,
   descriptor sets, barriers, dynamic rendering + render-pass fallback, validation-layer wiring.
 - `Vixen.Graphics.RenderGraph` with validation and transient aliasing.
