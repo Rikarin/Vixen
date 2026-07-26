@@ -174,13 +174,15 @@ depends on `Vixen.Graphics`, `Vixen.Assets`, `Vixen.Input`, `Vixen.Core.*` — a
 
 ```
 Platform/
-├── Vixen.Platform/                     # contracts only: IWindow, ISurface, IFileSystem, IClipboard,
-│   │                                   #   IDisplayInfo, ILifecycle, INativeDialogs, IHapticDevice
-│   └── Vixen.Platform.Tests/
+├── Vixen.Platform/                     # ✅ contracts only: IPlatform, IWindow, ISurface, PlatformEvent,
+│                                       #   IDisplayInfo, IFileSystemHost, IClipboard, INativeDialogs,
+│                                       #   ILifecycle, IInputSource, ITextInput, IPowerInfo,
+│                                       #   IProcessorTopology
+├── Vixen.Platform.Tests/
 ├── Vixen.Platform.Desktop/             # SDL3 via Silk.NET.SDL — shared by Win/Linux/macOS
-│   └── Vixen.Platform.Desktop.Tests/
-├── Vixen.Platform.Headless/            # no window/GPU/audio: dedicated server + batch tooling (17)
-│   └── Vixen.Platform.Headless.Tests/
+├── Vixen.Platform.Desktop.Tests/
+├── Vixen.Platform.Headless/            # ✅ no window/GPU/audio: dedicated server + batch tooling (17)
+├── Vixen.Platform.Headless.Tests/
 ├── Vixen.Platform.Windows/             # net10.0-windows: DXGI enumeration, WinRT file dialogs, jump lists
 ├── Vixen.Platform.Linux/               # Wayland/X11 quirks, XDG paths, portal dialogs
 ├── Vixen.Platform.MacOS/               # net10.0 + ObjC interop: NSWindow chrome, sandbox paths, MoltenVK load
@@ -189,15 +191,15 @@ Platform/
 ├── Vixen.Platform.Web/                 # net10.0 + Sdk.WebAssembly: JSImport/JSExport, canvas, WebGL2 surface
 │
 ├── Vixen.Graphics.Vulkan/              # primary
-│   └── Vixen.Graphics.Vulkan.Tests/
+├── Vixen.Graphics.Vulkan.Tests/
 ├── Vixen.Graphics.Direct3D12/
-│   └── Vixen.Graphics.Direct3D12.Tests/
+├── Vixen.Graphics.Direct3D12.Tests/
 ├── Vixen.Graphics.OpenGL/              # GL 4.5 core (desktop) + GLES 3.0/3.2 (mobile) + WebGL2 (browser)
-│   └── Vixen.Graphics.OpenGL.Tests/
+├── Vixen.Graphics.OpenGL.Tests/
 ├── Vixen.Graphics.WebGPU/
-│   └── Vixen.Graphics.WebGPU.Tests/
+├── Vixen.Graphics.WebGPU.Tests/
 ├── Vixen.Graphics.Null/                # headless: CI graphics tests AND the shipping dedicated-server backend (17)
-│   └── Vixen.Graphics.Null.Tests/
+├── Vixen.Graphics.Null.Tests/
 │
 ├── Vixen.Audio.Backend.OpenAL/
 ├── Vixen.Audio.Backend.WebAudio/

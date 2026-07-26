@@ -33,10 +33,36 @@ IHaptics           rumble, taptic
 IPowerInfo         battery, thermal state, power mode — mobile quality scaling depends on this
 ```
 
-**`Vixen.Platform.Headless`** implements the same contracts with no window, no GPU, no audio device, and
+✅ **Built, and four things came out differently from that list.** Each is written up in
+`Platform/Vixen.Platform/README.md`; in summary:
+
+- **`IInputSource` is not an event source.** Events — all of them, window, keyboard, pointer, touch,
+  gamepad, lifecycle, drag-and-drop — arrive as one `PlatformEvent` stream drained once per frame by
+  `IPlatform.PumpEvents()`. The OS delivers them interleaved, so several typed streams would mean
+  buffering and re-ordering them and losing the ordering *between* them. `IInputSource` is what is
+  left: device enumeration, and the held-key state only the platform knows after focus is lost.
+- **Keys are physical positions and there is no layout-dependent enum.** WASD must be the same shape
+  under the player's left hand on AZERTY; typed characters arrive as `TextInput` carrying a string,
+  because a character is not a key.
+- **`IHaptics` hangs off `IGamepad`** rather than standing alone, since force feedback is a property
+  of a device and there is nothing to say about it without one.
+- **`IProcessorTopology` was added**, which doc 03 did not anticipate: it is the contract half of the
+  thread pinning deferred out of `Vixen.Core.Threading`, and `AvailableProcessors` is the number a
+  worker pool should be sized from, since a container's quota and `Environment.ProcessorCount`
+  differ.
+
+✅ **`Vixen.Platform.Headless`** implements the same contracts with no window, no GPU, no audio device, and
 no display server — what a dedicated server and batch-tooling head run on
 ([17](17-app-heads-and-shipping.md)). Every subsystem must tolerate the absence of a window rather than
 assuming one exists; a headless CI leg enforces it.
+
+Two decisions there worth recording. Headless **windows are real windows without a picture** — an id, a
+size, a framebuffer size, a scale factor, focus, an event stream, and a surface reporting
+`SurfaceKind.None` — so the server runs the desktop's frame loop rather than a second one written for
+it. And the **lifecycle is driveable**: `Suspend`, `Resume` and `ReportMemoryPressure` are public on
+the concrete type, which is where the suspend/resume fault-injection loop this document asks for below
+actually runs. On a phone it needs a phone; there a hundred cycles cost milliseconds and run on every
+pull request.
 
 **`Vixen.Platform.Desktop`** implements most of this once, via `Silk.NET.SDL` 2.23.0 (SDL3): windowing,
 input, gamepads with haptics, clipboard, display enumeration, IME. The three desktop assemblies then

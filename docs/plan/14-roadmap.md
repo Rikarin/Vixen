@@ -118,9 +118,19 @@ plumbing that everything else stands on.
   and queries by type, name, trait and base type. 16 tests. **Deferred with reasons in
   [03](03-core-foundation.md):** `[Behavior]`, whose attribute arrives with the engine loop in
   Phase 2, and generic types.
-- `Vixen.Platform` contracts; `Vixen.Platform.Desktop` on SDL3; Windows/Linux/macOS specialisations;
-  `Vixen.Platform.Headless` (no window/GPU/audio) so the no-display path is real from day one rather
-  than retrofitted for the server variant in Phase 9 ([17](17-app-heads-and-shipping.md)).
+- ✅ `Vixen.Platform` contracts — `IPlatform` over windows, surfaces, displays, files, clipboard,
+  native dialogs, lifecycle, raw input, IME and power, with one `PlatformEvent` stream drained once
+  per frame and capabilities asked at runtime rather than compiled in. 26 tests. Two decisions worth
+  naming: `Key` is a physical position with no layout-dependent twin, and `WindowResized` carries the
+  logical size and the pixel size separately. Also closes the contract half of the thread-pinning
+  deferral from [03](03-core-foundation.md) as `IProcessorTopology`.
+- ✅ `Vixen.Platform.Headless` (no window/GPU/audio) so the no-display path is real from day one
+  rather than retrofitted for the server variant in Phase 9 ([17](17-app-heads-and-shipping.md)).
+  31 tests. Headless windows are real windows without a picture, so the dedicated server runs the
+  desktop's frame loop; the clipboard refuses rather than faking; and `Suspend`/`Resume`/
+  `ReportMemoryPressure` are driveable, which is where the lifecycle fault-injection loop
+  [10](10-platforms.md) asks for actually runs.
+- `Vixen.Platform.Desktop` on SDL3; Windows/Linux/macOS specialisations.
 - `Vixen.App` host (`VixenApp.Run<TGame>()`) and the build-variant matrix; `vixen-game`/`vixen-app`
   templates follow in Phase 3 with the CLI.
 - `Vixen.Graphics` RHI surface + `Vixen.Graphics.Null` + `RecordingBackend` test harness.

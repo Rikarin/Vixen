@@ -65,6 +65,19 @@
   </Folder>
 
   <!--
+    Platform — one folder per deployment concern (docs/plan/02 § "Platform/").
+    Contracts first, then the implementations. Headless is here from the start rather
+    than as a Phase 9 retrofit: it is what the dedicated server runs on *and* what every
+    test that needs a platform uses, so the no-display path cannot quietly rot.
+  -->
+  <Folder Name="/Platform/">
+    <Project Path="Platform/Vixen.Platform/Vixen.Platform.csproj" />
+    <Project Path="Platform/Vixen.Platform.Tests/Vixen.Platform.Tests.csproj" />
+    <Project Path="Platform/Vixen.Platform.Headless/Vixen.Platform.Headless.csproj" />
+    <Project Path="Platform/Vixen.Platform.Headless.Tests/Vixen.Platform.Headless.Tests.csproj" />
+  </Folder>
+
+  <!--
     Benchmarks — docs/plan/02 § Benchmarks/. Not built by `Test`; the Nuke `Benchmark`
     target runs them in Release and diffs against a committed baseline.
   -->

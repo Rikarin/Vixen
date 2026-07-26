@@ -181,7 +181,11 @@ heuristics fight a frame deadline), `Parallel.For` (delegate allocation, no depe
 >   rather than run against inputs that were never produced.
 > - **Workers are not pinned.** `Thread` has no portable affinity API, the per-OS ones differ in kind
 >   rather than in spelling, and pinning is a pessimisation on a machine running anything else. It
->   waits for `Vixen.Platform`, where the per-OS calls will already live.
+>   waits for `Vixen.Platform`, where the per-OS calls will already live. 🟡 The contract half of this
+>   has since landed as `IProcessorTopology` in `Vixen.Platform` — available processor count, physical
+>   and performance core counts, and `TrySetAffinity`, which reports `false` until a per-OS assembly
+>   implements it. `AvailableProcessors` rather than `Environment.ProcessorCount` is the number to
+>   size a pool from, because in a container the two differ.
 > - **The safety system is deferred to Phase 2, with `Vixen.Ecs`.** The check described above is only
 >   as good as the access declarations, and in Unity's design those come from the ECS. Building the
 >   declaration API before its only consumer exists would be guessing at its shape. What *is*

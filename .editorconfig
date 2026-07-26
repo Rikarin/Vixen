@@ -281,3 +281,16 @@ dotnet_diagnostic.CA1861.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Core.Serialization.Tests/Contracts.cs]
 dotnet_diagnostic.CA1051.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Platform/Vixen.Platform/Input/Key.cs
+#
+# CS1591 (missing XML comment). `Key` names roughly 120 physical key positions,
+# and the name of each one is already the whole of what can be said about it: a
+# `<summary>The A key.</summary>` on `A` adds nothing and, repeated a hundred
+# times, buries the members that genuinely need explaining — why `Q` is not the
+# letter Q, what `NonUsBackslash` is, why `Back` sits outside the HID range. Those
+# carry comments; the rest are their own documentation.
+# ─────────────────────────────────────────────────────────────────────────────
+[Platform/Vixen.Platform/Input/Key.cs]
+dotnet_diagnostic.CS1591.severity = none

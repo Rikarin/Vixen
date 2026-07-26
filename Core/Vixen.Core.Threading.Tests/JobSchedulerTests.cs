@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Xunit;
 
@@ -163,7 +164,14 @@ public class JobSchedulerTests {
         using var scheduler = new JobScheduler(4);
         const int length = 4096;
         var threads = new int[length];
-        scheduler.ParallelFor(new RecordThreadJob(threads), length, 16);
+        using var twoArrived = new ManualResetEventSlim();
+
+        // The batches rendezvous rather than racing. Simply counting distinct thread ids afterwards
+        // asserted something the scheduler does not promise: work stealing lets the calling thread
+        // drain every batch before a worker reaches one, which is not a bug and is exactly what
+        // happens on a machine busy running the rest of the suite. Holding each batch until a second
+        // thread arrives tests what was meant — that the work *can* be spread — and is not a race.
+        scheduler.ParallelFor(new RecordThreadJob(threads, new(), twoArrived), length, 16);
 
         var distinct = new HashSet<int>(threads);
         Assert.True(distinct.Count > 1, "Every index ran on one thread, so nothing was parallel.");
@@ -468,8 +476,24 @@ public class JobSchedulerTests {
         }
     }
 
-    struct RecordThreadJob(int[] threads) : IJobParallelFor {
-        public void Execute(int index) => threads[index] = Environment.CurrentManagedThreadId;
+    struct RecordThreadJob(
+        int[] threads,
+        ConcurrentDictionary<int, bool> announced,
+        ManualResetEventSlim twoArrived
+    ) : IJobParallelFor {
+        public void Execute(int index) {
+            var thread = Environment.CurrentManagedThreadId;
+            threads[index] = thread;
+
+            if (announced.TryAdd(thread, true) && announced.Count >= 2) {
+                twoArrived.Set();
+            }
+
+            // Hold the batch until a second thread has shown up, so the caller cannot legitimately
+            // drain every batch itself. Bounded, because a machine with one usable core would
+            // otherwise hang here rather than fail.
+            twoArrived.Wait(TimeSpan.FromSeconds(5));
+        }
     }
 
     struct SelfWaitingJob(JobHandle[] handle, ManualResetEventSlim ready, Exception?[] caught) : IJob {
