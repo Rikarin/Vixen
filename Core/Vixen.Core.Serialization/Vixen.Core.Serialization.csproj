@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Core.Serialization</RootNamespace>
+        <Description>
+            Binary serialisation with no reflection and no IL weaving: a span-based wire format,
+            serializers emitted at compile time from [DataContract], and a schema that tolerates
+            being added to.
+        </Description>
+        <PackageTags>serialization;binary;source-generator;aot;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <!--
+      The generator travels inside the package, so a consumer that references Vixen.Core.Serialization
+      gets serializers emitted for its own [DataContract] types without knowing the generator exists.
+      Inside this repository it has to be named explicitly by each project that needs it, because
+      analyzers are not transitive through a ProjectReference — the tests do exactly that.
+    -->
+    <PropertyGroup>
+        <TargetsForTfmSpecificContentInPackage>
+            $(TargetsForTfmSpecificContentInPackage);PackSerializationGenerator
+        </TargetsForTfmSpecificContentInPackage>
+    </PropertyGroup>
+
+    <Target Name="PackSerializationGenerator">
+        <MSBuild Projects="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                 Targets="Build"
+                 Properties="Configuration=$(Configuration)"
+                 RemoveProperties="TargetFramework">
+            <Output TaskParameter="TargetOutputs" ItemName="SerializationGeneratorAssembly" />
+        </MSBuild>
+
+        <ItemGroup>
+            <TfmSpecificPackageFile Include="@(SerializationGeneratorAssembly)" PackagePath="analyzers/dotnet/cs" />
+        </ItemGroup>
+    </Target>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Core.Serialization.Tests" />
+    </ItemGroup>
+
+</Project>

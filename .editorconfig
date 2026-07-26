@@ -269,3 +269,15 @@ dotnet_diagnostic.CA1707.severity = none
 # allocation that happens once per test. Escalated to warning under Core/ and
 # Platform/ above, where the allocation budget is real.
 dotnet_diagnostic.CA1861.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Core.Serialization.Tests/Contracts.cs
+#
+# CA1051 (do not declare visible instance fields). These types exist to exercise
+# every shape the [DataContract] generator has to handle, and a public mutable
+# field is one of them — the attribute's own documentation names public fields as
+# part of the serialised form. A contract that avoided them would test the
+# generator against a shape no real contract uses.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Core.Serialization.Tests/Contracts.cs]
+dotnet_diagnostic.CA1051.severity = none

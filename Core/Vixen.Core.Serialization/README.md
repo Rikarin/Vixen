@@ -1,0 +1,109 @@
+# Vixen.Core.Serialization
+
+Binary serialisation with no reflection, no `Reflection.Emit`, and no IL weaving. Annotate a type;
+the serializer is emitted at compile time as C# you can read and step through.
+
+```csharp
+[DataContract]
+public sealed class SaveGame {
+    public int Level { get; set; }
+    public string? PlayerName { get; set; }
+    public float[]? Checkpoints { get; set; }
+}
+
+var bytes = Serializer.ToBytes(save);
+var loaded = Serializer.Read<SaveGame>(bytes);
+```
+
+## What is here
+
+| | |
+|---|---|
+| `SerializationWriter` / `SerializationReader` | The wire format. `ref struct`s over spans. |
+| `DataSerializer<T>` | What a serializer is. |
+| `SerializerRegistry` | Where they are found — a static field read, not a dictionary lookup. |
+| `Serializer` | The short way to say it for whole values. |
+| `Vixen.Core.Serialization.Generator` | Reads `[DataContract]`, writes the serializers. |
+
+## The format
+
+Little-endian, always, through `BinaryPrimitives` with an explicit endianness rather than whatever
+the CPU prefers. Lengths and counts are LEB128, so the overwhelmingly common short collection costs
+one byte instead of four. Strings are UTF-8 with a length that encodes null as `0` and length *n* as
+`n+1`, so null and empty stay distinct without a separate flag. Floats are written **by their bits**,
+so `-0f` stays negative and every NaN payload survives — content determinism is a byte comparison,
+and a format that normalised either would produce two files for one asset.
+
+Arrays of numeric primitives are one bulk copy. `bool` is deliberately not among them: a byte that is
+neither 0 nor 1 is a valid `bool` in memory and would survive a bulk copy as one.
+
+**Reading is span-only, with no stream form**, and that is a deliberate pair with `Vixen.Core.IO`'s
+memory mapping. A bundle on disk is mapped rather than read, so "the whole file in a span" costs no
+copy and no allocation, and the pages holding the assets nobody asked for are never faulted in.
+
+## Schema evolution
+
+Every object writes two varints ahead of its members: the contract version, and how many members
+were written. Two bytes, and they buy the following.
+
+**Appending a member is free, in both directions.** Old data has a smaller count, so the reader stops
+where the data stops and leaves the new members at their defaults. No version bump, no migration, no
+ceremony — and this is the great majority of real schema changes.
+
+**Removing or reordering a member is not free, and says so.** Data with more members than this build
+knows about is refused with a message naming the numbers, rather than read into the wrong fields.
+
+**A version bump means "the layout changed incompatibly".** The reader then looks for
+
+```csharp
+public static bool TryMigrate(int fromVersion, ref SerializationReader reader, ref T value)
+```
+
+on the contract, and throws `SerializationVersionException` — naming both versions and the method to
+declare — if there is none.
+
+**`[DataAlias]` on a member is not used by this format.** Names are not in the stream, because
+positional is smaller and faster and the count already handles the case that matters. Member aliases
+are for the YAML serializer, where names *are* the format; type aliases will be used here when the
+polymorphic type table arrives.
+
+## What the generator does, and does not
+
+Serializers are emitted into their own namespace as standalone classes, so **no type has to be
+declared `partial`**. That is the difference between a serialisation library and one that has an
+opinion about how every type in the engine is declared. The cost is that only public members are
+reachable.
+
+It handles mutable fields and settable properties by assignment, and get-only members — a positional
+`record` — by finding a constructor whose parameters match the members by name. A type it cannot
+reconstruct is a **build error** (`VXS0101`) rather than a crash on the machine that loads the save
+file, which is most of the argument for doing this at compile time.
+
+Members are ordered by `[DataMember(Order)]` and then by declaration, base class first, so adding a
+member to a base type appends to the stream rather than shifting everything a derived type wrote.
+
+**Writing a derived instance through its base serializer is refused, not silently truncated.** It
+would drop everything the derived type adds, and the loss would only surface wherever the data was
+read back. Proper polymorphic serialisation needs a type table, which belongs with
+`Vixen.Core.Reflection`.
+
+## Still to come
+
+**Polymorphism.** A field typed as a base class holding a derived instance needs a type-name table in
+the stream and a name → serializer map, and that map is the same one `Vixen.Core.Reflection` has to
+build for `[Component]` and `[Behavior]` discovery. Building a second one here first would be
+building the wrong one. Until then the case is detected and refused.
+
+**`ContentReference<T>` / `UrlReference<T>`,** which serialise as a URL plus a type and resolve
+through `Vixen.Assets` — a Phase 3 assembly.
+
+**The object database and compression.** `ObjectDatabase`, `FileOdbBackend`, `BundleOdbBackend`, and
+the LZ4/Zstd chunk compression from [doc 03](../../docs/plan/03-core-foundation.md). Hashing content
+into an `ObjectId` needs `System.IO.Hashing`, and the file backend needs the VFS — both of which now
+exist, so this is the next thing here rather than a distant one.
+
+**Generic contracts.** A generic `[DataContract]` needs one serializer per instantiation, which the
+registry cannot express without either open-generic construction (reflection, AOT-hostile) or the
+generator seeing every closed use. It is a build error today rather than a silent gap.
+
+Licensed under Apache-2.0.

@@ -263,6 +263,33 @@ Tests: round-trip property tests over generated types, schema-evolution tests (v
 and vice versa with `[DataAlias]`), and a cross-platform determinism test asserting byte-identical
 output on Windows/Linux/macOS runners.
 
+> ✅ **Built (the format and the generator; the database is next).** `Core/Vixen.Core.Serialization/`,
+> its generator, and 28 tests are live. What differs from the paragraphs above:
+>
+> - **The reader is span-only; there is no chunked stream writer.** That is the deliberate pair with
+>   `Vixen.Core.IO`'s memory mapping: a bundle is mapped rather than read, so "the whole file in a
+>   span" costs no copy and the pages nobody asked for are never faulted in. Writing does grow, via
+>   `IBufferWriter<byte>`.
+> - **Evolution is a member count, not a tagged format.** Every object writes two varints — contract
+>   version and member count — and that is the whole mechanism. Appending a member is free in both
+>   directions and needs no version bump; removing or reordering one is refused with a message naming
+>   the numbers. A version bump means "the layout changed incompatibly" and sends the reader to a
+>   `TryMigrate` hook. Two bytes an object, against a name tag per member.
+> - **`[DataAlias]` on a *member* does not apply to this format.** Positional is smaller and faster,
+>   and the count already covers the case that matters, so member names are not in the stream. Member
+>   aliases are for the YAML serializer, where names *are* the format.
+> - **No `partial` is required.** Serializers are emitted as standalone classes in their own
+>   namespace rather than into the contract type, which costs reaching only public members and buys
+>   not having an opinion about how every type in the engine is declared.
+> - **Polymorphism is detected and refused rather than silently truncating.** Writing a derived
+>   instance through a base serializer throws. Doing it properly needs a type-name table, and that is
+>   the same map `Vixen.Core.Reflection` has to build anyway.
+>
+> **Deferred:** `ObjectDatabase` with its file and bundle backends, LZ4/Zstd chunk compression, and
+> `ContentReference<T>`/`UrlReference<T>`. The first two now have everything they need — the VFS
+> exists and `System.IO.Hashing` is an approved dependency — so they are the next thing here rather
+> than a distant one; the third needs `Vixen.Assets` in Phase 3.
+
 ## `Vixen.Core.Reflection`
 
 The AOT-safe replacement for `Type`-driven discovery.

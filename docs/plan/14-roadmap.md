@@ -106,7 +106,11 @@ plumbing that everything else stands on.
   save look like one change. 123 tests. **Deferred with reasons in [03](03-core-foundation.md):**
   the Android/iOS/browser/bundle providers, which arrive with the platform or database they read
   from, and the `System.IO.Path` analyzer.
-- `Vixen.Core.Serialization` + generator; round-trip and evolution tests.
+- 🟡 `Vixen.Core.Serialization` + generator — the wire format, `DataSerializer<T>`, the registry, and
+  a `[DataContract]` generator that emits readable C# and turns an unserialisable type into a build
+  error. 28 tests covering round-trip, additive evolution, migration, determinism and truncation.
+  **Still owed here:** the object database, chunk compression, and content references — see
+  [03](03-core-foundation.md).
 - `Vixen.Core.Reflection` generator + `[ModuleInitializer]` registration.
 - `Vixen.Platform` contracts; `Vixen.Platform.Desktop` on SDL3; Windows/Linux/macOS specialisations;
   `Vixen.Platform.Headless` (no window/GPU/audio) so the no-display path is real from day one rather
