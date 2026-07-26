@@ -62,7 +62,15 @@ remains front-loaded into Phase 3.
   clip-space oracle for frustum culling. `Half` is deliberately omitted: `System.Half` is in the BCL.
   **Owed:** `Benchmarks/Vixen.Benchmarks.Math` — until it exists the SIMD paths are only asserted to
   agree with the scalar ones, not shown to be faster.
-- `Vixen.Core.Collections`, `Vixen.Core.Memory` with full tests.
+- ✅ `Vixen.Core.Collections` — `Handle<T>`/`HandlePool<T>`, `FreeList<T>`, `SparseSet<T>`, `BitSet`,
+  `SmallList<T,TBuffer>` over `InlineArray` buffers, `ChunkedArray<T>`, `RingBuffer<T>` and an
+  indexed priority queue with decrease-key. 34 tests, several against a BCL oracle.
+  **Deferred with reasons in the README:** `RobinHoodDictionary` (no benchmark yet for it to beat)
+  and `FixedBitSet<N>` (its capacity is the ECS's component budget, which is not decided).
+- ✅ `Vixen.Core.Memory` — `NativeArray<T>`, `ArenaAllocator` with frame and scope arenas, and
+  `BuddyAllocator`. 19 tests including a property test asserting suballocations never overlap and
+  that releasing everything merges the region back whole. **Deferred:** `GpuUploadRing`, which needs
+  mapped memory and frame fences and so lands with the RHI in Phase 1.
 - `Vixen.Core.Diagnostics`: `[LoggerMessage]` plumbing, ring-buffer sink, `ProfilingKey`/`Profiler`.
 
 **Exit:** `nuke Test` green on Windows/Linux/macOS. Raven builds and tests green on

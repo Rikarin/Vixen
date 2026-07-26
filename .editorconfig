@@ -154,6 +154,15 @@ dotnet_diagnostic.CA1859.severity = none
 # rule would make the compiler harder to read, not easier. 19 findings.
 dotnet_diagnostic.CA1720.severity = none
 
+# CA1000 — do not declare static members on generic types.
+# The rule predates generic type inference and argues that `Handle<Buffer>.Null`
+# is hard to read. The BCL disagrees with itself here — Span<T>.Empty,
+# Vector128<T>.Zero, ImmutableArray<T>.Empty — and static abstract interface
+# members make static members on generic types mandatory rather than merely
+# idiomatic. A `Null`/`Empty`/`Zero` on the type it belongs to is the discoverable
+# place for it; the alternative is a non-generic helper class nobody finds.
+dotnet_diagnostic.CA1000.severity = none
+
 # CA1062 — validate arguments of public methods.
 # An engine cannot afford a null check on every public entry point: these sit in
 # frame-loop hot paths, and the "zero allocation / no overhead in the frame loop"
@@ -173,6 +182,19 @@ dotnet_diagnostic.CA1062.severity = none
 # as CA1720 above — the shading language's vocabulary wins over a .NET API-naming
 # convention — and scoped to the compiler so a genuinely misleading `FooStream`
 # elsewhere is still reported. 2 findings.
+dotnet_diagnostic.CA1711.severity = none
+
+# ------------------------------------------------------------------------------
+# The indexed priority queue.
+# ------------------------------------------------------------------------------
+[Core/Vixen.Core.Collections/IndexedPriorityQueue.cs]
+# CA1711 — identifiers should not have a reserved suffix.
+# The rule wants a `*Queue` to derive from System.Collections.Queue, a
+# non-generic type from .NET 1.0 that nothing should derive from. This type is a
+# priority queue in every sense that matters — Enqueue, Dequeue, Peek, Count —
+# and "priority queue" is what somebody looking for it will search for. Calling
+# it a heap to satisfy the rule would name the implementation instead of the
+# abstraction. 1 finding.
 dotnet_diagnostic.CA1711.severity = none
 
 # ------------------------------------------------------------------------------

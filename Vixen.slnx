@@ -43,6 +43,10 @@
     <Project Path="Core/Vixen.Core.Tests/Vixen.Core.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Mathematics/Vixen.Core.Mathematics.csproj" />
     <Project Path="Core/Vixen.Core.Mathematics.Tests/Vixen.Core.Mathematics.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Collections/Vixen.Core.Collections.csproj" />
+    <Project Path="Core/Vixen.Core.Collections.Tests/Vixen.Core.Collections.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Memory/Vixen.Core.Memory.csproj" />
+    <Project Path="Core/Vixen.Core.Memory.Tests/Vixen.Core.Memory.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Syntax/Vixen.Core.Syntax.csproj" />
     <Project Path="Core/Vixen.Core.Syntax.Tests/Vixen.Core.Syntax.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Syntax.Generator/Vixen.Core.Syntax.Generator.csproj" />
