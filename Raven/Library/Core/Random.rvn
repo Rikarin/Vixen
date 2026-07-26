@@ -1,0 +1,121 @@
+package Vixen.Shaders.Core
+
+// A hash-based PRNG that must match the CPU implementation bit-for-bit.
+//
+// That requirement is doc 06's: the VFX system compiles one particle graph to both a C# job and a
+// Raven compute shader, and a test compares their outputs. So a particle seeded on the CPU and
+// simulated on the GPU has to land in the same place, which makes every operation here a
+// specification rather than an implementation detail.
+//
+// What that rules in and out:
+//
+//   - Only wrapping 32-bit unsigned arithmetic, xor and shifts. All are exactly defined for uint in
+//     both targets and in C#, so there is nothing for a driver to interpret.
+//   - No floating-point anywhere in the state. A float multiply is allowed to use a wider
+//     intermediate precision, and two conforming implementations may then disagree in the last bit.
+//   - The float conversion is a shift and a multiply by a power of two, never a division. `h >> 8`
+//     is below 2^24 and therefore exactly representable as a float, and 2^-24 is exact, so the
+//     product is exact — the same bits on any hardware. A division by 16777216.0 would also be
+//     exact here, but only because the divisor is a power of two, and writing it as a multiply says
+//     that on purpose.
+//
+// `asfloat` bit-stuffing — the usual `asfloat((h >> 9) | 0x3f800000u) - 1.0` — would be equally
+// exact and is the more common idiom, but Raven has no bit-reinterpretation intrinsic. The shift
+// and multiply is not a workaround for that; it is the same guarantee reached another way.
+
+struct Random {
+    /// The odd 32-bit constant from PCG's output stage. Odd matters: multiplication by an odd
+    /// number is invertible mod 2^32, so no state is destroyed.
+    const val Multiplier = 0x2C9277B5u
+
+    /// 2^-24, the scale that turns 24 retained bits into 0..1.
+    const val InvTwo24 = 5.9604645e-8f
+
+    // --- Hashing ---------------------------------------------------------
+
+    /// PCG's `pcg32_hash`: one xorshift, one odd multiply, one xorshift.
+    ///
+    /// A hash rather than a stateful generator because a GPU has no per-invocation state to carry —
+    /// the invocation id *is* the seed, and the same id must always give the same value, which is
+    /// also what makes the result reproducible across a re-simulation.
+    static func Hash(seed: uint): uint {
+        var state = seed
+        state = state ^ (state >> 16)
+        state = state * Multiplier
+        state = state ^ (state >> 16)
+        return state
+    }
+
+    /// Combines two seeds before hashing.
+    ///
+    /// The odd multiply on the second operand rather than a bare xor: `Combine(a, b)` must differ
+    /// from `Combine(b, a)`, and xor is commutative, so a pixel at (3, 7) would otherwise get the
+    /// same value as one at (7, 3) — a visible diagonal in any noise pattern.
+    static func Combine(a: uint, b: uint): uint => Hash(a ^ (b * 0x9E3779B9u))
+
+    static func Hash2(x: uint, y: uint): uint => Combine(x, y)
+
+    static func Hash3(x: uint, y: uint, z: uint): uint => Combine(Combine(x, y), z)
+
+    // --- Floats ----------------------------------------------------------
+
+    /// A uniform float in 0..1, exclusive of 1.
+    ///
+    /// The top 24 bits are kept rather than the bottom 24: the low bits of an xorshift-multiply
+    /// hash are the weakest, and a float's 24-bit mantissa can hold exactly this many.
+    static func ToFloat01(hash: uint): float => float(hash >> 8) * InvTwo24
+
+    static func Float01(seed: uint): float => ToFloat01(Hash(seed))
+
+    /// Two independent uniform floats from one seed.
+    ///
+    /// Two hashes rather than splitting one into halves: 16 bits gives 65536 distinct values, which
+    /// shows as visible banding in a sample position, and the second hash is three instructions.
+    static func Float2From(seed: uint): float2 {
+        val x = Float01(seed)
+        val y = Float01(seed ^ 0x68BC21EBu)
+        return float2(x, y)
+    }
+
+    static func Float3From(seed: uint): float3 {
+        val x = Float01(seed)
+        val y = Float01(seed ^ 0x68BC21EBu)
+        val z = Float01(seed ^ 0x02E5BE93u)
+        return float3(x, y, z)
+    }
+
+    /// A uniform float in `min`..`max`.
+    static func Range(seed: uint, low: float, high: float): float => lerp(low, high, Float01(seed))
+
+    /// A uniform signed float in -1..1.
+    static func Signed(seed: uint): float => Float01(seed) * 2f - 1f
+
+    // --- Directions ------------------------------------------------------
+
+    /// A direction uniformly distributed over the sphere.
+    ///
+    /// Uniform in `cosTheta`, not in `theta`: sampling the angle uniformly clusters points at the
+    /// poles, which is the classic mistake and looks like a seam in any particle emission.
+    static func OnSphere(seed: uint): float3 {
+        val u = Float2From(seed)
+        val cosTheta = u.x * 2f - 1f
+        return Math.SphericalToCartesian(u.y * Const.TwoPi, cosTheta)
+    }
+
+    /// A direction uniformly distributed over the hemisphere around a unit normal.
+    static func OnHemisphere(seed: uint, normal: float3): float3 {
+        val direction = OnSphere(seed)
+        return dot(direction, normal) < 0f ? -direction : direction
+    }
+
+    /// A point uniformly distributed inside the unit disk.
+    ///
+    /// Via the square root of the radius, not a rejection loop: a loop diverges across a warp and
+    /// has no bound, and `sqrt` is one instruction with the same distribution.
+    static func InDisk(seed: uint): float2 {
+        val u = Float2From(seed)
+        val radius = sqrt(u.x)
+        val angle = u.y * Const.TwoPi
+        return float2(radius * cos(angle), radius * sin(angle))
+    }
+}

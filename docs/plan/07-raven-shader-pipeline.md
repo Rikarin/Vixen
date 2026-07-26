@@ -24,7 +24,8 @@ decision that has been made and built, kept because the reasons stay useful.
 
 | | Open item | Where | Blocks |
 |---|---|---|---|
-| 🔴 | **`Raven/Library` is not written.** The whole shader library — Core, Shading, Geometry, Material, Pipeline, PostFx, Ui, Vfx | § F | the numeric tests, the perf gates, the corpus extension, and the mixin question below |
+| 🔴 | **`Raven/Library` is mostly unwritten.** `Core/` (Math, ColorSpaces, Random, Sampling) and `Shading/Brdf.rvn` are in and tested; Shading's other ten files, Geometry, Material, Pipeline, PostFx, Ui and Vfx are not | § F | the numeric tests, the perf gates, and the mixin question below |
+| 🔴 | **`inout` does not exist at any layer**, so `Material/MaterialSurface.rvn` — the composable material interface the whole `Pipeline/` tree is written against — cannot be expressed as specified | § F | `Material/`, and therefore `Pipeline/`. Either implement it or restructure the contract to return the struct |
 | 🔴 | **Nothing a shader writes is writable** — no storage buffers, no storage images, and assigning to a uniform is refused by neither backend. So the compute stage computes and discards | § I | the numeric BRDF readback, `Random.rvn` bit-for-bit, doc 06's VFX compute path — everything that has to *read a result back* |
 | 🟡 | **Generic types and methods do not lower** — front-end only. An open definition is `RVN3001`, and so is an instantiation: there is no monomorphisation, so `Box<float4>` reaches no backend | § I | anything in § F's library that wants a generic container |
 | 🟡 | **`&&` / `\|\|` do not short-circuit** — sound for side-effect-free expressions, wrong the moment the right operand is a guard | § I | correctness of `i < n && data[i] > 0` |
@@ -514,6 +515,83 @@ ClearCoat, Sheen, Hair, Subsurface, Transmission, Ibl, Lighting) · `Geometry/` 
 `Pipeline/` (ForwardPlus, Deferred, GBuffer, DepthOnly, ShadowCaster) · `PostFx/` (one per effect) ·
 `Ui/` · `Vfx/`.
 
+#### Started: `Core/` complete and `Shading/Brdf.rvn`
+
+Five files, `LibraryTreeTests` holding them to three claims: each parses and round-trips, the tree
+binds as **one** compilation (so the library agrees with itself rather than being files that each
+happen to compile), and a shader compiles against it through `.rvnlib` references with `glslc` and
+`spirv-val` as the verdict.
+
+| File | What it holds |
+|---|---|
+| `Core/Math.rvn` | constants, angle and range helpers, `SafeNormalize`, branchless orthonormal basis, spherical coords, octahedral encode/decode, the matrix-first transform helpers |
+| `Core/ColorSpaces.rvn` | sRGB transfer functions exact and cheap, Rec.709/2020 luminance, Reinhard, ACES (Narkowicz), AgX, PQ, YCoCg |
+| `Core/Random.rvn` | PCG-style integer hash, uniform floats, sphere/hemisphere/disk sampling |
+| `Core/Sampling.rvn` | base-2 radical inverse, Hammersley, Halton, concentric disk, cosine hemisphere, GGX importance sampling with its PDF |
+| `Shading/Brdf.rvn` | GGX and anisotropic GGX NDF, Smith height-correlated visibility, Schlick and IOR Fresnel, Lambert/Burley/Oren-Nayar, the assembled specular lobe |
+
+Free functions are `static func` on a field-less struct, which is Raven's only shape for one — and it
+is what makes the library exportable rather than incidental: `RVN5001` refuses to export a function
+that reads a shader binding, so "the library exports cleanly" and "the library is written as free
+functions" are the same statement.
+
+**Two conventions were written into the code rather than left to callers**, because in both cases the
+wrong version also compiles and looks plausible. Matrix-first (`TransformPoint`, per § E) — the other
+order computes the untransposed transform. And roughness is squared exactly once, at
+`Brdf.Alpha`: squaring twice makes everything smoother and squaring zero times makes everything
+rougher, so neither mistake announces itself.
+
+**What this first exercised, beyond the content.** The `.rvnlib` path had only ever run against
+fixtures. On real content, across packages, two properties held that only appear at this scale:
+
+- **A function reached through several references keeps one identity.** `Math.SafeNormalize` arrives
+  three ways — directly, and inside `Brdf.rvnlib` and `ColorSpaces.rvnlib`, each compiled against its
+  own copy of Math — and is emitted **once**. That is the one-shared-IR-decoder decision in § D
+  paying off; a decoder per library would have produced three private copies the verifier accepts.
+- **Referencing a library does not enlarge the shader.** A consumer reaching ~14 functions out of the
+  three libraries' ~70 emits exactly those 14.
+
+And the stronger claim `LibraryTreeTests` pins: a function read out of a `.rvnlib` lowers to
+**identical IR** to compiling its source alongside. Without that a library is a source of divergence
+between a developer build and a shipped one.
+
+#### 🔴 `inout` does not exist, and `Material/` cannot be written without it
+
+The composition table below specifies `protocol IMaterialSurface { func Compute(inout MaterialData d) }`
+— and `inout` is not in the language at *any* layer: no token, no syntax kind, no symbol. So
+`Material/MaterialSurface.rvn`, the composable material interface that `Pipeline/ForwardPlus.rvn` is
+written against, cannot be expressed as specified. This is the discovery that starting § F was for.
+
+Two ways out, and the choice is not obvious:
+
+- **Implement `inout`** — parser, a by-reference parameter in the symbol layer, lowering that passes a
+  place rather than a value, both backends, and an aliasing rule. SPIR-V has no reference type, so
+  this is copy-in/copy-out with the ordering questions that implies.
+- **Return the struct instead.** `func Compute(d: MaterialData): MaterialData`. Expressible today,
+  and a value language with no heap makes the copy cheap and the semantics clearer. What it costs is
+  that a feature accumulating into a shared surface reads as a fold rather than a mutation, and
+  Stride's model — which this is deliberately imitating — is mutation.
+
+Note also that the sketch's `inout MaterialData d` is C-style; Raven's parameter syntax is
+`d: MaterialData`, so the specification was never quite Raven either.
+
+#### Smaller things the library ran into
+
+- **No line continuation.** Raven is newline-sensitive and an expression cannot wrap, so anything
+  over one line becomes a block body with named locals. Same root cause as a parameter list not being
+  able to span lines, which is why `Library/Example2.rvn` declares its two compute parameters on one
+  long line. Not a defect, but it shapes how the library reads and is worth a decision if the library
+  is to grow much further.
+- **No `asfloat`/`asuint`.** No bit-reinterpretation intrinsic, though SPIR-V already emits `OpBitcast`
+  for int↔uint conversion and GLSL has `uintBitsToFloat`. `Random.rvn` does not need it — its float
+  conversion is a shift and a multiply by 2⁻²⁴, which is exactly reproducible on the CPU and therefore
+  *better* for the bit-for-bit requirement than the usual `asfloat` bit-stuffing — but packing work in
+  `Math.rvn` will want it.
+- **A shift count must be `int`.** `a >> s` with `s: uint` is `RVN2020`, where both targets accept an
+  unsigned count.
+- **Range `for` is inclusive.** `for (i in 0 .. 4)` runs five times, Kotlin-style. Correct and
+  documented, but it is the kind of thing a library gets wrong once.
+
 ### G. Testing and CI additions
 
 The full testing story, by layer and with the status of each. This is the only testing table in the
@@ -522,7 +600,7 @@ is how two lists come to disagree.
 
 | | Layer | Test | |
 |---|---|---|---|
-| 🟡 | Parse | Golden-tree and round-trip corpus over **the whole `Raven/Library` tree** — every shipped shader round-trips byte-identically | corpus covers the fixtures and both examples; the library is § F |
+| 🟡 | Parse | Golden-tree and round-trip corpus over **the whole `Raven/Library` tree** — every shipped shader round-trips byte-identically | ✅ mechanism: the corpus walks the tree recursively, so each file § F adds is covered on arrival |
 | 🟡 | Semantic | Positive/negative fixture pairs per diagnostic ID; `compose`-resolution golden trees per material-feature combination | partial — most IDs have a trigger, few have the negative |
 | 🟡 | SPIR-V | `spirv-val` on every emitted module; golden `spirv-dis` snapshots so codegen changes are reviewable | ✅ |
 | 🔴 | Both emitters | **Differential test**: Raven's SPIR-V vs `glslc`(Raven's GLSL), compared for semantic equivalence — the hard class of bug, an emitter internally consistent and semantically wrong | ✅ interface-level; blind to the shared IR, hence the numeric tests |
@@ -1089,7 +1167,7 @@ Vixen's equivalent, all of it built:
 
 | Mechanism | Raven construct | Used for |
 |---|---|---|
-| Interface | `protocol IMaterialSurface { func Compute(inout MaterialData d) }` | the contract a material feature satisfies |
+| Interface | `protocol IMaterialSurface { func Compute(inout MaterialData d) }` — ⚠️ **`inout` does not exist**, see § F | the contract a material feature satisfies |
 | Implementation | `shader MetalRoughnessSurface : IMaterialSurface { … }` | one concrete feature |
 | Composition | `compose val diffuse: IDiffuseModel` — a *shader-typed member* resolved at compile time | plugging chosen features into a template |
 | Conditional | `[Permutation] val UseSkinning: bool` | permutation flags — not `#if`, see § B |

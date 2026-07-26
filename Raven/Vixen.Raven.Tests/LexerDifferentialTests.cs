@@ -213,13 +213,14 @@ static class CorpusLocator {
             yield return Path.GetFullPath(file);
         }
 
-        // The shipped library files: Example1 is the syntax showcase, Example2 the compute
-        // shader. Both are in the corpus so their syntax is checked against the grammar, which
-        // is the only reason `else if` was ever noticed.
-        foreach (var example in (string[])["Example1.rvn", "Example2.rvn"]) {
-            yield return Path.GetFullPath(
-                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Library", example)
-            );
+        // The whole shipped library tree, recursively: the two examples at the root — Example1 the
+        // syntax showcase, Example2 the compute shader — and every package beside them. Having them
+        // here is the only reason `else if` was ever noticed, and it closes § G's parse row for the
+        // library rather than for the fixtures alone.
+        var library = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Library");
+        foreach (var file in Directory.EnumerateFiles(library, "*.rvn", SearchOption.AllDirectories)
+                     .OrderBy(f => f, StringComparer.Ordinal)) {
+            yield return Path.GetFullPath(file);
         }
     }
 }

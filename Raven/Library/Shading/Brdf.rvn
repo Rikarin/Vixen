@@ -1,0 +1,182 @@
+package Vixen.Shaders.Shading
+
+import Vixen.Shaders.Core
+
+// The microfacet BRDF primitives: the normal distribution, the geometric visibility, and Fresnel.
+//
+// A specular BRDF is D * G * F / (4 * NdotL * NdotV). The three terms are separate functions here,
+// and the `4 * NdotL * NdotV` denominator is folded into the *visibility* rather than left to the
+// caller — see the note on `VisibilitySmithGgx`. Getting that fold wrong in either direction is the
+// most common energy bug in a hand-written PBR shader, so this file names which convention it uses
+// and every function is written to it.
+//
+// Roughness is squared exactly once, at the boundary. Callers pass *perceptual* roughness — the
+// 0..1 value an artist authors and a texture stores — and `Alpha` converts it. Every function below
+// that takes `alpha` wants the converted value. The reason to be strict about this: squaring twice
+// is visually plausible (everything just looks smoother) and squaring zero times is also plausible
+// (everything looks rougher), so neither mistake announces itself, and a material authored against
+// one convention is wrong under the other.
+
+struct Brdf {
+    /// Perceptual roughness to the `alpha` every function here expects.
+    ///
+    /// Squaring is what makes the perceptual parameter perceptually linear: without it, almost all
+    /// of the visible change in a highlight happens in the bottom fifth of the slider.
+    static func Alpha(perceptualRoughness: float): float => Math.Pow2(perceptualRoughness)
+
+    /// The lowest alpha that keeps the NDF finite.
+    ///
+    /// A perfectly smooth surface makes D a Dirac delta, which in floating point is an infinity that
+    /// becomes a NaN at the first multiply. Clamping alpha rather than clamping D: it bounds the
+    /// highlight's size instead of its height, which is the difference between "very shiny" and "one
+    /// blown-out pixel that flickers".
+    const val MinAlpha = 0.002f
+
+    static func ClampAlpha(alpha: float): float => max(alpha, MinAlpha)
+
+    // --- D: the normal distribution function -----------------------------
+
+    /// GGX / Trowbridge-Reitz.
+    ///
+    /// The default for everything: its tail falls off far more slowly than Beckmann's, which is what
+    /// makes a rough metal look like rough metal rather than like a sphere with a hotspot painted on.
+    static func DistributionGgx(NdotH: float, alpha: float): float {
+        val a = ClampAlpha(alpha)
+        val a2 = a * a
+        val d = NdotH * NdotH * (a2 - 1f) + 1f
+        return a2 / max(Const.Pi * d * d, Const.Epsilon)
+    }
+
+    /// Anisotropic GGX, for brushed metal and hair.
+    ///
+    /// Takes the half vector in tangent space rather than the three dot products, because the
+    /// anisotropic form needs the half vector's tangent and bitangent components separately and
+    /// reconstructing them from dot products at the call site is where sign errors live.
+    static func DistributionGgxAnisotropic(halfTangent: float3, alphaT: float, alphaB: float): float {
+        val at = ClampAlpha(alphaT)
+        val ab = ClampAlpha(alphaB)
+        val v = float3(halfTangent.x / at, halfTangent.y / ab, halfTangent.z)
+        val w = dot(v, v)
+        return 1f / max(Const.Pi * at * ab * w * w, Const.Epsilon)
+    }
+
+    // --- V: geometric visibility -----------------------------------------
+
+    /// Smith's height-correlated visibility, with the BRDF's `1 / (4 NdotL NdotV)` folded in.
+    ///
+    /// "Visibility" rather than "geometry" is the whole point of the naming: G is the masking-
+    /// shadowing term and needs dividing by `4 NdotL NdotV`; V is `G / (4 NdotL NdotV)` already. The
+    /// division cancels against terms inside G, so folding it in is both cheaper and better
+    /// conditioned than computing G and dividing — the separate form has a `0/0` at grazing angles
+    /// that this one simply does not have.
+    ///
+    /// Height-correlated rather than the separable form: the separable version assumes masking and
+    /// shadowing are independent, which they are not, and it visibly over-darkens rough surfaces at
+    /// grazing angles. This is Heitz's correct version and costs one extra multiply.
+    static func VisibilitySmithGgx(NdotL: float, NdotV: float, alpha: float): float {
+        val a2 = Math.Pow2(ClampAlpha(alpha))
+        val lambdaV = NdotL * sqrt(NdotV * NdotV * (1f - a2) + a2)
+        val lambdaL = NdotV * sqrt(NdotL * NdotL * (1f - a2) + a2)
+        return 0.5f / max(lambdaV + lambdaL, Const.Epsilon)
+    }
+
+    /// The Karis approximation to the above: the square roots become linear interpolations.
+    ///
+    /// Kept for the mobile path and for anything running per-sample inside a loop. The error is
+    /// under a percent for mid roughness and grows at the extremes; at that point it is cheaper than
+    /// reducing the sample count to afford the exact version.
+    static func VisibilitySmithGgxFast(NdotL: float, NdotV: float, alpha: float): float {
+        val a = ClampAlpha(alpha)
+        val lambdaV = NdotL * (NdotV * (1f - a) + a)
+        val lambdaL = NdotV * (NdotL * (1f - a) + a)
+        return 0.5f / max(lambdaV + lambdaL, Const.Epsilon)
+    }
+
+    // --- F: Fresnel ------------------------------------------------------
+
+    /// Schlick's approximation, coloured — `f0` is the reflectance at normal incidence.
+    ///
+    /// `f0` is a colour rather than a scalar because that is what encodes metalness: a dielectric's
+    /// f0 is a grey around 0.04 and a metal's is its own tint, which is why a metal's reflection is
+    /// coloured and a plastic's is white.
+    static func FresnelSchlick(f0: float3, VdotH: float): float3 {
+        return f0 + (float3(1f) - f0) * Math.Pow5(saturate(1f - VdotH))
+    }
+
+    /// Schlick with a separate reflectance at grazing incidence.
+    ///
+    /// The general form. A real surface does not reach pure white at 90 degrees, and for a rough
+    /// surface `f90` below 1 is what keeps the rim from glowing — which is also how a
+    /// multi-scatter-compensated diffuse term is expressed.
+    static func FresnelSchlickF90(f0: float3, f90: float3, VdotH: float): float3 {
+        return f0 + (f90 - f0) * Math.Pow5(saturate(1f - VdotH))
+    }
+
+    static func FresnelSchlickScalar(f0: float, VdotH: float): float {
+        return f0 + (1f - f0) * Math.Pow5(saturate(1f - VdotH))
+    }
+
+    /// f0 from an index of refraction, for a dielectric.
+    ///
+    /// The bridge between physical authoring — glass is 1.5, water 1.33 — and the reflectance the
+    /// BRDF wants. 1.5 gives 0.04, which is where the usual constant comes from.
+    static func F0FromIor(ior: float): float => Math.Pow2((ior - 1f) / (ior + 1f))
+
+    /// The specular f0 for a metalness workflow: a dielectric grey blended toward the base colour.
+    static func F0FromMetalness(baseColor: float3, metalness: float, reflectance: float): float3 {
+        return lerp(float3(reflectance), baseColor, metalness)
+    }
+
+    // --- Diffuse ---------------------------------------------------------
+
+    /// Lambert, normalised. The `1/pi` is included, so this is a BRDF and not just an albedo.
+    static func DiffuseLambert(albedo: float3): float3 => albedo * Const.InvPi
+
+    /// Burley's / Disney's diffuse, which adds retroreflection at grazing angles.
+    ///
+    /// What it buys over Lambert is the rim brightening on rough dielectrics — cloth, unfinished
+    /// wood, skin. It is not energy-conserving in the strict sense; the renormalised variants that
+    /// are cost more than the difference is worth at this level.
+    static func DiffuseBurley(albedo: float3, NdotL: float, NdotV: float, LdotH: float, alpha: float): float3 {
+        val f90 = 0.5f + 2f * ClampAlpha(alpha) * LdotH * LdotH
+        val scatterL = FresnelSchlickScalar(1f, NdotL) * f90 - FresnelSchlickScalar(1f, NdotL) + 1f
+        val scatterV = FresnelSchlickScalar(1f, NdotV) * f90 - FresnelSchlickScalar(1f, NdotV) + 1f
+        return albedo * Const.InvPi * scatterL * scatterV
+    }
+
+    /// Oren-Nayar, the qualitative form: rough diffuse that flattens toward the light.
+    static func DiffuseOrenNayar(albedo: float3, NdotL: float, NdotV: float, LdotV: float, alpha: float): float3 {
+        val sigma2 = Math.Pow2(ClampAlpha(alpha))
+        val a = 1f - 0.5f * sigma2 / (sigma2 + 0.33f)
+        val b = 0.45f * sigma2 / (sigma2 + 0.09f)
+        val s = LdotV - NdotL * NdotV
+        val t = s <= 0f ? 1f : max(NdotL, NdotV)
+        return albedo * Const.InvPi * (a + b * s / max(t, Const.Epsilon))
+    }
+
+    // --- Assembled -------------------------------------------------------
+
+    /// The full isotropic specular lobe: D * V * F, with the `4 NdotL NdotV` already inside V.
+    ///
+    /// Multiply by `NdotL` and the light's radiance to get the outgoing contribution. `NdotL` is
+    /// deliberately *not* applied here, because a shadowed or back-facing sample wants to skip the
+    /// whole lobe rather than multiply it by zero.
+    static func SpecularGgx(f0: float3, NdotL: float, NdotV: float, NdotH: float, VdotH: float, alpha: float): float3 {
+        val d = DistributionGgx(NdotH, alpha)
+        val v = VisibilitySmithGgx(NdotL, NdotV, alpha)
+        val f = FresnelSchlick(f0, VdotH)
+        return f * (d * v)
+    }
+
+    /// The energy a single-scattering GGX lobe fails to reflect, as a multiplier that restores it.
+    ///
+    /// Single-scattering microfacet models lose energy with roughness — a rough metal comes out
+    /// noticeably darker than it should — because light that bounces twice between facets is never
+    /// accounted for. This is the cheap Fdez-Agüera compensation, which needs the split-sum DFG term
+    /// that `Ibl` supplies.
+    static func MultiScatterCompensation(f0: float3, dfg: float2): float3 {
+        val singleScatter = float3(dfg.x + dfg.y)
+        val energy = float3(1f) + f0 * (1f / max(dfg.y, Const.Epsilon) - 1f)
+        return energy * singleScatter / max(singleScatter, float3(Const.Epsilon))
+    }
+}

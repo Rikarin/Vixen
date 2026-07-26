@@ -1,0 +1,153 @@
+package Vixen.Shaders.Core
+
+// Low-discrepancy sequences and importance sampling.
+//
+// The distinction that runs through this file: `Random` gives independent samples, which converge as
+// 1/sqrt(N); the sequences here are *correlated by construction* to fill the domain evenly and
+// converge closer to 1/N. For a fixed small sample count — 16 taps of an IBL prefilter, 8 taps of an
+// AO kernel — that difference is the difference between noise and no noise, at the same cost.
+//
+// Every `ImportanceSample*` returns a direction in *tangent space*, z up. Transforming into world
+// space is the caller's job, because the caller already has the basis and building one per sample
+// inside a loop is the single most common way this gets slow.
+
+struct Sampling {
+    /// 2^-32, the scale for a full 32-bit radical inverse.
+    const val InvTwo32 = 2.3283064e-10f
+
+    // --- Low-discrepancy sequences ---------------------------------------
+
+    /// The base-2 radical inverse: reverse the bits and read them back as a fraction.
+    ///
+    /// The shift-and-mask ladder rather than a loop, which is the standard formulation — five steps
+    /// swap progressively smaller groups, and a 32-iteration loop would do the same work with a
+    /// branch per bit.
+    static func RadicalInverseBase2(bits: uint): float {
+        var b = bits
+        b = (b << 16) | (b >> 16)
+        b = ((b & 0x55555555u) << 1) | ((b & 0xAAAAAAAAu) >> 1)
+        b = ((b & 0x33333333u) << 2) | ((b & 0xCCCCCCCCu) >> 2)
+        b = ((b & 0x0F0F0F0Fu) << 4) | ((b & 0xF0F0F0F0u) >> 4)
+        b = ((b & 0x00FF00FFu) << 8) | ((b & 0xFF00FF00u) >> 8)
+        return float(b) * InvTwo32
+    }
+
+    /// The `index`-th point of the Hammersley set of `count` points, in 0..1 squared.
+    ///
+    /// The first coordinate is a plain uniform stride, which is what makes this a *set* rather than
+    /// a sequence: it needs the total count up front, and adding a sample invalidates every previous
+    /// position. For a prefilter loop with a fixed tap count that is exactly the right trade.
+    static func Hammersley(index: uint, count: uint): float2 {
+        val x = float(index) / float(max(count, 1u))
+        return float2(x, RadicalInverseBase2(index))
+    }
+
+    /// The `index`-th value of the Halton sequence in an arbitrary base.
+    ///
+    /// Unlike Hammersley this is progressive — sample N is the same whether you take 8 or 800 — so
+    /// it is what a temporal accumulation wants, where the count is however many frames have
+    /// converged so far. Bases must be coprime, conventionally 2 and 3.
+    static func Halton(index: uint, radix: uint): float {
+        var result = 0f
+        var fraction = 1f / float(max(radix, 2u))
+        var remaining = index
+
+        // 16 digits is enough for any index a frame counter reaches, and a bounded loop keeps this
+        // uniform across a warp. The early exit is a `break` rather than a loop condition so the
+        // bound stays visible.
+        for (i in 0 .. 15) {
+            if (remaining == 0u) {
+                break
+            }
+
+            val digit = remaining % radix
+            result += float(digit) * fraction
+            fraction /= float(radix)
+            remaining /= radix
+        }
+
+        return result
+    }
+
+    /// The Halton point used for temporal jitter: bases 2 and 3.
+    static func Halton23(index: uint): float2 => float2(Halton(index, 2u), Halton(index, 3u))
+
+    // --- Disk and hemisphere ---------------------------------------------
+
+    /// Maps the unit square onto the unit disk with concentric rings.
+    ///
+    /// Shirley's mapping rather than the polar `(sqrt(r), 2*pi*theta)` one: polar is correct in
+    /// distribution but distorts *area locally*, stretching samples along the angular axis. For a
+    /// low-discrepancy input that distortion undoes the even spacing the sequence was chosen for.
+    static func ConcentricDisk(u: float2): float2 {
+        val offset = u * 2f - 1f
+        if (abs(offset.x) < Const.Epsilon && abs(offset.y) < Const.Epsilon) {
+            return float2(0f)
+        }
+
+        if (abs(offset.x) > abs(offset.y)) {
+            val radius = offset.x
+            val theta = Const.Pi * 0.25f * (offset.y / offset.x)
+            return float2(radius * cos(theta), radius * sin(theta))
+        }
+
+        val radius = offset.y
+        val theta = Const.HalfPi - Const.Pi * 0.25f * (offset.x / offset.y)
+        return float2(radius * cos(theta), radius * sin(theta))
+    }
+
+    /// A cosine-weighted direction over the hemisphere, in tangent space.
+    ///
+    /// Cosine-weighted because a diffuse BRDF's integrand carries a cosine: sampling proportional to
+    /// it makes the estimator's weight constant, so the `1/pi` and the `NdotL` cancel and the
+    /// estimate is a plain average. That cancellation is the reason to prefer this over a uniform
+    /// hemisphere sample and a division.
+    static func CosineHemisphere(u: float2): float3 {
+        val disk = ConcentricDisk(u)
+        val z = sqrt(saturate(1f - dot(disk, disk)))
+        return float3(disk.x, disk.y, z)
+    }
+
+    /// The PDF of `CosineHemisphere` for a direction with the given cosine.
+    static func CosineHemispherePdf(cosTheta: float): float => cosTheta * Const.InvPi
+
+    // --- GGX -------------------------------------------------------------
+
+    /// Importance-samples a GGX half-vector for the given roughness, in tangent space.
+    ///
+    /// Samples the *half* vector rather than the light direction, because the NDF is a distribution
+    /// over half vectors; the caller reflects the view direction about the result. `alpha` is
+    /// perceptual roughness squared, which is the parameterisation `Brdf` uses throughout — see the
+    /// note there on why roughness is squared exactly once.
+    static func ImportanceSampleGgx(u: float2, alpha: float): float3 {
+        val phi = Const.TwoPi * u.x
+        val a2 = alpha * alpha
+        val cosThetaSquared = (1f - u.y) / (1f + (a2 - 1f) * u.y)
+        val cosTheta = sqrt(saturate(cosThetaSquared))
+        return Math.SphericalToCartesian(phi, cosTheta)
+    }
+
+    /// The PDF of `ImportanceSampleGgx`, as a density over half vectors.
+    ///
+    /// Converting it to a density over light directions costs a factor of `4 * VdotH`, which the
+    /// caller applies — it is only correct once the view direction is known, and folding it in here
+    /// would make the function silently wrong for anyone integrating over half vectors directly.
+    static func ImportanceSampleGgxPdf(cosThetaH: float, alpha: float): float {
+        val a2 = alpha * alpha
+        val d = (a2 - 1f) * cosThetaH * cosThetaH + 1f
+        return a2 * cosThetaH / max(Const.Pi * d * d, Const.Epsilon)
+    }
+
+    /// Rotates a tangent-space direction into world space around a unit normal.
+    ///
+    /// The counterpart to every `ImportanceSample*` above. Built with `OrthonormalTangent`, so the
+    /// basis is branchless and stable; the azimuth it picks is arbitrary, which is fine because
+    /// every distribution here is rotationally symmetric about the normal.
+    static func TangentToWorld(tangentDirection: float3, normal: float3): float3 {
+        val tangent = Math.OrthonormalTangent(normal)
+        val bitangent = cross(normal, tangent)
+        val x = tangent * tangentDirection.x
+        val y = bitangent * tangentDirection.y
+        return Math.SafeNormalize(x + y + normal * tangentDirection.z)
+    }
+}
