@@ -4,6 +4,7 @@
 using System.Globalization;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
+using Vixen.Raven.Reflection;
 using Vixen.Raven.Symbols;
 
 namespace Vixen.Raven.CodeGen.Spirv;
@@ -11,13 +12,16 @@ namespace Vixen.Raven.CodeGen.Spirv;
 /// <summary>A resolved storage location: a pointer, plus a swizzle the pointer could not reach.</summary>
 /// <param name="Id">The pointer id, from a variable or an <c>OpAccessChain</c>.</param>
 /// <param name="Type">The type the pointer points at.</param>
-/// <param name="Layout">Whether that type is the explicitly laid out variant.</param>
+/// <param name="Layout">
+///     The packing rule its type is decorated with, or null when it is the plain type. A rule rather
+///     than a flag because a uniform block and a storage buffer lay the same struct out differently.
+/// </param>
 /// <param name="Storage">Its storage class, which every further access chain off it has to repeat.</param>
 /// <param name="Swizzle">A multi-lane swizzle that has to be applied after loading.</param>
 readonly record struct SpirvPointer(
     uint Id,
     IrType Type,
-    bool Layout,
+    LayoutRule? Layout,
     SpirvStorageClass Storage,
     IrSwizzleAccess? Swizzle = null
 );
@@ -278,6 +282,10 @@ partial class SpirvEmitter {
 
             case IrLoadInstruction load:
                 values[load.Result.Id] = EmitLoad(load.Place);
+                return;
+
+            case IrArrayLengthInstruction length:
+                values[length.Result.Id] = EmitArrayLength(length);
                 return;
 
             case IrCallInstruction call: {
@@ -771,18 +779,42 @@ partial class SpirvEmitter {
 
         var pointer = Resolve(place);
         var plain = types.Type(pointer.Type);
-        var pointee = pointer.Layout ? types.Type(pointer.Type, true) : plain;
+        var pointee = types.Type(pointer.Type, pointer.Layout);
 
         // The laid-out form of an aggregate is a *different type* from the plain one, so it
         // cannot be loaded as itself and there is no cast between the two. It comes out member by
         // member instead.
         var loaded = pointee != plain
-            ? LoadAcrossLayout(pointer.Id, pointer.Storage, pointer.Type)
+            ? LoadAcrossLayout(pointer.Id, pointer.Storage, pointer.Type, pointer.Layout!.Value)
             : Emit(SpirvOp.Load, pointee, SpirvOperand.Id(pointer.Id));
 
         return pointer.Swizzle is { } swizzle
             ? Shuffle(loaded, loaded, swizzle.Components, types.Type(swizzle.ResultType(pointer.Type)))
             : loaded;
+    }
+
+    /// <summary>
+    ///     The element count of a storage buffer's runtime array.
+    /// </summary>
+    /// <remarks>
+    ///     <c>OpArrayLength</c> takes the <em>block variable</em> and a member index, not a pointer to
+    ///     the array — which is why the IR carries a place here and why the access chain that would
+    ///     normally be built is skipped. The result is a <c>uint</c> in SPIR-V and an <c>int</c> in
+    ///     both GLSL and the IR, so it is converted rather than reinterpreted.
+    /// </remarks>
+    uint EmitArrayLength(IrArrayLengthInstruction instruction) {
+        if (!globals.TryGetValue(instruction.Place.Root, out var global) || global.Member is not { } member) {
+            return Unimplemented($"The length of '{instruction.Place.Root.Name}'", instruction.Result.Type);
+        }
+
+        var length = Emit(
+            SpirvOp.ArrayLength,
+            types.UInt,
+            SpirvOperand.Id(global.Variable),
+            SpirvOperand.Literal(member)
+        );
+
+        return Emit(SpirvOp.Bitcast, types.Int, SpirvOperand.Id(length));
     }
 
     /// <summary>
@@ -805,16 +837,17 @@ partial class SpirvEmitter {
     ///         the first non-aggregate, where a plain load is the whole answer.
     ///     </para>
     /// </remarks>
-    uint LoadAcrossLayout(uint pointer, SpirvStorageClass storage, IrType type) {
+    uint LoadAcrossLayout(uint pointer, SpirvStorageClass storage, IrType type, LayoutRule rule) {
         switch (type) {
             case IrStructType structType: {
                 var members = new SpirvOperand[structType.Fields.Count];
                 for (var i = 0; i < structType.Fields.Count; i++) {
                     members[i] = SpirvOperand.Id(
                         LoadAcrossLayout(
-                            Step(pointer, storage, structType.Fields[i].Type, types.ConstantInt(i)),
+                            Step(pointer, storage, structType.Fields[i].Type, types.ConstantInt(i), rule),
                             storage,
-                            structType.Fields[i].Type
+                            structType.Fields[i].Type,
+                            rule
                         )
                     );
                 }
@@ -827,9 +860,10 @@ partial class SpirvEmitter {
                 for (var i = 0; i < length; i++) {
                     elements[i] = SpirvOperand.Id(
                         LoadAcrossLayout(
-                            Step(pointer, storage, array.Element, types.ConstantInt(i)),
+                            Step(pointer, storage, array.Element, types.ConstantInt(i), rule),
                             storage,
-                            array.Element
+                            array.Element,
+                            rule
                         )
                     );
                 }
@@ -843,18 +877,73 @@ partial class SpirvEmitter {
     }
 
     /// <summary>One access chain step into a laid-out aggregate.</summary>
-    uint Step(uint pointer, SpirvStorageClass storage, IrType member, uint index) =>
+    uint Step(uint pointer, SpirvStorageClass storage, IrType member, uint index, LayoutRule rule) =>
         Emit(
             SpirvOp.AccessChain,
-            types.Pointer(storage, types.Type(member, true)),
+            types.Pointer(storage, types.Type(member, rule)),
             SpirvOperand.Id(pointer),
             SpirvOperand.Id(index)
         );
+
+    /// <summary>
+    ///     Writes a plain aggregate into an explicitly laid out block, member by member.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <see cref="LoadAcrossLayout" /> and forced for the same reason: the laid-out
+    ///     struct is a different type, so one <c>OpStore</c> of the plain value is invalid — which is
+    ///     exactly what <c>spirv-val</c> says when a <c>particles[i] = p</c> is emitted as one.
+    /// </remarks>
+    void StoreAcrossLayout(uint pointer, SpirvStorageClass storage, IrType type, LayoutRule rule, uint value) {
+        switch (type) {
+            case IrStructType structType:
+                for (var i = 0; i < structType.Fields.Count; i++) {
+                    var field = structType.Fields[i].Type;
+                    StoreAcrossLayout(
+                        Step(pointer, storage, field, types.ConstantInt(i), rule),
+                        storage,
+                        field,
+                        rule,
+                        Emit(SpirvOp.CompositeExtract, types.Type(field), SpirvOperand.Id(value), SpirvOperand.Literal(i))
+                    );
+                }
+
+                return;
+
+            case IrArrayType { Length: { } length } array:
+                for (var i = 0; i < length; i++) {
+                    StoreAcrossLayout(
+                        Step(pointer, storage, array.Element, types.ConstantInt(i), rule),
+                        storage,
+                        array.Element,
+                        rule,
+                        Emit(
+                            SpirvOp.CompositeExtract,
+                            types.Type(array.Element),
+                            SpirvOperand.Id(value),
+                            SpirvOperand.Literal(i)
+                        )
+                    );
+                }
+
+                return;
+
+            default:
+                Add(new(SpirvOp.Store, null, null, SpirvOperand.Id(pointer), SpirvOperand.Id(value)));
+                return;
+        }
+    }
 
     void EmitStore(IrPlace place, uint value) {
         var pointer = Resolve(place, write: true);
 
         if (pointer.Swizzle is not { } swizzle) {
+            // The laid-out form of an aggregate is a different type from the plain one, so a whole
+            // aggregate written into a descriptor goes in member by member.
+            if (pointer.Layout is { } rule && types.Type(pointer.Type, rule) != types.Type(pointer.Type)) {
+                StoreAcrossLayout(pointer.Id, pointer.Storage, pointer.Type, rule, value);
+                return;
+            }
+
             Add(new(SpirvOp.Store, null, null, SpirvOperand.Id(pointer.Id), SpirvOperand.Id(value)));
             return;
         }
@@ -911,12 +1000,14 @@ partial class SpirvEmitter {
             storage = SpirvStorageClass.Function;
         } else {
             Report(BackendDiagnostics.NotImplemented, $"Reaching the variable '{place.Root.Name}'");
-            return new(types.ConstantInt(0), place.Type, false, SpirvStorageClass.Function);
+            return new(types.ConstantInt(0), place.Type, null, SpirvStorageClass.Function);
         }
 
-        // Only a uniform block's members are laid out; a stream is interface storage with no
-        // host-visible layout at all.
-        var layout = storage == SpirvStorageClass.Uniform;
+        // Which packing rule — if any — this root's type is decorated with. It comes off the global
+        // rather than off the storage class, because a uniform block and a storage buffer share the
+        // `Uniform` class in the SPIR-V 1.0 form and pack differently. A stream and a local are
+        // interface or function storage with no host-visible layout at all.
+        var layout = globals.TryGetValue(place.Root, out var root) ? root.Layout : null;
         var type = place.Root.Type;
         IrSwizzleAccess? trailing = null;
 

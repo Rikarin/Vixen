@@ -4,16 +4,11 @@ import Vixen.Shaders.Core
 
 // GPU particle simulation — the *forces and integration*, not the dispatch.
 //
-// **This file cannot yet be the compute shader it should be**, and the reason is specific: a simulation
-// step reads a particle from a buffer, integrates it, and writes it back. Raven has no writable
-// resources — no storage buffers, no storage images — so a compute stage can compute but not persist.
-// See docs/plan/07 § F.
-//
-// What *is* here is everything the dispatch would call, as free functions over a `Particle` value: the
-// forces, the integrator, and the lifetime curves. That is deliberate rather than a consolation. The
-// engine's VFX system compiles one graph to both a C# job and a Raven compute shader and compares them
-// (doc 06), so the arithmetic has to be expressible independently of where it runs — and this is the
-// form that makes the CPU port a transliteration rather than a reimplementation.
+// The dispatch is `ParticleUpdate.rvn`, and the split is deliberate rather than a limitation. This file
+// is free functions over a `Particle` value: the forces, the integrator, and the lifetime curves.
+// Nothing here touches a binding, so the engine's VFX system can compile one graph to both a C# job and
+// the Raven compute shader and compare them bit for bit (doc 06) — and this is the form that makes the
+// CPU port a transliteration rather than a reimplementation.
 //
 // The integrator is semi-implicit Euler, which is what every real-time particle system uses: velocity is
 // updated before position, so a damped or accelerating particle stays stable at large timesteps where

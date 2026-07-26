@@ -489,6 +489,8 @@ public abstract partial class Binder {
     }
 
     void CheckAssignable(BoundExpression target, ExpressionSyntax syntax) {
+        CheckBindingIsWritable(target, syntax);
+
         switch (target) {
             case BoundLocalExpression { Local.IsReadOnly: true } local:
                 Report(SemanticDiagnostics.NotAssignable, syntax, local.Local.Name);
@@ -531,6 +533,45 @@ public abstract partial class Binder {
                 break;
         }
     }
+
+    /// <summary>
+    ///     Refuses a write that lands inside a binding the host uploads.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Checked at the <em>root</em> of the access chain, not at the target, because
+    ///         <c>tint.rgb</c>, <c>lights[i].color</c> and <c>tint</c> are all writes to the same
+    ///         binding and only the innermost expression says which binding that is.
+    ///     </para>
+    ///     <para>
+    ///         This was refused by nobody until there was something writable to suggest instead —
+    ///         both reference compilers rejected the store, and Raven emitted it in silence. A
+    ///         <c>RWBuffer&lt;T&gt;</c> is what makes the diagnostic actionable rather than a dead end.
+    ///     </para>
+    /// </remarks>
+    void CheckBindingIsWritable(BoundExpression target, ExpressionSyntax syntax) {
+        if (RootBinding(target) is not { } field || field.Type.IsWritableResource) {
+            return;
+        }
+
+        // A read-only buffer is a one-character fix, so it gets its own reason; anything else is
+        // host-uploaded state with no writable counterpart to point at.
+        var reason = field.Type is BufferTypeSymbol
+            ? $"a '{BufferTypeSymbol.ReadOnlyName}' is read-only — declare it "
+            + $"'{BufferTypeSymbol.ReadWriteName}' to store into it"
+            : "it is a binding the host supplies, and a shader cannot write back to one";
+
+        Report(SemanticDiagnostics.CannotWriteToBinding, syntax, field.Name, reason);
+    }
+
+    /// <summary>The binding an access chain bottoms out in, or null when it reaches local storage.</summary>
+    static FieldSymbol? RootBinding(BoundExpression expression) =>
+        expression switch {
+            BoundFieldExpression { Field.IsBinding: true } field => field.Field,
+            BoundFieldExpression { Receiver: { } receiver } => RootBinding(receiver),
+            BoundArrayAccessExpression access => RootBinding(access.Receiver),
+            _ => null
+        };
 
     /// <summary>A <c>val</c> field may still be assigned from its type's constructor.</summary>
     bool IsInsideInitializerOf(FieldSymbol field) =>

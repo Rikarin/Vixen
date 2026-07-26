@@ -204,6 +204,7 @@ public static class IrPrinter {
             IrConstantInstruction constant => $"const {FormatConstant(constant.Value)}",
             IrLoadInstruction load => $"load {load.Place}",
             IrStoreInstruction store => $"store {store.Place}, {store.Value}",
+            IrArrayLengthInstruction length => $"length {length.Place}",
             IrUnaryInstruction unary => $"{Lower(unary.Op)} {unary.Operand}",
             IrBinaryInstruction binary => $"{Lower(binary.Op)} {binary.Left}, {binary.Right}",
             IrConvertInstruction convert => $"convert.{Lower(convert.ConversionKind)} {convert.Operand}",

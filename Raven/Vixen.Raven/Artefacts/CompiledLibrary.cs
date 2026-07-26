@@ -213,7 +213,13 @@ public enum LibraryTypeKind {
     Tuple,
 
     /// <summary>A generic parameter of the declaring type or method, by name.</summary>
-    TypeParameter
+    TypeParameter,
+
+    /// <summary>
+    ///     A storage buffer. Structural like an array, and for the same reason: <c>Buffer&lt;T&gt;</c>
+    ///     is spelled with angle brackets but has no declaration to resolve by name.
+    /// </summary>
+    Buffer
 }
 
 /// <summary>
@@ -248,6 +254,13 @@ public sealed record LibraryTypeReference {
     ///     length would resolve to something the source never declared.
     /// </summary>
     public int? Length { get; init; }
+
+    /// <summary>
+    ///     For <see cref="LibraryTypeKind.Buffer" />: whether it is the <c>RWBuffer</c> form. Part of
+    ///     the type, because a store into the read-only form is <c>RVN2119</c> and losing the
+    ///     direction would silently make it legal.
+    /// </summary>
+    public bool Writable { get; init; }
 
     /// <summary>Element types of a tuple.</summary>
     public ImmutableArray<LibraryTypeReference> Elements { get; init; } = [];

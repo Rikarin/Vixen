@@ -10,7 +10,18 @@ public enum IrBindingKind {
     /// <summary>A constant-buffer / uniform entry.</summary>
     Uniform,
     Texture,
-    Sampler
+    Sampler,
+
+    /// <summary>
+    ///     A storage buffer: a block of its own, laid out std430, holding one runtime-sized array.
+    /// </summary>
+    /// <remarks>
+    ///     This is the one position where an <see cref="IrArrayType" /> with no length is legal, and
+    ///     that is exactly the spec's rule — an unsized array may only be a storage block's last
+    ///     member. Everywhere else it stays <c>RVN4001</c>, so the IR now expresses precisely what
+    ///     the targets allow rather than a superset of it.
+    /// </remarks>
+    StorageBuffer
 }
 
 /// <summary>
@@ -29,11 +40,24 @@ public sealed class IrBinding(
     int slot,
     string? semantic,
     ResourceSet set = ResourceSet.PerMaterial,
-    string? name = null
+    string? name = null,
+    bool writable = false
 ) {
     public IrVariable Variable { get; } = variable;
     public IrBindingKind Kind { get; } = kind;
     public int Slot { get; } = slot;
+
+    /// <summary>
+    ///     Whether the shader may store into this binding. Only a <c>RWBuffer</c> or a storage image
+    ///     ever can.
+    /// </summary>
+    /// <remarks>
+    ///     A flag rather than a second <see cref="IrBindingKind" /> because both forms are one Vulkan
+    ///     descriptor type; the difference is an access decoration — <c>NonWritable</c> in SPIR-V,
+    ///     <c>readonly</c> in GLSL. Worth carrying rather than dropping: a driver may hoist a load out
+    ///     of a loop from a read-only buffer and may not from a writable one.
+    /// </remarks>
+    public bool IsWritable { get; } = writable;
 
     /// <summary>The descriptor set this binding belongs to.</summary>
     public ResourceSet Set { get; } = set;

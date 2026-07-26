@@ -499,6 +499,16 @@ public abstract partial class Binder {
                     isSlice ? array : array.ElementType
                 );
 
+            // A buffer indexes like an array and is deliberately not sliceable: a slice would be a
+            // view, and a view of host memory is a second descriptor rather than a value.
+            case BufferTypeSymbol buffer:
+                return new BoundArrayAccessExpression(
+                    syntax,
+                    receiver,
+                    ConvertIndices(indices, arguments),
+                    buffer.ElementType
+                );
+
             case SequenceTypeSymbol sequence:
                 return new BoundArrayAccessExpression(
                     syntax,

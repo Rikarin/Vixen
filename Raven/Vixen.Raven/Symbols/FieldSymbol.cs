@@ -86,6 +86,18 @@ public abstract class FieldSymbol : Symbol {
     public virtual ResourceKind ResourceKind => ResourceKind.None;
 
     /// <summary>
+    ///     Whether this field becomes a descriptor binding — state the host supplies rather than
+    ///     storage the shader owns.
+    /// </summary>
+    /// <remarks>
+    ///     One answer, read by the lowerer when it collects a shader's bindings and by the binder
+    ///     when it decides whether a write is legal. Two copies of this rule would mean a field the
+    ///     binder let you assign to and the lowerer turned into a uniform, which both reference
+    ///     compilers reject and neither Raven layer would have mentioned.
+    /// </remarks>
+    public bool IsBinding => ContainingType is { TypeKind: TypeKind.Shader } && !IsConst && !IsCompose && !IsStream;
+
+    /// <summary>
     ///     The descriptor set this field's binding belongs to, from a <c>[PerFrame]</c> /
     ///     <c>[PerView]</c> / <c>[PerMaterial]</c> / <c>[PerDraw]</c> marker.
     /// </summary>

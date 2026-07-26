@@ -16,7 +16,18 @@ namespace Vixen.Raven.CodeGen.Spirv;
 /// <param name="Variable">The <c>OpVariable</c> id to start an access chain from.</param>
 /// <param name="Storage">Its storage class, which decides the pointer types along the chain.</param>
 /// <param name="Member">The member index inside the uniform block, if it is one.</param>
-sealed record SpirvGlobal(uint Variable, SpirvStorageClass Storage, int? Member = null);
+/// <param name="Layout">
+///     The packing rule its type is decorated with, or null when it carries none. Recorded here
+///     rather than derived from <paramref name="Storage" /> because a uniform block and a storage
+///     buffer share the <c>Uniform</c> storage class in the form Vulkan 1.0 accepts, and pack
+///     differently — std140 against std430.
+/// </param>
+sealed record SpirvGlobal(
+    uint Variable,
+    SpirvStorageClass Storage,
+    int? Member = null,
+    LayoutRule? Layout = null
+);
 
 /// <summary>
 ///     Emits one SPIR-V module for one entry point.
@@ -93,6 +104,11 @@ sealed partial class SpirvEmitter {
         // emitter's — the GLSL emitter and the reflection read the same plan, so the three
         // cannot drift apart.
         foreach (var planned in BindingPlan.Of(shader)) {
+            if (planned.Kind == IrBindingKind.StorageBuffer && planned.Resource is { } buffer) {
+                EmitStorageBuffer(buffer, planned);
+                continue;
+            }
+
             if (planned.Resource is { } resource) {
                 globals[resource.Variable] = new(
                     DeclareOpaque(resource, planned),
@@ -106,6 +122,59 @@ sealed partial class SpirvEmitter {
 
         // Binding defaults are a property of the shader rather than of any one
         // stage, so SpirvBackend says that once however many modules come out.
+    }
+
+    /// <summary>
+    ///     Declares a storage buffer: a <c>BufferBlock</c> struct holding one runtime array.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>BufferBlock</c> with <c>Uniform</c> storage rather than <c>Block</c> with
+    ///         <c>StorageBuffer</c> storage. The two spell the same thing, but the second needs
+    ///         <c>SPV_KHR_storage_buffer_storage_class</c> in SPIR-V 1.0 — which Vulkan 1.0 has as an
+    ///         extension and 1.1 folded in. This form needs no extension at all, and it is the form
+    ///         <c>glslc</c> produces for the same GLSL, which is what keeps § C's differential honest.
+    ///     </para>
+    ///     <para>
+    ///         The wrapping struct is not decoration: SPIR-V has no bare runtime array variable, so the
+    ///         array is always member 0 of a block. That member index is why every access chain into a
+    ///         buffer starts with a 0 — the same shape a uniform block's member index gives.
+    ///     </para>
+    /// </remarks>
+    void EmitStorageBuffer(IrBinding buffer, PlannedBinding planned) {
+        if (buffer.Type is not IrArrayType array) {
+            Report(BackendDiagnostics.NotExpressible, Describe(buffer.Type, buffer.Name));
+            return;
+        }
+
+        var contents = types.RuntimeArray(array, LayoutRule.Std430);
+        var structId = module.AddDeclaration(SpirvOp.TypeStruct, null, SpirvOperand.Id(contents));
+
+        module.AddName(structId, buffer.Name + "Block");
+        module.AddMemberName(structId, 0, buffer.Name);
+        module.Decorate(structId, SpirvDecoration.BufferBlock);
+        module.DecorateMember(structId, 0, SpirvDecoration.Offset, SpirvOperand.Literal(0));
+
+        // Declared read-only on the member *and* the variable, which is what glslc emits: the member
+        // decoration is what a driver reads, and the variable decoration is what a later pass reads.
+        if (!buffer.IsWritable) {
+            module.DecorateMember(structId, 0, SpirvDecoration.NonWritable);
+        }
+
+        var variable = module.AddDeclaration(
+            SpirvOp.Variable,
+            types.Pointer(SpirvStorageClass.Uniform, structId),
+            SpirvOperand.Enumerant(SpirvStorageClass.Uniform)
+        );
+
+        module.AddName(variable, buffer.Name);
+        DecorateBinding(variable, planned);
+
+        if (!buffer.IsWritable) {
+            module.Decorate(variable, SpirvDecoration.NonWritable);
+        }
+
+        globals[buffer.Variable] = new(variable, SpirvStorageClass.Uniform, 0, LayoutRule.Std430);
     }
 
     void EmitUniformBlock(PlannedBinding planned) {
@@ -122,12 +191,12 @@ sealed partial class SpirvEmitter {
         var structId = module.AddDeclaration(
             SpirvOp.TypeStruct,
             null,
-            [.. members.Select(m => SpirvOperand.Id(types.Type(m, true)))]
+            [.. members.Select(m => SpirvOperand.Id(types.Type(m, LayoutRule.Std140)))]
         );
 
         module.AddName(structId, planned.Name);
         module.Decorate(structId, SpirvDecoration.Block);
-        types.DecorateLayout(structId, members);
+        types.DecorateLayout(structId, members, LayoutRule.Std140);
 
         for (var i = 0; i < uniforms.Length; i++) {
             module.AddMemberName(structId, i, uniforms[i].Name);
@@ -143,7 +212,7 @@ sealed partial class SpirvEmitter {
         DecorateBinding(variable, planned);
 
         for (var i = 0; i < uniforms.Length; i++) {
-            globals[uniforms[i].Variable] = new(variable, SpirvStorageClass.Uniform, i);
+            globals[uniforms[i].Variable] = new(variable, SpirvStorageClass.Uniform, i, LayoutRule.Std140);
         }
     }
 

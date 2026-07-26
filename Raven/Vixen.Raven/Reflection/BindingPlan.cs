@@ -76,7 +76,13 @@ public static class BindingPlan {
                 );
             }
 
-            foreach (var kind in (IrBindingKind[])[IrBindingKind.Texture, IrBindingKind.Sampler]) {
+            // Storage buffers last, after textures and samplers, for the same reason the uniform
+            // block goes first: adding one must not renumber anything that already exists.
+            foreach (var kind in (IrBindingKind[])[
+                IrBindingKind.Texture,
+                IrBindingKind.Sampler,
+                IrBindingKind.StorageBuffer
+            ]) {
                 foreach (var resource in inSet.Where(b => b.Kind == kind)) {
                     plan.Add(new(set, binding++, kind, resource.Name, [], resource));
                 }

@@ -151,19 +151,28 @@ public static class GlslTypes {
     ///     any part of it has no GLSL spelling. An array of arrays is one declaration with two
     ///     extents in both targets, never a nested type name.
     /// </summary>
-    static (string Element, string Suffix)? Extents(IrArrayType array) {
+    static (string Element, string Suffix)? Extents(IrArrayType array, bool allowUnsizedOuter = false) {
         var suffix = new StringBuilder();
         IrType type = array;
+        var outermost = true;
 
         while (type is IrArrayType inner) {
-            // Only the outermost extent of a GLSL array may be omitted, and only as a storage
-            // block's last member — which the IR cannot express, so no extent may be missing here.
+            // Only the outermost extent may be omitted, and only as a storage block's last member —
+            // which is exactly the one position the caller sets the flag for.
             if (inner.Length is not { } length) {
-                return null;
+                if (!(outermost && allowUnsizedOuter)) {
+                    return null;
+                }
+
+                suffix.Append("[]");
+                type = inner.Element;
+                outermost = false;
+                continue;
             }
 
             suffix.Append('[').Append(length).Append(']');
             type = inner.Element;
+            outermost = false;
         }
 
         return Name(type) is { } element ? (element, suffix.ToString()) : null;
@@ -187,12 +196,18 @@ public static class GlslTypes {
     ///     A declaration of <paramref name="name" /> at <paramref name="type" />.
     ///     Arrays put their extents after the name, as C-family languages do.
     /// </summary>
-    public static string? Declare(IrType type, string name) {
+    /// <param name="allowUnsizedOuter">
+    ///     Whether the outermost extent may be omitted — <c>Particle data[]</c>. True only for a
+    ///     storage block's last member, which is the one place GLSL allows it.
+    /// </param>
+    public static string? Declare(IrType type, string name, bool allowUnsizedOuter = false) {
         if (type is not IrArrayType array) {
             return Name(type) is { } simple ? $"{simple} {name}" : null;
         }
 
-        return Extents(array) is { } extents ? $"{extents.Element} {name}{extents.Suffix}" : null;
+        return Extents(array, allowUnsizedOuter) is { } extents
+            ? $"{extents.Element} {name}{extents.Suffix}"
+            : null;
     }
 
     /// <summary>Makes an identifier safe to emit, mangling only when it must.</summary>

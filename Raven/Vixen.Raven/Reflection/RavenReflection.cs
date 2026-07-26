@@ -118,6 +118,16 @@ public sealed record BindingInfo(
 ) {
     /// <summary>Total size of the block, or 0 for an opaque resource.</summary>
     public int Size { get; init; }
+
+    /// <summary>
+    ///     Whether the shader stores into this binding. Only a <c>RWBuffer</c> ever does.
+    /// </summary>
+    /// <remarks>
+    ///     The host needs this and cannot infer it: a read-only and a read-write storage buffer are
+    ///     the same descriptor type, and the difference decides which barrier and which access mask
+    ///     the frame graph has to insert around the dispatch.
+    /// </remarks>
+    public bool IsWritable { get; init; }
 }
 
 /// <summary>The bindings of one descriptor set.</summary>

@@ -132,6 +132,11 @@ public sealed class MetadataLoader {
                     : new ArrayTypeSymbol(element, Math.Max(1, reference.Rank), reference.Length);
             }
 
+            case LibraryTypeKind.Buffer: {
+                var element = Resolve(reference.Element, scope, libraryName);
+                return element.IsErrorType ? element : new BufferTypeSymbol(element, reference.Writable);
+            }
+
             case LibraryTypeKind.Tuple: {
                 var elements = reference.Elements.Select(e => Resolve(e, scope, libraryName)).ToArray();
                 return new TupleTypeSymbol(elements, [.. reference.ElementNames]);

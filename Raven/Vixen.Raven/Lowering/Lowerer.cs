@@ -334,7 +334,8 @@ public sealed partial class Lowerer {
         foreach (var member in type.GetMembers()) {
             // A `const` field is folded at every use, so it needs no binding; a `stream` is
             // per-invocation, so it is in the pipeline's interface rather than in a descriptor.
-            if (member is not FieldSymbol { IsConst: false, IsCompose: false, IsStream: false } field) {
+            // `IsBinding` is that rule, shared with the binder's writability check.
+            if (member is not FieldSymbol { IsBinding: true } field) {
                 continue;
             }
 
@@ -346,6 +347,7 @@ public sealed partial class Lowerer {
             var kind = field.ResourceKind switch {
                 ResourceKind.Texture => IrBindingKind.Texture,
                 ResourceKind.Sampler => IrBindingKind.Sampler,
+                ResourceKind.StorageBuffer => IrBindingKind.StorageBuffer,
                 _ => IrBindingKind.Uniform
             };
 
@@ -354,7 +356,16 @@ public sealed partial class Lowerer {
 
             var variable = new IrVariable(field.Name, irType, IrVariableKind.Global);
             globals[field] = variable;
-            shader.Add(new IrBinding(variable, kind, slot, field.SemanticName, field.ResourceSet));
+            shader.Add(
+                new IrBinding(
+                    variable,
+                    kind,
+                    slot,
+                    field.SemanticName,
+                    field.ResourceSet,
+                    writable: field.Type.IsWritableResource
+                )
+            );
         }
 
         LowerMemberFunctions(type, shader.Add);

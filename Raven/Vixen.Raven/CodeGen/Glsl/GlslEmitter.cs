@@ -122,6 +122,37 @@ sealed class GlslEmitter {
     }
 
     /// <summary>
+    ///     Declares a storage buffer: a block of its own holding one unsized array.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>std430</c> rather than <c>std140</c>, which is the whole reason a storage buffer is a
+    ///         different thing from a uniform block and not merely a bigger one: an array of
+    ///         <c>float</c> costs four bytes per element instead of sixteen, so a host-side
+    ///         <c>Particle[]</c> uploads as a straight memcpy.
+    ///     </para>
+    ///     <para>
+    ///         The array is unsized, which is legal exactly here — as a storage block's last member —
+    ///         and nowhere else. That is what lets the host decide the element count, and what makes
+    ///         <c>data.length()</c> a run-time question with a real answer.
+    ///     </para>
+    /// </remarks>
+    void EmitStorageBuffer(IrBinding buffer, string layout) {
+        var name = ReserveVariable(buffer.Variable);
+        var access = buffer.IsWritable ? string.Empty : "readonly ";
+
+        // The block needs a name of its own: GLSL scopes an interface block's members into the
+        // enclosing scope, so the block name is only ever seen by a frame debugger — but two
+        // unnamed blocks in one shader would collide.
+        writer.Line($"layout(std430, {layout}) {access}buffer {Reserve(buffer.Name + "Block")} {{");
+        writer.Indent();
+        writer.Line(DeclareRuntime(buffer.Type, name, buffer.Name) + ";" + Comment(buffer.Semantic));
+        writer.Outdent();
+        writer.Line("};");
+        writer.Blank();
+    }
+
+    /// <summary>
     ///     Declares the bindings, each with the explicit <c>set</c> and <c>binding</c> that
     ///     <see cref="BindingPlan" /> assigned.
     /// </summary>
@@ -135,6 +166,12 @@ sealed class GlslEmitter {
 
         foreach (var planned in BindingPlan.Of(shader)) {
             var layout = $"set = {(int)planned.Set}, binding = {planned.Binding}";
+
+            if (planned.Kind == IrBindingKind.StorageBuffer && planned.Resource is { } buffer) {
+                EmitStorageBuffer(buffer, layout);
+                opaque = false;
+                continue;
+            }
 
             if (planned.Resource is { } resource) {
                 var name = ReserveVariable(resource.Variable);
@@ -561,6 +598,11 @@ sealed class GlslEmitter {
             case IrLoadInstruction load:
                 return Place(load.Place);
 
+            // `.length()` on a storage block's runtime array, which is the only array GLSL will
+            // answer for at run time.
+            case IrArrayLengthInstruction length:
+                return $"{Place(length.Place)}.length()";
+
             case IrUnaryInstruction unary:
                 return UnaryExpression(unary);
 
@@ -801,6 +843,10 @@ sealed class GlslEmitter {
 
     string Declare(IrType type, string name, string what) =>
         GlslTypes.Declare(type, name) ?? $"{Unsupported(type, what)} {name}";
+
+    /// <summary>As <see cref="Declare" />, but an unsized outer extent is legal here.</summary>
+    string DeclareRuntime(IrType type, string name, string what) =>
+        GlslTypes.Declare(type, name, true) ?? $"{Unsupported(type, what)} {name}";
 
     string Unsupported(IrType type, string what) {
         Report(

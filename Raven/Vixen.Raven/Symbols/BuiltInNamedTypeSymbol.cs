@@ -17,7 +17,7 @@ public sealed class BuiltInNamedTypeSymbol : NamedTypeSymbol {
     public override TypeKind TypeKind { get; }
 
     /// <summary>How a field of this type binds on the GPU.</summary>
-    public ResourceKind ResourceKind { get; }
+    public override ResourceKind ResourceKind { get; }
 
     internal BuiltInNamedTypeSymbol(
         string name,

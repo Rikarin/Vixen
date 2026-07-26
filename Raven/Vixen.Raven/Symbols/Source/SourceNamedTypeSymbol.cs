@@ -754,13 +754,12 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
 
             // Textures, samplers and the like bind to the pipeline, so they only
             // make sense as shader state.
-            if (member is FieldSymbol field
-                && field.Type is BuiltInNamedTypeSymbol { ResourceKind: not ResourceKind.None } resource
+            if (member is FieldSymbol { Type.ResourceKind: not ResourceKind.None } field
                 && TypeKind != TypeKind.Shader) {
                 outerBinder.Diagnostics.Add(
                     SemanticDiagnostics.ResourceMustBeShaderField,
                     field.DeclaringSyntax?.GetLocation() ?? Location.None,
-                    resource.Name
+                    field.Type.Name
                 );
                 continue;
             }

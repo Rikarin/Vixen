@@ -30,29 +30,24 @@ shader TestShader : ExampleBase, CustomShader {
     var lookup: int[]
     var grid: float[][]
 
+    // Get-only. A shader's `var` is a binding the host uploads, so a setter would store into host
+    // state — RVN2119, and a store both reference compilers reject. Everything mutable in this file
+    // is therefore either a local or a member of the `Counter` struct below.
     var prop: float {
         get => Epsilon
-        set => tint = float4(value, value, value, 1)
     }
 
-    [FooBar(mode: "linear")]
-    var observed: float {
-        willSet {
-            counter++
-        }
-
-        didSet => counter--
-    }
-
-    var counter: int
+    /// The host's starting value, read but never written.
+    var seed: int
 
     func Fold(): int {
         var total = 0
+        var steps = 0
 
         for (i in 1 .. 10) {
             total += i * Multiplier
-            counter++
-            ++counter
+            steps++
+            ++steps
         }
 
         while (total > 0) {
@@ -64,7 +59,7 @@ shader TestShader : ExampleBase, CustomShader {
         } else if (total > 0) {
             total = 1
         } else {
-            total = 2
+            total = steps
         }
 
         return total
@@ -72,14 +67,11 @@ shader TestShader : ExampleBase, CustomShader {
 
     // Not `init`: a shader is never constructed, so a constructor on one could never run
     // (RVN2092). `init` belongs on a struct — see `FooBar` below.
-    func Reset() {
-        counter = 0
-    }
-
-    func Seed(seed: int) {
-        counter = seed
-        counter = lookup[0]
-        counter = CoreClass.GetLength<int, Mode>(seed)
+    func Reseed(): int {
+        var value = seed
+        value = lookup[0]
+        value = CoreClass.GetLength<int, Mode>(value)
+        return value
     }
 
     func Test<Asd>() { }
@@ -154,6 +146,30 @@ struct FooBar {
     func Scaled(by: float): float => value * by
 
     FooBar operator +(a: FooBar, b: FooBar) => a
+}
+
+/// Mutable state belongs to a struct rather than to a shader: a struct is a value the shader owns,
+/// so a setter and a property observer both have somewhere to store into.
+struct Counter {
+    var count: int
+
+    [FooBar(mode: "linear")]
+    var observed: float {
+        willSet {
+            count++
+        }
+
+        didSet => count--
+    }
+
+    var scaled: int {
+        get => count * 2
+        set => count = value / 2
+    }
+
+    func Reset() {
+        count = 0
+    }
 }
 
 enum Mode {

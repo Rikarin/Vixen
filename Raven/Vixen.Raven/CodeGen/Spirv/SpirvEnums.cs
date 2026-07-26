@@ -41,7 +41,14 @@ public enum SpirvStorageClass {
     Input = 1,
     Uniform = 2,
     Output = 3,
-    Function = 7
+    Function = 7,
+
+    /// <summary>
+    ///     A storage buffer. Distinct from <see cref="Uniform" /> because it is the writable one and
+    ///     because it carries a std430 layout; in SPIR-V 1.0 it also requires the
+    ///     <c>SPV_KHR_storage_buffer_storage_class</c> extension, which Vulkan 1.0 has and 1.1 folded in.
+    /// </summary>
+    StorageBuffer = 12
 }
 
 public enum SpirvDim {
@@ -56,6 +63,7 @@ public enum SpirvImageFormat {
 
 public enum SpirvDecoration {
     Block = 2,
+    BufferBlock = 3,
     RowMajor = 4,
     ColMajor = 5,
     ArrayStride = 6,
@@ -64,6 +72,7 @@ public enum SpirvDecoration {
     Location = 30,
     Binding = 33,
     DescriptorSet = 34,
+    NonWritable = 24,
     Offset = 35
 }
 

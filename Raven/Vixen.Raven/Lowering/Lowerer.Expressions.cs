@@ -248,14 +248,17 @@ public sealed partial class Lowerer {
             return Constant(type, constant.ConstantValue);
         }
 
-        // `array.Length` is an operation, not storage.
-        if (expression is BoundFieldExpression { Field.Name: "Length", Receiver: { } arrayReceiver }
-            && arrayReceiver.Type is ArrayTypeSymbol) {
-            var array = LowerExpression(arrayReceiver);
-            return Emit(
-                result => new IrIntrinsicInstruction(result, IrIntrinsic.ArrayLength, [array]),
-                IrScalarType.Int
-            );
+        // `buffer.Length` is an operation on the *place*, not on a value: an unsized array cannot be
+        // loaded, so there is nothing to hand an intrinsic. A sized array never reaches here — its
+        // `Length` is a constant and the fold above already took it.
+        if (expression is BoundFieldExpression { Field.Name: "Length", Receiver: { } lengthReceiver }
+            && lengthReceiver.Type is ArrayTypeSymbol or BufferTypeSymbol) {
+            if (TryGetPlace(lengthReceiver) is not { } source) {
+                ReportUnsupported(lengthReceiver, "The length of an array with no storage");
+                return Constant(IrScalarType.Int, 0);
+            }
+
+            return Emit(result => new IrArrayLengthInstruction(result, source), IrScalarType.Int);
         }
 
         if (TryGetPlace(expression) is { } place) {

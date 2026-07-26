@@ -197,7 +197,7 @@ public class ConstructorTests {
                     var tint: float4
 
                     init(t: float4) {
-                        tint = t
+                        val ignored = t
                     }
 
                     [PixelShader]

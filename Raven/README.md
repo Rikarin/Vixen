@@ -166,9 +166,10 @@ shader Lambert {
     var albedo: Texture2D
     var albedoSampler: Sampler
 
+    // Get-only, because a uniform is host state: a shader can derive a value from a binding
+    // but never store back into one (RVN2119). A writable value is a local or an RWBuffer.
     var exposure: float {
         get => baseColor.a
-        set => baseColor = float4(baseColor.rgb, value)
     }
 
     func Diffuse(normal: float3): float {
@@ -329,6 +330,68 @@ sixteen kilobytes at every call. Index a large array where it is declared, and p
 it.
 
 Still missing: a **storage buffer**, which needs a writable storage class and an unsized last member.
+
+### Writable resources
+
+`Buffer<T>` is a read-only storage buffer, `RWBuffer<T>` a read-write one — the first thing a Raven
+shader can store into:
+
+```typescript
+shader ParticleUpdate {
+    var particles: RWBuffer<Particle>
+    var deltaTime: float = 0.016f
+
+    [ComputeShader(64)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val index = int(id.x)
+
+        // The dispatch is rounded up to a whole workgroup, so the tail invocations have no
+        // particle. An out-of-range access is undefined on a GPU, so this test is not optional.
+        if (index >= particles.Length) {
+            return
+        }
+
+        var p = particles[index]
+        p.position = p.position + p.velocity * deltaTime
+        particles[index] = p
+    }
+}
+```
+
+Both are `VK_DESCRIPTOR_TYPE_STORAGE_BUFFER`, laid out **std430**. That is the reason a buffer is not
+just a bigger uniform block: std140 rounds an array's stride up to 16 and std430 does not, so a
+host-side `Particle[]` uploads as a straight memcpy. `Length` is answered at run time — the host decides
+how many elements it bound — which is what distinguishes a buffer from a sized array.
+
+**Written with angle brackets, but not generic.** It is a structural type, the same as `T[4]`: there is
+no declaration to find and no substitution to do. Raven's real generics do not lower yet, and this does
+not wait for them.
+
+**Read-only versus read-write is one bit, not two descriptor types**, because in Vulkan it is one. The
+difference is an access decoration — `readonly` in GLSL, `NonWritable` in SPIR-V — and declaring it lets
+a driver hoist a load out of a loop from a buffer nothing writes to.
+
+A buffer's element type has to be something the host can lay out, so a texture or a sampler is refused
+(`RVN2118`): a descriptor is not a value and has no bytes to place.
+
+**Writing to anything else is refused.** A shader's `var` is host-uploaded state, so a store into one is
+`RVN2119` — checked at the root of the access chain, which means `tint`, `tint.rgb` and
+`lights[i].color` are all caught. Mutable state belongs to a local, or to a struct whose fields are
+values the shader owns:
+
+```typescript
+shader Lit {
+    var tint: float4
+
+    // Get-only. A setter would store into a binding, which no GPU can do.
+    var exposure: float {
+        get => tint.a
+    }
+}
+```
+
+Still missing: a **storage image** — a writable texture. GLSL wants a format qualifier on the
+declaration and SPIR-V an image format on the type, so it needs syntax that does not exist yet.
 
 ### Compute
 

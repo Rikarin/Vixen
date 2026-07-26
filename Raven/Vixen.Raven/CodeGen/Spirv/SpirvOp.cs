@@ -32,6 +32,7 @@ public enum SpirvOp {
     TypeSampler = 26,
     TypeSampledImage = 27,
     TypeArray = 28,
+    TypeRuntimeArray = 29,
     TypeStruct = 30,
     TypePointer = 32,
     TypeFunction = 33,
@@ -48,6 +49,7 @@ public enum SpirvOp {
     FunctionCall = 57,
 
     Variable = 59,
+    ArrayLength = 68,
     Load = 61,
     Store = 62,
     AccessChain = 65,

@@ -230,7 +230,7 @@ public class SymbolTests {
             """
             package A
 
-            shader S {
+            struct S {
                 var backing: int
 
                 var readable: int {

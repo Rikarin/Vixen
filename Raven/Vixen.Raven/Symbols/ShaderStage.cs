@@ -65,7 +65,14 @@ public enum ResourceKind {
     /// <summary>A scalar/vector/matrix shader field: a uniform / constant-buffer entry.</summary>
     Uniform,
     Texture,
-    Sampler
+    Sampler,
+
+    /// <summary>
+    ///     A <c>Buffer&lt;T&gt;</c> or <c>RWBuffer&lt;T&gt;</c>: a storage buffer, laid out std430,
+    ///     whose element count the host decides. Read-only and read-write are the same descriptor
+    ///     type in Vulkan, so the direction lives on the field rather than here.
+    /// </summary>
+    StorageBuffer
 }
 
 /// <summary>

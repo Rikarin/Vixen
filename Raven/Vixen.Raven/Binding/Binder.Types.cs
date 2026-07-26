@@ -127,6 +127,10 @@ public abstract partial class Binder {
     }
 
     TypeSymbol BindNamedType(string name, IReadOnlyList<TypeSymbol> typeArguments, SyntaxNode syntax) {
+        if (BindBufferType(name, typeArguments, syntax) is { } buffer) {
+            return buffer;
+        }
+
         var type = LookupType(name, typeArguments.Count);
 
         if (type is null) {
@@ -147,6 +151,45 @@ public abstract partial class Binder {
         }
 
         return Construct(type, typeArguments, syntax);
+    }
+
+    /// <summary>
+    ///     Builds a <c>Buffer&lt;T&gt;</c> or <c>RWBuffer&lt;T&gt;</c>, or null when the name is
+    ///     neither.
+    /// </summary>
+    /// <remarks>
+    ///     Intercepted before the scope lookup, because the angle brackets are the only thing this
+    ///     shares with a generic type: there is no declaration to find, and no substitution to do.
+    ///     It is constructed structurally, exactly as <c>T[4]</c> is — which is what makes it work
+    ///     while real generics still wait for monomorphisation.
+    /// </remarks>
+    TypeSymbol? BindBufferType(string name, IReadOnlyList<TypeSymbol> typeArguments, SyntaxNode syntax) {
+        var writable = name == BufferTypeSymbol.ReadWriteName;
+
+        if (!writable && name != BufferTypeSymbol.ReadOnlyName) {
+            return null;
+        }
+
+        if (typeArguments.Count != 1) {
+            Report(SemanticDiagnostics.WrongTypeArgumentCount, syntax, name, 1, typeArguments.Count);
+            return ErrorTypeSymbol.Instance;
+        }
+
+        var element = typeArguments[0];
+
+        if (element.IsErrorType) {
+            return ErrorTypeSymbol.Instance;
+        }
+
+        // A buffer's element has to have a memory layout the host can write, which rules out the
+        // opaque resources (a descriptor is not a value), void, and a nested buffer. Reported here
+        // rather than at emit time, so the message names the element rather than a lowered type.
+        if (element.ResourceKind is not ResourceKind.None || element.IsVoid || element is BufferTypeSymbol) {
+            Report(SemanticDiagnostics.BufferElementNotStorable, syntax, element.ToDisplayString(), name);
+            return ErrorTypeSymbol.Instance;
+        }
+
+        return new BufferTypeSymbol(element, writable);
     }
 
     TypeSymbol Construct(TypeSymbol type, IReadOnlyList<TypeSymbol> typeArguments, SyntaxNode syntax) {

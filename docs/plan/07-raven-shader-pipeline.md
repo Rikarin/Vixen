@@ -25,12 +25,12 @@ decision that has been made and built, kept because the reasons stay useful.
 | | Open item | Where | Blocks |
 |---|---|---|---|
 | 🟡 | **`Raven/Library` is written** — 44 files across all eight packages, every shader reaching both backends under `glslc` and `spirv-val`. What is left is depth rather than breadth: the clustered light loop, the G-buffer geometry pass and the particle compute dispatch, each blocked by a language gap below rather than by content | § F | the perf gates; the numeric tests additionally need a writable resource |
-| 🔴 | **Nothing a shader writes is writable** — no storage buffers, no storage images, and assigning to a uniform is refused by neither backend. So the compute stage computes and discards | § I | the numeric BRDF readback, `Random.rvn` bit-for-bit, doc 06's VFX compute path — everything that has to *read a result back* |
+| 🟡 | **Storage images** — a writable *texture*, which a compute post-process pass writes into. Storage buffers landed, so everything that reads a result *back* is unblocked; an image needs a format decoration on the declaration, which is syntax that does not exist yet | § I | a compute post-process writing a render target; nothing that only has to read a number back |
 | 🟡 | **Multiple render targets** — an entry point returns one value, and an aggregate return is `RVN4001` in both backends | § F | the G-buffer *geometry* pass; `GBuffer.rvn` is the encoding only, and `Deferred.rvn` reads it |
 | 🟡 | **Generic types and methods do not lower** — front-end only. An open definition is `RVN3001`, and so is an instantiation: there is no monomorphisation, so `Box<float4>` reaches no backend | § I | anything in § F's library that wants a generic container |
 | ⚪ | **Small texture and stage intrinsics**: no `SampleLevel` (explicit mip), no `GetDimensions`, no `discard`, no `SV_VertexID` semantic, no `asfloat`/`asuint` | § F | each shaped a library file rather than blocking it — see § F's list of what it could not express |
 | 🟡 | **`&&` / `\|\|` do not short-circuit** — sound for side-effect-free expressions, wrong the moment the right operand is a guard | § I | correctness of `i < n && data[i] > 0` |
-| 🟡 | **Storage buffers** — a `Buffer<T>`-style writable resource, and the unsized array that is legal as its last member. Sized arrays landed and closed the read-only half of this; what is left needs the *writable* half above, plus `LayoutRule.Std430`, which nothing produces yet | § I, § C | the writable-resource row above; `DescriptorType.StorageBuffer` has nothing that produces it |
+| 🟡 | **Nested generics do not parse** — `Buffer<Buffer<float>>` ends in `>>`, which lexes as a right shift and the type-argument scanner does not split it. Pre-existing in *every* nested generic; the buffer is only the first type anyone would nest | § I | a nested type argument; the refusal is real but reports `RVN1001` rather than the type rule |
 | 🟡 | **Inheritance is not flattened** — now `RVN3002` rather than three silent miscompilations | § I, mixins | the mixin question; `compose` covers the common case |
 | 🟡 | **Push constants** — no syntax, so `PushConstants` is always empty | § C, § D | nothing yet; reported as absent rather than guessed |
 | 🟡 | **String interpolation** — needs lexer modes; nothing shipped uses it | § I | nothing |
@@ -577,9 +577,12 @@ Each of these shaped a file rather than blocking it, and each is recorded in the
   therefore belongs to the shader that declares the palette, where it is an access chain, and the blend
   belongs to `Geometry/Skinning.rvn`, where the arithmetic is. Small arrays — a `float[3]` filter kernel
   — pass by value quite happily; the rule is about size, not about arrays.
-- **No writable resources**, so `Vfx/ParticleSimulate.rvn` is the forces and the integrator rather
-  than the compute shader it should be. Written as free functions over a `Particle` value, which is
-  also the form that makes doc 06's CPU/GPU bit-for-bit comparison a transliteration.
+- ~~**No writable resources**~~ — landed. `Vfx/ParticleUpdate.rvn` is the dispatch, and
+  `ParticleSimulate.rvn` stayed exactly as it was: free functions over a `Particle` value, touching no
+  binding. That turned out to be the right shape rather than a consolation — the split is what keeps
+  doc 06's CPU/GPU bit-for-bit comparison a transliteration, and `WritableResourceTests` now asserts
+  the split rather than only the compile, because a force that read a binding would break the
+  comparison silently.
 - **No multiple render targets** — an entry point returns one value. So `GBuffer.rvn` is the *encoding*
   and not the geometry pass that fills it; `Deferred.rvn` reads through the same `Decode`, so when MRT
   arrives there is one place for the two passes to agree.
@@ -782,12 +785,12 @@ shader graph's generated-source span mapping.
 | 🔴 | **`m[i]` meant a row in the IR and a column in both targets** | ✅ fixed in [§ E](#e-conventions-raven-must-bake-in) |
 | 🟡 | **`&&` and `\|\|` do not short-circuit.** They lower to `logicalAnd`/`logicalOr`, which evaluate both operands, as `?:` lowers to `select`. Sound for the side-effect-free expressions shaders are made of; wrong the moment the right operand is a guard (`i < n && data[i] > 0`) |
 | 🟡 | **Stream I/O declarations between stages** — no `stream` keyword; interstage data passes as entry-point parameters and returns | ✅ built; see [§ Streams](#streams-interstage-values-declared-once) |
-| 🟡 | **`Buffer<T>`-style resources** — the built-in named types are not generic, so there are no storage buffers. This is why `DescriptorType.StorageBuffer` and `LayoutRule.Std430` exist in the reflection with nothing that produces them, and why the compute stage has nothing writable to store into. A sized array covers the *read-only* half — a uniform array of records — so what is missing is the storage class and the unsized last member, not the element type |
+| ✅ | **`Buffer<T>`-style resources** — `Buffer<T>` and `RWBuffer<T>`, std430, with a runtime-sized last member and `Length` answered at run time. Not generic: a structural type the binder builds, as `T[4]` is, which is what lets it work without monomorphisation. `DescriptorType.StorageBuffer` and `LayoutRule.Std430` now have something that produces them. See [§ Writable resources](#writable-resources-the-first-thing-a-shader-can-store-into) |
 | ✅ | **Kept in the language but not lowered** — resolved by Tier B: `switch`, operators and tuples are finished, the rest are dropped |
 | 🟡 | **Inheritance is not flattened** — a base's fields never reach the derived layout and an `override` does not replace the base's member. Now `RVN3002` instead of three silent miscompilations; see the mixin section for what implementing it would cost |
 | 🟡 | **Generics do not lower at all** — not the open definition and not an instantiation either: `Box<float4>` is `RVN3001` the same as `T` is, because there is no monomorphisation. They parse, bind, and enforce `where` clauses, then stop. Found by making `Example1.rvn` bind |
 | ✅ | **A spread element in a collection** — flattening `[1, ..xs, 5]` needs `xs`'s length, which an array type now carries. Lowering emits one extract per index; a spread of an *unsized* array is still `RVN3002`, which is now a statement about that array rather than about spreads |
-| ⚪ | **Assigning to a uniform is refused by nobody** — every stage emits the store and both reference compilers reject it. Pre-existing and stage-independent; compute made it visible by having nothing else to write to |
+| ✅ | **Assigning to a uniform** — now `RVN2119`, checked at the root of the access chain so `tint.rgb = …` and `lights[i].color = …` are caught too. It went unreported for as long as it did because a shader with nothing writable had no correct alternative to name; `RWBuffer<T>` is that alternative |
 | ⚪ | **Flow analysis** — definite assignment and reachability. Dead-branch elimination landed in § B, but that is constant folding, not reachability |
 
 #### Backends
@@ -844,16 +847,12 @@ unit never declared, which `glslc` rejects and nothing in Raven caught. Now `RVN
 than `RVN3005`'s warning, because there is no honest thing to emit: a stream is a location in the
 pipeline's interface and a compute dispatch has no pipeline.
 
-**What compute still cannot do is persist anything.** No storage buffers and no storage images, so
-there is nothing writable to store into — a compute shader can read bindings and compute, and that is
-where it stops. Sized arrays were the half of that which was a *type* problem, and they have landed; the
-rest is a storage-class and descriptor-type problem, not a stage one. Two consequences worth
-naming: `Library/Example2.rvn` computes into a local and says so rather than assigning to a uniform,
-and the numeric BRDF readback still needs a writable resource before it can read anything back.
-
-Separately and pre-existing: **assigning to a uniform is not refused in any stage**, so a pixel shader
-can do it too and both backends emit a store the reference compilers reject. Compute made it visible
-by having nothing else to write to.
+**Compute can now persist.** `RWBuffer<T>` is what it stores into, and
+`Library/Vfx/ParticleUpdate.rvn` is the dispatch that does it. What is still missing is a storage
+*image* — a writable texture — which needs a format on the declaration; a compute pass that has to read
+a number back needs no image. Two consequences worth
+naming: `Library/Example2.rvn` predates the buffer and still computes into a local, and the numeric
+BRDF readback now has a resource to read back through.
 
 #### Streams: interstage values declared once
 
@@ -985,6 +984,112 @@ constraint the library had to design around: a function parameter is by value in
 `mat4[256]` parameter would copy sixteen kilobytes at every call. Indexing a large palette belongs to the
 shader that declares it, where it is an access chain; a small array — a `float[3]` filter kernel — passes
 by value quite happily.
+
+#### Writable resources: the first thing a shader can store into
+
+`Buffer<T>` is a read-only storage buffer, `RWBuffer<T>` a read-write one. Both are
+`VK_DESCRIPTOR_TYPE_STORAGE_BUFFER`, laid out **std430**, with the element count decided by the host
+and answered at run time by `Length`.
+
+```
+shader ParticleUpdate {
+    var particles: RWBuffer<Particle>
+
+    [ComputeShader(64)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val index = int(id.x)
+        if (index >= particles.Length) { return }
+
+        var p = particles[index]
+        ParticleSimulate.Step(p, forces, deltaTime)
+        particles[index] = p
+    }
+}
+```
+
+**Not generic, and that is the load-bearing decision.** Raven's real generics do not lower — there is no
+monomorphisation, so `Box<float4>` is `RVN3001` — and waiting for that would have blocked this
+indefinitely. `BufferTypeSymbol` is instead a **structural** type the binder constructs directly, the
+same treatment `ArrayTypeSymbol` gets for `T[4]`: the angle brackets are the only thing it shares with
+a generic, because there is no declaration to find and no substitution to do. One buffer concept rather
+than HLSL's several, too — a typed (texel) buffer is a different descriptor with no advantage on either
+target, and `ByteAddressBuffer` trades the element type, which is the thing that makes an offset
+checkable, for manual byte arithmetic.
+
+**Read-only versus read-write is one bit, not two descriptor types**, because in Vulkan it is one. The
+difference is an access decoration — `NonWritable` in SPIR-V, `readonly` in GLSL — and it is worth
+declaring rather than dropping: a driver may hoist a load out of a loop from a read-only buffer and may
+not from a writable one.
+
+##### The gap it closed at the other end
+
+The plan carried **"assigning to a uniform is refused by nobody"** as a ⚪ for a long time. It was never
+a small thing — every stage emitted the store and both reference compilers rejected it — and the reason
+it stayed unreported is worth naming: *a shader with nothing writable had no correct alternative to
+suggest*. `RWBuffer<T>` is that alternative, so the diagnostic is now actionable and it is `RVN2119`.
+
+It is checked at the **root of the access chain**, not at the target, because `tint`, `tint.rgb` and
+`lights[i].color` are all writes to the same binding and only the innermost expression says which
+binding that is. That check immediately found six writes to host state in sources that had been passing:
+
+| Where | What it was |
+|---|---|
+| `README.md`'s language example | a property *setter* over the `baseColor` uniform |
+| `Library/Example1.rvn` | the same shape, plus a `counter` uniform incremented in four places |
+| `SymbolTests`, `LoweringTests` | settable properties on a shader, which now live on a struct |
+| `ConstructorTests` | an `init` assigning a binding, alongside the `RVN2092` it was testing for |
+
+None of them had failed, and the reason is instructive: a property setter nobody calls is unreachable,
+so it was pruned before emission and the reference compilers never saw it. "It compiles because nothing
+calls it" is not a property worth preserving. The fix in every case was to move the mutable state to
+where it can exist — a local, or a struct, whose fields are values the shader owns rather than memory
+the host uploads.
+
+##### What it needed underneath
+
+Three things had to be built, and each was forced rather than chosen:
+
+- **`LayoutRule` instead of an is-laid-out flag** in the SPIR-V backend. std140 and std430 are two
+  layouts *of the same Raven type*: a `float[4]` member has a 16-byte stride in a uniform block and a
+  4-byte one in a storage buffer. A single "laid out" variant would have given a storage buffer the
+  uniform block's offsets, silently. The flag became a rule in `SpirvTypes`, in `SpirvPointer`, and on
+  `SpirvGlobal` — the last because a uniform block and a storage buffer share the `Uniform` storage
+  class in the form Vulkan 1.0 accepts, so the class no longer identifies the layout.
+- **`IrArrayLengthInstruction`**, which takes a *place* rather than a value. An unsized array cannot be
+  loaded, so there is nothing to hand an intrinsic; both targets agree, since GLSL's `data.length()` and
+  SPIR-V's `OpArrayLength` each name the block member. The first probe caught the bug this replaced:
+  `particles.Length` silently folded to **0**, because the existing fold only matched a sized array.
+- **`StoreAcrossLayout`**, the mirror of the member-by-member read that sized arrays needed. `spirv-val`
+  is what said so — *"OpStore Pointer's type does not match Object's type"* — because `particles[i] = p`
+  writes a plain struct into a laid-out one and SPIR-V has no conversion between two struct types.
+
+**`BufferBlock` with `Uniform` storage**, not `Block` with `StorageBuffer` storage. The two spell the
+same thing, but the second needs `SPV_KHR_storage_buffer_storage_class` in SPIR-V 1.0. This form needs
+no extension — and it is the form `glslc` produces for the same GLSL, which is what keeps § C's
+differential comparing like with like. That was checked by reading the oracle's output rather than
+assumed.
+
+##### What the host gets
+
+`RavenReflection` reports a storage buffer with `DescriptorType.StorageBuffer`, `Count` 0 — this
+schema's spelling for "the host decides" — `Size` as one *element's* std430 stride, and per-leaf offsets
+relative to the start of an element, which is what a host writing an array of them needs. `IsWritable`
+is reported too, and cannot be inferred: read-only and read-write are the same descriptor type, and the
+difference decides which barrier the frame graph inserts around the dispatch.
+
+##### Still missing
+
+A **storage image** — a writable texture. It is a smaller thing than it looks, but not a free one: GLSL
+requires a format qualifier on the declaration and SPIR-V an `ImageFormat` operand on `OpTypeImage`, so
+it needs syntax that does not exist (`[Format("rgba16f")]` or similar) and a decision about which
+formats to admit. Nothing that has to read a *number* back needs it — the numeric BRDF readback,
+`Random.rvn` bit-for-bit and doc 06's VFX path are all buffers — so it is the compute post-process pass
+that is still waiting.
+
+Also found while writing this, and recorded rather than fixed: **`Buffer<Buffer<float>>` does not
+parse.** The `>>` lexes as a right shift and the type-argument scanner does not split it. That is
+pre-existing in every nested generic; a nested buffer is illegal anyway, so the refusal is right and
+only the message is wrong.
 
 #### Superseded rather than carried
 

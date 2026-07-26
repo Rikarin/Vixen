@@ -823,4 +823,44 @@ public static class SemanticDiagnostics {
         Binding,
         DiagnosticSeverity.Error
     );
+
+    // --- Writable resources -----------------------------------------------
+
+    /// <summary>A storage buffer whose element type has no memory layout.</summary>
+    /// <remarks>
+    ///     A buffer's element is host-written memory, so it needs an offset for every leaf. A texture
+    ///     or a sampler is a descriptor rather than a value and has no bytes to lay out; a nested
+    ///     buffer is a second descriptor, which is what a pointer would be and Raven has none.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor BufferElementNotStorable = new(
+        "RVN2118",
+        "Buffer element has no memory layout",
+        "'{0}' cannot be the element type of a '{1}': a buffer's elements are host-written memory, "
+        + "and this type has no layout the host could write",
+        Declaration,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>A write to a binding the host uploads rather than the shader produces.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Pre-existing and stage-independent, and both reference compilers reject the store — a
+    ///         uniform is read-only in GLSL and a <c>Uniform</c>-class pointer is not writable in
+    ///         SPIR-V. It went unreported for as long as it did because a shader with nothing writable
+    ///         had no correct alternative to suggest. <c>RWBuffer&lt;T&gt;</c> is that alternative,
+    ///         which is what makes this worth reporting rather than merely noting.
+    ///     </para>
+    ///     <para>
+    ///         The read-only <c>Buffer&lt;T&gt;</c> is included: it is the same descriptor as the
+    ///         writable form, so the mistake is a one-character fix, and leaving it to the driver
+    ///         would mean a <c>NonWritable</c> decoration contradicting a store in the same module.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor CannotWriteToBinding = new(
+        "RVN2119",
+        "Binding is read-only",
+        "'{0}' cannot be assigned to: {1}",
+        Binding,
+        DiagnosticSeverity.Error
+    );
 }

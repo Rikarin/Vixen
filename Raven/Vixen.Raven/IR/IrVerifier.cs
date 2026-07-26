@@ -219,6 +219,19 @@ public static class IrVerifier {
                     RequireSame(store.Place.Type, store.Value.Type, "store");
                     break;
 
+                case IrArrayLengthInstruction length:
+                    VerifyPlace(length.Place);
+
+                    // Only a runtime-sized array: a sized one folds to a constant in the binder, so
+                    // one reaching here means the fold was skipped and a backend would have had to
+                    // invent an answer.
+                    if (length.Place.Type is not IrArrayType { Length: null }) {
+                        Report($"{length.Result} takes the length of {length.Place.Type.Name}, which is not a buffer");
+                    }
+
+                    RequireSame(IrScalarType.Int, length.Result.Type, "array length result");
+                    break;
+
                 case IrBinaryInstruction binary:
                     VerifyBinary(binary);
                     break;

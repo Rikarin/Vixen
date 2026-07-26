@@ -213,8 +213,8 @@ public sealed class SourceFieldSymbol : FieldSymbol {
                 return ResourceKind.None;
             }
 
-            if (Type is BuiltInNamedTypeSymbol { ResourceKind: not ResourceKind.None } resource) {
-                return resource.ResourceKind;
+            if (Type.ResourceKind is not ResourceKind.None) {
+                return Type.ResourceKind;
             }
 
             return ContainingType is { TypeKind: TypeKind.Shader } && Type.IsNumericLike && !IsConst

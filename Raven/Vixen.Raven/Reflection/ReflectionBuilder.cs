@@ -81,7 +81,14 @@ public static class ReflectionBuilder {
             var bindings = ImmutableArray.CreateBuilder<BindingInfo>();
 
             foreach (var planned in group) {
-                bindings.Add(planned.Resource is { } resource ? Describe(planned, resource, stages) : Describe(planned, stages));
+                bindings.Add(
+                    planned switch {
+                        { Kind: IrBindingKind.StorageBuffer, Resource: { } buffer } =>
+                            DescribeBuffer(planned, buffer, stages),
+                        { Resource: { } resource } => Describe(planned, resource, stages),
+                        _ => Describe(planned, stages)
+                    }
+                );
             }
 
             sets.Add(new((int)group.Key, bindings.ToImmutable()));
@@ -112,6 +119,41 @@ public static class ReflectionBuilder {
             stages,
             members.ToImmutable()
         ) { Size = size };
+    }
+
+    /// <summary>
+    ///     Describes a storage buffer: the element's std430 layout, and a count of 0.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The offsets are the <em>element's</em>, relative to the start of one element, because
+    ///         that is what the host needs: it writes an array of these and the stride is what gets it
+    ///         from one to the next. Reporting them relative to the block would be reporting element
+    ///         zero's, which is the same numbers with a misleading name.
+    ///     </para>
+    ///     <para>
+    ///         <c>Count</c> is 0, which is this schema's spelling for "the host decides" — the same
+    ///         convention <see cref="BindingInfo.Count" /> already documents for a runtime-sized array.
+    ///         <c>Size</c> is one element's stride rather than the block's, which has none.
+    ///     </para>
+    /// </remarks>
+    static BindingInfo DescribeBuffer(PlannedBinding planned, IrBinding buffer, ShaderStages stages) {
+        var members = ImmutableArray.CreateBuilder<MemberInfo>();
+        var stride = 0;
+
+        if (buffer.Type is IrArrayType array) {
+            stride = ShaderLayout.ArrayStride(array, LayoutRule.Std430);
+            Flatten(buffer.Name, array.Element, 0, LayoutRule.Std430, members);
+        }
+
+        return new BindingInfo(
+            planned.Binding,
+            buffer.Name,
+            DescriptorType.StorageBuffer,
+            0,
+            stages,
+            members.ToImmutable()
+        ) { Size = stride, IsWritable = buffer.IsWritable };
     }
 
     static BindingInfo Describe(PlannedBinding planned, IrBinding resource, ShaderStages stages) {

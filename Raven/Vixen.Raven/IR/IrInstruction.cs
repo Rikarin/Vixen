@@ -51,6 +51,27 @@ public sealed class IrLoadInstruction(IrValue result, IrPlace place) : IrInstruc
         place.Chain.OfType<IrIndexAccess>().Select(a => a.Index);
 }
 
+/// <summary>
+///     The element count of a runtime-sized array — a storage buffer's contents.
+/// </summary>
+/// <remarks>
+///     <para>
+///         Takes a <em>place</em> rather than a value, and that is forced rather than chosen: an
+///         unsized array cannot be loaded, so there is no value to ask. Both targets agree — GLSL's
+///         <c>data.length()</c> and SPIR-V's <c>OpArrayLength</c> each name the block member, not a
+///         copy of it.
+///     </para>
+///     <para>
+///         Only a buffer reaches here. A sized array answers with a constant in the binder, which is
+///         why this instruction is about the host's element count and nothing else.
+///     </para>
+/// </remarks>
+public sealed class IrArrayLengthInstruction(IrValue result, IrPlace place) : IrInstruction {
+    public override IrValue Result { get; } = result;
+    public IrPlace Place { get; } = place;
+    public override IEnumerable<IrValue> Operands => IrLoadInstruction.IndicesOf(Place);
+}
+
 /// <summary>Writes a value into the storage a place designates.</summary>
 public sealed class IrStoreInstruction(IrPlace place, IrValue value) : IrInstruction {
     public IrPlace Place { get; } = place;

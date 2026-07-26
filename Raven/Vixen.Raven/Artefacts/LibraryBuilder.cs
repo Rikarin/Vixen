@@ -370,6 +370,11 @@ public static class LibraryBuilder {
                     Rank = array.Rank,
                     Length = array.Length
                 },
+                BufferTypeSymbol buffer => new() {
+                    Kind = LibraryTypeKind.Buffer,
+                    Element = Reference(buffer.ElementType),
+                    Writable = buffer.IsWritable
+                },
                 TupleTypeSymbol tuple => new() {
                     Kind = LibraryTypeKind.Tuple,
                     Elements = [.. tuple.ElementTypes.Select(Reference)],

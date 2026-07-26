@@ -51,6 +51,15 @@ public sealed partial class Lowerer {
                 return element.IsVoid ? NotRepresentable(type, syntax) : new IrArrayType(element, array.Length);
             }
 
+            // A storage buffer *is* a runtime-sized array in the IR. Nothing else is needed: the
+            // block that wraps it is the backends' business, the std430 layout comes from the
+            // binding kind, and read-only-ness from the binding's flag. Modelling it as its own IR
+            // type would have added a second array-like thing for indexing to know about.
+            case BufferTypeSymbol buffer: {
+                var element = LowerType(buffer.ElementType, syntax);
+                return element.IsVoid ? NotRepresentable(type, syntax) : new IrArrayType(element);
+            }
+
             case NamedTypeSymbol { TypeKind: TypeKind.Enum }:
                 // An enum is its underlying integer once the constants are folded.
                 return IrScalarType.Int;
