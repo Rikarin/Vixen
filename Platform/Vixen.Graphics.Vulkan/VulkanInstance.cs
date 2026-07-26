@@ -121,13 +121,8 @@ public sealed unsafe class VulkanInstance : IDisposable {
         [NotNullWhen(false)] out string? reason
     ) {
         instance = null;
-        Vk api;
 
-        try {
-            api = Vk.GetApi();
-        } catch (Exception exception) when (exception is DllNotFoundException or FileNotFoundException
-                                                or TypeInitializationException) {
-            reason = InstallHint();
+        if (!VulkanLoader.TryLoad(out var api, out reason)) {
             return false;
         }
 
@@ -281,17 +276,6 @@ public sealed unsafe class VulkanInstance : IDisposable {
         // debugging aid the specification reserves for layer development and which turns a warning
         // into a crash.
         return Vk.False;
-    }
-
-    static string InstallHint() {
-        var command = OperatingSystem.IsMacOS()
-            ? "install the Vulkan SDK (LunarG), which brings MoltenVK, the Loader and the validation layers"
-            : OperatingSystem.IsLinux()
-                ? "apt install libvulkan1 mesa-vulkan-drivers (or the equivalent), plus vulkan-validationlayers for development"
-                : "install your GPU vendor's driver, and the Vulkan SDK for the validation layers";
-
-        return $"Vulkan could not be loaded. Silk.NET.Vulkan ships bindings only, so the loader has to "
-            + $"come from the system: {command}.";
     }
 
     static HashSet<string> AvailableExtensions(Vk api) {

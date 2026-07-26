@@ -2,14 +2,16 @@
 
 The RHI's reference implementation.
 
-## Read this first
+## It has met a driver
 
-**Everything that touches a driver in this assembly is unverified.** It was written against the
-specification and the Silk.NET bindings on a machine with no Vulkan loader — no MoltenVK, no ICD —
-at the maintainer's direction and with that stated up front. Treat `VulkanInstance` as a first draft
-until it has met a driver.
+Instance creation, portability handling and physical-device enumeration are **verified** against
+Vulkan Loader 1.4.350 and MoltenVK 1.4.2 on Apple silicon. The riskiest guess — that MoltenVK needs
+both `VK_KHR_portability_enumeration` *and* the create flag or the Loader returns no devices — was
+right, and the test that asserts it now passes rather than skipping.
 
-What *is* tested, on a machine with no Vulkan at all:
+The first thing that actually went wrong was not Vulkan at all: see **Finding the loader** below.
+
+Tested without a driver, and worth keeping that way:
 
 | | |
 |---|---|
@@ -20,6 +22,30 @@ That split is deliberate rather than convenient. Format mapping and device selec
 mistake is *silent* — a format mapped to the wrong Vulkan enum renders the wrong colours rather than
 failing, and a selector that quietly prefers the wrong GPU looks like a performance problem. Both are
 expressible as pure functions over plain records, so both are tested now.
+
+## Finding the loader
+
+`Vk.GetApi()` asks the OS to resolve `libvulkan` by name, and on macOS the dynamic linker's default
+search path is `/usr/local/lib` and `/usr/lib` — **not** `/opt/homebrew/lib`, which is where Homebrew
+puts it on Apple silicon. So a machine with a perfectly working Vulkan (`vulkaninfo` lists MoltenVK,
+the ICD is registered) fails to load with a `DllNotFoundException` whose message says nothing about
+paths. That was the very first failure when this code met a real SDK, before a single Vulkan call ran.
+
+`VulkanLoader` tries the OS first, then probes `VULKAN_SDK`, Homebrew and the versioned soname.
+`DYLD_LIBRARY_PATH` would also work and is the wrong fix: SIP strips it in some launch paths, it has
+to be set before the process starts, and it makes running the engine depend on the shell that
+started it.
+
+## Validation layers are a separate install
+
+`brew install vulkan-loader molten-vk` gives you a working Vulkan and **no validation layers** —
+`vulkan-validationlayers` is its own formula. Without it `VulkanInstance` reports
+`ValidationEnabled == false` and logs event 2001, because silently running unvalidated would defeat
+the non-negotiable in [doc 00](../../docs/plan/00-vision-and-principles.md).
+
+```bash
+brew install vulkan-validationlayers
+```
 
 ## The decisions
 

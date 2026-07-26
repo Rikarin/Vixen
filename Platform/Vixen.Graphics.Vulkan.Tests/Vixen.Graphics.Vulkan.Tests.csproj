@@ -4,6 +4,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 
         <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
         <OutputType>Exe</OutputType>
