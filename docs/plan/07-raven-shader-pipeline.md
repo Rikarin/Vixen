@@ -1,19 +1,44 @@
 # 07 — Raven Shader Pipeline
 
-Raven already exists at `Vixen/Raven` with a real front end: an ANTLR grammar (353-line lexer,
-484-line parser), a Roslyn-style green/red syntax tree generated from `Syntax.xml` (83 concrete + 18
-abstract node types), full trivia and spans, a diagnostics model, golden-file parse tests, and
-round-trip fidelity on the sample corpus.
+Raven is a working compiler at `Raven/`: a hand-written lexer and recursive-descent parser over shared
+`Vixen.Core.Syntax` infrastructure, a Roslyn-style green/red tree generated from `Syntax.xml` (79
+concrete + 13 abstract node types) with full trivia and spans, a semantic phase, a target-independent
+IR, and GLSL and SPIR-V emitters. The ANTLR grammar it started on survives as a **test oracle** — the
+`.g4` files are checkable documentation of the syntax, and a token-stream and tree differential against
+them runs over the whole corpus ([doc 18](18-raven-parser-migration.md)).
 
-Raven's own `docs/IMPLEMENTATION_PLAN.md` — the roadmap that carried it from "syntax front end, ~70%
-wired" through to two working backends — has been **retired**. Its phases are all complete, this
-document is the plan of record, and two roadmaps for one compiler is how they come to disagree. What
-was still open in it is [§ I](#i-gaps-carried-over-from-ravens-retired-implementation-plan) below,
-verified against the code rather than copied across.
+Raven's own `docs/IMPLEMENTATION_PLAN.md` has been **retired**: its phases are complete, this document
+is the plan of record, and two roadmaps for one compiler is how they come to disagree. What was still
+open in it is [§ I](#i-gaps-carried-over-from-ravens-retired-implementation-plan) below, re-checked
+against the code rather than copied across.
 
-Your brief says Raven finishes before engine work starts. This document specifies **the contract the
-engine requires from Raven**, so that "finished" has a precise definition, and opens with a consolidated
-checklist of every change the engine plan asks of Raven.
+Raven finishes before engine work starts, so this document specifies **the contract the engine requires
+from Raven** — giving "finished" a precise definition — and opens with a consolidated checklist of every
+change the engine plan asks of it.
+
+## What is left
+
+The checklist below is mostly closed, so this is the short list of what is not — gathered here because
+it would otherwise mean scanning ten status tables. Everything else in this document is a record of a
+decision that has been made and built, kept because the reasons stay useful.
+
+| | Open item | Where | Blocks |
+|---|---|---|---|
+| 🔴 | **`Raven/Library` is not written.** The whole shader library — Core, Shading, Geometry, Material, Pipeline, PostFx, Ui, Vfx | § F | the numeric tests, the perf gates, the corpus extension, and the mixin question below |
+| 🔴 | **`Example1.rvn` does not bind and `Example2.rvn` does not parse** — the two files that define what Raven looks like | § J | nothing technically; it is the most visible broken thing in the tree |
+| 🟡 | **The compute stage** — both backends report `RVN4002` for want of a workgroup size in the language | § I | doc 06's VFX compute path, `Random.rvn` bit-for-bit, and the numeric BRDF readback |
+| 🟡 | **`&&` / `\|\|` do not short-circuit** — sound for side-effect-free expressions, wrong the moment the right operand is a guard | § I | correctness of `i < n && data[i] > 0` |
+| 🟡 | **Sized array types**, and therefore `Buffer<T>`-style storage buffers, unsized arrays and `ArrayStride` against the oracle | § I, § C | `DescriptorType.StorageBuffer` and `LayoutRule.Std430` have nothing that produces them |
+| 🟡 | **Inheritance is not flattened** — now `RVN3002` rather than three silent miscompilations | § I, mixins | the mixin question; `compose` covers the common case |
+| 🟡 | **Push constants** — no syntax, so `PushConstants` is always empty | § C, § D | nothing yet; reported as absent rather than guessed |
+| 🟡 | **String interpolation** — needs lexer modes; nothing shipped uses it | § I | nothing |
+| ⚪ | **Flow analysis** — definite assignment and reachability. Dead-branch elimination is constant folding, not this | § I | silent partial initialisation of a struct |
+| ⚪ | **Nuke is not stood up**: `CompileShaderLibrary`, `CheckFormat` for SPDX enforcement, the CI workflows | § A, § G | shipping the library as a package; SPDX is a real gap, not a closed item |
+| ⚪ | **`Vixen.Raven.Transpile`** (SPIRV-Cross wrapper) and the cross-compilation test pass | § A, § G | HLSL/MSL/WGSL output, which ADR-012 says SPIRV-Cross owns |
+| ⚪ | **`Vixen.Shaders.Generators`** — Raven supplies everything it needs; the generator waits for the engine's `ParameterKey` | § Generated C# bindings | deliberately engine-side |
+
+Two smaller ones recorded where they belong rather than here: streams have **no interpolation control**
+(§ Streams), and a library's **IR names share one flat namespace per module** (§ D).
 
 ## Consolidated change checklist
 
@@ -45,19 +70,17 @@ every consuming project.
 arriving without them. ADR-015 assigns that to the Nuke `CheckFormat` target, and Nuke is not
 stood up yet ([12](12-build-ci-and-testing.md)) — so this is a real gap, not a closed item.
 
-**How the extraction landed.** Two decisions are worth knowing before touching the tree:
+**How the extraction landed.** Two decisions to know before touching the tree:
 
 - **Kinds are `int` below the language line.** `GreenNode.RawKind` and `SyntaxNode.RawKind` are
-  integers; each front end re-exposes its own enum (`RavenSyntaxNode.Kind` is `(SyntaxKind)RawKind`).
-  List-ness is answered by `GreenNode.IsList`, never by comparing kinds. The one value the shared
-  tree reserves is `SyntaxKinds.List`, and a language's list member must equal it
-  (`SyntaxKind.ListKind = SyntaxKinds.List`) or projecting a list node's kind names the wrong member.
-- **`Accept` stays in the language.** A generated `Accept` calls `visitor.VisitIdentifierName(this)`,
-  so its parameter must be the language's visitor type — the shared `SyntaxNode` therefore declares
-  no `Accept`, and `RavenSyntaxNode` adds it. This is the split Roslyn makes between `SyntaxNode` and
-  `CSharpSyntaxNode`. The shared `SyntaxToken` and `SyntaxListNode` are outside that hierarchy;
-  `SyntaxVisitor.Visit` routes them with a single type test rather than an override per node.
-  `Syntax.xml` names the language's base in `Root`, and its output namespace in `Namespace`.
+  integers and each front end re-exposes its own enum; list-ness is answered by `GreenNode.IsList`,
+  never by comparing kinds. The one value the shared tree reserves is `SyntaxKinds.List`, and a
+  language's list member must equal it or projecting a list node's kind names the wrong member.
+- **`Accept` stays in the language,** because a generated `Accept` takes the language's visitor type.
+  The shared `SyntaxNode` declares none and `RavenSyntaxNode` adds it — Roslyn's `SyntaxNode` /
+  `CSharpSyntaxNode` split. The shared `SyntaxToken` and `SyntaxListNode` sit outside that hierarchy
+  and `SyntaxVisitor.Visit` routes them with one type test. `Syntax.xml` names the language's base in
+  `Root` and its output namespace in `Namespace`.
 
 ### B. Language and semantic features — Raven's Phase 2
 
@@ -71,96 +94,71 @@ stood up yet ([12](12-build-ci-and-testing.md)) — so this is a real gap, not a
 | 🟡 | Compile-time generics: `shader Blur<val TapCount: int>` | Parameterised post-FX without duplication | ✅ one instantiation per compilation |
 | ⚪ | Explicit `RequiredCapabilities` reporting (e.g. `"DescriptorIndexing"`, `"Float64"`) | RHI capability gating ([05](05-graphics-rhi.md)) | ✅ |
 
-**Permutation constants, as built.** A `[Permutation]` field is a constant whose value arrives
-from outside the source. `PermutationValues` is supplied at `Compilation.Create`; a key with no
-supplied value takes its initializer, which is therefore mandatory. Keys are restricted to
-`bool`/`int`/`uint` — floats make poor cache keys, and a shader that wants one should take a
-uniform. `raven compile --define UseSkinning=true -D TapCount=8` drives it from the command line.
+**Permutation constants.** A `[Permutation]` field is a constant whose value arrives from outside the
+source: `PermutationValues` is supplied at `Compilation.Create`, and a key with no supplied value takes
+its initializer, which is therefore mandatory. Keys are `bool`/`int`/`uint` only — floats make poor
+cache keys, and a shader that wants one should take a uniform.
 
-The mechanism is deliberately small: a permutation field reports `IsConst` with the supplied
-value as its `ConstantValue`, so the existing constant folding picks it up with no special case.
-What had to be added was **dead-branch elimination** — a folded condition now emits only the live
-branch, and a block stops emitting after a terminator. Without that the fold changed a value but
-not the generated code, which is the whole point.
+The mechanism is deliberately small. A permutation field reports `IsConst` with the supplied value as
+its `ConstantValue`, so the existing constant folding picks it up with no special case. What had to be
+added was **dead-branch elimination**: a folded condition emits only the live branch, and a block stops
+emitting after a terminator. Without that the fold changed a value but not the generated code, which is
+the whole point. Two properties are worth keeping:
 
-Two properties worth keeping:
+- **A switched-off permutation is still bound, so it is still type-checked** — the main advantage over
+  textual `#if`: a variant nobody is currently building cannot quietly rot.
+- **`UsedPermutationKeys` records a key when its value is read**, so a read that folding made
+  unreachable does not count. `if (A) return 1` with `A` true leaves `B` below it unread, and variants
+  differing only in `B` correctly share a cache entry.
 
-- **A switched-off permutation is still bound, so it is still type-checked.** This is the main
-  advantage over textual `#if`: a variant nobody is currently building cannot quietly rot.
-- **`UsedPermutationKeys` records a key when its value is read**, which means a read that folding
-  made unreachable does not count. `if (A) return 1` with `A` true leaves `B` below it unread, and
-  the variants differing only in `B` correctly share a cache entry.
+**`compose`.** `compose val diffuse: IDiffuseModel` declares a slot; `ComposeBindings` says which
+shader fills it. A binding may be qualified (`Lit.diffuse=Lambert`) when two shaders declare a slot of
+the same name, and a qualified binding beats a bare one, so a compilation can bind most slots once and
+override per shader.
 
-**`compose`, as built.** `compose val diffuse: IDiffuseModel` declares a slot; `ComposeBindings`
-supplied at `Compilation.Create` says which shader fills it, and `raven compile --compose
-diffuse=Lambert` drives it from the command line. A binding may be qualified (`Lit.diffuse=Lambert`)
-when two shaders declare a slot of the same name, and a qualified binding beats a bare one so a
-compilation can bind most slots once and override per shader.
+Resolution is entirely static. The call binds against the protocol, so the shader type-checks against
+the *feature* rather than an implementation; at lowering the protocol's bodyless method is swapped for
+the bound shader's, matched by signature, and the receiver is dropped — a shader method is a free
+function because its fields are globals. **There is no dispatch and no indirection**: the emitted unit
+holds a direct call, and reachability means an implementation nobody bound is never emitted. The slot
+itself is not data: no uniform, no constant-buffer field, nothing surviving to the target. `RVN2070`…
+`RVN2077` cover every way a slot can fail to resolve, including a binding to a shader that does not
+implement the protocol — the check that makes the whole thing type-safe.
 
-Resolution is entirely static. The call is bound against the protocol, so the shader type-checks
-against the feature rather than an implementation; at lowering the protocol's (bodyless) method is
-swapped for the bound shader's, matched by signature, and the receiver is dropped — a shader method
-is a free function because its fields are globals. **There is no dispatch and no indirection**: the
-emitted unit contains a direct call, and the emitter's reachability walk means an implementation
-nobody bound is never emitted. `compose` costs nothing at runtime.
+`compose` also made two latent bugs ordinary, because a material's implementation sits wherever its
+author put it: lowering created shells for structs but not functions, so a call to anything declared
+later failed; and the GLSL emitter filtered reachable functions by *shader membership*, dropping the
+very function the entry point called. Reachability alone excludes other stages — membership was never
+the right filter, and the SPIR-V emitter had it right already.
 
-The slot itself is not data — no uniform, no constant-buffer field, nothing about it survives to the
-target. Diagnostics RVN2070..RVN2077 cover every way a slot can fail to resolve, including a binding
-to a shader that does not implement the protocol, which is the check that makes the whole thing
-type-safe.
-
-Two things this uncovered, both fixed here:
-
-- **The lowering driver only created shells for structs, not functions.** A body was lowered the
-  moment its function was registered, so a call to anything declared later in the module failed.
-  Latent before — nothing generated cross-type calls — but `compose` makes it ordinary, since a
-  material's implementation shader sits wherever its author put it. `Lowerer` now declares every
-  signature before lowering any body, which is what the "shells first" comment always claimed.
-- **The GLSL emitter filtered reachable functions by shader membership.** A composed
-  implementation lives in a different `IrShader`, so the very function the entry point called was
-  dropped and the emitter crashed on a missing key. Reachability alone excludes other stages;
-  membership was never the right filter. The SPIR-V emitter walks the call graph and was already
-  correct.
-
-**Value type parameters, as built.** `shader Blur<val TapCount: int>` parameterises a shader by a
-compile-time constant. The parameter is modelled as a constant *member*, not a
-`TypeParameterSymbol` — it is not a type, the shader's arity is unchanged, and every existing
-generic path is untouched. Because it reports `IsConst` with a known value, folding and
-dead-branch elimination handle it through the same route a `[Permutation]` field takes; values
-arrive on the same channel (`Blur.TapCount=8` or `TapCount=8`) and appear in
-`UsedPermutationKeys`, since they change codegen and so belong in the cache key. The difference
-from a permutation field is that there is **no default**: a value is part of the signature, so
+**Value type parameters.** `shader Blur<val TapCount: int>` parameterises a shader by a compile-time
+constant, modelled as a constant *member* rather than a `TypeParameterSymbol`: it is not a type, the
+shader's arity is unchanged, and every existing generic path is untouched. Reporting `IsConst` with a
+known value routes it through the same folding and dead-branch elimination a `[Permutation]` field
+takes, on the same value channel, and into `UsedPermutationKeys` — it changes codegen, so it belongs in
+the cache key. The one difference is that there is **no default**: a value is part of the signature, so
 compiling without one is `RVN2082` rather than a fallback.
 
-**Scope boundary, deliberate.** One instantiation per compilation. `shader Blur8 : Blur<8>` —
-two instantiations side by side in one module — is *not* supported: value arguments would have to
-be threaded through `TypeMap`, `ConstructedNamedTypeSymbol` and `SubstitutedSymbols`, and the
-lowerer would have to enumerate constructed instantiations rather than declared types. That is a
-large change to the generic type subsystem for a case the engine does not have — it compiles one
-effect variant at a time. Revisit only if a real consumer needs two variants in one module.
+*Deliberate boundary:* one instantiation per compilation. `shader Blur8 : Blur<8>` — two side by side
+in one module — is not supported, because value arguments would have to thread through `TypeMap`,
+`ConstructedNamedTypeSymbol` and `SubstitutedSymbols`, and the lowerer would have to enumerate
+constructed instantiations rather than declared types. A large change to the generic subsystem for a
+case the engine does not have: it compiles one effect variant at a time.
 
-**`RequiredCapabilities`.** `IrCapabilities.Of(module)` and `.Of(shader)` report the target
-features needed — `Float64`, `Texture3D`, `TextureCube`, `Geometry`, `Compute` — as sorted
-strings, with `raven compile --capabilities` printing them per shader. Names rather than an enum,
-so a host does not need recompiling against a new Raven to understand a capability it has not seen.
+**`RequiredCapabilities`.** `IrCapabilities.Of(module)` and `.Of(shader)` report the target features
+needed — `Float64`, `Texture3D`, `TextureCube`, `Geometry`, `Compute` — as sorted *strings*, so a host
+does not need recompiling against a new Raven to understand a capability it has not seen. Two decisions
+inside it: they are collected from the **lowered IR** rather than the symbols, so a variant that never
+reaches the `double` maths does not require `Float64` (asking for a feature this build has no use for
+would narrow the hardware a game runs on for nothing); and they are reported **per shader** as well as
+per module, because an engine gates a pipeline and what one shader needs says nothing about another.
 
-Two decisions inside it:
-
-- **Collected from the lowered IR, not from the symbols.** By then a branch behind a false
-  permutation is gone and an unbound `compose` implementation was never pulled in, so a variant
-  that does not reach the `double` maths does not require `Float64`. There is a test for exactly
-  that, and it is the whole reason for the choice: asking the host for a feature this build has no
-  use for would narrow the hardware a game runs on for nothing.
-- **Reported per shader as well as per module,** because an engine gates a pipeline; what one
-  shader needs says nothing about another in the same module.
-
-**`#if` will not be implemented** — decided, not deferred. Typed permutation constants cover the
-same ground and cover it better: the switched-off branch stays type-checked, so a variant nobody is
-currently building cannot rot. The lexer's `DIRECTIVE_MODE` is **deleted** (third pruning pass,
-§ J): it had turned out to be worse than vestigial — `#` was `skip`ped and every directive token
-went to a dropped channel, so `#if X … #endif` compiled **every branch in, silently**. A `#`
-anywhere is now a syntax error, which is what tells a Stride/HLSL author the mechanism does not
-exist here. The row above is complete as it stands.
+**`#if` will not be implemented** — decided, not deferred. Typed permutation constants cover the same
+ground better, since the switched-off branch stays type-checked. The lexer's `DIRECTIVE_MODE` is
+deleted (third pruning pass, § J), and it was worse than vestigial: `#` was `skip`ped and every
+directive token went to a dropped channel, so `#if X … #endif` compiled **every branch in, silently**.
+A `#` anywhere is now a syntax error, which is what tells a Stride/HLSL author the mechanism does not
+exist here.
 
 ### C. Emitter requirements — GLSL and SPIR-V together
 
@@ -170,7 +168,7 @@ exist here. The row above is complete as it stands.
 | 🔴 | **GLSL emitter, Vulkan-flavoured**: `#version 450`+, explicit `layout(set = N, binding = M)` via `GL_KHR_vulkan_glsl`, `layout(push_constant)`, `layout(location = N)` on every stage in/out, explicit `std140`/`std430`. Required so `shaderc` can compile it back to SPIR-V for the **differential oracle** below, and because it is the most readable form for the frame debugger | ✅ except `push_constant`, which needs syntax Raven has not got |
 | 🔴 | **Reflection comes from the semantic phase**, never from either emitted form. The engine writes constant buffers by generated offset | ✅ |
 | 🔴 | Honour the **four-set descriptor convention** (set 0 per-frame, 1 per-view, 2 per-material, 3 per-draw) when assigning bindings ([05](05-graphics-rhi.md)) — both emitters must agree, which the differential test enforces | ✅ |
-| 🟡 | **Differential test**: Raven's SPIR-V vs `shaderc`(Raven's GLSL) must be semantically equivalent. The strongest correctness signal available, and free once both emitters exist | ✅ interface-level |
+| 🟡 | **Differential test**: Raven's SPIR-V vs `glslc`(Raven's GLSL) must be semantically equivalent. The strongest correctness signal available, and free once both emitters exist | ✅ interface-level |
 | ⚪ | HLSL / MSL / WGSL emitters are **not required** — SPIRV-Cross covers them (ADR-012) | |
 | ⚪ | `IRavenBackend` with swappable implementations is **not required** — the bridge is gone, so there is one code path | ✅ never built |
 
@@ -193,15 +191,13 @@ is the only code that assigns a `(set, binding)` pair; both emitters and `Reflec
 the plan. There is nothing to keep in step, which is the same reasoning as the shared `ShaderLayout`
 one level down. The differential test verifies it, but the plan is what makes it true.
 
-**Vulkan GLSL is now a faithful mirror of the SPIR-V, not a lossy sibling.** The emitter previously
-folded a texture and its sampler into one combined `sampler2D` and reported the dropped sampler
-binding as an informational diagnostic. It now emits separate `texture2D` and `sampler` objects and
-pairs them at the sample site as `texture(sampler2D(albedo, linear), uv)` — the same shape SPIR-V
-has always had, and the reason the two backends' binding indices can be compared at all. A
-`.Load(…)` becomes `texelFetch` on the bare texture under
-`GL_EXT_samplerless_texture_functions`, declared only in the units that need it because a driver may
-reject an extension the shader does not use. Nothing about a sampler is dropped any more, so nothing
-is reported as dropped.
+**Vulkan GLSL is a faithful mirror of the SPIR-V, not a lossy sibling.** The emitter used to fold a
+texture and its sampler into one combined `sampler2D` and report the dropped sampler binding as an
+informational diagnostic. It now emits separate `texture2D` and `sampler` objects and pairs them at the
+sample site — `texture(sampler2D(albedo, linear), uv)`, the shape SPIR-V always had, and the reason the
+two backends' binding indices can be compared at all. A `.Load(…)` becomes `texelFetch` on the bare
+texture under `GL_EXT_samplerless_texture_functions`, declared only in the units that need it because a
+driver may reject an extension the shader does not use. Nothing about a sampler is dropped any more.
 
 #### The differential oracle, and what it does and does not prove
 
@@ -253,14 +249,14 @@ reading every line the emitter produced, which is a check the GLSL path never ha
 
 ### D. Public API contract the engine codes against
 
-Detailed below. Summary: `RavenCompilation.Create/GetDiagnostics/GetSemanticModel/Emit` (Roslyn-shaped),
-`RavenEmitResult`, `RavenShaderModule`, and the full `RavenReflection` schema.
+The library surface the engine binds against, and the two artefact formats it loads. Detailed under
+[§ The contract Raven must satisfy](#the-contract-raven-must-satisfy).
 
 | | Requirement | |
 |---|---|---|
 | 🔴 | `RavenReflection` with **explicit `Offset`, `Size`, `ArrayStride`, `MatrixStride` on every block member.** The engine writes constant buffers by generated offset, not by runtime reflection. Get the std140/std430-vs-HLSL packing rules pinned and golden-tested or every backend disagrees about `float3` padding | ✅ |
 | 🟡 | `.rvnlib` (compiled library: symbols + IR, referenced without reparsing source) and `.rvnfx` (compiled effect: modules + reflection + permutation key + source hash) artefact formats | ✅ both |
-| 🟡 | **Incremental reparse** via `SourceText.WithChanges` — the < 500 ms shader hot-reload budget ([00](00-vision-and-principles.md)) depends on it. Comes free from `Vixen.Core.Syntax` | ✅ API and change tracking; the reparse is still full-file |
+| 🟡 | **Incremental reparse** via `SourceText.WithChanges` — the < 500 ms shader hot-reload budget ([00](00-vision-and-principles.md)) depends on it. Comes free from `Vixen.Core.Syntax` | ✅ including green-node reuse at member granularity |
 | 🟡 | Diagnostics surfaced through the shared model so the editor's error list, the engine log, and the on-screen shader-error overlay all use one implementation | ✅ via `Vixen.Core.Syntax` |
 | 🟡 | Accept **generated** source with span fidelity, so `Vixen.Editor.ShaderGraph` can emit Raven and map diagnostics back to node ports ([11](11-editor.md)) | ✅ `ParseText(text, path:)` already |
 | ⚪ | "Interaction classes" (Raven's Phase 7) feed `Vixen.Shaders.Generators`, which emits the C# `ParameterKey`/`PermutationKey` classes | ✅ everything Raven owes it; the generator itself is engine-side |
@@ -301,147 +297,130 @@ produce the same key and share one artefact, instead of filling the cache with d
 `SourceHash` is SHA-256 over the sources, so a stale artefact is detectable without recompiling to
 compare.
 
-**`.rvnlib` was a phase rather than a task, and it is now done.** The reason it was held back was
-never serialization: for a library to be "referenced without reparsing source", its loaded symbols
-have to *participate in binding* as `NamedTypeSymbol`/`MethodSymbol`/`FieldSymbol`, which means a
-second symbol hierarchy backed by metadata rather than syntax — Roslyn's split between source
-symbols and PE symbols, at Raven's scale. That is what was built, and what makes the row above
-green. [Doc 18](18-raven-parser-migration.md) put the parser migration before this work because
-serialising trees wants trees you trust; the migration landed first, as planned.
+**`.rvnlib` was a phase rather than a task.** What held it back was never serialization: for a library
+to be "referenced without reparsing source", its loaded symbols have to *participate in binding* as
+`NamedTypeSymbol`/`MethodSymbol`/`FieldSymbol` — a second symbol hierarchy backed by metadata rather
+than syntax, Roslyn's source-vs-PE-symbol split at Raven's scale. [Doc 18](18-raven-parser-migration.md)
+put the parser migration first because serialising trees wants trees you trust; both landed, in that
+order.
 
-**What "referenced" means, concretely.** Two halves in one artefact, and both are load-bearing:
+Two halves in one artefact, and both are load-bearing:
 
-- **Declarations.** `Symbols/Metadata/` holds `MetadataNamedTypeSymbol` and its members, deriving
-  from the same abstract bases the source symbols do. Nothing in the binder, the conversions, the
-  overload resolution or the `compose` resolver knows the difference, which is the whole design —
-  a call into a library is type-checked on exactly the terms a call within the compilation is.
-- **Lowered IR.** `Lowerer.Linking` rebuilds the library's functions in the module being compiled
-  and maps each metadata symbol onto the function its body lowered to when the library was built.
-  So `LowerCall` finds a callee in the same dictionary either way, both backends see one module of
-  ordinary IR, and a reference costs nothing at runtime for the same reason `compose` does: it is
-  resolved before the backend runs. `CompiledLibraryTests` pins that a linked function's IR dump is
-  identical to lowering its source alongside the consumer, over a fixture that exercises every
-  statement and access shape the IR has.
+- **Declarations.** `Symbols/Metadata/` derives from the same abstract bases the source symbols do, so
+  nothing in the binder, the conversions, the overload resolution or the `compose` resolver can tell
+  the difference. A call into a library type-checks on exactly the terms a call within the compilation
+  does.
+- **Lowered IR.** `Lowerer.Linking` rebuilds the library's functions in the module being compiled and
+  maps each metadata symbol onto the function its body lowered to. `LowerCall` finds a callee in the
+  same dictionary either way, both backends see one module of ordinary IR, and a reference costs
+  nothing at runtime for the same reason `compose` does — it is resolved before the backend runs.
+  `CompiledLibraryTests` pins that a linked function's IR dump is identical to lowering its source
+  alongside the consumer, over a fixture exercising every statement and access shape the IR has.
 
-The link between the halves is by name — `LibraryMethod.IrFunction`, `LibraryType.IrStruct` —
-because a name survives a recompilation of the library and an index does not.
+The halves are linked by name (`LibraryMethod.IrFunction`, `LibraryType.IrStruct`), because a name
+survives a recompilation of the library and an index does not. The container is **all JSON**, unlike
+`.rvnfx`: a library has no binary payload — its bodies are structure, not bytes — so nothing needs
+keeping out of the text, and a diffable artefact beats the space. Framing and rejections are the same.
+`--emit-library` writes one; `--reference Core/Math.rvnlib` consumes it.
 
-**All JSON, unlike `.rvnfx`, and for the same reason that format keeps its header in JSON.**
-`.rvnfx` appends SPIR-V raw because base64 would cost a third of its size for nothing; a library has
-no such payload — its bodies are structure, not bytes — so nothing needs keeping out of the JSON, and
-a diffable artefact is worth more than the space. The framing is the same: magic, version, length,
-and a reader that rejects a wrong magic, an unknown version and a truncation rather than
-half-loading. `raven compile --emit-library` writes one; `raven compile --reference Core/Math.rvnlib`
-consumes it.
+**Three things are refused at write time, because that is where they can be fixed** rather than
+rediscovered in every consumer:
 
-**Two checks run at write time, because that is where they can be fixed.**
-
-- A body that reads a shader binding **cannot be exported** (`RVN5001`), transitively: a binding
-  belongs to the shader that declares it — its `(set, binding)` pair is assigned per effect — so
-  linking the function that reads it into another shader would name storage that shader never
-  declared. That is the same silent GLSL miscompilation unflattened inheritance produced, and
-  reporting it in the library beats rediscovering it in every consumer.
-- A `[Permutation]` key read while building the library has its value **baked into** the exported
-  bodies (`RVN5006`). This is the one thing an artefact cannot carry, and it follows from what makes
-  permutations work: the key is resolved at compile time so the dead branch disappears, which means
-  the branch is already gone by the time the body is written down. A library that wants to be varied
-  takes the value as a parameter. Said rather than left to be discovered, because the symptom
-  otherwise is a consumer's `--define` that appears to be ignored.
+- A body that reads a **shader binding** (`RVN5001`, transitively): a binding's `(set, binding)` is
+  assigned per effect, so linking its reader elsewhere would name storage that shader never declared —
+  the same silent GLSL miscompilation unflattened inheritance produced.
+- A body that touches a **stream** (`RVN5007`), for the neighbouring but different reason that a
+  stream's location belongs to the consuming shader.
+- A **`[Permutation]` key read while building** has its value baked in (`RVN5006`) — the one thing an
+  artefact cannot carry, because the key is resolved at compile time so the dead branch is gone before
+  the body is written down. Said rather than discovered: the symptom otherwise is a consumer's
+  `--define` that appears to be ignored.
 
 Entry points are not exported either (`RVN5002`, informational): a library supplies types and
 functions, and a stage is generated per effect from the shader that declares it.
 
-**A reference is not a tax on the output.** The whole of a library's IR has to be present before any
-body is lowered — a body may call anything in it — but `ImportPruner` then drops what nothing
-reached. This is not the backends' reachability walk, which is per entry point and decides what one
-translation unit emits; this one decides what the *module* contains, so the IR dump, the verifier and
-`IrCapabilities` describe the shader that was compiled rather than the library it borrowed one
-function from. Without it, referencing a library with a `double` in it anywhere would make every
-consumer require `Float64` — the exact mistake § B set out to avoid.
+**A reference is not a tax on the output.** A library's whole IR must be present before any body is
+lowered — a body may call anything in it — and `ImportPruner` then drops what nothing reached. Not the
+backends' reachability walk, which is per entry point and decides what one *unit* emits; this decides
+what the *module* holds, so the IR dump, the verifier and `IrCapabilities` describe the shader that was
+compiled rather than the library it borrowed one function from. Without it, referencing a library with a
+`double` anywhere in it would make every consumer require `Float64` — the exact mistake § B avoids.
 
-**Libraries compose, and a source declaration wins.** A library built against another records the
-dependency by name, and the consumer resolves it against its own references (`RVN5004` when it
-cannot) — so `Shading/Brdf.rvnlib` calls into `Core/Math.rvnlib` and reaches the *same* struct object
-the consumer's own locals are typed by, rather than a private copy that would fail the verifier. A
-source type of the same name as a referenced one shadows it, which is what every compiler with a
-reference model does, and the shadowing is reported (`RVN5003`) because silently preferring one of two
+**Libraries compose, and source wins.** A library built against another records the dependency by name
+and the consumer resolves it against its own references (`RVN5004` when it cannot), reaching the *same*
+struct object the consumer's locals are typed by rather than a private copy that would fail the
+verifier. A source type shadows a referenced one of the same name — what every compiler with a
+reference model does — and the shadowing is reported (`RVN5003`), because silently preferring one of two
 same-named types is how a shader ends up bound against the definition its author was not reading.
 
 Honestly bounded:
 
-- **IR names are one flat namespace per module,** so two libraries exporting the same IR name
-  collapse to the first. That is a property of the IR itself — a module has one `Structs` list and one
-  `Functions` list, and both emitters treat names as global — not something linking introduced; the
-  fix would be qualifying IR names by declaring type, which is its own change. A library entity whose
-  name the compilation itself uses gives way rather than colliding, and only then is it renamed, so
-  the GLSL a frame debugger shows still says `Saturate`.
+- **IR names are one flat namespace per module**, so two libraries exporting the same IR name collapse
+  to the first. That is a property of the IR — one `Structs` list, one `Functions` list, names global to
+  both emitters — not something linking introduced; the fix is qualifying IR names by declaring type,
+  which is its own change. A library entity whose name the compilation itself uses gives way, and only
+  then is it renamed, so the GLSL in a frame debugger still says `Saturate`.
 - **A generic library type is exported but still not lowerable** — `Box<float>` is `RVN3001`/`RVN3003`
-  either way (§ J), so the type parameters and their enforced `where` clauses round-trip and nothing
-  more.
-- **The libraries themselves are not written yet.** § F is the content task; this is the mechanism it
-  needs, and `Raven/Library` still holds two example files.
+  either way (§ J) — so its type parameters and enforced `where` clauses round-trip and nothing more.
+- **The libraries themselves are not written.** § F is the content task; this is the mechanism it needs.
 
-**A defect this uncovered, and it was not in the new code.** A `static func` on a struct was still
-given a `self` parameter, so a call to one from outside the struct passed one argument to a function
-taking two — malformed IR, caught by the verifier, which means the construct could not be compiled at
-all. It went unnoticed because nothing in the corpus called a static struct method across a type
-boundary; it surfaced immediately here, because a struct of static helpers is exactly what
-`Core/Math.rvn` is. `Lowerer.SelfTypeFor` and `BuildArguments` now agree that a static member has no
+*A defect this uncovered, and not in the new code:* a `static func` on a struct was still given a `self`
+parameter, so calling one from outside the struct passed one argument to a function taking two —
+malformed IR, which means the construct could not be compiled at all. Nothing in the corpus called a
+static struct method across a type boundary; a struct of static helpers is exactly what `Core/Math.rvn`
+is, so it surfaced immediately. `SelfTypeFor` and `BuildArguments` now agree that a static member has no
 receiver.
 
-**Incremental reparse: the API landed, the optimisation did not.** `SourceText.WithChanges` applies
-sorted, non-overlapping edits in the old text's coordinates and remembers where the result differs;
+**Incremental reparse, and it really is incremental now.** `SourceText.WithChanges` applies sorted,
+non-overlapping edits in the old text's coordinates and remembers where the result differs;
 `GetChangeRanges` answers exactly for the immediate predecessor and conservatively — whole document —
-for anything else, because being silently wrong about a region would let a reparser trust a subtree
-the edit had invalidated. `SyntaxTree.WithChangedText` is the hot-reload entry point.
+for anything else, because being silently wrong about a region would let a reparser trust a subtree the
+edit had invalidated. `SyntaxTree.WithChangedText` is the hot-reload entry point.
 
-The doc said this "comes free from `Vixen.Core.Syntax`". **It does not.** The green tree is ready for
-node reuse — immutable, position-independent, already shared — but ANTLR owns parsing and has no
-notion of reusing an existing tree, so `WithChangedText` reparses the whole file today. The shape is
-what matters: callers pass edits rather than documents, so making it incremental later changes no
-call site. A shader is small enough that a full reparse fits the < 500 ms budget with room to spare;
-a 2 000-line `.vxml` is the case that will actually need it, and that front end is hand-written
-recursive descent, where node reuse is achievable.
+An earlier draft recorded that this "comes free from `Vixen.Core.Syntax`" was false, because ANTLR
+owned parsing and had no notion of reusing a tree — the concrete cost of the parser being generated
+rather than hand-written, and one of the reasons [doc 18](18-raven-parser-migration.md) argued for the
+migration. Both landed: the parser is hand-written, and `Vixen.Core.Syntax.Parsing.Blender` reuses green
+nodes at **member granularity**, shared by all three front ends as the doc wanted.
 
-This is the concrete cost of Raven's parser being ANTLR rather than hand-written, and it is what
-[18-raven-parser-migration.md](18-raven-parser-migration.md) plans to fix. The blender belongs in
-`Vixen.Core.Syntax`, where all three front ends would share it — and Raven is the one that cannot.
+Two properties make it safe rather than merely fast. A candidate survives only when no change touches
+its old full span **with a character of margin on each side**, so an edit that is merely *adjacent*
+cannot glue itself onto the node's first or last token — `var tint: float4` gaining ` => tint` at its
+end becomes a property, which wholesale reuse would have missed. And the parser re-verifies that a
+reused node's width lands on a token boundary of the new stream, so a candidate that fails either check
+is simply reparsed: **the blender can only make a parse faster, never different**, which is pinned by
+comparing every incremental result against a full parse.
 
 **Reported as absent rather than guessed:** `PushConstants` and `SpecConstants` are always empty.
 Raven has no syntax for push constants, and a `[Permutation]` key is resolved at compile time rather
 than left specialisable — that is what makes the dead branch disappear. An empty array is honest; a
 fabricated one would be a bug the engine could not see.
 
-**What the shader can be varied by is reported too, and it is not the cache key.** `Permutations`
-holds every `[Permutation]` key the shader *declares*, with its type and default; `ValueParameters`
-holds its `val` type parameters, which have no default because a value is part of the signature
-(`RVN2082`). Both are what `Vixen.Shaders.Generators` needs to emit a `PermutationKey`, and what doc
-06's build-time permutation pre-generator needs to *enumerate* variants.
-
-Keeping this separate from `UsedPermutationKeys` is the point rather than duplication:
+**What a shader can be varied by is reported separately from the cache key,** and the separation is the
+point rather than duplication:
 
 | | Holds | Same across variants? |
 |---|---|---|
-| `Permutations` | what the shader **declares** | yes — necessarily |
+| `Permutations` / `ValueParameters` | what the shader **declares** — key, type, and a default for a permutation but not for a value parameter (`RVN2082`) | yes, necessarily |
 | `UsedPermutationKeys` | what this variant **read** | no — that is the whole economy |
 
-Generating a C# key class from the read set would give an API whose members depend on which variant
+Generating a C# key class from the *read* set would give an API whose members depend on which variant
 happened to compile: build with `UseDetail=false` and a key only read in the true branch vanishes from
-the surface. `ReflectionTests` pins that a declared-but-unread key is still reported, and that the
-declared set is byte-identical across two variants whose read sets differ.
+the surface. So the declared set is what `Vixen.Shaders.Generators` and doc 06's build-time permutation
+pre-generator consume, and `ReflectionTests` pins that a declared-but-unread key is still reported and
+that the declared set is byte-identical across two variants whose read sets differ.
 
-Two things had to change for this. A `[Permutation]` key is folded to a constant and leaves **no trace
-in the lowered IR** — that is what makes the dead branch disappear — so `IrShader` now records what was
-declared before the folding erases it, keeping reflection IR-derived rather than reaching back into the
-symbol table. And reading a key's value is exactly what *records a use*, so lowering reads
+Two things follow from folding erasing the evidence. A `[Permutation]` key leaves **no trace in the
+lowered IR** — that is what makes the dead branch disappear — so `IrShader` records what was declared
+before folding erases it, keeping reflection IR-derived rather than reaching back into the symbol table.
+And because reading a key's value is exactly what *records a use*, lowering reads
 `FieldSymbol.DeclaredValue` instead: describing a shader must not add keys the body never touched, or
-the cache fills with variants that differ in nothing. Reverting that one accessor fails eight tests,
-six of which predate this work.
+the cache fills with variants that differ in nothing.
 
-Defaults travel as **text**, matching `CompiledEffect.PermutationKey`. A boxed `object` survives
+Defaults travel as **text**, matching `CompiledEffect.PermutationKey`: a boxed `object` survives
 `System.Text.Json` as a `JsonElement` and stops comparing equal to what went in, which would make a
-`.rvnfx` round-trip quietly lossy; the type is in the same record, so nothing is lost by rendering the
-value the way a `--define` spells it.
+round-trip quietly lossy. The type is in the same record, so nothing is lost by rendering the value the
+way a `--define` spells it.
 
 ### E. Conventions Raven must bake in
 
@@ -502,10 +481,8 @@ the 🔴 defect that § I inherited, and the choice made itself once the bytes w
 - Matrix construction already filled columns in both backends, so construction and indexing now agree:
   `mat3(a, b, c, …)` fills the column that `m[0]` reads back.
 
-The GLSL backend had been emitting `vec3 _1 = m[0];` against a `mat3x2` for a `mat2x3` — which `glslc`
-rejects — and the SPIR-V backend refused to emit at all (`RVN4002`). Both are fixed, and a non-square
-matrix is now a differential-oracle fixture: on a square matrix a row and a column have the same lane
-count, which is exactly why this survived so long.
+A non-square matrix is now a differential-oracle fixture, because on a square one a row and a column
+have the same lane count — which is exactly why the defect survived so long.
 
 #### What is pinned, and what is still owed
 
@@ -538,18 +515,23 @@ ClearCoat, Sheen, Hair, Subsurface, Transmission, Ibl, Lighting) · `Geometry/` 
 
 ### G. Testing and CI additions
 
-| | Addition |
-|---|---|
-| 🟡 | Extend the existing golden-tree and round-trip corpus to **the whole `Raven/Library` tree** — every shipped shader must round-trip byte-identically. Blocked on § I's four token-dropping nodes, which cannot round-trip as they stand |
-| 🟡 | `spirv-val` on every emitted module; golden `spirv-dis` disassembly snapshots so codegen changes are reviewable — ✅ both, plus the § C differential oracle |
-| 🟡 | Cross-compile every module through SPIRV-Cross to GLSL 450 / ESSL 300 / HLSL 60 / MSL / WGSL without error; GLSL/ESSL additionally through `glslang` |
-| 🟡 | **Numeric BRDF tests**: CPU ports of the shading functions compared against a GPU compute readback over a parameter sweep, agreeing to 1e-4. This is the test that catches "the shader is subtly wrong" |
-| 🟡 | Constant-buffer layout: reflection offsets verified against a GPU readback of a known pattern, **per backend** |
-| 🟡 | Permutation correctness: passing an unused define produces a byte-identical module and the same cache key |
-| 🟡 | Positive/negative fixture pairs per diagnostic ID; `compose`-resolution golden trees per material-feature combination |
-| ⚪ | `SharpFuzz` corpus over the Raven parser, alongside the VXML/VCSS/`.meta`/bundle readers ([12](12-build-ci-and-testing.md)) |
-| ⚪ | Perf gates: full-library compile time, and < 500 ms incremental recompile of a leaf shader |
-| ⚪ | Nuke `CompileShaderLibrary` target: Raven over `Raven/Library/**/*.rvn` → `.rvnlib`, `spirv-val` each, **fail on any diagnostic** |
+The full testing story, by layer and with the status of each. This is the only testing table in the
+document; an earlier draft carried a second one at the end that said the same things differently, which
+is how two lists come to disagree.
+
+| | Layer | Test | |
+|---|---|---|---|
+| 🟡 | Parse | Golden-tree and round-trip corpus over **the whole `Raven/Library` tree** — every shipped shader round-trips byte-identically | corpus covers the fixtures and `Example1.rvn`; the library is § F |
+| 🟡 | Semantic | Positive/negative fixture pairs per diagnostic ID; `compose`-resolution golden trees per material-feature combination | partial — most IDs have a trigger, few have the negative |
+| 🟡 | SPIR-V | `spirv-val` on every emitted module; golden `spirv-dis` snapshots so codegen changes are reviewable | ✅ |
+| 🔴 | Both emitters | **Differential test**: Raven's SPIR-V vs `glslc`(Raven's GLSL), compared for semantic equivalence — the hard class of bug, an emitter internally consistent and semantically wrong | ✅ interface-level; blind to the shared IR, hence the numeric tests |
+| 🟡 | Cross-compile | Every module through SPIRV-Cross to GLSL 450 / ESSL 300 / HLSL 60 / MSL / WGSL without error; GLSL/ESSL additionally through `glslang` | not started |
+| 🟡 | Numeric | BRDF functions ported to C# and compared against a GPU compute readback over a parameter sweep, agreeing to 1e-4 — the test that catches "the shader is subtly wrong" | blocked on § F and the compute stage |
+| 🟡 | Layout | Reflection offsets against a GPU readback of a known pattern, **per backend** | needs a device |
+| 🟡 | Permutations | An unused define produces a byte-identical module and the same cache key | ✅ |
+| ⚪ | Fuzz | `SharpFuzz` corpus over the Raven parser, alongside the VXML/VCSS/`.meta`/bundle readers ([12](12-build-ci-and-testing.md)) | not started |
+| ⚪ | Perf | Gates on full-library compile time and < 500 ms incremental recompile of a leaf shader | needs § F |
+| ⚪ | CI | Nuke `CompileShaderLibrary`: Raven over `Raven/Library/**/*.rvn` → `.rvnlib`, `spirv-val` each, **fail on any diagnostic** | Nuke not stood up ([12](12-build-ci-and-testing.md)) |
 
 ### H. Burden the plan *removes* from Raven
 
@@ -616,92 +598,77 @@ shader graph's generated-source span mapping.
 | 🟡 | **A boolean in a uniform, or a boolean/aggregate as stage I/O** (`RVN4001`). `OpTypeBool` has no size and no memory layout. Reported rather than mis-emitted, but note the targets **disagree about what is legal**: GLSL hides it by giving a bool four bytes in a std140 block |
 | 🟡 | **Unsized arrays** (`RVN4001`) — legal only as a storage block's last member, which the IR cannot express |
 
-**The matrix indexing defect — fixed, and worth keeping the record of.** `IrIndexAccess.ResultType`
-and `Binder.BindElementAccess` both typed `m[i]` as a vector of `Columns` lanes — a *row* — while GLSL
-and SPIR-V both index by column. SPIR-V refused to emit it (`RVN4002`); GLSL emitted the wrong thing
-silently, writing `vec3 _1 = m[0];` against a `mat3x2` for a `mat2x3`, which `glslc` rejects with
-
-```
-error: '=' : cannot convert from '… 2-component vector of float' to '… 3-component vector of float'
-```
-
-It read as a language decision needing a coin-flip (HLSL indexes rows, GLSL columns). It was not: once
-the byte-level relationship between host and shader storage was worked out, exactly one answer was free
-in both backends *and* the intuitive one — see [§ E](#e-conventions-raven-must-bake-in). Both backends
-now emit it, and a non-square matrix is a differential-oracle fixture, because a square matrix hides
-the whole class of mistake.
+**The matrix indexing defect — fixed.** `m[i]` was typed as a *row* while both targets index by
+column: SPIR-V refused to emit it (`RVN4002`) and GLSL emitted the wrong thing silently. It read as a
+language decision needing a coin-flip (HLSL indexes rows, GLSL columns) and was not — once the
+byte-level relationship between host and shader storage was worked out, exactly one answer was free in
+both backends *and* the intuitive one. The derivation is in
+[§ E](#e-conventions-raven-must-bake-in).
 
 #### Streams: interstage values declared once
 
 `stream var normalWS: float3` on a shader declares a value one stage writes and the next reads. The
-alternative — the state this row described — was to thread it through signatures: a vertex entry point
-returning a struct of everything the pixel stage might want, and every function that contributes to
-one taking and returning it. That works and it is what the language had, but it makes an interstage
-value a property of every signature between its producer and the pipeline, which is exactly the cost
-`compose` exists to avoid for implementations. A `[PerMaterial]` marker says where a *binding* lives
-without the shader spelling a set number; `stream` does the same for the pipeline's own interface.
+alternative — what this row described — was threading it through signatures: a vertex entry point
+returning a struct of everything the pixel stage might want, and every contributing function taking and
+returning it. That works, and it makes an interstage value a property of every signature between its
+producer and the pipeline, which is exactly the cost `compose` avoids for implementations. `[PerMaterial]`
+says where a *binding* lives without spelling a set number; `stream` does the same for the pipeline's own
+interface.
 
-**Direction is derived, not declared.** Per entry point, the stage's reachable code decides: a stream
-it stores to is an output, one it *reads before writing* is an input, one it does both to is both —
-legal, because a stage's input and output locations are separate namespaces. That is the property
-worth having. A `compose`d surface function three calls deep can write `normalWS` and the vertex stage
-grows an output, with nothing between them mentioning it. Reachability rather than shader membership
-decides what "the stage's code" means, for the reason § C already records: a composed implementation's
-functions live in a different `IrShader`.
+**Direction is derived, not declared.** Per entry point the stage's reachable code decides: stored to ⇒
+output, *read before written* ⇒ input, both ⇒ both — legal, since a stage's input and output locations
+are separate namespaces. That is the property worth having: a `compose`d surface function three calls
+deep can write `normalWS` and the vertex stage grows an output with nothing between them mentioning it.
+Reachability rather than shader membership decides what "the stage's code" means, for the reason § C
+records — a composed implementation's functions live in a different `IrShader`.
 
-"Read before written" rather than "read at all" is the one subtle part, and it earns its keep.
-`normalWS = n; return normalize(normalWS)` in a vertex stage reads a stream that stage produces — the
-value it wants is the one just written, not an attribute. Taking any read as an input would have
-declared a vertex attribute nobody binds. So the read resolves to the *output* variable, which both
-targets permit: only SPIR-V's `Input` is read-only. "Before" is a pre-order walk with calls expanded
-at their call sites — exact for the straight-line code shaders are made of, and conservative the safe
-way otherwise, since a spurious input costs a location while a missing one would read undefined
-values. A partial write (`normalWS.x = …`) keeps the rest of the value, so it counts as a read.
+"Read *before* written" rather than "read at all" is the subtle part, and it earns its keep.
+`normalWS = n; return normalize(normalWS)` in a vertex stage reads a stream that stage produces; taking
+any read as an input would declare a vertex attribute nobody binds. The read resolves to the *output*
+variable instead, which both targets permit — only SPIR-V's `Input` is read-only. "Before" is a
+pre-order walk with calls expanded at their call sites: exact for the straight-line code shaders are
+made of, and conservative the safe way otherwise, since a spurious input costs a location while a
+missing one would read undefined values. A partial write (`normalWS.x = …`) keeps the rest of the value,
+so it counts as a read.
 
-**A location is a property of the shader, not of the stage.** `Vixen.Raven.Reflection.StreamPlan`
-assigns a stream its index in the shader's declaration order, and both emitters and the reflection
-read the plan — the same construction as `BindingPlan` one concept over, and for the same reason.
-Nothing has to be kept in step: the stage that writes `normalWS` and the stage that reads it arrive at
-0 without either knowing the other exists. Deriving it from "index among this stage's outputs" instead
-would have the two disagree the moment one of them touches a stream the other does not.
+**A location is a property of the shader, not of the stage.** `StreamPlan` assigns a stream its index in
+declaration order and both emitters and the reflection read the plan — the same construction as
+`BindingPlan`, and for the same reason. Nothing has to be kept in step: the writing stage and the reading
+stage arrive at 0 without either knowing the other exists. Deriving it from "index among this stage's
+outputs" would have them disagree the moment one touches a stream the other does not.
 
-The consequence, stated rather than left to be discovered: **a stage's own parameters are located
-after the streams**, so adding a stream renumbers a shader's vertex attributes. That is visible in the
-reflection the engine builds its vertex layout from, which is where a renumbering has to be visible.
-Locating streams after the parameters would be worse than inconvenient — it would make a stream's
-location depend on which stage was looking at it, and there is no number both stages could agree on.
-The one exception is a fragment output, which stays at location 0 because it is a render-target index
-rather than an interstage location; that is also why a stream *written* by a fragment stage is
-`RVN3005` — nothing downstream reads it, and the shader still compiles, so it is the same warning
-policy `RVN2091` uses for a marker on a non-binding.
+The consequence, stated rather than discovered: **a stage's own parameters are located after the
+streams**, so adding a stream renumbers a shader's vertex attributes — visible in the reflection the
+engine builds its vertex layout from, which is where a renumbering has to be visible. The alternative
+would make a stream's location depend on which stage was looking at it, and there is no number both
+stages could agree on. The one exception is a fragment output, which stays at location 0 because it is a
+render-target index; that is also why a stream *written* by a fragment stage is `RVN3005`, on the same
+warning policy `RVN2091` uses for a marker on a non-binding.
 
-**A stream is not a binding**, and nothing about it reaches a descriptor: no `(set, binding)`, no
-uniform block member, no entry in the flattened parameter list. It lowers to a module-scope global,
-which is what a stage interface *is* in both targets — a SPIR-V `Input`/`Output` and a GLSL `in`/`out`
-are both module scope — so a read is an ordinary load and a write an ordinary store, and only the
-direction is resolved per stage. No new instruction, and nothing in body lowering knows about it.
+**A stream is not a binding**: no `(set, binding)`, no uniform block member, nothing in the flattened
+parameter list. It lowers to a module-scope global, which is what a stage interface *is* in both targets
+— a SPIR-V `Input`/`Output` and a GLSL `in`/`out` are both module scope — so a read is an ordinary load
+and a write an ordinary store, with only the direction resolved per stage. No new instruction, and body
+lowering learns nothing.
 
 Restrictions, each at the declaration where it can be fixed rather than twice over from the backends:
-`stream` is a shader field (`RVN2100`); it cannot also be `const`, a `[Permutation]` key or a
-`compose` slot, none of which has storage to thread (`RVN2101`); it takes no initializer, because its
-value comes from the stage that writes it (`RVN2102`); and its type must be a non-boolean scalar or
-vector — the restriction stage I/O already lives under, since Vulkan has no boolean interface type and
-an aggregate would need a location per leaf (`RVN2103`).
+a shader field only (`RVN2100`); not also `const`, a `[Permutation]` key or a `compose` slot, none of
+which has storage to thread (`RVN2101`); no initializer, its value coming from the stage that writes it
+(`RVN2102`); and a non-boolean scalar or vector, the restriction stage I/O already lives under since
+Vulkan has no boolean interface type and an aggregate would need a location per leaf (`RVN2103`).
 
 Honestly bounded:
 
-- **Streams do not cross a `.rvnlib` boundary.** A library body that touches one is refused
-  (`RVN5007`), with its own reason rather than the binding one: a stream's location is the *consuming*
-  shader's stream list, so linking the function would mean matching two shaders' streams by name.
-  That is the flattening half of the mixin problem (§ J), not a serialization gap. Within one
-  compilation a stream crosses any number of functions freely.
-- **No `[Interpolation]` control** — no `flat`, `noperspective` or `centroid`. Every stream is
-  smoothly interpolated, which is the default both targets give. An integer stream would want `flat`
-  in GLSL; the type check permits one, so this is a real gap rather than a prohibition, and the syntax
-  for it is an attribute on the declaration when something needs it.
-- **The geometry and compute stages are unchanged.** A geometry stage's per-vertex arrays and a
-  compute stage's absence of any stage interface are both untouched, because the compute stage is
-  still `RVN4002` for want of a workgroup size (§ Backends above).
+- **Streams do not cross a `.rvnlib` boundary** (`RVN5007`) — a stream's location is the *consuming*
+  shader's stream list, so linking the function would mean matching two shaders' streams by name: the
+  flattening half of the mixin problem (§ J), not a serialization gap. Within one compilation a stream
+  crosses any number of functions freely.
+- **No interpolation control** — no `flat`, `noperspective` or `centroid`; every stream is smoothly
+  interpolated. An integer stream would want `flat` in GLSL and the type check permits one, so this is a
+  real gap, and the syntax for it is an attribute on the declaration when something needs it.
+- **Geometry and compute are unchanged** — a geometry stage's per-vertex arrays and compute's absence of
+  any stage interface are both untouched, the latter because compute is still `RVN4002` for want of a
+  workgroup size.
 
 #### Superseded rather than carried
 
@@ -751,25 +718,13 @@ The first pruning pass — lambdas, nullables, anonymous objects, `char`/`long`/
 established the right rule: **if it can never work on a GPU, remove it rather than diagnose it.** The
 finding here is that it stopped too early.
 
-#### The measured gap, as found
+Two constructs came out of the audit still open, and both are recorded rather than fixed: a **range in
+value position** stays `RVN3001` (the syntax remains because `for (i in 0 .. 4)` needs it), and a
+**generic struct** `Box<float>` stays `RVN3001`/`RVN3003` — see § I. A **collection expression** binds
+and lowers but cannot emit (`RVN4001`) for want of sized arrays, which is the same gap § C's oracle
+cannot check `ArrayStride` against.
 
-Every row was probed through the real pipeline rather than read off the grammar. This is the state
-that prompted the three tiers below; the ✅ column says where each landed.
-
-| Construct | Parses | Binds | Lowers | Emits | |
-|---|---|---|---|---|---|
-| property, `willSet`/`didSet`, protocol dispatch | ✓ | ✓ | ✓ | ✓ | kept |
-| collection expression | ✓ | ✓ | ✓ | ✗ `RVN4001` | kept, still needs sized arrays |
-| tuple | ✓ | ✓ | ✗ `RVN3001` | | ✅ finished |
-| `switch` statement | ✓ | ✓ | ✗ `RVN3002` | | ✅ finished |
-| operator overload | ✓ | ✗ `RVN2022` | | | ✅ finished |
-| range as a value | ✓ | ✓ | ✗ `RVN3001` | | still `RVN3001`; the syntax stays for `for` |
-| switch expression, `is`, patterns, local function, indexer | ✓ | ✓ | ✗ `RVN3002` | | dropped |
-| conversion operator | ✓ | ✗ `RVN2020` | | | dropped |
-| destructor | ✓ | ✓ | ✗ `RVN3002` | | dropped (Tier C) |
-| generic struct `Box<float>` | ✓ | ✓ | ✗ `RVN3001`/`3003` | | still open — § I |
-
-#### Tier A — compiled to the wrong thing ✅ **removed**
+#### Tier A — compiled to the wrong thing, removed
 
 Not "unimplemented". Each of these produced a **valid module** that meant something the target cannot
 do, with no diagnostic:
@@ -787,10 +742,7 @@ kinds, translator, binder and `TypeKind` — and `RemovedConstructsTests` pins e
 of them (`sizeof`, `ref`) now read as ordinary undefined names, exactly the treatment `null` got in the
 first pass. `TypeKind.Nullable` went with them: nothing had referenced it since nullables were removed.
 
-`Example1.rvn` still round-trips byte-for-byte. The combined cost of both passes is tabulated after
-Tier C.
-
-#### Tier B — parses and binds, cannot compile ✅ **three finished, the rest dropped**
+#### Tier B — parses and binds, cannot compile: three finished, the rest dropped
 
 **Finished**, and each is now covered by the § C differential oracle so both backends keep agreeing:
 
@@ -807,24 +759,15 @@ a static type by testing a value, which needs runtime type information that does
 was a reference conversion and there are no reference types. Ranges keep their syntax, because
 `for (i in 0 .. 4)` needs it, and a range in value position stays `RVN3001`.
 
-Three things had to be fixed on the way, each worth noting because none was visible from the outside:
-
-- **`BoundSwitchStatement` threw the case labels away** and flattened every section's statements into
-  one list, so lowering had nothing to work from. It now carries sections with their bound labels.
-- **The switch grammar never allowed a newline in its body**, so `switch (x) {` on its own line did
-  not parse. Every other block body already had the `NL*` it was missing.
-- **`SwitchStatement`, its labels, `BreakStatement` and `ContinueStatement` carried no keyword
-  tokens**, so they vanished on round-trip. That is two more instances of the § I defect class, and
-  they surfaced because `Example1.rvn` now uses the switch statement — the corpus doing its job.
-
 Tuples brought one deliberate language change: `(rgb: float3, a: float)` rather than
 `(float3 rgb, float a)`. The tuple type was the **only** place in Raven where a name followed its
 type; a field, a parameter and a `val` all lead with the name.
 
-`Example1.rvn` moves off the removed constructs and onto the switch statement, so the showcase
-demonstrates something that compiles — and still round-trips byte-for-byte.
+Finishing `switch` also turned up two more nodes carrying no keyword tokens (the statement, its labels,
+`break` and `continue`), so they vanished on round-trip — two more instances of § I's token-dropping
+class, surfaced because `Example1.rvn` started using `switch`. The corpus doing its job.
 
-#### Tier C — C# shapes with no shader meaning ✅ **removed**
+#### Tier C — C# shapes with no shader meaning, removed
 
 Probing these first changed the verdict on half of them: several were not merely unused but **silently
 ignored**, which puts them in Tier A's category rather than this one.
@@ -846,197 +789,128 @@ abstract base with it: `BaseExpressionColonSyntax` existed only to hold it besid
 `NameColon` now derives from the root and the hand-written bridge that manufactured an `ExpressionColon`
 when a name was not an identifier is gone too.
 
-#### What the two passes cost the surface
+#### What the pruning cost the surface
 
-| | Before | After |
-|---|---|---|
-| concrete syntax nodes | 113 | **101** |
-| abstract nodes | 18 | **17** |
-| syntax kinds | 247 | **229** |
-| generated lines | 9 518 | **8 487** |
-| grammar lines (lexer + parser) | 866 | **823** |
-| translator lines | 1 490 | **1 317** |
+Across all three passes: **113 → 79 concrete syntax nodes, 18 → 13 abstract, 247 → 186 syntax kinds**,
+and the `.g4` grammar from 866 lines to 706. Nothing was lost that compiled — three `Example1.rvn` lines
+changed, and the golden GLSL, SPIR-V and IR were untouched.
 
-Nothing was lost that compiled: three `Library/Example1.rvn` lines changed (a `[property:]` target, an
-explicit-interface method, a `record struct`), it still round-trips byte-for-byte, and the golden GLSL,
-SPIR-V and IR are untouched.
+The line counts are no longer worth tracking here: the generated tree and the translator moved to
+`Vixen.Core.Syntax` and its generator, and the grammar is now [doc 18](18-raven-parser-migration.md)'s
+test oracle rather than the front end. Node and kind counts still measure the language surface, which is
+the thing pruning was about.
 
 #### Constructors: valid, and now correct
 
-Asked separately and worth its own answer, because the intuition cuts both ways. **A constructor is
-valid on a GPU** — it needs nothing the machine lacks: no heap, no lifetime, no dispatch. It is a
-function that builds a value and returns it, and that is exactly how Raven lowers one:
-
-```glsl
-Ray Ray_init(vec3 o, vec3 d) { Ray self; …; return self; }
-```
-
-MSL (C++-based) and Slang (`__init`) both have constructors; GLSL generates a positional one per
-struct; HLSL and WGSL spell the same thing as an aggregate initialiser. The name `Ray_init` matters —
-it keeps out of the way of GLSL's own implicit `Ray(...)`. This is also the line that made removing
-`~init` right: **a destructor needs a lifetime, a constructor needs only a return value.**
-
-Probing found one bug and one gap, both now fixed.
+Worth its own answer, because the intuition cuts both ways. **A constructor is valid on a GPU**: it
+needs no heap, no lifetime and no dispatch, being a function that builds a value and returns it — which
+is exactly how Raven lowers one, as `Ray Ray_init(vec3 o, vec3 d) { Ray self; …; return self; }`. MSL
+and Slang have constructors, GLSL generates a positional one per struct, HLSL and WGSL spell it as an
+aggregate initialiser. The name `Ray_init` keeps out of the way of GLSL's own implicit `Ray(...)`. This
+is also the line that made removing `~init` right: **a destructor needs a lifetime, a constructor needs
+only a return value.**
 
 - 🔴 **`init` on a `shader` was a silent no-op.** A shader is the pipeline, not a value, so nothing
-  ever constructs one — the body was lowered to `func S.init(…)`, dropped by reachability, and never
-  ran, while reading exactly as though it initialised the bindings. Now `RVN2092`, pointing at the
-  honest alternative: a binding default, which the backend reports as host-side data (`RVN4003`).
-- 🟡 **A struct with no `init` is now constructible from its fields.** Raven had only the
-  zero-argument form, making it *stricter than every one of its targets*, and a library of small data
-  types (`Surface`, `Light`, `BrdfSample`) would have needed a hand-written `init` per struct that
-  assigned each field to the parameter of the same name. There is no synthesized symbol and no
-  generated function: it binds to the same constructor-less `BoundObjectCreationExpression` a vector
-  build produces, which lowering already turns into one `IrConstructInstruction`, so it emits as
-  GLSL's own `Ray(a, b)`. The field filter in the binder mirrors `Lowerer.LowerStruct`'s exactly,
-  because the arguments are matched to IR fields by position. A declared `init` takes over rather than
-  adding to it, so field order never becomes part of a struct's surface by accident.
+  constructs one — the body lowered to `func S.init(…)`, was dropped by reachability, and never ran
+  while reading as though it initialised the bindings. Now `RVN2092`, pointing at the honest
+  alternative: a binding default, which the backend reports as host-side data (`RVN4003`).
+- 🟡 **A struct with no `init` is constructible from its fields.** Only the zero-argument form existed,
+  making Raven *stricter than every one of its targets* and forcing a hand-written `init` per small data
+  type. There is no synthesized symbol and no generated function: it binds to the same
+  constructor-less `BoundObjectCreationExpression` a vector build produces, which lowering turns into
+  one `IrConstructInstruction`, emitting as GLSL's own `Ray(a, b)`. The binder's field filter mirrors
+  `Lowerer.LowerStruct`'s exactly, because arguments match IR fields **by position**. A declared `init`
+  takes over rather than adding to it, so field order never becomes part of a struct's surface by
+  accident.
 
-What a constructor still **cannot** do is enforce an invariant: `var r: Ray` skips it, and partial
+What a constructor **cannot** do is enforce an invariant: `var r: Ray` skips it, and partial
 initialisation is silent for want of definite-assignment analysis (§ I). HLSL and GLSL behave the same
-way, so this is a property of a value language with no heap rather than a defect — but it means an
-`init` is convenience, not a guarantee, and `ConstructorTests` pins that so the C# reading does not
-carry over.
+way, so this is a property of a value language with no heap rather than a defect — but an `init` is
+convenience, not a guarantee, and `ConstructorTests` pins that so the C# reading does not carry over.
 
-#### Two things that show this is not hypothetical
+#### 🔴 The two files that define "what Raven looks like" are still broken
+
+Unchanged by any of the three passes, and the most visible gap in the tree:
 
 - **`Library/Example1.rvn`** — the language showcase and the centrepiece of the round-trip corpus —
-  parses and round-trips but **does not bind**: 5 semantic errors. It demonstrates syntax with no
-  semantics behind it.
-- **`Library/Example2.rvn`** — tracked in the shipped library folder — **does not parse**: 13 syntax
-  errors.
+  parses and round-trips byte-for-byte but **does not bind**: 9 semantic errors (`RVN2002` ×3,
+  `RVN2010`, `RVN2020`, `RVN2022`, `RVN2033`, `RVN2092` ×2). It demonstrates syntax with no semantics
+  behind it.
+- **`Library/Example2.rvn`** — tracked in the shipped library folder — **does not parse**: 21
+  `RVN1001`s.
 
-So the two files that define "what Raven looks like" are a syntax fixture and a broken file. Both should
-be fixed or retired as part of Tier B/C, and § F's real library should replace them as the definition.
+Two of Example1's errors are `RVN2092`, a diagnostic the language gained *after* the file was written —
+an `init` on a shader is now correctly refused. That is the corpus doing its job and nobody acting on
+it. Both files should be fixed or retired, and § F's real library should replace them as the definition
+of what Raven looks like.
 
-#### The third pass: every lexer token audited ✅
+#### The third pass: every lexer token audited
 
 A token-by-token audit of the lexer against the parser, binder, lowering and both emitters —
-prompted by the question "are `static`, `public`, `private` actually used?" — found one more
-Tier-A miscompilation, one dangerous "vestigial" mode, and a band of surface that parsed with
-nothing behind it. All fixed or removed; `RemovedConstructsTests` pins each.
+prompted by "are `static`, `public`, `private` actually used?" — found one more Tier-A miscompilation,
+one dangerous "vestigial" mode, and a band of surface that parsed with nothing behind it.
+`RemovedConstructsTests` pins each.
 
 **Fixed rather than removed:**
 
-- **Enum member values were silently wrong.** Only a *literal* initializer was honoured; anything
-  else — `C = B`, `D = 2 + 3`, even `E = -1`, which is a prefix expression — silently became the
-  declaration ordinal, and an implicit member continued from its ordinal rather than the previous
-  value (`A, B = 5, C` made `C` 2, not 6). A shared `ConstantEvaluator` now evaluates initializers
-  through the binder — sibling references included — implicit values continue C-style, a
-  non-constant initializer is `RVN2094`, and a cycle is the existing circular-definition error.
-  `const` fields gained the same evaluator: `const val Radius = Taps * 2 + 1` now has a value.
-- **`where` clauses are enforced.** Constraints were parsed, bound, stored — and never read.
-  A type argument that is not the constraint, derived from it, or an implementer is `RVN2096`.
-- **Modifiers with no effect warn (`RVN2093`)** — `override` on a field, `compose` on a method,
-  any modifier on a type or an `init` — the RVN2091 policy applied to modifiers. **Statement
-  attributes warn (`RVN2095`)**: nothing reads `[Unroll]` on a loop, so saying so beats a silent no-op.
+- **Enum member values were silently wrong.** Only a *literal* initializer was honoured; `C = B`,
+  `D = 2 + 3`, even `E = -1` silently became the declaration ordinal, and an implicit member continued
+  from its ordinal rather than the previous value (`A, B = 5, C` made `C` 2, not 6). A shared
+  `ConstantEvaluator` now evaluates initializers through the binder, sibling references included;
+  implicit values continue C-style, a non-constant initializer is `RVN2094`, a cycle is the existing
+  circular-definition error. `const` fields gained the same evaluator.
+- **`where` clauses are enforced** — parsed, bound, stored and never read before. A type argument that
+  is not the constraint, derived from it, or an implementer is `RVN2096`.
+- **Modifiers and statement attributes with no effect warn** (`RVN2093`, `RVN2095`) — the RVN2091
+  policy applied to modifiers and to things like `[Unroll]` that nothing reads.
 
-**Removed, by the established rule** (grammar, tokens, kinds, translator, symbol plumbing):
+**Removed, by the established rule** (grammar, tokens, kinds, translator, symbol plumbing): the
+directive machinery (§ B — `#if` compiled both branches in, silently); **`public`/`private`/`protected`
+and the whole `Accessibility` model**, parsed into a symbol property with zero readers, so a `private`
+field was readable from any type, along with `abstract` (an `abstract func` *with a body* compiled) and
+`partial`; the dead tokens `when`, `implicit`, `explicit`, `;` and `@`, which only poisoned the
+identifier space — `@name` parsed and the `@` vanished from the tree, a fifth instance of § I's
+token-dropping class; `global import`, type-parameter variance, modifier positions with no meaning,
+`operator true/false`, prefix `^`, and the unreachable `#ImplicitElementAccess`. `static`, `const`,
+`readonly`, `override`, `compose` and `stream` remain, each with a reader.
 
-- **The directive machinery** — see § B: `#if` compiled both branches in, silently.
-- **`public`/`private`/`protected` and the whole `Accessibility` model** — parsed into a symbol
-  property with zero readers; a `private` field was readable from any type. `abstract` (an
-  `abstract func` *with a body* compiled) and `partial` likewise had no consumers. `static`,
-  `const`, `readonly`, `override`, `compose` remain — each has a reader.
-- **Dead tokens `when`, `implicit`, `explicit`, `;`, `@`** — the first three survived their
-  constructs' removal and only poisoned the identifier space; `;` never had a grammar rule; `@name`
-  parsed and the `@` vanished from the tree (a fifth instance of § I's token-dropping class).
-- **`global import`** (never read by the binder — with the token gone, `global` is an ordinary
-  identifier again), **type-parameter variance** (`in`/`out` on value types), **modifier positions
-  with no meaning** (parameters, accessors, locals, enum members), **`operator true/false`**
-  (uninvokable), **prefix `^`** (index-from-end with no sized arrays to index — the `sizeof`/`ref`
-  treatment), and the unreachable `#ImplicitElementAccess` alternative.
-- **Loose parens tightened**: a tuple's close paren was optional and fabricated when missing
-  (`(1f, 2f` round-tripped to `(1f, 2f)`); the switch parens were independently optional
-  (`switch x) {` parsed). Both are now required and balanced.
+**Loose parens tightened**: a tuple's close paren was optional and fabricated when missing
+(`(1f, 2f` round-tripped to `(1f, 2f)`) and the switch parens were independently optional
+(`switch x) {` parsed). Both are now required and balanced.
 
-The combined lexer+parser grammar drops from 823 lines to **702**. `Example1.rvn` sheds its two
-no-op modifiers (`public abstract var`, `readonly struct`) and still round-trips byte-for-byte.
-
-#### Why the remaining tiers are cheapest now
-
-Each node costs a `Syntax.xml` entry, five pieces of generated code, a translator method and a permanent
-round-trip obligation — and [doc 18](18-raven-parser-migration.md) prices the hand-written parser
-migration **per production**. Cutting before that migration is a direct discount on it. Nothing outside
-`Library/` is written in Raven yet, so there is no user code to break; this is the cheapest the pruning
-will ever be.
+The argument for pruning *before* the parser migration — that [doc 18](18-raven-parser-migration.md)
+priced it per production, so every cut was a direct discount — was acted on: all three passes landed
+first, and the migration was written against the smaller surface. The standing rule remains, and it is
+cheap while nothing outside `Library/` is written in Raven: **a construct that can never work on a GPU is
+removed, not diagnosed.** Each node costs a `Syntax.xml` entry, five pieces of generated code, a parser
+production and a permanent round-trip obligation.
 
 ---
 
-## Raven's codegen: ✅ **GLSL and SPIR-V land together** *(supersedes Q10)*
+## Codegen: GLSL and SPIR-V landed together *(supersedes Q10)*
 
-**Decision.** Raven's GLSL and SPIR-V backends are built in the same phase, not sequentially. This
-supersedes both the earlier recommendation (move SPIR-V ahead of GLSL) and its replacement (keep the
-order, bridge with `shaderc`). Raven's order becomes:
+**Decision, and it held.** Both backends were built in one phase rather than sequentially, superseding
+the earlier recommendation (SPIR-V first) and its replacement (keep the order, bridge with `shaderc`).
+So ADR-012 applies directly — Raven emits SPIR-V, the engine consumes it, nothing sits between — and
+the bridge that would have sat there is gone from the plan along with `IRavenBackend`, its two
+implementations, and the second set of golden tests they needed. `Silk.NET.Shaderc` stays only as a
+test oracle, which is what [01](01-technology-decisions.md) always listed it as.
 
-`2 Semantic → 3 IR → 4 GLSL + SPIR-V → 5 CLI → 6 Interaction classes`
+Two things follow, and both are why the decision was worth making rather than merely cheaper:
 
-### What this removes
+- **The differential oracle exists at all.** Two independent paths from one source to one target can be
+  diffed; neither previous plan had that. See
+  [§ C](#the-differential-oracle-and-what-it-does-and-does-not-prove) for what it compares, the two
+  injected faults that proved it bites, and where its coverage stops.
+- **Vulkan-flavoured GLSL is mandatory for a better reason than before.** Under the bridge it was
+  required because GLSL was a production path; now it is required because it is what makes the oracle
+  possible — `glslc` has to compile the GLSL with bindings matching Raven's own emitter, or there is
+  nothing to compare. Explicit sets, bindings and locations are also the most useful thing to read in a
+  frame debugger, which is the GLSL emitter's other job ([13](13-diagnostics.md)).
 
-**The `shaderc` bridge is no longer needed and is deleted from the plan.** With SPIR-V arriving at the
-same time as GLSL, ADR-012 applies directly: Raven emits SPIR-V, the engine consumes it, and nothing
-sits in between. Concretely gone:
-
-- `IRavenBackend` with two implementations (`GlslViaShadercBackend` / `NativeSpirvBackend`) — collapses
-  to one code path. No configuration switch, no swap-over milestone.
-- Two codegen paths golden-tested in parallel — the real cost of the bridge, now zero.
-- GLSL as a lossy intermediate. Subgroup operations, `float64`, explicit SPIR-V decorations, and mesh
-  shaders become available as soon as the emitter supports them, rather than waiting for a second phase.
-  These were the features the bridge could not carry.
-- `Silk.NET.Shaderc` as a production dependency. It stays in the plan, but **only as a test oracle** —
-  which is what [01](01-technology-decisions.md) always listed it as.
-
-### What this creates: a differential oracle
-
-✅ **Built.** See [§ C](#the-differential-oracle-and-what-it-does-and-does-not-prove) for what it
-compares, the two injected faults that proved it bites, and where its coverage stops.
-
-Building both emitters against one IR gives something neither previous plan had — **two independent
-paths from the same source to the same target**, which can be diffed:
-
-```
-              ┌── Raven SPIR-V emitter ─────────────────▶ SPIR-V (A)   ← what the engine uses
-.rvn ─IR─────┤
-              └── Raven GLSL emitter ──▶ Vulkan GLSL ──shaderc──▶ SPIR-V (B)   ← the oracle
-                                                │
-                                                └──glslang──▶ validation
-```
-
-`A` and `B` must be semantically equivalent. Disagreement means one of the two emitters is wrong, and
-the diff usually says which. This is a *much* stronger test than validating either alone:
-
-- `spirv-val` proves SPIR-V is well-formed, not that it means what the source said.
-- A golden disassembly snapshot detects change, not incorrectness.
-- The differential test catches the class of bug where the emitter is internally consistent and
-  semantically wrong — which is precisely the hard class.
-
-Both emitters read the same lowered IR, so a bug in the IR shows up in both and the differential test
-stays silent — worth knowing, and it is why the numeric BRDF tests (CPU port vs GPU readback) remain
-necessary alongside it. The two techniques catch different things.
-
-### Consequence: the GLSL emitter's flavour requirement stays, for a better reason
-
-Emit **Vulkan-flavoured GLSL** — `#version 450`+, explicit `layout(set = N, binding = M)` via
-`GL_KHR_vulkan_glsl`, `layout(push_constant)`, `layout(location = N)` on all stage in/out, explicit
-`std140`/`std430`. Under the bridge this was mandatory because GLSL was a production path. Now it is
-mandatory because **it is what makes the differential oracle possible**: `shaderc` must be able to
-compile the GLSL to SPIR-V with bindings that match what Raven's own emitter produced, or there is
-nothing to compare.
-
-Pleasant side effect: Vulkan GLSL with explicit bindings is also the most useful thing to read when
-debugging a shader, which is the other job the GLSL emitter does (per-draw shader source in the frame
-debugger, [13](13-diagnostics.md)).
-
-### Consequence for the engine's schedule
-
-The renderer (engine Phase 5) now gates on **one** Raven codegen phase rather than on its fourth or
-sixth. The gating story simplifies to: *Raven needs Semantic → IR → codegen; the engine's Phases 0–4
-need none of it* (a triangle and a UI shader can be checked-in SPIR-V blobs). Engine work can still
-begin as soon as Raven reaches its Phase 2.
-
-Combining the two emitters should also cost slightly less than building them separately — they share the
-IR-to-target lowering scaffold, the reflection production, and one testing pass — though not enough to
-move the overall estimate with any confidence.
+Nothing lossy sits in the middle any more, so subgroup operations, `float64`, explicit SPIR-V
+decorations and mesh shaders are available as soon as the emitter supports them rather than waiting for
+a second phase. Those were the features the bridge could not have carried.
 
 ## The contract Raven must satisfy
 
@@ -1046,83 +920,50 @@ implementation behind the interface, which is also how the engine's shader tests
 
 ### API
 
-Sketched here as the contract; the shipped names drop the `Raven` prefix where the type is not an
-artefact — `Compilation`, not `RavenCompilation` — because there is one compiler assembly and nothing
-to disambiguate against. `RavenReference` and `RavenReflection` keep theirs, being the two types a
-host actually names. The `references` parameter is real: `Compilation.Create(name, references, trees)`,
-with `RavenReference.FromFile` reading a `.rvnlib`.
+**The code is the contract now, so this section states the requirements and points at it** rather than
+carrying a sketch that would drift: `Compilation.Create/GetDiagnostics/GetSemanticModel`,
+`Lowerer.Lower`, an `ITargetBackend` per target, `RavenReference.FromFile`, and
+`Vixen.Raven.Reflection.RavenReflection`. An earlier draft of this section sketched
+`RavenCompilation`, `RavenEmitOptions` and `RavenEmitResult`; those names were never built, and a
+fictional API in the plan of record is worse than none — it invites the engine to be written against
+something that does not exist.
 
-```csharp
-namespace Vixen.Raven;
+The shipped names drop the `Raven` prefix where the type is not an artefact — `Compilation`, not
+`RavenCompilation` — because there is one compiler assembly and nothing to disambiguate against.
+`RavenReference` and `RavenReflection` keep theirs, being the two types a host actually names.
 
-public sealed class RavenCompilation
-{
-    public static RavenCompilation Create(
-        RavenCompilationOptions options,
-        ImmutableArray<SyntaxTree> trees,
-        ImmutableArray<RavenReference> references);          // compiled .rvnlib libraries
+What the engine requires of the shape, none of which is obvious from the signatures:
 
-    public ImmutableArray<Diagnostic> GetDiagnostics();       // shared Vixen.Core.Syntax model
-    public SemanticModel GetSemanticModel(SyntaxTree tree);
-
-    public RavenEmitResult Emit(
-        RavenEmitOptions options,                             // target, optimisation, debug info
-        ImmutableDictionary<string, string> defines,          // ← permutation keys
-        CancellationToken ct);
-}
-
-public sealed record RavenEmitResult
-{
-    public bool Success { get; init; }
-    public ImmutableArray<Diagnostic> Diagnostics { get; init; }
-    public ImmutableArray<RavenShaderModule> Modules { get; init; }   // one per entry point
-    public RavenReflection Reflection { get; init; }
-}
-
-public sealed record RavenShaderModule
-{
-    public ShaderStage Stage { get; init; }        // Vertex, Fragment, Compute, Geometry, TessControl, TessEval, Mesh, Task
-    public string EntryPoint { get; init; }
-    public ReadOnlyMemory<byte> Spirv { get; init; }
-    public Vector3I ThreadGroupSize { get; init; } // compute only
-}
-```
+- **One diagnostic model**, the shared `Vixen.Core.Syntax` one, so the editor's error list, the engine
+  log and the on-screen overlay are one implementation.
+- **A compilation per variant.** Permutation values and compose bindings are supplied at
+  `Compilation.Create`, not at emit, because both change what the code *means* — the dead branch has to
+  be gone before lowering, not selected afterwards.
+- **Emission is per backend, not per compilation.** `Lowerer.Lower` produces one `IrModule`; each
+  backend turns it into one translation unit per entry point. A stage is a unit, which is why
+  reachability rather than shader membership decides what a unit contains.
 
 ### Reflection schema — the part that must be exactly right
 
-This is what `Vixen.Shaders.Generators` turns into C# and what the RHI turns into descriptor set
-layouts. Anything vague here becomes a bug that only reproduces on one backend.
-
-```csharp
-public sealed record RavenReflection
-{
-    ImmutableArray<DescriptorSetInfo>   Sets;          // set index → bindings
-    ImmutableArray<VertexInputInfo>     VertexInputs;  // location, format, semantic name
-    ImmutableArray<FragmentOutputInfo>  Outputs;       // location, format
-    ImmutableArray<PushConstantInfo>    PushConstants;
-    ImmutableArray<SpecConstantInfo>    SpecConstants;
-    ImmutableArray<ParameterInfo>       Parameters;    // the flattened, engine-facing parameter list
-    ImmutableArray<string>              RequiredCapabilities;  // e.g. "DescriptorIndexing", "Float64"
-    ImmutableArray<string>              UsedPermutationKeys;   // which #defines actually affected output
-}
-
-public sealed record DescriptorSetInfo(int Set, ImmutableArray<BindingInfo> Bindings);
-public sealed record BindingInfo(
-    int Binding, string Name, DescriptorType Type, int Count,   // Count > 1 ⇒ array; 0 ⇒ runtime array
-    ShaderStages Stages, ImmutableArray<MemberInfo> Members);      // Members for uniform/storage blocks
-public sealed record MemberInfo(string Name, ShaderDataType Type, int Offset, int Size, int ArrayStride, int MatrixStride);
-```
-
-Two requirements that are easy to miss and expensive to retrofit:
+`Vixen.Raven.Reflection.RavenReflection` is the authority; it is what `Vixen.Shaders.Generators` turns
+into C# and what the RHI turns into descriptor set layouts, and anything vague in it becomes a bug that
+reproduces on one backend only. Two requirements are easy to miss and expensive to retrofit, so they
+are recorded here rather than left to be inferred from the type:
 
 1. **`UsedPermutationKeys`.** The effect cache key must be the *hash of the keys that actually
-   mattered*, not the hash of every define passed in. Without this, a permutation matrix of 20
-   independent flags yields 2²⁰ cache entries where a handful are distinct. Stride gets this right
-   via its mixin/effect-validator system, and it is why Stride's shader cache is tractable.
-2. **Explicit `Offset`/`ArrayStride`/`MatrixStride` on every block member.** The engine writes constant
-   buffers by generated offset, not by reflection lookup at runtime. Get the layout rules (std140 for
-   uniform, std430 for storage, with the HLSL packing differences accounted for) pinned down and
-   golden-tested, or every backend disagrees subtly about `float3` padding.
+   mattered*, not of every define passed in. Without it, twenty independent flags yield 2²⁰ cache
+   entries where a handful are distinct. Stride gets this right via its mixin/effect-validator system,
+   and it is why Stride's shader cache is tractable.
+2. **Explicit `Offset`/`Size`/`ArrayStride`/`MatrixStride` on every block member.** The engine writes
+   constant buffers by generated offset, never by a reflection lookup at draw time. The layout rules —
+   std140 for uniform, std430 for storage — have to be pinned and golden-tested, or every backend
+   disagrees subtly about `float3` padding.
+
+Everything else it reports, and why each is separate rather than merged, is in
+[§ D](#d-public-api-contract-the-engine-codes-against) above: `Permutations` and `ValueParameters`
+(what the shader declares) apart from `UsedPermutationKeys` (what this variant read),
+`RequiredCapabilities` as names rather than an enum, and `PushConstants`/`SpecConstants` reported empty
+rather than guessed at.
 
 ### Artefact schema
 
@@ -1174,37 +1015,29 @@ chosen at author time, and the shader must be assembled to match.** Stride does 
 classes that support inheritance, `compose` members, and a mixin resolver — effectively a
 shader-level object system. It works, and it is the least-understood, most-load-bearing part of Stride.
 
-Vixen's equivalent, expressed in Raven's existing language shape (which already has `shader X : Base,
-Other` inheritance per the README):
+Vixen's equivalent, all of it built:
 
 | Mechanism | Raven construct | Used for |
 |---|---|---|
 | Interface | `protocol IMaterialSurface { func Compute(inout MaterialData d) }` | the contract a material feature satisfies |
 | Implementation | `shader MetalRoughnessSurface : IMaterialSurface { … }` | one concrete feature |
 | Composition | `compose val diffuse: IDiffuseModel` — a *shader-typed member* resolved at compile time | plugging chosen features into a template |
-| Conditional | `#if VIXEN_SKINNING` / `[Permutation] val UseSkinning: bool` | permutation flags |
+| Conditional | `[Permutation] val UseSkinning: bool` | permutation flags — not `#if`, see § B |
 | Generics | `shader Blur<val TapCount: int>` | compile-time-parameterised shaders |
+| Interstage data | `stream var normalWS: float3` | a value one stage writes and the next reads |
 
-**`compose` is the critical feature and it must be in Raven's semantic phase.** It is what lets
-`ForwardPlus.rvn` be written once against `IMaterialSurface` and be instantiated per material. If
-Raven's semantic model does not support shader-typed members with compile-time resolution, the engine
-falls back to string-templating shader source, which is where Stride was fifteen years ago and where
-nobody should go voluntarily.
+`compose` was the critical path and it is closed: the slot is protocol-typed, the binding resolves at
+compile time, and only the chosen implementation is emitted and called — no dispatch. What it buys is
+`ForwardPlus.rvn` written once against `IMaterialSurface` and instantiated per material; the
+alternative was string-templating shader source, which is where Stride was fifteen years ago.
 
-Practical consequence: **shader-typed members and permutation constants are the two Raven semantic
-features on the engine's critical path.** Everything else in Raven's Phase 2 can land in any order.
+### ⚠️ The inheritance in that table was never implemented below the symbol layer
 
-### ✅ `compose` is done. ⚠️ The inheritance row above was never implemented.
-
-`compose` works and is what the table says: the slot is protocol-typed, the binding resolves at
-compile time, and only the chosen implementation is emitted and called — no dispatch. That is the
-critical path, and it is closed.
-
-The parenthetical *"Raven's existing language shape (which already has `shader X : Base, Other`
-inheritance per the README)"* was **taken on trust and is false below the symbol layer.** Member
-lookup does walk the base chain, nearest first, so the binder accepts inheritance and resolves
-everything. Lowering never flattens it: a type contributes only its *declared* members. Three silent
-miscompilations came out of that, all now `RVN3002`:
+An earlier draft described Raven as already having `shader X : Base, Other` inheritance, on the README's
+word. That was **taken on trust and is false**. Member lookup does walk the base chain, nearest first,
+so the binder accepts inheritance and resolves everything. Lowering never flattens it: a type
+contributes only its *declared* members. Three silent miscompilations came out of that, all now
+`RVN3002`:
 
 | Written | What happened |
 |---|---|
@@ -1219,30 +1052,26 @@ mechanism down with the broken ones.
 
 #### Should Stride's mixin resolver be built?
 
-**Not now — and the third row is why the question is sharper than it looks.** Making `override` work
-*is* the mixin mechanism: a base's callers have to reach the derived member, which means flattening —
-the derived type taking the base's fields into its own layout and its own copy of every inherited
-body. There is no cheap version of it.
+**Not now — and the `override` row is why the question is sharper than it looks.** Making `override`
+work *is* the mixin mechanism: a base's callers have to reach the derived member, which means
+flattening, and there is no cheap version of that. Against building it:
 
-Against building it now:
+- Reimplementing what this document calls *"the least-understood, most-load-bearing part of Stride"* is
+  a poor bet.
+- `compose` covers what mixins are mostly used for and covers it **better**: the slot is
+  protocol-typed, so the contract is checked. A mixin chain is untyped by construction.
+- Linearization makes errors non-local — a mixin list assembled in one file changes the meaning of a
+  method in a file that never mentions it. Everything else here went the other way: `compose` resolved
+  statically, one `BindingPlan`, one `StreamPlan`, a differential oracle.
+- **There is no consumer yet.** Building a resolver before writing § F's library is designing against
+  Stride's shape rather than against a requirement.
 
-- This document already calls Stride's resolver *"the least-understood, most-load-bearing part of
-  Stride."* Reimplementing the least-understood part of the system being replaced is a poor bet.
-- `compose` covers what mixins are mostly used for (`compose ComputeColor`) and covers it **better**:
-  the slot is protocol-typed, so the contract is checked. A mixin chain is untyped by construction —
-  any mixin may override anything.
-- Linearization makes errors non-local: a mixin list assembled in one file changes the meaning of a
-  method in a file that never mentions it. Everything else here has gone the other way — `compose`
-  resolved statically, one `BindingPlan`, a differential oracle.
-- **There is no consumer yet.** `Raven/Library` holds two example files. Building a resolver before
-  writing § F's library is designing against Stride's shape rather than against a requirement.
-
-The trigger to watch for: write § F's material library against `compose`, protocols and
-non-inheriting shaders. If something cannot be expressed — the likely candidate is a *chain* of
-surface-modifying features where each needs the previous one's result, which `compose` models
-awkwardly — revisit then, with a real example to design against. Note that the two halves of
-Stride's model are separable: **flattening a source-declared chain** is the smaller half and can land
-on its own, while **choosing the chain per effect** is the expensive half and may never be needed.
+The trigger to watch for: write § F's material library against `compose`, protocols, streams and
+non-inheriting shaders, and see what cannot be expressed. The likely candidate is a *chain* of
+surface-modifying features where each needs the previous one's result — which is also what `stream`
+was built for, so try that first. Note the two halves are separable: **flattening a source-declared
+chain** is the smaller one and can land alone, while **choosing the chain per effect** is expensive
+and may never be needed.
 
 ## Generated C# bindings
 
@@ -1267,30 +1096,26 @@ the build-time permutation pre-generator ([06](06-rendering-pipeline.md)) can it
 
 ### Status: Raven's side is done, the generator waits for the engine
 
-**Raven now supplies everything this needs.** `Parameters` gives every writable value its dotted name,
-type and baked offset — so the constant-buffer writer above is pure data plus `Span<byte>`, with no
-engine types involved. `Permutations` gives each key its type and default, and `ValueParameters` gives
-the required ones. Nothing is missing on the compiler side.
+**Nothing is missing on the compiler side.** `Parameters` gives every writable value its dotted name,
+type and baked offset, so the constant-buffer writer above is pure data plus `Span<byte>` with no engine
+types involved; `Permutations` and `ValueParameters` supply the keys.
 
-**The `AdditionalFiles` design is also right, for a reason worth recording.** A Roslyn generator targets
+**`AdditionalFiles` is not a workaround but the only shape that works.** A Roslyn generator targets
 netstandard2.0/2.1 and runs inside the compiler ([Directory.Build.props](../../Directory.Build.props)
-§ Generator profile), while `Vixen.Raven` targets net10.0 — so a generator *could not* call the compiler
-even if it wanted to. Reading the emitted reflection is not a workaround; it is the only shape that
-works.
+§ Generator profile) while `Vixen.Raven` targets net10.0, so a generator *could not* call the compiler
+even if it wanted to.
 
-**What still blocks the generator is engine-side, and deliberately so.** The C# above references
-`ParameterKey<T>`, `ParameterKeys`, `PermutationKey<T>` and `Buffer` — none of which exist, because
-`Vixen.Shaders` and the RHI do not exist. Their shape should follow from how the renderer binds them
-and how `ParameterCollection` is consumed, which is why [14](14-roadmap.md) sequences
-`Vixen.Shaders.Generators` in Phase 5 next to the effect system rather than earlier. Designing that API
+**What blocks it is engine-side, deliberately.** `ParameterKey<T>`, `ParameterKeys`,
+`PermutationKey<T>` and `Buffer` do not exist because `Vixen.Shaders` and the RHI do not. Their shape
+should follow from how the renderer binds them and how `ParameterCollection` is consumed, which is why
+[14](14-roadmap.md) sequences the generator in Phase 5 beside the effect system: designing that API
 against no consumer is how it gets designed twice.
 
-**If output is wanted before then, emit from the CLI rather than from an analyzer.** A
-`raven compile --emit-bindings` writing the C# beside the `.rvnfx` is the same emission with strictly
-less machinery: no `Vixen.Shaders` project in a repo with no engine, no JSON reader shipped inside an
-analyzer, and Raven's own test suite can pin the generated text. A build step has to run before the C#
-compiles either way — that is what the Nuke `CompileShaderLibrary` target is. The analyzer can wrap the
-same schema later.
+**If output is wanted sooner, emit from the CLI, not an analyzer.** `raven compile --emit-bindings`
+writing C# beside the `.rvnfx` is the same emission with strictly less machinery — no `Vixen.Shaders`
+project in a repo with no engine, no JSON reader inside an analyzer, and Raven's own tests can pin the
+generated text. A build step has to run before the C# compiles either way; that is what the Nuke
+`CompileShaderLibrary` target is, and the analyzer can wrap the same schema later.
 
 ## Development-time flow
 
@@ -1330,18 +1155,3 @@ Unity's Shader Graph does (it emits HLSL) and it is the correct choice.
 The mapping is mechanical: each node is a function call or an inline expression in `Material/
 ComputeColor.rvn`'s vocabulary; the graph is topologically sorted into a sequence of `val`
 declarations; sub-graphs become `func`s; the master node writes into `MaterialData`.
-
-## Testing
-
-| Layer | Test |
-|---|---|
-| Parse | Existing golden-tree + round-trip corpus, extended to the whole `Raven/Library` tree — every shipped shader must round-trip byte-identically |
-| Semantic | Positive/negative fixture pairs; each diagnostic ID has a test that triggers it and a test that does not |
-| `compose` resolution | Golden test on the resolved shader tree for each material-feature combination in the standard material |
-| SPIR-V emission | Every emitted module passes `spirv-val`; golden SPIR-V disassembly (`spirv-dis`) snapshots so codegen changes are visible in review |
-| Cross-compilation | Every module cross-compiles via SPIRV-Cross to GLSL 450 / ESSL 300 / HLSL 60 / MSL / WGSL without error; the GLSL/ESSL output additionally passes `glslang` |
-| **Differential emitter test** | Raven's own SPIR-V vs `shaderc`-compiled Raven GLSL, over the whole `Raven/Library` corpus, compared for semantic equivalence. Catches the hard class of bug: an emitter that is internally consistent and semantically wrong. Note it is blind to bugs in the shared IR — hence the numeric tests below |
-| Numeric | BRDF functions ported to C# and compared against a GPU compute dispatch over a parameter sweep — the shader and the CPU reference must agree to 1e-4. This is the test that catches "the shader is subtly wrong" |
-| Permutations | `UsedPermutationKeys` correctness: passing an unused define must produce a byte-identical module and the same cache key |
-| Layout | Constant-buffer offsets from reflection compared against a GPU readback of a known pattern, per backend — the padding-rule test |
-| Performance | Compile time for the full library, gated; incremental recompile of one leaf shader gated at < 500 ms |
