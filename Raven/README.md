@@ -202,6 +202,46 @@ struct Ray {
 The full syntax sample lives in [`Library/Example1.rvn`](Library/Example1.rvn), and a compute
 shader in [`Library/Example2.rvn`](Library/Example2.rvn).
 
+### `compose`
+
+A `compose` slot is a protocol-typed member filled by a concrete shader chosen when the shader is
+compiled, so a pipeline shader is written once and instantiated per material:
+
+```typescript
+protocol IMaterialSurface {
+    func Compute(inout d: MaterialData)
+}
+
+shader MetalRoughnessSurface : IMaterialSurface {
+    var baseColor: float3
+    var metalness: float
+
+    func Compute(inout d: MaterialData) {
+        d.diffuseColor = baseColor * (1f - metalness)
+    }
+}
+
+shader Forward {
+    compose val surface: IMaterialSurface
+    // ...
+}
+```
+
+`--compose surface=MetalRoughnessSurface` picks the implementation. The call resolves at compile time
+— only the chosen implementation is emitted, and there is no dispatch.
+
+**The implementation's own bindings become the effect's descriptors.** A feature's material parameters
+are part of what the host binds, so they are merged into the consuming shader and reported by the
+reflection under a name qualified by the feature that declares them —
+`MetalRoughnessSurface.baseColor`, or `Layered.Ggx.alpha` when a feature fills a slot of its own.
+Qualified always rather than only on a clash, so adding an unrelated feature never renames another
+one's parameters. Features are authored independently and do collide: three of the features in
+[`Library/Material/MaterialSurface.rvn`](Library/Material/MaterialSurface.rvn) declare a `strength`.
+
+Two slots filled with the *same* implementation share one set of parameters — the implementation is
+one shader with one set of storage. Per-slot parameters would mean instantiating it per slot, which
+`compose` does not do.
+
 ### `inout`
 
 A parameter marked `inout` is passed by reference, so the callee's changes reach the caller:

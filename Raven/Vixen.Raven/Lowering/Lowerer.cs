@@ -37,6 +37,13 @@ public sealed partial class Lowerer {
     readonly Dictionary<FieldSymbol, IrVariable> globals = [];
     readonly IrModule module;
     readonly Dictionary<NamedTypeSymbol, IrStructType> structs = [];
+
+    /// <summary>
+    ///     The lowered shader per shader type, so a <c>compose</c> slot's implementation can be
+    ///     found from the symbol its consumer names.
+    /// </summary>
+    readonly Dictionary<NamedTypeSymbol, IrShader> shaders = [];
+
     readonly Dictionary<TupleTypeSymbol, IrStructType> tuples = [];
     readonly Dictionary<TypeSymbol, IrType> typeCache = [];
 
@@ -156,12 +163,134 @@ public sealed partial class Lowerer {
             }
         }
 
+        // After every shader exists, because a slot's implementation may be declared later in the
+        // file than the shader that composes it, and its globals only exist once it is lowered.
+        MergeComposedInterfaces(types);
+
         // After every body exists, and after pruning: a stream's direction comes from what the
         // stage's reachable code does with it, which is only knowable once the module is settled.
         ImportPruner.Prune(module, importedStructs, importedFunctions);
         ResolveStreamDirections();
 
         return module;
+    }
+
+    /// <summary>
+    ///     Gives every shader the bindings and streams of the shaders it composes.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A <c>compose</c> slot's implementation is its own <see cref="IrShader" /> with its own
+    ///         bindings, and only the consuming shader's reach the translation unit a backend emits.
+    ///         So a feature with a single material parameter produced GLSL naming an identifier it
+    ///         never declared — <c>glslc</c> rejected it and Raven said nothing, which is the same
+    ///         shape as the inheritance defects in docs/plan/07 § J. Resolution, calling and pruning
+    ///         all worked; the interface did not.
+    ///     </para>
+    ///     <para>
+    ///         Merged in lowering rather than in each emitter, because <c>BindingPlan</c>,
+    ///         <c>StreamPlan</c> and the reflection all read the shader — so doing it here is what
+    ///         makes the descriptor a host binds against the same one both backends emit. Two
+    ///         emitters each patching their own interface is how they come to differ.
+    ///     </para>
+    ///     <para>
+    ///         The <em>same</em> <see cref="IrVariable" /> rather than a copy: the implementation's
+    ///         body was lowered against it, so a copy would leave the body reading storage the
+    ///         consumer never declared — the original bug with an extra step.
+    ///     </para>
+    ///     <para>
+    ///         Every binding the implementation declares, not only those the consumer's code reaches.
+    ///         A shader's own unread bindings are kept too, and for the same reason: the descriptor
+    ///         set layout is what the host writes against, and a material parameter vanishing from
+    ///         the reflection because this variant happened not to read it is a far worse failure
+    ///         than a spare slot.
+    ///     </para>
+    /// </remarks>
+    void MergeComposedInterfaces(IReadOnlyList<NamedTypeSymbol> types) {
+        foreach (var type in types) {
+            if (type.TypeKind != TypeKind.Shader || !shaders.TryGetValue(type, out var shader)) {
+                continue;
+            }
+
+            foreach (var contributor in ComposedShaders(type)) {
+                if (!shaders.TryGetValue(contributor, out var source)) {
+                    continue;
+                }
+
+                MergeInterface(shader, source);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Every shader reachable through this shader's <c>compose</c> slots, transitively.
+    /// </summary>
+    /// <remarks>
+    ///     Transitive because a feature may compose one of its own: a layered material's coat
+    ///     feature filling a slot with a BRDF. The visited set also covers the same implementation
+    ///     bound to two slots, which must contribute its bindings once.
+    /// </remarks>
+    static IEnumerable<NamedTypeSymbol> ComposedShaders(NamedTypeSymbol type) {
+        HashSet<NamedTypeSymbol> visited = [];
+        Queue<NamedTypeSymbol> pending = new([type]);
+
+        while (pending.Count > 0) {
+            foreach (var member in pending.Dequeue().GetMembers()) {
+                if (member is FieldSymbol { IsCompose: true, ComposedType: { } bound }
+                    && bound.TypeKind == TypeKind.Shader
+                    && visited.Add(bound)) {
+                    pending.Enqueue(bound);
+                    yield return bound;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Copies one shader's bindings and streams onto another, skipping what it already has.
+    /// </summary>
+    static void MergeInterface(IrShader target, IrShader source) {
+        var present = target.Bindings.Select(binding => binding.Variable).ToHashSet();
+
+        // Continue the target's own numbering. `IrBinding.Slot` counts per kind and is what the
+        // verifier checks for duplicates; the (set, binding) pair a backend emits comes from
+        // BindingPlan, which renumbers from the merged list.
+        Dictionary<IrBindingKind, int> slots = [];
+        foreach (var binding in target.Bindings) {
+            slots[binding.Kind] = slots.GetValueOrDefault(binding.Kind) + 1;
+        }
+
+        foreach (var binding in source.Bindings) {
+            if (!present.Add(binding.Variable)) {
+                continue;
+            }
+
+            slots.TryGetValue(binding.Kind, out var slot);
+            slots[binding.Kind] = slot + 1;
+
+            target.Add(
+                new IrBinding(
+                    binding.Variable,
+                    binding.Kind,
+                    slot,
+                    binding.Semantic,
+                    binding.Set,
+                    // Qualified by the shader that declares it — see IrBinding.Name. `binding.Name`
+                    // rather than the variable's, so a transitive contribution keeps the whole path.
+                    $"{source.Name}.{binding.Name}"
+                )
+            );
+        }
+
+        // Streams have the same problem for the same reason. Appended, so the consumer's own keep
+        // their locations — a stream's location is its index in this list, which is what makes the
+        // writing and reading stages agree.
+        var streams = target.Streams.Select(stream => stream.Variable).ToHashSet();
+        foreach (var stream in source.Streams) {
+            if (streams.Add(stream.Variable)) {
+                target.Add(stream);
+            }
+        }
     }
 
     void CollectBodies() {
@@ -184,6 +313,7 @@ public sealed partial class Lowerer {
     void LowerShader(NamedTypeSymbol type) {
         var shader = new IrShader(type.Name);
         module.Add(shader);
+        shaders[type] = shader;
 
         var slots = new Dictionary<IrBindingKind, int>();
 

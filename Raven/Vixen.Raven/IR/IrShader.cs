@@ -28,7 +28,8 @@ public sealed class IrBinding(
     IrBindingKind kind,
     int slot,
     string? semantic,
-    ResourceSet set = ResourceSet.PerMaterial
+    ResourceSet set = ResourceSet.PerMaterial,
+    string? name = null
 ) {
     public IrVariable Variable { get; } = variable;
     public IrBindingKind Kind { get; } = kind;
@@ -40,7 +41,30 @@ public sealed class IrBinding(
     /// <summary>The pipeline semantic from <c>[Semantic("…")]</c>, if any.</summary>
     public string? Semantic { get; } = semantic;
 
-    public string Name => Variable.Name;
+    /// <summary>
+    ///     The host-visible name: the variable's, unless this binding was contributed by a shader
+    ///     filling a <c>compose</c> slot, in which case it is qualified by that shader.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Qualified because features are authored independently and collide: three of the
+    ///         features in <c>Material/MaterialSurface.rvn</c> declare a <c>strength</c>. Two
+    ///         reflection entries with one name is a host writing the wrong offset, or a generated
+    ///         binding with two properties of the same name — neither of which announces itself.
+    ///     </para>
+    ///     <para>
+    ///         Every contributed binding is qualified, not only the ones that happen to clash. A name
+    ///         that changed depending on what else the material composed would be worse than a long
+    ///         one: a host binding by name would break when an unrelated feature was added.
+    ///     </para>
+    ///     <para>
+    ///         Distinct from the identifier a backend emits, which is derived from the variable and
+    ///         uniquified per translation unit — a <c>.</c> is not a GLSL identifier. The two were
+    ///         already free to differ; this is the first thing that makes them.
+    ///     </para>
+    /// </remarks>
+    public string Name { get; } = name ?? variable.Name;
+
     public IrType Type => Variable.Type;
 }
 

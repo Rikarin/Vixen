@@ -221,27 +221,57 @@ public class LibraryTreeTests {
     }
 
     /// <summary>
-    ///     <c>Material/</c> binds and lowers: the <c>inout</c> contract, the features that satisfy
-    ///     it, and a shader that composes one.
+    ///     Every material feature composes into a forward shader and reaches both backends.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         Lowering, not emission, and that boundary is where a pre-existing bug sits. A
-    ///         <c>compose</c>d implementation's <em>bindings</em> are never declared in the consuming
-    ///         translation unit: the feature's material parameters live on its own
-    ///         <c>IrShader</c>, and the emitter declares only the consuming shader's, so the GLSL
-    ///         names identifiers it never declared. <c>glslc</c> rejects it; Raven says nothing —
-    ///         the same shape as the inheritance defects in § J.
+    ///         The end-to-end claim § F is for: a pipeline shader written once against
+    ///         <c>IMaterialSurface</c> and instantiated per material, with the feature's own
+    ///         parameters becoming the effect's descriptors. Run per feature rather than once,
+    ///         because each contributes a different interface and a merge that worked for one shape
+    ///         could fail for another — <c>NormalMapSurface</c> writes only the normal,
+    ///         <c>OcclusionSurface</c> reads what a previous feature left.
     ///     </para>
     ///     <para>
-    ///         Independent of <c>inout</c>: a stateless composed feature works today, and one with a
-    ///         single <c>var</c> fails whether or not any parameter is by reference. It is why this
-    ///         test stops at the IR, and it is recorded in docs/plan/07 § F as what blocks
-    ///         <c>Pipeline/</c>.
+    ///         This is what could not be emitted before <c>compose</c> learned to carry a feature's
+    ///         bindings; see <see cref="ComposeInterfaceTests" /> for the defect itself.
     ///     </para>
     /// </remarks>
-    [Fact]
-    public void TheMaterialContractBindsAndLowers() {
+    [Theory]
+    [InlineData("MetalRoughnessSurface")]
+    [InlineData("SpecularGlossinessSurface")]
+    [InlineData("NormalMapSurface")]
+    [InlineData("EmissiveSurface")]
+    [InlineData("OcclusionSurface")]
+    public void EveryMaterialFeatureComposesAndReachesBothBackends(string feature) {
+        var module = LowerMaterial(feature);
+
+        // The contract really is by-reference all the way to the IR, which is why `inout` exists.
+        var compute = module.Shaders
+            .SelectMany(shader => shader.Functions)
+            .First(function => function.Name.EndsWith("Compute", StringComparison.Ordinal));
+
+        Assert.True(compute.Parameters[^1].IsByReference);
+
+        // The feature's own parameters are now the effect's, qualified by the feature that declares
+        // them so two features with a `strength` stay distinguishable.
+        var forward = module.Shaders.Single(shader => shader.Name == "Forward");
+        Assert.Contains(forward.Bindings, binding => binding.Name.StartsWith(feature + ".", StringComparison.Ordinal));
+
+        foreach (var target in (string[])["glsl", "spirv"]) {
+            var bag = new DiagnosticBag();
+            var generated = TargetBackends.Create(target)!.Generate(module, bag);
+
+            var errors = bag.ToArray().Where(d => d.IsError).ToArray();
+            Assert.True(errors.Length == 0, string.Join("\n", errors.Select(d => d.ToString())));
+
+            if (target == "spirv") {
+                Assert.All(generated.Where(unit => unit.Name.StartsWith("Forward", StringComparison.Ordinal)), SpirvTestBase.Validate);
+            }
+        }
+    }
+
+    static IrModule LowerMaterial(string feature) {
         var trees = Files()
             .Select(file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
             .Append(SyntaxTree.ParseText(MaterialConsumer, path: "Forward.rvn"))
@@ -250,7 +280,7 @@ public class LibraryTreeTests {
         var compilation = Compilation.Create(
             "Material",
             PermutationValues.Empty,
-            ComposeBindings.Create([new("surface", "MetalRoughnessSurface")]),
+            ComposeBindings.Create([new("surface", feature)]),
             trees
         );
 
@@ -269,14 +299,7 @@ public class LibraryTreeTests {
         );
 
         Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(d => d.ToString())));
-
-        // The contract really is by-reference all the way to the IR, which is the whole reason
-        // `inout` was built.
-        var compute = module.Shaders
-            .SelectMany(shader => shader.Functions)
-            .First(function => function.Name.EndsWith("Compute", StringComparison.Ordinal));
-
-        Assert.True(compute.Parameters[^1].IsByReference);
+        return module;
     }
 
     /// <summary>A forward shader written once against the material contract.</summary>

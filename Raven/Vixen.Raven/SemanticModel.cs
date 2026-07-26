@@ -111,6 +111,22 @@ public sealed class SemanticModel {
                 BindTypeBodies(source);
             }
         }
+
+        // A second pass, because a check that reads another type must not run while that type is
+        // resolving — see SourceNamedTypeSymbol.EnsureValidated.
+        foreach (var type in Compilation.GetDeclaredTypes(SyntaxTree)) {
+            if (type is SourceNamedTypeSymbol source) {
+                Validate(source);
+            }
+        }
+    }
+
+    static void Validate(SourceNamedTypeSymbol type) {
+        type.EnsureValidated();
+
+        foreach (var nested in type.NestedTypes) {
+            Validate(nested);
+        }
     }
 
     void BindTypeBodies(SourceNamedTypeSymbol type) {

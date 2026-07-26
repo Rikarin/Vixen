@@ -24,8 +24,7 @@ decision that has been made and built, kept because the reasons stay useful.
 
 | | Open item | Where | Blocks |
 |---|---|---|---|
-| 🔴 | **`Raven/Library` is mostly unwritten.** `Core/` (Math, ColorSpaces, Random, Sampling), `Shading/Brdf.rvn` and `Material/MaterialSurface.rvn` are in and tested; Shading's other ten files, Geometry, Pipeline, PostFx, Ui and Vfx are not | § F | the numeric tests, the perf gates, and the mixin question below |
-| 🔴 | **A `compose`d feature's bindings are never declared in the consuming unit** — the GLSL names identifiers it never declared, which `glslc` rejects and Raven does not. Pre-existing, and independent of `inout`: a stateless feature works, one with a single `var` does not | § F | `Material/` reaching a backend, and therefore all of `Pipeline/`. Needs `BindingPlan`, the descriptor sets and the reflection to account for a composed shader's bindings |
+| 🔴 | **`Raven/Library` is mostly unwritten.** `Core/` (Math, ColorSpaces, Random, Sampling), `Shading/Brdf.rvn` and `Material/MaterialSurface.rvn` are in and tested; Shading's other ten files, Geometry, Pipeline, PostFx, Ui and Vfx are not. Nothing in the compiler blocks `Pipeline/` now that a composed feature carries its own bindings | § F | the numeric tests, the perf gates, and the mixin question below |
 | 🔴 | **Nothing a shader writes is writable** — no storage buffers, no storage images, and assigning to a uniform is refused by neither backend. So the compute stage computes and discards | § I | the numeric BRDF readback, `Random.rvn` bit-for-bit, doc 06's VFX compute path — everything that has to *read a result back* |
 | 🟡 | **Generic types and methods do not lower** — front-end only. An open definition is `RVN3001`, and so is an instantiation: there is no monomorphisation, so `Box<float4>` reaches no backend | § I | anything in § F's library that wants a generic container |
 | 🟡 | **`&&` / `\|\|` do not short-circuit** — sound for side-effect-free expressions, wrong the moment the right operand is a guard | § I | correctness of `i < n && data[i] > 0` |
@@ -600,29 +599,58 @@ so a consumer's binder still demands assignable storage, the IR side so the link
 declares a by-reference parameter — and a version-1 artefact is now rejected by version rather than
 by a confusing JSON error.
 
-#### 🔴 A `compose`d feature's bindings are never declared
+#### ✅ A `compose`d feature now contributes its interface
 
-`Material/` binds and lowers. It cannot yet be **emitted**, and the reason is a pre-existing defect
-that `compose` had all along: a composed implementation's *bindings* do not reach the consuming
-translation unit. The feature's material parameters live on its own `IrShader`, the emitter declares
-only the consuming shader's, and the GLSL therefore names identifiers it never declared — `glslc`
-rejects it and Raven says nothing. The same shape as the three inheritance defects in § J.
+Writing `Material/` found that `compose` had been half-implemented all along: it resolved the slot,
+called the right function and pruned the rest, but the implementation's **bindings** never reached the
+consuming translation unit. The feature's material parameters live on its own `IrShader`, the emitter
+declared only the consuming shader's, and the GLSL therefore named identifiers it never declared —
+`glslc` rejected it and Raven said nothing, the same shape as the three inheritance defects in § J.
 
-It is independent of `inout`: a stateless composed feature works today, and one with a single `var`
-fails whether or not any parameter is by reference. Which means the "critical path is closed" claim
-below holds only for features with no parameters, and every real material feature has some.
+It survived a passing suite for one reason: nothing in the tests composed an implementation that
+declared a `var`. `compose` worked for a stateless feature, and every real feature has parameters.
 
-The fix is not local. A composed implementation's bindings have to become the consumer's, which means
-`BindingPlan` assigning them slots, the descriptor sets accounting for them, the reflection reporting
-them so a host can bind them, and a rule for name collisions between the consumer's fields and the
-feature's — plus transitive `compose` and the same feature composed twice. This is what blocks
-`Pipeline/`, and it is the next thing worth doing in § F.
+**Merged in lowering, not in the emitters.** `MergeComposedInterfaces` gives each shader the bindings
+and streams of the shaders it composes, transitively, before anything reads the module — so
+`BindingPlan`, `StreamPlan` and the reflection all see one answer. Two emitters each patching their
+own interface is exactly how they come to disagree. The merge reuses the *same* `IrVariable` the
+implementation's body was lowered against; a copy would leave the body reading storage the consumer
+never declared, which is the original bug with an extra step.
 
-Two smaller gaps found alongside it: **the CLI takes a single input file**, so composing against a
-library *source* file (as opposed to a `.rvnlib` reference) is only reachable through the API; and
-**`Material/` cannot ship as a `.rvnlib` at all** — `RVN5001` correctly refuses to export a function
-that reads a shader binding, so the tree has two shipping models, free-function packages by reference
-and shader packages by source.
+**Every binding the feature declares, not only the reached ones** — matching how a shader's own unused
+bindings are already kept. A descriptor set layout is what the host writes against, and a material
+parameter vanishing from the reflection because this variant happened not to read it is a far worse
+failure than a spare slot.
+
+**Contributed bindings are qualified by the shader that declares them** — `MetalRoughnessSurface.roughness`,
+and `Layered.Ggx.alpha` for a transitive one. This is not decoration: features are authored
+independently and collide, and three of the five in `MaterialSurface.rvn` declare a `strength`. Two
+reflection entries with one name is a host writing the wrong offset, or a generated binding with two
+properties of the same name. Every contributed binding is qualified rather than only the clashing
+ones, because a name that changed depending on what else the material composed would break a host
+when an unrelated feature was added. The identifier a backend emits is still derived from the variable
+and uniquified per unit — a `.` is not a GLSL identifier — and the two were always free to differ.
+
+**And a second defect underneath it: validation ran as a side effect of resolution.** Transitive
+`compose` did not work at all, for an unrelated reason — a shader that both implemented a protocol and
+declared a slot of its own was reported as not implementing it (`RVN2076`, on correct source).
+`EnsureMembers` ran the shader checks, so resolving the middle shader's base list reached the outer
+shader's compose check, which asked the middle one for its interfaces while `EnsureBases` was still
+mid-flight; the reentrancy guard answered with the empty list it had built so far. The fix is an
+invariant one line long — **nothing reachable from resolution validates** — implemented as
+`SourceNamedTypeSymbol.EnsureValidated` and a second pass in `SemanticModel`. A check asking another
+type for its bases now either finds them resolved or resolves them, and neither can re-enter.
+
+Two smaller gaps recorded rather than fixed: **the CLI takes a single input file**, so composing
+against a library *source* file (as opposed to a `.rvnlib` reference) is only reachable through the
+API; and **`Material/` cannot ship as a `.rvnlib` at all** — `RVN5001` correctly refuses to export a
+function that reads a shader binding, so the tree has two shipping models, free-function packages by
+reference and shader packages by source.
+
+One limitation that is a design consequence rather than a defect: two slots filled with the *same*
+implementation share one set of parameters, because the implementation is one shader with one set of
+storage. Per-slot parameters would mean instantiating the implementation per slot, which is
+monomorphisation and not what `compose` does.
 
 #### Smaller things the library ran into
 
@@ -1223,15 +1251,15 @@ Vixen's equivalent, all of it built:
 | Generics | `shader Blur<val TapCount: int>` | compile-time-parameterised shaders |
 | Interstage data | `stream var normalWS: float3` | a value one stage writes and the next reads |
 
-`compose` was the critical path, and the *resolution* is closed: the slot is protocol-typed, the
-binding resolves at compile time, and only the chosen implementation is emitted and called — no
-dispatch. What it buys is `ForwardPlus.rvn` written once against `IMaterialSurface` and instantiated
-per material; the alternative was string-templating shader source, which is where Stride was fifteen
-years ago.
+`compose` was the critical path and it is closed: the slot is protocol-typed, the binding resolves at
+compile time, only the chosen implementation is emitted and called — no dispatch — and the
+implementation's own bindings become the consuming effect's descriptors. What it buys is
+`ForwardPlus.rvn` written once against `IMaterialSurface` and instantiated per material; the
+alternative was string-templating shader source, which is where Stride was fifteen years ago.
 
-**But only for a feature with no parameters.** Writing `Material/` found that a composed
-implementation's *bindings* never reach the consuming unit — see § F. Resolution, calling and pruning
-all work; what does not is a feature that has material parameters, which is every real one.
+That last clause was the half that was missing until `Material/` was written: resolution, calling and
+pruning all worked, and a feature with a single parameter emitted GLSL naming an identifier nothing
+declared. See § F for the fix and for the resolution-order defect underneath it.
 
 ### ⚠️ The inheritance in that table was never implemented below the symbol layer
 

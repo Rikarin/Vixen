@@ -28,6 +28,7 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
     Binder? typeBinder;
     bool typeParameterConstraintsResolved;
     TypeParameterSymbol[]? typeParameters;
+    bool validated;
 
     public TypeDeclarationInfo Declaration { get; }
 
@@ -194,7 +195,6 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
             .ToDictionary(g => g.Key, g => g.ToArray(), StringComparer.Ordinal);
 
         ReportDuplicates();
-        ReportShaderIssues();
 
         // Force every enum member's value, so a bad initializer (RVN2094) or a
         // cycle is reported even when nothing in the program reads the member.
@@ -897,5 +897,33 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
         EnsureTypeParameters();
         EnsureBases();
         EnsureMembers();
+    }
+
+    /// <summary>
+    ///     Runs the checks that read <em>other</em> types, once every declaration is resolved.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Separate from <see cref="EnsureSignatureResolved" /> because validation must never be
+    ///         a side effect of resolution. It was: <c>EnsureMembers</c> ran these, so resolving one
+    ///         shader's base list could reach a second shader's compose check, which asked the first
+    ///         for its interfaces while <c>EnsureBases</c> was still mid-flight. The reentrancy guard
+    ///         answered with the empty list it had so far, and a shader that plainly implemented its
+    ///         protocol was reported as not implementing it — <c>RVN2076</c> on correct source.
+    ///     </para>
+    ///     <para>
+    ///         The invariant that fixes it is one line long: nothing reachable from resolution
+    ///         validates. Then a check asking another type for its bases either finds them resolved
+    ///         or resolves them, and neither can re-enter.
+    ///     </para>
+    /// </remarks>
+    internal void EnsureValidated() {
+        if (validated) {
+            return;
+        }
+
+        validated = true;
+        EnsureSignatureResolved();
+        ReportShaderIssues();
     }
 }
