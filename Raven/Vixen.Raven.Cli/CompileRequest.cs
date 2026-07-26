@@ -31,6 +31,26 @@ public sealed record CompileRequest {
     /// </summary>
     public IReadOnlyList<string> Composes { get; init; } = [];
 
+    /// <summary>
+    ///     Compiled libraries to bind against, as paths to <c>.rvnlib</c> files.
+    /// </summary>
+    /// <remarks>
+    ///     A reference is not the same thing as another input. An input is recompiled as part of this
+    ///     compilation; a reference is read, already lowered, and only what the shader reaches is
+    ///     linked in.
+    /// </remarks>
+    public IReadOnlyList<string> References { get; init; } = [];
+
+    /// <summary>
+    ///     Write a <c>.rvnlib</c> for this compilation instead of generating for a target.
+    /// </summary>
+    /// <remarks>
+    ///     Instead of, not as well as. A library has no target and no entry points — a stage is
+    ///     generated per effect from the shader that declares it — so asking for both in one
+    ///     invocation would mean two different jobs sharing an output path.
+    /// </remarks>
+    public bool EmitLibrary { get; init; }
+
     /// <summary>Also write the IR dump next to the generated sources.</summary>
     public bool EmitIr { get; init; }
 

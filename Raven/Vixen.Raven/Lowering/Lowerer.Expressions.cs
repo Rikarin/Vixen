@@ -616,9 +616,11 @@ public sealed partial class Lowerer {
             return lowered;
         }
 
-        // An operator takes every operand as an explicit parameter, so there is no receiver to
-        // prepend — and prepending one from an enclosing struct method would be silently wrong.
-        if (member is MethodSymbol { MethodKind: MethodKind.Operator }) {
+        // An operator takes every operand as an explicit parameter, and a static member has no
+        // receiver at all, so neither gets one prepended — and prepending one from an enclosing
+        // struct method would be silently wrong. This mirrors `Lowerer.SelfTypeFor`, which decides
+        // the signature; the two have to agree or the call has the wrong arity.
+        if (member is MethodSymbol { MethodKind: MethodKind.Operator } or { IsStatic: true }) {
             return lowered;
         }
 

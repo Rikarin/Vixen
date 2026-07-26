@@ -102,4 +102,22 @@ public sealed class NamespaceSymbol : Symbol {
 
         list.Add(type);
     }
+
+    /// <summary>
+    ///     Puts <paramref name="replacement" /> where <paramref name="existing" /> was.
+    /// </summary>
+    /// <remarks>
+    ///     For a source declaration that shadows a referenced library's type of the same name.
+    ///     Replacing rather than adding alongside is deliberate: two types with one name would make
+    ///     every lookup of it ambiguous, and which one won would depend on load order. The
+    ///     shadowing itself is reported (<c>RVN5003</c>).
+    /// </remarks>
+    internal void ReplaceType(NamedTypeSymbol existing, NamedTypeSymbol replacement) {
+        if (types.TryGetValue(existing.Name, out var list) && list.Remove(existing)) {
+            list.Add(replacement);
+            return;
+        }
+
+        AddType(replacement);
+    }
 }

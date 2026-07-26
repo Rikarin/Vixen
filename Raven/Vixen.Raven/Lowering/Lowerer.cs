@@ -85,25 +85,49 @@ public sealed partial class Lowerer {
 
     /// <summary>Lowers every shader and type in the compilation.</summary>
     public static IrModule Lower(Compilation compilation, DiagnosticBag diagnostics) =>
-        new Lowerer(compilation, diagnostics).LowerModule();
+        LowerWithLinks(compilation, diagnostics).Module;
+
+    /// <summary>
+    ///     Lowers the compilation and keeps the map from symbols to what they lowered to.
+    /// </summary>
+    /// <remarks>
+    ///     Only <c>.rvnlib</c> needs this. The module alone is what a backend consumes — it is
+    ///     deliberately symbol-free — but writing a library means recording which IR function each
+    ///     method's body became, and that link exists nowhere else. Everything else keeps calling
+    ///     <see cref="Lower" />.
+    /// </remarks>
+    public static LoweringResult LowerWithLinks(Compilation compilation, DiagnosticBag diagnostics) {
+        var lowerer = new Lowerer(compilation, diagnostics);
+        var module = lowerer.LowerModule();
+
+        return new(
+            module,
+            lowerer.functions,
+            lowerer.structs,
+            lowerer.importedFunctions,
+            lowerer.importedStructs,
+            lowerer.importedFunctionNames,
+            lowerer.importedStructNames
+        );
+    }
 
     IrModule LowerModule() {
         CollectBodies();
 
         var types = compilation.GetAllTypes();
+        var link = LinkReferences(types);
 
         // Shells first: a function body can call anything in the module, and a
         // struct can hold a field of a struct declared later.
         foreach (var type in types) {
             switch (type.TypeKind) {
-                case TypeKind.Struct:
-                    structs[type] = new(type.Name);
+                case TypeKind.Struct: {
+                    var structType = new IrStructType(type.Name);
+                    structs[type] = structType;
+                    module.Add(structType);
                     break;
+                }
             }
-        }
-
-        foreach (var structType in structs.Values) {
-            module.Add(structType);
         }
 
         // Function shells, for the same reason the struct shells exist: a body can call a
@@ -116,6 +140,10 @@ public sealed partial class Lowerer {
             }
         }
 
+        // The libraries' functions after the compilation's own shells, so a name a source
+        // declaration uses is the one that keeps it and the library's copy gives way.
+        link?.LinkFunctions();
+
         foreach (var type in types) {
             switch (type.TypeKind) {
                 case TypeKind.Shader:
@@ -126,6 +154,8 @@ public sealed partial class Lowerer {
                     break;
             }
         }
+
+        ImportPruner.Prune(module, importedStructs, importedFunctions);
 
         return module;
     }
@@ -468,12 +498,24 @@ public sealed partial class Lowerer {
     }
 
     /// <summary>
-    ///     The receiver type a body's function takes, which is none for an operator: every operand
-    ///     is already an explicit parameter, so a <c>self</c> would make the signature disagree with
-    ///     the call the binder produced.
+    ///     The receiver type a body's function takes, or none when it takes no receiver.
     /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         None for an operator: every operand is already an explicit parameter, so a
+    ///         <c>self</c> would make the signature disagree with the call the binder produced.
+    ///     </para>
+    ///     <para>
+    ///         None for a <c>static</c> member either, for the same reason — and that one was a
+    ///         defect rather than an omission. <c>struct M { static func Saturate(x: float) }</c> was
+    ///         given a <c>self</c> parameter it has no receiver for, so a call to it from outside the
+    ///         struct passed one argument to a function taking two. The IR verifier caught it as
+    ///         malformed IR (<c>RVN3010</c>), which means the construct could not be compiled at all
+    ///         — and it is the shape a library of helpers is made of, which is how it surfaced.
+    ///     </para>
+    /// </remarks>
     static IrStructType? SelfTypeFor(BoundBody body, IrStructType? selfType) =>
-        body.Member is MethodSymbol { MethodKind: MethodKind.Operator } ? null : selfType;
+        body.Member is MethodSymbol { MethodKind: MethodKind.Operator } or { IsStatic: true } ? null : selfType;
 
     /// <summary>
     ///     Creates the signature for every method and property accessor of a type, so that

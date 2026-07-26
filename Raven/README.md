@@ -66,10 +66,29 @@ out/Lambert.frag.spv
 | | |
 |---|---|
 | `-t`, `--target` | Backend to generate for: `glsl` or `spirv`. |
+| `-D`, `--define` | Set a `[Permutation]` key: `-D UseSkinning=true`, `-D TapCount=8`. A bare name means `true`. Repeatable. |
+| `-C`, `--compose` | Fill a `compose` slot: `-C diffuse=Lambert`, or `-C Lit.diffuse=Lambert` when two shaders declare the same slot name. Repeatable. |
+| `-r`, `--reference` | Bind against a compiled library: `-r Core/Math.rvnlib`. Its declarations and lowered bodies are linked in without its source being reparsed. Repeatable. |
+| `--emit-library` | Write a `.rvnlib` for these inputs *instead of* generating for a target — the compiled library other shaders reference. |
+| `--emit-effect` | Also write a `.rvnfx` per shader — the compiled effect a runtime loads instead of compiling. |
+| `--emit-reflection` | Also write the reflection as JSON: descriptor sets, member offsets, the flattened parameter list. |
 | `--emit-ir` | Also write the target-independent IR dump. |
 | `--emit-listing` | For `spirv`, also write the readable `.spvasm` listing beside the bytes. |
+| `--capabilities` | Print the target features each shader requires (`Float64`, `Texture3D`, …). |
 | `-v`, `--verbose` | Name every file as it is written. Otherwise a successful run is silent. |
 | `--no-color` | Never colour the diagnostics. Colour is off anyway when stderr is redirected, or when `NO_COLOR` is set. |
+
+A library is compiled once and then referenced, which is the two-step a shader library is built
+with:
+
+```
+./raven compile Core/Math.rvn Core/Math.rvnlib --emit-library
+./raven compile Lit.rvn out/ --reference Core/Math.rvnlib
+```
+
+A reference is not the same thing as another input. An input is recompiled as part of this
+compilation; a reference is read already lowered, and only what the shader reaches is linked in — so
+referencing a library does not enlarge the shader that uses one function from it.
 
 Diagnostics go to stderr with the source under them:
 

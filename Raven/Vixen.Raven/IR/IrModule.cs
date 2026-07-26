@@ -31,4 +31,19 @@ public sealed class IrModule(string name) {
     internal void Add(IrStructType structType) => structs.Add(structType);
     internal void Add(IrFunction function) => functions.Add(function);
     internal void Add(IrShader shader) => shaders.Add(shader);
+
+    /// <summary>
+    ///     Drops every struct <paramref name="keepStruct" /> rejects and every function
+    ///     <paramref name="keepFunction" /> rejects, in place.
+    /// </summary>
+    /// <remarks>
+    ///     Exists for linking: a referenced library's whole IR has to be present before any body
+    ///     is lowered, because a body may call anything in it, but only what something reached
+    ///     belongs in the output. Referencing a library must not enlarge a shader that uses one
+    ///     function from it.
+    /// </remarks>
+    internal void Prune(Func<IrStructType, bool> keepStruct, Func<IrFunction, bool> keepFunction) {
+        structs.RemoveAll(s => !keepStruct(s));
+        functions.RemoveAll(f => !keepFunction(f));
+    }
 }

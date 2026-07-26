@@ -39,9 +39,17 @@ public sealed class SourceFieldSymbol : FieldSymbol {
     ///     binding is missing or invalid.
     /// </summary>
     /// <remarks>
-    ///     Resolution is by name against the compilation's own types. Whether it succeeded is
-    ///     reported once, at the declaration, by <c>ReportComposeIssues</c>; this property
-    ///     stays silent so that lowering can ask it freely.
+    ///     <para>
+    ///         Resolution is by name against the compilation's own types, then against the types
+    ///         its referenced libraries declare — a material feature is exactly the kind of thing
+    ///         that ships in <c>Raven/Library</c>, so a slot filled by a library shader is the
+    ///         ordinary case rather than an exotic one.
+    ///     </para>
+    ///     <para>
+    ///         Whether it succeeded is reported once, at the declaration, by
+    ///         <c>ReportComposeIssues</c>; this property stays silent so that lowering can ask it
+    ///         freely.
+    ///     </para>
     /// </remarks>
     public override NamedTypeSymbol? ComposedType {
         get {
@@ -56,7 +64,12 @@ public sealed class SourceFieldSymbol : FieldSymbol {
                 return null;
             }
 
-            if (binder.Compilation.GetAllTypes().FirstOrDefault(t => t.Name == boundName) is not { } bound) {
+            // Source before references: a compilation that declares its own implementation of a
+            // feature means that one, which is the same precedence a shadowed name gets.
+            var bound = Find(binder.Compilation.GetAllTypes(), boundName)
+                ?? Find(binder.Compilation.GetReferencedTypes(), boundName);
+
+            if (bound is null) {
                 return null;
             }
 
@@ -64,6 +77,16 @@ public sealed class SourceFieldSymbol : FieldSymbol {
             // resolved type either way keeps its diagnostics specific.
             return composedType = bound;
         }
+    }
+
+    static NamedTypeSymbol? Find(IEnumerable<NamedTypeSymbol> types, string name) {
+        foreach (var type in types) {
+            if (string.Equals(type.Name, name, StringComparison.Ordinal)) {
+                return type;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

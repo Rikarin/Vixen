@@ -78,7 +78,19 @@ public static class CompileDriver {
             return ExitCode.UsageError;
         }
 
-        var compilation = Compilation.Create(AssemblyName(request), permutations, composes, trees);
+        List<RavenReference> references = [];
+
+        foreach (var path in request.References) {
+            try {
+                references.Add(RavenReference.FromFile(path));
+            } catch (Exception exception) when (exception
+                is InvalidDataException or IOException or UnauthorizedAccessException) {
+                error.WriteLine($"error: could not read reference {path}: {exception.Message}");
+                return ExitCode.UsageError;
+            }
+        }
+
+        var compilation = Compilation.Create(AssemblyName(request), permutations, composes, references, trees);
 
         if (Report(compilation.GetDiagnostics(), error, formatting)) {
             return ExitCode.CompilationFailed;
@@ -89,11 +101,18 @@ public static class CompileDriver {
         var bag = new DiagnosticBag();
         var seen = 0;
 
-        var module = Lowerer.Lower(compilation, bag);
+        var lowered = Lowerer.LowerWithLinks(compilation, bag);
+        var module = lowered.Module;
         IrVerifier.Verify(module, bag);
 
         if (ReportNew(bag, ref seen, error, formatting)) {
             return ExitCode.CompilationFailed;
+        }
+
+        // A library instead of a target, not as well as: it has no target and no entry points, so
+        // the two are different jobs and would be sharing one output path.
+        if (request.EmitLibrary) {
+            return WriteLibrary(request, compilation, lowered, bag, ref seen, output, error, formatting);
         }
 
         if (request.ShowCapabilities) {
@@ -120,6 +139,54 @@ public static class CompileDriver {
         }
 
         return Write(request, backend, module, generated, compilation, permutations, output, error);
+    }
+
+    /// <summary>
+    ///     Builds and writes the <c>.rvnlib</c> for a compilation.
+    /// </summary>
+    /// <remarks>
+    ///     The export checks report here, and an error among them fails the build. That is the point
+    ///     of running them at write time: a body that cannot be linked is fixed in the library, not
+    ///     rediscovered in every consumer.
+    /// </remarks>
+    static ExitCode WriteLibrary(
+        CompileRequest request,
+        Compilation compilation,
+        LoweringResult lowered,
+        DiagnosticBag bag,
+        ref int seen,
+        TextWriter output,
+        TextWriter error,
+        DiagnosticFormatterOptions formatting
+    ) {
+        var library = LibraryBuilder.Build(compilation, lowered, bag);
+
+        if (ReportNew(bag, ref seen, error, formatting)) {
+            return ExitCode.CompilationFailed;
+        }
+
+        // An output path with no extension names a directory, matching the target case; the file in
+        // it is named after the library.
+        var path = Path.GetExtension(request.Output).Length > 0
+            ? request.Output
+            : Path.Combine(request.Output, library.Name + CompiledLibraryFormat.Extension);
+
+        try {
+            if (Path.GetDirectoryName(path) is { Length: > 0 } directory) {
+                Directory.CreateDirectory(directory);
+            }
+
+            CompiledLibraryWriter.WriteFile(path, library);
+        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+            error.WriteLine($"error: could not write output: {exception.Message}");
+            return ExitCode.UsageError;
+        }
+
+        if (request.Verbose) {
+            output.WriteLine(path);
+        }
+
+        return ExitCode.Success;
     }
 
     static ExitCode Write(

@@ -259,7 +259,7 @@ Detailed below. Summary: `RavenCompilation.Create/GetDiagnostics/GetSemanticMode
 | | Requirement | |
 |---|---|---|
 | 🔴 | `RavenReflection` with **explicit `Offset`, `Size`, `ArrayStride`, `MatrixStride` on every block member.** The engine writes constant buffers by generated offset, not by runtime reflection. Get the std140/std430-vs-HLSL packing rules pinned and golden-tested or every backend disagrees about `float3` padding | ✅ |
-| 🟡 | `.rvnlib` (compiled library: symbols + IR, referenced without reparsing source) and `.rvnfx` (compiled effect: modules + reflection + permutation key + source hash) artefact formats | ✅ `.rvnfx`; `.rvnlib` needs its own phase |
+| 🟡 | `.rvnlib` (compiled library: symbols + IR, referenced without reparsing source) and `.rvnfx` (compiled effect: modules + reflection + permutation key + source hash) artefact formats | ✅ both |
 | 🟡 | **Incremental reparse** via `SourceText.WithChanges` — the < 500 ms shader hot-reload budget ([00](00-vision-and-principles.md)) depends on it. Comes free from `Vixen.Core.Syntax` | ✅ API and change tracking; the reparse is still full-file |
 | 🟡 | Diagnostics surfaced through the shared model so the editor's error list, the engine log, and the on-screen shader-error overlay all use one implementation | ✅ via `Vixen.Core.Syntax` |
 | 🟡 | Accept **generated** source with span fidelity, so `Vixen.Editor.ShaderGraph` can emit Raven and map diagnostics back to node ports ([11](11-editor.md)) | ✅ `ParseText(text, path:)` already |
@@ -301,14 +301,93 @@ produce the same key and share one artefact, instead of filling the cache with d
 `SourceHash` is SHA-256 over the sources, so a stale artefact is detectable without recompiling to
 compare.
 
-**`.rvnlib` is a phase, not a task, and is deliberately not started.** It is not a serialization
-problem. For a library to be "referenced without reparsing source", its loaded symbols have to
-*participate in binding* as `NamedTypeSymbol`/`MethodSymbol`/`FieldSymbol` — which means a second
-symbol hierarchy backed by metadata rather than syntax (Roslyn's PE symbols, and nothing analogous
-exists here), plus cross-package reference resolution in `Compilation`, on top of serializers for a
-3.5k-line symbol graph and a 1.6k-line IR graph. Shipping a JSON dump of the IR would *look* done
-while doing nothing for the actual requirement, which is worse than an empty row. It wants planning
-alongside [08](08-asset-pipeline-and-addressables.md)'s object database.
+**`.rvnlib` was a phase rather than a task, and it is now done.** The reason it was held back was
+never serialization: for a library to be "referenced without reparsing source", its loaded symbols
+have to *participate in binding* as `NamedTypeSymbol`/`MethodSymbol`/`FieldSymbol`, which means a
+second symbol hierarchy backed by metadata rather than syntax — Roslyn's split between source
+symbols and PE symbols, at Raven's scale. That is what was built, and what makes the row above
+green. [Doc 18](18-raven-parser-migration.md) put the parser migration before this work because
+serialising trees wants trees you trust; the migration landed first, as planned.
+
+**What "referenced" means, concretely.** Two halves in one artefact, and both are load-bearing:
+
+- **Declarations.** `Symbols/Metadata/` holds `MetadataNamedTypeSymbol` and its members, deriving
+  from the same abstract bases the source symbols do. Nothing in the binder, the conversions, the
+  overload resolution or the `compose` resolver knows the difference, which is the whole design —
+  a call into a library is type-checked on exactly the terms a call within the compilation is.
+- **Lowered IR.** `Lowerer.Linking` rebuilds the library's functions in the module being compiled
+  and maps each metadata symbol onto the function its body lowered to when the library was built.
+  So `LowerCall` finds a callee in the same dictionary either way, both backends see one module of
+  ordinary IR, and a reference costs nothing at runtime for the same reason `compose` does: it is
+  resolved before the backend runs. `CompiledLibraryTests` pins that a linked function's IR dump is
+  identical to lowering its source alongside the consumer, over a fixture that exercises every
+  statement and access shape the IR has.
+
+The link between the halves is by name — `LibraryMethod.IrFunction`, `LibraryType.IrStruct` —
+because a name survives a recompilation of the library and an index does not.
+
+**All JSON, unlike `.rvnfx`, and for the same reason that format keeps its header in JSON.**
+`.rvnfx` appends SPIR-V raw because base64 would cost a third of its size for nothing; a library has
+no such payload — its bodies are structure, not bytes — so nothing needs keeping out of the JSON, and
+a diffable artefact is worth more than the space. The framing is the same: magic, version, length,
+and a reader that rejects a wrong magic, an unknown version and a truncation rather than
+half-loading. `raven compile --emit-library` writes one; `raven compile --reference Core/Math.rvnlib`
+consumes it.
+
+**Two checks run at write time, because that is where they can be fixed.**
+
+- A body that reads a shader binding **cannot be exported** (`RVN5001`), transitively: a binding
+  belongs to the shader that declares it — its `(set, binding)` pair is assigned per effect — so
+  linking the function that reads it into another shader would name storage that shader never
+  declared. That is the same silent GLSL miscompilation unflattened inheritance produced, and
+  reporting it in the library beats rediscovering it in every consumer.
+- A `[Permutation]` key read while building the library has its value **baked into** the exported
+  bodies (`RVN5006`). This is the one thing an artefact cannot carry, and it follows from what makes
+  permutations work: the key is resolved at compile time so the dead branch disappears, which means
+  the branch is already gone by the time the body is written down. A library that wants to be varied
+  takes the value as a parameter. Said rather than left to be discovered, because the symptom
+  otherwise is a consumer's `--define` that appears to be ignored.
+
+Entry points are not exported either (`RVN5002`, informational): a library supplies types and
+functions, and a stage is generated per effect from the shader that declares it.
+
+**A reference is not a tax on the output.** The whole of a library's IR has to be present before any
+body is lowered — a body may call anything in it — but `ImportPruner` then drops what nothing
+reached. This is not the backends' reachability walk, which is per entry point and decides what one
+translation unit emits; this one decides what the *module* contains, so the IR dump, the verifier and
+`IrCapabilities` describe the shader that was compiled rather than the library it borrowed one
+function from. Without it, referencing a library with a `double` in it anywhere would make every
+consumer require `Float64` — the exact mistake § B set out to avoid.
+
+**Libraries compose, and a source declaration wins.** A library built against another records the
+dependency by name, and the consumer resolves it against its own references (`RVN5004` when it
+cannot) — so `Shading/Brdf.rvnlib` calls into `Core/Math.rvnlib` and reaches the *same* struct object
+the consumer's own locals are typed by, rather than a private copy that would fail the verifier. A
+source type of the same name as a referenced one shadows it, which is what every compiler with a
+reference model does, and the shadowing is reported (`RVN5003`) because silently preferring one of two
+same-named types is how a shader ends up bound against the definition its author was not reading.
+
+Honestly bounded:
+
+- **IR names are one flat namespace per module,** so two libraries exporting the same IR name
+  collapse to the first. That is a property of the IR itself — a module has one `Structs` list and one
+  `Functions` list, and both emitters treat names as global — not something linking introduced; the
+  fix would be qualifying IR names by declaring type, which is its own change. A library entity whose
+  name the compilation itself uses gives way rather than colliding, and only then is it renamed, so
+  the GLSL a frame debugger shows still says `Saturate`.
+- **A generic library type is exported but still not lowerable** — `Box<float>` is `RVN3001`/`RVN3003`
+  either way (§ J), so the type parameters and their enforced `where` clauses round-trip and nothing
+  more.
+- **The libraries themselves are not written yet.** § F is the content task; this is the mechanism it
+  needs, and `Raven/Library` still holds two example files.
+
+**A defect this uncovered, and it was not in the new code.** A `static func` on a struct was still
+given a `self` parameter, so a call to one from outside the struct passed one argument to a function
+taking two — malformed IR, caught by the verifier, which means the construct could not be compiled at
+all. It went unnoticed because nothing in the corpus called a static struct method across a type
+boundary; it surfaced immediately here, because a struct of static helpers is exactly what
+`Core/Math.rvn` is. `Lowerer.SelfTypeFor` and `BuildArguments` now agree that a static member has no
+receiver.
 
 **Incremental reparse: the API landed, the optimisation did not.** `SourceText.WithChanges` applies
 sorted, non-overlapping edits in the old text's coordinates and remembers where the result differs;
@@ -895,6 +974,12 @@ implementation behind the interface, which is also how the engine's shader tests
 
 ### API
 
+Sketched here as the contract; the shipped names drop the `Raven` prefix where the type is not an
+artefact — `Compilation`, not `RavenCompilation` — because there is one compiler assembly and nothing
+to disambiguate against. `RavenReference` and `RavenReflection` keep theirs, being the two types a
+host actually names. The `references` parameter is real: `Compilation.Create(name, references, trees)`,
+with `RavenReference.FromFile` reading a `.rvnlib`.
+
 ```csharp
 namespace Vixen.Raven;
 
@@ -973,8 +1058,8 @@ Two on-disk formats, both content-addressed into the object database ([08](08-as
 
 | Extension | Contents |
 |---|---|
-| `.rvnlib` | A compiled Raven *library* — semantic symbols + IR, for cross-file/package reference without reparsing source. Analogous to a `.dll` reference. |
-| `.rvnfx` | A compiled *effect*: SPIR-V modules for all stages + reflection + the permutation key that produced it + source hash. This is the unit the runtime loads. |
+| `.rvnlib` | A compiled Raven *library* — semantic symbols + IR, for cross-file/package reference without reparsing source. Analogous to a `.dll` reference. Magic, version, length and the whole library as JSON; `--emit-library` writes one and `--reference` consumes it. See [§ D](#d-public-api-contract-the-engine-codes-against) for the two halves and what they cost. |
+| `.rvnfx` | A compiled *effect*: SPIR-V modules for all stages + reflection + the permutation key that produced it + source hash. This is the unit the runtime loads. Magic, version, JSON header, module bytes appended raw. |
 
 ## Source layout: what is written in Raven
 
@@ -1151,6 +1236,11 @@ Target: **< 500 ms** from save to visible change for a leaf shader; < 2 s for a 
 `Vixen.Core.Syntax`'s change tracking, (b) `.rvnlib` caching so unchanged library modules are not
 re-bound, (c) permutation-level parallelism across the job system, (d) compiling only permutations
 currently resident in the effect cache rather than the whole matrix.
+
+(b) is the one of the four that is now available rather than planned: a `RavenReference` is read once
+and reused across recompilations of a shader that references it, so editing a leaf shader neither
+reparses nor re-binds the library it sits on. What the hot-reload path still needs is the *watching*
+and the cache invalidation, which is engine-side.
 
 Diagnostics from Raven surface in three places, all from the one `Diagnostic` model: the engine log,
 the editor's error list with clickable source spans, and an on-screen overlay in dev builds (a failed

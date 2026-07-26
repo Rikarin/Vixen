@@ -124,6 +124,8 @@ public sealed partial class Lowerer {
     ///         that depends on the order types happened to be lowered in.
     ///     </para>
     /// </remarks>
+    /// <param name="tuple">The tuple type to lower.</param>
+    /// <param name="syntax">Where to report a element type that has no representation.</param>
     IrType LowerTuple(TupleTypeSymbol tuple, SyntaxNode? syntax) {
         if (tuples.TryGetValue(tuple, out var existing)) {
             return existing;
@@ -142,7 +144,20 @@ public sealed partial class Lowerer {
             fields.Add(new(member.Name, elementType));
         }
 
-        var structType = new IrStructType(TupleName(fields));
+        var name = TupleName(fields);
+
+        // A linked library's copy of the same shape, reused rather than duplicated. This is
+        // necessary, not an optimisation: a tuple has no declaration to match on, so without it a
+        // library function returning `(float, float)` would return a different type from the one the
+        // caller's local holds, and storing the result would fail the verifier with two structs of
+        // the same name. Matching by name is sound precisely because a tuple's name is derived from
+        // its element types — the name *is* the structural identity.
+        if (importedStructsByName.TryGetValue(name, out var linked)) {
+            tuples[tuple] = linked;
+            return linked;
+        }
+
+        var structType = new IrStructType(name);
         structType.SetFields([.. fields]);
 
         tuples[tuple] = structType;

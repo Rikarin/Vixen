@@ -48,6 +48,20 @@ public static class RavenCommand {
             DefaultValueFactory = _ => []
         };
 
+        var reference = new Option<string[]>("--reference", "-r") {
+            Description =
+                "Bind against a compiled library: --reference Core/Math.rvnlib. Its declarations and "
+                + "lowered bodies are linked in without its source being reparsed. Repeatable.",
+            AllowMultipleArgumentsPerToken = true,
+            DefaultValueFactory = _ => []
+        };
+
+        var emitLibrary = new Option<bool>("--emit-library") {
+            Description =
+                "Write a .rvnlib for these inputs instead of generating for a target — the compiled "
+                + "library other shaders reference. Output names the file."
+        };
+
         var emitIr = new Option<bool>("--emit-ir") { Description = "Also write the target-independent IR dump." };
 
         var emitListing = new Option<bool>("--emit-listing") {
@@ -76,6 +90,8 @@ public static class RavenCommand {
             target,
             define,
             compose,
+            reference,
+            emitLibrary,
             emitIr,
             emitListing,
             emitReflection,
@@ -92,6 +108,8 @@ public static class RavenCommand {
                     Target = parseResult.GetRequiredValue(target),
                     Defines = parseResult.GetValue(define) ?? [],
                     Composes = parseResult.GetValue(compose) ?? [],
+                    References = parseResult.GetValue(reference) ?? [],
+                    EmitLibrary = parseResult.GetValue(emitLibrary),
                     EmitIr = parseResult.GetValue(emitIr),
                     EmitListing = parseResult.GetValue(emitListing),
                     EmitReflection = parseResult.GetValue(emitReflection),
