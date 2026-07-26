@@ -335,15 +335,20 @@ public sealed unsafe partial class VulkanDevice {
             var target = colourTargets[index];
             formats[index] = VulkanFormats.ToVulkan(target.Format);
 
+            // EffectiveBlend, not Blend: an omitted blend state is all-zeros, and an all-zero write
+            // mask writes nothing at all. See ColourTargetState.EffectiveBlend for why that has to be
+            // resolved in the RHI rather than here.
+            var state = target.EffectiveBlend;
+
             blends[index] = new() {
-                BlendEnable = target.Blend.Enabled,
-                SrcColorBlendFactor = VulkanEnums.ToVulkan(target.Blend.SourceColour),
-                DstColorBlendFactor = VulkanEnums.ToVulkan(target.Blend.DestinationColour),
-                ColorBlendOp = VulkanEnums.ToVulkan(target.Blend.ColourOperation),
-                SrcAlphaBlendFactor = VulkanEnums.ToVulkan(target.Blend.SourceAlpha),
-                DstAlphaBlendFactor = VulkanEnums.ToVulkan(target.Blend.DestinationAlpha),
-                AlphaBlendOp = VulkanEnums.ToVulkan(target.Blend.AlphaOperation),
-                ColorWriteMask = VulkanEnums.ToVulkan(target.Blend.WriteMask)
+                BlendEnable = state.Enabled,
+                SrcColorBlendFactor = VulkanEnums.ToVulkan(state.SourceColour),
+                DstColorBlendFactor = VulkanEnums.ToVulkan(state.DestinationColour),
+                ColorBlendOp = VulkanEnums.ToVulkan(state.ColourOperation),
+                SrcAlphaBlendFactor = VulkanEnums.ToVulkan(state.SourceAlpha),
+                DstAlphaBlendFactor = VulkanEnums.ToVulkan(state.DestinationAlpha),
+                AlphaBlendOp = VulkanEnums.ToVulkan(state.AlphaOperation),
+                ColorWriteMask = VulkanEnums.ToVulkan(state.WriteMask)
             };
         }
 
@@ -403,6 +408,7 @@ public sealed unsafe partial class VulkanDevice {
             };
 
             Pipeline handle;
+
 
             Check(
                 Api.CreateGraphicsPipelines(device, default, 1, &create, null, &handle),

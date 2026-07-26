@@ -121,14 +121,27 @@ public sealed unsafe class VulkanInstance : IDisposable {
     internal static bool ValidationLayerInstalled =>
         VulkanLoader.TryLoad(out var api, out _) && HasLayer(api, ValidationLayer);
 
-    /// <summary>Creates an instance, or explains why it could not.</summary>
-    /// <param name="options">What to create.</param>
+    /// <summary>Creates an instance with the documented defaults, or explains why it could not.</summary>
     /// <returns>The instance.</returns>
     /// <exception cref="PlatformNotSupportedException">
     ///     Vulkan is not installed, or the instance could not be created — with the reason, and on
     ///     macOS with the SDK the reason usually points at.
     /// </exception>
-    public static VulkanInstance Create(VulkanInstanceOptions options = default) {
+    public static VulkanInstance Create() => Create(new VulkanInstanceOptions());
+
+    /// <summary>Creates an instance, or explains why it could not.</summary>
+    /// <param name="options">What to create.</param>
+    /// <returns>The instance.</returns>
+    /// <exception cref="PlatformNotSupportedException">
+    ///     Vulkan is not installed, or the instance could not be created.
+    /// </exception>
+    /// <remarks>
+    ///     Two overloads rather than one with <c>= default</c>. A record struct's property
+    ///     initialisers do not run for <c>default</c>, so an omitted argument would have silently
+    ///     meant <c>EnableValidation = false</c> — the opposite of what the property documents, and
+    ///     invisible at every call site.
+    /// </remarks>
+    public static VulkanInstance Create(VulkanInstanceOptions options) {
         if (!TryCreate(options, out var instance, out var reason)) {
             throw new PlatformNotSupportedException(reason);
         }

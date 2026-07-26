@@ -170,7 +170,13 @@ public readonly record struct RasterizerState(
     float DepthBiasSlope = 0f
 ) {
     /// <summary>Cull back faces, no bias. What almost every draw wants.</summary>
-    public static RasterizerState Default => new();
+    // `new()` rather than `new(...)` would be wrong here, and silently so. On a record struct whose
+    // primary constructor parameters are all optional, `new()` binds the *implicit parameterless
+    // struct constructor* — which zero-initialises and never runs the primary constructor at all — so
+    // every documented default below would come out as its enum's zero value. That made
+    // `BlendState.Opaque` mean "write no colour channels", and a backend built on it drew nothing at
+    // all, with no error from anywhere. Passing one argument forces the primary constructor to bind.
+    public static RasterizerState Default => new(CullMode.Back);
 
     /// <summary>Cull nothing — a two-sided material, or a full-screen pass.</summary>
     public static RasterizerState TwoSided => new(CullMode.None);
@@ -211,7 +217,7 @@ public readonly record struct DepthStencilState(
     byte StencilWriteMask = 0xFF
 ) {
     /// <summary>Test and write depth with the engine's reversed comparison.</summary>
-    public static DepthStencilState Default => new();
+    public static DepthStencilState Default => new(DepthTest: true);
 
     /// <summary>Test depth but do not write it — what a forward transparency pass wants.</summary>
     public static DepthStencilState TestOnly => new(DepthWrite: false);
@@ -240,7 +246,7 @@ public readonly record struct BlendState(
     ColourWriteMask WriteMask = ColourWriteMask.All
 ) {
     /// <summary>Overwrite. The default.</summary>
-    public static BlendState Opaque => new();
+    public static BlendState Opaque => new(Enabled: false);
 
     /// <summary>Straight alpha blending.</summary>
     public static BlendState AlphaBlend => new(
@@ -280,8 +286,28 @@ public readonly record struct BlendState(
 
 /// <summary>One colour target a pipeline writes to.</summary>
 /// <param name="Format">Its format. Must match the attachment the pipeline is used with.</param>
-/// <param name="Blend">How fragments combine with it.</param>
-public readonly record struct ColourTargetState(PixelFormat Format, BlendState Blend = default);
+/// <param name="Blend">
+///     How fragments combine with it. Omitting it means <see cref="BlendState.Opaque" /> — see
+///     <see cref="EffectiveBlend" />, which is what a backend must read.
+/// </param>
+public readonly record struct ColourTargetState(PixelFormat Format, BlendState Blend = default) {
+    /// <summary>The blend state to build the pipeline from.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         C# has no way to give a struct parameter a default other than all-zeros, and an
+    ///         all-zero <see cref="BlendState" /> has <see cref="ColourWriteMask.None" /> — a target
+    ///         that writes no channels at all. A caller who omitted the argument has never meant
+    ///         that, and the failure is the worst kind: a pipeline that compiles, binds, draws, and
+    ///         produces an untouched attachment, with no error from the API, the layers or the driver.
+    ///     </para>
+    ///     <para>
+    ///         So a wholly default blend means opaque. Writing no channels deliberately stays
+    ///         expressible — <c>new BlendState(WriteMask: ColourWriteMask.None)</c> differs from
+    ///         <c>default</c> in its blend factors and is passed through unchanged.
+    ///     </para>
+    /// </remarks>
+    public BlendState EffectiveBlend => Blend == default ? BlendState.Opaque : Blend;
+}
 
 /// <summary>What to create a graphics pipeline from.</summary>
 /// <remarks>

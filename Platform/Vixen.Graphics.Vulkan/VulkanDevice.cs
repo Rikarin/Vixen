@@ -221,10 +221,20 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
 
     internal ExtDebugUtils? DebugUtils => debugUtils;
 
+    /// <summary>Creates a device with the documented defaults, or explains why it could not.</summary>
+    /// <exception cref="PlatformNotSupportedException">Vulkan or a suitable GPU is unavailable.</exception>
+    public static VulkanDevice Create() => Create(new VulkanDeviceOptions());
+
     /// <summary>Creates a device, or explains why it could not.</summary>
     /// <param name="options">What to create.</param>
     /// <exception cref="PlatformNotSupportedException">Vulkan or a suitable GPU is unavailable.</exception>
-    public static VulkanDevice Create(VulkanDeviceOptions options = default) {
+    /// <remarks>
+    ///     Two overloads rather than one with <c>= default</c>, for the reason
+    ///     <see cref="VulkanInstance.Create()" /> gives: <c>default</c> skips a record struct's
+    ///     property initialisers, so an omitted argument would have meant one frame in flight rather
+    ///     than the documented two.
+    /// </remarks>
+    public static VulkanDevice Create(VulkanDeviceOptions options) {
         if (!TryCreate(options, out var device, out var reason)) {
             throw new PlatformNotSupportedException(reason);
         }
