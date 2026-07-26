@@ -209,7 +209,28 @@ plumbing that everything else stands on.
   thread, which is why the desktop tests force SDL's dummy driver on macOS. Its pure choices are
   tested; `Samples/01` is what exercises the rest. Also owed: timeline semaphores where the device
   offers them, MSAA resolve beyond the attachment plumbing, and query pools.
-- `Vixen.Graphics.RenderGraph` with validation and transient aliasing.
+- ✅ `Vixen.Graphics.RenderGraph` — passes declare what they read and write; the graph culls what
+  nothing needs, gives non-overlapping resources the same memory, places barriers batched per pass,
+  derives attachment store actions, and hands imported resources back in the state their owner
+  expects. 34 tests, including the property tests [05](05-graphics-rhi.md) § Testing asks for: random
+  pass graphs replayed against a tracker that knows only the emitted command stream, asserting that
+  every pass sees the state it declared, that no barrier misstates what it is transitioning from,
+  that aliased resources never coexist, and that culling keeps exactly what is reachable from an
+  output. Verified by sabotage — dropping write-after-write detection and changing one `<` to `<=` in
+  lifetime release each fail their own property.
+
+  Two decisions worth naming. A resource taking over aliased memory is transitioned *from*
+  `Undefined`, which means "discard the contents" — stating the true previous state would ask the
+  driver to preserve garbage, and on hardware with compressed targets that is a decompress for
+  nothing. And a target nothing reads afterwards is not stored, which on tiled hardware is the
+  difference between a bandwidth-bound frame and one that is not, and is the decision nobody
+  remembers to make by hand.
+
+  **Owed, and named rather than approximated:** this reuses whole resources, it does not overlap
+  differently-shaped ones in a single allocation. True memory aliasing needs placed resources, which
+  `IGraphicsDevice` does not expose and which two of the six planned backends cannot express. Also
+  owed: async-compute queue scheduling — `PassKind` is declared and carried, and every pass currently
+  runs on one queue.
 - **MoltenVK bring-up on macOS** — do it here, not later; it shapes the Vulkan backend's capability
   handling.
 - `Samples/01-HelloTriangle` on Windows, Linux, macOS.
