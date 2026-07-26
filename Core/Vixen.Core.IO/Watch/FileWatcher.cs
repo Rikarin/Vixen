@@ -119,7 +119,10 @@ public sealed class FileWatcher : IFileWatcher {
             InternalBufferSize = 64 * 1024
         };
 
-        watcher.Created += (_, arguments) => Record(arguments.FullPath, FileChangeKind.Created);
+        watcher.Created += (_, arguments) => {
+            Record(arguments.FullPath, FileChangeKind.Created);
+            SweepNewDirectory(arguments.FullPath);
+        };
         watcher.Changed += (_, arguments) => Record(arguments.FullPath, FileChangeKind.Changed);
         watcher.Deleted += (_, arguments) => Record(arguments.FullPath, FileChangeKind.Deleted);
         watcher.Renamed += (_, arguments) => Record(arguments.FullPath, FileChangeKind.Renamed, arguments.OldFullPath);
@@ -169,6 +172,39 @@ public sealed class FileWatcher : IFileWatcher {
 
         lock (gate) {
             coalescer.Record(new(path, kind, oldPath), System.Diagnostics.Stopwatch.GetTimestamp());
+        }
+    }
+
+    /// <summary>Reports whatever is already inside a directory that has just appeared.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A watch on a subdirectory can only be added once the subdirectory exists, so anything
+    ///         written into it between its creation and the watch taking effect is never reported.
+    ///         That window is not theoretical: <c>mkdir Assets &amp;&amp; cp a.txt Assets/</c> loses
+    ///         the file, and an asset pipeline that missed it would show an empty folder until
+    ///         something else happened to touch it.
+    ///     </para>
+    ///     <para>
+    ///         Platform-specific in cause and not in fix. inotify watches inodes and has the race;
+    ///         macOS's FSEvents watches paths and does not; Windows watches a directory handle with
+    ///         subtree semantics and does not either. Sweeping is correct everywhere and costs a
+    ///         directory listing on a directory that was empty a moment ago — and the coalescer
+    ///         collapses a duplicate report of a file the platform did deliver.
+    ///     </para>
+    /// </remarks>
+    void SweepNewDirectory(string fullPath) {
+        try {
+            if (!Directory.Exists(fullPath)) {
+                return;
+            }
+
+            foreach (var entry in Directory.EnumerateFileSystemEntries(fullPath, "*", SearchOption.AllDirectories)) {
+                Record(entry, FileChangeKind.Created);
+            }
+        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+            // The directory was removed, or is not readable, between the event and the sweep. Both
+            // are ordinary races with whatever is writing, and neither is worth failing a watcher
+            // over — the next event, or a rescan, covers it.
         }
     }
 

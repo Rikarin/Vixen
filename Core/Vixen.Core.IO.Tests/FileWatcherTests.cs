@@ -41,6 +41,41 @@ public sealed class FileWatcherTests : IDisposable {
         Assert.Contains(changes, change => change.Path == new VirtualPath("/project/Assets/a.txt"));
     }
 
+    /// <summary>
+    ///     A file written into a directory created a moment earlier still arrives.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The narrow window that inotify cannot close on its own: a watch on a subdirectory can
+    ///         only be added once the subdirectory exists, so anything written between its creation
+    ///         and the watch taking effect is never reported. <c>mkdir Assets &amp;&amp; cp a.txt
+    ///         Assets/</c> is not an exotic sequence — it is what unpacking an asset drop looks like,
+    ///         and an importer that missed it would show an empty folder until something else
+    ///         happened to touch the file.
+    ///     </para>
+    ///     <para>
+    ///         Passing on macOS proves nothing: FSEvents watches paths and has no such race, so this
+    ///         was green on the development machine and lost the file every time on Linux. It is
+    ///         written as its own test rather than left implicit in the one above, because the one
+    ///         above is about virtual-path translation and would be a confusing place to learn this.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AFileWrittenIntoABrandNewDirectoryIsNotLost() {
+        using var watcher = new FileWatcher(directory, MountPoints.Project);
+        watcher.Debounce = TimeSpan.FromMilliseconds(20);
+
+        // Created and written with nothing in between, which is the whole point.
+        Directory.CreateDirectory(Path.Combine(directory, "Dropped"));
+        File.WriteAllText(Path.Combine(directory, "Dropped", "one.txt"), "first");
+        File.WriteAllText(Path.Combine(directory, "Dropped", "two.txt"), "second");
+
+        var changes = WaitForChanges(watcher, change => change.Path == new VirtualPath("/project/Dropped/two.txt"));
+
+        Assert.Contains(changes, change => change.Path == new VirtualPath("/project/Dropped/one.txt"));
+        Assert.Contains(changes, change => change.Path == new VirtualPath("/project/Dropped/two.txt"));
+    }
+
     [Fact]
     public void ASuppressedPathIsNotReportedBack() {
         using var watcher = new FileWatcher(directory, MountPoints.Project);
