@@ -37,7 +37,10 @@ enum MemberShape {
     Value,
 
     /// <summary>Any other reference type, through the registry.</summary>
-    Reference
+    Reference,
+
+    /// <summary>A reference type that can have subtypes, written with its run-time name.</summary>
+    Polymorphic
 }
 
 /// <summary>One serialised member.</summary>
@@ -57,6 +60,8 @@ readonly record struct MemberModel(
 readonly record struct ContractModel(
     string Namespace,
     string TypeName,
+    string Alias,
+    System.Collections.Immutable.ImmutableArray<string> FormerAliases,
     string QualifiedName,
     string SafeName,
     bool IsValueType,

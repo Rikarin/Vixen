@@ -281,9 +281,15 @@ output on Windows/Linux/macOS runners.
 > - **No `partial` is required.** Serializers are emitted as standalone classes in their own
 >   namespace rather than into the contract type, which costs reaching only public members and buys
 >   not having an opinion about how every type in the engine is declared.
-> - **Polymorphism is detected and refused rather than silently truncating.** Writing a derived
->   instance through a base serializer throws. Doing it properly needs a type-name table, and that is
->   the same map `Vixen.Core.Reflection` has to build anyway.
+> - **Polymorphism lives here, not in `Vixen.Core.Reflection`.** The obvious plan was to wait for the
+>   type registry, since it has to build a name → type map anyway. That turns out to be backwards:
+>   `Vixen.Core.Reflection` holds each type's *serializer* among its descriptors, so it depends on
+>   this assembly, and a polymorphic writer here that reached for it would close a cycle. What
+>   polymorphism actually needs is a name → *serializer* map, which is three fields on the registry
+>   that already exists and is populated by the module initializer the generator already emits. The
+>   name is `[DataContract(Alias)]` with `[DataAlias]` recording former ones, so a type can be
+>   renamed or moved without invalidating data; a sealed declared type skips the name entirely,
+>   because it cannot have a subtype.
 >
 > - **Chunk compression is outside the hashed region.** The id names the chunk — header plus payload
 >   — and the compression framing wraps it afterwards, so two builds that disagree about whether to

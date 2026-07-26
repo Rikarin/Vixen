@@ -123,6 +123,87 @@ public class SerializationTests {
         Assert.Equal("d", result.DerivedText);
     }
 
+    [Fact]
+    public void ADerivedInstanceInABaseTypedMemberKeepsItsOwnType() {
+        var value = new Drawing { Root = new Circle { Label = "c", Radius = 2f } };
+        var result = RoundTrip(value);
+
+        var circle = Assert.IsType<Circle>(result.Root);
+        Assert.Equal("c", circle.Label);
+        Assert.Equal(2f, circle.Radius);
+    }
+
+    [Fact]
+    public void ACollectionOfABaseTypeHoldsWhateverEachElementActuallyIs() {
+        var value = new Drawing {
+            Children = [new Circle { Radius = 1f }, new Box { Width = 2f, Height = 3f }, null]
+        };
+
+        var result = RoundTrip(value);
+
+        Assert.Equal(3, result.Children!.Length);
+        Assert.Equal(1f, Assert.IsType<Circle>(result.Children[0]).Radius);
+        Assert.Equal(3f, Assert.IsType<Box>(result.Children[1]).Height);
+        Assert.Null(result.Children[2]);
+    }
+
+    [Fact]
+    public void APolymorphicMemberStillHandlesNull() =>
+        Assert.Null(RoundTrip(new Drawing { Root = null }).Root);
+
+    /// <summary>
+    ///     A type carries its serialised name, not its CLR name, so it can be renamed and moved and
+    ///     existing data still loads. `Box` used to be `Rectangle` and is written as `Rect`.
+    /// </summary>
+    [Fact]
+    public void ATypeIsWrittenUnderItsAliasAndFoundUnderItsOldOnesToo() {
+        var bytes = Serializer.ToBytes(new Drawing { Root = new Box { Width = 1f, Height = 2f } });
+        Assert.Contains("Rect", System.Text.Encoding.UTF8.GetString(bytes), StringComparison.Ordinal);
+        Assert.DoesNotContain("Box", System.Text.Encoding.UTF8.GetString(bytes), StringComparison.Ordinal);
+
+        Assert.True(SerializerRegistry.TryGetByAlias("Rect", out var current));
+        Assert.True(SerializerRegistry.TryGetByAlias("Rectangle", out var former));
+        Assert.Same(current, former);
+        Assert.Equal(typeof(Box), current.SerializedType);
+    }
+
+    [Fact]
+    public void ASealedMemberTypePaysNothingForPolymorphism() {
+        // `SettableClass` is sealed, so `NestedClass.Child` cannot be anything else and the name is
+        // not written. The whole difference should be one byte of null flag.
+        var bytes = Serializer.ToBytes(new NestedClass { Child = new() { Id = 1 } });
+        Assert.DoesNotContain("SettableClass", System.Text.Encoding.UTF8.GetString(bytes), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DataNamingATypeThisBuildDoesNotHaveSaysSo() {
+        var buffer = new ArrayBufferWriter<byte>();
+        var writer = new SerializationWriter(buffer);
+        writer.WriteVarUInt64(0);
+        writer.WriteVarUInt64(2);
+        writer.WriteByte(1);
+        writer.WriteString("Triangle");
+        writer.Flush();
+
+        var thrown = Assert.Throws<SerializationException>(() => Serializer.Read<Drawing>(buffer.WrittenSpan));
+        Assert.Contains("Triangle", thrown.Message, StringComparison.Ordinal);
+        Assert.Contains("[DataAlias]", thrown.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DataNamingTheWrongKindOfTypeIsRefusedBeforeItBecomesACastError() {
+        var buffer = new ArrayBufferWriter<byte>();
+        var writer = new SerializationWriter(buffer);
+        writer.WriteVarUInt64(0);
+        writer.WriteVarUInt64(2);
+        writer.WriteByte(1);
+        writer.WriteString("SettableClass");
+        writer.Flush();
+
+        var thrown = Assert.Throws<SerializationException>(() => Serializer.Read<Drawing>(buffer.WrittenSpan));
+        Assert.Contains("where a", thrown.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>
     ///     Writing a derived instance through its base serializer would drop everything the derived
     ///     type adds, and the loss would only surface wherever the data was read back.

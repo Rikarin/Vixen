@@ -22,7 +22,7 @@ namespace Vixen.Core.Serialization;
 ///         which is what makes loading a scene into an existing object graph possible later.
 ///     </para>
 /// </remarks>
-public abstract class DataSerializer<T> {
+public abstract class DataSerializer<T> : DataSerializer {
     /// <summary>Writes a value.</summary>
     /// <param name="writer">Where to write.</param>
     /// <param name="value">What to write.</param>
@@ -32,6 +32,52 @@ public abstract class DataSerializer<T> {
     /// <param name="reader">Where to read from.</param>
     /// <param name="value">What to fill. Created if it is a class and <see langword="null" />.</param>
     public abstract void Deserialize(ref SerializationReader reader, ref T value);
+
+    /// <inheritdoc />
+    public sealed override Type SerializedType => typeof(T);
+
+    /// <inheritdoc />
+    public sealed override void SerializeObject(ref SerializationWriter writer, object value) {
+        var typed = (T)value;
+        Serialize(ref writer, in typed);
+    }
+
+    /// <inheritdoc />
+    public sealed override object DeserializeObject(ref SerializationReader reader) {
+        var value = default(T)!;
+        Deserialize(ref reader, ref value);
+        return value!;
+    }
+}
+
+/// <summary>The non-generic face of a serializer, for when the type is only known at run time.</summary>
+/// <remarks>
+///     <para>
+///         Polymorphism is the reason this exists. A field typed as a base class holding a derived
+///         instance has to be written by the *derived* type's serializer, and the code doing the
+///         writing knows only the base — so somewhere the dispatch has to go through a shape that is
+///         not generic over the concrete type.
+///     </para>
+///     <para>
+///         The <c>object</c> in these signatures would box a struct, which is why nothing uses them
+///         for one: polymorphism applies to reference types, where the value is already a reference
+///         and the cast is free. Value types go through
+///         <see cref="DataSerializer{T}.Serialize" /> and never touch this.
+///     </para>
+/// </remarks>
+public abstract class DataSerializer {
+    /// <summary>What this serializer reads and writes.</summary>
+    public abstract Type SerializedType { get; }
+
+    /// <summary>Writes a value whose type is only known at run time.</summary>
+    /// <param name="writer">Where to write.</param>
+    /// <param name="value">What to write. Must be of <see cref="SerializedType" />.</param>
+    public abstract void SerializeObject(ref SerializationWriter writer, object value);
+
+    /// <summary>Reads a value whose type is only known at run time.</summary>
+    /// <param name="reader">Where to read from.</param>
+    /// <returns>The value.</returns>
+    public abstract object DeserializeObject(ref SerializationReader reader);
 }
 
 /// <summary>Where serializers are found.</summary>
@@ -51,6 +97,8 @@ public abstract class DataSerializer<T> {
 /// </remarks>
 public static class SerializerRegistry {
     static readonly ConcurrentDictionary<Type, object> ByType = new();
+    static readonly ConcurrentDictionary<string, DataSerializer> ByAlias = new(StringComparer.Ordinal);
+    static readonly ConcurrentDictionary<Type, string> AliasOfType = new();
 
     static SerializerRegistry() => BuiltInSerializers.Register();
 
@@ -64,6 +112,67 @@ public static class SerializerRegistry {
         ArgumentNullException.ThrowIfNull(serializer);
         SerializerHolder<T>.Instance = serializer;
         ByType[typeof(T)] = serializer;
+    }
+
+    /// <summary>Registers a serializer under a name the wire format can carry.</summary>
+    /// <typeparam name="T">The type it serialises.</typeparam>
+    /// <param name="alias">The name written when this type is stored polymorphically.</param>
+    /// <param name="serializer">The serializer.</param>
+    /// <param name="formerAliases">Names this type used to be written under, newest first.</param>
+    /// <exception cref="SerializationException">Another type already claims <paramref name="alias" />.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         The alias, not the CLR type name, is what goes in the stream — so a type can be
+    ///         renamed, moved between namespaces, or moved between assemblies without invalidating a
+    ///         byte of existing data. That is the whole job of <c>[DataContract(Alias)]</c>.
+    ///     </para>
+    ///     <para>
+    ///         A collision is an error rather than a last-one-wins, because the failure it produces
+    ///         otherwise is data that loads as the wrong type in whichever assembly happened to
+    ///         initialise second.
+    ///     </para>
+    /// </remarks>
+    public static void Register<T>(string alias, DataSerializer<T> serializer, params string[] formerAliases) {
+        ArgumentException.ThrowIfNullOrEmpty(alias);
+        ArgumentNullException.ThrowIfNull(serializer);
+        Register(serializer);
+        Claim(alias, serializer, primary: true);
+
+        foreach (var former in formerAliases) {
+            Claim(former, serializer, primary: false);
+        }
+    }
+
+    /// <summary>Finds the serializer registered under a name.</summary>
+    /// <param name="alias">The name, current or former.</param>
+    /// <param name="serializer">Its serializer.</param>
+    /// <returns><see langword="false" /> if nothing claims that name.</returns>
+    public static bool TryGetByAlias(string alias, [NotNullWhen(true)] out DataSerializer? serializer) =>
+        ByAlias.TryGetValue(alias, out serializer);
+
+    /// <summary>Finds the name a type is written under.</summary>
+    /// <param name="type">The type.</param>
+    /// <param name="alias">Its name.</param>
+    /// <returns><see langword="false" /> if it has none.</returns>
+    public static bool TryGetAlias(Type type, [NotNullWhen(true)] out string? alias) =>
+        AliasOfType.TryGetValue(type, out alias);
+
+    static void Claim(string alias, DataSerializer serializer, bool primary) {
+        var existing = ByAlias.GetOrAdd(alias, serializer);
+
+        if (!ReferenceEquals(existing, serializer) && existing.SerializedType != serializer.SerializedType) {
+            throw new SerializationException(
+                $"Both '{existing.SerializedType}' and '{serializer.SerializedType}' claim the serialised name "
+                + $"'{alias}'. Give one of them an explicit [DataContract(\"…\")] alias; the name is what "
+                + "polymorphic data carries, so two types cannot share it."
+            );
+        }
+
+        ByAlias[alias] = serializer;
+
+        if (primary) {
+            AliasOfType[serializer.SerializedType] = alias;
+        }
     }
 
     /// <summary>Finds the serializer for a type.</summary>

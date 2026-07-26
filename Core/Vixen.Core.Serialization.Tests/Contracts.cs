@@ -72,6 +72,31 @@ public sealed class DerivedContract : BaseContract {
     public string? DerivedText { get; set; }
 }
 
+/// <summary>A base with two subtypes, plus a member declared as the base. The polymorphism case.</summary>
+[DataContract]
+public abstract class Shape {
+    public string? Label { get; set; }
+}
+
+[DataContract]
+public sealed class Circle : Shape {
+    public float Radius { get; set; }
+}
+
+/// <summary>Renamed once. The alias is what existing data carries, so it has to keep working.</summary>
+[DataContract("Rect")]
+[DataAlias("Rectangle")]
+public sealed class Box : Shape {
+    public float Width { get; set; }
+    public float Height { get; set; }
+}
+
+[DataContract]
+public sealed class Drawing {
+    public Shape? Root { get; set; }
+    public Shape?[]? Children { get; set; }
+}
+
 /// <summary>Version 2, with no way to read version 1.</summary>
 [DataContract(SerializedVersion = 2)]
 public sealed class VersionedClass {

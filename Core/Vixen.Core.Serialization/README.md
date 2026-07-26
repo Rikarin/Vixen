@@ -82,10 +82,25 @@ file, which is most of the argument for doing this at compile time.
 Members are ordered by `[DataMember(Order)]` and then by declaration, base class first, so adding a
 member to a base type appends to the stream rather than shifting everything a derived type wrote.
 
-**Writing a derived instance through its base serializer is refused, not silently truncated.** It
-would drop everything the derived type adds, and the loss would only surface wherever the data was
-read back. Proper polymorphic serialisation needs a type table, which belongs with
-`Vixen.Core.Reflection`.
+## Polymorphism
+
+A member declared as a base class, or a collection of one, keeps whatever each value actually is. The
+concrete type's **serialised name** goes in the stream, and the reader looks the serializer up by
+that name.
+
+The name comes from `[DataContract("Alias")]`, defaulting to the bare type name, and `[DataAlias]`
+records former names — so a type can be renamed, moved between namespaces, or moved between
+assemblies without invalidating a byte of existing data. Two types claiming one name is an error at
+start-up rather than last-one-wins, because the alternative fails as data loading as the wrong type
+in whichever assembly happened to initialise second.
+
+**A sealed type pays nothing.** The generator picks between the two paths by whether the declared
+type can have a subtype at all; a sealed class cannot, so its name is never written. That is the
+common case for engine data, and it costs one null byte rather than a string.
+
+Writing a derived instance through its *base* serializer directly — rather than through a
+polymorphic member — is still refused rather than silently truncated, because that path has no name
+to write and would drop everything the derived type adds.
 
 ## The object database
 
@@ -127,11 +142,6 @@ without deserialising anything to find out what to load. `Closure` is that walk,
 needs the same answer for a completely different reason.
 
 ## Still to come
-
-**Polymorphism.** A field typed as a base class holding a derived instance needs a type-name table in
-the stream and a name → serializer map, and that map is the same one `Vixen.Core.Reflection` has to
-build for `[Component]` and `[Behavior]` discovery. Building a second one here first would be
-building the wrong one. Until then the case is detected and refused.
 
 **`ContentReference<T>` / `UrlReference<T>`,** which serialise as a URL plus a type and resolve
 through `Vixen.Assets` — a Phase 3 assembly.

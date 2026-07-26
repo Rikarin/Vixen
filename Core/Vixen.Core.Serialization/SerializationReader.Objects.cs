@@ -39,6 +39,18 @@ public ref partial struct SerializationReader {
         return value;
     }
 
+    /// <summary>Reads a reference written by its run-time type.</summary>
+    /// <typeparam name="TBase">The type the member is declared as.</typeparam>
+    /// <returns>The value, or <see langword="null" />.</returns>
+    /// <exception cref="SerializationException">The name is unknown, or names a type that is not a <typeparamref name="TBase" />.</exception>
+    public TBase? ReadPolymorphic<TBase>() where TBase : class {
+        if (ReadByte() == 0) {
+            return null;
+        }
+
+        return ReadDynamic<TBase>();
+    }
+
     /// <summary>Reads an array, element by element.</summary>
     /// <typeparam name="T">The element type.</typeparam>
     /// <returns>The array, or <see langword="null" />.</returns>
@@ -48,7 +60,7 @@ public ref partial struct SerializationReader {
         }
 
         var result = new T[count];
-        var serializer = SerializerRegistry.Get<T>();
+        SerializerRegistry.TryGet<T>(out var serializer);
 
         for (var index = 0; index < count; index++) {
             result[index] = ReadElement(serializer);
@@ -79,7 +91,7 @@ public ref partial struct SerializationReader {
         }
 
         var result = new List<T>(count);
-        var serializer = SerializerRegistry.Get<T>();
+        SerializerRegistry.TryGet<T>(out var serializer);
 
         for (var index = 0; index < count; index++) {
             result.Add(ReadElement(serializer));
@@ -98,8 +110,8 @@ public ref partial struct SerializationReader {
         }
 
         var result = new Dictionary<TKey, TValue>(count);
-        var keys = SerializerRegistry.Get<TKey>();
-        var values = SerializerRegistry.Get<TValue>();
+        SerializerRegistry.TryGet<TKey>(out var keys);
+        SerializerRegistry.TryGet<TValue>(out var values);
 
         for (var index = 0; index < count; index++) {
             result[ReadElement(keys)] = ReadElement(values);
@@ -130,13 +142,48 @@ public ref partial struct SerializationReader {
         return true;
     }
 
-    T ReadElement<T>(DataSerializer<T> serializer) {
-        if (!typeof(T).IsValueType && ReadByte() == 0) {
-            return default!;
+    T ReadElement<T>(DataSerializer<T>? serializer) {
+        if (!typeof(T).IsValueType) {
+            if (ReadByte() == 0) {
+                return default!;
+            }
+
+            if (!typeof(T).IsSealed) {
+                return ReadDynamic<T>();
+            }
+        }
+
+        if (serializer is null) {
+            throw new SerializationException(
+                $"No serializer is registered for '{typeof(T)}'. Annotate the type with [DataContract] so "
+                + "one is generated, or register a hand-written one with SerializerRegistry.Register."
+            );
         }
 
         var value = default(T)!;
         serializer.Deserialize(ref this, ref value);
         return value;
+    }
+
+    T ReadDynamic<T>() {
+        var alias = ReadString()!;
+
+        if (!SerializerRegistry.TryGetByAlias(alias, out var serializer)) {
+            throw new SerializationException(
+                $"The data names type '{alias}', which nothing in this build claims. Either the assembly "
+                + "declaring it is not loaded, or it was renamed without a [DataAlias] recording the old name."
+            );
+        }
+
+        // Before deserialising, not after. The alias could name anything, and reading a Texture's
+        // bytes as a Mesh fails on whatever runs out first — which is how this check was originally
+        // written and why the error said "the data is truncated" about data that was intact.
+        if (!typeof(T).IsAssignableFrom(serializer.SerializedType)) {
+            throw new SerializationException(
+                $"The data names type '{alias}' ({serializer.SerializedType}) where a '{typeof(T)}' was expected."
+            );
+        }
+
+        return (T)serializer.DeserializeObject(ref this);
     }
 }

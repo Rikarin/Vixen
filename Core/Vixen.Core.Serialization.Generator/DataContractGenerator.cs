@@ -103,9 +103,12 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
             return Failed(type, qualified, "a generic type needs one serializer per instantiation, which the registry cannot express yet");
         }
 
-        if (type.TypeKind is TypeKind.Interface or TypeKind.Enum) {
+        if (type.TypeKind is TypeKind.Interface or TypeKind.Enum || type.IsAbstract) {
             // An enum is serialised inline by whatever holds it, and an interface has no members of
-            // its own to write; neither needs a serializer of its own.
+            // its own to write. An abstract class is never the run-time type of anything, so the
+            // polymorphic path always resolves to a concrete subclass — and that subclass's
+            // serializer already writes the abstract base's members, because members are collected
+            // from the base down. None of the three needs a serializer of its own.
             return default;
         }
 
@@ -139,6 +142,8 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
         return new(
             type.ContainingNamespace.IsGlobalNamespace ? string.Empty : type.ContainingNamespace.ToDisplayString(),
             type.Name,
+            AliasOf(type),
+            FormerAliasesOf(type),
             qualified,
             SafeName(qualified),
             type.IsValueType,
@@ -153,7 +158,7 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
     }
 
     static ContractModel Failed(INamedTypeSymbol type, string qualified, string reason) =>
-        new(string.Empty, type.Name, qualified, SafeName(qualified), false, false, 0, false, false, [], [], reason);
+        new(string.Empty, type.Name, type.Name, [], qualified, SafeName(qualified), false, false, 0, false, false, [], [], reason);
 
     static void CollectMembers(INamedTypeSymbol type, ImmutableArray<MemberModel>.Builder members, List<string> skipped) {
         // Base first, so that adding a member to a base type appends to the stream rather than
@@ -231,7 +236,12 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
             }
         }
 
-        var otherShape = type.IsValueType ? MemberShape.Value : MemberShape.Reference;
+        // A sealed class cannot have a subtype, so its declared type is its run-time type and the
+        // name in the stream would be a string spent to say what the reader already knows.
+        var otherShape = type.IsValueType
+            ? MemberShape.Value
+            : type.IsSealed ? MemberShape.Reference : MemberShape.Polymorphic;
+
         return new(name, qualified, otherShape, string.Empty, string.Empty, string.Empty, settable, order, sequence);
     }
 
@@ -321,6 +331,43 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
         }
 
         return 0;
+    }
+
+    static string AliasOf(INamedTypeSymbol type) {
+        foreach (var attribute in type.GetAttributes()) {
+            if (attribute.AttributeClass?.ToDisplayString() != ContractAttribute) {
+                continue;
+            }
+
+            foreach (var argument in attribute.NamedArguments) {
+                if (argument.Key == "Alias" && argument.Value.Value is string named && named.Length > 0) {
+                    return named;
+                }
+            }
+
+            if (attribute.ConstructorArguments.Length == 1 && attribute.ConstructorArguments[0].Value is string positional) {
+                return positional;
+            }
+        }
+
+        // The bare type name, not the namespace-qualified one. A type that moves between namespaces
+        // is the ordinary refactor; a type that shares a simple name with another contract is the
+        // rare one, and the registry rejects that collision by name at start-up.
+        return type.Name;
+    }
+
+    static ImmutableArray<string> FormerAliasesOf(INamedTypeSymbol type) {
+        var builder = ImmutableArray.CreateBuilder<string>();
+
+        foreach (var attribute in type.GetAttributes()) {
+            if (attribute.AttributeClass?.Name == "DataAliasAttribute"
+                && attribute.ConstructorArguments.Length == 1
+                && attribute.ConstructorArguments[0].Value is string former) {
+                builder.Add(former);
+            }
+        }
+
+        return builder.ToImmutable();
     }
 
     static int VersionOf(INamedTypeSymbol type) {
@@ -455,6 +502,7 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
             MemberShape.Dictionary => $"writer.WriteDictionary<{member.ElementType}, {member.SecondElementType}>(value.{member.Name});",
             MemberShape.Nullable => $"writer.WriteNullable<{member.ElementType}>(value.{member.Name});",
             MemberShape.Value => $"writer.WriteValue<{member.TypeName}>(value.{member.Name});",
+            MemberShape.Polymorphic => $"writer.WritePolymorphic<{member.TypeName}>(value.{member.Name});",
             _ => $"writer.WriteReference<{member.TypeName}>(value.{member.Name});"
         };
 
@@ -468,6 +516,7 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
             MemberShape.Dictionary => $"reader.ReadDictionary<{member.ElementType}, {member.SecondElementType}>()",
             MemberShape.Nullable => $"reader.ReadNullable<{member.ElementType}>()",
             MemberShape.Value => $"reader.ReadValue<{member.TypeName}>()",
+            MemberShape.Polymorphic => $"reader.ReadPolymorphic<{member.TypeName}>()",
             _ => $"reader.ReadReference<{member.TypeName}>()"
         };
 
@@ -489,7 +538,13 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
         source.AppendLine("        internal static void Initialize() {");
 
         foreach (var model in valid.OrderBy(model => model.SafeName, StringComparer.Ordinal)) {
-            source.AppendLine($"            global::Vixen.Core.Serialization.SerializerRegistry.Register(new {model.SafeName}Serializer());");
+            var former = model.FormerAliases.IsDefaultOrEmpty
+                ? string.Empty
+                : ", " + string.Join(", ", model.FormerAliases.Select(alias => $"\"{alias}\""));
+
+            source.AppendLine(
+                $"            global::Vixen.Core.Serialization.SerializerRegistry.Register(\"{model.Alias}\", new {model.SafeName}Serializer(){former});"
+            );
         }
 
         source.AppendLine("        }");
