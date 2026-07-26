@@ -1,0 +1,90 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Raven.Parsing;
+using Vixen.Raven.Syntax;
+using Vixen.Core.Syntax.Diagnostics;
+using Vixen.Core.Syntax.Text;
+using Xunit;
+
+namespace Tests;
+
+/// <summary>
+///     Doc 18 step 5, and the permanent oracle afterwards: the ANTLR front end and
+///     the hand-written parser must produce byte-identical trees over the corpus.
+///     The grammar stays as executable specification; divergence fails here rather
+///     than shipping.
+/// </summary>
+public class ParserDifferentialTests {
+    public static TheoryData<string> CorpusFiles() {
+        var data = new TheoryData<string>();
+        foreach (var file in CorpusLocator.All()) {
+            data.Add(file);
+        }
+
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(CorpusFiles))]
+    public void Trees_are_identical_over_the_corpus(string path) {
+        var text = File.ReadAllText(path);
+        AssertSameTree(text);
+    }
+
+    /// <summary>
+    ///     Snippets aimed at the grammar's ambiguities — cast versus parenthesized,
+    ///     generic name versus comparison, blank-line empty statements, attribute
+    ///     versus collection — where whatever the grammar's resolution is, the
+    ///     hand-written parser must reproduce it.
+    /// </summary>
+    [Theory]
+    // The cast alternative outranks the binary loop: `(a) + b` is a cast of `+b`.
+    [InlineData("val x = (a) + b\n")]
+    // `*` cannot start an expression, so this stays arithmetic on a parenthesized name.
+    [InlineData("val x = (a) * b\n")]
+    [InlineData("val x = (int)-1\n")]
+    // A generic name only wins when the angle brackets scan as a type list.
+    [InlineData("val x = a < b\n")]
+    [InlineData("val x = a < b > (c)\n")]
+    [InlineData("val x = G<int>(y)\n")]
+    // Blank lines and empty statements in every position.
+    [InlineData("if (a) {\n}\n")]
+    [InlineData("if (a) {\n}\n\n\nreturn\n")]
+    [InlineData("x = 1\n\n\ny = 2\n")]
+    [InlineData("while (a) {\n    x = 1\n}\n")]
+    // Attributes on statements, on their own line and inline.
+    [InlineData("[Unroll] for (i in 0 .. 4) {\n}\n")]
+    [InlineData("[Unroll]\nfor (i in 0 .. 4) {\n}\n")]
+    // Collection versus attribute at statement position.
+    [InlineData("val c = [1, 2, 3]\n")]
+    // Conditional, range and assignment nesting.
+    [InlineData("val x = a ? b : c ? d : e\n")]
+    [InlineData("x = y = 1\n")]
+    [InlineData("val r = 0 .. 4 .. 8\n")]
+    // Chained calls and accesses mixing qualified names with member access.
+    [InlineData("val x = a.b.c(d).e.f[0].g\n")]
+    [InlineData("val x = float4(1, 2, 3, 4).rgb\n")]
+    // `default` in both of its expression forms.
+    [InlineData("val x = default\n")]
+    [InlineData("val x = default(float4)\n")]
+    public void Trees_are_identical_for_the_ambiguity_probes(string body) {
+        var text = $"package A\n\nshader S {{\n    func M() {{\n        {body.Replace("\n", "\n        ").TrimEnd(' ')}    }}\n}}\n";
+        AssertSameTree(text);
+    }
+
+    static void AssertSameTree(string text) {
+        // The established front end is the oracle.
+        var oracle = SyntaxTree.ParseText(text);
+        Assert.Empty(oracle.Diagnostics);
+
+        var bag = new DiagnosticBag();
+        var source = SourceText.From(text);
+        var tokens = RavenLexer.Lex(text, bag, source, "diff.rvn");
+        var root = RavenParser.Parse(tokens, bag, source, "diff.rvn");
+
+        Assert.True(bag.IsEmpty, "Hand-written parser diagnostics:\n" + string.Join("\n", bag.Select(d => d.ToString())));
+        Assert.Equal(text, root.ToFullString());
+        Assert.Equal(SyntaxDumper.Dump(oracle.GetRoot()), SyntaxDumper.Dump(root));
+    }
+}

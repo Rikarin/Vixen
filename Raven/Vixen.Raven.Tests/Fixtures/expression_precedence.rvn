@@ -10,7 +10,6 @@ shader Precedence {
         val unary = -a * b + c++
         val conditional = a || b ? c : d
         val chained = x = y = a + b
-        val lambda = v => v * 2 + 1
         val range = a .. b + c
     }
 }

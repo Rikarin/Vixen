@@ -211,7 +211,13 @@ public enum SyntaxKind : ushort {
     WhitespaceTrivia,
     EndOfLineTrivia,
     SingleLineCommentTrivia,
-    MultiLineCommentTrivia
+    MultiLineCommentTrivia,
+
+    /// <summary>
+    ///     Source the parser skipped while recovering from an error, preserved as
+    ///     trivia so the tree still reproduces the file byte-for-byte.
+    /// </summary>
+    SkippedTokensTrivia
 }
 
 static class SyntaxKindExtensions {
