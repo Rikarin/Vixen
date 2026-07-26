@@ -5,6 +5,7 @@ using Vixen.Raven.Binding;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Symbols;
+using Vixen.Raven.Symbols.Source;
 using Vixen.Raven.Syntax;
 using Vixen.Core.Syntax;
 using Vixen.Core.Syntax.Diagnostics;
@@ -151,6 +152,7 @@ public sealed partial class Lowerer {
 
         var slots = new Dictionary<IrBindingKind, int>();
 
+        ReportInheritanceNotFlattened(type);
         DeclareCompileTimeConstants(type, shader);
 
         foreach (var member in type.GetMembers()) {
@@ -278,6 +280,8 @@ public sealed partial class Lowerer {
     void LowerStruct(NamedTypeSymbol type) {
         var structType = structs[type];
 
+        ReportInheritanceNotFlattened(type);
+
         List<IrField> fields = [];
         foreach (var member in type.GetMembers()) {
             if (member is not FieldSymbol { IsConst: false, IsCompose: false } field) {
@@ -293,6 +297,99 @@ public sealed partial class Lowerer {
         structType.SetFields(fields.ToArray());
 
         LowerMemberFunctions(type, module.Add);
+    }
+
+    /// <summary>
+    ///     Reports the parts of inheritance lowering does not implement: an inherited field, and an
+    ///     <c>override</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The symbol layer models inheritance correctly — member lookup walks the base chain,
+    ///         nearest first — so the binder accepts <c>shader Derived : Base</c> and resolves
+    ///         everything. Lowering is where it stops: a type contributes only its <em>declared</em>
+    ///         members, so a base's fields never become bindings or struct fields, and a base's
+    ///         method body is lowered once against its own type rather than once per derived shader.
+    ///     </para>
+    ///     <para>
+    ///         Three silent failures came out of that, which is why these are errors rather than gaps
+    ///         left open. An inherited uniform emitted GLSL naming an undeclared identifier (SPIR-V
+    ///         at least reported <c>RVN4002</c>); an inherited struct field lowered to the
+    ///         <em>wrong field</em>, because access is by index and a derived type's indices are its
+    ///         own; and an <c>override</c> was dropped, so a base's own call kept reaching the base's
+    ///         method. All three compiled without a word.
+    ///     </para>
+    ///     <para>
+    ///         Deliberately narrow rather than rejecting every base type. Inheritance used purely to
+    ///         supply a member — a stateless base whose method satisfies a protocol that a
+    ///         <c>compose</c> slot resolves against — lowers correctly today, and taking that down
+    ///         with the broken cases would remove a working mechanism. Fixing the rest means
+    ///         flattening: the derived type takes the base's fields into its own layout and its own
+    ///         copy of every inherited body, overrides winning. That is Stride's mixin resolver for a
+    ///         source-declared chain; until something needs it, <c>compose</c> plus a protocol is the
+    ///         composition that works. See docs/plan/07 § J.
+    ///     </para>
+    /// </remarks>
+    void ReportInheritanceNotFlattened(NamedTypeSymbol type) {
+        // A protocol base contributes no storage and no bodies, so it is unaffected — and it is
+        // what `compose` slots are typed against.
+        if (type.BaseType is not { } baseType || baseType.IsErrorType) {
+            return;
+        }
+
+        // A field on the base never reaches the derived layout. Reported on the base's storage
+        // rather than at each use, so it is said once and names the cause.
+        foreach (var inherited in InstanceFields(baseType)) {
+            diagnostics.Add(
+                LoweringDiagnostics.ConstructNotSupported,
+                LocationOf(type.DeclaringSyntax),
+                $"The field '{inherited.Name}' that '{type.Name}' inherits from "
+                + $"'{baseType.ToDisplayString()}' — a base type's storage is not flattened, so it"
+            );
+        }
+
+        // An override does not replace the base's member: the base's own calls were bound to the
+        // base's method, and its body is lowered once.
+        foreach (var member in type.GetMembers()) {
+            if (member is MethodSymbol { MethodKind: MethodKind.Ordinary } method
+                && DeclaresOverride(method)
+                && FindOverridden(baseType, method) is not null) {
+                diagnostics.Add(
+                    LoweringDiagnostics.ConstructNotSupported,
+                    LocationOf(method.DeclaringSyntax),
+                    $"'{method.Name}' overriding '{baseType.ToDisplayString()}.{method.Name}' — "
+                    + "the base's own calls still reach the base's method, so it"
+                );
+            }
+        }
+    }
+
+    /// <summary>Every field of a type and its bases that occupies storage.</summary>
+    static IEnumerable<FieldSymbol> InstanceFields(NamedTypeSymbol type) {
+        for (var current = type; current is not null; current = current.BaseType) {
+            foreach (var member in current.GetMembers()) {
+                if (member is FieldSymbol { IsConst: false, IsCompose: false, IsValueParameter: false } field) {
+                    yield return field;
+                }
+            }
+        }
+    }
+
+    static bool DeclaresOverride(MethodSymbol method) =>
+        method.DeclaringSyntax is MethodDeclarationSyntax declaration
+        && DeclarationFacts.Has(declaration.Modifiers, SyntaxKind.OverrideKeyword);
+
+    /// <summary>The base-chain method a declaration overrides, matched by name and arity.</summary>
+    static MethodSymbol? FindOverridden(NamedTypeSymbol baseType, MethodSymbol method) {
+        for (var current = baseType; current is not null; current = current.BaseType) {
+            foreach (var candidate in current.GetMembers(method.Name).OfType<MethodSymbol>()) {
+                if (candidate.Parameters.Count == method.Parameters.Count) {
+                    return candidate;
+                }
+            }
+        }
+
+        return null;
     }
 
     // --- Functions ---------------------------------------------------------

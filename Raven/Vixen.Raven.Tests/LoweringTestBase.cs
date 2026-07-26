@@ -50,11 +50,14 @@ public static class LoweringTestBase {
     }
 
     /// <summary>Lowers without verifying, for tests about lowering diagnostics alone.</summary>
-    public static IReadOnlyList<Diagnostic> LoweringDiagnosticsOf(string source) {
+    public static IReadOnlyList<Diagnostic> LoweringDiagnosticsOf(
+        string source,
+        ComposeBindings? compose = null
+    ) {
         var tree = SyntaxTree.ParseText(source, path: "Test.rvn");
         Assert.Empty(tree.Diagnostics);
 
-        var compilation = Compilation.Create("Test", tree);
+        var compilation = Compilation.Create("Test", PermutationValues.Empty, compose ?? ComposeBindings.Empty, [tree]);
         var bag = new DiagnosticBag();
         Lowerer.Lower(compilation, bag);
         return bag.ToArray();

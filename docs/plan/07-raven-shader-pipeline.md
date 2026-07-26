@@ -522,7 +522,8 @@ shader graph's generated-source span mapping.
 | 🟡 | **`&&` and `\|\|` do not short-circuit.** They lower to `logicalAnd`/`logicalOr`, which evaluate both operands, as `?:` lowers to `select`. Sound for the side-effect-free expressions shaders are made of; wrong the moment the right operand is a guard (`i < n && data[i] > 0`) |
 | 🟡 | **Stream I/O declarations between stages** — no `stream` keyword; interstage data passes as entry-point parameters and returns |
 | 🟡 | **`Buffer<T>`-style resources** — the built-in named types are not generic, so there are no storage buffers. This is also why `DescriptorType.StorageBuffer` and `LayoutRule.Std430` exist in the reflection with nothing that produces them |
-| 🟡 | **Kept in the language but not lowered** — local functions, user-defined and conversion operators, indexers, destructors, patterns, `switch`, tuples (`RVN3001`/`RVN3002`). Each *is* implementable on a GPU, which is why they survived the pruning pass; they are simply not lowered |
+| 🟡 | **Kept in the language but not lowered** — local functions, user-defined and conversion operators, indexers, patterns, `switch`, tuples (`RVN3001`/`RVN3002`). Each *is* implementable on a GPU, which is why they survived the pruning pass; they are simply not lowered |
+| 🟡 | **Inheritance is not flattened** — a base's fields never reach the derived layout and an `override` does not replace the base's member. Now `RVN3002` instead of three silent miscompilations; see the mixin section for what implementing it would cost |
 | ⚪ | **Flow analysis** — definite assignment and reachability. Dead-branch elimination landed in § B, but that is constant folding, not reachability |
 
 #### Backends
@@ -957,6 +958,56 @@ nobody should go voluntarily.
 
 Practical consequence: **shader-typed members and permutation constants are the two Raven semantic
 features on the engine's critical path.** Everything else in Raven's Phase 2 can land in any order.
+
+### ✅ `compose` is done. ⚠️ The inheritance row above was never implemented.
+
+`compose` works and is what the table says: the slot is protocol-typed, the binding resolves at
+compile time, and only the chosen implementation is emitted and called — no dispatch. That is the
+critical path, and it is closed.
+
+The parenthetical *"Raven's existing language shape (which already has `shader X : Base, Other`
+inheritance per the README)"* was **taken on trust and is false below the symbol layer.** Member
+lookup does walk the base chain, nearest first, so the binder accepts inheritance and resolves
+everything. Lowering never flattens it: a type contributes only its *declared* members. Three silent
+miscompilations came out of that, all now `RVN3002`:
+
+| Written | What happened |
+|---|---|
+| a derived shader reading an inherited uniform | GLSL naming an **undeclared identifier** — `glslc` rejects it, Raven said nothing. SPIR-V was the only backend that noticed, as `RVN4002` |
+| a derived struct reading an inherited field | **the wrong field.** Access lowers to an index and a derived type's indices are its own, so `d.a` emitted as `d.b` — type-correct, accepted by `glslc`, wrong |
+| `override func` on a derived shader | **dropped.** The base's call was bound to the base's method and its body lowered once, so `Compute()` kept returning the base's value |
+
+The checks are deliberately narrow. **Inheritance used only to supply a member still works** — a
+stateless base whose method satisfies a protocol that a `compose` slot resolves against lowers
+correctly, and `ComposeTests` covers it. Rejecting every base type would have taken a working
+mechanism down with the broken ones.
+
+#### Should Stride's mixin resolver be built?
+
+**Not now — and the third row is why the question is sharper than it looks.** Making `override` work
+*is* the mixin mechanism: a base's callers have to reach the derived member, which means flattening —
+the derived type taking the base's fields into its own layout and its own copy of every inherited
+body. There is no cheap version of it.
+
+Against building it now:
+
+- This document already calls Stride's resolver *"the least-understood, most-load-bearing part of
+  Stride."* Reimplementing the least-understood part of the system being replaced is a poor bet.
+- `compose` covers what mixins are mostly used for (`compose ComputeColor`) and covers it **better**:
+  the slot is protocol-typed, so the contract is checked. A mixin chain is untyped by construction —
+  any mixin may override anything.
+- Linearization makes errors non-local: a mixin list assembled in one file changes the meaning of a
+  method in a file that never mentions it. Everything else here has gone the other way — `compose`
+  resolved statically, one `BindingPlan`, a differential oracle.
+- **There is no consumer yet.** `Raven/Library` holds two example files. Building a resolver before
+  writing § F's library is designing against Stride's shape rather than against a requirement.
+
+The trigger to watch for: write § F's material library against `compose`, protocols and
+non-inheriting shaders. If something cannot be expressed — the likely candidate is a *chain* of
+surface-modifying features where each needs the previous one's result, which `compose` models
+awkwardly — revisit then, with a real example to design against. Note that the two halves of
+Stride's model are separable: **flattening a source-declared chain** is the smaller half and can land
+on its own, while **choosing the chain per effect** is the expensive half and may never be needed.
 
 ## Generated C# bindings
 
