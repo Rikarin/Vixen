@@ -37,11 +37,12 @@ public readonly record struct VulkanInstanceOptions() {
 /// <summary>The Vulkan instance, its layers, and the messenger that routes what they say.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Nothing in this file has run.</b> It was written against the specification and the
-///         Silk.NET bindings on a machine with no Vulkan loader, at the user's direction and with
-///         that stated. The pure parts of this backend — <see cref="VulkanFormats" /> and
-///         <see cref="AdapterSelection" /> — are tested; this is not, and should be treated as a
-///         first draft until it has met a driver.
+///         This was written against the specification and the Silk.NET bindings on a machine with no
+///         Vulkan loader, at the user's direction and with that stated, and has since met a real
+///         driver (MoltenVK on macOS, with the Khronos validation layer). The Vulkan calls turned out
+///         to be right; what was wrong was the layer <em>underneath</em> them — finding the loader,
+///         and then who owns it — which is what <see cref="VulkanLoader" /> and the ownership note in
+///         <see cref="Dispose" /> are about.
 ///     </para>
 ///     <para>
 ///         The portability handling is the part most likely to be wrong and most likely to be
@@ -55,6 +56,19 @@ public readonly record struct VulkanInstanceOptions() {
 public sealed unsafe class VulkanInstance : IDisposable {
     const string ValidationLayer = "VK_LAYER_KHRONOS_validation";
     const string PortabilityEnumeration = "VK_KHR_portability_enumeration";
+
+    /// <summary>The one callback delegate, kept alive for as long as the process is.</summary>
+    /// <remarks>
+    ///     Casting a method group to a <c>Pfn…</c> marshals a freshly created delegate to a function
+    ///     pointer and keeps no reference to it, so the thunk becomes collectable the moment the
+    ///     create-info struct is built — and the layers then call into freed memory the first time
+    ///     they have something to say. Static and readonly is the whole fix, and it has to be a field
+    ///     rather than a property so that the delegate itself, not just the pointer, is rooted.
+    /// </remarks>
+    static readonly DebugUtilsMessengerCallbackFunctionEXT Callback = Report;
+
+    static readonly PfnDebugUtilsMessengerCallbackEXT CallbackPointer =
+        (PfnDebugUtilsMessengerCallbackEXT)Callback;
 
     readonly ILogger? logger;
     readonly ExtDebugUtils? debugUtils;
@@ -94,6 +108,18 @@ public sealed unsafe class VulkanInstance : IDisposable {
 
     /// <summary>Whether the instance was created for a portability driver such as MoltenVK.</summary>
     public bool PortabilityEnabled { get; private init; }
+
+    /// <summary>
+    ///     Whether the validation layer is <em>installed</em>, which is a different question from
+    ///     whether it will load.
+    /// </summary>
+    /// <remarks>
+    ///     The gap between the two is the whole reason <see cref="LayerLoadHint" /> exists, and it is
+    ///     what lets the test suite tell "this machine has no layers" (skip) apart from "this machine
+    ///     has layers and they are not working" (fail, loudly, with the fix).
+    /// </remarks>
+    internal static bool ValidationLayerInstalled =>
+        VulkanLoader.TryLoad(out var api, out _) && HasLayer(api, ValidationLayer);
 
     /// <summary>Creates an instance, or explains why it could not.</summary>
     /// <param name="options">What to create.</param>
@@ -262,7 +288,17 @@ public sealed unsafe class VulkanInstance : IDisposable {
         }
 
         Api.DestroyInstance(handle, null);
-        Api.Dispose();
+
+        // The instance is ours; the API is not. VulkanLoader loads libvulkan once and hands the same
+        // Vk to every instance in the process, and Vk.Dispose() unloads the library — so disposing it
+        // here leaves every cached entry point in that Vk pointing into unmapped memory, and the next
+        // instance created jumps to a stale address and takes the process with it.
+        //
+        // This was latent for as long as the loader had to fall back to probing explicit paths, whose
+        // native context does not own the handle and whose Dispose does nothing. The moment
+        // DYLD_LIBRARY_PATH made Vk.GetApi() succeed, the owning context came back and the second
+        // instance in the process started segfaulting — a good reminder that "it passes" and "it is
+        // correct" are different claims.
         handle = default;
     }
 
@@ -284,7 +320,7 @@ public sealed unsafe class VulkanInstance : IDisposable {
         MessageType = DebugUtilsMessageTypeFlagsEXT.GeneralBitExt
             | DebugUtilsMessageTypeFlagsEXT.ValidationBitExt
             | DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt,
-        PfnUserCallback = (PfnDebugUtilsMessengerCallbackEXT)Report
+        PfnUserCallback = CallbackPointer
     };
 
     static uint Report(

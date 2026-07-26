@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!--
+      The build project deliberately opts out of the repository policy: it is a script, not a
+      shipped assembly, and Nuke's own API produces warnings the engine's rules would reject.
+    -->
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <RootNamespace></RootNamespace>
+        <NoWarn>$(NoWarn);CS0649;CS0169;CA1050;CA1707;CA2007;CA1861;CA1859;CA1852;CS1591</NoWarn>
+        <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        <IsPackable>false</IsPackable>
+        <NukeRootDirectory>..</NukeRootDirectory>
+        <NukeScriptDirectory>..</NukeScriptDirectory>
+        <NukeTelemetryVersion>1</NukeTelemetryVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Nuke.Common" />
+    </ItemGroup>
+
+</Project>

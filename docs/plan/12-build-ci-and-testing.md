@@ -36,7 +36,7 @@ Clean ──► Restore ──► Compile ──┬─► Test ─────�
 | `CheckArchitecture` | walks the project reference graph and asserts the layer rules from [00](00-vision-and-principles.md) — most importantly that `Vixen.Ui` does not reference `Vixen.Engine`, and that no `Core/*` project references a `Platform/*` implementation. Also enforces **ADR-002**: fails if `Mono.Cecil`, `dnlib`, `ILRepack`, `Fody`, or any IL-rewriting `AfterCompile`/`AfterBuild` target appears in the restore graph or the evaluated MSBuild target graph of any project. And **ADR-015**: fails if `SixLabors.ImageSharp` reaches any runtime (non-editor, non-tooling) assembly, and if any `Silk.NET.Vulkan` type appears in `Vixen.Graphics`' public surface (ADR-001, keeping D3D12 mappable). |
 | `CheckApi` | `Tools/Vixen.ApiCheck` diffs the public surface against `PublicAPI.Shipped.txt`; unapproved additions fail |
 | `CheckFormat` | `dotnet format style` and `dotnet format analyzers`, both `--verify-no-changes`. **Not `whitespace`**: the repository indents a lambda body passed as an argument one level further than `dotnet format` does — uniformly, in every file — and no `.editorconfig` key expresses that, so the whitespace pass reports ~900 violations against code that is entirely self-consistent. The brace and spacing rules the config *can* express are written down in `.editorconfig § Layout`, which took that number down from roughly forty thousand. The narrowing is real and reversible: the alternative is to reformat twenty-eight files against the tool that actually formats them. |
-| `Test` | `dotnet test` with xunit v3, collecting coverage; enforces per-project coverage floors and the allocation gates |
+| `Test` | `dotnet test` with xunit v3, collecting coverage; enforces per-project coverage floors and the allocation gates. Passes `.runsettings`, which exists solely to set environment that has to be in place *before* the process starts (see below) |
 | `GoldenImages` | runs the rendering fixture suite on lavapipe (Linux) or the local backend; writes diffs into `artifacts/golden-diff/` and uploads them as CI artefacts on failure |
 | `AotSmoke` | `PublishAot` + `PublishTrimmed` of `Samples/01` and `Samples/02` per RID; **any IL2xxx/IL3xxx warning fails** |
 | `Benchmark` | BenchmarkDotNet over `Benchmarks/*`; compares against a committed baseline JSON; fails on > 10 % regression or any allocation-count increase |
@@ -132,6 +132,19 @@ files.
 - Deterministic: no `DateTime.Now`, no unseeded random, no `Thread.Sleep`, no real network, no ambient
   filesystem (an in-memory `IFileProvider` is the default).
 - Every test project runs green with `VIXEN_JOB_WORKERS=0` (single-threaded) as a separate CI leg.
+- **Environment a test needs before its own process starts belongs in `.runsettings`, never in a
+  shell profile.** Today that is exactly one variable — `DYLD_LIBRARY_PATH`, which macOS's dynamic
+  linker reads once at launch and which is what makes the Vulkan validation layer load at all
+  ([10](10-platforms.md) § macOS). Putting it in a developer's `~/.zshenv` would make "are the
+  validation layers on?" depend on which terminal the suite happened to be launched from, and answer
+  *no* in CI and in the IDE without saying so. The corresponding test asserts the layer is *on*
+  wherever it is installed, so a machine that quietly loses validation fails rather than passes.
+- **Each test project writes its own `.trx`,** named after the project (`VSTestLogger` in
+  `Directory.Build.props`). Nuke passes a results *directory* and no filename: a fixed `LogFileName`
+  points all eighteen projects at one path, they run concurrently, and the artefact CI publishes is
+  whichever finished last. The build still fails on a red test — the exit code does not go through
+  the file — but the report a human opens to find out *which* test is the entire point of producing
+  one.
 
 ### Coverage of the pyramid
 

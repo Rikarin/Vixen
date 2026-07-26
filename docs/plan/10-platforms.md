@@ -120,6 +120,18 @@ bootstrap on Web). Game/app code lives in a platform-neutral library that all he
   | **Development** | Bundle the **Vulkan Loader + validation layers** from the Vulkan SDK alongside MoltenVK as an ICD. Requires `VK_ICD_FILENAMES`/`VK_DRIVER_FILES` set before `vkCreateInstance`, **and** `VK_KHR_portability_enumeration` + the `VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR` flag — without that bit the Loader will not return MoltenVK's `VkPhysicalDevice` at all, which presents as "no Vulkan devices found" on a machine that works fine. |
   The instance-creation code paths differ only by that flag and the layer list, so this is a
   configuration switch in `Vixen.Graphics.Vulkan`, not two code paths.
+- **Measured when the development flavour first met a real Homebrew install** (2026-07-26, Apple
+  silicon, `vulkan-loader` + `molten-vk` + `vulkan-validationlayers`). Three separate failures, none
+  of which were Vulkan problems, all of which present as Vulkan problems:
+  | Symptom | Cause | Where it is handled |
+  |---|---|---|
+  | `DllNotFoundException` from `Vk.GetApi()` on a machine where `vulkaninfo` works | `/opt/homebrew/lib` is not on dyld's default search path (`/usr/local/lib`, `/usr/lib`) | `VulkanLoader` probes `VULKAN_SDK` and the known prefixes explicitly |
+  | `vkCreateInstance` → `ERROR_LAYER_NOT_PRESENT` for a layer `vkEnumerateInstanceLayerProperties` had just listed | Homebrew's layer manifest names its library by bare filename, which the Loader resolves through `dlopen` — and that has the same search path | `.runsettings` sets `DYLD_LIBRARY_PATH` for test runs; the backend also retries without the layer and logs event 2002 rather than refusing to start |
+  | Second `VulkanInstance` in a process segfaults | `Dispose` also disposed the shared `Vk`, unloading `libvulkan` under every cached entry point | `VulkanInstance.Dispose` no longer disposes what it does not own; asserted by `AnInstanceCanBeCreatedAfterOneIsDisposed` |
+  Homebrew's own caveat suggests `VK_LAYER_PATH`; that was measured and **does not help**, because
+  `VK_LAYER_PATH` locates the *manifest* and the manifest was never missing. `DYLD_LIBRARY_PATH` is
+  the only lever, and dyld reads it once at process start — so it has to be set by whatever launches
+  the process, never from managed code. The LunarG SDK writes absolute paths and has none of this.
 - Constraints to design around, all capability-gated in the RHI (full list in ADR-011): descriptor
   indexing requires Metal argument buffers enabled and is Tier-1-limited; buffer-device-address needs
   Tier 2; **primitive restart cannot be disabled**; **pipeline-statistics queries are unsupported**;

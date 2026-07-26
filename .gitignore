@@ -12,7 +12,12 @@ artifacts/
 # beside them was invisible to git.
 Library/
 !Raven/Library/
-Build/
+
+# `Build/` used to be listed here, and it made the entire Nuke build project
+# invisible to git: macOS and Windows match ignore patterns case-insensitively, so
+# it swallowed `build/` — Build.cs, the architecture rules, _build.csproj, all of
+# it. `build.sh` was tracked; the project it runs was not. Compiled output is
+# already covered by [Bb]in/ and [Oo]bj/ above, so the line was buying nothing.
 
 # ANTLR: the IDE plugin's scratch dir, and the .tokens/.interp vocabularies.
 # The build regenerates these into obj/ from the .g4 files; a committed copy only
