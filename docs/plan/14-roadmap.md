@@ -113,7 +113,11 @@ plumbing that everything else stands on.
   migration, determinism, truncation, deduplication and corruption. **Deferred with reasons in
   [03](03-core-foundation.md):** content references (Phase 3) and bundle-packing *policy*, which
   belongs to the content build in [08](08-asset-pipeline-and-addressables.md).
-- `Vixen.Core.Reflection` generator + `[ModuleInitializer]` registration.
+- ✅ `Vixen.Core.Reflection` generator + `[ModuleInitializer]` registration — `TypeDescriptor` and
+  `MemberDescriptor` with generated accessor lambdas, trait flags, inspector presentation, factories,
+  and queries by type, name, trait and base type. 16 tests. **Deferred with reasons in
+  [03](03-core-foundation.md):** `[Behavior]`, whose attribute arrives with the engine loop in
+  Phase 2, and generic types.
 - `Vixen.Platform` contracts; `Vixen.Platform.Desktop` on SDL3; Windows/Linux/macOS specialisations;
   `Vixen.Platform.Headless` (no window/GPU/audio) so the no-display path is real from day one rather
   than retrofitted for the server variant in Phase 9 ([17](17-app-heads-and-shipping.md)).

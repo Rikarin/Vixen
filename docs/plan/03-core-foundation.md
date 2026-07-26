@@ -315,6 +315,27 @@ The AOT-safe replacement for `Type`-driven discovery.
 - Editor code that genuinely needs open-ended reflection (plugin loading, third-party assemblies) uses
   `System.Reflection` freely — it is editor-only and JIT-hosted.
 
+> ✅ **Built.** `Core/Vixen.Core.Reflection/`, its generator and 16 tests are live. What differs:
+>
+> - **Accessors are generated lambdas, and they box.** A member reads as
+>   `static instance => (object)((Foo)instance).X`. That is what makes an inspector work on iOS, and
+>   the boxing is why this is a tooling and boot-time API rather than a frame-loop one — which is
+>   written down rather than left to be discovered. A struct's setter goes through
+>   `Unsafe.Unbox<T>`, because assigning through a cast modifies a temporary copy and silently does
+>   nothing.
+> - **Editor visibility and serialisation are recorded separately.** `[DataMemberIgnore]` and
+>   `[EditorVisible(false)]` answer different questions, and conflating them is how a cache field
+>   ends up in the inspector.
+> - **The serializer is resolved on demand.** Two module initializers fill two registries in an order
+>   nobody chose; looking it up at the moment of asking removes the question.
+> - **`[Behavior]` is not handled**, because the attribute does not exist until the engine loop in
+>   Phase 2. Generic types get a warning and no descriptor: a descriptor names one closed type.
+>
+> Two defects in the *serialization* generator surfaced only once it was pointed at these richer
+> contracts, and both are fixed with regression tests: a computed get-only property was treated as
+> data that had to round-trip, and a type whose only constructor takes arguments had `new()` emitted
+> for it anyway.
+
 ## `Vixen.Core.Syntax`
 
 Extracted from Raven (see [02](02-repository-layout.md)). Provides:

@@ -129,14 +129,26 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
 
         var constructorParameters = MatchConstructor(type, ordered);
 
-        if (!ordered.All(member => member.IsSettable) && constructorParameters.IsDefault) {
-            var unsettable = string.Join(", ", ordered.Where(member => !member.IsSettable).Select(member => member.Name));
+        if (constructorParameters.IsDefault) {
+            // Nothing takes the members as they stand. Anything that cannot be assigned cannot be
+            // restored, and the overwhelmingly common example is a computed property, which was
+            // never data — writing a derived value that can never be read back would be worse than
+            // dropping it.
+            //
+            // The match is retried afterwards rather than only before, because the two orders answer
+            // two different shapes: a positional record's members are *all* unsettable and are
+            // exactly the constructor's parameters, while a type with a computed property and a
+            // non-default constructor only matches once the computed one is out of the way.
+            ordered = ordered.RemoveAll(member => !member.IsSettable);
+            constructorParameters = MatchConstructor(type, ordered);
 
-            return Failed(
-                type,
-                qualified,
-                $"it has no accessible constructor whose parameters match its members, and these cannot be assigned: {unsettable}"
-            );
+            if (constructorParameters.IsDefault && !parameterless) {
+                return Failed(
+                    type,
+                    qualified,
+                    "it has neither a parameterless constructor nor one whose parameters match its members"
+                );
+            }
         }
 
         return new(
@@ -463,7 +475,11 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
         source.AppendLine("            }");
         source.AppendLine();
 
-        var useConstructor = !model.ConstructorParameters.IsEmpty && !model.Members.All(member => member.IsSettable);
+        // Assignment where it is possible, because it lets an existing instance be filled rather
+        // than replaced. The constructor is for the two cases where it is not: a member with no
+        // setter — a positional record — and a type with no parameterless constructor.
+        var useConstructor = !model.ConstructorParameters.IsEmpty
+            && (!model.Members.All(member => member.IsSettable) || !model.HasParameterlessConstructor);
 
         if (useConstructor) {
             foreach (var member in model.Members) {

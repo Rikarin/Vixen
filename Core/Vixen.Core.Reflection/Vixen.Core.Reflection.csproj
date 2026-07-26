@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Core.Reflection</RootNamespace>
+        <Description>
+            The AOT-safe replacement for Type-driven discovery: every annotated type in an assembly,
+            its members, its attribute values and its factory, emitted at compile time and registered
+            before any of the assembly's code runs.
+        </Description>
+        <PackageTags>reflection;type-registry;aot;source-generator;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <!-- Same packaging as Vixen.Core.Serialization: the generator travels inside the package. -->
+    <PropertyGroup>
+        <TargetsForTfmSpecificContentInPackage>
+            $(TargetsForTfmSpecificContentInPackage);PackReflectionGenerator
+        </TargetsForTfmSpecificContentInPackage>
+    </PropertyGroup>
+
+    <Target Name="PackReflectionGenerator">
+        <MSBuild Projects="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                 Targets="Build"
+                 Properties="Configuration=$(Configuration)"
+                 RemoveProperties="TargetFramework">
+            <Output TaskParameter="TargetOutputs" ItemName="ReflectionGeneratorAssembly" />
+        </MSBuild>
+
+        <ItemGroup>
+            <TfmSpecificPackageFile Include="@(ReflectionGeneratorAssembly)" PackagePath="analyzers/dotnet/cs" />
+        </ItemGroup>
+    </Target>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Core.Reflection.Tests" />
+    </ItemGroup>
+
+</Project>

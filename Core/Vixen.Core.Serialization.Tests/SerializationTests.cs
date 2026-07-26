@@ -430,6 +430,28 @@ public class SerializationTests {
         Assert.Equal(numbers, result.Numbers);
     }
 
+    [Fact]
+    public void AComputedPropertyIsNotData() {
+        var value = new Computed { Width = 3, Height = 4 };
+        var result = RoundTrip(value);
+
+        Assert.Equal(3, result.Width);
+        Assert.Equal(4, result.Height);
+        Assert.Equal(12, result.Area);
+
+        // Two members and a two-byte header. `Area` has no setter, so writing it would produce a
+        // derived value that can never be read back — it was never state.
+        Assert.Equal(2 + 4 + 4, Serializer.ToBytes(value).Length);
+    }
+
+    [Fact]
+    public void ATypeWithOnlyANonDefaultConstructorGoesThroughIt() {
+        var result = RoundTrip(new Reading(250));
+
+        Assert.Equal(250, result.Raw);
+        Assert.Equal(2.5, result.Scaled);
+    }
+
     static T RoundTrip<T>(T value) => Serializer.Read<T>(Serializer.ToBytes(value));
 
     sealed class Unregistered {

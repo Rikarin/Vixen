@@ -54,6 +54,9 @@
     <Project Path="Core/Vixen.Core.Serialization/Vixen.Core.Serialization.csproj" />
     <Project Path="Core/Vixen.Core.Serialization.Generator/Vixen.Core.Serialization.Generator.csproj" />
     <Project Path="Core/Vixen.Core.Serialization.Tests/Vixen.Core.Serialization.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Reflection/Vixen.Core.Reflection.csproj" />
+    <Project Path="Core/Vixen.Core.Reflection.Generator/Vixen.Core.Reflection.Generator.csproj" />
+    <Project Path="Core/Vixen.Core.Reflection.Tests/Vixen.Core.Reflection.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Threading/Vixen.Core.Threading.csproj" />
     <Project Path="Core/Vixen.Core.Threading.Tests/Vixen.Core.Threading.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Syntax/Vixen.Core.Syntax.csproj" />

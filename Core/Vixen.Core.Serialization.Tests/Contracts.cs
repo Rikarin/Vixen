@@ -123,3 +123,24 @@ public sealed class MigratedClass {
         return true;
     }
 }
+
+/// <summary>
+///     A computed property alongside real state, and a constructor that is not parameterless. Both
+///     were generator bugs: the computed property was treated as data that had to round-trip, and the
+///     missing default constructor was emitted as <c>new()</c> anyway.
+/// </summary>
+[DataContract]
+public sealed class Reading {
+    public Reading(int raw) => Raw = raw;
+
+    public int Raw { get; set; }
+
+    public double Scaled => Raw / 100d;
+}
+
+[DataContract]
+public sealed class Computed {
+    public int Width { get; set; }
+    public int Height { get; set; }
+    public int Area => Width * Height;
+}
