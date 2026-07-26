@@ -57,8 +57,15 @@ public sealed class HeadlessPlatform : IPlatform {
     bool disposed;
 
     /// <summary>Creates the platform.</summary>
+        public HeadlessPlatform() : this(new HeadlessPlatformOptions()) { }
+
+    /// <summary>Creates the platform.</summary>
     /// <param name="options">What to build it out of.</param>
-    public HeadlessPlatform(HeadlessPlatformOptions options = default) {
+    /// <remarks>
+    ///     Two overloads rather than one with <c>= default</c>: a record struct's property
+    ///     initialisers do not run for <c>default</c>.
+    /// </remarks>
+    public HeadlessPlatform(HeadlessPlatformOptions options) {
         var organisation = string.IsNullOrWhiteSpace(options.Organisation) ? "Vixen" : options.Organisation;
         var application = string.IsNullOrWhiteSpace(options.Application) ? "Headless" : options.Application;
 

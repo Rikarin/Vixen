@@ -79,6 +79,7 @@ sealed class NullSubmitter(QueueKind kind, CommandRecorder? recorder) : ICommand
 /// <summary>A swapchain that presents to nothing.</summary>
 sealed class NullSwapChain(SwapChainDescription description, NullDevice device) : ISwapChain {
     readonly TextureViewHandle[] views = new TextureViewHandle[Math.Max(1, description.ImageCount)];
+    readonly TextureHandle[] textures = new TextureHandle[Math.Max(1, description.ImageCount)];
 
     int index = -1;
     bool disposed;
@@ -90,6 +91,9 @@ sealed class NullSwapChain(SwapChainDescription description, NullDevice device) 
     public PresentMode PresentMode { get; } = description.PresentMode;
 
     public int ImageCount => views.Length;
+
+    /// <inheritdoc />
+    public TextureHandle CurrentTexture => index >= 0 ? textures[index] : TextureHandle.Null;
 
     /// <summary>How many times <see cref="Present" /> has been called.</summary>
     public int PresentCount { get; private set; }
@@ -113,7 +117,7 @@ sealed class NullSwapChain(SwapChainDescription description, NullDevice device) 
         index = (index + 1) % views.Length;
 
         if (!views[index].IsValid) {
-            views[index] = device.CreateBackBufferView(Format, Size);
+            (textures[index], views[index]) = device.CreateBackBuffer(Format, Size);
         }
 
         view = views[index];
@@ -147,7 +151,9 @@ sealed class NullSwapChain(SwapChainDescription description, NullDevice device) 
         for (var slot = 0; slot < views.Length; slot++) {
             if (views[slot].IsValid) {
                 device.Destroy(views[slot]);
+                device.Destroy(textures[slot]);
                 views[slot] = TextureViewHandle.Null;
+                textures[slot] = TextureHandle.Null;
             }
         }
 
@@ -187,10 +193,18 @@ public sealed class NullDevice : IGraphicsDevice {
     bool disposed;
 
     /// <summary>Creates the device.</summary>
+        public NullDevice() : this(new NullDeviceOptions()) { }
+
+    /// <summary>Creates the device.</summary>
     /// <param name="options">What to build it out of.</param>
-    public NullDevice(NullDeviceOptions options = default) {
+    /// <remarks>
+    ///     Two overloads rather than one with <c>= default</c>: a record struct's property
+    ///     initialisers do not run for <c>default</c>, which would have made the documented two
+    ///     frames in flight arrive as zero.
+    /// </remarks>
+    public NullDevice(NullDeviceOptions options) {
         Features = options.Features ?? Everything;
-        FramesInFlight = Math.Max(1, options.FramesInFlight == 0 ? 2 : options.FramesInFlight);
+        FramesInFlight = Math.Max(1, options.FramesInFlight);
         Recorder = options.Record ? new CommandRecorder() : null;
         Adapter = new NullAdapter(Features);
 
@@ -557,12 +571,12 @@ public sealed class NullDevice : IGraphicsDevice {
         }
     }
 
-    internal TextureViewHandle CreateBackBufferView(PixelFormat format, Int2 size) {
+    internal (TextureHandle Texture, TextureViewHandle View) CreateBackBuffer(PixelFormat format, Int2 size) {
         var texture = CreateTexture(
             new(format, Math.Max(1, size.X), Math.Max(1, size.Y), TextureUsage.ColourTarget, Name: "SwapChain")
         );
 
-        return CreateTextureView(texture);
+        return (texture, CreateTextureView(texture));
     }
 
     sealed class NullBuffer(BufferDescription description) : GpuBuffer {

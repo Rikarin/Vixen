@@ -28,6 +28,7 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
     readonly KhrSwapchain extension;
     readonly SurfaceKHR surface;
     readonly VkSemaphore[] acquired;
+    VkSemaphore[] presentable = [];
 
     SwapchainKHR handle;
     TextureHandle[] images = [];
@@ -83,8 +84,9 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
     /// <inheritdoc />
     public int ImageCount => images.Length;
 
-    /// <summary>The texture behind the image currently acquired.</summary>
-    public TextureHandle CurrentTexture => images[currentImage];
+    /// <inheritdoc />
+    public TextureHandle CurrentTexture =>
+        imageAcquired && currentImage < images.Length ? images[currentImage] : TextureHandle.Null;
 
     /// <inheritdoc />
     public SwapChainStatus AcquireNextImage(out TextureViewHandle view) {
@@ -138,20 +140,47 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
         }
 
         imageAcquired = false;
-        var wait = device.TakePresentWait();
         var swapchain = handle;
         var index = currentImage;
+        var wait = presentable[index];
+
+        // One empty submission whose only job is to move the frame's completion onto a semaphore
+        // that belongs to *this image*.
+        //
+        // The frame's own signal semaphore cannot serve: it comes from a ring the device recycles on
+        // its frame fence, and that fence knows when the submission finished, not when the
+        // presentation engine finished reading. A semaphore handed to vkQueuePresentKHR is consumed
+        // asynchronously and is not free just because our frame retired — which validation reports
+        // as "signaled ... but it may still be in use", two frames later and nowhere near the cause.
+        //
+        // A per-image semaphore has the property that matters: vkAcquireNextImage returning this
+        // image is itself proof that its previous present completed, so reuse is safe by
+        // construction rather than by argument.
+        var previous = device.TakePresentWait();
+        var queue = device.QueueFor(QueueKind.Graphics).Handle;
+        var stage = PipelineStageFlags.AllCommandsBit;
+
+        var handover = new SubmitInfo {
+            SType = StructureType.SubmitInfo,
+            WaitSemaphoreCount = previous.Handle == 0 ? 0u : 1u,
+            PWaitSemaphores = previous.Handle == 0 ? null : &previous,
+            PWaitDstStageMask = previous.Handle == 0 ? null : &stage,
+            SignalSemaphoreCount = 1,
+            PSignalSemaphores = &wait
+        };
+
+        VulkanDevice.Check(device.Api.QueueSubmit(queue, 1, &handover, default), "vkQueueSubmit");
 
         var info = new PresentInfoKHR {
             SType = StructureType.PresentInfoKhr,
-            WaitSemaphoreCount = wait.Handle == 0 ? 0u : 1u,
-            PWaitSemaphores = wait.Handle == 0 ? null : &wait,
+            WaitSemaphoreCount = 1,
+            PWaitSemaphores = &wait,
             SwapchainCount = 1,
             PSwapchains = &swapchain,
             PImageIndices = &index
         };
 
-        return Translate(extension.QueuePresent(device.QueueFor(QueueKind.Graphics).Handle, &info));
+        return Translate(extension.QueuePresent(queue, &info));
     }
 
     /// <inheritdoc />
@@ -355,6 +384,18 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
 
         images = new TextureHandle[imageCount];
         imageViews = new TextureViewHandle[imageCount];
+        presentable = new VkSemaphore[imageCount];
+
+        for (var index = 0u; index < imageCount; index++) {
+            var semaphore = new SemaphoreCreateInfo { SType = StructureType.SemaphoreCreateInfo };
+
+            fixed (VkSemaphore* target = &presentable[index]) {
+                VulkanDevice.Check(
+                    api.CreateSemaphore(device.Handle, &semaphore, null, target),
+                    "vkCreateSemaphore"
+                );
+            }
+        }
 
         var description = new TextureDescription(
             Format,
@@ -381,6 +422,12 @@ sealed unsafe class VulkanSwapChain : ISwapChain {
 
         imageViews = [];
         images = [];
+
+        foreach (var semaphore in presentable) {
+            device.Api.DestroySemaphore(device.Handle, semaphore, null);
+        }
+
+        presentable = [];
 
         if (handle.Handle != 0) {
             extension.DestroySwapchain(device.Handle, handle, null);

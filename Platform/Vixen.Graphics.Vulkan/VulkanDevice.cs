@@ -332,8 +332,14 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             retiring[slot].Clear();
             semaphoreCursor = slot * (semaphores.Length / FramesInFlight);
             lastSignalled = default;
-            presentExpected = false;
-            pendingWaits.Clear();
+
+            // pendingWaits and presentExpected are deliberately *not* cleared. A pending wait is a
+            // promise that a signalled semaphore will be waited on, and dropping one is never right:
+            // the semaphore stays signalled, the next acquire that reuses it is invalid, and the
+            // presentation engine is handed an image nothing waited for. Clearing them here made the
+            // conventional order — acquire the image, then begin the frame — silently unsynchronised,
+            // which is precisely the bug Samples/01 found the first time it presented to a real
+            // window. Honouring a wait late is correct; discarding it is not.
 
             foreach (var pool in commandPools) {
                 if (pool.Key.Frame == slot) {

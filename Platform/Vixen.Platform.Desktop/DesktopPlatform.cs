@@ -86,10 +86,19 @@ public sealed unsafe class DesktopPlatform : IPlatform {
     bool disposed;
 
     /// <summary>Starts SDL and builds the platform.</summary>
-    /// <param name="options">What to build it out of.</param>
-    /// <exception cref="PlatformNotSupportedException">SDL is not installed, or refused to
+        /// <exception cref="PlatformNotSupportedException">SDL is not installed, or refused to
     /// start.</exception>
-    public DesktopPlatform(DesktopPlatformOptions options = default) {
+    public DesktopPlatform() : this(new DesktopPlatformOptions()) { }
+
+    /// <summary>Creates the platform.</summary>
+    /// <param name="options">What to build it out of.</param>
+    /// <remarks>
+    ///     Two overloads rather than one with <c>= default</c>. A record struct's property
+    ///     initialisers do not run for <c>default</c>, so an omitted argument would arrive with every
+    ///     documented default replaced by its type's zero — and the only defence is to restate each
+    ///     default at the point of use, where it drifts from the one it is meant to mirror.
+    /// </remarks>
+    public DesktopPlatform(DesktopPlatformOptions options) {
         var organisation = string.IsNullOrWhiteSpace(options.Organisation) ? "Vixen" : options.Organisation;
         var application = string.IsNullOrWhiteSpace(options.Application) ? "Vixen" : options.Application;
 

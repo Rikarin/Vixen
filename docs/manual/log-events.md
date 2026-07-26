@@ -38,6 +38,7 @@ identifies its origin on sight.
 | 11 000 – 11 999 | `Vixen.Editor.*` | reserved |
 | 12 000 – 12 999 | `Vixen.Raven` — the compiler's own diagnostics are `RVNxxxx`, not these | reserved |
 | 13 000 – 13 999 | `Vixen.App` — the host and the app heads | **in use** |
+| 14 000 – 14 999 | `Samples/*` — the samples, which use the same generated call sites the engine does | **in use** |
 
 ## Allocated ids
 
@@ -70,3 +71,16 @@ deadline.
     |---|---|---|---|
     | 2001 | Warning | `Effect {EffectName} permutation {Key} fell back after {Ms} ms` | 0.1.0 |
 -->
+
+### 14 000 — Samples
+
+A sample uses the same generated call sites as the engine. It would be easy to argue that a demo may
+call `LogInformation` directly — and then the one place a reader looks to learn how to write against
+Vixen would show them the thing the analyzer forbids everywhere else.
+
+| Id | Level | Message | Since |
+|---|---|---|---|
+| 14001 | Information | `Running on {Adapter} ({Kind}), presenting {Format} at {Width}×{Height} with {Images} images.` | 0.1.0 |
+| 14002 | Error | `There is no window to present to.` — `Samples/01` needs a real display | 0.1.0 |
+| 14003 | Error | `The device was lost.` — recreation arrives in Phase 2 | 0.1.0 |
+| 14004 | Information | `The swapchain was out of date and has been rebuilt at {Width}×{Height}.` | 0.1.0 |

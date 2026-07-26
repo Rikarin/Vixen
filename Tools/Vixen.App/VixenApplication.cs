@@ -58,7 +58,10 @@ public sealed class VixenApplication : IDisposable {
     public GameTime Time => time;
 
     /// <summary>Whether the loop has been asked to stop.</summary>
-    public bool IsStopping => stopped || Services.Platform.Lifecycle.IsQuitRequested;
+    public bool IsStopping =>
+        stopped
+        || Services.Platform.Lifecycle.IsQuitRequested
+        || (Services.Config.MaxFrames > 0 && time.FrameCount >= Services.Config.MaxFrames);
 
     /// <summary>Runs until the application quits.</summary>
     /// <returns>A process exit code: <c>0</c> for a clean run, <c>1</c> for a crash.</returns>

@@ -233,7 +233,21 @@ plumbing that everything else stands on.
   runs on one queue.
 - **MoltenVK bring-up on macOS** — do it here, not later; it shapes the Vulkan backend's capability
   handling.
-- `Samples/01-HelloTriangle` on Windows, Linux, macOS.
+- 🟡 `Samples/01-HelloTriangle` — the whole stack at once: the app host opens a window, the desktop
+  platform hands over its native surface, the Vulkan backend builds a device and swapchain from it,
+  and the render graph places the barriers. **Verified on macOS**, presenting Bgra8UNormSrgb at
+  2560×1440 with three images, validation-clean over hundreds of frames. Windows and Linux are owed
+  and will come with the CI legs.
+
+  It earned its place immediately. The first time it presented to a real window it found two
+  synchronisation bugs the entire headless Vulkan suite had passed straight through — `BeginFrame`
+  discarded the pending wait that `AcquireNextImage` had registered, so nothing ever waited on the
+  acquire semaphore; and the present-wait semaphore came from a ring recycled on the frame fence,
+  which knows when a submission finished and not when the presentation engine did. Both are fixed
+  where they lived, with the reasoning.
+
+  `--vixen-frames N` came out of it and belongs to the host rather than the sample, so every app head
+  and every later sample is CI-runnable the same way.
 - lavapipe in CI; the `GoldenImages` target with the first fixture.
 - ~~Web graphics spike~~ ✅ **already done, before Phase 0** — see
   [`spikes/web-webgl2/RESULT.md`](spikes/web-webgl2/RESULT.md). `Silk.NET.OpenGLES` renders a WebGL2

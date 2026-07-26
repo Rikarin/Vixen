@@ -117,5 +117,7 @@
     <Project Path="Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj" />
     <Project Path="Raven/Vixen.Raven.Cli/Vixen.Raven.Cli.csproj" />
   </Folder>
+  <Project Path="Samples/01-HelloTriangle/HelloTriangle.csproj" />
+
 
 </Solution>

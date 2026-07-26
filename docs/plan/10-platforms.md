@@ -145,6 +145,12 @@ bootstrap on Web). Game/app code lives in a platform-neutral library that all he
 - **Packaging is the real work**: `.app` bundle layout, `Info.plist`, universal binary (`osx-x64` +
   `osx-arm64` via `lipo`), hardened runtime entitlements, codesigning with a Developer ID, and
   notarisation. All scripted in Nuke (`Build.Release.cs`) and run in CI on `macos-14`.
+- **Presentation is verified by `Samples/01` and by nothing else, and that is a deliberate gap rather
+  than an oversight.** AppKit aborts the process when a window is created off the main thread, so a
+  test runner — which is never on it — cannot open one; the desktop tests force SDL's dummy video
+  driver for the same reason. The swapchain's pure choices are unit-tested, the acquire and present
+  path is not. Running the sample with `--vixen-frames N` is what stands in for it, and with the
+  validation layers installed a validation error is a non-zero exit.
 - Gates: `Samples/01` renders via MoltenVK; the editor runs notarised from a signed `.dmg`; the
   golden-image suite passes within tolerance (MoltenVK's output will differ slightly from lavapipe's —
   hence perceptual comparison per [05](05-graphics-rhi.md)).

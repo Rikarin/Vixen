@@ -84,6 +84,22 @@ public interface ISwapChain : IDisposable {
     /// <summary>How many images it cycles through.</summary>
     int ImageCount { get; }
 
+    /// <summary>The texture behind the image currently acquired.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A view is what a render pass attaches, and it is what <see cref="AcquireNextImage" />
+    ///         returns — but a <em>barrier</em> names a texture, and anything that tracks resource
+    ///         state automatically therefore needs both. <c>Vixen.Graphics.RenderGraph</c> is the
+    ///         first caller and will not be the last: every backend has this to hand, and the
+    ///         alternative is each of them exposing it through a cast to its own type.
+    ///     </para>
+    ///     <para>
+    ///         Valid only between a successful <see cref="AcquireNextImage" /> and the next
+    ///         <see cref="Present" />, like the view it accompanies.
+    ///     </para>
+    /// </remarks>
+    TextureHandle CurrentTexture { get; }
+
     /// <summary>Takes the next image to render into.</summary>
     /// <param name="view">A view of the image, valid until the next <see cref="Present" />.</param>
     /// <returns>What happened. Anything but <see cref="SwapChainStatus.Ready" /> or

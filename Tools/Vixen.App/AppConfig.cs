@@ -74,6 +74,10 @@ public sealed class AppConfig {
     /// </remarks>
     public bool ExitWhenAllWindowsClose { get; set; } = true;
 
+    /// <summary>How many frames to run before stopping, or <c>0</c> to run until asked to stop.</summary>
+    /// <remarks>See <see cref="AppArguments.MaxFrames" /> for why this exists.</remarks>
+    public int MaxFrames { get; set; }
+
     /// <summary>The lowest level the log ring keeps.</summary>
     public LogLevel LogLevel { get; set; } = LogLevel.Information;
 
@@ -128,6 +132,10 @@ public sealed class AppConfig {
 
         if (arguments.WorkerCount is { } workers) {
             WorkerCount = workers;
+        }
+
+        if (arguments.MaxFrames is { } total) {
+            MaxFrames = total;
         }
 
         if (arguments.FrameRateLimit is { } limit) {

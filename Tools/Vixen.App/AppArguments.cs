@@ -44,6 +44,16 @@ public sealed record AppArguments {
     /// <summary>The frame cap from <c>--vixen-frame-limit</c>, or <see langword="null" />.</summary>
     public int? FrameRateLimit { get; private init; }
 
+    /// <summary>How many frames to run before stopping, from <c>--vixen-frames</c>.</summary>
+    /// <remarks>
+    ///     What makes a windowed application runnable in CI. It cannot assert what was drawn, but it
+    ///     can prove the whole stack starts, presents and shuts down without a validation error or a
+    ///     hang — which is most of what a smoke test is for, and is the only automated coverage the
+    ///     swapchain's acquire and present path can have
+    ///     ([10](../../docs/plan/10-platforms.md) § macOS).
+    /// </remarks>
+    public int? MaxFrames { get; private init; }
+
     /// <summary>The level from <c>--vixen-log-level</c>, or <see langword="null" />.</summary>
     public LogLevel? LogLevel { get; private init; }
 
@@ -106,6 +116,10 @@ public sealed record AppArguments {
 
                 case "--vixen-frame-limit" when Take(out var limit) && int.TryParse(limit, out var frames):
                     parsed = parsed with { FrameRateLimit = Math.Max(0, frames) };
+                    continue;
+
+                case "--vixen-frames" when Take(out var total) && int.TryParse(total, out var count2):
+                    parsed = parsed with { MaxFrames = Math.Max(0, count2) };
                     continue;
 
                 case "--vixen-log-level" when Take(out var level) && Enum.TryParse<LogLevel>(level, true, out var parsedLevel):
