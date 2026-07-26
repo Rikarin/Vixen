@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Core.Threading</RootNamespace>
+        <Description>
+            The job system: persistent workers with work-stealing deques, a dependency graph over
+            generation-checked handles, parallel-for with automatic batching, and a main-thread
+            affinity queue. Frame work runs here, not on the thread pool.
+        </Description>
+        <PackageTags>jobs;scheduler;work-stealing;concurrency;parallel;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Diagnostics\Vixen.Core.Diagnostics.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Core.Threading.Tests" />
+    </ItemGroup>
+
+</Project>

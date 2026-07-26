@@ -93,8 +93,14 @@ exists.
 **Goal:** a window on three desktops with a Vulkan-cleared, triangle-drawing swapchain, and the
 plumbing that everything else stands on.
 
-- `Vixen.Core.Threading`: job system, `JobHandle` DAG, `ParallelFor`, main-thread dispatcher, safety
-  system, profiler integration.
+- ✅ `Vixen.Core.Threading` — persistent workers over Chase–Lev deques, a `JobHandle` DAG, struct
+  jobs dispatched with no boxing and no allocation, `ScheduleParallel` with automatic batching, the
+  main-thread dispatcher, and per-job profiler samples. 45 tests, including one that asserts every
+  item leaves a contended deque exactly once and one that runs twenty random 400-node graphs and
+  checks every edge. `Benchmarks/Vixen.Benchmarks.Jobs` measures it against `Task.Run` and
+  `Parallel.For`, and found the wake-up traffic that made a burst of jobs cost more per job than a
+  single one. **Deferred with reasons in [03](03-core-foundation.md):** the `VIXEN_JOB_SAFETY`
+  access-declaration system (needs the ECS, so Phase 2) and thread pinning (needs `Vixen.Platform`).
 - `Vixen.Core.IO`: VFS, providers (physical, memory), file watcher on all three desktops.
 - `Vixen.Core.Serialization` + generator; round-trip and evolution tests.
 - `Vixen.Core.Reflection` generator + `[ModuleInitializer]` registration.

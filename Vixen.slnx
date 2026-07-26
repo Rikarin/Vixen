@@ -49,6 +49,8 @@
     <Project Path="Core/Vixen.Core.Memory.Tests/Vixen.Core.Memory.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Diagnostics/Vixen.Core.Diagnostics.csproj" />
     <Project Path="Core/Vixen.Core.Diagnostics.Tests/Vixen.Core.Diagnostics.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Threading/Vixen.Core.Threading.csproj" />
+    <Project Path="Core/Vixen.Core.Threading.Tests/Vixen.Core.Threading.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Syntax/Vixen.Core.Syntax.csproj" />
     <Project Path="Core/Vixen.Core.Syntax.Tests/Vixen.Core.Syntax.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Syntax.Generator/Vixen.Core.Syntax.Generator.csproj" />
@@ -60,6 +62,7 @@
   -->
   <Folder Name="/Benchmarks/">
     <Project Path="Benchmarks/Vixen.Benchmarks.Math/Vixen.Benchmarks.Math.csproj" />
+    <Project Path="Benchmarks/Vixen.Benchmarks.Jobs/Vixen.Benchmarks.Jobs.csproj" />
   </Folder>
 
   <!--

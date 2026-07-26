@@ -324,6 +324,7 @@ Benchmarks/
 ├── Vixen.Benchmarks.Layout/      # flexbox throughput, 10⁴/10⁵ nodes
 ├── Vixen.Benchmarks.Reactive/    # signal propagation, alloc == 0
 ├── Vixen.Benchmarks.Math/
+├── Vixen.Benchmarks.Jobs/        # scheduling overhead, ParallelFor vs Parallel.For
 ├── Vixen.Benchmarks.Serialization/
 └── Vixen.Benchmarks.Rendering/   # CPU-side: culling, sorting, command recording
 ```

@@ -162,6 +162,33 @@ and is what the renderer and ECS actually need.
 heuristics fight a frame deadline), `Parallel.For` (delegate allocation, no dependency model),
 `async`/`await` in the loop.
 
+> ✅ **Built.** `Core/Vixen.Core.Threading/` and its 45 tests are live, and
+> `Benchmarks/Vixen.Benchmarks.Jobs` measures the claims: one `Schedule`+`Complete` round trip is
+> 6.3× cheaper than `Task.Run`+`Wait` and allocates nothing against its 160 bytes, and
+> `ScheduleParallel` beats `Parallel.For` by 2.2–2.6× above about ten thousand elements — and loses
+> to a plain serial loop below about a thousand, which is written down next to the rest.
+> Four things differ from the paragraphs above:
+>
+> - **A lock per job slot, not a lock-free continuation list.** Adding a graph edge to a job that is
+>   completing at that instant is the whole difficulty here, and the lock-free form needs a CAS loop,
+>   an ABA guard, and a heap-allocated link node per edge. An uncontended lock — the scheduling thread
+>   against one completing worker — makes the graph's correctness readable instead of arguable, and a
+>   frame's few hundred edges are not where the time goes.
+> - **Failures outlive their slot.** A slot returns to the free list the moment its job finishes, so
+>   it can no longer answer "did that throw" — and that answer must not depend on how promptly the
+>   caller asked. The last 64 failures move to a side table, which is what both `Complete` and an
+>   edge added after the fact read. A job whose dependency threw inherits the failure and is skipped
+>   rather than run against inputs that were never produced.
+> - **Workers are not pinned.** `Thread` has no portable affinity API, the per-OS ones differ in kind
+>   rather than in spelling, and pinning is a pessimisation on a machine running anything else. It
+>   waits for `Vixen.Platform`, where the per-OS calls will already live.
+> - **The safety system is deferred to Phase 2, with `Vixen.Ecs`.** The check described above is only
+>   as good as the access declarations, and in Unity's design those come from the ECS. Building the
+>   declaration API before its only consumer exists would be guessing at its shape. What *is*
+>   compiled in under `DEBUG` or `VIXEN_JOB_SAFETY` is the check that needs nothing else: a job that
+>   completes its own handle is caught and told so, instead of waiting forever for the work item that
+>   is doing the waiting.
+
 ## `Vixen.Core.IO` — the virtual file system
 
 Modelled on Stride's VFS because the problem is unchanged: six platforms with six different notions
