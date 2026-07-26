@@ -213,6 +213,33 @@ disk.
   both assets and UI markup depends on this being *reliable*, which means: handle atomic-save
   rename-over patterns, handle editors that write-truncate-write, and never fire on our own writes.
 
+> ✅ **Built.** `Core/Vixen.Core.IO/` and its 123 tests are live. Four things differ from the
+> paragraphs above:
+>
+> - **No per-platform watch backends.** `FileSystemWatcher` is already FSEvents, inotify and
+>   `ReadDirectoryChangesW` behind one type, maintained by people who have to keep it working on OS
+>   versions that do not exist yet. What the BCL does *not* do is the part that makes watching
+>   usable, so `FileChangeCoalescer` is where the work went: debouncing that extends rather than
+>   expires, atomic-save renames folded into one change to the destination, created-then-deleted
+>   cancelled out, and the program's own writes suppressed. Time is a parameter rather than a clock,
+>   so every one of those is tested at exact timestamps instead of with sleeps.
+> - **Case-sensitivity is enforced by the provider, not only by CI.** [Doc 10](10-platforms.md)
+>   assigns this to a Linux CI check. That is a backstop measured in hours; `PhysicalFileProvider`
+>   makes it a backstop measured in milliseconds by refusing to serve a file whose real name on disk
+>   differs in case. The volume is probed once at construction so the check is off where the kernel
+>   already does it.
+> - **Enumeration is synchronous and ordered.** Async was dropped because every provider that exists
+>   or is planned answers enumeration from something local — a directory, a dictionary, a bundle
+>   catalog — so the state machine would have had no caller. Ordering was added because a content
+>   build that hashes a directory listing must not get a different answer on ext4 than on APFS.
+> - **Memory-mapped reads decline rather than throw.** A file above two gigabytes has no
+>   `ReadOnlyMemory<byte>`, and a file inside a compressed APK entry has no mapping at all, so
+>   `TryMap` returning false is an ordinary answer and callers fall back to a stream.
+>
+> **Deferred:** the Android, iOS, browser and bundle providers, each of which arrives with the thing
+> it reads from; and the analyzer banning `System.IO.Path` and synchronous IO outside their permitted
+> layers, which needs an analyzer project that does not exist yet.
+
 ## `Vixen.Core.Serialization`
 
 - **Generated binary serializers.** `Vixen.Core.Serialization.Generators` walks `[DataContract]`

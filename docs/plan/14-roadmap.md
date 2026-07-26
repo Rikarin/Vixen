@@ -101,7 +101,11 @@ plumbing that everything else stands on.
   `Parallel.For`, and found the wake-up traffic that made a burst of jobs cost more per job than a
   single one. **Deferred with reasons in [03](03-core-foundation.md):** the `VIXEN_JOB_SAFETY`
   access-declaration system (needs the ECS, so Phase 2) and thread pinning (needs `Vixen.Platform`).
-- `Vixen.Core.IO`: VFS, providers (physical, memory), file watcher on all three desktops.
+- ✅ `Vixen.Core.IO` — `VirtualPath`, the mount table, physical and in-memory providers behind one
+  conformance suite, memory-mapped reads, and `Watch` with the coalescing that makes a real editor's
+  save look like one change. 123 tests. **Deferred with reasons in [03](03-core-foundation.md):**
+  the Android/iOS/browser/bundle providers, which arrive with the platform or database they read
+  from, and the `System.IO.Path` analyzer.
 - `Vixen.Core.Serialization` + generator; round-trip and evolution tests.
 - `Vixen.Core.Reflection` generator + `[ModuleInitializer]` registration.
 - `Vixen.Platform` contracts; `Vixen.Platform.Desktop` on SDL3; Windows/Linux/macOS specialisations;
