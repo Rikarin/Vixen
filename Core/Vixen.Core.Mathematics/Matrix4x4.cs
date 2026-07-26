@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 
@@ -556,22 +557,63 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
     /// <param name="left">The transform applied first.</param>
     /// <param name="right">The transform applied second.</param>
     /// <returns>The combined transform.</returns>
-    public static Matrix4x4 Multiply(in Matrix4x4 left, in Matrix4x4 right) {
-        if (Vector128.IsHardwareAccelerated) {
-            var r1 = right.Row1.AsVector128();
-            var r2 = right.Row2.AsVector128();
-            var r3 = right.Row3.AsVector128();
-            var r4 = right.Row4.AsVector128();
+    public static Matrix4x4 Multiply(in Matrix4x4 left, in Matrix4x4 right) =>
+        Vector128.IsHardwareAccelerated ? MultiplyVectorized(left, right) : MultiplyScalar(left, right);
 
-            return new(
-                Vector4.FromVector128(Combine(left.Row1, r1, r2, r3, r4)),
-                Vector4.FromVector128(Combine(left.Row2, r1, r2, r3, r4)),
-                Vector4.FromVector128(Combine(left.Row3, r1, r2, r3, r4)),
-                Vector4.FromVector128(Combine(left.Row4, r1, r2, r3, r4))
-            );
-        }
+    /// <summary>
+    ///     The vectorised product. Split out from <see cref="Multiply" /> so the benchmark can
+    ///     measure it against <see cref="MultiplyScalar" /> — <c>IsHardwareAccelerated</c> is a JIT
+    ///     constant, so without the split there is no way to run the other path and the speedup
+    ///     stays an assumption.
+    /// </summary>
+    /// <param name="left">The transform applied first.</param>
+    /// <param name="right">The transform applied second.</param>
+    /// <returns>The combined transform.</returns>
+    internal static Matrix4x4 MultiplyVectorized(in Matrix4x4 left, in Matrix4x4 right) {
+        // Rows are loaded sixteen bytes at a time, straight out of the matrix. Reaching them
+        // through the Row properties instead — four field reads assembled into a Vector4 and then
+        // reinterpreted — measured *slower than the scalar path*, because the JIT emits the gather
+        // rather than folding it into a load. Benchmarks/Vixen.Benchmarks.Math is what caught it.
+        ref var leftElements = ref Unsafe.As<Matrix4x4, float>(ref Unsafe.AsRef(in left));
+        ref var rightElements = ref Unsafe.As<Matrix4x4, float>(ref Unsafe.AsRef(in right));
 
-        return new(
+        var r1 = Vector128.LoadUnsafe(ref rightElements, 0);
+        var r2 = Vector128.LoadUnsafe(ref rightElements, 4);
+        var r3 = Vector128.LoadUnsafe(ref rightElements, 8);
+        var r4 = Vector128.LoadUnsafe(ref rightElements, 12);
+
+        Unsafe.SkipInit(out Matrix4x4 result);
+        ref var output = ref Unsafe.As<Matrix4x4, float>(ref result);
+
+        Combine(Vector128.LoadUnsafe(ref leftElements, 0), r1, r2, r3, r4).StoreUnsafe(ref output, 0);
+        Combine(Vector128.LoadUnsafe(ref leftElements, 4), r1, r2, r3, r4).StoreUnsafe(ref output, 4);
+        Combine(Vector128.LoadUnsafe(ref leftElements, 8), r1, r2, r3, r4).StoreUnsafe(ref output, 8);
+        Combine(Vector128.LoadUnsafe(ref leftElements, 12), r1, r2, r3, r4).StoreUnsafe(ref output, 12);
+
+        return result;
+
+        // One output row is the weighted sum of all four input rows, the weights being that row's
+        // own elements. Each weight is a lane broadcast — one shuffle instruction — so the whole
+        // row costs four multiplies and three adds instead of sixteen dot products.
+        static Vector128<float> Combine(
+            Vector128<float> row,
+            Vector128<float> r1,
+            Vector128<float> r2,
+            Vector128<float> r3,
+            Vector128<float> r4
+        ) =>
+            (Vector128.Shuffle(row, Vector128.Create(0, 0, 0, 0)) * r1)
+            + (Vector128.Shuffle(row, Vector128.Create(1, 1, 1, 1)) * r2)
+            + (Vector128.Shuffle(row, Vector128.Create(2, 2, 2, 2)) * r3)
+            + (Vector128.Shuffle(row, Vector128.Create(3, 3, 3, 3)) * r4);
+    }
+
+    /// <summary>The scalar product — the reference the vectorised path is checked against.</summary>
+    /// <param name="left">The transform applied first.</param>
+    /// <param name="right">The transform applied second.</param>
+    /// <returns>The combined transform.</returns>
+    internal static Matrix4x4 MultiplyScalar(in Matrix4x4 left, in Matrix4x4 right) =>
+        new(
             (left.M11 * right.M11) + (left.M12 * right.M21) + (left.M13 * right.M31) + (left.M14 * right.M41),
             (left.M11 * right.M12) + (left.M12 * right.M22) + (left.M13 * right.M32) + (left.M14 * right.M42),
             (left.M11 * right.M13) + (left.M12 * right.M23) + (left.M13 * right.M33) + (left.M14 * right.M43),
@@ -589,21 +631,6 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
             (left.M41 * right.M13) + (left.M42 * right.M23) + (left.M43 * right.M33) + (left.M44 * right.M43),
             (left.M41 * right.M14) + (left.M42 * right.M24) + (left.M43 * right.M34) + (left.M44 * right.M44)
         );
-
-        // One output row is the weighted sum of all four input rows, the weights being that row's
-        // own elements. Four broadcasts and three fused adds, instead of sixteen dot products.
-        static Vector128<float> Combine(
-            Vector4 row,
-            Vector128<float> r1,
-            Vector128<float> r2,
-            Vector128<float> r3,
-            Vector128<float> r4
-        ) =>
-            (Vector128.Create(row.X) * r1)
-            + (Vector128.Create(row.Y) * r2)
-            + (Vector128.Create(row.Z) * r3)
-            + (Vector128.Create(row.W) * r4);
-    }
 
     /// <summary>Transposes the matrix.</summary>
     /// <param name="matrix">The matrix.</param>
@@ -710,23 +737,39 @@ public readonly struct Matrix4x4 : IEquatable<Matrix4x4>, IFormattable, ISpanFor
     /// <param name="value">The vector.</param>
     /// <param name="matrix">The transform.</param>
     /// <returns>The transformed vector.</returns>
-    public static Vector4 TransformVector4(Vector4 value, in Matrix4x4 matrix) {
-        if (Vector128.IsHardwareAccelerated) {
-            return Vector4.FromVector128(
-                (Vector128.Create(value.X) * matrix.Row1.AsVector128())
-                + (Vector128.Create(value.Y) * matrix.Row2.AsVector128())
-                + (Vector128.Create(value.Z) * matrix.Row3.AsVector128())
-                + (Vector128.Create(value.W) * matrix.Row4.AsVector128())
-            );
-        }
+    public static Vector4 TransformVector4(Vector4 value, in Matrix4x4 matrix) =>
+        Vector128.IsHardwareAccelerated
+            ? TransformVector4Vectorized(value, matrix)
+            : TransformVector4Scalar(value, matrix);
 
-        return new(
+    /// <summary>The vectorised transform. Split out for the same reason as
+    ///     <see cref="MultiplyVectorized" />.</summary>
+    /// <param name="value">The vector.</param>
+    /// <param name="matrix">The transform.</param>
+    /// <returns>The transformed vector.</returns>
+    internal static Vector4 TransformVector4Vectorized(Vector4 value, in Matrix4x4 matrix) {
+        ref var elements = ref Unsafe.As<Matrix4x4, float>(ref Unsafe.AsRef(in matrix));
+        var lanes = value.AsVector128();
+
+        return Vector4.FromVector128(
+            (Vector128.Shuffle(lanes, Vector128.Create(0, 0, 0, 0)) * Vector128.LoadUnsafe(ref elements, 0))
+            + (Vector128.Shuffle(lanes, Vector128.Create(1, 1, 1, 1)) * Vector128.LoadUnsafe(ref elements, 4))
+            + (Vector128.Shuffle(lanes, Vector128.Create(2, 2, 2, 2)) * Vector128.LoadUnsafe(ref elements, 8))
+            + (Vector128.Shuffle(lanes, Vector128.Create(3, 3, 3, 3)) * Vector128.LoadUnsafe(ref elements, 12))
+        );
+    }
+
+    /// <summary>The scalar transform — the reference.</summary>
+    /// <param name="value">The vector.</param>
+    /// <param name="matrix">The transform.</param>
+    /// <returns>The transformed vector.</returns>
+    internal static Vector4 TransformVector4Scalar(Vector4 value, in Matrix4x4 matrix) =>
+        new(
             (value.X * matrix.M11) + (value.Y * matrix.M21) + (value.Z * matrix.M31) + (value.W * matrix.M41),
             (value.X * matrix.M12) + (value.Y * matrix.M22) + (value.Z * matrix.M32) + (value.W * matrix.M42),
             (value.X * matrix.M13) + (value.Y * matrix.M23) + (value.Z * matrix.M33) + (value.W * matrix.M43),
             (value.X * matrix.M14) + (value.Y * matrix.M24) + (value.Z * matrix.M34) + (value.W * matrix.M44)
         );
-    }
 
     /// <summary>
     ///     Transforms a run of points in one call. Culling and skinning do this a million times a

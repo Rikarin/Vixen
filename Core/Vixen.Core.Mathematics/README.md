@@ -56,9 +56,11 @@ washes a render out in a way nobody can trace back.
 `Half` is **not** planned as a Vixen type: `System.Half` has existed since .NET 5, is
 hardware-accelerated, and re-declaring it would buy nothing.
 
-The SIMD paths (matrix multiply, `TransformVector4`, the bulk transforms) are written but not yet
-measured — `Benchmarks/Vixen.Benchmarks.Math` is owed, and until it exists the scalar fallbacks are
-the reference and the vectorised paths are asserted only to agree with them.
+The SIMD paths are measured, and measuring them found a real problem — the first run said the
+vectorised matrix multiply was **1.7× slower** than the scalar fallback it was written to replace,
+because reading rows through the `Row1`…`Row4` properties compiles to a gather rather than a
+sixteen-byte load. Fixed, and now 2.8× faster than scalar and within 30% of `System.Numerics`. The
+numbers and the story are in [`Benchmarks/Vixen.Benchmarks.Math`](../../Benchmarks/Vixen.Benchmarks.Math/README.md).
 
 ## One C# wrinkle worth knowing
 

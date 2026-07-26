@@ -22,6 +22,8 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Core.Mathematics.Tests" />
+        <!-- So the benchmark can time the scalar fallbacks against the vectorised paths. -->
+        <InternalsVisibleTo Include="Vixen.Benchmarks.Math" />
     </ItemGroup>
 
 </Project>

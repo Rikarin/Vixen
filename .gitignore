@@ -43,5 +43,12 @@ BenchmarkDotNet.Artifacts/
 # Native deps restored by `nuke RestoreNativeDeps`
 /native/
 
-# Reference clones (see docs/plan/02 § references/) — submodules or local clones
-/references/
+# Reference clones (see docs/plan/02 § references/) — local clones, not submodules.
+# The README is tracked so the directory explains itself and carries the clone commands.
+/references/*
+!/references/README.md
+
+# Nuke's generated schema and run logs, and BenchmarkDotNet's scratch
+/.nuke/build.schema.json
+/.nuke/temp/
+/BenchmarkDotNet.Artifacts/

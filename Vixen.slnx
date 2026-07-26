@@ -47,9 +47,19 @@
     <Project Path="Core/Vixen.Core.Collections.Tests/Vixen.Core.Collections.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Memory/Vixen.Core.Memory.csproj" />
     <Project Path="Core/Vixen.Core.Memory.Tests/Vixen.Core.Memory.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Diagnostics/Vixen.Core.Diagnostics.csproj" />
+    <Project Path="Core/Vixen.Core.Diagnostics.Tests/Vixen.Core.Diagnostics.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Syntax/Vixen.Core.Syntax.csproj" />
     <Project Path="Core/Vixen.Core.Syntax.Tests/Vixen.Core.Syntax.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Syntax.Generator/Vixen.Core.Syntax.Generator.csproj" />
+  </Folder>
+
+  <!--
+    Benchmarks — docs/plan/02 § Benchmarks/. Not built by `Test`; the Nuke `Benchmark`
+    target runs them in Release and diffs against a committed baseline.
+  -->
+  <Folder Name="/Benchmarks/">
+    <Project Path="Benchmarks/Vixen.Benchmarks.Math/Vixen.Benchmarks.Math.csproj" />
   </Folder>
 
   <!--

@@ -33,10 +33,31 @@
     <PackageVersion Include="Antlr4.Runtime" Version="4.6.6" />
   </ItemGroup>
 
+  <!-- ===== Logging (docs/plan/01 § Platform baseline, ADR-008) ===== -->
+  <ItemGroup Label="Logging">
+    <!--
+      Abstractions only. The engine implements its own sink: the ring buffer the
+      editor console and the crash reporter read is ours, and ILogger is the
+      interface everything codes against so that [LoggerMessage] can generate
+      allocation-free call sites.
+    -->
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
+  </ItemGroup>
+
   <!-- ===== Source generators / analyzers ===== -->
   <ItemGroup Label="Roslyn">
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
+  </ItemGroup>
+
+  <!-- ===== Benchmarks (docs/plan/12 § Nuke `Benchmark` target) ===== -->
+  <ItemGroup Label="Benchmarks">
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+  </ItemGroup>
+
+  <!-- ===== Build automation (docs/plan/12 § Nuke) ===== -->
+  <ItemGroup Label="Build">
+    <PackageVersion Include="Nuke.Common" Version="10.1.0" />
   </ItemGroup>
 
   <!-- ===== CLI ===== -->

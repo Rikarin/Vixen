@@ -49,8 +49,13 @@ remains front-loaded into Phase 3.
   signals-dotnet).
 - `Directory.Build.props/.targets`, `Directory.Packages.props` with every version from
   [01](01-technology-decisions.md), `global.json`, `.editorconfig`, `Vixen.slnx` + filters.
-- Nuke skeleton: `Clean Restore Compile Test Pack CheckFormat CheckArchitecture CheckApi`.
-- `ci.yml` on three desktop runners; branch protection.
+- ✅ Nuke: `Clean Restore Compile Test Pack CheckFormat CheckArchitecture Benchmark`, with
+  `build.sh`/`build.cmd` as the entry point CI and developers share. `CheckApi` waits for
+  `Tools/Vixen.ApiCheck` and the first `PublicAPI.Shipped.txt`.
+- ✅ `ci.yml` on three desktop runners — test matrix, checks, pack. Branch protection is a repository
+  setting, not a file, so it stays a manual step.
+- 🟡 `references/` — the README with the clone commands is tracked; the clones themselves are a local
+  decision rather than submodules, for the reason written there.
 - **Extract `Vixen.Core.Syntax`** from Raven (green/red trees, `SyntaxGenerator`, `SourceText`,
   diagnostics) and retarget Raven onto it. This unblocks VXML and VCSS later and is the
   highest-leverage refactor available.
@@ -60,8 +65,8 @@ remains front-loaded into Phase 3.
 - ✅ `Vixen.Core.Mathematics` — every type ADR-003 lists, plus `Matrix3x3` and `ColorSpace`, with
   `Conventions.md` and 126 tests including CsCheck properties for the algebraic laws and a
   clip-space oracle for frustum culling. `Half` is deliberately omitted: `System.Half` is in the BCL.
-  **Owed:** `Benchmarks/Vixen.Benchmarks.Math` — until it exists the SIMD paths are only asserted to
-  agree with the scalar ones, not shown to be faster.
+  SIMD paths measured by `Benchmarks/Vixen.Benchmarks.Math`, which found them slower than the scalar
+  fallbacks and led to the fix.
 - ✅ `Vixen.Core.Collections` — `Handle<T>`/`HandlePool<T>`, `FreeList<T>`, `SparseSet<T>`, `BitSet`,
   `SmallList<T,TBuffer>` over `InlineArray` buffers, `ChunkedArray<T>`, `RingBuffer<T>` and an
   indexed priority queue with decrease-key. 34 tests, several against a BCL oracle.
@@ -71,7 +76,11 @@ remains front-loaded into Phase 3.
   `BuddyAllocator`. 19 tests including a property test asserting suballocations never overlap and
   that releasing everything merges the region back whole. **Deferred:** `GpuUploadRing`, which needs
   mapped memory and frame fences and so lands with the RHI in Phase 1.
-- `Vixen.Core.Diagnostics`: `[LoggerMessage]` plumbing, ring-buffer sink, `ProfilingKey`/`Profiler`.
+- ✅ `Vixen.Core.Diagnostics` — `[LoggerMessage]` plumbing, the always-on `RingBufferSink` with
+  per-category levels, `ProfilingKey`/`Profiler` over per-thread sample rings, and Chrome-trace
+  export that opens in Perfetto. 18 tests. Event-id ranges reserved in `docs/manual/log-events.md`.
+  **Owed:** the other sinks, rate limiting, and UTF-8 record packing — each needs the thing it feeds.
+- ✅ `Benchmarks/Vixen.Benchmarks.Math`, and the Nuke `Benchmark` target that runs it.
 
 **Exit:** `nuke Test` green on Windows/Linux/macOS. Raven builds and tests green on
 `Vixen.Core.Syntax`. Math and collections at > 90 % coverage with property tests. A `TestApp` stub
