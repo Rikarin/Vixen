@@ -79,6 +79,8 @@
     <Project Path="Platform/Vixen.Platform.Headless.Tests/Vixen.Platform.Headless.Tests.csproj" />
     <Project Path="Platform/Vixen.Platform.Desktop/Vixen.Platform.Desktop.csproj" />
     <Project Path="Platform/Vixen.Platform.Desktop.Tests/Vixen.Platform.Desktop.Tests.csproj" />
+    <Project Path="Platform/Vixen.Graphics.Null/Vixen.Graphics.Null.csproj" />
+    <Project Path="Platform/Vixen.Graphics.Null.Tests/Vixen.Graphics.Null.Tests.csproj" />
   </Folder>
 
   <!--

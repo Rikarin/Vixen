@@ -158,7 +158,16 @@ plumbing that everything else stands on.
   pipeline and descriptor-layout descriptions, and the grouped `BarrierGroup`. Moving `SurfaceHandle`
   down into `Vixen.Core` was needed to keep the layering honest — see below. **Next:** the
   implementations.
-- `Vixen.Graphics.Null` + `RecordingBackend` test harness.
+- ✅ `Vixen.Graphics.Null` + the recording harness — a device with no GPU that records the command
+  stream into a comparable log, and refuses the dozen things that are undefined behaviour on a real
+  backend: a draw outside a pass, a dispatch or copy inside one, a list submitted twice or before it
+  was finished, a buffer copied onto itself, a handle used after it was destroyed. 29 tests.
+  Recording is **off by default**, because [17](17-app-heads-and-shipping.md) makes this a shipping
+  backend and a server that accumulated a command log would run out of memory. Resource creation
+  allocates a handle and a description and nothing proportional to the size asked for, so a server
+  that creates a 4K target every frame stays flat. `NullSwapChain.NextStatus` makes the out-of-date
+  and device-lost paths reachable from a test, which is the fault injection [05](05-graphics-rhi.md)
+  asks for.
 - `Vixen.Graphics.Vulkan`: instance/device/queues, allocator, swapchain, command lists, PSOs,
   descriptor sets, barriers, dynamic rendering + render-pass fallback, validation-layer wiring.
 - `Vixen.Graphics.RenderGraph` with validation and transient aliasing.

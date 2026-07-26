@@ -8,53 +8,63 @@ namespace Vixen.Graphics;
 
 /// <summary>A GPU buffer.</summary>
 /// <remarks>
-///     A marker: the type exists to give <see cref="Handle{T}" /> something to be generic over, so
-///     that a <see cref="BufferHandle" /> cannot be passed where a <see cref="TextureHandle" /> is
-///     wanted. There is no instance of it and never will be — the resource lives in a backend-owned
-///     table, which is what keeps GPU objects out of the garbage collector's way.
+///     A marker a backend subclasses to hold whatever it needs, and the type
+///     <see cref="Handle{T}" /> is generic over — so a <see cref="BufferHandle" /> cannot be passed
+///     where a <see cref="TextureHandle" /> is wanted. Instances live in a backend-owned table and
+///     are reached only through handles, which is what keeps GPU objects out of the garbage
+///     collector's way.
 /// </remarks>
 public abstract class GpuBuffer {
-    private protected GpuBuffer() { }
+    /// <summary>Only a backend derives from this.</summary>
+    protected GpuBuffer() { }
 }
 
 /// <summary>A GPU texture.</summary>
 public abstract class GpuTexture {
-    private protected GpuTexture() { }
+    /// <summary>Only a backend derives from this.</summary>
+    protected GpuTexture() { }
 }
 
 /// <summary>A view of part of a texture, possibly reinterpreted.</summary>
 public abstract class GpuTextureView {
-    private protected GpuTextureView() { }
+    /// <summary>Only a backend derives from this.</summary>
+    protected GpuTextureView() { }
 }
 
 /// <summary>A sampler.</summary>
 public abstract class GpuSampler {
-    private protected GpuSampler() { }
+    /// <summary>Only a backend derives from this.</summary>
+    protected GpuSampler() { }
 }
 
 /// <summary>A compiled pipeline.</summary>
 public abstract class GpuPipeline {
-    private protected GpuPipeline() { }
+    /// <summary>Only a backend derives from this.</summary>
+    protected GpuPipeline() { }
 }
 
 /// <summary>The shape of the descriptor sets and push constants a pipeline expects.</summary>
 public abstract class GpuPipelineLayout {
-    private protected GpuPipelineLayout() { }
+    /// <summary>Only a backend derives from this.</summary>
+    protected GpuPipelineLayout() { }
 }
 
 /// <summary>The shape of one descriptor set.</summary>
 public abstract class GpuDescriptorSetLayout {
-    private protected GpuDescriptorSetLayout() { }
+    /// <summary>Only a backend derives from this.</summary>
+    protected GpuDescriptorSetLayout() { }
 }
 
 /// <summary>A bound group of resources.</summary>
 public abstract class GpuDescriptorSet {
-    private protected GpuDescriptorSet() { }
+    /// <summary>Only a backend derives from this.</summary>
+    protected GpuDescriptorSet() { }
 }
 
 /// <summary>A shader module.</summary>
 public abstract class GpuShader {
-    private protected GpuShader() { }
+    /// <summary>Only a backend derives from this.</summary>
+    protected GpuShader() { }
 }
 
 /// <summary>A buffer, by handle.</summary>

@@ -198,7 +198,7 @@ Platform/
 ├── Vixen.Graphics.OpenGL.Tests/
 ├── Vixen.Graphics.WebGPU/
 ├── Vixen.Graphics.WebGPU.Tests/
-├── Vixen.Graphics.Null/                # headless: CI graphics tests AND the shipping dedicated-server backend (17)
+├── Vixen.Graphics.Null/                # ✅ headless: CI graphics tests AND the shipping dedicated-server backend (17)
 ├── Vixen.Graphics.Null.Tests/
 │
 ├── Vixen.Audio.Backend.OpenAL/
