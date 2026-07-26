@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Core</RootNamespace>
+        <Description>
+            The engine's root assembly: serialisation and editor annotations, the service
+            registry, identity types, frame time, pooling and disposal. Depends on nothing
+            but the BCL — every other Vixen assembly depends on this one.
+        </Description>
+        <PackageTags>engine;game-engine;annotations;pooling;service-registry;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Core.Tests" />
+    </ItemGroup>
+
+</Project>

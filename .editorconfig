@@ -132,6 +132,18 @@ dotnet_diagnostic.CA1062.severity = none
 dotnet_diagnostic.CA1711.severity = none
 
 # ------------------------------------------------------------------------------
+# Pooled collection rentals.
+# ------------------------------------------------------------------------------
+[Core/Vixen.Core/Pooling/PooledDictionary.cs]
+# CA1711 — identifiers should not have a reserved suffix.
+# The rule wants a type named `*Dictionary` to implement IDictionary<K,V>.
+# PooledDictionary<K,V> deliberately does not: it is a mutable struct handle to a
+# rented dictionary, and implementing the interface would box it at every call
+# site — precisely the allocation the type exists to remove. The suffix is not
+# misleading, it is accurate, and docs/plan/03 specifies the name. 1 finding.
+dotnet_diagnostic.CA1711.severity = none
+
+# ------------------------------------------------------------------------------
 # Test projects.
 # ------------------------------------------------------------------------------
 [**/*.Tests/**.cs]
@@ -141,3 +153,11 @@ dotnet_diagnostic.CA1711.severity = none
 # it is the dominant xunit convention and it makes failure output readable.
 # 250 findings — this single rule was 88% of everything latest-recommended found.
 dotnet_diagnostic.CA1707.severity = none
+
+# CA1861 — prefer static readonly fields over constant array arguments.
+# The rule targets repeated calls in hot code. In a test the constant array *is*
+# the expectation: `Assert.Equal(new[] { "pipeline", "swapchain", "device" }, log)`
+# says what the test asserts on the line that asserts it, and hoisting each one to
+# a named field would scatter every expectation away from its assertion for an
+# allocation that happens once per test. Escalated to warning under Core/ and
+# Platform/ above, where the allocation budget is real.

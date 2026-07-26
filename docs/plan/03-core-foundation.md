@@ -28,6 +28,36 @@ The smallest possible root. No dependencies beyond BCL.
 - **Disposal.** `IDisposable` plus `IAsyncDisposable`; a `DisposeBag` for subsystem teardown; a
   debug-build leak tracker that captures allocation stacks for undisposed GPU resources.
 
+> ✅ **Built.** `Core/Vixen.Core/` and `Core/Vixen.Core.Tests/` (86 tests) are live. Four things
+> came out differently from the paragraphs above, each for a reason worth keeping:
+>
+> - **`ObjectId` carries no hash function.** It is 128 bits of identity, formatting, parsing and
+>   ordering — nothing else. XxHash128 lives in `System.IO.Hashing`, a NuGet package, and taking it
+>   would break "no dependencies beyond BCL" for a type that does not need the algorithm: the code
+>   that hashes has the *content* in front of it, and that code is the object database in
+>   `Vixen.Core.Serialization`. Bytes are big-endian so the hex text and `WriteTo` agree, which is
+>   what makes ids comparable across machines.
+> - **`ObjectPool<T>` is a lock-free fast slot in front of a fixed slot array**, which is Roslyn's
+>   design, rather than the thread-local free list with shared overflow described above. A genuine
+>   per-pool thread-local needs either a `ThreadLocal<T>` — allocating per thread *per pool*, and the
+>   engine will have many pools — or a `[ThreadStatic]` field, which is per *type* and so cannot
+>   serve two pools of the same `T`. The shape here has the same property that mattered (uncontended
+>   fast path, bounded retention) and costs one field.
+> - **`ComponentTypeId` is assigned from 1, not 0**, so a zeroed struct is a detectably invalid
+>   handle instead of a silent alias for whichever component type registered first. Bit 0 of an
+>   archetype mask goes unused; that is cheaper than the class of bug it removes.
+> - **The `ArrayPool<T>` façade is `PooledArray`/`PooledArray<T>`**, and the clearing policy it
+>   applies is: clear on return iff the element type contains references. Not tidiness — an uncleared
+>   `Entity[]` sitting in a pool roots everything it last held, while clearing `int[]` every frame is
+>   pure cost.
+>
+> One C# detail that shaped the pooled collections, since it decides whether they can be structs at
+> all: a `using` declaration makes its variable read-only, but calling a mutating *method* on it is
+> still allowed and mutates in place — no defensive copy. Direct member assignment
+> (`map[k] = v` on a `using var`) is CS1654, a hard error rather than a silent copy. So
+> `using var list = new PooledList<T>(64); list.Add(x);` is correct, and the failure mode is caught
+> by the compiler.
+
 ## `Vixen.Core.Mathematics`
 
 Per ADR-003. Implementation notes that matter:

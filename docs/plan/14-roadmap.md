@@ -54,7 +54,10 @@ remains front-loaded into Phase 3.
 - **Extract `Vixen.Core.Syntax`** from Raven (green/red trees, `SyntaxGenerator`, `SourceText`,
   diagnostics) and retarget Raven onto it. This unblocks VXML and VCSS later and is the
   highest-leverage refactor available.
-- `Vixen.Core`, `Vixen.Core.Mathematics`, `Vixen.Core.Collections`, `Vixen.Core.Memory` with full tests.
+- ✅ `Vixen.Core` — annotations, identity types, `GameTime`, `ServiceRegistry`, pooling, `DisposeBag`,
+  `LeakTracker`, with 86 tests green in Debug and Release. What differs from
+  [03](03-core-foundation.md) is written down there.
+- `Vixen.Core.Mathematics`, `Vixen.Core.Collections`, `Vixen.Core.Memory` with full tests.
 - `Vixen.Core.Diagnostics`: `[LoggerMessage]` plumbing, ring-buffer sink, `ProfilingKey`/`Profiler`.
 
 **Exit:** `nuke Test` green on Windows/Linux/macOS. Raven builds and tests green on

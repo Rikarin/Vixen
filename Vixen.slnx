@@ -39,6 +39,8 @@
     grammars over one tested tree rather than three trees (doc 07 § A).
   -->
   <Folder Name="/Core/">
+    <Project Path="Core/Vixen.Core/Vixen.Core.csproj" />
+    <Project Path="Core/Vixen.Core.Tests/Vixen.Core.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Syntax/Vixen.Core.Syntax.csproj" />
     <Project Path="Core/Vixen.Core.Syntax.Tests/Vixen.Core.Syntax.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Syntax.Generator/Vixen.Core.Syntax.Generator.csproj" />
