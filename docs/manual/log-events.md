@@ -26,7 +26,7 @@ identifies its origin on sight.
 | Range | Subsystem | Status |
 |---|---|---|
 | 1 000 – 1 999 | `Vixen.Core.*` — services, assets of the foundation, allocators | reserved |
-| 2 000 – 2 999 | `Vixen.Graphics`, backends | reserved |
+| 2 000 – 2 999 | `Vixen.Graphics`, backends | **in use** |
 | 3 000 – 3 999 | `Vixen.Shaders`, Raven integration | reserved |
 | 4 000 – 4 999 | `Vixen.Rendering`, `Vixen.Rendering.PostFx` | reserved |
 | 5 000 – 5 999 | `Vixen.Ecs`, `Vixen.Engine` | reserved |
@@ -40,6 +40,12 @@ identifies its origin on sight.
 | 13 000 – 13 999 | `Vixen.App` — the host and the app heads | **in use** |
 
 ## Allocated ids
+
+### `Vixen.Graphics` and its backends
+
+| Id | Level | Message | Since |
+|---|---|---|---|
+| 2001 | Warning | The Vulkan validation layers were asked for and are not installed | 0.1.0 |
 
 ### `Vixen.App` — the host
 

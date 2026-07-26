@@ -68,6 +68,14 @@
       the one that also runs on mobile.
     -->
     <PackageVersion Include="Silk.NET.SDL" Version="2.23.0" />
+    <!--
+      The Vulkan backend. Bindings only, like the SDL package: the loader and the
+      ICD come from the platform's Vulkan SDK, which on macOS means MoltenVK plus
+      the Loader plus the validation layers (docs/plan/10 § macOS, two flavours).
+    -->
+    <PackageVersion Include="Silk.NET.Vulkan" Version="2.23.0" />
+    <PackageVersion Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.23.0" />
+    <PackageVersion Include="Silk.NET.Vulkan.Extensions.EXT" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.Core" Version="2.23.0" />
   </ItemGroup>
 

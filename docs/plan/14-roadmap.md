@@ -181,8 +181,15 @@ plumbing that everything else stands on.
      most valuable CI target because lavapipe is a conformant Vulkan 1.3 driver with no GPU; making
      it the *primary* verification for this backend rather than a later addition is the difference
      between a backend that is tested on every push and one that is tested on one laptop.
-- `Vixen.Graphics.Vulkan`: instance/device/queues, allocator, swapchain, command lists, PSOs,
-  descriptor sets, barriers, dynamic rendering + render-pass fallback, validation-layer wiring.
+- 🟡 `Vixen.Graphics.Vulkan`: instance creation with portability and validation-layer wiring, and
+  adapter selection. **The driver-touching half is unverified** — written against the specification
+  and the bindings on a machine with no loader, at the maintainer's direction and stated in the
+  README. The two pure halves are tested and are the ones where a mistake is silent: the format
+  table (both directions, no collisions, sRGB preserved) and the selection policy (16 tests total).
+  Software devices rank last and are never skipped, because lavapipe is what makes this backend
+  testable at all. **Owed:** device/queues, allocator, swapchain, command lists, PSOs, descriptor
+  sets, barriers, dynamic rendering + render-pass fallback — and a pass over everything here once
+  there is a driver.
 - `Vixen.Graphics.RenderGraph` with validation and transient aliasing.
 - **MoltenVK bring-up on macOS** — do it here, not later; it shapes the Vulkan backend's capability
   handling.

@@ -81,6 +81,8 @@
     <Project Path="Platform/Vixen.Platform.Desktop.Tests/Vixen.Platform.Desktop.Tests.csproj" />
     <Project Path="Platform/Vixen.Graphics.Null/Vixen.Graphics.Null.csproj" />
     <Project Path="Platform/Vixen.Graphics.Null.Tests/Vixen.Graphics.Null.Tests.csproj" />
+    <Project Path="Platform/Vixen.Graphics.Vulkan/Vixen.Graphics.Vulkan.csproj" />
+    <Project Path="Platform/Vixen.Graphics.Vulkan.Tests/Vixen.Graphics.Vulkan.Tests.csproj" />
   </Folder>
 
   <!--
