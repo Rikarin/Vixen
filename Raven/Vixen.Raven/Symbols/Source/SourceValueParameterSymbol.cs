@@ -48,8 +48,6 @@ public sealed class SourceValueParameterSymbol : FieldSymbol {
     public override bool IsStatic => true;
     public override bool IsReadOnly => true;
     public override bool IsValueParameter => true;
-    public override Accessibility DeclaredAccessibility => Accessibility.Public;
-
     /// <summary>A parameter is never data on the target — it is folded at every use.</summary>
     public override ResourceKind ResourceKind => ResourceKind.None;
 

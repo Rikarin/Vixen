@@ -17,6 +17,9 @@ public sealed class SourceFieldSymbol : FieldSymbol {
     TypeSymbol? type;
     NamedTypeSymbol? composedType;
     bool composeResolved;
+    object? declaredValue;
+    bool declaredValueComputed;
+    bool evaluatingDeclaredValue;
 
     public VariableDeclarationSyntax Declaration => syntax.Declaration;
 
@@ -91,15 +94,51 @@ public sealed class SourceFieldSymbol : FieldSymbol {
 
     public override bool IsReadOnly => IsConst || IsDeclaredReadOnly;
 
-    public override Accessibility DeclaredAccessibility =>
-        DeclarationFacts.GetAccessibility(syntax.Modifiers, Accessibility.Private);
-
     public override TypeSymbol Type => type ??= ResolveType();
 
     public override string? SemanticName => DeclarationFacts.GetSemanticName(syntax.AttributeLists);
 
-    public override object? DeclaredValue =>
-        Declaration.Initializer?.Value is LiteralExpressionSyntax literal ? LiteralParser.Parse(literal).Value : null;
+    public override object? DeclaredValue {
+        get {
+            if (Declaration.Initializer?.Value is not { } initializer) {
+                return null;
+            }
+
+            // The literal fast path covers most fields, and it is all a non-const
+            // field's host-side default supports anyway.
+            if (initializer is LiteralExpressionSyntax literal) {
+                return LiteralParser.Parse(literal).Value;
+            }
+
+            if (!IsConst) {
+                return null;
+            }
+
+            // A const may be initialized by any constant expression — `-1`,
+            // `TapCount * 2`, another const — evaluated once and cached.
+            if (declaredValueComputed) {
+                return declaredValue;
+            }
+
+            if (evaluatingDeclaredValue) {
+                binder.Diagnostics.Add(
+                    SemanticDiagnostics.CircularDefinition,
+                    Declaration.Identifier.GetLocation(),
+                    Name
+                );
+                return null;
+            }
+
+            evaluatingDeclaredValue = true;
+            try {
+                declaredValue = ConstantEvaluator.Evaluate(binder.BindValue(initializer));
+                declaredValueComputed = true;
+                return declaredValue;
+            } finally {
+                evaluatingDeclaredValue = false;
+            }
+        }
+    }
 
     public override object? ConstantValue {
         get {
@@ -196,9 +235,14 @@ public sealed class SourceFieldSymbol : FieldSymbol {
 
 /// <summary>A member of an <c>enum</c>: a constant of the enum's own type.</summary>
 public sealed class SourceEnumMemberSymbol : FieldSymbol {
+    readonly Binder binder;
     readonly EnumMemberDeclarationSyntax syntax;
 
-    /// <summary>Declaration order, which is the implicit value when none is given.</summary>
+    object? constantValue;
+    bool constantComputed;
+    bool evaluating;
+
+    /// <summary>Declaration order. The value continues from the previous member, C-style.</summary>
     public int Ordinal { get; }
 
     public override string Name => syntax.Identifier.ValueText;
@@ -208,14 +252,84 @@ public sealed class SourceEnumMemberSymbol : FieldSymbol {
     public override bool IsConst => true;
     public override bool IsReadOnly => true;
     public override bool IsStatic => true;
-    public override Accessibility DeclaredAccessibility => Accessibility.Public;
 
-    public override object? ConstantValue =>
-        syntax.Value?.Value is LiteralExpressionSyntax literal ? LiteralParser.Parse(literal).Value : Ordinal;
+    /// <summary>
+    ///     The member's value: its initializer evaluated as a constant expression, or the
+    ///     previous member's value plus one — <c>A, B = 5, C</c> makes <c>C</c> six. An
+    ///     initializer that is not a compile-time integer is <c>RVN2094</c>; a cycle
+    ///     (<c>A = B, B = A</c>) is a circular-definition error. Both fall back to 0 so
+    ///     downstream phases still see a well-typed constant.
+    /// </summary>
+    public override object? ConstantValue {
+        get {
+            if (constantComputed) {
+                return constantValue;
+            }
 
-    internal SourceEnumMemberSymbol(NamedTypeSymbol containingType, EnumMemberDeclarationSyntax syntax, int ordinal) {
+            if (evaluating) {
+                binder.Diagnostics.Add(
+                    SemanticDiagnostics.CircularDefinition,
+                    syntax.Identifier.GetLocation(),
+                    Name
+                );
+                return 0;
+            }
+
+            evaluating = true;
+            try {
+                constantValue = Evaluate();
+                constantComputed = true;
+                return constantValue;
+            } finally {
+                evaluating = false;
+            }
+        }
+    }
+
+    internal SourceEnumMemberSymbol(
+        NamedTypeSymbol containingType,
+        EnumMemberDeclarationSyntax syntax,
+        int ordinal,
+        Binder binder
+    ) {
         ContainingSymbol = containingType;
         this.syntax = syntax;
         Ordinal = ordinal;
+        this.binder = binder;
     }
+
+    object Evaluate() {
+        if (syntax.Value?.Value is not { } initializer) {
+            return Ordinal == 0 ? 0 : Successor(PreviousMember()?.ConstantValue);
+        }
+
+        var value = ConstantEvaluator.Evaluate(binder.BindValue(initializer));
+        if (value is int or uint) {
+            return value;
+        }
+
+        binder.Diagnostics.Add(
+            SemanticDiagnostics.EnumMemberValueNotConstant,
+            syntax.Identifier.GetLocation(),
+            Name
+        );
+        return 0;
+    }
+
+    SourceEnumMemberSymbol? PreviousMember() {
+        foreach (var member in ((NamedTypeSymbol)ContainingSymbol!).GetMembers()) {
+            if (member is SourceEnumMemberSymbol candidate && candidate.Ordinal == Ordinal - 1) {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    static object Successor(object? previous) =>
+        previous switch {
+            int value => value + 1,
+            uint value => value + 1,
+            _ => 0
+        };
 }

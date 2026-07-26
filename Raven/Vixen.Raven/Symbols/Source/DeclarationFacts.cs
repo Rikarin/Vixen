@@ -39,33 +39,6 @@ public static class DeclarationFacts {
         return false;
     }
 
-    /// <summary>
-    ///     The declared accessibility, or <paramref name="fallback" /> when no access
-    ///     modifier is present.
-    /// </summary>
-    public static Accessibility GetAccessibility(SyntaxList<SyntaxToken> modifiers, Accessibility fallback) {
-        var isProtected = false;
-        var isInternal = false;
-
-        foreach (var modifier in modifiers) {
-            switch (modifier.Kind) {
-                case SyntaxKind.PublicKeyword:
-                    return Accessibility.Public;
-                case SyntaxKind.PrivateKeyword:
-                    return Accessibility.Private;
-                case SyntaxKind.ProtectedKeyword:
-                    isProtected = true;
-                    break;
-                case SyntaxKind.StaticKeyword:
-                case SyntaxKind.AbstractKeyword:
-                default:
-                    break;
-            }
-        }
-
-        return isProtected ? Accessibility.Protected : isInternal ? Accessibility.Internal : fallback;
-    }
-
     /// <summary>The bare name of an attribute, with any <c>Attribute</c> suffix removed.</summary>
     public static string GetAttributeName(AttributeSyntax attribute) {
         var name = attribute.Name switch {

@@ -24,7 +24,6 @@ public partial class SyntaxFactory {
     public static SyntaxToken Literal(double value) =>
         RedToken(new Green.SyntaxTokenWithValue<double>((int)SyntaxKind.None, value.ToString(), value));
 
-    public static SyntaxToken Global() => Token(SyntaxKind.GlobalKeyword);
 
     public static SyntaxToken Static() => Token(SyntaxKind.StaticKeyword);
 

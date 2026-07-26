@@ -35,11 +35,7 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
     public override Symbol? ContainingSymbol { get; }
     public override TypeKind TypeKind => Declaration.Kind;
     public override SyntaxNode DeclaringSyntax => Declaration.Syntax;
-    public override bool IsAbstract => DeclarationFacts.Has(Declaration.Modifiers, SyntaxKind.AbstractKeyword);
     public override bool IsStatic => DeclarationFacts.Has(Declaration.Modifiers, SyntaxKind.StaticKeyword);
-
-    public override Accessibility DeclaredAccessibility =>
-        DeclarationFacts.GetAccessibility(Declaration.Modifiers, Accessibility.Internal);
 
     public override IReadOnlyList<TypeParameterSymbol> TypeParameters {
         get {
@@ -199,6 +195,14 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
 
         ReportDuplicates();
         ReportShaderIssues();
+
+        // Force every enum member's value, so a bad initializer (RVN2094) or a
+        // cycle is reported even when nothing in the program reads the member.
+        foreach (var member in built) {
+            if (member is SourceEnumMemberSymbol enumMember) {
+                _ = enumMember.ConstantValue;
+            }
+        }
     }
 
     Symbol[] BuildMembers() {
@@ -226,7 +230,7 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
                     break;
 
                 case EnumMemberDeclarationSyntax enumMember:
-                    result.Add(new SourceEnumMemberSymbol(this, enumMember, result.Count));
+                    result.Add(new SourceEnumMemberSymbol(this, enumMember, result.Count, TypeBinder));
                     break;
 
                 case MethodDeclarationSyntax
@@ -559,6 +563,60 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
         }
     }
 
+    /// <summary>
+    ///     Warns about modifiers that are legal syntax but change nothing where they
+    ///     stand — <c>override</c> on a field, <c>compose</c> on a method, anything on
+    ///     a type or an <c>init</c>. Same policy as a misplaced descriptor-set marker
+    ///     (<c>RVN2091</c>): the code still compiles, but the author believes something
+    ///     untrue, so it is named rather than silently ignored.
+    /// </summary>
+    void ReportModifierIssues() {
+        ReportUselessModifiers(Declaration.Modifiers, [], "type", Name, Declaration.Syntax);
+
+        foreach (var member in members!) {
+            if (member.DeclaringSyntax is not MemberDeclarationSyntax declaration) {
+                continue;
+            }
+
+            var (allowed, description) = member switch {
+                FieldSymbol =>
+                    (new[] { SyntaxKind.ConstKeyword, SyntaxKind.ReadOnlyKeyword, SyntaxKind.StaticKeyword,
+                        SyntaxKind.ComposeKeyword }, "field"),
+                MethodSymbol { MethodKind: MethodKind.Constructor } => ([], "constructor"),
+                MethodSymbol { MethodKind: MethodKind.Operator } =>
+                    (new[] { SyntaxKind.StaticKeyword }, "operator"),
+                MethodSymbol => (new[] { SyntaxKind.StaticKeyword, SyntaxKind.OverrideKeyword }, "method"),
+                PropertySymbol => (new[] { SyntaxKind.StaticKeyword, SyntaxKind.OverrideKeyword }, "property"),
+                // A nested type reports its own modifiers when its own checks run.
+                _ => (Array.Empty<SyntaxKind>(), (string?)null)
+            };
+
+            if (description is not null) {
+                ReportUselessModifiers(declaration.Modifiers, allowed, description, member.Name, declaration);
+            }
+        }
+    }
+
+    void ReportUselessModifiers(
+        SyntaxList<SyntaxToken> modifiers,
+        SyntaxKind[] allowed,
+        string description,
+        string name,
+        SyntaxNode declaration
+    ) {
+        foreach (var modifier in modifiers) {
+            if (!allowed.Contains(modifier.Kind)) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ModifierHasNoEffect,
+                    declaration.GetLocation(),
+                    SyntaxFacts.GetText(modifier.Kind),
+                    description,
+                    name
+                );
+            }
+        }
+    }
+
     void ReportShaderIssues() {
         Dictionary<ShaderStage, MethodSymbol> stages = [];
 
@@ -566,6 +624,7 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
         ReportComposeIssues();
         ReportValueParameterIssues();
         ReportResourceSetIssues();
+        ReportModifierIssues();
 
         foreach (var member in members!) {
             // A shader is the pipeline, not a value: nothing constructs one, so an `init`

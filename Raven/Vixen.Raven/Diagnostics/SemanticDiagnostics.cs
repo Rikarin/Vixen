@@ -509,4 +509,54 @@ public static class SemanticDiagnostics {
         Shader,
         DiagnosticSeverity.Error
     );
+
+    // --- Meaningless-but-plausible source ----------------------------------
+    //
+    // Same policy as RVN2091: the code is still correct, but the author believes
+    // something untrue about what a modifier or attribute does, so it is named
+    // rather than silently ignored.
+
+    /// <summary>
+    ///     A modifier that is legal syntax but changes nothing where it stands —
+    ///     <c>override</c> on a field, <c>compose</c> on a method, anything on an
+    ///     <c>init</c>.
+    /// </summary>
+    public static readonly DiagnosticDescriptor ModifierHasNoEffect = new(
+        "RVN2093",
+        "Modifier has no effect",
+        "The '{0}' modifier has no effect on {1} '{2}'",
+        Declaration,
+        DiagnosticSeverity.Warning
+    );
+
+    /// <summary>
+    ///     An enum member's initializer did not evaluate to a compile-time integer.
+    ///     Reported rather than silently substituting the ordinal, which is what an
+    ///     earlier version did.
+    /// </summary>
+    public static readonly DiagnosticDescriptor EnumMemberValueNotConstant = new(
+        "RVN2094",
+        "Enum member value is not a constant",
+        "The value of enum member '{0}' must be a compile-time integer constant",
+        Declaration,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>Nothing reads attributes on a statement; the author probably expected a hint like [Unroll] to act.</summary>
+    public static readonly DiagnosticDescriptor AttributesOnStatementHaveNoEffect = new(
+        "RVN2095",
+        "Attributes on a statement have no effect",
+        "Attributes on a statement are not used by the compiler and have no effect",
+        Binding,
+        DiagnosticSeverity.Warning
+    );
+
+    /// <summary>A type argument was checked against its parameter's <c>where</c> clause and failed.</summary>
+    public static readonly DiagnosticDescriptor TypeArgumentDoesNotSatisfyConstraint = new(
+        "RVN2096",
+        "Type argument does not satisfy constraint",
+        "Type argument '{0}' does not satisfy the constraint '{1}' on type parameter '{2}' of '{3}'",
+        Binding,
+        DiagnosticSeverity.Error
+    );
 }

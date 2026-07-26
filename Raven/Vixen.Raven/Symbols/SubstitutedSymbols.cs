@@ -34,7 +34,6 @@ public sealed class SubstitutedFieldSymbol(FieldSymbol definition, Symbol contai
     public override ResourceKind ResourceKind => OriginalDefinition.ResourceKind;
     public override string? SemanticName => OriginalDefinition.SemanticName;
     public override bool IsStatic => OriginalDefinition.IsStatic;
-    public override Accessibility DeclaredAccessibility => OriginalDefinition.DeclaredAccessibility;
     public override SyntaxNode? DeclaringSyntax => OriginalDefinition.DeclaringSyntax;
 }
 
@@ -50,7 +49,6 @@ public sealed class SubstitutedPropertySymbol : PropertySymbol {
     public override bool HasSetter => OriginalDefinition.HasSetter;
     public override IReadOnlyList<ParameterSymbol> Parameters => parameters;
     public override bool IsStatic => OriginalDefinition.IsStatic;
-    public override Accessibility DeclaredAccessibility => OriginalDefinition.DeclaredAccessibility;
     public override SyntaxNode? DeclaringSyntax => OriginalDefinition.DeclaringSyntax;
 
     internal SubstitutedPropertySymbol(PropertySymbol definition, Symbol container, TypeMap map) {
@@ -84,8 +82,6 @@ public sealed class SubstitutedMethodSymbol : MethodSymbol {
     public override ShaderStage Stage => OriginalDefinition.Stage;
     public override string? SemanticName => OriginalDefinition.SemanticName;
     public override bool IsStatic => OriginalDefinition.IsStatic;
-    public override bool IsAbstract => OriginalDefinition.IsAbstract;
-    public override Accessibility DeclaredAccessibility => OriginalDefinition.DeclaredAccessibility;
     public override SyntaxNode? DeclaringSyntax => OriginalDefinition.DeclaringSyntax;
 
     internal SubstitutedMethodSymbol(

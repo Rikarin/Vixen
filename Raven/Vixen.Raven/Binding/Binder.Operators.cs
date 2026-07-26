@@ -214,7 +214,6 @@ public abstract partial class Binder {
                 or UnaryOperatorKind.PreDecrement
                 or UnaryOperatorKind.PostIncrement
                 or UnaryOperatorKind.PostDecrement => operand.IsNumericLike ? operand : null,
-            UnaryOperatorKind.IndexFromEnd => IsIntegral(operand) ? BuiltInTypes.Int : null,
             _ => null
         };
     }

@@ -12,6 +12,12 @@ namespace Vixen.Raven.Binding;
 /// <summary>Statement binding.</summary>
 public abstract partial class Binder {
     public BoundStatement BindStatement(StatementSyntax syntax) {
+        // Nothing downstream reads statement attributes, so `[Unroll] for (...)` would
+        // otherwise be a silent no-op the author believes in.
+        if (syntax.AttributeLists is { Count: > 0 } attributes && attributes[0] is { } list) {
+            Report(SemanticDiagnostics.AttributesOnStatementHaveNoEffect, list);
+        }
+
         var bound = BindStatementCore(syntax);
         Context.Record(syntax, bound);
         return bound;

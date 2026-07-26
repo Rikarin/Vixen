@@ -74,9 +74,7 @@ public sealed class SynthesizedMethodSymbol : MethodSymbol {
     public override Symbol? ContainingSymbol { get; }
     public override MethodKind MethodKind { get; }
     public override TypeSymbol ReturnType { get; }
-    public override IReadOnlyList<ParameterSymbol> Parameters => parameters;
-    public override Accessibility DeclaredAccessibility => Accessibility.Public;
-    public override bool IsStatic => ContainingSymbol is null;
+    public override IReadOnlyList<ParameterSymbol> Parameters => parameters;    public override bool IsStatic => ContainingSymbol is null;
 
     internal SynthesizedMethodSymbol(
         Symbol? container,

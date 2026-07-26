@@ -87,11 +87,6 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
         return SyntaxFactory.ElementAccessExpression(expression!, argumentList!);
     }
 
-    // NOTE: unreachable — a bare `[...]` always binds to #CollectionExpression, which
-    // precedes #ImplicitElementAccess in the expression rule. Kept for grammar parity.
-    public override SyntaxNode VisitImplicitElementAccess(RavenParser.ImplicitElementAccessContext context) =>
-        base.VisitImplicitElementAccess(context);
-
     public override SyntaxNode VisitInstanceExpression(RavenParser.InstanceExpressionContext context) =>
         context.op.Type switch {
             RavenLexer.BASE => SyntaxFactory.BaseExpression(),
@@ -153,7 +148,6 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
             RavenLexer.BANG => SyntaxKind.LogicalNotExpression,
             RavenLexer.OP_INC => SyntaxKind.PreIncrementExpression,
             RavenLexer.OP_DEC => SyntaxKind.PreDecrementExpression,
-            RavenLexer.CARET => SyntaxKind.IndexExpression,
             _ => throw ExceptionUtilities.Unreachable()
         };
         var op = Token(context.op, SyntaxKind.OperatorToken);
@@ -172,10 +166,7 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
     public override SyntaxNode VisitTupleExpression(RavenParser.TupleExpressionContext context) {
         var open = Token(TerminalOf(context, RavenLexer.OPEN_PARENS), SyntaxKind.OpenParenToken);
         var arguments = SeparatedList<ArgumentSyntax>(context.argument().Select(Visit).ToArray(), Commas(context));
-        var closeTerminal = TerminalOrNull(context, RavenLexer.CLOSE_PARENS);
-        var close = closeTerminal != null
-            ? Token(closeTerminal, SyntaxKind.CloseParenToken)
-            : SyntaxFactory.Token(SyntaxKind.CloseParenToken);
+        var close = Token(TerminalOf(context, RavenLexer.CLOSE_PARENS), SyntaxKind.CloseParenToken);
         return SyntaxFactory.TupleExpression(open, arguments, close);
     }
 
@@ -269,12 +260,11 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
     }
 
     public override SyntaxNode VisitImport_directive(RavenParser.Import_directiveContext context) {
-        var global = context.GLOBAL() != null ? Token(context.GLOBAL().Symbol, SyntaxKind.GlobalKeyword) : null;
         var importKeyword = Token(context.IMPORT().Symbol, SyntaxKind.ImportKeyword);
         var @static = context.STATIC() != null ? Token(context.STATIC().Symbol, SyntaxKind.StaticKeyword) : null;
 
         var name = Visit(context.name()) as NameSyntax;
-        return SyntaxFactory.ImportDirective(global, importKeyword, @static, name!);
+        return SyntaxFactory.ImportDirective(importKeyword, @static, name!);
     }
 
     public override SyntaxNode VisitAttribute_list(RavenParser.Attribute_listContext context) {
@@ -324,7 +314,6 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
 
     public override SyntaxNode VisitParameter(RavenParser.ParameterContext context) {
         var attributes = context.attribute_list().Select(Visit).ToArray();
-        var modifiers = context.modifier().Select(Visit).ToArray();
         var identifier = Visit(context.identifier_token()) as SyntaxToken;
         var colonToken = TerminalOrNull(context, RavenLexer.COLON);
         var colon = colonToken != null ? Token(colonToken, SyntaxKind.ColonToken) : null;
@@ -335,7 +324,6 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
 
         return SyntaxFactory.Parameter(
             new(SyntaxList.List(attributes)),
-            new(SyntaxList.List(modifiers)),
             identifier!,
             colon,
             type,
@@ -364,12 +352,6 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
     }
 
     public override SyntaxNode VisitIdentifier_name(RavenParser.Identifier_nameContext context) {
-        // `global` is a keyword standing in an identifier-name position; it is what
-        // makes `global::Name` parse as an AliasQualifiedName.
-        if (context.GLOBAL() is { } global) {
-            return SyntaxFactory.IdentifierName(Token(global.Symbol, SyntaxKind.GlobalKeyword));
-        }
-
         var token = Visit(context.identifier_token()) as SyntaxToken;
         return SyntaxFactory.IdentifierName(token!);
     }
@@ -479,7 +461,6 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
 
     public override SyntaxNode VisitAccessor_declaration(RavenParser.Accessor_declarationContext context) {
         var attributes = SyntaxList.List(context.attribute_list().Select(Visit).ToArray());
-        var modifiers = SyntaxList.List(context.modifier().Select(Visit).ToArray());
         var (kind, tokenKind) = context.op.Type switch {
             RavenLexer.GET => (SyntaxKind.GetAccessorDeclaration, SyntaxKind.GetKeyword),
             RavenLexer.SET => (SyntaxKind.SetAccessorDeclaration, SyntaxKind.SetKeyword),
@@ -493,7 +474,7 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
             ? Visit(context.arrow_expression_clause()) as ArrowExpressionClauseSyntax
             : null;
 
-        return SyntaxFactory.AccessorDeclaration(kind, new(attributes), new(modifiers), keyword, body, expressionBody);
+        return SyntaxFactory.AccessorDeclaration(kind, new(attributes), keyword, body, expressionBody);
     }
 
 
@@ -647,13 +628,12 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
 
     public override SyntaxNode VisitEnum_member_declaration(RavenParser.Enum_member_declarationContext context) {
         var attributes = SyntaxList.List(context.attribute_list().Select(Visit).ToArray());
-        var modifiers = SyntaxList.List(context.modifier().Select(Visit).ToArray());
         var identifier = Visit(context.identifier_token()) as SyntaxToken;
         var value = context.equals_value_clause() != null
             ? Visit(context.equals_value_clause()) as EqualsValueClauseSyntax
             : null;
 
-        return SyntaxFactory.EnumMemberDeclaration(new(attributes), new(modifiers), identifier!, value);
+        return SyntaxFactory.EnumMemberDeclaration(new(attributes), new(), identifier!, value);
     }
 
     public override SyntaxNode VisitType_parameter_list(RavenParser.Type_parameter_listContext context) {
@@ -668,12 +648,6 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
 
     public override SyntaxNode VisitType_parameter(RavenParser.Type_parameterContext context) {
         var attributes = SyntaxList.List(context.attribute_list().Select(Visit).ToArray());
-        var variance = context.variance != null
-            ? Token(
-                context.variance,
-                context.variance.Type == RavenLexer.IN ? SyntaxKind.InKeyword : SyntaxKind.OutKeyword
-            )
-            : null;
         var identifier = Visit(context.identifier_token()) as SyntaxToken;
 
         // TerminalOrNull, not TerminalOf: `val` is only present on a value parameter.
@@ -683,7 +657,7 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
 
         var type = context.type() is { } typeContext ? Visit(typeContext) as TypeSyntax : null;
 
-        return SyntaxFactory.TypeParameter(new(attributes), variance, val, identifier!, type);
+        return SyntaxFactory.TypeParameter(new(attributes), val, identifier!, type);
     }
 
     public override SyntaxNode VisitType_parameter_constraint_clause(
@@ -859,16 +833,11 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
 
     public override SyntaxNode VisitLocal_declaration_statement(RavenParser.Local_declaration_statementContext context) {
         var attributes = SyntaxList.List(context.attribute_list().Select(Visit).ToArray());
-        var modifiers = context.modifier().Select(Visit).ToArray();
         var declaration = context.variable_declaration() != null
             ? Visit(context.variable_declaration()) as VariableDeclarationSyntax
             : null;
 
-        return SyntaxFactory.LocalDeclarationStatement(
-            new(attributes),
-            new(SyntaxList.List(modifiers)),
-            declaration!
-        );
+        return SyntaxFactory.LocalDeclarationStatement(new(attributes), declaration!);
     }
 
     public override SyntaxNode VisitWhile_statement(RavenParser.While_statementContext context) {
@@ -886,12 +855,9 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
         var attributes = SyntaxList.List(context.attribute_list().Select(Visit).ToArray());
         var keyword = Token(context.SWITCH().Symbol, SyntaxKind.SwitchKeyword);
 
-        // The parens are optional in the grammar, so they are optional in the tree.
-        var openParenToken = TerminalOrNull(context, RavenLexer.OPEN_PARENS);
-        var openParen = openParenToken != null ? Token(openParenToken, SyntaxKind.OpenParenToken) : null;
+        var openParen = Token(TerminalOf(context, RavenLexer.OPEN_PARENS), SyntaxKind.OpenParenToken);
         var expression = Visit(context.expression()) as ExpressionSyntax;
-        var closeParenToken = TerminalOrNull(context, RavenLexer.CLOSE_PARENS);
-        var closeParen = closeParenToken != null ? Token(closeParenToken, SyntaxKind.CloseParenToken) : null;
+        var closeParen = Token(TerminalOf(context, RavenLexer.CLOSE_PARENS), SyntaxKind.CloseParenToken);
 
         var openBrace = Token(TerminalOf(context, RavenLexer.OPEN_BRACE), SyntaxKind.OpenBraceToken);
         var sections = SyntaxList.List(context.switch_section().Select(Visit).ToArray());
@@ -983,14 +949,9 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
         var token = (ITerminalNode)context.GetChild(0);
 
         var kind = token.Symbol.Type switch {
-            RavenLexer.ABSTRACT => SyntaxKind.AbstractKeyword,
             RavenLexer.COMPOSE => SyntaxKind.ComposeKeyword,
             RavenLexer.CONST => SyntaxKind.ConstKeyword,
             RavenLexer.OVERRIDE => SyntaxKind.OverrideKeyword,
-            RavenLexer.PARTIAL => SyntaxKind.PartialKeyword,
-            RavenLexer.PRIVATE => SyntaxKind.PrivateKeyword,
-            RavenLexer.PROTECTED => SyntaxKind.ProtectedKeyword,
-            RavenLexer.PUBLIC => SyntaxKind.PublicKeyword,
             RavenLexer.READONLY => SyntaxKind.ReadOnlyKeyword,
             RavenLexer.STATIC => SyntaxKind.StaticKeyword,
             _ => throw ExceptionUtilities.Unreachable()

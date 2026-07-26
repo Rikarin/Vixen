@@ -92,8 +92,6 @@ public sealed class SynthesizedFieldSymbol : FieldSymbol {
     public override Symbol? ContainingSymbol { get; }
     public override TypeSymbol Type { get; }
     public override bool IsReadOnly { get; }
-    public override Accessibility DeclaredAccessibility => Accessibility.Public;
-
     internal SynthesizedFieldSymbol(TypeSymbol containingType, string name, TypeSymbol type, bool isReadOnly) {
         ContainingSymbol = containingType;
         Name = name;

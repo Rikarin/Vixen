@@ -23,7 +23,7 @@ shader TestShader : ExampleBase, CustomShader {
     }
 
     [FooBar(mode: "linear")]
-    public abstract var observed: float {
+    var observed: float {
         willSet {
             counter++
         }
@@ -150,7 +150,7 @@ struct Widget<T> where T : Shaded {
     }
 }
 
-readonly struct Messenger {
+struct Messenger {
     val userId: int
     val channel: int
 }

@@ -255,6 +255,52 @@ public class RemovedConstructsTests {
         Assert.Equal("uint", local.Type.ToDisplayString());
     }
 
+    // --- The third pass: surface that parsed with nothing behind it ---
+    //
+    // Each of these was accepted and then ignored: no lookup, no lowering, no emitter
+    // ever read it. Silent acceptance teaches the author something untrue, so the
+    // surface is gone. See the audit in docs/plan/07 § J.
+
+    [Theory]
+    // `#` swallowed the directive line and compiled every branch in — `#if X` was a
+    // silent no-op that included both sides.
+    [InlineData("package A\n\nshader S {\n    func M() {\n        var s = 1f\n#if UseDetail\n        s = 2f\n#endif\n    }\n}\n")]
+    // `@name` parsed and the `@` silently vanished from the tree, breaking round-trip.
+    [InlineData("package A\n\nshader S {\n    func M(@pos: float4) {\n    }\n}\n")]
+    // Accessibility was parsed into a symbol property no code ever read: a `private`
+    // field was readable from any other type. `abstract` and `partial` likewise
+    // reached properties with zero consumers.
+    [InlineData("package A\n\nshader S {\n    public func M() {\n    }\n}\n")]
+    [InlineData("package A\n\nshader S {\n    private var x: float\n}\n")]
+    [InlineData("package A\n\nshader S {\n    protected func M() {\n    }\n}\n")]
+    [InlineData("package A\n\nabstract shader S {\n}\n")]
+    [InlineData("package A\n\npartial struct P {\n    var x: float\n}\n")]
+    // `global import` was stored in the tree and never read by the binder.
+    [InlineData("package A\n\nglobal import B.C\n\nshader S {\n}\n")]
+    // Type-parameter variance means nothing in a language with only value types.
+    [InlineData("package A\n\nstruct Box<in T> {\n    var item: T\n}\n")]
+    [InlineData("package A\n\nstruct Box<out T> {\n    var item: T\n}\n")]
+    // `operator true`/`operator false` declared methods no expression could invoke.
+    [InlineData("package A\n\nstruct F {\n    var v: float\n\n    bool operator true(x: F) => true\n}\n")]
+    public void The_ignored_surface_no_longer_parses(string source) {
+        var tree = SyntaxTree.ParseText(source);
+
+        Assert.NotEmpty(tree.Diagnostics);
+    }
+
+    [Theory]
+    // Statements end at the newline; `;` never had a grammar rule and now has no token.
+    [InlineData("        val x = 1;")]
+    // `^i` (index from end) bound as an int and then had nothing to index: no sized
+    // arrays, and ranges are not values.
+    [InlineData("        val x = ^1")]
+    // A tuple's close paren was optional and a missing one was fabricated, so
+    // `(1f, 2f` round-tripped to `(1f, 2f)` with no diagnostic.
+    [InlineData("        val t = (1f, 2f")]
+    // The switch parens were independently optional, so `switch x) {` parsed.
+    [InlineData("        switch x) {\n        case 1:\n            break\n        }")]
+    public void The_loose_expression_surface_no_longer_parses(string body) => AssertDoesNotParse(body);
+
     static void AssertDoesNotParse(string body) {
         var tree = SyntaxTree.ParseText($"package A\n\nshader S {{\n    func M() {{\n{body}\n    }}\n}}\n");
         Assert.NotEmpty(tree.Diagnostics);

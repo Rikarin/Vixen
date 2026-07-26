@@ -29,7 +29,6 @@
         <Kind Name="IdentifierName"/>
         <Field Name="Identifier" Type="SyntaxToken" Override="true">
             <Kind Name="IdentifierToken"/>
-            <Kind Name="GlobalKeyword"/>
             <PropertyComment>
                 <summary>
                     SyntaxToken representing the keyword for the kind of the identifier name.
@@ -221,7 +220,6 @@
         <Kind Name="LogicalNotExpression"/>
         <Kind Name="PreIncrementExpression"/>
         <Kind Name="PreDecrementExpression"/>
-        <Kind Name="IndexExpression"/>
         <Field Name="OperatorToken" Type="SyntaxToken">
             <Kind Name="OperatorToken"/>
         </Field>
@@ -433,9 +431,6 @@
     </Node>
     <Node Name="ImportDirectiveSyntax" Base="RavenSyntaxNode">
         <Kind Name="ImportDirective"/>
-        <Field Name="GlobalKeyword" Type="SyntaxToken" Optional="true">
-            <Kind Name="GlobalKeyword"/>
-        </Field>
         <Field Name="ImportKeyword" Type="SyntaxToken">
             <Kind Name="ImportKeyword"/>
         </Field>
@@ -665,11 +660,6 @@
         <Field Name="AttributeLists" Type="SyntaxList&lt;AttributeListSyntax&gt;">
             <PropertyComment>
                 <summary>Gets the attribute declaration list.</summary>
-            </PropertyComment>
-        </Field>
-        <Field Name="Modifiers" Type="SyntaxList&lt;SyntaxToken&gt;">
-            <PropertyComment>
-                <summary>Gets the modifier list.</summary>
             </PropertyComment>
         </Field>
         <Field Name="Identifier" Type="SyntaxToken">
@@ -914,11 +904,6 @@
     <Node Name="LocalDeclarationStatementSyntax" Base="StatementSyntax">
         <Kind Name="LocalDeclarationStatement"/>
         <Field Name="AttributeLists" Type="SyntaxList&lt;AttributeListSyntax&gt;" Override="true"/>
-        <Field Name="Modifiers" Type="SyntaxList&lt;SyntaxToken&gt;">
-            <PropertyComment>
-                <summary>Gets the modifier list.</summary>
-            </PropertyComment>
-        </Field>
         <Field Name="Declaration" Type="VariableDeclarationSyntax"/>
     </Node>
     <Node Name="WhileStatementSyntax" Base="StatementSyntax">
@@ -954,7 +939,7 @@
         <Field Name="SwitchKeyword" Type="SyntaxToken">
             <Kind Name="SwitchKeyword"/>
         </Field>
-        <Field Name="OpenParenToken" Type="SyntaxToken" Optional="true">
+        <Field Name="OpenParenToken" Type="SyntaxToken">
             <Kind Name="OpenParenToken"/>
         </Field>
         <Field Name="Expression" Type="ExpressionSyntax">
@@ -964,7 +949,7 @@
                 </summary>
             </PropertyComment>
         </Field>
-        <Field Name="CloseParenToken" Type="SyntaxToken" Optional="true">
+        <Field Name="CloseParenToken" Type="SyntaxToken">
             <Kind Name="CloseParenToken"/>
         </Field>
         <Field Name="OpenBraceToken" Type="SyntaxToken">
@@ -1089,10 +1074,6 @@
             <PropertyComment>
                 <summary>Gets the attribute declaration list.</summary>
             </PropertyComment>
-        </Field>
-        <Field Name="VarianceKeyword" Type="SyntaxToken" Optional="true">
-            <Kind Name="InKeyword"/>
-            <Kind Name="OutKeyword"/>
         </Field>
         <Field Name="ValKeyword" Type="SyntaxToken" Optional="true">
             <PropertyComment>
@@ -1332,7 +1313,6 @@
         <Kind Name="WillSetAccessorDeclaration"/>
         <Kind Name="DidSetAccessorDeclaration"/>
         <Field Name="AttributeLists" Type="SyntaxList&lt;AttributeListSyntax&gt;"/>
-        <Field Name="Modifiers" Type="SyntaxList&lt;SyntaxToken&gt;"/>
         <Field Name="Keyword" Type="SyntaxToken">
             <Kind Name="GetKeyword"/>
             <Kind Name="SetKeyword"/>

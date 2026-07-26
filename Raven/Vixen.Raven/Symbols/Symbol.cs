@@ -46,11 +46,7 @@ public abstract class Symbol {
         }
     }
 
-    public virtual Accessibility DeclaredAccessibility => Accessibility.NotApplicable;
-
     public virtual bool IsStatic => false;
-
-    public virtual bool IsAbstract => false;
 
     /// <summary>True for symbols the compiler creates rather than reads from source.</summary>
     public virtual bool IsImplicitlyDeclared => DeclaringSyntax is null;

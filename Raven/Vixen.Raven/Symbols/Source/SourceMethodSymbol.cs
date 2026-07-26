@@ -45,10 +45,6 @@ public sealed class SourceMethodSymbol : MethodSymbol {
         };
 
     public override bool IsStatic => DeclarationFacts.Has(Modifiers, SyntaxKind.StaticKeyword);
-    public override bool IsAbstract => DeclarationFacts.Has(Modifiers, SyntaxKind.AbstractKeyword);
-
-    public override Accessibility DeclaredAccessibility =>
-        DeclarationFacts.GetAccessibility(Modifiers, Accessibility.Private);
 
     public override ShaderStage Stage => DeclarationFacts.GetShaderStage(AttributeLists);
 

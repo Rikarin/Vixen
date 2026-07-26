@@ -94,13 +94,55 @@ public abstract partial class Binder {
             return ErrorTypeSymbol.Instance;
         }
 
-        return Construct(type, typeArguments);
+        return Construct(type, typeArguments, syntax);
     }
 
-    static TypeSymbol Construct(TypeSymbol type, IReadOnlyList<TypeSymbol> typeArguments) =>
-        typeArguments.Count > 0 && type is NamedTypeSymbol named
-            ? new ConstructedNamedTypeSymbol(named, typeArguments)
-            : type;
+    TypeSymbol Construct(TypeSymbol type, IReadOnlyList<TypeSymbol> typeArguments, SyntaxNode syntax) {
+        if (typeArguments.Count == 0 || type is not NamedTypeSymbol named) {
+            return type;
+        }
+
+        CheckConstraints(named, typeArguments, syntax);
+        return new ConstructedNamedTypeSymbol(named, typeArguments);
+    }
+
+    /// <summary>
+    ///     Checks each type argument against its parameter's <c>where</c> clause. A
+    ///     constraint names a base or a protocol; an argument that is neither the
+    ///     constraint, derived from it, nor an implementer is <c>RVN2096</c>.
+    /// </summary>
+    void CheckConstraints(NamedTypeSymbol type, IReadOnlyList<TypeSymbol> typeArguments, SyntaxNode syntax) {
+        var parameters = type.TypeParameters;
+        for (var i = 0; i < typeArguments.Count && i < parameters.Count; i++) {
+            foreach (var constraint in parameters[i].ConstraintTypes) {
+                if (!SatisfiesConstraint(typeArguments[i], constraint)) {
+                    Report(
+                        SemanticDiagnostics.TypeArgumentDoesNotSatisfyConstraint,
+                        syntax,
+                        typeArguments[i].ToDisplayString(),
+                        constraint.ToDisplayString(),
+                        parameters[i].Name,
+                        type.Name
+                    );
+                }
+            }
+        }
+    }
+
+    static bool SatisfiesConstraint(TypeSymbol argument, TypeSymbol constraint) {
+        // An argument that already failed to bind suppresses further errors.
+        if (argument.IsErrorType || constraint.IsErrorType) {
+            return true;
+        }
+
+        if (argument.IsSubtypeOf(constraint)) {
+            return true;
+        }
+
+        // A type parameter passed through satisfies what its own constraints imply.
+        return argument is TypeParameterSymbol parameter
+            && parameter.ConstraintTypes.Any(c => SatisfiesConstraint(c, constraint));
+    }
 
     NamedTypeSymbol? LookupAnyArity(string name) {
         for (var binder = this; binder is not null; binder = binder.Next) {
@@ -137,7 +179,7 @@ public abstract partial class Binder {
             return ErrorTypeSymbol.Instance;
         }
 
-        return Construct(member, typeArguments);
+        return Construct(member, typeArguments, syntax);
     }
 
     /// <summary>Resolves the left side of a dotted name to a namespace or a type.</summary>
@@ -165,14 +207,14 @@ public abstract partial class Binder {
                     return null;
                 }
 
-                return member is TypeSymbol type2 ? Construct(type2, typeArguments) : member;
+                return member is TypeSymbol type2 ? Construct(type2, typeArguments, qualified) : member;
             }
 
             case SimpleNameSyntax simple: {
                 var (name, typeArguments) = SplitSimpleName(simple);
                 var type = LookupType(name, typeArguments.Count);
                 if (type is not null) {
-                    return Construct(type, typeArguments);
+                    return Construct(type, typeArguments, simple);
                 }
 
                 var ns = LookupNamespace(name);

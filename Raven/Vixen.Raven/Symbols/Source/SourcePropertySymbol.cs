@@ -30,10 +30,6 @@ public sealed class SourcePropertySymbol : PropertySymbol {
     public override Symbol? ContainingSymbol { get; }
     public override SyntaxNode DeclaringSyntax => Syntax;
     public override bool IsStatic => DeclarationFacts.Has(Syntax.Modifiers, SyntaxKind.StaticKeyword);
-    public override bool IsAbstract => DeclarationFacts.Has(Syntax.Modifiers, SyntaxKind.AbstractKeyword);
-
-    public override Accessibility DeclaredAccessibility =>
-        DeclarationFacts.GetAccessibility(Syntax.Modifiers, Accessibility.Private);
 
     public override TypeSymbol Type => type ??= ResolveType();
 

@@ -36,8 +36,5 @@ public enum UnaryOperatorKind {
     PreIncrement,
     PreDecrement,
     PostIncrement,
-    PostDecrement,
-
-    /// <summary><c>^i</c> — an index counted from the end.</summary>
-    IndexFromEnd
+    PostDecrement
 }

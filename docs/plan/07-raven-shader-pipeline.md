@@ -156,9 +156,11 @@ Two decisions inside it:
 
 **`#if` will not be implemented** — decided, not deferred. Typed permutation constants cover the
 same ground and cover it better: the switched-off branch stays type-checked, so a variant nobody is
-currently building cannot rot. The lexer's `DIRECTIVE_MODE` is vestigial (every directive token is
-routed to a dropped channel, and `DIRECTIVE_IF`/`DIRECTIVE_ELSE` are commented out); it can be
-deleted whenever the grammar is next touched. The row above is complete as it stands.
+currently building cannot rot. The lexer's `DIRECTIVE_MODE` is **deleted** (third pruning pass,
+§ J): it had turned out to be worse than vestigial — `#` was `skip`ped and every directive token
+went to a dropped channel, so `#if X … #endif` compiled **every branch in, silently**. A `#`
+anywhere is now a syntax error, which is what tells a Stride/HLSL author the mechanism does not
+exist here. The row above is complete as it stands.
 
 ### C. Emitter requirements — GLSL and SPIR-V together
 
@@ -755,6 +757,50 @@ carry over.
 
 So the two files that define "what Raven looks like" are a syntax fixture and a broken file. Both should
 be fixed or retired as part of Tier B/C, and § F's real library should replace them as the definition.
+
+#### The third pass: every lexer token audited ✅
+
+A token-by-token audit of the lexer against the parser, binder, lowering and both emitters —
+prompted by the question "are `static`, `public`, `private` actually used?" — found one more
+Tier-A miscompilation, one dangerous "vestigial" mode, and a band of surface that parsed with
+nothing behind it. All fixed or removed; `RemovedConstructsTests` pins each.
+
+**Fixed rather than removed:**
+
+- **Enum member values were silently wrong.** Only a *literal* initializer was honoured; anything
+  else — `C = B`, `D = 2 + 3`, even `E = -1`, which is a prefix expression — silently became the
+  declaration ordinal, and an implicit member continued from its ordinal rather than the previous
+  value (`A, B = 5, C` made `C` 2, not 6). A shared `ConstantEvaluator` now evaluates initializers
+  through the binder — sibling references included — implicit values continue C-style, a
+  non-constant initializer is `RVN2094`, and a cycle is the existing circular-definition error.
+  `const` fields gained the same evaluator: `const val Radius = Taps * 2 + 1` now has a value.
+- **`where` clauses are enforced.** Constraints were parsed, bound, stored — and never read.
+  A type argument that is not the constraint, derived from it, or an implementer is `RVN2096`.
+- **Modifiers with no effect warn (`RVN2093`)** — `override` on a field, `compose` on a method,
+  any modifier on a type or an `init` — the RVN2091 policy applied to modifiers. **Statement
+  attributes warn (`RVN2095`)**: nothing reads `[Unroll]` on a loop, so saying so beats a silent no-op.
+
+**Removed, by the established rule** (grammar, tokens, kinds, translator, symbol plumbing):
+
+- **The directive machinery** — see § B: `#if` compiled both branches in, silently.
+- **`public`/`private`/`protected` and the whole `Accessibility` model** — parsed into a symbol
+  property with zero readers; a `private` field was readable from any type. `abstract` (an
+  `abstract func` *with a body* compiled) and `partial` likewise had no consumers. `static`,
+  `const`, `readonly`, `override`, `compose` remain — each has a reader.
+- **Dead tokens `when`, `implicit`, `explicit`, `;`, `@`** — the first three survived their
+  constructs' removal and only poisoned the identifier space; `;` never had a grammar rule; `@name`
+  parsed and the `@` vanished from the tree (a fifth instance of § I's token-dropping class).
+- **`global import`** (never read by the binder — with the token gone, `global` is an ordinary
+  identifier again), **type-parameter variance** (`in`/`out` on value types), **modifier positions
+  with no meaning** (parameters, accessors, locals, enum members), **`operator true/false`**
+  (uninvokable), **prefix `^`** (index-from-end with no sized arrays to index — the `sizeof`/`ref`
+  treatment), and the unreachable `#ImplicitElementAccess` alternative.
+- **Loose parens tightened**: a tuple's close paren was optional and fabricated when missing
+  (`(1f, 2f` round-tripped to `(1f, 2f)`); the switch parens were independently optional
+  (`switch x) {` parsed). Both are now required and balanced.
+
+The combined lexer+parser grammar drops from 823 lines to **702**. `Example1.rvn` sheds its two
+no-op modifiers (`public abstract var`, `readonly struct`) and still round-trips byte-for-byte.
 
 #### Why the remaining tiers are cheapest now
 

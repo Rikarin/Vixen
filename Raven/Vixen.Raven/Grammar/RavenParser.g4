@@ -15,7 +15,7 @@ package_declaration
     ;
 
 import_directive
-    : GLOBAL? IMPORT STATIC? name NL+
+    : IMPORT STATIC? name NL+
     ;
 
 
@@ -45,7 +45,7 @@ parameter_list
     ;
 
 parameter
-    : attribute_list* modifier* identifier_token (':' type)? equals_value_clause?
+    : attribute_list* identifier_token (':' type)? equals_value_clause?
     ;
 
 
@@ -74,8 +74,7 @@ name_colon
     ;
 
 identifier_name
-    : GLOBAL
-    | identifier_token;
+    : identifier_token;
 
 
 
@@ -126,11 +125,11 @@ accessor_list
     ;
 
 accessor_declaration
-    : (attribute_list NL*)* modifier* op=(GET | SET | WILL_SET | DID_SET) (block | (arrow_expression_clause NL)) NL*
+    : (attribute_list NL*)* op=(GET | SET | WILL_SET | DID_SET) (block | (arrow_expression_clause NL)) NL*
     ;
 
 operator_declaration
-    : (attribute_list NL*)* modifier* type OPERATOR op=('+' | '-' | '!' | '~' | '++' | '--' | '*' | '/' | '%' | '<<' | '>>' | '>>>' | '|' | '&' | '^' | '==' | '!=' | '<' | '<=' | '>' | '>=' | 'false' | 'true') parameter_list (block | (arrow_expression_clause NL))
+    : (attribute_list NL*)* modifier* type OPERATOR op=('+' | '-' | '!' | '~' | '++' | '--' | '*' | '/' | '%' | '<<' | '>>' | '>>>' | '|' | '&' | '^' | '==' | '!=' | '<' | '<=' | '>' | '>=') parameter_list (block | (arrow_expression_clause NL))
     ;
 
 base_type_declaration
@@ -161,7 +160,7 @@ enum_declaration
     ;
 
 enum_member_declaration
-    : (attribute_list NL*)* modifier* identifier_token equals_value_clause?
+    : (attribute_list NL*)* identifier_token equals_value_clause?
     ;
 
 type_parameter_list
@@ -171,7 +170,7 @@ type_parameter_list
 // A `val` parameter parameterises by a compile-time constant rather than by a type:
 // `shader Blur<val TapCount: int>`.
 type_parameter
-    : (attribute_list NL*)* variance=(IN | OUT)? identifier_token
+    : (attribute_list NL*)* identifier_token
     | (attribute_list NL*)* VAL identifier_token ':' type
     ;
 
@@ -272,7 +271,7 @@ return_statement
     ;
 
 local_declaration_statement
-    : (attribute_list NL*)* modifier* variable_declaration NL
+    : (attribute_list NL*)* variable_declaration NL
     ;
 
 while_statement
@@ -280,7 +279,7 @@ while_statement
     ;
 
 switch_statement
-  : (attribute_list NL*)* SWITCH '('? expression ')'? '{' NL* switch_section* NL* '}' NL*
+  : (attribute_list NL*)* SWITCH '(' expression ')' '{' NL* switch_section* NL* '}' NL*
   ;
 
 switch_section
@@ -320,7 +319,7 @@ expression
     | expression '.' simple_name                #MemberAccessExpression
     | expression op=('++' | '--')               #PostfixUnaryExpression
     // --- prefix ---
-    | op=('!' | '+' | '++' | '-' | '--' | '^' | '~') expression #PrefixUnaryExpression
+    | op=('!' | '+' | '++' | '-' | '--' | '~') expression #PrefixUnaryExpression
     | '(' type ')' expression                   #CastExpression
     // --- binary operators, tightest first ---
     | expression op=('*' | '/' | '%') expression #BinaryExpression
@@ -339,12 +338,11 @@ expression
     | <assoc=right> expression op=('=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '^=' | '|=' | '<<=' | '>>=' | '>>>=') expression #AssignmentExpression
     // --- primaries ---
     | '[' NL* (collection_element (',' NL* collection_element)*)? NL* ']' #CollectionExpression
-    | bracketed_argument_list                   #ImplicitElementAccess
     | DEFAULT '(' type ')'                      #DefaultExpression
     | op=(BASE | SELF)                          #InstanceExpression
     | literal_expression                        #LiteralExpression
     | '(' expression ')'                        #ParenthesizedExpression
-    | '(' argument (',' argument)+ ')'?         #TupleExpression
+    | '(' argument (',' argument)+ ')'          #TupleExpression
     | type                                      #TypeExpression
   ;
 
@@ -393,7 +391,7 @@ array_rank_specifier
   ;
 
 identifier_token
-    : AT? IDENTIFIER
+    : IDENTIFIER
     ;
 
 numeric_literal_token
@@ -412,14 +410,9 @@ integer_literal_token
     ;
 
 modifier
-    : ABSTRACT
-    | COMPOSE
+    : COMPOSE
     | CONST
     | OVERRIDE
-    | PARTIAL
-    | PRIVATE
-    | PROTECTED
-    | PUBLIC
     | READONLY
     | STATIC
     ;

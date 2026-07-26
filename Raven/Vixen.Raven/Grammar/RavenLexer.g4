@@ -4,7 +4,7 @@
 lexer grammar RavenLexer;
 import UnicodeClasses;
 
-channels { COMMENTS_CHANNEL, DIRECTIVE }
+channels { COMMENTS_CHANNEL }
 options { superClass = RavenLexerBase; }
 
 SINGLE_LINE_DOC_COMMENT:     '///' InputCharacter* -> channel(COMMENTS_CHANNEL);
@@ -13,13 +13,10 @@ DELIMITED_DOC_COMMENT:       '/**' ~'/' .*? '*/'   -> channel(COMMENTS_CHANNEL);
 SINGLE_LINE_COMMENT:         '//' InputCharacter*  -> channel(COMMENTS_CHANNEL);
 DELIMITED_COMMENT:           '/*' .*? '*/'         -> channel(COMMENTS_CHANNEL);
 WHITESPACES:                 Whitespace+           -> channel(HIDDEN);
-SHARP:                       '#'                   -> mode(DIRECTIVE_MODE), skip;
-//NL:                          NewLine -> channel(HIDDEN);
 NL:                          NewLine;
 
 
-// NEW ones
-GLOBAL: 'global';
+// Accessors
 GET: 'get';
 SET: 'set';
 WILL_SET: 'willSet';
@@ -84,38 +81,23 @@ CONTINUE:       'continue';
 DEFAULT:        'default';
 ELSE:           'else';
 ENUM:           'enum';
-EXPLICIT:       'explicit';
 FALSE:          'false';
 FOR:            'for';
 IF:             'if';
-IMPLICIT:       'implicit';
 IN:             'in';
 OPERATOR:       'operator';
-OUT:            'out';
-//PARAMS: 'params';
 RETURN:         'return';
 SWITCH:         'switch';
 TRUE:           'true';
 WHILE:          'while';
-WHEN:           'when';
 WHERE:          'where';
 
 
 // ===== Modifiers =====
-ABSTRACT:       'abstract';
 COMPOSE:        'compose';      // Shader-typed member, bound to a concrete shader at compile time
 CONST:          'const';
-//FILE:           'file';
-//INTERNAL:       'internal';
 OVERRIDE:       'override';
-PARTIAL:        'partial';
-PRIVATE:        'private';
-PROTECTED:      'protected';
-PUBLIC:         'public';
 READONLY:       'readonly';
-//REQUIRED:       'required';
-//SCOPED:         'scoped';
-//SEALED:         'sealed';
 STATIC:         'static';
 
 
@@ -123,7 +105,6 @@ STATIC:         'static';
 
 // Identifiers
 IDENTIFIER: IdentifierOrKeyword;
-AT: '@';
 
 
 // Literals
@@ -147,7 +128,6 @@ DOT:                      '.';
 DOUBLE_DOT:               '..';
 COMMA:                    ',';
 COLON:                    ':' { this.OnColon(); };
-SEMICOLON:                ';';
 INTERR:                   '?';
 LAMBDA:                   '=>';
 
@@ -188,43 +168,6 @@ OP_RIGHT_SHIFT:           '>>';
 OP_RIGHT_SHIFT_ASSIGNMENT: '>>=';
 OP_UNSIGNED_RIGHT_SHIFT:   '>>>';
 OP_UNSIGNED_RIGHT_SHIFT_ASSIGNMENT: '>>>=';
-
-
-// Preprocessor directives
-mode DIRECTIVE_MODE;
-
-DIRECTIVE_WHITESPACES:         Whitespace+                      -> channel(HIDDEN);
-DIGITS:                        [0-9]+                           -> channel(DIRECTIVE);
-DIRECTIVE_TRUE:                'true'                           -> channel(DIRECTIVE), type(TRUE);
-DIRECTIVE_FALSE:               'false'                          -> channel(DIRECTIVE), type(FALSE);
-DEFINE:                        'define'                         -> channel(DIRECTIVE);
-UNDEF:                         'undef'                          -> channel(DIRECTIVE);
-//DIRECTIVE_IF:                  'if'                             -> channel(DIRECTIVE), type(IF);
-ELIF:                          'elif'                           -> channel(DIRECTIVE);
-//DIRECTIVE_ELSE:                'else'                           -> channel(DIRECTIVE), type(ELSE);
-ENDIF:                         'endif'                          -> channel(DIRECTIVE);
-LINE:                          'line'                           -> channel(DIRECTIVE);
-ERROR:                         'error' Whitespace+              -> channel(DIRECTIVE), mode(DIRECTIVE_TEXT);
-WARNING:                       'warning' Whitespace+            -> channel(DIRECTIVE), mode(DIRECTIVE_TEXT);
-PRAGMA:                        'pragma' Whitespace+             -> channel(DIRECTIVE), mode(DIRECTIVE_TEXT);
-//DIRECTIVE_DEFAULT:             'default'                        -> channel(DIRECTIVE), type(DEFAULT);
-DIRECTIVE_HIDDEN:              'hidden'                         -> channel(DIRECTIVE);
-DIRECTIVE_OPEN_PARENS:         '('                              -> channel(DIRECTIVE), type(OPEN_PARENS);
-DIRECTIVE_CLOSE_PARENS:        ')'                              -> channel(DIRECTIVE), type(CLOSE_PARENS);
-DIRECTIVE_BANG:                '!'                              -> channel(DIRECTIVE), type(BANG);
-DIRECTIVE_OP_EQ:               '=='                             -> channel(DIRECTIVE), type(OP_EQ);
-DIRECTIVE_OP_NE:               '!='                             -> channel(DIRECTIVE), type(OP_NE);
-DIRECTIVE_OP_AND:              '&&'                             -> channel(DIRECTIVE), type(OP_AND);
-DIRECTIVE_OP_OR:               '||'                             -> channel(DIRECTIVE), type(OP_OR);
-//DIRECTIVE_STRING:              '"' ~('"' | [\r\n\u0085\u2028\u2029])* '"' -> channel(DIRECTIVE), type(STRING);
-CONDITIONAL_SYMBOL:            IdentifierOrKeyword              -> channel(DIRECTIVE);
-DIRECTIVE_SINGLE_LINE_COMMENT: '//' ~[\r\n\u0085\u2028\u2029]*  -> channel(COMMENTS_CHANNEL), type(SINGLE_LINE_COMMENT);
-DIRECTIVE_NEW_LINE:            NewLine                          -> channel(DIRECTIVE), mode(DEFAULT_MODE);
-
-mode DIRECTIVE_TEXT;
-
-TEXT:                          ~[\r\n\u0085\u2028\u2029]+       -> channel(DIRECTIVE);
-TEXT_NEW_LINE:                 NewLine                          -> channel(DIRECTIVE), type(DIRECTIVE_NEW_LINE), mode(DEFAULT_MODE);
 
 
 // Fragments

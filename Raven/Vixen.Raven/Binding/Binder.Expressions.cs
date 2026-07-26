@@ -147,12 +147,7 @@ public abstract partial class Binder {
             PropertySymbol property =>
                 new BoundPropertyExpression(syntax, ImplicitReceiver(syntax, property), property, []),
             NamespaceSymbol ns => new BoundNamespaceExpression(syntax, ns),
-            TypeSymbol type => new BoundTypeExpression(
-                syntax,
-                typeArguments.Length > 0 && type is NamedTypeSymbol named
-                    ? new ConstructedNamedTypeSymbol(named, typeArguments)
-                    : type
-            ),
+            TypeSymbol type => new BoundTypeExpression(syntax, Construct(type, typeArguments, syntax)),
             _ => new BoundErrorExpression(syntax)
         };
     }
@@ -429,7 +424,6 @@ public abstract partial class Binder {
             SyntaxKind.LogicalNotExpression => UnaryOperatorKind.LogicalNot,
             SyntaxKind.PreIncrementExpression => UnaryOperatorKind.PreIncrement,
             SyntaxKind.PreDecrementExpression => UnaryOperatorKind.PreDecrement,
-            SyntaxKind.IndexExpression => UnaryOperatorKind.IndexFromEnd,
             _ => null
         };
 
@@ -448,7 +442,6 @@ public abstract partial class Binder {
             UnaryOperatorKind.LogicalNot => "!",
             UnaryOperatorKind.PreIncrement or UnaryOperatorKind.PostIncrement => "++",
             UnaryOperatorKind.PreDecrement or UnaryOperatorKind.PostDecrement => "--",
-            UnaryOperatorKind.IndexFromEnd => "^",
             _ => "!"
         };
 

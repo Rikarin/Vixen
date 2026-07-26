@@ -276,7 +276,8 @@ public class SymbolTests {
 
         Assert.Equal(0, GetMember<FieldSymbol>(mode, "Off").ConstantValue);
         Assert.Equal(5, GetMember<FieldSymbol>(mode, "On").ConstantValue);
-        Assert.Equal(2, GetMember<FieldSymbol>(mode, "Auto").ConstantValue);
+        // An implicit value continues from the previous member, C-style — not the ordinal.
+        Assert.Equal(6, GetMember<FieldSymbol>(mode, "Auto").ConstantValue);
         Assert.Same(mode, GetMember<FieldSymbol>(mode, "Off").Type);
     }
 
@@ -358,16 +359,14 @@ public class SymbolTests {
     }
 
     [Fact]
-    public void Modifiers_map_to_accessibility_and_staticness() {
+    public void The_static_modifier_maps_to_staticness() {
         var compilation = AssertNoDiagnostics(
             """
             package A
 
             shader S {
-                public func Visible() { }
-                private func Hidden() { }
                 static func Shared() { }
-                abstract func Later() { }
+                func Instance() { }
             }
 
             """
@@ -375,10 +374,8 @@ public class SymbolTests {
 
         var shader = FindType(compilation, "S");
 
-        Assert.Equal(Accessibility.Public, GetMember<MethodSymbol>(shader, "Visible").DeclaredAccessibility);
-        Assert.Equal(Accessibility.Private, GetMember<MethodSymbol>(shader, "Hidden").DeclaredAccessibility);
         Assert.True(GetMember<MethodSymbol>(shader, "Shared").IsStatic);
-        Assert.True(GetMember<MethodSymbol>(shader, "Later").IsAbstract);
+        Assert.False(GetMember<MethodSymbol>(shader, "Instance").IsStatic);
     }
 
     [Fact]
