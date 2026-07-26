@@ -40,21 +40,65 @@ dotnet_style_readonly_field = true:warning
 dotnet_style_prefer_conditional_expression_over_assignment = true:silent
 dotnet_style_namespace_match_folder = true:suggestion
 
-# Naming: _camelCase private fields, PascalCase everything public
-dotnet_naming_rule.private_fields_underscore.severity = warning
-dotnet_naming_rule.private_fields_underscore.symbols = private_fields
-dotnet_naming_rule.private_fields_underscore.style = underscore_camel
-dotnet_naming_symbols.private_fields.applicable_kinds = field
-dotnet_naming_symbols.private_fields.applicable_accessibilities = private
-dotnet_naming_style.underscore_camel.required_prefix = _
-dotnet_naming_style.underscore_camel.capitalization = camel_case
+# Accessibility modifiers are written only when they change something: `private` on
+# a member and `internal` on a type are the defaults and are left off, which is what
+# the whole tree does. `private protected` and friends still get spelled out.
+dotnet_style_require_accessibility_modifiers = omit_if_default:suggestion
 
-dotnet_naming_rule.public_members_pascal.severity = warning
-dotnet_naming_rule.public_members_pascal.symbols = public_members
-dotnet_naming_rule.public_members_pascal.style = pascal
-dotnet_naming_symbols.public_members.applicable_kinds = property,method,event,field
-dotnet_naming_symbols.public_members.applicable_accessibilities = public,protected,internal
+# ------------------------------------------------------------------------------
+# Naming. Two styles, and the line between them is visibility, not storage:
+# PascalCase for anything a caller can name, camelCase for mutable private state.
+#
+# No `_` prefix. This file used to mandate one and not a single file in the
+# repository has ever had one — `Vixen.Core.Syntax` and Raven both write bare
+# `readonly string text;`. A convention that every file violates is not a
+# convention, so the config now records the style that is actually written.
+#
+# Order matters: the first matching rule wins, so the const and static-readonly
+# rules have to precede the private-field rule they carve exceptions out of.
+# ------------------------------------------------------------------------------
 dotnet_naming_style.pascal.capitalization = pascal_case
+dotnet_naming_style.camel.capitalization = camel_case
+
+# Constants name a value, so they read as names regardless of accessibility.
+dotnet_naming_rule.constants_pascal.severity = warning
+dotnet_naming_rule.constants_pascal.symbols = constants
+dotnet_naming_rule.constants_pascal.style = pascal
+dotnet_naming_symbols.constants.applicable_kinds = field
+dotnet_naming_symbols.constants.applicable_accessibilities = *
+dotnet_naming_symbols.constants.required_modifiers = const
+
+# So do the static readonly lookup tables the compiler and the engine are full of
+# (`Intrinsics.FloatTypes`, `GlslTypes.Reserved`, `PooledDictionary.Pool`): they are
+# fixed data, not state that changes as the program runs.
+dotnet_naming_rule.static_readonly_pascal.severity = warning
+dotnet_naming_rule.static_readonly_pascal.symbols = static_readonly_fields
+dotnet_naming_rule.static_readonly_pascal.style = pascal
+dotnet_naming_symbols.static_readonly_fields.applicable_kinds = field
+dotnet_naming_symbols.static_readonly_fields.applicable_accessibilities = *
+dotnet_naming_symbols.static_readonly_fields.required_modifiers = static,readonly
+
+# Everything else that is private state: camelCase, no prefix.
+dotnet_naming_rule.private_fields_camel.severity = warning
+dotnet_naming_rule.private_fields_camel.symbols = private_fields
+dotnet_naming_rule.private_fields_camel.style = camel
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private, private_protected
+
+# Members are PascalCase at every accessibility. Only fields distinguish, because
+# only fields are state; a private helper like `SlidingTextWindow.GetText` reads the
+# same as a public one and the tree has always written it that way.
+dotnet_naming_rule.members_pascal.severity = warning
+dotnet_naming_rule.members_pascal.symbols = members
+dotnet_naming_rule.members_pascal.style = pascal
+dotnet_naming_symbols.members.applicable_kinds = property,method,event
+dotnet_naming_symbols.members.applicable_accessibilities = *
+
+dotnet_naming_rule.public_fields_pascal.severity = warning
+dotnet_naming_rule.public_fields_pascal.symbols = public_fields
+dotnet_naming_rule.public_fields_pascal.style = pascal
+dotnet_naming_symbols.public_fields.applicable_kinds = field
+dotnet_naming_symbols.public_fields.applicable_accessibilities = public,protected,internal
 
 # Performance analyzers the "zero allocation in the frame loop" rule depends on.
 # Kept at `suggestion` repo-wide so the IDE surfaces them without breaking the
@@ -161,3 +205,4 @@ dotnet_diagnostic.CA1707.severity = none
 # a named field would scatter every expectation away from its assertion for an
 # allocation that happens once per test. Escalated to warning under Core/ and
 # Platform/ above, where the allocation budget is real.
+dotnet_diagnostic.CA1861.severity = none
