@@ -14,4 +14,12 @@ static partial class VulkanLog {
             + "SDK; without them a backend's first mistake goes unnoticed."
     )]
     public static partial void ValidationLayersMissing(ILogger logger);
+
+    [LoggerMessage(
+        EventId = 2002,
+        Level = LogLevel.Warning,
+        Message = "The Vulkan validation layer was found but would not load, so the instance was created "
+            + "without it. {Hint}"
+    )]
+    public static partial void ValidationLayerWouldNotLoad(ILogger logger, string hint);
 }

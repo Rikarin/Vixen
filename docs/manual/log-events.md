@@ -46,6 +46,7 @@ identifies its origin on sight.
 | Id | Level | Message | Since |
 |---|---|---|---|
 | 2001 | Warning | The Vulkan validation layers were asked for and are not installed | 0.1.0 |
+| 2002 | Warning | The validation layer was found but would not load; the instance was created without it | 0.1.0 |
 
 ### `Vixen.App` — the host
 

@@ -47,6 +47,24 @@ the non-negotiable in [doc 00](../../docs/plan/00-vision-and-principles.md).
 brew install vulkan-validationlayers
 ```
 
+**And on Homebrew that is not enough.** The layer *enumerates* — `vulkaninfo` lists it and so does
+`vkEnumerateInstanceLayerProperties` — and then `vkCreateInstance` fails with
+`VK_ERROR_LAYER_NOT_PRESENT`. The cause is the same one as above, one level down: the manifest names
+its library by bare filename (`libVkLayer_khronos_validation.dylib`) and the dynamic linker resolves
+that against `/usr/local/lib` and `/usr/lib`, not `/opt/homebrew/lib`. Pre-loading the dylib by
+absolute path does not help, because the loader's own `dlopen` still uses the bare name — measured,
+not assumed.
+
+So installing the layers *breaks* instance creation unless the process starts with:
+
+```bash
+export DYLD_LIBRARY_PATH=/opt/homebrew/lib
+```
+
+`VulkanInstance` survives it either way: a `VK_ERROR_LAYER_NOT_PRESENT` is retried without the layer
+and logged as event 2002 with that hint. Running unvalidated is bad; failing to open a window because
+a development aid is mispackaged is worse.
+
 ## The decisions
 
 **Software devices are ranked last and never skipped.** lavapipe is a conformant Vulkan 1.3 driver

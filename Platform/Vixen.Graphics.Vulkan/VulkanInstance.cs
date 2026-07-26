@@ -139,7 +139,7 @@ public sealed unsafe class VulkanInstance : IDisposable {
             extensions.Add(PortabilityEnumeration);
         }
 
-        var validation = options.EnableValidation
+        bool validation = options.EnableValidation
             && HasLayer(api, ValidationLayer)
             && available.Contains(ExtDebugUtils.ExtensionName);
 
@@ -206,6 +206,27 @@ public sealed unsafe class VulkanInstance : IDisposable {
             Instance handle;
             var result = api.CreateInstance(&create, null, &handle);
 
+            if (result == Result.ErrorLayerNotPresent && validation) {
+                // The layer was enumerated and then would not load. On macOS this is a packaging
+                // problem rather than ours: Homebrew's manifest names the layer library by bare
+                // filename, and the dynamic linker resolves that against /usr/local/lib and
+                // /usr/lib — not /opt/homebrew/lib, where the dylib is. Pre-loading it by absolute
+                // path does not help, because the loader's own dlopen still uses the bare name.
+                //
+                // Retry without it rather than refusing to start. Running unvalidated is bad;
+                // failing to open a window because a *development* aid is mispackaged is worse, and
+                // the warning says exactly what to do about it.
+                if (options.Logger is { } fallbackLogger) {
+                    VulkanLog.ValidationLayerWouldNotLoad(fallbackLogger, LayerLoadHint());
+                }
+
+                validation = false;
+                create.EnabledLayerCount = 0;
+                create.PpEnabledLayerNames = null;
+                create.PNext = null;
+                result = api.CreateInstance(&create, null, &handle);
+            }
+
             if (result != Result.Success) {
                 reason = $"vkCreateInstance failed with {result}."
                     + (OperatingSystem.IsMacOS()
@@ -244,6 +265,14 @@ public sealed unsafe class VulkanInstance : IDisposable {
         Api.Dispose();
         handle = default;
     }
+
+    /// <summary>What to do about a layer that enumerates and then will not load.</summary>
+    static string LayerLoadHint() =>
+        OperatingSystem.IsMacOS()
+            ? "Homebrew's layer manifest names the library by bare filename and /opt/homebrew/lib is not "
+            + "on the dynamic linker's search path. Start the process with "
+            + "DYLD_LIBRARY_PATH=/opt/homebrew/lib, or install the LunarG SDK, which uses absolute paths."
+            : "Check that the layer's library_path in its manifest resolves to a file that exists.";
 
     static DebugUtilsMessengerCreateInfoEXT MessengerDescription() => new() {
         SType = StructureType.DebugUtilsMessengerCreateInfoExt,
