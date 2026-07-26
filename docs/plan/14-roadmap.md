@@ -153,8 +153,11 @@ plumbing that everything else stands on.
   pairing and level arithmetic; the enum set including the `synchronization2`-shaped `ResourceState`
   barrier model; `GraphicsDeviceFeatures`; typed handles; and self-validating resource descriptions.
   46 tests. Reversed depth is in the defaults rather than only in `Conventions.md` — an attachment
-  clears to 0 and the shadow sampler compares `GreaterEqual`. **Next:** `IGraphicsDevice`,
-  `ICommandList`, `ICommandQueue`, `ISwapChain`.
+  clears to 0 and the shadow sampler compares `GreaterEqual`. The interfaces are built too:
+  `IGraphicsAdapter`, `IGraphicsDevice`, `ICommandSubmitter`, `ICommandList`, `ISwapChain`, the
+  pipeline and descriptor-layout descriptions, and the grouped `BarrierGroup`. Moving `SurfaceHandle`
+  down into `Vixen.Core` was needed to keep the layering honest — see below. **Next:** the
+  implementations.
 - `Vixen.Graphics.Null` + `RecordingBackend` test harness.
 - `Vixen.Graphics.Vulkan`: instance/device/queues, allocator, swapchain, command lists, PSOs,
   descriptor sets, barriers, dynamic rendering + render-pass fallback, validation-layer wiring.

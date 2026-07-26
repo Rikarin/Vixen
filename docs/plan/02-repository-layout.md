@@ -99,7 +99,7 @@ Core/
 ├── Vixen.Ecs.Generators/               # ── source generator: queries, systems ──
 ├── Vixen.Ecs.Tests/
 │
-├── Vixen.Graphics/                     # RHI abstraction — ADR-001
+├── Vixen.Graphics/                     # ✅ RHI abstraction — ADR-001
 ├── Vixen.Graphics.Tests/
 ├── Vixen.Shaders/                      # effect system, permutations, bytecode cache, param keys
 ├── Vixen.Shaders.Generators/           # ── source generator: Raven reflection → C# keys ──

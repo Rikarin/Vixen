@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using Vixen.Core;
 
 namespace Vixen.Platform.Headless;
 

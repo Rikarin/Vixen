@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Silk.NET.SDL;
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 using SdlWindow = Silk.NET.SDL.Window;
 
