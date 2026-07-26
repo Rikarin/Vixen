@@ -28,6 +28,36 @@ The smallest possible root. No dependencies beyond BCL.
 - **Disposal.** `IDisposable` plus `IAsyncDisposable`; a `DisposeBag` for subsystem teardown; a
   debug-build leak tracker that captures allocation stacks for undisposed GPU resources.
 
+> ✅ **Built.** `Core/Vixen.Core/` and `Core/Vixen.Core.Tests/` (86 tests) are live. Four things
+> came out differently from the paragraphs above, each for a reason worth keeping:
+>
+> - **`ObjectId` carries no hash function.** It is 128 bits of identity, formatting, parsing and
+>   ordering — nothing else. XxHash128 lives in `System.IO.Hashing`, a NuGet package, and taking it
+>   would break "no dependencies beyond BCL" for a type that does not need the algorithm: the code
+>   that hashes has the *content* in front of it, and that code is the object database in
+>   `Vixen.Core.Serialization`. Bytes are big-endian so the hex text and `WriteTo` agree, which is
+>   what makes ids comparable across machines.
+> - **`ObjectPool<T>` is a lock-free fast slot in front of a fixed slot array**, which is Roslyn's
+>   design, rather than the thread-local free list with shared overflow described above. A genuine
+>   per-pool thread-local needs either a `ThreadLocal<T>` — allocating per thread *per pool*, and the
+>   engine will have many pools — or a `[ThreadStatic]` field, which is per *type* and so cannot
+>   serve two pools of the same `T`. The shape here has the same property that mattered (uncontended
+>   fast path, bounded retention) and costs one field.
+> - **`ComponentTypeId` is assigned from 1, not 0**, so a zeroed struct is a detectably invalid
+>   handle instead of a silent alias for whichever component type registered first. Bit 0 of an
+>   archetype mask goes unused; that is cheaper than the class of bug it removes.
+> - **The `ArrayPool<T>` façade is `PooledArray`/`PooledArray<T>`**, and the clearing policy it
+>   applies is: clear on return iff the element type contains references. Not tidiness — an uncleared
+>   `Entity[]` sitting in a pool roots everything it last held, while clearing `int[]` every frame is
+>   pure cost.
+>
+> One C# detail that shaped the pooled collections, since it decides whether they can be structs at
+> all: a `using` declaration makes its variable read-only, but calling a mutating *method* on it is
+> still allowed and mutates in place — no defensive copy. Direct member assignment
+> (`map[k] = v` on a `using var`) is CS1654, a hard error rather than a silent copy. So
+> `using var list = new PooledList<T>(64); list.Add(x);` is correct, and the failure mode is caught
+> by the compiler.
+
 ## `Vixen.Core.Mathematics`
 
 Per ADR-003. Implementation notes that matter:
@@ -46,7 +76,11 @@ Per ADR-003. Implementation notes that matter:
   exists alongside the scalar version, because culling and skinning call it a million times a frame.
 - **Conventions doc.** A single `Conventions.md` in the project stating handedness, matrix storage,
   multiplication order, depth range (reverse-Z, 1→0), UV origin (top-left), and NDC. Every
-  disagreement about a sign flip gets settled by pointing at it.
+  disagreement about a sign flip gets settled by pointing at it. The shader half is already settled
+  and pinned by tests — including why row-major host storage and a `ColMajor`-decorated shader matrix
+  are the same bytes and compose to `mul(v, M)`, which is the one that looks wrong every time somebody
+  meets it: [07 § E](07-raven-shader-pipeline.md#e-conventions-raven-must-bake-in). `Conventions.md`
+  should link there rather than restate it.
 - **Interop.** `implicit operator System.Numerics.Vector3(Vector3)` and back;
   `Silk.NET.Maths.Vector3D<float>` conversions in a separate `Vixen.Graphics` internal extension so
   the math library does not reference Silk.NET.
@@ -128,6 +162,37 @@ and is what the renderer and ECS actually need.
 heuristics fight a frame deadline), `Parallel.For` (delegate allocation, no dependency model),
 `async`/`await` in the loop.
 
+> ✅ **Built.** `Core/Vixen.Core.Threading/` and its 45 tests are live, and
+> `Benchmarks/Vixen.Benchmarks.Jobs` measures the claims: one `Schedule`+`Complete` round trip is
+> 6.3× cheaper than `Task.Run`+`Wait` and allocates nothing against its 160 bytes, and
+> `ScheduleParallel` beats `Parallel.For` by 2.2–2.6× above about ten thousand elements — and loses
+> to a plain serial loop below about a thousand, which is written down next to the rest.
+> Four things differ from the paragraphs above:
+>
+> - **A lock per job slot, not a lock-free continuation list.** Adding a graph edge to a job that is
+>   completing at that instant is the whole difficulty here, and the lock-free form needs a CAS loop,
+>   an ABA guard, and a heap-allocated link node per edge. An uncontended lock — the scheduling thread
+>   against one completing worker — makes the graph's correctness readable instead of arguable, and a
+>   frame's few hundred edges are not where the time goes.
+> - **Failures outlive their slot.** A slot returns to the free list the moment its job finishes, so
+>   it can no longer answer "did that throw" — and that answer must not depend on how promptly the
+>   caller asked. The last 64 failures move to a side table, which is what both `Complete` and an
+>   edge added after the fact read. A job whose dependency threw inherits the failure and is skipped
+>   rather than run against inputs that were never produced.
+> - **Workers are not pinned.** `Thread` has no portable affinity API, the per-OS ones differ in kind
+>   rather than in spelling, and pinning is a pessimisation on a machine running anything else. It
+>   waits for `Vixen.Platform`, where the per-OS calls will already live. 🟡 The contract half of this
+>   has since landed as `IProcessorTopology` in `Vixen.Platform` — available processor count, physical
+>   and performance core counts, and `TrySetAffinity`, which reports `false` until a per-OS assembly
+>   implements it. `AvailableProcessors` rather than `Environment.ProcessorCount` is the number to
+>   size a pool from, because in a container the two differ.
+> - **The safety system is deferred to Phase 2, with `Vixen.Ecs`.** The check described above is only
+>   as good as the access declarations, and in Unity's design those come from the ECS. Building the
+>   declaration API before its only consumer exists would be guessing at its shape. What *is*
+>   compiled in under `DEBUG` or `VIXEN_JOB_SAFETY` is the check that needs nothing else: a job that
+>   completes its own handle is caught and told so, instead of waiting forever for the work item that
+>   is doing the waiting.
+
 ## `Vixen.Core.IO` — the virtual file system
 
 Modelled on Stride's VFS because the problem is unchanged: six platforms with six different notions
@@ -152,6 +217,33 @@ disk.
   both assets and UI markup depends on this being *reliable*, which means: handle atomic-save
   rename-over patterns, handle editors that write-truncate-write, and never fire on our own writes.
 
+> ✅ **Built.** `Core/Vixen.Core.IO/` and its 123 tests are live. Four things differ from the
+> paragraphs above:
+>
+> - **No per-platform watch backends.** `FileSystemWatcher` is already FSEvents, inotify and
+>   `ReadDirectoryChangesW` behind one type, maintained by people who have to keep it working on OS
+>   versions that do not exist yet. What the BCL does *not* do is the part that makes watching
+>   usable, so `FileChangeCoalescer` is where the work went: debouncing that extends rather than
+>   expires, atomic-save renames folded into one change to the destination, created-then-deleted
+>   cancelled out, and the program's own writes suppressed. Time is a parameter rather than a clock,
+>   so every one of those is tested at exact timestamps instead of with sleeps.
+> - **Case-sensitivity is enforced by the provider, not only by CI.** [Doc 10](10-platforms.md)
+>   assigns this to a Linux CI check. That is a backstop measured in hours; `PhysicalFileProvider`
+>   makes it a backstop measured in milliseconds by refusing to serve a file whose real name on disk
+>   differs in case. The volume is probed once at construction so the check is off where the kernel
+>   already does it.
+> - **Enumeration is synchronous and ordered.** Async was dropped because every provider that exists
+>   or is planned answers enumeration from something local — a directory, a dictionary, a bundle
+>   catalog — so the state machine would have had no caller. Ordering was added because a content
+>   build that hashes a directory listing must not get a different answer on ext4 than on APFS.
+> - **Memory-mapped reads decline rather than throw.** A file above two gigabytes has no
+>   `ReadOnlyMemory<byte>`, and a file inside a compressed APK entry has no mapping at all, so
+>   `TryMap` returning false is an ordinary answer and callers fall back to a stream.
+>
+> **Deferred:** the Android, iOS, browser and bundle providers, each of which arrives with the thing
+> it reads from; and the analyzer banning `System.IO.Path` and synchronous IO outside their permitted
+> layers, which needs an analyzer project that does not exist yet.
+
 ## `Vixen.Core.Serialization`
 
 - **Generated binary serializers.** `Vixen.Core.Serialization.Generators` walks `[DataContract]`
@@ -175,6 +267,45 @@ Tests: round-trip property tests over generated types, schema-evolution tests (v
 and vice versa with `[DataAlias]`), and a cross-platform determinism test asserting byte-identical
 output on Windows/Linux/macOS runners.
 
+> ✅ **Built.** `Core/Vixen.Core.Serialization/`,
+> its generator, and 28 tests are live. What differs from the paragraphs above:
+>
+> - **The reader is span-only; there is no chunked stream writer.** That is the deliberate pair with
+>   `Vixen.Core.IO`'s memory mapping: a bundle is mapped rather than read, so "the whole file in a
+>   span" costs no copy and the pages nobody asked for are never faulted in. Writing does grow, via
+>   `IBufferWriter<byte>`.
+> - **Evolution is a member count, not a tagged format.** Every object writes two varints — contract
+>   version and member count — and that is the whole mechanism. Appending a member is free in both
+>   directions and needs no version bump; removing or reordering one is refused with a message naming
+>   the numbers. A version bump means "the layout changed incompatibly" and sends the reader to a
+>   `TryMigrate` hook. Two bytes an object, against a name tag per member.
+> - **`[DataAlias]` on a *member* does not apply to this format.** Positional is smaller and faster,
+>   and the count already covers the case that matters, so member names are not in the stream. Member
+>   aliases are for the YAML serializer, where names *are* the format.
+> - **No `partial` is required.** Serializers are emitted as standalone classes in their own
+>   namespace rather than into the contract type, which costs reaching only public members and buys
+>   not having an opinion about how every type in the engine is declared.
+> - **Polymorphism lives here, not in `Vixen.Core.Reflection`.** The obvious plan was to wait for the
+>   type registry, since it has to build a name → type map anyway. That turns out to be backwards:
+>   `Vixen.Core.Reflection` holds each type's *serializer* among its descriptors, so it depends on
+>   this assembly, and a polymorphic writer here that reached for it would close a cycle. What
+>   polymorphism actually needs is a name → *serializer* map, which is three fields on the registry
+>   that already exists and is populated by the module initializer the generator already emits. The
+>   name is `[DataContract(Alias)]` with `[DataAlias]` recording former ones, so a type can be
+>   renamed or moved without invalidating data; a sealed declared type skips the name entirely,
+>   because it cannot have a subtype.
+>
+> - **Chunk compression is outside the hashed region.** The id names the chunk — header plus payload
+>   — and the compression framing wraps it afterwards, so two builds that disagree about whether to
+>   LZ4 a mesh still agree about what it is called. Without that, changing a compression setting
+>   would invalidate every artefact in the project and every incremental update would ship
+>   everything. Compression that would grow a chunk is not used, which is what every already-
+>   compressed texture payload does.
+>
+> **Deferred:** `ContentReference<T>`/`UrlReference<T>`, which need `Vixen.Assets` in Phase 3; and the
+> catalog and bundle packing *policy* — which chunks go in which bundle — which is the content build's
+> job in [08](08-asset-pipeline-and-addressables.md). The bundle *format* is built and tested.
+
 ## `Vixen.Core.Reflection`
 
 The AOT-safe replacement for `Type`-driven discovery.
@@ -187,6 +318,27 @@ The AOT-safe replacement for `Type`-driven discovery.
   cleanly.
 - Editor code that genuinely needs open-ended reflection (plugin loading, third-party assemblies) uses
   `System.Reflection` freely — it is editor-only and JIT-hosted.
+
+> ✅ **Built.** `Core/Vixen.Core.Reflection/`, its generator and 16 tests are live. What differs:
+>
+> - **Accessors are generated lambdas, and they box.** A member reads as
+>   `static instance => (object)((Foo)instance).X`. That is what makes an inspector work on iOS, and
+>   the boxing is why this is a tooling and boot-time API rather than a frame-loop one — which is
+>   written down rather than left to be discovered. A struct's setter goes through
+>   `Unsafe.Unbox<T>`, because assigning through a cast modifies a temporary copy and silently does
+>   nothing.
+> - **Editor visibility and serialisation are recorded separately.** `[DataMemberIgnore]` and
+>   `[EditorVisible(false)]` answer different questions, and conflating them is how a cache field
+>   ends up in the inspector.
+> - **The serializer is resolved on demand.** Two module initializers fill two registries in an order
+>   nobody chose; looking it up at the moment of asking removes the question.
+> - **`[Behavior]` is not handled**, because the attribute does not exist until the engine loop in
+>   Phase 2. Generic types get a warning and no descriptor: a descriptor names one closed type.
+>
+> Two defects in the *serialization* generator surfaced only once it was pointed at these richer
+> contracts, and both are fixed with regression tests: a computed get-only property was treated as
+> data that had to round-trip, and a type whose only constructor takes arguments had `new()` emitted
+> for it anyway.
 
 ## `Vixen.Core.Syntax`
 

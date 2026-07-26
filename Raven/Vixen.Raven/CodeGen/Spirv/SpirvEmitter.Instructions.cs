@@ -1,5 +1,10 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Globalization;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
+using Vixen.Raven.Reflection;
 using Vixen.Raven.Symbols;
 
 namespace Vixen.Raven.CodeGen.Spirv;
@@ -7,23 +12,34 @@ namespace Vixen.Raven.CodeGen.Spirv;
 /// <summary>A resolved storage location: a pointer, plus a swizzle the pointer could not reach.</summary>
 /// <param name="Id">The pointer id, from a variable or an <c>OpAccessChain</c>.</param>
 /// <param name="Type">The type the pointer points at.</param>
-/// <param name="Layout">Whether that type is the explicitly laid out variant.</param>
+/// <param name="Layout">
+///     The packing rule its type is decorated with, or null when it is the plain type. A rule rather
+///     than a flag because a uniform block and a storage buffer lay the same struct out differently.
+/// </param>
+/// <param name="Storage">Its storage class, which every further access chain off it has to repeat.</param>
 /// <param name="Swizzle">A multi-lane swizzle that has to be applied after loading.</param>
-readonly record struct SpirvPointer(uint Id, IrType Type, bool Layout, IrSwizzleAccess? Swizzle = null);
+readonly record struct SpirvPointer(
+    uint Id,
+    IrType Type,
+    LayoutRule? Layout,
+    SpirvStorageClass Storage,
+    IrSwizzleAccess? Swizzle = null
+);
 
 partial class SpirvEmitter {
-    /// <summary>
-    ///     The IR reads <c>m[i]</c> as a row — <see cref="IrIndexAccess.ResultType" />
-    ///     hands back <see cref="IrMatrixType.RowType" /> — while SPIR-V and GLSL both
-    ///     index a matrix by column. Emitting it would be a type error the validator
-    ///     catches, so it is refused instead. See the plan doc's defect list.
-    /// </summary>
-    const string MatrixIndexing =
-        "Indexing a matrix (the IR reads m[i] as a row, and SPIR-V indexes columns)";
-
     readonly Dictionary<IrVariable, uint> opaqueParameters = [];
     readonly Dictionary<IrVariable, uint> pointers = [];
     readonly Dictionary<int, uint> values = [];
+
+    /// <summary>
+    ///     The integer value behind each constant, kept because SPIR-V needs to know a *literal*
+    ///     index and not merely a constant one: <c>OpCompositeExtract</c> takes literals, so
+    ///     pulling element 2 out of a value the function never stored is only expressible when the
+    ///     2 is readable here. Nothing in the IR distinguishes a constant index from a runtime one,
+    ///     which is right — the distinction is a target's, and this is the target.
+    /// </summary>
+    readonly Dictionary<int, int> constants = [];
+
     readonly Stack<(uint Merge, uint Continue)> loops = new();
 
     /// <summary>True once the block being built has branched or returned.</summary>
@@ -251,6 +267,13 @@ partial class SpirvEmitter {
                 // A SPIR-V constant is a module-level declaration, so it never
                 // becomes an instruction inside the body at all.
                 values[constant.Result.Id] = types.Constant(constant.Value, constant.Result.Type);
+
+                // Only what could actually be an index. A `uint` past int.MaxValue — a hash seed,
+                // say — is no array's index, so it is left out rather than overflowed into one.
+                if (constant.Value is int or uint and <= int.MaxValue) {
+                    constants[constant.Result.Id] = Convert.ToInt32(constant.Value, CultureInfo.InvariantCulture);
+                }
+
                 return;
 
             case IrStoreInstruction store:
@@ -261,6 +284,10 @@ partial class SpirvEmitter {
                 values[load.Result.Id] = EmitLoad(load.Place);
                 return;
 
+            case IrArrayLengthInstruction length:
+                values[length.Result.Id] = EmitArrayLength(length);
+                return;
+
             case IrCallInstruction call: {
                 // Even a void call needs a result id in SPIR-V.
                 var result = Emit(
@@ -268,7 +295,7 @@ partial class SpirvEmitter {
                     types.Type(call.Function.ReturnType),
                     [
                         SpirvOperand.Id(functions[call.Function]),
-                        .. call.Arguments.Select(a => SpirvOperand.Id(Value(a)))
+                        .. call.Arguments.Select(Argument)
                     ]
                 );
 
@@ -566,10 +593,6 @@ partial class SpirvEmitter {
             return Shuffle(source, source, swizzle.Components, resultType);
         }
 
-        if (extract.Source.Type is IrMatrixType && extract.Chain.Any(a => a is IrIndexAccess)) {
-            return Unimplemented(MatrixIndexing, extract.Result.Type);
-        }
-
         // A runtime index into a value is only reachable for a vector; anything
         // else would need an address.
         if (extract.Chain is [IrIndexAccess dynamic] && extract.Source.Type is IrVectorType) {
@@ -592,6 +615,14 @@ partial class SpirvEmitter {
 
                 case IrSwizzleAccess { Components: [var only] }:
                     indices.Add(SpirvOperand.Literal(only));
+                    break;
+
+                // A constant index is a literal index, which is all OpCompositeExtract accepts.
+                // This is what lets a spread of an array be flattened, and how any part of a
+                // value with no storage — a call's result, a construct — is read at a fixed
+                // position.
+                case IrIndexAccess { Index: var index } when constants.TryGetValue(index.Id, out var literal):
+                    indices.Add(SpirvOperand.Literal(literal));
                     break;
 
                 default:
@@ -715,6 +746,29 @@ partial class SpirvEmitter {
         );
     }
 
+    /// <summary>
+    ///     One operand of an <c>OpFunctionCall</c>: a value, or the pointer a by-reference argument
+    ///     hands over.
+    /// </summary>
+    /// <remarks>
+    ///     The pointer comes straight out of <see cref="pointers" />, which is the temp's own
+    ///     <c>OpVariable</c> — a memory object declaration in function storage, which is the only
+    ///     thing SPIR-V accepts here. The lowerer guarantees the argument is a whole local, so there
+    ///     is no access chain to reach through and nothing to fall back on.
+    /// </remarks>
+    SpirvOperand Argument(IrArgument argument) {
+        if (!argument.IsByReference) {
+            return SpirvOperand.Id(Value(argument.Value!));
+        }
+
+        if (pointers.TryGetValue(argument.Reference!, out var pointer)) {
+            return SpirvOperand.Id(pointer);
+        }
+
+        Report(BackendDiagnostics.NotImplemented, $"Passing '{argument.Reference!.Name}' by reference");
+        return SpirvOperand.Id(types.ConstantInt(0));
+    }
+
     // --- Places ------------------------------------------------------------
 
     uint EmitLoad(IrPlace place) {
@@ -725,34 +779,181 @@ partial class SpirvEmitter {
 
         var pointer = Resolve(place);
         var plain = types.Type(pointer.Type);
-        var pointee = pointer.Layout ? types.Type(pointer.Type, true) : plain;
+        var pointee = types.Type(pointer.Type, pointer.Layout);
 
-        if (pointee != plain) {
-            // The laid-out form of an aggregate is a different type from the plain
-            // one, so a whole-aggregate read out of a uniform block would need a
-            // member-by-member copy this backend does not build yet.
-            return Unimplemented($"Reading the whole '{pointer.Type.Name}' out of a uniform block", pointer.Type);
-        }
-
-        var loaded = Emit(SpirvOp.Load, pointee, SpirvOperand.Id(pointer.Id));
+        // The laid-out form of an aggregate is a *different type* from the plain one, so it
+        // cannot be loaded as itself and there is no cast between the two. It comes out member by
+        // member instead.
+        var loaded = pointee != plain
+            ? LoadAcrossLayout(pointer.Id, pointer.Storage, pointer.Type, pointer.Layout!.Value)
+            : Emit(SpirvOp.Load, pointee, SpirvOperand.Id(pointer.Id));
 
         return pointer.Swizzle is { } swizzle
             ? Shuffle(loaded, loaded, swizzle.Components, types.Type(swizzle.ResultType(pointer.Type)))
             : loaded;
     }
 
+    /// <summary>
+    ///     The element count of a storage buffer's runtime array.
+    /// </summary>
+    /// <remarks>
+    ///     <c>OpArrayLength</c> takes the <em>block variable</em> and a member index, not a pointer to
+    ///     the array — which is why the IR carries a place here and why the access chain that would
+    ///     normally be built is skipped. The result is a <c>uint</c> in SPIR-V and an <c>int</c> in
+    ///     both GLSL and the IR, so it is converted rather than reinterpreted.
+    /// </remarks>
+    uint EmitArrayLength(IrArrayLengthInstruction instruction) {
+        if (!globals.TryGetValue(instruction.Place.Root, out var global) || global.Member is not { } member) {
+            return Unimplemented($"The length of '{instruction.Place.Root.Name}'", instruction.Result.Type);
+        }
+
+        var length = Emit(
+            SpirvOp.ArrayLength,
+            types.UInt,
+            SpirvOperand.Id(global.Variable),
+            SpirvOperand.Literal(member)
+        );
+
+        return Emit(SpirvOp.Bitcast, types.Int, SpirvOperand.Id(length));
+    }
+
+    /// <summary>
+    ///     Reads an aggregate out of an explicitly laid out block into its plain form, member by
+    ///     member.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A uniform block's struct is declared with <c>Offset</c> decorations and its arrays
+    ///         with an <c>ArrayStride</c>, which makes it a distinct <c>OpTypeStruct</c> from the
+    ///         one a local of the same Raven type gets. SPIR-V has no conversion between two struct
+    ///         types, so <c>surface = lights[i]</c> cannot be one <c>OpLoad</c>: each leaf is
+    ///         loaded through its own access chain and the aggregate is rebuilt with
+    ///         <c>OpCompositeConstruct</c>.
+    ///     </para>
+    ///     <para>
+    ///         Only structs and arrays differ between the two forms — a vector or a matrix interns
+    ///         to the same id either way, since their layout is expressed as decorations on the
+    ///         enclosing struct's members rather than on the type. So the recursion bottoms out at
+    ///         the first non-aggregate, where a plain load is the whole answer.
+    ///     </para>
+    /// </remarks>
+    uint LoadAcrossLayout(uint pointer, SpirvStorageClass storage, IrType type, LayoutRule rule) {
+        switch (type) {
+            case IrStructType structType: {
+                var members = new SpirvOperand[structType.Fields.Count];
+                for (var i = 0; i < structType.Fields.Count; i++) {
+                    members[i] = SpirvOperand.Id(
+                        LoadAcrossLayout(
+                            Step(pointer, storage, structType.Fields[i].Type, types.ConstantInt(i), rule),
+                            storage,
+                            structType.Fields[i].Type,
+                            rule
+                        )
+                    );
+                }
+
+                return Emit(SpirvOp.CompositeConstruct, types.Type(structType), members);
+            }
+
+            case IrArrayType { Length: { } length } array: {
+                var elements = new SpirvOperand[length];
+                for (var i = 0; i < length; i++) {
+                    elements[i] = SpirvOperand.Id(
+                        LoadAcrossLayout(
+                            Step(pointer, storage, array.Element, types.ConstantInt(i), rule),
+                            storage,
+                            array.Element,
+                            rule
+                        )
+                    );
+                }
+
+                return Emit(SpirvOp.CompositeConstruct, types.Type(array), elements);
+            }
+
+            default:
+                return Emit(SpirvOp.Load, types.Type(type), SpirvOperand.Id(pointer));
+        }
+    }
+
+    /// <summary>One access chain step into a laid-out aggregate.</summary>
+    uint Step(uint pointer, SpirvStorageClass storage, IrType member, uint index, LayoutRule rule) =>
+        Emit(
+            SpirvOp.AccessChain,
+            types.Pointer(storage, types.Type(member, rule)),
+            SpirvOperand.Id(pointer),
+            SpirvOperand.Id(index)
+        );
+
+    /// <summary>
+    ///     Writes a plain aggregate into an explicitly laid out block, member by member.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <see cref="LoadAcrossLayout" /> and forced for the same reason: the laid-out
+    ///     struct is a different type, so one <c>OpStore</c> of the plain value is invalid — which is
+    ///     exactly what <c>spirv-val</c> says when a <c>particles[i] = p</c> is emitted as one.
+    /// </remarks>
+    void StoreAcrossLayout(uint pointer, SpirvStorageClass storage, IrType type, LayoutRule rule, uint value) {
+        switch (type) {
+            case IrStructType structType:
+                for (var i = 0; i < structType.Fields.Count; i++) {
+                    var field = structType.Fields[i].Type;
+                    StoreAcrossLayout(
+                        Step(pointer, storage, field, types.ConstantInt(i), rule),
+                        storage,
+                        field,
+                        rule,
+                        Emit(SpirvOp.CompositeExtract, types.Type(field), SpirvOperand.Id(value), SpirvOperand.Literal(i))
+                    );
+                }
+
+                return;
+
+            case IrArrayType { Length: { } length } array:
+                for (var i = 0; i < length; i++) {
+                    StoreAcrossLayout(
+                        Step(pointer, storage, array.Element, types.ConstantInt(i), rule),
+                        storage,
+                        array.Element,
+                        rule,
+                        Emit(
+                            SpirvOp.CompositeExtract,
+                            types.Type(array.Element),
+                            SpirvOperand.Id(value),
+                            SpirvOperand.Literal(i)
+                        )
+                    );
+                }
+
+                return;
+
+            default:
+                Add(new(SpirvOp.Store, null, null, SpirvOperand.Id(pointer), SpirvOperand.Id(value)));
+                return;
+        }
+    }
+
     void EmitStore(IrPlace place, uint value) {
-        var pointer = Resolve(place);
+        var pointer = Resolve(place, write: true);
 
         if (pointer.Swizzle is not { } swizzle) {
+            // The laid-out form of an aggregate is a different type from the plain one, so a whole
+            // aggregate written into a descriptor goes in member by member.
+            if (pointer.Layout is { } rule && types.Type(pointer.Type, rule) != types.Type(pointer.Type)) {
+                StoreAcrossLayout(pointer.Id, pointer.Storage, pointer.Type, rule, value);
+                return;
+            }
+
             Add(new(SpirvOp.Store, null, null, SpirvOperand.Id(pointer.Id), SpirvOperand.Id(value)));
             return;
         }
 
         // Writing some lanes of a vector means reading it, shuffling the new lanes
-        // in, and writing the whole thing back.
+        // in, and writing the whole thing back. For a stream that read has to come from the
+        // input variable — an Output cannot be loaded — which is why lowering marks a partial
+        // write as a read too.
         var whole = types.Type(pointer.Type);
-        var original = Emit(SpirvOp.Load, whole, SpirvOperand.Id(pointer.Id));
+        var original = Emit(SpirvOp.Load, whole, SpirvOperand.Id(Resolve(place).Id));
         var lanes = ((IrVectorType)pointer.Type).Size;
 
         var selectors = new int[lanes];
@@ -770,13 +971,24 @@ partial class SpirvEmitter {
         Add(new(SpirvOp.Store, null, null, SpirvOperand.Id(pointer.Id), SpirvOperand.Id(merged)));
     }
 
-    /// <summary>Turns a place into a pointer, building an access chain when it needs one.</summary>
-    SpirvPointer Resolve(IrPlace place) {
+    /// <summary>
+    ///     Turns a place into a pointer, building an access chain when it needs one.
+    /// </summary>
+    /// <param name="place">The storage location to reach.</param>
+    /// <param name="write">
+    ///     Which direction a stream resolves in. Every other root has one variable whichever way it
+    ///     is used; a stream has an <c>Input</c> and an <c>Output</c>, because SPIR-V splits what the
+    ///     IR models as one.
+    /// </param>
+    SpirvPointer Resolve(IrPlace place, bool write = false) {
         uint baseId;
         SpirvStorageClass storage;
         List<SpirvOperand> indices = [];
 
-        if (globals.TryGetValue(place.Root, out var global)) {
+        if (ResolveStream(place.Root, write) is { } stream) {
+            baseId = stream;
+            storage = write ? SpirvStorageClass.Output : SpirvStorageClass.Input;
+        } else if (globals.TryGetValue(place.Root, out var global)) {
             baseId = global.Variable;
             storage = global.Storage;
 
@@ -788,10 +1000,14 @@ partial class SpirvEmitter {
             storage = SpirvStorageClass.Function;
         } else {
             Report(BackendDiagnostics.NotImplemented, $"Reaching the variable '{place.Root.Name}'");
-            return new(types.ConstantInt(0), place.Type, false);
+            return new(types.ConstantInt(0), place.Type, null, SpirvStorageClass.Function);
         }
 
-        var layout = storage == SpirvStorageClass.Uniform;
+        // Which packing rule — if any — this root's type is decorated with. It comes off the global
+        // rather than off the storage class, because a uniform block and a storage buffer share the
+        // `Uniform` class in the SPIR-V 1.0 form and pack differently. A stream and a local are
+        // interface or function storage with no host-visible layout at all.
+        var layout = globals.TryGetValue(place.Root, out var root) ? root.Layout : null;
         var type = place.Root.Type;
         IrSwizzleAccess? trailing = null;
 
@@ -801,12 +1017,9 @@ partial class SpirvEmitter {
                     indices.Add(SpirvOperand.Id(types.ConstantInt(field.Index)));
                     break;
 
+                // A matrix indexes by column, which an access chain reaches exactly as it
+                // reaches an array element or a vector lane.
                 case IrIndexAccess index:
-                    if (type is IrMatrixType) {
-                        Report(BackendDiagnostics.NotImplemented, MatrixIndexing);
-                        return new(baseId, place.Type, layout);
-                    }
-
                     indices.Add(SpirvOperand.Id(Value(index.Index)));
                     break;
 
@@ -830,7 +1043,7 @@ partial class SpirvEmitter {
         }
 
         if (indices.Count == 0) {
-            return new(baseId, type, layout, trailing);
+            return new(baseId, type, layout, storage, trailing);
         }
 
         var chain = Emit(
@@ -839,7 +1052,7 @@ partial class SpirvEmitter {
             [SpirvOperand.Id(baseId), .. indices]
         );
 
-        return new(chain, type, layout, trailing);
+        return new(chain, type, layout, storage, trailing);
     }
 
     // --- Values ------------------------------------------------------------

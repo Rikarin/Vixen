@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax;
 using Vixen.Raven.Syntax;
 
 namespace Vixen.Raven.Symbols;
@@ -42,11 +46,7 @@ public abstract class Symbol {
         }
     }
 
-    public virtual Accessibility DeclaredAccessibility => Accessibility.NotApplicable;
-
     public virtual bool IsStatic => false;
-
-    public virtual bool IsAbstract => false;
 
     /// <summary>True for symbols the compiler creates rather than reads from source.</summary>
     public virtual bool IsImplicitlyDeclared => DeclaringSyntax is null;

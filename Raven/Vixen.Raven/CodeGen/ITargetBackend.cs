@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven.CodeGen.Glsl;
 using Vixen.Raven.CodeGen.Spirv;
 using Vixen.Raven.Diagnostics;
@@ -22,8 +26,15 @@ public sealed record GeneratedSource(string Name, ShaderStage Stage, string Code
     public override string ToString() => $"{Name} ({Stage})";
 }
 
-/// <summary>Conventional file-name suffixes for the pipeline stages.</summary>
-public static class ShaderStages {
+/// <summary>
+///     Conventional file-name suffixes for the pipeline stages.
+/// </summary>
+/// <remarks>
+///     Named for what it is rather than <c>ShaderStages</c>, which is the flags enum in
+///     <c>Vixen.Raven.Reflection</c>. Two types of that name in one assembly would make any file
+///     importing both ambiguous.
+/// </remarks>
+public static class ShaderStageNames {
     public static string Suffix(ShaderStage stage) =>
         stage switch {
             ShaderStage.Vertex => "vert",

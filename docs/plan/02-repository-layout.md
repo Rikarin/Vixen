@@ -99,7 +99,7 @@ Core/
 ├── Vixen.Ecs.Generators/               # ── source generator: queries, systems ──
 ├── Vixen.Ecs.Tests/
 │
-├── Vixen.Graphics/                     # RHI abstraction — ADR-001
+├── Vixen.Graphics/                     # ✅ RHI abstraction — ADR-001
 ├── Vixen.Graphics.Tests/
 ├── Vixen.Shaders/                      # effect system, permutations, bytecode cache, param keys
 ├── Vixen.Shaders.Generators/           # ── source generator: Raven reflection → C# keys ──
@@ -174,13 +174,15 @@ depends on `Vixen.Graphics`, `Vixen.Assets`, `Vixen.Input`, `Vixen.Core.*` — a
 
 ```
 Platform/
-├── Vixen.Platform/                     # contracts only: IWindow, ISurface, IFileSystem, IClipboard,
-│   │                                   #   IDisplayInfo, ILifecycle, INativeDialogs, IHapticDevice
-│   └── Vixen.Platform.Tests/
+├── Vixen.Platform/                     # ✅ contracts only: IPlatform, IWindow, ISurface, PlatformEvent,
+│                                       #   IDisplayInfo, IFileSystemHost, IClipboard, INativeDialogs,
+│                                       #   ILifecycle, IInputSource, ITextInput, IPowerInfo,
+│                                       #   IProcessorTopology
+├── Vixen.Platform.Tests/
 ├── Vixen.Platform.Desktop/             # SDL3 via Silk.NET.SDL — shared by Win/Linux/macOS
-│   └── Vixen.Platform.Desktop.Tests/
-├── Vixen.Platform.Headless/            # no window/GPU/audio: dedicated server + batch tooling (17)
-│   └── Vixen.Platform.Headless.Tests/
+├── Vixen.Platform.Desktop.Tests/
+├── Vixen.Platform.Headless/            # ✅ no window/GPU/audio: dedicated server + batch tooling (17)
+├── Vixen.Platform.Headless.Tests/
 ├── Vixen.Platform.Windows/             # net10.0-windows: DXGI enumeration, WinRT file dialogs, jump lists
 ├── Vixen.Platform.Linux/               # Wayland/X11 quirks, XDG paths, portal dialogs
 ├── Vixen.Platform.MacOS/               # net10.0 + ObjC interop: NSWindow chrome, sandbox paths, MoltenVK load
@@ -189,15 +191,15 @@ Platform/
 ├── Vixen.Platform.Web/                 # net10.0 + Sdk.WebAssembly: JSImport/JSExport, canvas, WebGL2 surface
 │
 ├── Vixen.Graphics.Vulkan/              # primary
-│   └── Vixen.Graphics.Vulkan.Tests/
+├── Vixen.Graphics.Vulkan.Tests/
 ├── Vixen.Graphics.Direct3D12/
-│   └── Vixen.Graphics.Direct3D12.Tests/
+├── Vixen.Graphics.Direct3D12.Tests/
 ├── Vixen.Graphics.OpenGL/              # GL 4.5 core (desktop) + GLES 3.0/3.2 (mobile) + WebGL2 (browser)
-│   └── Vixen.Graphics.OpenGL.Tests/
+├── Vixen.Graphics.OpenGL.Tests/
 ├── Vixen.Graphics.WebGPU/
-│   └── Vixen.Graphics.WebGPU.Tests/
-├── Vixen.Graphics.Null/                # headless: CI graphics tests AND the shipping dedicated-server backend (17)
-│   └── Vixen.Graphics.Null.Tests/
+├── Vixen.Graphics.WebGPU.Tests/
+├── Vixen.Graphics.Null/                # ✅ headless: CI graphics tests AND the shipping dedicated-server backend (17)
+├── Vixen.Graphics.Null.Tests/
 │
 ├── Vixen.Audio.Backend.OpenAL/
 ├── Vixen.Audio.Backend.WebAudio/
@@ -257,11 +259,20 @@ Raven/                            ✅ renamed — this layout is live
 ├── Directory.Build.props         # tracked analyzer debt, scoped per project
 ├── Vixen.Raven/                  # was Compiler/  — syntax, semantic, IR, GLSL + SPIR-V emit
 ├── Vixen.Raven.Tests/            # was Tests/     — sibling, per ADR-014
-├── Vixen.Raven.SyntaxGenerator/  # was Tools/SyntaxGenerator/
 ├── Vixen.Raven.Cli/              # was Cli/       — AssemblyName stays `raven`
-├── Library/                      # was Feed/ — the shipped .rvn standard library (PBR, math, etc.)
-└── docs/IMPLEMENTATION_PLAN.md   # Raven's own roadmap
+└── Library/                      # was Feed/ — the shipped .rvn standard library (PBR, math, etc.)
 ```
+
+Raven carries **no roadmap of its own**. Its `docs/IMPLEMENTATION_PLAN.md` was retired once every
+phase in it was complete; [07](07-raven-shader-pipeline.md) is the plan of record, and what was still
+open in that file is
+[§ I](07-raven-shader-pipeline.md#i-gaps-carried-over-from-ravens-retired-implementation-plan) there.
+Two roadmaps for one compiler is how they come to disagree.
+
+`Tools/SyntaxGenerator/` is not in this tree: the `Syntax.xml` generator is not
+Raven-specific and now lives at `Core/Vixen.Core.Syntax.Generator/`, alongside the tree
+it generates against. Raven references it as an analyzer and supplies its own
+`Syntax.xml`.
 
 Projects the plan anticipates but that do not exist yet — add them when the code needs
 splitting out of `Vixen.Raven`, not before:
@@ -315,6 +326,7 @@ Benchmarks/
 ├── Vixen.Benchmarks.Layout/      # flexbox throughput, 10⁴/10⁵ nodes
 ├── Vixen.Benchmarks.Reactive/    # signal propagation, alloc == 0
 ├── Vixen.Benchmarks.Math/
+├── Vixen.Benchmarks.Jobs/        # scheduling overhead, ParallelFor vs Parallel.For
 ├── Vixen.Benchmarks.Serialization/
 └── Vixen.Benchmarks.Rendering/   # CPU-side: culling, sorting, command recording
 ```

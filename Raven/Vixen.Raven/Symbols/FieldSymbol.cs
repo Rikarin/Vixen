@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+
 namespace Vixen.Raven.Symbols;
 
 /// <summary>A <c>val</c>/<c>var</c> member of a type, or an enum member.</summary>
@@ -15,8 +19,95 @@ public abstract class FieldSymbol : Symbol {
     /// <summary>The folded value of a <c>const</c> field, when it could be computed.</summary>
     public virtual object? ConstantValue => null;
 
+    /// <summary>
+    ///     Declared <c>[Permutation]</c>: a constant whose value the caller supplies per
+    ///     effect variant rather than the source fixing it.
+    /// </summary>
+    /// <remarks>
+    ///     A permutation key behaves as a constant everywhere downstream —
+    ///     <see cref="IsConst" /> is true and <see cref="ConstantValue" /> answers with the
+    ///     supplied value, or the declared default when none was supplied — so folding and
+    ///     dead-branch elimination need no special case for it.
+    /// </remarks>
+    public virtual bool IsPermutation => false;
+
+    /// <summary>
+    ///     A <c>val</c> type parameter — <c>shader Blur&lt;val TapCount: int&gt;</c> — rather than a
+    ///     field. Like a <c>[Permutation]</c> key it is a compile-time constant, but it has no
+    ///     default: a value is part of the shader's signature.
+    /// </summary>
+    public virtual bool IsValueParameter => false;
+
+    /// <summary>
+    ///     Declared <c>compose</c>: a protocol-typed slot filled by a concrete shader chosen
+    ///     when the shader is compiled.
+    /// </summary>
+    public virtual bool IsCompose => false;
+
+    /// <summary>
+    ///     Declared <c>stream</c>: per-invocation storage threaded between pipeline stages.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Not a binding, and that is the distinction that matters downstream: a stream has no
+    ///         descriptor, no <c>(set, binding)</c> and nothing the host writes. It is a stage
+    ///         input, a stage output, or both, and which of those it is follows from whether the
+    ///         stage's code reads it or writes it rather than from anything said at the
+    ///         declaration.
+    ///     </para>
+    ///     <para>
+    ///         The point of declaring it once on the shader rather than threading it through
+    ///         signatures is that a function anywhere in the stage's call graph can contribute to
+    ///         it. That is what lets a material feature add an interstage value without every
+    ///         entry point in the pipeline changing shape.
+    ///     </para>
+    /// </remarks>
+    public virtual bool IsStream => false;
+
+    /// <summary>
+    ///     The literal written in the declaration, or null when there is none.
+    /// </summary>
+    /// <remarks>
+    ///     Distinct from <see cref="ConstantValue" />, which for a <c>[Permutation]</c> key answers
+    ///     with the value this compilation was <em>given</em>. This one answers with what the source
+    ///     says, and — the reason it exists — reading it never records a permutation use. Describing
+    ///     a shader must not change its cache key.
+    /// </remarks>
+    public virtual object? DeclaredValue => null;
+
+    /// <summary>
+    ///     The shader bound to this <c>compose</c> slot, or null when the field is not a slot
+    ///     or nothing valid is bound. Calls through the slot go straight to this type's
+    ///     members, so there is no dispatch at runtime.
+    /// </summary>
+    public virtual NamedTypeSymbol? ComposedType => null;
+
     /// <summary>How this field binds on the GPU when it is a shader member.</summary>
     public virtual ResourceKind ResourceKind => ResourceKind.None;
+
+    /// <summary>
+    ///     Whether this field becomes a descriptor binding — state the host supplies rather than
+    ///     storage the shader owns.
+    /// </summary>
+    /// <remarks>
+    ///     One answer, read by the lowerer when it collects a shader's bindings and by the binder
+    ///     when it decides whether a write is legal. Two copies of this rule would mean a field the
+    ///     binder let you assign to and the lowerer turned into a uniform, which both reference
+    ///     compilers reject and neither Raven layer would have mentioned.
+    /// </remarks>
+    public bool IsBinding => ContainingType is { TypeKind: TypeKind.Shader } && !IsConst && !IsCompose && !IsStream;
+
+    /// <summary>
+    ///     The descriptor set this field's binding belongs to, from a <c>[PerFrame]</c> /
+    ///     <c>[PerView]</c> / <c>[PerMaterial]</c> / <c>[PerDraw]</c> marker.
+    /// </summary>
+    /// <remarks>
+    ///     Defaults to <see cref="Symbols.ResourceSet.PerMaterial" />: an unmarked field is a
+    ///     material parameter, which is what set 2 is for. Defaulting to set 0 instead would
+    ///     drop every unannotated shader into the engine's per-frame set, where it would
+    ///     collide with the camera and lighting buffers.
+    /// </remarks>
+    public virtual ResourceSet ResourceSet => ResourceSet.PerMaterial;
 
     /// <summary>The pipeline semantic from a <c>[Semantic("…")]</c> attribute, or null.</summary>
     public virtual string? SemanticName => null;
@@ -33,12 +124,26 @@ public sealed class SynthesizedFieldSymbol : FieldSymbol {
     public override Symbol? ContainingSymbol { get; }
     public override TypeSymbol Type { get; }
     public override bool IsReadOnly { get; }
-    public override Accessibility DeclaredAccessibility => Accessibility.Public;
 
-    internal SynthesizedFieldSymbol(TypeSymbol containingType, string name, TypeSymbol type, bool isReadOnly) {
+    /// <summary>
+    ///     Set for a sized array's <c>Length</c>, which makes it usable everywhere a constant
+    ///     is — including as another array's size.
+    /// </summary>
+    public override object? ConstantValue { get; }
+
+    public override bool IsConst => ConstantValue is not null;
+
+    internal SynthesizedFieldSymbol(
+        TypeSymbol containingType,
+        string name,
+        TypeSymbol type,
+        bool isReadOnly,
+        object? constantValue = null
+    ) {
         ContainingSymbol = containingType;
         Name = name;
         Type = type;
         IsReadOnly = isReadOnly;
+        ConstantValue = constantValue;
     }
 }

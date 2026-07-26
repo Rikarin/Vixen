@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+
 namespace Vixen.Raven.Binding;
 
 /// <summary>The operation a <see cref="BoundBinaryExpression" /> performs.</summary>
@@ -32,8 +36,5 @@ public enum UnaryOperatorKind {
     PreIncrement,
     PreDecrement,
     PostIncrement,
-    PostDecrement,
-
-    /// <summary><c>^i</c> — an index counted from the end.</summary>
-    IndexFromEnd
+    PostDecrement
 }

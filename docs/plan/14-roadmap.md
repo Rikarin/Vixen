@@ -14,20 +14,22 @@ took, not against optimism.
 | 3 | Asset pipeline + mobile bring-up | 4.0 |
 | 4 | UI framework | 7.0 |
 | 5 | Renderer (forward+, PBR, shadows, post FX) | 4.5 |
+| 5b | **Raven parser migration** (ANTLR → hand-written) | 1.5 |
 | 6 | Editor shell | 4.5 |
 | 7 | Node graphs + VFX | 3.5 |
 | 8 | Gameplay subsystems (physics, audio, animation, input) | 3.5 |
 | 9 | **Networking and multiplayer** | 5.0 |
 | 10 | Deferred, advanced rendering, Web | 2.5 |
 | 11 | Polish, docs, 1.0 | 2.5 |
-| | **Total** | **≈ 46.5 EM** |
+| | **Total** | **≈ 48.0 EM** |
 
 Plus Raven's remaining work (semantic → IR → GLSL+SPIR-V → CLI → interaction classes), which your brief places
 before Phase 1 and which is roughly **6–9 EM** on its own based on its current state.
 
-So: **~53 engineer-months.** (Was ~50: deferring D3D12 saved ~1 EM per Q4 and demoting the canvas-stress
-sample ~0.5 per Q3, then networking added 5.0 per Q7.) With two strong engineers that is ~2 years; with four, ~15 months
-allowing for coordination overhead. A solo effort is a 4-year project, which is achievable — Stride's
+So: **~55 engineer-months.** (Was ~50: deferring D3D12 saved ~1 EM per Q4 and demoting the canvas-stress
+sample ~0.5 per Q3, then networking added 5.0 per Q7, then the parser migration added 1.5 —
+see [18](18-raven-parser-migration.md).) With two strong engineers that is ~2.3 years; with four, ~16 months
+allowing for coordination overhead. A solo effort is a ~4.5-year project, which is achievable — Stride's
 predecessor and several notable engines were built that way — but the plan should not pretend
 otherwise.
 
@@ -47,13 +49,38 @@ remains front-loaded into Phase 3.
   signals-dotnet).
 - `Directory.Build.props/.targets`, `Directory.Packages.props` with every version from
   [01](01-technology-decisions.md), `global.json`, `.editorconfig`, `Vixen.slnx` + filters.
-- Nuke skeleton: `Clean Restore Compile Test Pack CheckFormat CheckArchitecture CheckApi`.
-- `ci.yml` on three desktop runners; branch protection.
+- ✅ Nuke: `Clean Restore Compile Test Pack CheckFormat CheckArchitecture Benchmark`, with
+  `build.sh`/`build.cmd` as the entry point CI and developers share. `CheckApi` waits for
+  `Tools/Vixen.ApiCheck` and the first `PublicAPI.Shipped.txt`.
+- ✅ `ci.yml` on three desktop runners — test matrix, checks, pack. Branch protection is a repository
+  setting, not a file, so it stays a manual step.
+- 🟡 `references/` — the README with the clone commands is tracked; the clones themselves are a local
+  decision rather than submodules, for the reason written there.
 - **Extract `Vixen.Core.Syntax`** from Raven (green/red trees, `SyntaxGenerator`, `SourceText`,
   diagnostics) and retarget Raven onto it. This unblocks VXML and VCSS later and is the
   highest-leverage refactor available.
-- `Vixen.Core`, `Vixen.Core.Mathematics`, `Vixen.Core.Collections`, `Vixen.Core.Memory` with full tests.
-- `Vixen.Core.Diagnostics`: `[LoggerMessage]` plumbing, ring-buffer sink, `ProfilingKey`/`Profiler`.
+- ✅ `Vixen.Core` — annotations, identity types, `GameTime`, `ServiceRegistry`, pooling, `DisposeBag`,
+  `LeakTracker`, with 86 tests green in Debug and Release. What differs from
+  [03](03-core-foundation.md) is written down there.
+- ✅ `Vixen.Core.Mathematics` — every type ADR-003 lists, plus `Matrix3x3` and `ColorSpace`, with
+  `Conventions.md` and 126 tests including CsCheck properties for the algebraic laws and a
+  clip-space oracle for frustum culling. `Half` is deliberately omitted: `System.Half` is in the BCL.
+  SIMD paths measured by `Benchmarks/Vixen.Benchmarks.Math`, which found them slower than the scalar
+  fallbacks and led to the fix.
+- ✅ `Vixen.Core.Collections` — `Handle<T>`/`HandlePool<T>`, `FreeList<T>`, `SparseSet<T>`, `BitSet`,
+  `SmallList<T,TBuffer>` over `InlineArray` buffers, `ChunkedArray<T>`, `RingBuffer<T>` and an
+  indexed priority queue with decrease-key. 34 tests, several against a BCL oracle.
+  **Deferred with reasons in the README:** `RobinHoodDictionary` (no benchmark yet for it to beat)
+  and `FixedBitSet<N>` (its capacity is the ECS's component budget, which is not decided).
+- ✅ `Vixen.Core.Memory` — `NativeArray<T>`, `ArenaAllocator` with frame and scope arenas, and
+  `BuddyAllocator`. 19 tests including a property test asserting suballocations never overlap and
+  that releasing everything merges the region back whole. **Deferred:** `GpuUploadRing`, which needs
+  mapped memory and frame fences and so lands with the RHI in Phase 1.
+- ✅ `Vixen.Core.Diagnostics` — `[LoggerMessage]` plumbing, the always-on `RingBufferSink` with
+  per-category levels, `ProfilingKey`/`Profiler` over per-thread sample rings, and Chrome-trace
+  export that opens in Perfetto. 18 tests. Event-id ranges reserved in `docs/manual/log-events.md`.
+  **Owed:** the other sinks, rate limiting, and UTF-8 record packing — each needs the thing it feeds.
+- ✅ `Benchmarks/Vixen.Benchmarks.Math`, and the Nuke `Benchmark` target that runs it.
 
 **Exit:** `nuke Test` green on Windows/Linux/macOS. Raven builds and tests green on
 `Vixen.Core.Syntax`. Math and collections at > 90 % coverage with property tests. A `TestApp` stub
@@ -66,24 +93,177 @@ exists.
 **Goal:** a window on three desktops with a Vulkan-cleared, triangle-drawing swapchain, and the
 plumbing that everything else stands on.
 
-- `Vixen.Core.Threading`: job system, `JobHandle` DAG, `ParallelFor`, main-thread dispatcher, safety
-  system, profiler integration.
-- `Vixen.Core.IO`: VFS, providers (physical, memory), file watcher on all three desktops.
-- `Vixen.Core.Serialization` + generator; round-trip and evolution tests.
-- `Vixen.Core.Reflection` generator + `[ModuleInitializer]` registration.
-- `Vixen.Platform` contracts; `Vixen.Platform.Desktop` on SDL3; Windows/Linux/macOS specialisations;
-  `Vixen.Platform.Headless` (no window/GPU/audio) so the no-display path is real from day one rather
-  than retrofitted for the server variant in Phase 9 ([17](17-app-heads-and-shipping.md)).
-- `Vixen.App` host (`VixenApp.Run<TGame>()`) and the build-variant matrix; `vixen-game`/`vixen-app`
-  templates follow in Phase 3 with the CLI.
-- `Vixen.Graphics` RHI surface + `Vixen.Graphics.Null` + `RecordingBackend` test harness.
-- `Vixen.Graphics.Vulkan`: instance/device/queues, allocator, swapchain, command lists, PSOs,
-  descriptor sets, barriers, dynamic rendering + render-pass fallback, validation-layer wiring.
-- `Vixen.Graphics.RenderGraph` with validation and transient aliasing.
+- ✅ `Vixen.Core.Threading` — persistent workers over Chase–Lev deques, a `JobHandle` DAG, struct
+  jobs dispatched with no boxing and no allocation, `ScheduleParallel` with automatic batching, the
+  main-thread dispatcher, and per-job profiler samples. 45 tests, including one that asserts every
+  item leaves a contended deque exactly once and one that runs twenty random 400-node graphs and
+  checks every edge. `Benchmarks/Vixen.Benchmarks.Jobs` measures it against `Task.Run` and
+  `Parallel.For`, and found the wake-up traffic that made a burst of jobs cost more per job than a
+  single one. **Deferred with reasons in [03](03-core-foundation.md):** the `VIXEN_JOB_SAFETY`
+  access-declaration system (needs the ECS, so Phase 2) and thread pinning (needs `Vixen.Platform`).
+- ✅ `Vixen.Core.IO` — `VirtualPath`, the mount table, physical and in-memory providers behind one
+  conformance suite, memory-mapped reads, and `Watch` with the coalescing that makes a real editor's
+  save look like one change. 123 tests. **Deferred with reasons in [03](03-core-foundation.md):**
+  the Android/iOS/browser/bundle providers, which arrive with the platform or database they read
+  from, and the `System.IO.Path` analyzer.
+- ✅ `Vixen.Core.Serialization` + generator — the wire format, `DataSerializer<T>`, the registry, a
+  `[DataContract]` generator that emits readable C# and turns an unserialisable type into a build
+  error, and the content-addressed `ObjectDatabase` with its loose-file and bundle backends, LZ4/Zstd
+  chunk compression and CRC-checked bundles. 53 tests covering round-trip, additive evolution,
+  migration, determinism, truncation, deduplication and corruption. **Deferred with reasons in
+  [03](03-core-foundation.md):** content references (Phase 3) and bundle-packing *policy*, which
+  belongs to the content build in [08](08-asset-pipeline-and-addressables.md).
+- ✅ `Vixen.Core.Reflection` generator + `[ModuleInitializer]` registration — `TypeDescriptor` and
+  `MemberDescriptor` with generated accessor lambdas, trait flags, inspector presentation, factories,
+  and queries by type, name, trait and base type. 16 tests. **Deferred with reasons in
+  [03](03-core-foundation.md):** `[Behavior]`, whose attribute arrives with the engine loop in
+  Phase 2, and generic types.
+- ✅ `Vixen.Platform` contracts — `IPlatform` over windows, surfaces, displays, files, clipboard,
+  native dialogs, lifecycle, raw input, IME and power, with one `PlatformEvent` stream drained once
+  per frame and capabilities asked at runtime rather than compiled in. 26 tests. Two decisions worth
+  naming: `Key` is a physical position with no layout-dependent twin, and `WindowResized` carries the
+  logical size and the pixel size separately. Also closes the contract half of the thread-pinning
+  deferral from [03](03-core-foundation.md) as `IProcessorTopology`.
+- ✅ `Vixen.Platform.Headless` (no window/GPU/audio) so the no-display path is real from day one
+  rather than retrofitted for the server variant in Phase 9 ([17](17-app-heads-and-shipping.md)).
+  31 tests. Headless windows are real windows without a picture, so the dedicated server runs the
+  desktop's frame loop; the clipboard refuses rather than faking; and `Suspend`/`Resume`/
+  `ReportMemoryPressure` are driveable, which is where the lifecycle fault-injection loop
+  [10](10-platforms.md) asks for actually runs.
+- ✅ `Vixen.Platform.Desktop` — Windows, Linux and macOS through one SDL implementation: windows,
+  surfaces (Win32/X11/Wayland/`CAMetalLayer`), displays, cursors, clipboard text, IME, gamepads with
+  rumble, drag-and-drop, message boxes, battery. 55 tests. **It is SDL 2, not SDL 3** — the
+  dependency register in [01](01-technology-decisions.md) said otherwise and was wrong, and is
+  corrected. **Owed, and visibly missing rather than approximated:** file pickers (SDL 2 has none),
+  clipboard images and custom formats, thread affinity, thermal state — all four belong to
+  `Vixen.Platform.Windows`/`.Linux`/`.MacOS`, which [02](02-repository-layout.md) already reserves.
+- `Vixen.Platform.Native` — RID→binary mapping and checksummed acquisition. Now load-bearing rather
+  than tidy: `Silk.NET.SDL` ships no native binary, so CI installs `libSDL2` from a package manager
+  and Windows has nothing to install it with.
+- Windows/Linux/macOS specialisations.
+- ✅ `Vixen.App` host (`VixenApp.Run<TGame>()`) and the build-variant matrix — the boot sequence, the
+  `Game` hooks, the frame loop, the `--vixen-*` argument contract, the headless fallback and frame
+  pacing. 36 tests. Every step is public, so an editor's play mode and a test drive the same loop the
+  host does — [17](17-app-heads-and-shipping.md)'s rule that nothing in the boot path is inaccessible.
+  First user of the `[LoggerMessage]` id register in `docs/manual/log-events.md`, which had been
+  empty. **Owed:** content (`--vixen-loose-content` is parsed and not yet honoured), rendering, and
+  the fixed-step accumulator, which arrives with `Vixen.Engine` in Phase 2.
+  `vixen-game`/`vixen-app` templates follow in Phase 3 with the CLI.
+- ✅ `Vixen.Graphics` RHI surface — the vocabulary is built: `PixelFormat` with block sizes, sRGB
+  pairing and level arithmetic; the enum set including the `synchronization2`-shaped `ResourceState`
+  barrier model; `GraphicsDeviceFeatures`; typed handles; and self-validating resource descriptions.
+  46 tests. Reversed depth is in the defaults rather than only in `Conventions.md` — an attachment
+  clears to 0 and the shadow sampler compares `GreaterEqual`. The interfaces are built too:
+  `IGraphicsAdapter`, `IGraphicsDevice`, `ICommandSubmitter`, `ICommandList`, `ISwapChain`, the
+  pipeline and descriptor-layout descriptions, and the grouped `BarrierGroup`. Moving `SurfaceHandle`
+  down into `Vixen.Core` was needed to keep the layering honest — see below. Both implementations
+  now exist, and building the second one found three defaults in this layer that did not hold the
+  values their own documentation described (see `Vixen.Graphics.Vulkan` below).
+- ✅ `Vixen.Graphics.Null` + the recording harness — a device with no GPU that records the command
+  stream into a comparable log, and refuses the dozen things that are undefined behaviour on a real
+  backend: a draw outside a pass, a dispatch or copy inside one, a list submitted twice or before it
+  was finished, a buffer copied onto itself, a handle used after it was destroyed. 29 tests.
+  Recording is **off by default**, because [17](17-app-heads-and-shipping.md) makes this a shipping
+  backend and a server that accumulated a command log would run out of memory. Resource creation
+  allocates a handle and a description and nothing proportional to the size asked for, so a server
+  that creates a 4K target every frame stays flat. `NullSwapChain.NextStatus` makes the out-of-date
+  and device-lost paths reachable from a test, which is the fault injection [05](05-graphics-rhi.md)
+  asks for.
+- ⚠ **Prerequisite, discovered rather than planned: there is no Vulkan on the development machine.**
+  No loader, no MoltenVK, no ICD — verified. So `Vixen.Graphics.Vulkan` cannot be written test-first
+  locally: every test would skip, and a backend developed against a driver that is not there is the
+  exact failure mode [00](00-vision-and-principles.md) warns about, code that reads plausibly and is
+  wrong. Two things have to happen before it starts, in this order:
+  1. **Install the Vulkan SDK** (MoltenVK + the Loader + validation layers) on macOS, per the
+     two-flavour scheme in [10](10-platforms.md) § macOS. The development flavour is the one needed
+     here, and it needs `VK_ICD_FILENAMES` and the `VK_KHR_portability_enumeration` flag or the
+     Loader reports no devices on a machine that works.
+  2. **Stand up the lavapipe CI leg first**, not last. [10](10-platforms.md) already calls Linux the
+     most valuable CI target because lavapipe is a conformant Vulkan 1.3 driver with no GPU; making
+     it the *primary* verification for this backend rather than a later addition is the difference
+     between a backend that is tested on every push and one that is tested on one laptop.
+- ✅ `Vixen.Graphics.Vulkan` — the whole of `IGraphicsDevice` and `ICommandList` against MoltenVK
+  1.4.2 and Loader 1.4.350: instance and portability, adapter and queue-family selection, capability
+  translation, a block-suballocating allocator, resources, descriptor sets, graphics and compute
+  pipelines, command recording, barriers, both render paths, and the swapchain. 155 tests, and the
+  suite is **validation-clean** — `VulkanDiagnostics` records what the layers say and
+  `ValidationCleanTests` fails on any of it, which is what [00](00-vision-and-principles.md)'s
+  non-negotiable has to mean to be worth stating. Most of the logic is pure functions tested with no
+  driver present; the parts that need one are asserted by reading pixels back, because a backend that
+  records the right calls and renders nothing passes every other kind of test.
+  Findings worth carrying forward:
+  - The loader is not on macOS's default search path when installed by Homebrew, so `VulkanLoader`
+    probes for it; and `vulkan-validationlayers` is a separate formula, so a plain
+    `brew install vulkan-loader molten-vk` runs unvalidated and now says so.
+  - `VK_KHR_dynamic_rendering` requires `VK_KHR_create_renderpass2` and
+    `VK_KHR_depth_stencil_resolve` below Vulkan 1.2. MoltenVK accepted the incomplete extension list;
+    the layers did not.
+  - `RasterizerState.Default`, `DepthStencilState.Default` and `BlendState.Opaque` were all
+    zero-initialised rather than carrying their documented values, because `new()` on a record struct
+    with an all-optional primary constructor binds the implicit parameterless constructor. The
+    symptom was a pipeline that drew an entirely untouched attachment with no error from anywhere.
+    `PipelineDefaultTests` now asserts each documented default.
+
+  **Owed, and named rather than approximated:** the swapchain's acquire/present path has no
+  automated coverage — presenting needs a window, and AppKit aborts when one is created off the main
+  thread, which is why the desktop tests force SDL's dummy driver on macOS. Its pure choices are
+  tested; `Samples/01` is what exercises the rest. Also owed: timeline semaphores where the device
+  offers them, MSAA resolve beyond the attachment plumbing, and query pools.
+- ✅ `Vixen.Graphics.RenderGraph` — passes declare what they read and write; the graph culls what
+  nothing needs, gives non-overlapping resources the same memory, places barriers batched per pass,
+  derives attachment store actions, and hands imported resources back in the state their owner
+  expects. 34 tests, including the property tests [05](05-graphics-rhi.md) § Testing asks for: random
+  pass graphs replayed against a tracker that knows only the emitted command stream, asserting that
+  every pass sees the state it declared, that no barrier misstates what it is transitioning from,
+  that aliased resources never coexist, and that culling keeps exactly what is reachable from an
+  output. Verified by sabotage — dropping write-after-write detection and changing one `<` to `<=` in
+  lifetime release each fail their own property.
+
+  Two decisions worth naming. A resource taking over aliased memory is transitioned *from*
+  `Undefined`, which means "discard the contents" — stating the true previous state would ask the
+  driver to preserve garbage, and on hardware with compressed targets that is a decompress for
+  nothing. And a target nothing reads afterwards is not stored, which on tiled hardware is the
+  difference between a bandwidth-bound frame and one that is not, and is the decision nobody
+  remembers to make by hand.
+
+  **Owed, and named rather than approximated:** this reuses whole resources, it does not overlap
+  differently-shaped ones in a single allocation. True memory aliasing needs placed resources, which
+  `IGraphicsDevice` does not expose and which two of the six planned backends cannot express. Also
+  owed: async-compute queue scheduling — `PassKind` is declared and carried, and every pass currently
+  runs on one queue.
 - **MoltenVK bring-up on macOS** — do it here, not later; it shapes the Vulkan backend's capability
   handling.
-- `Samples/01-HelloTriangle` on Windows, Linux, macOS.
-- lavapipe in CI; the `GoldenImages` target with the first fixture.
+- 🟡 `Samples/01-HelloTriangle` — the whole stack at once: the app host opens a window, the desktop
+  platform hands over its native surface, the Vulkan backend builds a device and swapchain from it,
+  and the render graph places the barriers. **Verified on macOS**, presenting Bgra8UNormSrgb at
+  2560×1440 with three images, validation-clean over hundreds of frames. Windows and Linux are owed
+  and will come with the CI legs.
+
+  It earned its place immediately. The first time it presented to a real window it found two
+  synchronisation bugs the entire headless Vulkan suite had passed straight through — `BeginFrame`
+  discarded the pending wait that `AcquireNextImage` had registered, so nothing ever waited on the
+  acquire semaphore; and the present-wait semaphore came from a ring recycled on the frame fence,
+  which knows when a submission finished and not when the presentation engine did. Both are fixed
+  where they lived, with the reasoning.
+
+  `--vixen-frames N` came out of it and belongs to the host rather than the sample, so every app head
+  and every later sample is CI-runnable the same way.
+- ✅ **lavapipe in CI.** The Linux leg installs Mesa's software Vulkan, the loader, the validation
+  layers and `spirv-tools`, and runs the whole suite against it — 155 Vulkan tests, **zero skipped**,
+  both render paths, validation-clean. `VIXEN_REQUIRE_VULKAN=1` turns a skip into a failure on that
+  leg, because a runner that lost its ICD reporting a green build is the most expensive kind of green
+  there is. Verified locally in a container before being committed, rather than pushed and hoped for.
+
+  A second driver earns its keep immediately, which is the whole argument for this leg:
+  - The instance asked for Vulkan 1.1 and everything above had to come from extensions, so a
+    `VkPipelineRenderingCreateInfo` on a 1.4 device was invalid usage. MoltenVK accepted it in
+    silence; lavapipe's validation named it. The instance now asks for what the loader offers, and
+    every core-versus-extension decision reads the lesser of the instance's version and the device's.
+  - `Environment.GetFolderPath` returns *the empty string* on Unix for a directory that does not exist
+    yet — every one of them on a fresh account, in a container, on a runner. `StandardFileSystemHost`
+    was therefore producing relative paths, and the engine would have written its saves into whatever
+    the working directory happened to be. It passed every macOS and Windows run.
+- `GoldenImages` target with the first fixture.
 - ~~Web graphics spike~~ ✅ **already done, before Phase 0** — see
   [`spikes/web-webgl2/RESULT.md`](spikes/web-webgl2/RESULT.md). `Silk.NET.OpenGLES` renders a WebGL2
   triangle from `browser-wasm`; bridge is ~40 lines; trimmed payload 0.93 MB Brotli. R1 retired. The
@@ -220,6 +400,31 @@ green. **Zero runtime shader compilation** in a shipping build of `Samples/03`, 
 Shader hot reload under 500 ms.
 
 ---
+
+## Phase 5b — Raven parser migration *(1.5 EM)*
+
+**Goal:** replace Raven's ANTLR front end with a hand-written Roslyn-style lexer and recursive-descent
+parser, and land incremental reparse in `Vixen.Core.Syntax`. Full finding and step-by-step plan in
+[18](18-raven-parser-migration.md); ADR-009 is amended accordingly.
+
+**Why here.** After Phase 5 because `Raven/Library` is what shakes out the last of the syntax, and
+migrating into a churning grammar pays the cost twice. Before Phase 6 because the editor's `CodeEditor`
+needs incremental reparse and squiggle-grade diagnostics for `.rvn`, and ANTLR can give neither.
+
+- Freeze the corpus: golden trees and byte-exact round-trip over every construct and every
+  `Raven/Library` file. The safety net, and worth having regardless.
+- `SlidingTextWindow`, `SyntaxParser` base and `Blender` into `Vixen.Core.Syntax` — VXML and VCSS need
+  all three anyway, so this cost was already committed by ADR-009.
+- `RavenLexer.cs` and `RavenParser.cs`, emitting green nodes directly. Delete `SyntaxAntlrVisitor`
+  (1 490 lines), the ANTLR package references, and the `catch` that discards trees ANTLR's recovery
+  mangled.
+- **Keep the `.g4` files** in a test-only project as a permanent differential oracle: parse every corpus
+  file with both and compare trees. Same technique as the SPIR-V-vs-`shaderc` oracle.
+- Then incremental reparse via the blender, as a separate change — one hard problem at a time.
+- Then diagnostics worth reading: expected-token messages instead of "no viable alternative".
+
+**Exit criteria.** Byte-identical trees to the ANTLR front end across the whole corpus; ANTLR gone from
+the shipping projects; a `.rvn` edit reparsing incrementally; the differential oracle green in CI.
 
 ## Phase 6 — Editor shell *(4.5 EM)*
 

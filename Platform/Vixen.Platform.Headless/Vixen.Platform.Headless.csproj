@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Platform.Headless</RootNamespace>
+        <Description>
+            The platform with no window, no display server, no GPU and no audio device: what a
+            dedicated server, a batch tool and a CI run stand on. Implements every Vixen.Platform
+            contract, so the no-display path is the ordinary path rather than a retrofit.
+        </Description>
+        <PackageTags>headless;server;platform;ci;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Platform\Vixen.Platform.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Platform.Headless.Tests" />
+    </ItemGroup>
+
+</Project>

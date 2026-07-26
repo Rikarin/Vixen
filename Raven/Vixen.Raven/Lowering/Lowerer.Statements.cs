@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using Vixen.Raven.Binding;
 using Vixen.Raven.IR;
 using Vixen.Raven.Symbols;
@@ -12,6 +15,10 @@ public sealed partial class Lowerer {
                 // Scoping is already resolved, so a nested block adds nothing;
                 // flatten it into the enclosing one.
                 foreach (var nested in block.Statements) {
+                    if (CurrentBlockIsTerminated) {
+                        break;
+                    }
+
                     LowerStatement(nested);
                 }
 
@@ -25,6 +32,22 @@ public sealed partial class Lowerer {
                 LowerExpressionForEffect(expression.Expression);
                 break;
 
+            case BoundIfStatement { Condition.ConstantValue: bool known } conditional: {
+                // The branch not taken is dropped rather than emitted and left for the
+                // driver to strip. This is what makes a [Permutation] key pay for itself:
+                // `if (UseSkinning)` against a false key emits no skinning code, no
+                // uniforms it referenced, and no branch.
+                //
+                // The dead branch was still bound, so it is still type-checked — a
+                // permutation you have switched off cannot rot. That is the main thing
+                // this has over textual `#if`.
+                if ((known ? conditional.Consequence : conditional.Alternative) is { } live) {
+                    LowerStatement(live);
+                }
+
+                break;
+            }
+
             case BoundIfStatement conditional: {
                 var condition = LowerExpression(conditional.Condition);
                 var then = EmitInto(() => LowerStatement(conditional.Consequence));
@@ -35,6 +58,11 @@ public sealed partial class Lowerer {
                 Emit(new IrIfStatement(condition, then, otherwise));
                 break;
             }
+
+            // `while (false)` never runs. `while (true)` is left alone: it is a real
+            // infinite loop, and only the condition is constant, not the body.
+            case BoundWhileStatement { Condition.ConstantValue: false }:
+                break;
 
             case BoundWhileStatement loop:
                 EmitLoop(
@@ -81,12 +109,8 @@ public sealed partial class Lowerer {
             case BoundNoOpStatement:
                 break;
 
-            case BoundLocalFunctionStatement:
-                ReportUnsupported(statement, "A local function");
-                break;
-
-            case BoundSwitchStatement:
-                ReportUnsupported(statement, "A switch statement");
+            case BoundSwitchStatement @switch:
+                LowerSwitch(@switch);
                 break;
 
             default:
@@ -234,5 +258,108 @@ public sealed partial class Lowerer {
             },
             true
         );
+    }
+
+    // --- switch ------------------------------------------------------------
+
+    /// <summary>
+    ///     Desugars a <c>switch</c> into an if/else chain over equality tests.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         No new IR construct, and therefore no new work in either backend: both already emit
+    ///         structured <c>if</c>. SPIR-V has <c>OpSwitch</c> and GLSL has <c>switch</c>, so a
+    ///         dedicated node could produce a jump table later — but it would have to be built twice
+    ///         and neither target gains anything on the sizes of switch a shader writes.
+    ///     </para>
+    ///     <para>
+    ///         The governing expression is evaluated <em>once</em>, into a local. Testing it per
+    ///         section would re-run whatever produced it, and it may be a call.
+    ///     </para>
+    ///     <para>
+    ///         Sections do not fall through, so the chain is exact rather than an approximation, and
+    ///         a trailing <c>break</c> is dropped as redundant. <c>default</c> becomes the final
+    ///         <c>else</c> wherever it was written, which is the one place order stops mattering.
+    ///     </para>
+    /// </remarks>
+    void LowerSwitch(BoundSwitchStatement statement) {
+        var governingType = LowerType(statement.GoverningExpression.Type, statement.Syntax);
+        var governing = LowerExpression(statement.GoverningExpression);
+
+        // Held in a local so each test reads it rather than recomputing it.
+        var subject = Function.AddLocal("switch", governingType);
+        Emit(new IrStoreInstruction(new(subject), governing));
+
+        var cases = statement.Sections.Where(s => !s.IsDefault).ToArray();
+        var fallback = statement.Sections.FirstOrDefault(s => s.IsDefault);
+
+        // Built back to front, so each section's `else` is the chain already assembled.
+        IrBlock? otherwise = fallback is null ? null : EmitInto(() => LowerSection(fallback));
+
+        for (var i = cases.Length - 1; i >= 0; i--) {
+            var section = cases[i];
+            var tail = otherwise;
+
+            otherwise = EmitInto(
+                () => {
+                    // A section with no labels can never be selected; emitting the test would
+                    // need a constant false, and dropping it says the same thing.
+                    if (section.Labels.Count == 0) {
+                        if (tail is not null) {
+                            Emit(tail);
+                        }
+
+                        return;
+                    }
+
+                    IrValue? test = null;
+                    foreach (var label in section.Labels) {
+                        var equal = Emit(
+                            result => new IrBinaryInstruction(
+                                result,
+                                IrBinaryOp.Equal,
+                                Load(new(subject)),
+                                LowerExpression(label)
+                            ),
+                            IrScalarType.Bool
+                        );
+
+                        test = test is null
+                            ? equal
+                            : Emit(
+                                result => new IrBinaryInstruction(result, IrBinaryOp.LogicalOr, test, equal),
+                                IrScalarType.Bool
+                            );
+                    }
+
+                    Emit(new IrIfStatement(test!, EmitInto(() => LowerSection(section)), tail));
+                }
+            );
+        }
+
+        if (otherwise is not null) {
+            Emit(otherwise);
+        }
+    }
+
+    /// <summary>
+    ///     Lowers a section's body, dropping a trailing <c>break</c>.
+    /// </summary>
+    /// <remarks>
+    ///     That <c>break</c> means "leave the switch", and in an if/else chain leaving is what
+    ///     reaching the end of the block already does. Only a <em>trailing</em> one is dropped: a
+    ///     <c>break</c> inside a loop in the section still belongs to the loop.
+    /// </remarks>
+    void LowerSection(BoundSwitchSection section) {
+        var statements = section.Statements;
+        var count = statements.Count;
+
+        if (count > 0 && statements[^1] is BoundBreakStatement) {
+            count--;
+        }
+
+        for (var i = 0; i < count; i++) {
+            LowerStatement(statements[i]);
+        }
     }
 }

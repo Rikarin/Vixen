@@ -191,25 +191,6 @@ CompilationUnit
           LocalDeclarationStatement
             ConstDeclaration
               Token(ValKeyword) "val"
-              Token(IdentifierToken) "lambda"
-              EqualsValueClause
-                Token(EqualsToken) "="
-                IdentifierName
-                  Token(IdentifierToken) "v"
-          ExpressionStatement
-            BinaryExpression
-              BinaryExpression
-                IdentifierName
-                  Token(IdentifierToken) "v"
-                Token(OperatorToken) "*"
-                NumericLiteralExpression
-                  Token(NumericLiteralToken) "2"
-              Token(OperatorToken) "+"
-              NumericLiteralExpression
-                Token(NumericLiteralToken) "1"
-          LocalDeclarationStatement
-            ConstDeclaration
-              Token(ValKeyword) "val"
               Token(IdentifierToken) "range"
               EqualsValueClause
                 Token(EqualsToken) "="

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using Vixen.Raven.Symbols;
 using Xunit;
 using static Tests.SemanticTestBase;
@@ -90,7 +93,7 @@ public class ShaderSemanticsTests {
             """
             package A
 
-            class Helpers {
+            struct Helpers {
                 [VertexShader]
                 func Vertex(): float4 {
                     return float4(0, 0, 0, 1)

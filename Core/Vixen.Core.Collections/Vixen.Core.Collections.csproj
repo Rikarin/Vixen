@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Core.Collections</RootNamespace>
+        <Description>
+            Purpose-built collections for the frame loop: generation-checked handles, sparse sets,
+            chunked and inline-buffered lists, bit sets, ring buffers and an indexed priority queue.
+            All struct-friendly, all with Span access, none of them a general-purpose replacement
+            for what the BCL already does well.
+        </Description>
+        <PackageTags>collections;sparse-set;handle;bitset;ring-buffer;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Core.Collections.Tests" />
+    </ItemGroup>
+
+</Project>

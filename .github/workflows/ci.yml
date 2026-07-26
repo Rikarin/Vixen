@@ -1,0 +1,137 @@
+name: CI
+
+# Every job here calls a Nuke target, and those are the same targets a developer runs locally.
+# That is the whole point of having Nuke at all: "works on my machine" and "works in CI" cannot
+# diverge if they are the same code path.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+jobs:
+  test:
+    name: test-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Do not cancel the other two when one fails: a failure on exactly one OS is the most
+      # informative result there is, and cancelling hides which ones were fine.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-14]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ matrix.os }}-${{ hashFiles('**/Directory.Packages.props', 'global.json') }}
+          restore-keys: nuget-${{ matrix.os }}-
+
+      # Silk.NET.SDL is bindings only — no native binary ships with the package — so the runner
+      # needs libSDL2 or every Vixen.Platform.Desktop test skips itself and the leg goes green
+      # having proved nothing. Windows runners have no package manager step here because the
+      # Silk.NET loader finds SDL2.dll next to the test binary; that is owed to
+      # Vixen.Platform.Native, and until it exists the Windows leg skips those tests.
+      - name: Install SDL2 (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
+
+      # lavapipe: Mesa's software Vulkan, a conformant driver with no GPU. docs/plan/10 calls Linux
+      # CI's most valuable target for exactly this reason — it is what turns the Vulkan backend from
+      # "tested on one laptop" into "tested on every push", and it is a *second* driver, which is
+      # where a backend's real bugs live. The first run of this leg found one MoltenVK had accepted
+      # in silence for weeks.
+      - name: Install Vulkan and lavapipe (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          # spirv-tools carries spirv-val, which Raven's golden SPIR-V tests require and which
+          # they fail rather than skip without — the same guard as VIXEN_REQUIRE_VULKAN below.
+          sudo apt-get install -y libvulkan1 mesa-vulkan-drivers vulkan-validationlayers vulkan-tools spirv-tools
+          vulkaninfo --summary | grep -E 'deviceName|apiVersion|driverName'
+
+      - name: Install SDL2 (macOS)
+        if: matrix.os == 'macos-14'
+        run: brew install sdl2
+
+      - name: Test
+        run: ./build.sh Test --configuration Release
+        shell: bash
+        env:
+          # On the leg that installed a driver, a skipped Vulkan test is a failure. Without this a
+          # runner that lost its ICD would report a green build having proved nothing at all, which
+          # is the most expensive kind of green there is — and is precisely why the SDL install step
+          # above exists too.
+          VIXEN_REQUIRE_VULKAN: ${{ matrix.os == 'ubuntu-latest' && '1' || '' }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: artifacts/test-results/
+          if-no-files-found: ignore
+
+  checks:
+    name: checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-checks-${{ hashFiles('**/Directory.Packages.props', 'global.json') }}
+          restore-keys: nuget-checks-
+
+      - name: Architecture and format
+        run: ./build.sh CheckArchitecture CheckFormat --configuration Release
+        shell: bash
+
+  pack:
+    name: pack
+    runs-on: ubuntu-latest
+    needs: [test, checks]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Pack
+        run: ./build.sh Pack --configuration Release
+        shell: bash
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: artifacts/packages/*.nupkg

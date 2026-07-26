@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax;
+using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven.Binding;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Syntax;
@@ -23,6 +28,7 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
     Binder? typeBinder;
     bool typeParameterConstraintsResolved;
     TypeParameterSymbol[]? typeParameters;
+    bool validated;
 
     public TypeDeclarationInfo Declaration { get; }
 
@@ -30,11 +36,7 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
     public override Symbol? ContainingSymbol { get; }
     public override TypeKind TypeKind => Declaration.Kind;
     public override SyntaxNode DeclaringSyntax => Declaration.Syntax;
-    public override bool IsAbstract => DeclarationFacts.Has(Declaration.Modifiers, SyntaxKind.AbstractKeyword);
     public override bool IsStatic => DeclarationFacts.Has(Declaration.Modifiers, SyntaxKind.StaticKeyword);
-
-    public override Accessibility DeclaredAccessibility =>
-        DeclarationFacts.GetAccessibility(Declaration.Modifiers, Accessibility.Internal);
 
     public override IReadOnlyList<TypeParameterSymbol> TypeParameters {
         get {
@@ -94,6 +96,13 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
             if (Declaration.TypeParameterList is { } list) {
                 var ordinal = 0;
                 foreach (var parameter in list.Parameters) {
+                    // A `val` parameter is a constant, not a type: it becomes a member (see
+                    // BuildMembers) and must not count towards arity, or `Blur<val N: int>`
+                    // would look like it takes a type argument.
+                    if (parameter.ValKeyword is not null) {
+                        continue;
+                    }
+
                     parameters.Add(new(this, parameter.Identifier.ValueText, ordinal++, parameter));
                 }
             }
@@ -186,11 +195,29 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
             .ToDictionary(g => g.Key, g => g.ToArray(), StringComparer.Ordinal);
 
         ReportDuplicates();
-        ReportShaderIssues();
+
+        // Force every enum member's value, so a bad initializer (RVN2094) or a
+        // cycle is reported even when nothing in the program reads the member.
+        foreach (var member in built) {
+            if (member is SourceEnumMemberSymbol enumMember) {
+                _ = enumMember.ConstantValue;
+            }
+        }
     }
 
     Symbol[] BuildMembers() {
         List<Symbol> result = [];
+
+        // `val` type parameters first: they are declared in the signature, so they are in
+        // scope for every member below.
+        if (Declaration.TypeParameterList is { } typeParameterList) {
+            var ordinal = 0;
+            foreach (var parameter in typeParameterList.Parameters) {
+                if (parameter.ValKeyword is not null) {
+                    result.Add(new SourceValueParameterSymbol(this, parameter, ordinal++, TypeBinder));
+                }
+            }
+        }
 
         foreach (var member in Declaration.Members) {
             switch (member) {
@@ -202,19 +229,13 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
                     result.Add(new SourcePropertySymbol(this, property, TypeBinder));
                     break;
 
-                case IndexerDeclarationSyntax indexer:
-                    result.Add(new SourcePropertySymbol(this, indexer, TypeBinder));
-                    break;
-
                 case EnumMemberDeclarationSyntax enumMember:
-                    result.Add(new SourceEnumMemberSymbol(this, enumMember, result.Count));
+                    result.Add(new SourceEnumMemberSymbol(this, enumMember, result.Count, TypeBinder));
                     break;
 
                 case MethodDeclarationSyntax
                     or ConstructorDeclarationSyntax
-                    or DestructorDeclarationSyntax
-                    or OperatorDeclarationSyntax
-                    or ConversionOperatorDeclarationSyntax:
+                    or OperatorDeclarationSyntax:
                     result.Add(new SourceMethodSymbol(this, member, TypeBinder));
                     break;
 
@@ -281,19 +302,464 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
         return true;
     }
 
+    /// <summary>
+    ///     Checks that every <c>[Permutation]</c> field can actually behave as a
+    ///     compile-time constant: declared on a shader, never reassigned, of a type a
+    ///     define can carry, and with a default for when no value is supplied.
+    /// </summary>
+    void ReportPermutationIssues() {
+        foreach (var member in members!) {
+            if (member is not SourceFieldSymbol { IsPermutation: true } field) {
+                continue;
+            }
+
+            var location = field.DeclaringSyntax?.GetLocation() ?? Location.None;
+
+            if (TypeKind != TypeKind.Shader) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.PermutationMustBeShaderField,
+                    location,
+                    field.Name
+                );
+                continue;
+            }
+
+            // IsDeclaredReadOnly, not IsReadOnly: the [Permutation] marker forces the
+            // latter true, so it would never report a `var` key.
+            if (!field.IsDeclaredReadOnly) {
+                outerBinder.Diagnostics.Add(SemanticDiagnostics.PermutationMustBeReadOnly, location, field.Name);
+            }
+
+            // bool for flags, int/uint for counts (tap counts, cascade counts, light
+            // limits). Floats are deliberately excluded: they make poor cache keys and a
+            // shader wanting one should take a uniform.
+            var special = (field.Type as PrimitiveTypeSymbol)?.SpecialType;
+            if (special is not (SpecialType.Bool or SpecialType.Int or SpecialType.UInt)) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.PermutationTypeNotSupported,
+                    location,
+                    field.Name,
+                    field.Type.ToDisplayString()
+                );
+                continue;
+            }
+
+            if (field.Declaration.Initializer?.Value is not LiteralExpressionSyntax) {
+                outerBinder.Diagnostics.Add(SemanticDiagnostics.PermutationNeedsDefault, location, field.Name);
+            }
+
+            if (outerBinder.Compilation.PermutationValues.GetValueOrDefault(field.Name) is { } supplied
+                && !field.MatchesDeclaredType(supplied)) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.PermutationValueTypeMismatch,
+                    location,
+                    field.Name,
+                    supplied.GetType() == typeof(uint) ? "uint" : supplied.GetType() == typeof(int) ? "int" : "bool",
+                    field.Type.ToDisplayString()
+                );
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Checks that every <c>compose</c> slot can be resolved to a concrete shader before
+    ///     codegen: declared on a shader, typed against a protocol, and filled by a shader
+    ///     that actually implements it.
+    /// </summary>
+    void ReportComposeIssues() {
+        foreach (var member in members!) {
+            if (member is not SourceFieldSymbol { IsCompose: true } slot) {
+                continue;
+            }
+
+            var location = slot.DeclaringSyntax?.GetLocation() ?? Location.None;
+
+            if (TypeKind != TypeKind.Shader) {
+                outerBinder.Diagnostics.Add(SemanticDiagnostics.ComposeMustBeShaderField, location, slot.Name);
+                continue;
+            }
+
+            if (slot.Declaration.Initializer is not null) {
+                outerBinder.Diagnostics.Add(SemanticDiagnostics.ComposeCannotHaveInitializer, location, slot.Name);
+            }
+
+            // The slot's declared type has to be a protocol: that is what lets one shader be
+            // written against a feature rather than against a particular implementation.
+            if (slot.Type is not NamedTypeSymbol { TypeKind: TypeKind.Protocol } protocol) {
+                if (!slot.Type.IsErrorType) {
+                    outerBinder.Diagnostics.Add(
+                        SemanticDiagnostics.ComposeMustBeProtocolTyped,
+                        location,
+                        slot.Name,
+                        slot.Type.ToDisplayString()
+                    );
+                }
+
+                continue;
+            }
+
+            var boundName = outerBinder.Compilation.ComposeBindings.Resolve(Name, slot.Name);
+            if (boundName is null) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ComposeNotBound,
+                    location,
+                    slot.Name,
+                    protocol.ToDisplayString()
+                );
+                continue;
+            }
+
+            if (slot.ComposedType is not { } bound) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ComposeBindingNotFound,
+                    location,
+                    slot.Name,
+                    boundName
+                );
+                continue;
+            }
+
+            if (bound.TypeKind != TypeKind.Shader) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ComposeBindingMustBeShader,
+                    location,
+                    slot.Name,
+                    bound.Name,
+                    bound.TypeKind.ToString().ToLowerInvariant()
+                );
+                continue;
+            }
+
+            if (!Implements(bound, protocol)) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ComposeBindingDoesNotImplement,
+                    location,
+                    slot.Name,
+                    bound.Name,
+                    protocol.ToDisplayString()
+                );
+            }
+        }
+    }
+
+    /// <summary>Whether <paramref name="candidate" /> lists <paramref name="protocol" />, directly or through a base.</summary>
+    static bool Implements(NamedTypeSymbol candidate, NamedTypeSymbol protocol) {
+        for (var current = candidate; current is not null; current = current.BaseType) {
+            foreach (var declared in current.Interfaces) {
+                if (declared.Equals(protocol) || Implements(declared, protocol)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     Checks that every <c>val</c> type parameter can be a compile-time constant: declared
+    ///     on a shader, of a type a value can carry, and actually supplied.
+    /// </summary>
+    void ReportValueParameterIssues() {
+        foreach (var member in members!) {
+            if (member is not SourceValueParameterSymbol parameter) {
+                continue;
+            }
+
+            var location = parameter.DeclaringSyntax?.GetLocation() ?? Location.None;
+
+            if (TypeKind != TypeKind.Shader) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ValueParameterMustBeOnShader,
+                    location,
+                    parameter.Name
+                );
+                continue;
+            }
+
+            // Same restriction as a permutation key, for the same reason: these are cache
+            // keys, and a float makes a poor one.
+            var special = (parameter.Type as PrimitiveTypeSymbol)?.SpecialType;
+            if (special is not (SpecialType.Bool or SpecialType.Int or SpecialType.UInt)) {
+                if (!parameter.Type.IsErrorType) {
+                    outerBinder.Diagnostics.Add(
+                        SemanticDiagnostics.ValueParameterTypeNotSupported,
+                        location,
+                        parameter.Name,
+                        parameter.Type.ToDisplayString()
+                    );
+                }
+
+                continue;
+            }
+
+            var values = outerBinder.Compilation.PermutationValues;
+            var supplied = values.GetValueOrDefault($"{Name}.{parameter.Name}")
+                ?? values.GetValueOrDefault(parameter.Name);
+
+            if (supplied is null) {
+                // No default to fall back on: a value parameter is part of the signature.
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ValueParameterNotSupplied,
+                    location,
+                    parameter.Name,
+                    Name
+                );
+                continue;
+            }
+
+            if (!parameter.MatchesDeclaredType(supplied)) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ValueParameterTypeMismatch,
+                    location,
+                    parameter.Name,
+                    supplied.GetType() == typeof(uint) ? "uint" : supplied.GetType() == typeof(int) ? "int" : "bool",
+                    parameter.Type.ToDisplayString()
+                );
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Checks that every <c>stream</c> field can actually be threaded between stages: declared
+    ///     on a shader, not also a constant or a slot, without an initializer, and of a type a
+    ///     stage interface can carry.
+    /// </summary>
+    /// <remarks>
+    ///     The type check is here rather than left to the backends' <c>RVN4001</c>, because the
+    ///     declaration is what has to change and because both backends would otherwise report it
+    ///     twice with no source span between them.
+    /// </remarks>
+    void ReportStreamIssues() {
+        foreach (var member in members!) {
+            if (member is not SourceFieldSymbol { IsStream: true } stream) {
+                continue;
+            }
+
+            var location = stream.DeclaringSyntax?.GetLocation() ?? Location.None;
+
+            if (TypeKind != TypeKind.Shader) {
+                outerBinder.Diagnostics.Add(SemanticDiagnostics.StreamMustBeShaderField, location, stream.Name);
+                continue;
+            }
+
+            var conflict = stream switch {
+                { IsPermutation: true } => "a [Permutation] key",
+                { IsCompose: true } => "a compose slot",
+                { IsConst: true } => "const",
+                _ => null
+            };
+
+            if (conflict is not null) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.StreamCannotBeConstant,
+                    location,
+                    stream.Name,
+                    conflict
+                );
+                continue;
+            }
+
+            if (stream.Declaration.Initializer is not null) {
+                outerBinder.Diagnostics.Add(SemanticDiagnostics.StreamCannotHaveInitializer, location, stream.Name);
+            }
+
+            // Vulkan has no boolean interface type, and an aggregate would need a location per
+            // leaf. Exactly the restriction the existing stage inputs and outputs live under.
+            if (!IsStageInterfaceType(stream.Type) && !stream.Type.IsErrorType) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.StreamTypeNotSupported,
+                    location,
+                    stream.Name,
+                    stream.Type.ToDisplayString()
+                );
+            }
+        }
+    }
+
+    /// <summary>Whether a type can cross a stage boundary: a non-boolean scalar or vector.</summary>
+    static bool IsStageInterfaceType(TypeSymbol type) =>
+        type is PrimitiveTypeSymbol { TypeKind: TypeKind.Scalar or TypeKind.Vector } primitive
+        && primitive.ComponentSpecialType != SpecialType.Bool;
+
+    /// <summary>
+    ///     Checks the descriptor-set markers: at most one per field, and only on a field that
+    ///     actually becomes a binding.
+    /// </summary>
+    /// <remarks>
+    ///     A marker on a <c>const</c>, a <c>[Permutation]</c> key or a <c>compose</c> slot is a
+    ///     warning rather than an error — the shader is still correct, but the author believes
+    ///     something about where that value lives that is not true.
+    /// </remarks>
+    void ReportResourceSetIssues() {
+        foreach (var member in members!) {
+            if (member is not SourceFieldSymbol field) {
+                continue;
+            }
+
+            var markers = DeclarationFacts.GetResourceSets(field.AttributeLists).ToArray();
+
+            if (markers.Length == 0) {
+                continue;
+            }
+
+            var location = field.DeclaringSyntax?.GetLocation() ?? Location.None;
+
+            if (markers.Length > 1) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ResourceSetConflict,
+                    location,
+                    field.Name,
+                    markers[0].Name,
+                    markers[1].Name
+                );
+            }
+
+            if (field.ResourceKind == ResourceKind.None) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ResourceSetOnNonBinding,
+                    location,
+                    field.Name,
+                    markers[0].Name
+                );
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Warns about modifiers that are legal syntax but change nothing where they
+    ///     stand — <c>override</c> on a field, <c>compose</c> on a method, anything on
+    ///     a type or an <c>init</c>. Same policy as a misplaced descriptor-set marker
+    ///     (<c>RVN2091</c>): the code still compiles, but the author believes something
+    ///     untrue, so it is named rather than silently ignored.
+    /// </summary>
+    void ReportModifierIssues() {
+        ReportUselessModifiers(Declaration.Modifiers, [], "type", Name, Declaration.Syntax);
+
+        foreach (var member in members!) {
+            if (member.DeclaringSyntax is not MemberDeclarationSyntax declaration) {
+                continue;
+            }
+
+            var (allowed, description) = member switch {
+                FieldSymbol =>
+                    (new[] { SyntaxKind.ConstKeyword, SyntaxKind.ReadOnlyKeyword, SyntaxKind.StaticKeyword,
+                        SyntaxKind.ComposeKeyword, SyntaxKind.StreamKeyword }, "field"),
+                MethodSymbol { MethodKind: MethodKind.Constructor } => ([], "constructor"),
+                MethodSymbol { MethodKind: MethodKind.Operator } =>
+                    (new[] { SyntaxKind.StaticKeyword }, "operator"),
+                MethodSymbol => (new[] { SyntaxKind.StaticKeyword, SyntaxKind.OverrideKeyword }, "method"),
+                PropertySymbol => (new[] { SyntaxKind.StaticKeyword, SyntaxKind.OverrideKeyword }, "property"),
+                // A nested type reports its own modifiers when its own checks run.
+                _ => (Array.Empty<SyntaxKind>(), (string?)null)
+            };
+
+            if (description is not null) {
+                ReportUselessModifiers(declaration.Modifiers, allowed, description, member.Name, declaration);
+            }
+
+            if (member is MethodSymbol method) {
+                ReportParameterDirectionIssues(method);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Checks <c>inout</c> against the things it cannot combine with.
+    /// </summary>
+    /// <remarks>
+    ///     Here rather than on the parameter symbol because two of the three rules are about the
+    ///     *member* — an operator has no syntax for a by-reference argument, and an entry point is
+    ///     called by the pipeline. The entry-point case is checked again for a shader in
+    ///     <c>ReportShaderIssues</c>'s path; this catches the stage attribute wherever it sits.
+    /// </remarks>
+    void ReportParameterDirectionIssues(MethodSymbol method) {
+        foreach (var parameter in method.Parameters) {
+            if (parameter.RefKind != RefKind.InOut) {
+                continue;
+            }
+
+            var location = parameter.DeclaringSyntax?.GetLocation()
+                           ?? method.DeclaringSyntax?.GetLocation()
+                           ?? Location.None;
+
+            if (parameter.HasDefaultValue) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.InOutCannotHaveDefault,
+                    location,
+                    parameter.Name
+                );
+            }
+
+            if (method.MethodKind == MethodKind.Operator) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.InOutOnOperator,
+                    location,
+                    parameter.Name,
+                    method.Name
+                );
+            }
+
+            if (method.Stage != ShaderStage.None) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.InOutOnEntryPoint,
+                    location,
+                    parameter.Name,
+                    method.Name
+                );
+            }
+        }
+    }
+
+    void ReportUselessModifiers(
+        SyntaxList<SyntaxToken> modifiers,
+        SyntaxKind[] allowed,
+        string description,
+        string name,
+        SyntaxNode declaration
+    ) {
+        foreach (var modifier in modifiers) {
+            if (!allowed.Contains(modifier.Kind)) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ModifierHasNoEffect,
+                    declaration.GetLocation(),
+                    SyntaxFacts.GetText(modifier.Kind),
+                    description,
+                    name
+                );
+            }
+        }
+    }
+
     void ReportShaderIssues() {
         Dictionary<ShaderStage, MethodSymbol> stages = [];
 
+        ReportPermutationIssues();
+        ReportComposeIssues();
+        ReportValueParameterIssues();
+        ReportStreamIssues();
+        ReportResourceSetIssues();
+        ReportModifierIssues();
+
         foreach (var member in members!) {
+            // A shader is the pipeline, not a value: nothing constructs one, so an `init`
+            // would be lowered and then dropped without ever running.
+            if (TypeKind == TypeKind.Shader && member is MethodSymbol { MethodKind: MethodKind.Constructor }) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ShaderCannotBeConstructed,
+                    member.DeclaringSyntax?.GetLocation() ?? Location.None,
+                    Name
+                );
+                continue;
+            }
+
             // Textures, samplers and the like bind to the pipeline, so they only
             // make sense as shader state.
-            if (member is FieldSymbol field
-                && field.Type is BuiltInNamedTypeSymbol { ResourceKind: not ResourceKind.None } resource
+            if (member is FieldSymbol { Type.ResourceKind: not ResourceKind.None } field
                 && TypeKind != TypeKind.Shader) {
                 outerBinder.Diagnostics.Add(
                     SemanticDiagnostics.ResourceMustBeShaderField,
                     field.DeclaringSyntax?.GetLocation() ?? Location.None,
-                    resource.Name
+                    field.Type.Name
                 );
                 continue;
             }
@@ -317,8 +783,107 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
                 outerBinder.Diagnostics.Add(SemanticDiagnostics.EntryPointCannotBeGeneric, location, method.Name);
             }
 
+            ReportWorkgroupSizeIssues(method, location);
+
+            if (method.Stage == ShaderStage.Compute) {
+                ReportComputeInterfaceIssues(method, location);
+            }
+
             if (!stages.TryAdd(method.Stage, method)) {
                 outerBinder.Diagnostics.Add(SemanticDiagnostics.DuplicateEntryPoint, location, Name, method.Stage);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Checks the workgroup size against the stage: a compute stage needs one, and no other
+    ///     stage has anywhere to put one.
+    /// </summary>
+    void ReportWorkgroupSizeIssues(MethodSymbol method, Location location) {
+        var size = method.WorkgroupSize;
+
+        if (method.Stage != ShaderStage.Compute) {
+            if (size is not null) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.WorkgroupSizeOnGraphicsStage,
+                    location,
+                    method.Name,
+                    method.Stage.ToString().ToLowerInvariant()
+                );
+            }
+
+            return;
+        }
+
+        if (size is null) {
+            outerBinder.Diagnostics.Add(SemanticDiagnostics.ComputeNeedsWorkgroupSize, location, method.Name);
+            return;
+        }
+
+        if (size.Value.IsInvalid) {
+            outerBinder.Diagnostics.Add(SemanticDiagnostics.WorkgroupSizeNotValid, location, method.Name);
+        }
+    }
+
+    /// <summary>
+    ///     Checks that a compute entry point asks for nothing the stage cannot give it.
+    /// </summary>
+    /// <remarks>
+    ///     A compute stage has no pipeline interface at all — no attributes feeding its
+    ///     parameters, no framebuffer taking its result — so every parameter has to be a dispatch
+    ///     built-in and the return type has to be void. Reported at the declaration rather than
+    ///     left to a backend, because what has to change is the signature.
+    /// </remarks>
+    void ReportComputeInterfaceIssues(MethodSymbol method, Location location) {
+        if (!ReferenceEquals(method.ReturnType, BuiltInTypes.Void) && !method.ReturnType.IsErrorType) {
+            outerBinder.Diagnostics.Add(
+                SemanticDiagnostics.ComputeHasNoStageInterface,
+                location,
+                $"A return type of '{method.ReturnType.ToDisplayString()}'",
+                method.Name,
+                "framebuffer to write it to; write the result to a resource instead"
+            );
+        }
+
+        foreach (var parameter in method.Parameters) {
+            var parameterLocation = parameter.DeclaringSyntax?.GetLocation() ?? location;
+
+            if (parameter.SemanticName is null) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ComputeHasNoStageInterface,
+                    parameterLocation,
+                    $"The parameter '{parameter.Name}'",
+                    method.Name,
+                    $"vertex attributes to feed it; mark it with a dispatch built-in ({ComputeBuiltIns.Names})"
+                );
+                continue;
+            }
+
+            var builtIn = ComputeBuiltIns.Of(parameter.SemanticName);
+
+            if (builtIn == ComputeBuiltIn.None) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.UnknownComputeSemantic,
+                    parameterLocation,
+                    parameter.SemanticName,
+                    ComputeBuiltIns.Names
+                );
+                continue;
+            }
+
+            var expected = ComputeBuiltIns.TypeOf(builtIn);
+
+            // An error type was already reported as unresolved; a second diagnostic about its
+            // shape would only send the author somewhere else.
+            if (!parameter.Type.IsErrorType && !ReferenceEquals(parameter.Type, expected)) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ComputeSemanticTypeMismatch,
+                    parameterLocation,
+                    parameter.SemanticName,
+                    expected.ToDisplayString(),
+                    parameter.Name,
+                    parameter.Type.ToDisplayString()
+                );
             }
         }
     }
@@ -331,5 +896,33 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
         EnsureTypeParameters();
         EnsureBases();
         EnsureMembers();
+    }
+
+    /// <summary>
+    ///     Runs the checks that read <em>other</em> types, once every declaration is resolved.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Separate from <see cref="EnsureSignatureResolved" /> because validation must never be
+    ///         a side effect of resolution. It was: <c>EnsureMembers</c> ran these, so resolving one
+    ///         shader's base list could reach a second shader's compose check, which asked the first
+    ///         for its interfaces while <c>EnsureBases</c> was still mid-flight. The reentrancy guard
+    ///         answered with the empty list it had so far, and a shader that plainly implemented its
+    ///         protocol was reported as not implementing it — <c>RVN2076</c> on correct source.
+    ///     </para>
+    ///     <para>
+    ///         The invariant that fixes it is one line long: nothing reachable from resolution
+    ///         validates. Then a check asking another type for its bases either finds them resolved
+    ///         or resolves them, and neither can re-enter.
+    ///     </para>
+    /// </remarks>
+    internal void EnsureValidated() {
+        if (validated) {
+            return;
+        }
+
+        validated = true;
+        EnsureSignatureResolved();
+        ReportShaderIssues();
     }
 }

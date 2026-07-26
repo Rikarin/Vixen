@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using Vixen.Raven.IR;
 using Vixen.Raven.Symbols;
 using Xunit;
@@ -245,13 +248,14 @@ public class LoweringTests {
     public void An_if_statement_keeps_its_structure() {
         var printed = LowerBody(
             """
+                        var other: float
                         if (flag) {
                             other = 1f
                         } else {
                             other = 2f
                         }
             """,
-            "    var flag: bool\n    var other: float\n"
+            "    var flag: bool\n"
         );
 
         Assert.Contains("if %0", printed);
@@ -406,7 +410,7 @@ public class LoweringTests {
             """
             package A
 
-            shader S {
+            struct S {
                 var backing: float
 
                 var scaled: float {
@@ -425,8 +429,10 @@ public class LoweringTests {
         Assert.NotNull(FindFunction(module, "get_scaled"));
         Assert.NotNull(FindFunction(module, "set_scaled"));
 
+        // On a struct, so both accessors take the receiver — which is the point: a property is
+        // two ordinary functions once it is lowered, and the receiver is an ordinary argument.
         var printed = PrintFunction(module, "Probe");
-        Assert.Contains("call get_scaled()", printed);
+        Assert.Contains("call get_scaled(%", printed);
         Assert.Contains("call set_scaled(%", printed);
     }
 

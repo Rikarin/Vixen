@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+
 namespace Vixen.Raven.Symbols;
 
 /// <summary>
@@ -24,7 +28,7 @@ public sealed class TypeMap {
 
             case ArrayTypeSymbol array: {
                 var element = Substitute(array.ElementType);
-                return element.Equals(array.ElementType) ? array : new(element, array.Rank);
+                return element.Equals(array.ElementType) ? array : new(element, array.Rank, array.Length);
             }
 
 

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using System;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.JavaScript;

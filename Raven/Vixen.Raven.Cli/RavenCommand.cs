@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using System.CommandLine;
 using Vixen.Raven.CodeGen;
 
@@ -29,10 +32,52 @@ public static class RavenCommand {
 
         target.AcceptOnlyFromAmong([.. TargetBackends.Names]);
 
+        var define = new Option<string[]>("--define", "-D") {
+            Description =
+                "Set a [Permutation] key: --define UseSkinning=true, --define TapCount=8. "
+                + "A bare name means true. Repeatable.",
+            AllowMultipleArgumentsPerToken = true,
+            DefaultValueFactory = _ => []
+        };
+
+        var compose = new Option<string[]>("--compose", "-C") {
+            Description =
+                "Fill a compose slot: --compose diffuse=Lambert. Qualify with the shader when two "
+                + "declare the same slot name: Lit.diffuse=Lambert. Repeatable.",
+            AllowMultipleArgumentsPerToken = true,
+            DefaultValueFactory = _ => []
+        };
+
+        var reference = new Option<string[]>("--reference", "-r") {
+            Description =
+                "Bind against a compiled library: --reference Core/Math.rvnlib. Its declarations and "
+                + "lowered bodies are linked in without its source being reparsed. Repeatable.",
+            AllowMultipleArgumentsPerToken = true,
+            DefaultValueFactory = _ => []
+        };
+
+        var emitLibrary = new Option<bool>("--emit-library") {
+            Description =
+                "Write a .rvnlib for these inputs instead of generating for a target — the compiled "
+                + "library other shaders reference. Output names the file."
+        };
+
         var emitIr = new Option<bool>("--emit-ir") { Description = "Also write the target-independent IR dump." };
 
         var emitListing = new Option<bool>("--emit-listing") {
             Description = "For a binary target, also write the readable listing (.spvasm) beside the bytes."
+        };
+
+        var emitEffect = new Option<bool>("--emit-effect") {
+            Description = "Also write a .rvnfx per shader — the compiled effect the runtime loads."
+        };
+
+        var emitReflection = new Option<bool>("--emit-reflection") {
+            Description = "Also write the reflection (descriptor sets, offsets, parameters) as JSON."
+        };
+
+        var showCapabilities = new Option<bool>("--capabilities") {
+            Description = "Print the target features each shader requires (Float64, Texture3D, …)."
         };
 
         var verbose = new Option<bool>("--verbose", "-v") { Description = "Name every file as it is written." };
@@ -43,8 +88,15 @@ public static class RavenCommand {
             input,
             outputPath,
             target,
+            define,
+            compose,
+            reference,
+            emitLibrary,
             emitIr,
             emitListing,
+            emitReflection,
+            emitEffect,
+            showCapabilities,
             verbose,
             noColor
         };
@@ -54,8 +106,15 @@ public static class RavenCommand {
                     Inputs = [parseResult.GetRequiredValue(input)],
                     Output = parseResult.GetRequiredValue(outputPath),
                     Target = parseResult.GetRequiredValue(target),
+                    Defines = parseResult.GetValue(define) ?? [],
+                    Composes = parseResult.GetValue(compose) ?? [],
+                    References = parseResult.GetValue(reference) ?? [],
+                    EmitLibrary = parseResult.GetValue(emitLibrary),
                     EmitIr = parseResult.GetValue(emitIr),
                     EmitListing = parseResult.GetValue(emitListing),
+                    EmitReflection = parseResult.GetValue(emitReflection),
+                    EmitEffect = parseResult.GetValue(emitEffect),
+                    ShowCapabilities = parseResult.GetValue(showCapabilities),
                     Verbose = parseResult.GetValue(verbose),
                     UseColor = !parseResult.GetValue(noColor) && ColorIsWelcome()
                 },

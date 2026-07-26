@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using Vixen.Raven.Binding;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
@@ -60,10 +63,13 @@ public sealed partial class Lowerer {
                 return Emit(result => new IrSelectInstruction(result, condition, whenTrue, whenFalse), type);
             }
 
-            case BoundCollectionExpression collection: {
-                var elements = collection.Elements.Select(LowerExpression).ToArray();
+            case BoundTupleExpression tuple: {
+                var elements = tuple.Elements.Select(LowerExpression).ToArray();
                 return Emit(result => new IrConstructInstruction(result, elements), type);
             }
+
+            case BoundCollectionExpression collection:
+                return LowerCollection(collection, type);
 
             case BoundErrorExpression:
                 // Already reported by the binder.
@@ -73,6 +79,53 @@ public sealed partial class Lowerer {
                 ReportUnsupported(expression, Describe(expression));
                 return Constant(type, null);
         }
+    }
+
+    /// <summary>
+    ///     Lowers <c>[a, ..b, c]</c> to one construct of the flattened elements.
+    /// </summary>
+    /// <remarks>
+    ///     A spread contributes its own elements rather than itself, so it is expanded into one
+    ///     extract per index — which needs its length, and is exactly what a sized array now
+    ///     carries. An <em>unsized</em> spread still cannot be flattened, and is refused by name
+    ///     rather than lowered: the operand is the array itself, which would build an
+    ///     <c>array&lt;i32&gt;</c> operand where the construct wants an <c>i32</c>, leaving only
+    ///     the IR verifier between that and a backend.
+    /// </remarks>
+    IrValue LowerCollection(BoundCollectionExpression collection, IrType type) {
+        List<IrValue> elements = [];
+
+        foreach (var (expression, isSpread) in collection.Elements) {
+            if (!isSpread) {
+                elements.Add(LowerExpression(expression));
+                continue;
+            }
+
+            if (expression.Type is not ArrayTypeSymbol { Length: { } length }) {
+                ReportUnsupported(
+                    expression,
+                    "A spread of an unsized array — the number of elements it contributes is not "
+                    + "known, so it"
+                );
+                continue;
+            }
+
+            // Lowered once and indexed, not re-lowered per element: the operand may be a call.
+            var source = LowerExpression(expression);
+            var elementType = LowerType(((ArrayTypeSymbol)expression.Type).ElementType, expression.Syntax);
+
+            for (var i = 0; i < length; i++) {
+                var index = Constant(IrScalarType.Int, i);
+                elements.Add(
+                    Emit(
+                        result => new IrExtractInstruction(result, source, [new IrIndexAccess(index)]),
+                        elementType
+                    )
+                );
+            }
+        }
+
+        return Emit(result => new IrConstructInstruction(result, [.. elements]), type);
     }
 
     /// <summary>Lowers an expression whose value is discarded.</summary>
@@ -89,10 +142,7 @@ public sealed partial class Lowerer {
 
     static string Describe(BoundExpression expression) =>
         expression switch {
-            BoundTupleExpression => "A tuple",
             BoundRangeExpression => "A range outside a 'for' loop",
-            BoundIsPatternExpression => "An 'is' test",
-            BoundSwitchExpression => "A switch expression",
             BoundTypeExpression => "A type used as a value",
             _ => "This expression"
         };
@@ -145,7 +195,7 @@ public sealed partial class Lowerer {
             return new(global);
         }
 
-        if (field.ContainingType is not { } containing || !structs.TryGetValue(containing, out var structType)) {
+        if (StructOf(field) is not { } structType) {
             return null;
         }
 
@@ -198,14 +248,17 @@ public sealed partial class Lowerer {
             return Constant(type, constant.ConstantValue);
         }
 
-        // `array.Length` is an operation, not storage.
-        if (expression is BoundFieldExpression { Field.Name: "Length", Receiver: { } arrayReceiver }
-            && arrayReceiver.Type is ArrayTypeSymbol) {
-            var array = LowerExpression(arrayReceiver);
-            return Emit(
-                result => new IrIntrinsicInstruction(result, IrIntrinsic.ArrayLength, [array]),
-                IrScalarType.Int
-            );
+        // `buffer.Length` is an operation on the *place*, not on a value: an unsized array cannot be
+        // loaded, so there is nothing to hand an intrinsic. A sized array never reaches here — its
+        // `Length` is a constant and the fold above already took it.
+        if (expression is BoundFieldExpression { Field.Name: "Length", Receiver: { } lengthReceiver }
+            && lengthReceiver.Type is ArrayTypeSymbol or BufferTypeSymbol) {
+            if (TryGetPlace(lengthReceiver) is not { } source) {
+                ReportUnsupported(lengthReceiver, "The length of an array with no storage");
+                return Constant(IrScalarType.Int, 0);
+            }
+
+            return Emit(result => new IrArrayLengthInstruction(result, source), IrScalarType.Int);
         }
 
         if (TryGetPlace(expression) is { } place) {
@@ -233,14 +286,28 @@ public sealed partial class Lowerer {
             return [new IrSwizzleAccess(components)];
         }
 
-        if (expression.Field.ContainingType is { } containing
-            && structs.TryGetValue(containing, out var structType)
+        if (StructOf(expression.Field) is { } structType
             && structType.IndexOf(expression.Field.Name) is var index and >= 0) {
             return [new IrFieldAccess(index)];
         }
 
         return null;
     }
+
+    /// <summary>
+    ///     The IR struct a field belongs to, whether it was declared on a struct or synthesized for
+    ///     a tuple element.
+    /// </summary>
+    /// <remarks>
+    ///     Read off <c>ContainingSymbol</c> rather than <c>ContainingType</c>: the latter is a
+    ///     <c>NamedTypeSymbol</c>, and a tuple is not one, so it answers null for a tuple's element.
+    /// </remarks>
+    IrStructType? StructOf(FieldSymbol field) =>
+        field.ContainingSymbol switch {
+            NamedTypeSymbol named => structs.GetValueOrDefault(named),
+            TupleTypeSymbol tuple => tuples.GetValueOrDefault(tuple),
+            _ => null
+        };
 
     // --- Operators ---------------------------------------------------------
 
@@ -416,7 +483,7 @@ public sealed partial class Lowerer {
         }
 
         var arguments = BuildArguments(property.Receiver, property.Property, [.. property.Arguments]);
-        Emit(new IrCallInstruction(null, setter, [.. arguments, value]));
+        Emit(new IrCallInstruction(null, setter, [.. arguments.Arguments, IrArgument.Of(value)]));
         return value;
     }
 
@@ -427,7 +494,7 @@ public sealed partial class Lowerer {
         }
 
         var arguments = BuildArguments(property.Receiver, property.Property, [.. property.Arguments]);
-        return Emit(result => new IrCallInstruction(result, getter, arguments), getter.ReturnType);
+        return Emit(result => new IrCallInstruction(result, getter, arguments.Arguments), getter.ReturnType);
     }
 
     // --- Calls -------------------------------------------------------------
@@ -445,19 +512,45 @@ public sealed partial class Lowerer {
             return LowerIntrinsic(invocation, definition, type);
         }
 
+        var receiver = invocation.Receiver;
+
+        // A call through a compose slot was bound against the protocol, whose method has no
+        // body. Swap in the bound shader's implementation, and drop the receiver: the slot
+        // holds no value, and a shader method is a free function.
+        if (receiver is BoundFieldExpression { Field: { IsCompose: true } slot }) {
+            if (slot.ComposedType is not { } bound
+                || FindImplementation(bound, definition) is not { } implementation) {
+                // Why it could not be resolved was already reported at the declaration.
+                ReportUnsupported(invocation, $"A call to '{method.Name}' through compose slot '{slot.Name}'");
+                return null;
+            }
+
+            definition = implementation;
+            receiver = null;
+        }
+
         if (!functions.TryGetValue((definition, BoundBodyKind.Method), out var function)) {
             ReportUnsupported(invocation, $"A call to '{method.Name}'");
             return null;
         }
 
-        var arguments = BuildArguments(invocation.Receiver, definition, invocation.Arguments);
+        var arguments = BuildArguments(receiver, definition, invocation.Arguments, definition.Parameters);
 
         if (function.ReturnType.IsVoid) {
-            Emit(new IrCallInstruction(null, function, arguments));
+            Emit(new IrCallInstruction(null, function, arguments.Arguments));
+            EmitCopyOut(arguments);
             return null;
         }
 
-        return Emit(result => new IrCallInstruction(result, function, arguments), function.ReturnType);
+        var result = Emit(
+            value => new IrCallInstruction(value, function, arguments.Arguments),
+            function.ReturnType
+        );
+
+        // After the call and before the result is used, so a caller that passes the same storage it
+        // reads the result into sees the copy-out, not a stale value.
+        EmitCopyOut(arguments);
+        return result;
     }
 
     IrValue LowerIntrinsic(BoundInvocationExpression invocation, MethodSymbol method, IrType type) {
@@ -540,11 +633,115 @@ public sealed partial class Lowerer {
     ///     Builds a call's argument list, prepending the receiver for a member of a
     ///     struct. A shader's members take no receiver: their state is global.
     /// </summary>
-    IrValue[] BuildArguments(BoundExpression? receiver, Symbol member, IReadOnlyList<BoundExpression> arguments) {
-        var lowered = arguments.Select(LowerExpression).ToArray();
+    /// <summary>
+    ///     The method on <paramref name="implementer" /> that satisfies
+    ///     <paramref name="declaration" />: same name, same parameter types.
+    /// </summary>
+    /// <remarks>
+    ///     Matching is by signature rather than through an <c>override</c> link, because a
+    ///     protocol member and its implementation are separate declarations that the
+    ///     compilation relates only through the compose binding.
+    /// </remarks>
+    static MethodSymbol? FindImplementation(NamedTypeSymbol implementer, MethodSymbol declaration) {
+        for (var current = implementer; current is not null; current = current.BaseType) {
+            foreach (var candidate in current.GetMembers(declaration.Name).OfType<MethodSymbol>()) {
+                if (candidate.Parameters.Count != declaration.Parameters.Count) {
+                    continue;
+                }
+
+                var matches = true;
+                for (var i = 0; i < candidate.Parameters.Count; i++) {
+                    if (!candidate.Parameters[i].Type.Equals(declaration.Parameters[i].Type)) {
+                        matches = false;
+                        break;
+                    }
+                }
+
+                if (matches) {
+                    return candidate;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    ///     A call's lowered arguments, and the copies that have to run after it returns.
+    /// </summary>
+    /// <param name="Arguments">The arguments, in order, ready for an <see cref="IrCallInstruction" />.</param>
+    /// <param name="CopyOut">
+    ///     One entry per <c>inout</c> argument: the caller's storage, and the temp whose value has to
+    ///     be written back into it. In argument order, which is what makes the result defined when
+    ///     two <c>inout</c> arguments name the same storage.
+    /// </param>
+    readonly record struct LoweredArguments(
+        IrArgument[] Arguments,
+        List<(IrPlace Place, IrVariable Temp)> CopyOut
+    );
+
+    /// <summary>
+    ///     Lowers a call's arguments, giving every <c>inout</c> argument a temp to be passed by
+    ///     reference.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The temp is not an optimisation and not a choice: SPIR-V requires a pointer argument
+    ///         to be a memory object declaration, so an access chain like <c>d.color</c> cannot be
+    ///         handed over, and a global's storage class could never match the parameter's. Copying
+    ///         through a function-scoped temp is the one shape both targets accept.
+    ///     </para>
+    ///     <para>
+    ///         It also puts copy-in/copy-out in the IR where it can be read, rather than leaving each
+    ///         backend to lean on its own language's rules and hoping the two agree.
+    ///     </para>
+    /// </remarks>
+    LoweredArguments BuildArguments(
+        BoundExpression? receiver,
+        Symbol member,
+        IReadOnlyList<BoundExpression> arguments,
+        IReadOnlyList<ParameterSymbol>? parameters = null
+    ) {
+        var lowered = new IrArgument[arguments.Count];
+        List<(IrPlace, IrVariable)> copyOut = [];
+
+        for (var i = 0; i < arguments.Count; i++) {
+            var direction = parameters is not null && i < parameters.Count
+                ? parameters[i].RefKind
+                : RefKind.None;
+
+            if (direction != RefKind.InOut) {
+                lowered[i] = IrArgument.Of(LowerExpression(arguments[i]));
+                continue;
+            }
+
+            var type = LowerType(arguments[i].Type, arguments[i].Syntax);
+
+            // The binder has already refused anything without storage (RVN2110), so a missing place
+            // here means the two disagree about what is addressable rather than bad source.
+            if (TryGetPlace(arguments[i]) is not { } place) {
+                ReportUnsupported(arguments[i], $"Passing this expression to inout parameter '{parameters![i].Name}'");
+                lowered[i] = IrArgument.Of(Constant(type, null));
+                continue;
+            }
+
+            var temp = Function.AddLocal($"{parameters![i].Name}#inout", type);
+            Emit(new IrStoreInstruction(new(temp), Load(place)));
+
+            lowered[i] = IrArgument.ByReference(temp);
+            copyOut.Add((place, temp));
+        }
 
         if (member.ContainingType is not { } containing || !structs.ContainsKey(containing)) {
-            return lowered;
+            return new(lowered, copyOut);
+        }
+
+        // An operator takes every operand as an explicit parameter, and a static member has no
+        // receiver at all, so neither gets one prepended — and prepending one from an enclosing
+        // struct method would be silently wrong. This mirrors `Lowerer.SelfTypeFor`, which decides
+        // the signature; the two have to agree or the call has the wrong arity.
+        if (member is MethodSymbol { MethodKind: MethodKind.Operator } or { IsStatic: true }) {
+            return new(lowered, copyOut);
         }
 
         var self = receiver switch {
@@ -554,7 +751,16 @@ public sealed partial class Lowerer {
             _ => null
         };
 
-        return self is null ? lowered : [self, .. lowered];
+        return self is null
+            ? new(lowered, copyOut)
+            : new([IrArgument.Of(self), .. lowered], copyOut);
+    }
+
+    /// <summary>Writes every <c>inout</c> temp back into the caller's storage.</summary>
+    void EmitCopyOut(LoweredArguments arguments) {
+        foreach (var (place, temp) in arguments.CopyOut) {
+            Emit(new IrStoreInstruction(place, Load(new(temp))));
+        }
     }
 
     // --- Construction ------------------------------------------------------
@@ -566,7 +772,7 @@ public sealed partial class Lowerer {
                 return Constant(type, null);
             }
 
-            var arguments = creation.Arguments.Select(LowerExpression).ToArray();
+            var arguments = creation.Arguments.Select(argument => IrArgument.Of(LowerExpression(argument))).ToArray();
             return Emit(result => new IrCallInstruction(result, function, arguments), function.ReturnType);
         }
 

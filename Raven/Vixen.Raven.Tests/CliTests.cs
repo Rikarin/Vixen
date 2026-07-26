@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using System.CommandLine;
 using Vixen.Raven.Cli;
 using Xunit;
@@ -143,9 +146,10 @@ public class CliTests : IDisposable {
 
     [Fact]
     public void An_informational_diagnostic_is_reported_once_and_does_not_fail_the_run() {
-        // The shader has one sampler; GLSL folds it away and says so — once,
-        // however many stages come out of the shader.
-        Assert.Equal(0, Invoke("compile", Fixture("lambert.rvn"), At("")));
+        // The shader gives a binding a default; a descriptor-backed variable cannot carry
+        // one, so it stays host-side data and SPIR-V says so — once, however many stages
+        // come out of the shader.
+        Assert.Equal(0, Invoke("compile", "-t", "spirv", Fixture("lambert.rvn"), At("")));
 
         var reported = error.ToString();
         Assert.Contains("info RVN4003", reported);
@@ -212,6 +216,116 @@ public class CliTests : IDisposable {
 
         Assert.Equal(1, Invoke("compile", input, At("")));
         Assert.Contains("no entry points", error.ToString());
+    }
+
+    /// <summary>
+    ///     A library is written, then referenced — the two halves of <c>.rvnlib</c> driven the way a
+    ///     build does it.
+    /// </summary>
+    [Fact]
+    public void A_library_is_written_and_then_referenced() {
+        var library = Write(
+            "math.rvn",
+            """
+            package Core
+
+            struct MathHelpers {
+                static func Saturate(x: float): float {
+                    return min(max(x, 0f), 1f)
+                }
+            }
+
+            """
+        );
+
+        Assert.Equal(0, Invoke("compile", library, At("Math.rvnlib"), "--emit-library"));
+        Assert.True(File.Exists(At("Math.rvnlib")));
+
+        var consumer = Write(
+            "lit.rvn",
+            """
+            package App
+
+            import Core
+
+            shader Lit {
+                var amount: float
+
+                [PixelShader]
+                func Shade(): float4 {
+                    val c = MathHelpers.Saturate(amount)
+                    return float4(c, c, c, 1f)
+                }
+            }
+
+            """
+        );
+
+        Assert.Equal(0, Invoke("compile", consumer, At("out"), "--reference", At("Math.rvnlib")));
+
+        // The library's body, linked in and emitted as an ordinary function.
+        var glsl = File.ReadAllText(At(Path.Combine("out", "Lit.frag.glsl")));
+        Assert.Contains("float Saturate(float x)", glsl, StringComparison.Ordinal);
+        Assert.Contains("Saturate(_0)", glsl, StringComparison.Ordinal);
+    }
+
+    /// <summary>An output path with no extension is a directory, and the file is named after the library.</summary>
+    [Fact]
+    public void A_library_output_directory_is_named_after_the_library() {
+        var library = Write(
+            "math.rvn",
+            """
+            package Core
+
+            struct M {
+                static func Twice(x: float): float {
+                    return x * 2f
+                }
+            }
+
+            """
+        );
+
+        Assert.Equal(0, Invoke("compile", library, At("libs"), "--emit-library"));
+        Assert.True(File.Exists(At(Path.Combine("libs", "math.rvnlib"))));
+    }
+
+    /// <summary>A reference that is not a library is a usage error, named for what was wrong with it.</summary>
+    [Fact]
+    public void A_reference_that_is_not_a_library_is_rejected() {
+        Assert.Equal(
+            2,
+            Invoke("compile", Fixture("lambert.rvn"), At(""), "--reference", Fixture("lambert.rvn"))
+        );
+
+        Assert.Contains("magic number does not match", error.ToString());
+    }
+
+    /// <summary>
+    ///     A library whose body reads a shader binding fails the build, where the library's author can
+    ///     see it, rather than being exported to fail in every consumer.
+    /// </summary>
+    [Fact]
+    public void A_library_that_cannot_export_a_body_fails() {
+        var library = Write(
+            "leaky.rvn",
+            """
+            package Leaky
+
+            shader Fog {
+                var density: float
+
+                func Density(): float {
+                    return density
+                }
+            }
+
+            """
+        );
+
+        Assert.Equal(1, Invoke("compile", library, At("Leaky.rvnlib"), "--emit-library"));
+        Assert.Contains("RVN5001", error.ToString());
+        Assert.False(File.Exists(At("Leaky.rvnlib")));
     }
 
     int Invoke(params string[] args) =>

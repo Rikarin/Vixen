@@ -27,8 +27,8 @@
   <PropertyGroup Label="Analysis">
     <!--
       TreatWarningsAsErrors is a stated non-negotiable (docs/plan/00 § Non-negotiables).
-      Raven currently carries 6 pre-existing warnings; they are suppressed narrowly and
-      visibly in Raven/Directory.Build.props as tracked debt rather than by relaxing this.
+      The tree is warning-free; Raven/Directory.Build.props records what was fixed to
+      get there and suppresses nothing.
     -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
@@ -83,7 +83,9 @@
   -->
   <PropertyGroup Condition="($(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Core')) OR
                              $(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Platform'))) AND
-                            !$(MSBuildProjectName.EndsWith('.Tests'))">
+                            !$(MSBuildProjectName.EndsWith('.Tests')) AND
+                            !$(MSBuildProjectName.EndsWith('.Generator')) AND
+                            !$(MSBuildProjectName.EndsWith('.Generators'))">
     <IsPackable>true</IsPackable>
     <IsAotCompatible>true</IsAotCompatible>
     <IsTrimmable>true</IsTrimmable>
@@ -91,6 +93,22 @@
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
     <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!--
+    ============================================================================
+    Profile: GENERATOR  —  *.Generator / *.Generators, wherever they live.
+    Source generators run inside the compiler, so they target netstandard2.0/2.1
+    and are never published: AOT, trimming and single-file analysis do not apply
+    to them, and the Runtime profile above would demand all three of a project
+    that cannot satisfy them. Excluded there, handled here.
+    ============================================================================
+  -->
+  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Generator')) OR
+                            $(MSBuildProjectName.EndsWith('.Generators'))">
+    <IsPackable>false</IsPackable>
+    <IsAotCompatible>false</IsAotCompatible>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
   <!--
@@ -117,6 +135,29 @@
     <IsTestProject>true</IsTestProject>
     <IsAotCompatible>false</IsAotCompatible>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!--
+      Name the TRX after the project that produced it. Left to itself the logger
+      names the file after the machine and the second it finished, which for
+      eighteen projects finishing inside the same three seconds gives a directory
+      of `_Jius-MBP_…_net10.0[4].trx` — every result present, none of them
+      attributable without opening the file. The escaped semicolon (%3b) is
+      required: an unescaped one ends the property value in MSBuild.
+
+      This lives here rather than in build/Build.cs because the value depends on
+      MSBuildProjectName, which only means anything inside the project being built.
+    -->
+    <VSTestLogger>trx%3bLogFileName=$(MSBuildProjectName).trx</VSTestLogger>
   </PropertyGroup>
+
+  <!--
+    Apache-2.0 §4(d) requires the NOTICE to travel with every distribution, so it goes
+    into each package (ADR-015). The licence text itself does not need to be packed —
+    PackageLicenseExpression above is the machine-readable form NuGet wants.
+
+    This ItemGroup has to sit after the profiles: it reads IsPackable, which they set.
+  -->
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)NOTICE" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
 
 </Project>

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Text;
 using Vixen.Raven.IR;
 
 namespace Vixen.Raven.CodeGen.Glsl;
@@ -55,7 +59,51 @@ public static class GlslTypes {
         "mediump",
         "highp",
         "precision",
-        "main"
+        "main",
+
+        // GLSL's "reserved for future use" list, which is reserved just as hard as the rest of the
+        // grammar and is the half that gets forgotten. `Library/Ui/RoundedRect.rvn` found it: a local
+        // called `half` is perfectly good Raven and emitted GLSL that `glslc` rejects outright, with
+        // nothing in Raven having said a word. Every one of these is an ordinary identifier in Raven.
+        "common",
+        "partition",
+        "active",
+        "asm",
+        "class",
+        "union",
+        "enum",
+        "typedef",
+        "template",
+        "this",
+        "resource",
+        "goto",
+        "inline",
+        "noinline",
+        "public",
+        "static",
+        "extern",
+        "external",
+        "interface",
+        "long",
+        "short",
+        "half",
+        "fixed",
+        "unsigned",
+        "superp",
+        "input",
+        "output",
+        "filter",
+        "sizeof",
+        "cast",
+        "namespace",
+        "using",
+        "hvec2",
+        "hvec3",
+        "hvec4",
+        "fvec2",
+        "fvec3",
+        "fvec4",
+        "sampler3DRect"
     };
 
     /// <summary>
@@ -80,29 +128,85 @@ public static class GlslTypes {
             IrVectorType vector => VectorName(vector),
             IrMatrixType matrix => MatrixName(matrix),
             IrStructType structType => structType.Name,
-            // GLSL has no separate texture and sampler objects outside Vulkan, so a
-            // texture becomes the combined sampler and the sampler itself vanishes.
+            // Vulkan GLSL has separate texture and sampler objects, so both survive as
+            // themselves and pair up at the sample site — the same shape as SPIR-V, and
+            // the reason the two backends agree about binding indices.
             IrTextureType texture => texture.Dimension switch {
-                IrTextureDimension.Texture2D => "sampler2D",
-                IrTextureDimension.Texture3D => "sampler3D",
-                _ => "samplerCube"
+                IrTextureDimension.Texture2D => "texture2D",
+                IrTextureDimension.Texture3D => "texture3D",
+                _ => "textureCube"
             },
+            IrSamplerType => "sampler",
+
+            // GLSL's prefix array type: `float[4]`, which is what an array constructor spells.
+            // A declaration puts the extents after the *name* instead — see `Declare` — and both
+            // forms are legal GLSL for the same type, which is why the two are separate methods.
+            IrArrayType array => Extents(array) is { } extents ? extents.Element + extents.Suffix : null,
+
             _ => null
         };
 
     /// <summary>
-    ///     A declaration of <paramref name="name" /> at <paramref name="type" />.
-    ///     Arrays put their extent after the name, as C-family languages do.
+    ///     An array's element type and its <c>[a][b]</c> extents, outermost first, or null when
+    ///     any part of it has no GLSL spelling. An array of arrays is one declaration with two
+    ///     extents in both targets, never a nested type name.
     /// </summary>
-    public static string? Declare(IrType type, string name) {
+    static (string Element, string Suffix)? Extents(IrArrayType array, bool allowUnsizedOuter = false) {
+        var suffix = new StringBuilder();
+        IrType type = array;
+        var outermost = true;
+
+        while (type is IrArrayType inner) {
+            // Only the outermost extent may be omitted, and only as a storage block's last member —
+            // which is exactly the one position the caller sets the flag for.
+            if (inner.Length is not { } length) {
+                if (!(outermost && allowUnsizedOuter)) {
+                    return null;
+                }
+
+                suffix.Append("[]");
+                type = inner.Element;
+                outermost = false;
+                continue;
+            }
+
+            suffix.Append('[').Append(length).Append(']');
+            type = inner.Element;
+            outermost = false;
+        }
+
+        return Name(type) is { } element ? (element, suffix.ToString()) : null;
+    }
+
+    /// <summary>
+    ///     The combined sampler type a texture pairs into — what <c>sampler2D(t, s)</c>
+    ///     constructs at the sample site.
+    /// </summary>
+    public static string Combined(IrTextureType texture) {
+        ArgumentNullException.ThrowIfNull(texture);
+
+        return texture.Dimension switch {
+            IrTextureDimension.Texture2D => "sampler2D",
+            IrTextureDimension.Texture3D => "sampler3D",
+            _ => "samplerCube"
+        };
+    }
+
+    /// <summary>
+    ///     A declaration of <paramref name="name" /> at <paramref name="type" />.
+    ///     Arrays put their extents after the name, as C-family languages do.
+    /// </summary>
+    /// <param name="allowUnsizedOuter">
+    ///     Whether the outermost extent may be omitted — <c>Particle data[]</c>. True only for a
+    ///     storage block's last member, which is the one place GLSL allows it.
+    /// </param>
+    public static string? Declare(IrType type, string name, bool allowUnsizedOuter = false) {
         if (type is not IrArrayType array) {
             return Name(type) is { } simple ? $"{simple} {name}" : null;
         }
 
-        // GLSL only allows a runtime-sized array as the last member of a storage
-        // block, which the IR has no way to express yet.
-        return array.Length is { } length && Name(array.Element) is { } element
-            ? $"{element} {name}[{length}]"
+        return Extents(array, allowUnsizedOuter) is { } extents
+            ? $"{extents.Element} {name}{extents.Suffix}"
             : null;
     }
 

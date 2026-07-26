@@ -1,0 +1,85 @@
+package Vixen.Shaders.Shading
+
+import Vixen.Shaders.Core
+
+// The assembled specular lobes, and the multi-scatter compensation that stops a rough one losing
+// energy.
+//
+// `Brdf` holds the three terms; this file multiplies them together. Kept apart because the split is
+// where the convention lives: the `4 NdotL NdotV` denominator is inside the visibility term, so
+// `D * V * F` is the whole BRDF and there is no denominator left for a caller to forget.
+
+struct SpecularModels {
+    /// The isotropic GGX lobe: `D * V * F`.
+    ///
+    /// Multiply by `NdotL` and the light's radiance for the outgoing contribution. `NdotL` is
+    /// deliberately not applied here, because a shadowed or back-facing sample should skip the lobe
+    /// rather than compute it and multiply by zero.
+    static func Ggx(f0: float3, a: ShadingAngles, alpha: float): float3 {
+        val d = Brdf.DistributionGgx(a.NdotH, alpha)
+        val v = Brdf.VisibilitySmithGgx(a.NdotL, a.NdotV, alpha)
+        return Brdf.FresnelSchlick(f0, a.VdotH) * (d * v)
+    }
+
+    /// The same lobe with the cheap visibility term, for the mobile path.
+    static func GgxFast(f0: float3, a: ShadingAngles, alpha: float): float3 {
+        val d = Brdf.DistributionGgx(a.NdotH, alpha)
+        val v = Brdf.VisibilitySmithGgxFast(a.NdotL, a.NdotV, alpha)
+        return Brdf.FresnelSchlick(f0, a.VdotH) * (d * v)
+    }
+
+    /// The anisotropic lobe, for brushed metal and hair.
+    ///
+    /// Takes the half vector in tangent space, because the anisotropic NDF needs its tangent and
+    /// bitangent components separately — see `Brdf.DistributionGgxAnisotropic`.
+    /// <param name="alpha">Tangent-direction alpha in x, bitangent in y.</param>
+    static func GgxAnisotropic(f0: float3, halfTs: float3, a: ShadingAngles, alpha: float2): float3 {
+        val d = Brdf.DistributionGgxAnisotropic(halfTs, alpha.x, alpha.y)
+        val v = Brdf.VisibilitySmithGgx(a.NdotL, a.NdotV, sqrt(alpha.x * alpha.y))
+        return Brdf.FresnelSchlick(f0, a.VdotH) * (d * v)
+    }
+
+    /// Beckmann's NDF, as a Gaussian on the slope distribution.
+    ///
+    /// Kept because it is the distribution the classic Blinn-Phong and Cook-Torrance models assume,
+    /// so matching reference imagery or an older asset library needs it. Not the default: its tail
+    /// falls off far too fast, which is what makes Cook-Torrance metal look like a painted hotspot.
+    static func DistributionBeckmann(NdotH: float, alpha: float): float {
+        val a2 = Math.Pow2(Brdf.ClampAlpha(alpha))
+        val cos2 = max(NdotH * NdotH, Const.Epsilon)
+        val cos4 = cos2 * cos2
+        val tan2 = (1f - cos2) / cos2
+        return exp(-tan2 / a2) / max(Const.Pi * a2 * cos4, Const.Epsilon)
+    }
+
+    static func Beckmann(f0: float3, a: ShadingAngles, alpha: float): float3 {
+        val d = DistributionBeckmann(a.NdotH, alpha)
+        val v = Brdf.VisibilitySmithGgx(a.NdotL, a.NdotV, alpha)
+        return Brdf.FresnelSchlick(f0, a.VdotH) * (d * v)
+    }
+
+    /// The multiplier that restores the energy a single-scattering lobe loses.
+    ///
+    /// A microfacet model that accounts for one bounce loses light with roughness, because light that
+    /// bounces twice between facets is never counted: a rough metal comes out visibly darker than it
+    /// should, and darker than the same material at low roughness, which is physically backwards.
+    ///
+    /// Fdez-Agüera's cheap compensation, which needs the split-sum `DFG` term `Ibl` supplies. Takes
+    /// the term rather than recomputing it, because the IBL path already has it and computing it
+    /// twice is how the two come to disagree.
+    static func MultiScatter(f0: float3, dfg: float2): float3 {
+        val singleScatter = dfg.x + dfg.y
+        val energy = 1f + Math.MaxComponent(f0) * (1f / max(dfg.y, Const.Epsilon) - 1f)
+        return float3(singleScatter * energy)
+    }
+
+    /// The specular occlusion a horizon-facing normal implies.
+    ///
+    /// Without it a normal map facing away from the light still receives a reflection, because the
+    /// reflection vector does not know the geometry occludes it. Cheap, and the difference between a
+    /// normal-mapped surface looking like relief and looking like a decal.
+    static func HorizonOcclusion(reflected: float3, geometricNormal: float3): float {
+        val horizon = saturate(1f + dot(reflected, geometricNormal))
+        return horizon * horizon
+    }
+}

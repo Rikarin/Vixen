@@ -1,0 +1,68 @@
+package Vixen.Shaders.Shading
+
+import Vixen.Shaders.Core
+
+// Light passing through a surface rather than off it: glass, water, gemstones, tinted windows.
+//
+// Distinct from `Subsurface`: transmission is *specular* — the light keeps a direction, refracted by
+// the interface — where subsurface scattering randomises it. That is why glass shows a distorted image
+// of what is behind it and wax does not.
+//
+// What a forward shader can do is refract the view ray and sample the framebuffer behind the surface.
+// The rest — a real path through a solid, per-wavelength dispersion — belongs in a ray tracer.
+
+struct Transmission {
+    /// The refracted view direction, or zero on total internal reflection.
+    ///
+    /// Returns zero rather than a garbage direction so the caller can detect the case: past the
+    /// critical angle nothing is transmitted, and the intrinsic's behaviour there is unspecified.
+    static func Refract(v: float3, n: float3, ior: float): float3 {
+        val eta = 1f / max(ior, 1f)
+        val NdotV = dot(n, v)
+        val k = 1f - eta * eta * (1f - NdotV * NdotV)
+        if (k < 0f) {
+            return float3(0f)
+        }
+
+        return Math.SafeNormalize(-v * eta + n * (eta * NdotV - sqrt(k)))
+    }
+
+    /// Where to sample the scene behind the surface, as a screen-space UV offset.
+    ///
+    /// A thin-surface approximation: the refracted ray is displaced by the surface's thickness and
+    /// projected back to the screen, rather than traced. Wrong for a thick solid — a glass sphere
+    /// needs two interfaces — and right for a window, which is most transmissive geometry.
+    static func ScreenOffset(refracted: float3, thickness: float, viewProjectionScale: float2): float2 {
+        val displaced = refracted * max(thickness, 0f)
+        return float2(displaced.x, displaced.y) * viewProjectionScale
+    }
+
+    /// Beer-Lambert absorption through a coloured medium.
+    ///
+    /// Exponential in the distance, which is why thick glass is much more saturated than thin glass
+    /// rather than proportionally so. `attenuationColor` is the colour at `attenuationDistance`, which
+    /// is how the parameter is authored — an artist picks a tint and a depth, not an extinction
+    /// coefficient.
+    static func Absorb(attenuationColor: float3, attenuationDistance: float, thickness: float): float3 {
+        val d = max(attenuationDistance, Const.Epsilon)
+        val extinction = -log(max(attenuationColor, float3(Const.Epsilon))) / d
+        return exp(-extinction * max(thickness, 0f))
+    }
+
+    /// Blends the transmitted contribution against the reflected one, conserving energy.
+    ///
+    /// The transmitted part is what Fresnel did *not* reflect, and it is further scaled by the base
+    /// colour: a tinted window colours what passes through it.
+    static func Combine(reflected: float3, transmitted: float3, f0: float3, NdotV: float, weight: float): float3 {
+        val fresnel = Brdf.FresnelSchlick(f0, NdotV)
+        return reflected + transmitted * (float3(1f) - fresnel) * saturate(weight)
+    }
+
+    /// The roughness to sample the scene behind with.
+    ///
+    /// A rough transmissive surface — frosted glass — blurs what is behind it, and the blur radius
+    /// grows with thickness as well as roughness because the ray spreads as it travels.
+    static func BlurLod(perceptualRoughness: float, thickness: float, mipCount: float): float {
+        return saturate(perceptualRoughness * (1f + max(thickness, 0f))) * max(mipCount - 1f, 0f)
+    }
+}

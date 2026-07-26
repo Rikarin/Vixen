@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax;
 using Vixen.Raven.Syntax;
 using Xunit;
 
@@ -34,6 +38,14 @@ public class RoundTripTests {
         "package A.B\n\nshader Foo {\n    func M() {\n        if (a) {\n        } else {\n        }\n    }\n}\n"
     )]
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val z = (a + b)\n    }\n}\n")]
+    // The four constructs that used to drop their tokens (docs/plan/07 § I, fixed
+    // for the migration corpus): repeat/while, a cast's parens, self and base.
+    [InlineData(
+        "package A.B\n\nshader Foo {\n    func M() {\n        repeat {\n            x += 1\n        } while (x < 4)\n    }\n}\n"
+    )]
+    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val i = (int)b\n    }\n}\n")]
+    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val s = self.b\n    }\n}\n")]
+    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val s = base.b\n    }\n}\n")]
     // Separated lists (commas)
     [InlineData("package A.B\n\nshader S : X, Y {\n\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func Add(a: int, b: int) {\n    }\n}\n")]
@@ -62,13 +74,6 @@ public class RoundTripTests {
     // Properties + accessors
     [InlineData("package A.B\n\nshader Foo {\n    var prop {\n        get => test\n        set => test\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    var count: int => a\n}\n")]
-    // Explicit interface implementations (`var P.Q`, `int P.self[…]`)
-    [InlineData("package A.B\n\nclass Foo {\n    var P.Q: int => a\n}\n")]
-    [InlineData("package A.B\n\nclass Foo {\n    var P.Q: int\n}\n")]
-    [InlineData("package A.B\n\nclass Foo {\n    var Outer.Inner.Q: int => a\n}\n")]
-    [InlineData("package A.B\n\nclass Foo {\n    var P.Q {\n        get => test\n    }\n}\n")]
-    [InlineData("package A.B\n\nclass Foo {\n    int P.self[i: int] => a\n}\n")]
-    [InlineData("package A.B\n\nclass Foo {\n    func P.Q() {\n    }\n}\n")]
     // Conditional.
     // NOTE: `a[i]` parses as an array type (`type array_rank_specifier`), shadowing
     // element access — a grammar ambiguity like invocation; visitor is wired.
@@ -80,33 +85,15 @@ public class RoundTripTests {
         "package A.B\n\nshader Foo {\n    func M() {\n        print(\"escaped: \\n \\t \\\" done\")\n    }\n}\n"
     )]
     [InlineData("package A.B\n\nshader Foo {\n    val empty = \"\"\n}\n")]
-    // Destructor
-    [InlineData("package A.B\n\nshader Foo {\n    ~init() {\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    ~init() => cleanup\n}\n")]
     // Tuple expression & tuple type
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val p = (a, b)\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val p = (a, b, c)\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func Swap(p: (int, int)) {\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func Named(p: (int x, float y)) {\n    }\n}\n")]
+    [InlineData("package A.B\n\nshader Foo {\n    func Named(p: (x: int, y: float)) {\n    }\n}\n")]
     // Collection expressions (+ spread)
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val xs = [a, b, c]\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val xs = []\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val xs = [a, ..b, c]\n    }\n}\n")]
-    // is-patterns
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val b = x is 5\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val b = x is > 5\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val b = x is not 5\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val b = x is > 0 and < 10\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val b = x is var y\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val b = x is _\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val b = x is (5)\n    }\n}\n")]
-    // switch expression
-    [InlineData(
-        "package A.B\n\nshader Foo {\n    func M() {\n        val r = x switch {\n            1 => a,\n            _ => b\n        }\n    }\n}\n"
-    )]
-    [InlineData(
-        "package A.B\n\nshader Foo {\n    func M() {\n        val r = x switch {\n            > 0 when a => b,\n            _ => c\n        }\n    }\n}\n"
-    )]
     // Generics
     [InlineData("package A.B\n\nshader Foo {\n    val items: List<int>\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    val m: Map<int, float>\n}\n")]
@@ -117,19 +104,13 @@ public class RoundTripTests {
     [InlineData("package A.B\n\nshader Foo {\n    func Map<T>(x: T) {\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Box<T> where T : Base {\n\n}\n")]
     [InlineData("package A.B\n\nshader Box<T> where T : Base, Other {\n\n}\n")]
-    // Declaration expression (type designation)
-    [InlineData("package A.B\n\nshader Foo {\n    func M() => int x\n}\n")]
-    // Indexer & operator declarations
-    [InlineData("package A.B\n\nshader Foo {\n    int self[i: int] => a\n}\n")]
+    // Operator declarations
     [InlineData("package A.B\n\nshader Foo {\n    Vec operator +(a: Vec, b: Vec) => a\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    bool operator ==(a: Vec, b: Vec) {\n    }\n}\n")]
-    // Conversion operators
-    [InlineData("package A.B\n\nshader Foo {\n    implicit operator int(v: Vec) => a\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    explicit operator float(v: Vec) {\n    }\n}\n")]
-    // Struct / class / record declarations
+    // Struct declarations
     [InlineData("package A.B\n\nstruct FooBar {\n\n}\n")]
-    [InlineData("package A.B\n\nclass Widget {\n\n}\n")]
-    [InlineData("package A.B\n\nreadonly record struct Messenger(userId: int, message: string)\n")]
+    [InlineData("package A.B\n\nstruct Widget {\n\n}\n")]
+    [InlineData("package A.B\n\nreadonly struct Messenger {\n    val userId: int\n}\n")]
     // Array types (empty / jagged rank)
     [InlineData("package A.B\n\nshader Foo {\n    var xs: int[]\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    var xs: double[][]\n}\n")]
@@ -168,5 +149,21 @@ public class Example1RoundTripTests {
         var tree = SyntaxTree.ParseText(text);
         Assert.Equal(text, tree.GetRoot().ToFullString());
         Assert.Empty(tree.Diagnostics);
+    }
+
+    /// <summary>
+    ///     The frozen migration corpus (docs/plan/18 step 1): every grammar construct in
+    ///     one fixture, parsed clean and reproduced byte-for-byte. The four constructs
+    ///     that used to drop their tokens — <c>repeat</c>/<c>while</c>, a cast's parens,
+    ///     <c>self</c> and <c>base</c> — are covered here, which is what made freezing
+    ///     the corpus possible.
+    /// </summary>
+    [Fact]
+    public void The_frozen_corpus_round_trips_byte_for_byte() {
+        var path = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Fixtures", "all_constructs.rvn");
+        var text = File.ReadAllText(path);
+        var tree = SyntaxTree.ParseText(text);
+        Assert.Empty(tree.Diagnostics);
+        Assert.Equal(text, tree.GetRoot().ToFullString());
     }
 }

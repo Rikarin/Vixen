@@ -11,27 +11,35 @@
         <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
     </PropertyGroup>
 
+    <!-- Shipped package: the compiler is useful on its own, without the engine. -->
+    <PropertyGroup>
+        <Description>
+            Raven shader compiler: parses .rvn source into a Roslyn-shaped syntax tree, binds
+            and lowers it to a target-independent IR, and emits GLSL and SPIR-V. Usable as a
+            library; see Vixen.Raven.Cli for the command-line front end.
+        </Description>
+        <PackageTags>shader;compiler;glsl;spirv;vulkan;raven;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
     <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Raven.Tests"/>
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Antlr4.CodeGenerator">
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-            <PrivateAssets>all</PrivateAssets>
-        </PackageReference>
-        <PackageReference Include="Antlr4.Runtime"/>
-    </ItemGroup>
-
-    <ItemGroup>
-        <Content Include="Grammar\RavenLexer.g4" />
-        <Content Include="Grammar\RavenParser.g4" />
-        <Content Include="Grammar\UnicodeClasses.g4"/>
         <AdditionalFiles Include="Syntax\Syntax.xml"/>
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Vixen.Raven.SyntaxGenerator\Vixen.Raven.SyntaxGenerator.csproj"
+        <!-- The shared green/red tree, SourceText and diagnostics model. -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Syntax\Vixen.Core.Syntax.csproj"/>
+
+        <!-- Turns Syntax\Syntax.xml into the node classes. Analyzer-only, no reference. -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Syntax.Generator\Vixen.Core.Syntax.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false"
         />

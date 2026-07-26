@@ -1,0 +1,124 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// Tonemapping and colour grading: the last pass before the swapchain.
+//
+// The pass that turns scene-referred HDR radiance into display-referred colour, and the order of
+// operations in it is not arbitrary:
+//
+//   exposure → white balance → tonemap → contrast/saturation → split toning → LUT → transfer function
+//
+// Exposure first because everything downstream is authored against a nominal mid-grey. The tonemap
+// before grading, because grading curves are authored on display-referred values — grading in HDR means
+// a curve behaves differently depending on how bright the scene happens to be. And the transfer function
+// dead last, because every step before it is linear-light.
+
+shader Tonemap {
+    /// 0 Reinhard, 1 ACES, 2 AgX, 3 none (clamp only).
+    [Permutation] val Operator: int = 1
+
+    /// Whether to apply a 3D grading LUT after the curve.
+    [Permutation] val UseLut: bool = false
+
+    /// Whether to encode sRGB in the shader. Off is correct when the swapchain is an _SRGB format.
+    [Permutation] val EncodeSrgb: bool = false
+
+    var source: Texture2D
+    var sourceSampler: Sampler
+    var lut: Texture3D
+    var lutSampler: Sampler
+
+    /// Linear exposure multiplier, from the auto-exposure pass or authored.
+    var exposure: float = 1f
+
+    var whitePoint: float = 4f
+    var contrast: float = 1f
+    var saturation: float = 1f
+
+    /// Warm/cool shift, -1..1. Positive is warmer.
+    var temperature: float = 0f
+
+    var shadowTint: float3 = float3(1f, 1f, 1f)
+    var highlightTint: float3 = float3(1f, 1f, 1f)
+
+    /// LUT edge size in texels, needed to compute the half-texel inset.
+    var lutSize: float = 32f
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(vertexIndex: float): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        var color = source.Sample(sourceSampler, uv).rgb * exposure
+        color = WhiteBalance(color)
+        color = Curve(color)
+        color = Grade(color)
+
+        if (UseLut) {
+            color = ApplyLut(color)
+        }
+
+        if (EncodeSrgb) {
+            color = ColorSpaces.LinearToSrgb(color)
+        }
+
+        return float4(color, 1f)
+    }
+
+    /// A cheap warm/cool shift, applied in linear light before the curve.
+    func WhiteBalance(color: float3): float3 {
+        val warm = float3(1.05f, 1f, 0.94f)
+        val cool = float3(0.94f, 1f, 1.06f)
+        return color * lerp(cool, warm, saturate(temperature * 0.5f + 0.5f))
+    }
+
+    /// The tonemapping curve itself.
+    func Curve(color: float3): float3 {
+        if (Operator == 0) {
+            return ColorSpaces.ReinhardExtended(color, whitePoint)
+        }
+
+        if (Operator == 1) {
+            return ColorSpaces.AcesFilmic(color)
+        }
+
+        if (Operator == 2) {
+            return ColorSpaces.AgX(color)
+        }
+
+        return saturate(color)
+    }
+
+    /// Contrast, saturation and split toning, on display-referred values.
+    func Grade(color: float3): float3 {
+        var result = ColorSpaces.WithLuminance(color, ColorSpaces.Luminance(color))
+        result = saturate((color - 0.5f) * contrast + 0.5f)
+
+        val luma = ColorSpaces.Luminance(result)
+        result = lerp(float3(luma), result, max(saturation, 0f))
+
+        // Split toning: shadows and highlights tinted separately, blended by luminance. The
+        // smoothstep rather than a linear blend keeps mid-tones neutral, which is the whole point.
+        val split = smoothstep(0.2f, 0.8f, luma)
+        return result * lerp(shadowTint, highlightTint, split)
+    }
+
+    /// Samples a 3D grading LUT with the half-texel inset a linear-filtered LUT needs.
+    ///
+    /// Without the inset the first and last slices are sampled beyond their centres, so the darkest
+    /// and brightest values are wrong — visible as a colour shift in exactly the regions people check.
+    func ApplyLut(color: float3): float3 {
+        val scale = (lutSize - 1f) / lutSize
+        val offset = 0.5f / lutSize
+        return lut.Sample(lutSampler, saturate(color) * scale + offset).rgb
+    }
+}

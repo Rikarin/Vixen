@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+
 namespace Vixen.Raven.Binding;
 
 /// <summary>Discriminator for <see cref="BoundNode" />, mirroring Roslyn's bound tree.</summary>
@@ -24,8 +28,6 @@ public enum BoundKind {
     RangeExpression,
     TupleExpression,
     CollectionExpression,
-    IsPatternExpression,
-    SwitchExpression,
     ErrorExpression,
 
     // Statements
@@ -39,7 +41,6 @@ public enum BoundKind {
     ReturnStatement,
     BreakStatement,
     ContinueStatement,
-    LocalFunctionStatement,
     SwitchStatement,
     NoOpStatement
 }

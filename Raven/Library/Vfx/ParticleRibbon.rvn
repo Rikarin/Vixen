@@ -1,0 +1,74 @@
+package Vixen.Shaders.Vfx
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// Ribbon trails: a strip of quads following a chain of points.
+//
+// A trail is not a billboard chain. The difference is continuity: each segment's edge must match its
+// neighbour's exactly, or the ribbon shows a seam at every joint. So the width direction is derived from
+// the *segment* — perpendicular to both the segment's direction and the view — rather than from the
+// camera basis alone, and adjacent segments sharing a point derive the same direction for it.
+//
+// The host supplies each vertex with its own point, the next point, and a side (-1 or +1). One draw of a
+// triangle strip covers the whole trail.
+
+shader ParticleRibbon {
+    /// Whether the texture stretches over the whole trail or tiles per segment.
+    [Permutation] val StretchTexture: bool = true
+
+    /// Whether to taper the width toward the tail.
+    [Permutation] val Taper: bool = true
+
+    var viewProjection: mat4
+    var cameraPosition: float3
+
+    var trailTexture: Texture2D
+    var trailSampler: Sampler
+
+    var startColor: float4 = float4(1f, 1f, 1f, 1f)
+    var endColor: float4 = float4(1f, 1f, 1f, 0f)
+
+    /// How many times the texture repeats along the trail when not stretched.
+    var tiling: float = 1f
+
+    stream var uv: float2
+    stream var color: float4
+
+    /// Expands one trail point into one edge of the strip.
+    ///
+    /// `side` is -1 or +1, `distance` is the arc length from the head in 0..1, and `width` is the
+    /// authored half-width at this point.
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(point: float3, nextPoint: float3, side: float, distance: float, width: float): float4 {
+        val along = Math.SafeNormalize(nextPoint - point)
+        val toCamera = Math.SafeNormalize(cameraPosition - point)
+
+        // Perpendicular to the segment and to the view: the ribbon always faces the camera while
+        // staying attached to its path. Derived from the segment rather than the camera basis so two
+        // segments sharing a point agree about where its edges are.
+        val across = Math.SafeNormalize(cross(along, toCamera))
+
+        var halfWidth = width
+
+        if (Taper) {
+            halfWidth = halfWidth * (1f - saturate(distance))
+        }
+
+        val worldPosition = point + across * (side * halfWidth)
+
+        val v = side * 0.5f + 0.5f
+        uv = StretchTexture ? float2(saturate(distance), v) : float2(saturate(distance) * tiling, v)
+        color = lerp(startColor, endColor, saturate(distance))
+
+        return viewProjection * float4(worldPosition, 1f)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        val sampled = trailTexture.Sample(trailSampler, uv) * color
+        return float4(sampled.rgb * sampled.a, sampled.a)
+    }
+}

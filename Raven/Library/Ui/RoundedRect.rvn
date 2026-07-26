@@ -1,0 +1,85 @@
+package Vixen.Shaders.Ui
+
+import Vixen.Shaders.Core
+
+// An analytically antialiased rounded rectangle: panels, buttons, cards, focus rings.
+//
+// Analytic rather than textured, which is the whole point: one shader draws any size at any corner
+// radius with a perfect edge, where a nine-slice texture needs an asset per radius and blurs when
+// scaled. The signed distance function for a rounded box is three operations, so it is also cheaper
+// than the texture fetch it replaces.
+//
+// Per-corner radii, because a card with only its top corners rounded is extremely common and faking it
+// with a clip rect costs another draw call.
+
+shader RoundedRect {
+    /// Whether to stroke a border inside the shape's edge.
+    [Permutation] val Bordered: bool = false
+
+    /// Whether to fill with a two-stop gradient rather than a flat colour.
+    [Permutation] val Gradient: bool = false
+
+    var projection: mat4
+
+    var fillColor: float4 = float4(1f, 1f, 1f, 1f)
+    var fillColorEnd: float4 = float4(1f, 1f, 1f, 1f)
+    var borderColor: float4 = float4(0f, 0f, 0f, 1f)
+    var borderWidth: float = 1f
+
+    /// Corner radii in pixels: top-left, top-right, bottom-right, bottom-left.
+    var radii: float4 = float4(8f, 8f, 8f, 8f)
+
+    /// The rectangle's size in pixels.
+    var size: float2 = float2(100f, 40f)
+
+    stream var localPx: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float2, texcoord: float2): float4 {
+        // The UV carries the position within the element, which is what the distance field needs —
+        // a rectangle's own space rather than the screen's, so rotation and scale come free.
+        localPx = texcoord * size
+        return projection * float4(position.x, position.y, 0f, 1f)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        val distance = BoxDistance(localPx - size * 0.5f, size * 0.5f, CornerRadius())
+        val coverage = UiCommon.Coverage(distance)
+
+        var result = Gradient ? lerp(fillColor, fillColorEnd, saturate(localPx.y / max(size.y, 1f))) : fillColor
+
+        if (Bordered) {
+            // The border is the band between the edge and `borderWidth` inside it. Drawn by
+            // interpolating toward the border colour rather than as a second shape, so the two share
+            // one antialiased outer edge and cannot disagree about where it is.
+            val inner = UiCommon.Coverage(distance + borderWidth)
+            result = lerp(borderColor, result, inner)
+        }
+
+        return UiCommon.Premultiply(float4(result.rgb, result.a * coverage))
+    }
+
+    /// The radius for the corner this pixel is nearest, from the four authored radii.
+    func CornerRadius(): float {
+        val half = size * 0.5f
+        val centred = localPx - half
+
+        val top = centred.y < 0f
+        val leftRadius = top ? radii.x : radii.w
+        val rightRadius = top ? radii.y : radii.z
+        return centred.x < 0f ? leftRadius : rightRadius
+    }
+
+    /// The signed distance to a rounded box, negative inside.
+    ///
+    /// `abs` folds the box into one quadrant, so one expression handles all four corners; the `max`
+    /// with zero is what makes the straight edges straight instead of bulging.
+    func BoxDistance(point: float2, halfSize: float2, radius: float): float {
+        val r = min(radius, min(halfSize.x, halfSize.y))
+        val q = abs(point) - halfSize + r
+        return length(max(q, float2(0f))) + min(max(q.x, q.y), 0f) - r
+    }
+}

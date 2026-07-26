@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax;
+using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven.Binding;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Symbols;
@@ -105,6 +110,22 @@ public sealed class SemanticModel {
             if (type is SourceNamedTypeSymbol source) {
                 BindTypeBodies(source);
             }
+        }
+
+        // A second pass, because a check that reads another type must not run while that type is
+        // resolving — see SourceNamedTypeSymbol.EnsureValidated.
+        foreach (var type in Compilation.GetDeclaredTypes(SyntaxTree)) {
+            if (type is SourceNamedTypeSymbol source) {
+                Validate(source);
+            }
+        }
+    }
+
+    static void Validate(SourceNamedTypeSymbol type) {
+        type.EnsureValidated();
+
+        foreach (var nested in type.NestedTypes) {
+            Validate(nested);
         }
     }
 

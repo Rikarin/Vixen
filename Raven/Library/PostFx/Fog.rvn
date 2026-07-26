@@ -1,0 +1,114 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// Linear, exponential and height fog, applied from depth.
+//
+// A fullscreen pass rather than per-material, which is the right place for it: fog depends only on depth
+// and view direction, so computing it once per pixel beats computing it in every material shader — and it
+// then applies to everything, including geometry whose shader never thought about fog.
+//
+// Exponential-squared is the default because it is what atmospheric scattering actually looks like: a
+// linear ramp has a visible start plane, and plain exponential thins too slowly near the camera.
+
+shader Fog {
+    /// 0 linear, 1 exponential, 2 exponential-squared.
+    [Permutation] val Mode: int = 2
+
+    /// Whether density varies with height, for ground mist.
+    [Permutation] val HeightFalloff: bool = true
+
+    /// Whether to brighten fog toward the sun, which is what sells it as scattering.
+    [Permutation] val SunScattering: bool = true
+
+    var source: Texture2D
+    var depthBuffer: Texture2D
+    var linearSampler: Sampler
+
+    var inverseViewProjection: mat4
+    var cameraPosition: float3
+
+    var fogColor: float3 = float3(0.5f, 0.6f, 0.7f)
+    var density: float = 0.02f
+
+    /// Linear mode only.
+    var fogStart: float = 10f
+    var fogEnd: float = 200f
+
+    /// Height at which density is at its authored value, and the rate it thins above that.
+    var fogHeight: float = 0f
+    var heightFalloff: float = 0.05f
+
+    var sunDirection: float3 = float3(0f, -1f, 0f)
+    var sunColor: float3 = float3(1f, 0.9f, 0.7f)
+    var sunAnisotropy: float = 0.7f
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(vertexIndex: float): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        val color = source.Sample(linearSampler, uv).rgb
+        val deviceDepth = depthBuffer.Sample(linearSampler, uv).r
+
+        // The far plane is the sky, which the skybox already coloured — fogging it would double up.
+        if (deviceDepth <= 0f) {
+            return float4(color, 1f)
+        }
+
+        val world = Transform.UvDepthToWorld(inverseViewProjection, uv, deviceDepth)
+        val toPixel = world - cameraPosition
+        val distance = length(toPixel)
+
+        var amount = Amount(distance)
+
+        if (HeightFalloff) {
+            amount = amount * HeightDensity(world.y)
+        }
+
+        var tint = fogColor
+
+        if (SunScattering) {
+            // Henyey-Greenstein forward scattering: fog looks brighter looking toward the light. The
+            // one term that distinguishes fog from a grey veil.
+            val cosine = dot(Math.SafeNormalize(toPixel), Math.SafeNormalize(-sunDirection))
+            tint = lerp(fogColor, sunColor, HenyeyGreenstein(cosine, sunAnisotropy))
+        }
+
+        return float4(lerp(color, tint, saturate(amount)), 1f)
+    }
+
+    func Amount(distance: float): float {
+        if (Mode == 0) {
+            return saturate(Math.InverseLerp(fogStart, fogEnd, distance))
+        }
+
+        val d = distance * density
+
+        if (Mode == 1) {
+            return 1f - exp(-d)
+        }
+
+        return 1f - exp(-d * d)
+    }
+
+    /// Density relative to the fog plane, thinning exponentially with height.
+    func HeightDensity(height: float): float {
+        return exp(-max(height - fogHeight, 0f) * heightFalloff)
+    }
+
+    /// The Henyey-Greenstein phase function, normalised to 0..1 for use as a blend weight.
+    func HenyeyGreenstein(cosine: float, g: float): float {
+        val g2 = g * g
+        val denominator = 1f + g2 - 2f * g * cosine
+        return saturate((1f - g2) / max(4f * Const.Pi * pow(max(denominator, Const.Epsilon), 1.5f), Const.Epsilon))
+    }
+}

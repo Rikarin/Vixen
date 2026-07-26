@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax;
 using Vixen.Raven.Binding;
 using Vixen.Raven.Syntax;
 
@@ -14,6 +18,17 @@ public static class DeclarationFacts {
         ["ComputeShader"] = ShaderStage.Compute
     };
 
+    /// <summary>
+    ///     Attribute names that place a binding in a descriptor set. One name per set, so the
+    ///     four-set convention is spelled rather than numbered — see <see cref="ResourceSet" />.
+    /// </summary>
+    static readonly Dictionary<string, ResourceSet> SetAttributes = new(StringComparer.Ordinal) {
+        ["PerFrame"] = ResourceSet.PerFrame,
+        ["PerView"] = ResourceSet.PerView,
+        ["PerMaterial"] = ResourceSet.PerMaterial,
+        ["PerDraw"] = ResourceSet.PerDraw
+    };
+
     public static bool Has(SyntaxList<SyntaxToken> modifiers, SyntaxKind kind) {
         foreach (var modifier in modifiers) {
             if (modifier.Kind == kind) {
@@ -22,33 +37,6 @@ public static class DeclarationFacts {
         }
 
         return false;
-    }
-
-    /// <summary>
-    ///     The declared accessibility, or <paramref name="fallback" /> when no access
-    ///     modifier is present.
-    /// </summary>
-    public static Accessibility GetAccessibility(SyntaxList<SyntaxToken> modifiers, Accessibility fallback) {
-        var isProtected = false;
-        var isInternal = false;
-
-        foreach (var modifier in modifiers) {
-            switch (modifier.Kind) {
-                case SyntaxKind.PublicKeyword:
-                    return Accessibility.Public;
-                case SyntaxKind.PrivateKeyword:
-                    return Accessibility.Private;
-                case SyntaxKind.ProtectedKeyword:
-                    isProtected = true;
-                    break;
-                case SyntaxKind.StaticKeyword:
-                case SyntaxKind.AbstractKeyword:
-                default:
-                    break;
-            }
-        }
-
-        return isProtected ? Accessibility.Protected : isInternal ? Accessibility.Internal : fallback;
     }
 
     /// <summary>The bare name of an attribute, with any <c>Attribute</c> suffix removed.</summary>
@@ -89,6 +77,125 @@ public static class DeclarationFacts {
 
     /// <summary>True when the name is one of the recognised stage attributes.</summary>
     public static bool IsStageAttributeName(string name) => StageAttributes.ContainsKey(name);
+
+    /// <summary>
+    ///     The workgroup size written on a stage attribute — <c>[ComputeShader(8, 8, 1)]</c> —
+    ///     or null when the attribute carries no arguments.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         On the stage attribute rather than an attribute of its own, so a size cannot be
+    ///         separated from the stage it sizes, cannot be written twice with two answers, and
+    ///         cannot be left on a declaration whose stage attribute was removed.
+    ///     </para>
+    ///     <para>
+    ///         One to three arguments; a dimension not written is 1, which is what both targets
+    ///         default to and what a 1-D dispatch means. Anything that is not a positive integer
+    ///         literal returns as <see cref="WorkgroupSize.Invalid" /> rather than being silently
+    ///         rounded into range — the binder reports it, because a wrong workgroup size is a
+    ///         correctness bug in every invocation.
+    ///     </para>
+    /// </remarks>
+    public static WorkgroupSize? GetWorkgroupSize(SyntaxList<AttributeListSyntax> attributeLists) {
+        foreach (var attribute in GetAttributes(attributeLists)) {
+            if (!StageAttributes.ContainsKey(GetAttributeName(attribute))) {
+                continue;
+            }
+
+            if (attribute.ArgumentList is not { } arguments || arguments.Arguments.Count == 0) {
+                return null;
+            }
+
+            if (arguments.Arguments.Count > 3) {
+                return WorkgroupSize.Invalid;
+            }
+
+            var dimensions = new int[] { 1, 1, 1 };
+            var index = 0;
+
+            foreach (var argument in arguments.Arguments) {
+                if (Dimension(argument) is not { } value) {
+                    return WorkgroupSize.Invalid;
+                }
+
+                dimensions[index++] = value;
+            }
+
+            return new(dimensions[0], dimensions[1], dimensions[2]);
+        }
+
+        return null;
+    }
+
+    /// <summary>One workgroup dimension, or null when it is not a positive integer literal.</summary>
+    static int? Dimension(AttributeArgumentSyntax argument) {
+        // A named argument is refused rather than matched by name: `[ComputeShader(y: 8)]`
+        // would have to mean "x is 1", which reads as a size of 8 to everyone who writes it.
+        if (argument.NameColon is not null) {
+            return null;
+        }
+
+        if (argument.Expression is not LiteralExpressionSyntax {
+                Kind: SyntaxKind.NumericLiteralExpression
+            } literal) {
+            return null;
+        }
+
+        return LiteralParser.Parse(literal).Value switch {
+            int value and > 0 => value,
+            uint value and > 0 and <= int.MaxValue => (int)value,
+            _ => null
+        };
+    }
+
+    /// <summary>
+    ///     Whether the declaration is marked <c>[Permutation]</c>, making it a compile-time
+    ///     key whose value the caller supplies per effect variant.
+    /// </summary>
+    public static bool IsPermutation(SyntaxList<AttributeListSyntax> attributeLists) {
+        foreach (var attribute in GetAttributes(attributeLists)) {
+            if (GetAttributeName(attribute) == "Permutation") {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     Every descriptor-set marker on the declaration, in source order, with the name it
+    ///     was written as.
+    /// </summary>
+    /// <remarks>
+    ///     All of them rather than the first, because two markers on one field is a mistake
+    ///     worth naming both halves of. <see cref="GetResourceSet" /> is what callers that
+    ///     only need the answer should use.
+    /// </remarks>
+    public static IEnumerable<(string Name, ResourceSet Set)> GetResourceSets(
+        SyntaxList<AttributeListSyntax> attributeLists
+    ) {
+        foreach (var attribute in GetAttributes(attributeLists)) {
+            var name = GetAttributeName(attribute);
+            if (SetAttributes.TryGetValue(name, out var set)) {
+                yield return (name, set);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     The descriptor set the declaration is marked with, or null when it carries no
+    ///     marker and the default applies.
+    /// </summary>
+    public static ResourceSet? GetResourceSet(SyntaxList<AttributeListSyntax> attributeLists) {
+        foreach (var (_, set) in GetResourceSets(attributeLists)) {
+            return set;
+        }
+
+        return null;
+    }
+
+    /// <summary>True when the name is one of the recognised descriptor-set markers.</summary>
+    public static bool IsResourceSetAttributeName(string name) => SetAttributes.ContainsKey(name);
 
     /// <summary>
     ///     The pipeline semantic a declaration is tagged with —

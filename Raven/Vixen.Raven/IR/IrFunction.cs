@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+
 namespace Vixen.Raven.IR;
 
 /// <summary>
@@ -27,8 +31,14 @@ public sealed class IrFunction(string name, IrType returnType) {
     /// <summary>Allocates the next SSA value of the given type.</summary>
     internal IrValue NewValue(IrType type) => new(ValueCount++, type);
 
-    internal IrVariable AddParameter(string name, IrType type) {
-        var variable = new IrVariable(name, type, IrVariableKind.Parameter);
+    /// <summary>
+    ///     Raises the numbering watermark, so a function rebuilt from a compiled library
+    ///     hands out fresh ids rather than ones its own body already uses.
+    /// </summary>
+    internal void ReserveValues(int count) => ValueCount = Math.Max(ValueCount, count);
+
+    internal IrVariable AddParameter(string name, IrType type, bool byReference = false) {
+        var variable = new IrVariable(name, type, IrVariableKind.Parameter, byReference);
         parameters.Add(variable);
         return variable;
     }

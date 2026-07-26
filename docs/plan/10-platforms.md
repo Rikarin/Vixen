@@ -33,10 +33,36 @@ IHaptics           rumble, taptic
 IPowerInfo         battery, thermal state, power mode — mobile quality scaling depends on this
 ```
 
-**`Vixen.Platform.Headless`** implements the same contracts with no window, no GPU, no audio device, and
+✅ **Built, and four things came out differently from that list.** Each is written up in
+`Platform/Vixen.Platform/README.md`; in summary:
+
+- **`IInputSource` is not an event source.** Events — all of them, window, keyboard, pointer, touch,
+  gamepad, lifecycle, drag-and-drop — arrive as one `PlatformEvent` stream drained once per frame by
+  `IPlatform.PumpEvents()`. The OS delivers them interleaved, so several typed streams would mean
+  buffering and re-ordering them and losing the ordering *between* them. `IInputSource` is what is
+  left: device enumeration, and the held-key state only the platform knows after focus is lost.
+- **Keys are physical positions and there is no layout-dependent enum.** WASD must be the same shape
+  under the player's left hand on AZERTY; typed characters arrive as `TextInput` carrying a string,
+  because a character is not a key.
+- **`IHaptics` hangs off `IGamepad`** rather than standing alone, since force feedback is a property
+  of a device and there is nothing to say about it without one.
+- **`IProcessorTopology` was added**, which doc 03 did not anticipate: it is the contract half of the
+  thread pinning deferred out of `Vixen.Core.Threading`, and `AvailableProcessors` is the number a
+  worker pool should be sized from, since a container's quota and `Environment.ProcessorCount`
+  differ.
+
+✅ **`Vixen.Platform.Headless`** implements the same contracts with no window, no GPU, no audio device, and
 no display server — what a dedicated server and batch-tooling head run on
 ([17](17-app-heads-and-shipping.md)). Every subsystem must tolerate the absence of a window rather than
 assuming one exists; a headless CI leg enforces it.
+
+Two decisions there worth recording. Headless **windows are real windows without a picture** — an id, a
+size, a framebuffer size, a scale factor, focus, an event stream, and a surface reporting
+`SurfaceKind.None` — so the server runs the desktop's frame loop rather than a second one written for
+it. And the **lifecycle is driveable**: `Suspend`, `Resume` and `ReportMemoryPressure` are public on
+the concrete type, which is where the suspend/resume fault-injection loop this document asks for below
+actually runs. On a phone it needs a phone; there a hundred cycles cost milliseconds and run on every
+pull request.
 
 **`Vixen.Platform.Desktop`** implements most of this once, via `Silk.NET.SDL` 2.23.0 (SDL3): windowing,
 input, gamepads with haptics, clipboard, display enumeration, IME. The three desktop assemblies then
@@ -94,6 +120,18 @@ bootstrap on Web). Game/app code lives in a platform-neutral library that all he
   | **Development** | Bundle the **Vulkan Loader + validation layers** from the Vulkan SDK alongside MoltenVK as an ICD. Requires `VK_ICD_FILENAMES`/`VK_DRIVER_FILES` set before `vkCreateInstance`, **and** `VK_KHR_portability_enumeration` + the `VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR` flag — without that bit the Loader will not return MoltenVK's `VkPhysicalDevice` at all, which presents as "no Vulkan devices found" on a machine that works fine. |
   The instance-creation code paths differ only by that flag and the layer list, so this is a
   configuration switch in `Vixen.Graphics.Vulkan`, not two code paths.
+- **Measured when the development flavour first met a real Homebrew install** (2026-07-26, Apple
+  silicon, `vulkan-loader` + `molten-vk` + `vulkan-validationlayers`). Three separate failures, none
+  of which were Vulkan problems, all of which present as Vulkan problems:
+  | Symptom | Cause | Where it is handled |
+  |---|---|---|
+  | `DllNotFoundException` from `Vk.GetApi()` on a machine where `vulkaninfo` works | `/opt/homebrew/lib` is not on dyld's default search path (`/usr/local/lib`, `/usr/lib`) | `VulkanLoader` probes `VULKAN_SDK` and the known prefixes explicitly |
+  | `vkCreateInstance` → `ERROR_LAYER_NOT_PRESENT` for a layer `vkEnumerateInstanceLayerProperties` had just listed | Homebrew's layer manifest names its library by bare filename, which the Loader resolves through `dlopen` — and that has the same search path | `.runsettings` sets `DYLD_LIBRARY_PATH` for test runs; the backend also retries without the layer and logs event 2002 rather than refusing to start |
+  | Second `VulkanInstance` in a process segfaults | `Dispose` also disposed the shared `Vk`, unloading `libvulkan` under every cached entry point | `VulkanInstance.Dispose` no longer disposes what it does not own; asserted by `AnInstanceCanBeCreatedAfterOneIsDisposed` |
+  Homebrew's own caveat suggests `VK_LAYER_PATH`; that was measured and **does not help**, because
+  `VK_LAYER_PATH` locates the *manifest* and the manifest was never missing. `DYLD_LIBRARY_PATH` is
+  the only lever, and dyld reads it once at process start — so it has to be set by whatever launches
+  the process, never from managed code. The LunarG SDK writes absolute paths and has none of this.
 - Constraints to design around, all capability-gated in the RHI (full list in ADR-011): descriptor
   indexing requires Metal argument buffers enabled and is Tier-1-limited; buffer-device-address needs
   Tier 2; **primitive restart cannot be disabled**; **pipeline-statistics queries are unsupported**;
@@ -107,6 +145,12 @@ bootstrap on Web). Game/app code lives in a platform-neutral library that all he
 - **Packaging is the real work**: `.app` bundle layout, `Info.plist`, universal binary (`osx-x64` +
   `osx-arm64` via `lipo`), hardened runtime entitlements, codesigning with a Developer ID, and
   notarisation. All scripted in Nuke (`Build.Release.cs`) and run in CI on `macos-14`.
+- **Presentation is verified by `Samples/01` and by nothing else, and that is a deliberate gap rather
+  than an oversight.** AppKit aborts the process when a window is created off the main thread, so a
+  test runner — which is never on it — cannot open one; the desktop tests force SDL's dummy video
+  driver for the same reason. The swapchain's pure choices are unit-tested, the acquire and present
+  path is not. Running the sample with `--vixen-frames N` is what stands in for it, and with the
+  validation layers installed a validation error is a non-zero exit.
 - Gates: `Samples/01` renders via MoltenVK; the editor runs notarised from a signed `.dmg`; the
   golden-image suite passes within tolerance (MoltenVK's output will differ slightly from lavapipe's —
   hence perceptual comparison per [05](05-graphics-rhi.md)).

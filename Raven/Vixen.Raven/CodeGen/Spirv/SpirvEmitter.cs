@@ -1,5 +1,10 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
+using Vixen.Raven.Reflection;
 using Vixen.Raven.Symbols;
 
 namespace Vixen.Raven.CodeGen.Spirv;
@@ -11,7 +16,18 @@ namespace Vixen.Raven.CodeGen.Spirv;
 /// <param name="Variable">The <c>OpVariable</c> id to start an access chain from.</param>
 /// <param name="Storage">Its storage class, which decides the pointer types along the chain.</param>
 /// <param name="Member">The member index inside the uniform block, if it is one.</param>
-sealed record SpirvGlobal(uint Variable, SpirvStorageClass Storage, int? Member = null);
+/// <param name="Layout">
+///     The packing rule its type is decorated with, or null when it carries none. Recorded here
+///     rather than derived from <paramref name="Storage" /> because a uniform block and a storage
+///     buffer share the <c>Uniform</c> storage class in the form Vulkan 1.0 accepts, and pack
+///     differently — std140 against std430.
+/// </param>
+sealed record SpirvGlobal(
+    uint Variable,
+    SpirvStorageClass Storage,
+    int? Member = null,
+    LayoutRule? Layout = null
+);
 
 /// <summary>
 ///     Emits one SPIR-V module for one entry point.
@@ -47,6 +63,20 @@ sealed partial class SpirvEmitter {
     readonly SpirvTypes types;
 
     readonly List<(IrStageIo Io, uint Variable)> inputs = [];
+
+    /// <summary>
+    ///     The <c>Input</c> and <c>Output</c> variable a stream resolves to, by direction.
+    /// </summary>
+    /// <remarks>
+    ///     Two variables for one IR variable, because SPIR-V splits what the IR does not: an
+    ///     <c>Input</c> pointer cannot be stored through and an <c>Output</c> pointer is not what a
+    ///     load should read. A stream a stage both reads and writes gets both, which is legal —
+    ///     input and output locations are separate namespaces.
+    /// </remarks>
+    readonly Dictionary<IrVariable, uint> streamReads = [];
+
+    readonly Dictionary<IrVariable, uint> streamWrites = [];
+
     uint extendedInstructions;
     uint? outputVariable;
 
@@ -70,32 +100,86 @@ sealed partial class SpirvEmitter {
     // --- Declarations ------------------------------------------------------
 
     void EmitBindings() {
-        var uniforms = shader.Bindings.Where(b => b.Kind == IrBindingKind.Uniform).ToArray();
-        var textures = shader.Bindings.Where(b => b.Kind == IrBindingKind.Texture).ToArray();
-        var samplers = shader.Bindings.Where(b => b.Kind == IrBindingKind.Sampler).ToArray();
+        // Which (set, binding) each resource gets is BindingPlan's decision, not this
+        // emitter's — the GLSL emitter and the reflection read the same plan, so the three
+        // cannot drift apart.
+        foreach (var planned in BindingPlan.Of(shader)) {
+            if (planned.Kind == IrBindingKind.StorageBuffer && planned.Resource is { } buffer) {
+                EmitStorageBuffer(buffer, planned);
+                continue;
+            }
 
-        // The IR numbers each kind of binding from zero, but Vulkan wants one
-        // descriptor-set namespace, so they are laid end to end: the block first,
-        // then textures, then samplers.
-        var binding = 0u;
+            if (planned.Resource is { } resource) {
+                globals[resource.Variable] = new(
+                    DeclareOpaque(resource, planned),
+                    SpirvStorageClass.UniformConstant
+                );
+                continue;
+            }
 
-        if (uniforms.Length > 0) {
-            EmitUniformBlock(uniforms, binding++);
-        }
-
-        foreach (var texture in textures) {
-            globals[texture.Variable] = new(DeclareOpaque(texture, binding++), SpirvStorageClass.UniformConstant);
-        }
-
-        foreach (var sampler in samplers) {
-            globals[sampler.Variable] = new(DeclareOpaque(sampler, binding++), SpirvStorageClass.UniformConstant);
+            EmitUniformBlock(planned);
         }
 
         // Binding defaults are a property of the shader rather than of any one
         // stage, so SpirvBackend says that once however many modules come out.
     }
 
-    void EmitUniformBlock(IrBinding[] uniforms, uint binding) {
+    /// <summary>
+    ///     Declares a storage buffer: a <c>BufferBlock</c> struct holding one runtime array.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>BufferBlock</c> with <c>Uniform</c> storage rather than <c>Block</c> with
+    ///         <c>StorageBuffer</c> storage. The two spell the same thing, but the second needs
+    ///         <c>SPV_KHR_storage_buffer_storage_class</c> in SPIR-V 1.0 — which Vulkan 1.0 has as an
+    ///         extension and 1.1 folded in. This form needs no extension at all, and it is the form
+    ///         <c>glslc</c> produces for the same GLSL, which is what keeps § C's differential honest.
+    ///     </para>
+    ///     <para>
+    ///         The wrapping struct is not decoration: SPIR-V has no bare runtime array variable, so the
+    ///         array is always member 0 of a block. That member index is why every access chain into a
+    ///         buffer starts with a 0 — the same shape a uniform block's member index gives.
+    ///     </para>
+    /// </remarks>
+    void EmitStorageBuffer(IrBinding buffer, PlannedBinding planned) {
+        if (buffer.Type is not IrArrayType array) {
+            Report(BackendDiagnostics.NotExpressible, Describe(buffer.Type, buffer.Name));
+            return;
+        }
+
+        var contents = types.RuntimeArray(array, LayoutRule.Std430);
+        var structId = module.AddDeclaration(SpirvOp.TypeStruct, null, SpirvOperand.Id(contents));
+
+        module.AddName(structId, buffer.Name + "Block");
+        module.AddMemberName(structId, 0, buffer.Name);
+        module.Decorate(structId, SpirvDecoration.BufferBlock);
+        module.DecorateMember(structId, 0, SpirvDecoration.Offset, SpirvOperand.Literal(0));
+
+        // Declared read-only on the member *and* the variable, which is what glslc emits: the member
+        // decoration is what a driver reads, and the variable decoration is what a later pass reads.
+        if (!buffer.IsWritable) {
+            module.DecorateMember(structId, 0, SpirvDecoration.NonWritable);
+        }
+
+        var variable = module.AddDeclaration(
+            SpirvOp.Variable,
+            types.Pointer(SpirvStorageClass.Uniform, structId),
+            SpirvOperand.Enumerant(SpirvStorageClass.Uniform)
+        );
+
+        module.AddName(variable, buffer.Name);
+        DecorateBinding(variable, planned);
+
+        if (!buffer.IsWritable) {
+            module.Decorate(variable, SpirvDecoration.NonWritable);
+        }
+
+        globals[buffer.Variable] = new(variable, SpirvStorageClass.Uniform, 0, LayoutRule.Std430);
+    }
+
+    void EmitUniformBlock(PlannedBinding planned) {
+        var uniforms = planned.Members;
+
         foreach (var uniform in uniforms.Where(u => ContainsBool(u.Type))) {
             // A SPIR-V bool has no size and no memory layout, so it cannot live
             // anywhere the host can see. GLSL hides this by giving it four bytes
@@ -107,12 +191,12 @@ sealed partial class SpirvEmitter {
         var structId = module.AddDeclaration(
             SpirvOp.TypeStruct,
             null,
-            [.. members.Select(m => SpirvOperand.Id(types.Type(m, true)))]
+            [.. members.Select(m => SpirvOperand.Id(types.Type(m, LayoutRule.Std140)))]
         );
 
-        module.AddName(structId, shader.Name + "Uniforms");
+        module.AddName(structId, planned.Name);
         module.Decorate(structId, SpirvDecoration.Block);
-        types.DecorateLayout(structId, members);
+        types.DecorateLayout(structId, members, LayoutRule.Std140);
 
         for (var i = 0; i < uniforms.Length; i++) {
             module.AddMemberName(structId, i, uniforms[i].Name);
@@ -124,16 +208,15 @@ sealed partial class SpirvEmitter {
             SpirvOperand.Enumerant(SpirvStorageClass.Uniform)
         );
 
-        module.AddName(variable, shader.Name.ToLowerInvariant() + "Uniforms");
-        module.Decorate(variable, SpirvDecoration.DescriptorSet, SpirvOperand.Literal(options.DescriptorSet));
-        module.Decorate(variable, SpirvDecoration.Binding, SpirvOperand.Literal(binding));
+        module.AddName(variable, char.ToLowerInvariant(planned.Name[0]) + planned.Name[1..]);
+        DecorateBinding(variable, planned);
 
         for (var i = 0; i < uniforms.Length; i++) {
-            globals[uniforms[i].Variable] = new(variable, SpirvStorageClass.Uniform, i);
+            globals[uniforms[i].Variable] = new(variable, SpirvStorageClass.Uniform, i, LayoutRule.Std140);
         }
     }
 
-    uint DeclareOpaque(IrBinding resource, uint binding) {
+    uint DeclareOpaque(IrBinding resource, PlannedBinding planned) {
         var variable = module.AddDeclaration(
             SpirvOp.Variable,
             types.Pointer(SpirvStorageClass.UniformConstant, types.Type(resource.Type)),
@@ -141,13 +224,38 @@ sealed partial class SpirvEmitter {
         );
 
         module.AddName(variable, resource.Name);
-        module.Decorate(variable, SpirvDecoration.DescriptorSet, SpirvOperand.Literal(options.DescriptorSet));
-        module.Decorate(variable, SpirvDecoration.Binding, SpirvOperand.Literal(binding));
+        DecorateBinding(variable, planned);
         return variable;
     }
 
+    void DecorateBinding(uint variable, PlannedBinding planned) {
+        module.Decorate(
+            variable,
+            SpirvDecoration.DescriptorSet,
+            SpirvOperand.Literal((uint)(int)planned.Set)
+        );
+
+        module.Decorate(variable, SpirvDecoration.Binding, SpirvOperand.Literal((uint)planned.Binding));
+    }
+
+    /// <summary>
+    ///     Declares the stage interface: the streams this stage reads and writes, then its own
+    ///     parameters and return value.
+    /// </summary>
+    /// <remarks>
+    ///     Every location comes from <see cref="StreamPlan" />, the same source the GLSL emitter and
+    ///     the reflection read — which is what makes the vertex stage's outputs line up with the
+    ///     fragment stage's inputs without either stage knowing about the other.
+    /// </remarks>
     void EmitStageInterface() {
-        var location = 0u;
+        if (entryPoint.Stage == ShaderStage.Compute) {
+            EmitComputeInterface();
+            return;
+        }
+
+        EmitStreamInterface();
+
+        var location = (uint)StreamPlan.ParameterBase(shader);
 
         foreach (var input in entryPoint.Inputs) {
             var variable = DeclareStageVariable(input, SpirvStorageClass.Input, "in_" + input.Name);
@@ -168,19 +276,73 @@ sealed partial class SpirvEmitter {
                 SpirvOperand.Enumerant(SpirvBuiltIn.Position)
             );
         } else {
-            module.Decorate(outputVariable.Value, SpirvDecoration.Location, SpirvOperand.Literal(0));
+            module.Decorate(
+                outputVariable.Value,
+                SpirvDecoration.Location,
+                SpirvOperand.Literal((uint)StreamPlan.OutputBase(shader, entryPoint.Stage))
+            );
         }
     }
 
+    /// <summary>
+    ///     Declares a compute stage's parameters as built-in <c>Input</c> variables.
+    /// </summary>
+    /// <remarks>
+    ///     A <c>Location</c> and a <c>BuiltIn</c> are mutually exclusive decorations, and a compute
+    ///     stage has no located interface at all — nothing feeds an attribute and nothing takes a
+    ///     result. So every parameter is a built-in, which the binder has already narrowed to the
+    ///     four dispatch ids with the right type. They still join <c>interfaceIds</c>: a built-in a
+    ///     module reads has to appear in its entry point's interface list, or <c>spirv-val</c>
+    ///     rejects it.
+    /// </remarks>
+    void EmitComputeInterface() {
+        foreach (var input in entryPoint.Inputs) {
+            var variable = DeclareStageVariable(input, SpirvStorageClass.Input, "in_" + input.Name);
+
+            module.Decorate(
+                variable,
+                SpirvDecoration.BuiltIn,
+                SpirvOperand.Enumerant(SpirvBuiltIns.Of(ComputeBuiltIns.Of(input.Semantic)))
+            );
+
+            inputs.Add((input, variable));
+        }
+    }
+
+    void EmitStreamInterface() {
+        foreach (var stream in entryPoint.StreamInputs) {
+            streamReads[stream.Variable] = DeclareStream(stream, SpirvStorageClass.Input, "in_");
+        }
+
+        foreach (var stream in entryPoint.StreamOutputs) {
+            streamWrites[stream.Variable] = DeclareStream(stream, SpirvStorageClass.Output, "out_");
+        }
+    }
+
+    uint DeclareStream(IrStream stream, SpirvStorageClass storage, string prefix) {
+        var variable = DeclareStageVariable(
+            new(stream.Name, stream.Type, null),
+            storage,
+            prefix + stream.Name
+        );
+
+        module.Decorate(
+            variable,
+            SpirvDecoration.Location,
+            SpirvOperand.Literal((uint)StreamPlan.LocationOf(shader, stream))
+        );
+
+        return variable;
+    }
+
     uint DeclareStageVariable(IrStageIo io, SpirvStorageClass storage, string name) {
-        // Vulkan has no boolean interface type, and an aggregate would need a
-        // location for every leaf. Both are rejected rather than mis-emitted.
-        if (io.Type is not (IrScalarType { Kind: not IrTypeKind.Bool }
-            or IrVectorType { Component.Kind: not IrTypeKind.Bool })) {
+        // Vulkan has no boolean interface type, and an aggregate would need a location for every
+        // leaf. Both are rejected rather than mis-emitted — through the shared predicate, so the
+        // GLSL backend refuses exactly the same set rather than emitting `out SomeStruct`.
+        if (!StageInterface.CanCarry(io.Type)) {
             Report(
                 BackendDiagnostics.NotExpressible,
-                $"The type '{io.Type.Name}' of stage {(storage == SpirvStorageClass.Input ? "input" : "output")} "
-                + $"'{io.Name}'"
+                StageInterface.Describe(io.Type, io.Name, storage == SpirvStorageClass.Input)
             );
         }
 
@@ -195,6 +357,27 @@ sealed partial class SpirvEmitter {
         return variable;
     }
 
+    /// <summary>
+    ///     The variable a stream resolves to in the given direction, or null when the root is not a
+    ///     stream.
+    /// </summary>
+    /// <remarks>
+    ///     A write-only stream loaded, or a read-only one stored to, falls back to the other
+    ///     direction rather than reporting: lowering already marks a partial write as a read, so the
+    ///     only way to get here is a whole-value use, and a wrong storage class is a
+    ///     <c>spirv-val</c> failure with a clear message rather than a silent miscompilation.
+    /// </remarks>
+    uint? ResolveStream(IrVariable root, bool write) {
+        var preferred = write ? streamWrites : streamReads;
+
+        if (preferred.TryGetValue(root, out var variable)) {
+            return variable;
+        }
+
+        var other = write ? streamReads : streamWrites;
+        return other.TryGetValue(root, out var fallback) ? fallback : null;
+    }
+
     /// <summary>True when the stage result belongs in <c>Position</c> rather than a located output.</summary>
     bool OutputGoesToBuiltIn() =>
         entryPoint.Stage == ShaderStage.Vertex
@@ -206,12 +389,23 @@ sealed partial class SpirvEmitter {
 
     void EmitFunction(IrFunction function) {
         values.Clear();
+        constants.Clear();
         pointers.Clear();
         opaqueParameters.Clear();
         loops.Clear();
 
         var returnType = types.Type(function.ReturnType);
-        var parameterTypes = function.Parameters.Select(p => types.Type(p.Type)).ToArray();
+
+        // A by-reference parameter takes a pointer into function storage. Function storage rather
+        // than a choice: the caller always passes a function-scoped temp, because SPIR-V requires a
+        // pointer argument to be a memory object declaration and requires the storage classes to
+        // match — so no other class could ever appear here.
+        var parameterTypes = function.Parameters
+            .Select(p => p.IsByReference
+                ? types.Pointer(SpirvStorageClass.Function, types.Type(p.Type))
+                : types.Type(p.Type))
+            .ToArray();
+
         var id = functions[function];
 
         module.AddName(id, function.Name);
@@ -246,6 +440,14 @@ sealed partial class SpirvEmitter {
             // parameter keeps its value and reads of it resolve to that directly.
             if (parameter.Type is IrTextureType or IrSamplerType) {
                 opaqueParameters[parameter] = parameterIds[i];
+                continue;
+            }
+
+            // A by-reference parameter *is* a pointer, so it needs no local of its own: registering
+            // it here makes every load, store and access chain on it resolve through the caller's
+            // storage, which is exactly what copy-out has to observe.
+            if (parameter.IsByReference) {
+                pointers[parameter] = parameterIds[i];
                 continue;
             }
 
@@ -298,6 +500,7 @@ sealed partial class SpirvEmitter {
     /// </summary>
     void EmitEntryPoint() {
         values.Clear();
+        constants.Clear();
         pointers.Clear();
         loops.Clear();
 
@@ -339,6 +542,18 @@ sealed partial class SpirvEmitter {
             // A fragment shader has to say where its origin is, and Vulkan only
             // accepts the upper-left one.
             module.AddExecutionMode(main, SpirvExecutionMode.OriginUpperLeft);
+        }
+
+        if (entryPoint.WorkgroupSize is { } size) {
+            // GLCompute requires LocalSize; without it spirv-val rejects the module. The
+            // verifier guarantees one is here on this stage and nowhere else.
+            module.AddExecutionMode(
+                main,
+                SpirvExecutionMode.LocalSize,
+                (uint)size.X,
+                (uint)size.Y,
+                (uint)size.Z
+            );
         }
     }
 

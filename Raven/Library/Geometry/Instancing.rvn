@@ -1,0 +1,82 @@
+package Vixen.Shaders.Geometry
+
+import Vixen.Shaders.Core
+
+// Per-instance transforms, and the packed forms that keep an instance small.
+//
+// The constraint that shapes this file: an instance buffer is read per vertex, so its width is a real
+// cost — a 64-byte matrix per instance is four times the bandwidth of a 16-byte packed transform. The
+// packed forms below trade a few ALU operations for that, which is the right trade for anything
+// instanced in the thousands.
+//
+// Instance data arrives as vertex attributes (per-instance ones, which the host declares with an
+// instance step rate), so these functions take plain values rather than reading a buffer.
+
+/// A rigid transform plus uniform scale, in 32 bytes rather than a matrix's 64.
+///
+/// Enough for anything placed rather than deformed: foliage, debris, props, decals. A non-uniformly
+/// scaled or sheared instance needs the full matrix.
+struct InstanceTransform {
+    var position: float3
+    var scale: float
+
+    /// Rotation as a unit quaternion, xyzw.
+    var rotation: float4
+}
+
+struct Instancing {
+    /// Rotates a vector by a unit quaternion.
+    ///
+    /// The two-cross-product form rather than building a matrix: fewer operations, and it avoids the
+    /// matrix entirely for the common case of transforming two or three vectors per vertex.
+    static func RotateByQuaternion(q: float4, v: float3): float3 {
+        val t = cross(q.xyz, v) * 2f
+        return v + t * q.w + cross(q.xyz, t)
+    }
+
+    /// Applies a packed instance transform to an object-space position.
+    static func TransformPosition(instance: InstanceTransform, position: float3): float3 {
+        return RotateByQuaternion(instance.rotation, position * instance.scale) + instance.position
+    }
+
+    /// Applies a packed instance transform to a direction.
+    ///
+    /// Uniform scale does not change a direction, so the scale is dropped rather than applied and
+    /// renormalised — which is both cheaper and exactly correct here.
+    static func TransformDirection(instance: InstanceTransform, direction: float3): float3 {
+        return RotateByQuaternion(instance.rotation, direction)
+    }
+
+    /// Builds a world matrix from a packed instance, for code that needs the matrix itself.
+    ///
+    /// Columns, matching § E's convention and what `m[i]` reads back.
+    static func ToMatrix(instance: InstanceTransform): mat4 {
+        val x = RotateByQuaternion(instance.rotation, float3(instance.scale, 0f, 0f))
+        val y = RotateByQuaternion(instance.rotation, float3(0f, instance.scale, 0f))
+        val z = RotateByQuaternion(instance.rotation, float3(0f, 0f, instance.scale))
+
+        val c0 = float4(x, 0f)
+        val c1 = float4(y, 0f)
+        val c2 = float4(z, 0f)
+        return mat4(c0, c1, c2, float4(instance.position, 1f))
+    }
+
+    /// A per-instance pseudo-random value in 0..1, from the instance index.
+    ///
+    /// What makes a field of instanced foliage stop looking like a field of clones: drive rotation,
+    /// scale, tint and wind phase from it. Hashed rather than taken from a buffer so it costs nothing
+    /// and is stable across frames — the same instance always gets the same value.
+    static func Variation(instanceIndex: uint): float => Random.Float01(instanceIndex)
+
+    /// Three independent variation values for one instance.
+    static func Variation3(instanceIndex: uint): float3 => Random.Float3From(instanceIndex)
+
+    /// Fades an instance out with distance, for a smooth cull rather than a pop.
+    ///
+    /// Returns 0..1 to drive alpha or a dither threshold. A hard cull is visible at any distance
+    /// because the instance is exactly as big as the pixels it covers when it disappears.
+    static func DistanceFade(instancePosition: float3, cameraPosition: float3, fadeStart: float, fadeEnd: float): float {
+        val distance = length(instancePosition - cameraPosition)
+        return 1f - saturate(Math.InverseLerp(fadeStart, fadeEnd, distance))
+    }
+}

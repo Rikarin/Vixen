@@ -1,0 +1,135 @@
+package Vixen.Shaders.Shading
+
+import Vixen.Shaders.Core
+
+// Image-based lighting: the split-sum approximation, spherical-harmonic irradiance, and
+// parallax-corrected probes.
+//
+// The problem IBL solves is integrating a whole environment against a BRDF per pixel, which is not
+// affordable. Karis's split-sum factors it into two things that can each be precomputed:
+//
+//     ∫ L(l) f(l,v) NdotL dl  ≈  [ ∫ L(l) D dl ] · [ ∫ f(l,v) NdotL dl ]
+//                                 └ prefiltered env ┘  └──── the DFG term ────┘
+//
+// The first is a cubemap mip chain, prefiltered per roughness by the host. The second depends only on
+// roughness and NdotV, so it is a 2D lookup — or the analytic fit below, which avoids the texture
+// entirely.
+//
+// It is an approximation, and the way it is wrong is worth knowing: it assumes the environment is
+// smooth relative to the lobe, so a small bright light in an otherwise dark environment comes out too
+// dim and too spread out. That is the case punctual lights exist for.
+
+struct Ibl {
+    /// Karis's analytic fit to the split-sum DFG term.
+    ///
+    /// Returns the scale and bias for `f0`: `f0 * dfg.x + dfg.y`. The fit rather than the usual
+    /// 2D LUT because a texture fetch, a sampler and a host-side precompute pass are a lot of moving
+    /// parts to get a two-component function of two variables — and this agrees with the LUT to well
+    /// under a percent everywhere except grazing angles at mirror roughness.
+    static func EnvironmentDfg(NdotV: float, perceptualRoughness: float): float2 {
+        val c0 = float4(-1f, -0.0275f, -0.572f, 0.022f)
+        val c1 = float4(1f, 0.0425f, 1.04f, -0.04f)
+        val r = float4(perceptualRoughness, perceptualRoughness, perceptualRoughness, perceptualRoughness)
+        val v = r * c0 + c1
+        val a004 = min(v.x * v.x, exp2(-9.28f * saturate(NdotV))) * v.x + v.y
+        return float2(a004 * -1.04f + v.z, a004 * 1.04f + v.w)
+    }
+
+    /// The mip level a given roughness should sample the prefiltered environment at.
+    ///
+    /// Linear in perceptual roughness, which is what the host's prefilter pass assumes when it builds
+    /// the chain — the two have to agree or the reflection is sharper or blurrier than the material
+    /// says. Documented here because this is the shader half of that contract.
+    static func SpecularLod(perceptualRoughness: float, mipCount: float): float {
+        return saturate(perceptualRoughness) * max(mipCount - 1f, 0f)
+    }
+
+    /// The specular contribution of an environment, given its prefiltered radiance and the DFG term.
+    ///
+    /// Split into "sample the environment" and "combine" rather than doing both, because the sample
+    /// needs a texture and a sampler while this does not — which keeps the arithmetic testable and
+    /// lets a deferred pass reuse it with radiance from somewhere else entirely.
+    static func Specular(prefiltered: float3, f0: float3, dfg: float2, specularOcclusion: float): float3 {
+        return prefiltered * (f0 * dfg.x + float3(dfg.y)) * saturate(specularOcclusion)
+    }
+
+    /// The diffuse contribution of an environment given its irradiance.
+    static func Diffuse(irradiance: float3, diffuseColor: float3, occlusion: float): float3 {
+        return irradiance * diffuseColor * saturate(occlusion)
+    }
+
+    // --- Spherical harmonics ---------------------------------------------
+
+    /// Irradiance from an order-2 spherical-harmonic projection of the environment.
+    ///
+    /// Nine coefficients per channel, which is enough for diffuse and nowhere near enough for
+    /// specular — the point being that diffuse irradiance is so smooth that nine numbers reproduce it
+    /// to within a percent. That is why an environment needs a cubemap for reflections and only this
+    /// for ambient.
+    ///
+    /// The constants fold the SH basis together with the cosine-lobe convolution, which is why they do
+    /// not look like the bare basis functions.
+    static func IrradianceSh9(n: float3, sh: ShCoefficients): float3 {
+        val c1 = 0.429043f
+        val c2 = 0.511664f
+        val c3 = 0.743125f
+        val c4 = 0.886227f
+        val c5 = 0.247708f
+
+        var result = sh.l00 * c4 - sh.l20 * c5
+        result += (sh.l1m1 * n.y + sh.l10 * n.z + sh.l11 * n.x) * (2f * c2)
+        result += (sh.l2m2 * (n.x * n.y) + sh.l2m1 * (n.y * n.z) + sh.l21 * (n.x * n.z)) * (2f * c1)
+        result += sh.l20 * (c3 * n.z * n.z) + sh.l22 * (c1 * (n.x * n.x - n.y * n.y))
+        return max(result, float3(0f))
+    }
+
+    // --- Parallax correction ---------------------------------------------
+
+    /// Corrects a reflection direction for a probe captured at a different point.
+    ///
+    /// A cubemap is captured from one point, so using it directly means every surface reflects as if
+    /// it were at the probe's centre — a floor reflects the ceiling instead of what is in front of it.
+    /// Intersecting the reflection ray with the probe's bounding box and re-aiming from the probe's
+    /// centre fixes it, which is what makes a box probe usable for a room.
+    ///
+    /// The box is axis-aligned in the space the caller passes; a rotated probe transforms the position
+    /// and direction into the box's space first.
+    static func ParallaxCorrect(reflected: float3, position: float3, box: ProbeBox): float3 {
+        val toMax = (box.maximum - position) / max(reflected, float3(Const.Epsilon))
+        val toMin = (box.minimum - position) / max(reflected, float3(Const.Epsilon))
+
+        val furthest = max(toMax, toMin)
+        val distance = Math.MinComponent(furthest)
+        val intersection = position + reflected * distance
+        return Math.SafeNormalize(intersection - box.center)
+    }
+}
+
+/// An order-2 spherical-harmonic projection: nine RGB coefficients.
+///
+/// A struct rather than nine parameters so a probe's coefficients travel as one value — the host
+/// writes them as one block, and a signature taking nine `float3`s could not be written on one line
+/// anyway.
+struct ShCoefficients {
+    var l00: float3
+    var l1m1: float3
+    var l10: float3
+    var l11: float3
+    var l2m2: float3
+    var l2m1: float3
+    var l20: float3
+    var l21: float3
+    var l22: float3
+}
+
+/// A box probe's bounds and capture point, for `Ibl.ParallaxCorrect`.
+///
+/// Axis-aligned in whatever space the caller works in; a rotated probe transforms the position and
+/// direction into the box's space first.
+struct ProbeBox {
+    var minimum: float3
+    var maximum: float3
+
+    /// Where the cubemap was captured from, which is what the correction re-aims away from.
+    var center: float3
+}

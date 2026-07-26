@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using System.Diagnostics;
 using Vixen.Raven.CodeGen;
 using Xunit;
@@ -40,6 +43,26 @@ public static class SpirvTestBase {
                   """
             )
             .Code;
+
+    /// <summary>
+    ///     The id a listing gave this name — <c>%11</c> for <c>OpName %11 "albedo"</c>.
+    /// </summary>
+    /// <remarks>
+    ///     Ids are assigned as the module is built, so a test that wants to assert about one
+    ///     variable's decorations has to look it up rather than hard-code a number that the
+    ///     next emitter change would shift.
+    /// </remarks>
+    public static string IdNamed(string listing, string name) {
+        ArgumentNullException.ThrowIfNull(listing);
+
+        var line = Assert.Single(
+            listing.Split('\n'),
+            l => l.StartsWith("OpName ", StringComparison.Ordinal)
+                && l.EndsWith($" \"{name}\"", StringComparison.Ordinal)
+        );
+
+        return line.Split(' ')[1];
+    }
 
     /// <summary>Runs the reference validator over a unit, failing the test if it objects.</summary>
     public static void Validate(GeneratedSource unit) {

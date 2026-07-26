@@ -1,4 +1,7 @@
-using System.Diagnostics;
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
 using Vixen.Raven.CodeGen;
 using Vixen.Raven.CodeGen.Glsl;
@@ -53,34 +56,29 @@ public class GoldenGlslTests(ITestOutputHelper output) {
 
     /// <summary>
     ///     The exit criterion for this phase: real GLSL that a real compiler accepts.
-    ///     Runs only when <c>glslangValidator</c> is on PATH — it is not a build
-    ///     dependency, and its absence is reported rather than silently ignored.
+    ///     Runs only when <c>glslc</c> is on PATH — it is not a build dependency, and its
+    ///     absence is reported rather than silently ignored.
     /// </summary>
+    /// <remarks>
+    ///     Compiling rather than only validating, because the target is Vulkan GLSL and a
+    ///     Vulkan target is what makes <c>layout(set = …)</c> and the separate
+    ///     <c>texture2D</c>/<c>sampler</c> types legal in the first place.
+    ///     <see cref="SpirvDifferentialTests" /> goes on to diff the result against Raven's own
+    ///     SPIR-V; this asserts the weaker half on the golden fixture.
+    /// </remarks>
     [Theory]
     [InlineData("lambert")]
-    public void Passes_glslang(string name) {
-        if (FindGlslang() is not { } glslang) {
-            output.WriteLine(
-                "glslangValidator was not found on PATH, so the generated GLSL was not validated. "
-                + "Install it (brew install glslang) to check this properly."
-            );
+    public void A_reference_compiler_accepts_the_golden_glsl(string name) {
+        if (ReferenceCompiler.Glslc is null) {
+            output.WriteLine(ReferenceCompiler.HowToInstall);
             return;
         }
 
         foreach (var unit in Compile(name)) {
-            var suffix = StageSuffix(unit);
-            var path = Path.Combine(Path.GetTempPath(), $"raven_{name}_{suffix}.{suffix}");
-            File.WriteAllText(path, unit.Code);
+            var module = ReferenceCompiler.GlslToSpirv(unit.Code, unit.Stage);
+            output.WriteLine($"{unit.Name}: {module.Length} bytes of SPIR-V");
 
-            var process = Process.Start(
-                new ProcessStartInfo(glslang, path) { RedirectStandardOutput = true, RedirectStandardError = true }
-            )!;
-
-            process.WaitForExit();
-            var log = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
-            output.WriteLine($"{unit.Name}: {log}");
-
-            Assert.True(process.ExitCode == 0, $"glslang rejected {unit.Name}:\n{log}\n\n{unit.Code}");
+            Assert.NotEmpty(module);
         }
     }
 
@@ -108,25 +106,6 @@ public class GoldenGlslTests(ITestOutputHelper output) {
     static string StageSuffix(GeneratedSource unit) => GlslBackend.StageSuffix(unit.Stage);
 
     static string Normalize(string text) => text.Replace("\r\n", "\n").TrimEnd('\n');
-
-    static string? FindGlslang() {
-        var paths = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
-            .Split(Path.PathSeparator)
-            .Concat(["/opt/homebrew/bin", "/usr/local/bin"]);
-
-        foreach (var directory in paths) {
-            if (string.IsNullOrWhiteSpace(directory)) {
-                continue;
-            }
-
-            var candidate = Path.Combine(directory, "glslangValidator");
-            if (File.Exists(candidate)) {
-                return candidate;
-            }
-        }
-
-        return null;
-    }
 
     // bin/Debug/net10.0 -> Tests project root -> Fixtures
     static string FixturePath(string file) =>

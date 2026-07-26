@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax;
 using Vixen.Raven.Binding;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Syntax;
@@ -22,6 +26,9 @@ public sealed class SourceParameterSymbol : ParameterSymbol {
     public override TypeSymbol Type => type ??= ResolveType();
 
     public override string? SemanticName => DeclarationFacts.GetSemanticName(syntax.AttributeLists);
+
+    public override RefKind RefKind =>
+        DeclarationFacts.Has(syntax.Modifiers, SyntaxKind.InOutKeyword) ? RefKind.InOut : RefKind.None;
 
     internal SourceParameterSymbol(Symbol container, ParameterSyntax syntax, int ordinal, Binder binder) {
         ContainingSymbol = container;

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax;
 using Vixen.Raven.Syntax;
 
 namespace Vixen.Raven.Symbols.Source;
@@ -67,17 +71,6 @@ public sealed class TypeDeclarationInfo {
                 s.ConstraintClauses,
                 Materialize(s.Members),
                 TypeKind.Struct
-            ),
-            ClassDeclarationSyntax s => new(
-                s,
-                s.AttributeLists,
-                s.Modifiers,
-                s.Identifier,
-                s.TypeParameterList,
-                s.BaseList,
-                s.ConstraintClauses,
-                Materialize(s.Members),
-                TypeKind.Class
             ),
             ProtocolDeclarationSyntax s => new(
                 s,

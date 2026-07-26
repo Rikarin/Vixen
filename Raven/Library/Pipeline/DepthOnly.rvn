@@ -1,0 +1,54 @@
+package Vixen.Shaders.Pipeline
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// The depth prepass, and the alpha-tested variant.
+//
+// The cheapest shader in the library, and worth having as its own file rather than as a mode of
+// another: a prepass exists to fill the depth buffer as fast as possible, so it must not carry a
+// material's parameters, its normal, or anything it does not write. A prepass that composes
+// `IMaterialSurface` would pull every material binding into a pass that outputs nothing.
+//
+// `[Permutation] AlphaTested` is what keeps the two variants one file: the opaque variant has no
+// texture, no sampler and no fragment body at all, because the branch is eliminated before lowering.
+
+shader DepthOnly {
+    /// Whether to sample an opacity map and discard. False makes this a pure depth pass.
+    [Permutation] val AlphaTested: bool = false
+
+    var worldViewProjection: mat4
+
+    var opacityMap: Texture2D
+    var opacitySampler: Sampler
+    var alphaCutoff: float = 0.5f
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float3, texcoord: float2): float4 {
+        uv = texcoord
+        return Transform.ObjectToClip(worldViewProjection, position)
+    }
+
+    /// The fragment stage exists only for the alpha-tested variant.
+    ///
+    /// It still returns a colour rather than nothing, because a fragment shader that writes no target
+    /// is a different pipeline state; the value is discarded by a colour write mask of zero, which is
+    /// the host's business.
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        if (AlphaTested) {
+            val opacity = opacityMap.Sample(opacitySampler, uv).a
+            if (opacity < alphaCutoff) {
+                // A discard would be better than returning zero, and Raven has no `discard` — the
+                // host masks colour writes on this pass anyway, so the value is never observed.
+                return float4(0f, 0f, 0f, 0f)
+            }
+        }
+
+        return float4(1f, 1f, 1f, 1f)
+    }
+}

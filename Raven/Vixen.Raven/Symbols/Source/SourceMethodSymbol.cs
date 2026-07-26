@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax;
 using Vixen.Raven.Binding;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Syntax;
@@ -28,31 +32,23 @@ public sealed class SourceMethodSymbol : MethodSymbol {
     public override MethodKind MethodKind =>
         Syntax switch {
             ConstructorDeclarationSyntax => MethodKind.Constructor,
-            DestructorDeclarationSyntax => MethodKind.Destructor,
             OperatorDeclarationSyntax => MethodKind.Operator,
-            ConversionOperatorDeclarationSyntax => MethodKind.Conversion,
-            LocalFunctionStatementSyntax => MethodKind.LocalFunction,
             _ => MethodKind.Ordinary
         };
 
     public override string Name =>
         Syntax switch {
             MethodDeclarationSyntax method => method.Identifier.ValueText,
-            LocalFunctionStatementSyntax local => local.Identifier.ValueText,
             ConstructorDeclarationSyntax => ".ctor",
-            DestructorDeclarationSyntax => ".dtor",
             OperatorDeclarationSyntax @operator => "operator" + @operator.OperatorToken.Text,
-            ConversionOperatorDeclarationSyntax conversion => "op_" + conversion.ImplicitOrExplicitKeyword.Text,
             _ => string.Empty
         };
 
     public override bool IsStatic => DeclarationFacts.Has(Modifiers, SyntaxKind.StaticKeyword);
-    public override bool IsAbstract => DeclarationFacts.Has(Modifiers, SyntaxKind.AbstractKeyword);
-
-    public override Accessibility DeclaredAccessibility =>
-        DeclarationFacts.GetAccessibility(Modifiers, Accessibility.Private);
 
     public override ShaderStage Stage => DeclarationFacts.GetShaderStage(AttributeLists);
+
+    public override WorkgroupSize? WorkgroupSize => DeclarationFacts.GetWorkgroupSize(AttributeLists);
 
     public override string? SemanticName => DeclarationFacts.GetSemanticName(AttributeLists);
 
@@ -71,11 +67,8 @@ public sealed class SourceMethodSymbol : MethodSymbol {
     public BlockSyntax? Body =>
         Syntax switch {
             MethodDeclarationSyntax method => method.Body,
-            LocalFunctionStatementSyntax local => local.Body,
             ConstructorDeclarationSyntax constructor => constructor.Body,
-            DestructorDeclarationSyntax destructor => destructor.Body,
             OperatorDeclarationSyntax @operator => @operator.Body,
-            ConversionOperatorDeclarationSyntax conversion => conversion.Body,
             _ => null
         };
 
@@ -83,11 +76,8 @@ public sealed class SourceMethodSymbol : MethodSymbol {
     public ArrowExpressionClauseSyntax? ExpressionBody =>
         Syntax switch {
             MethodDeclarationSyntax method => method.ExpressionBody,
-            LocalFunctionStatementSyntax local => local.ExpressionBody,
             ConstructorDeclarationSyntax constructor => constructor.ExpressionBody,
-            DestructorDeclarationSyntax destructor => destructor.ExpressionBody,
             OperatorDeclarationSyntax @operator => @operator.ExpressionBody,
-            ConversionOperatorDeclarationSyntax conversion => conversion.ExpressionBody,
             _ => null
         };
 
@@ -98,48 +88,39 @@ public sealed class SourceMethodSymbol : MethodSymbol {
     SyntaxList<SyntaxToken> Modifiers =>
         Syntax switch {
             MemberDeclarationSyntax member => member.Modifiers,
-            LocalFunctionStatementSyntax local => local.Modifiers,
             _ => default
         };
 
     SyntaxList<AttributeListSyntax> AttributeLists =>
         Syntax switch {
             MemberDeclarationSyntax member => member.AttributeLists,
-            LocalFunctionStatementSyntax local => local.AttributeLists,
             _ => default
         };
 
-    BaseParameterListSyntax? ParameterListSyntax =>
+    ParameterListSyntax? ParameterListSyntax =>
         Syntax switch {
             MethodDeclarationSyntax method => method.ParameterList,
-            LocalFunctionStatementSyntax local => local.ParameterList,
             ConstructorDeclarationSyntax constructor => constructor.ParameterList,
-            DestructorDeclarationSyntax destructor => destructor.ParameterList,
             OperatorDeclarationSyntax @operator => @operator.ParameterList,
-            ConversionOperatorDeclarationSyntax conversion => conversion.ParameterList,
             _ => null
         };
 
     TypeParameterListSyntax? TypeParameterListSyntax =>
         Syntax switch {
             MethodDeclarationSyntax method => method.TypeParameterList,
-            LocalFunctionStatementSyntax local => local.TypeParameterList,
             _ => null
         };
 
     SyntaxList<TypeParameterConstraintClauseSyntax> ConstraintClauses =>
         Syntax switch {
             MethodDeclarationSyntax method => method.ConstraintClauses,
-            LocalFunctionStatementSyntax local => local.ConstraintClauses,
             _ => default
         };
 
     TypeSyntax? ReturnTypeSyntax =>
         Syntax switch {
             MethodDeclarationSyntax method => method.ReturnType,
-            LocalFunctionStatementSyntax local => local.ReturnType,
             OperatorDeclarationSyntax @operator => @operator.Type,
-            ConversionOperatorDeclarationSyntax conversion => conversion.Type,
             _ => null
         };
 
@@ -195,7 +176,7 @@ public sealed class SourceMethodSymbol : MethodSymbol {
     }
 
     TypeSymbol ResolveReturnType() {
-        if (MethodKind is MethodKind.Constructor or MethodKind.Destructor) {
+        if (MethodKind is MethodKind.Constructor) {
             return BuiltInTypes.Void;
         }
 

@@ -1,0 +1,74 @@
+package Vixen.Shaders.Shading
+
+import Vixen.Shaders.Core
+
+// Anisotropic strand shading: Kajiya-Kay, and the two-lobe Marschner approximation.
+//
+// Hair is not a surface. A strand is a cylinder, so it has a *tangent* but no meaningful normal —
+// which is why nothing here takes one and why the surface BRDFs cannot be used. Shading is a function
+// of the angles to the strand's direction instead.
+//
+// The two-lobe model is the practical one: the primary highlight is light reflected off the outside
+// of the strand and takes the light's colour; the secondary is light that entered, scattered and came
+// back out, so it takes the hair's colour and is shifted along the strand. Those two highlights of
+// different colours and positions are what make hair read as hair.
+
+struct Hair {
+    /// Kajiya-Kay's diffuse term: a cylinder's Lambert.
+    ///
+    /// `sin` of the angle to the tangent rather than `cos` to the normal — the two differ, and using
+    /// a normal here is what makes hair look like a ribbon.
+    static func DiffuseKajiyaKay(albedo: float3, tangent: float3, l: float3): float3 {
+        val TdotL = dot(tangent, l)
+        val sinTL = sqrt(saturate(1f - TdotL * TdotL))
+        return albedo * Const.InvPi * sinTL
+    }
+
+    /// One anisotropic highlight along a strand.
+    ///
+    /// `shift` moves the lobe off the exact specular direction, which is how the primary and
+    /// secondary highlights end up in different places from one tangent.
+    static func Highlight(tangent: float3, n: float3, v: float3, l: float3, shift: float, exponent: float): float {
+        val shifted = Math.SafeNormalize(tangent + n * shift)
+        val TdotL = dot(shifted, l)
+        val TdotV = dot(shifted, v)
+        val sinTL = sqrt(saturate(1f - TdotL * TdotL))
+        val sinTV = sqrt(saturate(1f - TdotV * TdotV))
+        return pow(saturate(-TdotL * TdotV + sinTL * sinTV), max(exponent, 1f))
+    }
+
+    /// The primary highlight: reflected off the strand's surface, so it is the light's colour.
+    ///
+    /// Shifted *toward* the root by convention — a negative shift — which is what puts it above the
+    /// secondary rather than below.
+    static func Primary(tangent: float3, n: float3, v: float3, l: float3, roughness: float): float {
+        val exponent = 2f / max(Math.Pow4(roughness), Const.Epsilon)
+        return Highlight(tangent, n, v, l, -0.08f, exponent)
+    }
+
+    /// The secondary highlight: transmitted and scattered, so it takes the hair's own colour.
+    static func Secondary(tangent: float3, n: float3, v: float3, l: float3, roughness: float): float {
+        val exponent = 0.5f / max(Math.Pow4(roughness), Const.Epsilon)
+        return Highlight(tangent, n, v, l, 0.04f, exponent)
+    }
+
+    /// Both lobes plus the diffuse, which is the whole strand response for one light.
+    static func Shade(albedo: float3, specular: float3, ts: HairSample, roughness: float): float3 {
+        val diffuse = DiffuseKajiyaKay(albedo, ts.tangent, ts.l)
+        val primary = Primary(ts.tangent, ts.normal, ts.v, ts.l, roughness)
+        val secondary = Secondary(ts.tangent, ts.normal, ts.v, ts.l, roughness)
+        return diffuse + specular * primary + albedo * secondary
+    }
+}
+
+/// The vectors a strand is shaded from, bundled to keep `Shade` inside one line.
+struct HairSample {
+    /// Along the strand, unit length. The one that matters — there is no true normal on a cylinder.
+    var tangent: float3
+
+    /// A reference direction used only to shift the highlights off the specular direction.
+    var normal: float3
+
+    var v: float3
+    var l: float3
+}

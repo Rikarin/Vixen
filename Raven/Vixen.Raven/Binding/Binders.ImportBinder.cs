@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using Vixen.Raven.Symbols;
 using Vixen.Raven.Syntax;
 
@@ -50,8 +53,11 @@ public sealed class ImportBinder(Binder next, NamespaceSymbol packageNamespace, 
                 continue;
             }
 
-            // An import that names nothing in this compilation is ignored: there
-            // is no external reference model yet, so it is not an error.
+            // An import that names nothing is ignored rather than reported. A referenced
+            // library's packages are in the global namespace by the time this runs, so an
+            // import does reach them — but an unused import of a package this build did not
+            // reference is not itself an error, and the missing name is reported where it is
+            // used.
             if (ResolveNamespace(path) is { } resolved) {
                 namespaces.Add(resolved);
             }

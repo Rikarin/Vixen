@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using Vixen.Raven.IR;
 
 namespace Vixen.Raven.CodeGen.Glsl;
@@ -57,8 +60,20 @@ public static class GlslIntrinsics {
     /// </summary>
     /// <param name="intrinsic">The opcode.</param>
     /// <param name="arguments">Already-emitted argument expressions.</param>
+    /// <param name="argumentTypes">
+    ///     The arguments' IR types, which sampling needs: the combined sampler to construct
+    ///     follows from the texture's dimension.
+    /// </param>
     /// <param name="resultType">GLSL name of the result type, for saturate's clamp bounds.</param>
-    public static string? Call(IrIntrinsic intrinsic, IReadOnlyList<string> arguments, string resultType) {
+    public static string? Call(
+        IrIntrinsic intrinsic,
+        IReadOnlyList<string> arguments,
+        IReadOnlyList<IrType> argumentTypes,
+        string resultType
+    ) {
+        ArgumentNullException.ThrowIfNull(arguments);
+        ArgumentNullException.ThrowIfNull(argumentTypes);
+
         switch (intrinsic) {
             case IrIntrinsic.Saturate:
                 // GLSL has no saturate; it is a clamp to the unit range.
@@ -67,12 +82,16 @@ public static class GlslIntrinsics {
                     : null;
 
             case IrIntrinsic.SampleTexture:
-                // The sampler operand disappears: GLSL's sampler2D is already the
-                // texture and its sampling state combined.
-                return arguments.Count == 3 ? $"texture({arguments[0]}, {arguments[2]})" : null;
+                // The texture and the sampler are two bindings right up to here, exactly as
+                // in SPIR-V, and combine into one value for the sample itself.
+                return arguments.Count == 3 && argumentTypes[0] is IrTextureType texture
+                    ? $"texture({GlslTypes.Combined(texture)}({arguments[0]}, {arguments[1]}), {arguments[2]})"
+                    : null;
 
             case IrIntrinsic.LoadTexture:
-                // The third coordinate carries the level, as it does in HLSL.
+                // No sampler: a fetch by integer coordinate does not filter, which is why
+                // GL_EXT_samplerless_texture_functions exists and why SPIR-V's OpImageFetch
+                // takes the plain image. The third coordinate carries the level, as in HLSL.
                 return arguments.Count == 2
                     ? $"texelFetch({arguments[0]}, {arguments[1]}.xy, {arguments[1]}.z)"
                     : null;

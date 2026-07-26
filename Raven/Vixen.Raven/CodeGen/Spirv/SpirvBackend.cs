@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Symbols;
@@ -37,18 +41,11 @@ public sealed class SpirvBackend(SpirvOptions? options = null) : ITargetBackend 
             }
 
             foreach (var entryPoint in shader.EntryPoints) {
-                if (entryPoint.Stage == ShaderStage.Compute) {
-                    // A compute entry point needs a workgroup size for its
-                    // LocalSize execution mode, and nothing declares one.
-                    diagnostics.Add(BackendDiagnostics.NotImplemented, Location.None, "The compute stage", "SPIR-V");
-                    continue;
-                }
-
                 var built = new SpirvEmitter(irModule, shader, entryPoint, options, diagnostics).Emit();
 
                 generated.Add(
                     new(
-                        $"{shader.Name}.{ShaderStages.Suffix(entryPoint.Stage)}",
+                        $"{shader.Name}.{ShaderStageNames.Suffix(entryPoint.Stage)}",
                         entryPoint.Stage,
                         built.ToAssembly(),
                         built.ToBytes()

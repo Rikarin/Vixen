@@ -1,0 +1,330 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Mathematics;
+
+namespace Vixen.Graphics.Null;
+
+/// <summary>A command list that records what it was told and does nothing with it.</summary>
+/// <remarks>
+///     <para>
+///         Records into its own list and hands it to the shared
+///         <see cref="CommandRecorder" /> at submit, rather than writing into the recorder as it
+///         goes. That is not an optimisation — it is what keeps the stream meaningful: lists are
+///         recorded on several threads at once, so interleaving them in real time would produce a
+///         log whose order depended on the scheduler. Submission order is the order the GPU would
+///         see, and it is the order a test should assert on.
+///     </para>
+///     <para>
+///         The validation here is the part that earns its keep. A draw outside a render pass, a
+///         nested pass, a submit before <see cref="Finish" /> — each is undefined behaviour on a real
+///         backend and each is caught here, on a machine with no GPU, with a message saying what was
+///         wrong.
+///     </para>
+/// </remarks>
+sealed class NullCommandList(QueueKind kind, string name) : ICommandList {
+    readonly List<RecordedCommand> commands = [];
+
+    int passDepth;
+    int groupDepth;
+    bool finished;
+    bool disposed;
+
+    public QueueKind Kind => kind;
+
+    public bool IsRecorded => finished;
+
+    public bool Submitted { get; private set; }
+
+    /// <summary>What this list recorded, before it was submitted.</summary>
+    public IReadOnlyList<RecordedCommand> Commands => commands;
+
+    public void Finish() {
+        ThrowIfDisposed();
+
+        if (finished) {
+            return;
+        }
+
+        if (passDepth != 0) {
+            throw new InvalidOperationException(
+                $"Command list '{name}' was finished inside a render pass. Every pass has to be ended "
+                + "before the list is, or the backend has nothing to close it with."
+            );
+        }
+
+        if (groupDepth != 0) {
+            throw new InvalidOperationException(
+                $"Command list '{name}' was finished with {groupDepth} debug group(s) still open, which "
+                + "makes a capture unreadable from that point on."
+            );
+        }
+
+        finished = true;
+    }
+
+    public void BeginRenderPass(in RenderPassDescription description) {
+        ThrowIfRecording();
+
+        if (passDepth > 0) {
+            throw new InvalidOperationException(
+                "Render passes do not nest. End the current one first — no API allows this, and a "
+                + "tiled GPU could not express it at all."
+            );
+        }
+
+        if (description.ColourAttachments.IsEmpty && description.DepthStencil is null) {
+            throw new InvalidOperationException(
+                $"Render pass '{description.Name}' has no attachments, so it renders to nothing."
+            );
+        }
+
+        passDepth++;
+
+        Add(
+            new(
+                RecordedCommandKind.BeginRenderPass,
+                0,
+                description.ColourAttachments.Length,
+                description.DepthStencil is null ? 0 : 1,
+                Text: description.Name
+            )
+        );
+    }
+
+    public void EndRenderPass() {
+        ThrowIfRecording();
+
+        if (passDepth == 0) {
+            throw new InvalidOperationException("EndRenderPass without a matching BeginRenderPass.");
+        }
+
+        passDepth--;
+        Add(new(RecordedCommandKind.EndRenderPass, 0));
+    }
+
+    public void SetViewport(in Viewport viewport) {
+        ThrowIfRecording();
+        Add(new(RecordedCommandKind.SetViewport, 0, (long)viewport.Width, (long)viewport.Height, (long)viewport.X, (long)viewport.Y));
+    }
+
+    public void SetScissor(in ScissorRect scissor) {
+        ThrowIfRecording();
+        Add(new(RecordedCommandKind.SetScissor, 0, scissor.Width, scissor.Height, scissor.X, scissor.Y));
+    }
+
+    public void SetBlendConstant(in Color4 colour) {
+        ThrowIfRecording();
+        Add(new(RecordedCommandKind.SetBlendConstant, 0));
+    }
+
+    public void SetStencilReference(uint reference) {
+        ThrowIfRecording();
+        Add(new(RecordedCommandKind.SetStencilReference, 0, reference));
+    }
+
+    public void BindPipeline(PipelineHandle pipeline) {
+        ThrowIfRecording();
+
+        if (!pipeline.IsValid) {
+            throw new ArgumentException("A null pipeline was bound.", nameof(pipeline));
+        }
+
+        Add(new(RecordedCommandKind.BindPipeline, 0, (long)pipeline.Value.Packed));
+    }
+
+    public void BindDescriptorSet(
+        DescriptorSetSlot slot,
+        DescriptorSetHandle descriptors,
+        ReadOnlySpan<uint> dynamicOffsets = default
+    ) {
+        ThrowIfRecording();
+        Add(new(RecordedCommandKind.BindDescriptorSet, 0, (long)slot, (long)descriptors.Value.Packed, dynamicOffsets.Length));
+    }
+
+    public void PushConstants(ShaderStage stages, int offset, ReadOnlySpan<byte> data) {
+        ThrowIfRecording();
+        Add(new(RecordedCommandKind.PushConstants, 0, (long)stages, offset, data.Length));
+    }
+
+    public void BindVertexBuffer(int slot, BufferHandle buffer, long offset = 0) {
+        ThrowIfRecording();
+        Add(new(RecordedCommandKind.BindVertexBuffer, 0, slot, (long)buffer.Value.Packed, offset));
+    }
+
+    public void BindIndexBuffer(BufferHandle buffer, IndexFormat format = IndexFormat.UInt16, long offset = 0) {
+        ThrowIfRecording();
+        Add(new(RecordedCommandKind.BindIndexBuffer, 0, (long)buffer.Value.Packed, (long)format, offset));
+    }
+
+    public void Draw(int vertexCount, int instanceCount = 1, int firstVertex = 0, int firstInstance = 0) {
+        ThrowIfNotDrawing(nameof(Draw));
+        Add(new(RecordedCommandKind.Draw, 0, vertexCount, instanceCount, firstVertex, firstInstance));
+    }
+
+    public void DrawIndexed(
+        int indexCount,
+        int instanceCount = 1,
+        int firstIndex = 0,
+        int vertexOffset = 0,
+        int firstInstance = 0
+    ) {
+        ThrowIfNotDrawing(nameof(DrawIndexed));
+        Add(new(RecordedCommandKind.DrawIndexed, 0, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance));
+    }
+
+    public void DrawIndexedIndirect(BufferHandle arguments, long offset = 0, int drawCount = 1, int stride = 20) {
+        ThrowIfNotDrawing(nameof(DrawIndexedIndirect));
+        Add(new(RecordedCommandKind.DrawIndexedIndirect, 0, (long)arguments.Value.Packed, offset, drawCount, stride));
+    }
+
+    public void Dispatch(int groupsX, int groupsY = 1, int groupsZ = 1) {
+        ThrowIfRecording();
+
+        if (passDepth > 0) {
+            throw new InvalidOperationException(
+                "Dispatch inside a render pass. Compute work belongs between passes — no API allows it "
+                + "inside one, and a tiled GPU would have to resolve the tile to run it."
+            );
+        }
+
+        Add(new(RecordedCommandKind.Dispatch, 0, groupsX, groupsY, groupsZ));
+    }
+
+    public void DispatchIndirect(BufferHandle arguments, long offset = 0) {
+        ThrowIfRecording();
+        Add(new(RecordedCommandKind.DispatchIndirect, 0, (long)arguments.Value.Packed, offset));
+    }
+
+    public void Barrier(in BarrierGroup barriers) {
+        ThrowIfRecording();
+
+        if (passDepth > 0) {
+            throw new InvalidOperationException(
+                "A barrier inside a render pass. The transitions a pass needs are declared by its "
+                + "attachments' load and store actions; a barrier here would split the pass."
+            );
+        }
+
+        if (barriers.IsEmpty) {
+            return;
+        }
+
+        Add(new(RecordedCommandKind.Barrier, 0, barriers.Buffers.Length, barriers.Textures.Length));
+    }
+
+    public void CopyBuffer(
+        BufferHandle source,
+        long sourceOffset,
+        BufferHandle destination,
+        long destinationOffset,
+        long size
+    ) {
+        ThrowIfCopying();
+
+        if (source == destination) {
+            throw new ArgumentException(
+                "A buffer was copied onto itself. Overlapping copies are undefined on every API.",
+                nameof(destination)
+            );
+        }
+
+        Add(
+            new(
+                RecordedCommandKind.CopyBuffer,
+                0,
+                (long)source.Value.Packed,
+                sourceOffset,
+                (long)destination.Value.Packed,
+                destinationOffset,
+                size
+            )
+        );
+    }
+
+    public void CopyBufferToTexture(BufferHandle source, long sourceOffset, in TextureRegion destination, Int3 size) {
+        ThrowIfCopying();
+        Add(new(RecordedCommandKind.CopyBufferToTexture, 0, (long)source.Value.Packed, sourceOffset, (long)destination.Texture.Value.Packed, destination.MipLevel, size.X));
+    }
+
+    public void CopyTextureToBuffer(in TextureRegion source, Int3 size, BufferHandle destination, long destinationOffset) {
+        ThrowIfCopying();
+        Add(new(RecordedCommandKind.CopyTextureToBuffer, 0, (long)source.Texture.Value.Packed, source.MipLevel, (long)destination.Value.Packed, destinationOffset, size.X));
+    }
+
+    public void CopyTexture(in TextureRegion source, in TextureRegion destination, Int3 size) {
+        ThrowIfCopying();
+        Add(new(RecordedCommandKind.CopyTexture, 0, (long)source.Texture.Value.Packed, source.MipLevel, (long)destination.Texture.Value.Packed, destination.MipLevel, size.X));
+    }
+
+    public void PushDebugGroup(string name) {
+        ThrowIfRecording();
+        groupDepth++;
+        Add(new(RecordedCommandKind.PushDebugGroup, 0, Text: name));
+    }
+
+    public void PopDebugGroup() {
+        ThrowIfRecording();
+
+        if (groupDepth == 0) {
+            throw new InvalidOperationException("PopDebugGroup without a matching PushDebugGroup.");
+        }
+
+        groupDepth--;
+        Add(new(RecordedCommandKind.PopDebugGroup, 0));
+    }
+
+    public void InsertDebugMarker(string name) {
+        ThrowIfRecording();
+        Add(new(RecordedCommandKind.InsertDebugMarker, 0, Text: name));
+    }
+
+    public void Dispose() => disposed = true;
+
+    internal void MarkSubmitted() => Submitted = true;
+
+    internal void Flush(CommandRecorder? recorder) {
+        if (recorder is null) {
+            return;
+        }
+
+        foreach (var command in commands) {
+            recorder.Record(command);
+        }
+    }
+
+    void Add(RecordedCommand command) => commands.Add(command with { Sequence = commands.Count });
+
+    void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(disposed, this);
+
+    void ThrowIfRecording() {
+        ThrowIfDisposed();
+
+        if (finished) {
+            throw new InvalidOperationException(
+                $"Command list '{name}' was recorded into after Finish(). A finished list is immutable."
+            );
+        }
+    }
+
+    void ThrowIfNotDrawing(string operation) {
+        ThrowIfRecording();
+
+        if (passDepth == 0) {
+            throw new InvalidOperationException(
+                $"{operation} outside a render pass. There is no target to draw into, and no API allows it."
+            );
+        }
+    }
+
+    void ThrowIfCopying() {
+        ThrowIfRecording();
+
+        if (passDepth > 0) {
+            throw new InvalidOperationException(
+                "A copy inside a render pass, which no API allows — a tiled GPU would have to resolve "
+                + "the tile to perform it."
+            );
+        }
+    }
+}

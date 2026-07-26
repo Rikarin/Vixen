@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Graphics.RenderGraph</RootNamespace>
+        <Description>
+            A transient-resource, automatic-barrier pass graph over the RHI. Passes declare what they
+            read and write; the graph culls what nothing needs, reuses memory between resources whose
+            lifetimes do not overlap, places the barriers, and derives the attachment load and store
+            actions that decide whether a tiled GPU has to touch memory at all.
+        </Description>
+        <PackageTags>render-graph;frame-graph;barriers;rhi;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Graphics\Vixen.Graphics.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Graphics.RenderGraph.Tests" />
+    </ItemGroup>
+
+</Project>

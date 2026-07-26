@@ -1,4 +1,8 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using System.Text;
+using Vixen.Core.Syntax;
 using Vixen.Raven.Syntax;
 
 namespace Tests;
@@ -20,7 +24,7 @@ public static class SyntaxDumper {
         sb.Append(' ', indent * 2);
 
         if (node is SyntaxToken token) {
-            sb.Append("Token(").Append(node.Kind).Append(')');
+            sb.Append("Token(").Append(token.Kind).Append(')');
             var text = SafeText(token);
             if (!string.IsNullOrEmpty(text)) {
                 sb.Append(" \"").Append(text).Append('"');
@@ -30,7 +34,8 @@ public static class SyntaxDumper {
             return;
         }
 
-        sb.Append(node.Kind).Append('\n');
+        // Any node, Raven-typed or a shared list node — go through the raw value.
+        sb.Append((SyntaxKind)node.RawKind).Append('\n');
 
         for (var i = 0; i < node.SlotCount; i++) {
             var child = node.GetSlot(i);

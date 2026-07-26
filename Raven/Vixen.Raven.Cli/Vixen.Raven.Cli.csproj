@@ -9,6 +9,27 @@
         <RootNamespace>Vixen.Raven.Cli</RootNamespace>
     </PropertyGroup>
 
+    <!--
+      Shipped as a dotnet tool: `dotnet tool install -g Vixen.Raven.Cli`, then `raven`.
+      PackageId is explicit because AssemblyName is `raven`, which would otherwise become
+      the package id and squat a very generic name on nuget.org.
+    -->
+    <PropertyGroup>
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>raven</ToolCommandName>
+        <PackageId>Vixen.Raven.Cli</PackageId>
+        <Description>
+            Command-line front end for the Raven shader compiler: compiles .rvn source to GLSL
+            and SPIR-V, and reports diagnostics with source spans.
+        </Description>
+        <PackageTags>shader;compiler;glsl;spirv;vulkan;raven;vixen;dotnet-tool</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Raven\Vixen.Raven.csproj"/>
     </ItemGroup>

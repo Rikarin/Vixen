@@ -1,0 +1,47 @@
+package Vixen.Shaders.Shading
+
+import Vixen.Shaders.Core
+
+// A second specular lobe over the base one: car paint, lacquered wood, wet surfaces.
+//
+// A clear coat is a thin dielectric layer over the material, so it is physically a *second* interface
+// with its own roughness and its own normal. Two things make it more than a second GGX call:
+//
+//   - The coat attenuates what is under it. Light reaching the base has already passed through the
+//     coat twice, so the base lobe is scaled by what the coat did not reflect. Skipping that is why
+//     a naive two-lobe shader is brighter than either lobe alone should allow.
+//   - Its normal can differ from the base's. A scratched coat over smooth metal, or smooth lacquer
+//     over rough wood, is the whole reason the feature exists.
+
+struct ClearCoat {
+    /// A clear coat is a dielectric with an IOR near 1.5, so its f0 is the usual 0.04.
+    const val F0 = 0.04f
+
+    /// The coat's own specular lobe.
+    ///
+    /// The visibility term is deliberately the cheap Kelemen approximation rather than Smith: the
+    /// coat is nearly smooth in almost every case, where the two agree closely, and this is a second
+    /// full lobe evaluated per light. Kelemen's is written `0.25 / LdotH²`; see `ShadingAngles.VdotH`
+    /// for why that is the same field.
+    static func Lobe(a: ShadingAngles, coatRoughness: float): float {
+        val alpha = Brdf.Alpha(coatRoughness)
+        val d = Brdf.DistributionGgx(a.NdotH, alpha)
+        val v = 0.25f / max(a.VdotH * a.VdotH, Const.Epsilon)
+        return d * v * Brdf.FresnelSchlickScalar(F0, a.VdotH)
+    }
+
+    /// How much of what is under the coat still gets out.
+    ///
+    /// Fresnel twice — once entering, once leaving — which is why this is squared rather than a
+    /// single `1 - F`.
+    static func Attenuation(NdotV: float, coatStrength: float): float {
+        val f = Brdf.FresnelSchlickScalar(F0, NdotV) * saturate(coatStrength)
+        return Math.Pow2(1f - f)
+    }
+
+    /// Combines a base contribution with a coat lobe, conserving energy between them.
+    /// The parameter is not called `base`: that is a keyword.
+    static func Combine(under: float3, coat: float, a: ShadingAngles, coatStrength: float): float3 {
+        return under * Attenuation(a.NdotV, coatStrength) + float3(coat * saturate(coatStrength))
+    }
+}

@@ -1,0 +1,180 @@
+package Vixen.Shaders.Vfx
+
+import Vixen.Shaders.Core
+
+// GPU particle simulation — the *forces and integration*, not the dispatch.
+//
+// The dispatch is `ParticleUpdate.rvn`, and the split is deliberate rather than a limitation. This file
+// is free functions over a `Particle` value: the forces, the integrator, and the lifetime curves.
+// Nothing here touches a binding, so the engine's VFX system can compile one graph to both a C# job and
+// the Raven compute shader and compare them bit for bit (doc 06) — and this is the form that makes the
+// CPU port a transliteration rather than a reimplementation.
+//
+// The integrator is semi-implicit Euler, which is what every real-time particle system uses: velocity is
+// updated before position, so a damped or accelerating particle stays stable at large timesteps where
+// explicit Euler oscillates.
+
+/// One particle's state, as the simulation carries it.
+struct Particle {
+    var position: float3
+    var velocity: float3
+
+    /// Seconds since spawn.
+    var age: float
+
+    /// Total lifetime in seconds. `age / lifetime` drives every curve.
+    var lifetime: float
+
+    var size: float
+    var rotation: float
+    var angularVelocity: float
+    var color: float4
+
+    /// The particle's own random stream, seeded at spawn so it is stable across frames.
+    var seed: uint
+}
+
+struct ParticleSimulate {
+    /// How far through its life a particle is, 0..1.
+    static func NormalizedAge(p: Particle): float => saturate(p.age / max(p.lifetime, Const.Epsilon))
+
+    static func IsAlive(p: Particle): bool => p.age < p.lifetime
+
+    /// One simulation step: accumulate forces, then integrate.
+    ///
+    /// `inout` rather than returning a copy, so a force chain reads as a sequence of contributions —
+    /// the same reason `IMaterialSurface` uses it. The order matters and is fixed here: forces first,
+    /// then integration, then the age advance, so a force sees the state at the start of the step.
+    static func Step(inout p: Particle, forces: ParticleForces, deltaTime: float) {
+        val acceleration = Accelerate(p, forces)
+
+        // Semi-implicit: velocity updated first, so damping and acceleration are stable.
+        p.velocity = (p.velocity + acceleration * deltaTime) * pow(max(1f - forces.drag, 0f), deltaTime)
+        p.position = p.position + p.velocity * deltaTime
+        p.rotation = p.rotation + p.angularVelocity * deltaTime
+        p.age = p.age + deltaTime
+    }
+
+    /// The total acceleration acting on a particle.
+    static func Accelerate(p: Particle, forces: ParticleForces): float3 {
+        var acceleration = forces.gravity
+
+        // Turbulence from position rather than from a noise texture: no binding, and it is exactly
+        // reproducible on the CPU, which the bit-for-bit comparison needs.
+        if (forces.turbulence > 0f) {
+            acceleration += Turbulence(p.position * forces.turbulenceScale) * forces.turbulence
+        }
+
+        // A radial force, for an explosion or an implosion.
+        val toCenter = forces.attractorPosition - p.position
+        val distanceSquared = dot(toCenter, toCenter)
+        if (distanceSquared > Const.Epsilon) {
+            val direction = toCenter * rsqrt(distanceSquared)
+            acceleration += direction * (forces.attraction / max(distanceSquared, Const.Epsilon))
+        }
+
+        // A vortex about the attractor's up axis, which is what makes smoke curl.
+        if (forces.vortex != 0f) {
+            acceleration += cross(float3(0f, 1f, 0f), toCenter) * forces.vortex
+        }
+
+        return acceleration
+    }
+
+    /// Curl-free turbulence from three offset noise samples.
+    ///
+    /// Not true curl noise, which needs the noise's gradient: this is three independent value-noise
+    /// fields, which is visibly less swirly and a third of the cost. Good enough for particles, where
+    /// the eye tracks the motion rather than the field.
+    static func Turbulence(position: float3): float3 {
+        val x = uint(int(position.x * 64f))
+        val y = uint(int(position.y * 64f))
+        val z = uint(int(position.z * 64f))
+
+        val a = Random.Signed(Random.Hash3(x, y, z))
+        val b = Random.Signed(Random.Hash3(y, z, x))
+        val c = Random.Signed(Random.Hash3(z, x, y))
+        return float3(a, b, c)
+    }
+
+    // --- Lifetime curves --------------------------------------------------
+
+    /// Size over life: grow in, hold, shrink out.
+    ///
+    /// One function rather than a curve texture, because this shape covers nearly every particle and a
+    /// texture would need a binding and a sampler per emitter.
+    static func SizeOverLife(p: Particle, startSize: float, endSize: float, growIn: float): float {
+        val t = NormalizedAge(p)
+        val fadeIn = saturate(t / max(growIn, Const.Epsilon))
+        return lerp(startSize, endSize, t) * fadeIn
+    }
+
+    /// Colour over life, with alpha faded at both ends so nothing pops in or out.
+    static func ColorOverLife(p: Particle, start: float4, end: float4, fadeIn: float, fadeOut: float): float4 {
+        val t = NormalizedAge(p)
+        val color = lerp(start, end, t)
+
+        val appear = saturate(t / max(fadeIn, Const.Epsilon))
+        val disappear = saturate((1f - t) / max(fadeOut, Const.Epsilon))
+        return float4(color.rgb, color.a * appear * disappear)
+    }
+
+    /// Initialises a particle at spawn, from its seed.
+    ///
+    /// Every random draw comes from the seed rather than from time, which is what makes a re-simulation
+    /// from the same seed produce the same particle — the property the CPU/GPU comparison rests on.
+    static func Spawn(seed: uint, emitter: ParticleEmitter): Particle {
+        var p: Particle
+        p.seed = seed
+        p.age = 0f
+        p.lifetime = Random.Range(seed, emitter.lifetimeMin, emitter.lifetimeMax)
+
+        val direction = Random.OnHemisphere(seed ^ 0x1u, emitter.direction)
+        val speed = Random.Range(seed ^ 0x2u, emitter.speedMin, emitter.speedMax)
+
+        p.position = emitter.position + Random.OnSphere(seed ^ 0x3u) * emitter.radius
+        p.velocity = direction * speed
+        p.size = Random.Range(seed ^ 0x4u, emitter.sizeMin, emitter.sizeMax)
+        p.rotation = Random.Float01(seed ^ 0x5u) * Const.TwoPi
+        p.angularVelocity = Random.Signed(seed ^ 0x6u) * emitter.spin
+        p.color = emitter.color
+        return p
+    }
+}
+
+/// The forces acting on a simulation step.
+struct ParticleForces {
+    var gravity: float3
+
+    /// Fraction of velocity lost per second, 0..1.
+    var drag: float
+
+    var turbulence: float
+    var turbulenceScale: float
+
+    var attractorPosition: float3
+
+    /// Positive attracts, negative repels.
+    var attraction: float
+
+    /// Rotation about the attractor's up axis.
+    var vortex: float
+}
+
+/// An emitter's spawn parameters.
+struct ParticleEmitter {
+    var position: float3
+    var radius: float
+
+    /// The hemisphere axis new particles are emitted into.
+    var direction: float3
+
+    var speedMin: float
+    var speedMax: float
+    var lifetimeMin: float
+    var lifetimeMax: float
+    var sizeMin: float
+    var sizeMax: float
+    var spin: float
+    var color: float4
+}

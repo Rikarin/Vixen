@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using System.Globalization;
 using System.Text;
 
@@ -53,6 +56,20 @@ public static class IrPrinter {
     static void PrintShader(Writer writer, IrShader shader) {
         writer.Line($"shader {shader.Name}");
         writer.Indent();
+
+        // What the shader can be varied by. Folded out of every body by this point, so the dump
+        // is the only place it is visible.
+        foreach (var parameter in shader.ValueParameters) {
+            writer.Line($"parameter {parameter.Name} : {parameter.Type.Name}");
+        }
+
+        foreach (var permutation in shader.Permutations) {
+            var value = permutation.DefaultValue is null
+                ? string.Empty
+                : $" = {FormatConstant(permutation.DefaultValue)}";
+
+            writer.Line($"permutation {permutation.Name} : {permutation.Type.Name}{value}");
+        }
 
         foreach (var binding in shader.Bindings) {
             var semantic = binding.Semantic is null ? string.Empty : $" semantic \"{binding.Semantic}\"";
@@ -187,12 +204,13 @@ public static class IrPrinter {
             IrConstantInstruction constant => $"const {FormatConstant(constant.Value)}",
             IrLoadInstruction load => $"load {load.Place}",
             IrStoreInstruction store => $"store {store.Place}, {store.Value}",
+            IrArrayLengthInstruction length => $"length {length.Place}",
             IrUnaryInstruction unary => $"{Lower(unary.Op)} {unary.Operand}",
             IrBinaryInstruction binary => $"{Lower(binary.Op)} {binary.Left}, {binary.Right}",
             IrConvertInstruction convert => $"convert.{Lower(convert.ConversionKind)} {convert.Operand}",
             IrIntrinsicInstruction intrinsic =>
                 $"intrinsic.{Lower(intrinsic.Intrinsic)} {Join(intrinsic.Arguments)}".TrimEnd(),
-            IrCallInstruction call => $"call {call.Function.Name}({Join(call.Arguments)})",
+            IrCallInstruction call => $"call {call.Function.Name}({string.Join(", ", call.Arguments)})",
             IrConstructInstruction construct => $"construct {Join(construct.Arguments)}".TrimEnd(),
             IrExtractInstruction extract =>
                 $"extract {extract.Source}{string.Concat(extract.Chain.Select(a => a.ToString()))}",

@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax.Diagnostics;
+
 namespace Vixen.Raven.CodeGen.Spirv;
 
 /// <summary>Values a module declares support for.</summary>
@@ -36,7 +41,14 @@ public enum SpirvStorageClass {
     Input = 1,
     Uniform = 2,
     Output = 3,
-    Function = 7
+    Function = 7,
+
+    /// <summary>
+    ///     A storage buffer. Distinct from <see cref="Uniform" /> because it is the writable one and
+    ///     because it carries a std430 layout; in SPIR-V 1.0 it also requires the
+    ///     <c>SPV_KHR_storage_buffer_storage_class</c> extension, which Vulkan 1.0 has and 1.1 folded in.
+    /// </summary>
+    StorageBuffer = 12
 }
 
 public enum SpirvDim {
@@ -51,6 +63,7 @@ public enum SpirvImageFormat {
 
 public enum SpirvDecoration {
     Block = 2,
+    BufferBlock = 3,
     RowMajor = 4,
     ColMajor = 5,
     ArrayStride = 6,
@@ -59,6 +72,7 @@ public enum SpirvDecoration {
     Location = 30,
     Binding = 33,
     DescriptorSet = 34,
+    NonWritable = 24,
     Offset = 35
 }
 
@@ -66,7 +80,35 @@ public enum SpirvBuiltIn {
     Position = 0,
     PointSize = 1,
     FragCoord = 15,
-    FragDepth = 22
+    FragDepth = 22,
+
+    // The compute dispatch ids. Numbers are from the SPIR-V spec's BuiltIn table; the names
+    // are SPIR-V's, which differ from HLSL's semantics — see Symbols/ComputeBuiltIns.
+    WorkgroupSize = 25,
+    WorkgroupId = 26,
+    LocalInvocationId = 27,
+    GlobalInvocationId = 28,
+    LocalInvocationIndex = 29
+}
+
+/// <summary>
+///     The SPIR-V built-in each dispatch semantic maps to.
+/// </summary>
+/// <remarks>
+///     Separate from <c>ComputeBuiltIns</c>'s GLSL mapping so that neither target's spelling is
+///     the one the other has to be derived from — but both read the same
+///     <see cref="Symbols.ComputeBuiltIn" />, so a built-in added in one place cannot be
+///     silently missing here.
+/// </remarks>
+public static class SpirvBuiltIns {
+    public static SpirvBuiltIn Of(Symbols.ComputeBuiltIn builtIn) =>
+        builtIn switch {
+            Symbols.ComputeBuiltIn.DispatchThreadId => SpirvBuiltIn.GlobalInvocationId,
+            Symbols.ComputeBuiltIn.GroupId => SpirvBuiltIn.WorkgroupId,
+            Symbols.ComputeBuiltIn.GroupThreadId => SpirvBuiltIn.LocalInvocationId,
+            Symbols.ComputeBuiltIn.GroupIndex => SpirvBuiltIn.LocalInvocationIndex,
+            _ => throw new ArgumentOutOfRangeException(nameof(builtIn), builtIn, "Not a dispatch built-in.")
+        };
 }
 
 public enum SpirvFunctionControl {

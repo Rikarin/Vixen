@@ -22,6 +22,47 @@ csharp_style_namespace_declarations = file_scoped:warning
 dotnet_sort_system_directives_first = true
 dotnet_separate_import_directive_groups = false
 
+# Layout. These are not preferences so much as a description: every file in the repository is
+# written this way, and until they were written down `dotnet format` defaulted to Allman and
+# reported some forty thousand whitespace violations against code that was entirely consistent
+# with itself. A config that disagrees with the whole codebase is the thing that is wrong.
+csharp_new_line_before_open_brace = none
+csharp_new_line_before_else = false
+csharp_new_line_before_catch = false
+csharp_new_line_before_finally = false
+csharp_new_line_before_members_in_object_initializers = true
+csharp_new_line_before_members_in_anonymous_types = true
+csharp_new_line_between_query_expression_clauses = true
+csharp_indent_case_contents = true
+csharp_indent_switch_labels = true
+csharp_indent_labels = one_less_than_current
+csharp_indent_block_contents = true
+csharp_indent_braces = false
+csharp_indent_case_contents_when_block = false
+csharp_space_after_cast = false
+csharp_space_after_keywords_in_control_flow_statements = true
+csharp_space_before_colon_in_inheritance_clause = true
+csharp_space_after_colon_in_inheritance_clause = true
+csharp_space_around_binary_operators = before_and_after
+csharp_space_between_method_declaration_parameter_list_parentheses = false
+csharp_space_between_method_declaration_empty_parameter_list_parentheses = false
+csharp_space_between_method_declaration_name_and_open_parenthesis = false
+csharp_space_between_method_call_parameter_list_parentheses = false
+csharp_space_between_method_call_empty_parameter_list_parentheses = false
+csharp_space_between_method_call_name_and_opening_parenthesis = false
+csharp_space_after_comma = true
+csharp_space_before_comma = false
+csharp_space_after_dot = false
+csharp_space_before_dot = false
+csharp_space_after_semicolon_in_for_statement = true
+csharp_space_before_semicolon_in_for_statement = false
+csharp_space_around_declaration_statements = false
+csharp_space_before_open_square_brackets = false
+csharp_space_between_empty_square_brackets = false
+csharp_space_between_square_brackets = false
+csharp_preserve_single_line_statements = true
+csharp_preserve_single_line_blocks = true
+
 # Modern C# the plan leans on
 csharp_style_var_for_built_in_types = true:suggestion
 csharp_style_var_when_type_is_apparent = true:suggestion
@@ -40,21 +81,65 @@ dotnet_style_readonly_field = true:warning
 dotnet_style_prefer_conditional_expression_over_assignment = true:silent
 dotnet_style_namespace_match_folder = true:suggestion
 
-# Naming: _camelCase private fields, PascalCase everything public
-dotnet_naming_rule.private_fields_underscore.severity = warning
-dotnet_naming_rule.private_fields_underscore.symbols = private_fields
-dotnet_naming_rule.private_fields_underscore.style = underscore_camel
-dotnet_naming_symbols.private_fields.applicable_kinds = field
-dotnet_naming_symbols.private_fields.applicable_accessibilities = private
-dotnet_naming_style.underscore_camel.required_prefix = _
-dotnet_naming_style.underscore_camel.capitalization = camel_case
+# Accessibility modifiers are written only when they change something: `private` on
+# a member and `internal` on a type are the defaults and are left off, which is what
+# the whole tree does. `private protected` and friends still get spelled out.
+dotnet_style_require_accessibility_modifiers = omit_if_default:suggestion
 
-dotnet_naming_rule.public_members_pascal.severity = warning
-dotnet_naming_rule.public_members_pascal.symbols = public_members
-dotnet_naming_rule.public_members_pascal.style = pascal
-dotnet_naming_symbols.public_members.applicable_kinds = property,method,event,field
-dotnet_naming_symbols.public_members.applicable_accessibilities = public,protected,internal
+# ------------------------------------------------------------------------------
+# Naming. Two styles, and the line between them is visibility, not storage:
+# PascalCase for anything a caller can name, camelCase for mutable private state.
+#
+# No `_` prefix. This file used to mandate one and not a single file in the
+# repository has ever had one — `Vixen.Core.Syntax` and Raven both write bare
+# `readonly string text;`. A convention that every file violates is not a
+# convention, so the config now records the style that is actually written.
+#
+# Order matters: the first matching rule wins, so the const and static-readonly
+# rules have to precede the private-field rule they carve exceptions out of.
+# ------------------------------------------------------------------------------
 dotnet_naming_style.pascal.capitalization = pascal_case
+dotnet_naming_style.camel.capitalization = camel_case
+
+# Constants name a value, so they read as names regardless of accessibility.
+dotnet_naming_rule.constants_pascal.severity = warning
+dotnet_naming_rule.constants_pascal.symbols = constants
+dotnet_naming_rule.constants_pascal.style = pascal
+dotnet_naming_symbols.constants.applicable_kinds = field
+dotnet_naming_symbols.constants.applicable_accessibilities = *
+dotnet_naming_symbols.constants.required_modifiers = const
+
+# So do the static readonly lookup tables the compiler and the engine are full of
+# (`Intrinsics.FloatTypes`, `GlslTypes.Reserved`, `PooledDictionary.Pool`): they are
+# fixed data, not state that changes as the program runs.
+dotnet_naming_rule.static_readonly_pascal.severity = warning
+dotnet_naming_rule.static_readonly_pascal.symbols = static_readonly_fields
+dotnet_naming_rule.static_readonly_pascal.style = pascal
+dotnet_naming_symbols.static_readonly_fields.applicable_kinds = field
+dotnet_naming_symbols.static_readonly_fields.applicable_accessibilities = *
+dotnet_naming_symbols.static_readonly_fields.required_modifiers = static,readonly
+
+# Everything else that is private state: camelCase, no prefix.
+dotnet_naming_rule.private_fields_camel.severity = warning
+dotnet_naming_rule.private_fields_camel.symbols = private_fields
+dotnet_naming_rule.private_fields_camel.style = camel
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private, private_protected
+
+# Members are PascalCase at every accessibility. Only fields distinguish, because
+# only fields are state; a private helper like `SlidingTextWindow.GetText` reads the
+# same as a public one and the tree has always written it that way.
+dotnet_naming_rule.members_pascal.severity = warning
+dotnet_naming_rule.members_pascal.symbols = members
+dotnet_naming_rule.members_pascal.style = pascal
+dotnet_naming_symbols.members.applicable_kinds = property,method,event
+dotnet_naming_symbols.members.applicable_accessibilities = *
+
+dotnet_naming_rule.public_fields_pascal.severity = warning
+dotnet_naming_rule.public_fields_pascal.symbols = public_fields
+dotnet_naming_rule.public_fields_pascal.style = pascal
+dotnet_naming_symbols.public_fields.applicable_kinds = field
+dotnet_naming_symbols.public_fields.applicable_accessibilities = public,protected,internal
 
 # Performance analyzers the "zero allocation in the frame loop" rule depends on.
 # Kept at `suggestion` repo-wide so the IDE surfaces them without breaking the
@@ -110,6 +195,15 @@ dotnet_diagnostic.CA1859.severity = none
 # rule would make the compiler harder to read, not easier. 19 findings.
 dotnet_diagnostic.CA1720.severity = none
 
+# CA1000 — do not declare static members on generic types.
+# The rule predates generic type inference and argues that `Handle<Buffer>.Null`
+# is hard to read. The BCL disagrees with itself here — Span<T>.Empty,
+# Vector128<T>.Zero, ImmutableArray<T>.Empty — and static abstract interface
+# members make static members on generic types mandatory rather than merely
+# idiomatic. A `Null`/`Empty`/`Zero` on the type it belongs to is the discoverable
+# place for it; the alternative is a non-generic helper class nobody finds.
+dotnet_diagnostic.CA1000.severity = none
+
 # CA1062 — validate arguments of public methods.
 # An engine cannot afford a null check on every public entry point: these sit in
 # frame-loop hot paths, and the "zero allocation / no overhead in the frame loop"
@@ -118,17 +212,43 @@ dotnet_diagnostic.CA1720.severity = none
 dotnet_diagnostic.CA1062.severity = none
 
 # ------------------------------------------------------------------------------
-# Raven's SyntaxGenerator: XmlSerializer DTOs for Syntax.xml.
-# XmlSerializer dictates the shape of these types — it requires public types,
-# needs settable List<T> properties to populate collections, and needs a real
-# array for [XmlAnyElement]. The rules below all describe good *public API*
-# design, which is not what these types are: nothing consumes this assembly's
-# API (it is referenced as an analyzer with ReferenceOutputAssembly=false).
+# The Raven compiler.
 # ------------------------------------------------------------------------------
-[Raven/Vixen.Raven.SyntaxGenerator/**.cs]
-dotnet_diagnostic.CA1002.severity = none   # List<T> in API — XmlSerializer collection contract
-dotnet_diagnostic.CA2227.severity = none   # settable collection — XmlSerializer assigns it
-dotnet_diagnostic.CA1819.severity = none   # XmlElement[] — required by [XmlAnyElement]
+[Raven/Vixen.Raven/**.cs]
+# CA1711 — identifiers should not have a reserved suffix.
+# `stream` is one of Raven's own keywords: a value written by one pipeline stage
+# and read by the next (docs/plan/07 § I). `IrStream` and `PlannedStream` are
+# named after the declaration they model, and sit beside `IrBinding` and
+# `IrStageIo` where nothing could read them as a System.IO.Stream. Same reasoning
+# as CA1720 above — the shading language's vocabulary wins over a .NET API-naming
+# convention — and scoped to the compiler so a genuinely misleading `FooStream`
+# elsewhere is still reported. 2 findings.
+dotnet_diagnostic.CA1711.severity = none
+
+# ------------------------------------------------------------------------------
+# The indexed priority queue.
+# ------------------------------------------------------------------------------
+[Core/Vixen.Core.Collections/IndexedPriorityQueue.cs]
+# CA1711 — identifiers should not have a reserved suffix.
+# The rule wants a `*Queue` to derive from System.Collections.Queue, a
+# non-generic type from .NET 1.0 that nothing should derive from. This type is a
+# priority queue in every sense that matters — Enqueue, Dequeue, Peek, Count —
+# and "priority queue" is what somebody looking for it will search for. Calling
+# it a heap to satisfy the rule would name the implementation instead of the
+# abstraction. 1 finding.
+dotnet_diagnostic.CA1711.severity = none
+
+# ------------------------------------------------------------------------------
+# Pooled collection rentals.
+# ------------------------------------------------------------------------------
+[Core/Vixen.Core/Pooling/PooledDictionary.cs]
+# CA1711 — identifiers should not have a reserved suffix.
+# The rule wants a type named `*Dictionary` to implement IDictionary<K,V>.
+# PooledDictionary<K,V> deliberately does not: it is a mutable struct handle to a
+# rented dictionary, and implementing the interface would box it at every call
+# site — precisely the allocation the type exists to remove. The suffix is not
+# misleading, it is accurate, and docs/plan/03 specifies the name. 1 finding.
+dotnet_diagnostic.CA1711.severity = none
 
 # ------------------------------------------------------------------------------
 # Test projects.
@@ -140,3 +260,37 @@ dotnet_diagnostic.CA1819.severity = none   # XmlElement[] — required by [XmlAn
 # it is the dominant xunit convention and it makes failure output readable.
 # 250 findings — this single rule was 88% of everything latest-recommended found.
 dotnet_diagnostic.CA1707.severity = none
+
+# CA1861 — prefer static readonly fields over constant array arguments.
+# The rule targets repeated calls in hot code. In a test the constant array *is*
+# the expectation: `Assert.Equal(new[] { "pipeline", "swapchain", "device" }, log)`
+# says what the test asserts on the line that asserts it, and hoisting each one to
+# a named field would scatter every expectation away from its assertion for an
+# allocation that happens once per test. Escalated to warning under Core/ and
+# Platform/ above, where the allocation budget is real.
+dotnet_diagnostic.CA1861.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Core.Serialization.Tests/Contracts.cs
+#
+# CA1051 (do not declare visible instance fields). These types exist to exercise
+# every shape the [DataContract] generator has to handle, and a public mutable
+# field is one of them — the attribute's own documentation names public fields as
+# part of the serialised form. A contract that avoided them would test the
+# generator against a shape no real contract uses.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Core.Serialization.Tests/Contracts.cs]
+dotnet_diagnostic.CA1051.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Platform/Vixen.Platform/Input/Key.cs
+#
+# CS1591 (missing XML comment). `Key` names roughly 120 physical key positions,
+# and the name of each one is already the whole of what can be said about it: a
+# `<summary>The A key.</summary>` on `A` adds nothing and, repeated a hundred
+# times, buries the members that genuinely need explaining — why `Q` is not the
+# letter Q, what `NonUsBackslash` is, why `Back` sits outside the HID range. Those
+# carry comments; the rest are their own documentation.
+# ─────────────────────────────────────────────────────────────────────────────
+[Platform/Vixen.Platform/Input/Key.cs]
+dotnet_diagnostic.CS1591.severity = none

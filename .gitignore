@@ -5,9 +5,19 @@ artifacts/
 *.user
 *.suo
 
-# Vixen project-local caches (never committed — reproducible from source + .meta)
+# Vixen project-local caches (never committed — reproducible from source + .meta).
+# The negation is load-bearing: Raven/Library/ is the shipped .rvn standard library
+# (docs/plan/02 § Raven), not a cache, and a bare `Library/` swallowed it. Example1.rvn
+# and Example2.rvn were tracked only because they predate this rule — anything added
+# beside them was invisible to git.
 Library/
-Build/
+!Raven/Library/
+
+# `Build/` used to be listed here, and it made the entire Nuke build project
+# invisible to git: macOS and Windows match ignore patterns case-insensitively, so
+# it swallowed `build/` — Build.cs, the architecture rules, _build.csproj, all of
+# it. `build.sh` was tracked; the project it runs was not. Compiled output is
+# already covered by [Bb]in/ and [Oo]bj/ above, so the line was buying nothing.
 
 # ANTLR: the IDE plugin's scratch dir, and the .tokens/.interp vocabularies.
 # The build regenerates these into obj/ from the .g4 files; a committed copy only
@@ -29,6 +39,8 @@ Thumbs.db
 # Test / coverage
 TestResults/
 *.trx
+# Written beside a golden file when it does not match, for eyeballing the diff.
+*.actual
 coverage*.json
 coverage*.xml
 BenchmarkDotNet.Artifacts/
@@ -36,5 +48,12 @@ BenchmarkDotNet.Artifacts/
 # Native deps restored by `nuke RestoreNativeDeps`
 /native/
 
-# Reference clones (see docs/plan/02 § references/) — submodules or local clones
-/references/
+# Reference clones (see docs/plan/02 § references/) — local clones, not submodules.
+# The README is tracked so the directory explains itself and carries the clone commands.
+/references/*
+!/references/README.md
+
+# Nuke's generated schema and run logs, and BenchmarkDotNet's scratch
+/.nuke/build.schema.json
+/.nuke/temp/
+/BenchmarkDotNet.Artifacts/

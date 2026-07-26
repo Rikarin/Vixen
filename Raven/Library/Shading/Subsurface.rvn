@@ -1,0 +1,69 @@
+package Vixen.Shaders.Shading
+
+import Vixen.Shaders.Core
+
+// Light that enters the surface, scatters, and leaves somewhere else: skin, marble, wax, leaves.
+//
+// Real subsurface scattering is a diffusion problem over the surface, which needs either a screen-space
+// blur pass (see `PostFx`) or a precomputed profile. What belongs *here* is the part a forward shader
+// can do per light: wrapped diffuse for the near-field softening, and back-lit transmission for thin
+// geometry.
+//
+// The distinction matters because the two are often confused. Wrapped diffuse changes how a lit
+// surface falls off into shadow; transmission is light arriving from *behind*. A leaf needs both, and
+// they look nothing alike.
+
+struct Subsurface {
+    /// Wrapped diffuse: the terminator softens and moves past 90 degrees.
+    ///
+    /// `wrap` of 0 is Lambert. The `(1 + wrap)²` denominator is the normalisation — without it,
+    /// wrapping brightens the whole surface instead of only redistributing where the light falls,
+    /// which is the mistake that makes wrapped skin look washed out.
+    static func Wrapped(NdotL: float, wrap: float): float {
+        val w = saturate(wrap)
+        val wrapped = saturate((NdotL + w) / Math.Pow2(1f + w))
+        return wrapped
+    }
+
+    /// Wrapped diffuse tinted by a scattering colour, which is what makes skin's terminator red.
+    ///
+    /// The tint is applied by how far *into* the wrap a point is, not uniformly: the reddening should
+    /// appear only where light is grazing, because that is where the path through the flesh is long.
+    static func WrappedTinted(albedo: float3, scatterColor: float3, NdotL: float, wrap: float): float3 {
+        val lit = Wrapped(NdotL, wrap)
+        val depth = saturate(1f - saturate(NdotL) / max(lit, Const.Epsilon))
+        return albedo * Const.InvPi * lit * lerp(float3(1f), scatterColor, depth)
+    }
+
+    /// Light arriving from behind thin geometry.
+    ///
+    /// The `-l` in the reflection is what makes it back-lighting: the lobe points away from the
+    /// viewer's side of the surface, so it appears when the light is behind the object and vanishes
+    /// when it is in front. `thickness` is authored, usually as a texture — geometry a shader cannot
+    /// measure.
+    static func Transmission(tint: float3, s: BackLight, thickness: float, power: float): float3 {
+        val transmitted = Math.SafeNormalize(-s.l + s.n * 0.1f)
+        val intensity = pow(saturate(dot(s.v, -transmitted)), max(power, 1f))
+        return tint * intensity * saturate(1f - thickness)
+    }
+
+    /// The Burley/Christensen diffusion profile weight for a distance, per channel.
+    ///
+    /// The kernel a separable screen-space blur samples. Here rather than in the post-process because
+    /// the profile is a material property — the blur pass reads the same numbers the forward pass
+    /// used, and computing them twice is how the two come to disagree.
+    static func BurleyProfile(radius: float, scatterDistance: float3): float3 {
+        val d = max(scatterDistance, float3(Const.Epsilon))
+        val r = max(radius, Const.Epsilon)
+        val first = exp(-r / d)
+        val second = exp(-r / (d * 3f))
+        return (first + second) / (8f * Const.Pi * d * r)
+    }
+}
+
+/// The three vectors back-lighting needs, bundled to keep the signature on one line.
+struct BackLight {
+    var n: float3
+    var v: float3
+    var l: float3
+}

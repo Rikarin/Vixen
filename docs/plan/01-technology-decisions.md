@@ -23,7 +23,7 @@ Versions verified against `api.nuget.org` at plan time. These go verbatim into
 |---|---|---|---|
 | `Silk.NET.Core` | 2.23.0 | `Vixen.Graphics` | The only maintained, complete, AOT-friendly .NET binding set for Vulkan/D3D12/GL/WebGPU. Veldrid is unmaintained; SharpDX is dead; hand-binding Vulkan is a year of work. |
 | `Silk.NET.Vulkan` (+ `.Extensions.KHR`, `.EXT`) | 2.23.0 | `Vixen.Graphics.Vulkan` | Primary target. |
-| `Silk.NET.SDL` | 2.23.0 | `Vixen.Platform.Desktop` | Windowing/input/gamepad on all three desktops + surface creation for Vulkan/GL. Chosen over GLFW because SDL covers gamepads, haptics, IME, clipboard, and mobile. **Not usable on web** — `Silk.NET.Windowing` has no browser TFM (verified), so `Vixen.Platform.Web` implements the surface itself. |
+| `Silk.NET.SDL` | 2.23.0 | `Vixen.Platform.Desktop` | Windowing/input/gamepad on all three desktops + surface creation for Vulkan/GL. Chosen over GLFW because SDL covers gamepads, haptics, IME, clipboard, and mobile. ⚠ **This is SDL 2, not SDL 3** — an earlier draft of this row said SDL 3 and was wrong. Silk.NET 2.x binds SDL 2 (verified: `CreateWindow` takes SDL 2's six arguments); SDL 3 bindings exist only in the Silk.NET 3.0 previews. Costs us `SDL_ShowOpenFileDialog`, which is why file pickers are owed to the per-OS assemblies. **Bindings only** — there is no `Silk.NET.SDL.Native` package, so `libSDL2` comes from the system or from `Vixen.Platform.Native`. **Not usable on web** — `Silk.NET.Windowing` has no browser TFM (verified), so `Vixen.Platform.Web` implements the surface itself. |
 | `Silk.NET.OpenGLES` | 2.23.0 | `Vixen.Graphics.OpenGL` (GLES + WebGL2 profiles) | Verified driving real WebGL2 from `browser-wasm` via `LamdaNativeContext` + `emscripten_GetProcAddress`; trims to 25 KB Brotli. See [spikes/web-webgl2](spikes/web-webgl2/RESULT.md). |
 | `Silk.NET.Maths` | 2.23.0 | interop shim only | **Not** the engine math type. See ADR-003. |
 | `Silk.NET.Assimp` | 2.23.0 | `Vixen.Editor.Assets` (import-time only) | Model import. Never referenced by runtime assemblies. |
@@ -157,9 +157,29 @@ SIMD intrinsics and bloats generic instantiation on AOT. Both get free bidirecti
 `implicit operator` conversions so interop is invisible at call sites, and
 `System.Numerics.Vector128/256/512` is used *inside* our implementations.
 
-**Convention (write it down once, never argue again):** right-handed, Y-up, **column-vector**
+> **`readonly struct`, not `readonly record struct`** — corrected once the types were written. The
+> ADR's *other* requirement, public readonly **fields** so `ref` returns and `Unsafe.As` are legal and
+> free, takes away everything `record` would have given: a positional record declares properties, not
+> fields; with readonly fields and no positional parameters `with` has nothing to set; and `Equals`,
+> `GetHashCode`, `==` and `ToString` are all hand-written (IEEE equality, normalising hash), so every
+> synthesised member would be replaced. `record` was left contributing a keyword. Only the wording
+> changes — every property the ADR asked for is in the implementation, and the reasoning is repeated
+> in `Core/Vixen.Core.Mathematics/Conventions.md` where the next reader will be standing.
+
+**Convention (write it down once, never argue again):** right-handed, Y-up, **row-vector**
 convention with **row-major storage** (`M11..M44`, translation in `M41..M43`), matching Stride and
 HLSL's `mul(v, M)`. Depth range 0..1 with reverse-Z. Raven's generated code assumes this.
+
+> **Corrected wording.** This originally read "column-vector convention", which contradicted the rest
+> of its own sentence: `mul(v, M)` puts the vector on the left, and a translation in `M41..M43` is the
+> last *row*. Both are the row-vector convention, which is what Stride and HLSL use and what the
+> implementation does. Only the word was wrong.
+>
+> **The GPU side is not a contradiction either.** Raven decorates matrices `ColMajor` while the host
+> stores them row-major. Those are the same bytes read two ways, and they compose to exactly
+> `mul(v, M)` at no cost — the derivation is in
+> [07 § E](07-raven-shader-pipeline.md#e-conventions-raven-must-bake-in), pinned by a test that reads
+> the emitted decorations.
 
 ### ADR-004 — Vixen implements its own archetype ECS, informed by Arch
 
@@ -265,20 +285,46 @@ ZLogger for file/console. The editor console reads the ring buffer directly.
 compile-time format validation and works on AOT. Standard interface means users can plug Serilog or
 OpenTelemetry if they want. See [13](13-diagnostics.md).
 
-### ADR-009 — Two markup parsers, both hand-written recursive descent
+### ADR-009 — Hand-written recursive descent for every front end — ⚠️ **amended**
 
 **Decision.** VXML and the utility-class extractor are hand-written parsers producing full-fidelity
-syntax trees with trivia, in the same shape as Raven's `Compiler/Syntax`. VCSS uses ExCSS for
+syntax trees with trivia, in the same shape as Raven's `Syntax/`. VCSS uses ExCSS for
 tokenizing/parsing and a Vixen-owned cascade/selector-matching engine on top.
 
-**Rationale.** ANTLR is right for Raven (a real programming language, grammar evolves, error recovery
-is table-driven). It is wrong for VXML: we need sub-millisecond incremental reparse for hot reload,
-precise squiggle positions for the editor, and error recovery tuned to the "user is mid-typing an
-attribute" case. Hand-written parsers are also what Roslyn, TypeScript, and every serious IDE
-front-end use, for these reasons.
+**Amended:** *and Raven, eventually, too.* ANTLR was right for Raven's **bootstrap** — it is not the
+right end state. See [18-raven-parser-migration.md](18-raven-parser-migration.md) for the finding, the
+plan and the timing. Summary of why the original rationale below no longer holds:
+
+- **"Error recovery is table-driven"** was listed as a reason *for* ANTLR. In practice its recovery
+  produces trees the ANTLR→green translator cannot map, and `SyntaxTree.ParseText` has to *discard the
+  tree* to cope. Messages are of the "no viable alternative at input" and "expecting {…40 tokens…}"
+  kind — fine for a CLI, wrong under an editor squiggle.
+- **The Raven/VXML split does not hold.** The reason given for hand-writing VXML was sub-millisecond
+  incremental reparse for hot reload. [Doc 09](09-ui-framework.md) specifies a `CodeEditor` doing
+  *"syntax highlighting via `Vixen.Core.Syntax` (Raven/VXML/VCSS/C#)"* — so `.rvn` gets typed in an
+  editor with live squiggles as well, and needs the same thing.
+- **Sharing the tree turned into an argument against ANTLR.** With `Vixen.Core.Syntax` extracted, the
+  node-reuse blender belongs in the shared layer and VXML/VCSS both get it. Raven cannot use it — ANTLR
+  has no notion of reusing an existing tree — so Raven becomes the one front end that cannot benefit
+  from the shared investment, inverting the point of extracting it.
+
+**What has not changed:** ANTLR is genuinely better while a grammar is churning, and the `.g4` files
+are readable specification. The migration is therefore sequenced *after* the language surface settles,
+and the grammar is **kept afterwards as a differential oracle** rather than deleted.
+
+**The framing that was wrong.** ADR-009 read this as a per-language judgement between two parser
+technologies. The sharper statement: Roslyn's design is an **XML-generated tree plus a hand-written
+parser**, with no grammar file or parser generator anywhere in it. Raven adopted the first half
+verbatim — same `Syntax.xml`, same generator, same three generated files — and bolted ANTLR onto the
+front through a 1 490-line translator. Hand-writing Raven's parser *completes* that design rather than
+reversing a decision.
+
+**Rationale (original, retained).** Hand-written parsers are what Roslyn, TypeScript, and every serious
+IDE front-end use: incremental reparse, precise squiggle positions, and error recovery tuned to
+"the user is mid-typing".
 
 Reusing Raven's `GreenNode`/red-tree infrastructure across all three front ends (Raven, VXML, VCSS)
-is an explicit goal — it gets extracted into `Vixen.Core.Syntax` in Phase 0.
+is an explicit goal — ✅ extracted into `Vixen.Core.Syntax` in Phase 0.
 
 ### ADR-010 — Fine-grained reactivity, not a virtual DOM
 

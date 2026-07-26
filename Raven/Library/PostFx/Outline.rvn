@@ -1,0 +1,118 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// Selection and stylistic outlines, from depth and normal discontinuities.
+//
+// The editor needs this, which is why it is P1 rather than a stylistic extra. Two edge sources, because
+// neither alone is enough: a depth edge finds a silhouette against a distant background but misses a
+// crease on one object, and a normal edge finds the crease but misses two coplanar surfaces at different
+// depths. Real outlining needs both, combined with a max.
+//
+// Depth edges are found on *linear* depth, not device depth. Device depth is nonlinear, so a fixed
+// threshold on it finds edges everywhere near the camera and nowhere far away — the classic mistake, and
+// the reason an outline pass usually needs the projection's near and far planes.
+
+shader Outline {
+    /// Whether to include normal-based edges as well as depth ones.
+    [Permutation] val UseNormals: bool = true
+
+    /// Whether to mask to a selection buffer rather than outlining everything.
+    [Permutation] val SelectionOnly: bool = false
+
+    var source: Texture2D
+    var depthBuffer: Texture2D
+    var normalBuffer: Texture2D
+    var selectionMask: Texture2D
+    var pointSampler: Sampler
+
+    var texelSize: float2 = float2(0.001f, 0.001f)
+    var outlineColor: float4 = float4(1f, 0.6f, 0f, 1f)
+
+    /// Thickness in texels.
+    var thickness: float = 1.5f
+
+    var nearPlane: float = 0.1f
+    var farPlane: float = 1000f
+
+    /// Linear-depth difference, in world units, that counts as an edge.
+    var depthThreshold: float = 0.05f
+
+    /// Normal dot-product difference that counts as an edge.
+    var normalThreshold: float = 0.3f
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(vertexIndex: float): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        val color = source.Sample(pointSampler, uv).rgb
+        val offset = texelSize * thickness
+
+        var edge = DepthEdge(offset)
+
+        if (UseNormals) {
+            edge = max(edge, NormalEdge(offset))
+        }
+
+        if (SelectionOnly) {
+            // The outline belongs *outside* the selection: masking by the centre pixel would draw it
+            // inside and hide the object's own silhouette.
+            edge = edge * SelectionEdge(offset)
+        }
+
+        return float4(lerp(color, outlineColor.rgb, saturate(edge) * outlineColor.a), 1f)
+    }
+
+    /// A Roberts cross on linear depth, which is two diagonal differences rather than a full Sobel.
+    ///
+    /// Two taps per axis instead of six, and for a one-pixel outline the extra Sobel taps change
+    /// nothing visible.
+    func DepthEdge(offset: float2): float {
+        val tl = LinearDepth(uv + float2(-offset.x, -offset.y))
+        val tr = LinearDepth(uv + float2(offset.x, -offset.y))
+        val bl = LinearDepth(uv + float2(-offset.x, offset.y))
+        val br = LinearDepth(uv + float2(offset.x, offset.y))
+
+        val difference = sqrt(Math.Pow2(tl - br) + Math.Pow2(tr - bl))
+        return step(depthThreshold, difference)
+    }
+
+    func NormalEdge(offset: float2): float {
+        val tl = SampleNormal(uv + float2(-offset.x, -offset.y))
+        val tr = SampleNormal(uv + float2(offset.x, -offset.y))
+        val bl = SampleNormal(uv + float2(-offset.x, offset.y))
+        val br = SampleNormal(uv + float2(offset.x, offset.y))
+
+        val difference = (1f - dot(tl, br)) + (1f - dot(tr, bl))
+        return step(normalThreshold, difference)
+    }
+
+    /// 1 where the neighbourhood straddles the selection boundary.
+    func SelectionEdge(offset: float2): float {
+        val centre = selectionMask.Sample(pointSampler, uv).r
+        val up = selectionMask.Sample(pointSampler, uv + float2(0f, -offset.y)).r
+        val down = selectionMask.Sample(pointSampler, uv + float2(0f, offset.y)).r
+        val left = selectionMask.Sample(pointSampler, uv + float2(-offset.x, 0f)).r
+        val right = selectionMask.Sample(pointSampler, uv + float2(offset.x, 0f)).r
+
+        val neighbours = max(max(up, down), max(left, right))
+        return step(0.5f, neighbours - centre)
+    }
+
+    func LinearDepth(at: float2): float {
+        return Transform.LinearizeReverseZ(depthBuffer.Sample(pointSampler, at).r, nearPlane, farPlane)
+    }
+
+    func SampleNormal(at: float2): float3 {
+        return Math.SafeNormalize(Math.FromUnorm(normalBuffer.Sample(pointSampler, at).xyz))
+    }
+}

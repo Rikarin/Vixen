@@ -120,6 +120,14 @@ Full ruleset lives in `.editorconfig` + `Directory.Build.props`. The intent:
   Frame work uses the job system ([03](03-core-foundation.md)).
 - **`Unsafe`/pointers are allowed and expected** in `Core.Memory`, `Core.Collections`, RHI backends,
   and the layout engine. They are banned elsewhere (`AllowUnsafeBlocks` is opt-in per project).
+- **Naming: PascalCase for everything a caller can name; camelCase, no `_` prefix, for private
+  state.** Fields are the only kind that distinguishes, because fields are the only state — a
+  private method reads like a public one. `const` and `static readonly` fields count as names
+  rather than state and are PascalCase at every accessibility. Accessibility modifiers are written
+  only when they change something, so `private` on a member and `internal` on a type are left off.
+  This was recorded the other way round for a while and no file ever obeyed it; the rules in
+  `.editorconfig` now describe what the tree actually contains, verified against every project with
+  `dotnet format style --verify-no-changes`.
 
 ## The quality bar, concretely
 

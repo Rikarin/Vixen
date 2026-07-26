@@ -1,0 +1,61 @@
+package Vixen.Shaders.Vfx
+
+import Vixen.Shaders.Core
+
+// The particle simulation *dispatch*: one invocation per particle, read, integrate, write back.
+//
+// This is the shader `ParticleSimulate.rvn` is the arithmetic for, and the split between the two files
+// is deliberate rather than historical. The forces and the integrator are free functions over a
+// `Particle` value, so the engine's VFX system can compile one graph to both a C# job and this shader
+// and compare them bit for bit (doc 06). Nothing in this file does arithmetic; nothing in that file
+// touches a binding. That is what makes the CPU port a transliteration.
+//
+// **The whole pass is one kernel, not two.** A separate spawn dispatch would need a second buffer for
+// the free list and an atomic to claim from it, and Raven has no atomics. Respawning in place — a dead
+// particle is reinitialised from its own seed — costs one branch and needs neither, at the price that
+// the emitter's rate is the host's business: it writes `spawnCount` and the kernel respawns only the
+// first that many dead slots it happens to see. Which slots those are is not deterministic across
+// frames, and it does not need to be — each is seeded from its index.
+
+shader ParticleUpdate {
+    /// The simulation state, read and written in place. The host's element count sets the budget.
+    var particles: RWBuffer<Particle>
+
+    var deltaTime: float = 0.016f
+
+    /// How many dead slots may respawn this dispatch. Zero lets the system die out.
+    var spawnCount: int = 0
+
+    /// A per-dispatch value mixed into a respawned particle's seed, so the same slot does not
+    /// produce the same particle every time it dies. The host supplies a frame counter.
+    var spawnSalt: uint = 0u
+
+    var forces: ParticleForces
+    var emitter: ParticleEmitter
+
+    [ComputeShader(64)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val index = int(id.x)
+
+        // The dispatch is rounded up to a whole workgroup, so the tail invocations have no particle.
+        // Both targets leave an out-of-range buffer access undefined, which on a GPU means a wrong
+        // value on one driver and a device loss on another — so this test is not optional.
+        if (index >= particles.Length) {
+            return
+        }
+
+        var p = particles[index]
+
+        if (ParticleSimulate.IsAlive(p)) {
+            ParticleSimulate.Step(p, forces, deltaTime)
+        } else if (index < spawnCount) {
+            p = ParticleSimulate.Spawn(uint(index) ^ spawnSalt, emitter)
+        } else {
+            // Dead and not respawning: zero the size so the billboard pass culls it without needing
+            // to know about lifetimes. Leaving the state alone would draw a stale quad.
+            p.size = 0f
+        }
+
+        particles[index] = p
+    }
+}

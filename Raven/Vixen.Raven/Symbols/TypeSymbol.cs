@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+
 namespace Vixen.Raven.Symbols;
 
 /// <summary>
@@ -10,6 +14,24 @@ public abstract class TypeSymbol : Symbol {
 
     /// <summary>The intrinsic type this is, or <see cref="SpecialType.None" />.</summary>
     public virtual SpecialType SpecialType => SpecialType.None;
+
+    /// <summary>
+    ///     How a shader field of this type binds on the GPU, or <see cref="Symbols.ResourceKind.None" />
+    ///     when it is not a resource at all.
+    /// </summary>
+    /// <remarks>
+    ///     On the type rather than only on <see cref="BuiltInNamedTypeSymbol" /> because a resource is
+    ///     no longer always one of a fixed handful of named types: <see cref="BufferTypeSymbol" /> is
+    ///     structural, so <c>Buffer&lt;Particle&gt;</c> and <c>Buffer&lt;Light&gt;</c> are two types
+    ///     that bind the same way. Asking the type means a caller never has to know which shape it is.
+    /// </remarks>
+    public virtual ResourceKind ResourceKind => ResourceKind.None;
+
+    /// <summary>
+    ///     Whether a shader may store into a binding of this type. False for everything the host
+    ///     uploads — a uniform, a sampled texture, a read-only buffer.
+    /// </summary>
+    public virtual bool IsWritableResource => false;
 
     /// <summary>True when this type stands in for a type that failed to resolve.</summary>
     public bool IsErrorType => TypeKind == TypeKind.Error;

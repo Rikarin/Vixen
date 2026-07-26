@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax;
 using Vixen.Raven.Binding;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Syntax;
@@ -20,17 +24,12 @@ public sealed class SourcePropertySymbol : PropertySymbol {
     public override string Name =>
         Syntax switch {
             PropertyDeclarationSyntax property => property.Identifier.ValueText,
-            IndexerDeclarationSyntax => "self[]",
             _ => string.Empty
         };
 
     public override Symbol? ContainingSymbol { get; }
     public override SyntaxNode DeclaringSyntax => Syntax;
     public override bool IsStatic => DeclarationFacts.Has(Syntax.Modifiers, SyntaxKind.StaticKeyword);
-    public override bool IsAbstract => DeclarationFacts.Has(Syntax.Modifiers, SyntaxKind.AbstractKeyword);
-
-    public override Accessibility DeclaredAccessibility =>
-        DeclarationFacts.GetAccessibility(Syntax.Modifiers, Accessibility.Private);
 
     public override TypeSymbol Type => type ??= ResolveType();
 
@@ -38,7 +37,6 @@ public sealed class SourcePropertySymbol : PropertySymbol {
     public AccessorListSyntax? AccessorList =>
         Syntax switch {
             PropertyDeclarationSyntax property => property.AccessorList,
-            IndexerDeclarationSyntax indexer => indexer.AccessorList,
             _ => null
         };
 
@@ -46,7 +44,6 @@ public sealed class SourcePropertySymbol : PropertySymbol {
     public ArrowExpressionClauseSyntax? ExpressionBody =>
         Syntax switch {
             PropertyDeclarationSyntax property => property.ExpressionBody,
-            IndexerDeclarationSyntax indexer => indexer.ExpressionBody,
             _ => null
         };
 
@@ -83,19 +80,8 @@ public sealed class SourcePropertySymbol : PropertySymbol {
         return false;
     }
 
-    ParameterSymbol[] ResolveParameters() {
-        if (Syntax is not IndexerDeclarationSyntax indexer) {
-            return parameters = [];
-        }
-
-        List<ParameterSymbol> built = [];
-        var ordinal = 0;
-        foreach (var parameter in indexer.ParameterList.Parameters) {
-            built.Add(new SourceParameterSymbol(this, parameter, ordinal++, binder));
-        }
-
-        return parameters = built.ToArray();
-    }
+    /// <summary>A property takes no parameters: the indexer form that did is gone.</summary>
+    static ParameterSymbol[] ResolveParameters() => [];
 
     TypeSymbol ResolveType() {
         if (resolving) {
@@ -107,7 +93,6 @@ public sealed class SourcePropertySymbol : PropertySymbol {
         try {
             var annotation = Syntax switch {
                 PropertyDeclarationSyntax property => property.Type,
-                IndexerDeclarationSyntax indexer => indexer.Type,
                 _ => null
             };
 

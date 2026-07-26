@@ -1,0 +1,238 @@
+package Vixen.Shaders.Shading
+
+import Vixen.Shaders.Core
+
+// Punctual and area lights, attenuation, and shadow sampling.
+//
+// The *loop* over a light list is not here, and that is a division of labour rather than a gap: the
+// list is a binding, so it belongs to the shader that declares it (`Pipeline/ForwardPlus.rvn`), and
+// what this file owns is turning **one** light into a `LightSample`. `Resolve` is that function, and
+// it is what a loop of any shape — clustered, tiled, or all of them — calls per light.
+//
+// Everything here is in **radiometric** units and expects a `lightColor` premultiplied by intensity.
+// The photometric conversion — lumens and candela, which is what an artist authors — is the host's, so
+// a shader never has to know which convention a light was authored in.
+
+/// One light, resolved to what a BRDF needs: a direction, a radiance and a solid-angle correction.
+struct LightSample {
+    /// Toward the light, unit length.
+    var l: float3
+
+    /// Radiance arriving along `l`, attenuation already applied.
+    var radiance: float3
+
+    /// Roughness widened to account for the light's solid angle, for an area light.
+    ///
+    /// A point light needs no correction; a sphere or a tube spreads its highlight, and representing
+    /// that as extra roughness is the cheap approximation that makes an area light's highlight the
+    /// right *size* without integrating over its surface.
+    var alphaPrime: float
+}
+
+struct Lighting {
+    /// Inverse-square falloff with a smooth cutoff at the light's range.
+    ///
+    /// The windowing term is what makes the range finite without a visible edge: pure inverse-square
+    /// never reaches zero, so a light would either pop when culled or need an unbounded influence.
+    /// Squaring the window keeps its derivative zero at the boundary, so the seam is invisible.
+    static func DistanceAttenuation(distanceSquared: float, range: float): float {
+        val falloff = 1f / max(distanceSquared, Const.Epsilon)
+        val ratio = distanceSquared / max(range * range, Const.Epsilon)
+        val window = saturate(1f - ratio * ratio)
+        return falloff * window * window
+    }
+
+    /// A spot light's angular falloff.
+    ///
+    /// `cosInner` and `cosOuter` are cosines rather than angles because that is what the dot product
+    /// gives, and converting per pixel would be an `acos` for nothing.
+    static func SpotAttenuation(l: float3, spotDirection: float3, cosInner: float, cosOuter: float): float {
+        val cosAngle = dot(-l, spotDirection)
+        val t = saturate((cosAngle - cosOuter) / max(cosInner - cosOuter, Const.Epsilon))
+        return t * t
+    }
+
+    /// A directional light: no falloff, no position.
+    static func Directional(direction: float3, color: float3): LightSample {
+        var sample: LightSample
+        sample.l = Math.SafeNormalize(-direction)
+        sample.radiance = color
+        sample.alphaPrime = 0f
+        return sample
+    }
+
+    /// A point light at a position, with inverse-square falloff.
+    static func Point(lightPosition: float3, surfacePosition: float3, color: float3, range: float): LightSample {
+        val toLight = lightPosition - surfacePosition
+        val distanceSquared = dot(toLight, toLight)
+
+        var sample: LightSample
+        sample.l = toLight * rsqrt(max(distanceSquared, Const.Epsilon))
+        sample.radiance = color * DistanceAttenuation(distanceSquared, range)
+        sample.alphaPrime = 0f
+        return sample
+    }
+
+    /// A spot light: a point light with an angular cone.
+    static func Spot(light: SpotLight, surfacePosition: float3): LightSample {
+        var sample = Point(light.position, surfacePosition, light.color, light.range)
+        sample.radiance = sample.radiance * SpotAttenuation(sample.l, light.direction, light.cosInner, light.cosOuter)
+        return sample
+    }
+
+    /// A sphere light, treated as a point light whose highlight is widened by its solid angle.
+    ///
+    /// The representative-point approximation: shade as if the light were a point at its centre, and
+    /// widen the specular lobe to cover the angle the sphere subtends. Cheap, and wrong only when the
+    /// light is very close and very large, where a real integral is the only answer.
+    static func Sphere(light: SphereLight, surfacePosition: float3, alpha: float): LightSample {
+        var sample = Point(light.position, surfacePosition, light.color, light.range)
+
+        val distance = length(light.position - surfacePosition)
+        val halfAngle = saturate(light.radius / max(distance, Const.Epsilon))
+        sample.alphaPrime = saturate(alpha + halfAngle * 0.5f)
+        return sample
+    }
+
+    /// Resolves one entry of a light list to a `LightSample`.
+    ///
+    /// The one function a light loop needs, and the reason `PunctualLight` is a single record with a
+    /// `kind` rather than three separate arrays: a loop cannot branch on *which array* to read, but it
+    /// can branch on a field. The cost is that a directional light carries an unused range and a point
+    /// light an unused cone — 16 bytes of padding against three list traversals and three uniforms.
+    ///
+    /// `alpha` is the surface roughness, needed because an area light widens the specular lobe and the
+    /// widening depends on how tight it already was.
+    static func Resolve(light: PunctualLight, surfacePosition: float3, alpha: float): LightSample {
+        if (light.kind == LightKind.Directional) {
+            return Directional(light.direction, light.color)
+        }
+
+        var sample = Point(light.position, surfacePosition, light.color, light.range)
+
+        if (light.kind == LightKind.Spot) {
+            val cone = SpotAttenuation(sample.l, light.direction, light.cosInner, light.cosOuter)
+            sample.radiance = sample.radiance * cone
+        }
+
+        // A radius of zero is a punctual light, and the widening term vanishes on its own — so this
+        // needs no branch of its own, which is what keeps a light loop's body one straight line.
+        val distance = length(light.position - surfacePosition)
+        val halfAngle = saturate(light.radius / max(distance, Const.Epsilon))
+        sample.alphaPrime = saturate(alpha + halfAngle * 0.5f)
+        return sample
+    }
+
+    // --- Shadows ---------------------------------------------------------
+
+    /// A depth-comparison shadow test with a normal-facing bias.
+    ///
+    /// Two biases, because they fix different artefacts. A constant bias moves the comparison and
+    /// causes peter-panning; a slope-scaled one grows where the surface is oblique to the light, which
+    /// is exactly where self-shadowing acne appears. Using only the first means either acne or a
+    /// detached shadow.
+    static func ShadowBias(NdotL: float, constantBias: float, slopeBias: float): float {
+        val slope = sqrt(saturate(1f - NdotL * NdotL)) / max(NdotL, Const.Epsilon)
+        return constantBias + slopeBias * min(slope, 10f)
+    }
+
+    /// Offsets a world position along the normal before projecting into shadow space.
+    ///
+    /// Preferred over a depth bias for anything with a normal map: it moves the *sample* rather than
+    /// the comparison, so it does not detach contact shadows.
+    static func NormalOffset(position: float3, n: float3, NdotL: float, texelWorldSize: float): float3 {
+        val scale = saturate(1f - NdotL) * texelWorldSize
+        return position + n * scale
+    }
+
+    /// One PCF tap: 1 when lit, 0 when occluded.
+    static func ShadowTap(shadowMap: Texture2D, shadowSampler: Sampler, uv: float2, depth: float): float {
+        val stored = shadowMap.Sample(shadowSampler, uv).r
+        return depth <= stored ? 1f : 0f
+    }
+
+    /// A 3×3 percentage-closer filter, which is the cheapest thing that does not look like a stencil.
+    ///
+    /// A fixed grid rather than a Poisson disk: nine taps in a regular pattern band predictably, and
+    /// banding that is stable in time is far less objectionable than noise that is not. A rotated
+    /// disk is the right answer at higher tap counts, where `Sampling.ConcentricDisk` applies.
+    static func ShadowPcf3x3(map: Texture2D, s: Sampler, uv: float2, depth: float, texel: float2): float {
+        var total = 0f
+
+        for (y in -1 .. 1) {
+            for (x in -1 .. 1) {
+                val offset = float2(float(x), float(y)) * texel
+                total += ShadowTap(map, s, uv + offset, depth)
+            }
+        }
+
+        return total / 9f
+    }
+
+    /// Fades a shadow out toward the end of its cascade, so the transition is not a visible line.
+    static func CascadeFade(viewDepth: float, cascadeEnd: float, fadeRange: float): float {
+        return saturate((cascadeEnd - viewDepth) / max(fadeRange, Const.Epsilon))
+    }
+}
+
+/// The three light kinds a `PunctualLight` can be. Floats rather than an enum because the record is
+/// host-written memory and a uniform block has no integer-versus-float ambiguity to lose.
+struct LightKind {
+    const val Directional = 0f
+    const val Point = 1f
+    const val Spot = 2f
+}
+
+/// One entry of a light list, as the host writes it.
+///
+/// The field order is not arbitrary: each `float3` is followed by a `float`, so every member lands on
+/// its natural 16-byte std140 boundary and the record costs exactly 64 bytes with no padding. Reorder
+/// it and the same eight values cost 96. `ShaderLayout` computes the offsets either way — the point is
+/// that the *host's* upload is a straight memcpy of an array of structs only while this holds.
+struct PunctualLight {
+    var position: float3
+
+    /// One of `LightKind`'s constants.
+    var kind: float
+
+    var color: float3
+
+    /// Distance at which the light's contribution reaches zero. Unused by a directional light.
+    var range: float
+
+    /// Toward the surface, unit length. Unused by a point light.
+    var direction: float3
+
+    /// Cosine of the inner cone half-angle. Unused unless the kind is `Spot`.
+    var cosInner: float
+
+    /// Sphere radius; zero for a punctual light. Widens the specular lobe rather than the falloff.
+    var radius: float
+
+    /// Cosine of the outer cone half-angle. Unused unless the kind is `Spot`.
+    var cosOuter: float
+
+    var padding: float2
+}
+
+/// A spot light's parameters, bundled so `Spot` fits one line.
+struct SpotLight {
+    var position: float3
+    var direction: float3
+    var color: float3
+    var range: float
+
+    /// Cosine of the inner cone half-angle — full brightness inside it.
+    var cosInner: float
+
+    /// Cosine of the outer cone half-angle — zero outside it.
+    var cosOuter: float
+}
+
+/// A sphere light's parameters, bundled so `Sphere` fits one line.
+struct SphereLight {
+    var position: float3
+    var color: float3
+    var radius: float
+    var range: float
+}

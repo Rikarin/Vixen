@@ -12,6 +12,9 @@
             from v2, and omitting it produces a confusing "no tests found".
         -->
         <OutputType>Exe</OutputType>
+
+        <!-- The generated ANTLR oracle code stamps [CLSCompliant]; harmless here. -->
+        <NoWarn>$(NoWarn);CS3021</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
@@ -26,5 +29,31 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Raven.Cli\Vixen.Raven.Cli.csproj"/>
         <ProjectReference Include="..\Vixen.Raven\Vixen.Raven.csproj"/>
+    </ItemGroup>
+
+    <!--
+      The retired ANTLR front end lives on here as the differential oracle
+      (docs/plan/18 § Keep the grammar): the grammar stays executable
+      specification, and any divergence between it and the hand-written parser
+      fails a test rather than shipping. Nothing of this reaches the package.
+    -->
+    <ItemGroup>
+        <PackageReference Include="Antlr4.CodeGenerator">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="Antlr4.Runtime"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Antlr4 Update="Oracle\RavenLexer.g4">
+            <CustomToolNamespace>Vixen.Raven.Grammar</CustomToolNamespace>
+        </Antlr4>
+        <Antlr4 Update="Oracle\RavenParser.g4">
+            <CustomToolNamespace>Vixen.Raven.Grammar</CustomToolNamespace>
+        </Antlr4>
+        <Antlr4 Update="Oracle\UnicodeClasses.g4">
+            <CustomToolNamespace>Vixen.Raven.Grammar</CustomToolNamespace>
+        </Antlr4>
     </ItemGroup>
 </Project>

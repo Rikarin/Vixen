@@ -1,5 +1,9 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using System.Globalization;
 using Vixen.Raven.IR;
+using Vixen.Raven.Reflection;
 
 namespace Vixen.Raven.CodeGen.Spirv;
 
@@ -10,14 +14,16 @@ namespace Vixen.Raven.CodeGen.Spirv;
 ///     here.
 /// </summary>
 /// <remarks>
-///     Types come in two flavours. A type reached through a uniform block is
-///     <em>explicitly laid out</em>: its structs carry <c>Offset</c> on every member
-///     and its arrays an <c>ArrayStride</c>. The same struct used as a local carries
-///     none of that, and Vulkan will not accept one type serving both roles — so the
-///     two are interned separately and the flag propagates down through members.
+///     Types come in three flavours, not two. A type reached through a descriptor is
+///     <em>explicitly laid out</em>: its structs carry <c>Offset</c> on every member and its arrays
+///     an <c>ArrayStride</c>. The same struct used as a local carries none of that, and Vulkan will
+///     not accept one type serving both roles. The third flavour is the reason this is a
+///     <see cref="LayoutRule" /> and not a flag: a uniform block packs std140 and a storage buffer
+///     packs std430, so the <em>same</em> Raven struct has two different sets of offsets. Each is
+///     interned separately and the rule propagates down through members.
 /// </remarks>
 sealed class SpirvTypes {
-    readonly Dictionary<(IrStructType, bool), uint> structs = [];
+    readonly Dictionary<(IrStructType, LayoutRule?), uint> structs = [];
     readonly SpirvModule module;
     readonly Action<IrType, string> unsupported;
 
@@ -67,7 +73,7 @@ sealed class SpirvTypes {
             )
         );
 
-    uint Array(IrArrayType array, int length, bool layout) {
+    uint Array(IrArrayType array, int length, LayoutRule? layout) {
         // The length is an operand id, not a literal: SPIR-V spells array extents
         // as constants so they can be specialization constants.
         var id = module.AddDeclaration(
@@ -77,14 +83,34 @@ sealed class SpirvTypes {
             SpirvOperand.Id(ConstantUInt((uint)length))
         );
 
-        if (layout) {
-            module.Decorate(id, SpirvDecoration.ArrayStride, SpirvOperand.Literal(Std140Layout.ArrayStride(array)));
+        if (layout is { } rule) {
+            module.Decorate(
+                id,
+                SpirvDecoration.ArrayStride,
+                SpirvOperand.Literal(ShaderLayout.ArrayStride(array, rule))
+            );
         }
 
         return id;
     }
 
-    uint Struct(IrStructType structType, bool layout) {
+    /// <summary>
+    ///     A runtime-sized array — a storage buffer's contents, and the only array with no extent.
+    /// </summary>
+    internal uint RuntimeArray(IrArrayType array, LayoutRule rule) {
+        ArgumentNullException.ThrowIfNull(array);
+
+        var id = module.AddDeclaration(
+            SpirvOp.TypeRuntimeArray,
+            null,
+            SpirvOperand.Id(Type(array.Element, rule))
+        );
+
+        module.Decorate(id, SpirvDecoration.ArrayStride, SpirvOperand.Literal(ShaderLayout.ArrayStride(array, rule)));
+        return id;
+    }
+
+    uint Struct(IrStructType structType, LayoutRule? layout) {
         if (structs.TryGetValue((structType, layout), out var existing)) {
             return existing;
         }
@@ -103,8 +129,8 @@ sealed class SpirvTypes {
             module.AddMemberName(id, i, structType.Fields[i].Name);
         }
 
-        if (layout) {
-            DecorateLayout(id, members);
+        if (layout is { } rule) {
+            DecorateLayout(id, members, rule);
         }
 
         return id;
@@ -138,7 +164,14 @@ sealed class SpirvTypes {
 
     // --- Types -------------------------------------------------------------
 
-    internal uint Type(IrType type, bool layout = false) {
+    /// <param name="layout">
+    ///     The packing rule to decorate with, or null for the plain type. A rule rather than a flag
+    ///     because std140 and std430 are <em>different layouts of the same Raven type</em>: a
+    ///     <c>float[4]</c> member has a 16-byte stride in a uniform block and a 4-byte one in a
+    ///     storage buffer. One "laid out" variant would have silently given a storage buffer the
+    ///     uniform block's offsets.
+    /// </param>
+    internal uint Type(IrType type, LayoutRule? layout = null) {
         switch (type) {
             case IrScalarType scalar:
                 return Scalar(scalar);
@@ -172,7 +205,7 @@ sealed class SpirvTypes {
 
             case IrArrayType { Length: { } length } array:
                 return module.Intern(
-                    $"array{(layout ? ".laid-out" : "")} {array.Element.Name} {length}",
+                    $"array{(layout is { } rule ? "." + rule : "")} {array.Element.Name} {length}",
                     () => Array(array, length, layout)
                 );
 
@@ -289,24 +322,37 @@ sealed class SpirvTypes {
         };
 
     /// <summary>Writes the offsets and matrix strides an explicitly laid out struct needs.</summary>
-    internal void DecorateLayout(uint structId, IReadOnlyList<IrType> members) {
-        var (offsets, _) = Std140Layout.Members(members);
+    internal void DecorateLayout(uint structId, IReadOnlyList<IrType> members, LayoutRule rule) {
+        var (offsets, _) = ShaderLayout.Members(members, rule);
 
         for (var i = 0; i < members.Count; i++) {
             module.DecorateMember(structId, i, SpirvDecoration.Offset, SpirvOperand.Literal(offsets[i]));
 
-            if (members[i] is IrMatrixType matrix) {
-                // The IR reads a matrix as rows; the SPIR-V type holds columns.
-                // ColMajor names how the columns sit in memory, and the stride is
-                // the gap between them.
-                module.DecorateMember(structId, i, SpirvDecoration.ColMajor);
-                module.DecorateMember(
-                    structId,
-                    i,
-                    SpirvDecoration.MatrixStride,
-                    SpirvOperand.Literal(Std140Layout.MatrixStride(matrix))
-                );
+            // A member that *is* a matrix and a member that is an array of matrices are both
+            // "a matrix member" as far as the layout rules go — `Library/Pipeline/ShadowCaster.rvn`
+            // found that the hard way, with its `mat4[256]` bone palette. Looking through the
+            // arrays rather than only at the member's own type is what makes the two agree.
+            if (MatrixIn(members[i]) is not { } matrix) {
+                continue;
             }
+
+            // The IR reads a matrix as rows; the SPIR-V type holds columns. ColMajor names how
+            // the columns sit in memory, and the stride is the gap between them.
+            module.DecorateMember(structId, i, SpirvDecoration.ColMajor);
+            module.DecorateMember(
+                structId,
+                i,
+                SpirvDecoration.MatrixStride,
+                SpirvOperand.Literal(ShaderLayout.MatrixStride(matrix))
+            );
         }
     }
+
+    /// <summary>The matrix a block member is, or is an array of, however deeply nested.</summary>
+    static IrMatrixType? MatrixIn(IrType type) =>
+        type switch {
+            IrMatrixType matrix => matrix,
+            IrArrayType array => MatrixIn(array.Element),
+            _ => null
+        };
 }

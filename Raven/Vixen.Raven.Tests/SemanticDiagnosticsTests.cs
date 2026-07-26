@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven.Diagnostics;
 using Xunit;
 using static Tests.SemanticTestBase;
@@ -242,9 +246,9 @@ public class SemanticDiagnosticsTests {
             """
             package A
 
-            class First : Second { }
+            struct First : Second { }
 
-            class Second : First { }
+            struct Second : First { }
 
             """,
             "RVN2007"
@@ -256,7 +260,7 @@ public class SemanticDiagnosticsTests {
             """
             package A
 
-            class Box<T> {
+            struct Box<T> {
                 val value: T
             }
 

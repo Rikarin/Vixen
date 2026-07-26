@@ -1,0 +1,105 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+
+// Vignette, chromatic aberration and film grain: the lens-imperfection pass.
+//
+// One shader for the three because they are always applied together, at the very end, and each is a few
+// instructions — three separate fullscreen passes would cost three times the bandwidth to save nothing.
+// Each is behind its own `[Permutation]`, so a variant that wants only grain emits only grain.
+//
+// All three are deliberately *display-referred*: they run after tonemapping, because they model the
+// camera and the film rather than the scene. Grain applied in HDR, in particular, is invisible in
+// shadows and enormous in highlights.
+
+shader Vignette {
+    [Permutation] val UseVignette: bool = true
+    [Permutation] val UseChromaticAberration: bool = true
+    [Permutation] val UseGrain: bool = true
+
+    /// Whether grain scales with darkness, as real film does.
+    [Permutation] val LuminanceWeightedGrain: bool = true
+
+    var source: Texture2D
+    var linearSampler: Sampler
+
+    /// 0 is no darkening, 1 is fully dark at the corners.
+    var vignetteIntensity: float = 0.4f
+
+    /// How abrupt the falloff is. Higher keeps the centre clear for longer.
+    var vignetteSmoothness: float = 0.5f
+
+    /// Aberration offset at the screen edge, in UV units.
+    var aberrationStrength: float = 0.003f
+
+    var grainIntensity: float = 0.04f
+    var grainScale: float = 1f
+
+    /// Advanced by the host per frame, so the grain is not a static pattern.
+    var frameIndex: float = 0f
+
+    var screenSize: float2 = float2(1920f, 1080f)
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(vertexIndex: float): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        val centred = uv - 0.5f
+        var color = UseChromaticAberration ? Aberrated(centred) : source.Sample(linearSampler, uv).rgb
+
+        if (UseVignette) {
+            color = color * VignetteAmount(centred)
+        }
+
+        if (UseGrain) {
+            color = Grained(color)
+        }
+
+        return float4(color, 1f)
+    }
+
+    /// Samples the three channels at slightly different radii.
+    ///
+    /// Radial rather than a fixed offset, and scaled by the squared distance from centre: a real lens
+    /// has no aberration on axis and increasingly more toward the edge. A uniform offset looks like a
+    /// misregistered print instead.
+    func Aberrated(centred: float2): float3 {
+        val amount = dot(centred, centred) * aberrationStrength
+
+        val r = source.Sample(linearSampler, uv - centred * amount).r
+        val g = source.Sample(linearSampler, uv).g
+        val b = source.Sample(linearSampler, uv + centred * amount).b
+        return float3(r, g, b)
+    }
+
+    func VignetteAmount(centred: float2): float {
+        val distance = length(centred) * 1.41421356f
+        val inner = 1f - saturate(vignetteIntensity)
+        return smoothstep(1f, inner + (1f - vignetteSmoothness) * 0.5f, distance)
+    }
+
+    /// Adds grain, optionally weighted so shadows are grainier than highlights.
+    func Grained(color: float3): float3 {
+        val pixel = uv * screenSize / max(grainScale, Const.Epsilon)
+        val seed = Random.Hash3(uint(int(pixel.x)), uint(int(pixel.y)), uint(int(frameIndex)))
+        val noise = Random.Signed(seed)
+
+        var weight = grainIntensity
+
+        if (LuminanceWeightedGrain) {
+            // Real film grain is most visible in mid-tones and shadows, because the emulsion is
+            // saturated in highlights. Uniform grain reads as digital noise.
+            weight = weight * (1f - Fullscreen.Luminance(color) * 0.7f)
+        }
+
+        return max(color + float3(noise * weight), float3(0f))
+    }
+}

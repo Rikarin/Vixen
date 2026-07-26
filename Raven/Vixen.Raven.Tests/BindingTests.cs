@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax;
 using Vixen.Raven;
 using Vixen.Raven.Binding;
 using Vixen.Raven.Symbols;
@@ -94,8 +98,11 @@ public class BindingTests {
     public void Tuples_and_collections_infer_a_structural_type() {
         Assert.Equal("(int, float)", TypeOfExpression("(1, 2f)"));
         Assert.Equal("(code: int, scale: float)", TypeOfExpression("(code: 1, scale: 2f)"));
-        Assert.Equal("int[]", TypeOfExpression("[1, 2, 3]"));
-        Assert.Equal("float[]", TypeOfExpression("[1, 2f, 3]"));
+        // A collection literal knows its own length, so it infers a *sized* array — which is
+        // what makes it lowerable at all, and what lets a spread of one be flattened.
+        Assert.Equal("int[3]", TypeOfExpression("[1, 2, 3]"));
+        Assert.Equal("float[3]", TypeOfExpression("[1, 2f, 3]"));
+        Assert.Equal("int[5]", TypeOfExpression("[1, ..[2, 3, 4], 5]"));
     }
 
 
@@ -105,7 +112,7 @@ public class BindingTests {
             """
             package A
 
-            class Base {
+            struct Base {
                 val count: int
             }
 

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Vixen — test run settings.
+
+  This file exists for one reason, and it is worth writing down because the
+  symptom is baffling and the fix looks unrelated to it.
+
+  On macOS the Khronos validation layer installed by Homebrew enumerates and
+  then refuses to load: `vkCreateInstance` returns ERROR_LAYER_NOT_PRESENT for a
+  layer `vkEnumerateInstanceLayerProperties` has just listed. The cause is that
+  Homebrew's layer manifest names its library by bare filename —
+
+      "library_path": "libVkLayer_khronos_validation.dylib"
+
+  — and the Vulkan loader resolves a bare name through dlopen, whose default
+  search path on macOS is /usr/local/lib and /usr/lib. The dylib is in
+  /opt/homebrew/lib, which is on neither. Homebrew's own caveat suggests
+  VK_LAYER_PATH; that was measured and does *not* help, because VK_LAYER_PATH
+  tells the loader where to find the *manifest* and the manifest was never
+  missing. Pre-loading the dylib by absolute path from managed code does not
+  help either, for the same reason: the loader still dlopens the bare name.
+
+  DYLD_LIBRARY_PATH is the only lever, and dyld reads it once at process start,
+  so it cannot be set from inside the test. Setting it here means `dotnet test`
+  gets validation without anyone having to remember an export in a shell
+  profile — which would otherwise make "are the validation layers on?" depend on
+  which terminal the suite was launched from, and quietly answer "no" in CI and
+  in the IDE.
+
+  The variable is ignored on Windows and Linux, where it is also unnecessary:
+  both resolve the layer library correctly on their own.
+
+  Pass this file to `dotnet test` with its settings switch; the Nuke `Test`
+  target (build/Build.cs) already does. (Spelling the switch out here is not an
+  option: XML forbids a double hyphen inside a comment.)
+-->
+<RunSettings>
+
+  <RunConfiguration>
+    <EnvironmentVariables>
+      <!--
+        Both prefixes: /opt/homebrew/lib is Apple silicon, /usr/local/lib is
+        Intel and is already on the default path, so naming it costs nothing and
+        keeps the two machines' settings identical.
+      -->
+      <DYLD_LIBRARY_PATH>/opt/homebrew/lib:/usr/local/lib</DYLD_LIBRARY_PATH>
+    </EnvironmentVariables>
+  </RunConfiguration>
+
+</RunSettings>

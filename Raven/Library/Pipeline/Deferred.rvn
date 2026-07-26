@@ -1,0 +1,106 @@
+package Vixen.Shaders.Pipeline
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Shading
+import Vixen.Shaders.Geometry
+import Vixen.Shaders.Material
+
+// The deferred lighting pass: a fullscreen pass that reads the G-buffer and shades it.
+//
+// The half of deferred that *is* expressible today. The geometry pass that fills the G-buffer needs
+// multiple render targets, which Raven has no output form for — see `GBuffer.rvn`. This pass reads those
+// targets as textures and writes one, which is an ordinary fragment shader.
+//
+// No `compose` slot, and that is the point of deferred rather than an omission: the material has
+// already been resolved into the G-buffer, so the lighting pass is material-agnostic by construction.
+// One shader lights every material in the scene, which is the trade deferred makes — at the cost of
+// only being able to express what the G-buffer encodes.
+//
+// Drawn as a fullscreen triangle rather than a quad: three vertices, no diagonal seam, and the UV comes
+// out of the vertex id, so there is no vertex buffer at all.
+
+shader Deferred {
+    [Permutation] val UseImageBasedLighting: bool = true
+
+    var target0: Texture2D
+    var target1: Texture2D
+    var target2: Texture2D
+    var depthBuffer: Texture2D
+    var gbufferSampler: Sampler
+
+    var inverseViewProjection: mat4
+    var cameraPosition: float3
+
+    var lightDirection: float3
+    var lightColor: float3
+
+    var environment: TextureCube
+    var environmentSampler: Sampler
+    var ambientIntensity: float = 1f
+
+    stream var uv: float2
+
+    /// A fullscreen triangle from the vertex id, with no vertex buffer.
+    ///
+    /// The three positions cover the whole viewport with one triangle; `uv` falls out of the same
+    /// arithmetic. `SV_VertexID` is not a dispatch built-in — it is a graphics one — and Raven has no
+    /// semantic for it yet, so the id arrives as an ordinary vertex attribute the host supplies.
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(vertexIndex: float): float4 {
+        val x = mod(vertexIndex, 2f) * 4f - 1f
+        val y = floor(vertexIndex * 0.5f) * 4f - 1f
+
+        uv = Transform.NdcToUv(float3(x, y, 0f))
+        return float4(x, y, 0f, 1f)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        val d = GBuffer.Sample(target0, target1, target2, gbufferSampler, uv)
+
+        // Position comes from depth rather than from a G-buffer channel: storing it would cost three
+        // more channels for something the depth buffer already determines.
+        val deviceDepth = depthBuffer.Sample(gbufferSampler, uv).r
+        val positionWS = Transform.UvDepthToWorld(inverseViewProjection, uv, deviceDepth)
+
+        val v = Math.SafeNormalize(cameraPosition - positionWS)
+        val n = Math.SafeNormalize(d.normalWS)
+        val alpha = Brdf.Alpha(d.perceptualRoughness)
+
+        var color = Direct(d, n, v, alpha)
+
+        if (UseImageBasedLighting) {
+            color += Ambient(d, n, v)
+        }
+
+        return float4(color + d.emissive, 1f)
+    }
+
+    func Direct(d: MaterialData, n: float3, v: float3, alpha: float): float3 {
+        val light = Lighting.Directional(lightDirection, lightColor)
+        val angles = ShadingAngles.Of(n, v, light.l)
+
+        if (angles.NdotL <= 0f) {
+            return float3(0f)
+        }
+
+        val diffuse = DiffuseModels.Lambert(d.diffuseColor) * DiffuseModels.EnergyRemaining(d.f0, angles.NdotV)
+        val specular = SpecularModels.Ggx(d.f0, angles, alpha)
+        return (diffuse + specular) * light.radiance * angles.NdotL
+    }
+
+    func Ambient(d: MaterialData, n: float3, v: float3): float3 {
+        val NdotV = saturate(dot(n, v))
+        val reflected = reflect(-v, n)
+
+        val dfg = Ibl.EnvironmentDfg(NdotV, d.perceptualRoughness)
+        val prefiltered = environment.Sample(environmentSampler, reflected).rgb
+        val irradiance = environment.Sample(environmentSampler, n).rgb
+
+        val specular = Ibl.Specular(prefiltered, d.f0, dfg, d.occlusion)
+        val diffuse = Ibl.Diffuse(irradiance, d.diffuseColor, d.occlusion)
+        return (specular + diffuse) * ambientIntensity
+    }
+}

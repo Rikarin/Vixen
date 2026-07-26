@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Graphics</RootNamespace>
+        <Description>
+            The render hardware interface: one explicit, Vulkan-shaped abstraction that Vulkan,
+            D3D12, WebGPU and — the harder test — OpenGL all map to. Handles rather than disposable
+            wrappers, pipelines built ahead of time, and barriers stated rather than inferred.
+        </Description>
+        <PackageTags>rhi;graphics;vulkan;abstraction;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Collections\Vixen.Core.Collections.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Graphics.Tests" />
+    </ItemGroup>
+
+</Project>

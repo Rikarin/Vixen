@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Symbols;
 
@@ -68,6 +72,37 @@ public static class IrVerifier {
                     + $"but takes {entryPoint.Function.Parameters.Count} parameters"
                 );
             }
+
+            VerifyWorkgroupSize(entryPoint, diagnostics);
+        }
+    }
+
+    /// <summary>
+    ///     A compute entry point carries a usable workgroup size and no other stage carries one.
+    /// </summary>
+    /// <remarks>
+    ///     Checked here as well as in the binder because both backends read it unconditionally: a
+    ///     compute stage that reached lowering without one would emit <c>local_size_x = 0</c>,
+    ///     which is a shader that fails to link rather than a compiler that said why.
+    /// </remarks>
+    static void VerifyWorkgroupSize(IrEntryPoint entryPoint, DiagnosticBag diagnostics) {
+        var name = entryPoint.Function.Name;
+
+        if (entryPoint.Stage != ShaderStage.Compute) {
+            if (entryPoint.WorkgroupSize is not null) {
+                Report(diagnostics, $"{entryPoint.Stage} entry point '{name}' carries a workgroup size");
+            }
+
+            return;
+        }
+
+        if (entryPoint.WorkgroupSize is not { } size) {
+            Report(diagnostics, $"compute entry point '{name}' has no workgroup size");
+            return;
+        }
+
+        if (size.IsInvalid) {
+            Report(diagnostics, $"compute entry point '{name}' has workgroup size {size}");
         }
     }
 
@@ -184,6 +219,19 @@ public static class IrVerifier {
                     RequireSame(store.Place.Type, store.Value.Type, "store");
                     break;
 
+                case IrArrayLengthInstruction length:
+                    VerifyPlace(length.Place);
+
+                    // Only a runtime-sized array: a sized one folds to a constant in the binder, so
+                    // one reaching here means the fold was skipped and a backend would have had to
+                    // invent an answer.
+                    if (length.Place.Type is not IrArrayType { Length: null }) {
+                        Report($"{length.Result} takes the length of {length.Place.Type.Name}, which is not a buffer");
+                    }
+
+                    RequireSame(IrScalarType.Int, length.Result.Type, "array length result");
+                    break;
+
                 case IrBinaryInstruction binary:
                     VerifyBinary(binary);
                     break;
@@ -282,11 +330,31 @@ public static class IrVerifier {
             }
 
             for (var i = 0; i < call.Arguments.Count; i++) {
-                RequireSame(
-                    call.Function.Parameters[i].Type,
-                    call.Arguments[i].Type,
-                    $"argument {i} of '{call.Function.Name}'"
-                );
+                var parameter = call.Function.Parameters[i];
+                var argument = call.Arguments[i];
+
+                RequireSame(parameter.Type, argument.Type, $"argument {i} of '{call.Function.Name}'");
+
+                // Direction has to agree, in both directions. A value passed to a by-reference
+                // parameter loses the callee's write; a reference passed to a by-value one is a
+                // pointer where SPIR-V expects a value and would not survive the validator.
+                if (parameter.IsByReference != argument.IsByReference) {
+                    Report(
+                        $"argument {i} of '{call.Function.Name}' is passed "
+                        + $"{(argument.IsByReference ? "by reference" : "by value")} but the parameter is "
+                        + $"{(parameter.IsByReference ? "by reference" : "by value")}"
+                    );
+                }
+
+                // Copy-in/copy-out needs somewhere to copy from and to. The lowerer always uses a
+                // function-scoped temp, so anything else here means the IR was hand-built or a
+                // library was decoded wrongly.
+                if (argument.IsByReference && argument.Reference!.Kind != IrVariableKind.Local) {
+                    Report(
+                        $"argument {i} of '{call.Function.Name}' passes {argument.Reference.Kind} "
+                        + $"'{argument.Reference.Name}' by reference; only a local can be"
+                    );
+                }
             }
 
             if (call.Result is { } result) {

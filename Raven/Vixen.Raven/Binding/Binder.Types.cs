@@ -1,3 +1,8 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Globalization;
+using Vixen.Core.Syntax;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Symbols;
 using Vixen.Raven.Syntax;
@@ -45,9 +50,16 @@ public abstract partial class Binder {
 
             case ArrayTypeSyntax array: {
                 var element = BindType(array.ElementType);
-                // `T[][]` nests: the rank specifiers read left to right, outermost last.
-                foreach (var rank in array.RankSpecifiers) {
-                    element = new ArrayTypeSymbol(element, rank.Commas.Count + 1);
+
+                // `T[a][b]` nests right to left: `b` is the inner extent, so the type reads
+                // "`a` arrays of `b` elements" — the same order C and GLSL give it. The order is
+                // only observable once a rank carries a size; for `T[][]` either way is one type.
+                for (var i = array.RankSpecifiers.Count - 1; i >= 0; i--) {
+                    if (array.RankSpecifiers[i] is not { } rank) {
+                        continue;
+                    }
+
+                    element = new ArrayTypeSymbol(element, rank.Commas.Count + 1, BindArraySize(rank.Size));
                 }
 
                 return element;
@@ -64,17 +76,61 @@ public abstract partial class Binder {
                 return new TupleTypeSymbol(types, names);
             }
 
-            case AliasQualifiedNameSyntax aliased:
-                // `global::X` — there is no alias table yet; resolve the right side.
-                return BindNamedType(aliased.Name.Identifier.ValueText, [], aliased);
-
             default:
                 Report(SemanticDiagnostics.NotAType, syntax, syntax.ToString().Trim());
                 return ErrorTypeSymbol.Instance;
         }
     }
 
+    /// <summary>
+    ///     Folds an array size to its element count, or null when there is no size to fold.
+    ///     A size that will not fold is reported and treated as absent, so the array degrades to
+    ///     unsized rather than propagating an error type through everything that mentions it.
+    /// </summary>
+    int? BindArraySize(ExpressionSyntax? syntax) {
+        if (syntax is null) {
+            return null;
+        }
+
+        var bound = BindValue(syntax);
+
+        if (bound.Type.IsErrorType) {
+            // Already reported by BindValue.
+            return null;
+        }
+
+        if (ConstantEvaluator.Evaluate(bound) is not { } value) {
+            Report(SemanticDiagnostics.ArraySizeNotConstant, syntax, syntax.ToString().Trim());
+            return null;
+        }
+
+        // A uint size is as good as an int one; anything else is not a count.
+        var count = value switch {
+            int i => i,
+            uint u when u <= int.MaxValue => (int)u,
+            _ => (int?)null
+        };
+
+        if (count is null or <= 0) {
+            Report(
+                SemanticDiagnostics.ArraySizeNotPositive,
+                syntax,
+                syntax.ToString().Trim(),
+                count is null
+                    ? $"of type '{bound.Type.ToDisplayString()}'"
+                    : count.Value.ToString(CultureInfo.InvariantCulture)
+            );
+            return null;
+        }
+
+        return count;
+    }
+
     TypeSymbol BindNamedType(string name, IReadOnlyList<TypeSymbol> typeArguments, SyntaxNode syntax) {
+        if (BindBufferType(name, typeArguments, syntax) is { } buffer) {
+            return buffer;
+        }
+
         var type = LookupType(name, typeArguments.Count);
 
         if (type is null) {
@@ -94,13 +150,94 @@ public abstract partial class Binder {
             return ErrorTypeSymbol.Instance;
         }
 
-        return Construct(type, typeArguments);
+        return Construct(type, typeArguments, syntax);
     }
 
-    static TypeSymbol Construct(TypeSymbol type, IReadOnlyList<TypeSymbol> typeArguments) =>
-        typeArguments.Count > 0 && type is NamedTypeSymbol named
-            ? new ConstructedNamedTypeSymbol(named, typeArguments)
-            : type;
+    /// <summary>
+    ///     Builds a <c>Buffer&lt;T&gt;</c> or <c>RWBuffer&lt;T&gt;</c>, or null when the name is
+    ///     neither.
+    /// </summary>
+    /// <remarks>
+    ///     Intercepted before the scope lookup, because the angle brackets are the only thing this
+    ///     shares with a generic type: there is no declaration to find, and no substitution to do.
+    ///     It is constructed structurally, exactly as <c>T[4]</c> is — which is what makes it work
+    ///     while real generics still wait for monomorphisation.
+    /// </remarks>
+    TypeSymbol? BindBufferType(string name, IReadOnlyList<TypeSymbol> typeArguments, SyntaxNode syntax) {
+        var writable = name == BufferTypeSymbol.ReadWriteName;
+
+        if (!writable && name != BufferTypeSymbol.ReadOnlyName) {
+            return null;
+        }
+
+        if (typeArguments.Count != 1) {
+            Report(SemanticDiagnostics.WrongTypeArgumentCount, syntax, name, 1, typeArguments.Count);
+            return ErrorTypeSymbol.Instance;
+        }
+
+        var element = typeArguments[0];
+
+        if (element.IsErrorType) {
+            return ErrorTypeSymbol.Instance;
+        }
+
+        // A buffer's element has to have a memory layout the host can write, which rules out the
+        // opaque resources (a descriptor is not a value), void, and a nested buffer. Reported here
+        // rather than at emit time, so the message names the element rather than a lowered type.
+        if (element.ResourceKind is not ResourceKind.None || element.IsVoid || element is BufferTypeSymbol) {
+            Report(SemanticDiagnostics.BufferElementNotStorable, syntax, element.ToDisplayString(), name);
+            return ErrorTypeSymbol.Instance;
+        }
+
+        return new BufferTypeSymbol(element, writable);
+    }
+
+    TypeSymbol Construct(TypeSymbol type, IReadOnlyList<TypeSymbol> typeArguments, SyntaxNode syntax) {
+        if (typeArguments.Count == 0 || type is not NamedTypeSymbol named) {
+            return type;
+        }
+
+        CheckConstraints(named, typeArguments, syntax);
+        return new ConstructedNamedTypeSymbol(named, typeArguments);
+    }
+
+    /// <summary>
+    ///     Checks each type argument against its parameter's <c>where</c> clause. A
+    ///     constraint names a base or a protocol; an argument that is neither the
+    ///     constraint, derived from it, nor an implementer is <c>RVN2096</c>.
+    /// </summary>
+    void CheckConstraints(NamedTypeSymbol type, IReadOnlyList<TypeSymbol> typeArguments, SyntaxNode syntax) {
+        var parameters = type.TypeParameters;
+        for (var i = 0; i < typeArguments.Count && i < parameters.Count; i++) {
+            foreach (var constraint in parameters[i].ConstraintTypes) {
+                if (!SatisfiesConstraint(typeArguments[i], constraint)) {
+                    Report(
+                        SemanticDiagnostics.TypeArgumentDoesNotSatisfyConstraint,
+                        syntax,
+                        typeArguments[i].ToDisplayString(),
+                        constraint.ToDisplayString(),
+                        parameters[i].Name,
+                        type.Name
+                    );
+                }
+            }
+        }
+    }
+
+    static bool SatisfiesConstraint(TypeSymbol argument, TypeSymbol constraint) {
+        // An argument that already failed to bind suppresses further errors.
+        if (argument.IsErrorType || constraint.IsErrorType) {
+            return true;
+        }
+
+        if (argument.IsSubtypeOf(constraint)) {
+            return true;
+        }
+
+        // A type parameter passed through satisfies what its own constraints imply.
+        return argument is TypeParameterSymbol parameter
+            && parameter.ConstraintTypes.Any(c => SatisfiesConstraint(c, constraint));
+    }
 
     NamedTypeSymbol? LookupAnyArity(string name) {
         for (var binder = this; binder is not null; binder = binder.Next) {
@@ -137,7 +274,7 @@ public abstract partial class Binder {
             return ErrorTypeSymbol.Instance;
         }
 
-        return Construct(member, typeArguments);
+        return Construct(member, typeArguments, syntax);
     }
 
     /// <summary>Resolves the left side of a dotted name to a namespace or a type.</summary>
@@ -165,14 +302,14 @@ public abstract partial class Binder {
                     return null;
                 }
 
-                return member is TypeSymbol type2 ? Construct(type2, typeArguments) : member;
+                return member is TypeSymbol type2 ? Construct(type2, typeArguments, qualified) : member;
             }
 
             case SimpleNameSyntax simple: {
                 var (name, typeArguments) = SplitSimpleName(simple);
                 var type = LookupType(name, typeArguments.Count);
                 if (type is not null) {
-                    return Construct(type, typeArguments);
+                    return Construct(type, typeArguments, simple);
                 }
 
                 var ns = LookupNamespace(name);

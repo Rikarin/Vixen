@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using Vixen.Raven.CodeGen;
 using Vixen.Raven.CodeGen.Glsl;
 using Vixen.Raven.IR;
@@ -94,38 +97,71 @@ public class GlslBackendTests {
             "func Pixel(uv: float2): float4"
         );
 
-        Assert.Contains("layout(std140, binding = 0) uniform SUniforms {", code);
+        Assert.Contains("layout(std140, set = 2, binding = 0) uniform SPerMaterialUniforms {", code);
         Assert.Contains("vec4 tint;", code);
-        Assert.Contains("layout(binding = 1) uniform sampler2D albedo;", code);
-
-        // GLSL has no standalone sampler object, so the sampler binding folds away.
-        Assert.DoesNotContain("uniform sampler linear", code);
-        Assert.Contains("texture(albedo,", code);
+        Assert.Contains("layout(set = 2, binding = 1) uniform texture2D albedo;", code);
     }
 
+    /// <summary>
+    ///     Vulkan GLSL keeps the texture and the sampler as two bindings and pairs them at the
+    ///     sample site, exactly as SPIR-V does. That is what makes the two backends agree about
+    ///     binding indices — a combined <c>sampler2D</c> would consume one binding where SPIR-V
+    ///     consumes two.
+    /// </summary>
     [Fact]
-    public void Dropping_the_sampler_binding_is_reported_rather_than_silent() {
-        Generate(
-            """
-            package A
-
-            shader S {
-                var albedo: Texture2D
-                var linear: Sampler
-
-                [PixelShader]
-                func Pixel(uv: float2): float4 {
-                    return albedo.Sample(linear, uv)
-                }
-            }
-
-            """,
-            out var diagnostics
+    public void A_texture_and_a_sampler_stay_two_bindings_and_combine_at_the_sample() {
+        var code = GeneratePixel(
+            "        return albedo.Sample(linear, uv)",
+            "    var albedo: Texture2D\n    var linear: Sampler\n",
+            "func Pixel(uv: float2): float4"
         );
 
-        var dropped = Assert.Single(diagnostics.Where(d => d.Id == "RVN4003").Distinct());
-        Assert.Contains("linear", dropped.GetMessage());
-        Assert.False(dropped.IsError);
+        Assert.Contains("layout(set = 2, binding = 0) uniform texture2D albedo;", code);
+        Assert.Contains("layout(set = 2, binding = 1) uniform sampler linear;", code);
+        Assert.Contains("texture(sampler2D(albedo, linear),", code);
+
+        // Nothing is dropped any more, so nothing is reported as dropped.
+        Assert.DoesNotContain("sampler2D albedo", code);
+    }
+
+    /// <summary>
+    ///     A fetch by integer coordinate has no sampler to pair with, which is what the
+    ///     extension is for — declared only in the units that need it, because a driver may
+    ///     reject an extension the shader does not use.
+    /// </summary>
+    [Fact]
+    public void A_texel_fetch_declares_the_samplerless_extension() {
+        var fetching = GeneratePixel(
+            "        return albedo.Load(int3(1, 2, 0))",
+            "    var albedo: Texture2D\n",
+            "func Pixel(): float4"
+        );
+
+        Assert.Contains("#extension GL_EXT_samplerless_texture_functions : require", fetching);
+        Assert.Contains("texelFetch(albedo,", fetching);
+
+        var sampling = GeneratePixel(
+            "        return albedo.Sample(linear, uv)",
+            "    var albedo: Texture2D\n    var linear: Sampler\n",
+            "func Pixel(uv: float2): float4"
+        );
+
+        Assert.DoesNotContain("GL_EXT_samplerless_texture_functions", sampling);
+    }
+
+    /// <summary>
+    ///     One <c>layout(set = …)</c> per marker, from the same plan the SPIR-V backend reads.
+    /// </summary>
+    [Fact]
+    public void Every_set_gets_its_own_block_named_for_the_set() {
+        var code = GeneratePixel(
+            "        return tint * time",
+            "    [PerFrame] var time: float\n    var tint: float4\n",
+            "func Pixel(): float4"
+        );
+
+        Assert.Contains("layout(std140, set = 0, binding = 0) uniform SPerFrameUniforms {", code);
+        Assert.Contains("layout(std140, set = 2, binding = 0) uniform SPerMaterialUniforms {", code);
     }
 
     [Fact]
@@ -354,22 +390,80 @@ public class GlslBackendTests {
         Assert.Contains(diagnostics, d => d.Id == "RVN4001" && d.IsError);
     }
 
+    /// <summary>
+    ///     A compute stage declares its workgroup size and nothing else: no locations, because
+    ///     nothing feeds a compute invocation and nothing takes its result.
+    /// </summary>
     [Fact]
-    public void A_compute_entry_point_is_reported_rather_than_guessed_at() {
-        Generate(
+    public void A_compute_entry_point_declares_its_workgroup_size() {
+        var glsl = GenerateOne(
             """
             package A
 
             shader S {
-                [ComputeShader]
+                [ComputeShader(8, 4, 2)]
                 func Main() { }
             }
 
-            """,
-            out var diagnostics
+            """
         );
 
-        // A workgroup size has to come from somewhere, and nothing declares one.
-        Assert.Contains(diagnostics, d => d.Id == "RVN4002" && d.IsError);
+        Assert.Contains(
+            "layout(local_size_x = 8, local_size_y = 4, local_size_z = 2) in;",
+            glsl,
+            StringComparison.Ordinal
+        );
+
+        Assert.DoesNotContain("layout(location", glsl, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     A dimension left off is 1 — what a 1-D dispatch means, and what both targets default
+    ///     to, so <c>[ComputeShader(64)]</c> does not have to spell the other two.
+    /// </summary>
+    [Fact]
+    public void AnOmittedWorkgroupDimensionIsOne() {
+        var glsl = GenerateOne(
+            """
+            package A
+
+            shader S {
+                [ComputeShader(64)]
+                func Main() { }
+            }
+
+            """
+        );
+
+        Assert.Contains(
+            "layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;",
+            glsl,
+            StringComparison.Ordinal
+        );
+    }
+
+    /// <summary>
+    ///     Each dispatch built-in reaches the GLSL variable that carries it, passed straight into
+    ///     the entry point rather than copied through a declared input.
+    /// </summary>
+    [Theory]
+    [InlineData("SV_DispatchThreadID", "uint3", "gl_GlobalInvocationID")]
+    [InlineData("SV_GroupID", "uint3", "gl_WorkGroupID")]
+    [InlineData("SV_GroupThreadID", "uint3", "gl_LocalInvocationID")]
+    [InlineData("SV_GroupIndex", "uint", "gl_LocalInvocationIndex")]
+    public void EachDispatchBuiltInReachesItsGlslVariable(string semantic, string type, string expected) {
+        var glsl = GenerateOne(
+            $$"""
+              package A
+
+              shader S {
+                  [ComputeShader(64)]
+                  func Main([Semantic("{{semantic}}")] id: {{type}}) { }
+              }
+
+              """
+        );
+
+        Assert.Contains($"Main({expected});", glsl, StringComparison.Ordinal);
     }
 }

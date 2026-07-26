@@ -1,0 +1,164 @@
+package Vixen.Shaders.Material
+
+import Vixen.Shaders.Core
+
+// The shader-graph node vocabulary: the primitives a visual material graph compiles down to.
+//
+// A graph node becomes a call to one of these, and the graph is topologically sorted into a sequence
+// of `val` bindings — which is why every function here is a pure expression of its inputs. Nothing
+// reads a binding, nothing has state, and nothing branches on anything but its arguments. That is what
+// lets the generated source be a straight line and lets `[Permutation]` fold a whole subgraph away.
+//
+// Deliberately small. A graph vocabulary grows without limit if every node is a function; these are
+// the ones that cannot be built out of the others, plus the blend modes, which are worth having in one
+// place because everybody gets `Overlay` wrong.
+
+struct ComputeColor {
+    // --- Blend modes -----------------------------------------------------
+    //
+    // Photoshop's set, which is what artists expect. Each takes `under` and `over` in 0..1.
+
+    static func Multiply(under: float3, over: float3): float3 => under * over
+
+    static func Screen(under: float3, over: float3): float3 => 1f - (1f - under) * (1f - over)
+
+    /// Multiply where the base is dark, screen where it is light.
+    ///
+    /// The one people implement wrongly, usually by branching on 0.5 per channel — which is correct
+    /// but diverges. This is the branchless form, and it is exact rather than an approximation.
+    static func Overlay(under: float3, over: float3): float3 {
+        val multiply = 2f * under * over
+        val screen = 1f - 2f * (1f - under) * (1f - over)
+        return lerp(multiply, screen, step(float3(0.5f), under))
+    }
+
+    /// Overlay with the operands swapped, which is what "soft light" means in most tools.
+    static func SoftLight(under: float3, over: float3): float3 {
+        val darken = under - (1f - 2f * over) * under * (1f - under)
+        val lighten = under + (2f * over - 1f) * (sqrt(max(under, float3(0f))) - under)
+        return lerp(darken, lighten, step(float3(0.5f), over))
+    }
+
+    static func HardLight(under: float3, over: float3): float3 => Overlay(over, under)
+
+    static func Difference(under: float3, over: float3): float3 => abs(under - over)
+
+    static func Dodge(under: float3, over: float3): float3 {
+        return min(under / max(1f - over, float3(Const.Epsilon)), float3(1f))
+    }
+
+    static func Burn(under: float3, over: float3): float3 {
+        return 1f - min((1f - under) / max(over, float3(Const.Epsilon)), float3(1f))
+    }
+
+    /// Alpha-weighted blend, the node an artist means by "blend".
+    static func Mix(under: float3, over: float3, weight: float): float3 => lerp(under, over, saturate(weight))
+
+    // --- Ramps and curves -------------------------------------------------
+
+    /// Remaps 0..1 through a contrast pivot.
+    ///
+    /// Pivoted at 0.5 rather than 0 so that raising contrast does not also darken, which is what
+    /// makes a naive `pow` contrast node unusable.
+    static func Contrast(value: float3, amount: float): float3 {
+        return saturate((value - 0.5f) * max(amount, 0f) + 0.5f)
+    }
+
+    /// A gamma-style curve. `amount` above 1 darkens mid-tones, below 1 lightens them.
+    static func Gamma(value: float3, amount: float): float3 => pow(max(value, float3(0f)), float3(max(amount, Const.Epsilon)))
+
+    /// Hue rotation in YIQ space, which is cheap and good enough for a material graph.
+    ///
+    /// Not a true HSV rotation: it rotates the chroma plane, so it preserves luminance exactly and
+    /// distorts saturated colours slightly. That trade is why it is three dot products instead of a
+    /// conversion, a rotation and a conversion back.
+    static func HueRotate(color: float3, radians: float): float3 {
+        val c = cos(radians)
+        val s = sin(radians)
+
+        val luma = dot(color, float3(0.299f, 0.587f, 0.114f))
+        val i = dot(color, float3(0.596f, -0.274f, -0.322f))
+        val q = dot(color, float3(0.211f, -0.523f, 0.312f))
+
+        val ri = i * c - q * s
+        val rq = i * s + q * c
+        return max(float3(luma + ri * 0.956f + rq * 0.621f, luma - ri * 0.272f - rq * 0.647f, luma - ri * 1.106f + rq * 1.703f), float3(0f))
+    }
+
+    /// Saturation, around the colour's own luminance.
+    static func Saturation(color: float3, amount: float): float3 {
+        val luma = dot(color, float3(0.2126f, 0.7152f, 0.0722f))
+        return max(lerp(float3(luma), color, max(amount, 0f)), float3(0f))
+    }
+
+    // --- UV nodes ---------------------------------------------------------
+
+    /// Scale-and-offset, the node that sits in front of nearly every texture sample.
+    static func TransformUv(uv: float2, scale: float2, offset: float2): float2 => uv * scale + offset
+
+    /// Rotates a UV about a pivot.
+    static func RotateUv(uv: float2, pivot: float2, radians: float): float2 {
+        val centred = uv - pivot
+        val c = cos(radians)
+        val s = sin(radians)
+        return float2(centred.x * c - centred.y * s, centred.x * s + centred.y * c) + pivot
+    }
+
+    /// A flipbook cell's UV, for sprite-sheet animation.
+    ///
+    /// The row is counted from the top, matching the engine's top-left UV origin — the flip is the
+    /// part that is easy to get wrong and invisible until the animation plays backwards vertically.
+    static func FlipbookUv(uv: float2, grid: float2, frame: float): float2 {
+        val index = floor(max(frame, 0f))
+        val column = mod(index, grid.x)
+        val row = floor(index / max(grid.x, 1f))
+        val cell = float2(1f, 1f) / max(grid, float2(1f))
+        return (uv + float2(column, row)) * cell
+    }
+
+    // --- Procedural -------------------------------------------------------
+
+    /// Value noise on a 2D grid, smoothed.
+    ///
+    /// Value rather than Perlin or simplex: it needs only a hash and a smoothstep, so it costs a
+    /// fraction of the alternatives and a material graph almost always wants it fed into a ramp
+    /// anyway, where the difference in gradient quality does not survive.
+    static func ValueNoise(position: float2): float {
+        val cell = floor(position)
+        val local = position - cell
+        val weights = local * local * (3f - 2f * local)
+
+        val x = uint(int(cell.x))
+        val y = uint(int(cell.y))
+
+        val c00 = Random.Float01(Random.Hash2(x, y))
+        val c10 = Random.Float01(Random.Hash2(x + 1u, y))
+        val c01 = Random.Float01(Random.Hash2(x, y + 1u))
+        val c11 = Random.Float01(Random.Hash2(x + 1u, y + 1u))
+
+        return lerp(lerp(c00, c10, weights.x), lerp(c01, c11, weights.x), weights.y)
+    }
+
+    /// Fractal value noise: octaves at doubling frequency and halving amplitude.
+    static func FractalNoise(position: float2, octaves: int, lacunarity: float, gain: float): float {
+        var total = 0f
+        var amplitude = 0.5f
+        var frequency = 1f
+        var normalisation = 0f
+
+        for (i in 0 .. max(octaves, 1) - 1) {
+            total += ValueNoise(position * frequency) * amplitude
+            normalisation += amplitude
+            frequency *= lacunarity
+            amplitude *= gain
+        }
+
+        return total / max(normalisation, Const.Epsilon)
+    }
+
+    /// A checkerboard, which is what everyone reaches for first when debugging UVs.
+    static func Checker(uv: float2, scale: float2): float {
+        val cell = floor(uv * scale)
+        return mod(cell.x + cell.y, 2f)
+    }
+}

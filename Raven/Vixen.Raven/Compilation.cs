@@ -1,6 +1,11 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven.Binding;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Symbols;
+using Vixen.Raven.Symbols.Metadata;
 using Vixen.Raven.Symbols.Source;
 using Vixen.Raven.Syntax;
 
@@ -15,6 +20,7 @@ namespace Vixen.Raven;
 public sealed class Compilation {
     readonly DiagnosticBag declarationDiagnostics = new();
     readonly Dictionary<SyntaxTree, ImportBinder> importBinders = [];
+    readonly RavenReference[] references;
     readonly Dictionary<SyntaxTree, SemanticModel> semanticModels = [];
     readonly SyntaxTree[] syntaxTrees;
     readonly Dictionary<SyntaxTree, List<SourceNamedTypeSymbol>> typesByTree = [];
@@ -23,10 +29,55 @@ public sealed class Compilation {
     bool declarationsBuilt;
     Binder? globalBinder;
     NamespaceSymbol? globalNamespace;
+    MetadataLoader? metadata;
+
+    readonly SortedSet<string> usedPermutationKeys = new(StringComparer.Ordinal);
 
     public string AssemblyName { get; }
 
     public IReadOnlyList<SyntaxTree> SyntaxTrees => syntaxTrees;
+
+    /// <summary>
+    ///     The compiled libraries this compilation binds against, in the order they were supplied.
+    /// </summary>
+    /// <remarks>
+    ///     Deduplicated by library name — a duplicate is reported (<c>RVN5005</c>) and the first
+    ///     wins, because two loads of one library would give its types two identities and a value
+    ///     of one would not convert to the other.
+    /// </remarks>
+    public IReadOnlyList<RavenReference> References => references;
+
+    /// <summary>
+    ///     Values supplied for this compilation's <c>[Permutation]</c> keys. Keys with no
+    ///     value here take the initializer in the source.
+    /// </summary>
+    public PermutationValues PermutationValues { get; }
+
+    /// <summary>
+    ///     Which concrete shader fills each <c>compose</c> slot. A slot with nothing bound is
+    ///     an error, so this is required for any shader that composes.
+    /// </summary>
+    public ComposeBindings ComposeBindings { get; }
+
+    /// <summary>
+    ///     The permutation keys this compilation actually consulted, sorted by name.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         This is the cache key the engine should use, and it is why it must come from
+    ///         the semantic phase rather than from the caller's define list. A shader
+    ///         declaring twenty independent flags has a million possible define
+    ///         combinations, but any one entry point usually reads a handful; keying the
+    ///         cache on the declared set produces a million entries where a dozen are
+    ///         distinct.
+    ///     </para>
+    ///     <para>
+    ///         Only meaningful once something has been bound — a key is recorded when its
+    ///         value is read, so an unqueried compilation reports nothing. Read it after
+    ///         <see cref="GetDiagnostics" /> or after lowering.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyCollection<string> UsedPermutationKeys => usedPermutationKeys;
 
     /// <summary>Root of the symbol table; every package hangs off it.</summary>
     public NamespaceSymbol GlobalNamespace {
@@ -40,16 +91,77 @@ public sealed class Compilation {
 
     internal Binder GlobalBinder => globalBinder ??= new GlobalBinder(DeclarationContext);
 
-    Compilation(string assemblyName, SyntaxTree[] syntaxTrees) {
+    Compilation(
+        string assemblyName,
+        SyntaxTree[] syntaxTrees,
+        PermutationValues permutationValues,
+        ComposeBindings composeBindings,
+        RavenReference[] references
+    ) {
         AssemblyName = assemblyName;
         this.syntaxTrees = syntaxTrees;
+        PermutationValues = permutationValues;
+        ComposeBindings = composeBindings;
+        this.references = references;
     }
 
     public static Compilation Create(string assemblyName, params SyntaxTree[] syntaxTrees) =>
-        new(assemblyName, syntaxTrees);
+        new(assemblyName, syntaxTrees, PermutationValues.Empty, ComposeBindings.Empty, []);
 
     public static Compilation Create(string assemblyName, IEnumerable<SyntaxTree> syntaxTrees) =>
-        new(assemblyName, syntaxTrees.ToArray());
+        new(assemblyName, syntaxTrees.ToArray(), PermutationValues.Empty, ComposeBindings.Empty, []);
+
+    /// <summary>Creates a compilation that binds against compiled libraries.</summary>
+    public static Compilation Create(
+        string assemblyName,
+        IEnumerable<RavenReference> references,
+        IEnumerable<SyntaxTree> syntaxTrees
+    ) =>
+        Create(assemblyName, PermutationValues.Empty, ComposeBindings.Empty, references, syntaxTrees);
+
+    /// <summary>
+    ///     Creates one variant of a compilation. Each distinct combination of
+    ///     <paramref name="permutationValues" /> and <paramref name="composeBindings" /> is a
+    ///     separate compilation, because both change what the code means.
+    /// </summary>
+    public static Compilation Create(
+        string assemblyName,
+        PermutationValues permutationValues,
+        IEnumerable<SyntaxTree> syntaxTrees
+    ) =>
+        Create(assemblyName, permutationValues, ComposeBindings.Empty, syntaxTrees);
+
+    /// <inheritdoc cref="Create(string,PermutationValues,IEnumerable{SyntaxTree})" />
+    public static Compilation Create(
+        string assemblyName,
+        PermutationValues permutationValues,
+        ComposeBindings composeBindings,
+        IEnumerable<SyntaxTree> syntaxTrees
+    ) =>
+        Create(assemblyName, permutationValues, composeBindings, [], syntaxTrees);
+
+    /// <inheritdoc cref="Create(string,PermutationValues,IEnumerable{SyntaxTree})" />
+    public static Compilation Create(
+        string assemblyName,
+        PermutationValues permutationValues,
+        ComposeBindings composeBindings,
+        IEnumerable<RavenReference> references,
+        IEnumerable<SyntaxTree> syntaxTrees
+    ) {
+        ArgumentNullException.ThrowIfNull(permutationValues);
+        ArgumentNullException.ThrowIfNull(composeBindings);
+        ArgumentNullException.ThrowIfNull(references);
+        ArgumentNullException.ThrowIfNull(syntaxTrees);
+
+        return new(assemblyName, syntaxTrees.ToArray(), permutationValues, composeBindings, references.ToArray());
+    }
+
+    /// <summary>
+    ///     Records that <paramref name="key" /> was consulted. Called when a permutation
+    ///     field's value is read, which is the point at which the output starts depending
+    ///     on it.
+    /// </summary>
+    internal void RecordPermutationUse(string key) => usedPermutationKeys.Add(key);
 
     public SemanticModel GetSemanticModel(SyntaxTree syntaxTree) {
         if (!semanticModels.TryGetValue(syntaxTree, out var model)) {
@@ -78,6 +190,41 @@ public sealed class Compilation {
         }
 
         return result;
+    }
+
+    /// <summary>
+    ///     Every type the referenced libraries declare, nested types included.
+    /// </summary>
+    /// <remarks>
+    ///     Kept apart from <see cref="GetAllTypes" />, which answers "what does this compilation
+    ///     declare?" — the question lowering asks, and it must not lower a library's types a second
+    ///     time. What both are needed for is resolution by name: a <c>compose</c> slot may be
+    ///     filled by a shader that ships in a library.
+    /// </remarks>
+    public IReadOnlyList<NamedTypeSymbol> GetReferencedTypes() {
+        EnsureDeclarations();
+        List<NamedTypeSymbol> result = [];
+
+        void Collect(MetadataNamedTypeSymbol type) {
+            result.Add(type);
+            foreach (var nested in type.NestedTypes) {
+                Collect(nested);
+            }
+        }
+
+        foreach (var type in metadata?.TopLevelTypes ?? []) {
+            Collect(type);
+        }
+
+        return result;
+    }
+
+    /// <summary>The loaded reference symbols, or null when nothing was referenced.</summary>
+    internal MetadataLoader? Metadata {
+        get {
+            EnsureDeclarations();
+            return metadata;
+        }
     }
 
     /// <summary>Types declared at the top level of one syntax tree.</summary>
@@ -130,6 +277,8 @@ public sealed class Compilation {
         declarationsBuilt = true;
         globalNamespace = new(string.Empty, null);
 
+        LoadReferences();
+
         // Pass 1 — namespaces and per-file scopes. Imports inside those scopes
         // resolve lazily, once every declaration below exists.
         foreach (var tree in syntaxTrees) {
@@ -156,11 +305,29 @@ public sealed class Compilation {
 
                 var symbol = new SourceNamedTypeSymbol(binder.PackageNamespace, declaration, binder);
 
-                if (binder.PackageNamespace.GetTypeMember(
-                        symbol.Name,
-                        declaration.TypeParameterList?.Parameters.Count ?? 0
-                    )
-                    is not null) {
+                var existing = binder.PackageNamespace.GetTypeMember(
+                    symbol.Name,
+                    declaration.TypeParameterList?.Parameters.Count ?? 0
+                );
+
+                // A source declaration shadows a referenced library's type of the same name, which
+                // is what every compiler with a reference model does — but silently preferring one
+                // of two same-named types is how a shader ends up bound against the definition its
+                // author was not reading, so it is said.
+                if (existing is MetadataNamedTypeSymbol shadowed) {
+                    declarationDiagnostics.Add(
+                        LibraryDiagnostics.ReferenceHiddenBySource,
+                        declaration.Identifier.GetLocation(),
+                        shadowed.Declaration.QualifiedName,
+                        shadowed.LibraryName
+                    );
+
+                    binder.PackageNamespace.ReplaceType(shadowed, symbol);
+                    declared.Add(symbol);
+                    continue;
+                }
+
+                if (existing is not null) {
                     declarationDiagnostics.Add(
                         SemanticDiagnostics.DuplicateDeclaration,
                         declaration.Identifier.GetLocation(),
@@ -174,6 +341,38 @@ public sealed class Compilation {
             }
 
             typesByTree[tree] = declared;
+        }
+    }
+
+    /// <summary>
+    ///     Loads every referenced library's declarations into the global namespace, before any
+    ///     source declaration exists.
+    /// </summary>
+    /// <remarks>
+    ///     References first so that a source type can shadow one and be seen to
+    ///     (<see cref="LibraryDiagnostics.ReferenceHiddenBySource" />); resolution inside the
+    ///     libraries stays lazy, so the order two libraries are loaded in does not decide whether a
+    ///     cross-library reference resolves.
+    /// </remarks>
+    void LoadReferences() {
+        if (references.Length == 0) {
+            return;
+        }
+
+        metadata = new(declarationDiagnostics);
+        HashSet<string> loaded = new(StringComparer.Ordinal);
+
+        foreach (var reference in references) {
+            if (!loaded.Add(reference.Name)) {
+                declarationDiagnostics.Add(
+                    LibraryDiagnostics.DuplicateReference,
+                    Location.None,
+                    reference.Name
+                );
+                continue;
+            }
+
+            metadata.Load(reference.Library, globalNamespace!);
         }
     }
 

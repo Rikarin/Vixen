@@ -1,13 +1,18 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using System.Globalization;
 using System.Text;
+using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
+using Vixen.Raven.Reflection;
 using Vixen.Raven.Symbols;
 
 namespace Vixen.Raven.CodeGen.Glsl;
 
 /// <summary>
-///     Emits one GLSL translation unit for one entry point.
+///     Emits one Vulkan-flavoured GLSL translation unit for one entry point.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -17,9 +22,16 @@ namespace Vixen.Raven.CodeGen.Glsl;
 ///         rather than given a name, which removes most of the noise.
 ///     </para>
 ///     <para>
-///         Two things GLSL cannot mirror. It has no separate sampler object outside
-///         Vulkan, so a texture binding becomes a combined <c>sampler2D</c> and the
-///         sampler binding is dropped. And a uniform cannot carry an initializer, so a
+///         Vulkan GLSL rather than desktop GLSL: <c>#version 450</c>, an explicit
+///         <c>set</c> and <c>binding</c> on every descriptor, <c>location</c> on every stage
+///         in/out, explicit <c>std140</c>, and separate <c>texture2D</c>/<c>sampler</c>
+///         objects. That is not decoration. It is what lets <c>shaderc</c> compile this back
+///         to SPIR-V that binds the same way Raven's own SPIR-V does, which is the
+///         differential oracle in docs/plan/07 § C — and it is also the most useful form to
+///         read in a frame debugger.
+///     </para>
+///     <para>
+///         One thing GLSL still cannot mirror: a uniform cannot carry an initializer, so a
 ///         binding's declared default stays host-side metadata on
 ///         <see cref="IrShader.Initializer" />.
 ///     </para>
@@ -42,8 +54,28 @@ sealed class GlslEmitter {
     readonly Dictionary<int, string> values = [];
     readonly Writer writer = new();
 
+    /// <summary>
+    ///     The <c>in</c> and <c>out</c> variable a stream resolves to, by direction.
+    /// </summary>
+    /// <remarks>
+    ///     Two names for one IR variable, because GLSL splits what the IR does not: an <c>in</c> is
+    ///     read-only and an <c>out</c> write-only, so a load resolves to one and a store to the
+    ///     other. A stream a stage both reads and writes has both, which is legal — a stage's input
+    ///     and output locations are separate namespaces.
+    /// </remarks>
+    readonly Dictionary<IrVariable, string> streamReads = [];
+
+    readonly Dictionary<IrVariable, string> streamWrites = [];
+
     int loopCounter;
     string? outputName;
+    bool samplerlessFetch;
+
+    /// <summary>
+    ///     The function being emitted, for naming a by-reference argument's variable — a name is
+    ///     only unique within one function, so the lookup needs to know which.
+    /// </summary>
+    IrFunction? currentFunction;
 
     internal GlslEmitter(
         IrModule module,
@@ -67,6 +99,15 @@ sealed class GlslEmitter {
         }
 
         foreach (var structType in module.Structs) {
+            // GLSL has no empty struct — `struct S { };` is a syntax error — and a field-less
+            // struct is exactly how Raven spells a namespace of free functions, which is what every
+            // file in `Raven/Library` is. Nothing can reference the type as a value, since it has no
+            // members to reach and nothing constructs one, so dropping the declaration loses
+            // nothing. SPIR-V is unaffected: it emits a type only where one is used.
+            if (structType.Fields.Count == 0) {
+                continue;
+            }
+
             writer.Line($"struct {GlslTypes.Identifier(structType.Name)} {{");
             writer.Indent();
 
@@ -80,24 +121,82 @@ sealed class GlslEmitter {
         }
     }
 
+    /// <summary>
+    ///     Declares a storage buffer: a block of its own holding one unsized array.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>std430</c> rather than <c>std140</c>, which is the whole reason a storage buffer is a
+    ///         different thing from a uniform block and not merely a bigger one: an array of
+    ///         <c>float</c> costs four bytes per element instead of sixteen, so a host-side
+    ///         <c>Particle[]</c> uploads as a straight memcpy.
+    ///     </para>
+    ///     <para>
+    ///         The array is unsized, which is legal exactly here — as a storage block's last member —
+    ///         and nowhere else. That is what lets the host decide the element count, and what makes
+    ///         <c>data.length()</c> a run-time question with a real answer.
+    ///     </para>
+    /// </remarks>
+    void EmitStorageBuffer(IrBinding buffer, string layout) {
+        var name = ReserveVariable(buffer.Variable);
+        var access = buffer.IsWritable ? string.Empty : "readonly ";
+
+        // The block needs a name of its own: GLSL scopes an interface block's members into the
+        // enclosing scope, so the block name is only ever seen by a frame debugger — but two
+        // unnamed blocks in one shader would collide.
+        writer.Line($"layout(std430, {layout}) {access}buffer {Reserve(buffer.Name + "Block")} {{");
+        writer.Indent();
+        writer.Line(DeclareRuntime(buffer.Type, name, buffer.Name) + ";" + Comment(buffer.Semantic));
+        writer.Outdent();
+        writer.Line("};");
+        writer.Blank();
+    }
+
+    /// <summary>
+    ///     Declares the bindings, each with the explicit <c>set</c> and <c>binding</c> that
+    ///     <see cref="BindingPlan" /> assigned.
+    /// </summary>
+    /// <remarks>
+    ///     The plan is shared with the SPIR-V backend and with the reflection, which is what
+    ///     makes the two outputs bind identically — and is the precondition for compiling this
+    ///     GLSL back to SPIR-V and diffing the two.
+    /// </remarks>
     void EmitBindings() {
-        var uniforms = shader.Bindings.Where(b => b.Kind == IrBindingKind.Uniform).ToArray();
-        var textures = shader.Bindings.Where(b => b.Kind == IrBindingKind.Texture).ToArray();
+        var opaque = false;
 
-        // Sampler bindings emit nothing — GlslBackend says so once per shader,
-        // rather than once per stage.
+        foreach (var planned in BindingPlan.Of(shader)) {
+            var layout = $"set = {(int)planned.Set}, binding = {planned.Binding}";
 
-        // A uniform block and the textures share one binding space; the block
-        // takes slot 0 so the textures keep a stable order after it.
-        var nextBinding = 0;
+            if (planned.Kind == IrBindingKind.StorageBuffer && planned.Resource is { } buffer) {
+                EmitStorageBuffer(buffer, layout);
+                opaque = false;
+                continue;
+            }
 
-        if (uniforms.Length > 0) {
-            writer.Line($"layout(std140, binding = {nextBinding++}) uniform {Reserve(shader.Name + "Uniforms")} {{");
+            if (planned.Resource is { } resource) {
+                var name = ReserveVariable(resource.Variable);
+                writer.Line(
+                    $"layout({layout}) uniform {Declare(resource.Type, name, resource.Name)};"
+                    + Comment(resource.Semantic)
+                );
+
+                opaque = true;
+                continue;
+            }
+
+            if (opaque) {
+                // A set's block comes before its resources, so this only happens between
+                // sets; the blank line keeps them visually apart.
+                writer.Blank();
+                opaque = false;
+            }
+
+            writer.Line($"layout(std140, {layout}) uniform {Reserve(planned.Name)} {{");
             writer.Indent();
 
-            foreach (var binding in uniforms) {
-                var name = ReserveVariable(binding.Variable);
-                writer.Line(Declare(binding.Type, name, binding.Name) + ";" + Comment(binding.Semantic));
+            foreach (var uniform in planned.Members) {
+                var name = ReserveVariable(uniform.Variable);
+                writer.Line(Declare(uniform.Type, name, uniform.Name) + ";" + Comment(uniform.Semantic));
             }
 
             writer.Outdent();
@@ -105,13 +204,7 @@ sealed class GlslEmitter {
             writer.Blank();
         }
 
-        foreach (var binding in textures) {
-            var name = ReserveVariable(binding.Variable);
-            var declaration = Declare(binding.Type, name, binding.Name);
-            writer.Line($"layout(binding = {nextBinding++}) uniform {declaration};{Comment(binding.Semantic)}");
-        }
-
-        if (textures.Length > 0) {
+        if (opaque) {
             writer.Blank();
         }
 
@@ -121,10 +214,28 @@ sealed class GlslEmitter {
         }
     }
 
+    /// <summary>
+    ///     Declares the stage interface: the streams this stage reads and writes, then its own
+    ///     parameters and return value.
+    /// </summary>
+    /// <remarks>
+    ///     Every location comes from <see cref="StreamPlan" />, which is what makes the vertex
+    ///     stage's outputs line up with the fragment stage's inputs — neither emitter and neither
+    ///     stage decides a number for itself.
+    /// </remarks>
     void EmitStageInterface() {
-        var location = 0;
+        if (entryPoint.Stage == ShaderStage.Compute) {
+            EmitComputeInterface();
+            return;
+        }
+
+        EmitStreamInterface();
+
+        var location = StreamPlan.ParameterBase(shader);
 
         foreach (var input in entryPoint.Inputs) {
+            RequireCarryable(input, true);
+
             var name = Reserve("in_" + input.Name);
             inputNames.Add(name);
             writer.Line(
@@ -142,13 +253,91 @@ sealed class GlslEmitter {
         }
 
         if (entryPoint.Output is { } output) {
+            RequireCarryable(output, false);
+
             outputName = Reserve("out_" + output.Name);
             writer.Line(
-                $"layout(location = 0) out {Declare(output.Type, outputName, output.Name)};"
+                $"layout(location = {StreamPlan.OutputBase(shader, entryPoint.Stage)}) out "
+                + $"{Declare(output.Type, outputName, output.Name)};"
                 + Comment(output.Semantic)
             );
             writer.Blank();
         }
+    }
+
+    /// <summary>
+    ///     Refuses a stage input or output GLSL cannot declare.
+    /// </summary>
+    /// <remarks>
+    ///     Through <see cref="StageInterface" />, which the SPIR-V backend reads too. This check was
+    ///     missing here: an aggregate output emitted <c>out SomeStruct</c>, which GLSL has no such
+    ///     thing as, so <c>glslc</c> rejected the unit while SPIR-V had already reported
+    ///     <c>RVN4001</c> for the same shader. One backend noticing and the other not is the shape
+    ///     worth removing, not just the message.
+    /// </remarks>
+    void RequireCarryable(IrStageIo io, bool isInput) {
+        if (!StageInterface.CanCarry(io.Type)) {
+            diagnostics.Add(
+                BackendDiagnostics.NotExpressible,
+                Location.None,
+                StageInterface.Describe(io.Type, io.Name, isInput),
+                "GLSL"
+            );
+        }
+    }
+
+    /// <summary>
+    ///     Declares the workgroup size, and resolves each parameter to the GLSL built-in its
+    ///     semantic names.
+    /// </summary>
+    /// <remarks>
+    ///     A compute stage has no locations to assign: nothing feeds its parameters from a vertex
+    ///     buffer and nothing takes a result, so there is no <c>in</c> or <c>out</c> to declare.
+    ///     Each parameter is a built-in GLSL already provides, so <c>main</c> passes the built-in
+    ///     straight through — which is why <see cref="inputNames" /> takes the built-in's own name
+    ///     rather than a declared one.
+    /// </remarks>
+    void EmitComputeInterface() {
+        // Verified before we got here (IrVerifier), so a missing size is a compiler bug rather
+        // than something to emit around.
+        var size = entryPoint.WorkgroupSize!.Value;
+
+        writer.Line(
+            $"layout(local_size_x = {size.X}, local_size_y = {size.Y}, local_size_z = {size.Z}) in;"
+        );
+        writer.Blank();
+
+        foreach (var input in entryPoint.Inputs) {
+            inputNames.Add(ComputeBuiltIns.GlslName(ComputeBuiltIns.Of(input.Semantic)));
+        }
+    }
+
+    void EmitStreamInterface() {
+        if (entryPoint.StreamInputs.Count == 0 && entryPoint.StreamOutputs.Count == 0) {
+            return;
+        }
+
+        foreach (var stream in entryPoint.StreamInputs) {
+            var name = Reserve("in_" + stream.Name);
+            streamReads[stream.Variable] = name;
+            writer.Line(
+                $"layout(location = {StreamPlan.LocationOf(shader, stream)}) in "
+                + $"{Declare(stream.Type, name, stream.Name)};"
+                + Comment("stream")
+            );
+        }
+
+        foreach (var stream in entryPoint.StreamOutputs) {
+            var name = Reserve("out_" + stream.Name);
+            streamWrites[stream.Variable] = name;
+            writer.Line(
+                $"layout(location = {StreamPlan.LocationOf(shader, stream)}) out "
+                + $"{Declare(stream.Type, name, stream.Name)};"
+                + Comment("stream")
+            );
+        }
+
+        writer.Blank();
     }
 
     /// <summary>
@@ -189,22 +378,35 @@ sealed class GlslEmitter {
     ///     one stage, so emitting another stage's functions would be dead code — and
     ///     dead code that references the wrong stage's built-ins.
     /// </summary>
+    /// <remarks>
+    ///     Reachability is what excludes other stages, not shader membership: a
+    ///     <c>compose</c> slot puts the implementation's functions in a different shader,
+    ///     and filtering to this shader's own list would drop the very function the entry
+    ///     point calls.
+    /// </remarks>
     IEnumerable<IrFunction> Reachable() {
         var reached = CallGraph.Reachable(entryPoint.Function);
-        return module.Functions.Concat(shader.Functions).Where(reached.Contains);
+        return module.AllFunctions.Where(reached.Contains);
     }
 
     string Signature(IrFunction function) {
         var parameters = function.Parameters
-            .Select(p => Declare(p.Type, LocalName(function, p), p.Name))
+            .Select(p => Direction(p) + Declare(p.Type, LocalName(function, p), p.Name))
             .ToArray();
 
         var returnType = GlslTypes.Name(function.ReturnType) ?? Unsupported(function.ReturnType, function.Name);
         return $"{returnType} {functionNames[function]}({string.Join(", ", parameters)})";
     }
 
+    /// <summary>
+    ///     The direction qualifier for a parameter. GLSL has <c>inout</c> natively, and its meaning
+    ///     — copy-in/copy-out — is the same as the IR's, so this is a transcription.
+    /// </summary>
+    static string Direction(IrVariable parameter) => parameter.IsByReference ? "inout " : string.Empty;
+
     void EmitFunction(IrFunction function) {
         values.Clear();
+        currentFunction = function;
 
         writer.Line(Signature(function) + " {");
         writer.Indent();
@@ -367,11 +569,11 @@ sealed class GlslEmitter {
                 return;
 
             case IrStoreInstruction store:
-                writer.Line($"{Place(store.Place)} = {Value(store.Value)};");
+                writer.Line($"{Place(store.Place, write: true)} = {Value(store.Value)};");
                 return;
 
             case IrCallInstruction { Result: null } call:
-                writer.Line($"{functionNames[call.Function]}({Arguments(call.Arguments)});");
+                writer.Line($"{functionNames[call.Function]}({CallArguments(call.Arguments)});");
                 return;
         }
 
@@ -396,6 +598,11 @@ sealed class GlslEmitter {
             case IrLoadInstruction load:
                 return Place(load.Place);
 
+            // `.length()` on a storage block's runtime array, which is the only array GLSL will
+            // answer for at run time.
+            case IrArrayLengthInstruction length:
+                return $"{Place(length.Place)}.length()";
+
             case IrUnaryInstruction unary:
                 return UnaryExpression(unary);
 
@@ -407,8 +614,20 @@ sealed class GlslEmitter {
                 return $"{TypeName(convert.Result.Type)}({Value(convert.Operand)})";
 
             case IrIntrinsicInstruction intrinsic: {
+                if (intrinsic.Intrinsic == IrIntrinsic.LoadTexture) {
+                    // texelFetch on a separate texture, with no sampler to pair it with,
+                    // is what this extension adds. Recorded here so the prologue declares
+                    // it only in the units that need it.
+                    samplerlessFetch = true;
+                }
+
                 var arguments = intrinsic.Arguments.Select(Value).ToArray();
-                var call = GlslIntrinsics.Call(intrinsic.Intrinsic, arguments, TypeName(intrinsic.Result!.Type));
+                var call = GlslIntrinsics.Call(
+                    intrinsic.Intrinsic,
+                    arguments,
+                    [.. intrinsic.Arguments.Select(a => a.Type)],
+                    TypeName(intrinsic.Result!.Type)
+                );
 
                 if (call is not null) {
                     return call;
@@ -419,7 +638,7 @@ sealed class GlslEmitter {
             }
 
             case IrCallInstruction call:
-                return $"{functionNames[call.Function]}({Arguments(call.Arguments)})";
+                return $"{functionNames[call.Function]}({CallArguments(call.Arguments)})";
 
             case IrConstructInstruction construct:
                 return $"{TypeName(construct.Result.Type)}({Arguments(construct.Arguments)})";
@@ -494,9 +713,52 @@ sealed class GlslEmitter {
 
     string Arguments(IReadOnlyList<IrValue> arguments) => string.Join(", ", arguments.Select(Value));
 
+    /// <summary>
+    ///     Renders a call's arguments. A by-reference one names its variable, which is what GLSL's
+    ///     own <c>inout</c> needs — an l-value, not a value.
+    /// </summary>
+    /// <remarks>
+    ///     GLSL specifies <c>inout</c> as copy-in/copy-out, the same as the IR, so naming the temp
+    ///     the lowerer already made is exact rather than approximate. GLSL then copies it a second
+    ///     time into the parameter, which is redundant and free — and it is the price of the IR
+    ///     carrying a shape SPIR-V can also express.
+    /// </remarks>
+    string CallArguments(IReadOnlyList<IrArgument> arguments) =>
+        string.Join(
+            ", ",
+            arguments.Select(argument =>
+                argument.IsByReference
+                    ? LocalName(currentFunction!, argument.Reference!)
+                    : Value(argument.Value!)
+            )
+        );
+
     // --- Places, values and names ------------------------------------------
 
-    string Place(IrPlace place) => VariableName(place.Root) + Chain(place.Root.Type, place.Chain);
+    /// <summary>
+    ///     Renders a place. <paramref name="write" /> picks the direction a stream resolves in.
+    /// </summary>
+    /// <remarks>
+    ///     Every other root is direction-blind — a uniform, a local and a parameter each have one
+    ///     name — so the flag only matters for a stream, where GLSL genuinely has two variables for
+    ///     what the IR models as one.
+    /// </remarks>
+    string Place(IrPlace place, bool write = false) =>
+        StreamName(place.Root, write) + Chain(place.Root.Type, place.Chain);
+
+    string StreamName(IrVariable root, bool write) {
+        var names = write ? streamWrites : streamReads;
+
+        if (names.TryGetValue(root, out var name)) {
+            return name;
+        }
+
+        // A stage that writes a stream without reading it still reads it when the write is
+        // partial — lowering records that, so a missing read name here means a genuinely
+        // write-only stream and the fallback is the other direction's variable.
+        var other = write ? streamReads : streamWrites;
+        return other.TryGetValue(root, out var fallback) ? fallback : VariableName(root);
+    }
 
     string Chain(IrType rootType, IReadOnlyList<IrAccess> chain) {
         var builder = new StringBuilder();
@@ -582,6 +844,10 @@ sealed class GlslEmitter {
     string Declare(IrType type, string name, string what) =>
         GlslTypes.Declare(type, name) ?? $"{Unsupported(type, what)} {name}";
 
+    /// <summary>As <see cref="Declare" />, but an unsized outer extent is legal here.</summary>
+    string DeclareRuntime(IrType type, string name, string what) =>
+        GlslTypes.Declare(type, name, true) ?? $"{Unsupported(type, what)} {name}";
+
     string Unsupported(IrType type, string what) {
         Report(
             BackendDiagnostics.NotExpressible,
@@ -632,19 +898,39 @@ sealed class GlslEmitter {
         };
 
     /// <summary>Emits the whole unit.</summary>
+    /// <remarks>
+    ///     The body is emitted first and the prologue prepended, because which extensions the
+    ///     unit requires is only known once the body has been walked. Declaring an extension
+    ///     a unit does not use is not harmless: a driver may reject it.
+    /// </remarks>
     internal string Emit() {
-        writer.Line($"#version {options.Version}");
-        writer.Blank();
-        writer.Line($"// Generated by Raven from shader '{shader.Name}' ({entryPoint.Stage} stage).");
-        writer.Blank();
-
         EmitStructs();
         EmitBindings();
         EmitStageInterface();
         EmitFunctions();
         EmitMain();
 
-        return writer.ToString();
+        return Prologue() + writer;
+    }
+
+    /// <summary>
+    ///     The version, the extensions the body turned out to need, and a line saying where
+    ///     this came from.
+    /// </summary>
+    string Prologue() {
+        var prologue = new Writer();
+        prologue.Line($"#version {options.Version}");
+
+        if (samplerlessFetch) {
+            prologue.Line("#extension GL_EXT_samplerless_texture_functions : require");
+        }
+
+        prologue.Blank();
+        prologue.Line($"// Generated by Raven from shader '{shader.Name}' ({entryPoint.Stage} stage).");
+        prologue.Line("// Vulkan GLSL: explicit sets and bindings, separate textures and samplers.");
+        prologue.Blank();
+
+        return prologue.ToString();
     }
 
     /// <summary>Indent-tracking line writer, so the emitters stay declarative.</summary>

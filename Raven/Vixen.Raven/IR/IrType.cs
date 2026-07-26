@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+
 namespace Vixen.Raven.IR;
 
 /// <summary>The closed set of shapes a Raven IR type can take.</summary>
@@ -100,7 +104,23 @@ public sealed class IrVectorType : IrType, IEquatable<IrVectorType> {
     public override int GetHashCode() => HashCode.Combine(Component, Size);
 }
 
-/// <summary>A matrix, stored row-major in the IR; a backend may transpose on emit.</summary>
+/// <summary>
+///     A matrix of <see cref="Rows" /> rows by <see cref="Columns" /> columns.
+/// </summary>
+/// <remarks>
+///     <para>
+///         Rows-first only in how the type is <em>named</em> — Raven's <c>mat2x3</c> is 2 rows by 3
+///         columns, where GLSL spells the same shape <c>mat3x2</c>, columns first. Nothing about the
+///         name says anything about storage.
+///     </para>
+///     <para>
+///         Storage is column-major, and that is not a backend detail: a matrix in a uniform block is
+///         decorated <c>ColMajor</c> in SPIR-V and laid out the same way by GLSL, which makes the
+///         matrix the shader sees the transpose of the row-major one the host wrote — for free, since
+///         it is the same bytes read differently. That is what makes <c>m * v</c> here equal the
+///         host's <c>mul(v, M)</c>. See docs/plan/07 § E.
+///     </para>
+/// </remarks>
 public sealed class IrMatrixType : IrType, IEquatable<IrMatrixType> {
     public IrScalarType Component { get; }
     public int Rows { get; }
@@ -109,8 +129,14 @@ public sealed class IrMatrixType : IrType, IEquatable<IrMatrixType> {
     public override IrTypeKind Kind => IrTypeKind.Matrix;
     public override string Name => $"mat<{Component.Name},{Rows},{Columns}>";
 
-    /// <summary>The vector type of one row.</summary>
+    /// <summary>The vector type of one row: as many lanes as there are columns.</summary>
     public IrVectorType RowType => new(Component, Columns);
+
+    /// <summary>
+    ///     The vector type of one column: as many lanes as there are rows. This is what
+    ///     <c>m[i]</c> yields, because both targets index a matrix by column.
+    /// </summary>
+    public IrVectorType ColumnType => new(Component, Rows);
 
     public IrMatrixType(IrScalarType component, int rows, int columns) {
         Component = component;

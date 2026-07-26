@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+
 namespace Vixen.Raven.Symbols;
 
 /// <summary>A tuple type: <c>(int, string)</c> or <c>(code: int, message: string)</c>.</summary>

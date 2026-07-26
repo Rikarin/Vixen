@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using Vixen.Raven.Syntax;
 
 namespace Vixen.Raven.Symbols;
@@ -55,12 +58,12 @@ public static class BuiltInTypes {
     public static readonly BuiltInNamedTypeSymbol TextureCube =
         new("TextureCube", SpecialType.TextureCube, TypeKind.Resource, ResourceKind.Texture);
 
-    static readonly Dictionary<string, NamedTypeSymbol> byName;
-    static readonly Dictionary<SpecialType, PrimitiveTypeSymbol> bySpecialType;
-    static readonly Dictionary<SyntaxKind, PrimitiveTypeSymbol> byKeyword;
+    static readonly Dictionary<string, NamedTypeSymbol> ByName;
+    static readonly Dictionary<SpecialType, PrimitiveTypeSymbol> BySpecialType;
+    static readonly Dictionary<SyntaxKind, PrimitiveTypeSymbol> ByKeyword;
 
     /// <summary>Every intrinsic type, for scope population and tests.</summary>
-    public static IReadOnlyCollection<NamedTypeSymbol> All => byName.Values;
+    public static IReadOnlyCollection<NamedTypeSymbol> All => ByName.Values;
 
     static BuiltInTypes() {
         PrimitiveTypeSymbol[] primitives = [
@@ -72,19 +75,19 @@ public static class BuiltInTypes {
 
         NamedTypeSymbol[] named = [Sampler, Texture2D, Texture3D, TextureCube];
 
-        byName = new(StringComparer.Ordinal);
-        bySpecialType = [];
+        ByName = new(StringComparer.Ordinal);
+        BySpecialType = [];
 
         foreach (var type in primitives) {
-            byName[type.Name] = type;
-            bySpecialType[type.SpecialType] = type;
+            ByName[type.Name] = type;
+            BySpecialType[type.SpecialType] = type;
         }
 
         foreach (var type in named) {
-            byName[type.Name] = type;
+            ByName[type.Name] = type;
         }
 
-        byKeyword = new() {
+        ByKeyword = new() {
             [SyntaxKind.BoolKeyword] = Bool,
             [SyntaxKind.Bool2Keyword] = Bool2,
             [SyntaxKind.Bool3Keyword] = Bool3,
@@ -120,18 +123,18 @@ public static class BuiltInTypes {
     }
 
     /// <summary>Resolves an intrinsic type by its source name (<c>float3</c>, <c>Texture2D</c>).</summary>
-    public static NamedTypeSymbol? Lookup(string name) => byName.GetValueOrDefault(name);
+    public static NamedTypeSymbol? Lookup(string name) => ByName.GetValueOrDefault(name);
 
     /// <summary>The primitive type for a <see cref="SpecialType" />; throws for non-primitives.</summary>
-    public static PrimitiveTypeSymbol FromSpecialType(SpecialType specialType) => bySpecialType[specialType];
+    public static PrimitiveTypeSymbol FromSpecialType(SpecialType specialType) => BySpecialType[specialType];
 
     /// <summary>The type behind a <c>PredefinedType</c> keyword token, or null.</summary>
-    public static PrimitiveTypeSymbol? FromKeyword(SyntaxKind kind) => byKeyword.GetValueOrDefault(kind);
+    public static PrimitiveTypeSymbol? FromKeyword(SyntaxKind kind) => ByKeyword.GetValueOrDefault(kind);
 
     /// <summary>The vector of <paramref name="component" /> with this many lanes, or null if there is none.</summary>
     public static PrimitiveTypeSymbol? Vector(SpecialType component, int count) {
         if (count == 1) {
-            return bySpecialType.GetValueOrDefault(component);
+            return BySpecialType.GetValueOrDefault(component);
         }
 
         var name = component switch {
@@ -145,7 +148,7 @@ public static class BuiltInTypes {
 
         return name is null || count is < 2 or > 4
             ? null
-            : (PrimitiveTypeSymbol?)byName.GetValueOrDefault(name + count);
+            : (PrimitiveTypeSymbol?)ByName.GetValueOrDefault(name + count);
     }
 
     static PrimitiveTypeSymbol Vec(string name, SpecialType specialType, SpecialType component, int count) =>

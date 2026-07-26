@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Symbols;
 using Vixen.Raven.Symbols.Source;
@@ -8,6 +12,12 @@ namespace Vixen.Raven.Binding;
 /// <summary>Statement binding.</summary>
 public abstract partial class Binder {
     public BoundStatement BindStatement(StatementSyntax syntax) {
+        // Nothing downstream reads statement attributes, so `[Unroll] for (...)` would
+        // otherwise be a silent no-op the author believes in.
+        if (syntax.AttributeLists is { Count: > 0 } attributes && attributes[0] is { } list) {
+            Report(SemanticDiagnostics.AttributesOnStatementHaveNoEffect, list);
+        }
+
         var bound = BindStatementCore(syntax);
         Context.Record(syntax, bound);
         return bound;
@@ -70,17 +80,8 @@ public abstract partial class Binder {
             case ContinueStatementSyntax:
                 return new BoundContinueStatement(syntax);
 
-            case LocalFunctionStatementSyntax localFunction:
-                return BindLocalFunction(localFunction);
-
             case SwitchStatementSyntax switchStatement:
                 return BindSwitch(switchStatement);
-
-            case UsingStatementSyntax usingStatement:
-                return new BoundBlockStatement(
-                    usingStatement,
-                    [new BlockBinder(this).BindStatement(usingStatement.Statement)]
-                );
 
             case EmptyStatementSyntax:
                 return new BoundNoOpStatement(syntax);
@@ -183,53 +184,41 @@ public abstract partial class Binder {
         return new BoundReturnStatement(syntax, Convert(value, returnType, expressionSyntax));
     }
 
-    BoundStatement BindLocalFunction(LocalFunctionStatementSyntax syntax) {
-        var method = new SourceMethodSymbol(ContainingMember ?? Compilation.GlobalNamespace, syntax, this);
-
-        DeclareLocal(method, syntax);
-        Context.RecordDeclaration(syntax, method);
-
-        var binder = new MemberBinder(this, method, method.ReturnType, method.Parameters, method.TypeParameters);
-
-        BoundNode? body = syntax.Body is { } block
-            ? binder.BindBlock(block)
-            : syntax.ExpressionBody is { } arrow
-                ? binder.BindValue(arrow.Expression)
-                : null;
-
-        return new BoundLocalFunctionStatement(syntax, method, body);
-    }
-
     BoundStatement BindSwitch(SwitchStatementSyntax syntax) {
         var governing = BindValue(syntax.Expression);
-        List<BoundStatement> statements = [];
+        List<BoundSwitchSection> sections = [];
 
         foreach (var section in syntax.Sections) {
+            // Each section is its own scope: a local declared in one case is not in scope in
+            // the next, which is what makes the sections independent blocks.
             var binder = new BlockBinder(this);
+
+            List<BoundExpression> labels = [];
+            var isDefault = false;
 
             foreach (var label in section.Labels) {
                 switch (label) {
                     case CaseSwitchLabelSyntax value:
-                        binder.BindValue(value.Value);
+                        // Converted to the governing type so the comparison lowering emits is
+                        // well-typed without the backend having to widen anything.
+                        labels.Add(binder.Convert(binder.BindValue(value.Value), governing.Type, value.Value));
                         break;
-                    case CasePatternSwitchLabelSyntax pattern: {
-                        List<BoundNode> parts = [];
-                        binder.BindPattern(pattern.Pattern, parts);
-                        if (pattern.WhenClause is { } when) {
-                            binder.BindCondition(when.Condition);
-                        }
 
+                    case DefaultSwitchLabelSyntax:
+                        isDefault = true;
                         break;
-                    }
                 }
             }
 
+            List<BoundStatement> statements = [];
             foreach (var statement in section.Statements) {
                 statements.Add(binder.BindStatement(statement));
             }
+
+            sections.Add(new(labels, isDefault, statements));
         }
 
-        return new BoundSwitchStatement(syntax, governing, statements);
+        return new BoundSwitchStatement(syntax, governing, sections);
     }
 
     /// <summary>Declares a local or local function in the innermost block scope.</summary>

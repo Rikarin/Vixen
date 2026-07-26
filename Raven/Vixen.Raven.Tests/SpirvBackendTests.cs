@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven.CodeGen;
 using Vixen.Raven.CodeGen.Spirv;
 using Vixen.Raven.Symbols;
@@ -156,7 +160,9 @@ public class SpirvBackendTests {
         );
 
         var block = BlockStruct(code);
-        Assert.Contains("DescriptorSet 0", code);
+
+        // Unmarked fields are material parameters: set 2 in the four-set convention.
+        Assert.Contains("DescriptorSet 2", code);
         Assert.Contains("Binding 0", code);
 
         // SPIR-V has no implicit layout: a float then a vec4 puts the vector at
@@ -189,8 +195,8 @@ public class SpirvBackendTests {
             "func Pixel(uv: float2): float4"
         );
 
-        // This is what SPIR-V has and GLSL does not: nothing is folded away, and
-        // the two only meet at the sample itself.
+        // Nothing is folded away: the two meet only at the sample itself. The GLSL
+        // backend emits the same shape, which is why their binding indices match.
         Assert.Contains("OpTypeImage", code);
         Assert.Contains("OpTypeSampler\n", code);
         Assert.Contains("OpSampledImage", code);
@@ -605,23 +611,57 @@ public class SpirvBackendTests {
         Assert.Contains(diagnostics, d => d.Id == "RVN4001" && d.IsError);
     }
 
+    /// <summary>
+    ///     A compute entry point is a <c>GLCompute</c> module with a <c>LocalSize</c> execution
+    ///     mode, which <c>spirv-val</c> requires — a module without one is rejected outright.
+    /// </summary>
     [Fact]
-    public void A_compute_entry_point_is_reported_rather_than_guessed_at() {
-        Generate(
+    public void A_compute_entry_point_declares_GLCompute_and_LocalSize() {
+        var unit = One(
             """
             package A
 
             shader S {
-                [ComputeShader]
+                [ComputeShader(8, 4, 2)]
                 func Main() { }
             }
 
-            """,
-            out var diagnostics,
-            "spirv"
+            """
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN4002" && d.IsError);
+        Assert.Contains("OpEntryPoint GLCompute", unit.Code, StringComparison.Ordinal);
+        Assert.Contains("OpExecutionMode %", unit.Code, StringComparison.Ordinal);
+        Assert.Contains("LocalSize 8 4 2", unit.Code, StringComparison.Ordinal);
+
+        // OriginUpperLeft belongs to a fragment stage; a compute module must not claim it.
+        Assert.DoesNotContain("OriginUpperLeft", unit.Code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Each dispatch built-in becomes a <c>BuiltIn</c>-decorated <c>Input</c>, never a
+    ///     located one — the two decorations are mutually exclusive, and a compute stage has no
+    ///     located interface at all.
+    /// </summary>
+    [Theory]
+    [InlineData("SV_DispatchThreadID", "uint3", "GlobalInvocationId")]
+    [InlineData("SV_GroupID", "uint3", "WorkgroupId")]
+    [InlineData("SV_GroupThreadID", "uint3", "LocalInvocationId")]
+    [InlineData("SV_GroupIndex", "uint", "LocalInvocationIndex")]
+    public void EachDispatchBuiltInIsDecoratedAsOne(string semantic, string type, string expected) {
+        var unit = One(
+            $$"""
+              package A
+
+              shader S {
+                  [ComputeShader(64)]
+                  func Main([Semantic("{{semantic}}")] id: {{type}}) { }
+              }
+
+              """
+        );
+
+        Assert.Contains($"BuiltIn {expected}", unit.Code, StringComparison.Ordinal);
+        Assert.DoesNotContain("Location", unit.Code, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -674,9 +714,14 @@ public class SpirvBackendTests {
         Assert.False(dropped.IsError);
     }
 
+    /// <summary>
+    ///     A non-square matrix is the case that catches a wrong indexing convention: for a
+    ///     <c>mat2x3</c> a column has 2 lanes and a row has 3, so getting it backwards is a type
+    ///     error rather than a silently wrong value. The emitter used to refuse this outright.
+    /// </summary>
     [Fact]
-    public void Indexing_a_matrix_is_refused_because_the_conventions_disagree() {
-        Generate(
+    public void Indexing_a_matrix_yields_a_column() {
+        var unit = One(
             """
             package A
 
@@ -685,19 +730,20 @@ public class SpirvBackendTests {
 
                 [PixelShader]
                 func Pixel(): float4 {
-                    return float4(m[0], 1)
+                    val column = m[0]
+                    return float4(column, 0, 1)
                 }
             }
 
-            """,
-            out var diagnostics,
-            "spirv"
+            """
         );
 
-        // The IR reads m[i] as a row; SPIR-V and GLSL index columns. Emitting it
-        // would be a type error the validator catches, so it is refused. This is
-        // a defect in the IR's convention, recorded in the plan doc.
-        Assert.Contains(diagnostics, d => d.Id == "RVN4002" && d.IsError);
+        // An access chain, exactly as for an array element — no gather, no transpose.
+        Assert.Contains("OpAccessChain", unit.Code);
+
+        // `One` puts it through spirv-val, which is what proves the access chain's result
+        // type matches its base.
+        Assert.Contains("OpTypeMatrix", unit.Code);
     }
 
     [Fact]

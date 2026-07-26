@@ -1,5 +1,9 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
 using Vixen.Raven.CodeGen;
 using Vixen.Raven.Diagnostics;
@@ -136,7 +140,7 @@ public partial class GoldenSpirvTests(ITestOutputHelper output) {
         return generated;
     }
 
-    static string Suffix(GeneratedSource unit) => ShaderStages.Suffix(unit.Stage);
+    static string Suffix(GeneratedSource unit) => ShaderStageNames.Suffix(unit.Stage);
 
     static string Normalize(string text) => text.Replace("\r\n", "\n").TrimEnd('\n');
 

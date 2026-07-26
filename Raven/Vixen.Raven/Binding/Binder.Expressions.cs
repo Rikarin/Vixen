@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Symbols;
 using Vixen.Raven.Syntax;
@@ -101,16 +105,6 @@ public abstract partial class Binder {
             case DefaultExpressionSyntax @default:
                 return new BoundLiteralExpression(@default, BindType(@default.Type), null);
 
-            case SizeOfExpressionSyntax sizeOf: {
-                BindType(sizeOf.Type);
-                return new BoundLiteralExpression(sizeOf, BuiltInTypes.Int, null);
-            }
-
-            case RefExpressionSyntax @ref: {
-                var operand = BindValue(@ref.Expression);
-                return operand;
-            }
-
             case RangeExpressionSyntax range:
                 return BindRange(range);
 
@@ -119,24 +113,6 @@ public abstract partial class Binder {
 
             case CollectionExpressionSyntax collection:
                 return BindCollection(collection);
-
-            case IsPatternExpressionSyntax isPattern: {
-                var operand = BindValue(isPattern.Expression);
-                List<BoundNode> parts = [];
-                BindPattern(isPattern.Pattern, parts);
-                return new BoundIsPatternExpression(isPattern, operand, parts);
-            }
-
-            case SwitchExpressionSyntax switchExpression:
-                return BindSwitchExpression(switchExpression);
-
-            case DeclarationExpressionSyntax declaration:
-                return BindDeclarationExpression(declaration);
-
-            case MemberBindingExpressionSyntax:
-                // `.Name` only means something inside a conditional-access chain,
-                // which the grammar does not currently produce.
-                return new BoundErrorExpression(syntax);
 
             default:
                 Report(SemanticDiagnostics.UndefinedName, syntax, syntax.ToString().Trim());
@@ -171,12 +147,7 @@ public abstract partial class Binder {
             PropertySymbol property =>
                 new BoundPropertyExpression(syntax, ImplicitReceiver(syntax, property), property, []),
             NamespaceSymbol ns => new BoundNamespaceExpression(syntax, ns),
-            TypeSymbol type => new BoundTypeExpression(
-                syntax,
-                typeArguments.Length > 0 && type is NamedTypeSymbol named
-                    ? new ConstructedNamedTypeSymbol(named, typeArguments)
-                    : type
-            ),
+            TypeSymbol type => new BoundTypeExpression(syntax, Construct(type, typeArguments, syntax)),
             _ => new BoundErrorExpression(syntax)
         };
     }
@@ -301,20 +272,6 @@ public abstract partial class Binder {
     BoundExpression BindBinary(BinaryExpressionSyntax syntax) {
         var operatorText = syntax.OperatorToken.Text;
 
-        switch (operatorText) {
-            case "is": {
-                var operand = BindValue(syntax.Left);
-                BindType(syntax.Right as TypeSyntax);
-                return new BoundIsPatternExpression(syntax, operand, []);
-            }
-
-            case "as": {
-                var operand = BindValue(syntax.Left);
-                var target = BindType(syntax.Right as TypeSyntax);
-                return new BoundConversionExpression(syntax, operand, target, new(ConversionKind.ExplicitReference));
-            }
-        }
-
         var left = BindValue(syntax.Left);
         var right = BindValue(syntax.Right);
 
@@ -330,6 +287,12 @@ public abstract partial class Binder {
         }
 
         if (ResolveBinaryOperator(kind, left.Type, right.Type) is not { } signature) {
+            // A user-defined operator is looked for only once the built-ins have failed, so a
+            // declaration can never change what `float + float` means.
+            if (BindUserDefinedOperator(syntax, operatorText, [left, right], [syntax.Left, syntax.Right]) is { } call) {
+                return call;
+            }
+
             if (!left.Type.IsErrorType && !right.Type.IsErrorType) {
                 Report(
                     SemanticDiagnostics.BinaryOperatorNotDefined,
@@ -352,6 +315,67 @@ public abstract partial class Binder {
         );
     }
 
+    /// <summary>
+    ///     Resolves <c>a + b</c> or <c>-a</c> against an <c>operator</c> declared on one of the
+    ///     operand types, or null when there is none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Vector maths on a user type is the reason this exists: a <c>Spectrum</c> or a
+    ///         <c>Complex</c> wants <c>a + b</c> to read as addition, and writing
+    ///         <c>Spectrum.Add(a, b)</c> everywhere is what the operator is for. Nothing about it
+    ///         needs anything a GPU lacks — it resolves statically to one function call.
+    ///     </para>
+    ///     <para>
+    ///         Only reached after the built-in operators have failed, so a declaration can never
+    ///         change what the primitives mean. Candidates are gathered from every operand's type,
+    ///         which is how <c>Spectrum * float</c> finds an operator declared on <c>Spectrum</c>,
+    ///         and ranked by the same conversion cost as an ordinary overload — so a declaration
+    ///         taking the operands exactly beats one that needs a widening.
+    ///     </para>
+    /// </remarks>
+    static BoundExpression? BindUserDefinedOperator(
+        ExpressionSyntax syntax,
+        string operatorText,
+        BoundExpression[] operands,
+        ExpressionSyntax[] operandSyntax
+    ) {
+        if (operands.Any(o => o.Type.IsErrorType)) {
+            return null;
+        }
+
+        var name = "operator" + operatorText;
+        var arguments = operands
+            .Select((operand, i) => new BoundArgument(null, operand, operandSyntax[i]))
+            .ToArray();
+
+        List<(MethodSymbol Method, BoundExpression[] Arguments, int Cost)> applicable = [];
+        HashSet<MethodSymbol> seen = [];
+
+        foreach (var type in operands.Select(o => o.Type).Distinct()) {
+            foreach (var member in LookupMembers(type, name)) {
+                if (member is not MethodSymbol { MethodKind: MethodKind.Operator } candidate
+                    || candidate.Parameters.Count != operands.Length
+                    || !seen.Add(candidate)) {
+                    continue;
+                }
+
+                if (TryMapArguments(candidate, arguments, syntax, out var mapped, out var cost)) {
+                    applicable.Add((candidate, mapped, cost));
+                }
+            }
+        }
+
+        if (applicable.Count == 0) {
+            return null;
+        }
+
+        var best = applicable.MinBy(c => c.Cost);
+
+        // No receiver: an operator takes every operand as an explicit parameter.
+        return new BoundInvocationExpression(syntax, null, best.Method, best.Arguments);
+    }
+
     BoundExpression BindUnary(ExpressionSyntax syntax, ExpressionSyntax operandSyntax, UnaryOperatorKind? kind) {
         var operand = BindValue(operandSyntax);
 
@@ -366,6 +390,10 @@ public abstract partial class Binder {
         }
 
         if (ResolveUnaryOperator(operatorKind, operand.Type) is not { } resultType) {
+            if (BindUserDefinedOperator(syntax, OperatorText(operatorKind), [operand], [operandSyntax]) is { } call) {
+                return call;
+            }
+
             if (!operand.Type.IsErrorType) {
                 Report(
                     SemanticDiagnostics.UnaryOperatorNotDefined,
@@ -396,7 +424,6 @@ public abstract partial class Binder {
             SyntaxKind.LogicalNotExpression => UnaryOperatorKind.LogicalNot,
             SyntaxKind.PreIncrementExpression => UnaryOperatorKind.PreIncrement,
             SyntaxKind.PreDecrementExpression => UnaryOperatorKind.PreDecrement,
-            SyntaxKind.IndexExpression => UnaryOperatorKind.IndexFromEnd,
             _ => null
         };
 
@@ -415,7 +442,6 @@ public abstract partial class Binder {
             UnaryOperatorKind.LogicalNot => "!",
             UnaryOperatorKind.PreIncrement or UnaryOperatorKind.PostIncrement => "++",
             UnaryOperatorKind.PreDecrement or UnaryOperatorKind.PostDecrement => "--",
-            UnaryOperatorKind.IndexFromEnd => "^",
             _ => "!"
         };
 
@@ -463,9 +489,26 @@ public abstract partial class Binder {
     }
 
     void CheckAssignable(BoundExpression target, ExpressionSyntax syntax) {
+        CheckBindingIsWritable(target, syntax);
+
         switch (target) {
             case BoundLocalExpression { Local.IsReadOnly: true } local:
                 Report(SemanticDiagnostics.NotAssignable, syntax, local.Local.Name);
+                break;
+
+            // Before the read-only case, and with no initializer exemption: a permutation
+            // key's value is fixed when the shader is compiled, so even a constructor
+            // cannot set it. The dedicated message says why; "not assignable" would not.
+            case BoundFieldExpression { Field.IsPermutation: true } permutation:
+                Report(SemanticDiagnostics.PermutationCannotBeAssigned, syntax, permutation.Field.Name);
+                break;
+
+            case BoundFieldExpression { Field.IsCompose: true } slot:
+                Report(SemanticDiagnostics.ComposeCannotBeAssigned, syntax, slot.Field.Name);
+                break;
+
+            case BoundFieldExpression { Field: Symbols.Source.SourceValueParameterSymbol } parameter:
+                Report(SemanticDiagnostics.ValueParameterCannotBeAssigned, syntax, parameter.Field.Name);
                 break;
 
             case BoundFieldExpression { Field.IsReadOnly: true } field
@@ -490,6 +533,45 @@ public abstract partial class Binder {
                 break;
         }
     }
+
+    /// <summary>
+    ///     Refuses a write that lands inside a binding the host uploads.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Checked at the <em>root</em> of the access chain, not at the target, because
+    ///         <c>tint.rgb</c>, <c>lights[i].color</c> and <c>tint</c> are all writes to the same
+    ///         binding and only the innermost expression says which binding that is.
+    ///     </para>
+    ///     <para>
+    ///         This was refused by nobody until there was something writable to suggest instead —
+    ///         both reference compilers rejected the store, and Raven emitted it in silence. A
+    ///         <c>RWBuffer&lt;T&gt;</c> is what makes the diagnostic actionable rather than a dead end.
+    ///     </para>
+    /// </remarks>
+    void CheckBindingIsWritable(BoundExpression target, ExpressionSyntax syntax) {
+        if (RootBinding(target) is not { } field || field.Type.IsWritableResource) {
+            return;
+        }
+
+        // A read-only buffer is a one-character fix, so it gets its own reason; anything else is
+        // host-uploaded state with no writable counterpart to point at.
+        var reason = field.Type is BufferTypeSymbol
+            ? $"a '{BufferTypeSymbol.ReadOnlyName}' is read-only — declare it "
+            + $"'{BufferTypeSymbol.ReadWriteName}' to store into it"
+            : "it is a binding the host supplies, and a shader cannot write back to one";
+
+        Report(SemanticDiagnostics.CannotWriteToBinding, syntax, field.Name, reason);
+    }
+
+    /// <summary>The binding an access chain bottoms out in, or null when it reaches local storage.</summary>
+    static FieldSymbol? RootBinding(BoundExpression expression) =>
+        expression switch {
+            BoundFieldExpression { Field.IsBinding: true } field => field.Field,
+            BoundFieldExpression { Receiver: { } receiver } => RootBinding(receiver),
+            BoundArrayAccessExpression access => RootBinding(access.Receiver),
+            _ => null
+        };
 
     /// <summary>A <c>val</c> field may still be assigned from its type's constructor.</summary>
     bool IsInsideInitializerOf(FieldSymbol field) =>
@@ -550,10 +632,16 @@ public abstract partial class Binder {
     }
 
     BoundExpression BindCollection(CollectionExpressionSyntax syntax) {
-        List<BoundExpression> elements = [];
+        List<BoundCollectionElement> elements = [];
         TypeSymbol? elementType = null;
 
+        // The literal's own length, which is what makes it a *sized* array — and what lets a
+        // spread be flattened at all. It goes to null the moment one contribution is unknown,
+        // because a length that is right for all but one element is not a length.
+        int? length = 0;
+
         foreach (var element in syntax.Elements) {
+            var isSpread = element is SpreadElementSyntax;
             var expression = element switch {
                 ExpressionElementSyntax value => value.Expression,
                 SpreadElementSyntax spread => spread.Expression,
@@ -566,12 +654,13 @@ public abstract partial class Binder {
 
             var bound = BindValue(expression);
 
-            // A spread contributes its element type, not its own.
-            var contributed = element is SpreadElementSyntax && bound.Type is ArrayTypeSymbol array
-                ? array.ElementType
-                : bound.Type;
+            // A spread contributes its element type and its own count, not itself and one.
+            var spreadOf = isSpread ? bound.Type as ArrayTypeSymbol : null;
+            var contributed = spreadOf?.ElementType ?? bound.Type;
 
-            elements.Add(bound);
+            elements.Add(new(bound, isSpread));
+            length = isSpread ? Add(length, spreadOf?.Length) : Add(length, 1);
+
             elementType = elementType is null ? contributed : Conversions.FindCommonType(elementType, contributed);
 
             if (elementType is null) {
@@ -588,109 +677,11 @@ public abstract partial class Binder {
         return new BoundCollectionExpression(
             syntax,
             elements,
-            new ArrayTypeSymbol(elementType ?? ErrorTypeSymbol.Instance)
+            new ArrayTypeSymbol(elementType ?? ErrorTypeSymbol.Instance, 1, length)
         );
-    }
 
-    BoundExpression BindDeclarationExpression(DeclarationExpressionSyntax syntax) {
-        var type = BindType(syntax.Type);
-        DeclarePatternVariables(syntax.Designation, type);
-        return new BoundTypeExpression(syntax, type);
-    }
-
-    // --- Lambdas -----------------------------------------------------------
-
-    // --- Patterns (shallow) ------------------------------------------------
-
-    /// <summary>
-    ///     Walks a pattern, binding the expressions inside it and declaring any
-    ///     variables it introduces. Type-test narrowing and exhaustiveness are not
-    ///     modelled in this phase.
-    /// </summary>
-    void BindPattern(PatternSyntax? syntax, List<BoundNode> parts) {
-        switch (syntax) {
-            case null or DiscardPatternSyntax:
-                return;
-
-            case ConstantPatternSyntax constant:
-                parts.Add(BindValue(constant.Expression));
-                return;
-
-            case RelationalPatternSyntax relational:
-                parts.Add(BindValue(relational.Expression));
-                return;
-
-            case ParenthesizedPatternSyntax parenthesized:
-                BindPattern(parenthesized.Pattern, parts);
-                return;
-
-            case UnaryPatternSyntax unary:
-                BindPattern(unary.Pattern, parts);
-                return;
-
-            case BinaryPatternSyntax binary:
-                BindPattern(binary.Left, parts);
-                BindPattern(binary.Right, parts);
-                return;
-
-            case VarPatternSyntax var:
-                DeclarePatternVariables(var.Designation, ErrorTypeSymbol.Instance);
-                return;
-
-            case ListPatternSyntax list: {
-                foreach (var pattern in list.Patterns) {
-                    BindPattern(pattern, parts);
-                }
-
-                DeclarePatternVariables(list.Designation, ErrorTypeSymbol.Instance);
-                return;
-            }
-
-            case SlicePatternSyntax slice:
-                BindPattern(slice.Pattern, parts);
-                return;
-        }
-    }
-
-    void DeclarePatternVariables(VariableDesignationSyntax? designation, TypeSymbol type) {
-        switch (designation) {
-            case SimpleVariableDesignationSyntax simple: {
-                var local = new LocalSymbol(ContainingMember, simple.Identifier.ValueText, type, false, simple);
-                DeclareLocal(local, simple);
-                break;
-            }
-
-            case ParenthesizedVariableDesignationSyntax parenthesized: {
-                foreach (var nested in parenthesized.Variables) {
-                    DeclarePatternVariables(nested, type);
-                }
-
-                break;
-            }
-        }
-    }
-
-    BoundExpression BindSwitchExpression(SwitchExpressionSyntax syntax) {
-        var governing = BindValue(syntax.GoverningExpression);
-
-        List<BoundExpression> arms = [];
-        TypeSymbol? common = null;
-
-        foreach (var arm in syntax.Arms) {
-            var armBinder = new BlockBinder(this);
-            List<BoundNode> parts = [];
-            armBinder.BindPattern(arm.Pattern, parts);
-
-            if (arm.WhenClause is { } when) {
-                armBinder.BindCondition(when.Condition);
-            }
-
-            var value = armBinder.BindValue(arm.Expression);
-            arms.Add(value);
-            common = common is null ? value.Type : Conversions.FindCommonType(common, value.Type);
-        }
-
-        return new BoundSwitchExpression(syntax, governing, arms, common ?? ErrorTypeSymbol.Instance);
+        static int? Add(int? total, int? contribution) =>
+            total is { } a && contribution is { } b ? a + b : null;
     }
 
     /// <summary>Binds an expression only to learn its type; its diagnostics are discarded.</summary>

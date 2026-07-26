@@ -1,0 +1,177 @@
+package Vixen.Shaders.Pipeline
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Shading
+import Vixen.Shaders.Geometry
+import Vixen.Shaders.Material
+
+// The forward shading pass: written once against `IMaterialSurface`, instantiated per material.
+//
+// This is what the whole composition mechanism exists for. The shader knows nothing about metalness,
+// glossiness, normal maps or emission — it fills a `MaterialData` from whatever feature the material
+// chose, and shades it. Adding a material feature does not touch this file.
+//
+// "Forward *plus*" names the light culling: a compute pass bins lights into screen-space tiles or
+// clusters so a fragment iterates only the lights that reach it instead of all of them. The loop over
+// that list is here, and it is what `MaxLights` sizes. What is still host-side is the *culling* — this
+// pass iterates the list it is given, which is the culled list when a binning pass wrote one and the
+// whole list when nothing did. Either way the shader is the same, which is the point of taking the
+// count as a uniform.
+
+shader ForwardPlus {
+    /// The material's surface features, chosen per material.
+    compose val surface: IMaterialSurface
+
+    /// Whether to add image-based ambient. Off gives a pure punctual-lit look, and folds every IBL
+    /// binding and its arithmetic out of the variant entirely.
+    [Permutation] val UseImageBasedLighting: bool = true
+
+    /// Whether to sample a shadow map for the directional light.
+    [Permutation] val UseShadows: bool = true
+
+    /// How many entries the light list has room for.
+    ///
+    /// A permutation rather than a constant because it is the *host's* budget: it sizes a uniform
+    /// array, so it sets the descriptor's size, and a project that ships eight lights per cluster
+    /// should not pay for sixty-four. It is also why `lightCount` exists separately — the array is
+    /// sized once at compile time and filled to a different depth every draw.
+    [Permutation] val MaxLights: int = 16
+
+    var world: mat4
+    var worldViewProjection: mat4
+    var cameraPosition: float3
+
+    /// The sun, kept separate from the list: it has no position to cull against, so it is in every
+    /// cluster and paying list traversal for it would be paying for nothing.
+    var lightDirection: float3
+
+    var lightColor: float3
+
+    /// The culled light list. Read `lightCount` entries, not `MaxLights` — the rest is stale memory.
+    var lights: PunctualLight[MaxLights]
+
+    var lightCount: int = 0
+
+    var lightViewProjection: mat4
+    var shadowMap: Texture2D
+    var shadowSampler: Sampler
+    var shadowTexelSize: float2 = float2(0.0009765625f, 0.0009765625f)
+    var shadowConstantBias: float = 0.0005f
+    var shadowSlopeBias: float = 0.002f
+
+    var environment: TextureCube
+    var environmentSampler: Sampler
+    var environmentMipCount: float = 7f
+    var ambientIntensity: float = 1f
+
+    stream var positionWS: float3
+    stream var normalWS: float3
+    stream var tangentWS: float4
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float3, normal: float3, tangent: float4, texcoord: float2): float4 {
+        positionWS = Math.TransformPoint(world, position)
+        normalWS = Math.TransformNormalRigid(world, normal)
+        tangentWS = float4(Math.TransformDirection(world, tangent.xyz), tangent.w)
+        uv = texcoord
+
+        return Transform.ObjectToClip(worldViewProjection, position)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        // The material fills the surface. Every feature reads what the previous one left, which is
+        // what `inout` buys: adding a feature to the chain changes no other feature's signature.
+        var d: MaterialData
+        MaterialDefaults.Reset(d)
+        surface.Compute(d)
+
+        val v = Math.SafeNormalize(cameraPosition - positionWS)
+        val n = Normals.FaceForward(Math.SafeNormalize(d.normalWS), v)
+        val alpha = Brdf.Alpha(d.perceptualRoughness)
+
+        var color = Direct(d, n, v, alpha)
+        color += Punctual(d, n, v, alpha)
+
+        if (UseImageBasedLighting) {
+            color += Ambient(d, n, v)
+        }
+
+        return float4(color + d.emissive, d.alpha)
+    }
+
+    /// The directional light's contribution, shadowed.
+    func Direct(d: MaterialData, n: float3, v: float3, alpha: float): float3 {
+        val light = Lighting.Directional(lightDirection, lightColor)
+        val angles = ShadingAngles.Of(n, v, light.l)
+
+        if (angles.NdotL <= 0f) {
+            return float3(0f)
+        }
+
+        val diffuse = DiffuseModels.Lambert(d.diffuseColor) * DiffuseModels.EnergyRemaining(d.f0, angles.NdotV)
+        val specular = SpecularModels.Ggx(d.f0, angles, alpha)
+        val visibility = UseShadows ? Shadow(n, angles.NdotL) : 1f
+
+        return (diffuse + specular) * light.radiance * angles.NdotL * visibility
+    }
+
+    /// Every light in the list, unshadowed.
+    ///
+    /// Bounded by `MaxLights` and broken out of at `lightCount`, rather than looped to `lightCount`
+    /// directly: the bound is what lets a driver unroll and what keeps the index provably inside the
+    /// array. The early exit is the part that costs nothing when the list is short.
+    func Punctual(d: MaterialData, n: float3, v: float3, alpha: float): float3 {
+        var total = float3(0f)
+
+        for (i in 0 .. MaxLights - 1) {
+            if (i >= lightCount) {
+                break
+            }
+
+            val light = Lighting.Resolve(lights[i], positionWS, alpha)
+            val angles = ShadingAngles.Of(n, v, light.l)
+
+            if (angles.NdotL > 0f) {
+                val lambert = DiffuseModels.Lambert(d.diffuseColor)
+                val diffuse = lambert * DiffuseModels.EnergyRemaining(d.f0, angles.NdotV)
+                val specular = SpecularModels.Ggx(d.f0, angles, light.alphaPrime)
+                total += (diffuse + specular) * light.radiance * angles.NdotL
+            }
+        }
+
+        return total
+    }
+
+    /// The shadow term for this pixel, biased both ways — see `Lighting.ShadowBias`.
+    func Shadow(n: float3, NdotL: float): float {
+        val offset = Lighting.NormalOffset(positionWS, n, NdotL, shadowTexelSize.x * 64f)
+        val clip = lightViewProjection * float4(offset, 1f)
+        val ndc = Math.ClipToNdc(clip)
+        val shadowUv = Transform.NdcToUv(ndc)
+
+        val bias = Lighting.ShadowBias(NdotL, shadowConstantBias, shadowSlopeBias)
+        return Lighting.ShadowPcf3x3(shadowMap, shadowSampler, shadowUv, ndc.z - bias, shadowTexelSize)
+    }
+
+    /// Image-based ambient: a prefiltered environment for specular, its top mip for diffuse.
+    ///
+    /// The top mip stands in for spherical-harmonic irradiance, which would need the host to supply
+    /// nine coefficients — `Ibl.IrradianceSh9` is what to use once it does. Sampling the roughest mip
+    /// is the cheap approximation, and it is noticeably flatter.
+    func Ambient(d: MaterialData, n: float3, v: float3): float3 {
+        val NdotV = saturate(dot(n, v))
+        val reflected = reflect(-v, n)
+
+        val dfg = Ibl.EnvironmentDfg(NdotV, d.perceptualRoughness)
+        val prefiltered = environment.Sample(environmentSampler, reflected).rgb
+        val irradiance = environment.Sample(environmentSampler, n).rgb
+
+        val specular = Ibl.Specular(prefiltered, d.f0, dfg, d.occlusion)
+        val diffuse = Ibl.Diffuse(irradiance, d.diffuseColor, d.occlusion)
+        return (specular + diffuse) * ambientIntensity
+    }
+}

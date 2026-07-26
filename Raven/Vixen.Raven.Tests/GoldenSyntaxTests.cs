@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using Vixen.Raven.Syntax;
 using Xunit;
 
@@ -17,6 +20,7 @@ public class GoldenSyntaxTests {
     [Theory]
     [InlineData("package_imports")]
     [InlineData("expression_precedence")]
+    [InlineData("all_constructs")]
     public void Matches_golden(string name) {
         var rvnPath = FixturePath(name + ".rvn");
         var goldenPath = FixturePath(name + ".tree");

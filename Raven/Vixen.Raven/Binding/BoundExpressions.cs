@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Syntax;
 using Vixen.Raven.Symbols;
 using Vixen.Raven.Syntax;
 
@@ -270,47 +274,25 @@ public sealed class BoundTupleExpression(
     public override IEnumerable<BoundNode> Children => Elements;
 }
 
-/// <summary><c>[a, b, c]</c> — bound as an array of the elements' common type.</summary>
+/// <summary>
+///     One entry of a collection expression. <paramref name="IsSpread" /> is recorded rather than
+///     inferred from the type: a spread of <c>int[]</c> into an <c>int[]</c> is indistinguishable
+///     from an element by type alone once <c>int[][]</c> exists, and lowering has to be able to
+///     tell them apart — one contributes itself, the other contributes its elements.
+/// </summary>
+public sealed record BoundCollectionElement(BoundExpression Expression, bool IsSpread);
+
+/// <summary><c>[a, b, ..c]</c> — bound as an array of the elements' common type.</summary>
 public sealed class BoundCollectionExpression(
     SyntaxNode syntax,
-    IReadOnlyList<BoundExpression> elements,
+    IReadOnlyList<BoundCollectionElement> elements,
     TypeSymbol type
 ) : BoundExpression(syntax) {
-    public IReadOnlyList<BoundExpression> Elements { get; } = elements;
+    public IReadOnlyList<BoundCollectionElement> Elements { get; } = elements;
+
     public override BoundKind Kind => BoundKind.CollectionExpression;
     public override TypeSymbol Type { get; } = type;
-    public override IEnumerable<BoundNode> Children => Elements;
-}
-
-/// <summary>
-///     <c>expr is pattern</c>. Patterns are checked shallowly in this phase: the
-///     expressions and designations inside them are bound, but exhaustiveness and
-///     type-test narrowing are not modelled yet.
-/// </summary>
-public sealed class BoundIsPatternExpression(
-    SyntaxNode syntax,
-    BoundExpression expression,
-    IReadOnlyList<BoundNode> patternParts
-) : BoundExpression(syntax) {
-    public BoundExpression Expression { get; } = expression;
-    public IReadOnlyList<BoundNode> PatternParts { get; } = patternParts;
-    public override BoundKind Kind => BoundKind.IsPatternExpression;
-    public override TypeSymbol Type => BuiltInTypes.Bool;
-    public override IEnumerable<BoundNode> Children => [Expression, .. PatternParts];
-}
-
-/// <summary><c>expr switch { … }</c>; typed as the common type of its arms.</summary>
-public sealed class BoundSwitchExpression(
-    SyntaxNode syntax,
-    BoundExpression governingExpression,
-    IReadOnlyList<BoundExpression> arms,
-    TypeSymbol type
-) : BoundExpression(syntax) {
-    public BoundExpression GoverningExpression { get; } = governingExpression;
-    public IReadOnlyList<BoundExpression> Arms { get; } = arms;
-    public override BoundKind Kind => BoundKind.SwitchExpression;
-    public override TypeSymbol Type { get; } = type;
-    public override IEnumerable<BoundNode> Children => [GoverningExpression, .. Arms];
+    public override IEnumerable<BoundNode> Children => Elements.Select(e => e.Expression);
 }
 
 /// <summary>

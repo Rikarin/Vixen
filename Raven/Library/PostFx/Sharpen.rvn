@@ -1,0 +1,72 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+
+// AMD's Contrast Adaptive Sharpening.
+//
+// The pass that goes after TAA or an upscaler, both of which soften. CAS rather than an unsharp mask
+// because of the "adaptive" part: the sharpening amount is derived per pixel from local contrast, so flat
+// regions are left alone and already-sharp edges are not over-shot. An unsharp mask applies the same
+// kernel everywhere and produces halos on exactly the edges people look at.
+//
+// The kernel is a fixed 3×3 cross. Its weight comes from the ratio of the local minimum to maximum, which
+// is what makes it contrast-adaptive, and it is clamped so a single outlier cannot drive the sharpening
+// to an extreme.
+
+shader Sharpen {
+    /// Whether to sharpen each channel independently rather than by luminance.
+    ///
+    /// Per-channel is what CAS specifies and is slightly sharper; luminance-only cannot introduce a
+    /// colour fringe, which matters after chromatic aberration.
+    [Permutation] val PerChannel: bool = true
+
+    var source: Texture2D
+    var pointSampler: Sampler
+    var texelSize: float2 = float2(0.001f, 0.001f)
+
+    /// 0 is no sharpening, 1 is the maximum CAS allows before ringing.
+    var sharpness: float = 0.5f
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(vertexIndex: float): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        val centre = Tap(0f, 0f)
+        val up = Tap(0f, -texelSize.y)
+        val down = Tap(0f, texelSize.y)
+        val left = Tap(-texelSize.x, 0f)
+        val right = Tap(texelSize.x, 0f)
+
+        val minimum = min(centre, min(min(up, down), min(left, right)))
+        val maximum = max(centre, max(max(up, down), max(left, right)))
+
+        // The adaptive weight: how much headroom there is between the local extremes and the clipping
+        // points. Little headroom means little sharpening, which is what avoids ringing.
+        val headroom = min(minimum, 1f - maximum) / max(maximum, float3(Const.Epsilon))
+        val amount = sqrt(saturate(headroom)) * (-0.125f - sharpness * 0.075f)
+
+        val weightSum = amount * 4f + 1f
+        val sharpened = (up + down + left + right) * amount + centre
+        val result = sharpened / max(weightSum, float3(Const.Epsilon))
+
+        if (PerChannel) {
+            return float4(max(result, float3(0f)), 1f)
+        }
+
+        // Luminance-only: apply the same relative change to all three channels, so no fringe appears.
+        val ratio = Fullscreen.Luminance(result) / max(Fullscreen.Luminance(centre), Const.Epsilon)
+        return float4(max(centre * ratio, float3(0f)), 1f)
+    }
+
+    func Tap(offsetX: float, offsetY: float): float3 {
+        return source.Sample(pointSampler, uv + float2(offsetX, offsetY)).rgb
+    }
+}

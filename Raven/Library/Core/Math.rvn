@@ -1,0 +1,190 @@
+package Vixen.Shaders.Core
+
+// Trig, vector and matrix helpers, and the encodings a G-buffer needs.
+//
+// Everything here is `static func` on a struct, which is what a free function is in Raven: there
+// is no namespace-level function, and a field-less struct costs nothing — it never reaches the IR,
+// only its functions do.
+//
+// Conventions this file is written to, both from docs/plan/07 § E:
+//   - Matrix on the left. `world * position`, never `position * world` — the latter compiles and
+//     computes the untransposed transform, which is a different and usually wrong answer.
+//   - `m[i]` is a column, and because the shader's matrix is the host's transpose, the shader's
+//     column i is the host matrix's row i.
+//
+// A style note that is a language constraint rather than a preference: Raven is newline-sensitive
+// and has no line continuation, so an expression cannot be wrapped. Anything that does not fit one
+// line becomes a block body with named locals, which is why this file has fewer `=>` bodies than
+// its shape suggests it would.
+
+/// Constants. Written to more digits than a `float` holds so that widening to `double` — or
+/// tightening the literal type later — does not silently lose precision that was never there.
+struct Const {
+    const val Pi = 3.14159265358979f
+    const val TwoPi = 6.28318530717959f
+    const val HalfPi = 1.57079632679490f
+    const val InvPi = 0.318309886183791f
+    const val InvTwoPi = 0.159154943091895f
+
+    /// The smallest offset that reliably keeps a denominator off zero at `float` precision. Used
+    /// rather than a per-call-site guess so "how close to zero is too close" is one decision.
+    const val Epsilon = 0.0001f
+}
+
+struct Math {
+    // --- Angles ----------------------------------------------------------
+
+    static func ToRadians(degrees: float): float => degrees * (Const.Pi / 180f)
+
+    static func ToDegrees(radians: float): float => radians * (180f / Const.Pi)
+
+    // --- Ranges ----------------------------------------------------------
+
+    /// Where `value` sits between `a` and `b`, as 0..1 — the inverse of `lerp`.
+    ///
+    /// Guarded rather than trusting the caller: a degenerate range divides by zero, and on a GPU
+    /// that is a NaN which propagates silently through everything downstream instead of faulting.
+    static func InverseLerp(a: float, b: float, value: float): float {
+        return (value - a) / max(b - a, Const.Epsilon)
+    }
+
+    /// Maps `value` from one range onto another, clamped to the destination.
+    static func Remap(value: float, fromMin: float, fromMax: float, toMin: float, toMax: float): float {
+        val t = saturate(InverseLerp(fromMin, fromMax, value))
+        return toMin + t * (toMax - toMin)
+    }
+
+    /// `x` squared. Named because `Pow2(NdotH)` reads as intent where `NdotH * NdotH` reads as
+    /// arithmetic, and because it appears in nearly every BRDF term.
+    static func Pow2(x: float): float => x * x
+
+    static func Pow4(x: float): float => Pow2(Pow2(x))
+
+    /// `pow(x, 5)` by squaring — three multiplies rather than the transcendental `pow`, worth
+    /// naming because Schlick's Fresnel calls it per light per pixel.
+    static func Pow5(x: float): float => Pow4(x) * x
+
+    // --- Vectors ---------------------------------------------------------
+
+    static func LengthSquared(v: float3): float => dot(v, v)
+
+    /// `normalize` that cannot produce a NaN for a zero-length input, returning zero instead.
+    ///
+    /// The plain intrinsic divides by the length, so a degenerate vector — an interpolated normal
+    /// at a seam, a zero-area triangle's tangent — becomes NaN and then black or white pixels.
+    /// This is the version to reach for on anything interpolated.
+    static func SafeNormalize(v: float3): float3 {
+        val lengthSquared = dot(v, v)
+        if (lengthSquared > Const.Epsilon * Const.Epsilon) {
+            return v * rsqrt(lengthSquared)
+        }
+
+        return float3(0f)
+    }
+
+    /// The largest of a vector's three channels.
+    static func MaxComponent(v: float3): float => max(max(v.x, v.y), v.z)
+
+    static func MinComponent(v: float3): float => min(min(v.x, v.y), v.z)
+
+    /// Projects `v` onto the plane with the given unit normal.
+    static func ProjectOnPlane(v: float3, normal: float3): float3 => v - normal * dot(v, normal)
+
+    /// `sign` that answers 1 for zero rather than 0.
+    ///
+    /// The octahedral fold below needs this: a zero component must still pick a hemisphere, and the
+    /// intrinsic's three-way sign would collapse the fold to the origin.
+    static func SignedOne(x: float): float => x >= 0f ? 1f : -1f
+
+    /// Builds an arbitrary orthonormal basis around a unit vector, returning the first tangent.
+    ///
+    /// Branchless via the sign trick rather than the textbook "pick the smallest component"
+    /// conditional: a branch here diverges across a warp, and this is called per sample inside
+    /// importance-sampling loops. From Duff et al., "Building an Orthonormal Basis, Revisited".
+    static func OrthonormalTangent(normal: float3): float3 {
+        val s = SignedOne(normal.z)
+        val a = -1f / (s + normal.z)
+        val b = normal.x * normal.y * a
+        return float3(1f + s * normal.x * normal.x * a, s * b, -s * normal.x)
+    }
+
+    // --- Spherical coordinates -------------------------------------------
+
+    /// A unit direction from spherical angles, with `cosTheta` supplied rather than `theta`,
+    /// because every caller in the importance-sampling path already holds the cosine and would
+    /// otherwise round-trip it through `acos`.
+    static func SphericalToCartesian(phi: float, cosTheta: float): float3 {
+        val sinTheta = sqrt(saturate(1f - cosTheta * cosTheta))
+        return float3(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta)
+    }
+
+    /// Equirectangular longitude/latitude for a unit direction, as UVs with the origin top-left —
+    /// the engine's convention, so v is measured down from +y.
+    static func DirectionToEquirectangular(direction: float3): float2 {
+        val u = atan2(direction.z, direction.x) * Const.InvTwoPi + 0.5f
+        val v = acos(clamp(direction.y, -1f, 1f)) * Const.InvPi
+        return float2(u, v)
+    }
+
+    // --- Octahedral normal encoding --------------------------------------
+
+    /// Encodes a unit vector into two components, for a G-buffer that cannot afford three.
+    ///
+    /// Octahedral rather than the classic "store xy and rebuild z": that one cannot represent a
+    /// normal facing away from the viewer, which a deferred renderer needs for back-facing geometry
+    /// and for anything read out of a cubemap. Its error is also roughly uniform over the sphere,
+    /// which the spheremap alternative is not.
+    static func EncodeOctahedral(normal: float3): float2 {
+        val n = normal / (abs(normal.x) + abs(normal.y) + abs(normal.z))
+        if (n.z >= 0f) {
+            return float2(n.x, n.y)
+        }
+
+        val x = SignedOne(n.x) * (1f - abs(n.y))
+        val y = SignedOne(n.y) * (1f - abs(n.x))
+        return float2(x, y)
+    }
+
+    static func DecodeOctahedral(encoded: float2): float3 {
+        val z = 1f - abs(encoded.x) - abs(encoded.y)
+        if (z >= 0f) {
+            return SafeNormalize(float3(encoded.x, encoded.y, z))
+        }
+
+        val x = SignedOne(encoded.x) * (1f - abs(encoded.y))
+        val y = SignedOne(encoded.y) * (1f - abs(encoded.x))
+        return SafeNormalize(float3(x, y, z))
+    }
+
+    // --- Packing ---------------------------------------------------------
+
+    /// Maps -1..1 onto 0..1, for storing a signed value in an unsigned texture format.
+    static func ToUnorm(v: float3): float3 => v * 0.5f + 0.5f
+
+    /// The inverse of `ToUnorm`.
+    static func FromUnorm(v: float3): float3 => v * 2f - 1f
+
+    // --- Matrices --------------------------------------------------------
+
+    /// Transforms a position, applying translation.
+    ///
+    /// Matrix-first, per § E. Named rather than left to each call site because the other order also
+    /// compiles and computes a different transform, so one name for the right one is worth more
+    /// here than the multiply it costs.
+    static func TransformPoint(m: mat4, position: float3): float3 => (m * float4(position, 1f)).xyz
+
+    /// Transforms a direction, ignoring translation — the w of 0 is the whole difference.
+    static func TransformDirection(m: mat4, direction: float3): float3 => (m * float4(direction, 0f)).xyz
+
+    /// Transforms a normal by the upper-left 3x3 and renormalises.
+    ///
+    /// Correct only for a matrix without non-uniform scale. A scaled or sheared transform needs the
+    /// inverse transpose, which the host supplies: a shader cannot invert a matrix cheaply and
+    /// should not try.
+    static func TransformNormalRigid(m: mat4, normal: float3): float3 {
+        return SafeNormalize(TransformDirection(m, normal))
+    }
+
+    /// Perspective-divides a clip-space position into normalised device coordinates.
+    static func ClipToNdc(clip: float4): float3 => clip.xyz / max(clip.w, Const.Epsilon)
+}

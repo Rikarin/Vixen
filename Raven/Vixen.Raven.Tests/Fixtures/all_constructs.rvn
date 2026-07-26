@@ -1,0 +1,287 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+/// The frozen-corpus fixture: every construct the grammar accepts, in one file.
+/// This is the safety net for the ANTLR -> hand-written parser migration
+/// (docs/plan/18): both front ends must produce byte-identical trees for it.
+package Vixen.Corpus.All
+
+import Vixen.Core
+import static Vixen.Core.MathHelpers
+
+/* A delimited comment between directives and declarations. */
+
+[FooBar, BarFoo]
+[Marker(mode: "linear", level: 2)]
+shader Everything : ExampleBase, CustomShader {
+    const val Multiplier = 42
+    const val Combined = Multiplier * 2 + 1
+    static val shared: int
+    readonly var locked: float
+
+    [Permutation]
+    val UseDetail: bool = true
+
+    [PerFrame]
+    var time: float
+
+    [PerView]
+    var view: mat4
+
+    var world: mat4
+    var tint: float4 = float4(1, 1, 1, 1)
+    var albedo: Texture2D
+    var albedoSampler: Sampler
+
+    var lookup: int[]
+    var grid: float[][]
+    var palette: float4[4]
+    var weights: float[Multiplier]
+    var stack: float[2][3]
+
+    /** A documented property with every accessor form. */
+    var prop: float {
+        get => Epsilon
+        set => tint = float4(value, value, value, 1)
+    }
+
+    var observed: float {
+        willSet {
+            counter++
+        }
+
+        didSet => counter--
+    }
+
+    var direct: float => time
+
+    var counter: int
+
+    init() {
+        counter = 0
+    }
+
+    init(seed: int) {
+        counter = seed
+    }
+
+    func Literals(): float {
+        val dec = 1_000
+        val hex = 0x1F
+        val bin = 0b1010
+        val unsigned = 42u
+        val single = 1.5f
+        val leading = .5f
+        val exponent = 2.5e-3f
+        val wide = 1e5
+        val dbl = 2d
+        return single + leading
+    }
+
+    func Operators(a: int, b: int): int {
+        var x = a + b - a * b / (a % b)
+        x += 1
+        x -= 2
+        x *= 3
+        x /= 4
+        x %= 5
+        x &= 6
+        x |= 7
+        x ^= 8
+        x <<= 1
+        x >>= 1
+        x >>>= 1
+        val shifted = a << 2 | b >> 1 & a >>> 3 ^ b
+        val compared = a < b || a <= b && b > a || b >= a
+        val equality = a == b || a != b
+        val logical = !equality
+        val bits = ~a
+        val negated = -a
+        val plus = +b
+        var pre = ++x
+        pre = --x
+        var post = x++
+        post = x--
+        val picked = compared ? a : b
+        return shifted
+    }
+
+    func Statements(): int {
+        var total = 0
+
+        [Unroll] for (i in 1 .. 10) {
+            total += i * Multiplier
+            if (total > 100) {
+                break
+            }
+            continue
+        }
+
+        while (total > 0) {
+            total -= 1
+        }
+
+        repeat {
+            total += 1
+        } while (total < 4)
+
+        if (total > 42) {
+            total = 0
+        } else {
+            total = 1
+        }
+
+        switch (total) {
+            case 0:
+                total = 1
+                break
+            case 1:
+            case 2:
+                total = 2
+                break
+            default:
+                total = 3
+        }
+
+        return total
+    }
+
+    func Casts(b: float): int {
+        val truncated = (int)b
+        val widened: double = b
+        return truncated
+    }
+
+    func TrailingIf(v: float) {
+        if (v > 1f) {
+            counter++
+        }
+    }
+
+    func Aggregates(): int[] {
+        val direct = [1, 2, 3, 4]
+        val spread = [1, ..direct, 5]
+        val pair = (Multiplier, Epsilon)
+        val named = (count: Multiplier, scale: Epsilon)
+        val zero = default(float4)
+        val blank = default
+        return direct
+    }
+
+    func Access(): float4 {
+        val sampled = albedo.Sample(albedoSampler, tint.xy)
+        val element = lookup[0]
+        val swizzled = sampled.rgb
+        val chained = self.tint.a
+        return float4(swizzled * self.prop, sampled.a)
+    }
+
+    func Generic<T>(x: T): T {
+        return x
+    }
+
+    func Constrained<T>(x: T) where T : Shaded : float {
+        return 0f
+    }
+
+    func Defaults(count: int = 42, scale: float = 1f): float => scale
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func VSMain(position: float3): float4 {
+        val scaled = position * Epsilon
+        return world * float4(scaled, 1)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func PSMain([Semantic("TEXCOORD0")] uv: float2): float4 {
+        val lit = saturate(dot(tint.rgb, tint.rgb))
+        return float4(lit, lit, lit, 1)
+    }
+}
+
+shader Blur<val TapCount: int> {
+    var source: Texture2D
+
+    [PixelShader]
+    func PS(uv: float2): float4 {
+        if (TapCount > 4) {
+            return float4(0, 0, 0, 1)
+        }
+        return float4(1, 1, 1, 1)
+    }
+}
+
+shader Derived : Everything {
+    func Reach(): float4 {
+        return base.Access()
+    }
+}
+
+protocol Shaded {
+    var Tint: float4 {
+        get => float4(0, 0, 0, 1)
+    }
+
+    func Compute(): float
+}
+
+shader Surface : Shaded {
+    compose val diffuse: Shaded
+
+    stream var normalWS: float3
+    stream var uv: float2
+
+    func Compute(): float => 1f
+}
+
+struct Ray {
+    var origin: float3
+    var direction: float3
+
+    init(o: float3, d: float3) {
+        origin = o
+        direction = d
+    }
+
+    func At(t: float): float3 => origin + direction * t
+
+    func Reset() {
+        self.origin = float3(0, 0, 0)
+    }
+
+    Ray operator +(a: Ray, b: Ray) => a
+    Ray operator -(a: Ray, b: Ray) => b
+    bool operator ==(a: Ray, b: Ray) => true
+    bool operator !=(a: Ray, b: Ray) => false
+}
+
+struct Box<T> where T : Shaded {
+    var item: T
+
+    func Item(): T {
+        return item
+    }
+}
+
+struct Pair {
+    var values: (rgb: float3, a: float)
+    var plain: (int, float)
+}
+
+enum Mode {
+    Off,
+    On = 5,
+    Auto,
+    Copied = On,
+    Computed = 2 + 3,
+    Shifted = 1 << 4,
+    Negative = -1
+}
+
+enum Tagged {
+    First = 0x10,
+    Second = 0b100,
+    Third
+}

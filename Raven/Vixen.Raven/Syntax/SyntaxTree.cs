@@ -1,12 +1,16 @@
-using Antlr4.Runtime;
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 using System.Text;
-using Vixen.Raven.Diagnostics;
-using Vixen.Raven.Grammar;
-using Vixen.Raven.Text;
+using Vixen.Core.Syntax;
+using Vixen.Core.Syntax.Diagnostics;
+using Vixen.Core.Syntax.Parsing;
+using Vixen.Core.Syntax.Text;
+using Vixen.Raven.Parsing;
 
 namespace Vixen.Raven.Syntax;
 
-public sealed class SyntaxTree {
+public sealed class SyntaxTree : ISyntaxTree {
     SyntaxNode? root;
     Diagnostic[] diagnostics = [];
 
@@ -38,11 +42,72 @@ public sealed class SyntaxTree {
             Encoding = encoding, FilePath = path ?? string.Empty, Options = options ?? new ParseOptions(), root = root
         };
 
+    /// <summary>
+    ///     Reparses this tree against edited text, keeping the path, options and encoding.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The entry point a hot reload calls: an editor holds the previous
+    ///         <see cref="SourceText" />, applies <c>WithChanges</c>, and hands the result here.
+    ///     </para>
+    ///     <para>
+    ///         <b>The reparse is incremental</b> (docs/plan/18 step 7): member declarations
+    ///         whose text a change did not touch are taken from this tree's green nodes rather
+    ///         than reparsed — editing one function body reparses that member and shifts the
+    ///         rest. The change ranges answer exactly only for the immediate predecessor text;
+    ///         anything else conservatively reports the whole document and parses fresh.
+    ///     </para>
+    /// </remarks>
+    public SyntaxTree WithChangedText(SourceText newText) {
+        ArgumentNullException.ThrowIfNull(newText);
+
+        if (Text is not { } oldText || root is null) {
+            return ParseText(newText.ToString(), Options, FilePath, Encoding);
+        }
+
+        var changes = newText.GetChangeRanges(oldText);
+        if (changes.Count == 0) {
+            return this;
+        }
+
+        var blender = new Blender(MemberCandidates(root), changes);
+        return ParseText(newText.ToString(), Options, FilePath, Encoding, blender);
+    }
+
+    /// <summary>
+    ///     The nodes offered for reuse: every member declaration, at every nesting
+    ///     level. A type whose whole span is untouched is reused wholesale; one that
+    ///     is not still offers its unaffected members.
+    /// </summary>
+    static IEnumerable<SyntaxNode> MemberCandidates(SyntaxNode node) {
+        foreach (var child in node.ChildNodesAndTokens()) {
+            if (child is MemberDeclarationSyntax member) {
+                yield return member;
+                foreach (var nested in MemberCandidates(member)) {
+                    yield return nested;
+                }
+            } else if (child is CompilationUnitSyntax or SyntaxListNode) {
+                foreach (var nested in MemberCandidates(child)) {
+                    yield return nested;
+                }
+            }
+        }
+    }
+
     public static SyntaxTree ParseText(
         string text,
         ParseOptions? options = default,
         string? path = "",
         Encoding? encoding = default
+    ) =>
+        ParseText(text, options, path, encoding, blender: null);
+
+    static SyntaxTree ParseText(
+        string text,
+        ParseOptions? options,
+        string? path,
+        Encoding? encoding,
+        Blender? blender
     ) {
         var sourceText = SourceText.From(text);
         var filePath = path ?? string.Empty;
@@ -56,38 +121,12 @@ public sealed class SyntaxTree {
             Text = sourceText
         };
 
-        // Antlr — replace the default console error listeners with one that
-        // collects diagnostics with real spans.
-        var listener = new RavenSyntaxErrorListener(bag, sourceText, filePath);
-        var stream = new AntlrInputStream(text);
-        var lexer = new RavenLexer(stream);
-        lexer.RemoveErrorListeners();
-        lexer.AddErrorListener(listener);
-
-        var tokenStream = new CommonTokenStream(lexer);
-        var parser = new RavenParser(tokenStream);
-        parser.RemoveErrorListeners();
-        parser.AddErrorListener(listener);
-
-        var tree = parser.compilation_unit();
-
-        // Ensure every token (including trailing hidden trivia before EOF) is
-        // buffered, then translate with trivia awareness.
-        tokenStream.Fill();
-        var visitor = new SyntaxAntlrVisitor(tokenStream);
-
-        try {
-            syntaxTree.root = tree.Accept(visitor);
-            if (syntaxTree.root != null) {
-                syntaxTree.root.SyntaxTree = syntaxTree;
-            }
-        } catch when (!bag.IsEmpty) {
-            // ANTLR error recovery can leave the tree with missing/synthetic tokens
-            // that the visitor cannot map. The syntax errors are already captured in
-            // the bag; surface those rather than the downstream NRE. Genuine visitor
-            // bugs on well-formed input (empty bag) still propagate.
-            syntaxTree.root = null;
-        }
+        // The hand-written front end (docs/plan/18). Recovery is explicit — missing
+        // tokens are zero-width, skipped source travels as trivia — so even an
+        // erroneous parse yields a tree that reproduces the file byte-for-byte.
+        var tokens = RavenLexer.Lex(text, bag, sourceText, filePath);
+        syntaxTree.root = RavenParser.Parse(tokens, bag, sourceText, filePath, blender);
+        syntaxTree.root.SyntaxTree = syntaxTree;
 
         syntaxTree.diagnostics = bag.ToArray();
 

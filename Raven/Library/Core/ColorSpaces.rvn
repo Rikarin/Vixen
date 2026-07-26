@@ -1,0 +1,164 @@
+package Vixen.Shaders.Core
+
+// Transfer functions, luminance, tonemapping and colour-space rotations.
+//
+// The engine works in linear space and the *view format* decodes sRGB, so a shader normally never
+// calls the transfer functions here — see docs/plan/07 § E. They exist for the cases where the
+// format cannot do it: a texture deliberately sampled as UNORM to keep its bits, a value packed
+// into a channel that is not colour, and the final write when the swapchain is not an _SRGB format.
+//
+// Encode/decode naming is by direction rather than by space: `SrgbToLinear` is a decode.
+
+struct ColorSpaces {
+    // --- sRGB ------------------------------------------------------------
+
+    /// The exact sRGB EOTF, piecewise as the standard defines it.
+    ///
+    /// The branch is per channel, so this is the version for correctness rather than for a hot
+    /// pixel loop; `SrgbToLinearFast` is the one to reach for there.
+    static func SrgbToLinear(srgb: float3): float3 {
+        val r = SrgbToLinearChannel(srgb.x)
+        val g = SrgbToLinearChannel(srgb.y)
+        val b = SrgbToLinearChannel(srgb.z)
+        return float3(r, g, b)
+    }
+
+    static func SrgbToLinearChannel(c: float): float {
+        if (c <= 0.04045f) {
+            return c / 12.92f
+        }
+
+        return pow((c + 0.055f) / 1.055f, 2.4f)
+    }
+
+    /// The exact sRGB OETF — linear to sRGB.
+    static func LinearToSrgb(linear: float3): float3 {
+        val r = LinearToSrgbChannel(linear.x)
+        val g = LinearToSrgbChannel(linear.y)
+        val b = LinearToSrgbChannel(linear.z)
+        return float3(r, g, b)
+    }
+
+    static func LinearToSrgbChannel(c: float): float {
+        if (c <= 0.0031308f) {
+            return c * 12.92f
+        }
+
+        return 1.055f * pow(c, 1f / 2.4f) - 0.055f
+    }
+
+    /// The gamma-2.2 approximation, branchless.
+    ///
+    /// Wrong by up to about 1% near black, where the exact curve is linear and this one is not.
+    /// That is invisible for a colour being tonemapped and very visible for a value being compared
+    /// against a threshold, which is the whole reason both versions exist.
+    static func SrgbToLinearFast(srgb: float3): float3 => pow(srgb, float3(2.2f))
+
+    static func LinearToSrgbFast(linear: float3): float3 => pow(linear, float3(1f / 2.2f))
+
+    // --- Luminance -------------------------------------------------------
+
+    /// Relative luminance under Rec.709 primaries, which is what sRGB uses.
+    ///
+    /// The coefficients are for *linear* input. Applying them to sRGB-encoded values is a common
+    /// and wrong shortcut: it yields a number that tracks brightness but is not luminance, and the
+    /// error is largest exactly where tonemapping is most sensitive.
+    static func Luminance(linear: float3): float => dot(linear, float3(0.2126f, 0.7152f, 0.0722f))
+
+    /// Luminance under Rec.2020 primaries, for a wide-gamut working space.
+    static func LuminanceRec2020(linear: float3): float => dot(linear, float3(0.2627f, 0.6780f, 0.0593f))
+
+    /// Scales a colour to a target luminance, preserving hue and saturation.
+    static func WithLuminance(linear: float3, target: float): float3 {
+        return linear * (target / max(Luminance(linear), Const.Epsilon))
+    }
+
+    // --- Tonemapping -----------------------------------------------------
+
+    /// Reinhard, extended with a white point so that the brightest value maps to 1 rather than
+    /// asymptotically approaching it.
+    ///
+    /// Kept because it is the cheapest thing that cannot clip, and because it is the reference
+    /// everything else is judged against — not because it looks good. It desaturates highlights.
+    static func ReinhardExtended(linear: float3, whitePoint: float): float3 {
+        val numerator = linear * (1f + linear / max(whitePoint * whitePoint, Const.Epsilon))
+        return numerator / (1f + linear)
+    }
+
+    /// The ACES filmic curve, Narkowicz's fit.
+    ///
+    /// A fit rather than the real ACES RRT/ODT chain: the full transform needs 3D LUTs and gamut
+    /// rotations that belong in a post-process pass, not in a helper. This is what to use for
+    /// "filmic and cheap"; it is close enough that swapping to the full chain later is a visible
+    /// but not structural change.
+    static func AcesFilmic(linear: float3): float3 {
+        val a = linear * (linear * 2.51f + 0.03f)
+        val b = linear * (linear * 2.43f + 0.59f) + 0.14f
+        return saturate(a / b)
+    }
+
+    /// AgX, the sigmoid fit.
+    ///
+    /// Preferred over `AcesFilmic` for highlights that must keep their hue — a saturated blue light
+    /// source goes white under ACES and stays blue here, which is the difference people actually
+    /// notice. Input is expected in linear Rec.709.
+    static func AgX(linear: float3): float3 {
+        val logValue = LogEncode(linear)
+        val x = saturate(logValue)
+        return AgXSigmoid(x)
+    }
+
+    /// Log2 encoding over AgX's default -12.47..4.026 stop range, normalised to 0..1.
+    static func LogEncode(linear: float3): float3 {
+        val minStop = -12.47393f
+        val maxStop = 4.026069f
+        val logValue = log2(max(linear, float3(Const.Epsilon)))
+        return (logValue - float3(minStop)) / (maxStop - minStop)
+    }
+
+    /// The 6th-order polynomial AgX applies to its log-encoded input.
+    static func AgXSigmoid(x: float3): float3 {
+        val x2 = x * x
+        val x4 = x2 * x2
+        val a = 15.5f * x4 * x2 - 40.14f * x4 * x + 31.96f * x4
+        val b = -6.868f * x2 * x + 0.4298f * x2 + 0.1191f * x
+        return saturate(a + b - 0.00232f)
+    }
+
+    // --- PQ (SMPTE ST 2084) ----------------------------------------------
+
+    /// The PQ inverse EOTF: linear nits, normalised against 10000, to a 0..1 signal.
+    ///
+    /// This is the HDR10 transfer function. The input is absolute luminance, not scene-relative —
+    /// which is the trap: feeding it a scene-referred value produces something that displays but
+    /// bears no relation to the intended brightness.
+    static func LinearToPq(normalizedNits: float3): float3 {
+        val m1 = 0.1593017578125f
+        val m2 = 78.84375f
+        val c1 = 0.8359375f
+        val c2 = 18.8515625f
+        val c3 = 18.6875f
+
+        val y = pow(saturate(normalizedNits), float3(m1))
+        val numerator = float3(c1) + y * c2
+        val denominator = float3(1f) + y * c3
+        return pow(numerator / denominator, float3(m2))
+    }
+
+    // --- YCoCg -----------------------------------------------------------
+
+    /// RGB to YCoCg, a lossless-in-principle rotation used for chroma subsampling in a temporal
+    /// resolve and for cheap firefly rejection, where clamping in luminance-chroma beats clamping
+    /// per RGB channel.
+    static func RgbToYCoCg(rgb: float3): float3 {
+        val y = dot(rgb, float3(0.25f, 0.5f, 0.25f))
+        val co = dot(rgb, float3(0.5f, 0f, -0.5f))
+        val cg = dot(rgb, float3(-0.25f, 0.5f, -0.25f))
+        return float3(y, co, cg)
+    }
+
+    static func YCoCgToRgb(ycocg: float3): float3 {
+        val t = ycocg.x - ycocg.z
+        return float3(t + ycocg.y, ycocg.x + ycocg.z, t - ycocg.y)
+    }
+}
