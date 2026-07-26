@@ -808,6 +808,12 @@ CompilationUnit
                       Token(NumericLiteralToken) "0"
               EmptyStatement
               ForStatement
+                AttributeList
+                  Token(OpenBracketToken) "["
+                  Attribute
+                    IdentifierName
+                      Token(IdentifierToken) "Unroll"
+                  Token(CloseBracketToken) "]"
                 Token(ForKeyword) "for"
                 Token(OpenParenToken) "("
                 Token(IdentifierToken) "i"
@@ -1036,6 +1042,40 @@ CompilationUnit
                 Token(ReturnKeyword) "return"
                 IdentifierName
                   Token(IdentifierToken) "truncated"
+            Token(CloseBraceToken) "}"
+        MethodDeclaration
+          Token(FuncKeyword) "func"
+          Token(IdentifierToken) "TrailingIf"
+          ParameterList
+            Token(OpenParenToken) "("
+            Parameter
+              Token(IdentifierToken) "v"
+              Token(ColonToken) ":"
+              PredefinedType
+                Token(FloatKeyword) "float"
+            Token(CloseParenToken) ")"
+          Block
+            Token(OpenBraceToken) "{"
+            ListKind
+              IfStatement
+                Token(IfKeyword) "if"
+                Token(OpenParenToken) "("
+                BinaryExpression
+                  IdentifierName
+                    Token(IdentifierToken) "v"
+                  Token(OperatorToken) ">"
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "1f"
+                Token(CloseParenToken) ")"
+                Block
+                  Token(OpenBraceToken) "{"
+                  ExpressionStatement
+                    PostIncrementExpression
+                      IdentifierName
+                        Token(IdentifierToken) "counter"
+                      Token(OperatorToken) "++"
+                  Token(CloseBraceToken) "}"
+              EmptyStatement
             Token(CloseBraceToken) "}"
         MethodDeclaration
           Token(FuncKeyword) "func"

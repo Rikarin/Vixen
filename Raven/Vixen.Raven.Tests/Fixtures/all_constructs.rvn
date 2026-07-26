@@ -106,7 +106,7 @@ shader Everything : ExampleBase, CustomShader {
     func Statements(): int {
         var total = 0
 
-        for (i in 1 .. 10) {
+        [Unroll] for (i in 1 .. 10) {
             total += i * Multiplier
             if (total > 100) {
                 break
@@ -147,6 +147,12 @@ shader Everything : ExampleBase, CustomShader {
         val truncated = (int)b
         val widened: double = b
         return truncated
+    }
+
+    func TrailingIf(v: float) {
+        if (v > 1f) {
+            counter++
+        }
     }
 
     func Aggregates(): int[] {
