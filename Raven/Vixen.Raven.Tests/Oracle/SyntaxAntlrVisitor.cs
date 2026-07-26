@@ -3,8 +3,8 @@
 
 using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
-using Vixen.Raven.Grammar;
 using Vixen.Core.Syntax;
+using Vixen.Raven.Grammar;
 using Green = Vixen.Core.Syntax.InternalSyntax;
 
 namespace Vixen.Raven.Syntax;

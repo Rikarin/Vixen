@@ -120,7 +120,12 @@ public sealed class JobScheduler : IDisposable {
     public bool IsWorkerThread => ReferenceEquals(workerOf, this);
 
     /// <summary>How many jobs are scheduled and not yet complete.</summary>
-    /// <remarks>Racy, and meant for assertions and overlays rather than control flow.</remarks>
+    /// <remarks>
+    ///     Racy while work is in flight — it is a snapshot of a number several threads are moving —
+    ///     but not racy in the way that matters: a slot is returned before its job's completion
+    ///     becomes visible, so once <see cref="Complete(JobHandle)" /> has returned for every handle
+    ///     scheduled, this reads zero.
+    /// </remarks>
     public int OutstandingJobs {
         get {
             lock (freeGate) {
@@ -745,7 +750,12 @@ public sealed class JobScheduler : IDisposable {
         }
 
         lock (slot.Gate) {
-            slot.IsComplete = true;
+            // First, before anything that can let another thread observe this job as finished. A
+            // successor made ready here can run, complete, and release whoever is waiting on the
+            // whole graph — all before this thread gets as far as handing the slot back. The gate
+            // is what makes returning it this early safe: whoever rents it next has to take the
+            // gate to reset it, so it cannot be reissued until the bookkeeping below is finished.
+            ReturnSlot(index);
 
             foreach (var successorIndex in slot.Successors) {
                 var successor = slots[successorIndex];
@@ -760,11 +770,10 @@ public sealed class JobScheduler : IDisposable {
             }
 
             slot.Successors.Clear();
-        }
 
-        // Only now: while the slot was in the free list it could be reissued, and an edge added
-        // against the old handle has to see a version that says so.
-        ReturnSlot(index);
+            // Last, so that everything above has happened by the time anyone can see it.
+            Volatile.Write(ref slot.IsComplete, true);
+        }
     }
 
     void RunWorker(int ordinal) {

@@ -330,20 +330,34 @@ public class JobSchedulerTests {
         }
     }
 
+    /// <summary>
+    ///     After the last <c>Complete</c> returns, the scheduler is idle — not idle a few
+    ///     instructions later.
+    /// </summary>
+    /// <remarks>
+    ///     Repeated, because the first version of this ran once and passed for a week before failing
+    ///     on a loaded machine. A slot used to go back on the free list *after* its job's completion
+    ///     became visible, so a waiter could be released while the scheduler still counted the job
+    ///     as outstanding. Twenty rounds is enough for that window to be hit reliably rather than
+    ///     occasionally.
+    /// </remarks>
     [Fact]
     public void EverySlotComesBackWhenTheWorkIsDone() {
         using var scheduler = new JobScheduler(4);
-        var counter = new StrongBox<int>();
         var handles = new JobHandle[500];
 
-        for (var index = 0; index < handles.Length; index++) {
-            handles[index] = scheduler.Schedule(new SpinJob(counter, 100));
+        for (var round = 0; round < 20; round++) {
+            var counter = new StrongBox<int>();
+
+            for (var index = 0; index < handles.Length; index++) {
+                handles[index] = scheduler.Schedule(new SpinJob(counter, 100));
+            }
+
+            JobHandle.Combine(handles).Complete();
+
+            Assert.Equal(handles.Length, counter.Value);
+            Assert.Equal(0, scheduler.OutstandingJobs);
         }
-
-        JobHandle.Combine(handles).Complete();
-
-        Assert.Equal(handles.Length, counter.Value);
-        Assert.Equal(0, scheduler.OutstandingJobs);
     }
 
     [Fact]
@@ -360,26 +374,49 @@ public class JobSchedulerTests {
         Assert.Equal(200, counter.Value);
     }
 
+    /// <summary>Scheduling allocates nothing, in steady state, and steady state is the claim.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Two one-time costs, and only the first is obvious. The first job of a type allocates
+    ///         its payload array and registers its profiling key. The second is 56 bytes on the
+    ///         scheduling thread, somewhere inside the BCL synchronisation this sits on, reached
+    ///         only when a job is made ready by the scheduling thread and the workers have parked.
+    ///         Probing it over two thousand iterations produced one occurrence, occasionally two —
+    ///         so it is lazy initialisation and not a per-schedule cost, and the steady-state claim
+    ///         holds.
+    ///     </para>
+    ///     <para>
+    ///         Which is why the warm-up is the measurement, run twice with the second read. A
+    ///         cheaper warm-up was tried and does not reach it; a test that passes or fails on
+    ///         whether the workers happened to park during the run is worse than no test.
+    ///     </para>
+    /// </remarks>
     [Fact]
     public void SchedulingAllocatesNothing() {
         using var scheduler = new JobScheduler(2);
         var counter = new StrongBox<int>();
         var warmup = new IncrementJob(counter);
-
-        // The first job of a type allocates its payload array and registers its profiling key.
         scheduler.Complete(scheduler.Schedule(in warmup));
 
-        var handle = default(JobHandle);
-        var before = GC.GetAllocatedBytesForCurrentThread();
+        // The second one-time cost is only reachable by doing the thing being measured, so the
+        // warm-up is the measurement, run twice and read the second time.
+        var allocated = 0L;
+        var rounds = 0;
 
-        for (var index = 0; index < 64; index++) {
-            handle = scheduler.Schedule(in warmup, handle);
+        for (var round = 0; round < 2; round++) {
+            var handle = default(JobHandle);
+            var before = GC.GetAllocatedBytesForCurrentThread();
+
+            for (var index = 0; index < 64; index++) {
+                handle = scheduler.Schedule(in warmup, handle);
+            }
+
+            allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            scheduler.Complete(handle);
+            rounds++;
         }
 
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-        scheduler.Complete(handle);
-
-        Assert.Equal(64 + 1, counter.Value);
+        Assert.Equal(64 * rounds + 1, counter.Value);
         Assert.Equal(0, allocated);
     }
 

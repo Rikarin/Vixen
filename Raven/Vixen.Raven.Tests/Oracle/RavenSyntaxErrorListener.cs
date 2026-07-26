@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Antlr4.Runtime;
-using Vixen.Raven.Diagnostics;
-using Vixen.Core.Syntax.Text;
 using Vixen.Core.Syntax.Diagnostics;
+using Vixen.Core.Syntax.Text;
+using Vixen.Raven.Diagnostics;
 
 namespace Vixen.Raven.Syntax;
 

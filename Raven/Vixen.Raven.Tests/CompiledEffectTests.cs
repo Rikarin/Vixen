@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
+using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
 using Vixen.Raven.Artefacts;
 using Vixen.Raven.CodeGen;
@@ -12,7 +13,6 @@ using Vixen.Raven.Reflection;
 using Vixen.Raven.Symbols;
 using Vixen.Raven.Syntax;
 using Xunit;
-using Vixen.Core.Syntax.Diagnostics;
 using static Tests.LoweringTestBase;
 
 namespace Tests;

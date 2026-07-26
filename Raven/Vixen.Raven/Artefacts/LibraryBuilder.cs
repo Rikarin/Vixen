@@ -4,13 +4,13 @@
 using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text;
+using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven.Binding;
 using Vixen.Raven.CodeGen;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Symbols;
-using Vixen.Core.Syntax.Diagnostics;
 
 namespace Vixen.Raven.Artefacts;
 

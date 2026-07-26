@@ -1,10 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven.Diagnostics;
 using Xunit;
 using static Tests.SemanticTestBase;
-using Vixen.Core.Syntax.Diagnostics;
 
 namespace Tests;
 

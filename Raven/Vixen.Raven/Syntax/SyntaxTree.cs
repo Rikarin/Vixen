@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
-using Vixen.Raven.Parsing;
-using Vixen.Core.Syntax.Parsing;
-using Vixen.Core.Syntax.Text;
 using Vixen.Core.Syntax;
 using Vixen.Core.Syntax.Diagnostics;
+using Vixen.Core.Syntax.Parsing;
+using Vixen.Core.Syntax.Text;
+using Vixen.Raven.Parsing;
 
 namespace Vixen.Raven.Syntax;
 

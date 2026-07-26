@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Syntax;
 using Vixen.Raven.Binding;
 using Vixen.Raven.Syntax;
-using Vixen.Core.Syntax;
 
 namespace Vixen.Raven.Symbols.Source;
 

@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Raven.Diagnostics;
-using Vixen.Raven.Syntax;
 using Vixen.Core.Syntax;
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Core.Syntax.Parsing;
 using Vixen.Core.Syntax.Text;
+using Vixen.Raven.Diagnostics;
+using Vixen.Raven.Syntax;
 using Green = Vixen.Core.Syntax.InternalSyntax;
 using SyntaxList = Vixen.Core.Syntax.SyntaxList;
 

@@ -36,6 +36,11 @@ sealed class JobFailureLog {
     readonly Dictionary<long, ExceptionDispatchInfo> byHandle = [];
     readonly Queue<long> order = new(Capacity);
 
+    // Read without the lock, so that a program in which nothing has thrown never takes one. This is
+    // on the scheduling path: every dependency on a job that has already finished asks here whether
+    // it finished badly, which in a healthy frame is every dependency, several hundred times over.
+    volatile bool any;
+
     /// <summary>Remembers what a job threw.</summary>
     /// <param name="slot">The slot it ran in.</param>
     /// <param name="version">The generation of that slot.</param>
@@ -53,6 +58,11 @@ sealed class JobFailureLog {
             if (order.Count > Capacity) {
                 byHandle.Remove(order.Dequeue());
             }
+
+            // Inside the lock, so a reader that gets past the fast path below finds the entry that
+            // set the flag. The scheduler records a failure before it publishes the job's
+            // completion, so a caller that has observed completion has observed this too.
+            any = true;
         }
     }
 
@@ -61,6 +71,10 @@ sealed class JobFailureLog {
     /// <param name="version">The generation of that slot.</param>
     /// <returns>What it threw, or <see langword="null" />.</returns>
     internal ExceptionDispatchInfo? Find(int slot, int version) {
+        if (!any) {
+            return null;
+        }
+
         lock (gate) {
             return byHandle.GetValueOrDefault(Key(slot, version));
         }

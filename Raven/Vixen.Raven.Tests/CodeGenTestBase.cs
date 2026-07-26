@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
 using Vixen.Raven.CodeGen;
 using Vixen.Raven.Diagnostics;
@@ -8,7 +9,6 @@ using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Syntax;
 using Xunit;
-using Vixen.Core.Syntax.Diagnostics;
 
 namespace Tests;
 

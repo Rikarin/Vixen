@@ -3,11 +3,11 @@
 
 using System.Globalization;
 using System.Text;
+using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Reflection;
 using Vixen.Raven.Symbols;
-using Vixen.Core.Syntax.Diagnostics;
 
 namespace Vixen.Raven.CodeGen.Glsl;
 

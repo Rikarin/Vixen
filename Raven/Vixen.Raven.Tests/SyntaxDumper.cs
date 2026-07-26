@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
-using Vixen.Raven.Syntax;
 using Vixen.Core.Syntax;
+using Vixen.Raven.Syntax;
 
 namespace Tests;
 

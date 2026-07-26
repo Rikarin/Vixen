@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.Text;
-using Vixen.Core.Syntax.Generator.Model;
 using System.Text;
 using System.Xml;
 using System.Xml.Serialization;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Text;
+using Vixen.Core.Syntax.Generator.Model;
 
 namespace Vixen.Core.Syntax.Generator;
 

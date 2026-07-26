@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Antlr4.Runtime;
-using Vixen.Raven.Grammar;
-using Vixen.Raven.Syntax;
 using Vixen.Core.Syntax;
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Core.Syntax.Text;
+using Vixen.Raven.Grammar;
+using Vixen.Raven.Syntax;
 
 namespace Tests;
 

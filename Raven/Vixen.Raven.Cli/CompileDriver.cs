@@ -1,16 +1,16 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Vixen.Core.Syntax.Diagnostics;
+using Vixen.Raven.Artefacts;
 using Vixen.Raven.CodeGen;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Vixen.Raven.Lowering;
-using Vixen.Raven.Artefacts;
 using Vixen.Raven.Reflection;
 using Vixen.Raven.Syntax;
-using Vixen.Core.Syntax.Diagnostics;
 
 namespace Vixen.Raven.Cli;
 
