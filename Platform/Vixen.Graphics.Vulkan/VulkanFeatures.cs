@@ -29,6 +29,17 @@ static class VulkanFeatures {
     /// <summary>Vulkan 1.3, where dynamic rendering and synchronisation2 became core.</summary>
     public const uint Version13 = (1u << 22) | (3u << 12);
 
+    /// <summary>What <c>VK_KHR_dynamic_rendering</c> depends on below Vulkan 1.2.</summary>
+    /// <remarks>
+    ///     Both became core in 1.2, so only a 1.1 device needs them named. Enabling dynamic rendering
+    ///     without them is invalid usage that MoltenVK accepts silently and the validation layers
+    ///     reject — which is how it was found.
+    /// </remarks>
+    public const string CreateRenderPass2 = "VK_KHR_create_renderpass2";
+
+    /// <summary>The other half of that dependency, likewise core in 1.2.</summary>
+    public const string DepthStencilResolve = "VK_KHR_depth_stencil_resolve";
+
     const string DynamicRendering = "VK_KHR_dynamic_rendering";
     const string TimelineSemaphore = "VK_KHR_timeline_semaphore";
     const string DescriptorIndexing = "VK_EXT_descriptor_indexing";
@@ -76,7 +87,14 @@ static class VulkanFeatures {
             // Core since 1.1, which AdapterSelection already made the floor.
             HasSubgroupOperations = true,
 
-            HasDynamicRendering = apiVersion >= Version13 || extensions.Contains(DynamicRendering),
+            // The dependencies too, not just the extension: a 1.1 device that offers dynamic
+            // rendering without create-renderpass2 cannot legally enable it, and reporting the
+            // capability would send the renderer down a path device creation had already declined.
+            HasDynamicRendering = apiVersion >= Version13
+                || (extensions.Contains(DynamicRendering)
+                    && (apiVersion >= Version12
+                        || (extensions.Contains(CreateRenderPass2)
+                            && extensions.Contains(DepthStencilResolve)))),
             HasDepthClamp = features.DepthClamp,
             HasWireframe = features.FillModeNonSolid,
             HasAnisotropicFiltering = features.SamplerAnisotropy,

@@ -22,4 +22,27 @@ static partial class VulkanLog {
             + "without it. {Hint}"
     )]
     public static partial void ValidationLayerWouldNotLoad(ILogger logger, string hint);
+
+    /// <summary>
+    ///     The one line worth having in every bug report.
+    /// </summary>
+    /// <remarks>
+    ///     Which GPU, which driver version, which render path, and whether validation was on: four
+    ///     facts that between them explain most "it works here" reports, and none of which anyone
+    ///     thinks to ask for until they are already needed.
+    /// </remarks>
+    [LoggerMessage(
+        EventId = 2003,
+        Level = LogLevel.Information,
+        Message = "Vulkan device created on '{Adapter}' ({Kind}, Vulkan {ApiVersion}) using {RenderPath}; "
+            + "validation {ValidationEnabled}."
+    )]
+    public static partial void DeviceCreated(
+        ILogger logger,
+        string adapter,
+        string kind,
+        string apiVersion,
+        string renderPath,
+        bool validationEnabled
+    );
 }

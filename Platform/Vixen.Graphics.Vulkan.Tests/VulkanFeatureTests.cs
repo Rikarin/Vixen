@@ -149,13 +149,45 @@ public sealed class VulkanFeatureTests {
     [Fact]
     public void DynamicRenderingComesFromTheExtensionOrFromVersion13() {
         Assert.False(Translate().HasDynamicRendering);
+        Assert.True(Translate(extensions: DynamicRenderingSet()).HasDynamicRendering);
+        Assert.True(Translate(apiVersion: VulkanFeatures.Version13).HasDynamicRendering);
 
+        // On 1.2 the dependencies are core, so the extension alone is enough.
         Assert.True(
+            Translate(
+                extensions: new HashSet<string> { "VK_KHR_dynamic_rendering" },
+                apiVersion: VulkanFeatures.Version12
+            ).HasDynamicRendering
+        );
+    }
+
+    /// <summary>
+    ///     Below 1.2, <c>VK_KHR_dynamic_rendering</c> requires <c>VK_KHR_depth_stencil_resolve</c>,
+    ///     which requires <c>VK_KHR_create_renderpass2</c>. Reporting the capability without them
+    ///     sends the renderer down a path device creation has to decline — which is not a hypothetical:
+    ///     MoltenVK accepted the incomplete extension list and the validation layers rejected it.
+    /// </summary>
+    [Fact]
+    public void DynamicRenderingNeedsItsDependenciesBelowVersion12() {
+        Assert.False(
             Translate(extensions: new HashSet<string> { "VK_KHR_dynamic_rendering" }).HasDynamicRendering
         );
 
-        Assert.True(Translate(apiVersion: VulkanFeatures.Version13).HasDynamicRendering);
+        Assert.False(
+            Translate(
+                extensions: new HashSet<string> {
+                    "VK_KHR_dynamic_rendering",
+                    VulkanFeatures.CreateRenderPass2
+                }
+            ).HasDynamicRendering
+        );
     }
+
+    static HashSet<string> DynamicRenderingSet() => [
+        "VK_KHR_dynamic_rendering",
+        VulkanFeatures.CreateRenderPass2,
+        VulkanFeatures.DepthStencilResolve
+    ];
 
     [Fact]
     public void TimelineSemaphoresComeFromTheExtensionOrFromVersion12() {

@@ -329,13 +329,19 @@ public sealed unsafe class VulkanInstance : IDisposable {
         DebugUtilsMessengerCallbackDataEXT* data,
         void* userData
     ) {
-        var message = data->PMessage is null ? "(no message)" : Marshal.PtrToStringUTF8((nint)data->PMessage);
+        var message = data->PMessage is null
+            ? "(no message)"
+            : Marshal.PtrToStringUTF8((nint)data->PMessage) ?? "(unreadable message)";
 
         // Written to the console rather than through the ILogger the instance was given, because the
         // callback is static — Vulkan hands back a void* and a captured delegate would have to be
-        // pinned for the life of the instance. Routing it properly is the first thing to do once
-        // there is a driver to test against.
+        // pinned for the life of the instance.
         Console.Error.WriteLine($"[vulkan] {severity}: {message}");
+
+        // And recorded, so that the test suite can fail on a validation error rather than printing
+        // one. A message on the console is not a gate; it is a thing that scrolls past, which is how
+        // both of the first two bugs this backend had survived a green test run.
+        VulkanDiagnostics.Record((severity & DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt) != 0, message);
 
         // Zero, always: returning non-zero aborts the call that triggered the message, which is a
         // debugging aid the specification reserves for layer development and which turns a warning
