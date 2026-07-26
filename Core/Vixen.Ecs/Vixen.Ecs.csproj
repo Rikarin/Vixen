@@ -24,6 +24,18 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!--
+            Referenced by this project and by nothing else, and deliberately not packed. Its output
+            depends on no input, so an assembly that also referenced it would emit a second copy of
+            the same partial and the same extension class. The generators meant for a user's own
+            compilation join it with the layers that need them.
+        -->
+        <ProjectReference Include="..\Vixen.Ecs.Generators\Vixen.Ecs.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Ecs.Tests" />
     </ItemGroup>
 

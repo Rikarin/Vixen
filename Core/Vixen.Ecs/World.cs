@@ -37,6 +37,7 @@ public sealed class World : IDisposable {
 
     readonly Dictionary<ComponentSignature, Archetype> archetypesBySignature = [];
     readonly List<Archetype> archetypes = [];
+    readonly Dictionary<QueryDescription, Query> queries = new(ReferenceEqualityComparer.Instance);
 
     EntityInfo[] infos = new EntityInfo[64];
     int[] freeIds = new int[16];
@@ -211,6 +212,33 @@ public sealed class World : IDisposable {
         MarkAllColumnsWritten(chunk);
         return entity;
     }
+
+    // ---------------------------------------------------------------- queries
+
+    /// <summary>The query for a description, with its matched archetypes remembered.</summary>
+    /// <param name="description">What to ask for.</param>
+    /// <returns>The query, which is the same object every time for the same description.</returns>
+    /// <remarks>
+    ///     Cached by reference on the description, so building one description at start-up and
+    ///     asking for it every frame costs a dictionary lookup and nothing else. Building a fresh
+    ///     description every frame works and re-tests every archetype's mask every frame.
+    /// </remarks>
+    public Query Query(QueryDescription description) {
+        ArgumentNullException.ThrowIfNull(description);
+
+        if (!queries.TryGetValue(description, out var query)) {
+            query = new(this, description);
+            queries[description] = query;
+        }
+
+        return query;
+    }
+
+    /// <summary>The chunks matching a description.</summary>
+    /// <param name="description">What to ask for.</param>
+    /// <param name="since">Only chunks written after this version, when the description filters on change.</param>
+    /// <returns>Something to <c>foreach</c> over.</returns>
+    public ChunkSequence Chunks(QueryDescription description, uint since = 0) => Query(description).Chunks(since);
 
     /// <summary>The archetype for a set of component types, creating it if this is the first ask.</summary>
     /// <param name="componentTypes">The component type ids, in any order.</param>

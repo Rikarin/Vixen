@@ -63,6 +63,7 @@
     <Project Path="Core/Vixen.Core.Syntax.Tests/Vixen.Core.Syntax.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Syntax.Generator/Vixen.Core.Syntax.Generator.csproj" />
     <Project Path="Core/Vixen.Ecs/Vixen.Ecs.csproj" />
+    <Project Path="Core/Vixen.Ecs.Generators/Vixen.Ecs.Generators.csproj" />
     <Project Path="Core/Vixen.Ecs.Tests/Vixen.Ecs.Tests.csproj" />
     <Project Path="Core/Vixen.Graphics/Vixen.Graphics.csproj" />
     <Project Path="Core/Vixen.Graphics.Tests/Vixen.Graphics.Tests.csproj" />

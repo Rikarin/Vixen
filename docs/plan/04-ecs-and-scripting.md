@@ -61,6 +61,43 @@ world.Query(query, static (ref Position p, ref Velocity v) => p.Value += v.Value
   that moved" and "only re-layout UI whose props changed" cheap, and it is why Vixen's ECS needs to
   own this rather than adopt one that does not model it.
 
+> ✅ **Built.** `Core/Vixen.Ecs/`, `Core/Vixen.Ecs.Generators/` and `Core/Vixen.Ecs.Tests/` (57
+> tests) are live: storage, archetypes, the edge graph, the managed store, change versions, and the
+> whole query surface for arities 1–16. Both property tests this document asks for are there — random
+> structural sequences against a dictionary-per-entity oracle, and random queries against a linear
+> scan — and both were verified by sabotage. Six things came out differently from the paragraphs
+> above:
+>
+> - **`Entity` is 12 bytes, not 8**, and it lives in `Vixen.Core`. Two ints and a short pad to
+>   twelve; the eight above was wishful. It sits beside `ComponentTypeId` and `[Component]` because
+>   the reflection and serialization generators name it and cannot reference the ECS — which also
+>   resolved a duplicate, since [03](03-core-foundation.md) had asked for a separate `EntityId`.
+> - **Tags are declared with `ITagComponent`, not inferred.** An empty C# struct still measures one
+>   byte, so "has no fields" cannot be read from a size — and inferring it would mean a struct that
+>   gains a field silently changes storage class, which is code that compiles, runs, and loses data.
+>   A type that implements the interface and has a field fails at registration.
+> - **The managed store is `ManagedComponentStore<T>` over `ChunkedArray<T>`**, one per component
+>   type, rather than the single `ChunkedArray<object>` above. Typed storage is what lets `Get<T>`
+>   return a `ref T` into it; an `object` array would box every struct component that happens to
+>   contain a string and hand back a copy nobody could write through.
+> - **`Get<T>` marks the chunk's column changed and `Read<T>` does not.** Not in the design above,
+>   and it is what makes "a system that writes nothing must not mark chunks dirty" a property rather
+>   than a hope: handing out a `ref` has to count as a write because nothing can tell afterwards, so
+>   the choice has to be visible in the call.
+> - **The change filter's granularity is the chunk, and `since` is strictly after.** A chunk in which
+>   one entity moved is iterated whole — the alternative is a per-entity dirty bit, which costs a
+>   branch in the inner loop of every system to save work in the ones that skip. And `WithChanged<T>`
+>   requires `T`, because filtering on a change to a component the entity does not have would match
+>   everything.
+> - **`Vixen.Ecs.Generators` is registered by `Vixen.Ecs` and does not travel in the package.** Its
+>   output depends on nothing in the compilation, so a second assembly referencing it would emit a
+>   second copy of the same partial. The generators that do belong in a user's compilation — system
+>   read/write inference, the behaviour dispatch table — join it with the layers below.
+>
+> **Owed, and named rather than approximated:** `CommandBuffer` and its parallel writer, world
+> serialisation, and the `VIXEN_ECS_EVENTS` hooks. The scheduler, transforms and `Behavior` are the
+> layers below and have not started.
+
 ### Structural change safety
 
 Adding/removing components during iteration invalidates chunks. Two mechanisms:

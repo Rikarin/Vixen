@@ -89,6 +89,59 @@ public sealed class Chunk {
         return MemoryMarshal.CreateSpan(ref Unsafe.As<byte, T>(ref start), Count);
     }
 
+    /// <summary>
+    ///     One component's values for every entity in this chunk, for writing. Marks the column
+    ///     changed at the world's current version.
+    /// </summary>
+    /// <typeparam name="T">The component type.</typeparam>
+    /// <returns>One element per entity, contiguous — the span a vectorised sweep wants.</returns>
+    /// <exception cref="InvalidOperationException">
+    ///     The archetype has no such component, or it is a tag or a managed type and so has no
+    ///     contiguous values to hand out.
+    /// </exception>
+    /// <remarks>
+    ///     This is the primitive the other iteration forms are written in terms of, and the one the
+    ///     renderer's culling path uses directly: a <see cref="Span{T}" /> over a chunk is what lets
+    ///     a caller run SIMD over the components without the ECS knowing anything about it.
+    /// </remarks>
+    public Span<T> Values<T>() {
+        var column = PublicColumn<T>();
+        MarkWritten(column, Archetype.World.Version);
+        return Column<T>(column);
+    }
+
+    /// <summary>One component's values for every entity in this chunk, for reading.</summary>
+    /// <typeparam name="T">The component type.</typeparam>
+    /// <returns>One element per entity, contiguous.</returns>
+    /// <exception cref="InvalidOperationException">
+    ///     The archetype has no such component, or it is a tag or a managed type.
+    /// </exception>
+    /// <remarks>Does not mark the column changed, which is what makes a change filter mean anything.</remarks>
+    public ReadOnlySpan<T> ReadValues<T>() => Column<T>(PublicColumn<T>());
+
+    int PublicColumn<T>() {
+        if (ComponentType<T>.Info.IsManaged) {
+            throw new InvalidOperationException(
+                $"{typeof(T).Name} is a managed component: its values live in the world's store and "
+                + "the chunk holds handles, so there is no contiguous span of them. Reach them one "
+                + "entity at a time."
+            );
+        }
+
+        var column = Archetype.ColumnOf(ComponentType<T>.Id);
+
+        if (column >= 0) {
+            return column;
+        }
+
+        throw new InvalidOperationException(
+            ComponentType<T>.Info.IsTag
+                ? $"{typeof(T).Name} is a tag and stores no values. Every entity in this chunk has it."
+                : $"This chunk's archetype {Archetype.Signature} has no {typeof(T).Name}. A query that "
+                + $"reads it has to require it — add it to the description's `all` set."
+        );
+    }
+
     /// <summary>A reference to one component, without materialising a span for the column.</summary>
     /// <typeparam name="T">The component type.</typeparam>
     /// <param name="column">Its column index.</param>

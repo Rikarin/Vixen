@@ -18,6 +18,53 @@ World
  └── ManagedComponentStore<T> — for components that are, or contain, a reference
 ```
 
+## Iterating
+
+Four forms, all over the same primitive.
+
+```csharp
+var moving = new QueryDescription()
+    .WithAll<Position, Velocity>()
+    .WithAny<Player, Npc>()
+    .WithNone<Frozen>();
+
+// 1. Chunks — the primitive. A Span per column, contiguous, SIMD it if you like.
+foreach (var chunk in world.Chunks(moving)) {
+    var positions = chunk.Values<Position>();
+    var velocities = chunk.ReadValues<Velocity>();
+    for (var i = 0; i < chunk.Count; i++) { positions[i].X += velocities[i].X * dt; }
+}
+
+// 2. Delegate, per entity.
+world.Query(moving, static (ref Position p, ref Velocity v) => p.X += v.X);
+
+// 3. Delegate, with the entity handle.
+world.QueryWithEntity(moving, static (Entity e, ref Position p) => { });
+
+// 4. Struct visitor — no delegate to dispatch through, so the body inlines into the loop.
+var sum = default(SumSpeed);
+world.ForEach<SumSpeed, Velocity>(moving, ref sum);
+```
+
+Arities 1–16 of the last three, plus `WithAll`/`WithAny`/`WithNone`/`WithChanged`, are emitted by
+`Vixen.Ecs.Generators`. Two thousand lines whose only variable is a number, and every arity
+type-checks whether or not the body is right — which is exactly the code a human should not be
+writing sixteen times.
+
+**Change filtering** is per chunk, per component:
+
+```csharp
+var moved = new QueryDescription().WithChanged<LocalTransform>();
+foreach (var chunk in world.Chunks(moved, since: lastSeen)) { … }
+lastSeen = world.Version;
+```
+
+`since` is *strictly* after, and that is the contract: a system remembers `world.Version` when it
+finishes, the scheduler advances the version at the sync point, and the next run sees what changed
+in between — but never its own writes from last time, which at-or-after would hand back for ever.
+`WithChanged<T>` also requires `T`, because filtering on a change to something the entity does not
+have would match everything.
+
 ## Decisions worth knowing about
 
 **Three storage classes, not one.** A plain struct lives inline in the chunk. A tag
