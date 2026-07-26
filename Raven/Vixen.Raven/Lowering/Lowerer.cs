@@ -36,6 +36,7 @@ public sealed partial class Lowerer {
     readonly Dictionary<FieldSymbol, IrVariable> globals = [];
     readonly IrModule module;
     readonly Dictionary<NamedTypeSymbol, IrStructType> structs = [];
+    readonly Dictionary<TupleTypeSymbol, IrStructType> tuples = [];
     readonly Dictionary<TypeSymbol, IrType> typeCache = [];
 
     IrBlock currentBlock = new();
@@ -408,7 +409,8 @@ public sealed partial class Lowerer {
 
         foreach (var member in type.GetMembers()) {
             switch (member) {
-                case MethodSymbol method when method.MethodKind is MethodKind.Ordinary or MethodKind.Constructor: {
+                case MethodSymbol method when method.MethodKind
+                    is MethodKind.Ordinary or MethodKind.Constructor or MethodKind.Operator: {
                     var kind = method.IsConstructor ? BoundBodyKind.Constructor : BoundBodyKind.Method;
                     if (FindBody(method, kind) is not { } body) {
                         if (report) {
@@ -422,7 +424,7 @@ public sealed partial class Lowerer {
                         continue;
                     }
 
-                    yield return (Unique(used, method.IsConstructor ? $"{type.Name}.init" : method.Name), body);
+                    yield return (Unique(used, FunctionName(type, method)), body);
                     break;
                 }
 
@@ -461,9 +463,17 @@ public sealed partial class Lowerer {
         var selfType = type.TypeKind is TypeKind.Struct ? structs[type] : null;
 
         foreach (var (name, body) in MemberBodies(type, report: true)) {
-            add(LowerFunction(name, body, type, selfType));
+            add(LowerFunction(name, body, type, SelfTypeFor(body, selfType)));
         }
     }
+
+    /// <summary>
+    ///     The receiver type a body's function takes, which is none for an operator: every operand
+    ///     is already an explicit parameter, so a <c>self</c> would make the signature disagree with
+    ///     the call the binder produced.
+    /// </summary>
+    static IrStructType? SelfTypeFor(BoundBody body, IrStructType? selfType) =>
+        body.Member is MethodSymbol { MethodKind: MethodKind.Operator } ? null : selfType;
 
     /// <summary>
     ///     Creates the signature for every method and property accessor of a type, so that
@@ -473,7 +483,7 @@ public sealed partial class Lowerer {
         var selfType = type.TypeKind is TypeKind.Struct ? structs[type] : null;
 
         foreach (var (name, body) in MemberBodies(type, report: false)) {
-            DeclareFunction(name, body, type, selfType);
+            DeclareFunction(name, body, type, SelfTypeFor(body, selfType));
         }
     }
 
@@ -559,6 +569,60 @@ public sealed partial class Lowerer {
         selfLocal = null;
         variables.Clear();
     }
+
+    /// <summary>
+    ///     The IR name for a member, which both backends emit verbatim as an identifier.
+    /// </summary>
+    /// <remarks>
+    ///     An operator's symbol name is <c>operator+</c>, which is not an identifier in either
+    ///     target — the GLSL mangler would turn every operator on a type into <c>operator_</c>,
+    ///     <c>operator_1</c>, and so on, and a disassembly would say nothing about which is which.
+    ///     Spelling the operator gives <c>Spectrum_Add</c>, which reads in a frame debugger.
+    /// </remarks>
+    static string FunctionName(NamedTypeSymbol type, MethodSymbol method) {
+        if (method.IsConstructor) {
+            return $"{type.Name}.init";
+        }
+
+        if (method.MethodKind != MethodKind.Operator) {
+            return method.Name;
+        }
+
+        var symbol = method.Name.StartsWith("operator", StringComparison.Ordinal)
+            ? method.Name["operator".Length..]
+            : method.Name;
+
+        return $"{type.Name}_{OperatorWord(symbol)}";
+    }
+
+    /// <summary>A pronounceable name for an operator symbol.</summary>
+    static string OperatorWord(string symbol) =>
+        symbol switch {
+            "+" => "Add",
+            "-" => "Subtract",
+            "*" => "Multiply",
+            "/" => "Divide",
+            "%" => "Modulo",
+            "==" => "Equals",
+            "!=" => "NotEquals",
+            "<" => "LessThan",
+            "<=" => "LessThanOrEqual",
+            ">" => "GreaterThan",
+            ">=" => "GreaterThanOrEqual",
+            "&" => "BitwiseAnd",
+            "|" => "BitwiseOr",
+            "^" => "BitwiseXor",
+            "~" => "BitwiseNot",
+            "!" => "LogicalNot",
+            "<<" => "ShiftLeft",
+            ">>" => "ShiftRight",
+            ">>>" => "UnsignedShiftRight",
+            "++" => "Increment",
+            "--" => "Decrement",
+            "true" => "True",
+            "false" => "False",
+            _ => "Operator"
+        };
 
     static string Unique(HashSet<string> used, string name) {
         var candidate = name;

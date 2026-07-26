@@ -58,6 +58,9 @@ public sealed partial class Lowerer {
             case NamedTypeSymbol named when structs.TryGetValue(named, out var structType):
                 return structType;
 
+            case TupleTypeSymbol tuple:
+                return LowerTuple(tuple, syntax);
+
             default:
                 return NotRepresentable(type, syntax);
         }
@@ -103,6 +106,68 @@ public sealed partial class Lowerer {
             SpecialType.Double => IrScalarType.Double,
             _ => null
         };
+
+    /// <summary>
+    ///     Lowers a tuple to a struct of its elements.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A tuple is the only way a Raven function returns two values: there are no <c>out</c>
+    ///         parameters, and the IR has no by-reference arguments to build them from. So this is
+    ///         not sugar — removing tuples would remove the capability.
+    ///     </para>
+    ///     <para>
+    ///         The element names come from the symbol, which already gives an unnamed element
+    ///         <c>Item1</c>, <c>Item2</c>, … — so member access needs nothing special and the
+    ///         backends see an ordinary struct. One struct per distinct shape, named after its
+    ///         element types so the name is stable across compilations rather than being a counter
+    ///         that depends on the order types happened to be lowered in.
+    ///     </para>
+    /// </remarks>
+    IrType LowerTuple(TupleTypeSymbol tuple, SyntaxNode? syntax) {
+        if (tuples.TryGetValue(tuple, out var existing)) {
+            return existing;
+        }
+
+        var fields = new List<IrField>(tuple.ElementTypes.Count);
+        var members = tuple.GetMembers().OfType<FieldSymbol>().ToArray();
+
+        foreach (var member in members) {
+            var elementType = LowerType(member.Type, syntax);
+            if (elementType.IsVoid) {
+                // The element's own diagnostic has already been reported.
+                return IrScalarType.Void;
+            }
+
+            fields.Add(new(member.Name, elementType));
+        }
+
+        var structType = new IrStructType(TupleName(fields));
+        structType.SetFields([.. fields]);
+
+        tuples[tuple] = structType;
+        module.Add(structType);
+        return structType;
+    }
+
+    /// <summary>
+    ///     A deterministic, identifier-safe name for a tuple shape: <c>Tuple_f32_i32</c>.
+    /// </summary>
+    static string TupleName(IReadOnlyList<IrField> fields) {
+        var parts = fields.Select(f => Identifier(f.Type.Name));
+        return "Tuple_" + string.Join('_', parts);
+    }
+
+    /// <summary>An IR type name reduced to an identifier: <c>vec&lt;f32,3&gt;</c> → <c>vec_f32_3</c>.</summary>
+    static string Identifier(string name) {
+        var cleaned = new string(name.Select(c => char.IsLetterOrDigit(c) ? c : '_').ToArray());
+
+        while (cleaned.Contains("__", StringComparison.Ordinal)) {
+            cleaned = cleaned.Replace("__", "_", StringComparison.Ordinal);
+        }
+
+        return cleaned.Trim('_');
+    }
 
     IrType NotRepresentable(TypeSymbol type, SyntaxNode? syntax) {
         diagnostics.Add(LoweringDiagnostics.TypeNotRepresentable, LocationOf(syntax), type.ToDisplayString());

@@ -381,16 +381,19 @@
             <summary>Tuple type element.</summary>
         </TypeComment>
         <Kind Name="TupleElement"/>
-        <Field Name="Type" Type="TypeSyntax">
-            <PropertyComment>
-                <summary>Gets the type of the tuple element.</summary>
-            </PropertyComment>
-        </Field>
         <Field Name="Identifier" Type="SyntaxToken" Optional="true">
             <PropertyComment>
                 <summary>Gets the name of the tuple element.</summary>
             </PropertyComment>
             <Kind Name="IdentifierToken"/>
+        </Field>
+        <Field Name="ColonToken" Type="SyntaxToken" Optional="true">
+            <Kind Name="ColonToken"/>
+        </Field>
+        <Field Name="Type" Type="TypeSyntax">
+            <PropertyComment>
+                <summary>Gets the type of the tuple element.</summary>
+            </PropertyComment>
         </Field>
     </Node>
     <Node Name="TupleTypeSyntax" Base="TypeSyntax">

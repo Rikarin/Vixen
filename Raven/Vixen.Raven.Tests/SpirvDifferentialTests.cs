@@ -155,12 +155,55 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
 
                             """;
 
+    /// <summary>
+    ///     The three constructs Tier B finished — a switch statement, a user-defined operator and a
+    ///     tuple return — so the oracle keeps checking that what they emit stays legal in both.
+    /// </summary>
+    const string Finished = """
+                            package A
+
+                            struct Spectrum {
+                                var r: float
+                                var g: float
+
+                                Spectrum operator +(a: Spectrum, b: Spectrum) => Spectrum(a.r + b.r, a.g + b.g)
+                            }
+
+                            shader S {
+                                var mode: int
+                                var tint: float4
+
+                                func Split(v: float4): (rgb: float3, a: float) {
+                                    return (float3(v.x, v.y, v.z), v.w)
+                                }
+
+                                [PixelShader]
+                                func Pixel(): float4 {
+                                    val parts = Split(tint)
+                                    var scale = 1f
+                                    switch (mode) {
+                                        case 0:
+                                        case 1:
+                                            scale = 2f
+                                            break
+                                        default:
+                                            scale = 3f
+                                    }
+
+                                    val sum = Spectrum(parts.rgb.x, parts.a) + Spectrum(1f, 2f)
+                                    return float4(sum.r * scale, sum.g, 0, 1)
+                                }
+                            }
+
+                            """;
+
     [Theory]
     [InlineData("lambert", Lambert)]
     [InlineData("four sets", FourSets)]
     [InlineData("std140 packing", Packing)]
     [InlineData("texel fetch", Fetch)]
     [InlineData("non-square matrices", Matrices)]
+    [InlineData("switch, operators, tuples", Finished)]
     public void The_two_paths_agree_on_the_interface(string what, string source) {
         if (!ReferenceCompiler.Available) {
             output.WriteLine($"{what}: {ReferenceCompiler.HowToInstall}");
@@ -236,6 +279,7 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     [InlineData("std140 packing", Packing)]
     [InlineData("texel fetch", Fetch)]
     [InlineData("non-square matrices", Matrices)]
+    [InlineData("switch, operators, tuples", Finished)]
     public void A_reference_compiler_accepts_Ravens_GLSL(string what, string source) {
         if (ReferenceCompiler.Glslc is null) {
             output.WriteLine($"{what}: {ReferenceCompiler.HowToInstall}");

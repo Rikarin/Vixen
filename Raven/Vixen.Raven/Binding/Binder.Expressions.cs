@@ -292,6 +292,12 @@ public abstract partial class Binder {
         }
 
         if (ResolveBinaryOperator(kind, left.Type, right.Type) is not { } signature) {
+            // A user-defined operator is looked for only once the built-ins have failed, so a
+            // declaration can never change what `float + float` means.
+            if (BindUserDefinedOperator(syntax, operatorText, [left, right], [syntax.Left, syntax.Right]) is { } call) {
+                return call;
+            }
+
             if (!left.Type.IsErrorType && !right.Type.IsErrorType) {
                 Report(
                     SemanticDiagnostics.BinaryOperatorNotDefined,
@@ -314,6 +320,67 @@ public abstract partial class Binder {
         );
     }
 
+    /// <summary>
+    ///     Resolves <c>a + b</c> or <c>-a</c> against an <c>operator</c> declared on one of the
+    ///     operand types, or null when there is none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Vector maths on a user type is the reason this exists: a <c>Spectrum</c> or a
+    ///         <c>Complex</c> wants <c>a + b</c> to read as addition, and writing
+    ///         <c>Spectrum.Add(a, b)</c> everywhere is what the operator is for. Nothing about it
+    ///         needs anything a GPU lacks — it resolves statically to one function call.
+    ///     </para>
+    ///     <para>
+    ///         Only reached after the built-in operators have failed, so a declaration can never
+    ///         change what the primitives mean. Candidates are gathered from every operand's type,
+    ///         which is how <c>Spectrum * float</c> finds an operator declared on <c>Spectrum</c>,
+    ///         and ranked by the same conversion cost as an ordinary overload — so a declaration
+    ///         taking the operands exactly beats one that needs a widening.
+    ///     </para>
+    /// </remarks>
+    static BoundExpression? BindUserDefinedOperator(
+        ExpressionSyntax syntax,
+        string operatorText,
+        BoundExpression[] operands,
+        ExpressionSyntax[] operandSyntax
+    ) {
+        if (operands.Any(o => o.Type.IsErrorType)) {
+            return null;
+        }
+
+        var name = "operator" + operatorText;
+        var arguments = operands
+            .Select((operand, i) => new BoundArgument(null, operand, operandSyntax[i]))
+            .ToArray();
+
+        List<(MethodSymbol Method, BoundExpression[] Arguments, int Cost)> applicable = [];
+        HashSet<MethodSymbol> seen = [];
+
+        foreach (var type in operands.Select(o => o.Type).Distinct()) {
+            foreach (var member in LookupMembers(type, name)) {
+                if (member is not MethodSymbol { MethodKind: MethodKind.Operator } candidate
+                    || candidate.Parameters.Count != operands.Length
+                    || !seen.Add(candidate)) {
+                    continue;
+                }
+
+                if (TryMapArguments(candidate, arguments, syntax, out var mapped, out var cost)) {
+                    applicable.Add((candidate, mapped, cost));
+                }
+            }
+        }
+
+        if (applicable.Count == 0) {
+            return null;
+        }
+
+        var best = applicable.MinBy(c => c.Cost);
+
+        // No receiver: an operator takes every operand as an explicit parameter.
+        return new BoundInvocationExpression(syntax, null, best.Method, best.Arguments);
+    }
+
     BoundExpression BindUnary(ExpressionSyntax syntax, ExpressionSyntax operandSyntax, UnaryOperatorKind? kind) {
         var operand = BindValue(operandSyntax);
 
@@ -328,6 +395,10 @@ public abstract partial class Binder {
         }
 
         if (ResolveUnaryOperator(operatorKind, operand.Type) is not { } resultType) {
+            if (BindUserDefinedOperator(syntax, OperatorText(operatorKind), [operand], [operandSyntax]) is { } call) {
+                return call;
+            }
+
             if (!operand.Type.IsErrorType) {
                 Report(
                     SemanticDiagnostics.UnaryOperatorNotDefined,

@@ -957,10 +957,12 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
     public override SyntaxNode VisitType(RavenParser.TypeContext context) => base.VisitType(context);
 
     public override SyntaxNode VisitTuple_element(RavenParser.Tuple_elementContext context) {
-        var type = Visit(context.type()) as TypeSyntax;
         var identifier = context.identifier_token() != null ? Visit(context.identifier_token()) as SyntaxToken : null;
+        var colonToken = identifier != null ? TerminalOrNull(context, RavenLexer.COLON) : null;
+        var colon = colonToken != null ? Token(colonToken, SyntaxKind.ColonToken) : null;
+        var type = Visit(context.type()) as TypeSyntax;
 
-        return SyntaxFactory.TupleElement(type!, identifier);
+        return SyntaxFactory.TupleElement(identifier, colon, type!);
     }
 
     public override SyntaxNode VisitArray_rank_specifier(RavenParser.Array_rank_specifierContext context) {

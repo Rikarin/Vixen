@@ -382,8 +382,10 @@ type
     | '(' tuple_element (',' tuple_element)+ ')' #TupleType
     ;
 
+// `(rgb: float3, a: float)` — the name leads, as it does for a field, a parameter and a
+// `val`. This was the one place in the language where a name followed its type.
 tuple_element
-  : type identifier_token?
+  : (identifier_token ':')? type
   ;
 
 array_rank_specifier

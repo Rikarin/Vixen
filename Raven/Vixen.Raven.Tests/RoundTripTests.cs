@@ -81,7 +81,7 @@ public class RoundTripTests {
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val p = (a, b)\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val p = (a, b, c)\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func Swap(p: (int, int)) {\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func Named(p: (int x, float y)) {\n    }\n}\n")]
+    [InlineData("package A.B\n\nshader Foo {\n    func Named(p: (x: int, y: float)) {\n    }\n}\n")]
     // Collection expressions (+ spread)
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val xs = [a, b, c]\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val xs = []\n    }\n}\n")]

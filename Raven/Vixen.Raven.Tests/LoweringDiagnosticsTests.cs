@@ -18,40 +18,6 @@ namespace Tests;
 /// </remarks>
 public class LoweringDiagnosticsTests {
     [Fact]
-    public void A_tuple_field_is_rejected() =>
-        // Tuples are implementable as synthesized structs; lowering does not do
-        // it yet, so they are rejected rather than miscompiled.
-        AssertLowering(
-            """
-            package A
-
-            shader S {
-                var pair: (int, int)
-            }
-
-            """,
-            "RVN3001"
-        );
-
-    [Fact]
-    public void A_user_defined_operator_is_rejected() =>
-        AssertLowering(
-            """
-            package A
-
-            struct Vec {
-                var x: float
-
-                Vec operator +(a: Vec, b: Vec) {
-                    return a
-                }
-            }
-
-            """,
-            "RVN3002"
-        );
-
-    [Fact]
     public void An_ordinary_member_reports_nothing() =>
         AssertLowering(
             """

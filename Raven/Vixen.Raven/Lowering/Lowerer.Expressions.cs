@@ -63,6 +63,11 @@ public sealed partial class Lowerer {
                 return Emit(result => new IrSelectInstruction(result, condition, whenTrue, whenFalse), type);
             }
 
+            case BoundTupleExpression tuple: {
+                var elements = tuple.Elements.Select(LowerExpression).ToArray();
+                return Emit(result => new IrConstructInstruction(result, elements), type);
+            }
+
             case BoundCollectionExpression collection: {
                 var elements = collection.Elements.Select(LowerExpression).ToArray();
                 return Emit(result => new IrConstructInstruction(result, elements), type);
@@ -92,7 +97,6 @@ public sealed partial class Lowerer {
 
     static string Describe(BoundExpression expression) =>
         expression switch {
-            BoundTupleExpression => "A tuple",
             BoundRangeExpression => "A range outside a 'for' loop",
             BoundTypeExpression => "A type used as a value",
             _ => "This expression"
@@ -146,7 +150,7 @@ public sealed partial class Lowerer {
             return new(global);
         }
 
-        if (field.ContainingType is not { } containing || !structs.TryGetValue(containing, out var structType)) {
+        if (StructOf(field) is not { } structType) {
             return null;
         }
 
@@ -234,14 +238,28 @@ public sealed partial class Lowerer {
             return [new IrSwizzleAccess(components)];
         }
 
-        if (expression.Field.ContainingType is { } containing
-            && structs.TryGetValue(containing, out var structType)
+        if (StructOf(expression.Field) is { } structType
             && structType.IndexOf(expression.Field.Name) is var index and >= 0) {
             return [new IrFieldAccess(index)];
         }
 
         return null;
     }
+
+    /// <summary>
+    ///     The IR struct a field belongs to, whether it was declared on a struct or synthesized for
+    ///     a tuple element.
+    /// </summary>
+    /// <remarks>
+    ///     Read off <c>ContainingSymbol</c> rather than <c>ContainingType</c>: the latter is a
+    ///     <c>NamedTypeSymbol</c>, and a tuple is not one, so it answers null for a tuple's element.
+    /// </remarks>
+    IrStructType? StructOf(FieldSymbol field) =>
+        field.ContainingSymbol switch {
+            NamedTypeSymbol named => structs.GetValueOrDefault(named),
+            TupleTypeSymbol tuple => tuples.GetValueOrDefault(tuple),
+            _ => null
+        };
 
     // --- Operators ---------------------------------------------------------
 
@@ -595,6 +613,12 @@ public sealed partial class Lowerer {
         var lowered = arguments.Select(LowerExpression).ToArray();
 
         if (member.ContainingType is not { } containing || !structs.ContainsKey(containing)) {
+            return lowered;
+        }
+
+        // An operator takes every operand as an explicit parameter, so there is no receiver to
+        // prepend — and prepending one from an enclosing struct method would be silently wrong.
+        if (member is MethodSymbol { MethodKind: MethodKind.Operator }) {
             return lowered;
         }
 

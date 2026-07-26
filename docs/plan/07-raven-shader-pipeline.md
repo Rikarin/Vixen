@@ -522,7 +522,7 @@ shader graph's generated-source span mapping.
 | 🟡 | **`&&` and `\|\|` do not short-circuit.** They lower to `logicalAnd`/`logicalOr`, which evaluate both operands, as `?:` lowers to `select`. Sound for the side-effect-free expressions shaders are made of; wrong the moment the right operand is a guard (`i < n && data[i] > 0`) |
 | 🟡 | **Stream I/O declarations between stages** — no `stream` keyword; interstage data passes as entry-point parameters and returns |
 | 🟡 | **`Buffer<T>`-style resources** — the built-in named types are not generic, so there are no storage buffers. This is also why `DescriptorType.StorageBuffer` and `LayoutRule.Std430` exist in the reflection with nothing that produces them |
-| 🟡 | **Kept in the language but not lowered** — local functions, user-defined and conversion operators, indexers, patterns, `switch`, tuples (`RVN3001`/`RVN3002`). Each *is* implementable on a GPU, which is why they survived the pruning pass; they are simply not lowered |
+| ✅ | **Kept in the language but not lowered** — resolved by Tier B: `switch`, operators and tuples are finished, the rest are dropped |
 | 🟡 | **Inheritance is not flattened** — a base's fields never reach the derived layout and an `override` does not replace the base's member. Now `RVN3002` instead of three silent miscompilations; see the mixin section for what implementing it would cost |
 | ⚪ | **Flow analysis** — definite assignment and reachability. Dead-branch elimination landed in § B, but that is constant folding, not reachability |
 
@@ -598,17 +598,23 @@ The first pruning pass — lambdas, nullables, anonymous objects, `char`/`long`/
 established the right rule: **if it can never work on a GPU, remove it rather than diagnose it.** The
 finding here is that it stopped too early.
 
-#### The measured gap
+#### The measured gap, as found
 
-| Construct | Parses | Binds | Lowers | Emits |
-|---|---|---|---|---|
-| property, `willSet`/`didSet`, protocol dispatch | ✓ | ✓ | ✓ | ✓ |
-| collection expression | ✓ | ✓ | ✓ | ✗ `RVN4001` |
-| tuple, range as a value | ✓ | ✓ | ✗ `RVN3001` | |
-| `switch` statement and expression, `is`, patterns, local function, indexer, destructor | ✓ | ✓ | ✗ `RVN3002` | |
-| operator overload | ✓ | ✗ `RVN2022` | | |
-| conversion operator | ✓ | ✗ `RVN2020` | | |
-| generic struct `Box<float>` | ✓ | ✓ | ✗ `RVN3001`/`3003` | |
+Every row was probed through the real pipeline rather than read off the grammar. This is the state
+that prompted the three tiers below; the ✅ column says where each landed.
+
+| Construct | Parses | Binds | Lowers | Emits | |
+|---|---|---|---|---|---|
+| property, `willSet`/`didSet`, protocol dispatch | ✓ | ✓ | ✓ | ✓ | kept |
+| collection expression | ✓ | ✓ | ✓ | ✗ `RVN4001` | kept, still needs sized arrays |
+| tuple | ✓ | ✓ | ✗ `RVN3001` | | ✅ finished |
+| `switch` statement | ✓ | ✓ | ✗ `RVN3002` | | ✅ finished |
+| operator overload | ✓ | ✗ `RVN2022` | | | ✅ finished |
+| range as a value | ✓ | ✓ | ✗ `RVN3001` | | still `RVN3001`; the syntax stays for `for` |
+| switch expression, `is`, patterns, local function, indexer | ✓ | ✓ | ✗ `RVN3002` | | dropped |
+| conversion operator | ✓ | ✗ `RVN2020` | | | dropped |
+| destructor | ✓ | ✓ | ✗ `RVN3002` | | dropped (Tier C) |
+| generic struct `Box<float>` | ✓ | ✓ | ✗ `RVN3001`/`3003` | | still open — § I |
 
 #### Tier A — compiled to the wrong thing ✅ **removed**
 
@@ -631,13 +637,39 @@ first pass. `TypeKind.Nullable` went with them: nothing had referenced it since 
 `Example1.rvn` still round-trips byte-for-byte. The combined cost of both passes is tabulated after
 Tier C.
 
-#### Tier B — parses and binds, cannot compile
+#### Tier B — parses and binds, cannot compile ✅ **three finished, the rest dropped**
 
-Recommended disposition, not yet acted on. **Finish** `switch` (both targets have it), operator
-overloads (`Spectrum + Spectrum` is a real shader idiom), and tuples — the last because Raven has no
-`out` parameters, so a tuple is the *only* way to return two values, and lowering it to a synthesized
-struct is straightforward. **Drop** pattern matching and `is` (C# flow-typing), local functions (a
-private method is the same thing), indexers, conversion operators, and ranges as first-class values.
+**Finished**, and each is now covered by the § C differential oracle so both backends keep agreeing:
+
+| Construct | How |
+|---|---|
+| `switch` statement | desugars into an if/else chain over equality tests, so neither backend needed anything new. The governing expression is evaluated once into a local; several labels on a section become a disjunction; `default` becomes the final `else`; a trailing `break` is dropped because sections do not fall through |
+| user-defined operators | resolved against the operand types **after** the built-ins fail, so no declaration can change what `float + float` means. Named for the operator in the IR — `Spectrum_Add`, not the `operator_`/`operator_1` the GLSL mangler would produce from `operator+` |
+| tuples | one struct per distinct shape, named after its element types so the name is stable rather than a counter. Element names come from the symbol, which already gives an unnamed element `Item1`, `Item2`, … so access needs nothing special |
+
+**Dropped**, pinned in `RemovedConstructsTests`: all nine pattern forms and the `is` that used them,
+switch *expressions* and arms, `when` clauses, variable designations, declaration expressions, local
+functions, indexers, conversion operators, and binary `as`. Patterns are C# flow-typing — they narrow
+a static type by testing a value, which needs runtime type information that does not exist here; `as`
+was a reference conversion and there are no reference types. Ranges keep their syntax, because
+`for (i in 0 .. 4)` needs it, and a range in value position stays `RVN3001`.
+
+Three things had to be fixed on the way, each worth noting because none was visible from the outside:
+
+- **`BoundSwitchStatement` threw the case labels away** and flattened every section's statements into
+  one list, so lowering had nothing to work from. It now carries sections with their bound labels.
+- **The switch grammar never allowed a newline in its body**, so `switch (x) {` on its own line did
+  not parse. Every other block body already had the `NL*` it was missing.
+- **`SwitchStatement`, its labels, `BreakStatement` and `ContinueStatement` carried no keyword
+  tokens**, so they vanished on round-trip. That is two more instances of the § I defect class, and
+  they surfaced because `Example1.rvn` now uses the switch statement — the corpus doing its job.
+
+Tuples brought one deliberate language change: `(rgb: float3, a: float)` rather than
+`(float3 rgb, float a)`. The tuple type was the **only** place in Raven where a name followed its
+type; a field, a parameter and a `val` all lead with the name.
+
+`Example1.rvn` moves off the removed constructs and onto the switch statement, so the showcase
+demonstrates something that compiles — and still round-trips byte-for-byte.
 
 #### Tier C — C# shapes with no shader meaning ✅ **removed**
 
