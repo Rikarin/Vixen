@@ -62,6 +62,30 @@ public static class LibraryDiagnostics {
     );
 
     /// <summary>
+    ///     A body being exported touches a <c>stream</c>, whose location belongs to the consuming
+    ///     shader.
+    /// </summary>
+    /// <remarks>
+    ///     A separate refusal from <see cref="BindingNotExportable" /> because the reason is
+    ///     different, and the difference is what tells the author what to do. A binding cannot
+    ///     travel because its descriptor belongs to one shader; a stream cannot travel because its
+    ///     <em>location</em> is the consuming shader's stream list, so linking the function would
+    ///     mean matching the two shaders' streams by name — the flattening half of the mixin
+    ///     problem (docs/plan/07 § J), not a serialization gap. Inside one compilation a stream
+    ///     crosses any number of functions freely; it is only the artefact boundary it does not
+    ///     cross.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor StreamNotExportable = new(
+        "RVN5007",
+        "Exported function uses a stream",
+        "'{0}' uses the stream '{1}', so it cannot be exported to a library: a stream's location "
+        + "belongs to the shader that declares it, and matching streams across libraries by name is "
+        + "not implemented",
+        Export,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>
     ///     A library was compiled with a permutation key read, so its value is baked into the
     ///     exported bodies.
     /// </summary>

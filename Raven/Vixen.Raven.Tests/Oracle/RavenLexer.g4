@@ -99,6 +99,7 @@ CONST:          'const';
 OVERRIDE:       'override';
 READONLY:       'readonly';
 STATIC:         'static';
+STREAM:         'stream';       // Interstage value: written by one stage, read by the next
 
 
 

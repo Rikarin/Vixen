@@ -200,3 +200,46 @@ struct Ray {
 ```
 
 The full syntax sample lives in [`Library/Example1.rvn`](Library/Example1.rvn).
+
+### Streams
+
+A `stream` is a value one pipeline stage writes and the next reads, declared once on the shader
+instead of threaded through every signature between its producer and the pipeline:
+
+```typescript
+shader Lit {
+    stream var normalWS: float3
+    stream var uv: float2
+
+    var world: mat4
+
+    func WriteNormal(normal: float3) {
+        normalWS = (world * float4(normal, 0f)).xyz
+    }
+
+    [VertexShader]
+    func Vertex(position: float3, normal: float3, texcoord: float2): float4 {
+        WriteNormal(normal)
+        uv = texcoord
+        return world * float4(position, 1f)
+    }
+
+    [PixelShader]
+    func Pixel(): float4 {
+        val n = normalize(normalWS)
+        return float4(n * 0.5f + 0.5f, uv.x)
+    }
+}
+```
+
+Nothing declares a direction. The vertex stage writes both streams, so both are its outputs; the pixel
+stage reads both, so both are its inputs — worked out from what each stage's code does, which is why
+`WriteNormal` can contribute one without any signature between it and the pipeline mentioning it.
+
+A stream's location is its position in the shader's declaration list, so the writing stage and the
+reading stage agree on it without either knowing about the other. The consequence is that a stage's own
+parameters are located *after* the streams: adding a stream renumbers the vertex attributes, which the
+reflection reports.
+
+A stream is not a binding — no descriptor, nothing the host writes — and it does not cross a `.rvnlib`
+boundary, because its location belongs to the shader that declares it.

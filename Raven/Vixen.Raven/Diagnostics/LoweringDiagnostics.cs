@@ -51,6 +51,22 @@ public static class LoweringDiagnostics {
         DiagnosticSeverity.Error
     );
 
+    /// <summary>A stream written by a stage nothing downstream reads from.</summary>
+    /// <remarks>
+    ///     A fragment stage's outputs are render targets — location 0 is target 0 — so a stream
+    ///     written there goes nowhere. A warning rather than an error, on the <c>RVN2091</c>
+    ///     pattern: the shader still compiles and still does what it says, but the author believes
+    ///     something untrue about where the value ends up.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor StreamNotConsumed = new(
+        "RVN3005",
+        "Stream is written by a stage nothing reads it from",
+        "Stream '{0}' is written by '{1}', but a fragment stage's outputs are render targets rather "
+        + "than interstage values, so nothing downstream reads it",
+        Lowering,
+        DiagnosticSeverity.Warning
+    );
+
     // --- Verification -----------------------------------------------------
 
     public static readonly DiagnosticDescriptor MalformedIr = new(

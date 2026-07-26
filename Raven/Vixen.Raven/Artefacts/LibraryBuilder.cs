@@ -26,11 +26,13 @@ namespace Vixen.Raven.Artefacts;
 ///         identities in a module that references both libraries.
 ///     </para>
 ///     <para>
-///         Two things are checked here rather than left to a consumer, because here is where they
-///         can be fixed. A body that reads a shader binding cannot be linked into another shader, so
-///         it is refused (<c>RVN5001</c>) instead of exported to fail somewhere with no source in
-///         sight. And a stage entry point is not something a library supplies, which is said
-///         (<c>RVN5002</c>) rather than silently dropped.
+///         The checks run here rather than in a consumer, because here is where they can be fixed. A
+///         body that reads a shader binding cannot be linked into another shader, so it is refused
+///         (<c>RVN5001</c>) instead of exported to fail somewhere with no source in sight; a body
+///         that touches a <c>stream</c> is refused for the neighbouring but different reason that a
+///         stream's location belongs to the consuming shader (<c>RVN5007</c>). And a stage entry
+///         point is not something a library supplies, which is said (<c>RVN5002</c>) rather than
+///         silently dropped.
 ///     </para>
 /// </remarks>
 public static class LibraryBuilder {
@@ -80,21 +82,34 @@ public static class LibraryBuilder {
         };
     }
 
+    /// <summary>What stops a body from being exported, and which shader-level name it touched.</summary>
+    /// <param name="Name">The binding or stream the body reaches.</param>
+    /// <param name="IsStream">
+    ///     True for a stream, so the refusal states the right reason: a binding cannot travel
+    ///     because its descriptor belongs to one shader, a stream because its location does.
+    /// </param>
+    readonly record struct Unexportable(string Name, bool IsStream);
+
     /// <summary>
-    ///     The functions that cannot be exported: those that touch a shader binding, and everything
-    ///     that calls one.
+    ///     The functions that cannot be exported: those that touch shader-level state, and
+    ///     everything that calls one.
     /// </summary>
     /// <remarks>
     ///     Transitive, and it has to be. A helper that reads a uniform is obviously unexportable; a
     ///     function that merely calls that helper is just as unexportable, because linking it into a
     ///     consumer would drag the helper along and name storage the consumer never declared.
     /// </remarks>
-    static Dictionary<IrFunction, string> FindUnexportable(LoweringResult lowered) {
-        Dictionary<IrFunction, string> unexportable = [];
+    static Dictionary<IrFunction, Unexportable> FindUnexportable(LoweringResult lowered) {
+        var streams = lowered.Module.Shaders
+            .SelectMany(shader => shader.Streams)
+            .Select(stream => stream.Variable)
+            .ToHashSet();
+
+        Dictionary<IrFunction, Unexportable> unexportable = [];
 
         foreach (var function in lowered.Module.AllFunctions) {
-            if (Globals(function.Body).FirstOrDefault() is { } binding) {
-                unexportable[function] = binding;
+            if (Globals(function.Body).FirstOrDefault() is { } root) {
+                unexportable[function] = new(root.Name, streams.Contains(root));
             }
         }
 
@@ -111,8 +126,8 @@ public static class LibraryBuilder {
                 }
 
                 foreach (var callee in CallGraph.Calls(function.Body)) {
-                    if (unexportable.TryGetValue(callee, out var binding)) {
-                        unexportable[function] = binding;
+                    if (unexportable.TryGetValue(callee, out var reason)) {
+                        unexportable[function] = reason;
                         changed = true;
                         break;
                     }
@@ -123,33 +138,33 @@ public static class LibraryBuilder {
         return unexportable;
     }
 
-    /// <summary>Every shader-level binding a body reaches, by name.</summary>
-    static IEnumerable<string> Globals(IrStatement statement) {
+    /// <summary>Every shader-level variable a body reaches: a binding or a stream.</summary>
+    static IEnumerable<IrVariable> Globals(IrStatement statement) {
         switch (statement) {
             case IrBlock block: {
-                foreach (var name in block.Statements.SelectMany(Globals)) {
-                    yield return name;
+                foreach (var root in block.Statements.SelectMany(Globals)) {
+                    yield return root;
                 }
 
                 break;
             }
 
             case IrLoadInstruction { Place.Root: { Kind: IrVariableKind.Global } root }:
-                yield return root.Name;
+                yield return root;
                 break;
 
             case IrStoreInstruction { Place.Root: { Kind: IrVariableKind.Global } root }:
-                yield return root.Name;
+                yield return root;
                 break;
 
             case IrIfStatement conditional: {
-                foreach (var name in Globals(conditional.Then)) {
-                    yield return name;
+                foreach (var root in Globals(conditional.Then)) {
+                    yield return root;
                 }
 
                 if (conditional.Else is { } otherwise) {
-                    foreach (var name in Globals(otherwise)) {
-                        yield return name;
+                    foreach (var root in Globals(otherwise)) {
+                        yield return root;
                     }
                 }
 
@@ -159,8 +174,8 @@ public static class LibraryBuilder {
             case IrLoopStatement loop: {
                 IrBlock?[] parts = [loop.Condition, loop.Body, loop.Continue];
 
-                foreach (var name in parts.Where(p => p is not null).SelectMany(p => Globals(p!))) {
-                    yield return name;
+                foreach (var root in parts.Where(p => p is not null).SelectMany(p => Globals(p!))) {
+                    yield return root;
                 }
 
                 break;
@@ -184,7 +199,7 @@ public static class LibraryBuilder {
     /// <summary>Carries the per-build state the type walk needs.</summary>
     sealed class Builder(
         LoweringResult lowered,
-        Dictionary<IrFunction, string> unexportable,
+        Dictionary<IrFunction, Unexportable> unexportable,
         DiagnosticBag diagnostics
     ) {
         readonly List<IrFunction> functions = [];
@@ -225,6 +240,7 @@ public static class LibraryBuilder {
                 IsPermutation = field.IsPermutation,
                 IsValueParameter = field.IsValueParameter,
                 IsCompose = field.IsCompose,
+                IsStream = field.IsStream,
                 // DeclaredValue, not ConstantValue: the latter answers with what this compilation
                 // was given for a permutation key, which is per-variant and not a property of the
                 // library. Reading it would also record a permutation use, so describing a shader
@@ -296,12 +312,14 @@ public static class LibraryBuilder {
                 return null;
             }
 
-            if (unexportable.TryGetValue(function, out var binding)) {
+            if (unexportable.TryGetValue(function, out var reason)) {
                 diagnostics.Add(
-                    LibraryDiagnostics.BindingNotExportable,
+                    reason.IsStream
+                        ? LibraryDiagnostics.StreamNotExportable
+                        : LibraryDiagnostics.BindingNotExportable,
                     member.DeclaringSyntax?.GetLocation() ?? Location.None,
                     description,
-                    binding
+                    reason.Name
                 );
                 return null;
             }

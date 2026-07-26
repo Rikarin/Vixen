@@ -417,4 +417,5 @@ modifier
     | OVERRIDE
     | READONLY
     | STATIC
+    | STREAM
     ;

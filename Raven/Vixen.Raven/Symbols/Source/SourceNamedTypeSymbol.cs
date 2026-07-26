@@ -520,6 +520,68 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
     }
 
     /// <summary>
+    ///     Checks that every <c>stream</c> field can actually be threaded between stages: declared
+    ///     on a shader, not also a constant or a slot, without an initializer, and of a type a
+    ///     stage interface can carry.
+    /// </summary>
+    /// <remarks>
+    ///     The type check is here rather than left to the backends' <c>RVN4001</c>, because the
+    ///     declaration is what has to change and because both backends would otherwise report it
+    ///     twice with no source span between them.
+    /// </remarks>
+    void ReportStreamIssues() {
+        foreach (var member in members!) {
+            if (member is not SourceFieldSymbol { IsStream: true } stream) {
+                continue;
+            }
+
+            var location = stream.DeclaringSyntax?.GetLocation() ?? Location.None;
+
+            if (TypeKind != TypeKind.Shader) {
+                outerBinder.Diagnostics.Add(SemanticDiagnostics.StreamMustBeShaderField, location, stream.Name);
+                continue;
+            }
+
+            var conflict = stream switch {
+                { IsPermutation: true } => "a [Permutation] key",
+                { IsCompose: true } => "a compose slot",
+                { IsConst: true } => "const",
+                _ => null
+            };
+
+            if (conflict is not null) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.StreamCannotBeConstant,
+                    location,
+                    stream.Name,
+                    conflict
+                );
+                continue;
+            }
+
+            if (stream.Declaration.Initializer is not null) {
+                outerBinder.Diagnostics.Add(SemanticDiagnostics.StreamCannotHaveInitializer, location, stream.Name);
+            }
+
+            // Vulkan has no boolean interface type, and an aggregate would need a location per
+            // leaf. Exactly the restriction the existing stage inputs and outputs live under.
+            if (!IsStageInterfaceType(stream.Type) && !stream.Type.IsErrorType) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.StreamTypeNotSupported,
+                    location,
+                    stream.Name,
+                    stream.Type.ToDisplayString()
+                );
+            }
+        }
+    }
+
+    /// <summary>Whether a type can cross a stage boundary: a non-boolean scalar or vector.</summary>
+    static bool IsStageInterfaceType(TypeSymbol type) =>
+        type is PrimitiveTypeSymbol { TypeKind: TypeKind.Scalar or TypeKind.Vector } primitive
+        && primitive.ComponentSpecialType != SpecialType.Bool;
+
+    /// <summary>
     ///     Checks the descriptor-set markers: at most one per field, and only on a field that
     ///     actually becomes a binding.
     /// </summary>
@@ -581,7 +643,7 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
             var (allowed, description) = member switch {
                 FieldSymbol =>
                     (new[] { SyntaxKind.ConstKeyword, SyntaxKind.ReadOnlyKeyword, SyntaxKind.StaticKeyword,
-                        SyntaxKind.ComposeKeyword }, "field"),
+                        SyntaxKind.ComposeKeyword, SyntaxKind.StreamKeyword }, "field"),
                 MethodSymbol { MethodKind: MethodKind.Constructor } => ([], "constructor"),
                 MethodSymbol { MethodKind: MethodKind.Operator } =>
                     (new[] { SyntaxKind.StaticKeyword }, "operator"),
@@ -623,6 +685,7 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
         ReportPermutationIssues();
         ReportComposeIssues();
         ReportValueParameterIssues();
+        ReportStreamIssues();
         ReportResourceSetIssues();
         ReportModifierIssues();
 

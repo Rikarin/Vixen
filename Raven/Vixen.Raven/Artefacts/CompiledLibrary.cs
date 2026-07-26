@@ -120,6 +120,7 @@ public sealed record LibraryField {
     public bool IsPermutation { get; init; }
     public bool IsValueParameter { get; init; }
     public bool IsCompose { get; init; }
+    public bool IsStream { get; init; }
 
     /// <summary>
     ///     The folded value of a <c>const</c>, or the literal a field was declared with.

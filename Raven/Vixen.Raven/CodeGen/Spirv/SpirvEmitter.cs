@@ -52,6 +52,20 @@ sealed partial class SpirvEmitter {
     readonly SpirvTypes types;
 
     readonly List<(IrStageIo Io, uint Variable)> inputs = [];
+
+    /// <summary>
+    ///     The <c>Input</c> and <c>Output</c> variable a stream resolves to, by direction.
+    /// </summary>
+    /// <remarks>
+    ///     Two variables for one IR variable, because SPIR-V splits what the IR does not: an
+    ///     <c>Input</c> pointer cannot be stored through and an <c>Output</c> pointer is not what a
+    ///     load should read. A stream a stage both reads and writes gets both, which is legal —
+    ///     input and output locations are separate namespaces.
+    /// </remarks>
+    readonly Dictionary<IrVariable, uint> streamReads = [];
+
+    readonly Dictionary<IrVariable, uint> streamWrites = [];
+
     uint extendedInstructions;
     uint? outputVariable;
 
@@ -155,8 +169,19 @@ sealed partial class SpirvEmitter {
         module.Decorate(variable, SpirvDecoration.Binding, SpirvOperand.Literal((uint)planned.Binding));
     }
 
+    /// <summary>
+    ///     Declares the stage interface: the streams this stage reads and writes, then its own
+    ///     parameters and return value.
+    /// </summary>
+    /// <remarks>
+    ///     Every location comes from <see cref="StreamPlan" />, the same source the GLSL emitter and
+    ///     the reflection read — which is what makes the vertex stage's outputs line up with the
+    ///     fragment stage's inputs without either stage knowing about the other.
+    /// </remarks>
     void EmitStageInterface() {
-        var location = 0u;
+        EmitStreamInterface();
+
+        var location = (uint)StreamPlan.ParameterBase(shader);
 
         foreach (var input in entryPoint.Inputs) {
             var variable = DeclareStageVariable(input, SpirvStorageClass.Input, "in_" + input.Name);
@@ -177,8 +202,38 @@ sealed partial class SpirvEmitter {
                 SpirvOperand.Enumerant(SpirvBuiltIn.Position)
             );
         } else {
-            module.Decorate(outputVariable.Value, SpirvDecoration.Location, SpirvOperand.Literal(0));
+            module.Decorate(
+                outputVariable.Value,
+                SpirvDecoration.Location,
+                SpirvOperand.Literal((uint)StreamPlan.OutputBase(shader, entryPoint.Stage))
+            );
         }
+    }
+
+    void EmitStreamInterface() {
+        foreach (var stream in entryPoint.StreamInputs) {
+            streamReads[stream.Variable] = DeclareStream(stream, SpirvStorageClass.Input, "in_");
+        }
+
+        foreach (var stream in entryPoint.StreamOutputs) {
+            streamWrites[stream.Variable] = DeclareStream(stream, SpirvStorageClass.Output, "out_");
+        }
+    }
+
+    uint DeclareStream(IrStream stream, SpirvStorageClass storage, string prefix) {
+        var variable = DeclareStageVariable(
+            new(stream.Name, stream.Type, null),
+            storage,
+            prefix + stream.Name
+        );
+
+        module.Decorate(
+            variable,
+            SpirvDecoration.Location,
+            SpirvOperand.Literal((uint)StreamPlan.LocationOf(shader, stream))
+        );
+
+        return variable;
     }
 
     uint DeclareStageVariable(IrStageIo io, SpirvStorageClass storage, string name) {
@@ -202,6 +257,27 @@ sealed partial class SpirvEmitter {
         module.AddName(variable, name);
         interfaceIds.Add(variable);
         return variable;
+    }
+
+    /// <summary>
+    ///     The variable a stream resolves to in the given direction, or null when the root is not a
+    ///     stream.
+    /// </summary>
+    /// <remarks>
+    ///     A write-only stream loaded, or a read-only one stored to, falls back to the other
+    ///     direction rather than reporting: lowering already marks a partial write as a read, so the
+    ///     only way to get here is a whole-value use, and a wrong storage class is a
+    ///     <c>spirv-val</c> failure with a clear message rather than a silent miscompilation.
+    /// </remarks>
+    uint? ResolveStream(IrVariable root, bool write) {
+        var preferred = write ? streamWrites : streamReads;
+
+        if (preferred.TryGetValue(root, out var variable)) {
+            return variable;
+        }
+
+        var other = write ? streamReads : streamWrites;
+        return other.TryGetValue(root, out var fallback) ? fallback : null;
     }
 
     /// <summary>True when the stage result belongs in <c>Position</c> rather than a located output.</summary>

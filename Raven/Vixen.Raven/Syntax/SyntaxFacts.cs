@@ -54,6 +54,7 @@ public static class SyntaxFacts {
             SyntaxKind.ConstKeyword => "const",
             SyntaxKind.OverrideKeyword => "override",
             SyntaxKind.ReadOnlyKeyword => "readonly",
+            SyntaxKind.StreamKeyword => "stream",
 
             // Punctuation
             SyntaxKind.DotToken => ".",

@@ -171,13 +171,44 @@ public static class ReflectionBuilder {
         }
     }
 
+    /// <summary>
+    ///     The vertex stage's attributes: the streams it reads, then its own parameters.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A stream the vertex stage reads is a vertex attribute — there is no earlier stage for
+    ///         it to have come from — so it belongs here alongside the entry point's parameters, and
+    ///         the engine builds one vertex layout from the list.
+    ///     </para>
+    ///     <para>
+    ///         Locations come from <see cref="StreamPlan" />, which puts the streams first. That is
+    ///         why the parameters start at <see cref="StreamPlan.ParameterBase" /> rather than at 0:
+    ///         a stream's location has to be the same number in the stage that writes it and the
+    ///         stage that reads it, and only a shader-wide rule can give both the same answer.
+    ///     </para>
+    /// </remarks>
     static ImmutableArray<VertexInputInfo> BuildVertexInputs(IrShader shader) {
         if (shader.EntryPoints.FirstOrDefault(e => e.Stage == ShaderStage.Vertex) is not { } vertex) {
             return [];
         }
 
+        var parameterBase = StreamPlan.ParameterBase(shader);
+
         return [
-            .. vertex.Inputs.Select((io, i) => new VertexInputInfo(i, io.Name, ShaderDataType.From(io.Type), io.Semantic))
+            .. vertex.StreamInputs.Select(stream => new VertexInputInfo(
+                    StreamPlan.LocationOf(shader, stream),
+                    stream.Name,
+                    ShaderDataType.From(stream.Type),
+                    null
+                )
+            ),
+            .. vertex.Inputs.Select((io, i) => new VertexInputInfo(
+                    parameterBase + i,
+                    io.Name,
+                    ShaderDataType.From(io.Type),
+                    io.Semantic
+                )
+            )
         ];
     }
 

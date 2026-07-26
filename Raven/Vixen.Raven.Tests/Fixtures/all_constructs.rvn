@@ -227,6 +227,9 @@ protocol Shaded {
 shader Surface : Shaded {
     compose val diffuse: Shaded
 
+    stream var normalWS: float3
+    stream var uv: float2
+
     func Compute(): float => 1f
 }
 

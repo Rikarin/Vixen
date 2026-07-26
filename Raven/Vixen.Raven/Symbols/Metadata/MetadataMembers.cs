@@ -36,6 +36,7 @@ public sealed class MetadataFieldSymbol : FieldSymbol {
     public override bool IsPermutation => model.IsPermutation;
     public override bool IsValueParameter => model.IsValueParameter;
     public override bool IsCompose => model.IsCompose;
+    public override bool IsStream => model.IsStream;
     public override object? DeclaredValue => model.DeclaredValue?.ToObject();
     public override object? ConstantValue => IsConst ? DeclaredValue : null;
     public override ResourceKind ResourceKind => model.ResourceKind;

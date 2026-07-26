@@ -601,7 +601,7 @@ shader graph's generated-source span mapping.
 |---|---|---|
 | 🔴 | **`m[i]` meant a row in the IR and a column in both targets** | ✅ fixed in [§ E](#e-conventions-raven-must-bake-in) |
 | 🟡 | **`&&` and `\|\|` do not short-circuit.** They lower to `logicalAnd`/`logicalOr`, which evaluate both operands, as `?:` lowers to `select`. Sound for the side-effect-free expressions shaders are made of; wrong the moment the right operand is a guard (`i < n && data[i] > 0`) |
-| 🟡 | **Stream I/O declarations between stages** — no `stream` keyword; interstage data passes as entry-point parameters and returns |
+| 🟡 | **Stream I/O declarations between stages** — no `stream` keyword; interstage data passes as entry-point parameters and returns | ✅ built; see [§ Streams](#streams-interstage-values-declared-once) |
 | 🟡 | **`Buffer<T>`-style resources** — the built-in named types are not generic, so there are no storage buffers. This is also why `DescriptorType.StorageBuffer` and `LayoutRule.Std430` exist in the reflection with nothing that produces them |
 | ✅ | **Kept in the language but not lowered** — resolved by Tier B: `switch`, operators and tuples are finished, the rest are dropped |
 | 🟡 | **Inheritance is not flattened** — a base's fields never reach the derived layout and an `override` does not replace the base's member. Now `RVN3002` instead of three silent miscompilations; see the mixin section for what implementing it would cost |
@@ -630,6 +630,78 @@ the byte-level relationship between host and shader storage was worked out, exac
 in both backends *and* the intuitive one — see [§ E](#e-conventions-raven-must-bake-in). Both backends
 now emit it, and a non-square matrix is a differential-oracle fixture, because a square matrix hides
 the whole class of mistake.
+
+#### Streams: interstage values declared once
+
+`stream var normalWS: float3` on a shader declares a value one stage writes and the next reads. The
+alternative — the state this row described — was to thread it through signatures: a vertex entry point
+returning a struct of everything the pixel stage might want, and every function that contributes to
+one taking and returning it. That works and it is what the language had, but it makes an interstage
+value a property of every signature between its producer and the pipeline, which is exactly the cost
+`compose` exists to avoid for implementations. A `[PerMaterial]` marker says where a *binding* lives
+without the shader spelling a set number; `stream` does the same for the pipeline's own interface.
+
+**Direction is derived, not declared.** Per entry point, the stage's reachable code decides: a stream
+it stores to is an output, one it *reads before writing* is an input, one it does both to is both —
+legal, because a stage's input and output locations are separate namespaces. That is the property
+worth having. A `compose`d surface function three calls deep can write `normalWS` and the vertex stage
+grows an output, with nothing between them mentioning it. Reachability rather than shader membership
+decides what "the stage's code" means, for the reason § C already records: a composed implementation's
+functions live in a different `IrShader`.
+
+"Read before written" rather than "read at all" is the one subtle part, and it earns its keep.
+`normalWS = n; return normalize(normalWS)` in a vertex stage reads a stream that stage produces — the
+value it wants is the one just written, not an attribute. Taking any read as an input would have
+declared a vertex attribute nobody binds. So the read resolves to the *output* variable, which both
+targets permit: only SPIR-V's `Input` is read-only. "Before" is a pre-order walk with calls expanded
+at their call sites — exact for the straight-line code shaders are made of, and conservative the safe
+way otherwise, since a spurious input costs a location while a missing one would read undefined
+values. A partial write (`normalWS.x = …`) keeps the rest of the value, so it counts as a read.
+
+**A location is a property of the shader, not of the stage.** `Vixen.Raven.Reflection.StreamPlan`
+assigns a stream its index in the shader's declaration order, and both emitters and the reflection
+read the plan — the same construction as `BindingPlan` one concept over, and for the same reason.
+Nothing has to be kept in step: the stage that writes `normalWS` and the stage that reads it arrive at
+0 without either knowing the other exists. Deriving it from "index among this stage's outputs" instead
+would have the two disagree the moment one of them touches a stream the other does not.
+
+The consequence, stated rather than left to be discovered: **a stage's own parameters are located
+after the streams**, so adding a stream renumbers a shader's vertex attributes. That is visible in the
+reflection the engine builds its vertex layout from, which is where a renumbering has to be visible.
+Locating streams after the parameters would be worse than inconvenient — it would make a stream's
+location depend on which stage was looking at it, and there is no number both stages could agree on.
+The one exception is a fragment output, which stays at location 0 because it is a render-target index
+rather than an interstage location; that is also why a stream *written* by a fragment stage is
+`RVN3005` — nothing downstream reads it, and the shader still compiles, so it is the same warning
+policy `RVN2091` uses for a marker on a non-binding.
+
+**A stream is not a binding**, and nothing about it reaches a descriptor: no `(set, binding)`, no
+uniform block member, no entry in the flattened parameter list. It lowers to a module-scope global,
+which is what a stage interface *is* in both targets — a SPIR-V `Input`/`Output` and a GLSL `in`/`out`
+are both module scope — so a read is an ordinary load and a write an ordinary store, and only the
+direction is resolved per stage. No new instruction, and nothing in body lowering knows about it.
+
+Restrictions, each at the declaration where it can be fixed rather than twice over from the backends:
+`stream` is a shader field (`RVN2100`); it cannot also be `const`, a `[Permutation]` key or a
+`compose` slot, none of which has storage to thread (`RVN2101`); it takes no initializer, because its
+value comes from the stage that writes it (`RVN2102`); and its type must be a non-boolean scalar or
+vector — the restriction stage I/O already lives under, since Vulkan has no boolean interface type and
+an aggregate would need a location per leaf (`RVN2103`).
+
+Honestly bounded:
+
+- **Streams do not cross a `.rvnlib` boundary.** A library body that touches one is refused
+  (`RVN5007`), with its own reason rather than the binding one: a stream's location is the *consuming*
+  shader's stream list, so linking the function would mean matching two shaders' streams by name.
+  That is the flattening half of the mixin problem (§ J), not a serialization gap. Within one
+  compilation a stream crosses any number of functions freely.
+- **No `[Interpolation]` control** — no `flat`, `noperspective` or `centroid`. Every stream is
+  smoothly interpolated, which is the default both targets give. An integer stream would want `flat`
+  in GLSL; the type check permits one, so this is a real gap rather than a prohibition, and the syntax
+  for it is an attribute on the declaration when something needs it.
+- **The geometry and compute stages are unchanged.** A geometry stage's per-vertex arrays and a
+  compute stage's absence of any stage interface are both untouched, because the compute stage is
+  still `RVN4002` for want of a workgroup size (§ Backends above).
 
 #### Superseded rather than carried
 

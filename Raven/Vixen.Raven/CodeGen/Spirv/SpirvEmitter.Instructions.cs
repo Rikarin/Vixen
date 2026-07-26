@@ -732,7 +732,7 @@ partial class SpirvEmitter {
     }
 
     void EmitStore(IrPlace place, uint value) {
-        var pointer = Resolve(place);
+        var pointer = Resolve(place, write: true);
 
         if (pointer.Swizzle is not { } swizzle) {
             Add(new(SpirvOp.Store, null, null, SpirvOperand.Id(pointer.Id), SpirvOperand.Id(value)));
@@ -740,9 +740,11 @@ partial class SpirvEmitter {
         }
 
         // Writing some lanes of a vector means reading it, shuffling the new lanes
-        // in, and writing the whole thing back.
+        // in, and writing the whole thing back. For a stream that read has to come from the
+        // input variable — an Output cannot be loaded — which is why lowering marks a partial
+        // write as a read too.
         var whole = types.Type(pointer.Type);
-        var original = Emit(SpirvOp.Load, whole, SpirvOperand.Id(pointer.Id));
+        var original = Emit(SpirvOp.Load, whole, SpirvOperand.Id(Resolve(place).Id));
         var lanes = ((IrVectorType)pointer.Type).Size;
 
         var selectors = new int[lanes];
@@ -760,13 +762,24 @@ partial class SpirvEmitter {
         Add(new(SpirvOp.Store, null, null, SpirvOperand.Id(pointer.Id), SpirvOperand.Id(merged)));
     }
 
-    /// <summary>Turns a place into a pointer, building an access chain when it needs one.</summary>
-    SpirvPointer Resolve(IrPlace place) {
+    /// <summary>
+    ///     Turns a place into a pointer, building an access chain when it needs one.
+    /// </summary>
+    /// <param name="place">The storage location to reach.</param>
+    /// <param name="write">
+    ///     Which direction a stream resolves in. Every other root has one variable whichever way it
+    ///     is used; a stream has an <c>Input</c> and an <c>Output</c>, because SPIR-V splits what the
+    ///     IR models as one.
+    /// </param>
+    SpirvPointer Resolve(IrPlace place, bool write = false) {
         uint baseId;
         SpirvStorageClass storage;
         List<SpirvOperand> indices = [];
 
-        if (globals.TryGetValue(place.Root, out var global)) {
+        if (ResolveStream(place.Root, write) is { } stream) {
+            baseId = stream;
+            storage = write ? SpirvStorageClass.Output : SpirvStorageClass.Input;
+        } else if (globals.TryGetValue(place.Root, out var global)) {
             baseId = global.Variable;
             storage = global.Storage;
 
@@ -781,6 +794,8 @@ partial class SpirvEmitter {
             return new(types.ConstantInt(0), place.Type, false);
         }
 
+        // Only a uniform block's members are laid out; a stream is interface storage with no
+        // host-visible layout at all.
         var layout = storage == SpirvStorageClass.Uniform;
         var type = place.Root.Type;
         IrSwizzleAccess? trailing = null;

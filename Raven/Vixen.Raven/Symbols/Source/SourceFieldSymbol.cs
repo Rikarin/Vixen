@@ -34,6 +34,8 @@ public sealed class SourceFieldSymbol : FieldSymbol {
 
     public override bool IsCompose => DeclarationFacts.Has(syntax.Modifiers, SyntaxKind.ComposeKeyword);
 
+    public override bool IsStream => DeclarationFacts.Has(syntax.Modifiers, SyntaxKind.StreamKeyword);
+
     /// <summary>
     ///     The shader bound to this slot, or null when the field is not a slot or the
     ///     binding is missing or invalid.
@@ -204,6 +206,13 @@ public sealed class SourceFieldSymbol : FieldSymbol {
 
     public override ResourceKind ResourceKind {
         get {
+            // A stream is per-invocation, so it is never a binding however numeric it looks —
+            // checked before the resource types, so `stream var t: Texture2D` reports the type
+            // restriction (RVN2103) rather than quietly becoming a texture binding.
+            if (IsStream) {
+                return ResourceKind.None;
+            }
+
             if (Type is BuiltInNamedTypeSymbol { ResourceKind: not ResourceKind.None } resource) {
                 return resource.ResourceKind;
             }

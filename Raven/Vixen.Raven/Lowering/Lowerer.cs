@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Raven.Binding;
+using Vixen.Raven.CodeGen;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Symbols;
@@ -155,7 +156,10 @@ public sealed partial class Lowerer {
             }
         }
 
+        // After every body exists, and after pruning: a stream's direction comes from what the
+        // stage's reachable code does with it, which is only knowable once the module is settled.
         ImportPruner.Prune(module, importedStructs, importedFunctions);
+        ResolveStreamDirections();
 
         return module;
     }
@@ -185,10 +189,12 @@ public sealed partial class Lowerer {
 
         ReportInheritanceNotFlattened(type);
         DeclareCompileTimeConstants(type, shader);
+        DeclareStreams(type, shader);
 
         foreach (var member in type.GetMembers()) {
-            // A `const` field is folded at every use, so it needs no binding.
-            if (member is not FieldSymbol { IsConst: false, IsCompose: false } field) {
+            // A `const` field is folded at every use, so it needs no binding; a `stream` is
+            // per-invocation, so it is in the pipeline's interface rather than in a descriptor.
+            if (member is not FieldSymbol { IsConst: false, IsCompose: false, IsStream: false } field) {
                 continue;
             }
 
@@ -262,6 +268,201 @@ public sealed partial class Lowerer {
         }
     }
 
+    /// <summary>
+    ///     Declares the shader's <c>stream</c> fields as module-scope globals.
+    /// </summary>
+    /// <remarks>
+    ///     A global because that is what a stage interface is in both targets — a SPIR-V
+    ///     <c>Input</c>/<c>Output</c> variable and a GLSL <c>in</c>/<c>out</c> are both module
+    ///     scope — so a read lowers to an ordinary load and a write to an ordinary store, with no
+    ///     new instruction and nothing for the body lowering to know about. Which direction each
+    ///     stage needs is worked out afterwards, from the call graph:
+    ///     see <see cref="ResolveStreamDirections" />.
+    /// </remarks>
+    void DeclareStreams(NamedTypeSymbol type, IrShader shader) {
+        foreach (var member in type.GetMembers()) {
+            if (member is not FieldSymbol { IsStream: true, IsConst: false, IsCompose: false } field) {
+                continue;
+            }
+
+            var irType = LowerType(field.Type, field.DeclaringSyntax);
+            if (irType.IsVoid) {
+                continue;
+            }
+
+            var variable = new IrVariable(field.Name, irType, IrVariableKind.Global);
+            globals[field] = variable;
+            shader.Add(new IrStream(variable));
+        }
+    }
+
+    /// <summary>
+    ///     Decides, for every entry point, which of its shader's streams are inputs and which are
+    ///     outputs.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Runs once the whole module is lowered, because it reads bodies. A stream the stage
+    ///         stores to is an output. A stream is an input only when the stage can <em>read it
+    ///         before writing it</em> — not merely when it reads it somewhere, which is the
+    ///         distinction that keeps <c>normalWS = n; return normalWS</c> in a vertex stage from
+    ///         declaring a vertex attribute nobody asked for. A read of a stream this stage produces
+    ///         resolves to the output variable, which both targets allow: only SPIR-V's
+    ///         <c>Input</c> is read-only.
+    ///     </para>
+    ///     <para>
+    ///         "Before" is a pre-order walk of the stage's code with calls expanded at their call
+    ///         sites — exact for the straight-line code shaders are made of, and conservative the
+    ///         safe way otherwise, since declaring an input the stage did not need costs a location
+    ///         while missing one it did need would read undefined values.
+    ///     </para>
+    ///     <para>
+    ///         Deriving the direction instead of declaring it is the point of the feature. A
+    ///         <c>compose</c>d surface function three calls deep can write <c>normalWS</c> and the
+    ///         vertex stage grows an output, with no signature between them mentioning it. Which is
+    ///         also why reachability rather than shader membership decides what belongs to a stage:
+    ///         a composed implementation's functions live in a different <see cref="IrShader" />.
+    ///     </para>
+    /// </remarks>
+    void ResolveStreamDirections() {
+        foreach (var shader in module.Shaders) {
+            if (shader.Streams.Count == 0) {
+                continue;
+            }
+
+            var streams = shader.Streams.Select(stream => stream.Variable).ToHashSet();
+
+            foreach (var entryPoint in shader.EntryPoints) {
+                Dictionary<IrVariable, bool> firstUseIsRead = [];
+                HashSet<IrVariable> written = [];
+
+                CollectStreamUses(entryPoint.Function.Body, streams, firstUseIsRead, written, []);
+
+                // Declaration order, so the locations a plan assigns come out ascending.
+                entryPoint.SetStreams(
+                    [.. shader.Streams.Where(s => firstUseIsRead.GetValueOrDefault(s.Variable))],
+                    [.. shader.Streams.Where(s => written.Contains(s.Variable))]
+                );
+
+                ReportUnconsumedStreams(shader, entryPoint);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Warns about a stream written by a stage that nothing downstream can read.
+    /// </summary>
+    /// <remarks>
+    ///     A fragment stage's outputs are render targets, not interstage values — location 0 is
+    ///     target 0 — so a stream written there goes nowhere. The shader still compiles, so this is
+    ///     a warning on the RVN2091 pattern: the code is correct and the author believes something
+    ///     untrue about where the value ends up.
+    /// </remarks>
+    void ReportUnconsumedStreams(IrShader shader, IrEntryPoint entryPoint) {
+        if (entryPoint.Stage != ShaderStage.Pixel) {
+            return;
+        }
+
+        foreach (var stream in entryPoint.StreamOutputs) {
+            diagnostics.Add(
+                LoweringDiagnostics.StreamNotConsumed,
+                LocationOf(SyntaxOf(shader, stream)),
+                stream.Name,
+                entryPoint.Function.Name
+            );
+        }
+    }
+
+    /// <summary>The declaration a lowered stream came from, so the warning has a span.</summary>
+    SyntaxNode? SyntaxOf(IrShader shader, IrStream stream) =>
+        globals.FirstOrDefault(entry => ReferenceEquals(entry.Value, stream.Variable)).Key?.DeclaringSyntax;
+
+    /// <summary>
+    ///     Walks a body in execution order, recording for each stream whether its first use is a
+    ///     read, and which streams are written at all.
+    /// </summary>
+    /// <param name="statement">The statement to walk.</param>
+    /// <param name="streams">The shader's streams, so other globals are passed over.</param>
+    /// <param name="firstUseIsRead">
+    ///     Filled in once per stream, at its first use: true for a load, false for a store.
+    /// </param>
+    /// <param name="written">Every stream stored to anywhere.</param>
+    /// <param name="active">
+    ///     The functions on the current call path. Raven has no recursion, but a set costs nothing
+    ///     and a cycle in hand-built IR would otherwise not terminate.
+    /// </param>
+    static void CollectStreamUses(
+        IrStatement statement,
+        HashSet<IrVariable> streams,
+        Dictionary<IrVariable, bool> firstUseIsRead,
+        HashSet<IrVariable> written,
+        HashSet<IrFunction> active
+    ) {
+        void Note(IrVariable root, bool isRead) {
+            // First use wins; a later read of a stream this stage already wrote does not make it an
+            // input, because the value it wants is the one it produced.
+            firstUseIsRead.TryAdd(root, isRead);
+
+            if (!isRead) {
+                written.Add(root);
+            }
+        }
+
+        void Walk(IrStatement inner) => CollectStreamUses(inner, streams, firstUseIsRead, written, active);
+
+        switch (statement) {
+            case IrBlock block:
+                foreach (var nested in block.Statements) {
+                    Walk(nested);
+                }
+
+                break;
+
+            case IrLoadInstruction load when streams.Contains(load.Place.Root):
+                Note(load.Place.Root, isRead: true);
+                break;
+
+            case IrStoreInstruction store when streams.Contains(store.Place.Root):
+                // A partial write — one lane of a vector, one column of a matrix — keeps the rest
+                // of the value, so it reads before it writes. Saying so here rather than in each
+                // backend keeps the two agreeing about what the interface is.
+                Note(store.Place.Root, isRead: store.Place.Chain.Count > 0);
+                written.Add(store.Place.Root);
+                break;
+
+            // Expanded at the call site: a stream is declared on the shader precisely so that a
+            // function anywhere in the stage's call graph can use it, so the walk has to follow
+            // the calls to see the uses in the order they happen.
+            case IrCallInstruction call when active.Add(call.Function):
+                try {
+                    Walk(call.Function.Body);
+                } finally {
+                    active.Remove(call.Function);
+                }
+
+                break;
+
+            case IrIfStatement conditional:
+                Walk(conditional.Then);
+
+                if (conditional.Else is { } otherwise) {
+                    Walk(otherwise);
+                }
+
+                break;
+
+            case IrLoopStatement loop:
+                Walk(loop.Condition);
+                Walk(loop.Body);
+
+                if (loop.Continue is { } step) {
+                    Walk(step);
+                }
+
+                break;
+        }
+    }
+
     static IrEntryPoint BuildEntryPoint(MethodSymbol method, IrFunction function) {
         var inputs = method.Parameters
             .Select((p, i) => new IrStageIo(p.Name, function.Parameters[i].Type, p.SemanticName))
@@ -315,7 +516,7 @@ public sealed partial class Lowerer {
 
         List<IrField> fields = [];
         foreach (var member in type.GetMembers()) {
-            if (member is not FieldSymbol { IsConst: false, IsCompose: false } field) {
+            if (member is not FieldSymbol { IsConst: false, IsCompose: false, IsStream: false } field) {
                 continue;
             }
 
@@ -399,7 +600,9 @@ public sealed partial class Lowerer {
     static IEnumerable<FieldSymbol> InstanceFields(NamedTypeSymbol type) {
         for (var current = type; current is not null; current = current.BaseType) {
             foreach (var member in current.GetMembers()) {
-                if (member is FieldSymbol { IsConst: false, IsCompose: false, IsValueParameter: false } field) {
+                if (member is FieldSymbol {
+                        IsConst: false, IsCompose: false, IsValueParameter: false, IsStream: false
+                    } field) {
                     yield return field;
                 }
             }

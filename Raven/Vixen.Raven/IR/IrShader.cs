@@ -48,6 +48,34 @@ public sealed class IrBinding(
 public sealed record IrStageIo(string Name, IrType Type, string? Semantic);
 
 /// <summary>
+///     An interstage value the shader declares with <c>stream</c>: written by one stage, read by
+///     the next.
+/// </summary>
+/// <remarks>
+///     <para>
+///         Deliberately not an <see cref="IrBinding" />. A binding is host-visible state with a
+///         descriptor; a stream is per-invocation and lives in the pipeline's own interface, so
+///         nothing about it reaches <c>BindingPlan</c> or the descriptor sets.
+///     </para>
+///     <para>
+///         The variable it carries is a module-scope global, which is exactly how both targets model
+///         a stage interface — a SPIR-V <c>Input</c>/<c>Output</c> variable and a GLSL
+///         <c>in</c>/<c>out</c> are both module scope. So a read lowers to an ordinary load and a
+///         write to an ordinary store, and it is the <em>direction</em> that the backend resolves
+///         per stage. Which direction a stage needs is not declared: see
+///         <see cref="IrEntryPoint.StreamInputs" />.
+///     </para>
+/// </remarks>
+public sealed class IrStream(IrVariable variable) {
+    public IrVariable Variable { get; } = variable;
+
+    public string Name => Variable.Name;
+    public IrType Type => Variable.Type;
+
+    public override string ToString() => Name;
+}
+
+/// <summary>
 ///     A <c>[Permutation]</c> key the shader declares, with the default it falls back to.
 /// </summary>
 /// <remarks>
@@ -95,6 +123,32 @@ public sealed class IrEntryPoint(
 
     /// <summary>The stage output, or null when the entry point returns nothing.</summary>
     public IrStageIo? Output { get; } = output;
+
+    /// <summary>
+    ///     The shader's streams this stage reads, in the shader's declaration order.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Derived rather than declared: a stream this stage's reachable code loads is an input,
+    ///         one it stores is an output, and one it does both to is both. That is what makes the
+    ///         feature worth having — a helper deep in the call graph can contribute an interstage
+    ///         value without any signature between it and the entry point changing.
+    ///     </para>
+    ///     <para>
+    ///         Reachability, not shader membership, decides what "this stage's code" means — the same
+    ///         reason the backends use it, since a <c>compose</c>d implementation's functions live in
+    ///         another <see cref="IrShader" />.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<IrStream> StreamInputs { get; private set; } = [];
+
+    /// <summary>The shader's streams this stage writes, in the shader's declaration order.</summary>
+    public IReadOnlyList<IrStream> StreamOutputs { get; private set; } = [];
+
+    internal void SetStreams(IReadOnlyList<IrStream> inputs, IReadOnlyList<IrStream> outputs) {
+        StreamInputs = inputs;
+        StreamOutputs = outputs;
+    }
 }
 
 /// <summary>
@@ -106,6 +160,7 @@ public sealed class IrShader(string name) {
     readonly List<IrEntryPoint> entryPoints = [];
     readonly List<IrFunction> functions = [];
     readonly List<IrPermutation> permutations = [];
+    readonly List<IrStream> streams = [];
     readonly List<IrValueParameter> valueParameters = [];
 
     public string Name { get; } = name;
@@ -113,6 +168,16 @@ public sealed class IrShader(string name) {
     public IReadOnlyList<IrBinding> Bindings => bindings;
     public IReadOnlyList<IrFunction> Functions => functions;
     public IReadOnlyList<IrEntryPoint> EntryPoints => entryPoints;
+
+    /// <summary>
+    ///     The interstage values this shader declares, in declaration order.
+    /// </summary>
+    /// <remarks>
+    ///     The order is load-bearing rather than presentational: it is what
+    ///     <c>Vixen.Raven.Reflection.StreamPlan</c> turns into locations, and a stream's location
+    ///     has to be a property of the shader for the writing stage and the reading stage to agree.
+    /// </remarks>
+    public IReadOnlyList<IrStream> Streams => streams;
 
     /// <summary>The <c>[Permutation]</c> keys this shader declares, in declaration order.</summary>
     public IReadOnlyList<IrPermutation> Permutations => permutations;
@@ -129,5 +194,6 @@ public sealed class IrShader(string name) {
     internal void Add(IrFunction function) => functions.Add(function);
     internal void Add(IrEntryPoint entryPoint) => entryPoints.Add(entryPoint);
     internal void Add(IrPermutation permutation) => permutations.Add(permutation);
+    internal void Add(IrStream stream) => streams.Add(stream);
     internal void Add(IrValueParameter parameter) => valueParameters.Add(parameter);
 }

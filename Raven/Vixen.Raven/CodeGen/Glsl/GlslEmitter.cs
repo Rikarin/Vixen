@@ -54,6 +54,19 @@ sealed class GlslEmitter {
     readonly Dictionary<int, string> values = [];
     readonly Writer writer = new();
 
+    /// <summary>
+    ///     The <c>in</c> and <c>out</c> variable a stream resolves to, by direction.
+    /// </summary>
+    /// <remarks>
+    ///     Two names for one IR variable, because GLSL splits what the IR does not: an <c>in</c> is
+    ///     read-only and an <c>out</c> write-only, so a load resolves to one and a store to the
+    ///     other. A stream a stage both reads and writes has both, which is legal — a stage's input
+    ///     and output locations are separate namespaces.
+    /// </remarks>
+    readonly Dictionary<IrVariable, string> streamReads = [];
+
+    readonly Dictionary<IrVariable, string> streamWrites = [];
+
     int loopCounter;
     string? outputName;
     bool samplerlessFetch;
@@ -149,8 +162,19 @@ sealed class GlslEmitter {
         }
     }
 
+    /// <summary>
+    ///     Declares the stage interface: the streams this stage reads and writes, then its own
+    ///     parameters and return value.
+    /// </summary>
+    /// <remarks>
+    ///     Every location comes from <see cref="StreamPlan" />, which is what makes the vertex
+    ///     stage's outputs line up with the fragment stage's inputs — neither emitter and neither
+    ///     stage decides a number for itself.
+    /// </remarks>
     void EmitStageInterface() {
-        var location = 0;
+        EmitStreamInterface();
+
+        var location = StreamPlan.ParameterBase(shader);
 
         foreach (var input in entryPoint.Inputs) {
             var name = Reserve("in_" + input.Name);
@@ -172,11 +196,40 @@ sealed class GlslEmitter {
         if (entryPoint.Output is { } output) {
             outputName = Reserve("out_" + output.Name);
             writer.Line(
-                $"layout(location = 0) out {Declare(output.Type, outputName, output.Name)};"
+                $"layout(location = {StreamPlan.OutputBase(shader, entryPoint.Stage)}) out "
+                + $"{Declare(output.Type, outputName, output.Name)};"
                 + Comment(output.Semantic)
             );
             writer.Blank();
         }
+    }
+
+    void EmitStreamInterface() {
+        if (entryPoint.StreamInputs.Count == 0 && entryPoint.StreamOutputs.Count == 0) {
+            return;
+        }
+
+        foreach (var stream in entryPoint.StreamInputs) {
+            var name = Reserve("in_" + stream.Name);
+            streamReads[stream.Variable] = name;
+            writer.Line(
+                $"layout(location = {StreamPlan.LocationOf(shader, stream)}) in "
+                + $"{Declare(stream.Type, name, stream.Name)};"
+                + Comment("stream")
+            );
+        }
+
+        foreach (var stream in entryPoint.StreamOutputs) {
+            var name = Reserve("out_" + stream.Name);
+            streamWrites[stream.Variable] = name;
+            writer.Line(
+                $"layout(location = {StreamPlan.LocationOf(shader, stream)}) out "
+                + $"{Declare(stream.Type, name, stream.Name)};"
+                + Comment("stream")
+            );
+        }
+
+        writer.Blank();
     }
 
     /// <summary>
@@ -401,7 +454,7 @@ sealed class GlslEmitter {
                 return;
 
             case IrStoreInstruction store:
-                writer.Line($"{Place(store.Place)} = {Value(store.Value)};");
+                writer.Line($"{Place(store.Place, write: true)} = {Value(store.Value)};");
                 return;
 
             case IrCallInstruction { Result: null } call:
@@ -542,7 +595,30 @@ sealed class GlslEmitter {
 
     // --- Places, values and names ------------------------------------------
 
-    string Place(IrPlace place) => VariableName(place.Root) + Chain(place.Root.Type, place.Chain);
+    /// <summary>
+    ///     Renders a place. <paramref name="write" /> picks the direction a stream resolves in.
+    /// </summary>
+    /// <remarks>
+    ///     Every other root is direction-blind — a uniform, a local and a parameter each have one
+    ///     name — so the flag only matters for a stream, where GLSL genuinely has two variables for
+    ///     what the IR models as one.
+    /// </remarks>
+    string Place(IrPlace place, bool write = false) =>
+        StreamName(place.Root, write) + Chain(place.Root.Type, place.Chain);
+
+    string StreamName(IrVariable root, bool write) {
+        var names = write ? streamWrites : streamReads;
+
+        if (names.TryGetValue(root, out var name)) {
+            return name;
+        }
+
+        // A stage that writes a stream without reading it still reads it when the write is
+        // partial — lowering records that, so a missing read name here means a genuinely
+        // write-only stream and the fallback is the other direction's variable.
+        var other = write ? streamReads : streamWrites;
+        return other.TryGetValue(root, out var fallback) ? fallback : VariableName(root);
+    }
 
     string Chain(IrType rootType, IReadOnlyList<IrAccess> chain) {
         var builder = new StringBuilder();

@@ -45,6 +45,26 @@ public abstract class FieldSymbol : Symbol {
     public virtual bool IsCompose => false;
 
     /// <summary>
+    ///     Declared <c>stream</c>: per-invocation storage threaded between pipeline stages.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Not a binding, and that is the distinction that matters downstream: a stream has no
+    ///         descriptor, no <c>(set, binding)</c> and nothing the host writes. It is a stage
+    ///         input, a stage output, or both, and which of those it is follows from whether the
+    ///         stage's code reads it or writes it rather than from anything said at the
+    ///         declaration.
+    ///     </para>
+    ///     <para>
+    ///         The point of declaring it once on the shader rather than threading it through
+    ///         signatures is that a function anywhere in the stage's call graph can contribute to
+    ///         it. That is what lets a material feature add an interstage value without every
+    ///         entry point in the pipeline changing shape.
+    ///     </para>
+    /// </remarks>
+    public virtual bool IsStream => false;
+
+    /// <summary>
     ///     The literal written in the declaration, or null when there is none.
     /// </summary>
     /// <remarks>

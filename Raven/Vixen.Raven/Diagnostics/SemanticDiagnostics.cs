@@ -559,4 +559,65 @@ public static class SemanticDiagnostics {
         Binding,
         DiagnosticSeverity.Error
     );
+
+    // --- Streams ----------------------------------------------------------
+
+    /// <summary><c>stream</c> on something that is not a shader's field.</summary>
+    /// <remarks>
+    ///     A stream is pipeline state — written by one stage and read by the next — so it only
+    ///     means anything on the type that <em>is</em> the pipeline. On a struct it would look like
+    ///     an ordinary field while claiming to cross a stage boundary that a struct has no part in.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor StreamMustBeShaderField = new(
+        "RVN2100",
+        "Stream must be a shader field",
+        "'{0}' is declared 'stream', which is only meaningful on a shader's field",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary><c>stream</c> combined with a modifier that makes the value not per-invocation.</summary>
+    /// <remarks>
+    ///     A <c>const</c> and a <c>[Permutation]</c> key are folded at every use, and a
+    ///     <c>compose</c> slot holds no value at all. None of the three has storage to thread
+    ///     between stages, so combining them with <c>stream</c> asks for two different things at
+    ///     once.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor StreamCannotBeConstant = new(
+        "RVN2101",
+        "Stream cannot also be a constant or a slot",
+        "Stream '{0}' cannot also be {1}: a stream is per-invocation storage threaded between stages",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>A stream with an initializer.</summary>
+    /// <remarks>
+    ///     There is nowhere for the value to come from. A binding's default is host-side data
+    ///     (<c>RVN4003</c>); a stream's value is produced by the stage that writes it, per
+    ///     invocation, so an initializer would be dead text.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor StreamCannotHaveInitializer = new(
+        "RVN2102",
+        "Stream cannot have an initializer",
+        "Stream '{0}' cannot have an initializer: its value comes from the stage that writes it",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>A stream of a type no stage interface can carry.</summary>
+    /// <remarks>
+    ///     The same restriction stage inputs and outputs already have, and for the same reason
+    ///     rather than by analogy: Vulkan has no boolean interface type, and an aggregate would
+    ///     need a location for every leaf. Reported at the declaration instead of as
+    ///     <c>RVN4001</c> from each backend, because the declaration is what has to change.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor StreamTypeNotSupported = new(
+        "RVN2103",
+        "Stream type is not supported",
+        "Stream '{0}' has type '{1}'; a stream must be a non-boolean scalar or vector, which is what a "
+        + "stage interface can carry",
+        Shader,
+        DiagnosticSeverity.Error
+    );
 }

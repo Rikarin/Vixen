@@ -1800,6 +1800,22 @@ CompilationUnit
             Token(ColonToken) ":"
             IdentifierName
               Token(IdentifierToken) "Shaded"
+        FieldDeclaration
+          Token(StreamKeyword) "stream"
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "normalWS"
+            Token(ColonToken) ":"
+            PredefinedType
+              Token(Float3Keyword) "float3"
+        FieldDeclaration
+          Token(StreamKeyword) "stream"
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "uv"
+            Token(ColonToken) ":"
+            PredefinedType
+              Token(Float2Keyword) "float2"
         MethodDeclaration
           Token(FuncKeyword) "func"
           Token(IdentifierToken) "Compute"

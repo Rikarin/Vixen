@@ -118,6 +118,20 @@ dotnet_diagnostic.CA1720.severity = none
 dotnet_diagnostic.CA1062.severity = none
 
 # ------------------------------------------------------------------------------
+# The Raven compiler.
+# ------------------------------------------------------------------------------
+[Raven/Vixen.Raven/**.cs]
+# CA1711 — identifiers should not have a reserved suffix.
+# `stream` is one of Raven's own keywords: a value written by one pipeline stage
+# and read by the next (docs/plan/07 § I). `IrStream` and `PlannedStream` are
+# named after the declaration they model, and sit beside `IrBinding` and
+# `IrStageIo` where nothing could read them as a System.IO.Stream. Same reasoning
+# as CA1720 above — the shading language's vocabulary wins over a .NET API-naming
+# convention — and scoped to the compiler so a genuinely misleading `FooStream`
+# elsewhere is still reported. 2 findings.
+dotnet_diagnostic.CA1711.severity = none
+
+# ------------------------------------------------------------------------------
 # Test projects.
 # ------------------------------------------------------------------------------
 [**/*.Tests/**.cs]

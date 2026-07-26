@@ -975,6 +975,7 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
             RavenLexer.OVERRIDE => SyntaxKind.OverrideKeyword,
             RavenLexer.READONLY => SyntaxKind.ReadOnlyKeyword,
             RavenLexer.STATIC => SyntaxKind.StaticKeyword,
+            RavenLexer.STREAM => SyntaxKind.StreamKeyword,
             _ => throw ExceptionUtilities.Unreachable()
         };
 
