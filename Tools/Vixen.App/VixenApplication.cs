@@ -1,0 +1,285 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Vixen.Core;
+using Vixen.Core.Diagnostics;
+using Vixen.Core.IO;
+using Vixen.Core.Threading;
+using Vixen.Platform;
+
+namespace Vixen.App;
+
+/// <summary>An application that has been built and is ready to run.</summary>
+/// <remarks>
+///     <para>
+///         Owns the platform, the window, the job system and the frame loop, and tears them down in
+///         the reverse of the order it built them. Every step it takes is a public method or a
+///         documented call an application can make itself — <c>docs/plan/17</c>'s rule that nothing
+///         in the boot path is inaccessible, which is the property the prebuilt-player model cannot
+///         offer.
+///     </para>
+///     <para>
+///         Belongs to the thread that built it, because the platform does.
+///     </para>
+/// </remarks>
+public sealed class VixenApplication : IDisposable {
+    readonly Game game;
+    readonly DisposeBag disposables = new();
+    readonly FrameLimiter limiter = new();
+    readonly ILogger logger;
+    readonly Stopwatch clock = new();
+
+    GameTime time = GameTime.Zero;
+    long lastTimestamp;
+    bool initialised;
+    bool stopped;
+    bool disposed;
+
+    internal VixenApplication(Game game, AppServices services) {
+        this.game = game;
+        Services = services;
+
+        logger = services.LoggerFactory.CreateLogger("Vixen.App");
+
+        // Torn down in the reverse of construction: the game first, because it may still be using
+        // everything below it, then the jobs it may have scheduled, then the platform that owns the
+        // window those jobs might touch.
+        disposables.Add(game);
+        disposables.Add(services.Jobs);
+        disposables.Add(services.Platform);
+    }
+
+    /// <summary>Everything the host built.</summary>
+    public AppServices Services { get; }
+
+    /// <summary>The clock, as the last frame saw it.</summary>
+    public GameTime Time => time;
+
+    /// <summary>Whether the loop has been asked to stop.</summary>
+    public bool IsStopping => stopped || Services.Platform.Lifecycle.IsQuitRequested;
+
+    /// <summary>Runs until the application quits.</summary>
+    /// <returns>A process exit code: <c>0</c> for a clean run, <c>1</c> for a crash.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         What happens to an exception that escapes a frame depends on the variant, and both
+    ///         answers are right for their audience. Everywhere validation is on it is logged and
+    ///         <b>rethrown</b>, so an attached debugger stops on it with the stack intact — swallowing
+    ///         it there would hide the bug the developer is looking for.
+    ///     </para>
+    ///     <para>
+    ///         In a <see cref="BuildVariant.Release" /> build it is logged and the exit code becomes
+    ///         <c>1</c>, because on a player's machine there is no debugger and an unhandled
+    ///         exception produces a stack trace in a console nobody is reading, whereas the log ring
+    ///         is what the crash reporter uploads.
+    ///     </para>
+    ///     <para>
+    ///         The shutdown sequence runs either way, so a crash still releases the window, the
+    ///         workers and the platform.
+    ///     </para>
+    /// </remarks>
+    public int Run() {
+        Initialise();
+
+        try {
+            while (!IsStopping) {
+                RunFrame();
+            }
+        } catch (Exception exception) {
+            HostLog.FrameLoopFailed(logger, exception);
+            Shutdown();
+
+            if (Services.Config.Variant.HasValidation()) {
+                throw;
+            }
+
+            return 1;
+        }
+
+        Shutdown();
+        return 0;
+    }
+
+    /// <summary>
+    ///     Builds the window, mounts the file system and calls <see cref="Game.OnInitialise" />.
+    /// </summary>
+    /// <remarks>
+    ///     Called by <see cref="Run" />. Public because a host that drives the loop itself — an
+    ///     editor running a game in a panel, a test — needs to do this once before its first
+    ///     <see cref="RunFrame" />.
+    /// </remarks>
+    public void Initialise() {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (initialised) {
+            return;
+        }
+
+        initialised = true;
+
+        HostLog.Started(
+            logger,
+            Services.Config.Variant,
+            Services.Platform.Name,
+            Services.Jobs.WorkerCount
+        );
+
+        if (Services.Config.HeadlessFallbackReason is { } reason) {
+            HostLog.NoWindow(logger, reason);
+        }
+
+        if (Services.Config.LooseContentPath is { } loose) {
+            // docs/plan/17 Q5b: allowed, and not allowed to be quiet.
+            HostLog.LooseContent(logger, loose);
+        }
+
+        foreach (var argument in Services.Config.UnrecognisedArguments) {
+            HostLog.UnrecognisedArgument(logger, argument);
+        }
+
+        Services.Window?.Show();
+        game.Attach(Services);
+        game.OnInitialise();
+
+        clock.Start();
+        lastTimestamp = Stopwatch.GetTimestamp();
+    }
+
+    /// <summary>Runs exactly one frame: events, main-thread work, update, render, pacing.</summary>
+    /// <remarks>
+    ///     The whole loop body, exposed. An editor's play mode drives this from its own frame, and a
+    ///     test drives it a fixed number of times — neither needs a second implementation of the
+    ///     order these things happen in.
+    /// </remarks>
+    public void RunFrame() {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (!initialised) {
+            Initialise();
+        }
+
+        PumpEvents();
+
+        // After events, so that anything an event handler posted runs this frame rather than next.
+        Services.MainThread.Drain();
+
+        Advance();
+        game.OnUpdate(time);
+        game.OnRender(time);
+
+        limiter.Wait(FrameRateLimit());
+    }
+
+    /// <summary>Asks the application to stop after the current frame.</summary>
+    public void Stop() {
+        stopped = true;
+        Services.Platform.Lifecycle.RequestQuit();
+    }
+
+    /// <summary>Calls <see cref="Game.OnShutdown" /> and tears everything down.</summary>
+    public void Shutdown() {
+        if (!initialised || disposed) {
+            return;
+        }
+
+        HostLog.Stopping(logger, time.FrameCount);
+        game.OnShutdown();
+        Dispose();
+    }
+
+    /// <inheritdoc />
+    public void Dispose() {
+        if (disposed) {
+            return;
+        }
+
+        disposed = true;
+        clock.Stop();
+        disposables.Dispose();
+    }
+
+    void PumpEvents() {
+        foreach (var platformEvent in Services.Platform.PumpEvents()) {
+            if (game.OnEvent(platformEvent)) {
+                continue;
+            }
+
+            switch (platformEvent.Kind) {
+                case PlatformEventKind.WindowCloseRequested:
+                    // The window closes and, if it was the last one, the application follows. An
+                    // application that wants to ask "save first?" returns true from OnEvent.
+                    if (Services.Platform.TryGetWindow(platformEvent.WindowId, out var window)) {
+                        window.Dispose();
+                    }
+
+                    break;
+
+                case PlatformEventKind.Quit:
+                    stopped = true;
+                    break;
+
+                default:
+                    break;
+            }
+        }
+
+        if (Services.Config.ExitWhenAllWindowsClose && Services.Window is not null && !AnyWindowOpen()) {
+            stopped = true;
+        }
+    }
+
+    /// <summary>
+    ///     Whether any window is still open — asked by state rather than by list membership.
+    /// </summary>
+    /// <remarks>
+    ///     A platform's window list is allowed to lag: it drops disposed windows at the start of the
+    ///     next pump, deliberately, so that an application enumerating it inside its own event
+    ///     handling sees a list that does not change under it. Counting entries here would therefore
+    ///     take an extra frame to notice the last window closing — which is not fatal and is exactly
+    ///     the sort of one-frame lie that turns into a bug report about a window that lingers.
+    /// </remarks>
+    bool AnyWindowOpen() {
+        var windows = Services.Platform.Windows;
+
+        for (var index = 0; index < windows.Count; index++) {
+            if (!windows[index].IsClosed) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    void Advance() {
+        var now = Stopwatch.GetTimestamp();
+        var elapsed = TimeSpan.FromSeconds((now - lastTimestamp) / (double)Stopwatch.Frequency);
+        lastTimestamp = now;
+
+        // A frame that took a second — a breakpoint, a stalled driver, a laptop lid — must not be
+        // handed to the simulation as a second of elapsed time, or everything moving teleports. The
+        // clamp is the standard one and it belongs here rather than in every consumer.
+        time = time.Advance(elapsed > MaximumFrameTime ? MaximumFrameTime : elapsed, time.TimeScale);
+    }
+
+    int FrameRateLimit() {
+        var config = Services.Config;
+
+        if (config.UnfocusedFrameRateLimit <= 0 || Services.Window is null) {
+            return config.FrameRateLimit;
+        }
+
+        var focused = Services.Platform.FocusedWindow() is not null;
+        return focused ? config.FrameRateLimit : config.UnfocusedFrameRateLimit;
+    }
+
+    /// <summary>
+    ///     The longest a frame is allowed to claim to have taken.
+    /// </summary>
+    /// <remarks>
+    ///     A quarter of a second: long enough that no real frame hits it, short enough that a
+    ///     resumed process does not move everything a metre before the first frame back.
+    /// </remarks>
+    static readonly TimeSpan MaximumFrameTime = TimeSpan.FromSeconds(0.25);
+}

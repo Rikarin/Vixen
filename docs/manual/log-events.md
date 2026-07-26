@@ -37,11 +37,24 @@ identifies its origin on sight.
 | 10 000 – 10 999 | `Vixen.Net.*` | reserved |
 | 11 000 – 11 999 | `Vixen.Editor.*` | reserved |
 | 12 000 – 12 999 | `Vixen.Raven` — the compiler's own diagnostics are `RVNxxxx`, not these | reserved |
+| 13 000 – 13 999 | `Vixen.App` — the host and the app heads | **in use** |
 
 ## Allocated ids
 
-None yet. The subsystems that will log have not been written; the ranges are reserved so that when
-they are, nobody has to invent a numbering scheme under deadline.
+### `Vixen.App` — the host
+
+| Id | Level | Message | Since |
+|---|---|---|---|
+| 13001 | Information | `Vixen {Variant} on {Platform}, {Workers} workers.` | 0.1.0 |
+| 13002 | Warning | `No window: {Reason}` — the desktop platform was wanted and headless was used | 0.1.0 |
+| 13003 | Warning | `LOOSE CONTENT — reading from {Path} instead of bundles.` (docs/plan/17 Q5b) | 0.1.0 |
+| 13004 | Warning | `Unrecognised engine argument {Argument} — it was ignored.` | 0.1.0 |
+| 13005 | Information | `Stopping after {Frames} frames.` | 0.1.0 |
+| 13006 | Critical | `The frame loop threw and the application is stopping.` | 0.1.0 |
+
+Every other range is still reserved rather than allocated: the subsystems that will log have not been
+written, and the ranges exist so that when they are, nobody has to invent a numbering scheme under
+deadline.
 
 <!--
     Format, once entries start arriving:

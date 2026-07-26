@@ -141,8 +141,14 @@ plumbing that everything else stands on.
   than tidy: `Silk.NET.SDL` ships no native binary, so CI installs `libSDL2` from a package manager
   and Windows has nothing to install it with.
 - Windows/Linux/macOS specialisations.
-- `Vixen.App` host (`VixenApp.Run<TGame>()`) and the build-variant matrix; `vixen-game`/`vixen-app`
-  templates follow in Phase 3 with the CLI.
+- ✅ `Vixen.App` host (`VixenApp.Run<TGame>()`) and the build-variant matrix — the boot sequence, the
+  `Game` hooks, the frame loop, the `--vixen-*` argument contract, the headless fallback and frame
+  pacing. 36 tests. Every step is public, so an editor's play mode and a test drive the same loop the
+  host does — [17](17-app-heads-and-shipping.md)'s rule that nothing in the boot path is inaccessible.
+  First user of the `[LoggerMessage]` id register in `docs/manual/log-events.md`, which had been
+  empty. **Owed:** content (`--vixen-loose-content` is parsed and not yet honoured), rendering, and
+  the fixed-step accumulator, which arrives with `Vixen.Engine` in Phase 2.
+  `vixen-game`/`vixen-app` templates follow in Phase 3 with the CLI.
 - `Vixen.Graphics` RHI surface + `Vixen.Graphics.Null` + `RecordingBackend` test harness.
 - `Vixen.Graphics.Vulkan`: instance/device/queues, allocator, swapchain, command lists, PSOs,
   descriptor sets, barriers, dynamic rendering + render-pass fallback, validation-layer wiring.
