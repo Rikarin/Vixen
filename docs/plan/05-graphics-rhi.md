@@ -211,3 +211,32 @@ Raven produces both (see [07](07-raven-shader-pipeline.md)). The RHI never parse
 | Golden image | `Samples/01-HelloTriangle` and a suite of ~40 rendering fixtures rendered headless on lavapipe, compared with a perceptual (not bitwise) diff and a tolerance per fixture. Bitwise comparison across drivers is a maintenance sinkhole; perceptual with an explicit threshold is the workable version. |
 | Cross-backend equivalence | The same fixture rendered on Vulkan/lavapipe and on GL/Mesa-softpipe must match within tolerance. This catches the class of bug where a backend silently ignores a state bit. |
 | Device loss | A fault-injection mode in `Null` and Vulkan (`VK_ERROR_DEVICE_LOST` on demand) proving the engine recreates the device and reloads resources rather than crashing — Android and driver-update reality make this mandatory |
+
+### What the first real backend added to this table
+
+Two kinds of test turned out to be missing, and both earned their place by catching something the
+levels above did not.
+
+- **Validation as a gate, not a log.** The Vulkan backend's first run against a real driver produced
+  twenty-three validation errors while every test passed, because the messages went to the console
+  and a console message is not a gate. `VulkanDiagnostics` records what the layers say and a test
+  fails on any of it. Validation-clean-in-debug ([00](00-vision-and-principles.md)) is only a
+  standard if something enforces it.
+- **Read the pixels.** Every RHI test that asserts a recorded command stream passes against a
+  backend that draws nothing at all — which is exactly what happened, for a whole afternoon, because
+  `BlendState.Opaque` was silently zero-initialised to a write mask of `None`. The headless
+  offscreen draws now assert *where the picture is*: centre covered, corners not; culling front vs
+  back producing different pictures, which pins the winding convention against the viewport's Y flip;
+  a push constant moving a quad from one half to the other. None of those can pass by accident.
+
+### Defaults, and a C# rule with no diagnostic behind it
+
+On a record struct whose primary-constructor parameters are all optional, `new()` binds the
+*implicit parameterless struct constructor* — zero-initialising and never running the primary
+constructor. Every `public static X Default => new();` in this layer therefore held its enum zero
+values rather than the ones its documentation described. Passing one argument forces the right
+constructor to bind, and `PipelineDefaultTests` asserts each documented default.
+
+The related trap is that C# cannot give a struct parameter any default but all-zeros, so
+`ColourTargetState(format)` meant "write no colour channels". The RHI resolves that once, in
+`ColourTargetState.EffectiveBlend`, rather than leaving each backend to rediscover it.

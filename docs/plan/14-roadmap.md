@@ -149,15 +149,16 @@ plumbing that everything else stands on.
   empty. **Owed:** content (`--vixen-loose-content` is parsed and not yet honoured), rendering, and
   the fixed-step accumulator, which arrives with `Vixen.Engine` in Phase 2.
   `vixen-game`/`vixen-app` templates follow in Phase 3 with the CLI.
-- 🟡 `Vixen.Graphics` RHI surface — the vocabulary is built: `PixelFormat` with block sizes, sRGB
+- ✅ `Vixen.Graphics` RHI surface — the vocabulary is built: `PixelFormat` with block sizes, sRGB
   pairing and level arithmetic; the enum set including the `synchronization2`-shaped `ResourceState`
   barrier model; `GraphicsDeviceFeatures`; typed handles; and self-validating resource descriptions.
   46 tests. Reversed depth is in the defaults rather than only in `Conventions.md` — an attachment
   clears to 0 and the shadow sampler compares `GreaterEqual`. The interfaces are built too:
   `IGraphicsAdapter`, `IGraphicsDevice`, `ICommandSubmitter`, `ICommandList`, `ISwapChain`, the
   pipeline and descriptor-layout descriptions, and the grouped `BarrierGroup`. Moving `SurfaceHandle`
-  down into `Vixen.Core` was needed to keep the layering honest — see below. **Next:** the
-  implementations.
+  down into `Vixen.Core` was needed to keep the layering honest — see below. Both implementations
+  now exist, and building the second one found three defaults in this layer that did not hold the
+  values their own documentation described (see `Vixen.Graphics.Vulkan` below).
 - ✅ `Vixen.Graphics.Null` + the recording harness — a device with no GPU that records the command
   stream into a comparable log, and refuses the dozen things that are undefined behaviour on a real
   backend: a draw outside a pass, a dispatch or copy inside one, a list submitted twice or before it
@@ -181,14 +182,33 @@ plumbing that everything else stands on.
      most valuable CI target because lavapipe is a conformant Vulkan 1.3 driver with no GPU; making
      it the *primary* verification for this backend rather than a later addition is the difference
      between a backend that is tested on every push and one that is tested on one laptop.
-- 🟡 `Vixen.Graphics.Vulkan`: instance creation with portability and validation-layer wiring, and
-  adapter selection. 19 tests, now **verified against Loader 1.4.350 and MoltenVK 1.4.2** rather than
-  skipped — the portability pair (extension *and* create flag, or the Loader returns no devices)
-  works. Two findings from the bring-up: the loader is not on macOS's default search path when
-  installed by Homebrew, so `VulkanLoader` probes for it; and `vulkan-validationlayers` is a separate
-  formula, so a plain `brew install vulkan-loader molten-vk` runs unvalidated and now says so.
-  **Owed:** device/queues, allocator, swapchain, command lists, PSOs, descriptor sets, barriers,
-  dynamic rendering + render-pass fallback.
+- ✅ `Vixen.Graphics.Vulkan` — the whole of `IGraphicsDevice` and `ICommandList` against MoltenVK
+  1.4.2 and Loader 1.4.350: instance and portability, adapter and queue-family selection, capability
+  translation, a block-suballocating allocator, resources, descriptor sets, graphics and compute
+  pipelines, command recording, barriers, both render paths, and the swapchain. 155 tests, and the
+  suite is **validation-clean** — `VulkanDiagnostics` records what the layers say and
+  `ValidationCleanTests` fails on any of it, which is what [00](00-vision-and-principles.md)'s
+  non-negotiable has to mean to be worth stating. Most of the logic is pure functions tested with no
+  driver present; the parts that need one are asserted by reading pixels back, because a backend that
+  records the right calls and renders nothing passes every other kind of test.
+  Findings worth carrying forward:
+  - The loader is not on macOS's default search path when installed by Homebrew, so `VulkanLoader`
+    probes for it; and `vulkan-validationlayers` is a separate formula, so a plain
+    `brew install vulkan-loader molten-vk` runs unvalidated and now says so.
+  - `VK_KHR_dynamic_rendering` requires `VK_KHR_create_renderpass2` and
+    `VK_KHR_depth_stencil_resolve` below Vulkan 1.2. MoltenVK accepted the incomplete extension list;
+    the layers did not.
+  - `RasterizerState.Default`, `DepthStencilState.Default` and `BlendState.Opaque` were all
+    zero-initialised rather than carrying their documented values, because `new()` on a record struct
+    with an all-optional primary constructor binds the implicit parameterless constructor. The
+    symptom was a pipeline that drew an entirely untouched attachment with no error from anywhere.
+    `PipelineDefaultTests` now asserts each documented default.
+
+  **Owed, and named rather than approximated:** the swapchain's acquire/present path has no
+  automated coverage — presenting needs a window, and AppKit aborts when one is created off the main
+  thread, which is why the desktop tests force SDL's dummy driver on macOS. Its pure choices are
+  tested; `Samples/01` is what exercises the rest. Also owed: timeline semaphores where the device
+  offers them, MSAA resolve beyond the attachment plumbing, and query pools.
 - `Vixen.Graphics.RenderGraph` with validation and transient aliasing.
 - **MoltenVK bring-up on macOS** — do it here, not later; it shapes the Vulkan backend's capability
   handling.

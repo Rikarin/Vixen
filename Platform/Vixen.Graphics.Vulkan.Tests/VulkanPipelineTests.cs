@@ -32,7 +32,7 @@ public sealed class VulkanPipelineTests {
         Assert.SkipUnless(TryOpen(false, out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
-        var shader = owned.CreateShader(ShaderStage.Vertex, TriangleShaders.Vertex, "triangle vertex");
+        var shader = owned.CreateShader(ShaderStage.Vertex, TestShaders.Vertex, "triangle vertex");
         Assert.True(shader.IsValid);
         owned.Destroy(shader);
     }
@@ -93,8 +93,8 @@ public sealed class VulkanPipelineTests {
 
         VulkanDiagnostics.Reset();
 
-        var vertex = owned.CreateShader(ShaderStage.Vertex, TriangleShaders.Vertex, "triangle vertex");
-        var fragment = owned.CreateShader(ShaderStage.Fragment, TriangleShaders.Fragment, "triangle fragment");
+        var vertex = owned.CreateShader(ShaderStage.Vertex, TestShaders.Vertex, "triangle vertex");
+        var fragment = owned.CreateShader(ShaderStage.Fragment, TestShaders.Fragment, "triangle fragment");
         var layout = owned.CreatePipelineLayout(new([], null, "triangle layout"));
 
         var pipeline = owned.CreateGraphicsPipeline(new(
@@ -203,8 +203,8 @@ public sealed class VulkanPipelineTests {
     }
 
     static bool Draw(VulkanDevice device, CullMode cull) {
-        var vertex = device.CreateShader(ShaderStage.Vertex, TriangleShaders.Vertex, "vertex");
-        var fragment = device.CreateShader(ShaderStage.Fragment, TriangleShaders.Fragment, "fragment");
+        var vertex = device.CreateShader(ShaderStage.Vertex, TestShaders.Vertex, "vertex");
+        var fragment = device.CreateShader(ShaderStage.Fragment, TestShaders.Fragment, "fragment");
         var layout = device.CreatePipelineLayout(new([], null, "layout"));
 
         var pipeline = device.CreateGraphicsPipeline(new(
