@@ -1,0 +1,98 @@
+package Vixen.Shaders.Ui
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// The textured, tinted quad every other UI shader is a variation of.
+//
+// UI has different constraints from scene geometry, and they shape every file in this package:
+//
+//   - **No lighting.** A UI colour is authored, not computed, so there is no BRDF and no normal.
+//   - **Premultiplied alpha.** The engine composites UI premultiplied, because that is the only form
+//     that survives a filtered downsample and a nested transparency group without dark fringes. Every
+//     shader here outputs premultiplied, and `Premultiply` is the one place the convention lives.
+//   - **Screen space, top-left origin.** Consistent with the engine's UV convention (§ E).
+//
+// Vertex colour is a *tint* multiplied with the texture rather than a replacement, which is what lets
+// one white texture serve every solid-colour element in an atlas.
+
+shader UiQuad {
+    /// Whether to sample a texture. Off makes this a solid-colour quad with no texture binding at all.
+    [Permutation] val Textured: bool = true
+
+    /// Whether to apply a rectangular clip. Off removes the clip rect binding and its test.
+    [Permutation] val Clipped: bool = false
+
+    var projection: mat4
+    var atlas: Texture2D
+    var atlasSampler: Sampler
+    var tint: float4 = float4(1f, 1f, 1f, 1f)
+
+    /// The clip rectangle in pixels: min in xy, max in zw.
+    var clipRect: float4 = float4(0f, 0f, 65536f, 65536f)
+
+    stream var uv: float2
+    stream var color: float4
+    stream var positionPx: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float2, texcoord: float2, vertexColor: float4): float4 {
+        uv = texcoord
+        color = vertexColor
+        positionPx = position
+
+        return projection * float4(position.x, position.y, 0f, 1f)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        var result = color * tint
+
+        if (Textured) {
+            result = result * atlas.Sample(atlasSampler, uv)
+        }
+
+        if (Clipped) {
+            result = result * UiCommon.ClipMask(positionPx, clipRect)
+        }
+
+        return UiCommon.Premultiply(result)
+    }
+}
+
+/// The conventions every UI shader shares.
+struct UiCommon {
+    /// Premultiplies a straight-alpha colour, which is the form the compositor expects.
+    ///
+    /// The single most common UI bug is compositing straight alpha as if it were premultiplied, which
+    /// shows as a dark halo around every antialiased edge. Having one function means a shader either
+    /// calls it or visibly does not.
+    static func Premultiply(color: float4): float4 => float4(color.rgb * color.a, color.a)
+
+    /// 1 inside a pixel-space clip rectangle, 0 outside, with a one-pixel feather.
+    ///
+    /// Feathered rather than a hard test because a hard clip aliases on a rotated or scaled element,
+    /// and because a `discard` would break early-z for everything behind it.
+    static func ClipMask(positionPx: float2, rect: float4): float {
+        val inside = smoothstep(rect.xy - 0.5f, rect.xy + 0.5f, positionPx)
+        val outside = smoothstep(rect.zw + 0.5f, rect.zw - 0.5f, positionPx)
+        return inside.x * inside.y * outside.x * outside.y
+    }
+
+    /// The screen-space width of one UV unit, for antialiasing an analytic shape.
+    ///
+    /// `fwidth` in one function, because every analytic UI shape needs it and getting it from
+    /// `ddx`/`ddy` separately is where the factor-of-two errors live.
+    static func PixelWidth(value: float): float => abs(ddx(value)) + abs(ddy(value))
+
+    /// Antialiases a signed distance, in pixels, to a 0..1 coverage.
+    ///
+    /// The sign convention is negative-inside, which is what every SDF generator produces and what
+    /// `Msdf` and `RoundedRect` both assume.
+    static func Coverage(signedDistance: float): float {
+        val width = max(PixelWidth(signedDistance), Const.Epsilon)
+        return saturate(0.5f - signedDistance / width)
+    }
+}

@@ -17,6 +17,41 @@ import Vixen.Shaders.Core
 // (everything looks rougher), so neither mistake announces itself, and a material authored against
 // one convention is wrong under the other.
 
+/// The cosines a microfacet BRDF is a function of.
+///
+/// Bundled because they always travel together and because computing one of them twice, or passing
+/// `VdotH` where `NdotH` belongs, is a class of bug that produces a plausible-looking highlight in
+/// the wrong place. `Of` is the one place they are derived, so a caller cannot get the half vector
+/// wrong; the fields stay public because a stage that already has a cosine should not recompute it.
+///
+/// It also keeps signatures inside the one line Raven allows — an anisotropic lobe needs six
+/// parameters otherwise, and there is no line continuation.
+struct ShadingAngles {
+    var NdotL: float
+    var NdotV: float
+    var NdotH: float
+
+    /// The cosine between the view and the half vector.
+    ///
+    /// There is no separate `LdotH`, and that is an identity rather than an omission: the half vector
+    /// is the bisector of the view and light directions, so it makes exactly the same angle with each
+    /// and `dot(l, h)` equals `dot(v, h)`. Formulae written either way — Burley's diffuse and
+    /// Kelemen's visibility both say `LdotH` — use this field.
+    var VdotH: float
+
+    /// Derives all four from unit surface, view and light vectors.
+    static func Of(n: float3, v: float3, l: float3): ShadingAngles {
+        val h = Math.SafeNormalize(v + l)
+
+        var angles: ShadingAngles
+        angles.NdotL = saturate(dot(n, l))
+        angles.NdotV = saturate(dot(n, v))
+        angles.NdotH = saturate(dot(n, h))
+        angles.VdotH = saturate(dot(v, h))
+        return angles
+    }
+}
+
 struct Brdf {
     /// Perceptual roughness to the `alpha` every function here expects.
     ///
@@ -125,58 +160,5 @@ struct Brdf {
     /// The specular f0 for a metalness workflow: a dielectric grey blended toward the base colour.
     static func F0FromMetalness(baseColor: float3, metalness: float, reflectance: float): float3 {
         return lerp(float3(reflectance), baseColor, metalness)
-    }
-
-    // --- Diffuse ---------------------------------------------------------
-
-    /// Lambert, normalised. The `1/pi` is included, so this is a BRDF and not just an albedo.
-    static func DiffuseLambert(albedo: float3): float3 => albedo * Const.InvPi
-
-    /// Burley's / Disney's diffuse, which adds retroreflection at grazing angles.
-    ///
-    /// What it buys over Lambert is the rim brightening on rough dielectrics — cloth, unfinished
-    /// wood, skin. It is not energy-conserving in the strict sense; the renormalised variants that
-    /// are cost more than the difference is worth at this level.
-    static func DiffuseBurley(albedo: float3, NdotL: float, NdotV: float, LdotH: float, alpha: float): float3 {
-        val f90 = 0.5f + 2f * ClampAlpha(alpha) * LdotH * LdotH
-        val scatterL = FresnelSchlickScalar(1f, NdotL) * f90 - FresnelSchlickScalar(1f, NdotL) + 1f
-        val scatterV = FresnelSchlickScalar(1f, NdotV) * f90 - FresnelSchlickScalar(1f, NdotV) + 1f
-        return albedo * Const.InvPi * scatterL * scatterV
-    }
-
-    /// Oren-Nayar, the qualitative form: rough diffuse that flattens toward the light.
-    static func DiffuseOrenNayar(albedo: float3, NdotL: float, NdotV: float, LdotV: float, alpha: float): float3 {
-        val sigma2 = Math.Pow2(ClampAlpha(alpha))
-        val a = 1f - 0.5f * sigma2 / (sigma2 + 0.33f)
-        val b = 0.45f * sigma2 / (sigma2 + 0.09f)
-        val s = LdotV - NdotL * NdotV
-        val t = s <= 0f ? 1f : max(NdotL, NdotV)
-        return albedo * Const.InvPi * (a + b * s / max(t, Const.Epsilon))
-    }
-
-    // --- Assembled -------------------------------------------------------
-
-    /// The full isotropic specular lobe: D * V * F, with the `4 NdotL NdotV` already inside V.
-    ///
-    /// Multiply by `NdotL` and the light's radiance to get the outgoing contribution. `NdotL` is
-    /// deliberately *not* applied here, because a shadowed or back-facing sample wants to skip the
-    /// whole lobe rather than multiply it by zero.
-    static func SpecularGgx(f0: float3, NdotL: float, NdotV: float, NdotH: float, VdotH: float, alpha: float): float3 {
-        val d = DistributionGgx(NdotH, alpha)
-        val v = VisibilitySmithGgx(NdotL, NdotV, alpha)
-        val f = FresnelSchlick(f0, VdotH)
-        return f * (d * v)
-    }
-
-    /// The energy a single-scattering GGX lobe fails to reflect, as a multiplier that restores it.
-    ///
-    /// Single-scattering microfacet models lose energy with roughness — a rough metal comes out
-    /// noticeably darker than it should — because light that bounces twice between facets is never
-    /// accounted for. This is the cheap Fdez-Agüera compensation, which needs the split-sum DFG term
-    /// that `Ibl` supplies.
-    static func MultiScatterCompensation(f0: float3, dfg: float2): float3 {
-        val singleScatter = float3(dfg.x + dfg.y)
-        val energy = float3(1f) + f0 * (1f / max(dfg.y, Const.Epsilon) - 1f)
-        return energy * singleScatter / max(singleScatter, float3(Const.Epsilon))
     }
 }

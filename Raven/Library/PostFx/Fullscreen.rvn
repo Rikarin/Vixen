@@ -1,0 +1,50 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// The fullscreen-triangle vertex stage every post-process pass shares, and the sampling helpers they
+// share with it.
+//
+// **Every effect declares its own vertex entry point** rather than inheriting this one, because an entry
+// point is a stage of a specific shader — there is nothing to inherit it into. What is shared is the
+// arithmetic, which is what this file holds. Each effect's `Vertex` is then three lines and cannot get
+// the winding or the UV origin wrong.
+//
+// A triangle rather than a quad: three vertices instead of six, no diagonal seam where two triangles
+// meet, and the positions come out of the vertex index so there is no vertex buffer to bind.
+
+struct Fullscreen {
+    /// Clip-space position for vertex 0, 1 or 2 of a viewport-covering triangle.
+    ///
+    /// The triangle is twice the viewport's size, so the visible region is its lower-left quarter and
+    /// the UV mapping stays a plain 0..1 over the screen.
+    static func Position(vertexIndex: float): float4 {
+        val x = mod(vertexIndex, 2f) * 4f - 1f
+        val y = floor(vertexIndex * 0.5f) * 4f - 1f
+        return float4(x, y, 0f, 1f)
+    }
+
+    /// The UV for the same vertex, with the origin top-left.
+    static func Uv(vertexIndex: float): float2 {
+        val position = Position(vertexIndex)
+        return Transform.NdcToUv(position.xyz)
+    }
+
+    /// Whether a UV is inside the screen, for a tap that may fall outside.
+    ///
+    /// Cheaper and more predictable than relying on a clamp address mode: an effect that must not read
+    /// outside — a temporal history, a blur near the edge — should weight the tap to zero rather than
+    /// smear the border pixel, which is what a clamp does and what shows as streaking.
+    static func InBounds(uv: float2): bool => all(uv >= float2(0f)) && all(uv <= float2(1f))
+
+    /// The Karis average weight for a HDR tap, which stops one bright pixel dominating a downsample.
+    ///
+    /// Weighting by inverse luminance before averaging is what keeps a specular highlight from
+    /// flickering as it moves between texels — the single most visible temporal artefact in a bloom
+    /// chain, and the reason a plain box downsample is not good enough.
+    static func KarisWeight(color: float3): float => 1f / (1f + Luminance(color))
+
+    /// Rec.709 luminance, duplicated from `ColorSpaces` to keep this file dependency-light.
+    static func Luminance(color: float3): float => dot(color, float3(0.2126f, 0.7152f, 0.0722f))
+}

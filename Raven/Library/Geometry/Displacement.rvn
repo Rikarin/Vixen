@@ -1,0 +1,137 @@
+package Vixen.Shaders.Geometry
+
+import Vixen.Shaders.Core
+
+// Moving vertices: height displacement, wind, and parallax mapping's fake displacement.
+//
+// Two categories that are easy to conflate. Displacement moves *geometry*, so it changes the
+// silhouette and needs vertices to move — which means enough of them. Parallax moves the *texture
+// coordinate*, so it is free and never changes the silhouette. Both are here because a material
+// usually wants one and authors reach for the wrong one.
+
+struct Displacement {
+    /// Displaces a position along its normal by a height sample.
+    ///
+    /// `midLevel` is what a height of that value means "no displacement": a heightmap authored around
+    /// 0.5 displaces both inward and outward, one authored around 0 only outward. Getting it wrong
+    /// makes the whole surface float above or sink below where it was modelled.
+    static func AlongNormal(position: float3, normal: float3, height: float, scale: float, midLevel: float): float3 {
+        return position + normal * ((height - midLevel) * scale)
+    }
+
+    /// A trochoidal (Gerstner) wave, which is what water actually looks like.
+    ///
+    /// The distinguishing feature over a sine wave: points move in circles rather than up and down, so
+    /// crests sharpen and troughs flatten. `steepness` of 0 is a sine wave and 1 is a cusp; above that
+    /// the surface self-intersects, so it is clamped.
+    static func GerstnerWave(position: float3, wave: Wave, time: float): float3 {
+        val k = Const.TwoPi / max(wave.wavelength, Const.Epsilon)
+        val speed = sqrt(9.81f / k)
+        val direction = Math.SafeNormalize(float3(wave.direction.x, 0f, wave.direction.y))
+        val phase = k * (dot(direction, position) - speed * time * wave.speed)
+
+        val amplitude = wave.steepness / k
+        val horizontal = direction * (amplitude * cos(phase))
+        return float3(horizontal.x, amplitude * sin(phase), horizontal.z)
+    }
+
+    /// Wind sway for foliage, as a world-space offset.
+    ///
+    /// Two frequencies rather than one, because a single sine reads as mechanical: a slow bend for the
+    /// trunk plus a fast flutter for the leaves is the cheapest thing that looks alive. Weighted by
+    /// height above the pivot so the base stays planted, which is what stops a tree sliding.
+    static func Wind(objectPosition: float3, worldPosition: float3, wind: WindParameters, time: float): float3 {
+        val height = saturate(objectPosition.y / max(wind.height, Const.Epsilon))
+        val stiffness = height * height
+
+        val phase = dot(worldPosition.xz, wind.direction) * wind.frequency + time * wind.speed
+        val bend = sin(phase) * wind.strength
+        val flutter = sin(phase * 4.7f + worldPosition.y) * wind.flutter
+
+        val offset = float3(wind.direction.x, 0f, wind.direction.y) * (bend + flutter)
+        return offset * stiffness
+    }
+
+    /// Parallax mapping: offsets a UV so a flat surface reads as having depth.
+    ///
+    /// The one-step approximation. Cheap and wrong at grazing angles, where it swims — which is what
+    /// `ParallaxOcclusion` fixes by marching. Fine for subtle relief, visibly broken for deep detail.
+    static func ParallaxOffset(uv: float2, viewTangent: float3, height: float, scale: float): float2 {
+        val offset = float2(viewTangent.x, viewTangent.y) / max(viewTangent.z, Const.Epsilon)
+        return uv + offset * ((height - 0.5f) * scale)
+    }
+
+    /// Parallax occlusion mapping: marches the view ray through the height field.
+    ///
+    /// Fixed 16 steps and a linear search, then one interpolation between the last two samples. A
+    /// bounded loop rather than an adaptive one because divergence across a warp costs more than the
+    /// wasted steps, and 16 is where the visible improvement stops for a normal-map-scale height field.
+    static func ParallaxOcclusion(heights: Texture2D, s: Sampler, ray: ParallaxRay): float2 {
+        val steps = 16
+        val stepSize = 1f / float(steps)
+        val uvStep = ray.viewTangentXy * (ray.scale * stepSize)
+
+        var currentHeight = 1f
+        var uv = ray.uv
+        var previousUv = ray.uv
+        var previousSampled = 1f
+
+        for (i in 0 .. steps - 1) {
+            val sampled = heights.Sample(s, uv).r
+            if (sampled >= currentHeight) {
+                // Interpolate between this step and the last, where the ray crossed the surface.
+                val after = sampled - currentHeight
+                val before = previousSampled - (currentHeight + stepSize)
+                val t = after / max(after - before, Const.Epsilon)
+                return lerp(uv, previousUv, t)
+            }
+
+            previousUv = uv
+            previousSampled = sampled
+            currentHeight -= stepSize
+            uv += uvStep
+        }
+
+        return uv
+    }
+}
+
+/// One Gerstner wave's parameters.
+struct Wave {
+    /// Direction of travel in the xz plane, unit length.
+    var direction: float2
+
+    var wavelength: float
+
+    /// 0 is a sine wave, 1 is a cusp. Above 1 the surface self-intersects.
+    var steepness: float
+
+    /// A multiplier on the physically derived phase speed.
+    var speed: float
+}
+
+/// Wind parameters for foliage sway.
+struct WindParameters {
+    /// Direction in the xz plane, unit length.
+    var direction: float2
+
+    var strength: float
+    var frequency: float
+    var speed: float
+
+    /// The high-frequency component, which reads as leaves rather than branches.
+    var flutter: float
+
+    /// The object-space height the sway is normalised against, so the base stays planted.
+    var height: float
+}
+
+/// The ray `ParallaxOcclusion` marches, bundled to keep the signature on one line.
+struct ParallaxRay {
+    var uv: float2
+
+    /// The view direction's xy in tangent space, divided by its z.
+    var viewTangentXy: float2
+
+    var scale: float
+}

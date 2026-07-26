@@ -58,7 +58,51 @@ public static class GlslTypes {
         "mediump",
         "highp",
         "precision",
-        "main"
+        "main",
+
+        // GLSL's "reserved for future use" list, which is reserved just as hard as the rest of the
+        // grammar and is the half that gets forgotten. `Library/Ui/RoundedRect.rvn` found it: a local
+        // called `half` is perfectly good Raven and emitted GLSL that `glslc` rejects outright, with
+        // nothing in Raven having said a word. Every one of these is an ordinary identifier in Raven.
+        "common",
+        "partition",
+        "active",
+        "asm",
+        "class",
+        "union",
+        "enum",
+        "typedef",
+        "template",
+        "this",
+        "resource",
+        "goto",
+        "inline",
+        "noinline",
+        "public",
+        "static",
+        "extern",
+        "external",
+        "interface",
+        "long",
+        "short",
+        "half",
+        "fixed",
+        "unsigned",
+        "superp",
+        "input",
+        "output",
+        "filter",
+        "sizeof",
+        "cast",
+        "namespace",
+        "using",
+        "hvec2",
+        "hvec3",
+        "hvec4",
+        "fvec2",
+        "fvec3",
+        "fvec4",
+        "sampler3DRect"
     };
 
     /// <summary>

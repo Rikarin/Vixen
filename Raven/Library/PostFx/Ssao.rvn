@@ -1,0 +1,125 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// Ground-truth ambient occlusion from depth: the horizon-based estimator.
+//
+// GTAO rather than the classic hemisphere-sampling SSAO, and the difference is not just quality. Classic
+// SSAO samples points in a hemisphere and counts how many are occluded, which converges slowly and
+// depends on a bias to avoid self-occlusion. GTAO instead finds the *horizon angle* in each of a few
+// screen-space directions and integrates the visible cone analytically — so a handful of directions gives
+// a smooth result with no bias term at all.
+//
+// The bent normal falls out of the same search for free, and is what makes indirect specular respond to
+// occlusion rather than only indirect diffuse.
+
+shader Ssao {
+    /// Directions to search. 4 is the mobile setting, 8 the default.
+    [Permutation] val Directions: int = 8
+
+    /// Steps along each direction.
+    [Permutation] val Steps: int = 6
+
+    /// Whether to output a bent normal alongside the occlusion.
+    [Permutation] val BentNormal: bool = false
+
+    var depthBuffer: Texture2D
+    var normalBuffer: Texture2D
+    var pointSampler: Sampler
+
+    var inverseProjection: mat4
+    var texelSize: float2 = float2(0.001f, 0.001f)
+
+    /// World-space radius the search covers.
+    var radius: float = 0.5f
+
+    /// Raised to this power, which is how artists dial occlusion strength.
+    var intensity: float = 1f
+
+    /// Distance over which occlusion fades out, so distant geometry does not occlude.
+    var falloff: float = 1f
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(vertexIndex: float): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        val centreDepth = depthBuffer.Sample(pointSampler, uv).r
+        val centre = Transform.UvDepthToView(inverseProjection, uv, centreDepth)
+        val n = Math.SafeNormalize(normalBuffer.Sample(pointSampler, uv).xyz * 2f - 1f)
+
+        // The radius in UV units shrinks with distance, so the world-space radius is constant — which
+        // is what stops AO growing as the camera pulls back.
+        val screenRadius = radius / max(abs(centre.z), Const.Epsilon)
+
+        // Per-pixel rotation, so the few directions do not band. Hashed from the pixel rather than
+        // sampled from a noise texture: no binding, and stable across frames.
+        val jitter = Random.Float01(Random.Hash2(uint(int(uv.x / texelSize.x)), uint(int(uv.y / texelSize.y))))
+
+        var occlusion = 0f
+        var bent = float3(0f)
+        val directionCount = max(Directions, 1)
+
+        for (d in 0 .. directionCount - 1) {
+            val angle = (float(d) + jitter) * Const.Pi / float(directionCount)
+            val direction = float2(cos(angle), sin(angle))
+
+            val horizon = SearchHorizon(centre, n, direction, screenRadius)
+            occlusion += horizon.x
+
+            if (BentNormal) {
+                bent += float3(direction.x, direction.y, 1f) * horizon.y
+            }
+        }
+
+        occlusion = saturate(1f - occlusion / float(directionCount))
+        occlusion = pow(occlusion, max(intensity, Const.Epsilon))
+
+        if (BentNormal) {
+            return float4(Math.ToUnorm(Math.SafeNormalize(bent)), occlusion)
+        }
+
+        return float4(occlusion, occlusion, occlusion, 1f)
+    }
+
+    /// The occlusion contributed along one screen-space direction, and its visibility weight.
+    ///
+    /// Marches out, tracking the largest horizon angle seen. Both directions of the line are searched,
+    /// because the visible cone is bounded on each side and using one side halves the estimate.
+    func SearchHorizon(centre: float3, n: float3, direction: float2, screenRadius: float): float2 {
+        var maxCosine = -1f
+        var weight = 0f
+        val stepCount = max(Steps, 1)
+
+        for (s in 1 .. stepCount) {
+            val t = float(s) / float(stepCount)
+            val sampleUv = uv + direction * (screenRadius * t)
+
+            if (!Fullscreen.InBounds(sampleUv)) {
+                break
+            }
+
+            val sampleDepth = depthBuffer.Sample(pointSampler, sampleUv).r
+            val samplePosition = Transform.UvDepthToView(inverseProjection, sampleUv, sampleDepth)
+            val toSample = samplePosition - centre
+            val distance = length(toSample)
+
+            // Fades a sample out with distance, so a wall behind the pixel does not occlude it.
+            val attenuation = saturate(1f - distance / max(radius * falloff, Const.Epsilon))
+            val cosine = dot(Math.SafeNormalize(toSample), n) * attenuation
+
+            maxCosine = max(maxCosine, cosine)
+            weight += attenuation
+        }
+
+        return float2(saturate(maxCosine), weight / float(stepCount))
+    }
+}

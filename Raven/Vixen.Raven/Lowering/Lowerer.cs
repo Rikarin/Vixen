@@ -138,6 +138,16 @@ public sealed partial class Lowerer {
             }
         }
 
+        // Struct fields before any body, because a field access lowers to an index into them: a
+        // struct declared after its first user would otherwise have an empty field list when that
+        // user's body was lowered. Separate from the shell pass because resolving a field's type can
+        // reach another struct, which needs its shell to exist already.
+        foreach (var type in types) {
+            if (type.TypeKind == TypeKind.Struct) {
+                DeclareStructFields(type);
+            }
+        }
+
         // Function shells, for the same reason the struct shells exist: a body can call a
         // function declared later in the module. `compose` makes that ordinary — the shader
         // filling a slot sits wherever the material author put it — but it was always
@@ -668,12 +678,20 @@ public sealed partial class Lowerer {
 
     // --- Structs -----------------------------------------------------------
 
-    void LowerStruct(NamedTypeSymbol type) {
-        var structType = structs[type];
-
-        ReportInheritanceNotFlattened(type);
-
+    /// <summary>
+    ///     Fills in a struct's fields.
+    /// </summary>
+    /// <remarks>
+    ///     Separate from <see cref="LowerStruct" /> and run over every struct first, because a field
+    ///     access lowers to an <em>index</em> into this list: a body that touches a struct whose
+    ///     fields were not yet populated finds no index and gets <c>RVN3003</c>, "no storage the
+    ///     target can address". That happened for any struct declared later in the file than its
+    ///     first user — which is ordinary, and which the binder accepts without complaint because it
+    ///     resolves the type perfectly well.
+    /// </remarks>
+    void DeclareStructFields(NamedTypeSymbol type) {
         List<IrField> fields = [];
+
         foreach (var member in type.GetMembers()) {
             if (member is not FieldSymbol { IsConst: false, IsCompose: false, IsStream: false } field) {
                 continue;
@@ -685,8 +703,11 @@ public sealed partial class Lowerer {
             }
         }
 
-        structType.SetFields(fields.ToArray());
+        structs[type].SetFields(fields.ToArray());
+    }
 
+    void LowerStruct(NamedTypeSymbol type) {
+        ReportInheritanceNotFlattened(type);
         LowerMemberFunctions(type, module.Add);
     }
 

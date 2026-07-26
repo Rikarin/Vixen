@@ -1,0 +1,91 @@
+package Vixen.Shaders.Ui
+
+import Vixen.Shaders.Core
+
+// Multi-channel signed distance field text: sharp glyphs at any scale from one small atlas.
+//
+// A single-channel SDF rounds off corners, because one distance cannot describe two edges meeting at a
+// point — which is exactly what a serif or a sharp letterform is made of. MSDF stores three distance
+// fields whose *median* reconstructs the true shape, so corners stay sharp. The median is the whole
+// trick, and it is why the three channels must not be filtered independently as colour.
+//
+// The atlas is authored by msdfgen and is not a colour texture: it must be sampled with linear filtering
+// and no sRGB decode, because the values are distances. Sampling it as sRGB is the classic mistake and
+// shows as text that is too thin.
+
+shader Msdf {
+    /// Whether to draw an outline behind the glyph.
+    [Permutation] val Outlined: bool = false
+
+    var projection: mat4
+    var atlas: Texture2D
+    var atlasSampler: Sampler
+
+    /// Distance range the atlas was generated with, in atlas pixels. Must match msdfgen's `-pxrange`.
+    var distanceRange: float = 4f
+
+    var tint: float4 = float4(1f, 1f, 1f, 1f)
+
+    var outlineColor: float4 = float4(0f, 0f, 0f, 1f)
+
+    /// Outline width as a fraction of the distance range.
+    var outlineWidth: float = 0.25f
+
+    /// Extra weight, for a faux-bold. Positive thickens, negative thins.
+    var weight: float = 0f
+
+    stream var uv: float2
+    stream var color: float4
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float2, texcoord: float2, vertexColor: float4): float4 {
+        uv = texcoord
+        color = vertexColor
+        return projection * float4(position.x, position.y, 0f, 1f)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        val sampled = atlas.Sample(atlasSampler, uv).rgb
+        val distance = Median(sampled.r, sampled.g, sampled.b) - 0.5f + weight
+
+        // Converting the atlas-space distance to screen pixels is what makes one atlas serve every
+        // size: the derivative of the UV tells us how many pixels an atlas texel covers here.
+        val scale = distanceRange / max(UiCommon.PixelWidth(uv.x) * TextureWidth(), Const.Epsilon)
+        val pixelDistance = distance * scale
+
+        val glyph = saturate(pixelDistance + 0.5f)
+        var result = color * tint
+        result = float4(result.rgb, result.a * glyph)
+
+        if (Outlined) {
+            val outline = saturate(pixelDistance + 0.5f + outlineWidth * distanceRange)
+            val behind = float4(outlineColor.rgb, outlineColor.a * outline)
+            result = Over(result, behind)
+        }
+
+        return UiCommon.Premultiply(result)
+    }
+
+    /// The median of three, which is what reconstructs the true edge from the three fields.
+    ///
+    /// Branchless via min and max: three comparisons, no divergence. A sort would be the obvious
+    /// implementation and costs more for the same answer.
+    func Median(a: float, b: float, c: float): float => max(min(a, b), min(max(a, b), c))
+
+    /// The atlas width in pixels, needed to turn a UV derivative into texels.
+    ///
+    /// Hard-coded rather than queried: Raven has no `GetDimensions` intrinsic, so the host would have
+    /// to supply it as a uniform. Returning a constant keeps the shader compiling and is honest about
+    /// the gap — see docs/plan/07 § F.
+    func TextureWidth(): float => 1024f
+
+    /// Straight-alpha "source over", for compositing the outline under the glyph.
+    func Over(front: float4, back: float4): float4 {
+        val alpha = front.a + back.a * (1f - front.a)
+        val rgb = (front.rgb * front.a + back.rgb * back.a * (1f - front.a)) / max(alpha, Const.Epsilon)
+        return float4(rgb, alpha)
+    }
+}

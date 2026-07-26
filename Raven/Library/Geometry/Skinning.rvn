@@ -1,0 +1,133 @@
+package Vixen.Shaders.Geometry
+
+import Vixen.Shaders.Core
+
+// Linear and dual-quaternion skinning.
+//
+// **The bone palette is passed as four explicit matrices rather than indexed out of an array**, and
+// that is a language limitation rather than a design choice: Raven has no sized array types, so there
+// is no `mat4[]` a vertex could index by bone id. See docs/plan/07 § F.
+//
+// What that costs is real — the caller has to fetch the four matrices, which means the host either
+// unrolls the fetch or the mesh is limited to four influences — but the *blend* is the part that has
+// to be right, and it is the same arithmetic either way. When sized arrays land, these functions keep
+// their bodies and gain a palette-indexed overload.
+//
+// Four influences is also not much of a restriction in practice: it is what glTF stores and what every
+// real-time skinning path uses, because the fifth influence is almost always below the weight
+// threshold.
+
+/// The four bone matrices a vertex is influenced by, already fetched.
+struct BonePalette {
+    var bone0: mat4
+    var bone1: mat4
+    var bone2: mat4
+    var bone3: mat4
+}
+
+struct Skinning {
+    /// Normalises four influence weights so they sum to 1.
+    ///
+    /// Worth doing rather than trusting the asset: a quantised weight channel (four bytes, which is
+    /// what a mesh stores) does not sum to exactly 1, and the error shows as vertices shrinking
+    /// toward the origin — a subtle, uniform deflation that looks like a scale problem.
+    static func NormalizeWeights(weights: float4): float4 {
+        val total = weights.x + weights.y + weights.z + weights.w
+        return total > Const.Epsilon ? weights / total : float4(1f, 0f, 0f, 0f)
+    }
+
+    /// The blended skinning matrix for one vertex.
+    ///
+    /// Linear blend skinning: interpolate the *matrices*, then transform once. Cheap and standard, and
+    /// its flaw is the well-known one — a joint bent 180 degrees collapses, because the average of two
+    /// opposed rotations is a degenerate matrix. `DualQuaternionBlend` is the fix where it matters.
+    static func BlendMatrix(palette: BonePalette, weights: float4): mat4 {
+        val w = NormalizeWeights(weights)
+        var blended = palette.bone0 * w.x
+        blended += palette.bone1 * w.y
+        blended += palette.bone2 * w.z
+        blended += palette.bone3 * w.w
+        return blended
+    }
+
+    /// Skins a position.
+    static func Position(palette: BonePalette, weights: float4, position: float3): float3 {
+        return Math.TransformPoint(BlendMatrix(palette, weights), position)
+    }
+
+    /// Skins a normal or tangent, which ignores translation.
+    ///
+    /// The blended matrix's upper-left 3×3 is correct here only because a bone transform is rigid plus
+    /// uniform scale. A non-uniformly scaled bone needs the inverse transpose, which the host would
+    /// have to supply as a second palette — and which no skeletal animation format produces.
+    static func Direction(palette: BonePalette, weights: float4, direction: float3): float3 {
+        return Math.SafeNormalize(Math.TransformDirection(BlendMatrix(palette, weights), direction))
+    }
+
+    // --- Dual-quaternion skinning ----------------------------------------
+
+    /// A rigid transform as a dual quaternion: a rotation and a translation that blend together.
+    ///
+    /// The point of the representation is that a *weighted sum of dual quaternions, renormalised*, is
+    /// still a rigid transform — so a bent joint rotates instead of collapsing. That is the one thing
+    /// linear blend skinning cannot do.
+    static func BlendDualQuaternion(dq: DualQuaternionPalette, weights: float4): DualQuaternion {
+        val w = NormalizeWeights(weights)
+
+        // Antipodality: q and -q are the same rotation, but their *sum* is not. Flipping every
+        // quaternion into the first one's hemisphere before summing is what keeps a blend from
+        // cancelling itself out — a joint that vanishes at certain angles is this bug.
+        val s1 = dot(dq.real0, dq.real1) < 0f ? -1f : 1f
+        val s2 = dot(dq.real0, dq.real2) < 0f ? -1f : 1f
+        val s3 = dot(dq.real0, dq.real3) < 0f ? -1f : 1f
+
+        var real = dq.real0 * w.x + dq.real1 * (w.y * s1)
+        real += dq.real2 * (w.z * s2) + dq.real3 * (w.w * s3)
+
+        var dual = dq.dual0 * w.x + dq.dual1 * (w.y * s1)
+        dual += dq.dual2 * (w.z * s2) + dq.dual3 * (w.w * s3)
+
+        val scale = 1f / max(length(real), Const.Epsilon)
+
+        var result: DualQuaternion
+        result.real = real * scale
+        result.dual = dual * scale
+        return result
+    }
+
+    /// Transforms a position by a unit dual quaternion.
+    static func TransformByDualQuaternion(dq: DualQuaternion, position: float3): float3 {
+        val r = dq.real.xyz
+        val w = dq.real.w
+        val d = dq.dual.xyz
+
+        val rotated = position + cross(r, cross(r, position) + position * w) * 2f
+        val translation = (d * w - r * dq.dual.w + cross(r, d)) * 2f
+        return rotated + translation
+    }
+
+    /// Rotates a direction by a unit dual quaternion, ignoring its translation.
+    static func RotateByDualQuaternion(dq: DualQuaternion, direction: float3): float3 {
+        val r = dq.real.xyz
+        val w = dq.real.w
+        return Math.SafeNormalize(direction + cross(r, cross(r, direction) + direction * w) * 2f)
+    }
+}
+
+/// A rigid transform as a dual quaternion: rotation in `real`, translation encoded in `dual`.
+struct DualQuaternion {
+    var real: float4
+    var dual: float4
+}
+
+/// Four bones as dual quaternions, already fetched — the counterpart of `BonePalette`.
+struct DualQuaternionPalette {
+    var real0: float4
+    var dual0: float4
+    var real1: float4
+    var dual1: float4
+    var real2: float4
+    var dual2: float4
+    var real3: float4
+    var dual3: float4
+}

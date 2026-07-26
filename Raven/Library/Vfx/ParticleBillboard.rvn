@@ -1,0 +1,160 @@
+package Vixen.Shaders.Vfx
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// Camera-facing particle quads: the workhorse of every particle system.
+//
+// The vertex stage builds the quad from a per-particle centre and a per-vertex corner offset, which is why
+// there is no per-particle geometry: four vertices per particle, expanded in the shader from instance data.
+//
+// Three facing modes, because they solve different problems. Full billboarding faces the camera exactly and
+// is right for a sprite. Axis-locked keeps one axis fixed, which is what a beam or a spark trail needs so
+// it does not spin as the camera moves. Velocity-aligned stretches along motion, which is what makes a
+// spark read as fast.
+
+shader ParticleBillboard {
+    /// 0 camera-facing, 1 axis-locked, 2 velocity-aligned.
+    [Permutation] val Facing: int = 0
+
+    /// Whether to blend two flipbook frames rather than snapping between them.
+    [Permutation] val SubUvBlending: bool = true
+
+    /// Whether the particle is lit, rather than emissive-only.
+    [Permutation] val Lit: bool = false
+
+    var viewProjection: mat4
+
+    /// The camera's basis, so the shader does not have to invert the view matrix.
+    var cameraRight: float3 = float3(1f, 0f, 0f)
+    var cameraUp: float3 = float3(0f, 1f, 0f)
+    var cameraForward: float3 = float3(0f, 0f, 1f)
+
+    /// Axis-locked mode only.
+    var lockedAxis: float3 = float3(0f, 1f, 0f)
+
+    var atlas: Texture2D
+    var atlasSampler: Sampler
+
+    /// Flipbook grid: columns in x, rows in y.
+    var flipbookGrid: float2 = float2(1f, 1f)
+
+    var lightDirection: float3 = float3(0f, -1f, 0f)
+    var lightColor: float3 = float3(1f, 1f, 1f)
+
+    /// Softens the particle's intersection with scene geometry, in world units. Needs the depth
+    /// buffer, so the host binds one; 0 disables it.
+    var softness: float = 0f
+
+    stream var uv: float2
+    stream var uvNext: float2
+    stream var frameBlend: float
+    stream var color: float4
+    stream var normalWS: float3
+
+    /// Builds the quad and the flipbook UVs.
+    ///
+    /// `corner` is the per-vertex offset in -0.5..0.5; everything else is per-instance. `age` in 0..1
+    /// drives the flipbook, which is what keeps animation on the CPU's simulation rather than making
+    /// the shader guess at time.
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(corner: float2, center: float3, velocity: float3, sizeRotation: float3, particleColor: float4, age: float): float4 {
+        color = particleColor
+
+        val size = sizeRotation.xy
+        val rotation = sizeRotation.z
+
+        val basis = Basis(velocity)
+        val rotated = Rotate(corner * size, rotation)
+        val worldPosition = center + basis.right * rotated.x + basis.up * rotated.y
+
+        normalWS = basis.normal
+        SetFlipbook(corner, age)
+
+        return viewProjection * float4(worldPosition, 1f)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        var sampled = atlas.Sample(atlasSampler, uv)
+
+        if (SubUvBlending) {
+            // Blending consecutive frames is what turns a 16-frame flipbook into something that does
+            // not visibly step — the single cheapest quality win in a particle system.
+            sampled = lerp(sampled, atlas.Sample(atlasSampler, uvNext), frameBlend)
+        }
+
+        var result = sampled * color
+
+        if (Lit) {
+            // A billboard's normal faces the camera, so a real NdotL would be flat. Wrapped diffuse
+            // gives it volume — the standard cheat for lit smoke.
+            val NdotL = dot(Math.SafeNormalize(normalWS), Math.SafeNormalize(-lightDirection))
+            val wrapped = saturate(NdotL * 0.5f + 0.5f)
+            result = float4(result.rgb * lightColor * wrapped, result.a)
+        }
+
+        // Premultiplied, matching the UI convention and for the same reason: a filtered particle with
+        // straight alpha fringes dark.
+        return float4(result.rgb * result.a, result.a)
+    }
+
+    /// The quad's basis for this facing mode.
+    func Basis(velocity: float3): ParticleBasis {
+        var basis: ParticleBasis
+
+        if (Facing == 1) {
+            val axis = Math.SafeNormalize(lockedAxis)
+            basis.right = Math.SafeNormalize(cross(axis, cameraForward))
+            basis.up = axis
+            basis.normal = cross(basis.right, basis.up)
+            return basis
+        }
+
+        if (Facing == 2) {
+            val along = Math.SafeNormalize(velocity)
+            basis.up = along
+            basis.right = Math.SafeNormalize(cross(along, cameraForward))
+            basis.normal = cross(basis.right, basis.up)
+            return basis
+        }
+
+        basis.right = cameraRight
+        basis.up = cameraUp
+        basis.normal = -cameraForward
+        return basis
+    }
+
+    func Rotate(offset: float2, radians: float): float2 {
+        val c = cos(radians)
+        val s = sin(radians)
+        return float2(offset.x * c - offset.y * s, offset.x * s + offset.y * c)
+    }
+
+    /// Sets the two flipbook UVs and the blend between them from the particle's age.
+    func SetFlipbook(corner: float2, age: float) {
+        val cellUv = corner + 0.5f
+        val frames = max(flipbookGrid.x * flipbookGrid.y, 1f)
+        val position = saturate(age) * (frames - 1f)
+
+        uv = Cell(cellUv, floor(position))
+        uvNext = Cell(cellUv, min(floor(position) + 1f, frames - 1f))
+        frameBlend = frac(position)
+    }
+
+    func Cell(cellUv: float2, frame: float): float2 {
+        val column = mod(frame, flipbookGrid.x)
+        val row = floor(frame / max(flipbookGrid.x, 1f))
+        val size = float2(1f, 1f) / max(flipbookGrid, float2(1f))
+        return (cellUv + float2(column, row)) * size
+    }
+}
+
+/// A billboard's orthonormal basis.
+struct ParticleBasis {
+    var right: float3
+    var up: float3
+    var normal: float3
+}

@@ -1,0 +1,105 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// Temporal antialiasing: accumulate a jittered sample per frame and reproject the history.
+//
+// The default AA, and the only one that adds information rather than redistributing it: over N frames a
+// jittered projection takes N distinct samples per pixel, so TAA genuinely supersamples. What it costs
+// is everything that goes wrong when the history is invalid.
+//
+// The three defences below are what make it usable, and each fixes a distinct failure:
+//
+//   - **Reprojection** follows the pixel's surface using motion vectors. Without it, anything moving
+//     smears.
+//   - **Neighbourhood clamping** restricts the history to the colour range of the current frame's
+//     3×3 neighbourhood. Without it, disocclusion — geometry appearing from behind an edge — ghosts.
+//   - **Variance clipping** uses the neighbourhood's mean and standard deviation rather than its min and
+//     max, which is far less prone to a single bright outlier widening the box and letting a ghost
+//     through.
+//
+// Clamping happens in YCoCg, not RGB: the luminance-chroma box is a much tighter fit around the real
+// distribution of a neighbourhood than an RGB box, so it rejects more ghosting for the same softness.
+
+shader Taa {
+    /// Whether to clip against the neighbourhood's variance rather than its full min/max box.
+    [Permutation] val VarianceClipping: bool = true
+
+    var current: Texture2D
+    var history: Texture2D
+    var motionVectors: Texture2D
+    var depthBuffer: Texture2D
+    var linearSampler: Sampler
+    var pointSampler: Sampler
+
+    var texelSize: float2 = float2(0.001f, 0.001f)
+
+    /// How much history to keep per frame. 0.9 is about 10 frames of accumulation.
+    var feedback: float = 0.9f
+
+    /// How many standard deviations the clip box spans.
+    var varianceGamma: float = 1.25f
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(vertexIndex: float): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        val currentColor = ColorSpaces.RgbToYCoCg(current.Sample(linearSampler, uv).rgb)
+
+        // The motion vector is stored as the offset from this frame to the previous one, so following
+        // it lands on the same surface point in the history.
+        val motion = motionVectors.Sample(pointSampler, uv).xy
+        val historyUv = uv + motion
+
+        // Off-screen history is no history: blending the clamped border pixel is what produces the
+        // streaks along the screen edge that TAA is notorious for.
+        if (!Fullscreen.InBounds(historyUv)) {
+            return float4(ColorSpaces.YCoCgToRgb(currentColor), 1f)
+        }
+
+        var historyColor = ColorSpaces.RgbToYCoCg(history.Sample(linearSampler, historyUv).rgb)
+        historyColor = Constrain(historyColor, currentColor)
+
+        val blended = lerp(currentColor, historyColor, saturate(feedback))
+        return float4(ColorSpaces.YCoCgToRgb(blended), 1f)
+    }
+
+    /// Constrains the history to what the current neighbourhood could plausibly contain.
+    func Constrain(historyColor: float3, currentColor: float3): float3 {
+        var moment1 = float3(0f)
+        var moment2 = float3(0f)
+        var minimum = float3(1000f)
+        var maximum = float3(-1000f)
+
+        for (y in -1 .. 1) {
+            for (x in -1 .. 1) {
+                val offset = float2(float(x), float(y)) * texelSize
+                val tap = ColorSpaces.RgbToYCoCg(current.Sample(pointSampler, uv + offset).rgb)
+
+                moment1 += tap
+                moment2 += tap * tap
+                minimum = min(minimum, tap)
+                maximum = max(maximum, tap)
+            }
+        }
+
+        if (!VarianceClipping) {
+            return clamp(historyColor, minimum, maximum)
+        }
+
+        val mean = moment1 / 9f
+        val variance = max(moment2 / 9f - mean * mean, float3(0f))
+        val deviation = sqrt(variance) * varianceGamma
+
+        return clamp(historyColor, mean - deviation, mean + deviation)
+    }
+}

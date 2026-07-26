@@ -1,0 +1,107 @@
+package Vixen.Shaders.Geometry
+
+import Vixen.Shaders.Core
+
+// Tangent frames, normal-map decoding, and reconstructing a normal when there is not one.
+//
+// The recurring theme: a normal map is authored in *tangent* space, and getting it into world space
+// needs a basis that matches how the mesh was unwrapped. A basis that disagrees with the baker's
+// produces lighting that is subtly wrong in a way that looks like a bad normal map, so the handedness
+// convention is stated rather than assumed.
+
+/// An orthonormal tangent frame: the basis a tangent-space normal is rotated by.
+struct TangentFrame {
+    var tangent: float3
+    var bitangent: float3
+    var normal: float3
+}
+
+struct Normals {
+    /// Builds a tangent frame from an interpolated normal and tangent.
+    ///
+    /// `handedness` is the tangent's w, as the mesh importer wrote it: +1 or -1, telling the shader
+    /// which way the bitangent points. It exists because a UV mirrored across a seam flips the
+    /// bitangent, and a frame that ignores it lights mirrored geometry inside out.
+    ///
+    /// The tangent is re-orthogonalised against the normal (Gram-Schmidt) because interpolating two
+    /// unit vectors across a triangle does not keep them perpendicular.
+    static func Frame(normal: float3, tangent: float3, handedness: float): TangentFrame {
+        val n = Math.SafeNormalize(normal)
+        val t = Math.SafeNormalize(tangent - n * dot(n, tangent))
+
+        var frame: TangentFrame
+        frame.normal = n
+        frame.tangent = t
+        frame.bitangent = cross(n, t) * handedness
+        return frame
+    }
+
+    /// A tangent frame with no authored tangent, derived from the UV gradient.
+    ///
+    /// For geometry with no tangent channel — terrain, procedural surfaces, decals. Uses screen-space
+    /// derivatives, so it only works in a pixel stage and produces a frame that is constant across a
+    /// 2×2 quad. Good enough for a detail map, not for a baked normal map that assumed a specific
+    /// unwrap.
+    static func FrameFromDerivatives(normal: float3, position: float3, uv: float2): TangentFrame {
+        val dpdx = ddx(position)
+        val dpdy = ddy(position)
+        val dudx = ddx(uv)
+        val dudy = ddy(uv)
+
+        val n = Math.SafeNormalize(normal)
+        val t = Math.SafeNormalize(dpdx * dudy.y - dpdy * dudx.y)
+        return Frame(n, t, 1f)
+    }
+
+    /// Rotates a tangent-space normal into world space.
+    static func ToWorld(frame: TangentFrame, tangentNormal: float3): float3 {
+        val x = frame.tangent * tangentNormal.x
+        val y = frame.bitangent * tangentNormal.y
+        return Math.SafeNormalize(x + y + frame.normal * tangentNormal.z)
+    }
+
+    /// Decodes a three-channel tangent-space normal map sample.
+    static func Decode(sample: float3, strength: float): float3 {
+        val n = Math.FromUnorm(sample)
+        return Math.SafeNormalize(float3(n.x * strength, n.y * strength, n.z))
+    }
+
+    /// Decodes a two-channel normal map, rebuilding z.
+    ///
+    /// Two channels is what a BC5 texture stores, which is the usual format because it compresses
+    /// normals far better than BC7 does. z is always positive in tangent space, so it can be
+    /// reconstructed exactly — which is why the third channel was redundant.
+    static func DecodeTwoChannel(sample: float2, strength: float): float3 {
+        val xy = Math.FromUnorm(float3(sample.x, sample.y, 0f))
+        val scaled = float2(xy.x * strength, xy.y * strength)
+        val z = sqrt(saturate(1f - dot(scaled, scaled)))
+        return Math.SafeNormalize(float3(scaled.x, scaled.y, z))
+    }
+
+    /// Blends a detail normal over a base one, whiteout-style.
+    ///
+    /// Adding the xy and multiplying the z, rather than averaging: averaging flattens both, and this
+    /// keeps the detail's slopes while following the base's orientation. The standard trick, and the
+    /// difference between a detail map that adds texture and one that washes out the surface.
+    static func Blend(baseNormal: float3, detail: float3): float3 {
+        val combined = float3(baseNormal.x + detail.x, baseNormal.y + detail.y, baseNormal.z * detail.z)
+        return Math.SafeNormalize(combined)
+    }
+
+    /// The geometric normal of the surface, from screen-space position derivatives.
+    ///
+    /// Faceted by construction — it is the triangle's plane — which is what makes it the right thing
+    /// to compare a shading normal against for horizon occlusion, and the wrong thing to shade with.
+    static func Geometric(position: float3): float3 {
+        return Math.SafeNormalize(cross(ddx(position), ddy(position)))
+    }
+
+    /// Flips a normal to face the viewer, for double-sided geometry.
+    ///
+    /// Needed on any single-sided mesh rendered without back-face culling — foliage, cloth, glass —
+    /// where the interpolated normal points away on the back face and every light then reads as
+    /// shadowed.
+    static func FaceForward(normal: float3, v: float3): float3 {
+        return dot(normal, v) < 0f ? -normal : normal
+    }
+}

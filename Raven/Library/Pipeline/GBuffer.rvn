@@ -1,0 +1,95 @@
+package Vixen.Shaders.Pipeline
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Shading
+import Vixen.Shaders.Material
+
+// The G-buffer layout: how a surface is packed into render targets, and unpacked from them.
+//
+// **This file is the encoding, not the writing pass.** A G-buffer pass writes several render targets
+// at once, and Raven has no multiple-render-target output — an entry point returns one value, and an
+// aggregate return is `RVN4001` in both backends (which is now consistent, but still a refusal). So the
+// geometry pass that fills these targets cannot be written yet; see docs/plan/07 § F.
+//
+// The encoding is worth having anyway, and arguably matters more than the pass. It is the contract
+// between a pass that writes and a pass that reads, and the two are in different files — exactly the
+// situation where a layout defined twice drifts. `Deferred.rvn` reads through `Decode` below, so when
+// the writing pass becomes expressible it has one place to agree with.
+//
+// The layout, three targets plus depth:
+//
+//   target 0   rgb: base colour            a: ambient occlusion
+//   target 1   rg:  octahedral normal      b: roughness            a: metalness
+//   target 2   rgb: emissive               a: unused
+//   depth      device depth, reverse-Z
+//
+// Two decisions in that worth stating. The normal is octahedral in two channels rather than three,
+// which frees a channel for roughness and is more accurate than the same two channels spent on xy
+// with z rebuilt — see `Math.EncodeOctahedral`. And nothing is stored that can be derived: no view
+// vector, no world position, because both come from depth and the pixel's coordinates for free.
+
+/// One G-buffer target's worth of packed data.
+struct GBufferTargets {
+    var target0: float4
+    var target1: float4
+    var target2: float4
+}
+
+struct GBuffer {
+    /// Packs a shaded surface into the three targets.
+    static func Encode(d: MaterialData): GBufferTargets {
+        val normal = Math.EncodeOctahedral(Math.SafeNormalize(d.normalWS))
+
+        var targets: GBufferTargets
+        targets.target0 = float4(d.diffuseColor, saturate(d.occlusion))
+        targets.target1 = float4(Math.ToUnorm(float3(normal.x, normal.y, 0f)).xy, saturate(d.perceptualRoughness), Metalness(d))
+        targets.target2 = float4(d.emissive, 0f)
+        return targets
+    }
+
+    /// Unpacks a surface from three G-buffer samples.
+    ///
+    /// The inverse of `Encode`, and the reason both are here: a deferred lighting pass reads this and
+    /// the geometry pass writes that, so a change to one is a compile error in the other rather than a
+    /// rendering artefact.
+    static func Decode(targets: GBufferTargets): MaterialData {
+        val encodedNormal = Math.FromUnorm(float3(targets.target1.x, targets.target1.y, 0f))
+
+        var d: MaterialData
+        d.diffuseColor = targets.target0.rgb
+        d.occlusion = targets.target0.a
+        d.normalWS = Math.DecodeOctahedral(float2(encodedNormal.x, encodedNormal.y))
+        d.perceptualRoughness = targets.target1.z
+        d.emissive = targets.target2.rgb
+        d.alpha = 1f
+
+        // f0 is derived rather than stored: the encoding keeps base colour and metalness, and a
+        // dielectric's f0 is a constant, so storing f0 as well would be three redundant channels.
+        d.f0 = Brdf.F0FromMetalness(targets.target0.rgb, targets.target1.w, MaterialDefaults.DielectricF0)
+        return d
+    }
+
+    /// Recovers metalness from a packed surface, which `Encode` needs and `MaterialData` does not hold.
+    ///
+    /// `MaterialData` keeps `f0` rather than metalness, because that is what a BRDF wants. Going
+    /// backwards is only possible because a dielectric's f0 is known: how far f0 has moved away from
+    /// it *is* the metalness.
+    static func Metalness(d: MaterialData): float {
+        val dielectric = MaterialDefaults.DielectricF0
+        val range = max(Math.MaxComponent(d.diffuseColor) - dielectric, Const.Epsilon)
+        return saturate((Math.MaxComponent(d.f0) - dielectric) / range)
+    }
+
+    /// Samples the three targets at a UV and unpacks them.
+    ///
+    /// Three texture parameters rather than a struct of them: a texture is a descriptor, not a value,
+    /// so `RVN2053` allows one only as a shader field. Passing them individually is the only form —
+    /// which is also why there is no `GBufferTextures` bundle beside `GBufferTargets`.
+    static func Sample(t0: Texture2D, t1: Texture2D, t2: Texture2D, s: Sampler, uv: float2): MaterialData {
+        var targets: GBufferTargets
+        targets.target0 = t0.Sample(s, uv)
+        targets.target1 = t1.Sample(s, uv)
+        targets.target2 = t2.Sample(s, uv)
+        return Decode(targets)
+    }
+}

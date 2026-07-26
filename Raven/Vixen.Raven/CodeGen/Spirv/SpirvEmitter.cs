@@ -267,14 +267,13 @@ sealed partial class SpirvEmitter {
     }
 
     uint DeclareStageVariable(IrStageIo io, SpirvStorageClass storage, string name) {
-        // Vulkan has no boolean interface type, and an aggregate would need a
-        // location for every leaf. Both are rejected rather than mis-emitted.
-        if (io.Type is not (IrScalarType { Kind: not IrTypeKind.Bool }
-            or IrVectorType { Component.Kind: not IrTypeKind.Bool })) {
+        // Vulkan has no boolean interface type, and an aggregate would need a location for every
+        // leaf. Both are rejected rather than mis-emitted — through the shared predicate, so the
+        // GLSL backend refuses exactly the same set rather than emitting `out SomeStruct`.
+        if (!StageInterface.CanCarry(io.Type)) {
             Report(
                 BackendDiagnostics.NotExpressible,
-                $"The type '{io.Type.Name}' of stage {(storage == SpirvStorageClass.Input ? "input" : "output")} "
-                + $"'{io.Name}'"
+                StageInterface.Describe(io.Type, io.Name, storage == SpirvStorageClass.Input)
             );
         }
 

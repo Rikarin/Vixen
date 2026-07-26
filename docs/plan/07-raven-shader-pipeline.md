@@ -24,9 +24,11 @@ decision that has been made and built, kept because the reasons stay useful.
 
 | | Open item | Where | Blocks |
 |---|---|---|---|
-| 🔴 | **`Raven/Library` is mostly unwritten.** `Core/` (Math, ColorSpaces, Random, Sampling), `Shading/Brdf.rvn` and `Material/MaterialSurface.rvn` are in and tested; Shading's other ten files, Geometry, Pipeline, PostFx, Ui and Vfx are not. Nothing in the compiler blocks `Pipeline/` now that a composed feature carries its own bindings | § F | the numeric tests, the perf gates, and the mixin question below |
+| 🟡 | **`Raven/Library` is written** — 44 files across all eight packages, every shader reaching both backends under `glslc` and `spirv-val`. What is left is depth rather than breadth: the clustered light loop, the G-buffer geometry pass and the particle compute dispatch, each blocked by a language gap below rather than by content | § F | the perf gates; the numeric tests additionally need a writable resource |
 | 🔴 | **Nothing a shader writes is writable** — no storage buffers, no storage images, and assigning to a uniform is refused by neither backend. So the compute stage computes and discards | § I | the numeric BRDF readback, `Random.rvn` bit-for-bit, doc 06's VFX compute path — everything that has to *read a result back* |
+| 🟡 | **Multiple render targets** — an entry point returns one value, and an aggregate return is `RVN4001` in both backends | § F | the G-buffer *geometry* pass; `GBuffer.rvn` is the encoding only, and `Deferred.rvn` reads it |
 | 🟡 | **Generic types and methods do not lower** — front-end only. An open definition is `RVN3001`, and so is an instantiation: there is no monomorphisation, so `Box<float4>` reaches no backend | § I | anything in § F's library that wants a generic container |
+| ⚪ | **Small texture and stage intrinsics**: no `SampleLevel` (explicit mip), no `GetDimensions`, no `discard`, no `SV_VertexID` semantic, no `asfloat`/`asuint` | § F | each shaped a library file rather than blocking it — see § F's list of what it could not express |
 | 🟡 | **`&&` / `\|\|` do not short-circuit** — sound for side-effect-free expressions, wrong the moment the right operand is a guard | § I | correctness of `i < n && data[i] > 0` |
 | 🟡 | **Sized array types**, and therefore `Buffer<T>`-style storage buffers, unsized arrays, spread elements (`RVN3002`) and `ArrayStride` against the oracle | § I, § C | the writable-resource row above; `DescriptorType.StorageBuffer` and `LayoutRule.Std430` have nothing that produces them |
 | 🟡 | **Inheritance is not flattened** — now `RVN3002` rather than three silent miscompilations | § I, mixins | the mixin question; `compose` covers the common case |
@@ -508,51 +510,86 @@ Still owed, and not the compiler's to give:
 ### F. The shader library to write *in* Raven — Phase 5, ~the largest content task
 
 `Raven/Library/` becomes a shipped, version-locked artefact compiled by the Nuke `CompileShaderLibrary`
-target. Full tree in [§ Source layout](#source-layout-what-is-written-in-raven); in summary:
-`Core/` (Math, Sampling, ColorSpaces, Random) · `Shading/` (Brdf, DiffuseModels, SpecularModels,
-ClearCoat, Sheen, Hair, Subsurface, Transmission, Ibl, Lighting) · `Geometry/` · `Material/` ·
-`Pipeline/` (ForwardPlus, Deferred, GBuffer, DepthOnly, ShadowCaster) · `PostFx/` (one per effect) ·
-`Ui/` · `Vfx/`.
+target. Full tree in [§ Source layout](#source-layout-what-is-written-in-raven).
 
-#### Started: `Core/` complete and `Shading/Brdf.rvn`
+#### ✅ Written: 44 files across all eight packages
 
-Five files, `LibraryTreeTests` holding them to three claims: each parses and round-trips, the tree
-binds as **one** compilation (so the library agrees with itself rather than being files that each
-happen to compile), and a shader compiles against it through `.rvnlib` references with `glslc` and
-`spirv-val` as the verdict.
+`LibraryTreeTests` holds the tree to four claims, each failing differently: every file parses and
+round-trips; the tree binds as **one** compilation, so the library agrees with itself rather than
+being files that each happen to compile; **every shader with an entry point reaches both backends**,
+with `glslc` and `spirv-val` as the verdict; and a shader compiles against the free-function packages
+through `.rvnlib` references.
 
-| File | What it holds |
+| Package | Files |
 |---|---|
-| `Core/Math.rvn` | constants, angle and range helpers, `SafeNormalize`, branchless orthonormal basis, spherical coords, octahedral encode/decode, the matrix-first transform helpers |
-| `Core/ColorSpaces.rvn` | sRGB transfer functions exact and cheap, Rec.709/2020 luminance, Reinhard, ACES (Narkowicz), AgX, PQ, YCoCg |
-| `Core/Random.rvn` | PCG-style integer hash, uniform floats, sphere/hemisphere/disk sampling |
-| `Core/Sampling.rvn` | base-2 radical inverse, Hammersley, Halton, concentric disk, cosine hemisphere, GGX importance sampling with its PDF |
-| `Shading/Brdf.rvn` | GGX and anisotropic GGX NDF, Smith height-correlated visibility, Schlick and IOR Fresnel, Lambert/Burley/Oren-Nayar, the assembled specular lobe |
+| `Core/` | `Math` (constants, `SafeNormalize`, branchless basis, spherical, octahedral, matrix-first transforms) · `ColorSpaces` (sRGB exact and cheap, Rec.709/2020 luminance, Reinhard, ACES, AgX, PQ, YCoCg) · `Random` (PCG hash, uniform floats, sphere/hemisphere/disk) · `Sampling` (radical inverse, Hammersley, Halton, concentric disk, cosine hemisphere, GGX importance sampling) |
+| `Shading/` | `Brdf` (the D/V/F primitives and `ShadingAngles`) · `DiffuseModels` · `SpecularModels` (GGX, anisotropic, Beckmann, multi-scatter, horizon occlusion) · `ClearCoat` · `Sheen` · `Hair` · `Subsurface` · `Transmission` · `Ibl` (split-sum DFG fit, SH9 irradiance, parallax-corrected probes) · `Lighting` (punctual and sphere lights, both shadow biases, PCF, cascade fade) |
+| `Geometry/` | `Transform` (the spaces, depth reconstruction, reprojection) · `Normals` (tangent frames, one- and two-channel decode, whiteout blend, geometric normal) · `Skinning` (linear and dual-quaternion) · `Instancing` (packed transforms, per-instance variation) · `Displacement` (height, Gerstner waves, wind, parallax occlusion) |
+| `Material/` | `MaterialSurface` (the `inout` contract and five features) · `ComputeColor` (the shader-graph vocabulary: blend modes, ramps, UV nodes, value noise) |
+| `Pipeline/` | `ForwardPlus` · `Deferred` · `GBuffer` (the encoding) · `DepthOnly` · `ShadowCaster` |
+| `PostFx/` | `Fullscreen` · `Tonemap` (+ grading and LUT) · `Bloom` (Jimenez down/up, Karis average) · `Fxaa` · `Ssao` (GTAO horizon search, bent normals) · `Taa` (reprojection, YCoCg variance clipping) · `Fog` · `Vignette` (+ aberration and grain) · `Sharpen` (CAS) · `Outline` |
+| `Ui/` | `UiQuad` (and the premultiply/clip/SDF conventions) · `Msdf` · `RoundedRect` · `Blur` · `Gradient` |
+| `Vfx/` | `ParticleBillboard` (three facing modes, sub-UV) · `ParticleRibbon` · `ParticleSimulate` (the forces and integrator) |
 
 Free functions are `static func` on a field-less struct, which is Raven's only shape for one — and it
-is what makes the library exportable rather than incidental: `RVN5001` refuses to export a function
-that reads a shader binding, so "the library exports cleanly" and "the library is written as free
-functions" are the same statement.
+is what makes a package exportable: `RVN5001` refuses to export a function that reads a shader
+binding, so "the package exports cleanly" and "the package is written as free functions" are the same
+statement. That splits the tree into **two shipping models**: `Core`, `Shading` and `Geometry` ship as
+`.rvnlib` references; `Material`, `Pipeline`, `PostFx`, `Ui` and `Vfx` are shaders with bindings and
+compose slots, so they ship as source and are compiled with their consumer.
 
-**Two conventions were written into the code rather than left to callers**, because in both cases the
-wrong version also compiles and looks plausible. Matrix-first (`TransformPoint`, per § E) — the other
-order computes the untransposed transform. And roughness is squared exactly once, at
-`Brdf.Alpha`: squaring twice makes everything smoother and squaring zero times makes everything
-rougher, so neither mistake announces itself.
+**Conventions written into the code rather than left to callers**, in each case because the wrong
+version also compiles and looks plausible: matrix-first (§ E), roughness squared exactly once at
+`Brdf.Alpha`, the `4·NdotL·NdotV` denominator inside the visibility term so `D*V*F` is the whole BRDF,
+premultiplied alpha for everything in `Ui`, and linear depth — not device depth — for every
+depth-difference test.
 
-**What this first exercised, beyond the content.** The `.rvnlib` path had only ever run against
-fixtures. On real content, across packages, two properties held that only appear at this scale:
-
-- **A function reached through several references keeps one identity.** `Math.SafeNormalize` arrives
-  three ways — directly, and inside `Brdf.rvnlib` and `ColorSpaces.rvnlib`, each compiled against its
-  own copy of Math — and is emitted **once**. That is the one-shared-IR-decoder decision in § D
-  paying off; a decoder per library would have produced three private copies the verifier accepts.
-- **Referencing a library does not enlarge the shader.** A consumer reaching ~14 functions out of the
-  three libraries' ~70 emits exactly those 14.
-
-And the stronger claim `LibraryTreeTests` pins: a function read out of a `.rvnlib` lowers to
-**identical IR** to compiling its source alongside. Without that a library is a source of divergence
+**What the content exercised, beyond itself.** The `.rvnlib` path had only ever run against fixtures.
+On real content, across packages, two properties held that only appear at this scale: a function
+reached through several references keeps **one identity** (`Math.SafeNormalize` arrives three ways and
+is emitted once — the one-shared-IR-decoder decision in § D paying off), and referencing a library
+**does not enlarge** the shader. Plus the stronger claim: a function read out of a `.rvnlib` lowers to
+**identical IR** to compiling its source alongside, without which a library is a source of divergence
 between a developer build and a shipped one.
+
+#### Four defects the library found
+
+Every one was a silent or asymmetric failure that a passing test suite had not reached, because
+nothing in the fixtures was shaped like real library code.
+
+| Found by | Defect |
+|---|---|
+| every file | **GLSL emitted `struct S { };` for a field-less struct**, which is a syntax error — and a field-less struct is exactly how Raven spells a namespace of free functions. Fixed by dropping the declaration; nothing can use the type as a value |
+| `Geometry/Skinning.rvn` | **A struct declared after its first user had no fields when that user's body lowered**, so a field write was `RVN3003` "no storage the target can address" — on ordinary source the binder resolves perfectly. Fixed by populating every struct's fields before any body lowers |
+| `Pipeline/GBuffer.rvn` | **An aggregate stage output emitted `out SomeStruct` in GLSL** while SPIR-V correctly reported `RVN4001`. One backend noticing and the other not is the shape worth removing; both now read one shared `StageInterface` predicate |
+| `Ui/RoundedRect.rvn` | **GLSL's "reserved for future use" words were not mangled** — a local called `half` is good Raven and produced GLSL `glslc` rejects outright. All 39 added |
+
+#### What the library could not express
+
+Each of these shaped a file rather than blocking it, and each is recorded in the table at the top.
+
+- **No sized array types**, so nothing can index a buffer. `Lighting.rvn` has the per-light maths but
+  not the clustered light loop — which is what "forward *plus*" names — and `Skinning.rvn` takes four
+  explicit bone matrices instead of a palette. Four influences is what glTF stores, so the limitation
+  costs less than it sounds, but the loop is host-side for now.
+- **No writable resources**, so `Vfx/ParticleSimulate.rvn` is the forces and the integrator rather
+  than the compute shader it should be. Written as free functions over a `Particle` value, which is
+  also the form that makes doc 06's CPU/GPU bit-for-bit comparison a transliteration.
+- **No multiple render targets** — an entry point returns one value. So `GBuffer.rvn` is the *encoding*
+  and not the geometry pass that fills it; `Deferred.rvn` reads through the same `Decode`, so when MRT
+  arrives there is one place for the two passes to agree.
+- **No `SampleLevel`**, so nothing can select a mip explicitly. `Ibl` computes the LOD a caller should
+  use and `Bloom` runs per mip instead, which works but means the prefilter contract is a comment
+  rather than a call.
+- **No `discard`**, so `DepthOnly` and `ShadowCaster` return zero and rely on the host's colour write
+  mask.
+- **No `GetDimensions`**, so `Msdf` hard-codes its atlas width where it should query it.
+- **A texture cannot be a struct field** (`RVN2053`, correctly — a descriptor is not a value), so
+  `GBuffer.Sample` takes three texture parameters rather than a bundle.
+- **No line continuation**, which shaped every signature in the tree: anything over one line becomes a
+  block body with named locals, and a long parameter list becomes a struct. `ShadingAngles`,
+  `SpotLight`, `ProbeBox`, `BackLight`, `ParallaxRay` and `BonePalette` all exist partly for that
+  reason — though each turned out to be better design anyway, since those values do travel together.
 
 #### ✅ `inout`, and `Material/MaterialSurface.rvn`
 

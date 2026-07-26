@@ -1,0 +1,49 @@
+package Vixen.Shaders.Shading
+
+import Vixen.Shaders.Core
+
+// The retroreflective rim on cloth: velvet, satin, brushed fabric.
+//
+// Fabric does not look like a rough dielectric. Its fibres stand away from the surface, so it is
+// brightest at grazing angles — the opposite of a microfacet lobe, which is brightest where the half
+// vector aligns with the normal. GGX cannot produce that shape at any roughness, which is why sheen
+// is a separate lobe rather than a parameter.
+
+struct Sheen {
+    /// Estrin's inverted Gaussian NDF, the one Disney and glTF's sheen extension use.
+    ///
+    /// "Inverted" is the point: where GGX peaks at `NdotH = 1`, this peaks at `NdotH = 0`, putting
+    /// the energy on the silhouette where fabric actually is bright.
+    static func Distribution(NdotH: float, sheenRoughness: float): float {
+        val alpha = max(Brdf.Alpha(sheenRoughness), Brdf.MinAlpha)
+        val invAlpha = 1f / alpha
+        val cos2 = NdotH * NdotH
+        val sin2 = max(1f - cos2, Const.Epsilon)
+        return (2f + invAlpha) * pow(sin2, invAlpha * 0.5f) / (2f * Const.Pi)
+    }
+
+    /// Ashikhmin's visibility term, which is what the sheen NDF is conventionally paired with.
+    ///
+    /// Not Smith: Smith is derived for a microfacet height field, and the inverted distribution is
+    /// not one. Pairing them produces a lobe that is neither energy-conserving nor the shape the
+    /// reference images show.
+    static func Visibility(NdotL: float, NdotV: float): float {
+        return 1f / max(4f * (NdotL + NdotV - NdotL * NdotV), Const.Epsilon)
+    }
+
+    /// The sheen lobe, tinted.
+    ///
+    /// `sheenColor` rather than a scalar because fabric sheen is usually a different hue from the
+    /// base — that is what makes shot silk look like shot silk.
+    static func Lobe(sheenColor: float3, a: ShadingAngles, sheenRoughness: float): float3 {
+        val d = Distribution(a.NdotH, sheenRoughness)
+        val v = Visibility(a.NdotL, a.NdotV)
+        return sheenColor * (d * v)
+    }
+
+    /// The energy the sheen lobe takes, so the base lobe can give it up.
+    ///
+    /// Without this the fabric is brighter at the rim than a white surface would be, which reads as
+    /// glowing rather than as sheen.
+    static func Attenuation(sheenColor: float3): float => 1f - Math.MaxComponent(sheenColor)
+}

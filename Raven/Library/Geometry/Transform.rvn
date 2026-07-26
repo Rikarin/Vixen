@@ -1,0 +1,83 @@
+package Vixen.Shaders.Geometry
+
+import Vixen.Shaders.Core
+
+// Object → world → view → clip, and the inverses a screen-space pass needs.
+//
+// `Math` has the primitive matrix applications; this file is about the *spaces* and the order they
+// compose in. Matrix-first throughout (docs/plan/07 § E), and every function names the space it
+// produces, because a transform applied in the wrong space compiles and renders something plausible.
+
+struct Transform {
+    /// Object space to clip space, in one multiply per stage.
+    static func ObjectToClip(worldViewProjection: mat4, position: float3): float4 {
+        return worldViewProjection * float4(position, 1f)
+    }
+
+    /// Object space to world space.
+    static func ObjectToWorld(world: mat4, position: float3): float3 => Math.TransformPoint(world, position)
+
+    /// World space to view space.
+    static func WorldToView(view: mat4, position: float3): float3 => Math.TransformPoint(view, position)
+
+    /// Clip space to normalised device coordinates, by perspective divide.
+    static func ClipToNdc(clip: float4): float3 => Math.ClipToNdc(clip)
+
+    /// Normalised device coordinates to a UV, with the origin top-left.
+    ///
+    /// The y flip is the whole content of this function, and it is the single most common source of
+    /// upside-down post-processing: Vulkan's NDC has y down, and the engine's UV convention is y down
+    /// too — but NDC is -1..1 and a UV is 0..1, so the mapping is `y * 0.5 + 0.5` with no negation.
+    /// Written once here so no pass has to decide.
+    static func NdcToUv(ndc: float3): float2 => float2(ndc.x, ndc.y) * 0.5f + 0.5f
+
+    /// A UV back to normalised device coordinates, the inverse of `NdcToUv`.
+    static func UvToNdc(uv: float2): float2 => uv * 2f - 1f
+
+    /// Reconstructs a view-space position from a depth buffer sample.
+    ///
+    /// The workhorse of every screen-space effect — SSAO, SSR, fog, decals all start here. Takes the
+    /// inverse projection rather than deriving it: a shader cannot invert a matrix cheaply, and the
+    /// host already has it.
+    static func UvDepthToView(inverseProjection: mat4, uv: float2, deviceDepth: float): float3 {
+        val ndc = UvToNdc(uv)
+        val clip = inverseProjection * float4(ndc.x, ndc.y, deviceDepth, 1f)
+        return clip.xyz / max(clip.w, Const.Epsilon)
+    }
+
+    /// Reconstructs a world-space position from a depth buffer sample.
+    static func UvDepthToWorld(inverseViewProjection: mat4, uv: float2, deviceDepth: float): float3 {
+        val ndc = UvToNdc(uv)
+        val clip = inverseViewProjection * float4(ndc.x, ndc.y, deviceDepth, 1f)
+        return clip.xyz / max(clip.w, Const.Epsilon)
+    }
+
+    /// Linear view-space depth from a device depth value, for a reverse-Z perspective projection.
+    ///
+    /// Reverse-Z is the engine's convention (§ E): near maps to 1 and far to 0, which is what gives a
+    /// float depth buffer its precision where precision matters. That inverts the usual formula, so
+    /// using the textbook one here produces depths that are wrong in a way that looks like a
+    /// near-plane problem.
+    static func LinearizeReverseZ(deviceDepth: float, near: float, far: float): float {
+        return near * far / max(near + deviceDepth * (far - near), Const.Epsilon)
+    }
+
+    /// The view-space ray through a pixel, for a perspective camera.
+    ///
+    /// Unnormalised on purpose: scaled by view-space depth it gives the position directly, which is
+    /// cheaper than the full inverse-projection multiply when a pass already has linear depth.
+    static func ViewRay(uv: float2, tanHalfFov: float2): float3 {
+        val ndc = UvToNdc(uv)
+        return float3(ndc.x * tanHalfFov.x, ndc.y * tanHalfFov.y, 1f)
+    }
+
+    /// The previous frame's UV for this pixel, for temporal reprojection.
+    ///
+    /// TAA, motion blur and temporal upscaling all need it. Takes a matrix that maps this frame's
+    /// world space to the previous frame's clip space, which the host composes — doing it as two
+    /// multiplies here would be the same arithmetic done per pixel instead of per frame.
+    static func Reproject(previousViewProjection: mat4, worldPosition: float3): float2 {
+        val clip = previousViewProjection * float4(worldPosition, 1f)
+        return NdcToUv(clip.xyz / max(clip.w, Const.Epsilon))
+    }
+}

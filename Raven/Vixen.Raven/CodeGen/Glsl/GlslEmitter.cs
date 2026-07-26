@@ -197,6 +197,8 @@ sealed class GlslEmitter {
         var location = StreamPlan.ParameterBase(shader);
 
         foreach (var input in entryPoint.Inputs) {
+            RequireCarryable(input, true);
+
             var name = Reserve("in_" + input.Name);
             inputNames.Add(name);
             writer.Line(
@@ -214,6 +216,8 @@ sealed class GlslEmitter {
         }
 
         if (entryPoint.Output is { } output) {
+            RequireCarryable(output, false);
+
             outputName = Reserve("out_" + output.Name);
             writer.Line(
                 $"layout(location = {StreamPlan.OutputBase(shader, entryPoint.Stage)}) out "
@@ -221,6 +225,27 @@ sealed class GlslEmitter {
                 + Comment(output.Semantic)
             );
             writer.Blank();
+        }
+    }
+
+    /// <summary>
+    ///     Refuses a stage input or output GLSL cannot declare.
+    /// </summary>
+    /// <remarks>
+    ///     Through <see cref="StageInterface" />, which the SPIR-V backend reads too. This check was
+    ///     missing here: an aggregate output emitted <c>out SomeStruct</c>, which GLSL has no such
+    ///     thing as, so <c>glslc</c> rejected the unit while SPIR-V had already reported
+    ///     <c>RVN4001</c> for the same shader. One backend noticing and the other not is the shape
+    ///     worth removing, not just the message.
+    /// </remarks>
+    void RequireCarryable(IrStageIo io, bool isInput) {
+        if (!StageInterface.CanCarry(io.Type)) {
+            diagnostics.Add(
+                BackendDiagnostics.NotExpressible,
+                Location.None,
+                StageInterface.Describe(io.Type, io.Name, isInput),
+                "GLSL"
+            );
         }
     }
 

@@ -1,0 +1,67 @@
+package Vixen.Shaders.Ui
+
+import Vixen.Shaders.Core
+
+// A separable Gaussian blur, for a UI backdrop.
+//
+// Separable is the point: a 2D Gaussian of radius r costs r² taps, and the same result as two 1D passes
+// costs 2r. The host runs this twice with `direction` set to (1,0) then (0,1). Nothing here checks that
+// it did — the shader cannot — so the two-pass contract is stated rather than enforced.
+//
+// Linear-filtering taps rather than one tap per texel: sampling *between* two texels gets both for one
+// fetch, so a 9-tap Gaussian costs 5 samples. The weights and offsets below are precomputed for that,
+// which is why they are not the binomial coefficients they would otherwise be.
+
+shader Blur {
+    /// Taps per side. 2 gives a 9-texel kernel for 5 samples, 3 gives 13 for 7.
+    [Permutation] val Taps: int = 2
+
+    var projection: mat4
+    var source: Texture2D
+    var sourceSampler: Sampler
+
+    /// One texel in UV units.
+    var texelSize: float2 = float2(0.001f, 0.001f)
+
+    /// (1,0) for the horizontal pass, (0,1) for the vertical one.
+    var direction: float2 = float2(1f, 0f)
+
+    /// Scales the kernel without changing the tap count, for a cheap stronger blur.
+    var radiusScale: float = 1f
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float2, texcoord: float2): float4 {
+        uv = texcoord
+        return projection * float4(position.x, position.y, 0f, 1f)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        val step = texelSize * direction * radiusScale
+
+        // The centre tap, weighted for a 9-texel Gaussian.
+        var total = source.Sample(sourceSampler, uv) * 0.2270270270f
+        total += Tap(step * 1.3846153846f, 0.3162162162f)
+        total += Tap(step * 3.2307692308f, 0.0702702703f)
+
+        if (Taps >= 3) {
+            // Two more sample pairs, and a renormalisation, because the 13-texel kernel's weights do
+            // not sum to 1 when only the first three terms are used.
+            total += Tap(step * 5.1764705882f, 0.0102941176f)
+            total = total / 1.0205882353f
+        }
+
+        return total
+    }
+
+    /// A symmetric pair of taps at the same offset either side of the centre.
+    func Tap(offset: float2, weight: float): float4 {
+        val forward = source.Sample(sourceSampler, uv + offset)
+        val backward = source.Sample(sourceSampler, uv - offset)
+        return (forward + backward) * weight
+    }
+}

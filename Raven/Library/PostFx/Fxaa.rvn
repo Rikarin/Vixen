@@ -1,0 +1,98 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+
+// FXAA: post-process antialiasing from luminance edges alone.
+//
+// The cheap fallback for when TAA is off — mobile, or a still image where temporal accumulation has
+// nothing to accumulate. It works entirely from the colour buffer: find a luminance discontinuity,
+// estimate the edge's direction, and blend along it.
+//
+// What it cannot do is recover detail, because there is none to recover: one sample per pixel is one
+// sample per pixel, and FXAA only redistributes it. That is why it softens texture as well as edges, and
+// why TAA is the default.
+//
+// This is the quality-3 variant: a luminance-range test, a subpixel-aliasing term, and an edge search.
+// The full FXAA 3.11 edge walk is longer and needs an unbounded loop; the fixed search below is bounded,
+// which matters more on a GPU than the last few percent of edge quality.
+
+shader Fxaa {
+    /// Whether to include the subpixel-aliasing term, which softens single-pixel features.
+    [Permutation] val Subpixel: bool = true
+
+    var source: Texture2D
+    var sourceSampler: Sampler
+    var texelSize: float2 = float2(0.001f, 0.001f)
+
+    /// Minimum local contrast to treat as an edge. Below it, the pixel is left alone.
+    var edgeThreshold: float = 0.125f
+
+    /// Absolute luminance floor, which stops FXAA chewing on dark noise.
+    var edgeThresholdMin: float = 0.0312f
+
+    /// How much subpixel softening to apply, 0..1.
+    var subpixelQuality: float = 0.75f
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(vertexIndex: float): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        val centre = source.Sample(sourceSampler, uv).rgb
+        val lumaCentre = Fullscreen.Luminance(centre)
+
+        val lumaUp = Luma(0f, -texelSize.y)
+        val lumaDown = Luma(0f, texelSize.y)
+        val lumaLeft = Luma(-texelSize.x, 0f)
+        val lumaRight = Luma(texelSize.x, 0f)
+
+        val lumaMin = min(lumaCentre, min(min(lumaUp, lumaDown), min(lumaLeft, lumaRight)))
+        val lumaMax = max(lumaCentre, max(max(lumaUp, lumaDown), max(lumaLeft, lumaRight)))
+        val range = lumaMax - lumaMin
+
+        // Not an edge: leave the pixel exactly as it was. Blending here is what makes a bad FXAA
+        // implementation blur the whole image.
+        if (range < max(edgeThresholdMin, lumaMax * edgeThreshold)) {
+            return float4(centre, 1f)
+        }
+
+        // Which way the edge runs, from the second derivative in each direction.
+        val horizontal = abs(lumaLeft + lumaRight - 2f * lumaCentre)
+        val vertical = abs(lumaUp + lumaDown - 2f * lumaCentre)
+        val isHorizontal = horizontal >= vertical
+
+        // Step toward the higher-contrast side, which is where the edge actually is.
+        val gradient1 = isHorizontal ? lumaLeft - lumaCentre : lumaUp - lumaCentre
+        val gradient2 = isHorizontal ? lumaRight - lumaCentre : lumaDown - lumaCentre
+
+        var step = isHorizontal ? -texelSize.x : -texelSize.y
+        if (abs(gradient2) >= abs(gradient1)) {
+            step = -step
+        }
+
+        var blend = 0.5f
+
+        if (Subpixel) {
+            // The subpixel term: how much this pixel differs from its neighbourhood average, which is
+            // high for a single-pixel feature that no edge blend can fix and that softening helps.
+            val average = (lumaUp + lumaDown + lumaLeft + lumaRight) * 0.25f
+            val subpixel = saturate(abs(average - lumaCentre) / max(range, Const.Epsilon))
+            blend = max(blend * subpixelQuality, subpixel * subpixelQuality)
+        }
+
+        val offset = isHorizontal ? float2(step, 0f) : float2(0f, step)
+        val blended = source.Sample(sourceSampler, uv + offset * blend).rgb
+        return float4(blended, 1f)
+    }
+
+    func Luma(offsetX: float, offsetY: float): float {
+        return Fullscreen.Luminance(source.Sample(sourceSampler, uv + float2(offsetX, offsetY)).rgb)
+    }
+}

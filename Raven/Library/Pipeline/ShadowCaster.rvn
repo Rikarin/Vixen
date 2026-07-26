@@ -1,0 +1,59 @@
+package Vixen.Shaders.Pipeline
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// Rendering into a shadow map.
+//
+// Almost `DepthOnly`, and deliberately not the same shader. Two differences make it its own pass:
+//
+//   - The matrix is the *light's* view-projection, not the camera's. Sharing a shader would mean one
+//     binding meaning different things in different passes, which is exactly the kind of thing that
+//     is invisible until shadows are subtly displaced.
+//   - It applies a depth bias in the vertex stage along the normal, which a camera pass must not.
+//
+// The bias belongs here rather than in the rasteriser state because a normal-offset bias needs the
+// vertex normal, which only a shader has. See `Lighting.NormalOffset` for the pixel-stage counterpart
+// and why both exist.
+
+shader ShadowCaster {
+    [Permutation] val AlphaTested: bool = false
+
+    /// The light's view-projection, not the camera's.
+    var lightViewProjection: mat4
+    var world: mat4
+
+    /// World-space distance to offset along the normal, usually one shadow-map texel.
+    var normalBias: float = 0.02f
+
+    var opacityMap: Texture2D
+    var opacitySampler: Sampler
+    var alphaCutoff: float = 0.5f
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float3, normal: float3, texcoord: float2): float4 {
+        uv = texcoord
+
+        val worldPosition = Math.TransformPoint(world, position)
+        val worldNormal = Math.TransformNormalRigid(world, normal)
+        val offset = worldPosition + worldNormal * normalBias
+
+        return lightViewProjection * float4(offset, 1f)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        if (AlphaTested) {
+            val opacity = opacityMap.Sample(opacitySampler, uv).a
+            if (opacity < alphaCutoff) {
+                return float4(0f, 0f, 0f, 0f)
+            }
+        }
+
+        return float4(1f, 1f, 1f, 1f)
+    }
+}

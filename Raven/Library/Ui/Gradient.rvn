@@ -1,0 +1,89 @@
+package Vixen.Shaders.Ui
+
+import Vixen.Shaders.Core
+
+// Linear, radial and angular gradients, evaluated analytically.
+//
+// Two stops rather than a stop array, because a gradient ramp with more stops is a 1D texture — which
+// is what the engine supplies for anything complicated, and which needs no shader variant. Sized array
+// types would allow an inline stop list; see docs/plan/07 § F.
+//
+// The interpolation happens in the working space the caller passes, and that choice is visible: a
+// gradient from red to green interpolated in sRGB goes through a muddy brown, and in linear space
+// through a brighter olive. `Perceptual` uses Oklab-style lightness weighting, which is what a design
+// tool means by "smooth".
+
+shader Gradient {
+    /// 0 linear, 1 radial, 2 angular.
+    [Permutation] val Kind: int = 0
+
+    /// Whether to interpolate with perceptual lightness weighting rather than linearly.
+    [Permutation] val Perceptual: bool = false
+
+    /// Whether to dither, which removes banding on a shallow gradient over a large area.
+    [Permutation] val Dithered: bool = true
+
+    var projection: mat4
+
+    var startColor: float4 = float4(0f, 0f, 0f, 1f)
+    var endColor: float4 = float4(1f, 1f, 1f, 1f)
+
+    /// For a linear gradient, the direction in element space. For radial, the centre.
+    var axis: float2 = float2(0f, 1f)
+
+    /// Radial only: the radius at which the gradient reaches `endColor`.
+    var radius: float = 0.5f
+
+    stream var local: float2
+    stream var positionPx: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float2, texcoord: float2): float4 {
+        local = texcoord
+        positionPx = position
+        return projection * float4(position.x, position.y, 0f, 1f)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        var t = Parameter()
+
+        if (Dithered) {
+            // A quarter-LSB of ordered noise, which is below perception and above the quantisation
+            // step — enough to break a band into stippling the eye integrates away.
+            t += (Random.Float01(Random.Hash2(uint(int(positionPx.x)), uint(int(positionPx.y)))) - 0.5f) / 255f
+        }
+
+        val clamped = saturate(t)
+        val color = Perceptual ? PerceptualMix(clamped) : lerp(startColor, endColor, clamped)
+        return UiCommon.Premultiply(color)
+    }
+
+    /// Where this pixel sits along the gradient, 0..1 before clamping.
+    func Parameter(): float {
+        if (Kind == 1) {
+            return length(local - axis) / max(radius, Const.Epsilon)
+        }
+
+        if (Kind == 2) {
+            val d = local - axis
+            return atan2(d.y, d.x) * Const.InvTwoPi + 0.5f
+        }
+
+        return dot(local, axis)
+    }
+
+    /// Interpolates with lightness weighted the way perception is, rather than linearly in RGB.
+    ///
+    /// Interpolating the cube roots approximates Oklab's lightness curve closely enough for a UI
+    /// gradient at a fraction of a full conversion — which matters because this runs per pixel over
+    /// a whole panel.
+    func PerceptualMix(t: float): float4 {
+        val a = pow(max(startColor.rgb, float3(0f)), float3(1f / 3f))
+        val b = pow(max(endColor.rgb, float3(0f)), float3(1f / 3f))
+        val mixed = lerp(a, b, t)
+        return float4(mixed * mixed * mixed, lerp(startColor.a, endColor.a, t))
+    }
+}

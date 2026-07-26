@@ -1,0 +1,52 @@
+package Vixen.Shaders.Shading
+
+import Vixen.Shaders.Core
+
+// Diffuse BRDFs. Each returns a full BRDF — the `1/pi` normalisation is included — so a caller
+// multiplies by `NdotL` and the light's radiance and nothing else.
+//
+// That is worth stating because "diffuse" is used loosely to mean both an albedo and a BRDF, and the
+// two differ by a factor of pi. A shader that forgets it is uniformly 3.14 times too bright, which
+// looks like an exposure problem and gets "fixed" somewhere else.
+
+struct DiffuseModels {
+    /// Lambert: constant in every direction.
+    ///
+    /// The default, and right for almost everything. The models below differ from it only at grazing
+    /// angles on rough dielectrics.
+    static func Lambert(albedo: float3): float3 => albedo * Const.InvPi
+
+    /// Burley's / Disney's diffuse, which adds retroreflection at grazing angles.
+    ///
+    /// What it buys over Lambert is the rim brightening on rough dielectrics — cloth, unfinished
+    /// wood, skin. Not strictly energy-conserving; the renormalised variants that are cost more than
+    /// the difference is worth here.
+    static func Burley(albedo: float3, NdotL: float, NdotV: float, LdotH: float, alpha: float): float3 {
+        val f90 = 0.5f + 2f * Brdf.ClampAlpha(alpha) * LdotH * LdotH
+        val scatterL = 1f + (f90 - 1f) * Math.Pow5(saturate(1f - NdotL))
+        val scatterV = 1f + (f90 - 1f) * Math.Pow5(saturate(1f - NdotV))
+        return albedo * Const.InvPi * scatterL * scatterV
+    }
+
+    /// Oren-Nayar, the qualitative form: rough diffuse that flattens toward the light.
+    ///
+    /// Models a surface of Lambertian microfacets rather than a smooth Lambertian plane, which is
+    /// what makes unglazed clay and the moon look right where Lambert makes them look like plastic.
+    static func OrenNayar(albedo: float3, NdotL: float, NdotV: float, LdotV: float, alpha: float): float3 {
+        val sigma2 = Math.Pow2(Brdf.ClampAlpha(alpha))
+        val a = 1f - 0.5f * sigma2 / (sigma2 + 0.33f)
+        val b = 0.45f * sigma2 / (sigma2 + 0.09f)
+        val s = LdotV - NdotL * NdotV
+        val t = s <= 0f ? 1f : max(NdotL, NdotV)
+        return albedo * Const.InvPi * (a + b * s / max(t, Const.Epsilon))
+    }
+
+    /// The energy a dielectric's specular lobe takes away from its diffuse.
+    ///
+    /// Conservation, done in the one place it is cheap: light reflected specularly cannot also be
+    /// diffusely scattered. Skipping it is why a naive PBR shader is brightest exactly where it
+    /// should be dimmest — at grazing angles, where Fresnel approaches 1.
+    static func EnergyRemaining(f0: float3, NdotV: float): float3 {
+        return float3(1f) - Brdf.FresnelSchlick(f0, NdotV)
+    }
+}
