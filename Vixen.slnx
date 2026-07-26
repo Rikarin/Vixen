@@ -41,6 +41,8 @@
   <Folder Name="/Core/">
     <Project Path="Core/Vixen.Core/Vixen.Core.csproj" />
     <Project Path="Core/Vixen.Core.Tests/Vixen.Core.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Mathematics/Vixen.Core.Mathematics.csproj" />
+    <Project Path="Core/Vixen.Core.Mathematics.Tests/Vixen.Core.Mathematics.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Syntax/Vixen.Core.Syntax.csproj" />
     <Project Path="Core/Vixen.Core.Syntax.Tests/Vixen.Core.Syntax.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Syntax.Generator/Vixen.Core.Syntax.Generator.csproj" />

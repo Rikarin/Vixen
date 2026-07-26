@@ -157,6 +157,15 @@ SIMD intrinsics and bloats generic instantiation on AOT. Both get free bidirecti
 `implicit operator` conversions so interop is invisible at call sites, and
 `System.Numerics.Vector128/256/512` is used *inside* our implementations.
 
+> **`readonly struct`, not `readonly record struct`** — corrected once the types were written. The
+> ADR's *other* requirement, public readonly **fields** so `ref` returns and `Unsafe.As` are legal and
+> free, takes away everything `record` would have given: a positional record declares properties, not
+> fields; with readonly fields and no positional parameters `with` has nothing to set; and `Equals`,
+> `GetHashCode`, `==` and `ToString` are all hand-written (IEEE equality, normalising hash), so every
+> synthesised member would be replaced. `record` was left contributing a keyword. Only the wording
+> changes — every property the ADR asked for is in the implementation, and the reasoning is repeated
+> in `Core/Vixen.Core.Mathematics/Conventions.md` where the next reader will be standing.
+
 **Convention (write it down once, never argue again):** right-handed, Y-up, **row-vector**
 convention with **row-major storage** (`M11..M44`, translation in `M41..M43`), matching Stride and
 HLSL's `mul(v, M)`. Depth range 0..1 with reverse-Z. Raven's generated code assumes this.

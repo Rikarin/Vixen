@@ -50,6 +50,12 @@
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <!--
+      Property-based testing (docs/plan/01 § Test, docs/plan/12 § "Property-based").
+      Pinned at the version current when Vixen.Core.Mathematics was written, which
+      is what "latest at bring-up" meant.
+    -->
+    <PackageVersion Include="CsCheck" Version="4.7.0" />
+    <!--
       NSubstitute and Shouldly are the specified assertion/mocking stack
       (docs/plan/12). Added here when the first test needs them; listing unused
       versions would make this file lie about what the repo depends on.
