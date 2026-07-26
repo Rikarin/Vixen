@@ -59,6 +59,18 @@
     <PackageVersion Include="ZstdSharp.Port" Version="0.8.8" />
   </ItemGroup>
 
+  <!-- ===== Platform (docs/plan/01 § dependency register, docs/plan/10) ===== -->
+  <ItemGroup Label="Platform">
+    <!--
+      Windowing, input, gamepads, clipboard, display enumeration and IME on the three
+      desktops, plus the native handles a Vulkan surface is created from. Chosen over
+      GLFW because SDL covers gamepads, haptics, IME and clipboard, and because it is
+      the one that also runs on mobile.
+    -->
+    <PackageVersion Include="Silk.NET.SDL" Version="2.23.0" />
+    <PackageVersion Include="Silk.NET.Core" Version="2.23.0" />
+  </ItemGroup>
+
   <!-- ===== Source generators / analyzers ===== -->
   <ItemGroup Label="Roslyn">
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />

@@ -130,7 +130,17 @@ plumbing that everything else stands on.
   desktop's frame loop; the clipboard refuses rather than faking; and `Suspend`/`Resume`/
   `ReportMemoryPressure` are driveable, which is where the lifecycle fault-injection loop
   [10](10-platforms.md) asks for actually runs.
-- `Vixen.Platform.Desktop` on SDL3; Windows/Linux/macOS specialisations.
+- ✅ `Vixen.Platform.Desktop` — Windows, Linux and macOS through one SDL implementation: windows,
+  surfaces (Win32/X11/Wayland/`CAMetalLayer`), displays, cursors, clipboard text, IME, gamepads with
+  rumble, drag-and-drop, message boxes, battery. 55 tests. **It is SDL 2, not SDL 3** — the
+  dependency register in [01](01-technology-decisions.md) said otherwise and was wrong, and is
+  corrected. **Owed, and visibly missing rather than approximated:** file pickers (SDL 2 has none),
+  clipboard images and custom formats, thread affinity, thermal state — all four belong to
+  `Vixen.Platform.Windows`/`.Linux`/`.MacOS`, which [02](02-repository-layout.md) already reserves.
+- `Vixen.Platform.Native` — RID→binary mapping and checksummed acquisition. Now load-bearing rather
+  than tidy: `Silk.NET.SDL` ships no native binary, so CI installs `libSDL2` from a package manager
+  and Windows has nothing to install it with.
+- Windows/Linux/macOS specialisations.
 - `Vixen.App` host (`VixenApp.Run<TGame>()`) and the build-variant matrix; `vixen-game`/`vixen-app`
   templates follow in Phase 3 with the CLI.
 - `Vixen.Graphics` RHI surface + `Vixen.Graphics.Null` + `RecordingBackend` test harness.

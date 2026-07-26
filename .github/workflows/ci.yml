@@ -46,6 +46,19 @@ jobs:
           key: nuget-${{ matrix.os }}-${{ hashFiles('**/Directory.Packages.props', 'global.json') }}
           restore-keys: nuget-${{ matrix.os }}-
 
+      # Silk.NET.SDL is bindings only — no native binary ships with the package — so the runner
+      # needs libSDL2 or every Vixen.Platform.Desktop test skips itself and the leg goes green
+      # having proved nothing. Windows runners have no package manager step here because the
+      # Silk.NET loader finds SDL2.dll next to the test binary; that is owed to
+      # Vixen.Platform.Native, and until it exists the Windows leg skips those tests.
+      - name: Install SDL2 (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
+
+      - name: Install SDL2 (macOS)
+        if: matrix.os == 'macos-14'
+        run: brew install sdl2
+
       - name: Test
         run: ./build.sh Test --configuration Release
         shell: bash
