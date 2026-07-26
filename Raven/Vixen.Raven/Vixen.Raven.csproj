@@ -31,22 +31,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Antlr4.CodeGenerator">
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-            <PrivateAssets>all</PrivateAssets>
-        </PackageReference>
-        <PackageReference Include="Antlr4.Runtime"/>
-    </ItemGroup>
-
-    <ItemGroup>
-        <!--
-          Pack="false": these are build inputs for ANTLR, not content for consumers.
-          Content items are packed into contentFiles by default, which would copy the
-          grammars into every project that references this package.
-        -->
-        <Content Include="Grammar\RavenLexer.g4" Pack="false" />
-        <Content Include="Grammar\RavenParser.g4" Pack="false" />
-        <Content Include="Grammar\UnicodeClasses.g4" Pack="false" />
         <AdditionalFiles Include="Syntax\Syntax.xml"/>
     </ItemGroup>
 

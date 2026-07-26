@@ -1,7 +1,28 @@
 # 18 — Raven Parser Migration: ANTLR → Roslyn-style hand-written
 
-**Status:** planned, not started. Language surface should settle first — see
-[§ When](#when-and-what-triggers-it).
+**Status: steps 1–6 are done.** The language surface settled early — the doc 07 § J pruning
+passes plus the token audit removed a third of the syntax — so the migration cost its cheapest.
+What landed:
+
+- **Step 1** — the corpus is frozen: `all_constructs.rvn` exercises every production, and the
+  *six* token-dropping nodes (the four below, plus `default(T)`'s keyword/parens and a `val`
+  type parameter's colon, which freezing flushed out) now carry their tokens and round-trip.
+- **Steps 2–3** — `SlidingTextWindow`, `LexedToken` and a `SyntaxParser` base live in
+  `Vixen.Core.Syntax/Parsing` (internal, like the green tree); `RavenLexer.cs` is pinned to the
+  ANTLR lexer by a token-stream differential over the corpus.
+- **Steps 4–5** — `RavenParser.cs` translates the grammar production by production and is pinned
+  byte-exact against the ANTLR front end by `ParserDifferentialTests`, including ambiguity probes
+  (`(a) + b` is a cast; `a < b` a comparison; `G<int>(y)` a generic invocation; `[Unroll]` on its
+  own line an attributed empty statement).
+- **Step 6** — `SyntaxTree.ParseText` runs the new front end; the `catch`-and-discard is gone —
+  an erroneous parse now yields a tree with zero-width missing tokens and skipped source carried
+  as trivia, reproducing the file byte-for-byte. The ANTLR packages left the shipping projects.
+- **§ Keep the grammar** — done as specified: the `.g4` files, generated parser and the old
+  translator live in `Vixen.Raven.Tests/Oracle/` as a permanent differential oracle.
+
+**Still open: step 7 (`Blender`, incremental reparse) and the rest of step 8** — the parser's
+messages already name what was expected where, but the recovery-quality bar ("what belongs under
+a squiggle") deserves its own pass alongside the editor work in [doc 11](11-editor.md).
 
 Raven's front end is an ANTLR grammar whose parse tree is translated into a Roslyn-shaped green/red
 tree. This document records why that arrangement should end, what replaces it, and how to do the

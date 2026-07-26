@@ -74,9 +74,10 @@ public class ParserDifferentialTests {
     }
 
     static void AssertSameTree(string text) {
-        // The established front end is the oracle.
-        var oracle = SyntaxTree.ParseText(text);
-        Assert.Empty(oracle.Diagnostics);
+        // The retired ANTLR front end is the oracle; the grammar files remain the
+        // executable specification of the syntax.
+        var (oracleRoot, oracleDiagnostics) = AntlrOracle.Parse(text);
+        Assert.Empty(oracleDiagnostics);
 
         var bag = new DiagnosticBag();
         var source = SourceText.From(text);
@@ -85,6 +86,6 @@ public class ParserDifferentialTests {
 
         Assert.True(bag.IsEmpty, "Hand-written parser diagnostics:\n" + string.Join("\n", bag.Select(d => d.ToString())));
         Assert.Equal(text, root.ToFullString());
-        Assert.Equal(SyntaxDumper.Dump(oracle.GetRoot()), SyntaxDumper.Dump(root));
+        Assert.Equal(SyntaxDumper.Dump(oracleRoot), SyntaxDumper.Dump(root));
     }
 }

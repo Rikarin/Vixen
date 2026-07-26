@@ -1,10 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Antlr4.Runtime;
 using System.Text;
-using Vixen.Raven.Diagnostics;
-using Vixen.Raven.Grammar;
+using Vixen.Raven.Parsing;
 using Vixen.Core.Syntax.Text;
 using Vixen.Core.Syntax;
 using Vixen.Core.Syntax.Diagnostics;
@@ -88,38 +86,12 @@ public sealed class SyntaxTree : ISyntaxTree {
             Text = sourceText
         };
 
-        // Antlr — replace the default console error listeners with one that
-        // collects diagnostics with real spans.
-        var listener = new RavenSyntaxErrorListener(bag, sourceText, filePath);
-        var stream = new AntlrInputStream(text);
-        var lexer = new RavenLexer(stream);
-        lexer.RemoveErrorListeners();
-        lexer.AddErrorListener(listener);
-
-        var tokenStream = new CommonTokenStream(lexer);
-        var parser = new RavenParser(tokenStream);
-        parser.RemoveErrorListeners();
-        parser.AddErrorListener(listener);
-
-        var tree = parser.compilation_unit();
-
-        // Ensure every token (including trailing hidden trivia before EOF) is
-        // buffered, then translate with trivia awareness.
-        tokenStream.Fill();
-        var visitor = new SyntaxAntlrVisitor(tokenStream);
-
-        try {
-            syntaxTree.root = tree.Accept(visitor);
-            if (syntaxTree.root != null) {
-                syntaxTree.root.SyntaxTree = syntaxTree;
-            }
-        } catch when (!bag.IsEmpty) {
-            // ANTLR error recovery can leave the tree with missing/synthetic tokens
-            // that the visitor cannot map. The syntax errors are already captured in
-            // the bag; surface those rather than the downstream NRE. Genuine visitor
-            // bugs on well-formed input (empty bag) still propagate.
-            syntaxTree.root = null;
-        }
+        // The hand-written front end (docs/plan/18). Recovery is explicit — missing
+        // tokens are zero-width, skipped source travels as trivia — so even an
+        // erroneous parse yields a tree that reproduces the file byte-for-byte.
+        var tokens = RavenLexer.Lex(text, bag, sourceText, filePath);
+        syntaxTree.root = RavenParser.Parse(tokens, bag, sourceText, filePath);
+        syntaxTree.root.SyntaxTree = syntaxTree;
 
         syntaxTree.diagnostics = bag.ToArray();
 

@@ -1172,9 +1172,24 @@ sealed class RavenParser : SyntaxParser {
     ParameterListSyntax ParseParameterList() {
         var open = Expect(RavenTokenKind.OpenParen, SyntaxKind.OpenParenToken);
 
+        // Recovery: something that can neither start a parameter nor close the list
+        // is skipped once, with one diagnostic pointing at it; the close paren is
+        // then fabricated silently rather than reported a second time.
+        var recovered = false;
+        while (!At(RavenTokenKind.CloseParen)
+               && !AtNewLine
+               && !AtEnd
+               && !At(RavenTokenKind.OpenBrace)
+               && !At(RavenTokenKind.Arrow)
+               && !At(RavenTokenKind.Identifier)
+               && !At(RavenTokenKind.OpenBracket)) {
+            SkipCurrent();
+            recovered = true;
+        }
+
         List<SyntaxNode?> parameters = [];
         List<SyntaxToken> commas = [];
-        if (!At(RavenTokenKind.CloseParen) && !AtEnd) {
+        if (At(RavenTokenKind.Identifier) || At(RavenTokenKind.OpenBracket)) {
             parameters.Add(ParseParameter());
             while (At(RavenTokenKind.Comma)) {
                 commas.Add(Take(SyntaxKind.CommaToken));
@@ -1182,7 +1197,17 @@ sealed class RavenParser : SyntaxParser {
             }
         }
 
-        var close = Expect(RavenTokenKind.CloseParen, SyntaxKind.CloseParenToken);
+        SyntaxToken close;
+        if (At(RavenTokenKind.CloseParen)) {
+            close = Take(SyntaxKind.CloseParenToken);
+        } else {
+            if (!recovered) {
+                ReportExpected("')'");
+            }
+
+            close = Missing(SyntaxKind.CloseParenToken);
+        }
+
         return (ParameterListSyntax)SyntaxFactory.ParameterList(
             open,
             Separated<ParameterSyntax>(parameters, commas),
