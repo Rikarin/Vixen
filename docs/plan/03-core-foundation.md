@@ -263,7 +263,7 @@ Tests: round-trip property tests over generated types, schema-evolution tests (v
 and vice versa with `[DataAlias]`), and a cross-platform determinism test asserting byte-identical
 output on Windows/Linux/macOS runners.
 
-> ✅ **Built (the format and the generator; the database is next).** `Core/Vixen.Core.Serialization/`,
+> ✅ **Built.** `Core/Vixen.Core.Serialization/`,
 > its generator, and 28 tests are live. What differs from the paragraphs above:
 >
 > - **The reader is span-only; there is no chunked stream writer.** That is the deliberate pair with
@@ -285,10 +285,16 @@ output on Windows/Linux/macOS runners.
 >   instance through a base serializer throws. Doing it properly needs a type-name table, and that is
 >   the same map `Vixen.Core.Reflection` has to build anyway.
 >
-> **Deferred:** `ObjectDatabase` with its file and bundle backends, LZ4/Zstd chunk compression, and
-> `ContentReference<T>`/`UrlReference<T>`. The first two now have everything they need — the VFS
-> exists and `System.IO.Hashing` is an approved dependency — so they are the next thing here rather
-> than a distant one; the third needs `Vixen.Assets` in Phase 3.
+> - **Chunk compression is outside the hashed region.** The id names the chunk — header plus payload
+>   — and the compression framing wraps it afterwards, so two builds that disagree about whether to
+>   LZ4 a mesh still agree about what it is called. Without that, changing a compression setting
+>   would invalidate every artefact in the project and every incremental update would ship
+>   everything. Compression that would grow a chunk is not used, which is what every already-
+>   compressed texture payload does.
+>
+> **Deferred:** `ContentReference<T>`/`UrlReference<T>`, which need `Vixen.Assets` in Phase 3; and the
+> catalog and bundle packing *policy* — which chunks go in which bundle — which is the content build's
+> job in [08](08-asset-pipeline-and-addressables.md). The bundle *format* is built and tested.
 
 ## `Vixen.Core.Reflection`
 

@@ -87,6 +87,45 @@ would drop everything the derived type adds, and the loss would only surface whe
 read back. Proper polymorphic serialisation needs a type table, which belongs with
 `Vixen.Core.Reflection`.
 
+## The object database
+
+`ObjectId` is the xxh128 of a chunk's content, and that one decision buys three things at once:
+**deduplication** — two materials with identical parameters are one chunk, without anybody comparing
+them; **integrity** — a chunk that does not hash to its own name is corrupt, and `Verify` says so;
+**delta detection** — an update knows what changed by comparing names, so a patch ships only the
+chunks whose content differs.
+
+```csharp
+var db = new ObjectDatabase(new FileOdbBackend(vfs, MountPoints.Database));
+var id = db.Write(material, references: [textureId]);
+var again = db.Read<Material>(id);
+```
+
+**Compression sits outside the hashed region, and that is the load-bearing detail.** The *chunk* —
+header plus payload — is what gets hashed. The *blob* — a compression byte, the uncompressed length,
+and the possibly-compressed chunk — is what a backend stores. So two builds that disagree about
+whether to LZ4 a mesh still produce the same id for it: an incremental update sees no change, a
+bundle built with different settings still deduplicates against the loose files, and the determinism
+gate compares content instead of comparing settings.
+
+Compression that would make a chunk bigger is not used, which is not hypothetical — it is what every
+already-compressed BCn or Ogg payload does. Chunks under 256 bytes are stored raw, because
+compressing them spends a frame header to save a handful and costs a decode on every load forever.
+
+**Two backends.** `FileOdbBackend` puts one file per chunk under `<root>/ab/cdef…` — git's layout,
+for git's reason: a project accumulates hundreds of thousands of artefacts and a single directory
+holding all of them is slow everywhere and unusable somewhere. `BundleOdbBackend` reads a `.bundle`:
+a header, an index sorted by id, and one payload region, so a lookup is a binary search with no
+allocation and no dictionary built at load time. Backed by a memory-mapped file, a read is a slice of
+the map.
+
+A database searches its backends in order and only the first takes writes — loose files first, then
+the last content build's bundles, so a rebuilt artefact shadows the packed one without either knowing.
+
+The chunk header carries its references, so loading is read-header → resolve → recurse → deserialise
+without deserialising anything to find out what to load. `Closure` is that walk, and the bundle packer
+needs the same answer for a completely different reason.
+
 ## Still to come
 
 **Polymorphism.** A field typed as a base class holding a derived instance needs a type-name table in
@@ -97,10 +136,9 @@ building the wrong one. Until then the case is detected and refused.
 **`ContentReference<T>` / `UrlReference<T>`,** which serialise as a URL plus a type and resolve
 through `Vixen.Assets` — a Phase 3 assembly.
 
-**The object database and compression.** `ObjectDatabase`, `FileOdbBackend`, `BundleOdbBackend`, and
-the LZ4/Zstd chunk compression from [doc 03](../../docs/plan/03-core-foundation.md). Hashing content
-into an `ObjectId` needs `System.IO.Hashing`, and the file backend needs the VFS — both of which now
-exist, so this is the next thing here rather than a distant one.
+**The catalog and the bundle packer.** Which chunks go in which bundle, and the address → id map
+that turns `"UI/MainMenu"` into something loadable, are content-build policy — [doc 08](../../docs/plan/08-asset-pipeline-and-addressables.md),
+Phase 3. The format they will produce is here and tested; the policy is not.
 
 **Generic contracts.** A generic `[DataContract]` needs one serializer per instantiation, which the
 registry cannot express without either open-generic construction (reflection, AOT-hostile) or the

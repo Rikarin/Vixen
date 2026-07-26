@@ -23,6 +23,17 @@ Components currently in use:
   xunit
     Apache-2.0 — https://github.com/xunit/xunit
 
+  System.IO.Hashing
+    MIT — https://github.com/dotnet/runtime
+
+  ZstdSharp.Port
+    MIT — https://github.com/oleg-st/ZstdSharp
+
+  K4os.Compression.LZ4
+    MIT — https://github.com/MiloszKrajewski/K4os.Compression.LZ4
+    Recorded explicitly per ADR-015: the package declares its licence in a file
+    rather than as an SPDX expression, so it is not picked up automatically.
+
 --------------------------------------------------------------------------------
 Reference material — read, not incorporated
 --------------------------------------------------------------------------------

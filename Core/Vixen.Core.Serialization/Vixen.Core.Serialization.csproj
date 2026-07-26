@@ -17,7 +17,14 @@
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="K4os.Compression.LZ4" />
+        <PackageReference Include="ZstdSharp.Port" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.IO\Vixen.Core.IO.csproj" />
     </ItemGroup>
 
     <ItemGroup>
