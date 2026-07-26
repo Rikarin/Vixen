@@ -27,6 +27,9 @@ public sealed class SourceParameterSymbol : ParameterSymbol {
 
     public override string? SemanticName => DeclarationFacts.GetSemanticName(syntax.AttributeLists);
 
+    public override RefKind RefKind =>
+        DeclarationFacts.Has(syntax.Modifiers, SyntaxKind.InOutKeyword) ? RefKind.InOut : RefKind.None;
+
     internal SourceParameterSymbol(Symbol container, ParameterSyntax syntax, int ordinal, Binder binder) {
         ContainingSymbol = container;
         this.syntax = syntax;

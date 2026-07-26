@@ -42,7 +42,14 @@ public static class CompiledLibraryFormat {
     ///     Format version. Bump on any change a previous reader would misread; the reader rejects
     ///     anything it does not know rather than guessing.
     /// </summary>
-    public const int Version = 1;
+    /// <remarks>
+    ///     2 added parameter direction (<c>inout</c>): a method's parameters carry a
+    ///     <c>RefKind</c> and a call's arguments became objects rather than bare value ids. A
+    ///     version-1 reader would have taken every argument for a by-value one, and a version-1
+    ///     artefact read by this version fails to deserialize — so the bump turns a confusing JSON
+    ///     error into "this library was built by a different compiler".
+    /// </remarks>
+    public const int Version = 2;
 
     /// <summary>The conventional extension, so callers do not spell it themselves.</summary>
     public const string Extension = ".rvnlib";

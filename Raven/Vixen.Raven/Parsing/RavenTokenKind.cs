@@ -68,6 +68,7 @@ public enum RavenTokenKind {
     ReadOnlyKeyword,
     StaticKeyword,
     StreamKeyword,
+    InOutKeyword,
 
     // Predefined type keywords
     BoolKeyword,

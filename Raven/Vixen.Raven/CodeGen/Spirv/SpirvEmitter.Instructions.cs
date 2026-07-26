@@ -262,7 +262,7 @@ partial class SpirvEmitter {
                     types.Type(call.Function.ReturnType),
                     [
                         SpirvOperand.Id(functions[call.Function]),
-                        .. call.Arguments.Select(a => SpirvOperand.Id(Value(a)))
+                        .. call.Arguments.Select(Argument)
                     ]
                 );
 
@@ -703,6 +703,29 @@ partial class SpirvEmitter {
             SpirvOperand.Literal(0x2),
             SpirvOperand.Id(level)
         );
+    }
+
+    /// <summary>
+    ///     One operand of an <c>OpFunctionCall</c>: a value, or the pointer a by-reference argument
+    ///     hands over.
+    /// </summary>
+    /// <remarks>
+    ///     The pointer comes straight out of <see cref="pointers" />, which is the temp's own
+    ///     <c>OpVariable</c> — a memory object declaration in function storage, which is the only
+    ///     thing SPIR-V accepts here. The lowerer guarantees the argument is a whole local, so there
+    ///     is no access chain to reach through and nothing to fall back on.
+    /// </remarks>
+    SpirvOperand Argument(IrArgument argument) {
+        if (!argument.IsByReference) {
+            return SpirvOperand.Id(Value(argument.Value!));
+        }
+
+        if (pointers.TryGetValue(argument.Reference!, out var pointer)) {
+            return SpirvOperand.Id(pointer);
+        }
+
+        Report(BackendDiagnostics.NotImplemented, $"Passing '{argument.Reference!.Name}' by reference");
+        return SpirvOperand.Id(types.ConstantInt(0));
     }
 
     // --- Places ------------------------------------------------------------

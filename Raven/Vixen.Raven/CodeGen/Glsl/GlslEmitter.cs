@@ -71,6 +71,12 @@ sealed class GlslEmitter {
     string? outputName;
     bool samplerlessFetch;
 
+    /// <summary>
+    ///     The function being emitted, for naming a by-reference argument's variable — a name is
+    ///     only unique within one function, so the lookup needs to know which.
+    /// </summary>
+    IrFunction? currentFunction;
+
     internal GlslEmitter(
         IrModule module,
         IrShader shader,
@@ -93,6 +99,15 @@ sealed class GlslEmitter {
         }
 
         foreach (var structType in module.Structs) {
+            // GLSL has no empty struct — `struct S { };` is a syntax error — and a field-less
+            // struct is exactly how Raven spells a namespace of free functions, which is what every
+            // file in `Raven/Library` is. Nothing can reference the type as a value, since it has no
+            // members to reach and nothing constructs one, so dropping the declaration loses
+            // nothing. SPIR-V is unaffected: it emits a type only where one is used.
+            if (structType.Fields.Count == 0) {
+                continue;
+            }
+
             writer.Line($"struct {GlslTypes.Identifier(structType.Name)} {{");
             writer.Indent();
 
@@ -314,15 +329,22 @@ sealed class GlslEmitter {
 
     string Signature(IrFunction function) {
         var parameters = function.Parameters
-            .Select(p => Declare(p.Type, LocalName(function, p), p.Name))
+            .Select(p => Direction(p) + Declare(p.Type, LocalName(function, p), p.Name))
             .ToArray();
 
         var returnType = GlslTypes.Name(function.ReturnType) ?? Unsupported(function.ReturnType, function.Name);
         return $"{returnType} {functionNames[function]}({string.Join(", ", parameters)})";
     }
 
+    /// <summary>
+    ///     The direction qualifier for a parameter. GLSL has <c>inout</c> natively, and its meaning
+    ///     — copy-in/copy-out — is the same as the IR's, so this is a transcription.
+    /// </summary>
+    static string Direction(IrVariable parameter) => parameter.IsByReference ? "inout " : string.Empty;
+
     void EmitFunction(IrFunction function) {
         values.Clear();
+        currentFunction = function;
 
         writer.Line(Signature(function) + " {");
         writer.Indent();
@@ -489,7 +511,7 @@ sealed class GlslEmitter {
                 return;
 
             case IrCallInstruction { Result: null } call:
-                writer.Line($"{functionNames[call.Function]}({Arguments(call.Arguments)});");
+                writer.Line($"{functionNames[call.Function]}({CallArguments(call.Arguments)});");
                 return;
         }
 
@@ -549,7 +571,7 @@ sealed class GlslEmitter {
             }
 
             case IrCallInstruction call:
-                return $"{functionNames[call.Function]}({Arguments(call.Arguments)})";
+                return $"{functionNames[call.Function]}({CallArguments(call.Arguments)})";
 
             case IrConstructInstruction construct:
                 return $"{TypeName(construct.Result.Type)}({Arguments(construct.Arguments)})";
@@ -623,6 +645,26 @@ sealed class GlslEmitter {
         };
 
     string Arguments(IReadOnlyList<IrValue> arguments) => string.Join(", ", arguments.Select(Value));
+
+    /// <summary>
+    ///     Renders a call's arguments. A by-reference one names its variable, which is what GLSL's
+    ///     own <c>inout</c> needs — an l-value, not a value.
+    /// </summary>
+    /// <remarks>
+    ///     GLSL specifies <c>inout</c> as copy-in/copy-out, the same as the IR, so naming the temp
+    ///     the lowerer already made is exact rather than approximate. GLSL then copies it a second
+    ///     time into the parameter, which is redundant and free — and it is the price of the IR
+    ///     carrying a shape SPIR-V can also express.
+    /// </remarks>
+    string CallArguments(IReadOnlyList<IrArgument> arguments) =>
+        string.Join(
+            ", ",
+            arguments.Select(argument =>
+                argument.IsByReference
+                    ? LocalName(currentFunction!, argument.Reference!)
+                    : Value(argument.Value!)
+            )
+        );
 
     // --- Places, values and names ------------------------------------------
 

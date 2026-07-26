@@ -115,7 +115,8 @@ internal sealed class LibraryIrEncoder {
         };
     }
 
-    LibraryIrVariable EncodeVariable(IrVariable variable) => new(variable.Name, EncodeType(variable.Type));
+    LibraryIrVariable EncodeVariable(IrVariable variable) =>
+        new(variable.Name, EncodeType(variable.Type), variable.IsByReference);
 
     /// <summary>
     ///     Records the type of every value the body mentions, whether it defines it or reads it.
@@ -207,7 +208,7 @@ internal sealed class LibraryIrEncoder {
             IrCallInstruction call => new LibraryIrCall(
                 call.Result?.Id,
                 functionName(call.Function),
-                [.. call.Arguments.Select(a => a.Id)]
+                [.. call.Arguments.Select(a => EncodeArgument(a, roots))]
             ),
             IrConstructInstruction construct => new LibraryIrConstruct(
                 construct.Result.Id,
@@ -243,6 +244,26 @@ internal sealed class LibraryIrEncoder {
                 $"Cannot export IR statement '{statement.GetType().Name}': the library encoder has no case for it."
             )
         };
+
+    /// <summary>
+    ///     Encodes one call argument: a value id, or the root index of the storage handed over.
+    /// </summary>
+    static LibraryIrArgument EncodeArgument(IrArgument argument, Dictionary<IrVariable, int> roots) {
+        if (argument.Value is { } value) {
+            return new(value.Id, null);
+        }
+
+        if (!roots.TryGetValue(argument.Reference!, out var root)) {
+            // The lowerer only ever passes a function-scoped temp, so a reference that is not a
+            // root of this function means the IR was built wrongly rather than exported wrongly.
+            throw new InvalidOperationException(
+                $"Cannot export a by-reference argument naming '{argument.Reference!.Name}': "
+                + "it is not a parameter or local of the function."
+            );
+        }
+
+        return new(null, root);
+    }
 
     static LibraryIrPlace EncodePlace(IrPlace place, Dictionary<IrVariable, int> roots) {
         if (!roots.TryGetValue(place.Root, out var root)) {
@@ -421,7 +442,7 @@ internal sealed class LibraryIrDecoder {
 
         List<IrVariable> roots = [];
         foreach (var parameter in source.Parameters) {
-            roots.Add(function.AddParameter(parameter.Name, DecodeType(parameter.Type)));
+            roots.Add(function.AddParameter(parameter.Name, DecodeType(parameter.Type), parameter.ByReference));
         }
 
         foreach (var local in source.Locals) {
@@ -530,9 +551,14 @@ internal sealed class LibraryIrDecoder {
                 ? new IrCallInstruction(
                     call.Result is { } result ? Value(result) : null,
                     callee,
-                    [.. call.Arguments.Select(Value)]
+                    [.. call.Arguments.Select(Argument)]
                 )
                 : null;
+
+        IrArgument Argument(LibraryIrArgument argument) =>
+            argument.Reference is { } root
+                ? IrArgument.ByReference(roots[root])
+                : IrArgument.Of(Value(argument.Value!.Value));
 
         IrPlace Place(LibraryIrPlace place) => new(roots[place.Root], [.. place.Chain.Select(Access)]);
 

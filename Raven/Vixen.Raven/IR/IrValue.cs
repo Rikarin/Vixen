@@ -29,15 +29,34 @@ public enum IrVariableKind {
 ///     than being promoted to SSA registers — the backends want declarations they
 ///     can name, and a later mem2reg pass can promote them if a target prefers it.
 /// </summary>
-public sealed class IrVariable(string name, IrType type, IrVariableKind kind) {
+public sealed class IrVariable(string name, IrType type, IrVariableKind kind, bool byReference = false) {
     public string Name { get; } = name;
     public IrType Type { get; } = type;
     public IrVariableKind Kind { get; } = kind;
 
+    /// <summary>
+    ///     True for a parameter the caller passes by reference, from <c>inout</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="Type" /> stays the referent's type rather than becoming a pointer type: the
+    ///         IR has no pointer types, and giving it one for this would change what every existing
+    ///         load and store of a parameter means. The flag says how the storage is reached; the
+    ///         type says what is in it.
+    ///     </para>
+    ///     <para>
+    ///         Only ever set on a <see cref="IrVariableKind.Parameter" />. A local is already its own
+    ///         storage and a global is reached by name, so neither has a caller to be reached
+    ///         through.
+    ///     </para>
+    /// </remarks>
+    public bool IsByReference { get; } = byReference;
+
     string Prefix =>
         Kind switch {
             IrVariableKind.Global => "@",
-            IrVariableKind.Parameter => "$",
+            // `&` so an IR dump shows at a glance which parameters the caller sees writes through.
+            IrVariableKind.Parameter => IsByReference ? "&" : "$",
             _ => "!"
         };
 

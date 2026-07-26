@@ -47,7 +47,11 @@ parameter_list
     ;
 
 parameter
-    : attribute_list* identifier_token (':' type)? equals_value_clause?
+    : attribute_list* parameter_modifier* identifier_token (':' type)? equals_value_clause?
+    ;
+
+parameter_modifier
+    : INOUT
     ;
 
 

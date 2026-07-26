@@ -115,6 +115,7 @@ public sealed class MetadataParameterSymbol : ParameterSymbol {
     public override bool HasDefaultValue => model.HasDefaultValue;
     public override object? DefaultValue => model.DefaultValue?.ToObject();
     public override string? SemanticName => model.SemanticName;
+    public override RefKind RefKind => model.RefKind;
 
     // Through the method, so a parameter typed by the method's own `T` resolves against it.
     public override TypeSymbol Type => type ??= declaringType.Resolve(model.Type, method);

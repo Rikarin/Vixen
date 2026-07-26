@@ -37,8 +37,8 @@ public sealed class IrFunction(string name, IrType returnType) {
     /// </summary>
     internal void ReserveValues(int count) => ValueCount = Math.Max(ValueCount, count);
 
-    internal IrVariable AddParameter(string name, IrType type) {
-        var variable = new IrVariable(name, type, IrVariableKind.Parameter);
+    internal IrVariable AddParameter(string name, IrType type, bool byReference = false) {
+        var variable = new IrVariable(name, type, IrVariableKind.Parameter, byReference);
         parameters.Add(variable);
         return variable;
     }

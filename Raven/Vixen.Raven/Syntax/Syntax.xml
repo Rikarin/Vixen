@@ -683,6 +683,15 @@
                 <summary>Gets the attribute declaration list.</summary>
             </PropertyComment>
         </Field>
+        <Field Name="Modifiers" Type="SyntaxList&lt;SyntaxToken&gt;">
+            <PropertyComment>
+                <summary>
+                    Gets the parameter's modifiers — <c>inout</c>, which passes the argument by
+                    reference. A list rather than one optional token so that a second direction
+                    does not need another change to the node's shape.
+                </summary>
+            </PropertyComment>
+        </Field>
         <Field Name="Identifier" Type="SyntaxToken">
             <PropertyComment>
                 <summary>Gets the identifier.</summary>

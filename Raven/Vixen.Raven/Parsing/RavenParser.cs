@@ -1283,15 +1283,14 @@ sealed class RavenParser : SyntaxParser {
                && !AtEnd
                && !At(RavenTokenKind.OpenBrace)
                && !At(RavenTokenKind.Arrow)
-               && !At(RavenTokenKind.Identifier)
-               && !At(RavenTokenKind.OpenBracket)) {
+               && !AtParameterStart) {
             SkipCurrent();
             recovered = true;
         }
 
         List<SyntaxNode?> parameters = [];
         List<SyntaxToken> commas = [];
-        if (At(RavenTokenKind.Identifier) || At(RavenTokenKind.OpenBracket)) {
+        if (AtParameterStart) {
             parameters.Add(ParseParameter());
             while (At(RavenTokenKind.Comma)) {
                 commas.Add(Take(SyntaxKind.CommaToken));
@@ -1317,8 +1316,40 @@ sealed class RavenParser : SyntaxParser {
         );
     }
 
+    /// <summary>
+    ///     Direction modifiers a parameter may carry, after its attributes and before its name.
+    /// </summary>
+    /// <remarks>
+    ///     Separate from <see cref="ModifierKinds" /> — a member's modifiers and a parameter's are
+    ///     disjoint sets, and sharing the table would let `static` onto a parameter and `inout` onto
+    ///     a field, both of which the parser would then have to un-accept later.
+    /// </remarks>
+    static readonly Dictionary<RavenTokenKind, SyntaxKind> ParameterModifierKinds = new() {
+        [RavenTokenKind.InOutKeyword] = SyntaxKind.InOutKeyword
+    };
+
+    /// <summary>
+    ///     Whether the current token could begin a parameter: its name, its attributes, or a
+    ///     direction modifier.
+    /// </summary>
+    /// <remarks>
+    ///     One predicate because the recovery loop and the entry test have to agree — they were two
+    ///     copies of the same list, and adding <c>inout</c> to only one of them made a parameter list
+    ///     that recovered past the modifier and then reported the name it had skipped to.
+    /// </remarks>
+    bool AtParameterStart =>
+        At(RavenTokenKind.Identifier)
+        || At(RavenTokenKind.OpenBracket)
+        || ParameterModifierKinds.ContainsKey(Kind);
+
     ParameterSyntax ParseParameter() {
         var attributes = ParseInlineAttributeLists();
+
+        List<SyntaxNode?> modifiers = [];
+        while (ParameterModifierKinds.TryGetValue(Kind, out var treeKind)) {
+            modifiers.Add(Take(treeKind));
+        }
+
         var identifier = ExpectIdentifier();
 
         SyntaxToken? colon = null;
@@ -1329,7 +1360,15 @@ sealed class RavenParser : SyntaxParser {
         }
 
         var @default = At(RavenTokenKind.Equals) ? ParseEqualsValueClause() : null;
-        return (ParameterSyntax)SyntaxFactory.Parameter(attributes, identifier, colon, type, @default);
+
+        return (ParameterSyntax)SyntaxFactory.Parameter(
+            attributes,
+            new(SyntaxList.List(modifiers.ToArray())),
+            identifier,
+            colon,
+            type,
+            @default
+        );
     }
 
     // ================================================================== Statements

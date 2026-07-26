@@ -326,7 +326,17 @@ sealed partial class SpirvEmitter {
         loops.Clear();
 
         var returnType = types.Type(function.ReturnType);
-        var parameterTypes = function.Parameters.Select(p => types.Type(p.Type)).ToArray();
+
+        // A by-reference parameter takes a pointer into function storage. Function storage rather
+        // than a choice: the caller always passes a function-scoped temp, because SPIR-V requires a
+        // pointer argument to be a memory object declaration and requires the storage classes to
+        // match — so no other class could ever appear here.
+        var parameterTypes = function.Parameters
+            .Select(p => p.IsByReference
+                ? types.Pointer(SpirvStorageClass.Function, types.Type(p.Type))
+                : types.Type(p.Type))
+            .ToArray();
+
         var id = functions[function];
 
         module.AddName(id, function.Name);
@@ -361,6 +371,14 @@ sealed partial class SpirvEmitter {
             // parameter keeps its value and reads of it resolve to that directly.
             if (parameter.Type is IrTextureType or IrSamplerType) {
                 opaqueParameters[parameter] = parameterIds[i];
+                continue;
+            }
+
+            // A by-reference parameter *is* a pointer, so it needs no local of its own: registering
+            // it here makes every load, store and access chain on it resolve through the caller's
+            // storage, which is exactly what copy-out has to observe.
+            if (parameter.IsByReference) {
+                pointers[parameter] = parameterIds[i];
                 continue;
             }
 

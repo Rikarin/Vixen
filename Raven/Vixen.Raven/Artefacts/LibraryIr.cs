@@ -40,7 +40,12 @@ public sealed record LibraryIrStruct {
 public sealed record LibraryIrField(string Name, LibraryIrTypeReference Type);
 
 /// <summary>A named, addressable storage slot: a parameter or a local.</summary>
-public sealed record LibraryIrVariable(string Name, LibraryIrTypeReference Type);
+/// <param name="ByReference">
+///     True for a parameter the caller passes by reference. Part of the lowered signature rather
+///     than derivable from the symbol side, because the IR is linked into a consumer on its own —
+///     and a consumer that got this wrong would pass a value where a pointer belongs.
+/// </param>
+public sealed record LibraryIrVariable(string Name, LibraryIrTypeReference Type, bool ByReference = false);
 
 /// <summary>
 ///     A lowered function: a signature, its storage, its SSA value table and a structured body.
@@ -156,8 +161,20 @@ public sealed record LibraryIrConvert(int Result, IrConversionKind ConversionKin
 public sealed record LibraryIrIntrinsic(int? Result, IrIntrinsic Intrinsic, ImmutableArray<int> Arguments)
     : LibraryIrStatement;
 
+/// <summary>
+///     One argument of a call: a value id, or the index of a root passed by reference.
+/// </summary>
+/// <param name="Value">The value's id, when passed by value.</param>
+/// <param name="Reference">
+///     The root's index — parameters then locals, the same numbering
+///     <see cref="LibraryIrPlace.Root" /> uses — when passed by reference. A root index rather than
+///     a value id because there is no value: what crosses is the storage.
+/// </param>
+public sealed record LibraryIrArgument(int? Value, int? Reference);
+
 /// <summary>A call, naming its callee. The name is resolved once every function exists.</summary>
-public sealed record LibraryIrCall(int? Result, string Function, ImmutableArray<int> Arguments) : LibraryIrStatement;
+public sealed record LibraryIrCall(int? Result, string Function, ImmutableArray<LibraryIrArgument> Arguments)
+    : LibraryIrStatement;
 
 public sealed record LibraryIrConstruct(int Result, ImmutableArray<int> Arguments) : LibraryIrStatement;
 

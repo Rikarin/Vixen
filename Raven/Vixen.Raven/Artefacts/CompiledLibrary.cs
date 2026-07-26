@@ -171,6 +171,13 @@ public sealed record LibraryParameter {
     public bool HasDefaultValue { get; init; }
     public LibraryValue? DefaultValue { get; init; }
     public string? SemanticName { get; init; }
+
+    /// <summary>
+    ///     How the parameter passes its argument. Part of the exported signature rather than an
+    ///     implementation detail: a consumer binding against this library has to know that the
+    ///     argument must be an assignable place, and the IR it links has a by-reference parameter.
+    /// </summary>
+    public RefKind RefKind { get; init; }
 }
 
 /// <summary>A <c>var</c> member with accessors.</summary>

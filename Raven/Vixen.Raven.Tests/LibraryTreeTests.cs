@@ -40,7 +40,21 @@ public class LibraryTreeTests {
     ///     but deliberately does not lower — so folding them in here would mean weakening what this
     ///     asserts about the library proper.
     /// </remarks>
-    static readonly string[] Packages = ["Core", "Shading"];
+    static readonly string[] Packages = ["Core", "Shading", "Material"];
+
+    /// <summary>
+    ///     The packages that ship as <c>.rvnlib</c> references.
+    /// </summary>
+    /// <remarks>
+    ///     Not the whole tree, and the split is structural rather than a policy choice.
+    ///     <c>Core</c> and <c>Shading</c> are field-less structs of static functions, so nothing in
+    ///     them touches a binding and everything exports. <c>Material</c> is <em>shaders</em> — a
+    ///     feature has material parameters, which are bindings — and <c>RVN5001</c> correctly refuses
+    ///     to export a function that reads one, because a binding belongs to the shader that declares
+    ///     it. A material feature is consumed by being compiled alongside its consumer and resolved
+    ///     through a <c>compose</c> slot, which is what makes the binding the consumer's.
+    /// </remarks>
+    static readonly string[] ExportedPackages = ["Core", "Shading"];
 
     public static TheoryData<string> LibraryFiles() {
         var data = new TheoryData<string>();
@@ -91,20 +105,18 @@ public class LibraryTreeTests {
     }
 
     /// <summary>
-    ///     Every library file compiles to a <c>.rvnlib</c>, which is what § F ships.
+    ///     Every free-function package compiles to a <c>.rvnlib</c>, which is what § F ships.
     /// </summary>
     /// <remarks>
-    ///     A library file holds only field-less structs of static functions, so nothing in it reads a
-    ///     shader binding and everything is exportable. That is not incidental: RVN5001 refuses to
-    ///     export a function that touches a binding, because a binding belongs to the shader that
-    ///     declares it — so "the library exports cleanly" and "the library is written as free
-    ///     functions" are the same statement.
+    ///     See <see cref="ExportedPackages" /> for why this is not the whole tree. "The package
+    ///     exports cleanly" and "the package is written as free functions" are the same statement,
+    ///     which is why the split is worth naming rather than working around.
     /// </remarks>
     [Fact]
-    public void EveryLibraryFileExportsToARvnlib() {
-        foreach (var file in Files()) {
+    public void EveryExportedLibraryFileExportsToARvnlib() {
+        foreach (var file in ExportedFiles()) {
             var diagnostics = new DiagnosticBag();
-            var library = BuildLibrary(file, diagnostics);
+            var library = BuildLibrary(Path.GetFileNameWithoutExtension(file), diagnostics);
 
             var errors = diagnostics.ToArray().Where(d => d.IsError).ToArray();
             Assert.True(
@@ -208,13 +220,106 @@ public class LibraryTreeTests {
         }
     }
 
+    /// <summary>
+    ///     <c>Material/</c> binds and lowers: the <c>inout</c> contract, the features that satisfy
+    ///     it, and a shader that composes one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Lowering, not emission, and that boundary is where a pre-existing bug sits. A
+    ///         <c>compose</c>d implementation's <em>bindings</em> are never declared in the consuming
+    ///         translation unit: the feature's material parameters live on its own
+    ///         <c>IrShader</c>, and the emitter declares only the consuming shader's, so the GLSL
+    ///         names identifiers it never declared. <c>glslc</c> rejects it; Raven says nothing —
+    ///         the same shape as the inheritance defects in § J.
+    ///     </para>
+    ///     <para>
+    ///         Independent of <c>inout</c>: a stateless composed feature works today, and one with a
+    ///         single <c>var</c> fails whether or not any parameter is by reference. It is why this
+    ///         test stops at the IR, and it is recorded in docs/plan/07 § F as what blocks
+    ///         <c>Pipeline/</c>.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheMaterialContractBindsAndLowers() {
+        var trees = Files()
+            .Select(file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
+            .Append(SyntaxTree.ParseText(MaterialConsumer, path: "Forward.rvn"))
+            .ToArray();
+
+        var compilation = Compilation.Create(
+            "Material",
+            PermutationValues.Empty,
+            ComposeBindings.Create([new("surface", "MetalRoughnessSurface")]),
+            trees
+        );
+
+        var diagnostics = compilation.GetDiagnostics();
+        Assert.True(
+            diagnostics.Count == 0,
+            "The material contract does not bind:\n" + string.Join("\n", diagnostics.Select(d => d.ToString()))
+        );
+
+        var bag = new DiagnosticBag();
+        var module = Lowerer.Lower(compilation, bag);
+
+        Assert.True(
+            IrVerifier.Verify(module, bag),
+            "The composed module does not verify:\n" + string.Join("\n", bag.Select(d => d.ToString()))
+        );
+
+        Assert.True(bag.IsEmpty, string.Join("\n", bag.Select(d => d.ToString())));
+
+        // The contract really is by-reference all the way to the IR, which is the whole reason
+        // `inout` was built.
+        var compute = module.Shaders
+            .SelectMany(shader => shader.Functions)
+            .First(function => function.Name.EndsWith("Compute", StringComparison.Ordinal));
+
+        Assert.True(compute.Parameters[^1].IsByReference);
+    }
+
+    /// <summary>A forward shader written once against the material contract.</summary>
+    const string MaterialConsumer = """
+                                    package Vixen.Shaders.Test
+
+                                    import Vixen.Shaders.Core
+                                    import Vixen.Shaders.Shading
+                                    import Vixen.Shaders.Material
+
+                                    shader Forward {
+                                        compose val surface: IMaterialSurface
+
+                                        var lightDirection: float3
+
+                                        [PixelShader]
+                                        [Semantic("SV_Target")]
+                                        func Pixel(): float4 {
+                                            var d: MaterialData
+                                            MaterialDefaults.Reset(d)
+                                            surface.Compute(d)
+
+                                            val n = Math.SafeNormalize(d.normalWS)
+                                            val l = Math.SafeNormalize(-lightDirection)
+                                            val NdotL = saturate(dot(n, l))
+                                            val diff = Brdf.DiffuseLambert(d.diffuseColor) * d.occlusion
+                                            return float4(diff * NdotL + d.emissive, d.alpha)
+                                        }
+                                    }
+
+                                    """;
+
     // --- Plumbing ---------------------------------------------------------
 
     static string LibraryRoot =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Library"));
 
-    static IEnumerable<string> Files() =>
-        Packages
+    static IEnumerable<string> Files() => In(Packages);
+
+    static IEnumerable<string> ExportedFiles() => In(ExportedPackages);
+
+    static IEnumerable<string> In(string[] packages) =>
+        packages
             .SelectMany(package => Directory.EnumerateFiles(Path.Combine(LibraryRoot, package), "*.rvn"))
             .OrderBy(file => file, StringComparer.Ordinal);
 
@@ -269,14 +374,22 @@ public class LibraryTreeTests {
 
                             """;
 
-    static CompiledLibrary BuildLibrary(string file, DiagnosticBag diagnostics) {
-        // Every library file binds against the others, so each is built inside a compilation of the
-        // whole tree and the artefact is taken for the one file's own types.
-        var trees = Files()
+    /// <summary>
+    ///     Builds a <c>.rvnlib</c> over the exported packages, named for one of them.
+    /// </summary>
+    /// <param name="name">
+    ///     The artefact's library name. Distinct per artefact, or a consumer referencing several
+    ///     reports RVN5005 and keeps only the first — which is the warning doing its job.
+    /// </param>
+    static CompiledLibrary BuildLibrary(string name, DiagnosticBag diagnostics) {
+        // The exported packages only: LibraryBuilder exports everything in the compilation, and
+        // including Material — which is shaders with bindings — would be RVN5001 for its functions
+        // even while building Core's artefact.
+        var trees = ExportedFiles()
             .Select(f => SyntaxTree.ParseText(File.ReadAllText(f), path: Path.GetFileName(f)))
             .ToArray();
 
-        var compilation = Compilation.Create(Path.GetFileNameWithoutExtension(file), trees);
+        var compilation = Compilation.Create(name, trees);
         Assert.Empty(compilation.GetDiagnostics());
 
         var lowered = Lowerer.LowerWithLinks(compilation, diagnostics);
@@ -296,9 +409,9 @@ public class LibraryTreeTests {
         var directory = Directory.CreateTempSubdirectory("raven-library-tests").FullName;
         List<RavenReference> references = [];
 
-        foreach (var file in Files()) {
+        foreach (var file in ExportedFiles()) {
             var diagnostics = new DiagnosticBag();
-            var library = BuildLibrary(file, diagnostics);
+            var library = BuildLibrary(Path.GetFileNameWithoutExtension(file), diagnostics);
             Assert.DoesNotContain(diagnostics.ToArray(), d => d.IsError);
 
             var path = Path.Combine(directory, Path.GetFileNameWithoutExtension(file) + CompiledLibraryFormat.Extension);

@@ -202,6 +202,34 @@ struct Ray {
 The full syntax sample lives in [`Library/Example1.rvn`](Library/Example1.rvn), and a compute
 shader in [`Library/Example2.rvn`](Library/Example2.rvn).
 
+### `inout`
+
+A parameter marked `inout` is passed by reference, so the callee's changes reach the caller:
+
+```typescript
+struct Feature {
+    static func Apply(inout s: Surface, tint: float3) {
+        s.color = s.color * tint
+    }
+}
+```
+
+**Copy-in/copy-out, not aliasing.** The argument's value goes in and the parameter's value comes
+back out when the call returns. GLSL defines its own `inout` the same way and SPIR-V has no
+reference type at all, so a promise of aliasing could not be kept on either target. Two `inout`
+arguments naming the same storage therefore do not interfere until the copies are written back, in
+argument order.
+
+The argument must be assignable storage of *exactly* the parameter's type. Exactly, because a
+widening on the way in would have to narrow on the way out and lose whatever the callee wrote — so
+an `int` passed to an `inout float` is an error rather than a silent round trip. `inout` cannot
+appear on an entry point's parameter (the pipeline has nowhere to copy back to), on an operator's
+(an expression has no syntax for it), or alongside a default (an omitted argument has no storage).
+
+Its reason for existing is the composable material interface: a feature reads the surface as
+previous features left it and writes back, so adding a feature to the chain changes no other
+feature's signature.
+
 ### Compute
 
 A compute entry point declares its workgroup size on the stage attribute, so the size cannot be

@@ -319,6 +319,7 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
 
     public override SyntaxNode VisitParameter(RavenParser.ParameterContext context) {
         var attributes = context.attribute_list().Select(Visit).ToArray();
+        var modifiers = SyntaxList.List(context.parameter_modifier().Select(Visit).ToArray());
         var identifier = Visit(context.identifier_token()) as SyntaxToken;
         var colonToken = TerminalOrNull(context, RavenLexer.COLON);
         var colon = colonToken != null ? Token(colonToken, SyntaxKind.ColonToken) : null;
@@ -329,6 +330,7 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
 
         return SyntaxFactory.Parameter(
             new(SyntaxList.List(attributes)),
+            new(modifiers),
             identifier!,
             colon,
             type,
@@ -982,6 +984,17 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
             RavenLexer.READONLY => SyntaxKind.ReadOnlyKeyword,
             RavenLexer.STATIC => SyntaxKind.StaticKeyword,
             RavenLexer.STREAM => SyntaxKind.StreamKeyword,
+            _ => throw ExceptionUtilities.Unreachable()
+        };
+
+        return Token(token.Symbol, kind);
+    }
+
+    public override SyntaxNode VisitParameter_modifier(RavenParser.Parameter_modifierContext context) {
+        var token = (ITerminalNode)context.GetChild(0);
+
+        var kind = token.Symbol.Type switch {
+            RavenLexer.INOUT => SyntaxKind.InOutKeyword,
             _ => throw ExceptionUtilities.Unreachable()
         };
 

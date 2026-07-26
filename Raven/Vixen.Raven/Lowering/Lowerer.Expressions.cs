@@ -448,7 +448,7 @@ public sealed partial class Lowerer {
         }
 
         var arguments = BuildArguments(property.Receiver, property.Property, [.. property.Arguments]);
-        Emit(new IrCallInstruction(null, setter, [.. arguments, value]));
+        Emit(new IrCallInstruction(null, setter, [.. arguments.Arguments, IrArgument.Of(value)]));
         return value;
     }
 
@@ -459,7 +459,7 @@ public sealed partial class Lowerer {
         }
 
         var arguments = BuildArguments(property.Receiver, property.Property, [.. property.Arguments]);
-        return Emit(result => new IrCallInstruction(result, getter, arguments), getter.ReturnType);
+        return Emit(result => new IrCallInstruction(result, getter, arguments.Arguments), getter.ReturnType);
     }
 
     // --- Calls -------------------------------------------------------------
@@ -499,14 +499,23 @@ public sealed partial class Lowerer {
             return null;
         }
 
-        var arguments = BuildArguments(receiver, definition, invocation.Arguments);
+        var arguments = BuildArguments(receiver, definition, invocation.Arguments, definition.Parameters);
 
         if (function.ReturnType.IsVoid) {
-            Emit(new IrCallInstruction(null, function, arguments));
+            Emit(new IrCallInstruction(null, function, arguments.Arguments));
+            EmitCopyOut(arguments);
             return null;
         }
 
-        return Emit(result => new IrCallInstruction(result, function, arguments), function.ReturnType);
+        var result = Emit(
+            value => new IrCallInstruction(value, function, arguments.Arguments),
+            function.ReturnType
+        );
+
+        // After the call and before the result is used, so a caller that passes the same storage it
+        // reads the result into sees the copy-out, not a stale value.
+        EmitCopyOut(arguments);
+        return result;
     }
 
     IrValue LowerIntrinsic(BoundInvocationExpression invocation, MethodSymbol method, IrType type) {
@@ -622,11 +631,74 @@ public sealed partial class Lowerer {
         return null;
     }
 
-    IrValue[] BuildArguments(BoundExpression? receiver, Symbol member, IReadOnlyList<BoundExpression> arguments) {
-        var lowered = arguments.Select(LowerExpression).ToArray();
+    /// <summary>
+    ///     A call's lowered arguments, and the copies that have to run after it returns.
+    /// </summary>
+    /// <param name="Arguments">The arguments, in order, ready for an <see cref="IrCallInstruction" />.</param>
+    /// <param name="CopyOut">
+    ///     One entry per <c>inout</c> argument: the caller's storage, and the temp whose value has to
+    ///     be written back into it. In argument order, which is what makes the result defined when
+    ///     two <c>inout</c> arguments name the same storage.
+    /// </param>
+    readonly record struct LoweredArguments(
+        IrArgument[] Arguments,
+        List<(IrPlace Place, IrVariable Temp)> CopyOut
+    );
+
+    /// <summary>
+    ///     Lowers a call's arguments, giving every <c>inout</c> argument a temp to be passed by
+    ///     reference.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The temp is not an optimisation and not a choice: SPIR-V requires a pointer argument
+    ///         to be a memory object declaration, so an access chain like <c>d.color</c> cannot be
+    ///         handed over, and a global's storage class could never match the parameter's. Copying
+    ///         through a function-scoped temp is the one shape both targets accept.
+    ///     </para>
+    ///     <para>
+    ///         It also puts copy-in/copy-out in the IR where it can be read, rather than leaving each
+    ///         backend to lean on its own language's rules and hoping the two agree.
+    ///     </para>
+    /// </remarks>
+    LoweredArguments BuildArguments(
+        BoundExpression? receiver,
+        Symbol member,
+        IReadOnlyList<BoundExpression> arguments,
+        IReadOnlyList<ParameterSymbol>? parameters = null
+    ) {
+        var lowered = new IrArgument[arguments.Count];
+        List<(IrPlace, IrVariable)> copyOut = [];
+
+        for (var i = 0; i < arguments.Count; i++) {
+            var direction = parameters is not null && i < parameters.Count
+                ? parameters[i].RefKind
+                : RefKind.None;
+
+            if (direction != RefKind.InOut) {
+                lowered[i] = IrArgument.Of(LowerExpression(arguments[i]));
+                continue;
+            }
+
+            var type = LowerType(arguments[i].Type, arguments[i].Syntax);
+
+            // The binder has already refused anything without storage (RVN2110), so a missing place
+            // here means the two disagree about what is addressable rather than bad source.
+            if (TryGetPlace(arguments[i]) is not { } place) {
+                ReportUnsupported(arguments[i], $"Passing this expression to inout parameter '{parameters![i].Name}'");
+                lowered[i] = IrArgument.Of(Constant(type, null));
+                continue;
+            }
+
+            var temp = Function.AddLocal($"{parameters![i].Name}#inout", type);
+            Emit(new IrStoreInstruction(new(temp), Load(place)));
+
+            lowered[i] = IrArgument.ByReference(temp);
+            copyOut.Add((place, temp));
+        }
 
         if (member.ContainingType is not { } containing || !structs.ContainsKey(containing)) {
-            return lowered;
+            return new(lowered, copyOut);
         }
 
         // An operator takes every operand as an explicit parameter, and a static member has no
@@ -634,7 +706,7 @@ public sealed partial class Lowerer {
         // struct method would be silently wrong. This mirrors `Lowerer.SelfTypeFor`, which decides
         // the signature; the two have to agree or the call has the wrong arity.
         if (member is MethodSymbol { MethodKind: MethodKind.Operator } or { IsStatic: true }) {
-            return lowered;
+            return new(lowered, copyOut);
         }
 
         var self = receiver switch {
@@ -644,7 +716,16 @@ public sealed partial class Lowerer {
             _ => null
         };
 
-        return self is null ? lowered : [self, .. lowered];
+        return self is null
+            ? new(lowered, copyOut)
+            : new([IrArgument.Of(self), .. lowered], copyOut);
+    }
+
+    /// <summary>Writes every <c>inout</c> temp back into the caller's storage.</summary>
+    void EmitCopyOut(LoweredArguments arguments) {
+        foreach (var (place, temp) in arguments.CopyOut) {
+            Emit(new IrStoreInstruction(place, Load(new(temp))));
+        }
     }
 
     // --- Construction ------------------------------------------------------
@@ -656,7 +737,7 @@ public sealed partial class Lowerer {
                 return Constant(type, null);
             }
 
-            var arguments = creation.Arguments.Select(LowerExpression).ToArray();
+            var arguments = creation.Arguments.Select(argument => IrArgument.Of(LowerExpression(argument))).ToArray();
             return Emit(result => new IrCallInstruction(result, function, arguments), function.ReturnType);
         }
 

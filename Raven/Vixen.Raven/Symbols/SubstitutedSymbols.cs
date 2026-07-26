@@ -111,5 +111,6 @@ public sealed class SubstitutedParameterSymbol(ParameterSymbol definition, Symbo
     public override bool HasDefaultValue => OriginalDefinition.HasDefaultValue;
     public override object? DefaultValue => OriginalDefinition.DefaultValue;
     public override string? SemanticName => OriginalDefinition.SemanticName;
+    public override RefKind RefKind => OriginalDefinition.RefKind;
     public override SyntaxNode? DeclaringSyntax => OriginalDefinition.DeclaringSyntax;
 }

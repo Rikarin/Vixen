@@ -93,13 +93,65 @@ public sealed class IrIntrinsicInstruction(IrValue? result, IrIntrinsic intrinsi
     public override IEnumerable<IrValue> Operands => Arguments;
 }
 
+/// <summary>
+///     One argument of a call: an SSA value, or a variable passed by reference.
+/// </summary>
+/// <remarks>
+///     <para>
+///         Exactly one of the two is set. A by-reference argument cannot be a value because there is
+///         nothing to hand over — the callee needs the storage itself — and it is deliberately an
+///         <see cref="IrVariable" /> rather than an <see cref="IrPlace" />: lowering copies any
+///         chained place into a temp first, so by the time a call is built the argument is always a
+///         whole variable.
+///     </para>
+///     <para>
+///         That is not a simplification for its own sake. SPIR-V requires a pointer argument to
+///         <c>OpFunctionCall</c> to be a memory object declaration, so an access chain such as
+///         <c>d.color</c> could not be passed at all, and a uniform's storage class could never
+///         match the parameter's. Narrowing the IR to what both targets can express keeps the
+///         backends from each inventing a different way to cope.
+///     </para>
+/// </remarks>
+public readonly record struct IrArgument {
+    IrArgument(IrValue? value, IrVariable? reference) {
+        Value = value;
+        Reference = reference;
+    }
+
+    /// <summary>The value, when this argument is passed by value.</summary>
+    public IrValue? Value { get; }
+
+    /// <summary>The variable whose storage is passed, when this argument is by reference.</summary>
+    public IrVariable? Reference { get; }
+
+    public bool IsByReference => Reference is not null;
+
+    public IrType Type => Value?.Type ?? Reference!.Type;
+
+    public static IrArgument Of(IrValue value) => new(value, null);
+
+    public static IrArgument ByReference(IrVariable variable) => new(null, variable);
+
+    public override string ToString() => IsByReference ? $"&{Reference!.Name}" : Value!.ToString();
+}
+
 /// <summary>A call to another function in the module.</summary>
-public sealed class IrCallInstruction(IrValue? result, IrFunction function, IrValue[] arguments)
+public sealed class IrCallInstruction(IrValue? result, IrFunction function, IrArgument[] arguments)
     : IrInstruction {
     public override IrValue? Result { get; } = result;
     public IrFunction Function { get; } = function;
-    public IReadOnlyList<IrValue> Arguments { get; } = arguments;
-    public override IEnumerable<IrValue> Operands => Arguments;
+    public IReadOnlyList<IrArgument> Arguments { get; } = arguments;
+
+    /// <summary>
+    ///     The values this call consumes — by-value arguments only.
+    /// </summary>
+    /// <remarks>
+    ///     A by-reference argument names storage rather than an SSA value, so it is not an operand:
+    ///     the verifier's definedness check would otherwise look for a definition of something that
+    ///     is a variable, not a value.
+    /// </remarks>
+    public override IEnumerable<IrValue> Operands =>
+        Arguments.Where(argument => !argument.IsByReference).Select(argument => argument.Value!);
 }
 
 /// <summary>

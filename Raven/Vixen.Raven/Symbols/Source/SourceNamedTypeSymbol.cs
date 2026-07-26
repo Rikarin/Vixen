@@ -656,6 +656,57 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
             if (description is not null) {
                 ReportUselessModifiers(declaration.Modifiers, allowed, description, member.Name, declaration);
             }
+
+            if (member is MethodSymbol method) {
+                ReportParameterDirectionIssues(method);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Checks <c>inout</c> against the things it cannot combine with.
+    /// </summary>
+    /// <remarks>
+    ///     Here rather than on the parameter symbol because two of the three rules are about the
+    ///     *member* — an operator has no syntax for a by-reference argument, and an entry point is
+    ///     called by the pipeline. The entry-point case is checked again for a shader in
+    ///     <c>ReportShaderIssues</c>'s path; this catches the stage attribute wherever it sits.
+    /// </remarks>
+    void ReportParameterDirectionIssues(MethodSymbol method) {
+        foreach (var parameter in method.Parameters) {
+            if (parameter.RefKind != RefKind.InOut) {
+                continue;
+            }
+
+            var location = parameter.DeclaringSyntax?.GetLocation()
+                           ?? method.DeclaringSyntax?.GetLocation()
+                           ?? Location.None;
+
+            if (parameter.HasDefaultValue) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.InOutCannotHaveDefault,
+                    location,
+                    parameter.Name
+                );
+            }
+
+            if (method.MethodKind == MethodKind.Operator) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.InOutOnOperator,
+                    location,
+                    parameter.Name,
+                    method.Name
+                );
+            }
+
+            if (method.Stage != ShaderStage.None) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.InOutOnEntryPoint,
+                    location,
+                    parameter.Name,
+                    method.Name
+                );
+            }
         }
     }
 

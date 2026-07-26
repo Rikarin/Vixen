@@ -209,7 +209,7 @@ public static class IrPrinter {
             IrConvertInstruction convert => $"convert.{Lower(convert.ConversionKind)} {convert.Operand}",
             IrIntrinsicInstruction intrinsic =>
                 $"intrinsic.{Lower(intrinsic.Intrinsic)} {Join(intrinsic.Arguments)}".TrimEnd(),
-            IrCallInstruction call => $"call {call.Function.Name}({Join(call.Arguments)})",
+            IrCallInstruction call => $"call {call.Function.Name}({string.Join(", ", call.Arguments)})",
             IrConstructInstruction construct => $"construct {Join(construct.Arguments)}".TrimEnd(),
             IrExtractInstruction extract =>
                 $"extract {extract.Source}{string.Concat(extract.Chain.Select(a => a.ToString()))}",

@@ -1,0 +1,143 @@
+package Vixen.Shaders.Material
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Shading
+
+// The composable material interface: Stride's model, without the mixin resolver.
+//
+// A material is assembled from features chosen when the material is authored, and the shader has to
+// be assembled to match. Stride solves this with shader classes, inheritance and a mixin resolver —
+// a shader-level object system, and the least-understood part of Stride. Vixen's answer is three
+// mechanisms that already exist in the language:
+//
+//   - `protocol IMaterialSurface` is the contract a feature satisfies.
+//   - `shader MetalRoughnessSurface : IMaterialSurface` is one concrete feature.
+//   - `compose val surface: IMaterialSurface` is a slot a material fills, resolved at compile time
+//     with no dispatch — only the chosen implementation is emitted and called.
+//
+// The `inout` is what makes a feature a *contribution* rather than a replacement: each one reads the
+// surface as the previous features left it and writes back. That reads as a mutation, which is what
+// it is, rather than as a fold through return values — and it means adding a feature to the chain
+// does not change any other feature's signature.
+//
+// Copy-in/copy-out, not aliasing: a feature sees the surface as it was when the call began. Nothing
+// here depends on the difference, and it is worth knowing that it is the definition, because GLSL
+// and SPIR-V could not have honoured aliasing.
+
+/// Everything a lighting model needs to know about a point on a surface.
+///
+/// One struct passed by reference rather than a growing parameter list, so a feature that starts
+/// caring about a new channel does not change the contract every other feature is written to.
+struct MaterialData {
+    /// Diffuse albedo, linear. For a metal this is black — a conductor has no diffuse response.
+    var diffuseColor: float3
+
+    /// Specular reflectance at normal incidence. Grey for a dielectric, tinted for a metal.
+    var f0: float3
+
+    /// Perceptual roughness, as authored. `Brdf.Alpha` converts it, exactly once.
+    var perceptualRoughness: float
+
+    /// Shading normal, world space, unit length.
+    var normalWS: float3
+
+    /// Ambient occlusion, 0..1, applied to indirect diffuse only.
+    var occlusion: float
+
+    /// Emitted radiance, added after lighting and unaffected by it.
+    var emissive: float3
+
+    /// Coverage, for alpha blending or a cutout test.
+    var alpha: float
+}
+
+/// A material feature: it reads the surface and contributes to it.
+protocol IMaterialSurface {
+    func Compute(inout d: MaterialData)
+}
+
+/// The values a feature starts from, so every implementation agrees on what "untouched" means.
+struct MaterialDefaults {
+    /// A dielectric's reflectance at normal incidence — an index of refraction of 1.5.
+    const val DielectricF0 = 0.04f
+
+    static func Reset(inout d: MaterialData) {
+        d.diffuseColor = float3(1f)
+        d.f0 = float3(DielectricF0)
+        d.perceptualRoughness = 1f
+        d.normalWS = float3(0f, 0f, 1f)
+        d.occlusion = 1f
+        d.emissive = float3(0f)
+        d.alpha = 1f
+    }
+}
+
+/// The metalness/roughness workflow: one base colour, one metalness, one roughness.
+///
+/// The industry default, and the reason it is: a conductor's diffuse response is zero and its
+/// specular response is tinted, while a dielectric is the other way round, so one parameter can
+/// select between the two ends and the shader derives both channels from it.
+shader MetalRoughnessSurface : IMaterialSurface {
+    var baseColor: float3 = float3(1f, 1f, 1f)
+    var metalness: float = 0f
+    var roughness: float = 0.5f
+
+    func Compute(inout d: MaterialData) {
+        d.diffuseColor = baseColor * (1f - metalness)
+        d.f0 = Brdf.F0FromMetalness(baseColor, metalness, MaterialDefaults.DielectricF0)
+        d.perceptualRoughness = saturate(roughness)
+    }
+}
+
+/// The specular/glossiness workflow, for content authored before metalness won.
+///
+/// Kept because converting an asset library is lossy in the other direction: a specular colour can
+/// express reflectances a single metalness cannot.
+shader SpecularGlossinessSurface : IMaterialSurface {
+    var diffuseColor: float3 = float3(1f, 1f, 1f)
+    var specularColor: float3 = float3(0.04f, 0.04f, 0.04f)
+    var glossiness: float = 0.5f
+
+    func Compute(inout d: MaterialData) {
+        d.diffuseColor = diffuseColor
+        d.f0 = specularColor
+        d.perceptualRoughness = saturate(1f - glossiness)
+    }
+}
+
+/// Replaces the shading normal from a tangent-space normal map.
+///
+/// A separate feature rather than part of the base surface, which is the composition paying off: a
+/// material either has a normal map or does not, and the shader that has none emits no code for one.
+shader NormalMapSurface : IMaterialSurface {
+    var normalTS: float3 = float3(0f, 0f, 1f)
+    var strength: float = 1f
+
+    func Compute(inout d: MaterialData) {
+        val scaled = float3(normalTS.x * strength, normalTS.y * strength, normalTS.z)
+        d.normalWS = Math.SafeNormalize(scaled)
+    }
+}
+
+/// Adds emitted radiance.
+shader EmissiveSurface : IMaterialSurface {
+    var emissiveColor: float3 = float3(0f, 0f, 0f)
+    var intensity: float = 1f
+
+    func Compute(inout d: MaterialData) {
+        d.emissive = d.emissive + emissiveColor * intensity
+    }
+}
+
+/// Applies ambient occlusion.
+///
+/// Multiplies into whatever is already there rather than overwriting, so two occlusion sources —
+/// a baked map and a screen-space term — compose without either knowing about the other.
+shader OcclusionSurface : IMaterialSurface {
+    var occlusionMap: float = 1f
+    var strength: float = 1f
+
+    func Compute(inout d: MaterialData) {
+        d.occlusion = d.occlusion * lerp(1f, saturate(occlusionMap), saturate(strength))
+    }
+}

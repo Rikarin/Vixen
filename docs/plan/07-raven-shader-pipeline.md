@@ -24,8 +24,8 @@ decision that has been made and built, kept because the reasons stay useful.
 
 | | Open item | Where | Blocks |
 |---|---|---|---|
-| 🔴 | **`Raven/Library` is mostly unwritten.** `Core/` (Math, ColorSpaces, Random, Sampling) and `Shading/Brdf.rvn` are in and tested; Shading's other ten files, Geometry, Material, Pipeline, PostFx, Ui and Vfx are not | § F | the numeric tests, the perf gates, and the mixin question below |
-| 🔴 | **`inout` does not exist at any layer**, so `Material/MaterialSurface.rvn` — the composable material interface the whole `Pipeline/` tree is written against — cannot be expressed as specified | § F | `Material/`, and therefore `Pipeline/`. Either implement it or restructure the contract to return the struct |
+| 🔴 | **`Raven/Library` is mostly unwritten.** `Core/` (Math, ColorSpaces, Random, Sampling), `Shading/Brdf.rvn` and `Material/MaterialSurface.rvn` are in and tested; Shading's other ten files, Geometry, Pipeline, PostFx, Ui and Vfx are not | § F | the numeric tests, the perf gates, and the mixin question below |
+| 🔴 | **A `compose`d feature's bindings are never declared in the consuming unit** — the GLSL names identifiers it never declared, which `glslc` rejects and Raven does not. Pre-existing, and independent of `inout`: a stateless feature works, one with a single `var` does not | § F | `Material/` reaching a backend, and therefore all of `Pipeline/`. Needs `BindingPlan`, the descriptor sets and the reflection to account for a composed shader's bindings |
 | 🔴 | **Nothing a shader writes is writable** — no storage buffers, no storage images, and assigning to a uniform is refused by neither backend. So the compute stage computes and discards | § I | the numeric BRDF readback, `Random.rvn` bit-for-bit, doc 06's VFX compute path — everything that has to *read a result back* |
 | 🟡 | **Generic types and methods do not lower** — front-end only. An open definition is `RVN3001`, and so is an instantiation: there is no monomorphisation, so `Box<float4>` reaches no backend | § I | anything in § F's library that wants a generic container |
 | 🟡 | **`&&` / `\|\|` do not short-circuit** — sound for side-effect-free expressions, wrong the moment the right operand is a guard | § I | correctness of `i < n && data[i] > 0` |
@@ -555,25 +555,74 @@ And the stronger claim `LibraryTreeTests` pins: a function read out of a `.rvnli
 **identical IR** to compiling its source alongside. Without that a library is a source of divergence
 between a developer build and a shipped one.
 
-#### 🔴 `inout` does not exist, and `Material/` cannot be written without it
+#### ✅ `inout`, and `Material/MaterialSurface.rvn`
 
-The composition table below specifies `protocol IMaterialSurface { func Compute(inout MaterialData d) }`
-— and `inout` is not in the language at *any* layer: no token, no syntax kind, no symbol. So
-`Material/MaterialSurface.rvn`, the composable material interface that `Pipeline/ForwardPlus.rvn` is
-written against, cannot be expressed as specified. This is the discovery that starting § F was for.
+The composition table below specifies
+`protocol IMaterialSurface { func Compute(inout MaterialData d) }`, and `inout` did not exist at any
+layer — no token, no syntax kind, no symbol. It does now, and `Material/MaterialSurface.rvn` is
+written as specified: the `MaterialData` surface, the protocol, and five features that contribute to
+it (metal-roughness, specular-glossiness, normal map, emissive, occlusion).
 
-Two ways out, and the choice is not obvious:
+The alternative was to return the struct — `func Compute(d: MaterialData): MaterialData` — which was
+expressible already. What decided it against: a feature accumulating into a shared surface *is* a
+mutation, Stride's model is mutation, and both targets support the real thing natively, so faking it
+with a fold would have been a divergence between what the source says and what the target does. (The
+sketch's `inout MaterialData d` is C-style, incidentally; Raven's parameter syntax is
+`d: MaterialData`, so the specification was never quite Raven either.)
 
-- **Implement `inout`** — parser, a by-reference parameter in the symbol layer, lowering that passes a
-  place rather than a value, both backends, and an aliasing rule. SPIR-V has no reference type, so
-  this is copy-in/copy-out with the ordering questions that implies.
-- **Return the struct instead.** `func Compute(d: MaterialData): MaterialData`. Expressible today,
-  and a value language with no heap makes the copy cheap and the semantics clearer. What it costs is
-  that a feature accumulating into a shared surface reads as a fold rather than a mutation, and
-  Stride's model — which this is deliberately imitating — is mutation.
+**Copy-in/copy-out is the definition, not the implementation.** GLSL specifies its own `inout` the
+same way and SPIR-V has no reference type, so a promise of aliasing could not have been honoured on
+either target. Two `inout` arguments naming the same storage therefore do not interfere until the
+copies are written back, in argument order.
 
-Note also that the sketch's `inout MaterialData d` is C-style; Raven's parameter syntax is
-`d: MaterialData`, so the specification was never quite Raven either.
+**The argument's type must match exactly**, which is the rule that surprises people. A widening on
+the way in would have to narrow on the way out and lose what the callee wrote, so `int` to
+`inout float` is `RVN2111` rather than a silent round trip. Checked *after* overload resolution
+rather than as part of it: direction distinguishes nothing at a call site, and folding it into
+applicability turns "you passed a literal" into "no overload applies". Also refused: `inout` on an
+entry point (`RVN2112` — the pipeline has nowhere to copy back to), on an operator (`RVN2114` — an
+expression has no syntax for it), and with a default (`RVN2113` — an omitted argument has no
+storage). A `val` argument reuses the assignment's own read-only message rather than inventing one.
+
+**The call site always copies through a function-scoped temp, and that is forced rather than
+chosen.** SPIR-V requires a pointer argument to `OpFunctionCall` to be a *memory object declaration*,
+so an access chain such as `d.color` cannot be handed over at all, and a global's storage class could
+never match the parameter's `Function`. Narrowing the IR to the one shape both targets accept —
+`IrArgument` is a value or a whole local — is what keeps each backend from inventing its own way to
+cope. GLSL then emits its native `inout` and copies a second time into the parameter, which is
+redundant and free. The IR verifier checks direction agreement both ways, because a value where a
+reference belongs loses the write and a reference where a value belongs is a pointer `spirv-val`
+rejects.
+
+The `.rvnlib` format went to **version 2**: a parameter carries its `RefKind` and a call's arguments
+became objects rather than bare value ids. Both halves have to carry the direction — the symbol side
+so a consumer's binder still demands assignable storage, the IR side so the linked body still
+declares a by-reference parameter — and a version-1 artefact is now rejected by version rather than
+by a confusing JSON error.
+
+#### 🔴 A `compose`d feature's bindings are never declared
+
+`Material/` binds and lowers. It cannot yet be **emitted**, and the reason is a pre-existing defect
+that `compose` had all along: a composed implementation's *bindings* do not reach the consuming
+translation unit. The feature's material parameters live on its own `IrShader`, the emitter declares
+only the consuming shader's, and the GLSL therefore names identifiers it never declared — `glslc`
+rejects it and Raven says nothing. The same shape as the three inheritance defects in § J.
+
+It is independent of `inout`: a stateless composed feature works today, and one with a single `var`
+fails whether or not any parameter is by reference. Which means the "critical path is closed" claim
+below holds only for features with no parameters, and every real material feature has some.
+
+The fix is not local. A composed implementation's bindings have to become the consumer's, which means
+`BindingPlan` assigning them slots, the descriptor sets accounting for them, the reflection reporting
+them so a host can bind them, and a rule for name collisions between the consumer's fields and the
+feature's — plus transitive `compose` and the same feature composed twice. This is what blocks
+`Pipeline/`, and it is the next thing worth doing in § F.
+
+Two smaller gaps found alongside it: **the CLI takes a single input file**, so composing against a
+library *source* file (as opposed to a `.rvnlib` reference) is only reachable through the API; and
+**`Material/` cannot ship as a `.rvnlib` at all** — `RVN5001` correctly refuses to export a function
+that reads a shader binding, so the tree has two shipping models, free-function packages by reference
+and shader packages by source.
 
 #### Smaller things the library ran into
 
@@ -1167,17 +1216,22 @@ Vixen's equivalent, all of it built:
 
 | Mechanism | Raven construct | Used for |
 |---|---|---|
-| Interface | `protocol IMaterialSurface { func Compute(inout MaterialData d) }` — ⚠️ **`inout` does not exist**, see § F | the contract a material feature satisfies |
+| Interface | `protocol IMaterialSurface { func Compute(inout d: MaterialData) }` | the contract a material feature satisfies |
 | Implementation | `shader MetalRoughnessSurface : IMaterialSurface { … }` | one concrete feature |
 | Composition | `compose val diffuse: IDiffuseModel` — a *shader-typed member* resolved at compile time | plugging chosen features into a template |
 | Conditional | `[Permutation] val UseSkinning: bool` | permutation flags — not `#if`, see § B |
 | Generics | `shader Blur<val TapCount: int>` | compile-time-parameterised shaders |
 | Interstage data | `stream var normalWS: float3` | a value one stage writes and the next reads |
 
-`compose` was the critical path and it is closed: the slot is protocol-typed, the binding resolves at
-compile time, and only the chosen implementation is emitted and called — no dispatch. What it buys is
-`ForwardPlus.rvn` written once against `IMaterialSurface` and instantiated per material; the
-alternative was string-templating shader source, which is where Stride was fifteen years ago.
+`compose` was the critical path, and the *resolution* is closed: the slot is protocol-typed, the
+binding resolves at compile time, and only the chosen implementation is emitted and called — no
+dispatch. What it buys is `ForwardPlus.rvn` written once against `IMaterialSurface` and instantiated
+per material; the alternative was string-templating shader source, which is where Stride was fifteen
+years ago.
+
+**But only for a feature with no parameters.** Writing `Material/` found that a composed
+implementation's *bindings* never reach the consuming unit — see § F. Resolution, calling and pruning
+all work; what does not is a feature that has material parameters, which is every real one.
 
 ### ⚠️ The inheritance in that table was never implemented below the symbol layer
 

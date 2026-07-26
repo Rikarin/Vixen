@@ -335,7 +335,8 @@ public static class LibraryBuilder {
                 Ordinal = parameter.Ordinal,
                 HasDefaultValue = parameter.HasDefaultValue,
                 DefaultValue = LibraryValue.From(parameter.DefaultValue),
-                SemanticName = parameter.SemanticName
+                SemanticName = parameter.SemanticName,
+                RefKind = parameter.RefKind
             };
 
         LibraryTypeParameter TypeParameter(TypeParameterSymbol parameter) =>

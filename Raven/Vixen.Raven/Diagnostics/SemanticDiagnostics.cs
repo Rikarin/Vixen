@@ -699,4 +699,82 @@ public static class SemanticDiagnostics {
         Shader,
         DiagnosticSeverity.Error
     );
+
+    // --- inout -------------------------------------------------------------
+
+    /// <summary>An <c>inout</c> argument that is not storage the callee's value can be written back to.</summary>
+    /// <remarks>
+    ///     Reported instead of leaving overload resolution to fail, so the message names the
+    ///     parameter and the reason rather than saying no overload applies. A property is refused
+    ///     here too: it has no storage, and copying out through a setter would call an accessor the
+    ///     call site never wrote.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor InOutArgumentMustBeAssignable = new(
+        "RVN2110",
+        "inout argument must be assignable storage",
+        "The argument for the inout parameter '{0}' must be assignable storage, because the "
+        + "parameter's value is written back to it when the call returns",
+        Binding,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>An <c>inout</c> argument whose type needs a conversion.</summary>
+    /// <remarks>
+    ///     Exact rather than implicitly convertible, and this is the one rule people are surprised
+    ///     by. A widening on the way in would have to narrow on the way out, which loses the value
+    ///     the callee wrote — so an <c>int</c> passed to an <c>inout float</c> is refused rather
+    ///     than silently round-tripped through a conversion that cannot be undone.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor InOutArgumentTypeMustMatch = new(
+        "RVN2111",
+        "inout argument type must match exactly",
+        "The argument for the inout parameter '{0}' has type '{1}' but the parameter is '{2}'; an "
+        + "inout argument must match exactly, because a conversion on the way in cannot be undone "
+        + "on the way out",
+        Binding,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary><c>inout</c> on an entry point's parameter.</summary>
+    /// <remarks>
+    ///     An entry point's parameters come from the pipeline — a vertex attribute, a dispatch
+    ///     built-in — and there is nothing on the other side of the call to write back to.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor InOutOnEntryPoint = new(
+        "RVN2112",
+        "Entry point parameter cannot be inout",
+        "Parameter '{0}' of entry point '{1}' cannot be inout: an entry point is called by the "
+        + "pipeline, which has nowhere to copy the value back to",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>An <c>inout</c> parameter with a default value.</summary>
+    /// <remarks>
+    ///     A default exists so the argument can be omitted, and an omitted argument has no storage
+    ///     to write back to — so the two features contradict each other rather than compose.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor InOutCannotHaveDefault = new(
+        "RVN2113",
+        "inout parameter cannot have a default",
+        "The inout parameter '{0}' cannot have a default value: an omitted argument has no storage "
+        + "to copy back to",
+        Declaration,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary><c>inout</c> on an operator's parameter.</summary>
+    /// <remarks>
+    ///     An operator is invoked by expression syntax, so there is no call site at which to write
+    ///     one down — <c>a + b</c> cannot say that <c>a</c> is passed by reference, and an operator
+    ///     that mutated its operand would make an expression's meaning depend on evaluation order.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor InOutOnOperator = new(
+        "RVN2114",
+        "Operator parameter cannot be inout",
+        "Parameter '{0}' of operator '{1}' cannot be inout: an operator is invoked as an expression, "
+        + "which has no syntax for passing an argument by reference",
+        Declaration,
+        DiagnosticSeverity.Error
+    );
 }

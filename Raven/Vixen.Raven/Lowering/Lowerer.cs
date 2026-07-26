@@ -786,7 +786,14 @@ public sealed partial class Lowerer {
         List<(Symbol, IrVariable)> parameters = [];
         foreach (var parameter in body.Parameters) {
             var parameterType = LowerType(parameter.Type, parameter.DeclaringSyntax);
-            parameters.Add((parameter, function.AddParameter(parameter.Name, parameterType)));
+
+            parameters.Add(
+                (parameter, function.AddParameter(
+                    parameter.Name,
+                    parameterType,
+                    parameter.RefKind == RefKind.InOut
+                ))
+            );
         }
 
         functions[(body.Member, body.Kind)] = function;

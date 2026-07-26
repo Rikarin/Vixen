@@ -317,11 +317,31 @@ public static class IrVerifier {
             }
 
             for (var i = 0; i < call.Arguments.Count; i++) {
-                RequireSame(
-                    call.Function.Parameters[i].Type,
-                    call.Arguments[i].Type,
-                    $"argument {i} of '{call.Function.Name}'"
-                );
+                var parameter = call.Function.Parameters[i];
+                var argument = call.Arguments[i];
+
+                RequireSame(parameter.Type, argument.Type, $"argument {i} of '{call.Function.Name}'");
+
+                // Direction has to agree, in both directions. A value passed to a by-reference
+                // parameter loses the callee's write; a reference passed to a by-value one is a
+                // pointer where SPIR-V expects a value and would not survive the validator.
+                if (parameter.IsByReference != argument.IsByReference) {
+                    Report(
+                        $"argument {i} of '{call.Function.Name}' is passed "
+                        + $"{(argument.IsByReference ? "by reference" : "by value")} but the parameter is "
+                        + $"{(parameter.IsByReference ? "by reference" : "by value")}"
+                    );
+                }
+
+                // Copy-in/copy-out needs somewhere to copy from and to. The lowerer always uses a
+                // function-scoped temp, so anything else here means the IR was hand-built or a
+                // library was decoded wrongly.
+                if (argument.IsByReference && argument.Reference!.Kind != IrVariableKind.Local) {
+                    Report(
+                        $"argument {i} of '{call.Function.Name}' passes {argument.Reference.Kind} "
+                        + $"'{argument.Reference.Name}' by reference; only a local can be"
+                    );
+                }
             }
 
             if (call.Result is { } result) {

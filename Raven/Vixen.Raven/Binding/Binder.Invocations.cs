@@ -104,8 +104,98 @@ public abstract partial class Binder {
             return new BoundErrorExpression(syntax, arguments.Select(a => a.Expression).ToArray());
         }
 
+        CheckInOutArguments(best.Method, best.Arguments, arguments, syntax);
         return new BoundInvocationExpression(syntax, group.Receiver, best.Method, best.Arguments);
     }
+
+    /// <summary>
+    ///     Checks that every <c>inout</c> argument of the chosen overload is storage the callee's
+    ///     value can be written back to.
+    /// </summary>
+    /// <remarks>
+    ///     After overload resolution rather than inside it, deliberately. Direction is not what
+    ///     distinguishes two overloads — nothing at the call site marks an argument as by-reference,
+    ///     so a caller cannot choose between them — and folding this into applicability would turn
+    ///     "you passed a literal" into "no overload applies", which names neither the parameter nor
+    ///     the reason.
+    /// </remarks>
+    void CheckInOutArguments(
+        MethodSymbol method,
+        BoundExpression[] mapped,
+        IReadOnlyList<BoundArgument> arguments,
+        SyntaxNode syntax
+    ) {
+        for (var i = 0; i < method.Parameters.Count; i++) {
+            var parameter = method.Parameters[i];
+            if (parameter.RefKind != RefKind.InOut || i >= mapped.Length) {
+                continue;
+            }
+
+            var argument = mapped[i];
+
+            // Find the argument as written. A parameter filled from a default has none, and that
+            // combination is already RVN2113 at the declaration, so there is nothing to add here.
+            ExpressionSyntax? location = null;
+            foreach (var supplied in arguments) {
+                if (ReferenceEquals(supplied.Expression, argument)
+                    || (argument is BoundConversionExpression converted
+                        && ReferenceEquals(supplied.Expression, converted.Operand))) {
+                    location = supplied.Syntax;
+                    break;
+                }
+            }
+
+            if (location is null) {
+                continue;
+            }
+
+            // Overload resolution let an implicit conversion through, which is right for a by-value
+            // parameter and not for this one: the value comes back out, and a widening has no way
+            // back. Reported off the operand's type, since the wrapper's is the parameter's.
+            if (argument is BoundConversionExpression conversion) {
+                if (!conversion.Operand.Type.IsErrorType) {
+                    Report(
+                        SemanticDiagnostics.InOutArgumentTypeMustMatch,
+                        location,
+                        parameter.Name,
+                        conversion.Operand.Type.ToDisplayString(),
+                        parameter.Type.ToDisplayString()
+                    );
+                }
+
+                continue;
+            }
+
+            if (argument.Type.IsErrorType) {
+                continue;
+            }
+
+            if (!IsInOutPlace(argument)) {
+                Report(SemanticDiagnostics.InOutArgumentMustBeAssignable, location, parameter.Name);
+                continue;
+            }
+
+            // Read-only, permutation, compose and value-parameter reasons each have their own
+            // message, and they are the same reasons an assignment would give.
+            CheckAssignable(argument, location);
+        }
+    }
+
+    /// <summary>
+    ///     Whether the expression designates storage a by-reference parameter can be bound to.
+    /// </summary>
+    /// <remarks>
+    ///     Mirrors what <c>Lowerer.TryGetPlace</c> can produce, which is the ground truth: anything
+    ///     it cannot turn into an <c>IrPlace</c> cannot be passed by reference however assignable it
+    ///     looks. A property is the case that differs from plain assignment — it is a legal
+    ///     assignment target and has no storage, so it is refused here.
+    /// </remarks>
+    static bool IsInOutPlace(BoundExpression expression) =>
+        expression switch {
+            BoundLocalExpression or BoundParameterExpression or BoundFieldExpression => true,
+            BoundArrayAccessExpression access => access.Indices.Count == 1,
+            _ => false
+        };
 
     void ReportNoOverload(
         IReadOnlyList<MethodSymbol> candidates,
