@@ -15,9 +15,17 @@ import Vixen.Shaders.Geometry
 // The bias belongs here rather than in the rasteriser state because a normal-offset bias needs the
 // vertex normal, which only a shader has. See `Lighting.NormalOffset` for the pixel-stage counterpart
 // and why both exist.
+//
+// It is also the pass that has to be skinned, and the reason is a bug rather than a feature: a skinned
+// mesh whose *shadow* pass is not skinned casts the shadow of its bind pose, so a running character
+// drags a T-posed silhouette behind it. Making the skinning a permutation of the depth-style pass
+// rather than a separate shader is what keeps the two from drifting apart.
 
 shader ShadowCaster {
     [Permutation] val AlphaTested: bool = false
+
+    /// Whether to skin the vertex. Off removes the palette binding, its attributes and the blend.
+    [Permutation] val Skinned: bool = false
 
     /// The light's view-projection, not the camera's.
     var lightViewProjection: mat4
@@ -30,18 +38,48 @@ shader ShadowCaster {
     var opacitySampler: Sampler
     var alphaCutoff: float = 0.5f
 
+    /// The bone palette, sized once by `Skinning.MaxBones` so every skinned pass agrees with the host
+    /// about the descriptor's size.
+    var bones: mat4[Skinning.MaxBones]
+
     stream var uv: float2
 
     [VertexShader]
     [Semantic("SV_Position")]
-    func Vertex(position: float3, normal: float3, texcoord: float2): float4 {
+    func Vertex(position: float3, normal: float3, texcoord: float2, bones0: float4, weights0: float4): float4 {
         uv = texcoord
 
-        val worldPosition = Math.TransformPoint(world, position)
-        val worldNormal = Math.TransformNormalRigid(world, normal)
+        var local = position
+        var localNormal = normal
+
+        if (Skinned) {
+            val skin = Blend(bones0, weights0)
+            local = Math.TransformPoint(skin, position)
+            localNormal = Math.TransformDirection(skin, normal)
+        }
+
+        val worldPosition = Math.TransformPoint(world, local)
+        val worldNormal = Math.TransformNormalRigid(world, localNormal)
         val offset = worldPosition + worldNormal * normalBias
 
         return lightViewProjection * float4(offset, 1f)
+    }
+
+    /// The four matrices this vertex needs, fetched out of the palette and blended.
+    ///
+    /// This is the whole reason `Skinning` takes matrices rather than the palette: here the four reads
+    /// are access chains into a uniform and nothing is copied, whereas handing `bones` to a function
+    /// would copy all sixteen kilobytes of it. The indices arrive as floats because a vertex attribute
+    /// is what the mesh format gives — glTF stores them as unsigned bytes, which the input assembler
+    /// converts — and an index is exact in a float well past 256.
+    func Blend(indices: float4, weights: float4): mat4 {
+        var palette: BonePalette
+        palette.bone0 = bones[int(indices.x)]
+        palette.bone1 = bones[int(indices.y)]
+        palette.bone2 = bones[int(indices.z)]
+        palette.bone3 = bones[int(indices.w)]
+
+        return Skinning.BlendMatrix(palette, weights)
     }
 
     [PixelShader]

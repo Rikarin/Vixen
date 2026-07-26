@@ -129,7 +129,7 @@ public sealed class MetadataLoader {
                 var element = Resolve(reference.Element, scope, libraryName);
                 return element.IsErrorType
                     ? element
-                    : new ArrayTypeSymbol(element, Math.Max(1, reference.Rank));
+                    : new ArrayTypeSymbol(element, Math.Max(1, reference.Rank), reference.Length);
             }
 
             case LibraryTypeKind.Tuple: {

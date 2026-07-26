@@ -326,7 +326,7 @@ expression
     | expression op=('++' | '--')               #PostfixUnaryExpression
     // --- prefix ---
     | op=('!' | '+' | '++' | '-' | '--' | '~') expression #PrefixUnaryExpression
-    | '(' type ')' expression                   #CastExpression
+    | '(' unsized_type ')' expression           #CastExpression
     // --- binary operators, tightest first ---
     | expression op=('*' | '/' | '%') expression #BinaryExpression
     | expression op=('+' | '-') expression      #BinaryExpression
@@ -349,7 +349,7 @@ expression
     | literal_expression                        #LiteralExpression
     | '(' expression ')'                        #ParenthesizedExpression
     | '(' argument (',' argument)+ ')'          #TupleExpression
-    | type                                      #TypeExpression
+    | unsized_type                              #TypeExpression
   ;
 
 literal_expression
@@ -379,11 +379,30 @@ collection_element
 // =====================================================================================================================
 // ================================================= TYPES =============================================================
 // =====================================================================================================================
+// A type where a type is *certain*: a declaration's annotation, a return type, a type
+// argument, a tuple element, a base type, `default(…)`. Nothing else can own a `[` here,
+// so `[4]` is free to size the array.
 type
     : type array_rank_specifier+    #ArrayType
     | name                          #NameType
     | pType=(BOOL | BOOL2 | BOOL3 | BOOL4 | INT | INT2 | INT3 | INT4 | UINT | UINT2 | UINT3 | UINT4 | FLOAT | FLOAT2 | FLOAT3 | FLOAT4 | DOUBLE | DOUBLE2 | DOUBLE3 | DOUBLE4 | MAT2 | MAT2X3 | MAT2X4 | MAT3 | MAT3X2 | MAT3X4 | MAT4 | MAT4X2 | MAT4X3) #PredefinedType
     | '(' tuple_element (',' tuple_element)+ ')' #TupleType
+    ;
+
+// The same grammar without sizes, for the two positions where a type competes with an
+// expression reading: a cast's type, and a bare type used as a value (which is also how
+// every plain identifier expression arrives). A `[…]` there is an element access — `a[4]`
+// indexes and `(a[4]) - 1` is arithmetic, not a cast of `-1`.
+//
+// It has to be a second rule rather than a flag on the first, because ANTLR's subrules are
+// greedy: reaching the sized alternative from here would let `type array_rank_specifier+`
+// swallow the `[4]` before `#ElementAccessExpression` was ever offered it. The hand-written
+// parser draws the same line with `ScanArrayRank(allowSizes:)` and `TryScanType(false)`.
+unsized_type
+    : unsized_type unsized_rank_specifier+  #UnsizedArrayType
+    | name                                  #UnsizedNameType
+    | pType=(BOOL | BOOL2 | BOOL3 | BOOL4 | INT | INT2 | INT3 | INT4 | UINT | UINT2 | UINT3 | UINT4 | FLOAT | FLOAT2 | FLOAT3 | FLOAT4 | DOUBLE | DOUBLE2 | DOUBLE3 | DOUBLE4 | MAT2 | MAT2X3 | MAT2X4 | MAT3 | MAT3X2 | MAT3X4 | MAT4 | MAT4X2 | MAT4X3) #UnsizedPredefinedType
+    | '(' tuple_element (',' tuple_element)+ ')' #UnsizedTupleType
     ;
 
 // `(rgb: float3, a: float)` — the name leads, as it does for a field, a parameter and a
@@ -392,7 +411,14 @@ tuple_element
   : (identifier_token ':')? type
   ;
 
+// `[4]` sizes, `[]` does not, `[,]` adds a dimension. A size and commas are alternatives
+// rather than a sequence, because a multi-dimensional array is never sized.
 array_rank_specifier
+  : '[' ','* ']'
+  | '[' expression ']'
+  ;
+
+unsized_rank_specifier
   : '[' ','* ']'
   ;
 

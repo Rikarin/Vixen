@@ -112,10 +112,26 @@ public sealed class SynthesizedFieldSymbol : FieldSymbol {
     public override Symbol? ContainingSymbol { get; }
     public override TypeSymbol Type { get; }
     public override bool IsReadOnly { get; }
-    internal SynthesizedFieldSymbol(TypeSymbol containingType, string name, TypeSymbol type, bool isReadOnly) {
+
+    /// <summary>
+    ///     Set for a sized array's <c>Length</c>, which makes it usable everywhere a constant
+    ///     is — including as another array's size.
+    /// </summary>
+    public override object? ConstantValue { get; }
+
+    public override bool IsConst => ConstantValue is not null;
+
+    internal SynthesizedFieldSymbol(
+        TypeSymbol containingType,
+        string name,
+        TypeSymbol type,
+        bool isReadOnly,
+        object? constantValue = null
+    ) {
         ContainingSymbol = containingType;
         Name = name;
         Type = type;
         IsReadOnly = isReadOnly;
+        ConstantValue = constantValue;
     }
 }

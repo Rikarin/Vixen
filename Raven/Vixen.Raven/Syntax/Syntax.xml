@@ -389,10 +389,22 @@
         <Field Name="OpenBracketToken" Type="SyntaxToken">
             <Kind Name="OpenBracketToken"/>
         </Field>
+        <Field Name="Size" Type="ExpressionSyntax" Optional="true">
+            <PropertyComment>
+                <summary>The element count, when the array is sized: the <c>4</c> of <c>float[4]</c>.</summary>
+            </PropertyComment>
+        </Field>
         <Field Name="Commas" Type="SyntaxList&lt;SyntaxToken&gt;"/>
         <Field Name="CloseBracketToken" Type="SyntaxToken">
             <Kind Name="CloseBracketToken"/>
         </Field>
+        <TypeComment>
+            <summary>
+                One <c>[…]</c> of an array type: <c>[4]</c> a size, <c>[]</c> unsized, <c>[,]</c> rank 2.
+                A size and commas are mutually exclusive — a multi-dimensional array cannot be sized —
+                so at most one of <see cref="Size" /> and <see cref="Commas" /> is ever present.
+            </summary>
+        </TypeComment>
     </Node>
 
     <Node Name="TupleElementSyntax" Base="RavenSyntaxNode">

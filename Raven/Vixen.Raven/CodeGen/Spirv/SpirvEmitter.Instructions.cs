@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Symbols;
@@ -11,13 +12,30 @@ namespace Vixen.Raven.CodeGen.Spirv;
 /// <param name="Id">The pointer id, from a variable or an <c>OpAccessChain</c>.</param>
 /// <param name="Type">The type the pointer points at.</param>
 /// <param name="Layout">Whether that type is the explicitly laid out variant.</param>
+/// <param name="Storage">Its storage class, which every further access chain off it has to repeat.</param>
 /// <param name="Swizzle">A multi-lane swizzle that has to be applied after loading.</param>
-readonly record struct SpirvPointer(uint Id, IrType Type, bool Layout, IrSwizzleAccess? Swizzle = null);
+readonly record struct SpirvPointer(
+    uint Id,
+    IrType Type,
+    bool Layout,
+    SpirvStorageClass Storage,
+    IrSwizzleAccess? Swizzle = null
+);
 
 partial class SpirvEmitter {
     readonly Dictionary<IrVariable, uint> opaqueParameters = [];
     readonly Dictionary<IrVariable, uint> pointers = [];
     readonly Dictionary<int, uint> values = [];
+
+    /// <summary>
+    ///     The integer value behind each constant, kept because SPIR-V needs to know a *literal*
+    ///     index and not merely a constant one: <c>OpCompositeExtract</c> takes literals, so
+    ///     pulling element 2 out of a value the function never stored is only expressible when the
+    ///     2 is readable here. Nothing in the IR distinguishes a constant index from a runtime one,
+    ///     which is right — the distinction is a target's, and this is the target.
+    /// </summary>
+    readonly Dictionary<int, int> constants = [];
+
     readonly Stack<(uint Merge, uint Continue)> loops = new();
 
     /// <summary>True once the block being built has branched or returned.</summary>
@@ -245,6 +263,13 @@ partial class SpirvEmitter {
                 // A SPIR-V constant is a module-level declaration, so it never
                 // becomes an instruction inside the body at all.
                 values[constant.Result.Id] = types.Constant(constant.Value, constant.Result.Type);
+
+                // Only what could actually be an index. A `uint` past int.MaxValue — a hash seed,
+                // say — is no array's index, so it is left out rather than overflowed into one.
+                if (constant.Value is int or uint and <= int.MaxValue) {
+                    constants[constant.Result.Id] = Convert.ToInt32(constant.Value, CultureInfo.InvariantCulture);
+                }
+
                 return;
 
             case IrStoreInstruction store:
@@ -584,6 +609,14 @@ partial class SpirvEmitter {
                     indices.Add(SpirvOperand.Literal(only));
                     break;
 
+                // A constant index is a literal index, which is all OpCompositeExtract accepts.
+                // This is what lets a spread of an array be flattened, and how any part of a
+                // value with no storage — a call's result, a construct — is read at a fixed
+                // position.
+                case IrIndexAccess { Index: var index } when constants.TryGetValue(index.Id, out var literal):
+                    indices.Add(SpirvOperand.Literal(literal));
+                    break;
+
                 default:
                     return Unimplemented("Indexing a value that has no address", extract.Result.Type);
             }
@@ -740,19 +773,83 @@ partial class SpirvEmitter {
         var plain = types.Type(pointer.Type);
         var pointee = pointer.Layout ? types.Type(pointer.Type, true) : plain;
 
-        if (pointee != plain) {
-            // The laid-out form of an aggregate is a different type from the plain
-            // one, so a whole-aggregate read out of a uniform block would need a
-            // member-by-member copy this backend does not build yet.
-            return Unimplemented($"Reading the whole '{pointer.Type.Name}' out of a uniform block", pointer.Type);
-        }
-
-        var loaded = Emit(SpirvOp.Load, pointee, SpirvOperand.Id(pointer.Id));
+        // The laid-out form of an aggregate is a *different type* from the plain one, so it
+        // cannot be loaded as itself and there is no cast between the two. It comes out member by
+        // member instead.
+        var loaded = pointee != plain
+            ? LoadAcrossLayout(pointer.Id, pointer.Storage, pointer.Type)
+            : Emit(SpirvOp.Load, pointee, SpirvOperand.Id(pointer.Id));
 
         return pointer.Swizzle is { } swizzle
             ? Shuffle(loaded, loaded, swizzle.Components, types.Type(swizzle.ResultType(pointer.Type)))
             : loaded;
     }
+
+    /// <summary>
+    ///     Reads an aggregate out of an explicitly laid out block into its plain form, member by
+    ///     member.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A uniform block's struct is declared with <c>Offset</c> decorations and its arrays
+    ///         with an <c>ArrayStride</c>, which makes it a distinct <c>OpTypeStruct</c> from the
+    ///         one a local of the same Raven type gets. SPIR-V has no conversion between two struct
+    ///         types, so <c>surface = lights[i]</c> cannot be one <c>OpLoad</c>: each leaf is
+    ///         loaded through its own access chain and the aggregate is rebuilt with
+    ///         <c>OpCompositeConstruct</c>.
+    ///     </para>
+    ///     <para>
+    ///         Only structs and arrays differ between the two forms — a vector or a matrix interns
+    ///         to the same id either way, since their layout is expressed as decorations on the
+    ///         enclosing struct's members rather than on the type. So the recursion bottoms out at
+    ///         the first non-aggregate, where a plain load is the whole answer.
+    ///     </para>
+    /// </remarks>
+    uint LoadAcrossLayout(uint pointer, SpirvStorageClass storage, IrType type) {
+        switch (type) {
+            case IrStructType structType: {
+                var members = new SpirvOperand[structType.Fields.Count];
+                for (var i = 0; i < structType.Fields.Count; i++) {
+                    members[i] = SpirvOperand.Id(
+                        LoadAcrossLayout(
+                            Step(pointer, storage, structType.Fields[i].Type, types.ConstantInt(i)),
+                            storage,
+                            structType.Fields[i].Type
+                        )
+                    );
+                }
+
+                return Emit(SpirvOp.CompositeConstruct, types.Type(structType), members);
+            }
+
+            case IrArrayType { Length: { } length } array: {
+                var elements = new SpirvOperand[length];
+                for (var i = 0; i < length; i++) {
+                    elements[i] = SpirvOperand.Id(
+                        LoadAcrossLayout(
+                            Step(pointer, storage, array.Element, types.ConstantInt(i)),
+                            storage,
+                            array.Element
+                        )
+                    );
+                }
+
+                return Emit(SpirvOp.CompositeConstruct, types.Type(array), elements);
+            }
+
+            default:
+                return Emit(SpirvOp.Load, types.Type(type), SpirvOperand.Id(pointer));
+        }
+    }
+
+    /// <summary>One access chain step into a laid-out aggregate.</summary>
+    uint Step(uint pointer, SpirvStorageClass storage, IrType member, uint index) =>
+        Emit(
+            SpirvOp.AccessChain,
+            types.Pointer(storage, types.Type(member, true)),
+            SpirvOperand.Id(pointer),
+            SpirvOperand.Id(index)
+        );
 
     void EmitStore(IrPlace place, uint value) {
         var pointer = Resolve(place, write: true);
@@ -814,7 +911,7 @@ partial class SpirvEmitter {
             storage = SpirvStorageClass.Function;
         } else {
             Report(BackendDiagnostics.NotImplemented, $"Reaching the variable '{place.Root.Name}'");
-            return new(types.ConstantInt(0), place.Type, false);
+            return new(types.ConstantInt(0), place.Type, false, SpirvStorageClass.Function);
         }
 
         // Only a uniform block's members are laid out; a stream is interface storage with no
@@ -855,7 +952,7 @@ partial class SpirvEmitter {
         }
 
         if (indices.Count == 0) {
-            return new(baseId, type, layout, trailing);
+            return new(baseId, type, layout, storage, trailing);
         }
 
         var chain = Emit(
@@ -864,7 +961,7 @@ partial class SpirvEmitter {
             [SpirvOperand.Id(baseId), .. indices]
         );
 
-        return new(chain, type, layout, trailing);
+        return new(chain, type, layout, storage, trailing);
     }
 
     // --- Values ------------------------------------------------------------

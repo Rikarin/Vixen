@@ -365,7 +365,10 @@ public static class LibraryBuilder {
                     Kind = LibraryTypeKind.TypeParameter, Name = parameter.Name
                 },
                 ArrayTypeSymbol array => new() {
-                    Kind = LibraryTypeKind.Array, Element = Reference(array.ElementType), Rank = array.Rank
+                    Kind = LibraryTypeKind.Array,
+                    Element = Reference(array.ElementType),
+                    Rank = array.Rank,
+                    Length = array.Length
                 },
                 TupleTypeSymbol tuple => new() {
                     Kind = LibraryTypeKind.Tuple,

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text;
 using Vixen.Raven.IR;
 
 namespace Vixen.Raven.CodeGen.Glsl;
@@ -136,8 +137,37 @@ public static class GlslTypes {
                 _ => "textureCube"
             },
             IrSamplerType => "sampler",
+
+            // GLSL's prefix array type: `float[4]`, which is what an array constructor spells.
+            // A declaration puts the extents after the *name* instead — see `Declare` — and both
+            // forms are legal GLSL for the same type, which is why the two are separate methods.
+            IrArrayType array => Extents(array) is { } extents ? extents.Element + extents.Suffix : null,
+
             _ => null
         };
+
+    /// <summary>
+    ///     An array's element type and its <c>[a][b]</c> extents, outermost first, or null when
+    ///     any part of it has no GLSL spelling. An array of arrays is one declaration with two
+    ///     extents in both targets, never a nested type name.
+    /// </summary>
+    static (string Element, string Suffix)? Extents(IrArrayType array) {
+        var suffix = new StringBuilder();
+        IrType type = array;
+
+        while (type is IrArrayType inner) {
+            // Only the outermost extent of a GLSL array may be omitted, and only as a storage
+            // block's last member — which the IR cannot express, so no extent may be missing here.
+            if (inner.Length is not { } length) {
+                return null;
+            }
+
+            suffix.Append('[').Append(length).Append(']');
+            type = inner.Element;
+        }
+
+        return Name(type) is { } element ? (element, suffix.ToString()) : null;
+    }
 
     /// <summary>
     ///     The combined sampler type a texture pairs into — what <c>sampler2D(t, s)</c>
@@ -155,18 +185,14 @@ public static class GlslTypes {
 
     /// <summary>
     ///     A declaration of <paramref name="name" /> at <paramref name="type" />.
-    ///     Arrays put their extent after the name, as C-family languages do.
+    ///     Arrays put their extents after the name, as C-family languages do.
     /// </summary>
     public static string? Declare(IrType type, string name) {
         if (type is not IrArrayType array) {
             return Name(type) is { } simple ? $"{simple} {name}" : null;
         }
 
-        // GLSL only allows a runtime-sized array as the last member of a storage
-        // block, which the IR has no way to express yet.
-        return array.Length is { } length && Name(array.Element) is { } element
-            ? $"{element} {name}[{length}]"
-            : null;
+        return Extents(array) is { } extents ? $"{extents.Element} {name}{extents.Suffix}" : null;
     }
 
     /// <summary>Makes an identifier safe to emit, mangling only when it must.</summary>

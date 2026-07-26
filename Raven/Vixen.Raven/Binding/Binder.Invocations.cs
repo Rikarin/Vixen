@@ -488,6 +488,10 @@ public abstract partial class Binder {
 
         switch (receiver.Type) {
             case ArrayTypeSymbol array:
+                if (!isSlice) {
+                    CheckConstantIndex(array, indices);
+                }
+
                 return new BoundArrayAccessExpression(
                     syntax,
                     receiver,
@@ -534,6 +538,29 @@ public abstract partial class Binder {
 
         Report(SemanticDiagnostics.CannotIndex, syntax, receiver.Type.ToDisplayString());
         return new BoundErrorExpression(syntax, indices);
+    }
+
+    /// <summary>
+    ///     Reports a constant index that a sized array cannot hold. Out-of-bounds access is
+    ///     undefined behaviour on a GPU, which in practice means a wrong pixel on one driver and a
+    ///     device loss on another; when both the index and the length are known there is no reason
+    ///     to find out which. An unsized array or a non-constant index says nothing and is left
+    ///     alone — this is a certainty check, not a bounds analysis.
+    /// </summary>
+    void CheckConstantIndex(ArrayTypeSymbol array, IReadOnlyList<BoundExpression> indices) {
+        if (array.Length is not { } length || indices.Count != 1) {
+            return;
+        }
+
+        var index = ConstantEvaluator.Evaluate(indices[0]) switch {
+            int i => i,
+            uint u when u <= int.MaxValue => (int)u,
+            _ => (int?)null
+        };
+
+        if (index is { } value && (value < 0 || value >= length)) {
+            Report(SemanticDiagnostics.IndexOutOfRange, indices[0].Syntax, value, array.ToDisplayString(), length);
+        }
     }
 
     BoundExpression[] ConvertIndices(IReadOnlyList<BoundExpression> indices, IReadOnlyList<BoundArgument> arguments) {

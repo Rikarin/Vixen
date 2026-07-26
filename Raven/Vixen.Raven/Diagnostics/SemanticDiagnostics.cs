@@ -777,4 +777,50 @@ public static class SemanticDiagnostics {
         Declaration,
         DiagnosticSeverity.Error
     );
+
+    // --- Array sizes ------------------------------------------------------
+
+    /// <summary>An array size that is not a compile-time constant.</summary>
+    /// <remarks>
+    ///     A GPU allocates no memory at run time: the length is part of the type, decorated into the
+    ///     SPIR-V and written into the GLSL declaration, and the host reads it back out of the
+    ///     reflection to size the buffer it uploads. A size known only at run time has no answer to
+    ///     give any of them. A <c>const</c> field, an enum member and a <c>[Permutation] val</c> all
+    ///     qualify — the last is the interesting one, because it lets the host pick the length.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor ArraySizeNotConstant = new(
+        "RVN2115",
+        "Array size must be a constant",
+        "The size of an array must be a compile-time constant, and '{0}' is not",
+        Declaration,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>An array size that folds to something other than a positive integer.</summary>
+    /// <remarks>
+    ///     Zero is excluded along with the negatives: <c>OpTypeArray</c> requires a length greater
+    ///     than zero, and a zero-length array in GLSL is a compile error too. Reported here rather
+    ///     than left for the backends, so the two cannot disagree.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor ArraySizeNotPositive = new(
+        "RVN2116",
+        "Array size must be positive",
+        "An array size must be an integer greater than zero; '{0}' is {1}",
+        Declaration,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>A constant index outside a sized array's bounds.</summary>
+    /// <remarks>
+    ///     Out-of-bounds access is undefined behaviour on a GPU, and undefined there means a wrong
+    ///     pixel on one driver and a device loss on another. When both the index and the length are
+    ///     known at compile time there is no reason to find out which.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor IndexOutOfRange = new(
+        "RVN2117",
+        "Index is outside the array",
+        "Index {0} is outside '{1}', which has {2} element(s)",
+        Binding,
+        DiagnosticSeverity.Error
+    );
 }

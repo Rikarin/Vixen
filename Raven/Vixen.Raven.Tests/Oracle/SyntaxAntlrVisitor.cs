@@ -52,7 +52,7 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
 
     public override SyntaxNode VisitCastExpression(RavenParser.CastExpressionContext context) {
         var open = Token(TerminalOf(context, RavenLexer.OPEN_PARENS), SyntaxKind.OpenParenToken);
-        var type = Visit(context.type()) as TypeSyntax;
+        var type = Visit(context.unsized_type()) as TypeSyntax;
         var close = Token(TerminalOf(context, RavenLexer.CLOSE_PARENS), SyntaxKind.CloseParenToken);
         var expression = Visit(context.expression()) as ExpressionSyntax;
 
@@ -177,7 +177,8 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
 
     // A bare type in expression position (e.g. a plain identifier) — TypeSyntax
     // derives from ExpressionSyntax, so the type node is already an expression.
-    public override SyntaxNode VisitTypeExpression(RavenParser.TypeExpressionContext context) => Visit(context.type());
+    public override SyntaxNode VisitTypeExpression(RavenParser.TypeExpressionContext context) =>
+        Visit(context.unsized_type());
 
     public override SyntaxNode VisitExpressionElement(RavenParser.ExpressionElementContext context) {
         var expression = Visit(context.expression()) as ExpressionSyntax;
@@ -201,48 +202,78 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
     public override SyntaxNode VisitNameType(RavenParser.NameTypeContext context) => Visit(context.name());
 
     public override SyntaxNode VisitPredefinedType(RavenParser.PredefinedTypeContext context) =>
-        context.pType.Type switch {
-            RavenLexer.BOOL => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.BoolKeyword)),
-            RavenLexer.BOOL2 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Bool2Keyword)),
-            RavenLexer.BOOL3 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Bool3Keyword)),
-            RavenLexer.BOOL4 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Bool4Keyword)),
-            RavenLexer.INT => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.IntKeyword)),
-            RavenLexer.INT2 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Int2Keyword)),
-            RavenLexer.INT3 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Int3Keyword)),
-            RavenLexer.INT4 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Int4Keyword)),
-            RavenLexer.UINT => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.UIntKeyword)),
-            RavenLexer.UINT2 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.UInt2Keyword)),
-            RavenLexer.UINT3 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.UInt3Keyword)),
-            RavenLexer.UINT4 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.UInt4Keyword)),
-            RavenLexer.FLOAT => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.FloatKeyword)),
-            RavenLexer.FLOAT2 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Float2Keyword)),
-            RavenLexer.FLOAT3 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Float3Keyword)),
-            RavenLexer.FLOAT4 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Float4Keyword)),
-            RavenLexer.DOUBLE => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.DoubleKeyword)),
-            RavenLexer.DOUBLE2 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Double2Keyword)),
-            RavenLexer.DOUBLE3 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Double3Keyword)),
-            RavenLexer.DOUBLE4 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Double4Keyword)),
-            RavenLexer.MAT2 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Mat2Keyword)),
-            RavenLexer.MAT2X3 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Mat2x3Keyword)),
-            RavenLexer.MAT2X4 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Mat2x4Keyword)),
-            RavenLexer.MAT3 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Mat3Keyword)),
-            RavenLexer.MAT3X2 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Mat3x2Keyword)),
-            RavenLexer.MAT3X4 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Mat3x4Keyword)),
-            RavenLexer.MAT4 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Mat4Keyword)),
-            RavenLexer.MAT4X2 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Mat4x2Keyword)),
-            RavenLexer.MAT4X3 => SyntaxFactory.PredefinedType(Token(context.pType, SyntaxKind.Mat4x3Keyword)),
+        Predefined(context.pType);
+
+    // `unsized_type`'s four alternatives build the very same nodes as `type`'s; the rules
+    // differ only in whether a rank specifier may carry a size. See the grammar comment on
+    // `unsized_type` for why that has to be a second rule rather than a flag.
+    public override SyntaxNode VisitUnsizedArrayType(RavenParser.UnsizedArrayTypeContext context) {
+        var type = Visit(context.unsized_type()) as TypeSyntax;
+        var rankSpecifiers = SyntaxList.List(context.unsized_rank_specifier().Select(Visit).ToArray());
+        return SyntaxFactory.ArrayType(type!, new(rankSpecifiers));
+    }
+
+    public override SyntaxNode VisitUnsizedNameType(RavenParser.UnsizedNameTypeContext context) =>
+        Visit(context.name());
+
+    public override SyntaxNode VisitUnsizedPredefinedType(RavenParser.UnsizedPredefinedTypeContext context) =>
+        Predefined(context.pType);
+
+    public override SyntaxNode VisitUnsizedTupleType(RavenParser.UnsizedTupleTypeContext context) =>
+        TupleType(context);
+
+    SyntaxNode Predefined(IToken pType) =>
+        pType.Type switch {
+            RavenLexer.BOOL => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.BoolKeyword)),
+            RavenLexer.BOOL2 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Bool2Keyword)),
+            RavenLexer.BOOL3 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Bool3Keyword)),
+            RavenLexer.BOOL4 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Bool4Keyword)),
+            RavenLexer.INT => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.IntKeyword)),
+            RavenLexer.INT2 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Int2Keyword)),
+            RavenLexer.INT3 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Int3Keyword)),
+            RavenLexer.INT4 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Int4Keyword)),
+            RavenLexer.UINT => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.UIntKeyword)),
+            RavenLexer.UINT2 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.UInt2Keyword)),
+            RavenLexer.UINT3 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.UInt3Keyword)),
+            RavenLexer.UINT4 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.UInt4Keyword)),
+            RavenLexer.FLOAT => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.FloatKeyword)),
+            RavenLexer.FLOAT2 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Float2Keyword)),
+            RavenLexer.FLOAT3 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Float3Keyword)),
+            RavenLexer.FLOAT4 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Float4Keyword)),
+            RavenLexer.DOUBLE => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.DoubleKeyword)),
+            RavenLexer.DOUBLE2 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Double2Keyword)),
+            RavenLexer.DOUBLE3 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Double3Keyword)),
+            RavenLexer.DOUBLE4 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Double4Keyword)),
+            RavenLexer.MAT2 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Mat2Keyword)),
+            RavenLexer.MAT2X3 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Mat2x3Keyword)),
+            RavenLexer.MAT2X4 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Mat2x4Keyword)),
+            RavenLexer.MAT3 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Mat3Keyword)),
+            RavenLexer.MAT3X2 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Mat3x2Keyword)),
+            RavenLexer.MAT3X4 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Mat3x4Keyword)),
+            RavenLexer.MAT4 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Mat4Keyword)),
+            RavenLexer.MAT4X2 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Mat4x2Keyword)),
+            RavenLexer.MAT4X3 => SyntaxFactory.PredefinedType(Token(pType, SyntaxKind.Mat4x3Keyword)),
             _ => throw ExceptionUtilities.Unreachable()
         };
 
-    public override SyntaxNode VisitTupleType(RavenParser.TupleTypeContext context) {
+    public override SyntaxNode VisitTupleType(RavenParser.TupleTypeContext context) => TupleType(context);
+
+    SyntaxNode TupleType(ParserRuleContext context) {
         var open = Token(TerminalOf(context, RavenLexer.OPEN_PARENS), SyntaxKind.OpenParenToken);
         var elements = SeparatedList<TupleElementSyntax>(
-            context.tuple_element().Select(Visit).ToArray(),
+            TupleElements(context).Select(Visit).ToArray(),
             Commas(context)
         );
         var close = Token(TerminalOf(context, RavenLexer.CLOSE_PARENS), SyntaxKind.CloseParenToken);
         return SyntaxFactory.TupleType(open, elements, close);
     }
+
+    static RavenParser.Tuple_elementContext[] TupleElements(ParserRuleContext context) =>
+        context switch {
+            RavenParser.TupleTypeContext tuple => tuple.tuple_element(),
+            RavenParser.UnsizedTupleTypeContext tuple => tuple.tuple_element(),
+            _ => throw ExceptionUtilities.Unreachable()
+        };
 
     public override SyntaxNode VisitCompilation_unit(RavenParser.Compilation_unitContext context) {
         var package = Visit(context.package_declaration()) as PackageDirectiveSyntax;
@@ -961,10 +992,18 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
     }
 
     public override SyntaxNode VisitArray_rank_specifier(RavenParser.Array_rank_specifierContext context) {
+        var size = context.expression() != null ? Visit(context.expression()) as ExpressionSyntax : null;
+        return RankSpecifier(context, size);
+    }
+
+    public override SyntaxNode VisitUnsized_rank_specifier(RavenParser.Unsized_rank_specifierContext context) =>
+        RankSpecifier(context, null);
+
+    SyntaxNode RankSpecifier(ParserRuleContext context, ExpressionSyntax? size) {
         var open = Token(TerminalOf(context, RavenLexer.OPEN_BRACKET), SyntaxKind.OpenBracketToken);
         var commas = SyntaxList.List(Commas(context).Cast<SyntaxNode>().ToArray());
         var close = Token(TerminalOf(context, RavenLexer.CLOSE_BRACKET), SyntaxKind.CloseBracketToken);
-        return SyntaxFactory.ArrayRankSpecifier(open, new(commas), close);
+        return SyntaxFactory.ArrayRankSpecifier(open, size, new(commas), close);
     }
 
     public override SyntaxNode VisitIdentifier_token(RavenParser.Identifier_tokenContext context) =>

@@ -242,6 +242,13 @@ public sealed record LibraryTypeReference {
     /// <summary>Array rank; <c>T[,]</c> is 2.</summary>
     public int Rank { get; init; }
 
+    /// <summary>
+    ///     Array length, or null when unsized. Part of the type rather than a detail of it:
+    ///     <c>float[4]</c> and <c>float[]</c> are different types, so a signature that lost the
+    ///     length would resolve to something the source never declared.
+    /// </summary>
+    public int? Length { get; init; }
+
     /// <summary>Element types of a tuple.</summary>
     public ImmutableArray<LibraryTypeReference> Elements { get; init; } = [];
 

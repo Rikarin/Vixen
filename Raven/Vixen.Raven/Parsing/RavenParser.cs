@@ -328,13 +328,23 @@ sealed class RavenParser : SyntaxParser {
     bool AtTypeStart =>
         At(RavenTokenKind.Identifier) || IsPredefinedTypeKeyword(Kind) || At(RavenTokenKind.OpenParen);
 
-    TypeSyntax ParseType() {
+    /// <summary>
+    ///     One <c>type</c> production.
+    /// </summary>
+    /// <param name="allowSizes">
+    ///     Whether <c>[4]</c> may size the array. On in a type position, where nothing but the
+    ///     type can own a <c>[</c>; off where a type competes with an expression, so that
+    ///     <c>a[i]</c> stays element access. That positional split is the whole disambiguation:
+    ///     the two readings are told apart by where they appear, never by what is between the
+    ///     brackets. The oracle grammar splits `type` and `unsized_type` for the same reason.
+    /// </param>
+    TypeSyntax ParseType(bool allowSizes = true) {
         var type = ParseCoreType();
 
         // `type array_rank_specifier+` folds every rank into one ArrayType node.
-        if (At(RavenTokenKind.OpenBracket) && ScanArrayRank()) {
+        if (At(RavenTokenKind.OpenBracket) && ScanArrayRank(allowSizes)) {
             List<SyntaxNode?> ranks = [];
-            while (At(RavenTokenKind.OpenBracket) && ScanArrayRank()) {
+            while (At(RavenTokenKind.OpenBracket) && ScanArrayRank(allowSizes)) {
                 ranks.Add(ParseArrayRankSpecifier());
             }
 
@@ -389,14 +399,24 @@ sealed class RavenParser : SyntaxParser {
 
     ArrayRankSpecifierSyntax ParseArrayRankSpecifier() {
         var open = Take(SyntaxKind.OpenBracketToken);
+
+        // A size and commas are alternatives, not a sequence: `[4,4]` is not a shape the
+        // node can hold, because a multi-dimensional array is never sized.
+        ExpressionSyntax? size = null;
         List<SyntaxNode?> commas = [];
-        while (At(RavenTokenKind.Comma)) {
-            commas.Add(Take(SyntaxKind.CommaToken));
+
+        if (At(RavenTokenKind.Comma) || At(RavenTokenKind.CloseBracket)) {
+            while (At(RavenTokenKind.Comma)) {
+                commas.Add(Take(SyntaxKind.CommaToken));
+            }
+        } else {
+            size = ParseExpression();
         }
 
         var close = Expect(RavenTokenKind.CloseBracket, SyntaxKind.CloseBracketToken);
         return (ArrayRankSpecifierSyntax)SyntaxFactory.ArrayRankSpecifier(
             open,
+            size,
             new(SyntaxList.List(commas.ToArray())),
             close
         );
@@ -404,14 +424,51 @@ sealed class RavenParser : SyntaxParser {
 
     // ------------------------------------------------------------ Type scanning (no tree tokens)
 
-    /// <summary>An empty rank — <c>[</c> commas <c>]</c> — as opposed to element access.</summary>
-    bool ScanArrayRank() {
+    /// <summary>
+    ///     Whether the <c>[</c> ahead opens an array rank rather than an element access:
+    ///     <c>[</c> commas <c>]</c> always, and <c>[</c> expression <c>]</c> only where a
+    ///     size is allowed.
+    /// </summary>
+    bool ScanArrayRank(bool allowSizes) {
         var n = 1;
         while (PeekKind(n) == RavenTokenKind.Comma) {
             n++;
         }
 
-        return PeekKind(n) == RavenTokenKind.CloseBracket;
+        if (PeekKind(n) == RavenTokenKind.CloseBracket) {
+            return true;
+        }
+
+        return allowSizes && ScanArraySize();
+    }
+
+    /// <summary>
+    ///     A non-empty <c>[</c> … <c>]</c> that closes on this line. Scanning to the *matching*
+    ///     bracket rather than the first one keeps a nested access in the size — <c>T[n[0]]</c> —
+    ///     from ending it early; stopping at a newline keeps a following attribute list from
+    ///     being swallowed when the type before it failed to parse.
+    /// </summary>
+    bool ScanArraySize() {
+        var depth = 0;
+
+        for (var n = 0;; n++) {
+            switch (PeekKind(n)) {
+                case RavenTokenKind.OpenBracket:
+                    depth++;
+                    break;
+
+                case RavenTokenKind.CloseBracket:
+                    if (--depth == 0) {
+                        return n > 1;
+                    }
+
+                    break;
+
+                case RavenTokenKind.NewLine or RavenTokenKind.EndOfFile
+                    or RavenTokenKind.OpenBrace or RavenTokenKind.CloseBrace:
+                    return false;
+            }
+        }
     }
 
     bool ScanTypeArgumentList() {
@@ -432,13 +489,13 @@ sealed class RavenParser : SyntaxParser {
             return true;
         }
 
-        if (!TryScanType()) {
+        if (!TryScanType(true)) {
             return false;
         }
 
         while (At(RavenTokenKind.Comma)) {
             Advance();
-            if (!TryScanType()) {
+            if (!TryScanType(true)) {
                 return false;
             }
         }
@@ -451,8 +508,13 @@ sealed class RavenParser : SyntaxParser {
         return true;
     }
 
-    /// <summary>Advances over one <c>type</c> production without building anything.</summary>
-    bool TryScanType() {
+    /// <summary>
+    ///     Advances over one <c>type</c> production without building anything.
+    ///     <paramref name="allowSizes" /> must be false wherever the scan is deciding
+    ///     <em>whether</em> this is a type at all against an expression reading — a cast — and
+    ///     true wherever a type is already certain and the scan only has to get past it.
+    /// </summary>
+    bool TryScanType(bool allowSizes) {
         if (IsPredefinedTypeKeyword(Kind)) {
             Advance();
         } else if (At(RavenTokenKind.Identifier)) {
@@ -497,13 +559,11 @@ sealed class RavenParser : SyntaxParser {
             return false;
         }
 
-        while (At(RavenTokenKind.OpenBracket) && ScanArrayRank()) {
-            Advance();
-            while (At(RavenTokenKind.Comma)) {
-                Advance();
+        // Balanced rather than token-by-token, because a size is an expression.
+        while (At(RavenTokenKind.OpenBracket) && ScanArrayRank(allowSizes)) {
+            if (!TryScanBalanced(RavenTokenKind.OpenBracket, RavenTokenKind.CloseBracket)) {
+                return false;
             }
-
-            Advance();
         }
 
         return true;
@@ -515,7 +575,7 @@ sealed class RavenParser : SyntaxParser {
             Advance();
         }
 
-        return TryScanType();
+        return TryScanType(true);
     }
 
     // ================================================================== Attributes
@@ -620,7 +680,7 @@ sealed class RavenParser : SyntaxParser {
                 return false;
             }
 
-            if (!TryScanType()) {
+            if (!TryScanType(true)) {
                 return false;
             }
 
@@ -780,7 +840,7 @@ sealed class RavenParser : SyntaxParser {
 
     bool ScanOperatorDeclaration() {
         var mark = RawPosition;
-        var ok = TryScanType() && At(RavenTokenKind.OperatorKeyword);
+        var ok = TryScanType(true) && At(RavenTokenKind.OperatorKeyword);
         ResetTo(mark);
         return ok;
     }
@@ -799,7 +859,7 @@ sealed class RavenParser : SyntaxParser {
             Advance();
             if (At(RavenTokenKind.Colon)) {
                 Advance();
-                if (!TryScanType()) {
+                if (!TryScanType(true)) {
                     ResetTo(mark);
                     return false;
                 }
@@ -1798,7 +1858,10 @@ sealed class RavenParser : SyntaxParser {
         var mark = RawPosition;
         Advance();
 
-        var ok = TryScanType()
+        // No sizes: this scan is the one place deciding type-or-expression, and reading a
+        // size here would turn `(a[4]) - 1` into a cast of `-1`. A cast to a sized array
+        // means nothing anyway, so the restriction costs nothing real.
+        var ok = TryScanType(false)
             && At(RavenTokenKind.CloseParen)
             && StartsExpression((RavenTokenKind)Peek(1).RawKind);
 
@@ -1818,7 +1881,9 @@ sealed class RavenParser : SyntaxParser {
                     );
                     continue;
 
-                case RavenTokenKind.OpenBracket when !ScanArrayRank():
+                // An empty rank belongs to the type primary below, not here — a size never
+                // does, which is what keeps `a[4]` an element access.
+                case RavenTokenKind.OpenBracket when !ScanArrayRank(false):
                     expression = (ExpressionSyntax)SyntaxFactory.ElementAccessExpression(
                         expression,
                         ParseBracketedArgumentList()
@@ -1910,12 +1975,13 @@ sealed class RavenParser : SyntaxParser {
                 return ParseParenthesizedOrTuple();
 
             case RavenTokenKind.Identifier: {
-                // A dotted name is a single qualified-name expression; array ranks
+                // A dotted name is a single qualified-name expression; empty array ranks
                 // after it make it a type expression, exactly as the type primary would.
+                // Sizes are excluded here, and that is what makes `a[4]` element access.
                 var name = (ExpressionSyntax)ParseName();
-                if (At(RavenTokenKind.OpenBracket) && ScanArrayRank()) {
+                if (At(RavenTokenKind.OpenBracket) && ScanArrayRank(false)) {
                     List<SyntaxNode?> ranks = [];
-                    while (At(RavenTokenKind.OpenBracket) && ScanArrayRank()) {
+                    while (At(RavenTokenKind.OpenBracket) && ScanArrayRank(false)) {
                         ranks.Add(ParseArrayRankSpecifier());
                     }
 
@@ -1930,7 +1996,7 @@ sealed class RavenParser : SyntaxParser {
 
             default:
                 if (IsPredefinedTypeKeyword(Kind)) {
-                    return (ExpressionSyntax)ParseType();
+                    return (ExpressionSyntax)ParseType(false);
                 }
 
                 ReportExpected("an expression");

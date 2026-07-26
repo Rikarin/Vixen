@@ -320,6 +320,7 @@ sealed partial class SpirvEmitter {
 
     void EmitFunction(IrFunction function) {
         values.Clear();
+        constants.Clear();
         pointers.Clear();
         opaqueParameters.Clear();
         loops.Clear();
@@ -430,6 +431,7 @@ sealed partial class SpirvEmitter {
     /// </summary>
     void EmitEntryPoint() {
         values.Clear();
+        constants.Clear();
         pointers.Clear();
         loops.Clear();
 

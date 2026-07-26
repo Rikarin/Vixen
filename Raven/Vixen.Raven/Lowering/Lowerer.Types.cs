@@ -48,7 +48,7 @@ public sealed partial class Lowerer {
 
             case ArrayTypeSymbol { Rank: 1 } array: {
                 var element = LowerType(array.ElementType, syntax);
-                return element.IsVoid ? NotRepresentable(type, syntax) : new IrArrayType(element);
+                return element.IsVoid ? NotRepresentable(type, syntax) : new IrArrayType(element, array.Length);
             }
 
             case NamedTypeSymbol { TypeKind: TypeKind.Enum }:

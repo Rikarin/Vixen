@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Symbols;
 using Vixen.Raven.Syntax;
@@ -49,9 +50,16 @@ public abstract partial class Binder {
 
             case ArrayTypeSyntax array: {
                 var element = BindType(array.ElementType);
-                // `T[][]` nests: the rank specifiers read left to right, outermost last.
-                foreach (var rank in array.RankSpecifiers) {
-                    element = new ArrayTypeSymbol(element, rank.Commas.Count + 1);
+
+                // `T[a][b]` nests right to left: `b` is the inner extent, so the type reads
+                // "`a` arrays of `b` elements" — the same order C and GLSL give it. The order is
+                // only observable once a rank carries a size; for `T[][]` either way is one type.
+                for (var i = array.RankSpecifiers.Count - 1; i >= 0; i--) {
+                    if (array.RankSpecifiers[i] is not { } rank) {
+                        continue;
+                    }
+
+                    element = new ArrayTypeSymbol(element, rank.Commas.Count + 1, BindArraySize(rank.Size));
                 }
 
                 return element;
@@ -72,6 +80,50 @@ public abstract partial class Binder {
                 Report(SemanticDiagnostics.NotAType, syntax, syntax.ToString().Trim());
                 return ErrorTypeSymbol.Instance;
         }
+    }
+
+    /// <summary>
+    ///     Folds an array size to its element count, or null when there is no size to fold.
+    ///     A size that will not fold is reported and treated as absent, so the array degrades to
+    ///     unsized rather than propagating an error type through everything that mentions it.
+    /// </summary>
+    int? BindArraySize(ExpressionSyntax? syntax) {
+        if (syntax is null) {
+            return null;
+        }
+
+        var bound = BindValue(syntax);
+
+        if (bound.Type.IsErrorType) {
+            // Already reported by BindValue.
+            return null;
+        }
+
+        if (ConstantEvaluator.Evaluate(bound) is not { } value) {
+            Report(SemanticDiagnostics.ArraySizeNotConstant, syntax, syntax.ToString().Trim());
+            return null;
+        }
+
+        // A uint size is as good as an int one; anything else is not a count.
+        var count = value switch {
+            int i => i,
+            uint u when u <= int.MaxValue => (int)u,
+            _ => (int?)null
+        };
+
+        if (count is null or <= 0) {
+            Report(
+                SemanticDiagnostics.ArraySizeNotPositive,
+                syntax,
+                syntax.ToString().Trim(),
+                count is null
+                    ? $"of type '{bound.Type.ToDisplayString()}'"
+                    : count.Value.ToString(CultureInfo.InvariantCulture)
+            );
+            return null;
+        }
+
+        return count;
     }
 
     TypeSymbol BindNamedType(string name, IReadOnlyList<TypeSymbol> typeArguments, SyntaxNode syntax) {

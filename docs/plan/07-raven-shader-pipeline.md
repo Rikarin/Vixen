@@ -30,7 +30,7 @@ decision that has been made and built, kept because the reasons stay useful.
 | 🟡 | **Generic types and methods do not lower** — front-end only. An open definition is `RVN3001`, and so is an instantiation: there is no monomorphisation, so `Box<float4>` reaches no backend | § I | anything in § F's library that wants a generic container |
 | ⚪ | **Small texture and stage intrinsics**: no `SampleLevel` (explicit mip), no `GetDimensions`, no `discard`, no `SV_VertexID` semantic, no `asfloat`/`asuint` | § F | each shaped a library file rather than blocking it — see § F's list of what it could not express |
 | 🟡 | **`&&` / `\|\|` do not short-circuit** — sound for side-effect-free expressions, wrong the moment the right operand is a guard | § I | correctness of `i < n && data[i] > 0` |
-| 🟡 | **Sized array types**, and therefore `Buffer<T>`-style storage buffers, unsized arrays, spread elements (`RVN3002`) and `ArrayStride` against the oracle | § I, § C | the writable-resource row above; `DescriptorType.StorageBuffer` and `LayoutRule.Std430` have nothing that produces them |
+| 🟡 | **Storage buffers** — a `Buffer<T>`-style writable resource, and the unsized array that is legal as its last member. Sized arrays landed and closed the read-only half of this; what is left needs the *writable* half above, plus `LayoutRule.Std430`, which nothing produces yet | § I, § C | the writable-resource row above; `DescriptorType.StorageBuffer` has nothing that produces it |
 | 🟡 | **Inheritance is not flattened** — now `RVN3002` rather than three silent miscompilations | § I, mixins | the mixin question; `compose` covers the common case |
 | 🟡 | **Push constants** — no syntax, so `PushConstants` is always empty | § C, § D | nothing yet; reported as absent rather than guessed |
 | 🟡 | **String interpolation** — needs lexer modes; nothing shipped uses it | § I | nothing |
@@ -236,9 +236,10 @@ Honestly bounded:
   job (§ G), and that is why both techniques are in the plan.
 - **A bug in the shared IR shows up in both paths and stays invisible here.** Both emitters read the
   same lowered IR; the oracle compares emitters, not the lowering.
-- **`ArrayStride` is not yet covered against the oracle.** Raven cannot declare a sized array — its
-  `array_rank_specifier` is `[]` only — and an unsized array is not legal in a uniform block. The
-  stride rules are pinned against the spec as literals, but not against a second implementation.
+- **`ArrayStride` is now covered.** `SizedArrayTests` puts a `float4[4]` and a `float[8]` in a uniform
+  block and asserts the stride, and both reference tools read the result — so the std140 round-up to 16
+  is checked against two full front ends rather than only against the spec as literals. What is still
+  uncovered is `std430`, which nothing produces until there is a storage buffer to produce it.
 - **The tools are found on PATH, not restored.** `glslc` (brew install shaderc) and `spirv-dis`
   (brew install spirv-tools); the CLI tools rather than `Silk.NET.Shaderc`, so shaderc's native
   binaries never enter the restore graph of a project that must not ship them. Absence is reported
@@ -568,10 +569,14 @@ nothing in the fixtures was shaped like real library code.
 
 Each of these shaped a file rather than blocking it, and each is recorded in the table at the top.
 
-- **No sized array types**, so nothing can index a buffer. `Lighting.rvn` has the per-light maths but
-  not the clustered light loop — which is what "forward *plus*" names — and `Skinning.rvn` takes four
-  explicit bone matrices instead of a palette. Four influences is what glTF stores, so the limitation
-  costs less than it sounds, but the loop is host-side for now.
+- ~~**No sized array types**~~ — landed, and it took the two named library gaps with it.
+  `Pipeline/ForwardPlus.rvn` now has the clustered light loop over a `PunctualLight[MaxLights]`, and
+  `Pipeline/ShadowCaster.rvn` skins from a `mat4[Skinning.MaxBones]` palette. What the *library* learnt
+  from it is a calling-convention rule rather than a syntax one: a function parameter is by value in
+  both targets, so a `mat4[256]` parameter would copy sixteen kilobytes at every call. Indexing
+  therefore belongs to the shader that declares the palette, where it is an access chain, and the blend
+  belongs to `Geometry/Skinning.rvn`, where the arithmetic is. Small arrays — a `float[3]` filter kernel
+  — pass by value quite happily; the rule is about size, not about arrays.
 - **No writable resources**, so `Vfx/ParticleSimulate.rvn` is the forces and the integrator rather
   than the compute shader it should be. Written as free functions over a `Particle` value, which is
   also the form that makes doc 06's CPU/GPU bit-for-bit comparison a transliteration.
@@ -752,7 +757,7 @@ Nothing here is engine-blocking except where marked.
 |---|---|
 | 🔴 | **Four nodes silently drop their tokens.** `RepeatStatementSyntax` has no `repeat`/`while` keywords or parens, `CastExpressionSyntax` no parens, `SelfExpressionSyntax`/`BaseExpressionSyntax` no keyword at all. Fix is the recipe every other node already follows: token slots in `Syntax.xml`, then wire the visitor |
 | 🟡 | **String interpolation** — needs lexer modes for embedded expressions. Nothing shipped uses it |
-| 🟡 | **Sized array types as type syntax** — `array_rank_specifier` is `[]`/`[,]` only, deliberately, so that `a[i]` is unambiguously element access. Consequence: no sized-array uniform, so § C's oracle cannot check `ArrayStride` against a second implementation |
+| ✅ | **Sized array types as type syntax** — `float4[4]`, `mat4[MaxBones]`. The `a[i]` ambiguity is resolved by *position* rather than by token shape; see [§ Sized arrays](#sized-arrays-the-length-is-part-of-the-type) |
 
 The first is worse than "loses a keyword", and it is verified rather than inherited. All four parse
 with **zero diagnostics** and reprint as something else:
@@ -777,11 +782,11 @@ shader graph's generated-source span mapping.
 | 🔴 | **`m[i]` meant a row in the IR and a column in both targets** | ✅ fixed in [§ E](#e-conventions-raven-must-bake-in) |
 | 🟡 | **`&&` and `\|\|` do not short-circuit.** They lower to `logicalAnd`/`logicalOr`, which evaluate both operands, as `?:` lowers to `select`. Sound for the side-effect-free expressions shaders are made of; wrong the moment the right operand is a guard (`i < n && data[i] > 0`) |
 | 🟡 | **Stream I/O declarations between stages** — no `stream` keyword; interstage data passes as entry-point parameters and returns | ✅ built; see [§ Streams](#streams-interstage-values-declared-once) |
-| 🟡 | **`Buffer<T>`-style resources** — the built-in named types are not generic, so there are no storage buffers. This is also why `DescriptorType.StorageBuffer` and `LayoutRule.Std430` exist in the reflection with nothing that produces them, and why the compute stage has nothing writable to store into |
+| 🟡 | **`Buffer<T>`-style resources** — the built-in named types are not generic, so there are no storage buffers. This is why `DescriptorType.StorageBuffer` and `LayoutRule.Std430` exist in the reflection with nothing that produces them, and why the compute stage has nothing writable to store into. A sized array covers the *read-only* half — a uniform array of records — so what is missing is the storage class and the unsized last member, not the element type |
 | ✅ | **Kept in the language but not lowered** — resolved by Tier B: `switch`, operators and tuples are finished, the rest are dropped |
 | 🟡 | **Inheritance is not flattened** — a base's fields never reach the derived layout and an `override` does not replace the base's member. Now `RVN3002` instead of three silent miscompilations; see the mixin section for what implementing it would cost |
 | 🟡 | **Generics do not lower at all** — not the open definition and not an instantiation either: `Box<float4>` is `RVN3001` the same as `T` is, because there is no monomorphisation. They parse, bind, and enforce `where` clauses, then stop. Found by making `Example1.rvn` bind |
-| 🟡 | **A spread element in a collection cannot be lowered** — flattening `[1, ..xs, 5]` needs `xs`'s length and an array type carries none. It built an `array<i32>` operand where the construct wanted an `i32`, and only the IR verifier stood between that and a backend; now `RVN3002`, gated on sized arrays |
+| ✅ | **A spread element in a collection** — flattening `[1, ..xs, 5]` needs `xs`'s length, which an array type now carries. Lowering emits one extract per index; a spread of an *unsized* array is still `RVN3002`, which is now a statement about that array rather than about spreads |
 | ⚪ | **Assigning to a uniform is refused by nobody** — every stage emits the store and both reference compilers reject it. Pre-existing and stage-independent; compute made it visible by having nothing else to write to |
 | ⚪ | **Flow analysis** — definite assignment and reachability. Dead-branch elimination landed in § B, but that is constant folding, not reachability |
 
@@ -789,7 +794,7 @@ shader graph's generated-source span mapping.
 
 | | Gap |
 |---|---|
-| 🟡 | **Reading a whole struct out of a uniform block** (`RVN4002`, SPIR-V). Its laid-out type is a distinct type from the plain one, so it needs a member-by-member copy that is not built. Field-by-field reads — what lowering actually emits — are unaffected |
+| ✅ | **Reading a whole struct out of a uniform block** (was `RVN4002`, SPIR-V). Its laid-out type is a distinct type from the plain one, so it needs a member-by-member copy — built, because `lights[i]` in a light loop is exactly that read and there is no way to write the loop without it |
 | 🟡 | **A boolean in a uniform, or a boolean/aggregate as stage I/O** (`RVN4001`). `OpTypeBool` has no size and no memory layout. Reported rather than mis-emitted, but note the targets **disagree about what is legal**: GLSL hides it by giving a bool four bytes in a std140 block |
 | 🟡 | **Unsized arrays** (`RVN4001`) — legal only as a storage block's last member, which the IR cannot express |
 
@@ -841,7 +846,8 @@ pipeline's interface and a compute dispatch has no pipeline.
 
 **What compute still cannot do is persist anything.** No storage buffers and no storage images, so
 there is nothing writable to store into — a compute shader can read bindings and compute, and that is
-where it stops. It is gated on sized array types (below), not on the stage. Two consequences worth
+where it stops. Sized arrays were the half of that which was a *type* problem, and they have landed; the
+rest is a storage-class and descriptor-type problem, not a stage one. Two consequences worth
 naming: `Library/Example2.rvn` computes into a local and says so rather than assigning to a uniform,
 and the numeric BRDF readback still needs a writable resource before it can read anything back.
 
@@ -913,6 +919,73 @@ Honestly bounded:
 - **A geometry stage is unchanged** — its per-vertex arrays are untouched. Compute now has a stage
   interface of its own kind (the dispatch built-ins, below), and a stream on one is `RVN3006`.
 
+#### Sized arrays: the length is part of the type
+
+`float4[4]`, `mat4[Skinning.MaxBones]`, `PunctualLight[MaxLights]`. The length is not a detail of an
+array type, it **is** part of it: `OpTypeArray` takes a constant extent, GLSL writes it into the
+declaration, `ArrayStride` is computed from it, and the host reads it back out of the reflection to
+size the buffer it uploads. Four different consumers, none of which has anything to do without it.
+
+**The size is a constant *expression*, and that is the part that earns its keep.** A literal, a `const`,
+an enum member — or a `[Permutation] val`, which lets the *host* pick the length. `MaxLights` and
+`MaxBones` are budgets rather than hard-coded numbers, and a project that ships eight lights per cluster
+does not pay for sixty-four.
+
+**The one ambiguity, and how it is resolved.** `a[4]` is either an element access or a sized array type,
+and the note this document carried for months said `array_rank_specifier` was `[]`-only "deliberately, so
+that `a[i]` is unambiguously element access". That framing was the mistake: the ambiguity is not between
+two *token shapes*, it is between two *positions*. In a type position nothing but the type can own a `[`;
+in an expression `[…]` always indexes. So:
+
+| Position | `[…]` means | Where |
+|---|---|---|
+| declaration annotation, return type, type argument, tuple element, base type, `default(…)` | a size | `ParseType`, grammar rule `type` |
+| an expression, and a cast's type | an index | `ParsePrimary`/`ParsePostfix`, grammar rule `unsized_type` |
+
+The cast belongs on the second row and only the oracle noticed: `(a[4]) - 1` is arithmetic, and reading a
+size there would have made it a cast of `-1`. The hand-written parser had it right by construction and
+the ANTLR grammar did not, because **ANTLR's subrules are greedy** — leaving the sized alternative
+reachable from the expression rule let `type array_rank_specifier+` swallow the `[4]` before
+`#ElementAccessExpression` was ever offered it. That is why the grammar now has two rules where it had
+one, which is duplication bought deliberately: the alternative was a hand parser and an oracle that
+disagreed about every `data[i]` in the corpus.
+
+**A sized array and an unsized one are different types, and neither converts to the other.** The tempting
+alternative — letting `T[4]` widen to `T[]` — would let code bind and then fail in the backend, because
+an unsized array is `RVN4001` in both. A declaration you cannot lower is not a useful thing to convert
+into, so `Library/Example1.rvn` declares `int[6]` where it used to say `int[]`.
+
+**What it closed, beyond itself.** Each of these was already in the plan as its own row:
+
+| Was | Now |
+|---|---|
+| a spread element cannot be lowered (`RVN3002`) | flattened as one extract per index; `RVN3002` now describes the *unsized* array, not spreads |
+| `ArrayStride` untested against a second implementation (§ C) | a `float4[4]` and a `float[8]` in a block, checked by `glslc` and `spirv-val` |
+| reading a whole struct out of a uniform block (`RVN4002`, SPIR-V) | member-by-member copy — `lights[i]` cannot be written without it |
+| a collection expression binds and lowers but cannot emit (`RVN4001`, § J Tier B) | emits in both backends |
+| `Lighting.rvn` has the per-light maths but not the clustered loop (§ F) | `ForwardPlus.Punctual` iterates `PunctualLight[MaxLights]` |
+| `Skinning.rvn` takes four explicit matrices for want of a palette (§ F) | `ShadowCaster` indexes `mat4[Skinning.MaxBones]` |
+
+Two defects the library found while it was being rewritten onto them, both of the shape worth recording
+because the fixtures were never going to reach either:
+
+- **A member that is an *array of* matrices was not decorated with `MatrixStride`.** `spirv-val` rejected
+  the module outright — "Structure decorated as Block must be explicitly laid out with MatrixStride
+  decorations" — because the decoration was written only for a member whose *own* type was a matrix.
+  `ShadowCaster.rvn`'s `mat4[256]` palette is the first thing in the tree that is an array of matrices.
+- **A constant index into a value with no storage was `RVN4002`.** `OpCompositeExtract` takes *literal*
+  indices, so pulling element 2 out of a value the function never stored needs the 2 readable at emit
+  time — which nothing in the IR distinguishes, correctly, because the distinction is a target's. The
+  SPIR-V emitter now tracks its own constants. Every spread flatten hits this path.
+
+**What it does not close.** A sized array is a *read-only* uniform array of records. A storage buffer
+needs the writable storage class and the unsized last member as well, so `DescriptorType.StorageBuffer`
+and `LayoutRule.Std430` still have nothing that produces them. And the calling convention is a real
+constraint the library had to design around: a function parameter is by value in both targets, so a
+`mat4[256]` parameter would copy sixteen kilobytes at every call. Indexing a large palette belongs to the
+shader that declares it, where it is an access chain; a small array — a `float[3]` filter kernel — passes
+by value quite happily.
+
 #### Superseded rather than carried
 
 Recorded so nobody reintroduces them from the retired file's Phase 7:
@@ -963,9 +1036,9 @@ finding here is that it stopped too early.
 
 Two constructs came out of the audit still open, and both are recorded rather than fixed: a **range in
 value position** stays `RVN3001` (the syntax remains because `for (i in 0 .. 4)` needs it), and a
-**generic struct** `Box<float>` stays `RVN3001`/`RVN3003` — see § I. A **collection expression** binds
-and lowers but cannot emit (`RVN4001`) for want of sized arrays, which is the same gap § C's oracle
-cannot check `ArrayStride` against.
+**generic struct** `Box<float>` stays `RVN3001`/`RVN3003` — see § I. A **collection expression** now
+binds, lowers and emits in both backends, including a spread: it was gated on sized arrays, because
+flattening `[1, ..xs, 5]` needs `xs`'s length.
 
 #### Tier A — compiled to the wrong thing, removed
 

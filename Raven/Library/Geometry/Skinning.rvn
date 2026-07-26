@@ -4,16 +4,17 @@ import Vixen.Shaders.Core
 
 // Linear and dual-quaternion skinning.
 //
-// **The bone palette is passed as four explicit matrices rather than indexed out of an array**, and
-// that is a language limitation rather than a design choice: Raven has no sized array types, so there
-// is no `mat4[]` a vertex could index by bone id. See docs/plan/07 § F.
+// **Every function here takes the four matrices a vertex is influenced by, not the palette they came
+// out of**, and that split is deliberate now that a `mat4[MaxBones]` is expressible.
 //
-// What that costs is real — the caller has to fetch the four matrices, which means the host either
-// unrolls the fetch or the mesh is limited to four influences — but the *blend* is the part that has
-// to be right, and it is the same arithmetic either way. When sized arrays land, these functions keep
-// their bodies and gain a palette-indexed overload.
+// The reason is the calling convention. A function parameter is by value in both targets — GLSL says
+// copy-in, and SPIR-V's `OpFunctionCall` takes values — so `Blend(bones: mat4[MaxBones], …)` would
+// load and copy sixteen kilobytes at every call to read four matrices out of it. Indexing therefore
+// belongs to the shader that *declares* the palette, where it is an access chain and nothing is
+// copied; the blend belongs here, where the arithmetic is. `Pipeline/ShadowCaster.rvn` shows the four
+// lines that join them.
 //
-// Four influences is also not much of a restriction in practice: it is what glTF stores and what every
+// Four influences is not much of a restriction in practice: it is what glTF stores and what every
 // real-time skinning path uses, because the fifth influence is almost always below the weight
 // threshold.
 
@@ -26,6 +27,14 @@ struct BonePalette {
 }
 
 struct Skinning {
+    /// How many bones a palette holds, decided once here rather than per shader.
+    ///
+    /// 256 is not a round number chosen for looks: Vulkan guarantees only 16384 bytes of uniform
+    /// buffer range, and 256 `mat4`s is exactly 16384. A palette that fits the guaranteed minimum runs
+    /// everywhere; one bone more needs a device query, and a skeleton that large wants a storage
+    /// buffer rather than a bigger uniform.
+    const val MaxBones = 256
+
     /// Normalises four influence weights so they sum to 1.
     ///
     /// Worth doing rather than trusting the asset: a quantised weight channel (four bytes, which is

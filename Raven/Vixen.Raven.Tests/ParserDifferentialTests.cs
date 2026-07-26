@@ -73,6 +73,22 @@ public class ParserDifferentialTests {
     // `default` in both of its expression forms.
     [InlineData("val x = default\n")]
     [InlineData("val x = default(float4)\n")]
+    // Sized arrays against element access — the one ambiguity a size introduces, and the
+    // reason both parsers decide it by *position* rather than by what is in the brackets.
+    // In an expression `[…]` always indexes; in a type it always sizes.
+    [InlineData("val x = a[4]\n")]
+    [InlineData("val x = a[b[0]]\n")]
+    [InlineData("val x = a[i] + b[0]\n")]
+    // Not a cast of `-1` to some type `a[4]`: the cast scan refuses to read a size.
+    [InlineData("val x = (a[4]) - 1\n")]
+    [InlineData("var y: float[4]\n")]
+    [InlineData("var y: float[N]\n")]
+    [InlineData("var y: float[N * 2 + 1]\n")]
+    [InlineData("var y: float[]\n")]
+    [InlineData("var y: float[,]\n")]
+    [InlineData("var y: float[2][3]\n")]
+    [InlineData("var y: Foo.Bar[8]\n")]
+    [InlineData("val x = default(float[4])\n")]
     public void Trees_are_identical_for_the_ambiguity_probes(string body) {
         var text = $"package A\n\nshader S {{\n    func M() {{\n        {body.Replace("\n", "\n        ").TrimEnd(' ')}    }}\n}}\n";
         AssertSameTree(text);

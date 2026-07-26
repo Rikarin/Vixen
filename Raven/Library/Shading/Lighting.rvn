@@ -4,9 +4,10 @@ import Vixen.Shaders.Core
 
 // Punctual and area lights, attenuation, and shadow sampling.
 //
-// One thing this file deliberately does *not* contain: the clustered light loop. Iterating a light list
-// needs a storage buffer, and Raven has no sized array types yet, so the loop lives host-side for now
-// and the per-light maths below is what it would call. See docs/plan/07 § F.
+// The *loop* over a light list is not here, and that is a division of labour rather than a gap: the
+// list is a binding, so it belongs to the shader that declares it (`Pipeline/ForwardPlus.rvn`), and
+// what this file owns is turning **one** light into a `LightSample`. `Resolve` is that function, and
+// it is what a loop of any shape — clustered, tiled, or all of them — calls per light.
 //
 // Everything here is in **radiometric** units and expects a `lightColor` premultiplied by intensity.
 // The photometric conversion — lumens and candela, which is what an artist authors — is the host's, so
@@ -93,6 +94,35 @@ struct Lighting {
         return sample
     }
 
+    /// Resolves one entry of a light list to a `LightSample`.
+    ///
+    /// The one function a light loop needs, and the reason `PunctualLight` is a single record with a
+    /// `kind` rather than three separate arrays: a loop cannot branch on *which array* to read, but it
+    /// can branch on a field. The cost is that a directional light carries an unused range and a point
+    /// light an unused cone — 16 bytes of padding against three list traversals and three uniforms.
+    ///
+    /// `alpha` is the surface roughness, needed because an area light widens the specular lobe and the
+    /// widening depends on how tight it already was.
+    static func Resolve(light: PunctualLight, surfacePosition: float3, alpha: float): LightSample {
+        if (light.kind == LightKind.Directional) {
+            return Directional(light.direction, light.color)
+        }
+
+        var sample = Point(light.position, surfacePosition, light.color, light.range)
+
+        if (light.kind == LightKind.Spot) {
+            val cone = SpotAttenuation(sample.l, light.direction, light.cosInner, light.cosOuter)
+            sample.radiance = sample.radiance * cone
+        }
+
+        // A radius of zero is a punctual light, and the widening term vanishes on its own — so this
+        // needs no branch of its own, which is what keeps a light loop's body one straight line.
+        val distance = length(light.position - surfacePosition)
+        val halfAngle = saturate(light.radius / max(distance, Const.Epsilon))
+        sample.alphaPrime = saturate(alpha + halfAngle * 0.5f)
+        return sample
+    }
+
     // --- Shadows ---------------------------------------------------------
 
     /// A depth-comparison shadow test with a normal-facing bias.
@@ -143,6 +173,46 @@ struct Lighting {
     static func CascadeFade(viewDepth: float, cascadeEnd: float, fadeRange: float): float {
         return saturate((cascadeEnd - viewDepth) / max(fadeRange, Const.Epsilon))
     }
+}
+
+/// The three light kinds a `PunctualLight` can be. Floats rather than an enum because the record is
+/// host-written memory and a uniform block has no integer-versus-float ambiguity to lose.
+struct LightKind {
+    const val Directional = 0f
+    const val Point = 1f
+    const val Spot = 2f
+}
+
+/// One entry of a light list, as the host writes it.
+///
+/// The field order is not arbitrary: each `float3` is followed by a `float`, so every member lands on
+/// its natural 16-byte std140 boundary and the record costs exactly 64 bytes with no padding. Reorder
+/// it and the same eight values cost 96. `ShaderLayout` computes the offsets either way — the point is
+/// that the *host's* upload is a straight memcpy of an array of structs only while this holds.
+struct PunctualLight {
+    var position: float3
+
+    /// One of `LightKind`'s constants.
+    var kind: float
+
+    var color: float3
+
+    /// Distance at which the light's contribution reaches zero. Unused by a directional light.
+    var range: float
+
+    /// Toward the surface, unit length. Unused by a point light.
+    var direction: float3
+
+    /// Cosine of the inner cone half-angle. Unused unless the kind is `Spot`.
+    var cosInner: float
+
+    /// Sphere radius; zero for a punctual light. Widens the specular lobe rather than the falloff.
+    var radius: float
+
+    /// Cosine of the outer cone half-angle. Unused unless the kind is `Spot`.
+    var cosOuter: float
+
+    var padding: float2
 }
 
 /// A spot light's parameters, bundled so `Spot` fits one line.

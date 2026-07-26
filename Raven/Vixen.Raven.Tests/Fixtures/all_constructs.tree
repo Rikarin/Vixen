@@ -249,6 +249,51 @@ CompilationUnit
                 ArrayRankSpecifier
                   Token(OpenBracketToken) "["
                   Token(CloseBracketToken) "]"
+        FieldDeclaration
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "palette"
+            Token(ColonToken) ":"
+            ArrayType
+              PredefinedType
+                Token(Float4Keyword) "float4"
+              ArrayRankSpecifier
+                Token(OpenBracketToken) "["
+                NumericLiteralExpression
+                  Token(NumericLiteralToken) "4"
+                Token(CloseBracketToken) "]"
+        FieldDeclaration
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "weights"
+            Token(ColonToken) ":"
+            ArrayType
+              PredefinedType
+                Token(FloatKeyword) "float"
+              ArrayRankSpecifier
+                Token(OpenBracketToken) "["
+                IdentifierName
+                  Token(IdentifierToken) "Multiplier"
+                Token(CloseBracketToken) "]"
+        FieldDeclaration
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "stack"
+            Token(ColonToken) ":"
+            ArrayType
+              PredefinedType
+                Token(FloatKeyword) "float"
+              ListKind
+                ArrayRankSpecifier
+                  Token(OpenBracketToken) "["
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "2"
+                  Token(CloseBracketToken) "]"
+                ArrayRankSpecifier
+                  Token(OpenBracketToken) "["
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "3"
+                  Token(CloseBracketToken) "]"
         PropertyDeclaration
           Token(VarKeyword) "var"
           Token(IdentifierToken) "prop"

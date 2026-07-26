@@ -68,23 +68,8 @@ public sealed partial class Lowerer {
                 return Emit(result => new IrConstructInstruction(result, elements), type);
             }
 
-            case BoundCollectionExpression collection: {
-                // A spread contributes its own elements, so flattening it means knowing how
-                // many there are — and an array type carries no length yet. Refused by name
-                // rather than lowered: a spread's operand is the array itself, which built an
-                // `array<i32>` where the construct wanted an `i32`, and only the IR verifier
-                // stood between that and a backend. See docs/plan/07 § I, sized array types.
-                foreach (var spread in collection.Spreads) {
-                    ReportUnsupported(
-                        spread,
-                        "A spread element — an array type carries no length, so the number of elements "
-                        + "it contributes is not known, and it"
-                    );
-                }
-
-                var elements = collection.Elements.Select(LowerExpression).ToArray();
-                return Emit(result => new IrConstructInstruction(result, elements), type);
-            }
+            case BoundCollectionExpression collection:
+                return LowerCollection(collection, type);
 
             case BoundErrorExpression:
                 // Already reported by the binder.
@@ -94,6 +79,53 @@ public sealed partial class Lowerer {
                 ReportUnsupported(expression, Describe(expression));
                 return Constant(type, null);
         }
+    }
+
+    /// <summary>
+    ///     Lowers <c>[a, ..b, c]</c> to one construct of the flattened elements.
+    /// </summary>
+    /// <remarks>
+    ///     A spread contributes its own elements rather than itself, so it is expanded into one
+    ///     extract per index — which needs its length, and is exactly what a sized array now
+    ///     carries. An <em>unsized</em> spread still cannot be flattened, and is refused by name
+    ///     rather than lowered: the operand is the array itself, which would build an
+    ///     <c>array&lt;i32&gt;</c> operand where the construct wants an <c>i32</c>, leaving only
+    ///     the IR verifier between that and a backend.
+    /// </remarks>
+    IrValue LowerCollection(BoundCollectionExpression collection, IrType type) {
+        List<IrValue> elements = [];
+
+        foreach (var (expression, isSpread) in collection.Elements) {
+            if (!isSpread) {
+                elements.Add(LowerExpression(expression));
+                continue;
+            }
+
+            if (expression.Type is not ArrayTypeSymbol { Length: { } length }) {
+                ReportUnsupported(
+                    expression,
+                    "A spread of an unsized array — the number of elements it contributes is not "
+                    + "known, so it"
+                );
+                continue;
+            }
+
+            // Lowered once and indexed, not re-lowered per element: the operand may be a call.
+            var source = LowerExpression(expression);
+            var elementType = LowerType(((ArrayTypeSymbol)expression.Type).ElementType, expression.Syntax);
+
+            for (var i = 0; i < length; i++) {
+                var index = Constant(IrScalarType.Int, i);
+                elements.Add(
+                    Emit(
+                        result => new IrExtractInstruction(result, source, [new IrIndexAccess(index)]),
+                        elementType
+                    )
+                );
+            }
+        }
+
+        return Emit(result => new IrConstructInstruction(result, [.. elements]), type);
     }
 
     /// <summary>Lowers an expression whose value is discarded.</summary>

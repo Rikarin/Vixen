@@ -35,6 +35,9 @@ shader Everything : ExampleBase, CustomShader {
 
     var lookup: int[]
     var grid: float[][]
+    var palette: float4[4]
+    var weights: float[Multiplier]
+    var stack: float[2][3]
 
     /** A documented property with every accessor form. */
     var prop: float {

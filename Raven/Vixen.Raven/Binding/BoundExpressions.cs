@@ -274,30 +274,25 @@ public sealed class BoundTupleExpression(
     public override IEnumerable<BoundNode> Children => Elements;
 }
 
-/// <summary><c>[a, b, c]</c> — bound as an array of the elements' common type.</summary>
+/// <summary>
+///     One entry of a collection expression. <paramref name="IsSpread" /> is recorded rather than
+///     inferred from the type: a spread of <c>int[]</c> into an <c>int[]</c> is indistinguishable
+///     from an element by type alone once <c>int[][]</c> exists, and lowering has to be able to
+///     tell them apart — one contributes itself, the other contributes its elements.
+/// </summary>
+public sealed record BoundCollectionElement(BoundExpression Expression, bool IsSpread);
+
+/// <summary><c>[a, b, ..c]</c> — bound as an array of the elements' common type.</summary>
 public sealed class BoundCollectionExpression(
     SyntaxNode syntax,
-    IReadOnlyList<BoundExpression> elements,
-    TypeSymbol type,
-    IReadOnlyList<BoundExpression>? spreads = null
+    IReadOnlyList<BoundCollectionElement> elements,
+    TypeSymbol type
 ) : BoundExpression(syntax) {
-    public IReadOnlyList<BoundExpression> Elements { get; } = elements;
-
-    /// <summary>
-    ///     The subset of <see cref="Elements" /> written as <c>..x</c>, which contribute their
-    ///     own elements rather than themselves.
-    /// </summary>
-    /// <remarks>
-    ///     Recorded rather than inferred from the type: a spread of <c>int[]</c> into an
-    ///     <c>int[]</c> is indistinguishable from an element by type alone once
-    ///     <c>int[][]</c> exists, and lowering has to be able to tell them apart to refuse
-    ///     what it cannot flatten.
-    /// </remarks>
-    public IReadOnlyList<BoundExpression> Spreads { get; } = spreads ?? [];
+    public IReadOnlyList<BoundCollectionElement> Elements { get; } = elements;
 
     public override BoundKind Kind => BoundKind.CollectionExpression;
     public override TypeSymbol Type { get; } = type;
-    public override IEnumerable<BoundNode> Children => Elements;
+    public override IEnumerable<BoundNode> Children => Elements.Select(e => e.Expression);
 }
 
 /// <summary>

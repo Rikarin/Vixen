@@ -299,18 +299,31 @@ sealed class SpirvTypes {
         for (var i = 0; i < members.Count; i++) {
             module.DecorateMember(structId, i, SpirvDecoration.Offset, SpirvOperand.Literal(offsets[i]));
 
-            if (members[i] is IrMatrixType matrix) {
-                // The IR reads a matrix as rows; the SPIR-V type holds columns.
-                // ColMajor names how the columns sit in memory, and the stride is
-                // the gap between them.
-                module.DecorateMember(structId, i, SpirvDecoration.ColMajor);
-                module.DecorateMember(
-                    structId,
-                    i,
-                    SpirvDecoration.MatrixStride,
-                    SpirvOperand.Literal(ShaderLayout.MatrixStride(matrix))
-                );
+            // A member that *is* a matrix and a member that is an array of matrices are both
+            // "a matrix member" as far as the layout rules go — `Library/Pipeline/ShadowCaster.rvn`
+            // found that the hard way, with its `mat4[256]` bone palette. Looking through the
+            // arrays rather than only at the member's own type is what makes the two agree.
+            if (MatrixIn(members[i]) is not { } matrix) {
+                continue;
             }
+
+            // The IR reads a matrix as rows; the SPIR-V type holds columns. ColMajor names how
+            // the columns sit in memory, and the stride is the gap between them.
+            module.DecorateMember(structId, i, SpirvDecoration.ColMajor);
+            module.DecorateMember(
+                structId,
+                i,
+                SpirvDecoration.MatrixStride,
+                SpirvOperand.Literal(ShaderLayout.MatrixStride(matrix))
+            );
         }
     }
+
+    /// <summary>The matrix a block member is, or is an array of, however deeply nested.</summary>
+    static IrMatrixType? MatrixIn(IrType type) =>
+        type switch {
+            IrMatrixType matrix => matrix,
+            IrArrayType array => MatrixIn(array.Element),
+            _ => null
+        };
 }

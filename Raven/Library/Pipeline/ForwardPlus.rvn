@@ -12,10 +12,11 @@ import Vixen.Shaders.Material
 // chose, and shades it. Adding a material feature does not touch this file.
 //
 // "Forward *plus*" names the light culling: a compute pass bins lights into screen-space tiles or
-// clusters so a fragment iterates only the lights that reach it, instead of all of them. **That loop is
-// not here**, because iterating a light list needs a storage buffer and Raven has no sized array types
-// — so this pass shades one directional light plus image-based ambient, which is the part that does not
-// need the list. `Lighting` holds the per-light maths the loop will call. See docs/plan/07 § F.
+// clusters so a fragment iterates only the lights that reach it instead of all of them. The loop over
+// that list is here, and it is what `MaxLights` sizes. What is still host-side is the *culling* — this
+// pass iterates the list it is given, which is the culled list when a binning pass wrote one and the
+// whole list when nothing did. Either way the shader is the same, which is the point of taking the
+// count as a uniform.
 
 shader ForwardPlus {
     /// The material's surface features, chosen per material.
@@ -28,12 +29,28 @@ shader ForwardPlus {
     /// Whether to sample a shadow map for the directional light.
     [Permutation] val UseShadows: bool = true
 
+    /// How many entries the light list has room for.
+    ///
+    /// A permutation rather than a constant because it is the *host's* budget: it sizes a uniform
+    /// array, so it sets the descriptor's size, and a project that ships eight lights per cluster
+    /// should not pay for sixty-four. It is also why `lightCount` exists separately — the array is
+    /// sized once at compile time and filled to a different depth every draw.
+    [Permutation] val MaxLights: int = 16
+
     var world: mat4
     var worldViewProjection: mat4
     var cameraPosition: float3
 
+    /// The sun, kept separate from the list: it has no position to cull against, so it is in every
+    /// cluster and paying list traversal for it would be paying for nothing.
     var lightDirection: float3
+
     var lightColor: float3
+
+    /// The culled light list. Read `lightCount` entries, not `MaxLights` — the rest is stale memory.
+    var lights: PunctualLight[MaxLights]
+
+    var lightCount: int = 0
 
     var lightViewProjection: mat4
     var shadowMap: Texture2D
@@ -77,6 +94,7 @@ shader ForwardPlus {
         val alpha = Brdf.Alpha(d.perceptualRoughness)
 
         var color = Direct(d, n, v, alpha)
+        color += Punctual(d, n, v, alpha)
 
         if (UseImageBasedLighting) {
             color += Ambient(d, n, v)
@@ -99,6 +117,33 @@ shader ForwardPlus {
         val visibility = UseShadows ? Shadow(n, angles.NdotL) : 1f
 
         return (diffuse + specular) * light.radiance * angles.NdotL * visibility
+    }
+
+    /// Every light in the list, unshadowed.
+    ///
+    /// Bounded by `MaxLights` and broken out of at `lightCount`, rather than looped to `lightCount`
+    /// directly: the bound is what lets a driver unroll and what keeps the index provably inside the
+    /// array. The early exit is the part that costs nothing when the list is short.
+    func Punctual(d: MaterialData, n: float3, v: float3, alpha: float): float3 {
+        var total = float3(0f)
+
+        for (i in 0 .. MaxLights - 1) {
+            if (i >= lightCount) {
+                break
+            }
+
+            val light = Lighting.Resolve(lights[i], positionWS, alpha)
+            val angles = ShadingAngles.Of(n, v, light.l)
+
+            if (angles.NdotL > 0f) {
+                val lambert = DiffuseModels.Lambert(d.diffuseColor)
+                val diffuse = lambert * DiffuseModels.EnergyRemaining(d.f0, angles.NdotV)
+                val specular = SpecularModels.Ggx(d.f0, angles, light.alphaPrime)
+                total += (diffuse + specular) * light.radiance * angles.NdotL
+            }
+        }
+
+        return total
     }
 
     /// The shadow term for this pixel, biased both ways — see `Lighting.ShadowBias`.

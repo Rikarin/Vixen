@@ -270,6 +270,66 @@ Its reason for existing is the composable material interface: a feature reads th
 previous features left it and writes back, so adding a feature to the chain changes no other
 feature's signature.
 
+### Sized arrays
+
+An array type carries its length, and the length can be any compile-time constant:
+
+```typescript
+shader ForwardPlus {
+    /// The host's budget, so a project that ships eight lights does not pay for sixty-four.
+    [Permutation] val MaxLights: int = 16
+
+    var lights: PunctualLight[MaxLights]
+    var lightCount: int = 0
+
+    func Punctual(): float3 {
+        var total = float3(0f)
+
+        for (i in 0 .. MaxLights - 1) {
+            if (i >= lightCount) {
+                break
+            }
+
+            total += Shade(lights[i])
+        }
+
+        return total
+    }
+}
+```
+
+The length is part of the *type*: `float[4]` and `float[]` are different types and neither converts to
+the other. That is not pedantry — everything downstream needs the number. SPIR-V's `OpTypeArray` takes a
+constant extent, GLSL writes it into the declaration, the `ArrayStride` decoration is computed from it,
+and the host reads it back out of the reflection to size the buffer it uploads. An *unsized* array has no
+answer for any of them, so it is refused by both backends, and letting a sized array widen into one would
+only be a way to fail later.
+
+A size must fold at compile time — a GPU allocates nothing at run time. A literal, a `const val`, an enum
+member and a `[Permutation] val` all qualify; a uniform does not. Zero and the negatives are refused
+because `OpTypeArray` requires a positive length and GLSL rejects a zero-length array too. A **constant**
+index outside the array is an error rather than undefined behaviour, which on a GPU means a wrong pixel on
+one driver and a device loss on another; a runtime index is left alone.
+
+**`[…]` sizes in a type and indexes in an expression** — the position decides, never what is between the
+brackets. So `var data: float[4]` declares four floats, `data[4]` is an out-of-range access, and
+`(a[4]) - 1` is arithmetic rather than a cast. `T[a][b]` nests right to left, as in C and GLSL: two arrays
+of `b`.
+
+A collection literal infers its own length, which is what lets a spread be flattened:
+
+```typescript
+val kernel = [0.42f, 0.5f, 0.08f]   // float[3]
+val padded = [0f, ..kernel, 0f]     // float[5]
+```
+
+Passing an array is **by value** in both targets, as GLSL's copy-in and SPIR-V's `OpFunctionCall` both
+specify. A `float[3]` filter kernel is a fine parameter; a `mat4[256]` bone palette is not — it would copy
+sixteen kilobytes at every call. Index a large array where it is declared, and pass what you took out of
+it.
+
+Still missing: a **storage buffer**, which needs a writable storage class and an unsized last member.
+
 ### Compute
 
 A compute entry point declares its workgroup size on the stage attribute, so the size cannot be

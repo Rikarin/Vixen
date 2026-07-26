@@ -107,10 +107,13 @@ shader TestShader : ExampleBase, CustomShader {
         return pair
     }
 
-    func Collect(): int[] {
+    // Sized, not `int[]`: a collection literal infers its own length, and an unsized array is
+    // a type no backend can express — so `int[]` here would be a return type nothing could
+    // return. The spread's six elements are flattened by lowering, which needs `direct`'s length.
+    func Collect(): int[6] {
         val direct = [1, 2, 3, 4]
         val spread = [1, ..direct, 5]
-        return direct
+        return spread
     }
 
     [VertexShader]

@@ -591,11 +591,16 @@ public abstract partial class Binder {
     }
 
     BoundExpression BindCollection(CollectionExpressionSyntax syntax) {
-        List<BoundExpression> elements = [];
-        List<BoundExpression> spreads = [];
+        List<BoundCollectionElement> elements = [];
         TypeSymbol? elementType = null;
 
+        // The literal's own length, which is what makes it a *sized* array — and what lets a
+        // spread be flattened at all. It goes to null the moment one contribution is unknown,
+        // because a length that is right for all but one element is not a length.
+        int? length = 0;
+
         foreach (var element in syntax.Elements) {
+            var isSpread = element is SpreadElementSyntax;
             var expression = element switch {
                 ExpressionElementSyntax value => value.Expression,
                 SpreadElementSyntax spread => spread.Expression,
@@ -608,16 +613,12 @@ public abstract partial class Binder {
 
             var bound = BindValue(expression);
 
-            // A spread contributes its element type, not its own.
-            var contributed = element is SpreadElementSyntax && bound.Type is ArrayTypeSymbol array
-                ? array.ElementType
-                : bound.Type;
+            // A spread contributes its element type and its own count, not itself and one.
+            var spreadOf = isSpread ? bound.Type as ArrayTypeSymbol : null;
+            var contributed = spreadOf?.ElementType ?? bound.Type;
 
-            elements.Add(bound);
-
-            if (element is SpreadElementSyntax) {
-                spreads.Add(bound);
-            }
+            elements.Add(new(bound, isSpread));
+            length = isSpread ? Add(length, spreadOf?.Length) : Add(length, 1);
 
             elementType = elementType is null ? contributed : Conversions.FindCommonType(elementType, contributed);
 
@@ -635,9 +636,11 @@ public abstract partial class Binder {
         return new BoundCollectionExpression(
             syntax,
             elements,
-            new ArrayTypeSymbol(elementType ?? ErrorTypeSymbol.Instance),
-            spreads
+            new ArrayTypeSymbol(elementType ?? ErrorTypeSymbol.Instance, 1, length)
         );
+
+        static int? Add(int? total, int? contribution) =>
+            total is { } a && contribution is { } b ? a + b : null;
     }
 
     /// <summary>Binds an expression only to learn its type; its diagnostics are discarded.</summary>
