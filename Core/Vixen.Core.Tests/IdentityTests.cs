@@ -141,38 +141,55 @@ public class IdentityTests {
 
     [Fact]
     public void An_entity_handle_round_trips_through_its_packed_form() {
-        var id = new EntityId(7, 3);
+        var entity = new Entity(7, 3, 2);
 
-        Assert.Equal(id, EntityId.FromPacked(id.Packed));
-        Assert.Equal(7u, EntityId.FromPacked(id.Packed).Index);
-        Assert.Equal(3u, EntityId.FromPacked(id.Packed).Version);
+        Assert.Equal(entity, Entity.FromPacked(entity.Packed, entity.WorldId));
+        Assert.Equal(7, Entity.FromPacked(entity.Packed).Id);
+        Assert.Equal(3, Entity.FromPacked(entity.Packed).Version);
+    }
+
+    /// <summary>
+    ///     The packed form carries slot and version and not the world, so two entities of different
+    ///     worlds can pack identically. That is deliberate — it is a sort key within one world — and
+    ///     it is worth pinning, because a caller who packs across worlds gets a silent collision.
+    /// </summary>
+    [Fact]
+    public void The_packed_form_does_not_carry_the_world() {
+        Assert.Equal(new Entity(7, 3, 0).Packed, new Entity(7, 3, 9).Packed);
+        Assert.NotEqual(new Entity(7, 3, 0), new Entity(7, 3, 9));
+    }
+
+    [Fact]
+    public void Entities_of_different_worlds_are_not_equal_and_sort_apart() {
+        Assert.True(new Entity(1, 1, 0) < new Entity(1, 1, 1));
+        Assert.True(new Entity(9, 9, 0) < new Entity(1, 1, 1));
     }
 
     [Fact]
     public void An_entity_handle_round_trips_through_its_text_form() {
-        var id = new EntityId(42, 5);
+        var entity = new Entity(42, 5, 1);
 
-        Assert.Equal("42:5", id.ToString());
-        Assert.True(EntityId.TryParse("42:5", out var parsed));
-        Assert.Equal(id, parsed);
+        Assert.Equal("42:5@1", entity.ToString());
+        Assert.True(Entity.TryParse("42:5@1", out var parsed));
+        Assert.Equal(entity, parsed);
     }
 
     [Fact]
     public void An_entity_handle_formats_into_a_caller_supplied_buffer() {
-        var id = new EntityId(42, 5);
-        Span<char> chars = stackalloc char[EntityId.MaxTextLength];
-        Span<byte> utf8 = stackalloc byte[EntityId.MaxTextLength];
+        var entity = new Entity(42, 5, 1);
+        Span<char> chars = stackalloc char[Entity.MaxTextLength];
+        Span<byte> utf8 = stackalloc byte[Entity.MaxTextLength];
 
-        Assert.True(id.TryFormat(chars, out var charsWritten));
-        Assert.True(id.TryFormat(utf8, out var bytesWritten));
-        Assert.Equal("42:5", new(chars[..charsWritten]));
-        Assert.Equal("42:5", Encoding.UTF8.GetString(utf8[..bytesWritten]));
+        Assert.True(entity.TryFormat(chars, out var charsWritten));
+        Assert.True(entity.TryFormat(utf8, out var bytesWritten));
+        Assert.Equal("42:5@1", new(chars[..charsWritten]));
+        Assert.Equal("42:5@1", Encoding.UTF8.GetString(utf8[..bytesWritten]));
     }
 
     [Fact]
     public void The_longest_entity_handle_fits_its_declared_buffer_size() {
-        var longest = new EntityId(uint.MaxValue, uint.MaxValue);
-        Span<char> chars = stackalloc char[EntityId.MaxTextLength];
+        var longest = new Entity(int.MinValue, int.MinValue, short.MinValue);
+        Span<char> chars = stackalloc char[Entity.MaxTextLength];
 
         Assert.True(longest.TryFormat(chars, out var written));
         Assert.Equal(longest.ToString().Length, written);
@@ -180,17 +197,19 @@ public class IdentityTests {
 
     [Fact]
     public void Slot_zero_is_the_null_entity_handle() {
-        Assert.True(EntityId.Null.IsNull);
-        Assert.True(default(EntityId).IsNull);
-        Assert.False(new EntityId(1, 0).IsNull);
+        Assert.True(Entity.Null.IsNull);
+        Assert.True(default(Entity).IsNull);
+        Assert.False(new Entity(1, 0, 0).IsNull);
     }
 
     [Fact]
     public void A_bad_entity_handle_does_not_parse() {
-        Assert.False(EntityId.TryParse("42", out _));
-        Assert.False(EntityId.TryParse("42:", out _));
-        Assert.False(EntityId.TryParse(":5", out _));
-        Assert.False(EntityId.TryParse("-1:5", out _));
+        Assert.False(Entity.TryParse("42", out _));
+        Assert.False(Entity.TryParse("42:5", out _));
+        Assert.False(Entity.TryParse("42:@1", out _));
+        Assert.False(Entity.TryParse(":5@1", out _));
+        Assert.False(Entity.TryParse("-1:5@1", out _));
+        Assert.False(Entity.TryParse("42@1:5", out _));
     }
 
     [Fact]

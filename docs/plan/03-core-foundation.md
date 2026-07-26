@@ -18,7 +18,7 @@ The smallest possible root. No dependencies beyond BCL.
   hand. This is the choice Stride made and the choice Unity's DOTS made; it is boring and it works
   under AOT.
 - **Identity types.** `readonly record struct AssetId(Guid)`, `ObjectId` (128-bit content hash from
-  XxHash128), `EntityId`, `ComponentTypeId` — all with `IUtf8SpanFormattable`/`ISpanParsable` so
+  XxHash128), `Entity`, `ComponentTypeId` — all with `IUtf8SpanFormattable`/`ISpanParsable` so
   serialisation never allocates strings.
 - **`GameTime`.** `readonly record struct` with `Total`, `Elapsed`, `FrameCount`, `UnscaledElapsed`,
   `TimeScale`. Fixed-step accumulator lives in `Vixen.Engine`, not here.
@@ -28,8 +28,18 @@ The smallest possible root. No dependencies beyond BCL.
 - **Disposal.** `IDisposable` plus `IAsyncDisposable`; a `DisposeBag` for subsystem teardown; a
   debug-build leak tracker that captures allocation stacks for undisposed GPU resources.
 
-> ✅ **Built.** `Core/Vixen.Core/` and `Core/Vixen.Core.Tests/` (86 tests) are live. Four things
+> ✅ **Built.** `Core/Vixen.Core/` and `Core/Vixen.Core.Tests/` (86 tests) are live. Five things
 > came out differently from the paragraphs above, each for a reason worth keeping:
+>
+> - **`EntityId` is `Entity`, and it carries the world.** Written first as
+>   `EntityId(uint Index, uint Version)`, which is what this document asked for; when
+>   [04](04-ecs-and-scripting.md)'s `Entity(int Id, int Version, short WorldId)` arrived in Phase 2
+>   there were two types meaning "handle to an entity", one of which the ECS design forbids
+>   serialising and the other of which existed only to be serialised. They are one type now. It stays
+>   in `Vixen.Core` rather than moving to `Vixen.Ecs` for the same reason `ComponentTypeId` and
+>   `[Component]` are here: the reflection and serialization generators name it and cannot reference
+>   the ECS. It is **12 bytes, not the 8 [04](04-ecs-and-scripting.md) claimed** — two ints and a
+>   short pad to twelve — and that document is corrected.
 >
 > - **`ObjectId` carries no hash function.** It is 128 bits of identity, formatting, parsing and
 >   ordering — nothing else. XxHash128 lives in `System.IO.Hashing`, a NuGet package, and taking it

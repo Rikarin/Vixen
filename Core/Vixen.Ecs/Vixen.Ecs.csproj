@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ecs</RootNamespace>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Description>
+            The archetype entity-component-system: entities as generation-checked handles,
+            components stored struct-of-arrays in 16 KB chunks grouped by archetype, structural
+            change through a cached edge graph, and per-component change versions so a system can
+            skip what did not move.
+        </Description>
+        <PackageTags>ecs;entity-component-system;archetype;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Collections\Vixen.Core.Collections.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Ecs.Tests" />
+    </ItemGroup>
+
+</Project>
