@@ -5,8 +5,13 @@ artifacts/
 *.user
 *.suo
 
-# Vixen project-local caches (never committed — reproducible from source + .meta)
+# Vixen project-local caches (never committed — reproducible from source + .meta).
+# The negation is load-bearing: Raven/Library/ is the shipped .rvn standard library
+# (docs/plan/02 § Raven), not a cache, and a bare `Library/` swallowed it. Example1.rvn
+# and Example2.rvn were tracked only because they predate this rule — anything added
+# beside them was invisible to git.
 Library/
+!Raven/Library/
 Build/
 
 # ANTLR: the IDE plugin's scratch dir, and the .tokens/.interp vocabularies.

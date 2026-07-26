@@ -114,6 +114,40 @@ public class ReadmeExampleTests {
         Assert.Contains("layout(location = 2) in vec3 in_position", vertex, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     The compute example compiles and declares the workgroup size the README says it does.
+    /// </summary>
+    /// <remarks>
+    ///     Held to the same standard as the other two. The size is the part worth pinning: the
+    ///     README claims the dimensions are read off the stage attribute positionally, and a
+    ///     transposed or dropped dimension would be a shader that reads out of bounds rather than
+    ///     one that fails to compile.
+    /// </remarks>
+    [Fact]
+    public void The_readme_compute_example_compiles_with_the_size_it_declares() {
+        var source = "package Vixen.Shaders\n\n" + ReadExample("### Compute");
+
+        var tree = SyntaxTree.ParseText(source, path: "README.rvn");
+        Assert.Empty(tree.Diagnostics);
+
+        var compilation = Compilation.Create("Readme", tree);
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var glsl = Assert.Single(CodeGenTestBase.GenerateClean(source));
+        Assert.Equal(ShaderStage.Compute, glsl.Stage);
+        Assert.Contains(
+            "layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;",
+            glsl.Code,
+            StringComparison.Ordinal
+        );
+
+        // And the dispatch built-ins the table promises, threaded straight into the entry point.
+        Assert.Contains("gl_GlobalInvocationID", glsl.Code, StringComparison.Ordinal);
+        Assert.Contains("gl_LocalInvocationIndex", glsl.Code, StringComparison.Ordinal);
+
+        Assert.All(CodeGenTestBase.GenerateClean(source, "spirv"), SpirvTestBase.Validate);
+    }
+
     static string ReadExample(string heading = "## Language Example") {
         var readme = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "README.md"));
 

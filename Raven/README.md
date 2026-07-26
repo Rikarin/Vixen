@@ -199,7 +199,49 @@ struct Ray {
 }
 ```
 
-The full syntax sample lives in [`Library/Example1.rvn`](Library/Example1.rvn).
+The full syntax sample lives in [`Library/Example1.rvn`](Library/Example1.rvn), and a compute
+shader in [`Library/Example2.rvn`](Library/Example2.rvn).
+
+### Compute
+
+A compute entry point declares its workgroup size on the stage attribute, so the size cannot be
+separated from the stage it sizes:
+
+```typescript
+shader Threshold {
+    var scale: float
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3, [Semantic("SV_GroupIndex")] slot: uint) {
+        val weight = float(id.x) * scale + float(id.y)
+        // ...
+    }
+}
+```
+
+One to three dimensions; the ones not written are 1, so `[ComputeShader(64)]` means `(64, 1, 1)`.
+The size is required rather than defaulted — a shader written for 64 invocations and dispatched as
+if it were 1 reads out of bounds, and nothing downstream could tell a guessed size from a chosen
+one.
+
+A compute stage has no pipeline interface: nothing feeds a parameter from a vertex buffer and no
+framebuffer takes a result. So it returns nothing, and every parameter must carry a dispatch
+built-in:
+
+| `[Semantic(…)]` | Type | GLSL | SPIR-V |
+|---|---|---|---|
+| `SV_DispatchThreadID` | `uint3` | `gl_GlobalInvocationID` | `GlobalInvocationId` |
+| `SV_GroupID` | `uint3` | `gl_WorkGroupID` | `WorkgroupId` |
+| `SV_GroupThreadID` | `uint3` | `gl_LocalInvocationID` | `LocalInvocationId` |
+| `SV_GroupIndex` | `uint` | `gl_LocalInvocationIndex` | `LocalInvocationIndex` |
+
+They are unsigned in both targets, so a signed declaration is refused rather than silently
+converted. A `stream` is refused too — it is a location in the pipeline's interface, and a compute
+dispatch has no pipeline.
+
+What a compute shader cannot do yet is **persist anything**: there are no storage buffers and no
+storage images, so it can read bindings and compute but has nothing writable to store into. That
+gap is tracked in [docs/plan/07](../docs/plan/07-raven-shader-pipeline.md).
 
 ### Streams
 

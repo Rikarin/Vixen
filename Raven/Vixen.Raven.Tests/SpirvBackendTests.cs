@@ -611,23 +611,57 @@ public class SpirvBackendTests {
         Assert.Contains(diagnostics, d => d.Id == "RVN4001" && d.IsError);
     }
 
+    /// <summary>
+    ///     A compute entry point is a <c>GLCompute</c> module with a <c>LocalSize</c> execution
+    ///     mode, which <c>spirv-val</c> requires — a module without one is rejected outright.
+    /// </summary>
     [Fact]
-    public void A_compute_entry_point_is_reported_rather_than_guessed_at() {
-        Generate(
+    public void A_compute_entry_point_declares_GLCompute_and_LocalSize() {
+        var unit = One(
             """
             package A
 
             shader S {
-                [ComputeShader]
+                [ComputeShader(8, 4, 2)]
                 func Main() { }
             }
 
-            """,
-            out var diagnostics,
-            "spirv"
+            """
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN4002" && d.IsError);
+        Assert.Contains("OpEntryPoint GLCompute", unit.Code, StringComparison.Ordinal);
+        Assert.Contains("OpExecutionMode %", unit.Code, StringComparison.Ordinal);
+        Assert.Contains("LocalSize 8 4 2", unit.Code, StringComparison.Ordinal);
+
+        // OriginUpperLeft belongs to a fragment stage; a compute module must not claim it.
+        Assert.DoesNotContain("OriginUpperLeft", unit.Code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Each dispatch built-in becomes a <c>BuiltIn</c>-decorated <c>Input</c>, never a
+    ///     located one — the two decorations are mutually exclusive, and a compute stage has no
+    ///     located interface at all.
+    /// </summary>
+    [Theory]
+    [InlineData("SV_DispatchThreadID", "uint3", "GlobalInvocationId")]
+    [InlineData("SV_GroupID", "uint3", "WorkgroupId")]
+    [InlineData("SV_GroupThreadID", "uint3", "LocalInvocationId")]
+    [InlineData("SV_GroupIndex", "uint", "LocalInvocationIndex")]
+    public void EachDispatchBuiltInIsDecoratedAsOne(string semantic, string type, string expected) {
+        var unit = One(
+            $$"""
+              package A
+
+              shader S {
+                  [ComputeShader(64)]
+                  func Main([Semantic("{{semantic}}")] id: {{type}}) { }
+              }
+
+              """
+        );
+
+        Assert.Contains($"BuiltIn {expected}", unit.Code, StringComparison.Ordinal);
+        Assert.DoesNotContain("Location", unit.Code, StringComparison.Ordinal);
     }
 
     [Fact]

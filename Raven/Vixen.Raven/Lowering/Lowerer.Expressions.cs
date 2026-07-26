@@ -69,6 +69,19 @@ public sealed partial class Lowerer {
             }
 
             case BoundCollectionExpression collection: {
+                // A spread contributes its own elements, so flattening it means knowing how
+                // many there are — and an array type carries no length yet. Refused by name
+                // rather than lowered: a spread's operand is the array itself, which built an
+                // `array<i32>` where the construct wanted an `i32`, and only the IR verifier
+                // stood between that and a backend. See docs/plan/07 § I, sized array types.
+                foreach (var spread in collection.Spreads) {
+                    ReportUnsupported(
+                        spread,
+                        "A spread element — an array type carries no length, so the number of elements "
+                        + "it contributes is not known, and it"
+                    );
+                }
+
                 var elements = collection.Elements.Select(LowerExpression).ToArray();
                 return Emit(result => new IrConstructInstruction(result, elements), type);
             }

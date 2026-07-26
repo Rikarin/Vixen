@@ -79,6 +79,76 @@ public static class DeclarationFacts {
     public static bool IsStageAttributeName(string name) => StageAttributes.ContainsKey(name);
 
     /// <summary>
+    ///     The workgroup size written on a stage attribute — <c>[ComputeShader(8, 8, 1)]</c> —
+    ///     or null when the attribute carries no arguments.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         On the stage attribute rather than an attribute of its own, so a size cannot be
+    ///         separated from the stage it sizes, cannot be written twice with two answers, and
+    ///         cannot be left on a declaration whose stage attribute was removed.
+    ///     </para>
+    ///     <para>
+    ///         One to three arguments; a dimension not written is 1, which is what both targets
+    ///         default to and what a 1-D dispatch means. Anything that is not a positive integer
+    ///         literal returns as <see cref="WorkgroupSize.Invalid" /> rather than being silently
+    ///         rounded into range — the binder reports it, because a wrong workgroup size is a
+    ///         correctness bug in every invocation.
+    ///     </para>
+    /// </remarks>
+    public static WorkgroupSize? GetWorkgroupSize(SyntaxList<AttributeListSyntax> attributeLists) {
+        foreach (var attribute in GetAttributes(attributeLists)) {
+            if (!StageAttributes.ContainsKey(GetAttributeName(attribute))) {
+                continue;
+            }
+
+            if (attribute.ArgumentList is not { } arguments || arguments.Arguments.Count == 0) {
+                return null;
+            }
+
+            if (arguments.Arguments.Count > 3) {
+                return WorkgroupSize.Invalid;
+            }
+
+            var dimensions = new int[] { 1, 1, 1 };
+            var index = 0;
+
+            foreach (var argument in arguments.Arguments) {
+                if (Dimension(argument) is not { } value) {
+                    return WorkgroupSize.Invalid;
+                }
+
+                dimensions[index++] = value;
+            }
+
+            return new(dimensions[0], dimensions[1], dimensions[2]);
+        }
+
+        return null;
+    }
+
+    /// <summary>One workgroup dimension, or null when it is not a positive integer literal.</summary>
+    static int? Dimension(AttributeArgumentSyntax argument) {
+        // A named argument is refused rather than matched by name: `[ComputeShader(y: 8)]`
+        // would have to mean "x is 1", which reads as a size of 8 to everyone who writes it.
+        if (argument.NameColon is not null) {
+            return null;
+        }
+
+        if (argument.Expression is not LiteralExpressionSyntax {
+                Kind: SyntaxKind.NumericLiteralExpression
+            } literal) {
+            return null;
+        }
+
+        return LiteralParser.Parse(literal).Value switch {
+            int value and > 0 => value,
+            uint value and > 0 and <= int.MaxValue => (int)value,
+            _ => null
+        };
+    }
+
+    /// <summary>
     ///     Whether the declaration is marked <c>[Permutation]</c>, making it a compile-time
     ///     key whose value the caller supplies per effect variant.
     /// </summary>

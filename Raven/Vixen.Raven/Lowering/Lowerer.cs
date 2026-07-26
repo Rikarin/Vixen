@@ -344,8 +344,33 @@ public sealed partial class Lowerer {
                     [.. shader.Streams.Where(s => written.Contains(s.Variable))]
                 );
 
+                ReportUnusableStreams(shader, entryPoint);
                 ReportUnconsumedStreams(shader, entryPoint);
             }
+        }
+    }
+
+    /// <summary>
+    ///     Refuses a stream a compute stage touches, in either direction.
+    /// </summary>
+    /// <remarks>
+    ///     A compute dispatch has no stage before it and none after it, so there is no interface for
+    ///     a stream to occupy — and the streams were left declared but not emitted, so a store
+    ///     assigned to an identifier the translation unit never declared. Reported for reads too:
+    ///     the value would be undefined rather than merely unread.
+    /// </remarks>
+    void ReportUnusableStreams(IrShader shader, IrEntryPoint entryPoint) {
+        if (entryPoint.Stage != ShaderStage.Compute) {
+            return;
+        }
+
+        foreach (var stream in entryPoint.StreamInputs.Concat(entryPoint.StreamOutputs).Distinct()) {
+            diagnostics.Add(
+                LoweringDiagnostics.StreamInComputeStage,
+                LocationOf(SyntaxOf(shader, stream)),
+                stream.Name,
+                entryPoint.Function.Name
+            );
         }
     }
 
@@ -472,7 +497,11 @@ public sealed partial class Lowerer {
             ? null
             : new IrStageIo("result", function.ReturnType, method.SemanticName);
 
-        return new(method.Stage, function, inputs, output);
+        // Only on the stage that has workgroups. A size the binder warned about (RVN2106) is
+        // dropped here rather than carried to a backend that has nowhere to put it.
+        var workgroupSize = method.Stage == ShaderStage.Compute ? method.WorkgroupSize : null;
+
+        return new(method.Stage, function, inputs, output, workgroupSize);
     }
 
     /// <summary>

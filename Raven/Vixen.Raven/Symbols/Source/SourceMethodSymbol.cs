@@ -48,6 +48,8 @@ public sealed class SourceMethodSymbol : MethodSymbol {
 
     public override ShaderStage Stage => DeclarationFacts.GetShaderStage(AttributeLists);
 
+    public override WorkgroupSize? WorkgroupSize => DeclarationFacts.GetWorkgroupSize(AttributeLists);
+
     public override string? SemanticName => DeclarationFacts.GetSemanticName(AttributeLists);
 
     public override IReadOnlyList<ParameterSymbol> Parameters => parameters ??= ResolveParameters();

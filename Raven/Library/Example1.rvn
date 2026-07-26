@@ -3,11 +3,24 @@ package Vixen.Test
 import Vixen.Core
 import Vixen.BaseShaders
 
-// A syntax sample: everything the language has, in one file.
+// A syntax sample: everything the language has, in one file. It parses, binds, lowers and
+// generates — a construct with no semantics behind it does not belong here.
+
+/// A stateless base: it contributes a method and no storage, which is the inheritance that
+/// lowers correctly today. A base with fields is RVN3002 — see docs/plan/07 § J.
+shader ExampleBase {
+    func Scale(value: float): float => value * 2f
+}
+
+/// A protocol base contributes neither storage nor bodies, and is what `compose` slots are
+/// typed against.
+protocol CustomShader {
+}
+
 [FooBar, BarFoo]
 shader TestShader : ExampleBase, CustomShader {
     const val Multiplier = 42
-    const val Epsilon = 0.0001
+    const val Epsilon = 0.0001f
 
     var world: mat4
     var tint: float4 = float4(1, 1, 1, 1)
@@ -48,21 +61,25 @@ shader TestShader : ExampleBase, CustomShader {
 
         if (total > 42) {
             total = 0
-        } else {
+        } else if (total > 0) {
             total = 1
+        } else {
+            total = 2
         }
 
         return total
     }
 
-    init() {
+    // Not `init`: a shader is never constructed, so a constructor on one could never run
+    // (RVN2092). `init` belongs on a struct — see `FooBar` below.
+    func Reset() {
         counter = 0
     }
 
-    init(seed: int) {
+    func Seed(seed: int) {
         counter = seed
         counter = lookup[0]
-        counter = CoreClass.GetLength<int, Class>(seed)
+        counter = CoreClass.GetLength<int, Mode>(seed)
     }
 
     func Test<Asd>() { }
@@ -153,4 +170,10 @@ struct Widget<T> where T : Shaded {
 struct Messenger {
     val userId: int
     val channel: int
+}
+
+/// Static members, and a generic method whose type arguments are written explicitly at the
+/// call site.
+struct CoreClass {
+    static func GetLength<T, U>(value: int): int => value
 }

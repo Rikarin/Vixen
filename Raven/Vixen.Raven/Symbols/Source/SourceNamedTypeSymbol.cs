@@ -733,8 +733,107 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
                 outerBinder.Diagnostics.Add(SemanticDiagnostics.EntryPointCannotBeGeneric, location, method.Name);
             }
 
+            ReportWorkgroupSizeIssues(method, location);
+
+            if (method.Stage == ShaderStage.Compute) {
+                ReportComputeInterfaceIssues(method, location);
+            }
+
             if (!stages.TryAdd(method.Stage, method)) {
                 outerBinder.Diagnostics.Add(SemanticDiagnostics.DuplicateEntryPoint, location, Name, method.Stage);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Checks the workgroup size against the stage: a compute stage needs one, and no other
+    ///     stage has anywhere to put one.
+    /// </summary>
+    void ReportWorkgroupSizeIssues(MethodSymbol method, Location location) {
+        var size = method.WorkgroupSize;
+
+        if (method.Stage != ShaderStage.Compute) {
+            if (size is not null) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.WorkgroupSizeOnGraphicsStage,
+                    location,
+                    method.Name,
+                    method.Stage.ToString().ToLowerInvariant()
+                );
+            }
+
+            return;
+        }
+
+        if (size is null) {
+            outerBinder.Diagnostics.Add(SemanticDiagnostics.ComputeNeedsWorkgroupSize, location, method.Name);
+            return;
+        }
+
+        if (size.Value.IsInvalid) {
+            outerBinder.Diagnostics.Add(SemanticDiagnostics.WorkgroupSizeNotValid, location, method.Name);
+        }
+    }
+
+    /// <summary>
+    ///     Checks that a compute entry point asks for nothing the stage cannot give it.
+    /// </summary>
+    /// <remarks>
+    ///     A compute stage has no pipeline interface at all — no attributes feeding its
+    ///     parameters, no framebuffer taking its result — so every parameter has to be a dispatch
+    ///     built-in and the return type has to be void. Reported at the declaration rather than
+    ///     left to a backend, because what has to change is the signature.
+    /// </remarks>
+    void ReportComputeInterfaceIssues(MethodSymbol method, Location location) {
+        if (!ReferenceEquals(method.ReturnType, BuiltInTypes.Void) && !method.ReturnType.IsErrorType) {
+            outerBinder.Diagnostics.Add(
+                SemanticDiagnostics.ComputeHasNoStageInterface,
+                location,
+                $"A return type of '{method.ReturnType.ToDisplayString()}'",
+                method.Name,
+                "framebuffer to write it to; write the result to a resource instead"
+            );
+        }
+
+        foreach (var parameter in method.Parameters) {
+            var parameterLocation = parameter.DeclaringSyntax?.GetLocation() ?? location;
+
+            if (parameter.SemanticName is null) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ComputeHasNoStageInterface,
+                    parameterLocation,
+                    $"The parameter '{parameter.Name}'",
+                    method.Name,
+                    $"vertex attributes to feed it; mark it with a dispatch built-in ({ComputeBuiltIns.Names})"
+                );
+                continue;
+            }
+
+            var builtIn = ComputeBuiltIns.Of(parameter.SemanticName);
+
+            if (builtIn == ComputeBuiltIn.None) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.UnknownComputeSemantic,
+                    parameterLocation,
+                    parameter.SemanticName,
+                    ComputeBuiltIns.Names
+                );
+                continue;
+            }
+
+            var expected = ComputeBuiltIns.TypeOf(builtIn);
+
+            // An error type was already reported as unresolved; a second diagnostic about its
+            // shape would only send the author somewhere else.
+            if (!parameter.Type.IsErrorType && !ReferenceEquals(parameter.Type, expected)) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ComputeSemanticTypeMismatch,
+                    parameterLocation,
+                    parameter.SemanticName,
+                    expected.ToDisplayString(),
+                    parameter.Name,
+                    parameter.Type.ToDisplayString()
+                );
             }
         }
     }

@@ -41,13 +41,6 @@ public sealed class SpirvBackend(SpirvOptions? options = null) : ITargetBackend 
             }
 
             foreach (var entryPoint in shader.EntryPoints) {
-                if (entryPoint.Stage == ShaderStage.Compute) {
-                    // A compute entry point needs a workgroup size for its
-                    // LocalSize execution mode, and nothing declares one.
-                    diagnostics.Add(BackendDiagnostics.NotImplemented, Location.None, "The compute stage", "SPIR-V");
-                    continue;
-                }
-
                 var built = new SpirvEmitter(irModule, shader, entryPoint, options, diagnostics).Emit();
 
                 generated.Add(

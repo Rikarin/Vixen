@@ -172,6 +172,11 @@ sealed class GlslEmitter {
     ///     stage decides a number for itself.
     /// </remarks>
     void EmitStageInterface() {
+        if (entryPoint.Stage == ShaderStage.Compute) {
+            EmitComputeInterface();
+            return;
+        }
+
         EmitStreamInterface();
 
         var location = StreamPlan.ParameterBase(shader);
@@ -201,6 +206,32 @@ sealed class GlslEmitter {
                 + Comment(output.Semantic)
             );
             writer.Blank();
+        }
+    }
+
+    /// <summary>
+    ///     Declares the workgroup size, and resolves each parameter to the GLSL built-in its
+    ///     semantic names.
+    /// </summary>
+    /// <remarks>
+    ///     A compute stage has no locations to assign: nothing feeds its parameters from a vertex
+    ///     buffer and nothing takes a result, so there is no <c>in</c> or <c>out</c> to declare.
+    ///     Each parameter is a built-in GLSL already provides, so <c>main</c> passes the built-in
+    ///     straight through — which is why <see cref="inputNames" /> takes the built-in's own name
+    ///     rather than a declared one.
+    /// </remarks>
+    void EmitComputeInterface() {
+        // Verified before we got here (IrVerifier), so a missing size is a compiler bug rather
+        // than something to emit around.
+        var size = entryPoint.WorkgroupSize!.Value;
+
+        writer.Line(
+            $"layout(local_size_x = {size.X}, local_size_y = {size.Y}, local_size_z = {size.Z}) in;"
+        );
+        writer.Blank();
+
+        foreach (var input in entryPoint.Inputs) {
+            inputNames.Add(ComputeBuiltIns.GlslName(ComputeBuiltIns.Of(input.Semantic)));
         }
     }
 

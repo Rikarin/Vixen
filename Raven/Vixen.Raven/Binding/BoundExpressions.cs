@@ -278,9 +278,23 @@ public sealed class BoundTupleExpression(
 public sealed class BoundCollectionExpression(
     SyntaxNode syntax,
     IReadOnlyList<BoundExpression> elements,
-    TypeSymbol type
+    TypeSymbol type,
+    IReadOnlyList<BoundExpression>? spreads = null
 ) : BoundExpression(syntax) {
     public IReadOnlyList<BoundExpression> Elements { get; } = elements;
+
+    /// <summary>
+    ///     The subset of <see cref="Elements" /> written as <c>..x</c>, which contribute their
+    ///     own elements rather than themselves.
+    /// </summary>
+    /// <remarks>
+    ///     Recorded rather than inferred from the type: a spread of <c>int[]</c> into an
+    ///     <c>int[]</c> is indistinguishable from an element by type alone once
+    ///     <c>int[][]</c> exists, and lowering has to be able to tell them apart to refuse
+    ///     what it cannot flatten.
+    /// </remarks>
+    public IReadOnlyList<BoundExpression> Spreads { get; } = spreads ?? [];
+
     public override BoundKind Kind => BoundKind.CollectionExpression;
     public override TypeSymbol Type { get; } = type;
     public override IEnumerable<BoundNode> Children => Elements;

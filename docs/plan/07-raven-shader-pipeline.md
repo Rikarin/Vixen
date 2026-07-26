@@ -25,10 +25,10 @@ decision that has been made and built, kept because the reasons stay useful.
 | | Open item | Where | Blocks |
 |---|---|---|---|
 | 🔴 | **`Raven/Library` is not written.** The whole shader library — Core, Shading, Geometry, Material, Pipeline, PostFx, Ui, Vfx | § F | the numeric tests, the perf gates, the corpus extension, and the mixin question below |
-| 🔴 | **`Example1.rvn` does not bind and `Example2.rvn` does not parse** — the two files that define what Raven looks like | § J | nothing technically; it is the most visible broken thing in the tree |
-| 🟡 | **The compute stage** — both backends report `RVN4002` for want of a workgroup size in the language | § I | doc 06's VFX compute path, `Random.rvn` bit-for-bit, and the numeric BRDF readback |
+| 🔴 | **Nothing a shader writes is writable** — no storage buffers, no storage images, and assigning to a uniform is refused by neither backend. So the compute stage computes and discards | § I | the numeric BRDF readback, `Random.rvn` bit-for-bit, doc 06's VFX compute path — everything that has to *read a result back* |
+| 🟡 | **Generic types and methods do not lower** — front-end only. An open definition is `RVN3001`, and so is an instantiation: there is no monomorphisation, so `Box<float4>` reaches no backend | § I | anything in § F's library that wants a generic container |
 | 🟡 | **`&&` / `\|\|` do not short-circuit** — sound for side-effect-free expressions, wrong the moment the right operand is a guard | § I | correctness of `i < n && data[i] > 0` |
-| 🟡 | **Sized array types**, and therefore `Buffer<T>`-style storage buffers, unsized arrays and `ArrayStride` against the oracle | § I, § C | `DescriptorType.StorageBuffer` and `LayoutRule.Std430` have nothing that produces them |
+| 🟡 | **Sized array types**, and therefore `Buffer<T>`-style storage buffers, unsized arrays, spread elements (`RVN3002`) and `ArrayStride` against the oracle | § I, § C | the writable-resource row above; `DescriptorType.StorageBuffer` and `LayoutRule.Std430` have nothing that produces them |
 | 🟡 | **Inheritance is not flattened** — now `RVN3002` rather than three silent miscompilations | § I, mixins | the mixin question; `compose` covers the common case |
 | 🟡 | **Push constants** — no syntax, so `PushConstants` is always empty | § C, § D | nothing yet; reported as absent rather than guessed |
 | 🟡 | **String interpolation** — needs lexer modes; nothing shipped uses it | § I | nothing |
@@ -432,7 +432,7 @@ Get these wrong and every shader is subtly incorrect in a way that is painful to
 | 🔴 | **Reverse-Z, depth range 0..1** | ✅ nothing to do, and now asserted |
 | 🟡 | UV origin top-left | ✅ `OriginUpperLeft` |
 | 🟡 | Linear working space; sRGB decoded on sample; HDR render targets | not the compiler's — format and § F |
-| 🟡 | `Random.rvn` must match the CPU implementation **bit-for-bit** — the VFX system compiles one graph to both a C# job and a Raven compute shader, and their outputs are compared in a test ([06](06-rendering-pipeline.md)) | § F, and blocked on the compute stage |
+| 🟡 | `Random.rvn` must match the CPU implementation **bit-for-bit** — the VFX system compiles one graph to both a C# job and a Raven compute shader, and their outputs are compared in a test ([06](06-rendering-pipeline.md)) | § F; the compute stage landed, but reading the result back needs a writable resource |
 
 Two of these are the compiler's to bake in, and both are done. The other three are not, which is worth
 saying plainly rather than leaving them looking outstanding.
@@ -499,8 +499,9 @@ Still owed, and not the compiler's to give:
   is nothing for Raven to bake in — only something to avoid disturbing, which is asserted.
 - **Linear working space, sRGB decode, HDR targets** are image-format decisions plus `ColorSpaces.rvn`
   in § F. A shader never decodes sRGB itself; the view format does.
-- **`Random.rvn` bit-for-bit** needs § F's library *and* the compute stage (§ I), *and* a CPU port to
-  compare against. It is a § F exit criterion, not a § E one.
+- **`Random.rvn` bit-for-bit** needs § F's library, a CPU port to compare against, and a writable
+  resource to read the GPU side back out of. The compute stage itself is no longer the blocker. It is a
+  § F exit criterion, not a § E one.
 - **Numeric agreement on a real device** — the GPU-readback tests in § G. Everything above pins the
   *convention*; only a device proves the arithmetic.
 
@@ -521,12 +522,12 @@ is how two lists come to disagree.
 
 | | Layer | Test | |
 |---|---|---|---|
-| 🟡 | Parse | Golden-tree and round-trip corpus over **the whole `Raven/Library` tree** — every shipped shader round-trips byte-identically | corpus covers the fixtures and `Example1.rvn`; the library is § F |
+| 🟡 | Parse | Golden-tree and round-trip corpus over **the whole `Raven/Library` tree** — every shipped shader round-trips byte-identically | corpus covers the fixtures and both examples; the library is § F |
 | 🟡 | Semantic | Positive/negative fixture pairs per diagnostic ID; `compose`-resolution golden trees per material-feature combination | partial — most IDs have a trigger, few have the negative |
 | 🟡 | SPIR-V | `spirv-val` on every emitted module; golden `spirv-dis` snapshots so codegen changes are reviewable | ✅ |
 | 🔴 | Both emitters | **Differential test**: Raven's SPIR-V vs `glslc`(Raven's GLSL), compared for semantic equivalence — the hard class of bug, an emitter internally consistent and semantically wrong | ✅ interface-level; blind to the shared IR, hence the numeric tests |
 | 🟡 | Cross-compile | Every module through SPIRV-Cross to GLSL 450 / ESSL 300 / HLSL 60 / MSL / WGSL without error; GLSL/ESSL additionally through `glslang` | not started |
-| 🟡 | Numeric | BRDF functions ported to C# and compared against a GPU compute readback over a parameter sweep, agreeing to 1e-4 — the test that catches "the shader is subtly wrong" | blocked on § F and the compute stage |
+| 🟡 | Numeric | BRDF functions ported to C# and compared against a GPU compute readback over a parameter sweep, agreeing to 1e-4 — the test that catches "the shader is subtly wrong" | blocked on § F and on a writable resource; the compute stage itself landed |
 | 🟡 | Layout | Reflection offsets against a GPU readback of a known pattern, **per backend** | needs a device |
 | 🟡 | Permutations | An unused define produces a byte-identical module and the same cache key | ✅ |
 | ⚪ | Fuzz | `SharpFuzz` corpus over the Raven parser, alongside the VXML/VCSS/`.meta`/bundle readers ([12](12-build-ci-and-testing.md)) | not started |
@@ -584,16 +585,18 @@ shader graph's generated-source span mapping.
 | 🔴 | **`m[i]` meant a row in the IR and a column in both targets** | ✅ fixed in [§ E](#e-conventions-raven-must-bake-in) |
 | 🟡 | **`&&` and `\|\|` do not short-circuit.** They lower to `logicalAnd`/`logicalOr`, which evaluate both operands, as `?:` lowers to `select`. Sound for the side-effect-free expressions shaders are made of; wrong the moment the right operand is a guard (`i < n && data[i] > 0`) |
 | 🟡 | **Stream I/O declarations between stages** — no `stream` keyword; interstage data passes as entry-point parameters and returns | ✅ built; see [§ Streams](#streams-interstage-values-declared-once) |
-| 🟡 | **`Buffer<T>`-style resources** — the built-in named types are not generic, so there are no storage buffers. This is also why `DescriptorType.StorageBuffer` and `LayoutRule.Std430` exist in the reflection with nothing that produces them |
+| 🟡 | **`Buffer<T>`-style resources** — the built-in named types are not generic, so there are no storage buffers. This is also why `DescriptorType.StorageBuffer` and `LayoutRule.Std430` exist in the reflection with nothing that produces them, and why the compute stage has nothing writable to store into |
 | ✅ | **Kept in the language but not lowered** — resolved by Tier B: `switch`, operators and tuples are finished, the rest are dropped |
 | 🟡 | **Inheritance is not flattened** — a base's fields never reach the derived layout and an `override` does not replace the base's member. Now `RVN3002` instead of three silent miscompilations; see the mixin section for what implementing it would cost |
+| 🟡 | **Generics do not lower at all** — not the open definition and not an instantiation either: `Box<float4>` is `RVN3001` the same as `T` is, because there is no monomorphisation. They parse, bind, and enforce `where` clauses, then stop. Found by making `Example1.rvn` bind |
+| 🟡 | **A spread element in a collection cannot be lowered** — flattening `[1, ..xs, 5]` needs `xs`'s length and an array type carries none. It built an `array<i32>` operand where the construct wanted an `i32`, and only the IR verifier stood between that and a backend; now `RVN3002`, gated on sized arrays |
+| ⚪ | **Assigning to a uniform is refused by nobody** — every stage emits the store and both reference compilers reject it. Pre-existing and stage-independent; compute made it visible by having nothing else to write to |
 | ⚪ | **Flow analysis** — definite assignment and reachability. Dead-branch elimination landed in § B, but that is constant folding, not reachability |
 
 #### Backends
 
 | | Gap |
 |---|---|
-| 🟡 | **The compute stage** — both backends report `RVN4002`: it needs a workgroup size and nothing in the language declares one. `IrCapability.Compute` is reported but unusable, and [doc 06](06-rendering-pipeline.md)'s VFX compute path depends on it |
 | 🟡 | **Reading a whole struct out of a uniform block** (`RVN4002`, SPIR-V). Its laid-out type is a distinct type from the plain one, so it needs a member-by-member copy that is not built. Field-by-field reads — what lowering actually emits — are unaffected |
 | 🟡 | **A boolean in a uniform, or a boolean/aggregate as stage I/O** (`RVN4001`). `OpTypeBool` has no size and no memory layout. Reported rather than mis-emitted, but note the targets **disagree about what is legal**: GLSL hides it by giving a bool four bytes in a std140 block |
 | 🟡 | **Unsized arrays** (`RVN4001`) — legal only as a storage block's last member, which the IR cannot express |
@@ -604,6 +607,55 @@ language decision needing a coin-flip (HLSL indexes rows, GLSL columns) and was 
 byte-level relationship between host and shader storage was worked out, exactly one answer was free in
 both backends *and* the intuitive one. The derivation is in
 [§ E](#e-conventions-raven-must-bake-in).
+
+#### The compute stage: a workgroup size, the dispatch ids, and no interface
+
+`[ComputeShader(8, 8, 1)]` — one to three positional dimensions, the rest 1. On the stage attribute
+rather than an attribute of its own, so the size cannot be separated from the stage it sizes, written
+twice with two answers, or left behind on a declaration whose stage attribute was removed.
+
+**Required, not defaulted to `(1, 1, 1)`.** A default compiles, runs, and is wrong by whatever factor
+the author assumed — one invocation per workgroup where 64 were intended reads past every tile — and
+nothing downstream could distinguish a guessed size from a chosen one. `RVN2104` for absent,
+`RVN2105` for unreadable, kept distinct because reporting "no workgroup size" for
+`[ComputeShader(0)]` sends the author looking for the wrong thing. `RVN2106` warns on a graphics
+stage, per the RVN2091 policy.
+
+**A compute stage has no pipeline interface**, which is the part that made enabling it more than
+deleting two `RVN4002`s. Nothing feeds a parameter from a vertex buffer and no framebuffer takes a
+result, so a return value and a plain parameter are both `RVN2107`, and every parameter carries one of
+four dispatch built-ins — routed through the existing `[Semantic("…")]` that already carries
+`SV_Position`, because a compute built-in is the same mechanism rather than a new one:
+
+| `[Semantic(…)]` | Type | GLSL | SPIR-V |
+|---|---|---|---|
+| `SV_DispatchThreadID` | `uint3` | `gl_GlobalInvocationID` | `GlobalInvocationId` |
+| `SV_GroupID` | `uint3` | `gl_WorkGroupID` | `WorkgroupId` |
+| `SV_GroupThreadID` | `uint3` | `gl_LocalInvocationID` | `LocalInvocationId` |
+| `SV_GroupIndex` | `uint` | `gl_LocalInvocationIndex` | `LocalInvocationIndex` |
+
+One table (`Symbols/ComputeBuiltIns`) that the binder and both backends read, for the reason
+`BindingPlan` and `StreamPlan` exist: a built-in's name, type and spelling in each target are one
+decision. Unsigned in both targets, so `int3` is `RVN2109` rather than a conversion nobody wrote. In
+GLSL the built-in is passed straight into the entry point — no declared input at all; in SPIR-V it is
+a `BuiltIn`-decorated `Input` in the entry point's interface list, and never a located one, since
+`Location` and `BuiltIn` are mutually exclusive.
+
+**One silent miscompilation came out of enabling it.** A `stream` written by a compute stage emitted
+the store while the stream itself went undeclared — GLSL assigning to an identifier the translation
+unit never declared, which `glslc` rejects and nothing in Raven caught. Now `RVN3006`, an error rather
+than `RVN3005`'s warning, because there is no honest thing to emit: a stream is a location in the
+pipeline's interface and a compute dispatch has no pipeline.
+
+**What compute still cannot do is persist anything.** No storage buffers and no storage images, so
+there is nothing writable to store into — a compute shader can read bindings and compute, and that is
+where it stops. It is gated on sized array types (below), not on the stage. Two consequences worth
+naming: `Library/Example2.rvn` computes into a local and says so rather than assigning to a uniform,
+and the numeric BRDF readback still needs a writable resource before it can read anything back.
+
+Separately and pre-existing: **assigning to a uniform is not refused in any stage**, so a pixel shader
+can do it too and both backends emit a store the reference compilers reject. Compute made it visible
+by having nothing else to write to.
 
 #### Streams: interstage values declared once
 
@@ -666,9 +718,8 @@ Honestly bounded:
 - **No interpolation control** — no `flat`, `noperspective` or `centroid`; every stream is smoothly
   interpolated. An integer stream would want `flat` in GLSL and the type check permits one, so this is a
   real gap, and the syntax for it is an attribute on the declaration when something needs it.
-- **Geometry and compute are unchanged** — a geometry stage's per-vertex arrays and compute's absence of
-  any stage interface are both untouched, the latter because compute is still `RVN4002` for want of a
-  workgroup size.
+- **A geometry stage is unchanged** — its per-vertex arrays are untouched. Compute now has a stage
+  interface of its own kind (the dispatch built-ins, below), and a stream on one is `RVN3006`.
 
 #### Superseded rather than carried
 
@@ -828,21 +879,40 @@ initialisation is silent for want of definite-assignment analysis (§ I). HLSL a
 way, so this is a property of a value language with no heap rather than a defect — but an `init` is
 convenience, not a guarantee, and `ConstructorTests` pins that so the C# reading does not carry over.
 
-#### 🔴 The two files that define "what Raven looks like" are still broken
+#### ✅ The two files that define "what Raven looks like" — fixed
 
-Unchanged by any of the three passes, and the most visible gap in the tree:
+Both had rotted for a year while a round-trip test proved the bytes survived and said nothing about
+whether they meant anything. `LibraryExampleTests` now asserts a contract per file, so neither can rot
+again silently.
 
-- **`Library/Example1.rvn`** — the language showcase and the centrepiece of the round-trip corpus —
-  parses and round-trips byte-for-byte but **does not bind**: 9 semantic errors (`RVN2002` ×3,
-  `RVN2010`, `RVN2020`, `RVN2022`, `RVN2033`, `RVN2092` ×2). It demonstrates syntax with no semantics
-  behind it.
-- **`Library/Example2.rvn`** — tracked in the shipped library folder — **does not parse**: 21
-  `RVN1001`s.
+- **`Library/Example1.rvn`** — the syntax showcase — had 9 semantic errors (`RVN2002` ×3, `RVN2010`,
+  `RVN2020`, `RVN2022`, `RVN2033`, `RVN2092` ×2). Two of them were `RVN2092`, a diagnostic the language
+  gained *after* the file was written: the corpus doing its job and nobody acting on it. It now
+  **parses and binds clean**. Fixing it meant declaring the bases it named (as a stateless shader plus
+  a protocol, which is the inheritance that lowers), moving the shader's `init`s to ordinary functions,
+  declaring the `CoreClass` it called, and making `Epsilon` a `float` — which alone accounted for three
+  of the nine, the last cascading through an error type into a bogus arity error.
 
-Two of Example1's errors are `RVN2092`, a diagnostic the language gained *after* the file was written —
-an `init` on a shader is now correctly refused. That is the corpus doing its job and nobody acting on
-it. Both files should be fixed or retired, and § F's real library should replace them as the definition
-of what Raven looks like.
+  Its contract is bind-clean, not lower-clean, and deliberately: two constructs it demonstrates cannot
+  reach a backend (a generic struct, a spread element, both rows in the table at the top). Removing
+  them to get a greener test would make the showcase misrepresent the language.
+
+- **`Library/Example2.rvn`** — 21 `RVN1001`s — was **retired and replaced**. Every error was a
+  deliberately-removed construct: `class`, `string` as a type, `long`, `null`, `int?`, force-unwrap
+  `!`, string interpolation. Fixing it would have meant deleting everything it showed. It is now a
+  compute shader that compiles end to end, with `glslc` and `spirv-val` as the verdict, and it joined
+  the differential corpus.
+
+**What the retired file earned on its way out: `else if` had never parsed.** `} else if (x) {` was
+`RVN1001: expected '{', found 'if'` — in a C-family language, from the first day of the hand-written
+parser. The tree shape had always allowed it (`ElseClauseSyntax.Statement` is a `StatementSyntax`, not
+a block) and the binder and lowerer both took whatever statement the clause carried; only the parser
+hard-coded `ParseBlock()`. That is what made it invisible: nothing was *wrong*, one thing was missing.
+Fixed in the parser, the `.g4` oracle and its visitor, with three chain shapes added to the ambiguity
+probes so the two parsers are held to the same nesting.
+
+The lesson is the one the file was retired for failing to deliver: a corpus that only checks bytes
+round-trip cannot tell you the language is broken. Both files are now checked for what they claim.
 
 #### The third pass: every lexer token audited
 

@@ -71,7 +71,35 @@ public enum SpirvBuiltIn {
     Position = 0,
     PointSize = 1,
     FragCoord = 15,
-    FragDepth = 22
+    FragDepth = 22,
+
+    // The compute dispatch ids. Numbers are from the SPIR-V spec's BuiltIn table; the names
+    // are SPIR-V's, which differ from HLSL's semantics — see Symbols/ComputeBuiltIns.
+    WorkgroupSize = 25,
+    WorkgroupId = 26,
+    LocalInvocationId = 27,
+    GlobalInvocationId = 28,
+    LocalInvocationIndex = 29
+}
+
+/// <summary>
+///     The SPIR-V built-in each dispatch semantic maps to.
+/// </summary>
+/// <remarks>
+///     Separate from <c>ComputeBuiltIns</c>'s GLSL mapping so that neither target's spelling is
+///     the one the other has to be derived from — but both read the same
+///     <see cref="Symbols.ComputeBuiltIn" />, so a built-in added in one place cannot be
+///     silently missing here.
+/// </remarks>
+public static class SpirvBuiltIns {
+    public static SpirvBuiltIn Of(Symbols.ComputeBuiltIn builtIn) =>
+        builtIn switch {
+            Symbols.ComputeBuiltIn.DispatchThreadId => SpirvBuiltIn.GlobalInvocationId,
+            Symbols.ComputeBuiltIn.GroupId => SpirvBuiltIn.WorkgroupId,
+            Symbols.ComputeBuiltIn.GroupThreadId => SpirvBuiltIn.LocalInvocationId,
+            Symbols.ComputeBuiltIn.GroupIndex => SpirvBuiltIn.LocalInvocationIndex,
+            _ => throw new ArgumentOutOfRangeException(nameof(builtIn), builtIn, "Not a dispatch built-in.")
+        };
 }
 
 public enum SpirvFunctionControl {

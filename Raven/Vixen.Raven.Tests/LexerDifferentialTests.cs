@@ -213,8 +213,13 @@ static class CorpusLocator {
             yield return Path.GetFullPath(file);
         }
 
-        yield return Path.GetFullPath(
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Library", "Example1.rvn")
-        );
+        // The shipped library files: Example1 is the syntax showcase, Example2 the compute
+        // shader. Both are in the corpus so their syntax is checked against the grammar, which
+        // is the only reason `else if` was ever noticed.
+        foreach (var example in (string[])["Example1.rvn", "Example2.rvn"]) {
+            yield return Path.GetFullPath(
+                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Library", example)
+            );
+        }
     }
 }

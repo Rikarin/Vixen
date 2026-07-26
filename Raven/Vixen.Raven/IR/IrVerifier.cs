@@ -72,6 +72,37 @@ public static class IrVerifier {
                     + $"but takes {entryPoint.Function.Parameters.Count} parameters"
                 );
             }
+
+            VerifyWorkgroupSize(entryPoint, diagnostics);
+        }
+    }
+
+    /// <summary>
+    ///     A compute entry point carries a usable workgroup size and no other stage carries one.
+    /// </summary>
+    /// <remarks>
+    ///     Checked here as well as in the binder because both backends read it unconditionally: a
+    ///     compute stage that reached lowering without one would emit <c>local_size_x = 0</c>,
+    ///     which is a shader that fails to link rather than a compiler that said why.
+    /// </remarks>
+    static void VerifyWorkgroupSize(IrEntryPoint entryPoint, DiagnosticBag diagnostics) {
+        var name = entryPoint.Function.Name;
+
+        if (entryPoint.Stage != ShaderStage.Compute) {
+            if (entryPoint.WorkgroupSize is not null) {
+                Report(diagnostics, $"{entryPoint.Stage} entry point '{name}' carries a workgroup size");
+            }
+
+            return;
+        }
+
+        if (entryPoint.WorkgroupSize is not { } size) {
+            Report(diagnostics, $"compute entry point '{name}' has no workgroup size");
+            return;
+        }
+
+        if (size.IsInvalid) {
+            Report(diagnostics, $"compute entry point '{name}' has workgroup size {size}");
         }
     }
 

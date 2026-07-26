@@ -390,22 +390,80 @@ public class GlslBackendTests {
         Assert.Contains(diagnostics, d => d.Id == "RVN4001" && d.IsError);
     }
 
+    /// <summary>
+    ///     A compute stage declares its workgroup size and nothing else: no locations, because
+    ///     nothing feeds a compute invocation and nothing takes its result.
+    /// </summary>
     [Fact]
-    public void A_compute_entry_point_is_reported_rather_than_guessed_at() {
-        Generate(
+    public void A_compute_entry_point_declares_its_workgroup_size() {
+        var glsl = GenerateOne(
             """
             package A
 
             shader S {
-                [ComputeShader]
+                [ComputeShader(8, 4, 2)]
                 func Main() { }
             }
 
-            """,
-            out var diagnostics
+            """
         );
 
-        // A workgroup size has to come from somewhere, and nothing declares one.
-        Assert.Contains(diagnostics, d => d.Id == "RVN4002" && d.IsError);
+        Assert.Contains(
+            "layout(local_size_x = 8, local_size_y = 4, local_size_z = 2) in;",
+            glsl,
+            StringComparison.Ordinal
+        );
+
+        Assert.DoesNotContain("layout(location", glsl, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     A dimension left off is 1 — what a 1-D dispatch means, and what both targets default
+    ///     to, so <c>[ComputeShader(64)]</c> does not have to spell the other two.
+    /// </summary>
+    [Fact]
+    public void AnOmittedWorkgroupDimensionIsOne() {
+        var glsl = GenerateOne(
+            """
+            package A
+
+            shader S {
+                [ComputeShader(64)]
+                func Main() { }
+            }
+
+            """
+        );
+
+        Assert.Contains(
+            "layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;",
+            glsl,
+            StringComparison.Ordinal
+        );
+    }
+
+    /// <summary>
+    ///     Each dispatch built-in reaches the GLSL variable that carries it, passed straight into
+    ///     the entry point rather than copied through a declared input.
+    /// </summary>
+    [Theory]
+    [InlineData("SV_DispatchThreadID", "uint3", "gl_GlobalInvocationID")]
+    [InlineData("SV_GroupID", "uint3", "gl_WorkGroupID")]
+    [InlineData("SV_GroupThreadID", "uint3", "gl_LocalInvocationID")]
+    [InlineData("SV_GroupIndex", "uint", "gl_LocalInvocationIndex")]
+    public void EachDispatchBuiltInReachesItsGlslVariable(string semantic, string type, string expected) {
+        var glsl = GenerateOne(
+            $$"""
+              package A
+
+              shader S {
+                  [ComputeShader(64)]
+                  func Main([Semantic("{{semantic}}")] id: {{type}}) { }
+              }
+
+              """
+        );
+
+        Assert.Contains($"Main({expected});", glsl, StringComparison.Ordinal);
     }
 }

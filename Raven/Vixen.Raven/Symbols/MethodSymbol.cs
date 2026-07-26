@@ -40,6 +40,12 @@ public abstract class MethodSymbol : Symbol {
     /// <summary>The pipeline stage this method is an entry point for, if any.</summary>
     public virtual ShaderStage Stage => ShaderStage.None;
 
+    /// <summary>
+    ///     The workgroup size from <c>[ComputeShader(x, y, z)]</c>, or null when none was
+    ///     written. Only meaningful on a <see cref="ShaderStage.Compute" /> entry point.
+    /// </summary>
+    public virtual WorkgroupSize? WorkgroupSize => null;
+
     /// <summary>The semantic its return value carries, from <c>[Semantic("…")]</c>.</summary>
     public virtual string? SemanticName => null;
 

@@ -24,13 +24,6 @@ public sealed class GlslBackend(GlslOptions? options = null) : ITargetBackend {
 
         foreach (var shader in irModule.Shaders) {
             foreach (var entryPoint in shader.EntryPoints) {
-                if (entryPoint.Stage == ShaderStage.Compute) {
-                    // A compute stage needs a workgroup size, which nothing in the
-                    // language declares yet.
-                    diagnostics.Add(BackendDiagnostics.NotImplemented, Location.None, "The compute stage", "GLSL");
-                    continue;
-                }
-
                 var emitter = new GlslEmitter(irModule, shader, entryPoint, options, diagnostics);
                 generated.Add(new($"{shader.Name}.{StageSuffix(entryPoint.Stage)}", entryPoint.Stage, emitter.Emit()));
             }

@@ -67,6 +67,22 @@ public static class LoweringDiagnostics {
         DiagnosticSeverity.Warning
     );
 
+    /// <summary>A stream used by a compute stage, which has no interstage interface at all.</summary>
+    /// <remarks>
+    ///     An error rather than <c>RVN3005</c>'s warning, because there is no honest thing to emit.
+    ///     A stream is a location in the pipeline's interface and a compute dispatch has no
+    ///     pipeline: GLSL took the store and wrote to an identifier it never declared, which
+    ///     <c>glslc</c> rejects but nothing in Raven caught.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor StreamInComputeStage = new(
+        "RVN3006",
+        "Stream used by a compute stage",
+        "Stream '{0}' is used by compute entry point '{1}', but a compute stage has no interstage "
+        + "interface for it to live in",
+        Lowering,
+        DiagnosticSeverity.Error
+    );
+
     // --- Verification -----------------------------------------------------
 
     public static readonly DiagnosticDescriptor MalformedIr = new(

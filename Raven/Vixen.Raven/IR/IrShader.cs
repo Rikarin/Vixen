@@ -115,11 +115,24 @@ public sealed class IrEntryPoint(
     ShaderStage stage,
     IrFunction function,
     IReadOnlyList<IrStageIo> inputs,
-    IrStageIo? output
+    IrStageIo? output,
+    WorkgroupSize? workgroupSize = null
 ) {
     public ShaderStage Stage { get; } = stage;
     public IrFunction Function { get; } = function;
     public IReadOnlyList<IrStageIo> Inputs { get; } = inputs;
+
+    /// <summary>
+    ///     The workgroup size, on a <see cref="ShaderStage.Compute" /> stage and nowhere else.
+    /// </summary>
+    /// <remarks>
+    ///     Carried on the entry point rather than the shader because it belongs to the stage: two
+    ///     compute entry points in one shader are two dispatches with their own sizes, the same way
+    ///     each has its own signature. Both targets need it — GLSL's <c>local_size_x</c> layout and
+    ///     SPIR-V's <c>LocalSize</c> execution mode — so it has to survive lowering rather than
+    ///     being read back off the symbol by each backend.
+    /// </remarks>
+    public WorkgroupSize? WorkgroupSize { get; } = workgroupSize;
 
     /// <summary>The stage output, or null when the entry point returns nothing.</summary>
     public IrStageIo? Output { get; } = output;

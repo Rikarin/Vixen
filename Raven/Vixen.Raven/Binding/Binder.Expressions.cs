@@ -592,6 +592,7 @@ public abstract partial class Binder {
 
     BoundExpression BindCollection(CollectionExpressionSyntax syntax) {
         List<BoundExpression> elements = [];
+        List<BoundExpression> spreads = [];
         TypeSymbol? elementType = null;
 
         foreach (var element in syntax.Elements) {
@@ -613,6 +614,11 @@ public abstract partial class Binder {
                 : bound.Type;
 
             elements.Add(bound);
+
+            if (element is SpreadElementSyntax) {
+                spreads.Add(bound);
+            }
+
             elementType = elementType is null ? contributed : Conversions.FindCommonType(elementType, contributed);
 
             if (elementType is null) {
@@ -629,7 +635,8 @@ public abstract partial class Binder {
         return new BoundCollectionExpression(
             syntax,
             elements,
-            new ArrayTypeSymbol(elementType ?? ErrorTypeSymbol.Instance)
+            new ArrayTypeSymbol(elementType ?? ErrorTypeSymbol.Instance),
+            spreads
         );
     }
 

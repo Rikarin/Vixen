@@ -179,6 +179,11 @@ sealed partial class SpirvEmitter {
     ///     fragment stage's inputs without either stage knowing about the other.
     /// </remarks>
     void EmitStageInterface() {
+        if (entryPoint.Stage == ShaderStage.Compute) {
+            EmitComputeInterface();
+            return;
+        }
+
         EmitStreamInterface();
 
         var location = (uint)StreamPlan.ParameterBase(shader);
@@ -207,6 +212,31 @@ sealed partial class SpirvEmitter {
                 SpirvDecoration.Location,
                 SpirvOperand.Literal((uint)StreamPlan.OutputBase(shader, entryPoint.Stage))
             );
+        }
+    }
+
+    /// <summary>
+    ///     Declares a compute stage's parameters as built-in <c>Input</c> variables.
+    /// </summary>
+    /// <remarks>
+    ///     A <c>Location</c> and a <c>BuiltIn</c> are mutually exclusive decorations, and a compute
+    ///     stage has no located interface at all — nothing feeds an attribute and nothing takes a
+    ///     result. So every parameter is a built-in, which the binder has already narrowed to the
+    ///     four dispatch ids with the right type. They still join <c>interfaceIds</c>: a built-in a
+    ///     module reads has to appear in its entry point's interface list, or <c>spirv-val</c>
+    ///     rejects it.
+    /// </remarks>
+    void EmitComputeInterface() {
+        foreach (var input in entryPoint.Inputs) {
+            var variable = DeclareStageVariable(input, SpirvStorageClass.Input, "in_" + input.Name);
+
+            module.Decorate(
+                variable,
+                SpirvDecoration.BuiltIn,
+                SpirvOperand.Enumerant(SpirvBuiltIns.Of(ComputeBuiltIns.Of(input.Semantic)))
+            );
+
+            inputs.Add((input, variable));
         }
     }
 
@@ -424,6 +454,18 @@ sealed partial class SpirvEmitter {
             // A fragment shader has to say where its origin is, and Vulkan only
             // accepts the upper-left one.
             module.AddExecutionMode(main, SpirvExecutionMode.OriginUpperLeft);
+        }
+
+        if (entryPoint.WorkgroupSize is { } size) {
+            // GLCompute requires LocalSize; without it spirv-val rejects the module. The
+            // verifier guarantees one is here on this stage and nowhere else.
+            module.AddExecutionMode(
+                main,
+                SpirvExecutionMode.LocalSize,
+                (uint)size.X,
+                (uint)size.Y,
+                (uint)size.Z
+            );
         }
     }
 

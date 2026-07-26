@@ -620,4 +620,83 @@ public static class SemanticDiagnostics {
         Shader,
         DiagnosticSeverity.Error
     );
+
+    // --- The compute stage -------------------------------------------------
+
+    /// <summary>A compute entry point with no workgroup size.</summary>
+    /// <remarks>
+    ///     Required rather than defaulted to <c>(1, 1, 1)</c>. A default would compile, run, and
+    ///     be wrong by whatever factor the author assumed — one invocation per workgroup where 64
+    ///     were intended reads past the end of every tile — and no later stage could tell that the
+    ///     size was guessed rather than chosen.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor ComputeNeedsWorkgroupSize = new(
+        "RVN2104",
+        "Compute entry point needs a workgroup size",
+        "Compute entry point '{0}' needs a workgroup size: write it as [ComputeShader(x, y, z)], "
+        + "where the dimensions not given are 1",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>A workgroup size that could not be read.</summary>
+    public static readonly DiagnosticDescriptor WorkgroupSizeNotValid = new(
+        "RVN2105",
+        "Workgroup size is not valid",
+        "The workgroup size on '{0}' must be one to three positive integer literals, given positionally",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>
+    ///     A workgroup size on a stage that has no workgroups.
+    /// </summary>
+    /// <remarks>
+    ///     The RVN2091 policy: legal syntax that changes nothing, so it is named rather than
+    ///     ignored. Only a compute dispatch has a workgroup — a vertex or pixel stage's invocation
+    ///     count is the draw's, not the shader's.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor WorkgroupSizeOnGraphicsStage = new(
+        "RVN2106",
+        "Workgroup size has no effect on this stage",
+        "'{0}' is a {1} entry point, which has no workgroups, so the size has no effect",
+        Shader,
+        DiagnosticSeverity.Warning
+    );
+
+    /// <summary>
+    ///     A compute entry point returning a value, or taking a parameter that is not a dispatch
+    ///     built-in.
+    /// </summary>
+    /// <remarks>
+    ///     A compute stage has no pipeline interface: no vertex attributes to feed a parameter and
+    ///     no framebuffer to take a return value. So a parameter has to be one of the dispatch
+    ///     built-ins, and a result has to be written to a resource — reported here rather than
+    ///     emitted as a location nothing binds.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor ComputeHasNoStageInterface = new(
+        "RVN2107",
+        "Compute stage has no pipeline interface",
+        "{0} on compute entry point '{1}': a compute stage has no {2}",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>A <c>[Semantic("…")]</c> that names no dispatch built-in on a compute parameter.</summary>
+    public static readonly DiagnosticDescriptor UnknownComputeSemantic = new(
+        "RVN2108",
+        "Unknown compute semantic",
+        "'{0}' is not a dispatch built-in; a compute parameter must be one of {1}",
+        Shader,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>A dispatch built-in declared with a type it cannot have.</summary>
+    public static readonly DiagnosticDescriptor ComputeSemanticTypeMismatch = new(
+        "RVN2109",
+        "Dispatch built-in has the wrong type",
+        "'{0}' is a {1} in both targets, but '{2}' is declared '{3}'",
+        Shader,
+        DiagnosticSeverity.Error
+    );
 }

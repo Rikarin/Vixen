@@ -136,7 +136,7 @@ public class CapabilityTests {
                 shader S {
                     var tint: float4
 
-                    [ComputeShader]
+                    [ComputeShader(8, 8, 1)]
                     func Main() {
                     }
                 }
