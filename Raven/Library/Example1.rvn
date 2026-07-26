@@ -68,15 +68,18 @@ shader TestShader : ExampleBase, CustomShader {
     func Test<Asd>() { }
 
     func Classify(x: int): int {
-        val kind = x switch {
-            0 => 1,
-            > 10 when x < 20 => 2,
-            _ => 3
+        var kind = 0
+        switch (x) {
+            case 0:
+                kind = 1
+                break
+            case 1:
+            case 2:
+                kind = 2
+                break
+            default:
+                kind = 3
         }
-
-        val isSmall = x is < 5
-        val isNotFive = x is not 5
-        val ranged = x is > 0 and < 10
 
         return kind
     }
@@ -130,11 +133,7 @@ struct FooBar {
 
     func Scaled(by: float): float => value * by
 
-    float self[i: int] => value
-
     FooBar operator +(a: FooBar, b: FooBar) => a
-
-    implicit operator float(v: FooBar) => v.value
 }
 
 enum Mode {

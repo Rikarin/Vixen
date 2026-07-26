@@ -33,18 +33,14 @@ public sealed class SourceMethodSymbol : MethodSymbol {
         Syntax switch {
             ConstructorDeclarationSyntax => MethodKind.Constructor,
             OperatorDeclarationSyntax => MethodKind.Operator,
-            ConversionOperatorDeclarationSyntax => MethodKind.Conversion,
-            LocalFunctionStatementSyntax => MethodKind.LocalFunction,
             _ => MethodKind.Ordinary
         };
 
     public override string Name =>
         Syntax switch {
             MethodDeclarationSyntax method => method.Identifier.ValueText,
-            LocalFunctionStatementSyntax local => local.Identifier.ValueText,
             ConstructorDeclarationSyntax => ".ctor",
             OperatorDeclarationSyntax @operator => "operator" + @operator.OperatorToken.Text,
-            ConversionOperatorDeclarationSyntax conversion => "op_" + conversion.ImplicitOrExplicitKeyword.Text,
             _ => string.Empty
         };
 
@@ -73,10 +69,8 @@ public sealed class SourceMethodSymbol : MethodSymbol {
     public BlockSyntax? Body =>
         Syntax switch {
             MethodDeclarationSyntax method => method.Body,
-            LocalFunctionStatementSyntax local => local.Body,
             ConstructorDeclarationSyntax constructor => constructor.Body,
             OperatorDeclarationSyntax @operator => @operator.Body,
-            ConversionOperatorDeclarationSyntax conversion => conversion.Body,
             _ => null
         };
 
@@ -84,10 +78,8 @@ public sealed class SourceMethodSymbol : MethodSymbol {
     public ArrowExpressionClauseSyntax? ExpressionBody =>
         Syntax switch {
             MethodDeclarationSyntax method => method.ExpressionBody,
-            LocalFunctionStatementSyntax local => local.ExpressionBody,
             ConstructorDeclarationSyntax constructor => constructor.ExpressionBody,
             OperatorDeclarationSyntax @operator => @operator.ExpressionBody,
-            ConversionOperatorDeclarationSyntax conversion => conversion.ExpressionBody,
             _ => null
         };
 
@@ -98,47 +90,39 @@ public sealed class SourceMethodSymbol : MethodSymbol {
     SyntaxList<SyntaxToken> Modifiers =>
         Syntax switch {
             MemberDeclarationSyntax member => member.Modifiers,
-            LocalFunctionStatementSyntax local => local.Modifiers,
             _ => default
         };
 
     SyntaxList<AttributeListSyntax> AttributeLists =>
         Syntax switch {
             MemberDeclarationSyntax member => member.AttributeLists,
-            LocalFunctionStatementSyntax local => local.AttributeLists,
             _ => default
         };
 
-    BaseParameterListSyntax? ParameterListSyntax =>
+    ParameterListSyntax? ParameterListSyntax =>
         Syntax switch {
             MethodDeclarationSyntax method => method.ParameterList,
-            LocalFunctionStatementSyntax local => local.ParameterList,
             ConstructorDeclarationSyntax constructor => constructor.ParameterList,
             OperatorDeclarationSyntax @operator => @operator.ParameterList,
-            ConversionOperatorDeclarationSyntax conversion => conversion.ParameterList,
             _ => null
         };
 
     TypeParameterListSyntax? TypeParameterListSyntax =>
         Syntax switch {
             MethodDeclarationSyntax method => method.TypeParameterList,
-            LocalFunctionStatementSyntax local => local.TypeParameterList,
             _ => null
         };
 
     SyntaxList<TypeParameterConstraintClauseSyntax> ConstraintClauses =>
         Syntax switch {
             MethodDeclarationSyntax method => method.ConstraintClauses,
-            LocalFunctionStatementSyntax local => local.ConstraintClauses,
             _ => default
         };
 
     TypeSyntax? ReturnTypeSyntax =>
         Syntax switch {
             MethodDeclarationSyntax method => method.ReturnType,
-            LocalFunctionStatementSyntax local => local.ReturnType,
             OperatorDeclarationSyntax @operator => @operator.Type,
-            ConversionOperatorDeclarationSyntax conversion => conversion.Type,
             _ => null
         };
 

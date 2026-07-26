@@ -24,7 +24,6 @@ public sealed class SourcePropertySymbol : PropertySymbol {
     public override string Name =>
         Syntax switch {
             PropertyDeclarationSyntax property => property.Identifier.ValueText,
-            IndexerDeclarationSyntax => "self[]",
             _ => string.Empty
         };
 
@@ -42,7 +41,6 @@ public sealed class SourcePropertySymbol : PropertySymbol {
     public AccessorListSyntax? AccessorList =>
         Syntax switch {
             PropertyDeclarationSyntax property => property.AccessorList,
-            IndexerDeclarationSyntax indexer => indexer.AccessorList,
             _ => null
         };
 
@@ -50,7 +48,6 @@ public sealed class SourcePropertySymbol : PropertySymbol {
     public ArrowExpressionClauseSyntax? ExpressionBody =>
         Syntax switch {
             PropertyDeclarationSyntax property => property.ExpressionBody,
-            IndexerDeclarationSyntax indexer => indexer.ExpressionBody,
             _ => null
         };
 
@@ -87,19 +84,8 @@ public sealed class SourcePropertySymbol : PropertySymbol {
         return false;
     }
 
-    ParameterSymbol[] ResolveParameters() {
-        if (Syntax is not IndexerDeclarationSyntax indexer) {
-            return parameters = [];
-        }
-
-        List<ParameterSymbol> built = [];
-        var ordinal = 0;
-        foreach (var parameter in indexer.ParameterList.Parameters) {
-            built.Add(new SourceParameterSymbol(this, parameter, ordinal++, binder));
-        }
-
-        return parameters = built.ToArray();
-    }
+    /// <summary>A property takes no parameters: the indexer form that did is gone.</summary>
+    static ParameterSymbol[] ResolveParameters() => [];
 
     TypeSymbol ResolveType() {
         if (resolving) {
@@ -111,7 +97,6 @@ public sealed class SourcePropertySymbol : PropertySymbol {
         try {
             var annotation = Syntax switch {
                 PropertyDeclarationSyntax property => property.Type,
-                IndexerDeclarationSyntax indexer => indexer.Type,
                 _ => null
             };
 

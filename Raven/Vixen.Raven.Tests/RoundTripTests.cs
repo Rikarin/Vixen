@@ -86,21 +86,6 @@ public class RoundTripTests {
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val xs = [a, b, c]\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val xs = []\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val xs = [a, ..b, c]\n    }\n}\n")]
-    // is-patterns
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val b = x is 5\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val b = x is > 5\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val b = x is not 5\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val b = x is > 0 and < 10\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val b = x is var y\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val b = x is _\n    }\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    func M() {\n        val b = x is (5)\n    }\n}\n")]
-    // switch expression
-    [InlineData(
-        "package A.B\n\nshader Foo {\n    func M() {\n        val r = x switch {\n            1 => a,\n            _ => b\n        }\n    }\n}\n"
-    )]
-    [InlineData(
-        "package A.B\n\nshader Foo {\n    func M() {\n        val r = x switch {\n            > 0 when a => b,\n            _ => c\n        }\n    }\n}\n"
-    )]
     // Generics
     [InlineData("package A.B\n\nshader Foo {\n    val items: List<int>\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    val m: Map<int, float>\n}\n")]
@@ -111,15 +96,9 @@ public class RoundTripTests {
     [InlineData("package A.B\n\nshader Foo {\n    func Map<T>(x: T) {\n    }\n}\n")]
     [InlineData("package A.B\n\nshader Box<T> where T : Base {\n\n}\n")]
     [InlineData("package A.B\n\nshader Box<T> where T : Base, Other {\n\n}\n")]
-    // Declaration expression (type designation)
-    [InlineData("package A.B\n\nshader Foo {\n    func M() => int x\n}\n")]
-    // Indexer & operator declarations
-    [InlineData("package A.B\n\nshader Foo {\n    int self[i: int] => a\n}\n")]
+    // Operator declarations
     [InlineData("package A.B\n\nshader Foo {\n    Vec operator +(a: Vec, b: Vec) => a\n}\n")]
     [InlineData("package A.B\n\nshader Foo {\n    bool operator ==(a: Vec, b: Vec) {\n    }\n}\n")]
-    // Conversion operators
-    [InlineData("package A.B\n\nshader Foo {\n    implicit operator int(v: Vec) => a\n}\n")]
-    [InlineData("package A.B\n\nshader Foo {\n    explicit operator float(v: Vec) {\n    }\n}\n")]
     // Struct declarations
     [InlineData("package A.B\n\nstruct FooBar {\n\n}\n")]
     [InlineData("package A.B\n\nstruct Widget {\n\n}\n")]

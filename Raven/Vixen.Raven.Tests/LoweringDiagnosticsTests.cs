@@ -34,24 +34,6 @@ public class LoweringDiagnosticsTests {
         );
 
     [Fact]
-    public void A_local_function_is_rejected() =>
-        AssertLowering(
-            """
-            package A
-
-            shader S {
-                func Probe() {
-                    func Inner(): int {
-                        return 1
-                    }
-                }
-            }
-
-            """,
-            "RVN3002"
-        );
-
-    [Fact]
     public void A_user_defined_operator_is_rejected() =>
         AssertLowering(
             """
@@ -62,25 +44,6 @@ public class LoweringDiagnosticsTests {
 
                 Vec operator +(a: Vec, b: Vec) {
                     return a
-                }
-            }
-
-            """,
-            "RVN3002"
-        );
-
-    [Fact]
-    public void A_switch_expression_is_rejected() =>
-        AssertLowering(
-            """
-            package A
-
-            shader S {
-                func Probe(x: int): int {
-                    return x switch {
-                        1 => 2,
-                        _ => 3
-                    }
                 }
             }
 

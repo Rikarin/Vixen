@@ -38,6 +38,11 @@ public class RemovedConstructsTests {
     [InlineData("        using val x = 1f")]
     // Argument modifiers were parsed and ignored; the IR has no by-reference parameters.
     [InlineData("        val x = Helper(out tint)")]
+    // `ref x` used to read as declaring `x` of a type named `ref`, because a bare
+    // `type designation` was an expression. That went with the patterns, so it is a parse
+    // error now rather than an undefined type.
+    [InlineData("        val r = ref tint")]
+    [InlineData("        val x = Helper(ref tint)")]
     public void The_construct_no_longer_parses(string body) => AssertDoesNotParse(body);
 
     /// <summary>
@@ -53,9 +58,6 @@ public class RemovedConstructsTests {
     [Theory]
     // `sizeof(float4)` now reads as a call to an undefined function.
     [InlineData("        val n = sizeof(float4)", "RVN2010")]
-    // `ref tint` now reads as declaring `tint` of a type named `ref`, which does not exist.
-    [InlineData("        val r = ref tint", "RVN2002")]
-    [InlineData("        val x = Helper(ref tint)", "RVN2002")]
     public void The_keyword_is_gone_so_it_reads_as_an_undefined_name(string body, string id) {
         var diagnostics = Diagnose(
             $"package A\n\nshader S {{\n    var tint: float4\n\n    func Helper(v: float4): float4 => v\n\n"
@@ -117,6 +119,45 @@ public class RemovedConstructsTests {
     [Fact]
     public void A_leading_dot_member_reference_no_longer_parses() =>
         AssertDoesNotParse("        val x = .Foo");
+
+    /// <summary>
+    ///     Pattern matching and everything built on it. These parsed and bound, and lowering
+    ///     rejected them — so nothing miscompiled, but each cost a node, generated code, a
+    ///     translator method and a round-trip obligation for a construct that had no route to a
+    ///     GPU. Patterns are C# flow-typing: they narrow a static type by testing a value, which
+    ///     needs runtime type information that does not exist here.
+    /// </summary>
+    [Theory]
+    // is-patterns, in every shape the grammar had.
+    [InlineData("        val b = x is 5")]
+    [InlineData("        val b = x is > 5")]
+    [InlineData("        val b = x is not 5")]
+    [InlineData("        val b = x is > 0 and < 10")]
+    [InlineData("        val b = x is var y")]
+    [InlineData("        val b = x is _")]
+    // A switch *expression*. The switch statement stays and now lowers; the expression form is
+    // sugar for it plus an assignment, and neither target has an expression form.
+    [InlineData("        val r = x switch {\n            1 => a,\n            _ => b\n        }")]
+    // `as` was a reference conversion, and there are no reference types.
+    [InlineData("        val y = x as int")]
+    // A local function hoists to module scope trivially — which is what a private method is.
+    [InlineData("        func Inner(): int {\n            return 1\n        }")]
+    public void The_pattern_construct_no_longer_parses(string body) => AssertDoesNotParse(body);
+
+    /// <summary>
+    ///     Member forms that went with them: an indexer is a call with different spelling, and a
+    ///     conversion operator is an implicit call that hides where the work happens. Neither
+    ///     lowered.
+    /// </summary>
+    [Theory]
+    [InlineData("package A\n\nstruct F {\n    var v: float\n\n    float self[i: int] => v\n}\n")]
+    [InlineData("package A\n\nstruct F {\n    var v: float\n\n    implicit operator float(x: F) => x.v\n}\n")]
+    [InlineData("package A\n\nstruct F {\n    var v: float\n\n    explicit operator int(x: F) => 1\n}\n")]
+    public void The_member_form_no_longer_parses(string source) {
+        var tree = SyntaxTree.ParseText(source);
+
+        Assert.NotEmpty(tree.Diagnostics);
+    }
 
     [Fact]
     public void Null_is_no_longer_a_keyword_so_it_reads_as_an_undefined_name() =>

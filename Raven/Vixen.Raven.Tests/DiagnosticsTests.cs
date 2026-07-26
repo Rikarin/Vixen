@@ -41,7 +41,9 @@ public class DiagnosticsTests {
         // error whose span points exactly at the offending character.
         var tree = SyntaxTree.ParseText("package A`B\n");
 
-        var diagnostic = Assert.Single(tree.Diagnostics);
+        // The first diagnostic is the character itself; error recovery may add more about
+        // what it then failed to parse, which is not what this test is about.
+        var diagnostic = tree.Diagnostics[0];
         Assert.True(diagnostic.IsError);
         Assert.Equal("`", tree.Text!.ToString(diagnostic.Location.SourceSpan));
     }

@@ -91,8 +91,7 @@ member_declaration
     ;
 
 base_property_declaration
-    : indexer_declaration
-    | property_declaration
+    : property_declaration
     ;
 
 field_declaration
@@ -101,7 +100,6 @@ field_declaration
 
 base_method_declaration
     : constructor_declaration
-    | conversion_operator_declaration
     | method_declaration
     | operator_declaration
     ;
@@ -131,20 +129,8 @@ accessor_declaration
     : (attribute_list NL*)* modifier* op=(GET | SET | WILL_SET | DID_SET) (block | (arrow_expression_clause NL)) NL*
     ;
 
-indexer_declaration
-    : (attribute_list NL*)* modifier* type SELF bracketed_parameter_list (accessor_list | (arrow_expression_clause NL))
-    ;
-
-bracketed_parameter_list
-    : '[' parameter (',' parameter)* ']'
-    ;
-
-conversion_operator_declaration
-    : (attribute_list NL*)* modifier* ct=(IMPLICIT | EXPLICIT) OPERATOR type parameter_list (block | (arrow_expression_clause NL))
-    ;
-
 operator_declaration
-    : (attribute_list NL*)* modifier* type OPERATOR op=('+' | '-' | '!' | '~' | '++' | '--' | '*' | '/' | '%' | '<<' | '>>' | '>>>' | '|' | '&' | '^' | '==' | '!=' | '<' | '<=' | '>' | '>=' | 'false' | 'true' | 'is') parameter_list (block | (arrow_expression_clause NL))
+    : (attribute_list NL*)* modifier* type OPERATOR op=('+' | '-' | '!' | '~' | '++' | '--' | '*' | '/' | '%' | '<<' | '>>' | '>>>' | '|' | '&' | '^' | '==' | '!=' | '<' | '<=' | '>' | '>=' | 'false' | 'true') parameter_list (block | (arrow_expression_clause NL))
     ;
 
 base_type_declaration
@@ -244,7 +230,6 @@ statement
     | for_statement
     | if_statement
     | local_declaration_statement
-    | local_function_statement
     | return_statement
     | switch_statement
     | while_statement
@@ -286,10 +271,6 @@ return_statement
     : (attribute_list NL*)* RETURN expression? NL
     ;
 
-local_function_statement
-    : (attribute_list NL*)* modifier* FUNC identifier_token type_parameter_list? parameter_list type_parameter_constraint_clause* (':' type)? (block | (arrow_expression_clause NL))
-    ;
-
 local_declaration_statement
     : (attribute_list NL*)* modifier* variable_declaration NL
     ;
@@ -299,29 +280,27 @@ while_statement
     ;
 
 switch_statement
-  : (attribute_list NL*)* SWITCH '('? expression ')'? '{' switch_section* '}'
+  : (attribute_list NL*)* SWITCH '('? expression ')'? '{' NL* switch_section* NL* '}' NL*
   ;
 
 switch_section
   : switch_label+ statement+
   ;
 
+// A label is followed by a newline in practice, and the statement after it brings its own;
+// the body's braces need the same NL* every other block body has.
+
 switch_label
-  : case_pattern_switch_label
-  | case_switch_label
+  : case_switch_label
   | default_switch_label
   ;
 
-case_pattern_switch_label
-  : CASE pattern when_clause? ':'
-  ;
-
 case_switch_label
-    : CASE expression ':'
+    : CASE expression ':' NL*
     ;
 
 default_switch_label
-    : DEFAULT ':'
+    : DEFAULT ':' NL*
     ;
 
 
@@ -349,15 +328,12 @@ expression
     | expression op=('<<' | '>>' | '>>>') expression #BinaryExpression
     | expression DOUBLE_DOT expression          #RangeExpression
     | expression op=('<' | '<=' | '>' | '>=') expression #BinaryExpression
-    | expression op=('is' | 'as') expression    #BinaryExpression
-    | expression IS pattern                     #IsPatternExpression
     | expression op=('==' | '!=') expression    #BinaryExpression
     | expression op='&' expression              #BinaryExpression
     | expression op='^' expression              #BinaryExpression
     | expression op='|' expression              #BinaryExpression
     | expression op='&&' expression             #BinaryExpression
     | expression op='||' expression             #BinaryExpression
-    | expression SWITCH '{' NL* (switch_expression_arm (',' NL* switch_expression_arm)*)? NL* '}' #SwitchExpression
     | <assoc=right> expression '?' expression ':' expression #ConditionalExpression
     // --- assignment binds loosest, so its right-hand side swallows the rest ---
     | <assoc=right> expression op=('=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '^=' | '|=' | '<<=' | '>>=' | '>>>=') expression #AssignmentExpression
@@ -370,7 +346,6 @@ expression
     | '(' expression ')'                        #ParenthesizedExpression
     | '(' argument (',' argument)+ ')'?         #TupleExpression
     | type                                      #TypeExpression
-    | type variable_designation                 #DeclarationExpression
   ;
 
 literal_expression
@@ -396,34 +371,6 @@ collection_element
     | '..' expression   #SpreadElement
     ;
 
-
-switch_expression_arm
-    : pattern when_clause? '=>' expression
-    ;
-
-pattern
-    : pattern op=(OR | AND) pattern                             #BinaryPattern
-    | expression                                                #ConstantPattern
-//    | type variable_designation                                 #DeclarationPattern
-    | DISCARD                                                   #DiscardPattern
-    | '[' (pattern (',' pattern)*)? ']' variable_designation?   #ListPattern
-    | '(' pattern ')'                                           #ParenthesizedPattern
-    | op=('!=' | '<' | '<=' | '==' | '>' | '>=') expression     #RelationalPattern
-    | '..' pattern?                                             #SlicePattern
-//    | type                                                      #TypePattern
-    | NOT pattern                                               #UnaryPattern
-    | op=(VAL | VAR) variable_designation                       #VarPattern
-  ;
-
-variable_designation
-    : DISCARD                                                       #DiscardDesignation
-    | '(' (variable_designation (',' variable_designation)*)? ')'   #ParenthesizedVariableDesignation
-    | identifier_token                                              #SimpleVariableDesignation
-    ;
-
-when_clause
-    : WHEN expression
-    ;
 
 // =====================================================================================================================
 // ================================================= TYPES =============================================================

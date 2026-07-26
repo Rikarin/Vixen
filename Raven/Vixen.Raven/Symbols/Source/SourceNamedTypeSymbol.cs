@@ -225,18 +225,13 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
                     result.Add(new SourcePropertySymbol(this, property, TypeBinder));
                     break;
 
-                case IndexerDeclarationSyntax indexer:
-                    result.Add(new SourcePropertySymbol(this, indexer, TypeBinder));
-                    break;
-
                 case EnumMemberDeclarationSyntax enumMember:
                     result.Add(new SourceEnumMemberSymbol(this, enumMember, result.Count));
                     break;
 
                 case MethodDeclarationSyntax
                     or ConstructorDeclarationSyntax
-                    or OperatorDeclarationSyntax
-                    or ConversionOperatorDeclarationSyntax:
+                    or OperatorDeclarationSyntax:
                     result.Add(new SourceMethodSymbol(this, member, TypeBinder));
                     break;
 

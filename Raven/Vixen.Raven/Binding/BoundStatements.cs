@@ -92,24 +92,37 @@ public sealed class BoundContinueStatement(SyntaxNode syntax) : BoundStatement(s
     public override BoundKind Kind => BoundKind.ContinueStatement;
 }
 
-public sealed class BoundLocalFunctionStatement(SyntaxNode syntax, MethodSymbol method, BoundNode? body)
-    : BoundStatement(syntax) {
-    public MethodSymbol Method { get; } = method;
-    public BoundNode? Body { get; } = body;
-    public override BoundKind Kind => BoundKind.LocalFunctionStatement;
-    public override IEnumerable<BoundNode> Children => Body is null ? [] : [Body];
-}
+/// <summary>
+///     One <c>case</c>/<c>default</c> section: the values that select it and the statements it runs.
+/// </summary>
+/// <remarks>
+///     Sections do not fall through. Each is its own scope and its own block, so a trailing
+///     <c>break</c> is redundant rather than load-bearing — which is what lets lowering desugar the
+///     whole statement into an if/else chain.
+/// </remarks>
+/// <param name="Labels">The <c>case</c> values, converted to the governing type. Empty for <c>default</c>.</param>
+/// <param name="IsDefault">Whether this section carries the <c>default</c> label.</param>
+/// <param name="Statements">The section's body.</param>
+public sealed record BoundSwitchSection(
+    IReadOnlyList<BoundExpression> Labels,
+    bool IsDefault,
+    IReadOnlyList<BoundStatement> Statements
+);
 
-/// <summary><c>switch</c> statement; sections are bound shallowly (see <see cref="BoundIsPatternExpression" />).</summary>
+/// <summary><c>switch</c> statement.</summary>
 public sealed class BoundSwitchStatement(
     SyntaxNode syntax,
     BoundExpression governingExpression,
-    IReadOnlyList<BoundStatement> statements
+    IReadOnlyList<BoundSwitchSection> sections
 ) : BoundStatement(syntax) {
     public BoundExpression GoverningExpression { get; } = governingExpression;
-    public IReadOnlyList<BoundStatement> Statements { get; } = statements;
+    public IReadOnlyList<BoundSwitchSection> Sections { get; } = sections;
     public override BoundKind Kind => BoundKind.SwitchStatement;
-    public override IEnumerable<BoundNode> Children => [GoverningExpression, .. Statements];
+
+    public override IEnumerable<BoundNode> Children => [
+        GoverningExpression,
+        .. Sections.SelectMany(s => s.Labels.Concat<BoundNode>(s.Statements))
+    ];
 }
 
 /// <summary>An empty statement, or one the binder chose not to model.</summary>

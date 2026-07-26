@@ -115,8 +115,7 @@
 
 
     <!-- Expressions -->
-    <AbstractNode Name="ExpressionOrPatternSyntax" Base="RavenSyntaxNode"/>
-    <AbstractNode Name="ExpressionSyntax" Base="ExpressionOrPatternSyntax">
+    <AbstractNode Name="ExpressionSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>
                 Provides the base class from which the classes that represent expression syntax nodes are derived.
@@ -124,82 +123,6 @@
             </summary>
         </TypeComment>
     </AbstractNode>
-    <AbstractNode Name="PatternSyntax" Base="ExpressionOrPatternSyntax"/>
-    <Node Name="VarPatternSyntax" Base="PatternSyntax">
-        <Kind Name="VarPattern"/>
-        <Field Name="Keyword" Type="SyntaxToken">
-            <Kind Name="VarKeyword"/>
-            <Kind Name="ValKeyword"/>
-        </Field>
-        <Field Name="Designation" Type="VariableDesignationSyntax"/>
-    </Node>
-    <Node Name="UnaryPatternSyntax" Base="PatternSyntax">
-        <Kind Name="NotPattern"/>
-        <Field Name="OperatorToken" Type="SyntaxToken">
-            <Kind Name="NotKeyword"/>
-        </Field>
-        <Field Name="Pattern" Type="PatternSyntax"/>
-    </Node>
-    <Node Name="BinaryPatternSyntax" Base="PatternSyntax">
-        <Kind Name="AndPattern"/>
-        <Kind Name="OrPattern"/>
-        <Field Name="Left" Type="PatternSyntax"/>
-        <Field Name="OperatorToken" Type="SyntaxToken">
-            <Kind Name="AndKeyword"/>
-            <Kind Name="OrKeyword"/>
-        </Field>
-        <Field Name="Right" Type="PatternSyntax"/>
-    </Node>
-    <Node Name="ConstantPatternSyntax" Base="PatternSyntax">
-        <Kind Name="ConstantPattern"/>
-        <Field Name="Expression" Type="ExpressionSyntax"/>
-    </Node>
-    <Node Name="ParenthesizedPatternSyntax" Base="PatternSyntax">
-        <Kind Name="ParenthesizedPattern"/>
-        <Field Name="OpenParenToken" Type="SyntaxToken">
-            <Kind Name="OpenParenToken"/>
-        </Field>
-        <Field Name="Pattern" Type="PatternSyntax"/>
-        <Field Name="CloseParenToken" Type="SyntaxToken">
-            <Kind Name="CloseParenToken"/>
-        </Field>
-    </Node>
-    <Node Name="ListPatternSyntax" Base="PatternSyntax">
-        <Kind Name="ListPattern"/>
-        <Field Name="OpenBracketToken" Type="SyntaxToken">
-            <Kind Name="OpenBracketToken"/>
-        </Field>
-        <Field Name="Patterns" Type="SeparatedSyntaxList&lt;PatternSyntax&gt;"/>
-        <Field Name="CloseBracketToken" Type="SyntaxToken">
-            <Kind Name="CloseBracketToken"/>
-        </Field>
-        <Field Name="Designation" Type="VariableDesignationSyntax" Optional="true"/>
-    </Node>
-    <Node Name="SlicePatternSyntax" Base="PatternSyntax">
-        <Kind Name="SlicePattern"/>
-        <Field Name="DotDotToken" Type="SyntaxToken">
-            <Kind Name="DotDotToken"/>
-        </Field>
-        <Field Name="Pattern" Type="PatternSyntax" Optional="true"/>
-    </Node>
-    <Node Name="RelationalPatternSyntax" Base="PatternSyntax">
-        <Kind Name="EqualsRelationalPattern"/>
-        <Kind Name="NotEqualsRelationalPattern"/>
-        <Kind Name="LessThanRelationalPattern"/>
-        <Kind Name="LessThanEqualsRelationalPattern"/>
-        <Kind Name="GreaterThanRelationalPattern"/>
-        <Kind Name="GreaterThanEqualsRelationalPattern"/>
-        <Field Name="OperatorToken" Type="SyntaxToken">
-            <Kind Name="OperatorToken"/>
-        </Field>
-        <Field Name="Expression" Type="ExpressionSyntax"/>
-    </Node>
-    <Node Name="DiscardPatternSyntax" Base="PatternSyntax">
-        <Kind Name="DiscardPattern"/>
-        <Field Name="UnderscoreToken" Type="SyntaxToken">
-            <Kind Name="UnderscoreToken"/>
-        </Field>
-    </Node>
     <Node Name="NameColonSyntax" Base="RavenSyntaxNode">
         <Kind Name="NameColon"/>
         <Field Name="Name" Type="IdentifierNameSyntax">
@@ -277,14 +200,6 @@
     </Node>
 
 
-    <Node Name="DeclarationExpressionSyntax" Base="ExpressionSyntax">
-        <Kind Name="DeclarationExpression"/>
-        <Field Name="Type" Type="TypeSyntax"/>
-        <Field Name="Designation" Type="VariableDesignationSyntax"/>
-        <TypeComment>
-            <summary>Declaration expression: type designation (e.g. int x, or int (a, b)).</summary>
-        </TypeComment>
-    </Node>
 
     <Node Name="TupleExpressionSyntax" Base="ExpressionSyntax">
         <Kind Name="TupleExpression"/>
@@ -354,28 +269,6 @@
             <summary>Creates a DefaultExpressionSyntax node.</summary>
         </FactoryComment>
     </Node>
-    <Node Name="IsPatternExpressionSyntax" Base="ExpressionSyntax">
-        <Kind Name="IsPatternExpression"/>
-        <Field Name="Expression" Type="ExpressionSyntax">
-            <PropertyComment>
-                <summary>ExpressionSyntax node representing the expression on the left of the "is" operator.</summary>
-            </PropertyComment>
-        </Field>
-        <Field Name="IsKeyword" Type="SyntaxToken">
-            <Kind Name="IsKeyword"/>
-        </Field>
-        <Field Name="Pattern" Type="PatternSyntax">
-            <PropertyComment>
-                <summary>PatternSyntax node representing the pattern on the right of the "is" operator.</summary>
-            </PropertyComment>
-        </Field>
-        <TypeComment>
-            <summary>Class which represents a simple pattern-matching expression using the "is" keyword.</summary>
-        </TypeComment>
-        <FactoryComment>
-            <summary>Creates an IsPatternExpressionSyntax node.</summary>
-        </FactoryComment>
-    </Node>
     <Node Name="CastExpressionSyntax" Base="ExpressionSyntax">
         <Kind Name="CastExpression"/>
         <Field Name="Type" Type="TypeSyntax">
@@ -396,40 +289,7 @@
         </FactoryComment>
     </Node>
 
-    <Node Name="WhenClauseSyntax" Base="RavenSyntaxNode">
-        <Kind Name="WhenClause"/>
-        <Field Name="WhenKeyword" Type="SyntaxToken">
-            <Kind Name="WhenKeyword"/>
-        </Field>
-        <Field Name="Condition" Type="ExpressionSyntax"/>
-    </Node>
 
-    <Node Name="SwitchExpressionSyntax" Base="ExpressionSyntax">
-        <Kind Name="SwitchExpression"/>
-        <Field Name="GoverningExpression" Type="ExpressionSyntax"/>
-        <Field Name="SwitchKeyword" Type="SyntaxToken">
-            <Kind Name="SwitchKeyword"/>
-        </Field>
-        <Field Name="OpenBraceToken" Type="SyntaxToken">
-            <Kind Name="OpenBraceToken"/>
-        </Field>
-        <Field Name="Arms" Type="SeparatedSyntaxList&lt;SwitchExpressionArmSyntax&gt;"/>
-        <Field Name="CloseBraceToken" Type="SyntaxToken">
-            <Kind Name="CloseBraceToken"/>
-        </Field>
-        <TypeComment>
-            <summary>Switch expression: expr switch { pattern => value, ... }.</summary>
-        </TypeComment>
-    </Node>
-    <Node Name="SwitchExpressionArmSyntax" Base="RavenSyntaxNode">
-        <Kind Name="SwitchExpressionArm"/>
-        <Field Name="Pattern" Type="PatternSyntax"/>
-        <Field Name="WhenClause" Type="WhenClauseSyntax" Optional="true"/>
-        <Field Name="EqualsGreaterThanToken" Type="SyntaxToken">
-            <Kind Name="ArrowToken"/>
-        </Field>
-        <Field Name="Expression" Type="ExpressionSyntax"/>
-    </Node>
 
 
     <!-- Type Names -->
@@ -821,17 +681,7 @@
         <Field Name="Type" Type="TypeSyntax" Optional="true"/>
         <Field Name="Default" Type="EqualsValueClauseSyntax" Optional="true"/>
     </Node>
-    <AbstractNode Name="BaseParameterListSyntax" Base="RavenSyntaxNode">
-        <TypeComment>
-            <summary>Base type for parameter list syntax.</summary>
-        </TypeComment>
-        <Field Name="Parameters" Type="SeparatedSyntaxList&lt;ParameterSyntax&gt;">
-            <PropertyComment>
-                <summary>Gets the parameter list.</summary>
-            </PropertyComment>
-        </Field>
-    </AbstractNode>
-    <Node Name="ParameterListSyntax" Base="BaseParameterListSyntax">
+    <Node Name="ParameterListSyntax" Base="RavenSyntaxNode">
         <TypeComment>
             <summary>Parameter list syntax.</summary>
         </TypeComment>
@@ -839,48 +689,16 @@
         <Field Name="OpenParenToken" Type="SyntaxToken">
             <Kind Name="OpenParenToken"/>
         </Field>
-        <Field Name="Parameters" Type="SeparatedSyntaxList&lt;ParameterSyntax&gt;" Override="true"/>
+        <Field Name="Parameters" Type="SeparatedSyntaxList&lt;ParameterSyntax&gt;">
+            <PropertyComment>
+                <summary>Gets the parameter list.</summary>
+            </PropertyComment>
+        </Field>
         <Field Name="CloseParenToken" Type="SyntaxToken">
             <Kind Name="CloseParenToken"/>
-        </Field>
-    </Node>
-    <Node Name="BracketedParameterListSyntax" Base="BaseParameterListSyntax">
-        <TypeComment>
-            <summary>Parameter list syntax with surrounding brackets.</summary>
-        </TypeComment>
-        <Kind Name="BracketedParameterList"/>
-        <Field Name="OpenBracketToken" Type="SyntaxToken">
-            <Kind Name="OpenBracketToken"/>
-        </Field>
-        <Field Name="Parameters" Type="SeparatedSyntaxList&lt;ParameterSyntax&gt;" Override="true" MinCount="1"/>
-        <Field Name="CloseBracketToken" Type="SyntaxToken">
-            <Kind Name="CloseBracketToken"/>
         </Field>
     </Node>
 
-    <AbstractNode Name="VariableDesignationSyntax" Base="RavenSyntaxNode"/>
-    <Node Name="DiscardDesignationSyntax" Base="VariableDesignationSyntax">
-        <Kind Name="DiscardDesignation"/>
-        <Field Name="UnderscoreToken" Type="SyntaxToken">
-            <Kind Name="UnderscoreToken"/>
-        </Field>
-    </Node>
-    <Node Name="SimpleVariableDesignationSyntax" Base="VariableDesignationSyntax">
-        <Kind Name="SimpleVariableDesignation"/>
-        <Field Name="Identifier" Type="SyntaxToken">
-            <Kind Name="IdentifierToken"/>
-        </Field>
-    </Node>
-    <Node Name="ParenthesizedVariableDesignationSyntax" Base="VariableDesignationSyntax">
-        <Kind Name="ParenthesizedVariableDesignation"/>
-        <Field Name="OpenParenToken" Type="SyntaxToken">
-            <Kind Name="OpenParenToken"/>
-        </Field>
-        <Field Name="Variables" Type="SeparatedSyntaxList&lt;VariableDesignationSyntax&gt;"/>
-        <Field Name="CloseParenToken" Type="SyntaxToken">
-            <Kind Name="CloseParenToken"/>
-        </Field>
-    </Node>
 
 
     <AbstractNode Name="BaseArgumentListSyntax" Base="RavenSyntaxNode">
@@ -976,10 +794,16 @@
     <Node Name="BreakStatementSyntax" Base="StatementSyntax">
         <Kind Name="BreakStatement"/>
         <Field Name="AttributeLists" Type="SyntaxList&lt;AttributeListSyntax&gt;" Override="true"/>
+        <Field Name="Keyword" Type="SyntaxToken">
+            <Kind Name="BreakKeyword"/>
+        </Field>
     </Node>
     <Node Name="ContinueStatementSyntax" Base="StatementSyntax">
         <Kind Name="ContinueStatement"/>
         <Field Name="AttributeLists" Type="SyntaxList&lt;AttributeListSyntax&gt;" Override="true"/>
+        <Field Name="Keyword" Type="SyntaxToken">
+            <Kind Name="ContinueKeyword"/>
+        </Field>
     </Node>
     <Node Name="RepeatStatementSyntax" Base="StatementSyntax">
         <Kind Name="RepeatStatement"/>
@@ -1084,29 +908,6 @@
         </Field>
         <Field Name="Expression" Type="ExpressionSyntax" Optional="true"/>
     </Node>
-    <Node Name="LocalFunctionStatementSyntax" Base="StatementSyntax">
-        <Kind Name="LocalFunctionStatement"/>
-        <Field Name="AttributeLists" Type="SyntaxList&lt;AttributeListSyntax&gt;" Override="true"/>
-        <Field Name="Modifiers" Type="SyntaxList&lt;SyntaxToken&gt;"/>
-        <Field Name="Keyword" Type="SyntaxToken">
-            <Kind Name="FuncKeyword"/>
-        </Field>
-        <Field Name="Identifier" Type="SyntaxToken">
-            <PropertyComment>
-                <summary>Gets the identifier.</summary>
-            </PropertyComment>
-            <Kind Name="IdentifierToken"/>
-        </Field>
-        <Field Name="TypeParameterList" Type="TypeParameterListSyntax" Optional="true"/>
-        <Field Name="ParameterList" Type="ParameterListSyntax"/>
-        <Field Name="ConstraintClauses" Type="SyntaxList&lt;TypeParameterConstraintClauseSyntax&gt;"/>
-        <Field Name="ColonToken" Type="SyntaxToken" Optional="true">
-            <Kind Name="ColonToken"/>
-        </Field>
-        <Field Name="ReturnType" Type="TypeSyntax" Optional="true"/>
-        <Field Name="Body" Type="BlockSyntax" Optional="true"/>
-        <Field Name="ExpressionBody" Type="ArrowExpressionClauseSyntax" Optional="true"/>
-    </Node>
     <Node Name="LocalDeclarationStatementSyntax" Base="StatementSyntax">
         <Kind Name="LocalDeclarationStatement"/>
         <Field Name="AttributeLists" Type="SyntaxList&lt;AttributeListSyntax&gt;" Override="true"/>
@@ -1147,12 +948,24 @@
     <Node Name="SwitchStatementSyntax" Base="StatementSyntax">
         <Kind Name="SwitchStatement"/>
         <Field Name="AttributeLists" Type="SyntaxList&lt;AttributeListSyntax&gt;" Override="true"/>
+        <Field Name="SwitchKeyword" Type="SyntaxToken">
+            <Kind Name="SwitchKeyword"/>
+        </Field>
+        <Field Name="OpenParenToken" Type="SyntaxToken" Optional="true">
+            <Kind Name="OpenParenToken"/>
+        </Field>
         <Field Name="Expression" Type="ExpressionSyntax">
             <PropertyComment>
                 <summary>
                     Gets an ExpressionSyntax representing the expression of the switch statement.
                 </summary>
             </PropertyComment>
+        </Field>
+        <Field Name="CloseParenToken" Type="SyntaxToken" Optional="true">
+            <Kind Name="CloseParenToken"/>
+        </Field>
+        <Field Name="OpenBraceToken" Type="SyntaxToken">
+            <Kind Name="OpenBraceToken"/>
         </Field>
         <Field Name="Sections" Type="SyntaxList&lt;SwitchSectionSyntax&gt;">
             <PropertyComment>
@@ -1161,6 +974,9 @@
                     statement.
                 </summary>
             </PropertyComment>
+        </Field>
+        <Field Name="CloseBraceToken" Type="SyntaxToken">
+            <Kind Name="CloseBraceToken"/>
         </Field>
         <TypeComment>
             <summary>Represents a switch statement syntax.</summary>
@@ -1199,25 +1015,11 @@
             <summary>Represents a switch label within a switch statement.</summary>
         </TypeComment>
     </AbstractNode>
-    <Node Name="CasePatternSwitchLabelSyntax" Base="SwitchLabelSyntax">
-        <Kind Name="CasePatternSwitchLabel"/>
-        <Field Name="Pattern" Type="PatternSyntax">
-            <PropertyComment>
-                <summary>
-                    Gets a PatternSyntax that represents the pattern that gets matched for the case label.
-                </summary>
-            </PropertyComment>
-        </Field>
-        <Field Name="WhenClause" Type="WhenClauseSyntax" Optional="true"/>
-        <TypeComment>
-            <summary>Represents a case label within a switch statement.</summary>
-        </TypeComment>
-        <FactoryComment>
-            <summary>Creates a CaseMatchLabelSyntax node.</summary>
-        </FactoryComment>
-    </Node>
     <Node Name="CaseSwitchLabelSyntax" Base="SwitchLabelSyntax">
         <Kind Name="CaseSwitchLabel"/>
+        <Field Name="Keyword" Type="SyntaxToken">
+            <Kind Name="CaseKeyword"/>
+        </Field>
         <Field Name="Value" Type="ExpressionSyntax">
             <PropertyComment>
                 <summary>
@@ -1225,6 +1027,9 @@
                     label.
                 </summary>
             </PropertyComment>
+        </Field>
+        <Field Name="ColonToken" Type="SyntaxToken">
+            <Kind Name="ColonToken"/>
         </Field>
         <TypeComment>
             <summary>Represents a case label within a switch statement.</summary>
@@ -1235,6 +1040,12 @@
     </Node>
     <Node Name="DefaultSwitchLabelSyntax" Base="SwitchLabelSyntax">
         <Kind Name="DefaultSwitchLabel"/>
+        <Field Name="Keyword" Type="SyntaxToken">
+            <Kind Name="DefaultKeyword"/>
+        </Field>
+        <Field Name="ColonToken" Type="SyntaxToken">
+            <Kind Name="ColonToken"/>
+        </Field>
         <TypeComment>
             <summary>Represents a default label within a switch statement.</summary>
         </TypeComment>
@@ -1542,21 +1353,6 @@
         <Field Name="Body" Type="BlockSyntax" Optional="true"/>
         <Field Name="ExpressionBody" Type="ArrowExpressionClauseSyntax" Optional="true"/>
     </Node>
-    <Node Name="IndexerDeclarationSyntax" Base="MemberDeclarationSyntax">
-        <TypeComment>
-            <summary>Indexer (self[...]) declaration.</summary>
-        </TypeComment>
-        <Kind Name="IndexerDeclaration"/>
-        <Field Name="AttributeLists" Type="SyntaxList&lt;AttributeListSyntax&gt;" Override="true"/>
-        <Field Name="Modifiers" Type="SyntaxList&lt;SyntaxToken&gt;" Override="true"/>
-        <Field Name="Type" Type="TypeSyntax"/>
-        <Field Name="SelfKeyword" Type="SyntaxToken">
-            <Kind Name="SelfKeyword"/>
-        </Field>
-        <Field Name="ParameterList" Type="BracketedParameterListSyntax"/>
-        <Field Name="AccessorList" Type="AccessorListSyntax" Optional="true"/>
-        <Field Name="ExpressionBody" Type="ArrowExpressionClauseSyntax" Optional="true"/>
-    </Node>
     <Node Name="OperatorDeclarationSyntax" Base="MemberDeclarationSyntax">
         <TypeComment>
             <summary>Operator overload declaration.</summary>
@@ -1571,25 +1367,6 @@
         <Field Name="OperatorToken" Type="SyntaxToken">
             <Kind Name="OperatorToken"/>
         </Field>
-        <Field Name="ParameterList" Type="ParameterListSyntax"/>
-        <Field Name="Body" Type="BlockSyntax" Optional="true"/>
-        <Field Name="ExpressionBody" Type="ArrowExpressionClauseSyntax" Optional="true"/>
-    </Node>
-    <Node Name="ConversionOperatorDeclarationSyntax" Base="MemberDeclarationSyntax">
-        <TypeComment>
-            <summary>Conversion operator (implicit/explicit) declaration.</summary>
-        </TypeComment>
-        <Kind Name="ConversionOperatorDeclaration"/>
-        <Field Name="AttributeLists" Type="SyntaxList&lt;AttributeListSyntax&gt;" Override="true"/>
-        <Field Name="Modifiers" Type="SyntaxList&lt;SyntaxToken&gt;" Override="true"/>
-        <Field Name="ImplicitOrExplicitKeyword" Type="SyntaxToken">
-            <Kind Name="ImplicitKeyword"/>
-            <Kind Name="ExplicitKeyword"/>
-        </Field>
-        <Field Name="OperatorKeyword" Type="SyntaxToken">
-            <Kind Name="OperatorKeyword"/>
-        </Field>
-        <Field Name="Type" Type="TypeSyntax"/>
         <Field Name="ParameterList" Type="ParameterListSyntax"/>
         <Field Name="Body" Type="BlockSyntax" Optional="true"/>
         <Field Name="ExpressionBody" Type="ArrowExpressionClauseSyntax" Optional="true"/>

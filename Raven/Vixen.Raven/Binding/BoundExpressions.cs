@@ -287,37 +287,6 @@ public sealed class BoundCollectionExpression(
 }
 
 /// <summary>
-///     <c>expr is pattern</c>. Patterns are checked shallowly in this phase: the
-///     expressions and designations inside them are bound, but exhaustiveness and
-///     type-test narrowing are not modelled yet.
-/// </summary>
-public sealed class BoundIsPatternExpression(
-    SyntaxNode syntax,
-    BoundExpression expression,
-    IReadOnlyList<BoundNode> patternParts
-) : BoundExpression(syntax) {
-    public BoundExpression Expression { get; } = expression;
-    public IReadOnlyList<BoundNode> PatternParts { get; } = patternParts;
-    public override BoundKind Kind => BoundKind.IsPatternExpression;
-    public override TypeSymbol Type => BuiltInTypes.Bool;
-    public override IEnumerable<BoundNode> Children => [Expression, .. PatternParts];
-}
-
-/// <summary><c>expr switch { … }</c>; typed as the common type of its arms.</summary>
-public sealed class BoundSwitchExpression(
-    SyntaxNode syntax,
-    BoundExpression governingExpression,
-    IReadOnlyList<BoundExpression> arms,
-    TypeSymbol type
-) : BoundExpression(syntax) {
-    public BoundExpression GoverningExpression { get; } = governingExpression;
-    public IReadOnlyList<BoundExpression> Arms { get; } = arms;
-    public override BoundKind Kind => BoundKind.SwitchExpression;
-    public override TypeSymbol Type { get; } = type;
-    public override IEnumerable<BoundNode> Children => [GoverningExpression, .. Arms];
-}
-
-/// <summary>
 ///     Stands in for an expression that failed to bind. It carries any operands that
 ///     did bind, so the semantic model still answers questions about them.
 /// </summary>

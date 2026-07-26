@@ -20,10 +20,6 @@ NL:                          NewLine;
 
 // NEW ones
 GLOBAL: 'global';
-OR: 'or';
-AND: 'and';
-NOT: 'not';
-DISCARD: '_';
 GET: 'get';
 SET: 'set';
 WILL_SET: 'willSet';
@@ -81,7 +77,6 @@ MAT4X3:         'mat4x3';
 
 
 // Keywords
-AS:             'as';
 BASE:           'base';
 BREAK:          'break';
 CASE:           'case';
@@ -95,7 +90,6 @@ FOR:            'for';
 IF:             'if';
 IMPLICIT:       'implicit';
 IN:             'in';
-IS:             'is';
 OPERATOR:       'operator';
 OUT:            'out';
 //PARAMS: 'params';

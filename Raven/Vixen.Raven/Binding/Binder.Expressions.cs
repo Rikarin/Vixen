@@ -114,19 +114,6 @@ public abstract partial class Binder {
             case CollectionExpressionSyntax collection:
                 return BindCollection(collection);
 
-            case IsPatternExpressionSyntax isPattern: {
-                var operand = BindValue(isPattern.Expression);
-                List<BoundNode> parts = [];
-                BindPattern(isPattern.Pattern, parts);
-                return new BoundIsPatternExpression(isPattern, operand, parts);
-            }
-
-            case SwitchExpressionSyntax switchExpression:
-                return BindSwitchExpression(switchExpression);
-
-            case DeclarationExpressionSyntax declaration:
-                return BindDeclarationExpression(declaration);
-
             default:
                 Report(SemanticDiagnostics.UndefinedName, syntax, syntax.ToString().Trim());
                 return new BoundErrorExpression(syntax);
@@ -289,20 +276,6 @@ public abstract partial class Binder {
 
     BoundExpression BindBinary(BinaryExpressionSyntax syntax) {
         var operatorText = syntax.OperatorToken.Text;
-
-        switch (operatorText) {
-            case "is": {
-                var operand = BindValue(syntax.Left);
-                BindType(syntax.Right as TypeSyntax);
-                return new BoundIsPatternExpression(syntax, operand, []);
-            }
-
-            case "as": {
-                var operand = BindValue(syntax.Left);
-                var target = BindType(syntax.Right as TypeSyntax);
-                return new BoundConversionExpression(syntax, operand, target, new(ConversionKind.ExplicitReference));
-            }
-        }
 
         var left = BindValue(syntax.Left);
         var right = BindValue(syntax.Right);
@@ -594,107 +567,6 @@ public abstract partial class Binder {
             elements,
             new ArrayTypeSymbol(elementType ?? ErrorTypeSymbol.Instance)
         );
-    }
-
-    BoundExpression BindDeclarationExpression(DeclarationExpressionSyntax syntax) {
-        var type = BindType(syntax.Type);
-        DeclarePatternVariables(syntax.Designation, type);
-        return new BoundTypeExpression(syntax, type);
-    }
-
-    // --- Lambdas -----------------------------------------------------------
-
-    // --- Patterns (shallow) ------------------------------------------------
-
-    /// <summary>
-    ///     Walks a pattern, binding the expressions inside it and declaring any
-    ///     variables it introduces. Type-test narrowing and exhaustiveness are not
-    ///     modelled in this phase.
-    /// </summary>
-    void BindPattern(PatternSyntax? syntax, List<BoundNode> parts) {
-        switch (syntax) {
-            case null or DiscardPatternSyntax:
-                return;
-
-            case ConstantPatternSyntax constant:
-                parts.Add(BindValue(constant.Expression));
-                return;
-
-            case RelationalPatternSyntax relational:
-                parts.Add(BindValue(relational.Expression));
-                return;
-
-            case ParenthesizedPatternSyntax parenthesized:
-                BindPattern(parenthesized.Pattern, parts);
-                return;
-
-            case UnaryPatternSyntax unary:
-                BindPattern(unary.Pattern, parts);
-                return;
-
-            case BinaryPatternSyntax binary:
-                BindPattern(binary.Left, parts);
-                BindPattern(binary.Right, parts);
-                return;
-
-            case VarPatternSyntax var:
-                DeclarePatternVariables(var.Designation, ErrorTypeSymbol.Instance);
-                return;
-
-            case ListPatternSyntax list: {
-                foreach (var pattern in list.Patterns) {
-                    BindPattern(pattern, parts);
-                }
-
-                DeclarePatternVariables(list.Designation, ErrorTypeSymbol.Instance);
-                return;
-            }
-
-            case SlicePatternSyntax slice:
-                BindPattern(slice.Pattern, parts);
-                return;
-        }
-    }
-
-    void DeclarePatternVariables(VariableDesignationSyntax? designation, TypeSymbol type) {
-        switch (designation) {
-            case SimpleVariableDesignationSyntax simple: {
-                var local = new LocalSymbol(ContainingMember, simple.Identifier.ValueText, type, false, simple);
-                DeclareLocal(local, simple);
-                break;
-            }
-
-            case ParenthesizedVariableDesignationSyntax parenthesized: {
-                foreach (var nested in parenthesized.Variables) {
-                    DeclarePatternVariables(nested, type);
-                }
-
-                break;
-            }
-        }
-    }
-
-    BoundExpression BindSwitchExpression(SwitchExpressionSyntax syntax) {
-        var governing = BindValue(syntax.GoverningExpression);
-
-        List<BoundExpression> arms = [];
-        TypeSymbol? common = null;
-
-        foreach (var arm in syntax.Arms) {
-            var armBinder = new BlockBinder(this);
-            List<BoundNode> parts = [];
-            armBinder.BindPattern(arm.Pattern, parts);
-
-            if (arm.WhenClause is { } when) {
-                armBinder.BindCondition(when.Condition);
-            }
-
-            var value = armBinder.BindValue(arm.Expression);
-            arms.Add(value);
-            common = common is null ? value.Type : Conversions.FindCommonType(common, value.Type);
-        }
-
-        return new BoundSwitchExpression(syntax, governing, arms, common ?? ErrorTypeSymbol.Instance);
     }
 
     /// <summary>Binds an expression only to learn its type; its diagnostics are discarded.</summary>

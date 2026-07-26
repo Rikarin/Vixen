@@ -28,8 +28,6 @@ public enum BoundKind {
     RangeExpression,
     TupleExpression,
     CollectionExpression,
-    IsPatternExpression,
-    SwitchExpression,
     ErrorExpression,
 
     // Statements
@@ -43,7 +41,6 @@ public enum BoundKind {
     ReturnStatement,
     BreakStatement,
     ContinueStatement,
-    LocalFunctionStatement,
     SwitchStatement,
     NoOpStatement
 }

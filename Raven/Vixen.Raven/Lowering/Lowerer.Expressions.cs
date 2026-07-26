@@ -94,8 +94,6 @@ public sealed partial class Lowerer {
         expression switch {
             BoundTupleExpression => "A tuple",
             BoundRangeExpression => "A range outside a 'for' loop",
-            BoundIsPatternExpression => "An 'is' test",
-            BoundSwitchExpression => "A switch expression",
             BoundTypeExpression => "A type used as a value",
             _ => "This expression"
         };
