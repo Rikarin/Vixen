@@ -22,7 +22,7 @@ public sealed class VulkanComputeTests {
 
     [Fact]
     public void AComputeShaderReadsAndWritesThroughItsDescriptorSet() {
-        Assert.SkipUnless(VulkanDevice.TryCreate(new(), out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(VulkanDevice.TryCreate(new(), out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
         VulkanDiagnostics.Reset();
 
@@ -112,7 +112,7 @@ public sealed class VulkanComputeTests {
     /// <summary>Compute does not run inside a render pass on any API, and Vulkan does not say so.</summary>
     [Fact]
     public void DispatchingInsideARenderPassIsRefused() {
-        Assert.SkipUnless(VulkanDevice.TryCreate(new(), out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(VulkanDevice.TryCreate(new(), out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         var target = owned.CreateTexture(
@@ -147,7 +147,7 @@ public sealed class VulkanComputeTests {
     /// </summary>
     [Fact]
     public void ABarrierInsideARenderPassIsRefused() {
-        Assert.SkipUnless(VulkanDevice.TryCreate(new(), out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(VulkanDevice.TryCreate(new(), out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         var target = owned.CreateTexture(

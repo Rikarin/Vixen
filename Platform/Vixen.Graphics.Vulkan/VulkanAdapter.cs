@@ -43,6 +43,14 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
 
     internal PhysicalDeviceProperties Properties { get; }
 
+    /// <summary>What is actually reachable: the lesser of the device's version and the instance's.</summary>
+    /// <remarks>
+    ///     A 1.4 device behind a 1.1 instance is a 1.1 device as far as core functionality goes, and
+    ///     every decision about "is this core or does it need an extension" has to ask this rather
+    ///     than the device alone.
+    /// </remarks>
+    internal required uint UsableApiVersion { get; init; }
+
     internal required PhysicalDeviceMemoryProperties Memory { get; init; }
 
     internal required PhysicalDeviceFeatures Supported { get; init; }
@@ -77,7 +85,7 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
         }
 
         foreach (var device in devices) {
-            if (Describe(api, device, surface, khrSurface) is { } adapter) {
+            if (Describe(api, device, surface, khrSurface, instance.ApiVersion) is { } adapter) {
                 adapters.Add(adapter);
             }
         }
@@ -105,7 +113,8 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
         Vk api,
         PhysicalDevice device,
         SurfaceKHR surface,
-        KhrSurface? khrSurface
+        KhrSurface? khrSurface,
+        uint instanceVersion
     ) {
         PhysicalDeviceProperties properties;
         api.GetPhysicalDeviceProperties(device, &properties);
@@ -137,7 +146,10 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
             _ => AdapterKind.Unknown
         };
 
+        var usable = Math.Min(properties.ApiVersion, instanceVersion);
+
         return new(device, properties, name) {
+            UsableApiVersion = usable,
             DriverVersion = AdapterSelection.Describe(properties.DriverVersion),
             DeviceMemory = LocalMemory(memory),
             Memory = memory,
@@ -150,7 +162,7 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
                 supported,
                 properties.Limits,
                 extensions,
-                properties.ApiVersion,
+                usable,
                 plan,
                 VulkanFeatures.HasUnifiedMemory(memory, kind)
             )

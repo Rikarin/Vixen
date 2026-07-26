@@ -17,7 +17,7 @@ public sealed class VulkanInstanceTests {
 
     [Fact]
     public void AnInstanceIsCreated() {
-        Assert.SkipUnless(TryOpen(out var instance, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var instance, out var reason), reason ?? "no Vulkan");
         using var owned = instance!;
 
         Assert.NotEqual(default, owned.Handle);
@@ -30,7 +30,7 @@ public sealed class VulkanInstanceTests {
     /// </summary>
     [Fact]
     public void PortabilityIsEnabledWhereTheLoaderOffersIt() {
-        Assert.SkipUnless(TryOpen(out var instance, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var instance, out var reason), reason ?? "no Vulkan");
         using var owned = instance!;
 
         if (OperatingSystem.IsMacOS()) {
@@ -57,8 +57,8 @@ public sealed class VulkanInstanceTests {
     /// </remarks>
     [Fact]
     public void ValidationIsOnWhereTheLayerIsInstalled() {
-        Assert.SkipUnless(VulkanInstance.ValidationLayerInstalled, "the validation layer is not installed");
-        Assert.SkipUnless(TryOpen(out var instance, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(VulkanInstance.ValidationLayerInstalled, "the validation layer is not installed");
+        VulkanRequirement.Available(TryOpen(out var instance, out var reason), reason ?? "no Vulkan");
         using var owned = instance!;
 
         Assert.True(
@@ -89,7 +89,7 @@ public sealed class VulkanInstanceTests {
     /// </remarks>
     [Fact]
     public void AnInstanceCanBeCreatedAfterOneIsDisposed() {
-        Assert.SkipUnless(TryOpen(out var first, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var first, out var reason), reason ?? "no Vulkan");
         first!.Dispose();
 
         Assert.True(TryOpen(out var second, out var again), again);
@@ -100,7 +100,7 @@ public sealed class VulkanInstanceTests {
 
     [Fact]
     public unsafe void PhysicalDevicesAreEnumerated() {
-        Assert.SkipUnless(TryOpen(out var instance, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var instance, out var reason), reason ?? "no Vulkan");
         using var owned = instance!;
 
         uint count = 0;

@@ -132,7 +132,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         api.TryGetInstanceExtension(instance.Handle, out ExtDebugUtils loadedDebug);
         debugUtils = instance.ValidationEnabled ? loadedDebug : null;
 
-        if (adapter.Properties.ApiVersion < VulkanFeatures.Version13
+        if (adapter.UsableApiVersion < VulkanFeatures.Version13
             && adapter.Extensions.Contains(KhrDynamicRendering.ExtensionName)) {
             api.TryGetDeviceExtension(instance.Handle, device, out khrDynamicRendering);
         }
@@ -213,7 +213,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         && Features.HasDynamicRendering
         && (khrDynamicRendering is not null || IsCoreDynamicRendering);
 
-    bool IsCoreDynamicRendering => adapter.Properties.ApiVersion >= VulkanFeatures.Version13;
+    bool IsCoreDynamicRendering => adapter.UsableApiVersion >= VulkanFeatures.Version13;
 
     internal KhrDynamicRendering? DynamicRendering => khrDynamicRendering;
 
@@ -299,7 +299,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             // and the boot log is the one place where a disabled Information level is normal.
             if (options.Logger is { } logger && logger.IsEnabled(LogLevel.Information)) {
                 var kind = adapter.Kind.ToString();
-                var version = AdapterSelection.Describe(adapter.Properties.ApiVersion);
+                var version = AdapterSelection.Describe(adapter.UsableApiVersion);
                 var path = device.UsesDynamicRendering ? "dynamic rendering" : "render-pass objects";
                 VulkanLog.DeviceCreated(logger, adapter.Name, kind, version, path, instance.ValidationEnabled);
             }
@@ -646,14 +646,14 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         // 1.2, so a 1.2 device needs neither and a 1.1 device needs both — and enabling the extension
         // without its dependencies is invalid usage that MoltenVK accepts and the validation layers
         // reject. Found exactly that way, on the first run against a real driver with layers loaded.
-        var wantsDynamicRendering = adapter.Properties.ApiVersion < VulkanFeatures.Version13
+        var wantsDynamicRendering = adapter.UsableApiVersion < VulkanFeatures.Version13
             && adapter.Extensions.Contains(KhrDynamicRendering.ExtensionName)
-            && (adapter.Properties.ApiVersion >= VulkanFeatures.Version12
+            && (adapter.UsableApiVersion >= VulkanFeatures.Version12
                 || (adapter.Extensions.Contains(VulkanFeatures.CreateRenderPass2)
                     && adapter.Extensions.Contains(VulkanFeatures.DepthStencilResolve)));
 
         if (wantsDynamicRendering) {
-            if (adapter.Properties.ApiVersion < VulkanFeatures.Version12) {
+            if (adapter.UsableApiVersion < VulkanFeatures.Version12) {
                 extensions.Add(VulkanFeatures.CreateRenderPass2);
                 extensions.Add(VulkanFeatures.DepthStencilResolve);
             }
@@ -713,7 +713,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
                 EnabledExtensionCount = (uint)extensions.Count,
                 PpEnabledExtensionNames = (byte**)names,
                 PEnabledFeatures = &enabled,
-                PNext = wantsDynamicRendering || adapter.Properties.ApiVersion >= VulkanFeatures.Version13
+                PNext = wantsDynamicRendering || adapter.UsableApiVersion >= VulkanFeatures.Version13
                     ? &dynamicRendering
                     : null
             };

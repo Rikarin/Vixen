@@ -31,9 +31,9 @@ public sealed class ValidationCleanTests {
     [InlineData(false)]
     [InlineData(true)]
     public void AFullFrameProducesNoValidationMessages(bool renderPassObjects) {
-        Assert.SkipUnless(VulkanInstance.ValidationLayerInstalled, "the validation layer is not installed");
+        VulkanRequirement.Available(VulkanInstance.ValidationLayerInstalled, "the validation layer is not installed");
 
-        Assert.SkipUnless(
+        VulkanRequirement.Available(
             VulkanDevice.TryCreate(
                 new() { PreferRenderPassObjects = renderPassObjects },
                 out var device,
@@ -44,7 +44,7 @@ public sealed class ValidationCleanTests {
 
         using var owned = device!;
 
-        Assert.SkipUnless(
+        VulkanRequirement.Available(
             owned.ValidationEnabled,
             "the instance came up without validation, so there is nothing to assert"
         );
@@ -71,16 +71,16 @@ public sealed class ValidationCleanTests {
     /// </summary>
     [Fact]
     public void DeviceCreationProducesNoValidationMessages() {
-        Assert.SkipUnless(VulkanInstance.ValidationLayerInstalled, "the validation layer is not installed");
+        VulkanRequirement.Available(VulkanInstance.ValidationLayerInstalled, "the validation layer is not installed");
         VulkanDiagnostics.Reset();
 
-        Assert.SkipUnless(
+        VulkanRequirement.Available(
             VulkanDevice.TryCreate(new(), out var device, out var reason),
             reason ?? "no Vulkan"
         );
 
         using (device) {
-            Assert.SkipUnless(device!.ValidationEnabled, "the instance came up without validation");
+            VulkanRequirement.Available(device!.ValidationEnabled, "the instance came up without validation");
         }
 
         Assert.True(

@@ -174,7 +174,7 @@ public sealed class VulkanSwapChainTests {
     /// </summary>
     [Fact]
     public void ASwapChainOnAHeadlessDeviceIsRefused() {
-        Assert.SkipUnless(VulkanDevice.TryCreate(new(), out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(VulkanDevice.TryCreate(new(), out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         var thrown = Assert.Throws<InvalidOperationException>(

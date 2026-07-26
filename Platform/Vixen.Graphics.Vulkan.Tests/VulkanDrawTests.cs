@@ -40,7 +40,7 @@ public sealed class VulkanDrawTests {
     /// </remarks>
     [Fact]
     public void AnIndexedDrawLandsWhereItsPushConstantPutsIt() {
-        Assert.SkipUnless(VulkanDevice.TryCreate(new(), out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(VulkanDevice.TryCreate(new(), out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
         VulkanDiagnostics.Reset();
 
@@ -67,7 +67,7 @@ public sealed class VulkanDrawTests {
     /// </summary>
     [Fact]
     public void TheVertexColourAttributeArrivesIntact() {
-        Assert.SkipUnless(VulkanDevice.TryCreate(new(), out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(VulkanDevice.TryCreate(new(), out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         var pixels = Render(owned, 0f);

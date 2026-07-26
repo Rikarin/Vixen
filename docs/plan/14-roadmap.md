@@ -248,7 +248,22 @@ plumbing that everything else stands on.
 
   `--vixen-frames N` came out of it and belongs to the host rather than the sample, so every app head
   and every later sample is CI-runnable the same way.
-- lavapipe in CI; the `GoldenImages` target with the first fixture.
+- ✅ **lavapipe in CI.** The Linux leg installs Mesa's software Vulkan, the loader, the validation
+  layers and `spirv-tools`, and runs the whole suite against it — 155 Vulkan tests, **zero skipped**,
+  both render paths, validation-clean. `VIXEN_REQUIRE_VULKAN=1` turns a skip into a failure on that
+  leg, because a runner that lost its ICD reporting a green build is the most expensive kind of green
+  there is. Verified locally in a container before being committed, rather than pushed and hoped for.
+
+  A second driver earns its keep immediately, which is the whole argument for this leg:
+  - The instance asked for Vulkan 1.1 and everything above had to come from extensions, so a
+    `VkPipelineRenderingCreateInfo` on a 1.4 device was invalid usage. MoltenVK accepted it in
+    silence; lavapipe's validation named it. The instance now asks for what the loader offers, and
+    every core-versus-extension decision reads the lesser of the instance's version and the device's.
+  - `Environment.GetFolderPath` returns *the empty string* on Unix for a directory that does not exist
+    yet — every one of them on a fresh account, in a container, on a runner. `StandardFileSystemHost`
+    was therefore producing relative paths, and the engine would have written its saves into whatever
+    the working directory happened to be. It passed every macOS and Windows run.
+- `GoldenImages` target with the first fixture.
 - ~~Web graphics spike~~ ✅ **already done, before Phase 0** — see
   [`spikes/web-webgl2/RESULT.md`](spikes/web-webgl2/RESULT.md). `Silk.NET.OpenGLES` renders a WebGL2
   triangle from `browser-wasm`; bridge is ~40 lines; trimmed payload 0.93 MB Brotli. R1 retired. The

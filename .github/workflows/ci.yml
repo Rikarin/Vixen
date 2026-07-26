@@ -55,6 +55,19 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
 
+      # lavapipe: Mesa's software Vulkan, a conformant driver with no GPU. docs/plan/10 calls Linux
+      # CI's most valuable target for exactly this reason — it is what turns the Vulkan backend from
+      # "tested on one laptop" into "tested on every push", and it is a *second* driver, which is
+      # where a backend's real bugs live. The first run of this leg found one MoltenVK had accepted
+      # in silence for weeks.
+      - name: Install Vulkan and lavapipe (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          # spirv-tools carries spirv-val, which Raven's golden SPIR-V tests require and which
+          # they fail rather than skip without — the same guard as VIXEN_REQUIRE_VULKAN below.
+          sudo apt-get install -y libvulkan1 mesa-vulkan-drivers vulkan-validationlayers vulkan-tools spirv-tools
+          vulkaninfo --summary | grep -E 'deviceName|apiVersion|driverName'
+
       - name: Install SDL2 (macOS)
         if: matrix.os == 'macos-14'
         run: brew install sdl2
@@ -62,6 +75,12 @@ jobs:
       - name: Test
         run: ./build.sh Test --configuration Release
         shell: bash
+        env:
+          # On the leg that installed a driver, a skipped Vulkan test is a failure. Without this a
+          # runner that lost its ICD would report a green build having proved nothing at all, which
+          # is the most expensive kind of green there is — and is precisely why the SDL install step
+          # above exists too.
+          VIXEN_REQUIRE_VULKAN: ${{ matrix.os == 'ubuntu-latest' && '1' || '' }}
 
       - name: Upload test results
         if: always()

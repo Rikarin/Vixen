@@ -117,4 +117,26 @@ public sealed class StandardFileSystemHostTests : IDisposable {
             // A leftover temp directory is not worth failing a test run over.
         }
     }
+    /// <summary>
+    ///     Every location is absolute.
+    /// </summary>
+    /// <remarks>
+    ///     The bug this pins is not hypothetical and is not visible from any of the assertions above.
+    ///     <c>Environment.GetFolderPath</c> returns <em>the empty string</em> on Unix for a directory
+    ///     that does not exist yet — which is every one of them on a fresh user account, in a
+    ///     container, and on a CI runner. Combined with a relative qualifier that yields a relative
+    ///     path, and the engine writes its saves into whatever the working directory happened to be:
+    ///     the game's install directory if launched from a shortcut, `/` if launched by a service
+    ///     manager. It survived every macOS and Windows run and was found the first time the suite ran
+    ///     on Linux.
+    /// </remarks>
+    [Fact]
+    public void EveryLocationIsAbsolute() {
+        var host = new StandardFileSystemHost("Vixen.Tests", "StandardFileSystemHost");
+
+        Assert.True(Path.IsPathRooted(host.DataDirectory), $"Data is relative: {host.DataDirectory}");
+        Assert.True(Path.IsPathRooted(host.CacheDirectory), $"Cache is relative: {host.CacheDirectory}");
+        Assert.True(Path.IsPathRooted(host.TemporaryDirectory), $"Temp is relative: {host.TemporaryDirectory}");
+        Assert.True(Path.IsPathRooted(host.ApplicationDirectory), "The application directory is relative.");
+    }
 }

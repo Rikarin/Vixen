@@ -109,6 +109,15 @@ public sealed unsafe class VulkanInstance : IDisposable {
     /// <summary>Whether the instance was created for a portability driver such as MoltenVK.</summary>
     public bool PortabilityEnabled { get; private init; }
 
+    /// <summary>The Vulkan version the instance was created against, packed as Vulkan packs it.</summary>
+    /// <remarks>
+    ///     The ceiling on what is usable, and not the same question as what a <em>device</em>
+    ///     supports. A 1.1 instance on a 1.4 device can only reach 1.1 core functionality; everything
+    ///     above has to come from extensions. Which is why this is asked for and carried rather than
+    ///     assumed — see the note on the application's <c>ApiVersion</c> below.
+    /// </remarks>
+    public uint ApiVersion { get; private init; }
+
     /// <summary>
     ///     Whether the validation layer is <em>installed</em>, which is a different question from
     ///     whether it will load.
@@ -165,6 +174,7 @@ public sealed unsafe class VulkanInstance : IDisposable {
             return false;
         }
 
+        var instanceVersion = LoaderVersion(api);
         var available = AvailableExtensions(api);
         var layers = new List<string>();
         var extensions = new List<string>(options.RequiredExtensions ?? []);
@@ -217,10 +227,17 @@ public sealed unsafe class VulkanInstance : IDisposable {
                 PEngineName = engineName,
                 EngineVersion = new Version32(0, 1, 0),
 
-                // 1.1 is the floor doc 05 states. Asking for exactly the floor rather than the
-                // highest available keeps a driver from enabling behaviour we have not tested
-                // against; a device that offers more is queried for it explicitly.
-                ApiVersion = AdapterSelection.MinimumApiVersion
+                // The highest the loader offers, not the 1.1 floor.
+                //
+                // An earlier draft asked for exactly the floor, reasoning that it would stop a driver
+                // enabling behaviour we had not tested against. That reasoning is wrong, and wrong in
+                // a way only a second driver revealed: the instance version is the ceiling on what
+                // *core* functionality is reachable, so a 1.1 instance on a 1.4 device cannot use
+                // core dynamic rendering at all — every structure above 1.1 has to arrive through an
+                // extension instead. MoltenVK accepted the mismatch silently; lavapipe's validation
+                // named it. Nothing is enabled by asking: device features remain opt-in, one at a
+                // time, and the floor is still enforced by AdapterSelection.
+                ApiVersion = instanceVersion
             };
 
             var create = new InstanceCreateInfo {
@@ -276,7 +293,10 @@ public sealed unsafe class VulkanInstance : IDisposable {
                 return false;
             }
 
-            instance = new(api, handle, options.Logger, validation) { PortabilityEnabled = portability };
+            instance = new(api, handle, options.Logger, validation) {
+                PortabilityEnabled = portability,
+                ApiVersion = instanceVersion
+            };
             reason = null;
             return true;
         } finally {
@@ -360,6 +380,25 @@ public sealed unsafe class VulkanInstance : IDisposable {
         // debugging aid the specification reserves for layer development and which turns a warning
         // into a crash.
         return Vk.False;
+    }
+
+    /// <summary>The highest Vulkan version this loader supports.</summary>
+    /// <remarks>
+    ///     <c>vkEnumerateInstanceVersion</c> arrived in 1.1 and a 1.0 loader does not export it, in
+    ///     which case Silk's dispatch fails and 1.0 is the honest answer — which
+    ///     <see cref="AdapterSelection" /> then rejects with a readable message rather than this
+    ///     failing obscurely here.
+    /// </remarks>
+    static uint LoaderVersion(Vk api) {
+        try {
+            uint version = 0;
+
+            return api.EnumerateInstanceVersion(ref version) == Result.Success
+                ? Math.Max(version, AdapterSelection.MinimumApiVersion)
+                : AdapterSelection.MinimumApiVersion;
+        } catch (Exception exception) when (exception is EntryPointNotFoundException or DllNotFoundException) {
+            return AdapterSelection.MinimumApiVersion;
+        }
     }
 
     static HashSet<string> AvailableExtensions(Vk api) {

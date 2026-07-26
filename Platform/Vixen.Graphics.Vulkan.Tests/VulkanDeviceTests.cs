@@ -30,7 +30,7 @@ public sealed class VulkanDeviceTests {
 
     [Fact]
     public void ADeviceIsCreated() {
-        Assert.SkipUnless(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         Assert.NotEmpty(owned.Adapter.Name);
@@ -44,7 +44,7 @@ public sealed class VulkanDeviceTests {
     /// </summary>
     [Fact]
     public void ReportedFeaturesAreInternallyConsistent() {
-        Assert.SkipUnless(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
         var features = owned.Features;
 
@@ -62,7 +62,7 @@ public sealed class VulkanDeviceTests {
 
     [Fact]
     public void TheThreeQueuesExist() {
-        Assert.SkipUnless(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         Assert.NotNull(owned.GraphicsQueue);
@@ -73,7 +73,7 @@ public sealed class VulkanDeviceTests {
 
     [Fact]
     public void BuffersAndTexturesAreCreatedAndDestroyed() {
-        Assert.SkipUnless(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         var buffer = owned.CreateBuffer(new(1024, BufferUsage.Vertex, Name: "vertices"));
@@ -105,7 +105,7 @@ public sealed class VulkanDeviceTests {
     /// </summary>
     [Fact]
     public void DataSurvivesARoundTripThroughTheGpu() {
-        Assert.SkipUnless(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         const int Size = 4096;
@@ -163,7 +163,7 @@ public sealed class VulkanDeviceTests {
     /// </summary>
     [Fact]
     public void WritingToDeviceLocalMemoryIsRefused() {
-        Assert.SkipUnless(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         var buffer = owned.CreateBuffer(new(256, BufferUsage.Storage, Name: "device-local"));
@@ -180,7 +180,7 @@ public sealed class VulkanDeviceTests {
     /// </summary>
     [Fact]
     public void ReadingFromUploadMemoryIsRefused() {
-        Assert.SkipUnless(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         var buffer = owned.CreateBuffer(
@@ -193,7 +193,7 @@ public sealed class VulkanDeviceTests {
 
     [Fact]
     public void WritingPastTheEndOfABufferIsRefused() {
-        Assert.SkipUnless(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         var buffer = owned.CreateBuffer(
@@ -211,7 +211,7 @@ public sealed class VulkanDeviceTests {
     /// </summary>
     [Fact]
     public void AStaleHandleDoesNotResolve() {
-        Assert.SkipUnless(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         var buffer = owned.CreateBuffer(new(64, BufferUsage.Storage, Name: "doomed"));
@@ -226,7 +226,7 @@ public sealed class VulkanDeviceTests {
     /// </summary>
     [Fact]
     public void DrawingOutsideARenderPassIsRefused() {
-        Assert.SkipUnless(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         owned.BeginFrame();
@@ -241,7 +241,7 @@ public sealed class VulkanDeviceTests {
 
     [Fact]
     public void RecordingAfterFinishIsRefused() {
-        Assert.SkipUnless(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         owned.BeginFrame();
@@ -260,7 +260,7 @@ public sealed class VulkanDeviceTests {
     /// </summary>
     [Fact]
     public void SubmittingAnUnfinishedListIsRefused() {
-        Assert.SkipUnless(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         owned.BeginFrame();
@@ -280,7 +280,7 @@ public sealed class VulkanDeviceTests {
     /// </summary>
     [Fact]
     public void ManyFramesRunWithoutHanging() {
-        Assert.SkipUnless(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         var buffer = owned.CreateBuffer(
@@ -309,7 +309,7 @@ public sealed class VulkanDeviceTests {
     /// </summary>
     [Fact]
     public void ListsRecordOnManyThreadsAtOnce() {
-        Assert.SkipUnless(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         var buffer = owned.CreateBuffer(
@@ -348,7 +348,7 @@ public sealed class VulkanDeviceTests {
     [InlineData(false)]
     [InlineData(true)]
     public void AClearedRenderPassProducesTheClearColour(bool renderPassObjects) {
-        Assert.SkipUnless(TryOpen(renderPassObjects, out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(renderPassObjects, out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         Assert.SkipWhen(
@@ -418,7 +418,7 @@ public sealed class VulkanDeviceTests {
     /// <summary>Descriptor sets, layouts and the type check that Vulkan itself does not do.</summary>
     [Fact]
     public void DescriptorSetsAreAllocatedAndWritten() {
-        Assert.SkipUnless(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         var layout = owned.CreateDescriptorSetLayout(new(
@@ -455,7 +455,7 @@ public sealed class VulkanDeviceTests {
     /// </summary>
     [Fact]
     public void ThousandsOfBuffersDoNotExhaustTheAllocationCount() {
-        Assert.SkipUnless(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         var handles = new BufferHandle[5000];

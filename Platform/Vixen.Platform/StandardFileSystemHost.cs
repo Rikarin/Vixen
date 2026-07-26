@@ -52,36 +52,66 @@ public sealed class StandardFileSystemHost : IFileSystemHost {
 
         ApplicationDirectory = applicationDirectory ?? AppContext.BaseDirectory;
 
-        DataDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            qualifier
-        );
+        DataDirectory = Path.Combine(Folder(Environment.SpecialFolder.ApplicationData, DataFallback), qualifier);
 
-        // Cache is not data, and the OS has a separate place for it on two of the three desktops:
-        // ~/Library/Caches on macOS and $XDG_CACHE_HOME on Linux, both of which the system is
-        // entitled to purge and neither of which is backed up. `InternetCache` is what .NET maps
-        // both of those to — the name is a legacy of the Win32 constant, where it means the
-        // browser's cache and is emphatically not somewhere we should write. So: that folder off
-        // Windows, and the local (non-roaming) data folder on Windows, where a `cache` subdirectory
-        // is the convention and a roaming shader cache following a user across a corporate network
-        // is neither wanted nor small.
+        // Cache is not data, and the OS has a separate place for it on all three desktops — one the
+        // system may purge and none of which is backed up.
         //
         // Getting this wrong on macOS is not cosmetic: ~/Library/Application Support is backed up by
         // Time Machine and synced by iCloud, so a decoded-texture cache put there is copied off the
         // machine forever and never reclaimed under storage pressure.
+        //
+        // `InternetCache` maps to ~/Library/Caches on macOS, which is right; on Linux .NET does not
+        // map it at all and returns empty, so the XDG location is spelled out. An earlier version of
+        // this comment claimed .NET handled both, and the Linux CI leg's first run proved otherwise.
         CacheDirectory = OperatingSystem.IsWindows()
             ? Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                Folder(Environment.SpecialFolder.LocalApplicationData, DataFallback),
                 qualifier,
                 "cache"
             )
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.InternetCache), qualifier);
+            : Path.Combine(CacheRoot(), qualifier);
 
         TemporaryDirectory = Path.Combine(Path.GetTempPath(), qualifier);
 
         Directory.CreateDirectory(DataDirectory);
         Directory.CreateDirectory(CacheDirectory);
         Directory.CreateDirectory(TemporaryDirectory);
+    }
+
+    /// <summary>Where a Unix home-relative directory goes when the OS will not say.</summary>
+    static string Home =>
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile, Environment.SpecialFolderOption.Create);
+
+    static string DataFallback => Path.Combine(Home, ".local", "share");
+
+    /// <summary>A standard folder, created if it is not there, and never an empty string.</summary>
+    /// <param name="folder">Which one.</param>
+    /// <param name="fallback">Where to put it when the OS does not name one.</param>
+    /// <remarks>
+    ///     Two failure modes, one of which cost a Linux CI leg its first green run.
+    ///     <see cref="Environment.GetFolderPath(Environment.SpecialFolder)" /> returns
+    ///     <em>the empty string</em> on Unix for a directory that does not exist yet — which is every
+    ///     directory on a fresh user account, in a container, and on a CI runner. Combining that with
+    ///     a relative qualifier yields a relative path, and the engine then writes its saves into
+    ///     whatever the working directory happened to be. <c>SpecialFolderOption.Create</c> fixes the
+    ///     common case; the fallback covers the folders .NET does not map on Unix at all.
+    /// </remarks>
+    static string Folder(Environment.SpecialFolder folder, string fallback) {
+        var path = Environment.GetFolderPath(folder, Environment.SpecialFolderOption.Create);
+        return string.IsNullOrEmpty(path) ? fallback : path;
+    }
+
+    /// <summary>Where caches go off Windows.</summary>
+    static string CacheRoot() {
+        if (OperatingSystem.IsLinux()
+            && Environment.GetEnvironmentVariable("XDG_CACHE_HOME") is { Length: > 0 } xdg) {
+            return xdg;
+        }
+
+        return OperatingSystem.IsLinux()
+            ? Path.Combine(Home, ".cache")
+            : Folder(Environment.SpecialFolder.InternetCache, Path.Combine(Home, ".cache"));
     }
 
     /// <inheritdoc />

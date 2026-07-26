@@ -29,7 +29,7 @@ public sealed class VulkanPipelineTests {
 
     [Fact]
     public void AShaderModuleIsCreated() {
-        Assert.SkipUnless(TryOpen(false, out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(false, out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         var shader = owned.CreateShader(ShaderStage.Vertex, TestShaders.Vertex, "triangle vertex");
@@ -43,7 +43,7 @@ public sealed class VulkanPipelineTests {
     /// </summary>
     [Fact]
     public void MalformedBytecodeIsRefused() {
-        Assert.SkipUnless(TryOpen(false, out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(false, out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         Assert.Throws<ArgumentException>(
@@ -57,7 +57,7 @@ public sealed class VulkanPipelineTests {
 
     [Fact]
     public void APushConstantRangeBeyondTheDeviceLimitIsRefused() {
-        Assert.SkipUnless(TryOpen(false, out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(false, out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         var thrown = Assert.Throws<ArgumentException>(
@@ -83,7 +83,7 @@ public sealed class VulkanPipelineTests {
     [InlineData(false)]
     [InlineData(true)]
     public void ATriangleIsDrawnWhereItShouldBe(bool renderPassObjects) {
-        Assert.SkipUnless(TryOpen(renderPassObjects, out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(renderPassObjects, out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         Assert.SkipWhen(
@@ -189,7 +189,7 @@ public sealed class VulkanPipelineTests {
     /// </remarks>
     [Fact]
     public void CullingRemovesExactlyOneWinding() {
-        Assert.SkipUnless(TryOpen(false, out var device, out var reason), reason ?? "no Vulkan");
+        VulkanRequirement.Available(TryOpen(false, out var device, out var reason), reason ?? "no Vulkan");
         using var owned = device!;
 
         var front = Draw(owned, CullMode.Front);
