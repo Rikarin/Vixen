@@ -40,6 +40,8 @@ public static class SyntaxFacts {
             SyntaxKind.ContinueKeyword => "continue",
             SyntaxKind.WhereKeyword => "where",
             SyntaxKind.SelfKeyword => "self",
+            SyntaxKind.BaseKeyword => "base",
+            SyntaxKind.RepeatKeyword => "repeat",
             SyntaxKind.OperatorKeyword => "operator",
             SyntaxKind.InKeyword => "in",
             SyntaxKind.VarKeyword => "var",

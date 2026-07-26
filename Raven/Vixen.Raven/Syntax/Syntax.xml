@@ -151,6 +151,9 @@
     </AbstractNode>
     <Node Name="SelfExpressionSyntax" Base="InstanceExpressionSyntax">
         <Kind Name="SelfExpression"/>
+        <Field Name="Token" Type="SyntaxToken">
+            <Kind Name="SelfKeyword"/>
+        </Field>
         <TypeComment>
             <summary>Class which represents the syntax node for a "self" expression.</summary>
         </TypeComment>
@@ -160,6 +163,9 @@
     </Node>
     <Node Name="BaseExpressionSyntax" Base="InstanceExpressionSyntax">
         <Kind Name="BaseExpression"/>
+        <Field Name="Token" Type="SyntaxToken">
+            <Kind Name="BaseKeyword"/>
+        </Field>
         <TypeComment>
             <summary>Class which represents the syntax node for a base expression.</summary>
         </TypeComment>
@@ -255,10 +261,19 @@
     </Node>
     <Node Name="DefaultExpressionSyntax" Base="ExpressionSyntax">
         <Kind Name="DefaultExpression"/>
+        <Field Name="Keyword" Type="SyntaxToken">
+            <Kind Name="DefaultKeyword"/>
+        </Field>
+        <Field Name="OpenParenToken" Type="SyntaxToken">
+            <Kind Name="OpenParenToken"/>
+        </Field>
         <Field Name="Type" Type="TypeSyntax">
             <PropertyComment>
                 <summary>Argument of the primary function.</summary>
             </PropertyComment>
+        </Field>
+        <Field Name="CloseParenToken" Type="SyntaxToken">
+            <Kind Name="CloseParenToken"/>
         </Field>
         <TypeComment>
             <summary>Class which represents the syntax node for Default expression.</summary>
@@ -269,10 +284,16 @@
     </Node>
     <Node Name="CastExpressionSyntax" Base="ExpressionSyntax">
         <Kind Name="CastExpression"/>
+        <Field Name="OpenParenToken" Type="SyntaxToken">
+            <Kind Name="OpenParenToken"/>
+        </Field>
         <Field Name="Type" Type="TypeSyntax">
             <PropertyComment>
                 <summary>TypeSyntax node representing the type to which the expression is being cast.</summary>
             </PropertyComment>
+        </Field>
+        <Field Name="CloseParenToken" Type="SyntaxToken">
+            <Kind Name="CloseParenToken"/>
         </Field>
         <Field Name="Expression" Type="ExpressionSyntax">
             <PropertyComment>
@@ -801,8 +822,20 @@
     <Node Name="RepeatStatementSyntax" Base="StatementSyntax">
         <Kind Name="RepeatStatement"/>
         <Field Name="AttributeLists" Type="SyntaxList&lt;AttributeListSyntax&gt;" Override="true"/>
+        <Field Name="RepeatKeyword" Type="SyntaxToken">
+            <Kind Name="RepeatKeyword"/>
+        </Field>
         <Field Name="Statement" Type="StatementSyntax"/>
+        <Field Name="WhileKeyword" Type="SyntaxToken">
+            <Kind Name="WhileKeyword"/>
+        </Field>
+        <Field Name="OpenParenToken" Type="SyntaxToken">
+            <Kind Name="OpenParenToken"/>
+        </Field>
         <Field Name="Condition" Type="ExpressionSyntax"/>
+        <Field Name="CloseParenToken" Type="SyntaxToken">
+            <Kind Name="CloseParenToken"/>
+        </Field>
     </Node>
     <Node Name="EmptyStatementSyntax" Base="StatementSyntax">
         <Kind Name="EmptyStatement"/>
@@ -1089,6 +1122,9 @@
                 <summary>Gets the identifier.</summary>
             </PropertyComment>
             <Kind Name="IdentifierToken"/>
+        </Field>
+        <Field Name="ColonToken" Type="SyntaxToken" Optional="true">
+            <Kind Name="ColonToken"/>
         </Field>
         <Field Name="Type" Type="TypeSyntax" Optional="true">
             <PropertyComment>

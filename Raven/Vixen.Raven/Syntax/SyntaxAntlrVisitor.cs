@@ -51,10 +51,12 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
     }
 
     public override SyntaxNode VisitCastExpression(RavenParser.CastExpressionContext context) {
+        var open = Token(TerminalOf(context, RavenLexer.OPEN_PARENS), SyntaxKind.OpenParenToken);
         var type = Visit(context.type()) as TypeSyntax;
+        var close = Token(TerminalOf(context, RavenLexer.CLOSE_PARENS), SyntaxKind.CloseParenToken);
         var expression = Visit(context.expression()) as ExpressionSyntax;
 
-        return SyntaxFactory.CastExpression(type!, expression!);
+        return SyntaxFactory.CastExpression(open, type!, close, expression!);
     }
 
     public override SyntaxNode VisitCollectionExpression(RavenParser.CollectionExpressionContext context) {
@@ -77,8 +79,11 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
     }
 
     public override SyntaxNode VisitDefaultExpression(RavenParser.DefaultExpressionContext context) {
+        var keyword = Token(TerminalOf(context, RavenLexer.DEFAULT), SyntaxKind.DefaultKeyword);
+        var open = Token(TerminalOf(context, RavenLexer.OPEN_PARENS), SyntaxKind.OpenParenToken);
         var type = Visit(context.type()) as TypeSyntax;
-        return SyntaxFactory.DefaultExpression(type!);
+        var close = Token(TerminalOf(context, RavenLexer.CLOSE_PARENS), SyntaxKind.CloseParenToken);
+        return SyntaxFactory.DefaultExpression(keyword, open, type!, close);
     }
 
     public override SyntaxNode VisitElementAccessExpression(RavenParser.ElementAccessExpressionContext context) {
@@ -89,8 +94,8 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
 
     public override SyntaxNode VisitInstanceExpression(RavenParser.InstanceExpressionContext context) =>
         context.op.Type switch {
-            RavenLexer.BASE => SyntaxFactory.BaseExpression(),
-            RavenLexer.SELF => SyntaxFactory.SelfExpression(),
+            RavenLexer.BASE => SyntaxFactory.BaseExpression(Token(context.op, SyntaxKind.BaseKeyword)),
+            RavenLexer.SELF => SyntaxFactory.SelfExpression(Token(context.op, SyntaxKind.SelfKeyword)),
             _ => throw ExceptionUtilities.Unreachable()
         };
 
@@ -650,14 +655,18 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
         var attributes = SyntaxList.List(context.attribute_list().Select(Visit).ToArray());
         var identifier = Visit(context.identifier_token()) as SyntaxToken;
 
-        // TerminalOrNull, not TerminalOf: `val` is only present on a value parameter.
+        // TerminalOrNull, not TerminalOf: `val` and the colon are only present on a
+        // value parameter.
         var val = TerminalOrNull(context, RavenLexer.VAL) is { } valToken
             ? Token(valToken, SyntaxKind.ValKeyword)
+            : null;
+        var colon = TerminalOrNull(context, RavenLexer.COLON) is { } colonToken
+            ? Token(colonToken, SyntaxKind.ColonToken)
             : null;
 
         var type = context.type() is { } typeContext ? Visit(typeContext) as TypeSyntax : null;
 
-        return SyntaxFactory.TypeParameter(new(attributes), val, identifier!, type);
+        return SyntaxFactory.TypeParameter(new(attributes), val, identifier!, colon, type);
     }
 
     public override SyntaxNode VisitType_parameter_constraint_clause(
@@ -755,10 +764,22 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
 
     public override SyntaxNode VisitRepeat_statement(RavenParser.Repeat_statementContext context) {
         var attributes = SyntaxList.List(context.attribute_list().Select(Visit).ToArray());
-        var expression = Visit(context.expression()) as ExpressionSyntax;
+        var repeatKeyword = Token(context.REPEAT().Symbol, SyntaxKind.RepeatKeyword);
         var statement = Visit(context.statement()) as StatementSyntax;
+        var whileKeyword = Token(context.WHILE().Symbol, SyntaxKind.WhileKeyword);
+        var openParen = Token(TerminalOf(context, RavenLexer.OPEN_PARENS), SyntaxKind.OpenParenToken);
+        var expression = Visit(context.expression()) as ExpressionSyntax;
+        var closeParen = Token(TerminalOf(context, RavenLexer.CLOSE_PARENS), SyntaxKind.CloseParenToken);
 
-        return SyntaxFactory.RepeatStatement(new(attributes), statement!, expression!);
+        return SyntaxFactory.RepeatStatement(
+            new(attributes),
+            repeatKeyword,
+            statement!,
+            whileKeyword,
+            openParen,
+            expression!,
+            closeParen
+        );
     }
 
     public override SyntaxNode VisitEmpty_statement(RavenParser.Empty_statementContext context) {

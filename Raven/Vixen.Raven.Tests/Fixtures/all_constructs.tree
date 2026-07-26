@@ -1,0 +1,2152 @@
+CompilationUnit
+  PackageDirective
+    Token(PackageKeyword) "package"
+    QualifiedName
+      QualifiedName
+        IdentifierName
+          Token(IdentifierToken) "Vixen"
+        Token(DotToken) "."
+        IdentifierName
+          Token(IdentifierToken) "Corpus"
+      Token(DotToken) "."
+      IdentifierName
+        Token(IdentifierToken) "All"
+  ListKind
+    ImportDirective
+      Token(ImportKeyword) "import"
+      QualifiedName
+        IdentifierName
+          Token(IdentifierToken) "Vixen"
+        Token(DotToken) "."
+        IdentifierName
+          Token(IdentifierToken) "Core"
+    ImportDirective
+      Token(ImportKeyword) "import"
+      Token(StaticKeyword) "static"
+      QualifiedName
+        QualifiedName
+          IdentifierName
+            Token(IdentifierToken) "Vixen"
+          Token(DotToken) "."
+          IdentifierName
+            Token(IdentifierToken) "Core"
+        Token(DotToken) "."
+        IdentifierName
+          Token(IdentifierToken) "MathHelpers"
+  ListKind
+    ShaderDeclaration
+      ListKind
+        AttributeList
+          Token(OpenBracketToken) "["
+          ListKind
+            Attribute
+              IdentifierName
+                Token(IdentifierToken) "FooBar"
+            Token(CommaToken) ","
+            Attribute
+              IdentifierName
+                Token(IdentifierToken) "BarFoo"
+          Token(CloseBracketToken) "]"
+        AttributeList
+          Token(OpenBracketToken) "["
+          Attribute
+            IdentifierName
+              Token(IdentifierToken) "Marker"
+            AttributeArgumentList
+              Token(OpenParenToken) "("
+              ListKind
+                AttributeArgument
+                  NameColon
+                    IdentifierName
+                      Token(IdentifierToken) "mode"
+                    Token(ColonToken) ":"
+                  StringLiteralExpression
+                    Token(StringLiteralToken) ""linear""
+                Token(CommaToken) ","
+                AttributeArgument
+                  NameColon
+                    IdentifierName
+                      Token(IdentifierToken) "level"
+                    Token(ColonToken) ":"
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "2"
+              Token(CloseParenToken) ")"
+          Token(CloseBracketToken) "]"
+      Token(ShaderKeyword) "shader"
+      Token(IdentifierToken) "Everything"
+      BaseList
+        Token(ColonToken) ":"
+        ListKind
+          SimpleBaseType
+            IdentifierName
+              Token(IdentifierToken) "ExampleBase"
+          Token(CommaToken) ","
+          SimpleBaseType
+            IdentifierName
+              Token(IdentifierToken) "CustomShader"
+      Token(OpenBraceToken) "{"
+      ListKind
+        FieldDeclaration
+          Token(ConstKeyword) "const"
+          ConstDeclaration
+            Token(ValKeyword) "val"
+            Token(IdentifierToken) "Multiplier"
+            EqualsValueClause
+              Token(EqualsToken) "="
+              NumericLiteralExpression
+                Token(NumericLiteralToken) "42"
+        FieldDeclaration
+          Token(ConstKeyword) "const"
+          ConstDeclaration
+            Token(ValKeyword) "val"
+            Token(IdentifierToken) "Combined"
+            EqualsValueClause
+              Token(EqualsToken) "="
+              BinaryExpression
+                BinaryExpression
+                  IdentifierName
+                    Token(IdentifierToken) "Multiplier"
+                  Token(OperatorToken) "*"
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "2"
+                Token(OperatorToken) "+"
+                NumericLiteralExpression
+                  Token(NumericLiteralToken) "1"
+        FieldDeclaration
+          Token(StaticKeyword) "static"
+          ConstDeclaration
+            Token(ValKeyword) "val"
+            Token(IdentifierToken) "shared"
+            Token(ColonToken) ":"
+            PredefinedType
+              Token(IntKeyword) "int"
+        FieldDeclaration
+          Token(ReadOnlyKeyword) "readonly"
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "locked"
+            Token(ColonToken) ":"
+            PredefinedType
+              Token(FloatKeyword) "float"
+        FieldDeclaration
+          AttributeList
+            Token(OpenBracketToken) "["
+            Attribute
+              IdentifierName
+                Token(IdentifierToken) "Permutation"
+            Token(CloseBracketToken) "]"
+          ConstDeclaration
+            Token(ValKeyword) "val"
+            Token(IdentifierToken) "UseDetail"
+            Token(ColonToken) ":"
+            PredefinedType
+              Token(BoolKeyword) "bool"
+            EqualsValueClause
+              Token(EqualsToken) "="
+              TrueLiteralExpression
+                Token(TrueKeyword) "true"
+        FieldDeclaration
+          AttributeList
+            Token(OpenBracketToken) "["
+            Attribute
+              IdentifierName
+                Token(IdentifierToken) "PerFrame"
+            Token(CloseBracketToken) "]"
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "time"
+            Token(ColonToken) ":"
+            PredefinedType
+              Token(FloatKeyword) "float"
+        FieldDeclaration
+          AttributeList
+            Token(OpenBracketToken) "["
+            Attribute
+              IdentifierName
+                Token(IdentifierToken) "PerView"
+            Token(CloseBracketToken) "]"
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "view"
+            Token(ColonToken) ":"
+            PredefinedType
+              Token(Mat4Keyword) "mat4"
+        FieldDeclaration
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "world"
+            Token(ColonToken) ":"
+            PredefinedType
+              Token(Mat4Keyword) "mat4"
+        FieldDeclaration
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "tint"
+            Token(ColonToken) ":"
+            PredefinedType
+              Token(Float4Keyword) "float4"
+            EqualsValueClause
+              Token(EqualsToken) "="
+              InvocationExpression
+                PredefinedType
+                  Token(Float4Keyword) "float4"
+                ArgumentList
+                  Token(OpenParenToken) "("
+                  ListKind
+                    Argument
+                      NumericLiteralExpression
+                        Token(NumericLiteralToken) "1"
+                    Token(CommaToken) ","
+                    Argument
+                      NumericLiteralExpression
+                        Token(NumericLiteralToken) "1"
+                    Token(CommaToken) ","
+                    Argument
+                      NumericLiteralExpression
+                        Token(NumericLiteralToken) "1"
+                    Token(CommaToken) ","
+                    Argument
+                      NumericLiteralExpression
+                        Token(NumericLiteralToken) "1"
+                  Token(CloseParenToken) ")"
+        FieldDeclaration
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "albedo"
+            Token(ColonToken) ":"
+            IdentifierName
+              Token(IdentifierToken) "Texture2D"
+        FieldDeclaration
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "albedoSampler"
+            Token(ColonToken) ":"
+            IdentifierName
+              Token(IdentifierToken) "Sampler"
+        FieldDeclaration
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "lookup"
+            Token(ColonToken) ":"
+            ArrayType
+              PredefinedType
+                Token(IntKeyword) "int"
+              ArrayRankSpecifier
+                Token(OpenBracketToken) "["
+                Token(CloseBracketToken) "]"
+        FieldDeclaration
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "grid"
+            Token(ColonToken) ":"
+            ArrayType
+              PredefinedType
+                Token(FloatKeyword) "float"
+              ListKind
+                ArrayRankSpecifier
+                  Token(OpenBracketToken) "["
+                  Token(CloseBracketToken) "]"
+                ArrayRankSpecifier
+                  Token(OpenBracketToken) "["
+                  Token(CloseBracketToken) "]"
+        PropertyDeclaration
+          Token(VarKeyword) "var"
+          Token(IdentifierToken) "prop"
+          Token(ColonToken) ":"
+          PredefinedType
+            Token(FloatKeyword) "float"
+          AccessorList
+            Token(OpenBraceToken) "{"
+            ListKind
+              GetAccessorDeclaration
+                Token(GetKeyword) "get"
+                ArrowExpressionClause
+                  Token(ArrowToken) "=>"
+                  IdentifierName
+                    Token(IdentifierToken) "Epsilon"
+              SetAccessorDeclaration
+                Token(SetKeyword) "set"
+                ArrowExpressionClause
+                  Token(ArrowToken) "=>"
+                  AssignmentExpression
+                    IdentifierName
+                      Token(IdentifierToken) "tint"
+                    Token(OperatorToken) "="
+                    InvocationExpression
+                      PredefinedType
+                        Token(Float4Keyword) "float4"
+                      ArgumentList
+                        Token(OpenParenToken) "("
+                        ListKind
+                          Argument
+                            IdentifierName
+                              Token(IdentifierToken) "value"
+                          Token(CommaToken) ","
+                          Argument
+                            IdentifierName
+                              Token(IdentifierToken) "value"
+                          Token(CommaToken) ","
+                          Argument
+                            IdentifierName
+                              Token(IdentifierToken) "value"
+                          Token(CommaToken) ","
+                          Argument
+                            NumericLiteralExpression
+                              Token(NumericLiteralToken) "1"
+                        Token(CloseParenToken) ")"
+            Token(CloseBraceToken) "}"
+        PropertyDeclaration
+          Token(VarKeyword) "var"
+          Token(IdentifierToken) "observed"
+          Token(ColonToken) ":"
+          PredefinedType
+            Token(FloatKeyword) "float"
+          AccessorList
+            Token(OpenBraceToken) "{"
+            ListKind
+              WillSetAccessorDeclaration
+                Token(WillSetKeyword) "willSet"
+                Block
+                  Token(OpenBraceToken) "{"
+                  ExpressionStatement
+                    PostIncrementExpression
+                      IdentifierName
+                        Token(IdentifierToken) "counter"
+                      Token(OperatorToken) "++"
+                  Token(CloseBraceToken) "}"
+              DidSetAccessorDeclaration
+                Token(DidSetKeyword) "didSet"
+                ArrowExpressionClause
+                  Token(ArrowToken) "=>"
+                  PostDecrementExpression
+                    IdentifierName
+                      Token(IdentifierToken) "counter"
+                    Token(OperatorToken) "--"
+            Token(CloseBraceToken) "}"
+        PropertyDeclaration
+          Token(VarKeyword) "var"
+          Token(IdentifierToken) "direct"
+          Token(ColonToken) ":"
+          PredefinedType
+            Token(FloatKeyword) "float"
+          ArrowExpressionClause
+            Token(ArrowToken) "=>"
+            IdentifierName
+              Token(IdentifierToken) "time"
+        FieldDeclaration
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "counter"
+            Token(ColonToken) ":"
+            PredefinedType
+              Token(IntKeyword) "int"
+        ConstructorDeclaration
+          Token(InitKeyword) "init"
+          ParameterList
+            Token(OpenParenToken) "("
+            Token(CloseParenToken) ")"
+          Block
+            Token(OpenBraceToken) "{"
+            ExpressionStatement
+              AssignmentExpression
+                IdentifierName
+                  Token(IdentifierToken) "counter"
+                Token(OperatorToken) "="
+                NumericLiteralExpression
+                  Token(NumericLiteralToken) "0"
+            Token(CloseBraceToken) "}"
+        ConstructorDeclaration
+          Token(InitKeyword) "init"
+          ParameterList
+            Token(OpenParenToken) "("
+            Parameter
+              Token(IdentifierToken) "seed"
+              Token(ColonToken) ":"
+              PredefinedType
+                Token(IntKeyword) "int"
+            Token(CloseParenToken) ")"
+          Block
+            Token(OpenBraceToken) "{"
+            ExpressionStatement
+              AssignmentExpression
+                IdentifierName
+                  Token(IdentifierToken) "counter"
+                Token(OperatorToken) "="
+                IdentifierName
+                  Token(IdentifierToken) "seed"
+            Token(CloseBraceToken) "}"
+        MethodDeclaration
+          Token(FuncKeyword) "func"
+          Token(IdentifierToken) "Literals"
+          ParameterList
+            Token(OpenParenToken) "("
+            Token(CloseParenToken) ")"
+          Token(ColonToken) ":"
+          PredefinedType
+            Token(FloatKeyword) "float"
+          Block
+            Token(OpenBraceToken) "{"
+            ListKind
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "dec"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    NumericLiteralExpression
+                      Token(NumericLiteralToken) "1_000"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "hex"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    NumericLiteralExpression
+                      Token(NumericLiteralToken) "0x1F"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "bin"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    NumericLiteralExpression
+                      Token(NumericLiteralToken) "0b1010"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "unsigned"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    NumericLiteralExpression
+                      Token(NumericLiteralToken) "42u"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "single"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    NumericLiteralExpression
+                      Token(NumericLiteralToken) "1.5f"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "leading"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    NumericLiteralExpression
+                      Token(NumericLiteralToken) ".5f"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "exponent"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    NumericLiteralExpression
+                      Token(NumericLiteralToken) "2.5e-3f"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "wide"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    NumericLiteralExpression
+                      Token(NumericLiteralToken) "1e5"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "dbl"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    NumericLiteralExpression
+                      Token(NumericLiteralToken) "2d"
+              ReturnStatement
+                Token(ReturnKeyword) "return"
+                BinaryExpression
+                  IdentifierName
+                    Token(IdentifierToken) "single"
+                  Token(OperatorToken) "+"
+                  IdentifierName
+                    Token(IdentifierToken) "leading"
+            Token(CloseBraceToken) "}"
+        MethodDeclaration
+          Token(FuncKeyword) "func"
+          Token(IdentifierToken) "Operators"
+          ParameterList
+            Token(OpenParenToken) "("
+            ListKind
+              Parameter
+                Token(IdentifierToken) "a"
+                Token(ColonToken) ":"
+                PredefinedType
+                  Token(IntKeyword) "int"
+              Token(CommaToken) ","
+              Parameter
+                Token(IdentifierToken) "b"
+                Token(ColonToken) ":"
+                PredefinedType
+                  Token(IntKeyword) "int"
+            Token(CloseParenToken) ")"
+          Token(ColonToken) ":"
+          PredefinedType
+            Token(IntKeyword) "int"
+          Block
+            Token(OpenBraceToken) "{"
+            ListKind
+              LocalDeclarationStatement
+                VariableDeclaration
+                  Token(VarKeyword) "var"
+                  Token(IdentifierToken) "x"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    BinaryExpression
+                      BinaryExpression
+                        IdentifierName
+                          Token(IdentifierToken) "a"
+                        Token(OperatorToken) "+"
+                        IdentifierName
+                          Token(IdentifierToken) "b"
+                      Token(OperatorToken) "-"
+                      BinaryExpression
+                        BinaryExpression
+                          IdentifierName
+                            Token(IdentifierToken) "a"
+                          Token(OperatorToken) "*"
+                          IdentifierName
+                            Token(IdentifierToken) "b"
+                        Token(OperatorToken) "/"
+                        ParenthesizedExpression
+                          Token(OpenParenToken) "("
+                          BinaryExpression
+                            IdentifierName
+                              Token(IdentifierToken) "a"
+                            Token(OperatorToken) "%"
+                            IdentifierName
+                              Token(IdentifierToken) "b"
+                          Token(CloseParenToken) ")"
+              ExpressionStatement
+                AssignmentExpression
+                  IdentifierName
+                    Token(IdentifierToken) "x"
+                  Token(OperatorToken) "+="
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "1"
+              ExpressionStatement
+                AssignmentExpression
+                  IdentifierName
+                    Token(IdentifierToken) "x"
+                  Token(OperatorToken) "-="
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "2"
+              ExpressionStatement
+                AssignmentExpression
+                  IdentifierName
+                    Token(IdentifierToken) "x"
+                  Token(OperatorToken) "*="
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "3"
+              ExpressionStatement
+                AssignmentExpression
+                  IdentifierName
+                    Token(IdentifierToken) "x"
+                  Token(OperatorToken) "/="
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "4"
+              ExpressionStatement
+                AssignmentExpression
+                  IdentifierName
+                    Token(IdentifierToken) "x"
+                  Token(OperatorToken) "%="
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "5"
+              ExpressionStatement
+                AssignmentExpression
+                  IdentifierName
+                    Token(IdentifierToken) "x"
+                  Token(OperatorToken) "&="
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "6"
+              ExpressionStatement
+                AssignmentExpression
+                  IdentifierName
+                    Token(IdentifierToken) "x"
+                  Token(OperatorToken) "|="
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "7"
+              ExpressionStatement
+                AssignmentExpression
+                  IdentifierName
+                    Token(IdentifierToken) "x"
+                  Token(OperatorToken) "^="
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "8"
+              ExpressionStatement
+                AssignmentExpression
+                  IdentifierName
+                    Token(IdentifierToken) "x"
+                  Token(OperatorToken) "<<="
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "1"
+              ExpressionStatement
+                AssignmentExpression
+                  IdentifierName
+                    Token(IdentifierToken) "x"
+                  Token(OperatorToken) ">>="
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "1"
+              ExpressionStatement
+                AssignmentExpression
+                  IdentifierName
+                    Token(IdentifierToken) "x"
+                  Token(OperatorToken) ">>>="
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "1"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "shifted"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    BinaryExpression
+                      BinaryExpression
+                        IdentifierName
+                          Token(IdentifierToken) "a"
+                        Token(OperatorToken) "<<"
+                        NumericLiteralExpression
+                          Token(NumericLiteralToken) "2"
+                      Token(OperatorToken) "|"
+                      BinaryExpression
+                        BinaryExpression
+                          BinaryExpression
+                            IdentifierName
+                              Token(IdentifierToken) "b"
+                            Token(OperatorToken) ">>"
+                            NumericLiteralExpression
+                              Token(NumericLiteralToken) "1"
+                          Token(OperatorToken) "&"
+                          BinaryExpression
+                            IdentifierName
+                              Token(IdentifierToken) "a"
+                            Token(OperatorToken) ">>>"
+                            NumericLiteralExpression
+                              Token(NumericLiteralToken) "3"
+                        Token(OperatorToken) "^"
+                        IdentifierName
+                          Token(IdentifierToken) "b"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "compared"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    BinaryExpression
+                      BinaryExpression
+                        BinaryExpression
+                          IdentifierName
+                            Token(IdentifierToken) "a"
+                          Token(OperatorToken) "<"
+                          IdentifierName
+                            Token(IdentifierToken) "b"
+                        Token(OperatorToken) "||"
+                        BinaryExpression
+                          BinaryExpression
+                            IdentifierName
+                              Token(IdentifierToken) "a"
+                            Token(OperatorToken) "<="
+                            IdentifierName
+                              Token(IdentifierToken) "b"
+                          Token(OperatorToken) "&&"
+                          BinaryExpression
+                            IdentifierName
+                              Token(IdentifierToken) "b"
+                            Token(OperatorToken) ">"
+                            IdentifierName
+                              Token(IdentifierToken) "a"
+                      Token(OperatorToken) "||"
+                      BinaryExpression
+                        IdentifierName
+                          Token(IdentifierToken) "b"
+                        Token(OperatorToken) ">="
+                        IdentifierName
+                          Token(IdentifierToken) "a"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "equality"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    BinaryExpression
+                      BinaryExpression
+                        IdentifierName
+                          Token(IdentifierToken) "a"
+                        Token(OperatorToken) "=="
+                        IdentifierName
+                          Token(IdentifierToken) "b"
+                      Token(OperatorToken) "||"
+                      BinaryExpression
+                        IdentifierName
+                          Token(IdentifierToken) "a"
+                        Token(OperatorToken) "!="
+                        IdentifierName
+                          Token(IdentifierToken) "b"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "logical"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    LogicalNotExpression
+                      Token(OperatorToken) "!"
+                      IdentifierName
+                        Token(IdentifierToken) "equality"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "bits"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    BitwiseNotExpression
+                      Token(OperatorToken) "~"
+                      IdentifierName
+                        Token(IdentifierToken) "a"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "negated"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    UnaryMinusExpression
+                      Token(OperatorToken) "-"
+                      IdentifierName
+                        Token(IdentifierToken) "a"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "plus"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    UnaryPlusExpression
+                      Token(OperatorToken) "+"
+                      IdentifierName
+                        Token(IdentifierToken) "b"
+              LocalDeclarationStatement
+                VariableDeclaration
+                  Token(VarKeyword) "var"
+                  Token(IdentifierToken) "pre"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    PreIncrementExpression
+                      Token(OperatorToken) "++"
+                      IdentifierName
+                        Token(IdentifierToken) "x"
+              ExpressionStatement
+                AssignmentExpression
+                  IdentifierName
+                    Token(IdentifierToken) "pre"
+                  Token(OperatorToken) "="
+                  PreDecrementExpression
+                    Token(OperatorToken) "--"
+                    IdentifierName
+                      Token(IdentifierToken) "x"
+              LocalDeclarationStatement
+                VariableDeclaration
+                  Token(VarKeyword) "var"
+                  Token(IdentifierToken) "post"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    PostIncrementExpression
+                      IdentifierName
+                        Token(IdentifierToken) "x"
+                      Token(OperatorToken) "++"
+              ExpressionStatement
+                AssignmentExpression
+                  IdentifierName
+                    Token(IdentifierToken) "post"
+                  Token(OperatorToken) "="
+                  PostDecrementExpression
+                    IdentifierName
+                      Token(IdentifierToken) "x"
+                    Token(OperatorToken) "--"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "picked"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    ConditionalExpression
+                      IdentifierName
+                        Token(IdentifierToken) "compared"
+                      Token(QuestionToken) "?"
+                      IdentifierName
+                        Token(IdentifierToken) "a"
+                      Token(ColonToken) ":"
+                      IdentifierName
+                        Token(IdentifierToken) "b"
+              ReturnStatement
+                Token(ReturnKeyword) "return"
+                IdentifierName
+                  Token(IdentifierToken) "shifted"
+            Token(CloseBraceToken) "}"
+        MethodDeclaration
+          Token(FuncKeyword) "func"
+          Token(IdentifierToken) "Statements"
+          ParameterList
+            Token(OpenParenToken) "("
+            Token(CloseParenToken) ")"
+          Token(ColonToken) ":"
+          PredefinedType
+            Token(IntKeyword) "int"
+          Block
+            Token(OpenBraceToken) "{"
+            ListKind
+              LocalDeclarationStatement
+                VariableDeclaration
+                  Token(VarKeyword) "var"
+                  Token(IdentifierToken) "total"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    NumericLiteralExpression
+                      Token(NumericLiteralToken) "0"
+              EmptyStatement
+              ForStatement
+                Token(ForKeyword) "for"
+                Token(OpenParenToken) "("
+                Token(IdentifierToken) "i"
+                Token(InKeyword) "in"
+                RangeExpression
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "1"
+                  Token(DotDotToken) ".."
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "10"
+                Token(CloseParenToken) ")"
+                Block
+                  Token(OpenBraceToken) "{"
+                  ListKind
+                    ExpressionStatement
+                      AssignmentExpression
+                        IdentifierName
+                          Token(IdentifierToken) "total"
+                        Token(OperatorToken) "+="
+                        BinaryExpression
+                          IdentifierName
+                            Token(IdentifierToken) "i"
+                          Token(OperatorToken) "*"
+                          IdentifierName
+                            Token(IdentifierToken) "Multiplier"
+                    IfStatement
+                      Token(IfKeyword) "if"
+                      Token(OpenParenToken) "("
+                      BinaryExpression
+                        IdentifierName
+                          Token(IdentifierToken) "total"
+                        Token(OperatorToken) ">"
+                        NumericLiteralExpression
+                          Token(NumericLiteralToken) "100"
+                      Token(CloseParenToken) ")"
+                      Block
+                        Token(OpenBraceToken) "{"
+                        BreakStatement
+                          Token(BreakKeyword) "break"
+                        Token(CloseBraceToken) "}"
+                    EmptyStatement
+                    ContinueStatement
+                      Token(ContinueKeyword) "continue"
+                  Token(CloseBraceToken) "}"
+              EmptyStatement
+              WhileStatement
+                Token(WhileKeyword) "while"
+                Token(OpenParenToken) "("
+                BinaryExpression
+                  IdentifierName
+                    Token(IdentifierToken) "total"
+                  Token(OperatorToken) ">"
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "0"
+                Token(CloseParenToken) ")"
+                Block
+                  Token(OpenBraceToken) "{"
+                  ExpressionStatement
+                    AssignmentExpression
+                      IdentifierName
+                        Token(IdentifierToken) "total"
+                      Token(OperatorToken) "-="
+                      NumericLiteralExpression
+                        Token(NumericLiteralToken) "1"
+                  Token(CloseBraceToken) "}"
+              EmptyStatement
+              RepeatStatement
+                Token(RepeatKeyword) "repeat"
+                Block
+                  Token(OpenBraceToken) "{"
+                  ExpressionStatement
+                    AssignmentExpression
+                      IdentifierName
+                        Token(IdentifierToken) "total"
+                      Token(OperatorToken) "+="
+                      NumericLiteralExpression
+                        Token(NumericLiteralToken) "1"
+                  Token(CloseBraceToken) "}"
+                Token(WhileKeyword) "while"
+                Token(OpenParenToken) "("
+                BinaryExpression
+                  IdentifierName
+                    Token(IdentifierToken) "total"
+                  Token(OperatorToken) "<"
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "4"
+                Token(CloseParenToken) ")"
+              IfStatement
+                Token(IfKeyword) "if"
+                Token(OpenParenToken) "("
+                BinaryExpression
+                  IdentifierName
+                    Token(IdentifierToken) "total"
+                  Token(OperatorToken) ">"
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "42"
+                Token(CloseParenToken) ")"
+                Block
+                  Token(OpenBraceToken) "{"
+                  ExpressionStatement
+                    AssignmentExpression
+                      IdentifierName
+                        Token(IdentifierToken) "total"
+                      Token(OperatorToken) "="
+                      NumericLiteralExpression
+                        Token(NumericLiteralToken) "0"
+                  Token(CloseBraceToken) "}"
+                ElseClause
+                  Token(ElseKeyword) "else"
+                  Block
+                    Token(OpenBraceToken) "{"
+                    ExpressionStatement
+                      AssignmentExpression
+                        IdentifierName
+                          Token(IdentifierToken) "total"
+                        Token(OperatorToken) "="
+                        NumericLiteralExpression
+                          Token(NumericLiteralToken) "1"
+                    Token(CloseBraceToken) "}"
+              EmptyStatement
+              SwitchStatement
+                Token(SwitchKeyword) "switch"
+                Token(OpenParenToken) "("
+                IdentifierName
+                  Token(IdentifierToken) "total"
+                Token(CloseParenToken) ")"
+                Token(OpenBraceToken) "{"
+                ListKind
+                  SwitchSection
+                    CaseSwitchLabel
+                      Token(CaseKeyword) "case"
+                      NumericLiteralExpression
+                        Token(NumericLiteralToken) "0"
+                      Token(ColonToken) ":"
+                    ListKind
+                      ExpressionStatement
+                        AssignmentExpression
+                          IdentifierName
+                            Token(IdentifierToken) "total"
+                          Token(OperatorToken) "="
+                          NumericLiteralExpression
+                            Token(NumericLiteralToken) "1"
+                      BreakStatement
+                        Token(BreakKeyword) "break"
+                  SwitchSection
+                    ListKind
+                      CaseSwitchLabel
+                        Token(CaseKeyword) "case"
+                        NumericLiteralExpression
+                          Token(NumericLiteralToken) "1"
+                        Token(ColonToken) ":"
+                      CaseSwitchLabel
+                        Token(CaseKeyword) "case"
+                        NumericLiteralExpression
+                          Token(NumericLiteralToken) "2"
+                        Token(ColonToken) ":"
+                    ListKind
+                      ExpressionStatement
+                        AssignmentExpression
+                          IdentifierName
+                            Token(IdentifierToken) "total"
+                          Token(OperatorToken) "="
+                          NumericLiteralExpression
+                            Token(NumericLiteralToken) "2"
+                      BreakStatement
+                        Token(BreakKeyword) "break"
+                  SwitchSection
+                    DefaultSwitchLabel
+                      Token(DefaultKeyword) "default"
+                      Token(ColonToken) ":"
+                    ExpressionStatement
+                      AssignmentExpression
+                        IdentifierName
+                          Token(IdentifierToken) "total"
+                        Token(OperatorToken) "="
+                        NumericLiteralExpression
+                          Token(NumericLiteralToken) "3"
+                Token(CloseBraceToken) "}"
+              ReturnStatement
+                Token(ReturnKeyword) "return"
+                IdentifierName
+                  Token(IdentifierToken) "total"
+            Token(CloseBraceToken) "}"
+        MethodDeclaration
+          Token(FuncKeyword) "func"
+          Token(IdentifierToken) "Casts"
+          ParameterList
+            Token(OpenParenToken) "("
+            Parameter
+              Token(IdentifierToken) "b"
+              Token(ColonToken) ":"
+              PredefinedType
+                Token(FloatKeyword) "float"
+            Token(CloseParenToken) ")"
+          Token(ColonToken) ":"
+          PredefinedType
+            Token(IntKeyword) "int"
+          Block
+            Token(OpenBraceToken) "{"
+            ListKind
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "truncated"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    CastExpression
+                      Token(OpenParenToken) "("
+                      PredefinedType
+                        Token(IntKeyword) "int"
+                      Token(CloseParenToken) ")"
+                      IdentifierName
+                        Token(IdentifierToken) "b"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "widened"
+                  Token(ColonToken) ":"
+                  PredefinedType
+                    Token(DoubleKeyword) "double"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    IdentifierName
+                      Token(IdentifierToken) "b"
+              ReturnStatement
+                Token(ReturnKeyword) "return"
+                IdentifierName
+                  Token(IdentifierToken) "truncated"
+            Token(CloseBraceToken) "}"
+        MethodDeclaration
+          Token(FuncKeyword) "func"
+          Token(IdentifierToken) "Aggregates"
+          ParameterList
+            Token(OpenParenToken) "("
+            Token(CloseParenToken) ")"
+          Token(ColonToken) ":"
+          ArrayType
+            PredefinedType
+              Token(IntKeyword) "int"
+            ArrayRankSpecifier
+              Token(OpenBracketToken) "["
+              Token(CloseBracketToken) "]"
+          Block
+            Token(OpenBraceToken) "{"
+            ListKind
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "direct"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    CollectionExpression
+                      Token(OpenBracketToken) "["
+                      ListKind
+                        ExpressionElement
+                          NumericLiteralExpression
+                            Token(NumericLiteralToken) "1"
+                        Token(CommaToken) ","
+                        ExpressionElement
+                          NumericLiteralExpression
+                            Token(NumericLiteralToken) "2"
+                        Token(CommaToken) ","
+                        ExpressionElement
+                          NumericLiteralExpression
+                            Token(NumericLiteralToken) "3"
+                        Token(CommaToken) ","
+                        ExpressionElement
+                          NumericLiteralExpression
+                            Token(NumericLiteralToken) "4"
+                      Token(CloseBracketToken) "]"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "spread"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    CollectionExpression
+                      Token(OpenBracketToken) "["
+                      ListKind
+                        ExpressionElement
+                          NumericLiteralExpression
+                            Token(NumericLiteralToken) "1"
+                        Token(CommaToken) ","
+                        SpreadElement
+                          Token(DotDotToken) ".."
+                          IdentifierName
+                            Token(IdentifierToken) "direct"
+                        Token(CommaToken) ","
+                        ExpressionElement
+                          NumericLiteralExpression
+                            Token(NumericLiteralToken) "5"
+                      Token(CloseBracketToken) "]"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "pair"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    TupleExpression
+                      Token(OpenParenToken) "("
+                      ListKind
+                        Argument
+                          IdentifierName
+                            Token(IdentifierToken) "Multiplier"
+                        Token(CommaToken) ","
+                        Argument
+                          IdentifierName
+                            Token(IdentifierToken) "Epsilon"
+                      Token(CloseParenToken) ")"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "named"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    TupleExpression
+                      Token(OpenParenToken) "("
+                      ListKind
+                        Argument
+                          NameColon
+                            IdentifierName
+                              Token(IdentifierToken) "count"
+                            Token(ColonToken) ":"
+                          IdentifierName
+                            Token(IdentifierToken) "Multiplier"
+                        Token(CommaToken) ","
+                        Argument
+                          NameColon
+                            IdentifierName
+                              Token(IdentifierToken) "scale"
+                            Token(ColonToken) ":"
+                          IdentifierName
+                            Token(IdentifierToken) "Epsilon"
+                      Token(CloseParenToken) ")"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "zero"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    DefaultExpression
+                      Token(DefaultKeyword) "default"
+                      Token(OpenParenToken) "("
+                      PredefinedType
+                        Token(Float4Keyword) "float4"
+                      Token(CloseParenToken) ")"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "blank"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    DefaultLiteralExpression
+                      Token(DefaultKeyword) "default"
+              ReturnStatement
+                Token(ReturnKeyword) "return"
+                IdentifierName
+                  Token(IdentifierToken) "direct"
+            Token(CloseBraceToken) "}"
+        MethodDeclaration
+          Token(FuncKeyword) "func"
+          Token(IdentifierToken) "Access"
+          ParameterList
+            Token(OpenParenToken) "("
+            Token(CloseParenToken) ")"
+          Token(ColonToken) ":"
+          PredefinedType
+            Token(Float4Keyword) "float4"
+          Block
+            Token(OpenBraceToken) "{"
+            ListKind
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "sampled"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    InvocationExpression
+                      QualifiedName
+                        IdentifierName
+                          Token(IdentifierToken) "albedo"
+                        Token(DotToken) "."
+                        IdentifierName
+                          Token(IdentifierToken) "Sample"
+                      ArgumentList
+                        Token(OpenParenToken) "("
+                        ListKind
+                          Argument
+                            IdentifierName
+                              Token(IdentifierToken) "albedoSampler"
+                          Token(CommaToken) ","
+                          Argument
+                            QualifiedName
+                              IdentifierName
+                                Token(IdentifierToken) "tint"
+                              Token(DotToken) "."
+                              IdentifierName
+                                Token(IdentifierToken) "xy"
+                        Token(CloseParenToken) ")"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "element"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    ElementAccessExpression
+                      IdentifierName
+                        Token(IdentifierToken) "lookup"
+                      BracketedArgumentList
+                        Token(OpenBracketToken) "["
+                        Argument
+                          NumericLiteralExpression
+                            Token(NumericLiteralToken) "0"
+                        Token(CloseBracketToken) "]"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "swizzled"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    QualifiedName
+                      IdentifierName
+                        Token(IdentifierToken) "sampled"
+                      Token(DotToken) "."
+                      IdentifierName
+                        Token(IdentifierToken) "rgb"
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "chained"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    MemberAccessExpression
+                      MemberAccessExpression
+                        SelfExpression
+                          Token(SelfKeyword) "self"
+                        Token(DotToken) "."
+                        IdentifierName
+                          Token(IdentifierToken) "tint"
+                      Token(DotToken) "."
+                      IdentifierName
+                        Token(IdentifierToken) "a"
+              ReturnStatement
+                Token(ReturnKeyword) "return"
+                InvocationExpression
+                  PredefinedType
+                    Token(Float4Keyword) "float4"
+                  ArgumentList
+                    Token(OpenParenToken) "("
+                    ListKind
+                      Argument
+                        BinaryExpression
+                          IdentifierName
+                            Token(IdentifierToken) "swizzled"
+                          Token(OperatorToken) "*"
+                          MemberAccessExpression
+                            SelfExpression
+                              Token(SelfKeyword) "self"
+                            Token(DotToken) "."
+                            IdentifierName
+                              Token(IdentifierToken) "prop"
+                      Token(CommaToken) ","
+                      Argument
+                        QualifiedName
+                          IdentifierName
+                            Token(IdentifierToken) "sampled"
+                          Token(DotToken) "."
+                          IdentifierName
+                            Token(IdentifierToken) "a"
+                    Token(CloseParenToken) ")"
+            Token(CloseBraceToken) "}"
+        MethodDeclaration
+          Token(FuncKeyword) "func"
+          Token(IdentifierToken) "Generic"
+          TypeParameterList
+            Token(LessThanToken) "<"
+            TypeParameter
+              Token(IdentifierToken) "T"
+            Token(GreaterThanToken) ">"
+          ParameterList
+            Token(OpenParenToken) "("
+            Parameter
+              Token(IdentifierToken) "x"
+              Token(ColonToken) ":"
+              IdentifierName
+                Token(IdentifierToken) "T"
+            Token(CloseParenToken) ")"
+          Token(ColonToken) ":"
+          IdentifierName
+            Token(IdentifierToken) "T"
+          Block
+            Token(OpenBraceToken) "{"
+            ReturnStatement
+              Token(ReturnKeyword) "return"
+              IdentifierName
+                Token(IdentifierToken) "x"
+            Token(CloseBraceToken) "}"
+        MethodDeclaration
+          Token(FuncKeyword) "func"
+          Token(IdentifierToken) "Constrained"
+          TypeParameterList
+            Token(LessThanToken) "<"
+            TypeParameter
+              Token(IdentifierToken) "T"
+            Token(GreaterThanToken) ">"
+          ParameterList
+            Token(OpenParenToken) "("
+            Parameter
+              Token(IdentifierToken) "x"
+              Token(ColonToken) ":"
+              IdentifierName
+                Token(IdentifierToken) "T"
+            Token(CloseParenToken) ")"
+          TypeParameterConstraintClause
+            Token(WhereKeyword) "where"
+            IdentifierName
+              Token(IdentifierToken) "T"
+            Token(ColonToken) ":"
+            TypeConstraint
+              IdentifierName
+                Token(IdentifierToken) "Shaded"
+          Token(ColonToken) ":"
+          PredefinedType
+            Token(FloatKeyword) "float"
+          Block
+            Token(OpenBraceToken) "{"
+            ReturnStatement
+              Token(ReturnKeyword) "return"
+              NumericLiteralExpression
+                Token(NumericLiteralToken) "0f"
+            Token(CloseBraceToken) "}"
+        MethodDeclaration
+          Token(FuncKeyword) "func"
+          Token(IdentifierToken) "Defaults"
+          ParameterList
+            Token(OpenParenToken) "("
+            ListKind
+              Parameter
+                Token(IdentifierToken) "count"
+                Token(ColonToken) ":"
+                PredefinedType
+                  Token(IntKeyword) "int"
+                EqualsValueClause
+                  Token(EqualsToken) "="
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "42"
+              Token(CommaToken) ","
+              Parameter
+                Token(IdentifierToken) "scale"
+                Token(ColonToken) ":"
+                PredefinedType
+                  Token(FloatKeyword) "float"
+                EqualsValueClause
+                  Token(EqualsToken) "="
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "1f"
+            Token(CloseParenToken) ")"
+          Token(ColonToken) ":"
+          PredefinedType
+            Token(FloatKeyword) "float"
+          ArrowExpressionClause
+            Token(ArrowToken) "=>"
+            IdentifierName
+              Token(IdentifierToken) "scale"
+        MethodDeclaration
+          ListKind
+            AttributeList
+              Token(OpenBracketToken) "["
+              Attribute
+                IdentifierName
+                  Token(IdentifierToken) "VertexShader"
+              Token(CloseBracketToken) "]"
+            AttributeList
+              Token(OpenBracketToken) "["
+              Attribute
+                IdentifierName
+                  Token(IdentifierToken) "Semantic"
+                AttributeArgumentList
+                  Token(OpenParenToken) "("
+                  AttributeArgument
+                    StringLiteralExpression
+                      Token(StringLiteralToken) ""SV_Position""
+                  Token(CloseParenToken) ")"
+              Token(CloseBracketToken) "]"
+          Token(FuncKeyword) "func"
+          Token(IdentifierToken) "VSMain"
+          ParameterList
+            Token(OpenParenToken) "("
+            Parameter
+              Token(IdentifierToken) "position"
+              Token(ColonToken) ":"
+              PredefinedType
+                Token(Float3Keyword) "float3"
+            Token(CloseParenToken) ")"
+          Token(ColonToken) ":"
+          PredefinedType
+            Token(Float4Keyword) "float4"
+          Block
+            Token(OpenBraceToken) "{"
+            ListKind
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "scaled"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    BinaryExpression
+                      IdentifierName
+                        Token(IdentifierToken) "position"
+                      Token(OperatorToken) "*"
+                      IdentifierName
+                        Token(IdentifierToken) "Epsilon"
+              ReturnStatement
+                Token(ReturnKeyword) "return"
+                BinaryExpression
+                  IdentifierName
+                    Token(IdentifierToken) "world"
+                  Token(OperatorToken) "*"
+                  InvocationExpression
+                    PredefinedType
+                      Token(Float4Keyword) "float4"
+                    ArgumentList
+                      Token(OpenParenToken) "("
+                      ListKind
+                        Argument
+                          IdentifierName
+                            Token(IdentifierToken) "scaled"
+                        Token(CommaToken) ","
+                        Argument
+                          NumericLiteralExpression
+                            Token(NumericLiteralToken) "1"
+                      Token(CloseParenToken) ")"
+            Token(CloseBraceToken) "}"
+        MethodDeclaration
+          ListKind
+            AttributeList
+              Token(OpenBracketToken) "["
+              Attribute
+                IdentifierName
+                  Token(IdentifierToken) "PixelShader"
+              Token(CloseBracketToken) "]"
+            AttributeList
+              Token(OpenBracketToken) "["
+              Attribute
+                IdentifierName
+                  Token(IdentifierToken) "Semantic"
+                AttributeArgumentList
+                  Token(OpenParenToken) "("
+                  AttributeArgument
+                    StringLiteralExpression
+                      Token(StringLiteralToken) ""SV_Target""
+                  Token(CloseParenToken) ")"
+              Token(CloseBracketToken) "]"
+          Token(FuncKeyword) "func"
+          Token(IdentifierToken) "PSMain"
+          ParameterList
+            Token(OpenParenToken) "("
+            Parameter
+              AttributeList
+                Token(OpenBracketToken) "["
+                Attribute
+                  IdentifierName
+                    Token(IdentifierToken) "Semantic"
+                  AttributeArgumentList
+                    Token(OpenParenToken) "("
+                    AttributeArgument
+                      StringLiteralExpression
+                        Token(StringLiteralToken) ""TEXCOORD0""
+                    Token(CloseParenToken) ")"
+                Token(CloseBracketToken) "]"
+              Token(IdentifierToken) "uv"
+              Token(ColonToken) ":"
+              PredefinedType
+                Token(Float2Keyword) "float2"
+            Token(CloseParenToken) ")"
+          Token(ColonToken) ":"
+          PredefinedType
+            Token(Float4Keyword) "float4"
+          Block
+            Token(OpenBraceToken) "{"
+            ListKind
+              LocalDeclarationStatement
+                ConstDeclaration
+                  Token(ValKeyword) "val"
+                  Token(IdentifierToken) "lit"
+                  EqualsValueClause
+                    Token(EqualsToken) "="
+                    InvocationExpression
+                      IdentifierName
+                        Token(IdentifierToken) "saturate"
+                      ArgumentList
+                        Token(OpenParenToken) "("
+                        Argument
+                          InvocationExpression
+                            IdentifierName
+                              Token(IdentifierToken) "dot"
+                            ArgumentList
+                              Token(OpenParenToken) "("
+                              ListKind
+                                Argument
+                                  QualifiedName
+                                    IdentifierName
+                                      Token(IdentifierToken) "tint"
+                                    Token(DotToken) "."
+                                    IdentifierName
+                                      Token(IdentifierToken) "rgb"
+                                Token(CommaToken) ","
+                                Argument
+                                  QualifiedName
+                                    IdentifierName
+                                      Token(IdentifierToken) "tint"
+                                    Token(DotToken) "."
+                                    IdentifierName
+                                      Token(IdentifierToken) "rgb"
+                              Token(CloseParenToken) ")"
+                        Token(CloseParenToken) ")"
+              ReturnStatement
+                Token(ReturnKeyword) "return"
+                InvocationExpression
+                  PredefinedType
+                    Token(Float4Keyword) "float4"
+                  ArgumentList
+                    Token(OpenParenToken) "("
+                    ListKind
+                      Argument
+                        IdentifierName
+                          Token(IdentifierToken) "lit"
+                      Token(CommaToken) ","
+                      Argument
+                        IdentifierName
+                          Token(IdentifierToken) "lit"
+                      Token(CommaToken) ","
+                      Argument
+                        IdentifierName
+                          Token(IdentifierToken) "lit"
+                      Token(CommaToken) ","
+                      Argument
+                        NumericLiteralExpression
+                          Token(NumericLiteralToken) "1"
+                    Token(CloseParenToken) ")"
+            Token(CloseBraceToken) "}"
+      Token(CloseBraceToken) "}"
+    ShaderDeclaration
+      Token(ShaderKeyword) "shader"
+      Token(IdentifierToken) "Blur"
+      TypeParameterList
+        Token(LessThanToken) "<"
+        TypeParameter
+          Token(ValKeyword) "val"
+          Token(IdentifierToken) "TapCount"
+          Token(ColonToken) ":"
+          PredefinedType
+            Token(IntKeyword) "int"
+        Token(GreaterThanToken) ">"
+      Token(OpenBraceToken) "{"
+      ListKind
+        FieldDeclaration
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "source"
+            Token(ColonToken) ":"
+            IdentifierName
+              Token(IdentifierToken) "Texture2D"
+        MethodDeclaration
+          AttributeList
+            Token(OpenBracketToken) "["
+            Attribute
+              IdentifierName
+                Token(IdentifierToken) "PixelShader"
+            Token(CloseBracketToken) "]"
+          Token(FuncKeyword) "func"
+          Token(IdentifierToken) "PS"
+          ParameterList
+            Token(OpenParenToken) "("
+            Parameter
+              Token(IdentifierToken) "uv"
+              Token(ColonToken) ":"
+              PredefinedType
+                Token(Float2Keyword) "float2"
+            Token(CloseParenToken) ")"
+          Token(ColonToken) ":"
+          PredefinedType
+            Token(Float4Keyword) "float4"
+          Block
+            Token(OpenBraceToken) "{"
+            ListKind
+              IfStatement
+                Token(IfKeyword) "if"
+                Token(OpenParenToken) "("
+                BinaryExpression
+                  IdentifierName
+                    Token(IdentifierToken) "TapCount"
+                  Token(OperatorToken) ">"
+                  NumericLiteralExpression
+                    Token(NumericLiteralToken) "4"
+                Token(CloseParenToken) ")"
+                Block
+                  Token(OpenBraceToken) "{"
+                  ReturnStatement
+                    Token(ReturnKeyword) "return"
+                    InvocationExpression
+                      PredefinedType
+                        Token(Float4Keyword) "float4"
+                      ArgumentList
+                        Token(OpenParenToken) "("
+                        ListKind
+                          Argument
+                            NumericLiteralExpression
+                              Token(NumericLiteralToken) "0"
+                          Token(CommaToken) ","
+                          Argument
+                            NumericLiteralExpression
+                              Token(NumericLiteralToken) "0"
+                          Token(CommaToken) ","
+                          Argument
+                            NumericLiteralExpression
+                              Token(NumericLiteralToken) "0"
+                          Token(CommaToken) ","
+                          Argument
+                            NumericLiteralExpression
+                              Token(NumericLiteralToken) "1"
+                        Token(CloseParenToken) ")"
+                  Token(CloseBraceToken) "}"
+              EmptyStatement
+              ReturnStatement
+                Token(ReturnKeyword) "return"
+                InvocationExpression
+                  PredefinedType
+                    Token(Float4Keyword) "float4"
+                  ArgumentList
+                    Token(OpenParenToken) "("
+                    ListKind
+                      Argument
+                        NumericLiteralExpression
+                          Token(NumericLiteralToken) "1"
+                      Token(CommaToken) ","
+                      Argument
+                        NumericLiteralExpression
+                          Token(NumericLiteralToken) "1"
+                      Token(CommaToken) ","
+                      Argument
+                        NumericLiteralExpression
+                          Token(NumericLiteralToken) "1"
+                      Token(CommaToken) ","
+                      Argument
+                        NumericLiteralExpression
+                          Token(NumericLiteralToken) "1"
+                    Token(CloseParenToken) ")"
+            Token(CloseBraceToken) "}"
+      Token(CloseBraceToken) "}"
+    ShaderDeclaration
+      Token(ShaderKeyword) "shader"
+      Token(IdentifierToken) "Derived"
+      BaseList
+        Token(ColonToken) ":"
+        SimpleBaseType
+          IdentifierName
+            Token(IdentifierToken) "Everything"
+      Token(OpenBraceToken) "{"
+      MethodDeclaration
+        Token(FuncKeyword) "func"
+        Token(IdentifierToken) "Reach"
+        ParameterList
+          Token(OpenParenToken) "("
+          Token(CloseParenToken) ")"
+        Token(ColonToken) ":"
+        PredefinedType
+          Token(Float4Keyword) "float4"
+        Block
+          Token(OpenBraceToken) "{"
+          ReturnStatement
+            Token(ReturnKeyword) "return"
+            InvocationExpression
+              MemberAccessExpression
+                BaseExpression
+                  Token(BaseKeyword) "base"
+                Token(DotToken) "."
+                IdentifierName
+                  Token(IdentifierToken) "Access"
+              ArgumentList
+                Token(OpenParenToken) "("
+                Token(CloseParenToken) ")"
+          Token(CloseBraceToken) "}"
+      Token(CloseBraceToken) "}"
+    ProtocolDeclaration
+      Token(ProtocolKeyword) "protocol"
+      Token(IdentifierToken) "Shaded"
+      Token(OpenBraceToken) "{"
+      ListKind
+        PropertyDeclaration
+          Token(VarKeyword) "var"
+          Token(IdentifierToken) "Tint"
+          Token(ColonToken) ":"
+          PredefinedType
+            Token(Float4Keyword) "float4"
+          AccessorList
+            Token(OpenBraceToken) "{"
+            GetAccessorDeclaration
+              Token(GetKeyword) "get"
+              ArrowExpressionClause
+                Token(ArrowToken) "=>"
+                InvocationExpression
+                  PredefinedType
+                    Token(Float4Keyword) "float4"
+                  ArgumentList
+                    Token(OpenParenToken) "("
+                    ListKind
+                      Argument
+                        NumericLiteralExpression
+                          Token(NumericLiteralToken) "0"
+                      Token(CommaToken) ","
+                      Argument
+                        NumericLiteralExpression
+                          Token(NumericLiteralToken) "0"
+                      Token(CommaToken) ","
+                      Argument
+                        NumericLiteralExpression
+                          Token(NumericLiteralToken) "0"
+                      Token(CommaToken) ","
+                      Argument
+                        NumericLiteralExpression
+                          Token(NumericLiteralToken) "1"
+                    Token(CloseParenToken) ")"
+            Token(CloseBraceToken) "}"
+        MethodDeclaration
+          Token(FuncKeyword) "func"
+          Token(IdentifierToken) "Compute"
+          ParameterList
+            Token(OpenParenToken) "("
+            Token(CloseParenToken) ")"
+          Token(ColonToken) ":"
+          PredefinedType
+            Token(FloatKeyword) "float"
+      Token(CloseBraceToken) "}"
+    ShaderDeclaration
+      Token(ShaderKeyword) "shader"
+      Token(IdentifierToken) "Surface"
+      BaseList
+        Token(ColonToken) ":"
+        SimpleBaseType
+          IdentifierName
+            Token(IdentifierToken) "Shaded"
+      Token(OpenBraceToken) "{"
+      ListKind
+        FieldDeclaration
+          Token(ComposeKeyword) "compose"
+          ConstDeclaration
+            Token(ValKeyword) "val"
+            Token(IdentifierToken) "diffuse"
+            Token(ColonToken) ":"
+            IdentifierName
+              Token(IdentifierToken) "Shaded"
+        MethodDeclaration
+          Token(FuncKeyword) "func"
+          Token(IdentifierToken) "Compute"
+          ParameterList
+            Token(OpenParenToken) "("
+            Token(CloseParenToken) ")"
+          Token(ColonToken) ":"
+          PredefinedType
+            Token(FloatKeyword) "float"
+          ArrowExpressionClause
+            Token(ArrowToken) "=>"
+            NumericLiteralExpression
+              Token(NumericLiteralToken) "1f"
+      Token(CloseBraceToken) "}"
+    StructDeclaration
+      Token(StructKeyword) "struct"
+      Token(IdentifierToken) "Ray"
+      Token(OpenBraceToken) "{"
+      ListKind
+        FieldDeclaration
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "origin"
+            Token(ColonToken) ":"
+            PredefinedType
+              Token(Float3Keyword) "float3"
+        FieldDeclaration
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "direction"
+            Token(ColonToken) ":"
+            PredefinedType
+              Token(Float3Keyword) "float3"
+        ConstructorDeclaration
+          Token(InitKeyword) "init"
+          ParameterList
+            Token(OpenParenToken) "("
+            ListKind
+              Parameter
+                Token(IdentifierToken) "o"
+                Token(ColonToken) ":"
+                PredefinedType
+                  Token(Float3Keyword) "float3"
+              Token(CommaToken) ","
+              Parameter
+                Token(IdentifierToken) "d"
+                Token(ColonToken) ":"
+                PredefinedType
+                  Token(Float3Keyword) "float3"
+            Token(CloseParenToken) ")"
+          Block
+            Token(OpenBraceToken) "{"
+            ListKind
+              ExpressionStatement
+                AssignmentExpression
+                  IdentifierName
+                    Token(IdentifierToken) "origin"
+                  Token(OperatorToken) "="
+                  IdentifierName
+                    Token(IdentifierToken) "o"
+              ExpressionStatement
+                AssignmentExpression
+                  IdentifierName
+                    Token(IdentifierToken) "direction"
+                  Token(OperatorToken) "="
+                  IdentifierName
+                    Token(IdentifierToken) "d"
+            Token(CloseBraceToken) "}"
+        MethodDeclaration
+          Token(FuncKeyword) "func"
+          Token(IdentifierToken) "At"
+          ParameterList
+            Token(OpenParenToken) "("
+            Parameter
+              Token(IdentifierToken) "t"
+              Token(ColonToken) ":"
+              PredefinedType
+                Token(FloatKeyword) "float"
+            Token(CloseParenToken) ")"
+          Token(ColonToken) ":"
+          PredefinedType
+            Token(Float3Keyword) "float3"
+          ArrowExpressionClause
+            Token(ArrowToken) "=>"
+            BinaryExpression
+              IdentifierName
+                Token(IdentifierToken) "origin"
+              Token(OperatorToken) "+"
+              BinaryExpression
+                IdentifierName
+                  Token(IdentifierToken) "direction"
+                Token(OperatorToken) "*"
+                IdentifierName
+                  Token(IdentifierToken) "t"
+        MethodDeclaration
+          Token(FuncKeyword) "func"
+          Token(IdentifierToken) "Reset"
+          ParameterList
+            Token(OpenParenToken) "("
+            Token(CloseParenToken) ")"
+          Block
+            Token(OpenBraceToken) "{"
+            ExpressionStatement
+              AssignmentExpression
+                MemberAccessExpression
+                  SelfExpression
+                    Token(SelfKeyword) "self"
+                  Token(DotToken) "."
+                  IdentifierName
+                    Token(IdentifierToken) "origin"
+                Token(OperatorToken) "="
+                InvocationExpression
+                  PredefinedType
+                    Token(Float3Keyword) "float3"
+                  ArgumentList
+                    Token(OpenParenToken) "("
+                    ListKind
+                      Argument
+                        NumericLiteralExpression
+                          Token(NumericLiteralToken) "0"
+                      Token(CommaToken) ","
+                      Argument
+                        NumericLiteralExpression
+                          Token(NumericLiteralToken) "0"
+                      Token(CommaToken) ","
+                      Argument
+                        NumericLiteralExpression
+                          Token(NumericLiteralToken) "0"
+                    Token(CloseParenToken) ")"
+            Token(CloseBraceToken) "}"
+        OperatorDeclaration
+          IdentifierName
+            Token(IdentifierToken) "Ray"
+          Token(OperatorKeyword) "operator"
+          Token(OperatorToken) "+"
+          ParameterList
+            Token(OpenParenToken) "("
+            ListKind
+              Parameter
+                Token(IdentifierToken) "a"
+                Token(ColonToken) ":"
+                IdentifierName
+                  Token(IdentifierToken) "Ray"
+              Token(CommaToken) ","
+              Parameter
+                Token(IdentifierToken) "b"
+                Token(ColonToken) ":"
+                IdentifierName
+                  Token(IdentifierToken) "Ray"
+            Token(CloseParenToken) ")"
+          ArrowExpressionClause
+            Token(ArrowToken) "=>"
+            IdentifierName
+              Token(IdentifierToken) "a"
+        OperatorDeclaration
+          IdentifierName
+            Token(IdentifierToken) "Ray"
+          Token(OperatorKeyword) "operator"
+          Token(OperatorToken) "-"
+          ParameterList
+            Token(OpenParenToken) "("
+            ListKind
+              Parameter
+                Token(IdentifierToken) "a"
+                Token(ColonToken) ":"
+                IdentifierName
+                  Token(IdentifierToken) "Ray"
+              Token(CommaToken) ","
+              Parameter
+                Token(IdentifierToken) "b"
+                Token(ColonToken) ":"
+                IdentifierName
+                  Token(IdentifierToken) "Ray"
+            Token(CloseParenToken) ")"
+          ArrowExpressionClause
+            Token(ArrowToken) "=>"
+            IdentifierName
+              Token(IdentifierToken) "b"
+        OperatorDeclaration
+          PredefinedType
+            Token(BoolKeyword) "bool"
+          Token(OperatorKeyword) "operator"
+          Token(OperatorToken) "=="
+          ParameterList
+            Token(OpenParenToken) "("
+            ListKind
+              Parameter
+                Token(IdentifierToken) "a"
+                Token(ColonToken) ":"
+                IdentifierName
+                  Token(IdentifierToken) "Ray"
+              Token(CommaToken) ","
+              Parameter
+                Token(IdentifierToken) "b"
+                Token(ColonToken) ":"
+                IdentifierName
+                  Token(IdentifierToken) "Ray"
+            Token(CloseParenToken) ")"
+          ArrowExpressionClause
+            Token(ArrowToken) "=>"
+            TrueLiteralExpression
+              Token(TrueKeyword) "true"
+        OperatorDeclaration
+          PredefinedType
+            Token(BoolKeyword) "bool"
+          Token(OperatorKeyword) "operator"
+          Token(OperatorToken) "!="
+          ParameterList
+            Token(OpenParenToken) "("
+            ListKind
+              Parameter
+                Token(IdentifierToken) "a"
+                Token(ColonToken) ":"
+                IdentifierName
+                  Token(IdentifierToken) "Ray"
+              Token(CommaToken) ","
+              Parameter
+                Token(IdentifierToken) "b"
+                Token(ColonToken) ":"
+                IdentifierName
+                  Token(IdentifierToken) "Ray"
+            Token(CloseParenToken) ")"
+          ArrowExpressionClause
+            Token(ArrowToken) "=>"
+            FalseLiteralExpression
+              Token(FalseKeyword) "false"
+      Token(CloseBraceToken) "}"
+    StructDeclaration
+      Token(StructKeyword) "struct"
+      Token(IdentifierToken) "Box"
+      TypeParameterList
+        Token(LessThanToken) "<"
+        TypeParameter
+          Token(IdentifierToken) "T"
+        Token(GreaterThanToken) ">"
+      TypeParameterConstraintClause
+        Token(WhereKeyword) "where"
+        IdentifierName
+          Token(IdentifierToken) "T"
+        Token(ColonToken) ":"
+        TypeConstraint
+          IdentifierName
+            Token(IdentifierToken) "Shaded"
+      Token(OpenBraceToken) "{"
+      ListKind
+        FieldDeclaration
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "item"
+            Token(ColonToken) ":"
+            IdentifierName
+              Token(IdentifierToken) "T"
+        MethodDeclaration
+          Token(FuncKeyword) "func"
+          Token(IdentifierToken) "Item"
+          ParameterList
+            Token(OpenParenToken) "("
+            Token(CloseParenToken) ")"
+          Token(ColonToken) ":"
+          IdentifierName
+            Token(IdentifierToken) "T"
+          Block
+            Token(OpenBraceToken) "{"
+            ReturnStatement
+              Token(ReturnKeyword) "return"
+              IdentifierName
+                Token(IdentifierToken) "item"
+            Token(CloseBraceToken) "}"
+      Token(CloseBraceToken) "}"
+    StructDeclaration
+      Token(StructKeyword) "struct"
+      Token(IdentifierToken) "Pair"
+      Token(OpenBraceToken) "{"
+      ListKind
+        FieldDeclaration
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "values"
+            Token(ColonToken) ":"
+            TupleType
+              Token(OpenParenToken) "("
+              ListKind
+                TupleElement
+                  Token(IdentifierToken) "rgb"
+                  Token(ColonToken) ":"
+                  PredefinedType
+                    Token(Float3Keyword) "float3"
+                Token(CommaToken) ","
+                TupleElement
+                  Token(IdentifierToken) "a"
+                  Token(ColonToken) ":"
+                  PredefinedType
+                    Token(FloatKeyword) "float"
+              Token(CloseParenToken) ")"
+        FieldDeclaration
+          VariableDeclaration
+            Token(VarKeyword) "var"
+            Token(IdentifierToken) "plain"
+            Token(ColonToken) ":"
+            TupleType
+              Token(OpenParenToken) "("
+              ListKind
+                TupleElement
+                  PredefinedType
+                    Token(IntKeyword) "int"
+                Token(CommaToken) ","
+                TupleElement
+                  PredefinedType
+                    Token(FloatKeyword) "float"
+              Token(CloseParenToken) ")"
+      Token(CloseBraceToken) "}"
+    EnumDeclaration
+      Token(EnumKeyword) "enum"
+      Token(IdentifierToken) "Mode"
+      Token(OpenBraceToken) "{"
+      ListKind
+        EnumMemberDeclaration
+          Token(IdentifierToken) "Off"
+        Token(CommaToken) ","
+        EnumMemberDeclaration
+          Token(IdentifierToken) "On"
+          EqualsValueClause
+            Token(EqualsToken) "="
+            NumericLiteralExpression
+              Token(NumericLiteralToken) "5"
+        Token(CommaToken) ","
+        EnumMemberDeclaration
+          Token(IdentifierToken) "Auto"
+        Token(CommaToken) ","
+        EnumMemberDeclaration
+          Token(IdentifierToken) "Copied"
+          EqualsValueClause
+            Token(EqualsToken) "="
+            IdentifierName
+              Token(IdentifierToken) "On"
+        Token(CommaToken) ","
+        EnumMemberDeclaration
+          Token(IdentifierToken) "Computed"
+          EqualsValueClause
+            Token(EqualsToken) "="
+            BinaryExpression
+              NumericLiteralExpression
+                Token(NumericLiteralToken) "2"
+              Token(OperatorToken) "+"
+              NumericLiteralExpression
+                Token(NumericLiteralToken) "3"
+        Token(CommaToken) ","
+        EnumMemberDeclaration
+          Token(IdentifierToken) "Shifted"
+          EqualsValueClause
+            Token(EqualsToken) "="
+            BinaryExpression
+              NumericLiteralExpression
+                Token(NumericLiteralToken) "1"
+              Token(OperatorToken) "<<"
+              NumericLiteralExpression
+                Token(NumericLiteralToken) "4"
+        Token(CommaToken) ","
+        EnumMemberDeclaration
+          Token(IdentifierToken) "Negative"
+          EqualsValueClause
+            Token(EqualsToken) "="
+            UnaryMinusExpression
+              Token(OperatorToken) "-"
+              NumericLiteralExpression
+                Token(NumericLiteralToken) "1"
+      Token(CloseBraceToken) "}"
+    EnumDeclaration
+      Token(EnumKeyword) "enum"
+      Token(IdentifierToken) "Tagged"
+      Token(OpenBraceToken) "{"
+      ListKind
+        EnumMemberDeclaration
+          Token(IdentifierToken) "First"
+          EqualsValueClause
+            Token(EqualsToken) "="
+            NumericLiteralExpression
+              Token(NumericLiteralToken) "0x10"
+        Token(CommaToken) ","
+        EnumMemberDeclaration
+          Token(IdentifierToken) "Second"
+          EqualsValueClause
+            Token(EqualsToken) "="
+            NumericLiteralExpression
+              Token(NumericLiteralToken) "0b100"
+        Token(CommaToken) ","
+        EnumMemberDeclaration
+          Token(IdentifierToken) "Third"
+      Token(CloseBraceToken) "}"
+  Token(EndOfFileToken)

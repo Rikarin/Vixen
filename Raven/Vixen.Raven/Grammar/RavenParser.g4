@@ -6,8 +6,10 @@ parser grammar RavenParser;
 options { tokenVocab=RavenLexer; superClass=RavenParserBase; }
 
 
+// Leading NL* lets a file open with comments or blank lines — an SPDX header
+// (ADR-015) is comment lines whose terminators are NL tokens before `package`.
 compilation_unit
-    : package_declaration import_directive* member_declaration* EOF
+    : NL* package_declaration import_directive* member_declaration* EOF
     ;
 
 package_declaration

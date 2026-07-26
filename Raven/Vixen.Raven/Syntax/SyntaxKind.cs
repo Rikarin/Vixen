@@ -156,6 +156,8 @@ public enum SyntaxKind : ushort {
     ContinueKeyword,
     WhereKeyword,
     SelfKeyword,
+    BaseKeyword,
+    RepeatKeyword,
     OperatorKeyword,
     DotToken,
     CommaToken,
