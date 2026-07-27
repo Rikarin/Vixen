@@ -99,7 +99,7 @@ and changing the image.
 The render pass belongs to the caller, not to this. One pass may draw several stages, and the
 attachments belong to the render graph — a stage that opened its own pass could not be one of
 several in a subpass-fused mobile path. The Null backend refusing a draw outside a pass is what says
-so out loud.
+so out loud. `Compositor/RenderPassRenderer` is that caller in a composed frame.
 
 One `(view, stage)` at a time, because that is the unit a caller can put on its own thread: each gets
 a `RenderDrawContext` with its own command list, and they share nothing that is written.
@@ -114,11 +114,13 @@ example of everything above:
 | `MeshRenderFeature` | the draw calls | `MeshDraw` — buffers and a range |
 | `TransformRenderFeature` | where the object is | `Matrix4x4` world |
 | `MaterialRenderFeature` | which shader variant | `int` index into a material list |
+| `ForwardLightingRenderFeature` | which lights reach it | `LightAssignment` — an offset and a count |
 
-**None of the three references the others' data**, which is the arrangement working rather than a
-coincidence of it. A mesh that gains skinning gains a fourth array and none of these three files
-changes. A UI quad or a particle billboard has bounds and needs culling but has no world matrix at
-all — putting one on every object would make them carry 64 bytes to say nothing.
+**None of them references the others' data**, which is the arrangement working rather than a
+coincidence of it. Lighting was in fact added after the other three and changed none of them — a mesh
+that gains skinning goes the same way. A UI quad or a particle billboard has bounds and needs culling
+but has no world matrix at all — putting one on every object would make them carry 64 bytes to say
+nothing.
 
 `MaterialRenderFeature` is where the shader half of the engine meets the renderer half: preparation
 turns a material's `ParameterCollection` into an `EffectKey`, resolves it, and remembers the answer
@@ -136,12 +138,85 @@ guaranteed 128, and Raven warns at `RVN3007` if a shader's block exceeds that, s
 about the budget. The matrix is sent unchanged — see the `Matrix4x4` note in
 [Vixen.Shaders](../Vixen.Shaders/README.md).
 
+## Lighting
+
+`ForwardLightingRenderFeature` is the fourth sub-feature, and it registers an eight-byte
+`LightAssignment` per object: where that object's light block starts, and how many lights it holds.
+
+**Lights are selected against objects, never against the view frustum.** That looks like a missed
+optimisation and is a correctness requirement — a lamp behind the camera lights everything in front
+of it, so culling lights by the frustum would darken exactly the objects that are on screen. The
+frustum has already done its work: the objects considered are the ones that survived it.
+
+Range is measured to the sphere's **surface**, and the ranking is the same windowed inverse-square
+falloff the fragment will evaluate — so "the eight brightest" means the same thing on both sides.
+When more lights reach an object than the block holds, the dimmest are dropped; that minimises the
+error and it is also what pops, which is the argument for clustering rather than for a longer list.
+
+The directional light is not in anybody's list. It reaches everything, so paying list traversal for
+it would be paying for nothing — `Library/Pipeline/ForwardPlus.rvn` takes it as its own uniform for
+the same reason, and `Sun` is what a per-frame binder reads.
+
+**One buffer, one descriptor, a per-draw offset.** Every object's block lives in one uniform buffer
+reached through a `DynamicUniformBuffer`, so a thousand objects cost a thousand offsets rather than a
+thousand descriptor sets — the first real user of the mechanism `DescriptorKind` documents, and the
+avoidance of the single most common reason a Vulkan renderer ends up slower than the D3D11 one it
+replaced. The block's layout is `PunctualLight` from `Library/Shading/Lighting.rvn`, byte for byte:
+64 bytes, no padding, so the upload is a blit. A test asserts the offsets rather than trusting the
+comment, because the failure is silent — the shader reads whatever is at the offsets it was compiled
+for.
+
+## The compositor
+
+`Compositor/` is docs/plan/06's third idea from Stride: **the frame's structure is data the user
+edits, not code.** A `GraphicsCompositor` holds a tree of `SceneRenderer`s — a sequence, a render
+pass, a single stage from a single view, or a delegate — and "swap forward for deferred" is a
+different tree rather than a different build.
+
+Two phases, and the split is the design:
+
+```
+Collect   nodes declare which views they need and which stages those views draw
+          → then extract, cull, prepare, sort
+Draw      nodes open passes and record; nothing may declare a view here
+```
+
+**The view list is derived from the tree, not handed to it.** A stage is in a view's mask because a
+node draws it, so a stage nothing draws costs no culling and a stage that is drawn cannot have been
+left out of the mask. Masks are rebuilt each frame rather than accumulated: a stage removed from the
+tree stops being sorted for, instead of quietly producing a list nobody reads.
+
+There is no `ClearRenderer`, and that is not an omission — **clearing is a load action on an
+attachment.** Issuing it as its own operation is a D3D11-ism that costs a tile-based GPU a full extra
+pass writing a colour the next pass overwrites.
+
+### What decides a pipeline
+
+`DescribePipeline` is gone. Four things decide what a driver compiles, and each contributes only what
+it knows:
+
+| | Contributes |
+|---|---|
+| `Effect` | the shader modules and the pipeline layout |
+| `RenderStage` | how its objects are drawn — blend, depth, raster |
+| `RenderOutput` | what they are drawn into — formats and sample count |
+| vertex layout | how a vertex is read |
+
+Which is exactly `PipelineKey`, and `EffectPipelineDescriber` takes exactly those four. State belongs
+to the stage and formats to the pass because a stage is drawn into many passes: "Opaque" means
+depth-written *wherever* it is drawn, while what it draws into changes every time.
+
+`RenderOutput` holds **formats, not textures**, and that is what makes the whole thing work: the
+swapchain hands out a different image every frame and the render graph aliases transient targets
+freely, yet neither invalidates a single pipeline. Two passes of the same format share every
+pipeline; two passes of different formats share none — both asserted, because the second is the one
+that fails as a validation-layer complaint on one driver and a wrong image on another.
+
 ## What is not here yet
 
-Lighting, shadows, skinning, instancing and the `GraphicsCompositor` asset. `DescribePipeline` is a
-callback because the attachment formats and the blend and depth state belong to the pass a stage
-draws into, which is the compositor's to say; when the compositor asset exists it is what fills it
-in.
+Shadows, skinning, instancing, and the compositor as a serialised *asset* — the tree is data, but
+nothing loads one from disk yet. Area lights and clustered light culling on the CPU side; the
+clustered shader half (`Library/Pipeline/ClusterCulling.rvn`) already exists.
 
 GPU-driven culling is a second implementation of `VisibilityGroup` behind the same interface, which
 is why that interface is bits rather than a list.
@@ -153,3 +228,9 @@ testing table asks for exactly that), pins that the parallel path agrees with th
 word, and asserts that a settled frame of 10 000 objects through extract → cull → sort **allocates
 nothing**. The last one is the guard that a change starting to allocate per object per frame fails a
 test rather than appearing months later as a GC spike nobody can attribute.
+
+Everything from the mesh feature outward is driven through the **Null backend and asserted against
+the recorded command stream**, so what is checked is the calls that were made rather than the
+intention behind them: four objects sharing a material produce one `BindPipeline`; four objects
+produce four binds of one light set at four distinct offsets; the same objects in two passes of
+different formats produce two pipelines and in two passes of the same format produce one.

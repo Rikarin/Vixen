@@ -39,4 +39,14 @@ public sealed class RenderDrawContext(ICommandList commandList, EffectSystem eff
 
     /// <summary>The stage being recorded.</summary>
     public RenderStage? Stage { get; internal set; }
+
+    /// <summary>The formats of the pass currently open.</summary>
+    /// <remarks>
+    ///     Set by whatever opened the pass — <see cref="Compositor.RenderPassRenderer" /> in a
+    ///     composed frame — and read by any feature that has to build a pipeline. It is on the
+    ///     context rather than on the stage because a stage is drawn into more than one pass, and a
+    ///     pipeline built for the wrong formats is one the validation layers reject and a driver
+    ///     silently mis-renders.
+    /// </remarks>
+    public RenderOutput Output { get; set; }
 }
