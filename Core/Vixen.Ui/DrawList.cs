@@ -17,6 +17,12 @@ public enum DrawCommandKind : byte {
     /// <summary>A run of positioned glyphs in one font.</summary>
     Text,
 
+    /// <summary>The inside of a path.</summary>
+    Path,
+
+    /// <summary>A line along a path.</summary>
+    PathStroke,
+
     /// <summary>Everything after this is clipped to a rectangle, until the matching pop.</summary>
     ClipPush,
 
@@ -89,6 +95,10 @@ public readonly record struct DrawCommand(
     ///     put.
     /// </remarks>
     public float FontSize { get; init; }
+
+    /// <summary>How a filled path decides what is inside it.</summary>
+    /// <remarks>Only meaningful for <see cref="DrawCommandKind.Path" />.</remarks>
+    public PathFillRule FillRule { get; init; }
 }
 
 /// <summary>A frame's worth of drawing, and whether it differs from the last one.</summary>
@@ -111,6 +121,8 @@ public sealed class DrawList {
     readonly List<DrawCommand> previous = [];
     readonly List<PositionedGlyph> glyphs = [];
     readonly List<PositionedGlyph> previousGlyphs = [];
+    readonly List<PathSegment> segments = [];
+    readonly List<PathSegment> previousSegments = [];
     readonly List<FontFace> fonts = [];
 
     /// <summary>The commands, in the order they are drawn.</summary>
@@ -122,6 +134,9 @@ public sealed class DrawList {
     ///     of eight glyphs is not worth an allocation of its own several hundred times a frame.
     /// </remarks>
     public IReadOnlyList<PositionedGlyph> Glyphs => glyphs;
+
+    /// <summary>Every step of every path, back to back.</summary>
+    public IReadOnlyList<PathSegment> Segments => segments;
 
     /// <summary>The faces the text commands refer to, in the order they were first used.</summary>
     public IReadOnlyList<FontFace> Fonts => fonts;
@@ -142,6 +157,10 @@ public sealed class DrawList {
         previousGlyphs.AddRange(glyphs);
         glyphs.Clear();
 
+        previousSegments.Clear();
+        previousSegments.AddRange(segments);
+        segments.Clear();
+
         // The fonts are not kept for comparison, because a command referring to a different face
         // refers to it by a different index and the commands are compared. Rebuilt each frame so
         // that a face nothing draws with any more is not held alive by the list that stopped using
@@ -161,6 +180,18 @@ public sealed class DrawList {
 
         var offset = glyphs.Count;
         glyphs.AddRange(run);
+
+        return offset;
+    }
+
+    /// <summary>Puts a path in the side buffer.</summary>
+    /// <param name="path">The path.</param>
+    /// <returns>Where it starts, for the command that refers to it.</returns>
+    public int AddPath(PathBuilder path) {
+        ArgumentNullException.ThrowIfNull(path);
+
+        var offset = segments.Count;
+        segments.AddRange(path.Segments);
 
         return offset;
     }
@@ -204,7 +235,9 @@ public sealed class DrawList {
     ///     added an element does not need to compare the elements that did not change.
     /// </remarks>
     bool Differs() {
-        if (commands.Count != previous.Count || glyphs.Count != previousGlyphs.Count) {
+        if (commands.Count != previous.Count
+            || glyphs.Count != previousGlyphs.Count
+            || segments.Count != previousSegments.Count) {
             return true;
         }
 
@@ -221,6 +254,14 @@ public sealed class DrawList {
         // the old word.
         for (var i = 0; i < glyphs.Count; i++) {
             if (glyphs[i] != previousGlyphs[i]) {
+                return true;
+            }
+        }
+
+        // The same argument as the glyphs, and it bites harder: a control that animates a chart
+        // emits the same command over the same range every frame and moves only the points.
+        for (var i = 0; i < segments.Count; i++) {
+            if (segments[i] != previousSegments[i]) {
                 return true;
             }
         }

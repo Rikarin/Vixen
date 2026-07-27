@@ -98,6 +98,7 @@ public sealed class DrawListBuilder {
         // Between the border and the children, which is where CSS puts an element's own content:
         // a child overlaps its parent's text, and its parent's text overlaps its parent's border.
         EmitText(document, element, into);
+        element.OnDraw(new DrawContext(element, into));
 
         var clips = element.Style.TryGet(overflow, out var value) && value != visible;
         if (clips) {

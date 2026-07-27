@@ -1389,7 +1389,33 @@ sub-piece has its own gate.
   attached when the text goes broke nothing, because a measure function over no text answers zero and
   looks exactly like not having one; the consequence is that the node stays a *leaf*, so the test now
   gives the ex-label a child and checks that it is laid out.
-- Owed in `Vixen.Ui`: access keys, batching, path rendering, line wrapping, rich-text runs,
+- ✅ **Path rendering, and the custom-drawing hook it exists for.** A stylesheet describes boxes and
+  most of an interface is boxes; a chart, a knob and a hand-drawn icon are not. `UiElement.OnDraw` is
+  where a control draws itself, `DrawContext` is what it draws with, and `PathBuilder` is what it
+  draws — called after the element's background, border and text and before its children, which is
+  where CSS puts an element's own content.
+
+  ⚠ **Curves are kept as curves.** How finely to flatten a Bézier depends on how large it will be on
+  screen, which is a device scale the draw list does not know; flattened here, a path built once and
+  drawn at two zoom levels is faceted at one of them and nothing downstream can recover the curve.
+  **One fixed-size struct per verb** rather than Skia's verb array beside a point array — smaller
+  there, but it needs two ranges on the command and two cursors to walk, and one array keeps the
+  frame diff a comparison and the command's reference one range.
+
+  ⚠ **`Close` carries the point it closes to**, because a stroked path's closing join is drawn
+  differently from a line back to the same place — and a second contour closes to its own `MoveTo`,
+  which is what makes a path with a hole in it possible. `EvenOdd` is carried alongside `NonZero`
+  because it is how most icon sets punch the hole in a letter `o`.
+
+  Verified by sabotage: turning `Close` into a line fails 2, forgetting the contour start on `MoveTo`
+  fails 3, diffing without the path buffer fails 1, emitting a command for an empty path fails 1,
+  drawing custom content over the children rather than under them fails 1, and dropping the clip
+  fails 2.
+
+  ⚠ **One sabotage failed to fail and the test was sharpened.** Resetting the pen in `Clear` broke
+  nothing, because every test cleared and then moved — the reset only shows when a caller reads
+  `Current` on a freshly cleared builder, which is what a control reusing one between frames does.
+- Owed in `Vixen.Ui`: access keys, batching, line wrapping, rich-text runs,
   font fallback and weight matching, gradients, per-corner elliptical radii, pinch and rotate,
   virtualisation primitive, multi-window, DPI, and element removal.
 - `Vixen.Ui.Markup`: VXML lexer/parser on `Vixen.Core.Syntax`, binder, emitter, `#line` mapping.

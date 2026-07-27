@@ -25,8 +25,8 @@ top.
 | `UiDocument.FindInDirection` | Arrow navigation over the layout, by the beam model. |
 | `GestureRecognizer` | Taps with a count, long presses and drags, from timestamped pointer events. |
 | `FontRegistry`, `TextRun` | `font-family` → a face, shaping through a cache, measurement into layout, glyphs into the draw list. |
-| Access keys | ⏳ |
-| Batching, path rendering | ⏳ |
+| `PathBuilder`, `OnDraw` | Lines, curves, fills and strokes for the controls a stylesheet cannot describe. |
+| Access keys, batching | ⏳ |
 
 ## Focus
 
@@ -142,6 +142,33 @@ UAX#14 line breaker this needs.
 A glyph's position is relative to the start of its run and the command carries where that is, so two
 labels saying the same thing in different places hold identical glyph runs — which is what will let
 the batcher notice.
+
+## Paths and custom drawing
+
+A stylesheet describes boxes, and most of an interface is boxes. A chart, a sparkline, a knob and a
+hand-drawn icon are not, and there is no property for those. `UiElement.OnDraw` is where a control
+draws itself and `DrawContext` is what it draws with — called after the element's background, border
+and text and before its children, which is where CSS puts an element's own content.
+
+⚠ **Curves are kept as curves.** How finely to flatten a Bézier depends on how large it will be on
+screen, which is a device scale the draw list does not know. Flattened here, a path built once and
+drawn at two zoom levels is faceted at one of them, and nothing downstream can recover the curve to
+do better.
+
+**One fixed-size struct per verb**, points a verb does not use left at zero. Skia's design is a verb
+array beside a point array, which is smaller — a line costs one point rather than three — and needs
+two ranges on the command and two cursors to walk it. One array keeps the frame diff a comparison and
+the command's reference one range, which is worth more here than the bytes.
+
+**Fill and stroke are two commands over one path range**, not one command with a flag: they are
+different draws, and a shape that is both still describes its outline once.
+
+⚠ **`Close` carries the point it closes to.** A stroked path's closing join is drawn differently from
+a line back to the same place, so the verb has to survive — and a second contour has to close to its
+own `MoveTo`, which is what makes a path with a hole in it possible at all.
+
+`PathFillRule.EvenOdd` is there because it is how most icon sets punch the hole in a letter `o`, and
+a renderer that only knew non-zero would fill it in.
 
 ## The draw list
 

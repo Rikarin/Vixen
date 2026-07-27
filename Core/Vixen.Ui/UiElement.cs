@@ -258,6 +258,29 @@ public partial class UiElement {
     protected internal virtual void OnPropertyChanged(UiPropertyKey key) {
     }
 
+    /// <summary>Draws whatever this element is, beyond what a stylesheet can describe.</summary>
+    /// <param name="context">What to draw with.</param>
+    /// <remarks>
+    ///     <para>
+    ///         The escape hatch out of the declarative side. A stylesheet describes boxes and most of
+    ///         an interface is boxes; a chart, a sparkline, a knob and a hand-drawn icon are not, and
+    ///         there is no property for those. Overriding this is how a control draws itself.
+    ///     </para>
+    ///     <para>
+    ///         Called after the element's background, border and text and before its children, which
+    ///         is where CSS puts an element's own content — so custom drawing sits over the
+    ///         background it was given and under anything nested inside it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read-only as far as the tree is concerned.</b> This runs in the middle of a walk
+    ///         that is emitting commands in painting order, so changing a style or adding an element
+    ///         from here changes what is being walked. Nothing stops it and nothing can, short of a
+    ///         mode flag on the whole document; said plainly instead.
+    ///     </para>
+    /// </remarks>
+    protected internal virtual void OnDraw(DrawContext context) {
+    }
+
     /// <summary>Its left edge in document space, after the last layout pass.</summary>
     public float AbsoluteLeft { get; internal set; }
 
