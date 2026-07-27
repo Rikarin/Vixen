@@ -8,6 +8,13 @@
         <IsPackable>true</IsPackable>
         <PackAsTool>true</PackAsTool>
         <ToolCommandName>vixen-content-server</ToolCommandName>
+
+        <!--
+            Explicit, because the package id otherwise defaults to AssemblyName and this would ship
+            as `vixen-content-server`. The `Vixen.` prefix is the reserved one on nuget.org, so an
+            unprefixed id is not covered by the reservation. The command a person types is unchanged.
+        -->
+        <PackageId>Vixen.ContentServer</PackageId>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <Description>
             Serves a content build directory over HTTP with byte-range support, so a device can be
