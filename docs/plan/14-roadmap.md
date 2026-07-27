@@ -1186,9 +1186,38 @@ sub-piece has its own gate.
 
   ⚠ **The tree is append-only**, because `StyleTree` is: elements are created parents-first and never
   removed. Enough to lay out a document and not enough to run an application. Owed with the rest.
-- Owed in `Vixen.Ui`: generated property system, event routing, focus, hit testing, gestures,
-  draw list, batching, clipping, path rendering, virtualisation primitive, multi-window, DPI,
-  and element removal.
+- ✅ **The generated property system.** `[UiProperty]` on a partial property, and
+  `Vixen.Ui.Generators` supplies the accessors, the default, coercion, the change callback, optional
+  inheritance and a `UiPropertyKey` the runtime can find by name. Generated rather than reflected and
+  generated rather than rewritten — Stride builds the equivalent with a runtime
+  `DependencyPropertyFactory` and ADR-002 rejects that category.
+
+  ⚠ **Storage is a field, not a sparse table**, which is the opposite of what WPF does and
+  deliberate. A dependency-property table pays a dictionary probe per read to save memory on the
+  hundreds of properties a WPF element declares and never sets; a Vixen control declares perhaps a
+  dozen, there are 10⁴ elements, and reads happen every frame. The table is the more famous design
+  and the slower one.
+
+  ⚠ **Inheritance is generated as a typed walk.** Each inheriting property emits its own loop testing
+  `ancestor is TOwner`, so `Panel.Tint` finds the nearest `Panel` and an `Overlay` that also declares
+  a `Tint` is not it — a name-keyed lookup would have found the wrong one and looked right.
+
+  ⚠ **Construction and registration had to be split.** An element must be registered with both trees,
+  which needs a document, and a base constructor taking one plus two internal node handles would put
+  those handles in every subclass's signature in assemblies where they are not visible — so
+  subclassing `UiElement` from another assembly was impossible until it had a parameterless
+  constructor and `UiDocument.Create<T>` bound it afterwards. Which is also the shape markup needs,
+  since a generated `new Button()` cannot know a document either.
+
+  Verified by sabotage: ignoring whether an ancestor actually set a value fails 2, reading the old
+  value out of the backing field rather than through the property fails 1 — a spurious change on
+  every element that agrees with its parent — and dropping the registry's `RunClassConstructor` fails
+  2, since a property of a type nothing has touched would otherwise correctly report not existing.
+  Ignoring the attribute's declared default does not fail a test: it fails to *compile*, because the
+  generated code is type-checked like any other, which takes a class of generator bugs off the
+  testing budget entirely.
+- Owed in `Vixen.Ui`: event routing, focus, hit testing, gestures, draw list, batching, clipping,
+  path rendering, virtualisation primitive, multi-window, DPI, and element removal.
 - `Vixen.Ui.Markup`: VXML lexer/parser on `Vixen.Core.Syntax`, binder, emitter, `#line` mapping.
 - `Vixen.Ui.HotReload`: three reload channels, keyed reconciliation, `[HotReloadState]`.
 - UI render feature integrated into the renderer.

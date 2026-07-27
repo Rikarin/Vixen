@@ -17,8 +17,40 @@ top.
 | `LayoutStyleBuilder` | `ComputedStyle` → `LayoutStyle`. Every layout-affecting property, the nine CSS edges, and the font-size chain. |
 | `UiElement` | One node. A class, holding no geometry and no style — a handle into the two stores that do. |
 | `UiDocument` | The tree, its stylesheets, and the four-walk pass. |
-| Property system, event routing, hit testing | ⏳ |
+| `[UiProperty]` | Generated properties with defaults, coercion, change callbacks, inheritance and a runtime identity. |
+| Event routing, focus, hit testing | ⏳ |
 | Draw list, batching, clipping | ⏳ |
+
+## The property system
+
+A plain C# property is invisible to everything that has to find it at runtime — a stylesheet naming
+it, an animation targeting it, a binding writing it, an inspector listing it. `[UiProperty]` gives it
+an identity without giving up the typed accessor: `element.Radius` is a field read, and
+`key.SetValue(element, 4f)` reaches the same field.
+
+Generated rather than reflected, and generated rather than rewritten — Stride builds the equivalent
+with a runtime `DependencyPropertyFactory`, and ADR-002 rejects that whole category.
+
+⚠ **Storage is a field, not a sparse table**, which is the opposite of what WPF does. A
+dependency-property table pays a dictionary probe per read to save memory on the hundreds of
+properties a WPF element declares and never sets; a Vixen control declares perhaps a dozen, there are
+10⁴ elements, and reads happen every frame. The table is the more famous design and the slower one.
+
+⚠ **Inheritance is a typed walk, not a name lookup.** Each inheriting property emits its own loop
+testing `ancestor is TOwner`, so `Panel.Tint` finds the nearest `Panel` — and an `Overlay` that also
+declares a `Tint` is not it. Keyed on the name, it would have found the wrong one and been
+confidently right-looking.
+
+⚠ **The old value is read through the property, not out of the field.** On an element that has only
+ever inherited, the field is still empty, so comparing against it reports a change from zero on the
+first write that agrees with the parent — a spurious invalidation on every element that matches its
+ancestor.
+
+**Construction and registration are two steps.** An element must be registered with both trees, which
+needs a document; a base constructor taking one plus two internal node handles would put those
+handles in every subclass's signature, in assemblies where they are not visible. So `UiElement()` is
+parameterless and `UiDocument.Create<T>` binds it afterwards — which is also the shape markup needs,
+since a generated `new Button()` cannot know a document either.
 
 ## The pass
 

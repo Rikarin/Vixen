@@ -29,6 +29,16 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!--
+            The [UiProperty] generator. Analyzers do not flow transitively through a ProjectReference,
+            so anything that declares UI properties references it directly the way this does.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Ui.Tests" />
     </ItemGroup>
 

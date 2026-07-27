@@ -111,13 +111,25 @@ public sealed class UiDocument : IDisposable {
     /// <param name="id">Its identifier.</param>
     /// <param name="classNames">Its classes.</param>
     /// <returns>The element.</returns>
-    public UiElement Create(string tag, UiElement? parent, string? id = null, params ReadOnlySpan<string> classNames) {
+    public UiElement Create(string tag, UiElement? parent, string? id = null, params ReadOnlySpan<string> classNames) =>
+        Create<UiElement>(tag, parent, id, classNames);
+
+    /// <summary>Creates an element of a particular type.</summary>
+    /// <typeparam name="T">The element type, which needs a parameterless constructor.</typeparam>
+    /// <param name="tag">Its element name.</param>
+    /// <param name="parent">Its parent, or <c>null</c> for the root.</param>
+    /// <param name="id">Its identifier.</param>
+    /// <param name="classNames">Its classes.</param>
+    /// <returns>The element.</returns>
+    public T Create<T>(string tag, UiElement? parent, string? id = null, params ReadOnlySpan<string> classNames)
+        where T : UiElement, new() {
         ArgumentNullException.ThrowIfNull(tag);
 
         var styleNode = Styles.Tree.CreateElement(tag, parent?.StyleNode, id, classNames);
         var layoutNode = Layout.CreateNode();
 
-        var element = new UiElement(this, tag, parent, styleNode, layoutNode);
+        var element = new T();
+        element.Bind(this, tag, parent, styleNode, layoutNode);
 
         if (parent is not null) {
             parent.Attach(element);
