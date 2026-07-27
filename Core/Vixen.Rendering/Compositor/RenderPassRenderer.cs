@@ -42,8 +42,17 @@ public sealed class RenderPassRenderer : SceneRenderer {
     /// <summary>The name of its depth attachment, or null for a pass with none.</summary>
     public string? DepthTarget { get; set; }
 
-    /// <summary>The names of resources this pass samples.</summary>
+    /// <summary>The names of textures this pass samples.</summary>
     public IList<string> Reads { get; } = [];
+
+    /// <summary>The names of buffers it reads.</summary>
+    /// <remarks>
+    ///     Separate from <see cref="Reads" /> because a buffer and a texture are different resources
+    ///     in the graph, not because a pass thinks of them differently. A forward pass reading the
+    ///     cluster list a compute pass wrote is the case this exists for, and it is the same edge:
+    ///     the read orders the two and puts the barrier between them.
+    /// </remarks>
+    public IList<string> BufferReads { get; } = [];
 
     /// <summary>What to do with the colour attachments at the start of the pass.</summary>
     public LoadAction Load { get; set; } = LoadAction.Clear;
@@ -97,6 +106,7 @@ public sealed class RenderPassRenderer : SceneRenderer {
         var depthFormat = depth.IsValid ? frame.FormatOf(ToString(), DepthTarget!) : PixelFormat.Undefined;
         var output = new RenderOutput(formats, depthFormat, SampleCount);
         var sampled = Reads.Select(read => frame.Texture(ToString(), read)).ToArray();
+        var consumed = BufferReads.Select(read => frame.Buffer(ToString(), read)).ToArray();
 
         frame.Graph.AddPass(
             ToString(),
@@ -110,6 +120,10 @@ public sealed class RenderPassRenderer : SceneRenderer {
                 }
 
                 foreach (var read in sampled) {
+                    pass.Reads(read);
+                }
+
+                foreach (var read in consumed) {
                     pass.Reads(read);
                 }
 

@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
+using Vixen.Shaders;
 
 namespace Vixen.Rendering.Features;
 
@@ -40,7 +41,8 @@ namespace Vixen.Rendering.Features;
 ///         reason. <see cref="Sun" /> is what a per-frame binder reads.
 ///     </para>
 /// </remarks>
-public sealed class ForwardLightingRenderFeature : SubRenderFeature, IDrawSubFeature {
+public sealed class ForwardLightingRenderFeature
+    : SubRenderFeature, IDrawSubFeature, IPermutationSubFeature, IDisposable {
     /// <summary>How many bytes precede the light array in the block.</summary>
     /// <remarks>
     ///     A <c>uint</c> count followed by twelve bytes of padding, because std140 starts an array of
@@ -51,6 +53,10 @@ public sealed class ForwardLightingRenderFeature : SubRenderFeature, IDrawSubFea
 
     readonly List<RenderLight> lights = [];
     readonly List<int> punctual = [];
+    readonly UploadBuffer<PunctualLightData> scene = new("ForwardLighting.Scene");
+    readonly List<PermutationKey<bool>> keys;
+    PunctualLightData[] flattened = [];
+    bool disposed;
 
     int[] chosen = [];
     float[] scores = [];
@@ -61,6 +67,9 @@ public sealed class ForwardLightingRenderFeature : SubRenderFeature, IDrawSubFea
     BufferHandle buffer;
     DescriptorSetLayoutHandle layout;
     DescriptorSetHandle descriptors;
+
+    /// <summary>Creates the feature, interning its permutation key.</summary>
+    public ForwardLightingRenderFeature() => keys = [ParameterKeys.NewPermutation(false, "Vixen.Clustered")];
 
     /// <inheritdoc />
     public override string Name => "ForwardLighting";
@@ -102,6 +111,42 @@ public sealed class ForwardLightingRenderFeature : SubRenderFeature, IDrawSubFea
 
     /// <summary>The device the light buffer lives on. Set before the first frame that prepares.</summary>
     public IGraphicsDevice? Device { get; set; }
+
+    /// <summary>
+    ///     Whether the scene's lights are culled into a cluster grid instead of into per-object lists.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The switch between the two halves of docs/plan/06's default pipeline, and what it turns
+    ///         off is the interesting part: <strong>clustered lighting has no per-object work at
+    ///         all</strong>. No selection, no block per object, no descriptor bound per draw — the
+    ///         whole per-object path here goes quiet, and what replaces it is one compute dispatch and
+    ///         one buffer every fragment indexes.
+    ///     </para>
+    ///     <para>
+    ///         Which is why it is a permutation rather than a branch: the two variants read different
+    ///         bindings, so a runtime branch would keep the per-draw block alive in a shader that
+    ///         never looks at it. <c>ForwardPlus.rvn</c> says the same thing from the other side.
+    ///     </para>
+    /// </remarks>
+    public bool Clustered { get; set; }
+
+    /// <summary>Every light in the scene, as the culling pass reads them.</summary>
+    /// <remarks>
+    ///     One buffer for the whole scene rather than a list per object, and it is filled whichever
+    ///     path is on — the clustered pass culls it, and a host that wants to inspect what a frame
+    ///     was lit by has one place to look.
+    /// </remarks>
+    public BufferHandle SceneBuffer => scene.Buffer;
+
+    /// <summary>How many lights the scene buffer holds this frame.</summary>
+    public int SceneLightCount => scene.Count;
+
+    /// <inheritdoc />
+    public IReadOnlyList<PermutationKey<bool>> PermutationKeys => keys;
+
+    /// <inheritdoc />
+    public bool ValueOf(RenderSystem system, RenderObjectId id, int index) => Clustered;
 
     /// <summary>Which descriptor set the block is bound to.</summary>
     public DescriptorSetSlot Slot { get; set; } = DescriptorSetSlot.PerDraw;
@@ -186,6 +231,14 @@ public sealed class ForwardLightingRenderFeature : SubRenderFeature, IDrawSubFea
         }
 
         SplitByKind();
+        UploadScene();
+
+        if (Clustered) {
+            // Nothing per object. The cluster grid is what a fragment looks itself up in, so choosing
+            // eight lights for an object here would be work whose answer no shader reads.
+            return;
+        }
+
         Resize();
 
         var assignments = system.Objects.Data.Data(Assignments);
@@ -234,7 +287,7 @@ public sealed class ForwardLightingRenderFeature : SubRenderFeature, IDrawSubFea
         ArgumentNullException.ThrowIfNull(system);
         ArgumentNullException.ThrowIfNull(context);
 
-        if (!descriptors.IsValid) {
+        if (Clustered || !descriptors.IsValid) {
             return;
         }
 
@@ -355,6 +408,32 @@ public sealed class ForwardLightingRenderFeature : SubRenderFeature, IDrawSubFea
         return false;
     }
 
+    /// <summary>Flattens every punctual light into the scene buffer, once for the frame.</summary>
+    /// <remarks>
+    ///     Directional lights are left out, exactly as they are left out of a per-object list and for
+    ///     the same reason: the culling pass would put one in every cluster, which is paying list
+    ///     traversal for something always present. The sun is a uniform on both paths.
+    /// </remarks>
+    void UploadScene() {
+        scene.Device = Device;
+        scene.Begin();
+
+        if (punctual.Count == 0) {
+            return;
+        }
+
+        if (flattened.Length < punctual.Count) {
+            flattened = new PunctualLightData[Math.Max(punctual.Count, 64)];
+        }
+
+        for (var i = 0; i < punctual.Count; i++) {
+            flattened[i] = lights[punctual[i]].ToGpu();
+        }
+
+        scene.Add(flattened.AsSpan(0, punctual.Count));
+        scene.Upload();
+    }
+
     void SplitByKind() {
         punctual.Clear();
 
@@ -441,4 +520,14 @@ public sealed class ForwardLightingRenderFeature : SubRenderFeature, IDrawSubFea
 
     static int Align(int value, int alignment) =>
         alignment <= 1 ? value : (value + alignment - 1) / alignment * alignment;
+
+    /// <inheritdoc />
+    public void Dispose() {
+        if (disposed) {
+            return;
+        }
+
+        disposed = true;
+        scene.Dispose();
+    }
 }

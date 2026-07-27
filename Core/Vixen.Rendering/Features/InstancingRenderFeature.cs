@@ -49,7 +49,7 @@ public interface IInstanceSource {
 /// </remarks>
 public sealed class InstancingRenderFeature
     : SubRenderFeature, IPermutationSubFeature, IInstanceSource, IDisposable {
-    readonly MatrixBuffer transforms = new("Instancing.Transforms");
+    readonly UploadBuffer<Matrix4x4> transforms = new("Instancing.Transforms");
     readonly List<PermutationKey<bool>> keys;
     bool disposed;
 

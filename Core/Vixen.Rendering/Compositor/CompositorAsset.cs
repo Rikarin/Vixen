@@ -63,6 +63,30 @@ public sealed record RenderResourceAsset {
     }
 }
 
+/// <summary>
+///     A buffer the frame declares and the render graph owns.
+/// </summary>
+/// <remarks>
+///     A cluster list is the case this exists for: written by a compute pass and read by the shading
+///     pass in the same frame, and needed by nothing outside it. Declaring it rather than importing
+///     it is what lets the graph drop the whole culling pass when nothing consumes the result — and
+///     is why a light list, which the host fills before the frame begins, is an import instead.
+/// </remarks>
+[DataContract("Buffer")]
+public sealed record RenderBufferAsset {
+    /// <summary>What passes refer to it by.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>How many bytes it holds.</summary>
+    public long Size { get; init; }
+
+    /// <summary>What it is for.</summary>
+    public BufferUsage Usage { get; init; } = BufferUsage.Storage;
+
+    /// <summary>This declaration as a buffer description.</summary>
+    public BufferDescription Describe() => new(Math.Max(Size, 1), Usage, MemoryAccess.DeviceLocal, Name);
+}
+
 /// <summary>One node of an authored compositor graph.</summary>
 /// <remarks>
 ///     <para>
@@ -194,6 +218,9 @@ public sealed record RenderPassAsset : ISceneRendererAsset {
     /// </remarks>
     public string[] Reads { get; init; } = [];
 
+    /// <summary>The names of buffers this pass reads — a cluster list, a light list.</summary>
+    public string[] BufferReads { get; init; } = [];
+
     /// <summary>What draws into it.</summary>
     public ISceneRendererAsset[] Children { get; init; } = [];
 }
@@ -299,6 +326,9 @@ public sealed record GraphicsCompositorAsset {
 
     /// <summary>The transient targets the frame declares, which passes refer to by name.</summary>
     public RenderResourceAsset[] Resources { get; init; } = [];
+
+    /// <summary>The transient buffers it declares.</summary>
+    public RenderBufferAsset[] Buffers { get; init; } = [];
 
     /// <summary>The root of the graph — the whole frame.</summary>
     public ISceneRendererAsset? Game { get; init; }

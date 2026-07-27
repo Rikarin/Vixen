@@ -34,7 +34,7 @@ namespace Vixen.Rendering.Features;
 ///     </para>
 /// </remarks>
 public sealed class SkinningRenderFeature : SubRenderFeature, IDrawSubFeature, IPermutationSubFeature, IDisposable {
-    readonly MatrixBuffer palette = new("Skinning.Bones");
+    readonly UploadBuffer<Matrix4x4> palette = new("Skinning.Bones");
     readonly List<PermutationKey<bool>> keys;
     bool disposed;
 
