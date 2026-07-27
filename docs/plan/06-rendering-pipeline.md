@@ -147,7 +147,7 @@ Priority column: **P1** = required for the 1.0 renderer, **P2** = post-1.0.
 
 | Feature | Pri | Notes |
 |---|---|---|
-| Static mesh | P1 | indexed, multiple submeshes, per-submesh material |
+| Static mesh | ✅ | `MeshRenderFeature` + `TransformRenderFeature` + `MaterialRenderFeature`. A mesh with three materials is three render objects sharing one pair of buffers, so each sorts into its own place — one object with a submesh list would have to pick one sort key for three pipelines and be drawn at the wrong depth for two of them |
 | Skinned mesh | P1 | GPU skinning, bone matrix palette in a storage buffer, dual-quaternion option |
 | Blend shapes / morph targets | P2 | |
 | GPU instancing | P1 | Stride's `InstancingRenderFeature` model; auto-batched by pipeline+material |

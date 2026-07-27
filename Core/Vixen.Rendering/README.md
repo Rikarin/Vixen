@@ -104,12 +104,44 @@ so out loud.
 One `(view, stage)` at a time, because that is the unit a caller can put on its own thread: each gets
 a `RenderDrawContext` with its own command list, and they share nothing that is written.
 
+## The first concrete feature
+
+`Features/` holds `MeshRenderFeature` with two sub-features, and between them they are the worked
+example of everything above:
+
+| | Owns | Registers |
+|---|---|---|
+| `MeshRenderFeature` | the draw calls | `MeshDraw` — buffers and a range |
+| `TransformRenderFeature` | where the object is | `Matrix4x4` world |
+| `MaterialRenderFeature` | which shader variant | `int` index into a material list |
+
+**None of the three references the others' data**, which is the arrangement working rather than a
+coincidence of it. A mesh that gains skinning gains a fourth array and none of these three files
+changes. A UI quad or a particle billboard has bounds and needs culling but has no world matrix at
+all — putting one on every object would make them carry 64 bytes to say nothing.
+
+`MaterialRenderFeature` is where the shader half of the engine meets the renderer half: preparation
+turns a material's `ParameterCollection` into an `EffectKey`, resolves it, and remembers the answer
+per object — so by recording time "which shader" is an array lookup. It resolves **per material, not
+per object**: ten thousand objects sharing twenty materials resolve twenty times.
+
+**The sort group comes from the resolved effect**, and that is what closes the loop. Objects that
+will bind the same pipeline get the same group, the key puts groups above depth, they land adjacent,
+and the mesh feature sees one run and binds once. Break any link and four objects sharing a material
+become four pipeline binds — which is asserted, not assumed.
+
+The transform goes out as **push constants**: the smallest, most per-draw thing a frame has, with no
+descriptor, no upload-ring allocation and no offset to track. A `mat4` is 64 bytes against Vulkan's
+guaranteed 128, and Raven warns at `RVN3007` if a shader's block exceeds that, so both sides agree
+about the budget. The matrix is sent unchanged — see the `Matrix4x4` note in
+[Vixen.Shaders](../Vixen.Shaders/README.md).
+
 ## What is not here yet
 
-Materials, lighting, shadows, the concrete features (mesh, transform, skinning, instancing) and the
-`GraphicsCompositor` asset. What a draw call *contains* is a feature's business — this owns which
-feature is handed which nodes in what order, which is the split that lets the renderer own sorting
-without owning materials.
+Lighting, shadows, skinning, instancing and the `GraphicsCompositor` asset. `DescribePipeline` is a
+callback because the attachment formats and the blend and depth state belong to the pass a stage
+draws into, which is the compositor's to say; when the compositor asset exists it is what fills it
+in.
 
 GPU-driven culling is a second implementation of `VisibilityGroup` behind the same interface, which
 is why that interface is bits rather than a list.

@@ -351,3 +351,17 @@ dotnet_diagnostic.CA1051.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Shaders/ParameterCollection.cs]
 dotnet_diagnostic.CA1711.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Rendering/Mesh.cs
+#
+# CA1051 (do not declare visible instance fields). `MeshDraw` is an element of a
+# RenderDataHolder array — native memory, read through a `ref` per object in the
+# draw loop — so it is a data layout for the same reasons RenderObject.cs is
+# exempted above, and a property returning a copy would silently drop a write.
+#
+# `Material` in the same file is an ordinary reference type with properties, and
+# is unaffected: the exemption is about the struct that shares the file with it.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Rendering/Mesh.cs]
+dotnet_diagnostic.CA1051.severity = none
