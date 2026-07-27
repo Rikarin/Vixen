@@ -160,8 +160,13 @@ Three shipped `GraphicsCompositor` presets, all built from the same features:
 The right default in 2026. Depth prepass → light clustering in compute → single opaque forward pass
 with clustered light lookup → transparent pass → post FX.
 
-- **Clustering:** froxel grid (e.g. 16×9×24 with exponential depth slices), lights binned in compute,
-  per-cluster light index list in a storage buffer. Falls back to tiled (2D) on GLES and to
+- **Clustering:** ✅ froxel grid (16×9×24 with exponential depth slices), lights binned in compute,
+  per-cluster light index list in a storage buffer. `ComputeRenderer` is the compute pass as a
+  compositor node, and the edge that made it possible is the one it declares: compute *writes* the
+  cluster buffer and the shading pass *reads* it, so the graph orders them and places the barrier.
+  The buffer is declared rather than imported, so a cull nothing consumes is dropped with its
+  dispatch. Clustered lighting then costs **nothing per object** — no selection, no per-draw block,
+  no descriptor per draw. Falls back to tiled (2D) on GLES and to
   per-object light lists (Stride's `ForwardLightingRenderFeature` approach, max N lights per draw) on
   WebGL2 where compute is absent.
 - **Why default:** MSAA works, transparency works, material variety is unconstrained, memory

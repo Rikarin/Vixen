@@ -88,6 +88,14 @@ public sealed class GraphicsCompositor(RenderSystem system) {
     /// </remarks>
     public Dictionary<string, ImportedTexture> Imports { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>Buffers the host lends the frame, by name.</summary>
+    /// <remarks>
+    ///     A scene's light list and the cluster list a compute pass writes into it. Imported rather
+    ///     than declared because the host filled the first before the frame began and owns both, and
+    ///     because a buffer a later frame reads is by definition not transient.
+    /// </remarks>
+    public Dictionary<string, ImportedBuffer> BufferImports { get; } = new(StringComparer.Ordinal);
+
     /// <summary>Transient resources the frame declares, by name.</summary>
     /// <remarks>
     ///     Filled by <see cref="CompositorBuilder" /> from the asset's <c>resources</c>, or by a host
@@ -95,6 +103,9 @@ public sealed class GraphicsCompositor(RenderSystem system) {
     ///     do not overlap can be the same memory.
     /// </remarks>
     public IList<RenderResourceAsset> Resources { get; } = [];
+
+    /// <summary>Transient buffers the frame declares, by name.</summary>
+    public IList<RenderBufferAsset> BufferResources { get; } = [];
 
     /// <summary>The frame's reference size, which a scaled resource is a fraction of.</summary>
     public Int2 FrameSize { get; set; } = new(1, 1);
@@ -140,6 +151,13 @@ public sealed class GraphicsCompositor(RenderSystem system) {
             );
         }
 
+        foreach (var (name, imported) in BufferImports) {
+            frame.Add(
+                name,
+                graph.ImportBuffer(imported.Buffer, imported.Description, imported.EntryState, imported.ExitState)
+            );
+        }
+
         foreach (var declared in Resources) {
             // An import of the same name wins. A host that has a real texture for something the
             // document also describes — a scene colour that is the swapchain image in one preset and
@@ -149,6 +167,14 @@ public sealed class GraphicsCompositor(RenderSystem system) {
             }
 
             frame.Add(declared.Name, graph.CreateTexture(declared.Describe(FrameSize)), declared.Format);
+        }
+
+        foreach (var declared in BufferResources) {
+            if (frame.HasBuffer(declared.Name)) {
+                continue;
+            }
+
+            frame.Add(declared.Name, graph.CreateBuffer(declared.Describe()));
         }
 
         if (Game is { Enabled: true }) {

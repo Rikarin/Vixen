@@ -100,6 +100,10 @@ public sealed class CompositorBuilder(RenderSystem system) {
             compositor.Resources.Add(resource);
         }
 
+        foreach (var buffer in asset.Buffers) {
+            compositor.BufferResources.Add(buffer);
+        }
+
         return compositor;
     }
 
@@ -178,6 +182,10 @@ public sealed class CompositorBuilder(RenderSystem system) {
 
         foreach (var read in declared.Reads) {
             node.Reads.Add(read);
+        }
+
+        foreach (var read in declared.BufferReads) {
+            node.BufferReads.Add(read);
         }
 
         foreach (var child in declared.Children) {

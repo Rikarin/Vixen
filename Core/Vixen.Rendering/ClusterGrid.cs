@@ -1,0 +1,129 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Runtime.InteropServices;
+using Vixen.Core.Mathematics;
+
+namespace Vixen.Rendering;
+
+/// <summary>
+///     The froxel grid clustered light culling bins into — the host's half of
+///     <c>Raven/Library/Pipeline/ClusterCulling.rvn</c>.
+/// </summary>
+/// <remarks>
+///     <para>
+///         Every number here is duplicated from the shader, and that is not a smell to be refactored
+///         away: they are <c>const</c> there rather than permutations because they size an array
+///         <em>inside a struct</em>, and a struct's shape cannot depend on a variant while the host
+///         binds one buffer. So both sides have to agree by construction, and a test asserts they do
+///         rather than a comment asking.
+///     </para>
+///     <para>
+///         <strong>A grid rather than screen tiles</strong>, which is one extra dimension for one
+///         specific problem: a 2D tile holding both a nearby wall and distant sky gets a list long
+///         enough for both, and every fragment in it pays. Slicing depth bounds that — a fragment only
+///         reads lights that reach its own slab.
+///     </para>
+///     <para>
+///         <strong>The slices are exponential.</strong> A linear split spends most of its slices on
+///         distance nothing occupies; <c>near · (far/near)^(k/n)</c> gives every slice the same ratio
+///         of depths, which is how perspective actually distributes what a camera sees — and is
+///         invertible in closed form, so a fragment finds its slice with a logarithm instead of a
+///         search.
+///     </para>
+/// </remarks>
+public static class ClusterGrid {
+    /// <summary>Tiles across the screen.</summary>
+    public const int TilesX = 16;
+
+    /// <summary>Tiles down it.</summary>
+    public const int TilesY = 9;
+
+    /// <summary>Depth slices.</summary>
+    public const int Slices = 24;
+
+    /// <summary>
+    ///     How many lights one cluster can hold.
+    /// </summary>
+    /// <remarks>
+    ///     The cost of the culling pass having no atomic: a cluster owns a fixed slice of the output
+    ///     buffer that only one invocation ever writes, which removes the sharing rather than
+    ///     synchronising it. Thirty-two is a budget and not a bound on the scene — a cluster that
+    ///     would have held more drops the rest, which shows as lights winking out in the densest part
+    ///     of a scene rather than as a crash.
+    /// </remarks>
+    public const int Capacity = 32;
+
+    /// <summary>How many clusters the grid has.</summary>
+    public const int Count = TilesX * TilesY * Slices;
+
+    /// <summary>The workgroup size the culling shader declares.</summary>
+    /// <remarks>
+    ///     4×4×4, so the three dispatch dimensions map straight onto the grid's and an invocation's
+    ///     cluster is its thread id. The grid is not a multiple of four in <c>y</c>, so the tail
+    ///     invocations have no cluster and return — which is why <see cref="GroupCount" /> rounds up
+    ///     and the shader bounds-tests.
+    /// </remarks>
+    public static Int3 WorkgroupSize => new(4, 4, 4);
+
+    /// <summary>How many workgroups a full cull dispatches.</summary>
+    public static Int3 GroupCount =>
+        new(
+            (TilesX + WorkgroupSize.X - 1) / WorkgroupSize.X,
+            (TilesY + WorkgroupSize.Y - 1) / WorkgroupSize.Y,
+            (Slices + WorkgroupSize.Z - 1) / WorkgroupSize.Z
+        );
+
+    /// <summary>How many bytes the cluster buffer needs.</summary>
+    /// <remarks>
+    ///     <c>Count × sizeof(ClusterLights)</c>, and worth looking at: about 445 KB at this grid size
+    ///     and capacity. That is the number a project trades against — halving the capacity halves it,
+    ///     and doubling the slices doubles it.
+    /// </remarks>
+    public static long BufferSize => (long)Count * Marshal.SizeOf<ClusterLights>();
+
+    /// <summary>The flat index of a cluster, which is also its slot in the buffer.</summary>
+    /// <remarks>
+    ///     x fastest, then y, then slice: two fragments in neighbouring tiles at the same depth land
+    ///     in adjacent slots, which is the access pattern a fragment wave actually has.
+    /// </remarks>
+    public static int Index(int x, int y, int slice) => x + (y * TilesX) + (slice * TilesX * TilesY);
+
+    /// <summary>The view-space depth at which a slice begins.</summary>
+    public static float SliceDepth(int slice, float near, float far) =>
+        near * MathF.Pow(far / near, slice / (float)Slices);
+
+    /// <summary>Which slice a view-space depth falls in — the inverse of <see cref="SliceDepth" />.</summary>
+    /// <remarks>
+    ///     Clamped rather than left to run off the end, because a fragment can be outside: one exactly
+    ///     on the far plane rounds to <see cref="Slices" /> and would read the cluster after the last.
+    /// </remarks>
+    public static int SliceOf(float viewDepth, float near, float far) {
+        var ratio = MathF.Log(MathF.Max(viewDepth, near) / near)
+            / MathF.Max(MathF.Log(far / near), 1e-6f);
+
+        return Math.Clamp((int)(ratio * Slices), 0, Slices - 1);
+    }
+}
+
+/// <summary>One cluster's light list, exactly as <c>ClusterLights</c> in the shader declares it.</summary>
+/// <remarks>
+///     A count beside the indices rather than a sentinel, because a shading pass wants to leave the
+///     loop rather than test every entry — and <c>0</c> is a perfectly good light index, so no value
+///     is free to mean "no more". Declared here only to size the buffer: the host never writes one,
+///     because the whole point of the pass is that the GPU does.
+/// </remarks>
+[StructLayout(LayoutKind.Sequential)]
+public struct ClusterLights {
+    /// <summary>How many of <see cref="Indices" /> are live.</summary>
+    public uint Count;
+
+    /// <summary>Indices into the scene's light buffer.</summary>
+    [System.Runtime.CompilerServices.InlineArray(ClusterGrid.Capacity)]
+    public struct IndexArray {
+        uint element;
+    }
+
+    /// <summary>The lights that reach this cluster.</summary>
+    public IndexArray Indices;
+}

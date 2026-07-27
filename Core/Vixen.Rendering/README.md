@@ -415,6 +415,38 @@ uses, and the **binary one** for the chunk a content build bakes. The runtime re
 never links a parser — asserted by round-tripping a document through `Serializer` and drawing the
 same frame out the far side.
 
+## Forward+
+
+The shader half — `Library/Pipeline/ClusterCulling.rvn` binning lights into a froxel grid, and
+`ForwardPlus.rvn`'s `UseClusteredLights` permutation swapping its uniform-array loop for the cluster
+list — has existed for a while. What was missing was the CPU side, and what was *blocking* it was the
+edge in the middle: compute writes the cluster buffer and the shading pass reads it, and until the
+compositor declared its dependencies there was nowhere for that barrier to come from.
+
+`ComputeRenderer` is a compute pass as a compositor node: what it reads, what it writes, and how many
+groups. Its whole value over a hand-written dispatch is those two lists — a pass that says it writes
+the cluster buffer, next to one that says it reads it, is a pass the graph orders first and puts a
+barrier after. Its effect resolves through the ordinary `EffectSystem`, so a compute shader is
+permuted, cached and baked like a graphics one, and a shipping build cannot compile one for the same
+structural reason it cannot compile a vertex shader.
+
+**The cluster buffer is declared, not imported**, and that is what makes the ordering test mean
+something: a cull whose result nothing reads is dropped along with its dispatch. The scene's light
+list is imported, because the host filled it before the frame began.
+
+`ClusterGrid` mirrors the shader's constants — 16 × 9 × 24 froxels, 32 lights each, about 445 KB.
+They are `const` there rather than permutations because they size an array *inside a struct*, and a
+struct's shape cannot depend on a variant while the host binds one buffer; so both sides must agree
+by construction, and a test is what notices when they stop. The exponential slicing is asserted to be
+its own inverse, since that is the property it was chosen for — a fragment finds its slice with a
+logarithm rather than a search, and if the two derivations disagree a fragment reads a cluster the
+culler filled for somewhere else.
+
+**Clustered lighting does no per-object work at all.** No selection, no block per object, no
+descriptor bound per draw — `ForwardLightingRenderFeature.Clustered` turns the whole per-object path
+off, and eight objects produce eight draws and nothing else. That is the point of the pipeline, and
+it is easy to claim and easy to get wrong, so it is asserted.
+
 ## What is not here yet
 
 Blend shapes, area lights, and clustered light culling on the CPU side (the shader half,
@@ -428,10 +460,10 @@ The shadow renderers still take a light direction and a camera from a host rathe
 scene, and nothing yet resolves a compositor by *address* — the binary form is proven, the
 `AssetManager` lookup around it is not wired up here.
 
-**Compute is the next gap.** Nothing here dispatches: `PipelineCache` builds graphics pipelines only,
-and there is no compute node. That is what Forward+ needs — its light-culling dispatch writes the
-cluster buffer the shading pass reads, and now that the compositor declares its dependencies, that
-edge is one `Reads` away rather than a barrier somebody has to remember.
+`ComputeRenderer` binds its own resources through a callback rather than owning a descriptor set,
+because the buffers it reads are graph resources whose handles do not exist until the graph has
+allocated them. A per-frame descriptor allocator is the missing piece, and it is missing engine-wide
+rather than here.
 
 GPU-driven culling is a second implementation of `VisibilityGroup` behind the same interface, which
 is why that interface is bits rather than a list.

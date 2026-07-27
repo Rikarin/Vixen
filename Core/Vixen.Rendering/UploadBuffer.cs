@@ -1,28 +1,30 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 
 namespace Vixen.Rendering;
 
 /// <summary>
-///     One frame's worth of matrices in a storage buffer, addressed by index.
+///     One frame's worth of unmanaged records in a storage buffer, addressed by index.
 /// </summary>
+/// <typeparam name="T">The element. Blittable, because an upload is a blit.</typeparam>
 /// <remarks>
 ///     <para>
-///         Shared by skinning and instancing, which want the same thing: a variable-length run of
-///         matrices per object, in one buffer, written once a frame. A storage buffer rather than a
-///         uniform block because both overrun a uniform block's guaranteed 16 KB immediately — that
-///         is 256 matrices, which is one skeleton or one small crowd.
+///         Shared by skinning, instancing and the clustered light path, which want the same thing: a
+///         run of records written once a frame and indexed by a shader. A storage buffer rather than
+///         a uniform block because all three overrun a uniform block's guaranteed 16 KB immediately —
+///         that is 256 matrices, which is one skeleton or one small crowd.
 ///     </para>
 ///     <para>
-///         <strong>Indices, not offsets.</strong> Callers get the index of their first matrix and the
+///         <strong>Indices, not offsets.</strong> Callers get the index of their first record and the
 ///         shader indexes the array, so nothing here has to know about
-///         <c>minStorageBufferOffsetAlignment</c> and no run is padded up to it. The two features
-///         then get the index to the shader by different routes — a push constant for skinning, the
-///         draw call's own <c>firstInstance</c> for instancing — and neither route costs a binding.
+///         <c>minStorageBufferOffsetAlignment</c> and no run is padded up to it. The features then
+///         get the index to the shader by different routes — a push constant for skinning, the draw
+///         call's own <c>firstInstance</c> for instancing, and nothing at all for a light list every
+///         fragment reads whole.
 ///     </para>
 ///     <para>
 ///         Refilled from scratch every frame. Retaining ranges across frames would mean tracking
@@ -31,8 +33,8 @@ namespace Vixen.Rendering;
 ///         to compute.
 ///     </para>
 /// </remarks>
-public sealed class MatrixBuffer(string name) : IDisposable {
-    Matrix4x4[] staging = [];
+public sealed class UploadBuffer<T>(string name) : IDisposable where T : unmanaged {
+    T[] staging = [];
     int count;
     int capacity;
     BufferHandle buffer;
@@ -44,36 +46,36 @@ public sealed class MatrixBuffer(string name) : IDisposable {
     /// <summary>The buffer, valid once something has been added and uploaded.</summary>
     public BufferHandle Buffer => buffer;
 
-    /// <summary>How many matrices this frame holds.</summary>
+    /// <summary>How many records this frame holds.</summary>
     public int Count => count;
 
     /// <summary>How many the buffer has room for.</summary>
     public int Capacity => capacity;
 
     /// <summary>What has been written this frame, for a test or an inspector.</summary>
-    public ReadOnlySpan<Matrix4x4> Matrices => staging.AsSpan(0, count);
+    public ReadOnlySpan<T> Items => staging.AsSpan(0, count);
 
     /// <summary>Forgets last frame's contents.</summary>
     public void Begin() => count = 0;
 
     /// <summary>Appends a run and returns the index of its first matrix.</summary>
-    public int Add(ReadOnlySpan<Matrix4x4> matrices) {
+    public int Add(ReadOnlySpan<T> items) {
         ObjectDisposedException.ThrowIf(disposed, this);
 
-        if (matrices.IsEmpty) {
+        if (items.IsEmpty) {
             return count;
         }
 
-        Reserve(count + matrices.Length);
+        Reserve(count + items.Length);
 
         var first = count;
-        matrices.CopyTo(staging.AsSpan(first));
-        count += matrices.Length;
+        items.CopyTo(staging.AsSpan(first));
+        count += items.Length;
 
         return first;
     }
 
-    /// <summary>Writes this frame's matrices to the device.</summary>
+    /// <summary>Writes this frame's records to the device.</summary>
     /// <remarks>
     ///     One write for the whole frame. The runs are contiguous by construction, and a call into
     ///     the driver costs far more than the bytes do.
@@ -110,7 +112,7 @@ public sealed class MatrixBuffer(string name) : IDisposable {
 
         buffer = Device.CreateBuffer(
             new(
-                (long)capacity * Marshal.SizeOf<Matrix4x4>(),
+                (long)capacity * Unsafe.SizeOf<T>(),
                 BufferUsage.Storage,
                 MemoryAccess.HostUpload,
                 name

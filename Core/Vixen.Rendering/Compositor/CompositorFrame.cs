@@ -35,6 +35,23 @@ public readonly record struct ImportedTexture(
     ResourceState ExitState = ResourceState.Undefined
 );
 
+/// <summary>A buffer the host owns and lends the frame.</summary>
+/// <param name="Buffer">The buffer.</param>
+/// <param name="Description">What it is.</param>
+/// <param name="EntryState">What it is being used as when the frame receives it.</param>
+/// <param name="ExitState">What it must be left as.</param>
+/// <remarks>
+///     A light list and a cluster list are both imports for the same reason a cached shadow atlas is:
+///     the host filled them before the frame started, and something outside the graph owns the
+///     memory. A buffer whose whole life is inside one frame should be declared instead.
+/// </remarks>
+public readonly record struct ImportedBuffer(
+    BufferHandle Buffer,
+    BufferDescription Description,
+    ResourceState EntryState = ResourceState.Undefined,
+    ResourceState ExitState = ResourceState.Undefined
+);
+
 /// <summary>
 ///     What a compositor node gets while it is declaring passes: the graph, the frame's resources by
 ///     name, and what a recorded pass will need.
@@ -55,6 +72,7 @@ public readonly record struct ImportedTexture(
 /// </remarks>
 public sealed class CompositorFrame {
     readonly Dictionary<string, Entry> resources = new(StringComparer.Ordinal);
+    readonly Dictionary<string, GraphBuffer> buffers = new(StringComparer.Ordinal);
     RenderDrawContext? context;
 
     /// <summary>The graph this frame's passes are declared into.</summary>
@@ -99,8 +117,24 @@ public sealed class CompositorFrame {
             ? entry.Format
             : throw new CompositorBindingException(node, "target", name);
 
-    /// <summary>Whether a name resolves to anything.</summary>
+    /// <summary>Whether a name resolves to a texture.</summary>
     public bool Has(string name) => resources.ContainsKey(name);
+
+    /// <summary>Adds a buffer under a name.</summary>
+    public void Add(string name, GraphBuffer buffer) {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        buffers[name] = buffer;
+    }
+
+    /// <summary>The buffer a node named, or a refusal naming both.</summary>
+    /// <exception cref="CompositorBindingException">Nothing was declared or imported under that name.</exception>
+    public GraphBuffer Buffer(string node, string name) =>
+        buffers.TryGetValue(name, out var buffer)
+            ? buffer
+            : throw new CompositorBindingException(node, "buffer", name);
+
+    /// <summary>Whether a name resolves to a buffer.</summary>
+    public bool HasBuffer(string name) => buffers.ContainsKey(name);
 
     /// <summary>
     ///     The draw context for a pass body, which every pass in a frame shares.
