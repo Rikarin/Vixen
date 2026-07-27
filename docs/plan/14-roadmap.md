@@ -360,9 +360,27 @@ design refuses on purpose — see [04](04-ecs-and-scripting.md) § Layer 3.
 **Goal:** real content loads from bundles, and it does so on a phone. AOT correctness is proven before
 the codebase is large enough for it to be expensive to fix.
 
-- `Vixen.Core.Yaml` with the tagged-polymorphic emitter; `.meta` reader/writer, envelope fast-scan
-  parser, migration chain; byte-identical round-trip corpus test.
-- `Vixen.Editor.Core` asset database: GUID index, reverse-reference index, duplicate detection.
+- ✅ `Vixen.Core.Yaml`: node model, reader over YamlDotNet's event stream, Vixen-dialect emitter,
+  tagged-polymorphic object mapping through the generated type registry, `.meta` model, envelope
+  fast-scan parser, migration chain, `vx:` asset references, stable sub-asset ids, per-target
+  override resolution. 73 tests, including a byte-identical round-trip over a fixture corpus and a
+  2 000-iteration property test that found three dialect rules wrong.
+- ✅ `Vixen.Editor.Core` asset database: GUID index, reverse-reference index, duplicate detection and
+  repair, orphan quarantine. 26 tests; ten thousand assets scanned well inside doc 08's budget.
+
+> **The AOT wall arrived on day one of this phase, which is what it was scheduled early for.** The
+> obvious object binder needs `Array.CreateInstance(elementType, n)`, `MakeGenericType` and
+> `Activator.CreateInstance(Type)`; all three are `RequiresDynamicCode`, this repository compiles
+> `IL3050` as an error, and the build refused all three. A binder built on them would have worked on
+> a desktop and thrown on a phone, and would have been found in this phase's last week rather than
+> its first.
+>
+> The fix is the principle the engine already runs on: a generator saw the type in the source, so a
+> generator writes the constructor. `CollectionFactory` holds one per collection type reachable from
+> any described member. Two things in [08](08-asset-pipeline-and-addressables.md)'s sketch were
+> unbuildable as written and that document now says so — `ImmutableArray<T>` became `T[]`, and
+> `TargetOverride<T>` became a node-level merge rather than a generic partial record. Reaching
+> `init`-only setters through `[UnsafeAccessor]` was a third prerequisite the plan had not foreseen.
 - `Vixen.Editor.Assets`: `TextureImporter`, `ModelImporter` (Assimp), `AudioImporter`,
   `NativeFormatImporter`, `DefaultImporter`. Out-of-process worker (`Tools/Vixen.AssetCompiler`).
 - `Vixen.Core.Imaging`: KTX2, BCn/ASTC/ETC2 encoding, mip generation, IBL prefiltering.
