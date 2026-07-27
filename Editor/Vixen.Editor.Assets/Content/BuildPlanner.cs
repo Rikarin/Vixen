@@ -55,6 +55,12 @@ public sealed record BuildPlan(
 ///         load on a chunk that was never packed. That is exactly the class of mistake that is
 ///         expensive to find later and free to find here.
 ///     </para>
+///     <para>
+///         <b>An asset's sub-assets are addressed under it</b>, at
+///         <c>characters/hero#Hero_Mesh</c> — see <see cref="SubAssetAddress" />. They have to be in
+///         the catalog rather than merely in a bundle, because a chunk is only reachable once the
+///         bundle holding it is mounted, and what mounts a bundle is an address in the load closure.
+///     </para>
 /// </remarks>
 public static class BuildPlanner {
     /// <summary>What a group is called when nothing names one.</summary>
@@ -65,6 +71,13 @@ public static class BuildPlanner {
     ///     a real <c>.vxgroup</c> and should be told where the one it is using came from.
     /// </remarks>
     public const string DefaultGroupName = "Default";
+
+    /// <summary>What separates an asset's address from the sub-asset it names inside it.</summary>
+    /// <remarks>
+    ///     The same character doc 08 gives a <c>vx:</c> reference, where it means the same thing:
+    ///     what follows selects something inside the asset rather than the asset itself.
+    /// </remarks>
+    public const char SubAssetSeparator = '#';
 
     /// <summary>Works out what to pack.</summary>
     /// <param name="assets">The project's assets, as a scan found them.</param>
@@ -96,43 +109,18 @@ public static class BuildPlanner {
         // named by its GUID and has to be turned into the address of an asset that may be planned
         // later, or not at all.
         var claimants = new SortedDictionary<string, List<AssetEntry>>(StringComparer.Ordinal);
+        var resolved = new List<PlannedAsset>();
+        var refused = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var (entry, meta) in metas.Values) {
-            if (AddressOf(meta) is { } address) {
-                (claimants.TryGetValue(address, out var already) ? already : claimants[address] = []).Add(entry);
-            }
-        }
-
-        var addressOf = new Dictionary<AssetId, string>();
-        var claimedBy = new Dictionary<string, string>(StringComparer.Ordinal);
-
-        foreach (var (address, claiming) in claimants) {
-            if (claiming.Count > 1) {
-                // Neither is planned. Keeping the first would be deciding which of them wins, which
-                // is the thing this error says cannot be decided — and it would decide it by
-                // enumeration order, so the winner would depend on a file's name.
-                diagnostics.Add(new(
-                    ImportSeverity.Error,
-                    $"{string.Join(", ", claiming.Select(entry => $"'{entry.Path}'"))} all claim the address "
-                    + $"'{address}'. An address names one thing, so a build cannot decide which of them a game "
-                    + "asking for it should get."
-                ));
-
+            if (AddressOf(meta) is not { } address) {
                 continue;
             }
 
-            claimedBy[address] = claiming[0].Path;
-            addressOf[claiming[0].Guid] = address;
-        }
-
-        var planned = ImmutableArray.CreateBuilder<BuildableAsset>();
-        var used = new SortedDictionary<string, AddressableGroup>(StringComparer.Ordinal);
-        var needsDefault = false;
-
-        foreach (var (entry, meta) in metas.Values) {
-            if (AddressOf(meta) is not { } address || claimedBy.GetValueOrDefault(address) != entry.Path) {
-                continue;
-            }
+            // Claimed whether or not anything else about the asset works out, because two assets
+            // claiming one address is a fact about the project rather than about its imports, and
+            // an error that appeared only once both of them imported would be a puzzle.
+            Claim(claimants, address, entry);
 
             if (!cache.TryGet(entry.Guid, out var record) || record is null) {
                 diagnostics.Add(new(
@@ -141,28 +129,60 @@ public static class BuildPlanner {
                     + "to pack. Import before building, or remove its address."
                 ));
 
+                refused.Add(entry.Path);
                 continue;
             }
 
-            if (record.Artifacts.Count == 0) {
+            if (Chunks(entry, meta, address, record, diagnostics) is not { } chunks) {
+                refused.Add(entry.Path);
+                continue;
+            }
+
+            foreach (var (_, subAddress) in chunks.SubAssets) {
+                Claim(claimants, subAddress, entry);
+            }
+
+            resolved.Add(new(entry, meta, record, address, chunks.Main, chunks.SubAssets));
+        }
+
+        var addressOf = new Dictionary<AssetId, string>();
+
+        foreach (var (address, claiming) in claimants) {
+            if (claiming.Count > 1) {
+                // None of them is planned. Keeping the first would be deciding which of them wins,
+                // which is the thing this error says cannot be decided — and it would decide it by
+                // enumeration order, so the winner would depend on a file's name.
                 diagnostics.Add(new(
                     ImportSeverity.Error,
-                    $"'{entry.Path}' is addressable as '{address}' and its importer produced nothing."
+                    $"{string.Join(", ", claiming.Select(entry => $"'{entry.Path}'"))} all claim the address "
+                    + $"'{address}'. An address names one thing, so a build cannot decide which of them a game "
+                    + "asking for it should get."
                 ));
+
+                foreach (var entry in claiming) {
+                    refused.Add(entry.Path);
+                }
 
                 continue;
             }
 
-            if (record.Artifacts.Count > 1) {
-                // The record keeps artefact ids and not the sub-asset each belongs to, so there is no
-                // way to name the extra ones. Packing only the first would ship a model whose meshes
-                // are missing and fail at load rather than here.
-                diagnostics.Add(new(
-                    ImportSeverity.Error,
-                    $"'{entry.Path}' imported to {record.Artifacts.Count} artefacts, and addressing sub-assets is "
-                    + "not built yet. Packing only the first would ship an asset with its parts missing."
-                ));
+            // Only an asset's own address answers a dependency on it. A dependent names the asset,
+            // not a part of it, and gets the whole of it through that address's closure.
+            if (!address.Contains(SubAssetSeparator, StringComparison.Ordinal)) {
+                addressOf[claiming[0].Guid] = address;
+            }
+        }
 
+        var planned = ImmutableArray.CreateBuilder<BuildableAsset>();
+        var used = new SortedDictionary<string, AddressableGroup>(StringComparer.Ordinal);
+        var needsDefault = false;
+
+        foreach (var asset in resolved) {
+            var entry = asset.Entry;
+            var address = asset.Address;
+            var subAssets = asset.SubAssets;
+
+            if (refused.Contains(entry.Path)) {
                 continue;
             }
 
@@ -185,17 +205,33 @@ public static class BuildPlanner {
                 continue;
             }
 
-            if (Dependencies(entry, record, addressOf, address, diagnostics) is not { } dependencies) {
+            if (Dependencies(entry, asset.Record, addressOf, address, diagnostics) is not { } dependencies) {
                 continue;
             }
 
+            // Labels are the asset's, and its parts carry them too: a label is a query over shipped
+            // content, so "everything labelled level1" has to reach a labelled model's meshes, and a
+            // group that packs by label has to put an asset's parts in the bundle it is in.
+            var labels = ImmutableArray.CreateRange(asset.Meta.Addressable?.Labels ?? []);
+
+            // The main object depends on its own parts, which is what mounts their bundles and
+            // deserialises them first — a chunk's reference to another resolves only once the thing
+            // it points at is loaded. Without it, a model in a group that packs separately would
+            // load with its meshes in a bundle nothing had opened.
             planned.Add(new(
                 address,
-                record.Artifacts[0],
+                asset.Main,
                 group,
-                [.. meta.Addressable?.Labels ?? []],
-                [.. dependencies]
+                labels,
+                [.. dependencies.Concat(subAssets.Select(part => part.Address)).Order(StringComparer.Ordinal)]
             ));
+
+            foreach (var (id, subAddress) in subAssets) {
+                // The asset's dependencies, on each of its parts. Over-claiming rather than
+                // under-claiming, deliberately: which part uses which dependency is not recorded,
+                // and a mesh loaded on its own with its material's bundle unmounted fails at load.
+                planned.Add(new(subAddress, id, group, labels, [.. dependencies]));
+            }
         }
 
         if (needsDefault) {
@@ -212,11 +248,146 @@ public static class BuildPlanner {
         return new(planned.ToImmutable(), [.. used.Values], diagnostics.ToImmutable());
     }
 
+    /// <summary>What a sub-asset is addressed as.</summary>
+    /// <param name="address">The asset's own address.</param>
+    /// <param name="name">The sub-asset's name, as its sidecar declares it.</param>
+    /// <returns>The address — <c>characters/hero#Hero_Mesh</c>.</returns>
+    /// <remarks>
+    ///     <b>The name, where a <c>vx:</c> reference carries the id.</b> The two are the same thing
+    ///     seen from different sides: a reference is written by the editor and read by nothing, so a
+    ///     fixed-width hash costs nobody anything; an address is typed by a person into a call to
+    ///     <c>LoadAsync</c>, and eight hex digits would be unusable there. Both break in the same way
+    ///     when a sub-asset is renamed — the id is derived from the name — so the choice trades no
+    ///     stability for the readability.
+    /// </remarks>
+    public static string SubAssetAddress(string address, string name) {
+        ArgumentException.ThrowIfNullOrEmpty(address);
+        ArgumentNullException.ThrowIfNull(name);
+
+        return $"{address}{SubAssetSeparator}{name}";
+    }
+
     /// <summary>The group a project gets when it has not asked for one.</summary>
     static AddressableGroup DefaultGroup => new() { Name = DefaultGroupName };
 
     static string? AddressOf(AssetMeta meta) =>
         meta.Addressable?.Address is { Length: > 0 } address ? address : null;
+
+    static void Claim(SortedDictionary<string, List<AssetEntry>> claimants, string address, AssetEntry entry) =>
+        (claimants.TryGetValue(address, out var already) ? already : claimants[address] = []).Add(entry);
+
+    /// <summary>
+    ///     What an asset's import produced, each chunk with the address it will be packed under, or
+    ///     <see langword="null" /> if any of it cannot be named.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A chunk that cannot be named refuses the whole asset</b>, rather than being dropped
+    ///         from a build that otherwise succeeds. A model whose meshes are missing fails at load
+    ///         on a device, and the failure names the mesh rather than the thing that dropped it.
+    ///     </para>
+    ///     <para>
+    ///         The names come from the sidecar's <c>subAssets</c> list, which the same import wrote,
+    ///         rather than from a copy in the cache. One place says what a sub-asset is called, so a
+    ///         rename cannot leave the two disagreeing — and an id the sidecar does not declare is an
+    ///         asset that was imported and then had its sidecar rewritten, which is a re-import.
+    ///     </para>
+    /// </remarks>
+    static (ObjectId Main, List<(ObjectId Id, string Address)> SubAssets)? Chunks(
+        AssetEntry entry,
+        AssetMeta meta,
+        string address,
+        ImportRecord record,
+        ImmutableArray<ImportDiagnostic>.Builder diagnostics
+    ) {
+        if (record.Artifacts.Count == 0) {
+            diagnostics.Add(new(
+                ImportSeverity.Error,
+                $"'{entry.Path}' is addressable as '{address}' and its importer produced nothing."
+            ));
+
+            return null;
+        }
+
+        var declaredById = new Dictionary<SubAssetId, SubAssetEntry>();
+
+        foreach (var declared in meta.SubAssets) {
+            declaredById[declared.Id] = declared;
+        }
+
+        var subAssets = new List<(ObjectId, string)>();
+        var written = new HashSet<SubAssetId>();
+        var addressed = new Dictionary<string, SubAssetEntry>(StringComparer.Ordinal);
+        ObjectId? main = null;
+        var complete = true;
+
+        foreach (var artifact in record.Artifacts) {
+            if (!written.Add(artifact.SubAsset)) {
+                diagnostics.Add(new(
+                    ImportSeverity.Error,
+                    $"'{entry.Path}' imported to two chunks for sub-asset {artifact.SubAsset}, so an address would "
+                    + "name both. Its importer writes one of them twice."
+                ));
+
+                complete = false;
+                continue;
+            }
+
+            if (artifact.SubAsset.IsMain) {
+                main = artifact.Id;
+                continue;
+            }
+
+            if (!declaredById.TryGetValue(artifact.SubAsset, out var declared) || declared.Name.Length == 0) {
+                diagnostics.Add(new(
+                    ImportSeverity.Error,
+                    $"'{entry.Path}' imported to a chunk for sub-asset {artifact.SubAsset}, which its .meta does not "
+                    + "name, so nothing can address it. Re-import it."
+                ));
+
+                complete = false;
+                continue;
+            }
+
+            var subAddress = SubAssetAddress(address, declared.Name);
+
+            // Two sub-assets of different kinds may share a name — a mesh and a material both called
+            // Body is an ordinary thing for an FBX to contain — and their ids differ while their
+            // addresses would not. The id collision is caught at import; this is the other half.
+            if (addressed.TryGetValue(subAddress, out var already)) {
+                diagnostics.Add(new(
+                    ImportSeverity.Error,
+                    $"'{entry.Path}' contains a {already.Type} and a {declared.Type} both called '{declared.Name}', "
+                    + $"so both would be addressed '{subAddress}'. Rename one of them."
+                ));
+
+                complete = false;
+                continue;
+            }
+
+            addressed[subAddress] = declared;
+            subAssets.Add((artifact.Id, subAddress));
+        }
+
+        if (main is null) {
+            // The address has to name something. An importer with a main object writes it under
+            // SubAssetId.Main; one whose asset is only a container of parts has an address that
+            // resolves to no chunk, which fails at load rather than here.
+            diagnostics.Add(new(
+                ImportSeverity.Error,
+                $"'{entry.Path}' is addressable as '{address}' and its importer wrote no main object, only "
+                + $"{subAssets.Count} sub-asset(s), so that address names nothing."
+            ));
+
+            complete = false;
+        }
+
+        // Sorted, because the plan's dependency lists are derived from these and a list that
+        // reorders between builds turns a rebuild of unchanged content into a catalog diff.
+        subAssets.Sort(static (left, right) => string.CompareOrdinal(left.Item2, right.Item2));
+
+        return complete ? (main!.Value, subAssets) : null;
+    }
 
     /// <summary>
     ///     Reads every sidecar once. The group walk needs a folder's sidecar as readily as a file's,
@@ -295,4 +466,22 @@ public static class BuildPlanner {
 
         return complete ? found : null;
     }
+
+    /// <summary>
+    ///     An asset that has an address, an import behind it, and a name for every chunk that import
+    ///     produced — everything the second pass needs, worked out in the first.
+    /// </summary>
+    /// <remarks>
+    ///     Two passes rather than one because a sub-asset's address has to be claimed before any
+    ///     asset is planned: it can collide with another asset's address, and an asset that loses a
+    ///     collision is not built at all.
+    /// </remarks>
+    sealed record PlannedAsset(
+        AssetEntry Entry,
+        AssetMeta Meta,
+        ImportRecord Record,
+        string Address,
+        ObjectId Main,
+        List<(ObjectId Id, string Address)> SubAssets
+    );
 }

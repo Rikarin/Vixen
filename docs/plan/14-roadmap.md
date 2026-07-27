@@ -439,9 +439,25 @@ the codebase is large enough for it to be expensive to fix.
   configures nothing still builds. 17 tests. **The check worth having:** an addressable asset
   depending on one with no address is an error, because the catalog records dependencies by address —
   so that chunk is in no bundle, and the build succeeds, ships, and fails at load on a device.
-  **Owed:** addressing sub-assets. `ImportRecord` keeps artefact ids without the sub-asset each
-  belongs to, so a multi-artefact import is refused rather than packed as its first chunk; every
-  importer today writes exactly one, so nothing is blocked.
+- ✅ **Addressing sub-assets** — the piece `BuildPlanner` owed, and the prerequisite for any importer
+  that produces more than one thing. `ImportRecord` carries the `SubAssetId` beside each chunk id, and
+  a sub-asset is addressed under its owner as `characters/hero#Hero_Mesh` — the name where a `vx:`
+  reference carries the id, because an address is typed by a person and eight hex digits are not.
+  Doc 08 records the form; it had specified the reference and not the address.
+
+  **The part worth stating: a sub-asset needs a catalog entry, not just a place in a bundle.** A chunk
+  is reachable only once the bundle holding it is mounted, and what mounts one is an address in the
+  load closure — so the asset depends on its own parts, which both mounts them and deserialises them
+  first, which is what lets the model's reference to its mesh resolve to the object. Without it a
+  model in a `PackSeparately` group loads with its meshes in a file nobody opened. Verified by
+  sabotage: dropping that dependency fails three tests, and dropping the claim on a sub-asset's
+  address fails the collision test.
+
+  A chunk that cannot be named refuses the whole asset — an artefact the sidecar does not declare, two
+  chunks for one sub-asset, or an import with no main object. Shipping the nameable half is how a model
+  reaches a device with its meshes missing. The import cache's format is version 2 for the pair it now
+  stores, and a line it cannot parse is dropped rather than thrown on: it is a cache in `Library/` that
+  a killed editor can truncate, and the cost of not understanding one line is re-importing one asset.
 - ✅ `TextureImporter`, the first real importer: `IImageDecoder`, StbImageSharp and KTX2 decoders,
   and settings that say what a texture's bytes mean — which decides the transfer function, the mip
   filter's variant and the compressed format together. 63 tests in `Vixen.Editor.Assets.Tests`.

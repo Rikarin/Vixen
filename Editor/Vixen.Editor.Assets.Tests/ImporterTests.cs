@@ -216,8 +216,14 @@ public sealed class PaletteImporter : AssetImporter<PaletteImportSettings> {
             await stream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
         }
 
-        var id = SubAssetName is null ? SubAssetId.Main : context.DeclareSubAsset("Palette", SubAssetName);
-        context.Write(id, "Palette", new byte[] { 1, 2, 3 });
+        context.Write(SubAssetId.Main, "Palette", new byte[] { 1, 2, 3 });
+
+        if (SubAssetName is not null) {
+            // A second chunk, under a sub-asset of its own — the shape a model importer has, where
+            // the asset is one thing and the meshes inside it are others.
+            context.Write(context.DeclareSubAsset("Palette", SubAssetName), "Palette", new byte[] { 4, 5, 6 });
+        }
+
         return context.Finish();
     }
 }

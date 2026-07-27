@@ -156,7 +156,7 @@ public sealed class ImportPipeline {
         // import stored and there is nothing to do.
         if (previous is not null
             && previous.Key == Key(importer, sourceHash, settingsHash, previous.FileDependencies, previous.AssetDependencies)
-            && previous.Artifacts.All(artifacts.Exists)) {
+            && previous.Artifacts.All(artifact => artifacts.Exists(artifact.Id))) {
             return new(entry.Guid, importer.Name, true, true, previous, []);
         }
 
@@ -192,8 +192,14 @@ public sealed class ImportPipeline {
             return new(entry.Guid, importer.Name, false, false, null, result.Diagnostics);
         }
 
+        // Each chunk keeps the sub-asset it holds, because the id alone cannot be addressed: two
+        // meshes out of one model are two chunks and the build has to know which is which.
         var stored = result.Artifacts
-            .Select(artifact => artifacts.WriteRaw(ContentHash.TypeId(typeof(ImportedArtifact)), [], artifact.Content.Span))
+            .Select(artifact => new StoredArtifact(
+                    artifact.SubAsset,
+                    artifacts.WriteRaw(ContentHash.TypeId(typeof(ImportedArtifact)), [], artifact.Content.Span)
+                )
+            )
             .ToArray();
 
         var fileDependencies = context.FileDependencies
@@ -269,7 +275,7 @@ public sealed class ImportPipeline {
         foreach (var asset in assetDependencies) {
             if (Cache.TryGet(asset, out var record) && record is not null) {
                 foreach (var artifact in record.Artifacts) {
-                    yield return artifact;
+                    yield return artifact.Id;
                 }
             }
         }

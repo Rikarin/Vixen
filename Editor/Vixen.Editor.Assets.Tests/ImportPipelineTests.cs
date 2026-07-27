@@ -46,7 +46,9 @@ public sealed class ImportPipelineTests : IDisposable {
         Assert.True(outcome.Succeeded);
         Assert.False(outcome.WasCached);
         Assert.Equal("PaletteImporter", outcome.Importer);
-        Assert.True(artifacts.Exists(Assert.Single(outcome.Record!.Artifacts)));
+        var artifact = Assert.Single(outcome.Record!.Artifacts);
+        Assert.True(artifact.SubAsset.IsMain);
+        Assert.True(artifacts.Exists(artifact.Id));
     }
 
     [Fact]
@@ -264,11 +266,51 @@ public sealed class ImportPipelineTests : IDisposable {
         Assert.Contains(outcomes, outcome => outcome is { Succeeded: true, Importer: "RawImporter" });
     }
 
+    /// <summary>
+    ///     A record keeps the sub-asset each chunk holds, not just the ids. Without that the build
+    ///     has four chunks out of a model and nothing to say which is the mesh, so it can address
+    ///     none of them.
+    /// </summary>
+    [Fact]
+    public async Task ARecordSaysWhichSubAssetEachChunkHolds() {
+        Write("Assets/hero.pal", "palette bytes");
+        var database = Database();
+        var artifacts = Artifacts();
+
+        var pipeline = new ImportPipeline(
+            database,
+            Registry(new PaletteImporter { SubAssetName = "swatch" }),
+            artifacts,
+            Files()
+        );
+
+        var outcome = await pipeline.ImportAsync(Entry(database, "Assets/hero.pal"), TestContext.Current.CancellationToken);
+        var written = outcome.Record!.Artifacts;
+
+        Assert.Equal(2, written.Count);
+        Assert.Contains(written, artifact => artifact.SubAsset.IsMain);
+
+        Assert.Contains(
+            written,
+            artifact => artifact.SubAsset == SubAssets.Derive("PaletteImporter", "Palette", "swatch")
+        );
+
+        Assert.All(written, artifact => Assert.True(artifacts.Exists(artifact.Id)));
+    }
+
     [Fact]
     public async Task TheCacheSurvivesBeingWrittenAndReadBack() {
         Write("Assets/hero.pal", "palette bytes");
         Write("Assets/shared.pal", "shared palette");
-        var (pipeline, _, database) = Pipeline();
+        var database = Database();
+
+        // With a sub-asset, so the round trip covers the pair the file stores and not just an id.
+        var pipeline = new ImportPipeline(
+            database,
+            Registry(new PaletteImporter { SubAssetName = "swatch" }),
+            Artifacts(),
+            Files()
+        );
 
         await pipeline.ImportAsync(Entry(database, "Assets/hero.pal"), TestContext.Current.CancellationToken);
         var path = Path.Combine(paths.Library, "ImportCache");

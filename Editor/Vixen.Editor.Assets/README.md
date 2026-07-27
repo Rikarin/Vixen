@@ -141,13 +141,39 @@ reports. Silence would be worse in both directions: demanding a `.vxgroup` befor
 anything is friction, and inventing one quietly leaves a project wondering where its compression
 policy came from.
 
-## Still to come
+## Addressing sub-assets
 
-**Addressing sub-assets.** `ImportRecord` keeps artefact ids without the sub-asset each belongs to,
-so an import that produced several artefacts cannot have them named. The planner refuses such an
-asset rather than packing its first chunk — a model whose meshes are missing fails at load, and the
-failure names the mesh rather than the thing that dropped it. Every importer today writes exactly one
-artefact, so nothing is blocked; the fix is for the record to carry `SubAssetId` alongside each id.
+An import can produce more than one chunk — a model is a model, and also a mesh, a skeleton and four
+animation clips. `ImportRecord` keeps the `SubAssetId` alongside each chunk id, and the planner gives
+each one an address under its owner's: `characters/hero`, `characters/hero#Hero_Mesh`. The `#` is what
+a `vx:` reference already uses to mean "something inside this asset". The *name* goes after it where a
+reference carries the *id*, because an address is typed by a person into a call to `LoadAsync` and
+eight hex digits would be unusable there; both break identically when a sub-asset is renamed, since
+the id is derived from the name, so the readability costs no stability.
+
+**They are in the catalog, not merely in a bundle.** A chunk is reachable only once the bundle holding
+it is mounted, and what mounts a bundle is an address in the load closure. So the asset **depends on
+its own parts** — that is what mounts them, and what deserialises them first so the model's reference
+to its mesh resolves to the object rather than to nothing. A group that packs every address separately
+would otherwise load a model whose meshes are in a file nobody opened.
+
+**A part carries its owner's group, labels and dependencies.** The group and the labels keep an
+asset's pieces in one bundle and make "preload everything labelled `level1`" reach a labelled model's
+meshes. The dependencies are over-claimed on purpose: which part uses which is not recorded, and a
+mesh loaded on its own with its material's bundle unmounted fails at load, while claiming one bundle
+that was going to be there anyway costs nothing.
+
+**A chunk that cannot be named refuses the whole asset.** An artefact whose sub-asset the sidecar does
+not declare, two chunks for one sub-asset, or an import with no main object at all — each is an error
+and none of the asset is packed. Shipping the parts that happened to be nameable is how a model
+arrives on a device with its meshes missing, and that failure names the mesh rather than the thing
+that dropped it.
+
+**A dependency on an asset is a dependency on the asset**, never on a part of it. A dependent names
+the address and gets everything inside through its closure, so nothing has to record which part of a
+model another asset was pointing at.
+
+## Still to come
 
 The importers with native dependencies (`ModelImporter` via Assimp) and the out-of-process,
 crash-isolated worker doc 08 specifies.
