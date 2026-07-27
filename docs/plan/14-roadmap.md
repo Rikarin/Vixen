@@ -367,6 +367,27 @@ the codebase is large enough for it to be expensive to fix.
   2 000-iteration property test that found three dialect rules wrong.
 - ✅ `Vixen.Editor.Core` asset database: GUID index, reverse-reference index, duplicate detection and
   repair, orphan quarantine. 26 tests; ten thousand assets scanned well inside doc 08's budget.
+- ✅ `Vixen.Core.Imaging`: KTX2 container, mip chains with the three variants
+  [03](03-core-foundation.md) asks for (sRGB-correct, alpha-weighted, normal renormalisation), BC1,
+  BC3, BC4, BC5, BC7 and BC6H encoders, and the split-sum IBL pieces — SH-9 irradiance projection,
+  GGX cubemap prefiltering and the DFG lookup table. 146 tests.
+
+> **Two boundaries in this assembly are worth stating in the plan rather than only in its README.**
+>
+> **ASTC and ETC2 have no managed encoder and are not getting one.** Doc 03 already said native was
+> the right call; this makes it load-bearing. Both formats keep their sizes, block extents and KTX2
+> numbers so a build with `astcenc` restored can ship them, and `BlockCompressor` names what is
+> missing rather than reporting an unknown format. **BC7 and BC6H write one mode each** — the
+> single-subset ones — which is valid output at the right size and a real quality ceiling on blocks
+> with an edge through them; doc 01 already registers `ispc_texcomp` for the rest.
+>
+> **Nothing here has been checked against an independent implementation.** Every container and block
+> layout is written from its specification and asserted byte-for-byte against a hand-computed
+> example, which catches a misread of a field's position and not a misunderstanding of what the field
+> means. Running Khronos's `ktx validate` over the KTX2 output and a reference decoder over the BC
+> output is owed, and until then "valid" is a claim about intent. The IBL half is in better shape:
+> irradiance, solid angles and the roughness-zero BRDF all have closed forms to test against, which
+> is why the exact solid-angle formula replaced the midpoint one during this work.
 
 > **The AOT wall arrived on day one of this phase, which is what it was scheduled early for.** The
 > obvious object binder needs `Array.CreateInstance(elementType, n)`, `MakeGenericType` and

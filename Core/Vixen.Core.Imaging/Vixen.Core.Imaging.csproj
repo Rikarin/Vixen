@@ -18,6 +18,10 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
 
+        <!-- For Vector3: the IBL integrals are geometry, and a second vector type here would be one
+             more place for a handedness convention to disagree with the renderer's. -->
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+
         <!--
           For PixelFormat and its block arithmetic. That enum is the engine's shared vocabulary for
           "what is in these bytes", and a second copy of it here would be two tables to keep in step.

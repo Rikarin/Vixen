@@ -42,17 +42,51 @@ to transcribe one wrongly.
 
 ## Mip chains
 
-Box filter, and **the averaging is deliberately done on the stored values rather than in linear
-light**. That is wrong for an sRGB texture, and it is left wrong here because the fix belongs one
-layer up: the importer knows a texture's colour space — it is a setting in the `.meta` file — and a
-filter that guessed from the format would get it wrong for the normal maps and masks that are stored
-in an sRGB format and are not colour. `MipChain.Srgb` is the table for that caller to convert with.
-Half black and half white is 188 in linear light and 127 if you average the encoded bytes; there is a
-test that says so.
+Box filter, and **what "average" means is the caller's statement about what the texture holds**, not
+something guessed from the pixel format. A normal map and an albedo map are both `Rgba8UNorm`; a mask
+packed into an sRGB format is neither colour nor a direction. `MipOptions` is where that is said, and
+in practice the importer says it from the `.meta` file.
+
+| | what it changes |
+| --- | --- |
+| `Srgb` | averages in linear light. Half black and half white is 188, not 127 |
+| `AlphaWeighted` | a transparent texel's colour gets no vote — the fix for the dark halo around distant foliage |
+| `RenormaliseNormals` | reconstructs, averages and normalises directions. Two-channel maps get their z back first |
+
+The result is **rounded, not truncated**. Truncating loses half a level per step and a chain is ten
+steps deep, so the smallest mips come out visibly darker than the largest.
 
 Only uncompressed eight-bit formats can be reduced, and that is not a gap: a chain is generated
 *before* compression, because reducing compressed blocks means decode, filter, re-encode, and each
 round loses more than the filter gains. Asking for the other order says so.
+
+## Image-based lighting
+
+The split-sum approximation, in its three pieces. `SphericalHarmonicsL2.Project` is diffuse — nine
+RGB numbers that reproduce any environment's irradiance to about a per cent, which is what makes a
+light probe small enough to put one in every room. `EnvironmentPrefilter.Specular` is the GGX
+convolution, one mip level per roughness with level zero copied because a mirror reflects what is
+there. `BrdfLut.Generate` is the BRDF's own response, which depends on nothing about the scene and is
+the same texture for every game ever shipped.
+
+`SphericalHarmonicsL2.Irradiance` returns irradiance **divided by π** — the quantity a shader
+multiplies by albedo. That factor is the classic "everything is 3.14 times too bright" bug, so it is
+asserted exactly rather than approximately.
+
+**A cube map's texels do not cover equal amounts of sky.** The one at the centre of a face covers
+about five times what the one at its corner does, and every integral here is wrong by that factor if
+it pretends otherwise. `CubeMap.SolidAngleOfTexel` returns the *exact* area of the texel's spherical
+quadrilateral rather than the projected area of its centre, which means all of them sum to exactly 4π
+at any face size — an equality to test against rather than a tolerance.
+
+This is the CPU form. Doc 03 asks for a compute one as well, because reflection probes update at run
+time; that is owed. What is here samples with nearest filtering inside a single face, so a
+high-roughness level wants a high sample count — the saving grace being that those are the small
+levels.
+
+## Still to come
+
+The DDS reader doc 03 names for legacy interop, and the compute form of the IBL convolutions.
 
 ## Block compression
 

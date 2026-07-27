@@ -29,30 +29,65 @@ public static class MipChain {
         );
     }
 
-    /// <summary>
-    ///     Fills every level below the largest by averaging, in place.
-    /// </summary>
+    /// <summary>Fills every level below the largest with a plain box filter, in place.</summary>
     /// <param name="texture">The texture, whose level zero is already filled.</param>
     /// <exception cref="NotSupportedException">Its format is compressed, or is not eight bits per channel.</exception>
     /// <remarks>
+    ///     Averages the stored values, which is right only for a linear, opaque, non-directional
+    ///     texture. Everything else wants <see cref="Generate(TextureData, MipOptions)" /> and a
+    ///     <see cref="MipOptions" /> that says what the texture holds.
+    /// </remarks>
+    public static void Generate(TextureData texture) => Generate(texture, MipOptions.Linear);
+
+    /// <summary>Fills every level below the largest by averaging, in place.</summary>
+    /// <param name="texture">The texture, whose level zero is already filled.</param>
+    /// <param name="options">What the texture holds, which is what decides how to average it.</param>
+    /// <exception cref="NotSupportedException">Its format is compressed, or is not eight bits per channel.</exception>
+    /// <exception cref="ArgumentException">The options contradict each other or the format.</exception>
+    /// <remarks>
     ///     <para>
-    ///         A box filter — each destination texel is the mean of the up-to-four source texels
-    ///         under it — and <b>the averaging is done on the stored values, not in linear light</b>.
-    ///         That is wrong for an sRGB texture and it is the classic mip-generation bug: averaging
-    ///         two sRGB-encoded values gives a result darker than averaging the light they stand for.
+    ///         A box filter: each destination texel is the mean of the up-to-four source texels under
+    ///         it. What "mean" means is <see cref="MipOptions" />'s business — averaging colour in
+    ///         linear light, letting alpha weight the colour, and treating a normal as a direction
+    ///         are all the same loop with a different definition of the sum.
     ///     </para>
     ///     <para>
-    ///         It is left wrong here on purpose, because the fix belongs one layer up. The importer
-    ///         knows a texture's colour space — it is a setting in the <c>.meta</c> file — and it
-    ///         converts to linear before generating and back afterwards. A filter that guessed from
-    ///         the format would get it wrong for the normal maps and masks that are stored in an sRGB
-    ///         format and are not colour. <see cref="Srgb" /> is here for that caller to use.
+    ///         <b>The result is rounded, not truncated.</b> Truncating loses half a level on average
+    ///         at every step, and a chain is ten steps deep: the smallest mips of a texture come out
+    ///         measurably darker than its largest, which reads as distant surfaces being dimmer than
+    ///         near ones for no reason anybody can point at.
     ///     </para>
     /// </remarks>
-    public static void Generate(TextureData texture) {
+    public static void Generate(TextureData texture, MipOptions options) {
         ArgumentNullException.ThrowIfNull(texture);
 
         var channels = ChannelsOf(texture.Format);
+
+        if (options.Srgb && options.RenormaliseNormals) {
+            throw new ArgumentException(
+                "A texture cannot be both colour and a normal map. sRGB averaging applies a transfer "
+                + "function to values that are a direction, and renormalising applies a length to values "
+                + "that are a colour; asking for both means one of the two settings came from the wrong place.",
+                nameof(options)
+            );
+        }
+
+        if (options.AlphaWeighted && channels < 4) {
+            throw new ArgumentException(
+                $"{texture.Format} has no alpha channel to weight by.",
+                nameof(options)
+            );
+        }
+
+        if (options.RenormaliseNormals && channels < 2) {
+            throw new ArgumentException(
+                $"{texture.Format} has one channel, which cannot hold a direction.",
+                nameof(options)
+            );
+        }
+
+        Span<float> sum = stackalloc float[4];
+        Span<int> sourceTexels = stackalloc int[4];
 
         for (var level = 1; level < texture.LevelCount; level++) {
             var source = texture.Levels[level - 1];
@@ -62,33 +97,142 @@ public static class MipChain {
 
             for (var y = 0; y < destination.Height; y++) {
                 for (var x = 0; x < destination.Width; x++) {
-                    for (var channel = 0; channel < channels; channel++) {
-                        var total = 0;
-                        var taken = 0;
+                    var taken = 0;
 
-                        for (var dy = 0; dy < 2; dy++) {
-                            var sourceY = (y * 2) + dy;
+                    for (var dy = 0; dy < 2; dy++) {
+                        var sourceY = (y * 2) + dy;
 
-                            if (sourceY >= source.Height) {
+                        // A dimension that has already reached one has nothing at its second row or
+                        // column, and reading it would run off the end into the next row of texels.
+                        if (sourceY >= source.Height) {
+                            continue;
+                        }
+
+                        for (var dx = 0; dx < 2; dx++) {
+                            var sourceX = (x * 2) + dx;
+
+                            if (sourceX >= source.Width) {
                                 continue;
                             }
 
-                            for (var dx = 0; dx < 2; dx++) {
-                                var sourceX = (x * 2) + dx;
-
-                                if (sourceX >= source.Width) {
-                                    continue;
-                                }
-
-                                total += from[(((sourceY * source.Width) + sourceX) * channels) + channel];
-                                taken++;
-                            }
+                            sourceTexels[taken++] = (((sourceY * source.Width) + sourceX) * channels);
                         }
+                    }
 
-                        to[(((y * destination.Width) + x) * channels) + channel] = (byte)(total / taken);
+                    var into = ((y * destination.Width) + x) * channels;
+
+                    if (options.RenormaliseNormals) {
+                        AverageDirection(from, sourceTexels[..taken], channels, sum);
+                    } else {
+                        AverageColour(from, sourceTexels[..taken], channels, options, sum);
+                    }
+
+                    for (var channel = 0; channel < channels; channel++) {
+                        to[into + channel] = (byte)Math.Clamp((int)MathF.Round(sum[channel]), 0, 255);
                     }
                 }
             }
+        }
+    }
+
+    /// <summary>
+    ///     The mean of up to four texels, in linear light if the caller says so and weighted by alpha
+    ///     if the caller says so. Alpha itself is averaged plainly in both cases: it is neither a
+    ///     colour nor weighted by itself.
+    /// </summary>
+    static void AverageColour(
+        ReadOnlySpan<byte> from,
+        ReadOnlySpan<int> texels,
+        int channels,
+        MipOptions options,
+        Span<float> result
+    ) {
+        var weightTotal = 0f;
+        result.Clear();
+
+        foreach (var texel in texels) {
+            var weight = options.AlphaWeighted ? from[texel + 3] : 1f;
+            weightTotal += weight;
+
+            for (var channel = 0; channel < channels && channel < 3; channel++) {
+                var value = from[texel + channel];
+                result[channel] += weight * (options.Srgb ? Srgb.ToLinearTable[value] : value);
+            }
+
+            if (channels == 4) {
+                result[3] += from[texel + 3];
+            }
+        }
+
+        if (weightTotal <= 0f) {
+            // Every texel is fully transparent, so there is no colour to preserve and no weights to
+            // divide by. An unweighted mean keeps whatever was painted under the transparency, which
+            // is what a later dilation pass wants to find.
+            foreach (var texel in texels) {
+                for (var channel = 0; channel < channels && channel < 3; channel++) {
+                    result[channel] += from[texel + channel];
+                }
+            }
+
+            weightTotal = texels.Length;
+        }
+
+        for (var channel = 0; channel < channels && channel < 3; channel++) {
+            result[channel] = options.Srgb
+                ? Srgb.FromLinear(result[channel] / weightTotal)
+                : result[channel] / weightTotal;
+        }
+
+        if (channels == 4) {
+            result[3] /= texels.Length;
+        }
+    }
+
+    /// <summary>
+    ///     The mean of up to four directions. Two-channel normal maps carry only x and y, so z is
+    ///     reconstructed before averaging and dropped afterwards — averaging x and y on their own
+    ///     and renormalising the pair is a different and wrong answer, because it discards how far
+    ///     each source normal was leaning towards the viewer.
+    /// </summary>
+    static void AverageDirection(ReadOnlySpan<byte> from, ReadOnlySpan<int> texels, int channels, Span<float> result) {
+        result.Clear();
+
+        foreach (var texel in texels) {
+            var x = (from[texel] / 255f * 2f) - 1f;
+            var y = (from[texel + 1] / 255f * 2f) - 1f;
+            var z = channels >= 3
+                ? (from[texel + 2] / 255f * 2f) - 1f
+                : MathF.Sqrt(Math.Max(0f, 1f - (x * x) - (y * y)));
+
+            result[0] += x;
+            result[1] += y;
+            result[2] += z;
+
+            if (channels == 4) {
+                result[3] += from[texel + 3];
+            }
+        }
+
+        var length = MathF.Sqrt((result[0] * result[0]) + (result[1] * result[1]) + (result[2] * result[2]));
+
+        // Four normals that cancel exactly leave nothing to point at. Straight up is the answer that
+        // says "this surface has no detail left at this scale", which at that point is true.
+        if (length < 1e-6f) {
+            result[0] = 0f;
+            result[1] = 0f;
+            result[2] = 1f;
+        } else {
+            result[0] /= length;
+            result[1] /= length;
+            result[2] /= length;
+        }
+
+        for (var channel = 0; channel < 3 && channel < channels; channel++) {
+            result[channel] = (result[channel] + 1f) * 0.5f * 255f;
+        }
+
+        if (channels == 4) {
+            result[3] /= texels.Length;
         }
     }
 
