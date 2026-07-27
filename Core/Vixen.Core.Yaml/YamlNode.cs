@@ -167,18 +167,36 @@ public sealed class YamlMapping : YamlNode, IEnumerable<KeyValuePair<string, Yam
     /// <param name="value">The value.</param>
     /// <returns>This mapping, for chaining.</returns>
     /// <remarks>
-    ///     Replacing keeps the key's original position, because moving it would be a diff nobody
-    ///     asked for.
+    ///     <para>
+    ///         Replacing keeps the key's original position, because moving it would be a diff nobody
+    ///         asked for.
+    ///     </para>
+    ///     <para>
+    ///         <b>It also keeps the comments</b>, unless the incoming node brings its own. A comment
+    ///         above a key describes the key, not the particular value that happens to be there — so
+    ///         re-GUIDing an asset, or a migration bumping <c>metaVersion</c>, must not silently
+    ///         delete the sentence an artist wrote above it. A caller that means to change the
+    ///         comment sets one on the new node and it wins.
+    ///     </para>
     /// </remarks>
     public YamlMapping Set(string key, YamlNode value) {
         ArgumentException.ThrowIfNullOrEmpty(key);
         ArgumentNullException.ThrowIfNull(value);
 
         for (var index = 0; index < entries.Count; index++) {
-            if (string.Equals(entries[index].Key, key, StringComparison.Ordinal)) {
-                entries[index] = new(key, value);
-                return this;
+            if (!string.Equals(entries[index].Key, key, StringComparison.Ordinal)) {
+                continue;
             }
+
+            var replaced = entries[index].Value;
+
+            if (value.LeadingComments.Count == 0) {
+                value.LeadingComments.AddRange(replaced.LeadingComments);
+            }
+
+            value.TrailingComment ??= replaced.TrailingComment;
+            entries[index] = new(key, value);
+            return this;
         }
 
         entries.Add(new(key, value));

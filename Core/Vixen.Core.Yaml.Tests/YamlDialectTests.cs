@@ -236,6 +236,32 @@ public sealed class YamlDialectTests {
     }
 
     /// <summary>
+    ///     And it keeps the comments. A comment above a key describes the key, not the value that
+    ///     happens to be there, so re-GUIDing an asset or bumping <c>metaVersion</c> must not delete
+    ///     the sentence somebody wrote above it. A caller that means to change it says so.
+    /// </summary>
+    [Fact]
+    public void ReplacingAValueKeepsTheCommentsUnlessTheNewValueBringsItsOwn() {
+        var root = (YamlMapping)YamlReader.Read(
+            "# the identity, assigned once\nguid: abc # do not edit\nmetaVersion: 1\n"
+        );
+
+        root.Set("guid", new YamlScalar("def"));
+
+        Assert.Equal(
+            "# the identity, assigned once\nguid: def # do not edit\nmetaVersion: 1\n",
+            YamlWriter.Write(root)
+        );
+
+        var replacement = new YamlScalar("ghi");
+        replacement.LeadingComments.Add("minted by the duplicate repair");
+        root.Set("guid", replacement);
+
+        Assert.Contains("# minted by the duplicate repair\nguid: ghi", YamlWriter.Write(root), StringComparison.Ordinal);
+        Assert.DoesNotContain("assigned once", YamlWriter.Write(root), StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     The property the corpus test asserts by example, asserted over arbitrary documents: what
     ///     the emitter writes, the reader reads back to something the emitter writes identically.
     ///     Anything the two disagree about — a quoting rule, a width, an indent — shows up here

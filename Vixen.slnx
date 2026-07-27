@@ -96,6 +96,15 @@
   </Folder>
 
   <!--
+    Editor — docs/plan/02 § Editor/. Vixen.Editor.Core is the project model everything
+    else in the editor is built on: the asset database and the two indexes over it.
+  -->
+  <Folder Name="/Editor/">
+    <Project Path="Editor/Vixen.Editor.Core/Vixen.Editor.Core.csproj" />
+    <Project Path="Editor/Vixen.Editor.Core.Tests/Vixen.Editor.Core.Tests.csproj" />
+  </Folder>
+
+  <!--
     Tools — docs/plan/02 § Tools/. Vixen.App is both the host an application boots
     through and, later, the meta-package that pulls in the backends valid for a RID.
   -->
