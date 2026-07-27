@@ -214,6 +214,65 @@ cannot be committed. The flex operators are unreached for the same reason.
 **Not implemented, and not owed**: point-matched composites and `seac`. No glyph in 242 fonts used
 either. **Owed**: `gvar` deltas, so a variable font currently reads at its default instance.
 
+## Rasterising, and the distance field
+
+`GlyphRasterizer` fills an outline into coverage by scanline and non-zero winding.
+`DistanceField` turns one into the multi-channel signed distance field doc 09 asks for. Both take a
+scale and an origin, which is where **the decision to keep curves as curves is finally spent**: the
+flattener's tolerance comes from the caller's pixel size, the thing nobody knew until here.
+
+### The oracles, and where each one stops
+
+**The rasteriser is judged by Green's theorem.** ∮(x dy − y dx)/2 gives the exact area a path
+encloses straight from its control points; the integrand for a Bézier is a polynomial, so four-point
+Gauss–Legendre evaluates it to the last bit. It shares no code and no reasoning with the scanline
+fill — it never asks where an edge crosses a row.
+
+⚠ **It is compared per contour, not per glyph.** Green's theorem measures *algebraic* area, so a
+region two contours both cover counts twice; a non-zero fill measures *covered* area, so it counts
+once. They part company exactly where contours overlap, which is not exotic — `TestShapeLana` builds
+letters from stacked strokes, and 22 % of one glyph's algebraic area is covered more than once. Per
+contour the multiplicity disappears and the check is exact again.
+
+**The field is judged by the rasteriser**: threshold the median, compare pixel by pixel against the
+same outline filled, ignore the boundary where a binary answer and an antialiased one differ by
+design. Every glyph of every embedded font.
+
+⚠ **And the corner claim needs a third oracle, because the first two cannot see it.** A field is read
+by interpolating it, and interpolation is where a single channel loses a corner. So: store a square,
+reconstruct it, and find where the isoline crosses — against the closed-form signed distance to a
+rectangle, sampled and interpolated identically, which is what one channel would have held. Two
+earlier versions of that test measured nothing. Counting misclassified pixels hides the effect, since
+a plain field's corner error is a fraction of a texel and any band wide enough to ignore boundary
+noise swallows it. And **the corner's diagonal is the one direction where the three channels are
+symmetric and none of them can help** — measured there, the median *is* a plain field, exactly. What
+the channels buy is that the edges stay straight up to the corner.
+
+### Three findings, all from sabotages that failed to fail
+
+⚠ **A corner is a property of the outline, not of the flattening.** Twice over: a curve cut into
+twenty chords has nineteen joins that each turn a few degrees, and even at a genuine segment boundary
+two neighbouring chords differ by about a step's worth of curvature. Either one makes a circle come
+out striped. Corners are found from the outline's own tangents.
+
+⚠ **Each channel carries its own sign, and that is the mechanism rather than a detail.** Taking one
+sign from the fill and applying it to all three leaves the values differing only in magnitude, so
+their median can never disagree with a single channel about which side of the shape a point is on —
+which is the whole of what the median is for. The first version did exactly that and reconstructed a
+square's corner no better than a plain field. The fill still settles the *overall* answer, because a
+sign from an edge's orientation is wrong wherever two contours overlap.
+
+⚠ **A run's colour must differ from its neighbour's, and the last run wraps.** Cycling the three
+combinations in order gives four corners the sequence RG, GB, BR, RG — so one join has both sides the
+same, and it is a corner. The test only scanned the other three until a sabotage passed.
+
+### What is not gated
+
+⚠ **The pseudo-distance is insurance.** Clamping to the segment instead fails nothing: two shapes
+were built to reach it, and the answers differ in magnitude but never in sign, so a thresholded
+reconstruction moves by 0.02 of a texel. What it should buy is a truer gradient for the shader's own
+antialiasing, and nothing here looks at a gradient yet.
+
 ## Why the tables are generated and committed
 
 CI has no copy of the Unicode Character Database, and fetching one at build time would make a build

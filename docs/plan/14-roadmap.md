@@ -1304,8 +1304,54 @@ sub-piece has its own gate.
   fonts belong to the operating system. Named here rather than papered over with a test that cannot
   reach what it claims.
 
-- Owed: the MSDF atlas with LRU eviction — **now the head of Phase 4's critical path**, because
-  nothing renders text until it exists. Also font fallback, rich-text runs, variable-font axes,
+- ✅ **The rasteriser, and the oracle it exists to be.** `GlyphRasterizer` fills an outline by
+  scanline and non-zero winding; sequencing rule 4 put it before the distance field it judges.
+
+  **Gated by Green's theorem**, which gives the exact area a path encloses straight from its control
+  points — the integrand for a Bézier is a polynomial, so four-point Gauss–Legendre evaluates it
+  without error. A real oracle: it shares no code and no reasoning with the fill.
+
+  ⚠ **Compared per contour, and that is the oracle's own limit.** Green's theorem measures
+  *algebraic* area and a non-zero fill measures *covered* area, so a region two contours both cover
+  counts twice in one and once in the other. Not exotic: `TestShapeLana` builds letters from stacked
+  strokes, and 22 % of one glyph's algebraic area is covered more than once. Found by the whole-glyph
+  comparison failing on one font of fourteen.
+
+  Verified by sabotage: rounding spans to whole pixels fails 1, flattening every curve to one chord
+  fails 5, ignoring an edge's direction fails 17, leaving an unclosed contour open fails 8. ⚠ Two
+  failed to fail, and one was **a claim written in a comment and never tested** — even-odd fill
+  agrees with non-zero on a hole and differs only where two contours wound the same way overlap. The
+  other was the half-open y rule, observable only when a vertex lands exactly on a sample line.
+
+- ✅ **Multi-channel signed distance fields.** `EdgeColoring` and `DistanceField`: the corner-keeping
+  encoding doc 09 names, gated by reconstructing the shape back out of the field and comparing
+  against the rasteriser filling the same outline.
+
+  ⚠ **Three sabotages failed to fail, and each found a real defect.** *A corner is a property of the
+  outline, not of the flattening* — twice over, since a flattened curve's internal joins each turn a
+  few degrees and even a genuine segment boundary shows a step's worth of curvature between
+  neighbouring chords; either reading makes a circle come out striped. *Each channel carries its own
+  sign*, and taking one sign from the fill for all three leaves them differing only in magnitude, so
+  their median can never disagree with a single channel about which side of the shape a point is on
+  — which is the whole of what the median is for, and the first version reconstructed a square's
+  corner no better than a plain field. And *a run's colour must differ from its neighbour's with the
+  last one wrapping*: cycling three combinations gives four corners RG, GB, BR, RG, so exactly one
+  join has both sides the same.
+
+  ⚠ **The corner claim needed a third oracle, and two attempts at it measured nothing.** Counting
+  misclassified pixels hides the effect, because a plain field's corner error is a fraction of a
+  texel. And **the corner's diagonal is the one direction where the three channels are symmetric and
+  none can help** — measured there the median *is* a plain field, exactly. What the channels buy is
+  that the edges stay straight up to the corner, so the test walks across an edge instead, against
+  the closed-form distance to a rectangle sampled and interpolated identically.
+
+  ⚠ **The pseudo-distance is insurance and is labelled as such.** Clamping to the segment fails
+  nothing; two shapes were built to reach it, and the answers differ in magnitude but never in sign,
+  so a thresholded reconstruction moves 0.02 of a texel. What it should buy is a truer gradient for
+  the shader's antialiasing, which nothing here reads yet.
+
+- Owed: the atlas — dynamic packing with LRU eviction, keyed by font, glyph and field size — then the
+  UI render feature that draws from it. Also font fallback, rich-text runs, variable-font axes,
   `TextEditor` model with IME and caret affinity.
 - Gate: ✅ UAX conformance data green. ✅ shaping conformance green against an external oracle,
   with the quarantine pinned in both directions.
