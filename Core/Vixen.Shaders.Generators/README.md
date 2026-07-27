@@ -20,7 +20,23 @@ this adds no build step, only a consumer for a file that already exists. Output 
 `Vixen.Shaders.Generated`, named after the file: `Lighting.reflect.json` gives `LightingKeys`,
 `LightingConstants`, and one `…Element` struct per struct array.
 
-## Three decisions that were forced rather than chosen
+`…Keys` holds four kinds of thing, and each answers a question a host would otherwise answer by hand:
+
+| | |
+|---|---|
+| `PermutationKey`s | which variant, with the default the shader declared |
+| Resource keys | a typed handle per texture, sampler and storage buffer |
+| **Value keys** | one per value in the uniform block, with the shader's declared default |
+| **`…Set` / `…Binding` constants** | where each resource and the block itself go |
+
+The last two are the ones that make a shader usable by code that knows it only by *name*. A binding
+index is Raven's decision — assigned from declaration order within a set — so a host that wrote one
+down was writing a number it could not see and would not be told about when a texture was added above
+it. And a value key is what a material read from an asset, or a compositor node configured by a
+document, sets its parameters through; the `…Constants` struct beside it is for code that knows the
+shader at compile time and can assign fields.
+
+## Four decisions that were forced rather than chosen
 
 **The reflection model is hand-written, not shared with `Vixen.Raven.Reflection`.** A source generator
 targets netstandard2.1 and runs inside the C# compiler; `Vixen.Raven` targets net10.0. The generator
@@ -38,6 +54,13 @@ it, and it reads only the subset Raven emits.
 in the same compilation, with rename and go-to-definition working in the editor before anything is
 built. A task writing `.cs` into `obj/` gets there eventually, and gets there wrong for the first
 build after a shader changes.
+
+**Reflection describes one variant, so the keys do too.** A binding behind a false permutation is
+gone before it is described — which is what makes the reported interface honest — so a resource only a
+non-default variant reads generates no key. Nothing here can fix that: the reflection it is given is
+the reflection it emits. What a consumer can do is assert that the bindings it needs survive the
+default variant, which is what `Vixen.Raven.Tests.LibraryReflectionTests` does for the shaders the
+engine names.
 
 ## One design decision that was a choice
 
