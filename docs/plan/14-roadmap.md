@@ -429,8 +429,26 @@ sub-piece has its own gate.
   **Owed:** liveness is decided per node and the notification walk is per write, which is a tight
   loop over an array that no measurement has yet asked to improve; and `Flush()` has no caller until
   `UiSystem` arrives in 4d.
-- `Vixen.Ui.Layout`: SoA store, flexbox algorithm, measure cache, dirty propagation, parallel layout.
-- **Port Yoga's conformance suite.** Gate: it is green.
+- 🟡 `Vixen.Ui.Layout` — **the store and the public API are built; the algorithm is not.**
+  `LayoutTree` holds styles, results, links and flags as parallel `NativeArray`s with a shared
+  arena for child ids; `StyleResolution` implements CSS edge precedence, percentage resolution and
+  box sizing; `FlexAxis` is the flow-relative-to-physical translation. 14 tests on the store itself.
+  Two departures from [09](09-ui-framework.md), recorded there: children are a contiguous run
+  rather than a linked list, because the algorithm addresses them by index inside its inner loops
+  and a list would make several O(n) passes O(n²) on the widest nodes; and a style is ~400 bytes
+  rather than 120, because the estimate predated counting the edge shorthands and the
+  writing-mode-relative pair.
+- ✅ **Yoga's conformance suite is ported — 534 fixtures — and it is committed before the
+  implementation, which is what sequencing rule 4 asks for.** `Tools/Vixen.YogaTestGen` translates
+  Yoga's generated C++ into xunit against `LayoutTree`; the output is committed because CI has no
+  reference clone. It is a line translator rather than a C++ parser, which is defensible only
+  because the input is machine-generated — and a line it does not recognise drops the whole fixture
+  and says so rather than guessing. Nine fixtures are skipped, all `display: contents`, which doc 09
+  puts outside the scope; each is named in the generated file's header.
+  The suite is excluded from compilation by one `ItemGroup` that explains itself, and deleting that
+  `ItemGroup` is the last step of the port. **Gate: it is green.** Not yet met.
+- **Port the flexbox algorithm.** Yoga's `CalculateLayout`, `AbsoluteLayout`, `FlexLine`,
+  `Baseline`, `PixelGrid` and the measure cache, onto the store above.
 
 **4b — Styling (1.5 EM)**
 - `Vixen.Ui.Styling`: ExCSS integration, cascade, `@layer`, rule bucketing, ancestor bloom filter,

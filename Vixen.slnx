@@ -77,6 +77,8 @@
     <Project Path="Core/Vixen.Graphics.RenderGraph.Tests/Vixen.Graphics.RenderGraph.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Reactive/Vixen.Ui.Reactive.csproj" />
     <Project Path="Core/Vixen.Ui.Reactive.Tests/Vixen.Ui.Reactive.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Layout/Vixen.Ui.Layout.csproj" />
+    <Project Path="Core/Vixen.Ui.Layout.Tests/Vixen.Ui.Layout.Tests.csproj" />
   </Folder>
 
   <!--
@@ -117,6 +119,7 @@
   <Folder Name="/Tools/">
     <Project Path="Tools/Vixen.App/Vixen.App.csproj" />
     <Project Path="Tools/Vixen.App.Tests/Vixen.App.Tests.csproj" />
+    <Project Path="Tools/Vixen.YogaTestGen/Vixen.YogaTestGen.csproj" />
   </Folder>
 
   <!--
