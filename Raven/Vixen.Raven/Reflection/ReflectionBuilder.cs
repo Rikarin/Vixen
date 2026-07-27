@@ -222,33 +222,77 @@ public static class ReflectionBuilder {
     ///     Walks a member into the flat list, descending through structs so a nested value has
     ///     its own absolute offset and the host never has to add anything up.
     /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         An <em>array</em> of structs is descended into once, under a <c>name[].field</c> path,
+    ///         and the leaf offsets are element zero's. One entry per field rather than one per
+    ///         element: a <c>PunctualLight[64]</c> would otherwise contribute 512 entries saying the
+    ///         same eight things at a fixed spacing, and the spacing is already reported as the
+    ///         array's <c>ArrayStride</c>. Element <em>i</em>'s field is
+    ///         <c>member.Offset + i * array.ArrayStride</c>.
+    ///     </para>
+    ///     <para>
+    ///         The alternative — reporting the array and leaving its element opaque — is what this
+    ///         did until the C# binding generator needed it, and it made a shader's <em>most</em>
+    ///         important parameter the one thing the reflection could not describe: a light list is a
+    ///         struct array in a uniform block, and so is every other per-instance table.
+    ///     </para>
+    /// </remarks>
     static void Flatten(
         string path,
         IrType type,
         int offset,
         LayoutRule rule,
-        ImmutableArray<MemberInfo>.Builder members
+        ImmutableArray<MemberInfo>.Builder members,
+        int enclosingStride = 0
     ) {
+        // A leaf inside an array element reports the *element's* stride, which is what gets a reader
+        // from this field to the same field of the next element — the only spacing that means
+        // anything for a leaf, whose own array stride is zero.
+        var stride = type is IrArrayType array ? ShaderLayout.ArrayStride(array, rule) : enclosingStride;
+
         members.Add(
             new(
                 path,
                 ShaderDataType.From(type),
                 offset,
                 ShaderLayout.Size(type, rule),
-                type is IrArrayType array ? ShaderLayout.ArrayStride(array, rule) : 0,
+                stride,
                 type is IrMatrixType matrix ? ShaderLayout.MatrixStride(matrix, rule) : 0
             )
         );
 
-        // Only a struct is descended into. An array of structs would need one entry per
-        // element, which is what ArrayStride is for instead.
-        if (type is not IrStructType structType) {
-            return;
-        }
+        switch (type) {
+            case IrStructType structType:
+                Fields(path, structType, offset, rule, members, enclosingStride);
+                break;
 
+            // Element zero's layout, which every element repeats at `ArrayStride` intervals.
+            case IrArrayType { Element: IrStructType element }:
+                Fields($"{path}[]", element, offset, rule, members, stride);
+                break;
+        }
+    }
+
+    static void Fields(
+        string path,
+        IrStructType structType,
+        int offset,
+        LayoutRule rule,
+        ImmutableArray<MemberInfo>.Builder members,
+        int enclosingStride
+    ) {
         var (offsets, _) = ShaderLayout.Members([.. structType.Fields.Select(f => f.Type)], rule);
+
         for (var i = 0; i < structType.Fields.Count; i++) {
-            Flatten($"{path}.{structType.Fields[i].Name}", structType.Fields[i].Type, offset + offsets[i], rule, members);
+            Flatten(
+                $"{path}.{structType.Fields[i].Name}",
+                structType.Fields[i].Type,
+                offset + offsets[i],
+                rule,
+                members,
+                enclosingStride
+            );
         }
     }
 

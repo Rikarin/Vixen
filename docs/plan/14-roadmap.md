@@ -1123,10 +1123,14 @@ scroll/focus/selection. A `DockingHost` layout round-trips through serialisation
 **Goal:** the forward+ pipeline with full PBR, shadows, and post FX. Depends on Raven's codegen phase
 (GLSL + SPIR-V) being complete.
 
-- `Vixen.Shaders`: effect system, permutation keys and cache (three tiers), `Vixen.Shaders.Generators`
-  for parameter keys, build-time permutation pre-generation, `Tools/Vixen.ShaderCompilerService`.
-- `Raven/Library`: the full shader library from [07](07-raven-shader-pipeline.md) — Core, Shading,
-  Geometry, Material, Pipeline, PostFx, Ui.
+- `Vixen.Shaders`: ✅ **typed parameter/permutation keys and the constant-buffer writers**, with
+  `Vixen.Shaders.Generators` emitting both from Raven's reflection — see
+  [07 § Generated C# bindings](07-raven-shader-pipeline.md#generated-c-bindings). Still open: the
+  effect system, the three cache tiers, build-time permutation pre-generation and
+  `Tools/Vixen.ShaderCompilerService`, all of which need `Vixen.Rendering` to design against.
+- `Raven/Library`: ✅ the full shader library from [07](07-raven-shader-pipeline.md) — Core, Shading,
+  Geometry, Material, Pipeline, PostFx, Ui, Vfx — every shader reaching both backends under `glslc`
+  and `spirv-val`.
 - `Vixen.Rendering`: `RenderSystem`, `RenderObject`/`RenderNode`, root + sub render features
   (mesh, transform, skinning, instancing, material, lighting, shadow-caster), `VisibilityGroup` with
   parallel and GPU culling, `RenderView`/`RenderStage`, `GraphicsCompositor` as an asset, sort modes.

@@ -101,8 +101,8 @@ Core/
 │
 ├── Vixen.Graphics/                     # ✅ RHI abstraction — ADR-001
 ├── Vixen.Graphics.Tests/
-├── Vixen.Shaders/                      # effect system, permutations, bytecode cache, param keys
-├── Vixen.Shaders.Generators/           # ── source generator: Raven reflection → C# keys ──
+├── Vixen.Shaders/                      # ✅ param keys + std140 writers; effect system still open
+├── Vixen.Shaders.Generators/           # ✅ source generator: Raven reflection → C# keys ──
 ├── Vixen.Shaders.Tests/
 ├── Vixen.Rendering/                    # render system, features, stages, materials, lights, shadows
 ├── Vixen.Rendering.Tests/

@@ -1,0 +1,732 @@
+{
+  "Sets": [
+    {
+      "Set": 2,
+      "Bindings": [
+        {
+          "Binding": 0,
+          "Name": "LightingPerMaterialUniforms",
+          "Type": "UniformBuffer",
+          "Count": 1,
+          "Stages": "Vertex, Pixel",
+          "Members": [
+            {
+              "Name": "worldViewProjection",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 4,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": true,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 64,
+              "ArrayStride": 0,
+              "MatrixStride": 16
+            },
+            {
+              "Name": "normalMatrix",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 3,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": true,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 64,
+              "Size": 48,
+              "ArrayStride": 0,
+              "MatrixStride": 16
+            },
+            {
+              "Name": "ambient",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 112,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0
+            },
+            {
+              "Name": "exposure",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 124,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0
+            },
+            {
+              "Name": "lightCount",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 1,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 128,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0
+            },
+            {
+              "Name": "enabled",
+              "Type": {
+                "Scalar": "Bool",
+                "Rows": 1,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 132,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0
+            },
+            {
+              "Name": "weights",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "ArrayLength": 4,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": true,
+                "IsStruct": false
+              },
+              "Offset": 144,
+              "Size": 64,
+              "ArrayStride": 16,
+              "MatrixStride": 0
+            },
+            {
+              "Name": "lights",
+              "Type": {
+                "Scalar": "Struct",
+                "Rows": 1,
+                "Columns": 1,
+                "ArrayLength": 4,
+                "StructName": "PunctualLight",
+                "IsMatrix": false,
+                "IsArray": true,
+                "IsStruct": true
+              },
+              "Offset": 208,
+              "Size": 128,
+              "ArrayStride": 32,
+              "MatrixStride": 0
+            },
+            {
+              "Name": "lights[].position",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 208,
+              "Size": 12,
+              "ArrayStride": 32,
+              "MatrixStride": 0
+            },
+            {
+              "Name": "lights[].range",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 220,
+              "Size": 4,
+              "ArrayStride": 32,
+              "MatrixStride": 0
+            },
+            {
+              "Name": "lights[].color",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 224,
+              "Size": 12,
+              "ArrayStride": 32,
+              "MatrixStride": 0
+            },
+            {
+              "Name": "lights[].intensity",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 236,
+              "Size": 4,
+              "ArrayStride": 32,
+              "MatrixStride": 0
+            }
+          ],
+          "Size": 336,
+          "IsWritable": false
+        },
+        {
+          "Binding": 1,
+          "Name": "albedo",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Vertex, Pixel",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 2,
+          "Name": "linear",
+          "Type": "Sampler",
+          "Count": 1,
+          "Stages": "Vertex, Pixel",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 3,
+          "Name": "overflow",
+          "Type": "StorageBuffer",
+          "Count": 0,
+          "Stages": "Vertex, Pixel",
+          "Members": [
+            {
+              "Name": "overflow",
+              "Type": {
+                "Scalar": "Struct",
+                "Rows": 1,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": "PunctualLight",
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": true
+              },
+              "Offset": 0,
+              "Size": 32,
+              "ArrayStride": 0,
+              "MatrixStride": 0
+            },
+            {
+              "Name": "overflow.position",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0
+            },
+            {
+              "Name": "overflow.range",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 12,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0
+            },
+            {
+              "Name": "overflow.color",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 16,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0
+            },
+            {
+              "Name": "overflow.intensity",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "ArrayLength": null,
+                "StructName": null,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 28,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0
+            }
+          ],
+          "Size": 32,
+          "IsWritable": false
+        }
+      ]
+    }
+  ],
+  "VertexInputs": [
+    {
+      "Location": 1,
+      "Name": "position",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Semantic": null
+    },
+    {
+      "Location": 2,
+      "Name": "texcoord",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Semantic": null
+    }
+  ],
+  "Outputs": [
+    {
+      "Location": 0,
+      "Name": "result",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Semantic": "SV_Target"
+    }
+  ],
+  "PushConstants": [],
+  "SpecConstants": [],
+  "Permutations": [
+    {
+      "Name": "UseShadows",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
+    },
+    {
+      "Name": "MaxLights",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "4"
+    },
+    {
+      "Name": "Unused",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "true"
+    }
+  ],
+  "ValueParameters": [],
+  "Parameters": [
+    {
+      "Name": "worldViewProjection",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 4,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": true,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 0,
+      "Size": 64,
+      "ArrayStride": 0,
+      "MatrixStride": 16
+    },
+    {
+      "Name": "normalMatrix",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 3,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": true,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 64,
+      "Size": 48,
+      "ArrayStride": 0,
+      "MatrixStride": 16
+    },
+    {
+      "Name": "ambient",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 112,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0
+    },
+    {
+      "Name": "exposure",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 124,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0
+    },
+    {
+      "Name": "lightCount",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 128,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0
+    },
+    {
+      "Name": "enabled",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 132,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0
+    },
+    {
+      "Name": "weights",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "ArrayLength": 4,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": true,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 144,
+      "Size": 64,
+      "ArrayStride": 16,
+      "MatrixStride": 0
+    },
+    {
+      "Name": "lights[].position",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 208,
+      "Size": 12,
+      "ArrayStride": 32,
+      "MatrixStride": 0
+    },
+    {
+      "Name": "lights[].range",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 220,
+      "Size": 4,
+      "ArrayStride": 32,
+      "MatrixStride": 0
+    },
+    {
+      "Name": "lights[].color",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 224,
+      "Size": 12,
+      "ArrayStride": 32,
+      "MatrixStride": 0
+    },
+    {
+      "Name": "lights[].intensity",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 236,
+      "Size": 4,
+      "ArrayStride": 32,
+      "MatrixStride": 0
+    },
+    {
+      "Name": "overflow.position",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 3,
+      "Offset": 0,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0
+    },
+    {
+      "Name": "overflow.range",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 3,
+      "Offset": 12,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0
+    },
+    {
+      "Name": "overflow.color",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 3,
+      "Offset": 16,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0
+    },
+    {
+      "Name": "overflow.intensity",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 3,
+      "Offset": 28,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0
+    }
+  ],
+  "RequiredCapabilities": [],
+  "UsedPermutationKeys": [
+    "MaxLights",
+    "UseShadows"
+  ],
+  "Stages": [
+    "Vertex",
+    "Pixel"
+  ]
+}

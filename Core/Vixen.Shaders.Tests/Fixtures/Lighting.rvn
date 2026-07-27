@@ -1,0 +1,68 @@
+package Vixen.Fixtures
+
+// The fixture the generated bindings are pinned against.
+//
+// Chosen to cover every shape the layout rules treat differently, because a fixture that only has
+// float4s proves nothing: a float3 followed by a float (the padding case), a mat3 (the only type
+// whose host bytes and shader bytes differ), a mat4 (the one that must NOT be rearranged), a bool
+// (four bytes, not one), a scalar array (stride 16, not 4), a struct array (the light list), and
+// both a permutation that changes the output and one that does not.
+
+struct PunctualLight {
+    var position: float3
+    var range: float
+    var color: float3
+    var intensity: float
+}
+
+shader Lighting {
+    [Permutation] val UseShadows: bool = false
+    [Permutation] val MaxLights: int = 4
+    [Permutation] val Unused: bool = true
+
+    var worldViewProjection: mat4
+    var normalMatrix: mat3
+    var ambient: float3
+    var exposure: float = 1f
+    var lightCount: int = 0
+    var enabled: bool = true
+    var weights: float[4]
+    var lights: PunctualLight[MaxLights]
+
+    var albedo: Texture2D
+    var linear: Sampler
+    var overflow: Buffer<PunctualLight>
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float3, texcoord: float2): float4 {
+        uv = texcoord
+        return worldViewProjection * float4(position, 1f)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        var color = albedo.Sample(linear, uv).rgb * ambient * exposure
+
+        if (enabled) {
+            for (i in 0 .. MaxLights - 1) {
+                if (i >= lightCount) {
+                    break
+                }
+
+                color += lights[i].color * lights[i].intensity * weights[0]
+            }
+        }
+
+        color = normalMatrix * color
+
+        if (UseShadows) {
+            color = color * 0.5f
+        }
+
+        return float4(color, 1f)
+    }
+}

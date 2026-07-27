@@ -278,6 +278,66 @@ public class ReflectionTests {
     public void An_opaque_resource_contributes_no_parameters() =>
         Assert.DoesNotContain("albedo", Describe(Material).Parameters.Select(p => p.Name));
 
+    /// <summary>
+    ///     A struct array in a uniform block reports its element's layout once, under
+    ///     <c>name[].field</c>, with the element stride on every leaf.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A light list is a struct array in a uniform block, and so is every per-instance table
+    ///         — so for as long as the element was opaque, a shader's most important parameter was
+    ///         the one thing the reflection could not describe. Found by the C# binding generator,
+    ///         which had nothing to generate a writer from.
+    ///     </para>
+    ///     <para>
+    ///         One entry per field rather than per element: 64 lights would be 512 entries saying the
+    ///         same eight things at a fixed spacing, and the spacing is the stride. Element
+    ///         <em>i</em>'s field is <c>Offset + i * ArrayStride</c>, which is why a leaf reports the
+    ///         enclosing element's stride rather than its own zero.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_struct_array_reports_its_element_layout_once_with_the_stride_on_each_leaf() {
+        var parameters = Describe(
+            """
+            package A
+
+            struct Light {
+                var position: float3
+                var range: float
+                var color: float3
+                var intensity: float
+            }
+
+            shader S {
+                var lights: Light[4]
+
+                [PixelShader]
+                func Pixel(): float4 {
+                    return float4(lights[0].color, lights[1].range)
+                }
+            }
+
+            """
+        ).Parameters;
+
+        Assert.Equal(
+            ["lights[].position", "lights[].range", "lights[].color", "lights[].intensity"],
+            parameters.Select(p => p.Name)
+        );
+
+        var color = Assert.Single(parameters, p => p.Name == "lights[].color");
+        Assert.Equal(16, color.Offset);
+        Assert.Equal(12, color.Size);
+
+        // 32 is the element's std140 stride, so `lights[2].color` is at 16 + 2 * 32.
+        Assert.All(parameters, p => Assert.Equal(32, p.ArrayStride));
+
+        // The aggregate itself is not writable through this list — it has no scalar type to write —
+        // so it appears in the block's members and not here.
+        Assert.DoesNotContain("lights", parameters.Select(p => p.Name));
+    }
+
     // --- Capabilities and permutation keys ----------------------------------
 
     [Fact]

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Shaders</RootNamespace>
+        <Description>
+            The engine's side of the shader contract: interned, typed parameter and permutation
+            keys, and the std140/std430 constant-buffer writers that Vixen.Shaders.Generators
+            emits calls to. Every offset is baked at compile time from Raven's reflection, so
+            filling a uniform block costs no reflection and no name lookup at run time.
+        </Description>
+        <PackageTags>shaders;parameters;constant-buffer;std140;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Graphics\Vixen.Graphics.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Shaders.Tests" />
+    </ItemGroup>
+
+</Project>

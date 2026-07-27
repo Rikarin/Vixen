@@ -27,7 +27,6 @@ decision that has been made and built, kept because the reasons stay useful.
 | 🟡 | **String interpolation** — needs lexer modes; nothing shipped uses it | § I | nothing |
 | ⚪ | **Nuke is not stood up**: `CompileShaderLibrary`, `CheckFormat` for SPDX enforcement, the CI workflows | § A, § G | shipping the library as a package; SPDX is a real gap, not a closed item |
 | ⚪ | **`Vixen.Raven.Transpile`** (SPIRV-Cross wrapper) and the cross-compilation test pass | § A, § G | HLSL/MSL/WGSL output, which ADR-012 says SPIRV-Cross owns |
-| ⚪ | **`Vixen.Shaders.Generators`** — Raven supplies everything it needs; the generator waits for the engine's `ParameterKey` | § Generated C# bindings | deliberately engine-side |
 
 Two smaller ones recorded where they belong rather than here: streams have **no interpolation control**
 (§ Streams), and a library's **IR names share one flat namespace per module** (§ D).
@@ -263,7 +262,7 @@ The library surface the engine binds against, and the two artefact formats it lo
 | 🟡 | **Incremental reparse** via `SourceText.WithChanges` — the < 500 ms shader hot-reload budget ([00](00-vision-and-principles.md)) depends on it. Comes free from `Vixen.Core.Syntax` | ✅ including green-node reuse at member granularity |
 | 🟡 | Diagnostics surfaced through the shared model so the editor's error list, the engine log, and the on-screen shader-error overlay all use one implementation | ✅ via `Vixen.Core.Syntax` |
 | 🟡 | Accept **generated** source with span fidelity, so `Vixen.Editor.ShaderGraph` can emit Raven and map diagnostics back to node ports ([11](11-editor.md)) | ✅ `ParseText(text, path:)` already |
-| ⚪ | "Interaction classes" (Raven's Phase 7) feed `Vixen.Shaders.Generators`, which emits the C# `ParameterKey`/`PermutationKey` classes | ✅ everything Raven owes it; the generator itself is engine-side |
+| ⚪ | "Interaction classes" (Raven's Phase 7) feed `Vixen.Shaders.Generators`, which emits the C# `ParameterKey`/`PermutationKey` classes | ✅ both halves; see [§ Generated C# bindings](#generated-c-bindings) |
 
 **The layout engine is shared, and that is the point.** `Vixen.Raven.Reflection.ShaderLayout` is the
 only implementation of the packing rules. It was private to the SPIR-V backend as `Std140Layout`;
@@ -1886,7 +1885,7 @@ source-declared chain** was the smaller one and landed alone.
 
 ## Generated C# bindings
 
-`Vixen.Shaders.Generators` reads `.rvnfx` reflection as `AdditionalFiles` and emits, per shader:
+`Vixen.Shaders.Generators` reads `.reflect.json` reflection as `AdditionalFiles` and emits, per shader:
 
 ```csharp
 // generated from Shading/Lighting.rvn
@@ -1905,28 +1904,54 @@ This is Stride's `ParameterKey`/`ParameterCollection` idea (which its shader gen
 with the reflection cost moved entirely to compile time. Permutation keys are typed and enumerable, so
 the build-time permutation pre-generator ([06](06-rendering-pipeline.md)) can iterate them.
 
-### Status: Raven's side is done, the generator waits for the engine
+### ✅ Status: built, and what building it found
 
-**Nothing is missing on the compiler side.** `Parameters` gives every writable value its dotted name,
-type and baked offset, so the constant-buffer writer above is pure data plus `Span<byte>` with no engine
-types involved; `Permutations` and `ValueParameters` supply the keys.
+`Core/Vixen.Shaders` and `Core/Vixen.Shaders.Generators` exist. The generator reads
+`.reflect.json` as `AdditionalFiles` and emits, per shader, a `…Keys` class (a typed
+`ParameterKey`/`PermutationKey` per parameter, resource and permutation) and a `…Constants` struct
+whose `Write(Span<byte>)` stores every value at the offset Raven computed.
 
-**`AdditionalFiles` is not a workaround but the only shape that works.** A Roslyn generator targets
-netstandard2.0/2.1 and runs inside the compiler ([Directory.Build.props](../../Directory.Build.props)
-§ Generator profile) while `Vixen.Raven` targets net10.0, so a generator *could not* call the compiler
-even if it wanted to.
+**The offsets are copied, never recomputed** — which is the entire point. They come out of the same
+`ShaderLayout` pass that told the GLSL and SPIR-V emitters where to put things, so a host and a shader
+cannot disagree about `float3` padding. A second implementation of std140 on the engine side would
+eventually differ, and differ *silently*, because every byte still lands inside the buffer.
 
-**What blocks it is engine-side, deliberately.** `ParameterKey<T>`, `ParameterKeys`,
-`PermutationKey<T>` and `Buffer` do not exist because `Vixen.Shaders` and the RHI do not. Their shape
-should follow from how the renderer binds them and how `ParameterCollection` is consumed, which is why
-[14](14-roadmap.md) sequences the generator in Phase 5 beside the effect system: designing that API
-against no consumer is how it gets designed twice.
+Three shapes needed the writer to know something a memcpy does not — a `float3` followed by a `float`
+share one sixteen-byte slot, a `bool` occupies four bytes, a `mat3` is three twelve-byte columns in
+sixteen bytes of space each — and one shape deliberately needed it to do nothing: a `Matrix4x4` is a
+straight blit, because the shader reading the host's row-major bytes as `ColMajor` is what makes its
+matrix the transpose that `mul(v, M)` wants (§ E).
 
-**If output is wanted sooner, emit from the CLI, not an analyzer.** `raven compile --emit-bindings`
-writing C# beside the `.rvnfx` is the same emission with strictly less machinery — no `Vixen.Shaders`
-project in a repo with no engine, no JSON reader inside an analyzer, and Raven's own tests can pin the
-generated text. A build step has to run before the C# compiles either way; that is what the Nuke
-`CompileShaderLibrary` target is, and the analyzer can wrap the same schema later.
+**`AdditionalFiles` was the only shape that works, and two consequences came with it.** A generator
+targets netstandard2.0/2.1 and runs inside the compiler while `Vixen.Raven` targets net10.0, so the
+generator cannot call the compiler — the reflection model is hand-written against the *schema*, with
+only the fields actually read declared, so Raven can extend the schema without breaking a build. And a
+generator runs in the compiler's assembly load context, so `System.Text.Json` would compile and then
+fail to load in the *consuming* project; the JSON reader is ours, which this section predicted as the
+cost of the analyzer route.
+
+#### The defect it found in Raven's own reflection
+
+**A struct array in a uniform block reported no element layout at all.** `Flatten` descended into a
+struct and stopped at an array of them, and `BuildParameters` then skipped the aggregate as
+"not writable on its own" — so `lights: PunctualLight[MaxLights]` contributed *nothing* a host could
+write through. A light list is a struct array in a uniform block, and so is every per-instance table,
+which made a shader's most important parameter the one thing the reflection could not describe.
+
+It now reports the element's fields once, under `name[].field`, with the element stride on each leaf:
+element *i*'s field is `Offset + i * ArrayStride`. One entry per field rather than per element, since
+sixty-four lights would otherwise be 512 entries saying the same eight things at a fixed spacing.
+
+The generator turns those leaves back into one element struct with an indexed writer rather than four
+parallel arrays — the flat form is honest to the layout and awful to use, and reassembling it is
+exactly the loop a caller was going to write.
+
+#### Where the line was drawn
+
+`ParameterCollection`, the effect system and the three-tier bytecode cache are **not** built. They are
+the rest of Phase 5's `Vixen.Shaders` bullet and they need `Vixen.Rendering` to be designed against —
+which is this section's own argument, applied to itself: designing an API against no consumer is how
+it gets designed twice. Keys and writers had a consumer already, and it was the generator.
 
 ## Development-time flow
 
