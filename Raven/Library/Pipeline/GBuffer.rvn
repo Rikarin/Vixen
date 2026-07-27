@@ -6,15 +6,11 @@ import Vixen.Shaders.Material
 
 // The G-buffer layout: how a surface is packed into render targets, and unpacked from them.
 //
-// **This file is the encoding, not the writing pass.** A G-buffer pass writes several render targets
-// at once, and Raven has no multiple-render-target output — an entry point returns one value, and an
-// aggregate return is `RVN4001` in both backends (which is now consistent, but still a refusal). So the
-// geometry pass that fills these targets cannot be written yet; see docs/plan/07 § F.
-//
-// The encoding is worth having anyway, and arguably matters more than the pass. It is the contract
-// between a pass that writes and a pass that reads, and the two are in different files — exactly the
-// situation where a layout defined twice drifts. `Deferred.rvn` reads through `Decode` below, so when
-// the writing pass becomes expressible it has one place to agree with.
+// **This file is the encoding; the two passes are `GBufferPass.rvn` and `Deferred.rvn`.** The split is
+// what makes the layout a contract rather than a convention: the pass that writes and the pass that
+// reads are in different files, which is exactly the situation where a layout defined twice drifts
+// apart one channel at a time. Neither pass names a channel — one calls `Encode`, the other `Decode` —
+// so a change here is a compile error in both rather than a rendering artefact in one.
 //
 // The layout, three targets plus depth:
 //

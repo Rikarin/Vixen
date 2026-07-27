@@ -1,0 +1,109 @@
+package Vixen.Shaders.Pipeline
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Shading
+import Vixen.Shaders.Geometry
+import Vixen.Shaders.Material
+
+// The G-buffer geometry pass: resolve the material once, pack it into three targets, and stop.
+//
+// The half of deferred that `Deferred.rvn` is the other half of. This pass runs per triangle and writes
+// no lighting at all — it evaluates the material chain, hands the result to `GBuffer.Encode`, and the
+// lighting pass reads it back through `GBuffer.Decode`. The two never mention a channel index, which is
+// the entire reason the encoding lives in a third file.
+//
+// **It is the same shader as `ForwardPlus` down to the `surface.Compute(d)` call, and diverges only
+// after it.** That is the property deferred trades for: the material is resolved once per *pixel*
+// rather than once per light, and the price is that only what the G-buffer encodes survives. A feature
+// that contributes something the layout has no room for — anisotropy, a second specular lobe — simply
+// does not reach the lighting pass, and nothing warns about it. That is a property of deferred, not of
+// this file, and the honest place to state it is here where the truncation happens.
+//
+// Writing three targets is what the pass could not say before multiple render targets landed: an entry
+// point returns one value, so the pixel stage returns `GBufferTargets` and the entry-point wrapper takes
+// it apart, one member per target, in declaration order. See docs/plan/07 § The three interface shapes.
+
+shader GBufferPass {
+    /// The material's surface features, chosen per material — the same slot `ForwardPlus` declares.
+    ///
+    /// Deferred and forward composing against one protocol is what keeps a material from having to be
+    /// authored twice. A project that renders some materials forward (anything transparent) and the
+    /// rest deferred fills the same slot in both.
+    compose val surface: IMaterialSurface
+
+    /// Whether to skin the vertex, matching `ShadowCaster`'s key so the two agree per draw.
+    [Permutation] val Skinned: bool = false
+
+    /// Whether to cut out on the material's alpha. Off removes the branch and the `discard` with it.
+    [Permutation] val AlphaTested: bool = false
+
+    var world: mat4
+    var worldViewProjection: mat4
+
+    var alphaCutoff: float = 0.5f
+
+    /// The bone palette, sized by the same constant every skinned pass uses.
+    var bones: mat4[Skinning.MaxBones]
+
+    stream var positionWS: float3
+    stream var normalWS: float3
+    stream var tangentWS: float4
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float3, normal: float3, tangent: float4, texcoord: float2, bones0: float4, weights0: float4): float4 {
+        var local = position
+        var localNormal = normal
+        var localTangent = tangent.xyz
+
+        if (Skinned) {
+            val skin = Blend(bones0, weights0)
+            local = Math.TransformPoint(skin, position)
+            localNormal = Math.TransformDirection(skin, normal)
+            localTangent = Math.TransformDirection(skin, tangent.xyz)
+        }
+
+        positionWS = Math.TransformPoint(world, local)
+        normalWS = Math.TransformNormalRigid(world, localNormal)
+
+        // Handedness rides through untouched: it is a property of the *unwrap*, and no rigid
+        // transform can change which side of the surface the bitangent points to.
+        tangentWS = float4(Math.TransformDirection(world, localTangent), tangent.w)
+        uv = texcoord
+
+        return Transform.ObjectToClip(worldViewProjection, local)
+    }
+
+    /// The four palette matrices this vertex needs, blended — see `ShadowCaster.Blend` for why the
+    /// indexing lives in the shader that declares the palette rather than in `Skinning`.
+    func Blend(indices: float4, weights: float4): mat4 {
+        var palette: BonePalette
+        palette.bone0 = bones[int(indices.x)]
+        palette.bone1 = bones[int(indices.y)]
+        palette.bone2 = bones[int(indices.z)]
+        palette.bone3 = bones[int(indices.w)]
+
+        return Skinning.BlendMatrix(palette, weights)
+    }
+
+    /// Resolves the material and packs it. Three targets out, no lighting.
+    ///
+    /// No `[Semantic]` on the entry point, and that is not an omission: with more than one output the
+    /// target index comes from the member's position in `GBufferTargets`, so a declared semantic could
+    /// only disagree with the location the plan assigns. One member, one target, in order.
+    [PixelShader]
+    func Pixel(): GBufferTargets {
+        var d: MaterialData
+        MaterialDefaults.Begin(d, normalWS, tangentWS)
+        surface.Compute(d)
+
+        if (AlphaTested) {
+            if (d.alpha < alphaCutoff) {
+                discard
+            }
+        }
+
+        return GBuffer.Encode(d)
+    }
+}

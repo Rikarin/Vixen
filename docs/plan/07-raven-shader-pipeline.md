@@ -24,8 +24,6 @@ decision that has been made and built, kept because the reasons stay useful.
 
 | | Open item | Where | Blocks |
 |---|---|---|---|
-| 🟡 | **`Raven/Library` is written** — 44 files across all eight packages, every shader reaching both backends under `glslc` and `spirv-val`. What is left is depth rather than breadth: the G-buffer geometry pass, the clustered light loop and the compute post-process. **Every language gap that was blocking them is now closed**, so what remains is content | § F | the perf gates |
-
 | 🟡 | **String interpolation** — needs lexer modes; nothing shipped uses it | § I | nothing |
 | ⚪ | **Nuke is not stood up**: `CompileShaderLibrary`, `CheckFormat` for SPDX enforcement, the CI workflows | § A, § G | shipping the library as a package; SPDX is a real gap, not a closed item |
 | ⚪ | **`Vixen.Raven.Transpile`** (SPIRV-Cross wrapper) and the cross-compilation test pass | § A, § G | HLSL/MSL/WGSL output, which ADR-012 says SPIRV-Cross owns |
@@ -517,7 +515,7 @@ Still owed, and not the compiler's to give:
 `Raven/Library/` becomes a shipped, version-locked artefact compiled by the Nuke `CompileShaderLibrary`
 target. Full tree in [§ Source layout](#source-layout-what-is-written-in-raven).
 
-#### ✅ Written: 44 files across all eight packages
+#### ✅ Written: 47 files across all eight packages
 
 `LibraryTreeTests` holds the tree to four claims, each failing differently: every file parses and
 round-trips; the tree binds as **one** compilation, so the library agrees with itself rather than
@@ -531,8 +529,8 @@ through `.rvnlib` references.
 | `Shading/` | `Brdf` (the D/V/F primitives and `ShadingAngles`) · `DiffuseModels` · `SpecularModels` (GGX, anisotropic, Beckmann, multi-scatter, horizon occlusion) · `ClearCoat` · `Sheen` · `Hair` · `Subsurface` · `Transmission` · `Ibl` (split-sum DFG fit, SH9 irradiance, parallax-corrected probes) · `Lighting` (punctual and sphere lights, both shadow biases, PCF, cascade fade) |
 | `Geometry/` | `Transform` (the spaces, depth reconstruction, reprojection) · `Normals` (tangent frames, one- and two-channel decode, whiteout blend, geometric normal) · `Skinning` (linear and dual-quaternion) · `Instancing` (packed transforms, per-instance variation) · `Displacement` (height, Gerstner waves, wind, parallax occlusion) |
 | `Material/` | `MaterialSurface` (the `inout` contract and five features) · `ComputeColor` (the shader-graph vocabulary: blend modes, ramps, UV nodes, value noise) |
-| `Pipeline/` | `ForwardPlus` · `Deferred` · `GBuffer` (the encoding) · `DepthOnly` · `ShadowCaster` |
-| `PostFx/` | `Fullscreen` · `Tonemap` (+ grading and LUT) · `Bloom` (Jimenez down/up, Karis average) · `Fxaa` · `Ssao` (GTAO horizon search, bent normals) · `Taa` (reprojection, YCoCg variance clipping) · `Fog` · `Vignette` (+ aberration and grain) · `Sharpen` (CAS) · `Outline` |
+| `Pipeline/` | `ForwardPlus` (both light loops) · `ClusterCulling` (the binning dispatch) · `GBufferPass` · `Deferred` · `GBuffer` (the encoding both passes share) · `DepthOnly` · `ShadowCaster` |
+| `PostFx/` | `Fullscreen` · `Tonemap` (+ grading and LUT) · `Bloom` (Jimenez down/up, Karis average) · `AutoExposure` (the one compute effect) · `Fxaa` · `Ssao` (GTAO horizon search, bent normals) · `Taa` (reprojection, YCoCg variance clipping) · `Fog` · `Vignette` (+ aberration and grain) · `Sharpen` (CAS) · `Outline` |
 | `Ui/` | `UiQuad` (and the premultiply/clip/SDF conventions) · `Msdf` · `RoundedRect` · `Blur` · `Gradient` |
 | `Vfx/` | `ParticleBillboard` (three facing modes, sub-UV) · `ParticleRibbon` · `ParticleSimulate` (the forces and integrator) |
 
@@ -557,7 +555,57 @@ is emitted once — the one-shared-IR-decoder decision in § D paying off), and 
 **identical IR** to compiling its source alongside, without which a library is a source of divergence
 between a developer build and a shipped one.
 
-#### Four defects the library found
+#### ✅ The three passes the library was missing
+
+Breadth was never the gap. Every package had files; what three of them did not have was the pass that
+makes the package *mean* something, and each was blocked on a language feature that has since landed.
+Writing them closed the last content item — and each turned out to say something the fixtures could
+not, because a fixture is written to exercise a feature and a pass is written to do a job.
+
+**`Pipeline/GBufferPass.rvn` — the geometry pass.** `GBuffer.rvn` had held the encoding for as long as
+multiple render targets were unexpressible, with `Deferred.rvn` reading through `Decode` and nothing
+writing through `Encode`. Now both exist, and the shape worth keeping is that **the geometry pass is
+`ForwardPlus` down to the `surface.Compute(d)` call and diverges only after it** — one `compose val
+surface: IMaterialSurface` slot filled the same way in both, so a material is authored once and either
+pipeline can render it. What deferred costs is then stateable in one sentence: a feature contributing
+something the layout has no room for does not reach the lighting pass, and nothing warns.
+
+**`Pipeline/ClusterCulling.rvn` — the binning dispatch.** The loop had been there since sized arrays
+landed; what was host-side was the culling. The pass is one invocation per cluster, and the reason it
+is shaped that way is a language constraint turned into a design: **Raven has no atomics**, so instead
+of every thread appending to a shared list behind an atomic counter, each cluster owns a fixed slice of
+the output that exactly one invocation writes. That removes the sharing rather than synchronising it,
+at the price of a per-cluster capacity — overflow drops lights in the densest part of a scene rather
+than crashing, which is the same failure a global budget has, localised. `ForwardPlus` reads it behind
+`[Permutation] UseClusteredLights`, a permutation rather than a branch because the two loops need
+different *bindings*: with it off, the buffers and the `positionVS` stream fold away and the host binds
+nothing for them.
+
+The grid constants are `const val` on a struct rather than permutations, and the distinction is worth
+keeping: `MaxLights` sizes a *binding*, so it can vary per variant, while `ClusterGrid.Capacity` sizes
+an array **inside a struct** — a type both the shader and the host agree the bytes of, which cannot
+differ per variant.
+
+**`PostFx/AutoExposure.rvn` — the compute post-process.** Every other effect in the package is a
+fullscreen triangle writing one target. This one cannot be, and the reason is sharper than "it is a
+compute pass": **its output is not an image.** It reduces the frame to one number and leaves it in a
+storage buffer the *next frame's* tonemapper binds as an ordinary uniform. A fragment stage writes the
+targets bound to it and nothing else, so the alternative is a readback through the host — a frame of
+latency and a pipeline stall for eight bytes. It is the first thing in the library that needed both
+new resource kinds at once, a storage image for the reduction chain and a storage buffer for the
+result that outlives the frame.
+
+#### Three defects writing them found
+
+Each is a case of content asking a question no fixture had.
+
+| Found by | Defect |
+|---|---|
+| `Material/MaterialSurface.rvn` | **`NormalMapSurface` wrote a tangent-space vector into `normalWS`.** The field name said world space and the value was not — every normal-mapped surface was lit as though it faced +Z. The cause was structural rather than a slip: the feature had no way to reach the tangent frame, because the frame belongs to the *mesh and the pass* and `MaterialData` carried no geometry at all. Fixed by giving it one, seeded by the pass through `MaterialDefaults.Begin`, so a feature says which way to bend and the pass says what to bend it against |
+| `Pipeline/Deferred.rvn` | **A comment claimed `SV_VertexID` did not exist** three lines above the code using it — stale since the built-in landed. Comments do not compile, which is exactly why a file's prose is the part most worth re-reading when the thing it apologises for gets built |
+| `Library/Pipeline/*`, `PostFx/*` | **Three permutation-gated paths had no test that switched them on**, so the cutout `discard`, the whole clustered loop and the auto-exposure buffer write were dead code in every test that compiled the tree. A `[Permutation]` key folding a branch away before lowering is the feature working; a test suite that only ever compiles the default variant is the suite not noticing |
+
+#### Four defects the first pass over the library found
 
 Every one was a silent or asymmetric failure that a passing test suite had not reached, because
 nothing in the fixtures was shaped like real library code.
@@ -574,7 +622,8 @@ nothing in the fixtures was shaped like real library code.
 Each of these shaped a file rather than blocking it, and each is recorded in the table at the top.
 
 - ~~**No sized array types**~~ — landed, and it took the two named library gaps with it.
-  `Pipeline/ForwardPlus.rvn` now has the clustered light loop over a `PunctualLight[MaxLights]`, and
+  `Pipeline/ForwardPlus.rvn` got the light loop over a `PunctualLight[MaxLights]` — the pass that
+  *culls* into it is `ClusterCulling.rvn`, written later — and
   `Pipeline/ShadowCaster.rvn` skins from a `mat4[Skinning.MaxBones]` palette. What the *library* learnt
   from it is a calling-convention rule rather than a syntax one: a function parameter is by value in
   both targets, so a `mat4[256]` parameter would copy sixteen kilobytes at every call. Indexing
@@ -587,10 +636,10 @@ Each of these shaped a file rather than blocking it, and each is recorded in the
   doc 06's CPU/GPU bit-for-bit comparison a transliteration, and `WritableResourceTests` now asserts
   the split rather than only the compile, because a force that read a binding would break the
   comparison silently.
-- ~~**No multiple render targets**~~ — landed. `GBuffer.rvn` is still the *encoding* rather than the
-  geometry pass that fills it, and that is now content rather than a language gap: the pass returns a
-  struct of the targets and `Deferred.rvn` reads through the same `Decode`, so the two agree in one
-  place. See [§ The three interface shapes](#the-three-interface-shapes-that-are-not-a-set-of-uniforms).
+- ~~**No multiple render targets**~~ — landed, and `GBufferPass.rvn` is now written against it: the
+  pixel stage returns a struct of the targets, `Deferred.rvn` reads through the same `Decode`, and the
+  two agree in one place. See
+  [§ The three interface shapes](#the-three-interface-shapes-that-are-not-a-set-of-uniforms).
 - ~~**No `SampleLevel`**~~ — landed, along with `GetDimensions` and `asfloat`/`asint`/`asuint`. All
   three are the same shape of change (a symbol, an IR opcode, a line in each backend). `Msdf.rvn` now
   queries its atlas instead of hard-coding 1024, a packed storage buffer can be read back at all, and
@@ -1391,8 +1440,7 @@ A **storage image** — a writable texture — landed as `[Format("rgba16f")] va
 RWTexture2D<float4>`. It was a smaller thing than it looked but not a free one, and the format is the
 reason: GLSL requires a qualifier on the declaration and SPIR-V an `ImageFormat` operand on
 `OpTypeImage`, so it needed syntax and a decision about which formats to admit — sixteen, all of them
-in Vulkan's must-support-storage list. The compute post-process pass is no longer waiting on the
-language, only on the content. See
+in Vulkan's must-support-storage list. `PostFx/AutoExposure.rvn` is the pass that needed it. See
 [§ The three interface shapes](#the-three-interface-shapes-that-are-not-a-set-of-uniforms).
 
 Also found while writing this, and since **fixed**: `Buffer<Buffer<float>>` did not parse. The `>>`

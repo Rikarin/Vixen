@@ -2,6 +2,7 @@ package Vixen.Shaders.Material
 
 import Vixen.Shaders.Core
 import Vixen.Shaders.Shading
+import Vixen.Shaders.Geometry
 
 // The composable material interface: Stride's model, without the mixin resolver.
 //
@@ -49,6 +50,19 @@ struct MaterialData {
 
     /// Coverage, for alpha blending or a cutout test.
     var alpha: float
+
+    /// The interpolated tangent frame at this point, as the pass computed it.
+    ///
+    /// Geometry rather than material, and here for one reason: a normal map is authored in *tangent*
+    /// space, so a feature that samples one has to rotate it into world space — and the basis to
+    /// rotate by belongs to the mesh and the pass, not to the material. Without it a feature can only
+    /// write the tangent-space vector into `normalWS` and hope, which is not a shading normal at all:
+    /// it lights every surface as though it faced +Z in object space.
+    ///
+    /// Seeded by the pass before the chain runs. `MaterialDefaults.Reset` leaves it the identity, so a
+    /// feature that rotates by it on a pass with no tangents gets its input back unchanged rather than
+    /// a zero vector.
+    var tangentFrame: TangentFrame
 }
 
 /// A material feature: it reads the surface and contributes to it.
@@ -69,6 +83,24 @@ struct MaterialDefaults {
         d.occlusion = 1f
         d.emissive = float3(0f)
         d.alpha = 1f
+
+        // The identity frame, so `Normals.ToWorld` is a no-op until a pass supplies a real one. A
+        // zeroed frame would be worse than useless — it maps every normal to zero, and `SafeNormalize`
+        // would hand back a plausible-looking unit vector pointing nowhere in particular.
+        d.tangentFrame.tangent = float3(1f, 0f, 0f)
+        d.tangentFrame.bitangent = float3(0f, 1f, 0f)
+        d.tangentFrame.normal = float3(0f, 0f, 1f)
+    }
+
+    /// Resets the surface and seeds it with the geometry the pass interpolated.
+    ///
+    /// What every pass with a tangent channel calls instead of `Reset`. The shading normal starts as
+    /// the *geometric* one, so a material with no normal-map feature is already correct, and a
+    /// feature that replaces it is replacing something meaningful rather than filling in a blank.
+    static func Begin(inout d: MaterialData, normalWS: float3, tangentWS: float4) {
+        Reset(d)
+        d.tangentFrame = Normals.Frame(normalWS, tangentWS.xyz, tangentWS.w)
+        d.normalWS = d.tangentFrame.normal
     }
 }
 
@@ -109,13 +141,19 @@ shader SpecularGlossinessSurface : IMaterialSurface {
 ///
 /// A separate feature rather than part of the base surface, which is the composition paying off: a
 /// material either has a normal map or does not, and the shader that has none emits no code for one.
+///
+/// **The rotation into world space happens here, through `d.tangentFrame`.** The name of the field it
+/// writes says `WS`, and for as long as this feature assigned a tangent-space vector to it that name
+/// was a lie — the surface came out lit as though it faced +Z, which reads as a broken normal map
+/// rather than as a missing basis. The frame belongs to the pass, so the pass supplies it and the
+/// feature only says which way to bend.
 shader NormalMapSurface : IMaterialSurface {
     var normalTS: float3 = float3(0f, 0f, 1f)
     var strength: float = 1f
 
     func Compute(inout d: MaterialData) {
-        val scaled = float3(normalTS.x * strength, normalTS.y * strength, normalTS.z)
-        d.normalWS = Math.SafeNormalize(scaled)
+        val scaled = Math.SafeNormalize(float3(normalTS.x * strength, normalTS.y * strength, normalTS.z))
+        d.normalWS = Normals.ToWorld(d.tangentFrame, scaled)
     }
 }
 

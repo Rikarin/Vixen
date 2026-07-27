@@ -11,12 +11,18 @@ import Vixen.Shaders.Material
 // glossiness, normal maps or emission — it fills a `MaterialData` from whatever feature the material
 // chose, and shades it. Adding a material feature does not touch this file.
 //
-// "Forward *plus*" names the light culling: a compute pass bins lights into screen-space tiles or
-// clusters so a fragment iterates only the lights that reach it instead of all of them. The loop over
-// that list is here, and it is what `MaxLights` sizes. What is still host-side is the *culling* — this
-// pass iterates the list it is given, which is the culled list when a binning pass wrote one and the
-// whole list when nothing did. Either way the shader is the same, which is the point of taking the
-// count as a uniform.
+// "Forward *plus*" names the light culling: a compute pass bins lights into clusters so a fragment
+// iterates only the lights that reach it instead of all of them. Both halves now exist —
+// `ClusterCulling.rvn` is the binning pass — and `[Permutation] UseClusteredLights` chooses which
+// loop this shader has:
+//
+//   off  a uniform array of `MaxLights`, filled by the host. Right for a scene with a handful of
+//        lights, where a dispatch and a 450 KB buffer cost more than iterating all of them.
+//   on   the cluster list, read from the buffer the culling pass wrote.
+//
+// It is a permutation rather than a branch because the two need different *bindings*: off, the
+// clustered variant's buffers and its `positionVS` stream fold away entirely, and the host binds
+// nothing for them. A runtime branch would keep both descriptor sets alive in every variant.
 
 shader ForwardPlus {
     /// The material's surface features, chosen per material.
@@ -29,16 +35,23 @@ shader ForwardPlus {
     /// Whether to sample a shadow map for the directional light.
     [Permutation] val UseShadows: bool = true
 
-    /// How many entries the light list has room for.
+    /// Whether to read the culled cluster list instead of a host-filled uniform array.
+    [Permutation] val UseClusteredLights: bool = false
+
+    /// How many entries the uniform light list has room for. Unused when clustering is on.
     ///
     /// A permutation rather than a constant because it is the *host's* budget: it sizes a uniform
-    /// array, so it sets the descriptor's size, and a project that ships eight lights per cluster
-    /// should not pay for sixty-four. It is also why `lightCount` exists separately — the array is
-    /// sized once at compile time and filled to a different depth every draw.
+    /// array, so it sets the descriptor's size, and a project that ships eight lights per draw should
+    /// not pay for sixty-four. It is also why `lightCount` exists separately — the array is sized
+    /// once at compile time and filled to a different depth every draw.
     [Permutation] val MaxLights: int = 16
 
     var world: mat4
     var worldViewProjection: mat4
+
+    /// World to view, for placing a fragment in the cluster grid. Unused when clustering is off.
+    var view: mat4
+
     var cameraPosition: float3
 
     /// The sun, kept separate from the list: it has no position to cull against, so it is in every
@@ -47,10 +60,28 @@ shader ForwardPlus {
 
     var lightColor: float3
 
-    /// The culled light list. Read `lightCount` entries, not `MaxLights` — the rest is stale memory.
+    /// The host-filled light list. Read `lightCount` entries, not `MaxLights` — the rest is stale
+    /// memory. Unused when clustering is on.
     var lights: PunctualLight[MaxLights]
 
     var lightCount: int = 0
+
+    /// The scene's whole light list, which the clustered variant indexes into rather than copying.
+    ///
+    /// The same buffer `ClusterCulling` culled, bound to both passes. A cluster's entry is an *index*
+    /// into it, so the light itself exists once however many clusters reach it — which is the reason
+    /// the culler writes indices rather than lights.
+    var lightBuffer: Buffer<PunctualLight>
+
+    /// One list per cluster, as `ClusterCulling` wrote it.
+    var clusters: Buffer<ClusterLights>
+
+    /// The camera parameters that place a fragment in the grid. The same values the culling pass was
+    /// given, because a fragment that computes its cluster differently reads someone else's lights.
+    var tanHalfFov: float2 = float2(1f, 0.5625f)
+
+    var nearPlane: float = 0.1f
+    var farPlane: float = 1000f
 
     var lightViewProjection: mat4
     var shadowMap: Texture2D
@@ -69,6 +100,15 @@ shader ForwardPlus {
     stream var tangentWS: float4
     stream var uv: float2
 
+    /// View-space position, for finding the fragment's cluster.
+    ///
+    /// Carried from the vertex stage rather than recovered in the pixel stage, because Raven has no
+    /// fragment-stage position built-in — there is no `SV_Position` to read on the way in, only to
+    /// write on the way out. Interpolating it costs a location, which the unclustered variant does
+    /// not pay: the write below is inside the permutation, so with clustering off there is no write,
+    /// and a stream nothing writes is not an output.
+    stream var positionVS: float3
+
     [VertexShader]
     [Semantic("SV_Position")]
     func Vertex(position: float3, normal: float3, tangent: float4, texcoord: float2): float4 {
@@ -76,6 +116,10 @@ shader ForwardPlus {
         normalWS = Math.TransformNormalRigid(world, normal)
         tangentWS = float4(Math.TransformDirection(world, tangent.xyz), tangent.w)
         uv = texcoord
+
+        if (UseClusteredLights) {
+            positionVS = Math.TransformPoint(view, positionWS)
+        }
 
         return Transform.ObjectToClip(worldViewProjection, position)
     }
@@ -86,7 +130,7 @@ shader ForwardPlus {
         // The material fills the surface. Every feature reads what the previous one left, which is
         // what `inout` buys: adding a feature to the chain changes no other feature's signature.
         var d: MaterialData
-        MaterialDefaults.Reset(d)
+        MaterialDefaults.Begin(d, normalWS, tangentWS)
         surface.Compute(d)
 
         val v = Math.SafeNormalize(cameraPosition - positionWS)
@@ -119,31 +163,81 @@ shader ForwardPlus {
         return (diffuse + specular) * light.radiance * angles.NdotL * visibility
     }
 
-    /// Every light in the list, unshadowed.
+    /// Every light this fragment has to consider, unshadowed.
     ///
-    /// Bounded by `MaxLights` and broken out of at `lightCount`, rather than looped to `lightCount`
-    /// directly: the bound is what lets a driver unroll and what keeps the index provably inside the
-    /// array. The early exit is the part that costs nothing when the list is short.
+    /// Which list that is comes from the permutation, and only one of the two loops is emitted. The
+    /// *body* is the same either way — `Contribution` — because the difference between clustered and
+    /// unclustered shading is entirely about which lights you look at, and nothing about what you do
+    /// with one. Duplicating the BRDF calls into both loops is how the two would come to disagree.
     func Punctual(d: MaterialData, n: float3, v: float3, alpha: float): float3 {
+        if (UseClusteredLights) {
+            return Clustered(d, n, v, alpha)
+        }
+
         var total = float3(0f)
 
+        // Bounded by `MaxLights` and broken out of at `lightCount`, rather than looped to
+        // `lightCount` directly: the bound is what lets a driver unroll and what keeps the index
+        // provably inside the array. The early exit costs nothing when the list is short.
         for (i in 0 .. MaxLights - 1) {
             if (i >= lightCount) {
                 break
             }
 
-            val light = Lighting.Resolve(lights[i], positionWS, alpha)
-            val angles = ShadingAngles.Of(n, v, light.l)
+            total += Contribution(lights[i], d, n, v, alpha)
+        }
 
-            if (angles.NdotL > 0f) {
-                val lambert = DiffuseModels.Lambert(d.diffuseColor)
-                val diffuse = lambert * DiffuseModels.EnergyRemaining(d.f0, angles.NdotV)
-                val specular = SpecularModels.Ggx(d.f0, angles, light.alphaPrime)
-                total += (diffuse + specular) * light.radiance * angles.NdotL
+        return total
+    }
+
+    /// The lights the culling pass put in this fragment's cluster.
+    ///
+    /// Two indirections per light — cluster to index, index to light — and that is the trade the
+    /// whole scheme makes: a dependent read per light against iterating lights that are nowhere near
+    /// this fragment. It wins as soon as the scene has more lights than a cluster typically holds,
+    /// which is the point at which anyone reaches for clustering in the first place.
+    func Clustered(d: MaterialData, n: float3, v: float3, alpha: float): float3 {
+        var total = float3(0f)
+
+        val cluster = ClusterGrid.Of(positionVS, tanHalfFov, nearPlane, farPlane)
+
+        if (cluster >= clusters.Length) {
+            return total
+        }
+
+        val list = clusters[cluster]
+
+        for (i in 0 .. ClusterGrid.Capacity - 1) {
+            if (uint(i) >= list.count) {
+                break
+            }
+
+            val index = int(list.indices[i])
+
+            // The culler and this pass see the same buffer, so an index out of range means they were
+            // given different ones — a host mistake that would otherwise read whatever follows the
+            // buffer, which on a GPU is a wrong colour on one driver and a device loss on another.
+            if (index < lightBuffer.Length) {
+                total += Contribution(lightBuffer[index], d, n, v, alpha)
             }
         }
 
         return total
+    }
+
+    /// One light's contribution to this surface.
+    func Contribution(light: PunctualLight, d: MaterialData, n: float3, v: float3, alpha: float): float3 {
+        val sample = Lighting.Resolve(light, positionWS, alpha)
+        val angles = ShadingAngles.Of(n, v, sample.l)
+
+        if (angles.NdotL <= 0f) {
+            return float3(0f)
+        }
+
+        val lambert = DiffuseModels.Lambert(d.diffuseColor)
+        val diffuse = lambert * DiffuseModels.EnergyRemaining(d.f0, angles.NdotV)
+        val specular = SpecularModels.Ggx(d.f0, angles, sample.alphaPrime)
+        return (diffuse + specular) * sample.radiance * angles.NdotL
     }
 
     /// The shadow term for this pixel, biased both ways — see `Lighting.ShadowBias`.

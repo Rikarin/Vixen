@@ -1,0 +1,146 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+
+// Auto-exposure: the post-process that has to be compute, and the only one in the library that does.
+//
+// Every other effect here is a fullscreen triangle writing one target, because that is what a
+// fragment stage can do. This one cannot be written that way, and the reason is worth stating
+// precisely: **its output is not an image.** It reduces the scene to a single number and leaves it in
+// a buffer that the *next frame's* `Tonemap` binds as an ordinary uniform. A fragment stage has no
+// way to write a buffer at all — it writes the render targets bound to it and nothing else — so the
+// pass either runs as compute or the readback goes through the host and costs a frame of latency and
+// a pipeline stall.
+//
+// Two entry-point shapes in one shader, chosen by `[Permutation] Mode`, because they are two
+// dispatches of one algorithm rather than two algorithms:
+//
+//   Reduce   one invocation per output texel; averages a 2×2 block of the input's log luminance.
+//            Run repeatedly, each dispatch halving the image, until it is 1×1.
+//   Adapt    one invocation total; reads that last texel and eases the stored exposure toward it.
+//
+// **Log luminance, not luminance.** Averaging luminance directly lets one specular highlight drag the
+// whole frame's exposure down, because the arithmetic mean of a distribution with a long bright tail
+// sits far above its bulk. Averaging the log and exponentiating gives the geometric mean, which is
+// what "the middle of this scene's brightness" actually means and is why every implementation of this
+// does it. The `log` happens once in the first reduction; every later one is a plain average of
+// values that are already logarithmic.
+//
+// **Adaptation is a rate, not a blend factor.** `1 - exp(-dt * rate)` is the fraction of the way to
+// the target that a given elapsed time covers, which makes the eye's response independent of frame
+// rate. A raw lerp factor per frame makes a scene adapt twice as fast at 120 Hz as at 60, which shows
+// up as "the exposure feels wrong on my machine".
+
+shader AutoExposure {
+    /// 0 reduce one mip step, 1 adapt the stored exposure.
+    [Permutation] val Mode: int = 0
+
+    /// Whether this is the first reduction, and so the one that takes the log.
+    ///
+    /// A permutation rather than a uniform because it removes the branch *and* the colour-space
+    /// arithmetic from every later step in the chain, which is most of them.
+    [Permutation] val FirstStep: bool = true
+
+    /// The image being reduced: the scene for the first step, the previous step's output after that.
+    var source: Texture2D
+    var sourceSampler: Sampler
+
+    /// Where this step writes. Half the source's size in each dimension.
+    ///
+    /// A storage image rather than a render target, and not only because compute cannot write one:
+    /// the chain reads its own previous output, so binding it as a target would mean a render pass
+    /// per halving step. `r32f` because the value is one channel and precision matters more than
+    /// footprint here — the whole chain is a few hundred kilobytes.
+    [Format("r32f")] var target: RWTexture2D<float4>
+
+    /// The 1×1 result of the last reduction, which `Adapt` reads.
+    [Format("r32f")] var average: RWTexture2D<float4>
+
+    /// The exposure the tonemapper will use, kept across frames. One element.
+    ///
+    /// The reason this shader exists: a value that survives from one frame to the next, produced on
+    /// the GPU and consumed on the GPU, without the host ever seeing it.
+    var exposure: RWBuffer<float>
+
+    var deltaTime: float = 0.016f
+
+    /// How fast the eye adapts, in e-folds per second. Real eyes are asymmetric — dark adaptation is
+    /// far slower than light — which is why there are two.
+    var brightenRate: float = 3f
+
+    var darkenRate: float = 1f
+
+    /// The luminance a correctly exposed mid-grey sits at. 0.18 is the photographic convention.
+    var middleGrey: float = 0.18f
+
+    /// Bounds on the result, so a nearly black or blown-out frame cannot drive exposure to infinity.
+    var minimumExposure: float = 0.03f
+
+    var maximumExposure: float = 8f
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        if (Mode == 0) {
+            Reduce(int2(int(id.x), int(id.y)))
+            return
+        }
+
+        // One invocation does the adaptation, and the dispatch is one group — so every other
+        // invocation in that group has to be sent home. Without the test, sixty-four invocations
+        // read and write the same buffer element with no ordering between them.
+        if (id.x == 0u && id.y == 0u && id.z == 0u) {
+            Adapt()
+        }
+    }
+
+    /// Averages a 2×2 block of the source into one output texel.
+    ///
+    /// Sampled with a bilinear tap at the block's centre rather than four `Load`s: a bilinear filter
+    /// *is* the average of the four texels it sits between, so the hardware does the reduction for
+    /// free. That only holds when the source is exactly twice the target's size, which is what makes
+    /// the halving chain a chain rather than an arbitrary resize.
+    func Reduce(coord: int2) {
+        val size = target.GetDimensions()
+
+        // The dispatch is rounded up to whole groups, so the tail invocations have no texel. Storing
+        // outside a storage image is undefined in both targets, which means a corrupted neighbour on
+        // one driver and a device loss on another.
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val centre = float2(float(coord.x) + 0.5f, float(coord.y) + 0.5f)
+        val uv = centre / float2(float(size.x), float(size.y))
+        val tap = source.SampleLevel(sourceSampler, uv, 0f)
+
+        target.Store(coord, float4(FirstStep ? LogLuminance(tap.rgb) : tap.x, 0f, 0f, 0f))
+    }
+
+    /// Log luminance, floored so a black texel is a large negative number rather than minus infinity.
+    ///
+    /// The floor is what stops a single black pixel poisoning the whole average: `log(0)` is not a
+    /// number, and one of those in a sum makes the sum not a number too — a frame that goes
+    /// completely black and never recovers, which is the classic way this effect fails.
+    func LogLuminance(color: float3): float {
+        return log(max(ColorSpaces.Luminance(color), Const.Epsilon))
+    }
+
+    /// Eases the stored exposure toward what this frame wants.
+    func Adapt() {
+        if (exposure.Length < 1) {
+            return
+        }
+
+        val scene = exp(average.Load(int2(0, 0)).x)
+        val target = clamp(middleGrey / max(scene, Const.Epsilon), minimumExposure, maximumExposure)
+        val previous = exposure[0]
+
+        // Which rate applies depends on which way the exposure is moving, and "brightening the image"
+        // is the eye going *dark*-adapted — the slow direction. Getting this the wrong way round is
+        // easy and shows as walking out of a tunnel being instant while walking in takes seconds.
+        val rate = target > previous ? darkenRate : brightenRate
+        val blend = 1f - exp(-deltaTime * max(rate, Const.Epsilon))
+
+        exposure[0] = lerp(previous, target, saturate(blend))
+    }
+}

@@ -256,13 +256,18 @@ public class LibraryTreeTests {
         // Sanity: the tree really does contain the passes, so a refactor that stopped finding files
         // cannot make this pass by generating nothing.
         var names = module.Shaders.Select(shader => shader.Name).ToArray();
-        foreach (var expected in (string[])["ForwardPlus", "Deferred", "DepthOnly", "ShadowCaster", "UiQuad", "Tonemap", "ParticleBillboard"]) {
+        foreach (var expected in (string[])["ForwardPlus", "GBufferPass", "Deferred", "ClusterCulling", "DepthOnly", "ShadowCaster", "UiQuad", "Tonemap", "AutoExposure", "ParticleBillboard"]) {
             Assert.Contains(expected, names);
         }
 
         var entryPoints = module.Shaders.Sum(shader => shader.EntryPoints.Count);
         Assert.True(entryPoints >= 20, $"Only {entryPoints} entry points across the library.");
 
+        AssertReachesBothBackends(module, entryPoints);
+    }
+
+    /// <summary>Generates for both targets and puts every unit through the reference tools.</summary>
+    static void AssertReachesBothBackends(IrModule module, int? expectedUnits = null) {
         foreach (var target in (string[])["glsl", "spirv"]) {
             var bag = new DiagnosticBag();
             var generated = TargetBackends.Create(target)!.Generate(module, bag);
@@ -273,7 +278,9 @@ public class LibraryTreeTests {
                 $"The library does not reach {target}:\n" + string.Join("\n", errors.Select(d => d.ToString()))
             );
 
-            Assert.Equal(entryPoints, generated.Count);
+            if (expectedUnits is { } count) {
+                Assert.Equal(count, generated.Count);
+            }
 
             if (target == "spirv") {
                 Assert.All(generated, SpirvTestBase.Validate);
@@ -281,6 +288,85 @@ public class LibraryTreeTests {
                 AssertGlslCompiles(generated);
             }
         }
+    }
+
+    /// <summary>
+    ///     The clustered variant of `ForwardPlus` reaches both backends, and reads what the culling
+    ///     pass writes.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Forward+ is two passes that have to agree on a buffer layout and on the arithmetic
+    ///         that finds a cluster in it, and they are in different files. This asserts the thing
+    ///         that would actually break: that the culler's output type and the shading pass's input
+    ///         type are the same type, and that the shading pass grew the cluster loop rather than
+    ///         keeping the uniform array.
+    ///     </para>
+    ///     <para>
+    ///         Off by default, so <see cref="EveryShippedShaderReachesBothBackends" /> compiles the
+    ///         uniform-array variant and never the clustered one — the same reason the cutout needs
+    ///         asking for by name.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_clustered_variant_reaches_both_backends_and_shares_the_culling_passs_layout() {
+        var module = LowerTree(PermutationValues.Parse(["UseClusteredLights=true"]));
+
+        var written = Assert.Single(
+            FindShader(module, "ClusterCulling").Bindings,
+            b => b.Name == "clusters"
+        );
+
+        var read = Assert.Single(FindShader(module, "ForwardPlus").Bindings, b => b.Name == "clusters");
+
+        // One type, not two structurally equal ones: the culler writes and the shading pass reads
+        // the same `ClusterLights`, which is what keeps a channel from being added to one side only.
+        Assert.Equal(written.Type, read.Type);
+        Assert.True(written.IsWritable);
+        Assert.False(read.IsWritable);
+
+        // The clustered loop is emitted and the uniform-array one is not, which is the permutation
+        // doing its job rather than a branch surviving into the variant.
+        var pixel = FindShader(module, "ForwardPlus").Functions.Single(f => f.Name.Contains("Clustered"));
+        Assert.NotNull(pixel);
+
+        AssertReachesBothBackends(module);
+    }
+
+    /// <summary>
+    ///     Every mode of the auto-exposure chain reaches both backends, including the one that writes
+    ///     a buffer.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         `Mode` picks between two dispatch shapes and only one is emitted, so the default
+    ///         variant compiles the reduction and never the adaptation — where the storage-buffer
+    ///         write lives, which is the whole reason the pass is compute rather than a fullscreen
+    ///         triangle. `FirstStep` is the same trap one level down: it folds the colour-space
+    ///         arithmetic away in every step but the first.
+    ///     </para>
+    ///     <para>
+    ///         Asserted on the bindings rather than only compiled, because "it reaches both
+    ///         backends" would also be true of a variant that quietly stopped writing anything.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("Mode=0", "FirstStep=true")]
+    [InlineData("Mode=0", "FirstStep=false")]
+    [InlineData("Mode=1", "FirstStep=false")]
+    public void Every_auto_exposure_mode_reaches_both_backends(string mode, string firstStep) {
+        var module = LowerTree(PermutationValues.Parse([mode, firstStep]));
+        var shader = FindShader(module, "AutoExposure");
+
+        if (mode == "Mode=1") {
+            // The adaptation step is the one that outlives the frame: a storage buffer the next
+            // frame's tonemapper reads as a uniform, which no fragment stage could have written.
+            var buffer = Assert.Single(shader.Bindings, b => b.Name == "exposure");
+            Assert.True(buffer.IsWritable);
+        }
+
+        Assert.Contains(shader.Bindings, b => b.Kind == IrBindingKind.StorageImage);
+        AssertReachesBothBackends(module);
     }
 
     /// <summary>

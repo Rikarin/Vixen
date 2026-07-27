@@ -7,9 +7,9 @@ import Vixen.Shaders.Material
 
 // The deferred lighting pass: a fullscreen pass that reads the G-buffer and shades it.
 //
-// The half of deferred that *is* expressible today. The geometry pass that fills the G-buffer needs
-// multiple render targets, which Raven has no output form for — see `GBuffer.rvn`. This pass reads those
-// targets as textures and writes one, which is an ordinary fragment shader.
+// The second half of deferred; `GBufferPass.rvn` is the first. That pass resolves the material once
+// per pixel and packs it, this one reads the packed result and lights it, and neither names a channel
+// — both go through `GBuffer.rvn`, which is where the layout is decided exactly once.
 //
 // No `compose` slot, and that is the point of deferred rather than an omission: the material has
 // already been resolved into the G-buffer, so the lighting pass is material-agnostic by construction.
@@ -42,9 +42,10 @@ shader Deferred {
 
     /// A fullscreen triangle from the vertex id, with no vertex buffer.
     ///
-    /// The three positions cover the whole viewport with one triangle; `uv` falls out of the same
-    /// arithmetic. `SV_VertexID` is not a dispatch built-in — it is a graphics one — and Raven has no
-    /// semantic for it yet, so the id arrives as an ordinary vertex attribute the host supplies.
+    /// The three positions cover the whole viewport with one triangle and `uv` falls out of the same
+    /// arithmetic. The same six lines as `PostFx/Fullscreen.rvn`, written out rather than called:
+    /// `Fullscreen` is in the post-process package, which is downstream of this one, and importing it
+    /// here would make the pipeline depend on the effects that run after it.
     [VertexShader]
     [Semantic("SV_Position")]
     func Vertex([Semantic("SV_VertexID")] vertexIndex: int): float4 {

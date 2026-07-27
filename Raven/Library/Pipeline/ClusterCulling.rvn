@@ -1,0 +1,217 @@
+package Vixen.Shaders.Pipeline
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Shading
+import Vixen.Shaders.Geometry
+
+// Light culling: the compute pass that makes "forward *plus*" plus.
+//
+// `ForwardPlus.rvn` has always had the light *loop*; what it did not have was anything culling the
+// list it loops over, so every fragment paid for every light in the scene. This is the pass that fixes
+// that: one invocation per cluster, testing every light's bounding volume against the cluster's
+// view-space box and writing the survivors' indices where the fragment can find them.
+//
+// **A cluster grid rather than screen tiles**, which is one extra dimension for one specific problem.
+// A tiled culler bins in 2D, so a tile containing both a nearby wall and distant sky gets a list long
+// enough for both and every fragment in it pays — the classic depth-discontinuity worst case. Slicing
+// depth as well bounds that: a fragment only reads lights that reach *its* slab.
+//
+// **The slices are exponential, not linear.** A linear split spends most of its slices on distance
+// nobody has geometry in; `near * (far/near)^(k/n)` gives every slice the same ratio of depths, which
+// matches how perspective actually distributes what a camera sees. It is also invertible in closed
+// form, which is what lets a fragment find its own slice with a `log` instead of a search.
+//
+// **No atomics, and none needed** — which is the whole reason the pass is shaped this way. The usual
+// formulation has every thread append to one shared list and compact it, which needs an atomic
+// counter Raven does not have. Giving each cluster a fixed slice of the output buffer that only one
+// invocation ever writes removes the sharing instead of synchronising it. The price is a capacity per
+// cluster rather than a global budget, and overflow is dropped silently — see `Capacity`.
+
+/// The cluster grid's shape, and the arithmetic for finding a cluster in it.
+///
+/// Constants rather than `[Permutation]` keys, and the reason is a language one worth knowing: these
+/// size the `indices` array *inside a struct*, and a struct's shape cannot depend on a shader's
+/// permutation — the type would differ per variant while the host binds one buffer. `MaxLights` in
+/// `ForwardPlus` is a permutation because it sizes a *binding*, which is a per-variant thing.
+/// Anything both a shader and a host must agree on the byte layout of belongs here instead.
+struct ClusterGrid {
+    const val TilesX = 16
+    const val TilesY = 9
+    const val Slices = 24
+
+    /// How many lights one cluster can hold.
+    ///
+    /// The cost of having no atomic: 32 is a budget, not a bound on the scene. A cluster that would
+    /// have held more drops the rest, which shows as lights winking out in the densest part of a
+    /// scene rather than as a crash — the same failure a global budget has, localised. Raising it
+    /// costs 4 bytes per cluster per entry, which at this grid size is 13 KB.
+    const val Capacity = 32
+
+    const val Count = TilesX * TilesY * Slices
+
+    /// The flat index of a cluster, which is also its slot in the output buffer.
+    ///
+    /// x fastest, then y, then z: two fragments in neighbouring tiles at the same depth land in
+    /// adjacent slots, which is the access pattern a fragment wave actually has.
+    static func Index(x: int, y: int, slice: int): int => x + y * TilesX + slice * TilesX * TilesY
+
+    /// The view-space depth at which slice `k` begins.
+    static func SliceDepth(slice: int, near: float, far: float): float {
+        return near * pow(far / near, float(slice) / float(Slices))
+    }
+
+    /// Which slice a view-space depth falls in — the inverse of `SliceDepth`, clamped to the grid.
+    ///
+    /// Clamped rather than left to run off the end because a fragment *can* be outside: geometry in
+    /// front of the near plane is clipped, but a fragment exactly on the far plane rounds to `Slices`
+    /// and would read the cluster after the last one.
+    static func SliceOf(viewDepth: float, near: float, far: float): int {
+        val ratio = log(max(viewDepth, near) / near) / max(log(far / near), Const.Epsilon)
+        return clamp(int(ratio * float(Slices)), 0, Slices - 1)
+    }
+
+    /// The screen UV a view-space position projects to, inverting `Transform.ViewRay`.
+    ///
+    /// Deliberately the inverse of the helper the culling pass builds its corners with, rather than a
+    /// projection-matrix multiply that would compute the same number a second way. Two derivations of
+    /// one quantity is how a fragment ends up reading a cluster the culler filled for somewhere else.
+    static func UvOf(positionVS: float3, tanHalfFov: float2): float2 {
+        val depth = max(positionVS.z, Const.Epsilon)
+        val ndc = float2(positionVS.x / (depth * tanHalfFov.x), positionVS.y / (depth * tanHalfFov.y))
+        return Transform.NdcToUv(float3(ndc.x, ndc.y, 0f))
+    }
+
+    /// The cluster a shaded fragment belongs to, from its view-space position.
+    static func Of(positionVS: float3, tanHalfFov: float2, near: float, far: float): int {
+        val uv = saturate(UvOf(positionVS, tanHalfFov))
+        val x = clamp(int(uv.x * float(TilesX)), 0, TilesX - 1)
+        val y = clamp(int(uv.y * float(TilesY)), 0, TilesY - 1)
+        return Index(x, y, SliceOf(positionVS.z, near, far))
+    }
+}
+
+/// One cluster's light list, as the culling pass writes it and a shading pass reads it.
+///
+/// A count beside the indices rather than a sentinel value, because a shading pass wants to leave the
+/// loop rather than test every entry — and `0` is a perfectly good light index, so there is no value
+/// free to mean "no more".
+struct ClusterLights {
+    var count: uint
+    var indices: uint[ClusterGrid.Capacity]
+}
+
+/// A cluster's bounds in view space, which is the space the test is cheapest in.
+///
+/// View space rather than world: the frustum is axis-aligned there, so a cluster is an axis-aligned
+/// box and the sphere test is three `clamp`s. In world space every cluster would be an oriented box
+/// and the same test would need the camera's basis per light per cluster.
+struct ClusterBounds {
+    var minimum: float3
+    var maximum: float3
+}
+
+shader ClusterCulling {
+    /// Every light in the scene, before culling. The host's element count is the scene's light budget.
+    var lights: Buffer<PunctualLight>
+
+    /// One list per cluster, indexed by `ClusterGrid.Index`. Written here, read by `ForwardPlus`.
+    var clusters: RWBuffer<ClusterLights>
+
+    /// Half-angle tangents of the camera's field of view — the same pair `ForwardPlus` is given, so
+    /// the grid the culler fills is the grid the fragment looks itself up in.
+    var tanHalfFov: float2 = float2(1f, 0.5625f)
+
+    var nearPlane: float = 0.1f
+    var farPlane: float = 1000f
+
+    /// The camera's view matrix, for putting a world-space light into the space the boxes are in.
+    var view: mat4
+
+    /// How many entries of `lights` are live this frame. The rest of the buffer is stale.
+    var lightCount: int = 0
+
+    /// One invocation per cluster.
+    ///
+    /// 4×4×4 rather than a flat 64: the three dispatch dimensions map straight onto the grid's, so an
+    /// invocation's cluster is its thread id and there is no index arithmetic to get wrong. The grid
+    /// is not a multiple of 4 in y, so the tail invocations have no cluster — the same bounds test
+    /// `ParticleUpdate` needs, and for the same reason.
+    [ComputeShader(4, 4, 4)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val x = int(id.x)
+        val y = int(id.y)
+        val slice = int(id.z)
+
+        if (x >= ClusterGrid.TilesX || y >= ClusterGrid.TilesY || slice >= ClusterGrid.Slices) {
+            return
+        }
+
+        val bounds = Bounds(x, y, slice)
+
+        var list: ClusterLights
+        list.count = 0u
+
+        for (i in 0 .. 1023) {
+            if (i >= lightCount || i >= lights.Length || list.count >= uint(ClusterGrid.Capacity)) {
+                break
+            }
+
+            if (Touches(lights[i], bounds)) {
+                list.indices[int(list.count)] = uint(i)
+                list.count = list.count + 1u
+            }
+        }
+
+        // Every entry beyond the count is left as whatever the struct was initialised with, which a
+        // reader never looks at. Zeroing them would be 32 stores per cluster to make a debugger's
+        // view tidier.
+        clusters[ClusterGrid.Index(x, y, slice)] = list
+    }
+
+    /// The view-space box a cluster occupies.
+    ///
+    /// The eight corners of the wedge — four tile corners at each of the slab's two depths — reduced
+    /// to their min and max. The box is larger than the wedge, which costs a few false positives at
+    /// the corners and never a false negative, and a false negative is a light that vanishes.
+    func Bounds(x: int, y: int, slice: int): ClusterBounds {
+        val uvMin = float2(float(x) / float(ClusterGrid.TilesX), float(y) / float(ClusterGrid.TilesY))
+        val uvMax = float2(float(x + 1) / float(ClusterGrid.TilesX), float(y + 1) / float(ClusterGrid.TilesY))
+
+        val near = ClusterGrid.SliceDepth(slice, nearPlane, farPlane)
+        val far = ClusterGrid.SliceDepth(slice + 1, nearPlane, farPlane)
+
+        val a = Transform.ViewRay(uvMin, tanHalfFov)
+        val b = Transform.ViewRay(float2(uvMax.x, uvMin.y), tanHalfFov)
+        val c = Transform.ViewRay(float2(uvMin.x, uvMax.y), tanHalfFov)
+        val d = Transform.ViewRay(uvMax, tanHalfFov)
+
+        var bounds: ClusterBounds
+        bounds.minimum = min(min(a * near, b * near), min(c * near, d * near))
+        bounds.maximum = max(max(a * near, b * near), max(c * near, d * near))
+
+        bounds.minimum = min(bounds.minimum, min(min(a * far, b * far), min(c * far, d * far)))
+        bounds.maximum = max(bounds.maximum, max(max(a * far, b * far), max(c * far, d * far)))
+        return bounds
+    }
+
+    /// Whether a light reaches anywhere inside a cluster.
+    ///
+    /// A directional light is in every cluster by definition — it has no position to be far from — so
+    /// it short-circuits rather than being tested against a box it would always pass. A spot light is
+    /// tested as the sphere it is bounded by, which over-includes near the cone's apex; the cone test
+    /// costs more per cluster than the extra lights cost per fragment at this grid size.
+    func Touches(light: PunctualLight, bounds: ClusterBounds): bool {
+        if (light.kind == LightKind.Directional) {
+            return true
+        }
+
+        val center = Math.TransformPoint(view, light.position)
+        val closest = clamp(center, bounds.minimum, bounds.maximum)
+        val offset = center - closest
+
+        // The sphere is the light's range, widened by its radius: a sphere light's *surface* is what
+        // lights the cluster, so a tube whose centre is out of range can still reach in.
+        val reach = light.range + light.radius
+        return dot(offset, offset) <= reach * reach
+    }
+}
