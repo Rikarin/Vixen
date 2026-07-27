@@ -14,7 +14,7 @@ import Vixen.Shaders.Geometry
 // texture, no sampler and no fragment body at all, because the branch is eliminated before lowering.
 
 shader DepthOnly {
-    /// Whether to sample an opacity map and discard. False makes this a pure depth pass.
+    /// Whether to sample an opacity map and cut out. False makes this a pure depth pass.
     [Permutation] val AlphaTested: bool = false
 
     var worldViewProjection: mat4
@@ -35,17 +35,20 @@ shader DepthOnly {
     /// The fragment stage exists only for the alpha-tested variant.
     ///
     /// It still returns a colour rather than nothing, because a fragment shader that writes no target
-    /// is a different pipeline state; the value is discarded by a colour write mask of zero, which is
-    /// the host's business.
+    /// is a different pipeline state; the value is thrown away by a colour write mask of zero, which
+    /// is the host's business.
+    ///
+    /// The cutout is a `discard` rather than a zero return, and on this pass the difference is the
+    /// whole point: a returned zero still writes depth, so a cut-out leaf would fill the prepass with
+    /// depth for texels it does not cover and occlude whatever is behind it. `discard` writes no
+    /// depth, which is the only correct thing for a prepass to do with a texel that is not there.
     [PixelShader]
     [Semantic("SV_Target")]
     func Pixel(): float4 {
         if (AlphaTested) {
             val opacity = opacityMap.Sample(opacitySampler, uv).a
             if (opacity < alphaCutoff) {
-                // A discard would be better than returning zero, and Raven has no `discard` — the
-                // host masks colour writes on this pass anyway, so the value is never observed.
-                return float4(0f, 0f, 0f, 0f)
+                discard
             }
         }
 

@@ -840,6 +840,22 @@
             <Kind Name="ContinueKeyword"/>
         </Field>
     </Node>
+    <Node Name="DiscardStatementSyntax" Base="StatementSyntax">
+        <Kind Name="DiscardStatement"/>
+        <Field Name="AttributeLists" Type="SyntaxList&lt;AttributeListSyntax&gt;" Override="true"/>
+        <Field Name="Keyword" Type="SyntaxToken">
+            <Kind Name="DiscardKeyword"/>
+        </Field>
+        <TypeComment>
+            <summary>
+                Throws the fragment away: nothing is written to any render target or to the depth
+                buffer, and the invocation ends where the keyword is.
+            </summary>
+        </TypeComment>
+        <FactoryComment>
+            <summary>Creates a DiscardStatementSyntax node.</summary>
+        </FactoryComment>
+    </Node>
     <Node Name="RepeatStatementSyntax" Base="StatementSyntax">
         <Kind Name="RepeatStatement"/>
         <Field Name="AttributeLists" Type="SyntaxList&lt;AttributeListSyntax&gt;" Override="true"/>

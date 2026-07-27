@@ -25,6 +25,27 @@ public sealed class IrFunction(string name, IrType returnType) {
     /// <summary>How many values this function defines; also the next free id.</summary>
     public int ValueCount { get; private set; }
 
+    /// <summary>Whether any path through this function throws the fragment away.</summary>
+    /// <remarks>
+    ///     Asked by two unrelated readers — the verifier, checking that only a fragment stage
+    ///     reaches it, and the GLSL emitter, which owes glslang a return on a path only a
+    ///     <c>discard</c> ends — so it lives with the function rather than in either of them.
+    ///     Computed rather than cached: a body is still being built while it is being lowered.
+    /// </remarks>
+    public bool Discards => ContainsDiscard(Body);
+
+    static bool ContainsDiscard(IrStatement statement) =>
+        statement switch {
+            IrDiscardStatement => true,
+            IrBlock block => block.Statements.Any(ContainsDiscard),
+            IrIfStatement conditional => ContainsDiscard(conditional.Then)
+                || (conditional.Else is { } otherwise && ContainsDiscard(otherwise)),
+            IrLoopStatement loop => ContainsDiscard(loop.Condition)
+                || ContainsDiscard(loop.Body)
+                || (loop.Continue is { } step && ContainsDiscard(step)),
+            _ => false
+        };
+
     public override string ToString() =>
         $"{Name}({string.Join(", ", parameters.Select(p => p.Type.Name))}) : {ReturnType.Name}";
 

@@ -26,7 +26,6 @@ decision that has been made and built, kept because the reasons stay useful.
 |---|---|---|---|
 | 🟡 | **`Raven/Library` is written** — 44 files across all eight packages, every shader reaching both backends under `glslc` and `spirv-val`. What is left is depth rather than breadth: the G-buffer geometry pass, the clustered light loop and the compute post-process. **Every language gap that was blocking them is now closed**, so what remains is content | § F | the perf gates |
 
-| ⚪ | **`discard`** — the last of the small stage intrinsics. It is a *terminator*, so it needs a keyword, a statement node and a block-termination rule rather than a table entry | § F | `DepthOnly` and `ShadowCaster` return zero and rely on the host's colour write mask |
 | 🟡 | **String interpolation** — needs lexer modes; nothing shipped uses it | § I | nothing |
 | ⚪ | **Nuke is not stood up**: `CompileShaderLibrary`, `CheckFormat` for SPDX enforcement, the CI workflows | § A, § G | shipping the library as a package; SPDX is a real gap, not a closed item |
 | ⚪ | **`Vixen.Raven.Transpile`** (SPIRV-Cross wrapper) and the cross-compilation test pass | § A, § G | HLSL/MSL/WGSL output, which ADR-012 says SPIRV-Cross owns |
@@ -608,9 +607,11 @@ Each of these shaped a file rather than blocking it, and each is recorded in the
   so the host had to bind a vertex buffer of floats — for a shader whose whole point is binding none.
   Ten files now take the built-in. See
   [§ Stage built-ins](#stage-built-ins-a-value-the-pipeline-supplies-not-the-host).
-- **No `discard`**, so `DepthOnly` and `ShadowCaster` return zero and rely on the host's colour write
-  mask. The one remaining intrinsic of this group, and the odd one out: it is a *terminator*, so it
-  needs a keyword, a statement node and a block-termination rule rather than a table entry.
+- ~~**No `discard`**~~ — landed, and it was the odd one out of this group for the reason predicted:
+  not a table entry but a keyword, a statement node, a bound node, an IR terminator and a rule in the
+  flow analysis. The two cut-out passes no longer return zero and hope the host masked colour writes
+  — which never addressed the actual problem, since a returned zero still writes *depth*. See
+  [§ `discard`](#discard-the-only-statement-that-ends-more-than-a-function).
 - **A texture cannot be a struct field** (`RVN2053`, correctly — a descriptor is not a value), so
   `GBuffer.Sample` takes three texture parameters rather than a bundle.
 - **No line continuation**, which shaped every signature in the tree: anything over one line becomes a
@@ -906,6 +907,44 @@ backstop for the one route that skips the binder, an unsized array decoded out o
 a backend was the two unsized arrays it declared. Its test has moved with it: bind-clean, then
 lower-clean, now generate-clean. A contract that stops where the language stops cannot tell you when
 the language catches up.
+
+#### `discard`: the only statement that ends more than a function
+
+Listed with the small stage intrinsics and never one of them. A table entry would have given
+`discard()` — a call — and a call is exactly the wrong shape, because **a function signature cannot
+say that control does not come back.** Nothing after it would have been known to be unreachable, a
+value-returning function whose last path discards would have been asked for a return it has no value
+for, and both emitters would have had to guess where the block ended. So it is a keyword, a statement
+node, a bound node, an IR terminator and a rule in the flow analysis.
+
+**It writes no depth, and that is the whole point.** The two cut-out passes returned zero and relied
+on the host's colour write mask, which reads like an adequate workaround and is not one: a depth
+prepass and a shadow map write *depth*, and a colour mask does nothing about that. A cut-out leaf
+filled the prepass with depth for texels it does not cover and cast the shadow of a solid quad. The
+comment in `DepthOnly.rvn` said the value was never observed; the value was not what was being
+written.
+
+**Which stages may reach it is a call-graph question.** `RVN3008` is reported against a function
+reachable from a non-fragment entry point, not against the file the keyword is written in — the same
+reasoning that decides which functions belong to a stage in the first place (§ Streams). A cutout
+helper shared by the depth prepass and a compute pass is wrong only in the second, and the file it
+lives in cannot tell. The check runs over the whole lowered module, so a helper linked in from a
+`.rvnlib` is covered too; that one has no span to report at, which still beats the alternative, since
+SPIR-V's `OpKill` is valid only under the Fragment execution model and `spirv-val` would otherwise be
+the first thing to notice — about a module, with no source position at all.
+
+**The one place the two targets genuinely disagree.** SPIR-V's `OpKill` is a *block terminator*: it
+must be the last instruction in its block, so a function ending in one is complete and needs nothing
+after it. GLSL's `discard` is an ordinary statement, and glslang's own flow analysis then refuses a
+value-returning function whose end it can reach. The GLSL emitter therefore owes it a `return` that
+will never run — an uninitialised local, because that is correct for every type with no per-type
+spelling, and reading it is exactly as impossible as reaching the line. Emitted only for a function
+that can actually discard, so nothing else grows one. The difference stays inside the function: the
+differential oracle compares the host-visible interface, and a `discard` fixture is in it.
+
+For the flow analysis, `discard` is its own exit rather than a synonym for `return`, and the only
+reason is the diagnostic: everywhere a decision is made the two behave alike, but "unreachable code
+after a `return`" would be a lie about a line that follows a `discard`.
 
 #### Flattening: a derived type is a context too
 

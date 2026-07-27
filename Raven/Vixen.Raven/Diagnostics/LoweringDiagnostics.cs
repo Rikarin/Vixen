@@ -106,6 +106,29 @@ public static class LoweringDiagnostics {
         DiagnosticSeverity.Warning
     );
 
+    /// <summary>A <c>discard</c> reachable from a stage that has no fragment to throw away.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Reachability rather than where the keyword is written, because a helper is shared: a
+    ///         cutout test called from both the depth prepass and a compute pass is only wrong in the
+    ///         second, and the file it is written in cannot tell. This is the same reasoning that
+    ///         decides which functions belong to a stage in the first place.
+    ///     </para>
+    ///     <para>
+    ///         An error rather than a warning, and the strongest reason is that the alternative is
+    ///         not silence: SPIR-V's <c>OpKill</c> is valid only under the Fragment execution model,
+    ///         so this would leave <c>spirv-val</c> to say it — about a module, with no span.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor DiscardOutsideFragmentStage = new(
+        "RVN3008",
+        "Discard outside a fragment stage",
+        "'discard' is reachable from {0} entry point '{1}', and only a fragment stage has a fragment "
+        + "to throw away",
+        Lowering,
+        DiagnosticSeverity.Error
+    );
+
     // --- Verification -----------------------------------------------------
 
     public static readonly DiagnosticDescriptor MalformedIr = new(

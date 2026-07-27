@@ -80,6 +80,12 @@ public abstract partial class Binder {
             case ContinueStatementSyntax:
                 return new BoundContinueStatement(syntax);
 
+            // Nothing to check here: whether the stage may discard is a question about which entry
+            // points reach this body, and a body does not know its callers. Lowering has the call
+            // graph and answers it there (RVN3008).
+            case DiscardStatementSyntax:
+                return new BoundDiscardStatement(syntax);
+
             case SwitchStatementSyntax switchStatement:
                 return BindSwitch(switchStatement);
 

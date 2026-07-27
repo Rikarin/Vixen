@@ -37,6 +37,7 @@ sealed class RavenLexer {
         ["case"] = RavenTokenKind.CaseKeyword,
         ["continue"] = RavenTokenKind.ContinueKeyword,
         ["default"] = RavenTokenKind.DefaultKeyword,
+        ["discard"] = RavenTokenKind.DiscardKeyword,
         ["else"] = RavenTokenKind.ElseKeyword,
         ["enum"] = RavenTokenKind.EnumKeyword,
         ["false"] = RavenTokenKind.FalseKeyword,

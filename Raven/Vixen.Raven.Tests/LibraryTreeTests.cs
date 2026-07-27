@@ -284,16 +284,68 @@ public class LibraryTreeTests {
     }
 
     /// <summary>
+    ///     The cut-out passes reach both backends with the branch that <c>discard</c>s switched on.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>AlphaTested</c> is off by default, so <see cref="EveryShippedShaderReachesBothBackends" />
+    ///         folds the whole cutout away before lowering ever sees it — which is exactly what a
+    ///         <c>[Permutation]</c> key is for, and exactly why the interesting variant needs
+    ///         asking for by name. Without this, the only <c>discard</c> the library ships would be
+    ///         dead code in every test that compiles it.
+    ///     </para>
+    ///     <para>
+    ///         Both passes, because they are separate shaders for the reasons
+    ///         <c>ShadowCaster.rvn</c> gives, and a cutout that works in the prepass and not in the
+    ///         shadow map is precisely the drift keeping them apart is meant to catch.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_cutout_passes_reach_both_backends_with_alpha_testing_on() {
+        var module = LowerTree(PermutationValues.Parse(["AlphaTested=true"]));
+
+        foreach (var name in (string[])["DepthOnly", "ShadowCaster"]) {
+            var pixel = Assert.Single(
+                FindShader(module, name).EntryPoints,
+                entry => entry.Stage == ShaderStage.Pixel
+            );
+
+            Assert.True(pixel.Function.Discards, $"{name}'s cutout did not survive lowering.");
+        }
+
+        foreach (var target in (string[])["glsl", "spirv"]) {
+            var bag = new DiagnosticBag();
+            var generated = TargetBackends.Create(target)!.Generate(module, bag);
+
+            var errors = bag.ToArray().Where(d => d.IsError).ToArray();
+            Assert.True(
+                errors.Length == 0,
+                $"The alpha-tested library does not reach {target}:\n"
+                + string.Join("\n", errors.Select(d => d.ToString()))
+            );
+
+            if (target == "spirv") {
+                Assert.All(generated, SpirvTestBase.Validate);
+            } else {
+                AssertGlslCompiles(generated);
+            }
+        }
+    }
+
+    static IrShader FindShader(IrModule module, string name) =>
+        Assert.Single(module.Shaders, shader => shader.Name == name);
+
+    /// <summary>
     ///     Lowers the whole tree with a default material bound, verifying the IR.
     /// </summary>
-    static IrModule LowerTree() {
+    static IrModule LowerTree(PermutationValues? permutations = null) {
         var trees = Files()
             .Select(file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
             .ToArray();
 
         var compilation = Compilation.Create(
             "Library",
-            PermutationValues.Empty,
+            permutations ?? PermutationValues.Empty,
             ComposeBindings.Create([new("surface", "MetalRoughnessSurface")]),
             trees
         );

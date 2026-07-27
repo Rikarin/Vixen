@@ -92,6 +92,16 @@ public sealed class BoundContinueStatement(SyntaxNode syntax) : BoundStatement(s
     public override BoundKind Kind => BoundKind.ContinueStatement;
 }
 
+/// <summary>Ends the invocation, writing nothing.</summary>
+/// <remarks>
+///     A terminator like <see cref="BoundReturnStatement" /> rather than a call like every other
+///     stage intrinsic, which is the whole reason it needs a keyword: a function cannot express
+///     "control does not come back", so nothing after the call would be known to be unreachable.
+/// </remarks>
+public sealed class BoundDiscardStatement(SyntaxNode syntax) : BoundStatement(syntax) {
+    public override BoundKind Kind => BoundKind.DiscardStatement;
+}
+
 /// <summary>
 ///     One <c>case</c>/<c>default</c> section: the values that select it and the statements it runs.
 /// </summary>

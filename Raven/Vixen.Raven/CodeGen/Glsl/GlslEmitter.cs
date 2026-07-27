@@ -72,6 +72,7 @@ sealed class GlslEmitter {
     readonly Dictionary<IrVariable, string> streamWrites = [];
 
     int loopCounter;
+    int discardCounter;
     bool samplerlessFetch;
 
     /// <summary>
@@ -475,6 +476,7 @@ sealed class GlslEmitter {
         }
 
         EmitBlock(function.Body);
+        EmitUnreachableReturn(function);
 
         writer.Outdent();
         writer.Line("}");
@@ -559,7 +561,41 @@ sealed class GlslEmitter {
             case IrContinueStatement:
                 writer.Line("continue;");
                 break;
+
+            case IrDiscardStatement:
+                writer.Line("discard;");
+                break;
         }
+    }
+
+    /// <summary>
+    ///     Gives glslang the <c>return</c> it insists on for a path that only a <c>discard</c> ends.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The one place the two targets genuinely disagree about <c>discard</c>. SPIR-V's
+    ///         <c>OpKill</c> is a block terminator, so a function ending in one is complete and the
+    ///         emitter closes it with <c>OpUnreachable</c>. GLSL's <c>discard</c> is an ordinary
+    ///         statement, and glslang rejects a value-returning function whose end its own flow
+    ///         analysis can reach — so the text has to say <c>return</c> even though nothing runs
+    ///         after the kill.
+    ///     </para>
+    ///     <para>
+    ///         An uninitialised local rather than a constructed zero, because it is correct for
+    ///         every type — struct, array, matrix — with no per-type spelling, and reading it is
+    ///         exactly as impossible as reaching the line. Emitted only for a function that
+    ///         <em>can</em> discard: glslang is happy with a body whose arms all return, so adding
+    ///         this everywhere would be noise in every other function's output.
+    ///     </para>
+    /// </remarks>
+    void EmitUnreachableReturn(IrFunction function) {
+        if (function.ReturnType.IsVoid || !function.Discards) {
+            return;
+        }
+
+        var name = Reserve($"_discarded{discardCounter++}");
+        writer.Line(Declare(function.ReturnType, name, name) + ";");
+        writer.Line($"return {name};");
     }
 
     /// <summary>

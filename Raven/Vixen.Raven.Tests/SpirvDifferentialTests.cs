@@ -377,6 +377,49 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
 
                            """;
 
+    /// <summary>
+    ///     A cutout, in the two shapes that matter: a <c>discard</c> inside a helper the fragment
+    ///     stage calls, and one that ends a value-returning function.
+    /// </summary>
+    /// <remarks>
+    ///     The second is the case where the two targets genuinely differ — SPIR-V's <c>OpKill</c>
+    ///     terminates the block, GLSL's <c>discard</c> does not and glslang wants a <c>return</c>
+    ///     anyway — so this is the fixture that proves the difference stays inside the function and
+    ///     never reaches the interface.
+    /// </remarks>
+    const string Cutout = """
+                          package A
+
+                          shader S {
+                              var opacityMap: Texture2D
+                              var opacitySampler: Sampler
+                              var alphaCutoff: float = 0.5f
+                              var tint: float4
+
+                              [PixelShader]
+                              [Semantic("SV_Target")]
+                              func Pixel(uv: float2): float4 {
+                                  Cut(uv)
+                                  return Shade(uv)
+                              }
+
+                              func Cut(uv: float2) {
+                                  if (opacityMap.Sample(opacitySampler, uv).a < alphaCutoff) {
+                                      discard
+                                  }
+                              }
+
+                              func Shade(uv: float2): float4 {
+                                  if (uv.x > 0f) {
+                                      return tint
+                                  }
+
+                                  discard
+                              }
+                          }
+
+                          """;
+
     [Theory]
     [InlineData("lambert", Lambert)]
     [InlineData("four sets", FourSets)]
@@ -390,6 +433,7 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     [InlineData("compute post-process", PostProcess)]
     [InlineData("monomorphised generics", Generics)]
     [InlineData("flattened inheritance", Inheritance)]
+    [InlineData("cutout by discard", Cutout)]
     public void The_two_paths_agree_on_the_interface(string what, string source) {
         if (!ReferenceCompiler.Available) {
             output.WriteLine($"{what}: {ReferenceCompiler.HowToInstall}");
@@ -472,6 +516,7 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     [InlineData("compute post-process", PostProcess)]
     [InlineData("monomorphised generics", Generics)]
     [InlineData("flattened inheritance", Inheritance)]
+    [InlineData("cutout by discard", Cutout)]
     public void A_reference_compiler_accepts_Ravens_GLSL(string what, string source) {
         if (ReferenceCompiler.Glslc is null) {
             output.WriteLine($"{what}: {ReferenceCompiler.HowToInstall}");

@@ -107,6 +107,7 @@ public class LexerDifferentialTests {
             Antlr.RavenLexer.CASE => RavenTokenKind.CaseKeyword,
             Antlr.RavenLexer.CONTINUE => RavenTokenKind.ContinueKeyword,
             Antlr.RavenLexer.DEFAULT => RavenTokenKind.DefaultKeyword,
+            Antlr.RavenLexer.DISCARD => RavenTokenKind.DiscardKeyword,
             Antlr.RavenLexer.ELSE => RavenTokenKind.ElseKeyword,
             Antlr.RavenLexer.ENUM => RavenTokenKind.EnumKeyword,
             Antlr.RavenLexer.FALSE => RavenTokenKind.FalseKeyword,

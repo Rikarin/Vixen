@@ -430,11 +430,16 @@ public static class IrVerifier {
             }
         }
 
-        /// <summary>Whether control definitely leaves the block via a return.</summary>
+        /// <summary>Whether control definitely leaves the block without running off its end.</summary>
+        /// <remarks>
+        ///     A <c>discard</c> counts, and that is not a special case bolted on: the question this
+        ///     answers is whether a caller could ever observe a value that was never produced, and
+        ///     an invocation that has ended has no caller left to observe anything.
+        /// </remarks>
         static bool AlwaysReturns(IrBlock block) {
             foreach (var statement in block.Statements) {
                 switch (statement) {
-                    case IrReturnStatement:
+                    case IrReturnStatement or IrDiscardStatement:
                         return true;
                     case IrIfStatement { Else: { } otherwise } conditional
                         when AlwaysReturns(conditional.Then) && AlwaysReturns(otherwise):

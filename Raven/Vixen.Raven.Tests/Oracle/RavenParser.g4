@@ -229,6 +229,7 @@ statement
     : block
     | break_statement
     | continue_statement
+    | discard_statement
     | repeat_statement
     | empty_statement
     | expression_statement
@@ -246,6 +247,10 @@ break_statement
 
 continue_statement
     : (attribute_list NL*)* CONTINUE NL+
+    ;
+
+discard_statement
+    : (attribute_list NL*)* DISCARD NL+
     ;
 
 repeat_statement

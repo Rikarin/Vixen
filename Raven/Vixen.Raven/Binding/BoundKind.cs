@@ -41,6 +41,7 @@ public enum BoundKind {
     ReturnStatement,
     BreakStatement,
     ContinueStatement,
+    DiscardStatement,
     SwitchStatement,
     NoOpStatement
 }
