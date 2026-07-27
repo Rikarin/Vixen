@@ -377,6 +377,12 @@ the codebase is large enough for it to be expensive to fix.
   Binary `catalog.bin` with a sorted string table, deterministic by construction, CRC-verified on
   read. 48 tests. (The object database, chunk format and bundle reader were already built in
   Phase 1's serialization work; this is the index over them.)
+- ✅ `Vixen.Assets` loading: `AssetHandle` with ref-counted claims, dependency closures claimed by
+  their dependents, deduplicated deserialisation, explicit scopes, label and glob loading, and a
+  local bundle source over the VFS. 64 tests over real bundles rather than stubs. **Deviation:**
+  scopes take the loads rather than capturing them ambiently — doc 08's sketch does not survive an
+  `await`, and the reason is written where the type is. **Owed:** content references, so a
+  dependency's deserialised object is shared and not just its bundle and lifetime.
 - ✅ `TextureImporter`, the first real importer: `IImageDecoder`, StbImageSharp and KTX2 decoders,
   and settings that say what a texture's bytes mean — which decides the transfer function, the mip
   filter's variant and the compressed format together. 63 tests in `Vixen.Editor.Assets.Tests`.

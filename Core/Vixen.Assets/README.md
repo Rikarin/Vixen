@@ -73,10 +73,43 @@ array rather than its contents, so two entries read from the same file twice wou
 first question anyone asks of an update — "did this change anything?" — would have answered yes,
 always.
 
+## Loading
+
+`AssetManager` joins the three pieces: the catalog says what an address is and what it needs, an
+`IBundleSource` says where those bytes are, and the object database turns bytes into objects. What it
+adds is the part none of them can do alone — two callers asking for the same texture get one texture,
+and it goes away when both are done.
+
+**A handle is a claim, not a reference.** Holding one keeps the asset and everything it depends on
+alive. Loading a material claims the texture it points at, so the texture survives exactly as long as
+some material needs it.
+
+**Releasing twice throws.** A no-op is the tempting choice and it is exactly what turns a double
+release into *someone else's* asset being unloaded: the second call decrements a count another holder
+is relying on, and the failure surfaces much later as a disposed object nobody released.
+
+**Loading is deduplicated by the task, not by the result.** Two callers arriving while a load is in
+flight get the same `Task`, so the work happens once. Checking "is it loaded yet" instead would start
+it twice under exactly the concurrency the check exists for.
+
+```csharp
+using var scope = assets.Scope();
+var hero = await scope.LoadAsync<Texture>("ui/hero");   // released when the scope ends
+```
+
+**Scopes are explicit, not ambient** — a deviation from doc 08's sketch, and a deliberate one. Ambient
+capture reads beautifully until the first `await`: a load started inside the block and finishing after
+it has to belong somewhere and neither answer is right. Since the scope exists *because* implicit
+release semantics leak, replacing one implicit-lifetime rule with another would defeat the point.
+
+**What a claim on a dependency is, and is not.** It mounts the bundle and ties the lifetime; it does
+not deserialise. Turning a reference *inside* a chunk into the object it points at is the
+content-reference machinery, which doc 03 deferred out of Phase 1 and which is the next piece here.
+
 ## Still to come
 
-Everything that uses the catalog: `AssetHandle` and its ref counting, the scope helper, the label and
-glob loading APIs, the local and remote providers, the bundle cache with resume and CRC verification,
-and the streaming manager. `.vxgroup` files and the build side that emits catalogs are owed as well.
+Content references, so a dependency's deserialised object is shared and not just its bundle and
+lifetime. The remote provider and the bundle cache with resume and CRC verification. The streaming
+manager. `.vxgroup` files and the build side that emits catalogs.
 
 Licensed under Apache-2.0.
