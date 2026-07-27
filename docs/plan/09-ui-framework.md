@@ -466,6 +466,16 @@ strongly to a monolithic application than to a website.
 **Hot reload of tokens**: changing `vixen.ui.yaml` regenerates utilities and re-resolves `var()`
 values without a restart — a live theme editor becomes trivial, and is a good demo.
 
+✅ Built, apart from the build-step integration and token hot reload, both of which wait on the asset
+pipeline. The generator, the grammar, the variants, the scanner and `@apply` are all there and tested
+against the style engine rather than against expected text.
+
+Two limits that are decisions rather than gaps. `text-` resolves as alignment, then font size, then
+colour, so a colour named `center` or `lg` is unreachable through it — the price of one prefix meaning
+three properties, and worth paying for both `text-lg` and `text-accent` reading right. Two media-query
+variants on one utility (`sm:md:p-4`) are dropped rather than nested, because Vixen's `@media` support
+does not nest.
+
 ## Text (`Vixen.Ui.Text`)
 
 Underestimating text is the classic UI-framework mistake.

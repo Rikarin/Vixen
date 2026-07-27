@@ -732,10 +732,30 @@ sub-piece has its own gate.
 
   **Owed:** several simultaneous animations per element (`animation-name: a, b` runs the first), and
   transform decomposition, which waits on there being a transform property.
-- `Vixen.Ui.Styling.Utilities`: token config, candidate scanner, utility grammar, variant system,
-  arbitrary values, `@apply`, generated stylesheet.
+- ✅ **`Vixen.Ui.Styling.Utilities` is built and its gate is green.** Token config, candidate
+  scanner, utility grammar, variant system, arbitrary values, `@apply`, generated stylesheet.
+  78 tests.
+
+  Everything lands in `@layer utilities`, and that one line is what makes the system behave: a
+  generated `.p-4` is one class and a hand-written `.card .body` is two, so on specificity alone the
+  utility loses every time. The layer settles it declaratively and specificity never enters into it.
+
+  The assertion worth the most is not the family table but the end-to-end one: **a generated utility
+  computes to what the hand-written rule would**, checked by loading the generated sheet into the
+  style engine and resolving an element. That checks the generator against the *engine* rather than
+  against an expectation of the text it ought to produce.
+
+  Two bugs, and one is a repeat. **A bracket-aware search that could never find a bracket** — the
+  parser updated bracket depth in the same `switch` that tested for the separator, so searching for
+  `[` hit the depth-increment arm and returned nothing, and every arbitrary value silently stopped
+  being one. And **a layer test that was asserting document order**: the check that `@layer
+  utilities` loses to an unlayered component rule loaded that rule second, where source order gives
+  the same answer, so it passed with the whole `@layer` wrapper replaced by `@media all`. That is
+  the same mistake the cascade suite's important-origins test made, caught the same way. The lesson
+  is worth stating once more because twice is a pattern: **a test that asserts a winner where the
+  rules differ in more than one respect is testing whichever difference happens to be implemented.**
 - Gate: ✅ selector-matching oracle tests, ✅ style-sharing oracle tests, ✅ cascade/specificity/
-  `@layer` order tests, ✅ invalidation-minimality tests. Owed: utility family tests.
+  `@layer` order tests, ✅ invalidation-minimality tests, ✅ utility family tests. **4b is complete.**
 
 **4c — Text (1.0 EM)**
 - HarfBuzz shaping, bidi, UAX#14 line breaking, UAX#29 segmentation, MSDF atlas with LRU eviction,
