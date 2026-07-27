@@ -27,7 +27,7 @@ is the same argument the [log event register](log-events.md) makes, for the same
 | VX2000 – VX2999 | Content build — the plan, the packer, the catalog | **in use** |
 | VX3000 – VX3999 | Shaders and Raven integration (Raven's own are `RVNxxxx`) | reserved |
 | VX4000 – VX4999 | UI markup and styling — VXML, VCSS | reserved |
-| VX8000 – VX8999 | Platform packaging — APK, iOS bundle, `wwwroot` | reserved |
+| VX8000 – VX8999 | Platform packaging — APK, iOS bundle, `wwwroot` | **in use** |
 | VX9000 – VX9999 | The tools themselves — invocation, environment | **in use** |
 
 ## Allocated
@@ -38,6 +38,8 @@ is the same argument the [log event register](log-events.md) makes, for the same
 | `VX1002` | The asset database found something while scanning. | `vixen import` |
 | `VX2001` | The build plan found something: an address nothing can resolve, a group nothing defines, a dependency that would not be packed. | `vixen content build` |
 | `VX2002` | The content builder found something while packing. | `vixen content build` |
+| `VX8001` | A pinned native binary has not been restored. | `MoltenVK.targets`, on an iOS build |
+| `VX8002` | A restored native archive exports none of the entry points it was linked for. | `MoltenVK.targets`, on an iOS build |
 | `VX9001` | The tool could not run: no project where one was expected, or an unusable argument. | every command |
 
 Severity is not part of the code. `VX1001` is an error, a warning or information depending on what the

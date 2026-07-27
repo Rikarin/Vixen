@@ -206,6 +206,10 @@ partial class Build : NukeBuild {
     Target CheckAotIos => definition => definition
         .Description("Fails if the runtime assemblies cannot be published for iOS ahead of time")
         .Requires(() => RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+
+        // The probe links MoltenVK, which is pinned and checksummed rather than committed. Depending
+        // on the restore rather than assuming it is what lets a fresh clone run this target.
+        .DependsOn(RestoreNativeDeps)
         .Executes(() =>
             DotNetPublish(settings => settings
                 .SetProject(RootDirectory / "Tools" / "Vixen.AotProbe.iOS" / "Vixen.AotProbe.iOS.csproj")

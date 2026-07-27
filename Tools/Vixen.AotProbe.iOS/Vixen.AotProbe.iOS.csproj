@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+
     <PropertyGroup>
         <TargetFramework>net10.0-ios</TargetFramework>
         <OutputType>Exe</OutputType>
@@ -48,6 +49,7 @@
         <ProjectReference Include="..\..\Core\Vixen.Ui.Reactive\Vixen.Ui.Reactive.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Platform\Vixen.Platform.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Platform.Native\Vixen.Platform.Native.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Platform.Headless\Vixen.Platform.Headless.csproj" />
     </ItemGroup>
@@ -67,6 +69,7 @@
         <TrimmerRootAssembly Include="Vixen.Engine" />
         <TrimmerRootAssembly Include="Vixen.Graphics" />
         <TrimmerRootAssembly Include="Vixen.Graphics.Null" />
+        <TrimmerRootAssembly Include="Vixen.Graphics.Vulkan" />
         <TrimmerRootAssembly Include="Vixen.Graphics.RenderGraph" />
         <TrimmerRootAssembly Include="Vixen.Platform" />
         <TrimmerRootAssembly Include="Vixen.Platform.Native" />
@@ -74,5 +77,12 @@
         <TrimmerRootAssembly Include="Vixen.Ui.Layout" />
         <TrimmerRootAssembly Include="Vixen.Ui.Reactive" />
     </ItemGroup>
+
+    <!--
+      Imported last, not first. The ItemGroup inside is conditioned on RuntimeIdentifier, which this
+      project sets in its own body — an import above that body sees it empty and contributes nothing,
+      silently. Tools/Vixen.Sdk's targets carry the same rule and the same reason.
+    -->
+    <Import Project="..\..\Platform\Vixen.Platform.Native\build\MoltenVK.targets" />
 
 </Project>

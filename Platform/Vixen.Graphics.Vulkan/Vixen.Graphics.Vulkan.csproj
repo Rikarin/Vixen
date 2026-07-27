@@ -22,6 +22,10 @@
         <ProjectReference Include="..\..\Core\Vixen.Core.Collections\Vixen.Core.Collections.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+
+        <!-- The loader search: the application's own runtimes/<rid>/native/ layout, the RID chain
+             and the versioned soname. See VulkanLoader and R11. -->
+        <ProjectReference Include="..\Vixen.Platform.Native\Vixen.Platform.Native.csproj" />
     </ItemGroup>
 
     <ItemGroup>

@@ -137,27 +137,26 @@ plumbing that everything else stands on.
   corrected. **Owed, and visibly missing rather than approximated:** file pickers (SDL 2 has none),
   clipboard images and custom formats, thread affinity, thermal state — all four belong to
   `Vixen.Platform.Windows`/`.Linux`/`.MacOS`, which [02](02-repository-layout.md) already reserves.
-- 🟡 `Vixen.Platform.Native` — **the runtime half is built; acquisition is not.** RID chain computed
+- ✅ `Vixen.Platform.Native` — **both halves are built.** RID chain computed
   rather than looked up (a NativeAOT binary has no `runtimeconfig.json` to read one from), the
   `runtimes/<rid>/native/` layout searched before the operating system is asked, the versioned soname
   tried as well as the development symlink, and a `DllImportResolver` that answers before the default
   rules. 12 tests, all of them pure functions from a name to a list of candidates — a rule about
   Windows that can only be checked on Windows is a rule that is checked once a release.
 
-  **What it fixes and what it does not, verified rather than assumed.** A registered resolver means
-  the binding library's probing is never reached at run time, which is the functional half of R11's
-  desktop mitigation. It does **not** silence the six IL3000/IL3002 diagnostics: rooting
-  `Vixen.Graphics.Vulkan` with this in place still reports six, because ILC's analysis is static and
-  code unreachable *in practice* is still reachable *in the graph*. Suppressing them is a separate
-  decision that only becomes defensible once this is in force, and is deliberately not taken in the
-  same commit as the thing that would justify it.
+  **The resolver is in force**, wired into `Vixen.Graphics.Vulkan`, which no longer calls
+  `Vk.GetApi()` at all — and that turned out to be the whole of R11's desktop half. The six
+  IL3000/IL3002 came from the default context `GetApi` builds, so removing the call removed them from
+  the graph rather than merely from the execution path: rooting the backend now reports **zero**, and
+  **no suppression was taken**. R11 predicted a suppression would be needed regardless and is
+  corrected; the prediction was checked by putting the call back and watching all six return.
 
-  **Owed:** the acquisition half — pinned versions, checksummed URLs, SHA-256 verification, a licence
-  manifest, restored by a Nuke target and never committed ([10](10-platforms.md) § Native binaries,
-  R10) — which belongs in the `build/Build.Native.cs` that [02](02-repository-layout.md) already
-  reserves. And nothing registers the resolver yet: `Vixen.Graphics.Vulkan` and
-  `Vixen.Platform.Desktop` keep their own loading, which works because neither is published ahead of
-  time today. Wiring them up belongs with the acquisition that puts the binaries where this looks.
+  **Acquisition, the half that was owed, is built.** `build/native-dependencies.json` pins each
+  dependency and `nuke RestoreNativeDeps` fetches it: SHA-256 verified, only the named entries
+  extracted, licence text copied out of the archive it was verified from, and nothing committed
+  ([10](10-platforms.md) § Native binaries, R10). Its four failure modes are tested rather than
+  described — see R10. **Owed:** it holds one dependency, MoltenVK for `ios-arm64`. The other five in
+  R10's list are entries to add, and adding one is what will say whether the schema generalises.
 - Windows/Linux/macOS specialisations.
 - ✅ `Vixen.App` host (`VixenApp.Run<TGame>()`) and the build-variant matrix — the boot sequence, the
   `Game` hooks, the frame loop, the `--vixen-*` argument contract, the headless fallback and frame
@@ -607,14 +606,18 @@ the codebase is large enough for it to be expensive to fix.
   build` for every developer and CI leg that is not a Mac with Xcode. The cost is that `CheckFormat`
   does not see its two files.
 
-  ⚠ **Adding `Vixen.Graphics.Vulkan` breaks it, in two different ways that were initially conflated —
-  see R11, which is corrected.** On the desktop, Silk.NET's `DefaultPathResolver` cannot work under
-  AOT, and the fix is `Vixen.Platform.Native`'s `DllImportResolver`. On iOS the resolver is beside the
-  point: everything links statically, so `DllImport`s become symbol references and `clang++` fails
-  with twelve undefined `vk*` symbols because **MoltenVK is not being linked in**. A resolver cannot
-  help there — there is no resolution step to intercept. The first write-up of this named one cause
-  and one fix; designing against it would have produced something that worked on a laptop and failed
-  on the device, which is the exact failure this phase exists to prevent.
+  ✅ **`Vixen.Graphics.Vulkan` is now in both probes' rooted sets, and both gates are green.** It used
+  to break them in two different ways — see R11, which records both and the traps in each. In short:
+  the desktop's six IL3000/IL3002 came from `Vk.GetApi()` and went away when the call did, with no
+  suppression; and on iOS the same change made the link error vanish *without fixing anything*, which
+  had to be caught by asking `nm` whether MoltenVK was actually in the binary rather than by trusting
+  the green tick. MoltenVK is now linked, force-loaded and — separately, and just as necessary — has
+  its 431 entry points exported, read out of the archive at build time by
+  `Vixen.Platform.Native/build/MoltenVK.targets`.
+
+  **Not the same as working on a phone**, and worth not overstating: what is proven is that the
+  symbols are defined and exported in the shipped 11.5 MB binary and that the runtime path asks for
+  them through `NativeLibrary.GetMainProgramHandle()`. Running it needs `Vixen.Platform.iOS`.
 
   **Owed:** each gate publishes for one RID, so covering three desktop operating systems means one CI
   leg each; Android is not gated yet, and should be gated on its *default* runtime rather than on
