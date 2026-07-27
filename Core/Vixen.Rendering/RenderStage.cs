@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Graphics;
+
 namespace Vixen.Rendering;
 
 /// <summary>How a stage orders the work it collected.</summary>
@@ -45,6 +47,39 @@ public sealed class RenderStage(string name, RenderSortMode sortMode = RenderSor
 
     /// <summary>How this stage's work is ordered.</summary>
     public RenderSortMode SortMode { get; } = sortMode;
+
+    /// <summary>How this stage's fragments combine with what is already in the target.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         State belongs to the stage and formats belong to the pass, and the division is not
+    ///         arbitrary: "Opaque" means depth-written and unblended <em>wherever</em> it is drawn,
+    ///         while what it is drawn into changes with every pass that draws it. A stage that
+    ///         carried formats could not feed four shadow cascades and a G-buffer; a pass that
+    ///         carried blend state could not draw an opaque stage and a transparent one.
+    ///     </para>
+    ///     <para>
+    ///         One blend state for every colour target, which is what a G-buffer wants and what a
+    ///         forward pass wants. A stage needing per-target blending is rare enough to deserve its
+    ///         own <see cref="IPipelineDescriber" /> rather than a field every stage carries.
+    ///     </para>
+    /// </remarks>
+    public BlendState Blend { get; set; } = BlendState.Opaque;
+
+    /// <summary>The depth and stencil tests this stage's draws use.</summary>
+    /// <remarks>
+    ///     Defaults to testing and writing with the engine's reversed comparison. A transparent stage
+    ///     wants <see cref="DepthStencilState.TestOnly" />, which is the other half of why its sort
+    ///     mode ignores grouping: it is ordered by depth because nothing else orders it.
+    /// </remarks>
+    public DepthStencilState DepthStencil { get; set; } = DepthStencilState.Default;
+
+    /// <summary>How this stage's triangles become fragments.</summary>
+    /// <remarks>
+    ///     A shadow-caster stage is the reason this is here rather than on the material: it wants
+    ///     depth clamping and a depth bias that have nothing to do with the surface being drawn and
+    ///     everything to do with what the pass is for.
+    /// </remarks>
+    public RasterizerState Rasterizer { get; set; } = RasterizerState.Default;
 
     /// <summary>The stage's index, assigned when it is added to a <see cref="RenderSystem" />.</summary>
     public int Index { get; internal set; } = -1;

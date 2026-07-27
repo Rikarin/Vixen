@@ -36,15 +36,15 @@ public sealed class MeshRenderFeature : RootRenderFeature {
     public PipelineCache? Pipelines { get; set; }
 
     /// <summary>
-    ///     How a pipeline is described for a given effect and stage.
+    ///     How a pipeline is described for a given effect, stage and output.
     /// </summary>
     /// <remarks>
-    ///     Supplied rather than decided here, because the attachment formats and the blend and depth
-    ///     state belong to the pass a stage is drawn into — which is the compositor's to say. Until
-    ///     the compositor asset exists this is where a host says it, and when it exists this is what
-    ///     it fills in.
+    ///     Supplied rather than decided here, because the blend and depth state belong to the stage
+    ///     and the attachment formats to the pass — neither of which a mesh knows anything about.
+    ///     <see cref="Compositor.EffectPipelineDescriber" /> is the one that assembles them, and a
+    ///     project with an unusual pipeline supplies its own without touching this file.
     /// </remarks>
-    public Func<Effect, RenderStage, GraphicsPipelineDescription>? DescribePipeline { get; set; }
+    public IPipelineDescriber? Describer { get; set; }
 
     /// <inheritdoc />
     protected internal override void Initialize(RenderSystem system) =>
@@ -56,9 +56,12 @@ public sealed class MeshRenderFeature : RootRenderFeature {
         RenderDrawContext context,
         ReadOnlySpan<RenderNode> nodes
     ) {
-        if (Pipelines is null || DescribePipeline is null || context.Stage is null) {
+        if (Pipelines is null || Describer is null || context.Stage is null) {
             return;
         }
+
+        var stage = context.Stage;
+        var output = context.Output;
 
         var draws = system.Objects.Data.Data(Draws);
         var materials = MaterialsOf(system);
@@ -79,10 +82,14 @@ public sealed class MeshRenderFeature : RootRenderFeature {
                 continue;
             }
 
-            var pipeline = Pipelines.GetOrCreate(
-                new(effect, context.Stage.Index, 0),
-                () => DescribePipeline(effect, context.Stage)
-            );
+            var key = new PipelineKey(effect, stage.Index, draw.VertexLayout, output);
+
+            // Asked before GetOrCreate because that one takes a closure, and a closure allocates
+            // whether or not it is invoked — which on the hit path is every draw in the frame.
+            if (!Pipelines.TryGet(key, out var pipeline)) {
+                var layout = draw.VertexLayout;
+                pipeline = Pipelines.GetOrCreate(key, () => Describer.Describe(effect, stage, output, layout));
+            }
 
             if (pipeline != boundPipeline) {
                 context.CommandList.BindPipeline(pipeline);

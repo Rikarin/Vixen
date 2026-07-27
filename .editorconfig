@@ -365,3 +365,23 @@ dotnet_diagnostic.CA1711.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Rendering/Mesh.cs]
 dotnet_diagnostic.CA1051.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Rendering/Lights.cs
+#
+# CA1051 (do not declare visible instance fields). Two structs, exempted for two
+# different reasons that happen to point the same way.
+#
+# `PunctualLightData` is a memory layout the GPU reads: its field order and its
+# sixty-four-byte size are fixed by the std140 rules and by the matching struct in
+# Raven/Library/Shading/Lighting.rvn, and an upload is a blit of an array of them.
+# Properties would add nothing a shader can see and would break the blit the
+# moment one of them stopped being auto-implemented.
+#
+# `RenderLight` is the authoring side of the same record, mutated field by field
+# by whatever extracts lights from a scene. It is a struct held in a list, so
+# `lights[i].Intensity = …` through a property would write to a copy — the same
+# trap RenderObject.cs is exempted for.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Rendering/Lights.cs]
+dotnet_diagnostic.CA1051.severity = none

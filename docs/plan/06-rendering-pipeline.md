@@ -41,8 +41,18 @@ The three ideas worth keeping verbatim:
 `Core/Vixen.Rendering` holds the spine: `RenderObjectStore` (flat, dense, stable ids),
 `RenderDataHolder` (per-feature SoA arrays in native memory), `RootRenderFeature`/`SubRenderFeature`,
 `RenderView`/`RenderStage`, `VisibilityGroup` (parallel CPU frustum culling) and `RenderSystem`
-driving extract → cull → prepare → sort. What is not built is **recording** — it needs the effect
-system, which needs `ParameterCollection`.
+driving extract → cull → prepare → sort, then recording into per-thread command lists.
+
+`MeshRenderFeature` is the first concrete renderable, with transform, material and forward-lighting
+sub-features — four features, four arrays, and none of them referencing another's data. Lighting was
+added after the other three and changed none of them, which is idea 2 above cashing out rather than
+being asserted.
+
+`Compositor/` is idea 3: `GraphicsCompositor` over a tree of `SceneRenderer`s — a sequence, a render
+pass, a single stage from a single view, a delegate. Its **collect phase runs before the render
+system**, so the frame's view list and every view's stage mask are *derived from the tree* rather
+than set beside it: a stage nothing draws costs no culling, and a stage that is drawn cannot have
+been forgotten in a mask. The tree is data; what is not built is loading one from disk.
 
 Three things the implementation settled that the sketch above leaves open:
 
@@ -59,6 +69,13 @@ Three things the implementation settled that the sketch above leaves open:
   front-to-back sort also a state-change-minimising one. Sorting purely by depth makes a scene
   *slower the better it is culled*, because the draw order stops correlating with pipeline state; a
   transparent stage leaves grouping out entirely, because reordering blended draws changes the image.
+
+- **A pipeline is decided by four things, and the key names all four**: the effect, the stage (blend,
+  depth, raster), the output (attachment formats and sample count) and the vertex layout. State
+  belongs to the stage and formats to the pass, because a stage is drawn into many passes — "Opaque"
+  means depth-written wherever it is drawn. The output holds *formats, not textures*, which is what
+  lets the swapchain hand out a new image every frame and the render graph alias transient targets
+  without invalidating a single pipeline.
 
 A settled frame of 10 000 objects through extract → cull → sort **allocates nothing**, asserted by
 test — the guard against a change that starts allocating per object per frame and surfaces months
@@ -164,7 +181,8 @@ Priority column: **P1** = required for the 1.0 renderer, **P2** = post-1.0.
 
 | Feature | Pri | Notes |
 |---|---|---|
-| Directional, point, spot, area (rect/disc/tube) | P1 | LTC-based area lights |
+| Directional, point, spot | ✅ | `ForwardLightingRenderFeature`: per-object lists, one dynamic-offset uniform block per draw. Lights are selected against **objects, not the view frustum** — a lamp behind the camera lights what is in front of it, so frustum-culling lights would darken exactly what is on screen. Range is measured to the sphere's surface, and the ranking is the falloff the fragment will evaluate, so "the eight brightest" means the same on both sides |
+| Area lights (rect/disc/tube) | P1 | LTC-based |
 | Ambient / environment (IBL) | P1 | split-sum: prefiltered GGX cube + SH-9 irradiance |
 | Light probes (SH, tetrahedral interpolation) | P1 | Stride has this (`LightProbes`); it is the pragmatic indirect-diffuse answer |
 | Reflection probes (box/sphere projected, blended) | P1 | |

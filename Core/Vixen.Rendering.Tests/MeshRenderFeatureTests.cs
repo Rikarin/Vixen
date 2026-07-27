@@ -6,6 +6,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
 using Vixen.Rendering;
+using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
 using Vixen.Shaders;
 using Xunit;
@@ -28,7 +29,14 @@ public class MeshRenderFeatureTests : IDisposable {
 
     // --- Fixture ------------------------------------------------------------
 
-    static Effect Compiled(EffectKey key) => new() { Key = key, Stages = [] };
+    static Effect Compiled(EffectKey key) =>
+        new() {
+            Key = key,
+            Stages = [
+                new(ShaderStage.Vertex, [1, 2, 3, 4], "main"),
+                new(ShaderStage.Fragment, [5, 6, 7, 8], "main")
+            ]
+        };
 
     sealed class AlwaysCompiles : IEffectProvider {
         public Effect? TryGet(EffectKey key) => Compiled(key);
@@ -53,13 +61,7 @@ public class MeshRenderFeatureTests : IDisposable {
 
         var meshes = new MeshRenderFeature {
             Pipelines = new(device),
-            DescribePipeline = (effect, stage) => new(
-                device.CreateShader(ShaderStage.Vertex, [1, 2, 3, 4], $"{effect.Key.ShaderName}.vert"),
-                device.CreateShader(ShaderStage.Fragment, [5, 6, 7, 8], $"{effect.Key.ShaderName}.frag"),
-                device.CreatePipelineLayout(new()),
-                [new(PixelFormat.Rgba8UNorm, BlendState.Opaque)],
-                Name: $"{effect.Key.ShaderName}/{stage.Name}"
-            )
+            Describer = new EffectPipelineDescriber(device)
         };
 
         var transforms = new TransformRenderFeature();
@@ -131,7 +133,13 @@ public class MeshRenderFeatureTests : IDisposable {
 
         var list = device.BeginCommandList();
         list.BeginRenderPass(new([new(target)], name: "Opaque"));
-        h.System.Record(h.Camera, h.Opaque, new(list, effects) { Device = device });
+
+        h.System.Record(
+            h.Camera,
+            h.Opaque,
+            new(list, effects) { Device = device, Output = new([PixelFormat.Rgba8UNorm]) }
+        );
+
         list.EndRenderPass();
         list.Finish();
         device.GraphicsQueue.Submit([list]);

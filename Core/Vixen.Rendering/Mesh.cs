@@ -45,6 +45,15 @@ public struct MeshDraw {
     /// <summary>How many instances. One for an ordinary draw.</summary>
     public int InstanceCount;
 
+    /// <summary>Which vertex layout the buffer uses, as an index into the describer's table.</summary>
+    /// <remarks>
+    ///     An index rather than the layout itself, because a layout is a property of the vertex
+    ///     <em>format</em> and a project has a handful of those — static, skinned, UI, particle. Two
+    ///     meshes of the same format then share a pipeline instead of each compiling their own, which
+    ///     is why this is part of <see cref="PipelineKey" />.
+    /// </remarks>
+    public int VertexLayout;
+
     /// <summary>Whether this draw has anything to draw.</summary>
     public readonly bool IsDrawable => Count > 0 && VertexBuffer.IsValid;
 
