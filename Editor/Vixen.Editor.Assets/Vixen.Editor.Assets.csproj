@@ -37,6 +37,10 @@
              is Vixen.Core.Imaging, which is where those decisions can be tested against a spec. -->
         <ProjectReference Include="..\..\Core\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+
+        <!-- The content build emits a catalog, which is a runtime type: the builder and the loader
+             have to be talking about the same one. -->
+        <ProjectReference Include="..\..\Core\Vixen.Assets\Vixen.Assets.csproj" />
         <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
 
         <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"

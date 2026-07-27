@@ -1,0 +1,98 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Assets;
+using Vixen.Core;
+using Vixen.Core.Serialization.Storage;
+
+namespace Vixen.Editor.Assets.Content;
+
+/// <summary>How a group's assets are distributed across bundles.</summary>
+/// <remarks>
+///     The single most consequential setting in a content build. A bundle is the unit of download and
+///     the unit of residency: everything in one arrives together and stays together, so packing
+///     decides both what a patch costs and how much memory one asset drags in behind it.
+/// </remarks>
+public enum BundlePacking {
+    /// <summary>
+    ///     One bundle for the group. Fewest requests and the best compression, and a change to one
+    ///     asset re-downloads all of them.
+    /// </summary>
+    PackTogether,
+
+    /// <summary>
+    ///     One bundle per asset. A patch ships only what changed, at the cost of a request each and
+    ///     compression that has nothing to find patterns across.
+    /// </summary>
+    PackSeparately,
+
+    /// <summary>
+    ///     One bundle per label. The middle answer, and usually the right one: things labelled
+    ///     together are things loaded together.
+    /// </summary>
+    PackTogetherByLabel
+}
+
+/// <summary>What a bundle's file is called.</summary>
+public enum BundleNaming {
+    /// <summary>The group's name. Readable, and unsafe behind a CDN that caches by URL.</summary>
+    Filename,
+
+    /// <summary>
+    ///     The name with the content hash appended. Two builds that produced different bytes have
+    ///     different URLs, so a cache can never serve the old one — which is the only way to make a
+    ///     content update land reliably.
+    /// </summary>
+    FilenameHash
+}
+
+/// <summary>Whether a group may change after the application has shipped.</summary>
+/// <remarks>
+///     Unity's content-update semantics, and the non-obvious piece people discover they need six
+///     months after shipping. A group baked into the application binary cannot be replaced by a
+///     download, so an asset in one that changes has to be moved somewhere that can be — see
+///     <see cref="ContentBuilder" />.
+/// </remarks>
+public enum UpdateRestriction {
+    /// <summary>It may be replaced by a content update.</summary>
+    CanChangePostRelease,
+
+    /// <summary>It shipped inside the application and is never redownloaded.</summary>
+    CannotChangePostRelease
+}
+
+/// <summary>An addressable group: a policy for a set of assets.</summary>
+/// <remarks>
+///     Written as a <c>.vxgroup</c> file next to the assets it governs, and bound through the same
+///     YAML machinery as a <c>.meta</c> file — so the format is the API and an artist can read it.
+/// </remarks>
+[DataContract("AddressableGroup")]
+public sealed record AddressableGroup {
+    /// <summary>What the group is called. Bundles are named after it.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>Whether its bundles ship with the application or are downloaded.</summary>
+    public ContentProvider LoadPath { get; init; } = ContentProvider.Local;
+
+    /// <summary>How its assets are distributed across bundles.</summary>
+    public BundlePacking Packing { get; init; } = BundlePacking.PackTogether;
+
+    /// <summary>How its bundles' chunks are compressed.</summary>
+    public CompressionMethod Compression { get; init; } = CompressionMethod.Lz4;
+
+    /// <summary>What its bundle files are called.</summary>
+    public BundleNaming BundleNaming { get; init; } = BundleNaming.FilenameHash;
+
+    /// <summary>Whether it is built at all. A group of work in progress is turned off rather than deleted.</summary>
+    public bool IncludeInBuild { get; init; } = true;
+
+    /// <summary>Whether it may be replaced by a content update.</summary>
+    public UpdateRestriction UpdateRestriction { get; init; } = UpdateRestriction.CanChangePostRelease;
+
+    /// <summary>Where its bundles are fetched from, for a remote group.</summary>
+    /// <remarks>
+    ///     A prefix the bundle's file name is appended to. Empty for a local group, where the
+    ///     application already knows where its own files are.
+    /// </remarks>
+    public string RemoteUrl { get; init; } = string.Empty;
+}

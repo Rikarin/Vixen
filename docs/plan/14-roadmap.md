@@ -377,6 +377,11 @@ the codebase is large enough for it to be expensive to fix.
   Binary `catalog.bin` with a sorted string table, deterministic by construction, CRC-verified on
   read. 48 tests. (The object database, chunk format and bundle reader were already built in
   Phase 1's serialization work; this is the index over them.)
+- ✅ Content build: `.vxgroup` addressable groups and `ContentBuilder` — packs chunks into bundles
+  by the group's policy (together, separately, by label), names them with their content hash so a CDN
+  cannot serve stale bytes, and emits the catalog. Deterministic, and its build log is too. 77 tests
+  in `Vixen.Editor.Assets.Tests`, including the first end-to-end one in the repository: an address
+  goes into the builder and an object comes out of the runtime.
 - ✅ `Vixen.Assets` loading: `AssetHandle` with ref-counted claims, dependency closures claimed by
   their dependents, deduplicated deserialisation, explicit scopes, label and glob loading, and a
   local bundle source over the VFS. 64 tests over real bundles rather than stubs. **Deviation:**
