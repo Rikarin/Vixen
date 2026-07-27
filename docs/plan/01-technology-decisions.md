@@ -29,7 +29,7 @@ Versions verified against `api.nuget.org` at plan time. These go verbatim into
 | `Silk.NET.Assimp` | 2.23.0 | `Vixen.Editor.Assets` (import-time only) | Model import. Never referenced by runtime assemblies. |
 | `JoltPhysicsSharp` | 2.22.0 | `Vixen.Physics` | As specified. Modern, actively maintained, deterministic-capable, native binaries for all six targets. |
 | `SixLabors.ImageSharp` | 4.0.0 | **`Vixen.Editor.Assets` only** | As specified. Import/authoring-time codec behind `IImageDecoder`. **Never referenced by a runtime assembly** — licence is the Six Labors Split License, not Apache-2.0; see ADR-015. `Vixen.Core.Imaging` reads KTX2/DDS with our own code. |
-| `ExCSS` | 4.3.2 | `Vixen.Ui.Styling` | As specified. CSS tokenizer/parser for `.vcss`. |
+| `ExCSS` | 4.3.2 | `Vixen.Ui.Styling` | As specified, and **verified** — see [the spike](spikes/vcss-excss/RESULT.md). The selector tree is fully typed and reachable, specificity is computed, `var()` and unknown properties survive verbatim. **It does not parse `@layer`**, which arrives as an `UnknownRule` carrying its text; Vixen reads the prelude and re-parses the body. |
 | `HarfBuzzSharp` | 14.2.1.1 | `Vixen.Ui.Text` | Text shaping. Non-negotiable for correct Arabic/Indic/emoji/ligatures. |
 | `K4os.Compression.LZ4` | 1.3.8 | `Vixen.Core.Serialization` | Bundle chunk compression, fast path (Stride uses LZ4 for the same reason). |
 | `ZstdSharp.Port` | 0.8.8 | `Vixen.Core.Serialization` | Bundle compression, size path for downloadable content. Pure managed → works on WASM. |

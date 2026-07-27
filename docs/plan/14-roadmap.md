@@ -489,6 +489,12 @@ sub-piece has its own gate.
   An incremental frame is **2.4× to 3.3× faster**, and identical to a cold one to the bit.
 
 **4b — Styling (1.5 EM)**
+- ✅ **ExCSS verified as the front end before anything was built on it** —
+  [spikes/vcss-excss](spikes/vcss-excss/RESULT.md), following sequencing rule 3. ADR-009 stands: the
+  selector tree is fully typed and reachable, so the selector work it saves is real. One finding that
+  changes what has to be written — **ExCSS 4.3.2 does not parse `@layer`**, which arrives as an
+  unknown rule with its text intact, so Vixen reads the prelude and re-parses the body. Doc 09 and
+  doc 01 now say so. Cheap to know now; expensive to find in the middle of the cascade.
 - `Vixen.Ui.Styling`: ExCSS integration, cascade, `@layer`, rule bucketing, ancestor bloom filter,
   style sharing cache, invalidation, transitions, keyframe animations.
 - `Vixen.Ui.Styling.Utilities`: token config, candidate scanner, utility grammar, variant system,

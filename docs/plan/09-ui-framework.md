@@ -297,6 +297,17 @@ ask and no others, so the sections it does not reach still need tests written by
 CSS as understood by ExCSS 4.3.2, with a documented supported-subset. Parsing is ExCSS; **everything
 after parsing is Vixen's**, because ExCSS is a parser, not a style engine.
 
+✅ **Verified before it was built on** — [spikes/vcss-excss](spikes/vcss-excss/RESULT.md). The
+selector tree is fully typed and reachable (so Vixen writes a visitor, not a parser), specificity is
+computed for us, shorthands are expanded, and both `var()` and properties ExCSS has never heard of —
+including this document's own `spring()` transition — survive verbatim.
+
+⚠ **`@layer` is Vixen's to parse.** ExCSS 4.3.2 predates cascade layers and hands the whole rule back
+as an unknown one with its text intact. Both forms need reading — the statement `@layer a, b;` that
+fixes order, and the block `@layer name { … }` whose body is handed back to ExCSS — and the same
+applies one level down inside `@media`. This is a bounded piece of the stylesheet loader rather than
+a hole in the design, but it is work the plan did not know about.
+
 Supported: type/class/id/universal selectors, descendant/child/sibling combinators, attribute
 selectors, `:hover`/`:active`/`:focus`/`:focus-visible`/`:disabled`/`:checked`/`:first-child`/
 `:last-child`/`:nth-child()`/`:not()`/`:is()`/`:where()`, pseudo-elements `::before`/`::after`,

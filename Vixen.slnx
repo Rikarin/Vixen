@@ -31,6 +31,9 @@
     <File Path="docs/plan/15-risks-and-open-questions.md" />
     <File Path="docs/plan/16-networking.md" />
     <File Path="docs/plan/17-app-heads-and-shipping.md" />
+    <File Path="docs/plan/18-raven-parser-migration.md" />
+    <File Path="docs/plan/spikes/web-webgl2/RESULT.md" />
+    <File Path="docs/plan/spikes/vcss-excss/RESULT.md" />
   </Folder>
 
   <!--
