@@ -82,6 +82,13 @@ Two tiers, both expressed in the RHI:
    material batching use it where available; there is a non-bindless path for GL/WebGL and older
    Android.
 
+✅ Sets whose contents are a *frame's* resources — anything a render-graph pass reads — come from
+`DescriptorAllocator` rather than being created and destroyed. It recycles through a ring exactly
+`FramesInFlight` deep, because a set written for frame *f* is still being read while the CPU records
+*f+1*, and it shares one set between everything in a frame asking for the same writes. That is the
+lifetime a frame graph needs and the four-set convention above does not describe: sets 0–3 are about
+how *often* a binding changes, and this is about when the handle behind it comes into existence.
+
 ### Synchronisation
 
 - **Explicit barriers** in the RHI (`CommandList.Barrier(in BarrierGroup)`), because implicit

@@ -8,13 +8,12 @@ using Vixen.Shaders;
 
 namespace Vixen.Rendering.Compositor;
 
-/// <summary>What a compute node's body is given to bind its own resources with.</summary>
+/// <summary>What a compute node's body is given to bind anything its declaration cannot express.</summary>
 /// <remarks>
-///     A callback rather than a descriptor set on the node, because the buffers a compute pass reads
-///     are render-graph resources: the handle does not exist until the graph has allocated it, and
-///     may be a different one next frame. So the node declares the dependency — which is what orders
-///     the passes and places the barrier — and the host, which owns the descriptor pool, writes the
-///     set with the handles this hands it.
+///     The escape hatch, no longer the mechanism. A node with
+///     <see cref="ComputeRenderer.Descriptors" /> configured writes its own set out of the resources
+///     it declared; this stays for the bindings that are not frame resources at all — a persistent
+///     buffer the compositor never hears about, or a second set the node has no way to name.
 /// </remarks>
 public sealed class ComputeDispatch {
     internal ComputeDispatch(RenderGraphContext context, ComputeRenderer node) {
@@ -59,7 +58,8 @@ public sealed class ComputeDispatch {
 ///     </para>
 /// </remarks>
 public sealed class ComputeRenderer : SceneRenderer {
-    readonly Dictionary<string, GraphBuffer> resolved = new(StringComparer.Ordinal);
+    readonly Dictionary<string, GraphBuffer> buffers = new(StringComparer.Ordinal);
+    readonly Dictionary<string, GraphTexture> textures = new(StringComparer.Ordinal);
 
     /// <summary>The compute shader to run.</summary>
     public required string ShaderName { get; init; }
@@ -71,9 +71,20 @@ public sealed class ComputeRenderer : SceneRenderer {
     public IReadOnlyList<ParameterKey> PermutationKeys { get; set; } = [];
 
     /// <summary>The names of buffers the dispatch reads.</summary>
-    public IList<string> Reads { get; } = [];
+    public IList<string> BufferReads { get; } = [];
 
     /// <summary>The names of buffers it writes.</summary>
+    public IList<string> BufferWrites { get; } = [];
+
+    /// <summary>The names of textures it samples or reads.</summary>
+    public IList<string> Reads { get; } = [];
+
+    /// <summary>The names of textures it writes, as storage images.</summary>
+    /// <remarks>
+    ///     The half of a compute pass that a bloom chain, a GTAO pass or a mip generator is made of.
+    ///     Separate from <see cref="BufferWrites" /> only because the graph tracks the two resource
+    ///     kinds separately; the edge either declares is the same one.
+    /// </remarks>
     public IList<string> Writes { get; } = [];
 
     /// <summary>How many workgroups to run.</summary>
@@ -82,12 +93,21 @@ public sealed class ComputeRenderer : SceneRenderer {
     /// <summary>Where compute pipelines come from. Set before the first frame that builds.</summary>
     public ComputePipelineCache? Pipelines { get; set; }
 
-    /// <summary>What binds the pass's own descriptor sets, before the dispatch.</summary>
+    /// <summary>The set it writes for itself, out of the resources it declared.</summary>
+    /// <remarks>
+    ///     Its <see cref="DescriptorBindings.Layout" /> can be left unset and taken from the resolved
+    ///     effect's <see cref="Effect.SetLayouts" />, which is where the layout the pipeline was built
+    ///     from actually lives — supplying a different one is how a set gets bound to a pipeline it is
+    ///     not compatible with.
+    /// </remarks>
+    public DescriptorBindings Descriptors { get; } = new() { Slot = DescriptorSetSlot.PerMaterial };
+
+    /// <summary>What binds anything the declaration cannot express, before the dispatch.</summary>
     public Action<ComputeDispatch>? OnBind { get; init; }
 
     /// <summary>The buffer a name resolved to this frame, for <see cref="ComputeDispatch" />.</summary>
     internal GraphBuffer Resolved(string name) =>
-        resolved.TryGetValue(name, out var buffer)
+        buffers.TryGetValue(name, out var buffer)
             ? buffer
             : throw new CompositorBindingException(ToString(), "buffer", name);
 
@@ -115,18 +135,29 @@ public sealed class ComputeRenderer : SceneRenderer {
             return;
         }
 
-        resolved.Clear();
+        buffers.Clear();
+        textures.Clear();
 
-        foreach (var name in Reads) {
-            resolved[name] = frame.Buffer(ToString(), name);
+        foreach (var name in BufferReads.Concat(BufferWrites)) {
+            buffers[name] = frame.Buffer(ToString(), name);
         }
 
-        foreach (var name in Writes) {
-            resolved[name] = frame.Buffer(ToString(), name);
+        foreach (var name in Reads.Concat(Writes)) {
+            textures[name] = frame.Texture(ToString(), name);
         }
 
-        var reads = Reads.Select(name => resolved[name]).ToArray();
-        var writes = Writes.Select(name => resolved[name]).ToArray();
+        // The layout the effect was compiled with, unless the host insisted on one of its own. A set
+        // is only bindable to a pipeline whose layout it was allocated from, so guessing here would
+        // produce something the validation layers reject and a release driver does not.
+        if (!Descriptors.Layout.IsValid && (int)Descriptors.Slot < effect.SetLayouts.Length) {
+            Descriptors.Layout = effect.SetLayouts[(int)Descriptors.Slot];
+        }
+
+        var bound = Descriptors.Resolve(ToString(), textures, buffers);
+        var bufferReads = BufferReads.Select(name => buffers[name]).ToArray();
+        var bufferWrites = BufferWrites.Select(name => buffers[name]).ToArray();
+        var textureReads = Reads.Select(name => textures[name]).ToArray();
+        var textureWrites = Writes.Select(name => textures[name]).ToArray();
         var groups = Groups;
 
         frame.Graph.AddPass(
@@ -134,17 +165,26 @@ public sealed class ComputeRenderer : SceneRenderer {
             pass => {
                 pass.Kind = PassKind.Compute;
 
-                foreach (var read in reads) {
+                foreach (var read in bufferReads) {
                     pass.Reads(read);
                 }
 
-                foreach (var write in writes) {
+                foreach (var write in bufferWrites) {
+                    pass.Writes(write);
+                }
+
+                foreach (var read in textureReads) {
+                    pass.Reads(read);
+                }
+
+                foreach (var write in textureWrites) {
                     pass.Writes(write);
                 }
 
                 pass.Execute(
                     context => {
                         context.CommandList.BindPipeline(pipeline);
+                        bound?.Bind(context);
                         OnBind?.Invoke(new(context, this) { Effect = effect });
                         context.CommandList.Dispatch(groups.X, groups.Y, groups.Z);
                     }
