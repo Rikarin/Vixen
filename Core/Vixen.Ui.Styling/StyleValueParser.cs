@@ -155,8 +155,24 @@ public sealed class StyleValueParser {
 
     static StyleValue ParseNumeric(ReadOnlySpan<char> text) {
         var end = 0;
-        while (end < text.Length && (char.IsAsciiDigit(text[end]) || text[end] is '.' or '-' or '+' or 'e' or 'E')) {
-            end++;
+
+        while (end < text.Length) {
+            if (char.IsAsciiDigit(text[end]) || text[end] is '.' or '-' or '+') {
+                end++;
+                continue;
+            }
+
+            // ⚠ `e` belongs to the number only when a number follows it. CSS has a unit that begins
+            // with the exponent character, so scanning `e` unconditionally makes `2em` scan as the
+            // number `2e` — which does not parse, so the whole declaration comes back Unknown and
+            // the element silently keeps its initial value. `1e2px` still works, which is the point
+            // of testing rather than just dropping the exponent.
+            if (text[end] is 'e' or 'E' && HasExponentDigits(text[(end + 1)..])) {
+                end++;
+                continue;
+            }
+
+            break;
         }
 
         if (!float.TryParse(text[..end], NumberStyles.Float, CultureInfo.InvariantCulture, out var number)) {
@@ -179,9 +195,33 @@ public sealed class StyleValueParser {
                 StyleValue.FromLength(number / 1000f, StyleUnit.Seconds),
             _ when suffix.Equals("deg", StringComparison.OrdinalIgnoreCase) =>
                 StyleValue.FromLength(number, StyleUnit.Degrees),
+
+            // Relative units are recognised and carried unresolved. `rem` is tested before `em`
+            // because the second is a suffix of the first, and an ordinary switch on strings would
+            // hide that — here the order is the correctness argument, so it is worth seeing.
+            _ when suffix.Equals("rem", StringComparison.OrdinalIgnoreCase) =>
+                StyleValue.FromLength(number, StyleUnit.Rem),
+            _ when suffix.Equals("em", StringComparison.OrdinalIgnoreCase) =>
+                StyleValue.FromLength(number, StyleUnit.Em),
+            _ when suffix.Equals("vw", StringComparison.OrdinalIgnoreCase) =>
+                StyleValue.FromLength(number, StyleUnit.ViewportWidth),
+            _ when suffix.Equals("vh", StringComparison.OrdinalIgnoreCase) =>
+                StyleValue.FromLength(number, StyleUnit.ViewportHeight),
+            _ when suffix.Equals("vmin", StringComparison.OrdinalIgnoreCase) =>
+                StyleValue.FromLength(number, StyleUnit.ViewportMin),
+            _ when suffix.Equals("vmax", StringComparison.OrdinalIgnoreCase) =>
+                StyleValue.FromLength(number, StyleUnit.ViewportMax),
+
             _ => StyleValue.Unknown
         };
     }
+
+    /// <summary>Whether what follows an <c>e</c> is an exponent rather than the rest of a unit.</summary>
+    static bool HasExponentDigits(ReadOnlySpan<char> text) => text switch {
+        [var digit, ..] when char.IsAsciiDigit(digit) => true,
+        ['-' or '+', var digit, ..] when char.IsAsciiDigit(digit) => true,
+        _ => false
+    };
 
     /// <summary>Splits on top-level whitespace, keeping bracketed groups whole.</summary>
     static List<Range> SplitTopLevel(ReadOnlySpan<char> text) {

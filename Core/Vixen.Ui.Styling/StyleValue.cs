@@ -29,12 +29,27 @@ public enum StyleValueKind : byte {
 
 /// <summary>The units a length can carry.</summary>
 /// <remarks>
-///     Absolute and percentage only. There is no <c>em</c>, <c>rem</c>, <c>vw</c> or <c>vh</c> here,
-///     and their absence is a decision rather than an omission: resolving them needs a context —
-///     the element's own font size, its ancestors', the surface's — that does not exist at parse
-///     time. They belong in the step between the cascade and layout, which is
-///     <c>Vixen.Ui</c>'s to write, and putting a half-resolved <c>em</c> in this type would make
-///     every consumer wonder which half.
+///     <para>
+///         <b>Relative units are carried here, and never resolved here.</b> A value of two <c>em</c>
+///         means exactly that and nothing more; turning it into pixels needs a context — the
+///         element's own font size, the root's, the surface's — that does not exist at parse time,
+///         and that step belongs to <c>Vixen.Ui</c>. Nothing in this assembly is allowed to
+///         half-resolve one, because a consumer would then have to ask which half.
+///     </para>
+///     <para>
+///         ⚠ This type used to leave <c>em</c> and friends out entirely, on the argument that they
+///         belonged downstream. That was right about resolution and wrong about representation, and
+///         <b>transitions are what settled it</b>: the animator interpolates <see cref="StyleValue" />,
+///         so a unit this type cannot express is a unit that cannot animate. Leaving them out meant
+///         <c>width: 2em</c> parsed as <c>Unknown</c>, and a transition on it silently did nothing —
+///         no diagnostic, no exception, just a property that snaps while its neighbours ease.
+///     </para>
+///     <para>
+///         The known limit, which is older than this change: interpolation requires both endpoints to
+///         share a unit, so <c>2em → 40px</c> does not animate. CSS resolves both to pixels at
+///         computed-value time and Vixen animates specified values, which was already true of
+///         <c>%</c> against <c>px</c>.
+///     </para>
 /// </remarks>
 public enum StyleUnit : byte {
     /// <summary>No unit — a bare number used where a length is expected, which CSS allows only for zero.</summary>
@@ -50,7 +65,25 @@ public enum StyleUnit : byte {
     Seconds,
 
     /// <summary>Degrees. Angles.</summary>
-    Degrees
+    Degrees,
+
+    /// <summary>The element's own font size — except on <c>font-size</c>, where it is the parent's.</summary>
+    Em,
+
+    /// <summary>The root element's font size, however deep the element is.</summary>
+    Rem,
+
+    /// <summary>A hundredth of the viewport's width.</summary>
+    ViewportWidth,
+
+    /// <summary>A hundredth of the viewport's height.</summary>
+    ViewportHeight,
+
+    /// <summary>A hundredth of the viewport's smaller side.</summary>
+    ViewportMin,
+
+    /// <summary>A hundredth of the viewport's larger side.</summary>
+    ViewportMax
 }
 
 /// <summary>A declaration's value, parsed far enough to be interpolated.</summary>
@@ -283,13 +316,7 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
                 return Format(Number);
 
             case StyleValueKind.Length:
-                return Format(Number) + Unit switch {
-                    StyleUnit.Pixels => "px",
-                    StyleUnit.Percent => "%",
-                    StyleUnit.Seconds => "s",
-                    StyleUnit.Degrees => "deg",
-                    _ => string.Empty
-                };
+                return Format(Number) + Suffix(Unit);
 
             case StyleValueKind.Color: {
                 var srgb = Color.ToSrgb();
@@ -320,10 +347,30 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
         static int Channel(float value) => (int) MathF.Round(Math.Clamp(value, 0f, 1f) * 255f);
     }
 
+    /// <summary>The CSS spelling of a unit.</summary>
+    /// <remarks>
+    ///     Written once because there were two of these, and the debug one printed the enum's name —
+    ///     so a failing assertion said <c>50Percent</c> where the stylesheet said <c>50%</c>. Two
+    ///     tables of the same thing is how a unit gets added to one and not the other.
+    /// </remarks>
+    static string Suffix(StyleUnit unit) => unit switch {
+        StyleUnit.Pixels => "px",
+        StyleUnit.Percent => "%",
+        StyleUnit.Seconds => "s",
+        StyleUnit.Degrees => "deg",
+        StyleUnit.Em => "em",
+        StyleUnit.Rem => "rem",
+        StyleUnit.ViewportWidth => "vw",
+        StyleUnit.ViewportHeight => "vh",
+        StyleUnit.ViewportMin => "vmin",
+        StyleUnit.ViewportMax => "vmax",
+        _ => string.Empty
+    };
+
     /// <inheritdoc />
     public override string ToString() => Kind switch {
         StyleValueKind.Number => Format(Number),
-        StyleValueKind.Length => Format(Number) + Unit,
+        StyleValueKind.Length => Format(Number) + Suffix(Unit),
         StyleValueKind.Color => Color.ToString(),
         StyleValueKind.Keyword => "keyword " + Keyword.ToString(CultureInfo.InvariantCulture),
         StyleValueKind.List => Items.Length.ToString(CultureInfo.InvariantCulture) + " parts",

@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ui</RootNamespace>
+        <Description>
+            The UI framework proper: the element tree, the property system, event routing and the
+            draw list — and, first, the step between the cascade and layout that resolves a computed
+            style into the lengths a flexbox engine can use.
+        </Description>
+        <PackageTags>ui;css;flexbox;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The two subsystems this assembly exists to join, plus text because `em` is a font-relative
+            unit and the font size is where it comes from. Neither Styling nor Layout references the
+            other, and that is deliberate: the dependency is a V rather than a chain, so a flexbox
+            engine stays usable without a stylesheet and a cascade stays testable without a layout.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Styling\Vixen.Ui.Styling.csproj" />
+        <ProjectReference Include="..\Vixen.Ui.Layout\Vixen.Ui.Layout.csproj" />
+        <ProjectReference Include="..\Vixen.Ui.Text\Vixen.Ui.Text.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Ui.Tests" />
+    </ItemGroup>
+
+</Project>

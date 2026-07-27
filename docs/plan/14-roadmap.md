@@ -1094,12 +1094,62 @@ sub-piece has its own gate.
   decision — a run is shaped with the text around it, so its glyphs are not a function of the run
   alone, and a run-keyed cache would either be unsound or need the context in the key. Reuse between
   paragraphs sharing a word is given up on purpose.
+- ⚠ **MSDF has an unanswered question underneath it: HarfBuzzSharp exposes no glyph outlines.** The
+  assembly has `TryGetGlyphExtents`, which is a bounding box, and no draw, paint or outline surface
+  at all. Distance-field generation needs contours, so something else has to produce them.
+
+  **Decided direction, to be spiked before the atlas is planned** (sequencing rule 3, as with ExCSS
+  and HarfBuzz): a **managed `glyf`/`CFF` outline parser**, fed by `Face.ReferenceTable`, which
+  HarfBuzzSharp *does* expose. The alternatives are FreeType — a second native dependency, and one
+  whose WebAssembly story would have to be re-run from scratch — or SkiaSharp, which is heavy and
+  duplicates HarfBuzz. The managed route adds no native dependency, keeps the WASM path exactly as
+  the HarfBuzz spike left it, and reuses the binary-format parsing this repository already does for
+  KTX2. What it costs is a real parser for two outline formats, which is why it is a spike and not
+  an assumption.
 - Owed: MSDF atlas with LRU eviction, font fallback, rich-text runs, variable-font axes,
   `TextEditor` model with IME and caret affinity.
 - Gate: ✅ UAX conformance data green. ✅ shaping conformance green against an external oracle,
   with the quarantine pinned in both directions.
 
 **4d — Element tree, markup, rendering (1.5 EM)**
+- ✅ **The styling↔layout bridge**, which was 4d's first owed item and is what `Vixen.Ui` now
+  contains. `Vixen.Ui.Styling` decides which declaration wins without knowing what a length
+  measures and `Vixen.Ui.Layout` measures without knowing where its numbers came from; neither
+  references the other, and this closes the gap that leaves. `LengthContext` carries what a relative
+  length is relative to, `LayoutStyleBuilder` maps a `ComputedStyle` onto a `LayoutStyle`.
+
+  `em`, `rem`, `vw`, `vh`, `vmin` and `vmax` are now parsed and carried by `StyleValue`. They were
+  deliberately left out on the argument that resolving them needs a context that does not exist at
+  parse time — **right about resolution, wrong about representation, and transitions settled it**:
+  the animator interpolates `StyleValue`, so a unit the type cannot express is a unit that cannot
+  animate, and `width: 2em` under a `transition` snapped while its neighbours eased.
+
+  ⚠ **Yoga's initial values are not CSS's, in four places** — `flex-direction`, `align-content`,
+  `position` and `box-sizing` all differ. `Vixen.Ui.Layout` is right to start where Yoga starts
+  since it is judged by Yoga's suite; the bridge is the boundary where a VCSS author's expectations
+  take over, so `LayoutStyleBuilder.CssInitial` exists and `LayoutStyle.Default` is not what an
+  element with no declarations gets.
+
+  ⚠ **A predicted limitation that turned out not to exist, caught by writing the test first.** The
+  bridge was built to expand the box shorthands itself, reasoning that the cascade stores shorthand
+  and longhand separately and the layout store resolves edges by fixed precedence rather than
+  document order — so `margin-left: 0; margin: 8px` would give zero where a browser gives eight. Its
+  tests said every one of those paths was dead: **ExCSS expands on parse**, exactly as a browser
+  does, so document order does the work. Had the claim been believed rather than tested it would now
+  be a documented known limitation of something that works correctly.
+
+  Two parser findings. **CSS has a unit that begins with the exponent character** — scanning `e`
+  unconditionally made `2em` scan as `2e`, fail, and come back `Unknown`, dropping every `em` in the
+  document. And `aspect-ratio: 16 / 9` reaches the cascade as `16/9`, spaces normalised away, so a
+  whitespace-splitting parser sees one token.
+
+  Verified by sabotage: starting from Yoga's defaults, resolving `font-size`'s `em` against the
+  element's own size, resolving percentages in the bridge, swapping `vw` and `vh`, and dropping the
+  leave-the-initial-value-alone guard each fail the suite. ⚠ **That last one took two attempts**, and
+  the failure is the point — written against a stylesheet, an invalid value never reaches the bridge
+  at all, because ExCSS validates as it parses. The test had to go through inline declarations
+  *and* use a value that parses but is not a length. **A test that cannot reach the code it names
+  passes for the wrong reason**, which is the third time this phase that has come up.
 - `Vixen.Ui`: element tree, generated property system, event routing, focus, hit testing, gestures,
   draw list, batching, clipping, path rendering, virtualisation primitive, multi-window, DPI.
 - `Vixen.Ui.Markup`: VXML lexer/parser on `Vixen.Core.Syntax`, binder, emitter, `#line` mapping.

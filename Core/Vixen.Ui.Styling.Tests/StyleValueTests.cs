@@ -48,12 +48,47 @@ public class StyleValueTests {
     [InlineData("2s", 2f, StyleUnit.Seconds)]
     [InlineData("250ms", 0.25f, StyleUnit.Seconds)]
     [InlineData("45deg", 45f, StyleUnit.Degrees)]
+    [InlineData("2em", 2f, StyleUnit.Em)]
+    [InlineData("1.5rem", 1.5f, StyleUnit.Rem)]
+    [InlineData("100vw", 100f, StyleUnit.ViewportWidth)]
+    [InlineData("50vh", 50f, StyleUnit.ViewportHeight)]
+    [InlineData("10vmin", 10f, StyleUnit.ViewportMin)]
+    [InlineData("10vmax", 10f, StyleUnit.ViewportMax)]
     public void Lengths_carry_their_unit(string text, float expected, StyleUnit unit) {
         var value = Parser().Parse(text);
 
         Assert.Equal(StyleValueKind.Length, value.Kind);
         Assert.Equal(expected, value.Number, Tolerance);
         Assert.Equal(unit, value.Unit);
+    }
+
+    [Fact]
+    public void A_relative_length_survives_a_round_trip_through_its_own_text() {
+        var parser = Parser();
+
+        // ⚠ `em` is a suffix of `rem`, so a suffix test in the wrong order silently reads the first
+        // as the second and every root-relative length in the document becomes font-relative. The
+        // round trip is what makes that visible rather than a plausible-looking number.
+        foreach (var text in new[] { "2em", "1.5rem", "100vw", "50vh", "10vmin", "10vmax" }) {
+            Assert.Equal(text, parser.Parse(text).ToString());
+        }
+    }
+
+    [Fact]
+    public void A_relative_length_can_be_transitioned() {
+        var parser = Parser();
+
+        // The reason these units are representable at all. The animator interpolates StyleValue, so
+        // a unit this type cannot express is a unit that cannot animate — and `width: 2em` under a
+        // transition would snap while its neighbours ease, with nothing said about it.
+        var half = StyleValue.Lerp(parser.Parse("2em"), parser.Parse("4em"), 0.5f);
+
+        Assert.Equal(StyleUnit.Em, half.Unit);
+        Assert.Equal(3f, half.Number, Tolerance);
+
+        // And the older limit still holds: two units cannot be mixed, because Vixen animates
+        // specified values where CSS animates computed ones.
+        Assert.False(StyleValue.CanInterpolate(parser.Parse("2em"), parser.Parse("40px")));
     }
 
     [Fact]
