@@ -87,9 +87,34 @@ public sealed partial class UiDocument : IDisposable {
     /// <summary>Loads a stylesheet.</summary>
     /// <param name="css">Its text.</param>
     /// <param name="origin">Who it came from.</param>
-    public void Load(string css, StyleOrigin origin = StyleOrigin.Author) {
-        Styles.Load(css, origin);
+    /// <returns>The sheet's index, for <see cref="ReloadStyles" />.</returns>
+    public int Load(string css, StyleOrigin origin = StyleOrigin.Author) {
+        var sheet = Styles.Load(css, origin);
         Invalidate();
+        return sheet;
+    }
+
+    /// <summary>Replaces a loaded stylesheet with new text.</summary>
+    /// <param name="sheet">The index <see cref="Load" /> returned.</param>
+    /// <param name="css">The new text.</param>
+    /// <remarks>
+    ///     <para>
+    ///         Forgets what every element applied, for the same reason <see cref="Resize" /> does.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is currently redundant, and kept anyway.</b> A reload rebuilds the interning
+    ///         cache, so a computed style from before it is a different object from the identical
+    ///         one after — the pass's reference comparison already calls every element changed, and
+    ///         replacing this with a plain <c>Invalidate</c> breaks no test. It stays because the
+    ///         redundancy is an accident of how the reload happens to be implemented rather than a
+    ///         property of what it means, and an interning cache that survived a reload one day
+    ///         would turn that accident into every element keeping the geometry a deleted rule gave
+    ///         it. Said out loud rather than defended by a test that cannot exist.
+    ///     </para>
+    /// </remarks>
+    public void ReloadStyles(int sheet, string css) {
+        Styles.Replace(sheet, css);
+        Forget();
     }
 
     /// <summary>Changes the surface's size.</summary>

@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ui.HotReload</RootNamespace>
+        <Description>
+            Dev-only hot reload for Vixen's UI: a watcher over .vcss and .vxml, a state-preserving
+            rebuild of live components, and the .NET metadata-update handler that drives it when an
+            edited component has been recompiled.
+        </Description>
+        <PackageTags>hot-reload;ui;dev;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!--
+            ⚠ Not AOT-compatible, and it cannot be. Reloading reads a component's fields by name to
+            carry them across a rebuild, and it exists to serve `dotnet watch` — a published,
+            trimmed, ahead-of-time build has no metadata updates to receive and should not carry the
+            machinery for them. This is the one assembly under Core/ that is a development tool
+            rather than a runtime, and saying so here is better than pretending it is trimmable.
+        -->
+        <IsAotCompatible>false</IsAotCompatible>
+        <IsTrimmable>false</IsTrimmable>
+        <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
+        <EnableAotAnalyzer>false</EnableAotAnalyzer>
+        <EnableSingleFileAnalyzer>false</EnableSingleFileAnalyzer>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Ui\Vixen.Ui.csproj" />
+        <ProjectReference Include="..\Vixen.Ui.Markup\Vixen.Ui.Markup.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Ui.HotReload.Tests" />
+    </ItemGroup>
+
+</Project>

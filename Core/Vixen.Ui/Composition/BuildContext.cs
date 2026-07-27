@@ -113,7 +113,79 @@ public sealed class BuildContext {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(mount);
 
-        return new BuildContext(document, mount).Child<T>(mount);
+        var context = new BuildContext(document, mount);
+        var component = context.Child<T>(mount);
+        return component;
+    }
+
+    /// <summary>Builds an already-created component, so a caller can choose how it was made.</summary>
+    /// <param name="component">The component.</param>
+    /// <param name="document">The document.</param>
+    /// <param name="mount">The element it hangs from.</param>
+    /// <returns>The context that built it, which is what can rebuild it.</returns>
+    /// <remarks>
+    ///     The <see cref="Build{T}" /> overload constructs the component itself, which is what
+    ///     markup wants and what a reload cannot use: replacing an instance means carrying state
+    ///     into the new one before it builds anything.
+    /// </remarks>
+    public static BuildContext BuildInto(Component component, UiDocument document, UiElement mount) {
+        ArgumentNullException.ThrowIfNull(component);
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(mount);
+
+        var context = new BuildContext(document, mount);
+        context.Adopt(component, mount);
+        return context;
+    }
+
+    void Adopt(Component component, UiElement parent) {
+        var host = Element(parent, component.GetType().Name.ToLowerInvariant());
+
+        owner = component;
+        Anchor = host;
+        building = RegionOf(host);
+
+        component.Mount(this, host);
+    }
+
+    /// <summary>Throws away what a component built and builds it again.</summary>
+    /// <param name="component">The component, which keeps its identity and its fields.</param>
+    /// <remarks>
+    ///     <para>
+    ///         What a hot reload calls once the method body behind <c>Build</c> has been replaced.
+    ///         The component object survives, so everything it holds survives with it — its signals
+    ///         above all, which is most of what "state was preserved" means in practice.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The elements do not survive, and cannot.</b> Two <c>Build</c> bodies are two
+    ///         different programs; there is no identity an element from the first shares with one
+    ///         from the second beyond its position, and reconciling on position alone would move
+    ///         state onto whatever happened to be in the same slot. What is carried across is
+    ///         carried deliberately, by name, by whoever asked for the reload.
+    ///     </para>
+    /// </remarks>
+    public void Rebuild(Component component) {
+        ArgumentNullException.ThrowIfNull(component);
+
+        var root = component.Root;
+        RegionOf(root).Clear();
+        regions.Remove(root);
+
+        var previousOwner = owner;
+        var previousAnchor = Anchor;
+        var previousBuilding = building;
+
+        owner = component;
+        Anchor = root;
+        building = RegionOf(root);
+
+        try {
+            component.Mount(this, root);
+        } finally {
+            owner = previousOwner;
+            Anchor = previousAnchor;
+            building = previousBuilding;
+        }
     }
 
     // ================================================================== Elements

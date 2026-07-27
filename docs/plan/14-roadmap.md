@@ -1672,7 +1672,56 @@ sub-piece has its own gate.
   Still owed: incremental reparse (the `Blender` exists, but VXML's unit of reuse is not obvious — an element's green node
   is reusable only if nothing about its *enclosing* content changed), the `IIncrementalGenerator`
   wrapper in `Vixen.Ui.Markup.Generators`, `bind:` update events and `@namespace`.
-- `Vixen.Ui.HotReload`: three reload channels, keyed reconciliation, `[HotReloadState]`.
+- ✅ **`Vixen.Ui.HotReload` — three reload channels, and what each one is allowed to lose.**
+
+  **Styles** reload without rebuilding anything: the rule set is replaced and the cascade runs
+  again, so every element keeps its identity and therefore its focus and its animation state. This
+  needed a change one layer down — `StyleEngine` now keeps the text of every sheet and rebuilds from
+  them, because rules are appended and never removed and a sheet cannot be lifted out of the middle
+  of a set. ⚠ **That is the difference between a reload and an overlay**: replaying the sheets is
+  what makes a *deleted* rule stop applying, where re-adding the new text leaves the old one
+  underneath, still winning wherever the new one says nothing. A sheet that does not load puts the
+  previous one back, because half a stylesheet is worse than the old one.
+
+  **Markup** re-runs `Build` on the same component objects, so their fields — their signals above
+  all — survive by construction. ⚠ **The elements do not, and cannot**: two `Build` bodies are two
+  different programs, with no identity shared beyond position, and reconciling on position alone
+  would move state onto whatever happened to be in the same slot. The focus is put back by path and
+  the report says whether that worked. ⚠ **A `Build` that throws leaves the component empty** —
+  clear-then-build has no snapshot. Doc 09 promised "a deliberately broken file leaves the previous
+  UI intact"; that is true of the *file* case, where a broken `.vxml` does not compile so no update
+  arrives, and not of a `Build` that throws at run time. Recorded rather than glossed.
+
+  **Component replacement** is the third channel and the only one `[HotReloadState]` is for. The
+  original plan implied the attribute carried state across every reload; it does not need to,
+  because a re-run keeps the instance. It earns its keep when the instance is replaced — a rude edit
+  — and it carries by name, checking that the value still fits, because the point of a reload is
+  that the type changed.
+
+  ⚠ **What this does not do is deliver the new code.** A changed `.vxml` becomes a different `Build`
+  only after something recompiles it. `MetadataUpdate` is registered as a .NET
+  `MetadataUpdateHandler` and reloads every live host, so the runtime half is wired; the build half
+  is `Vixen.Ui.Markup.Generators`, which does not exist yet and is the reason the markup channel is
+  testable but not yet useful on a file save. **That generator is now the highest-value thing owed
+  in 4d.**
+
+  Gate: 15 tests. Verified by sabotage: a style reload that adds instead of replacing fails 2, a
+  broken sheet that is not rolled back fails 1, asking only the loader what went wrong fails 1, a
+  rebuild that leaves the previous elements fails 5, a replacement that carries nothing fails 1, one
+  that lands at the end rather than in its place fails 1, a focus reported restored without being
+  restored fails 1, carried state written without a type check fails 1, and a rebuild that keeps the
+  previous build's slots fails 1.
+
+  ⚠ **Three sabotages failed to fail.** Two were test gaps, now closed — a carried value of the
+  wrong type was aimed at a member that was never carried, and the slot test only covered a slot the
+  new build *also* declared, where overwriting hides the bug; it takes a slot the new build drops.
+  The third was a false claim in a comment: `ReloadStyles` said forgetting every applied style
+  catches a case a plain `Invalidate` would miss, and it does not — the reload rebuilds the
+  interning cache, so every computed style is a new object and the pass already reports every
+  element as changed. The call is kept and the comment now says why it is redundant today and what
+  would make it necessary.
+- `Vixen.Ui.Markup.Generators`: the `IIncrementalGenerator` that turns `.vxml` into C# at build
+  time. **Owed, and it is what stands between the markup channel and being usable** — see above.
 - UI render feature integrated into the renderer.
 - Gate: draw-list golden tests; parser golden trees + error-recovery tests; hot-reload scenario tests.
 

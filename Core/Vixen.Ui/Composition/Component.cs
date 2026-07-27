@@ -48,11 +48,17 @@ public abstract class Component {
     protected abstract void Build(BuildContext ctx);
 
     /// <summary>The slots this component declared, by name.</summary>
+    /// <remarks>
+    ///     Cleared on every mount rather than added to. A reload re-runs <see cref="Build" /> on the
+    ///     same instance, and a slot list that survived would still name the elements the previous
+    ///     build made — which are gone.
+    /// </remarks>
     internal Dictionary<string, UiElement>? Slots { get; private set; }
 
     internal void Mount(BuildContext ctx, UiElement root) {
         Root = root;
         Content = root;
+        Slots = null;
 
         Build(ctx);
 
