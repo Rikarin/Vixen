@@ -452,6 +452,60 @@ public class SerializationTests {
         Assert.Equal(2.5, result.Scaled);
     }
 
+    /// <summary>
+    ///     An <c>init</c> setter is still a setter; only the language refuses to call it outside an
+    ///     object initializer, and a deserializer has no object initializer to write it in. Before
+    ///     the generator bound to it through <c>[UnsafeAccessor]</c>, a record of <c>init</c>
+    ///     properties had no settable member at all: it was emitted with <c>MemberCount = 0</c>,
+    ///     wrote a bare header, and read every field back as its default without a diagnostic.
+    /// </summary>
+    [Fact]
+    public void AnInitOnlyRecordRoundTrips() {
+        var value = new InitOnlySettings {
+            MaxSize = 512,
+            Compression = "Astc6x6",
+            Direction = Facing.South,
+            Sizes = [64, 128, 256],
+            Tags = ["ui", "sprite"],
+            Child = new() { Id = 9, Name = "child", Weight = 1.5 },
+            Streaming = false
+        };
+
+        var result = RoundTrip(value);
+
+        Assert.Equal(512, result.MaxSize);
+        Assert.Equal("Astc6x6", result.Compression);
+        Assert.Equal(Facing.South, result.Direction);
+        Assert.Equal([64, 128, 256], result.Sizes);
+        Assert.Equal(["ui", "sprite"], result.Tags);
+        Assert.Equal(9, result.Child?.Id);
+        Assert.Equal("child", result.Child?.Name);
+        Assert.False(result.Streaming);
+
+        // Seven members and a two-byte header — the computed one is not among them. This is the
+        // assertion the bug failed: the count used to be zero and the payload empty.
+        var bytes = Serializer.ToBytes(value);
+        Assert.Equal([0, 7], bytes[..2]);
+    }
+
+    /// <summary>On a struct the write has to land in the caller's value, not in a copy.</summary>
+    [Fact]
+    public void AnInitOnlyStructRoundTrips() {
+        var result = RoundTrip(new InitOnlyExtent { Width = 1920, Height = 1080 });
+
+        Assert.Equal(1920, result.Width);
+        Assert.Equal(1080, result.Height);
+    }
+
+    /// <summary>An inherited init-only member is written through its own declaring type.</summary>
+    [Fact]
+    public void AnInheritedInitOnlyMemberRoundTrips() {
+        var result = RoundTrip(new InitOnlyDerived { BaseNumber = 7, DerivedText = "derived" });
+
+        Assert.Equal(7, result.BaseNumber);
+        Assert.Equal("derived", result.DerivedText);
+    }
+
     static T RoundTrip<T>(T value) => Serializer.Read<T>(Serializer.ToBytes(value));
 
     sealed class Unregistered {

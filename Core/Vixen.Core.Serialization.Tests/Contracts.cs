@@ -144,3 +144,47 @@ public sealed class Computed {
     public int Height { get; set; }
     public int Area => Width * Height;
 }
+
+/// <summary>
+///     The shape [08](../../docs/plan/08-asset-pipeline-and-addressables.md) gives every importer's
+///     settings, and the one <c>Vixen.Audio.AudioClip</c> was first written in: an immutable record
+///     with defaults and no constructor to match. Until the generator bound to the <c>init</c>
+///     setters, this had no settable member, so it was emitted with <c>MemberCount = 0</c> — it wrote
+///     nothing, read every field back as its default, and said so nowhere.
+/// </summary>
+[DataContract]
+public sealed record InitOnlySettings {
+    public int MaxSize { get; init; } = 2048;
+    public string Compression { get; init; } = "Bc7";
+    public Facing Direction { get; init; }
+    public int[] Sizes { get; init; } = [];
+    public List<string> Tags { get; init; } = [];
+    public SettableClass? Child { get; init; }
+
+    /// <summary>Mixed in with the init-only ones, because a real settings record has both.</summary>
+    public bool Streaming { get; set; } = true;
+
+    /// <summary>Genuinely unwritable, so <c>init</c> support must not make everything settable.</summary>
+    public bool IsHighResolution => MaxSize > 1024;
+}
+
+/// <summary>An init-only member on a struct, where the write has to land in the caller's value.</summary>
+[DataContract]
+public struct InitOnlyExtent {
+    public int Width { get; init; }
+    public int Height { get; init; }
+}
+
+/// <summary>
+///     An inherited init-only member. The accessor has to name the type that declares the setter,
+///     because it looks its target up on exactly that type rather than walking the base chain.
+/// </summary>
+[DataContract]
+public class InitOnlyBase {
+    public int BaseNumber { get; init; }
+}
+
+[DataContract]
+public sealed class InitOnlyDerived : InitOnlyBase {
+    public string? DerivedText { get; init; }
+}
