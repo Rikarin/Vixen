@@ -112,6 +112,31 @@ public sealed class VixenCommandTests : IDisposable {
     }
 
     /// <summary>
+    ///     <b>What makes the determinism gate hold across three operating systems, tested on one.</b>
+    ///     Two projects at different paths, whose assets were created in a different order and carry
+    ///     different GUIDs, build to the same bytes. Everything that would break a cross-machine build
+    ///     — an absolute path reaching the catalog, a directory enumeration order leaking into it, an
+    ///     authoring identity being shipped — fails this without a second operating system to run on.
+    /// </summary>
+    /// <remarks>
+    ///     It also asserts doc 08's own sentence, which nothing had checked: "the GUID is the
+    ///     authoring identity and never appears in a shipped build".
+    /// </remarks>
+    [Fact]
+    public async Task TwoProjectsWithTheSameContentAtDifferentPathsBuildToTheSameBytes() {
+        // Created in opposite orders, under differently-named roots, with fresh GUIDs each.
+        var one = await BuildElsewhere("project-alpha", ["hero", "villain", "sidekick"]);
+        var other = await BuildElsewhere("a-differently-named-project", ["sidekick", "villain", "hero"]);
+
+        Assert.Equal(3, one.Count);
+        Assert.Equal(one.Keys.Order(StringComparer.Ordinal), other.Keys.Order(StringComparer.Ordinal));
+
+        foreach (var (name, bytes) in one) {
+            Assert.True(bytes.SequenceEqual(other[name]), $"'{name}' differs between two builds of the same content.");
+        }
+    }
+
+    /// <summary>
     ///     A bundle's file name carries its content hash, so changed content writes a new name. The
     ///     old file is removed rather than left, because a directory that accumulates every bundle
     ///     ever built is one somebody eventually uploads.
@@ -304,6 +329,35 @@ public sealed class VixenCommandTests : IDisposable {
         Assert.NotEmpty(VixenCommand.Create().Parse([verb]).Errors);
 
     string Build() => Path.Combine(root, "Build", Project.HostTarget.Replace('/', '-'));
+
+    /// <summary>Builds a project of its own, under its own name, and returns what it wrote.</summary>
+    async Task<Dictionary<string, byte[]>> BuildElsewhere(string name, string[] assets) {
+        var elsewhere = Path.Combine(root, name);
+        Directory.CreateDirectory(Path.Combine(elsewhere, "Assets"));
+
+        foreach (var asset in assets) {
+            var file = Path.Combine(elsewhere, "Assets", $"{asset}.txt");
+            File.WriteAllText(file, $"the {asset}");
+
+            AssetMetaFile.WriteFile(
+                AssetMetaFile.PathFor(file),
+                new() {
+                    Guid = AssetId.New(),
+                    Addressable = new() { Address = $"ui/{asset}", Group = "UiCore" }
+                }
+            );
+        }
+
+        File.WriteAllText(
+            Path.Combine(elsewhere, "Assets", "UiCore.vxgroup"),
+            YamlSerializer.ToYaml(new AddressableGroup { Name = "UiCore" })
+        );
+
+        var (code, _, _) = await RunFull("content", "build", "--project", elsewhere);
+        Assert.Equal(ExitCode.Success, code);
+
+        return Files(Path.Combine(elsewhere, "Build", Project.HostTarget.Replace('/', '-')));
+    }
 
     /// <summary>Writes an asset and the sidecar that says where it appears in a build.</summary>
     void Asset(string relativePath, string content, string? address = null, string? group = null, string[]? labels = null) {

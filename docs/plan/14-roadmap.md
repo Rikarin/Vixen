@@ -541,8 +541,13 @@ update fetches only changed bundles (asserted by byte count). Incremental import
 in a 10 k-asset fixture project.
 
 **Where the exit criteria stand.** ✅ Remote content update fetches only the changed pack, asserted by
-URL and by byte count. 🟡 Content build determinism is green *between runs on one machine*, asserted by
-a test that compares two builds byte for byte; the across-three-OSes half waits for the CI legs.
+URL and by byte count. 🟡 Content build determinism is green between runs, and green between two
+projects **at different paths, whose assets were created in a different order and carry different
+GUIDs** — which is what would actually break across operating systems, tested without needing a second
+one: an absolute path reaching the catalog, an enumeration order leaking into it, or an authoring
+identity being shipped each fail it. (It also asserts doc 08's own sentence, which nothing had
+checked: the GUID never appears in a shipped build.) Running the comparison across three real runners
+still waits for the CI legs.
 🟡 The import budget is **measured, and it lands on the line rather than under it** — see below.
 Android, iOS and the AOT publish are not started.
 
