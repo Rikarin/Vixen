@@ -52,6 +52,7 @@ readonly record struct MemberModel(
     string ElementType,
     string SecondElementType,
     bool IsSettable,
+    bool IsComputed,
     int Order,
     int Sequence
 );
