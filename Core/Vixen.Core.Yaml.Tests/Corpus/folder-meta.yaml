@@ -1,0 +1,7 @@
+# Assets/Textures.meta — the group every texture under here inherits.
+guid: f54d1bd14bd3ca042bd867b519fee8cc
+metaVersion: 1
+importer: !FolderImporter
+  version: 1
+addressable:
+  group: UiCore # descendants override this by naming their own

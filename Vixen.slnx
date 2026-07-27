@@ -61,6 +61,8 @@
     <Project Path="Core/Vixen.Core.Threading.Tests/Vixen.Core.Threading.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Syntax/Vixen.Core.Syntax.csproj" />
     <Project Path="Core/Vixen.Core.Syntax.Tests/Vixen.Core.Syntax.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Yaml/Vixen.Core.Yaml.csproj" />
+    <Project Path="Core/Vixen.Core.Yaml.Tests/Vixen.Core.Yaml.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Syntax.Generator/Vixen.Core.Syntax.Generator.csproj" />
     <Project Path="Core/Vixen.Ecs/Vixen.Ecs.csproj" />
     <Project Path="Core/Vixen.Ecs.Generators/Vixen.Ecs.Generators.csproj" />

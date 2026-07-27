@@ -1,0 +1,33 @@
+guid: 9e8a44c9930c64e388ca034c5fe4c426
+metaVersion: 1
+importer: !TextureImporter
+  version: 3
+  sourceHash: 8f3a2c91d04e5b76a1c8e5f2b73d9048
+  colorSpace: Srgb
+  usage: Albedo
+  generateMips: true
+  mipFilter: KaiserAlphaWeighted
+  wrap: { u: Repeat, v: Repeat }
+  filter: Trilinear
+  anisotropy: 8
+  maxSize: 2048
+  compression: Bc7
+  quality: 0.85
+  premultiplyAlpha: false
+  streaming: true
+  overrides:
+    - target: Android
+      compression: Astc6x6
+      maxSize: 1024
+    - target: iOS
+      compression: Astc6x6
+    - target: Web
+      compression: Etc2Rgba
+      maxSize: 1024
+addressable:
+  address: ui/textures/hero
+  group: UiCore
+  labels: [ui, hd]
+subAssets:
+  - { id: 3f7a91c2, name: hero, type: Texture }
+extensions: {}

@@ -59,6 +59,20 @@
     <PackageVersion Include="ZstdSharp.Port" Version="0.8.8" />
   </ItemGroup>
 
+  <!-- ===== YAML (docs/plan/01 § dependency register, docs/plan/08 § "The .meta file") ===== -->
+  <ItemGroup Label="Yaml">
+    <!--
+      Vixen.Core.Yaml uses the *low-level* half of this only — Scanner, Parser and
+      the ParsingEvent stream. The object model and the reflection-driven
+      (De)Serializer are not referenced: type resolution goes through the generated
+      TypeRegistry instead, which is what keeps .meta reading AOT-safe. The emitter
+      is Vixen's own, because the dialect docs/plan/08 fixes is narrower than
+      anything YamlDotNet's emitter can be configured into and byte fidelity is a
+      requirement rather than a nicety.
+    -->
+    <PackageVersion Include="YamlDotNet" Version="18.1.0" />
+  </ItemGroup>
+
   <!-- ===== Platform (docs/plan/01 § dependency register, docs/plan/10) ===== -->
   <ItemGroup Label="Platform">
     <!--
