@@ -61,12 +61,13 @@ world.Query(query, static (ref Position p, ref Velocity v) => p.Value += v.Value
   that moved" and "only re-layout UI whose props changed" cheap, and it is why Vixen's ECS needs to
   own this rather than adopt one that does not model it.
 
-> ✅ **Built.** `Core/Vixen.Ecs/`, `Core/Vixen.Ecs.Generators/` and `Core/Vixen.Ecs.Tests/` (57
-> tests) are live: storage, archetypes, the edge graph, the managed store, change versions, and the
-> whole query surface for arities 1–16. Both property tests this document asks for are there — random
-> structural sequences against a dictionary-per-entity oracle, and random queries against a linear
-> scan — and both were verified by sabotage. Six things came out differently from the paragraphs
-> above:
+> ✅ **Built.** `Core/Vixen.Ecs/`, `Core/Vixen.Ecs.Generators/` and `Core/Vixen.Ecs.Tests/` (71
+> tests) are live: storage, archetypes, the edge graph, the managed store, change versions, the whole
+> query surface for arities 1–16, and the command buffer with its parallel writer. All three property
+> tests this document asks for are there — random structural sequences against a
+> dictionary-per-entity oracle, random queries against a linear scan, and parallel playback
+> reproduced across a hundred runs — and all three were verified by sabotage. Seven things came out
+> differently from the paragraphs above:
 >
 > - **`Entity` is 12 bytes, not 8**, and it lives in `Vixen.Core`. Two ints and a short pad to
 >   twelve; the eight above was wishful. It sits beside `ComponentTypeId` and `[Component]` because
@@ -94,9 +95,15 @@ world.Query(query, static (ref Position p, ref Velocity v) => p.Value += v.Value
 >   second copy of the same partial. The generators that do belong in a user's compilation — system
 >   read/write inference, the behaviour dispatch table — join it with the layers below.
 >
-> **Owed, and named rather than approximated:** `CommandBuffer` and its parallel writer, world
-> serialisation, and the `VIXEN_ECS_EVENTS` hooks. The scheduler, transforms and `Behavior` are the
-> layers below and have not started.
+> - **The command buffer is lenient where the world is strict.** `Add` overwrites rather than
+>   refusing, `Remove` and `Destroy` do nothing when there is nothing to do, and a command naming an
+>   entity an earlier command destroyed is skipped. Not laxity: a recorder runs during iteration and
+>   cannot look at the world to find out whether its change is redundant, and two systems both
+>   deciding to remove the same tag is ordinary. A caller that *can* look uses `World` and is told
+>   when it is wrong.
+>
+> **Owed, and named rather than approximated:** world serialisation and the `VIXEN_ECS_EVENTS` hooks.
+> The scheduler, transforms and `Behavior` are the layers below and have not started.
 
 ### Structural change safety
 

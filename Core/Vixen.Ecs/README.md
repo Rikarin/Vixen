@@ -65,6 +65,37 @@ in between — but never its own writes from last time, which at-or-after would 
 `WithChanged<T>` also requires `T`, because filtering on a change to something the entity does not
 have would match everything.
 
+## Changing structure while iterating
+
+Adding or removing a component moves an entity's row between chunks, which invalidates the very span
+the loop that asked for it is walking. The answer is not to detect that — it is to record the change
+somewhere it cannot happen yet.
+
+```csharp
+var buffer = new CommandBuffer(world);
+
+world.QueryWithEntity(dying, (Entity e, ref Health h) => {
+    if (h.Value <= 0) { buffer.Destroy(e); }
+});
+
+buffer.Playback();          // at the sync point, when nothing is iterating
+```
+
+`Create()` hands back a **placeholder** — a negative id the world refuses, usable in later commands
+on the same buffer, resolved to the entity playback actually creates.
+
+For jobs, `buffer.AsParallelWriter()` gives one channel per thread and every call takes a sort key.
+Playback orders by sort key first, so **the result is a function of the work and not of how the
+scheduler distributed it** — which is what a fixed-step simulation, a replay and a rollback all stand
+on. The sort key must identify the work item; commands sharing one across threads have no defined
+order between them.
+
+**The buffer is lenient where `World` is strict.** `Add` overwrites instead of refusing, `Remove` and
+`Destroy` do nothing if there is nothing to do, and a command naming an entity that an earlier
+command destroyed is skipped. A recorder runs during iteration and cannot look at the world to find
+out whether its change is redundant; a caller that *can* look uses `World` and gets told when it is
+wrong.
+
 ## Decisions worth knowing about
 
 **Three storage classes, not one.** A plain struct lives inline in the chunk. A tag
