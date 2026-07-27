@@ -1,0 +1,75 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <RootNamespace>Vixen.Ui.Markup.Generators</RootNamespace>
+
+        <IsShipping>false</IsShipping>
+        <ExcludeFromSourceBuild>false</ExcludeFromSourceBuild>
+        <LangVersion>latest</LangVersion>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- Consumed by Microsoft.CodeAnalysis.Analyzers (RS2008 release tracking). -->
+        <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+        <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+    </ItemGroup>
+
+    <!--
+        ==============================================================================================
+        The VXML front end, compiled into this assembly rather than referenced from it.
+
+        A generator runs inside the compiler, so it targets netstandard2.1; Vixen.Core.Syntax and
+        Vixen.Ui.Markup target net10.0, and a net10.0 assembly cannot be referenced from here. Three
+        routes were considered and this is why this one:
+
+        * Multi-targeting the two projects would fix the *compile* and leave the *load*. An analyzer's
+          ProjectReference dependencies do not travel to the analyzer path — `OutputItemType="Analyzer"`
+          contributes one DLL — so both would still have to be placed there by hand-written MSBuild,
+          and mis-versioned in every consuming project that also references Vixen.Ui.Markup at net10.0.
+        * ILMerge/ILRepack fixes the load by hiding it, and adds a tool to the build to do it.
+        * Linking the sources produces one self-contained analyzer assembly with nothing to resolve.
+
+        Two things make this cheap here rather than merely tolerable. Neither project touches the file
+        system, the environment or the console — checked, not assumed — so RS1035 has nothing to say
+        about code that was never written to run inside a compiler. And Vixen.Ui.Markup reaches
+        Vixen.Core.Syntax's internal green tree through InternalsVisibleTo; compiled into one assembly
+        that stops being a question.
+
+        The cost is that these files compile twice, under two language surfaces. That is a real cost
+        and it is the one that is *checked at build time* — Compat/Netstandard.cs is where the second
+        surface is made to hold, and a file added to either project is picked up by the glob.
+        ==============================================================================================
+    -->
+    <ItemGroup>
+        <Compile Include="..\Vixen.Core.Syntax\**\*.cs"
+                 Exclude="..\Vixen.Core.Syntax\obj\**\*.cs;..\Vixen.Core.Syntax\bin\**\*.cs"
+                 LinkBase="Linked\Vixen.Core.Syntax" />
+
+        <Compile Include="..\Vixen.Ui.Markup\**\*.cs"
+                 Exclude="..\Vixen.Ui.Markup\obj\**\*.cs;..\Vixen.Ui.Markup\bin\**\*.cs"
+                 LinkBase="Linked\Vixen.Ui.Markup" />
+
+        <!-- The same grammar the linked front end is written against. -->
+        <AdditionalFiles Include="..\Vixen.Ui.Markup\Syntax\Syntax.xml" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- Turns the linked Syntax.xml into the node classes. Analyzer-only, no reference. -->
+        <ProjectReference Include="..\Vixen.Core.Syntax.Generator\Vixen.Core.Syntax.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+</Project>

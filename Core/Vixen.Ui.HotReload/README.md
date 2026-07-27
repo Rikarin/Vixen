@@ -62,9 +62,9 @@ field: the whole point of a reload is that the type changed.
 ## What this does not do
 
 **It does not deliver the new code.** A changed `.vxml` becomes a different `Build` only after
-something has recompiled it. That is `dotnet watch`'s job plus the source generator's, and the
-generator is owed — until it exists, the markup channel reloads whatever `Build` is currently in the
-assembly, which is what makes it testable but not yet what makes it useful on a file save.
+something has recompiled it. That is `dotnet watch`'s job plus the source generator's —
+`Vixen.Ui.Markup.Generators`, which was owed when this was written and now exists. The boundary the
+sentence names is unchanged: this assembly reloads, and something else compiles.
 
 The runtime's own callback is wired: `MetadataUpdate` is registered as a `MetadataUpdateHandler` and
 reloads every host still alive. Hosts are held weakly — a static list of every document ever created
@@ -83,8 +83,8 @@ callback is on a pool thread.
 
 ## Owed
 
-The source generator, so a file save produces a metadata update. Scroll offsets and selection in the
-preserved set (neither exists yet to preserve). And a reload of a *subtree* rather than a whole
-component, for when a large screen is being edited a control at a time.
+Scroll offsets and selection in the preserved set (neither exists yet to preserve). And a reload of
+a *subtree* rather than a whole component, for when a large screen is being edited a control at a
+time.
 
 Licensed under Apache-2.0.

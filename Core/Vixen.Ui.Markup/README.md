@@ -28,7 +28,7 @@ SourceText
 | `Binder` | `BoundComponent`: what each tag is, what each attribute means, where each expression is. |
 | `ComponentEmitter` | The generated partial, with `#line` spans. |
 | Incremental reparse | ⏳ |
-| The source generator | ⏳ |
+| The source generator | [`Vixen.Ui.Markup.Generators`](../Vixen.Ui.Markup.Generators/README.md) — this pipeline, run by Roslyn over a project's `.vxml` files. |
 
 ## The syntax
 
@@ -175,8 +175,16 @@ of a string.
   unit of reuse. Raven offers member declarations; VXML's is not obvious, because an element's green
   node is reusable only if nothing about its *enclosing* content changed — an unclosed tag anywhere
   above it changes what it is.
-- **The source generator.** `Vixen.Ui.Markup.Generators`, which is this pipeline plus
-  `IIncrementalGenerator` plumbing.
-- **`bind:` update events** (`bind:value:oninput`) and **`@namespace`**.
+- **`bind:` update events** (`bind:value:oninput`) and **`@namespace`**. Until the directive
+  exists, a component's namespace is decided by the generator from the project's root namespace and
+  the file's folders.
+
+⚠ **Two bugs in this project were found by compiling it into a source generator rather than by any
+test here.** `VXML1002` and `VXML1003` read their span off a node still under construction — a node
+with no parent, whose position is relative to itself — so an unclosed element was reported a few
+characters into the file whichever one it was about. Every test here asserts *which* diagnostics
+were reported and none asserted where, which is why it survived. And every diagnostic message was
+formatted with `CultureInfo.CurrentCulture`, which localises nothing (the templates are English) and
+makes one machine's compiler output differ from another's; fixed in `Vixen.Core.Syntax`.
 
 Licensed under Apache-2.0.

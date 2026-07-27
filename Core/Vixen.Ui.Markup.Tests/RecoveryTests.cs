@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Syntax.Text;
 using Vixen.Ui.Markup.Syntax;
 using Xunit;
 
@@ -15,6 +16,29 @@ namespace Vixen.Ui.Markup.Tests;
 ///     preview blink out on every second keystroke.
 /// </remarks>
 public class RecoveryTests {
+    /// <summary>
+    ///     ⚠ <b>A diagnostic's span is an offset into the file, and it was not.</b> Both of these
+    ///     were read off a node still under construction — a node with no parent, whose
+    ///     <c>Position</c> is relative to itself — so every unclosed element and every mismatched
+    ///     close tag was reported a few characters into the file whichever one it was about.
+    ///     Invisible to every test here, which asserts <i>which</i> diagnostics were reported and
+    ///     never where; found when the source generator turned these spans into editor squiggles
+    ///     and the first one landed on line zero.
+    /// </summary>
+    [Fact]
+    public void A_diagnostic_points_at_the_characters_it_is_about_rather_than_the_top_of_the_file() {
+        var unclosed = Vxml.Parse("@component A\n<div>\n").Diagnostics.Single();
+        var mismatched = Vxml.Parse("@component A\n<div>x</span>").Diagnostics.Single();
+
+        // `div` on line 1, not `<`, and not offset 1.
+        Assert.Equal(new LinePosition(1, 1), unclosed.Location.GetLineSpan().Start);
+        Assert.Equal(3, unclosed.Location.SourceSpan.Length);
+
+        // ...and the *closing* name, which is the word that is wrong.
+        Assert.Equal(new LinePosition(1, 8), mismatched.Location.GetLineSpan().Start);
+        Assert.Equal(4, mismatched.Location.SourceSpan.Length);
+    }
+
     [Fact]
     public void An_element_the_file_never_closes_is_reported_once_and_keeps_its_content() {
         var tree = Vxml.Parse("@component A\n<div>text");

@@ -14,7 +14,39 @@
 
     <ItemGroup>
         <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+        <None Include="build\Vixen.Ui.targets" Pack="true" PackagePath="build\" />
     </ItemGroup>
+
+    <!--
+        Both generators travel inside the package, so a consumer that references Vixen.Ui gets
+        [UiProperty] accessors for its own elements and a compiled class for its own .vxml files
+        without knowing either generator exists. Inside this repository each has to be named
+        explicitly by the project that needs it, because analyzers are not transitive through a
+        ProjectReference — which is why the reference below exists as well.
+    -->
+    <PropertyGroup>
+        <TargetsForTfmSpecificContentInPackage>
+            $(TargetsForTfmSpecificContentInPackage);PackUiGenerators
+        </TargetsForTfmSpecificContentInPackage>
+    </PropertyGroup>
+
+    <!--
+        GetTargetPath, not Build — as in Vixen.Core.Serialization. Asking for Build here fails a
+        no-build `dotnet pack` with NETSDK1085, because NoBuild is a global property and the MSBuild
+        task hands global properties to the project it invokes.
+    -->
+    <Target Name="PackUiGenerators">
+        <MSBuild Projects="..\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj;..\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj"
+                 Targets="GetTargetPath"
+                 Properties="Configuration=$(Configuration)"
+                 RemoveProperties="TargetFramework">
+            <Output TaskParameter="TargetOutputs" ItemName="UiGeneratorAssembly" />
+        </MSBuild>
+
+        <ItemGroup>
+            <TfmSpecificPackageFile Include="@(UiGeneratorAssembly)" PackagePath="analyzers/dotnet/cs" />
+        </ItemGroup>
+    </Target>
 
     <ItemGroup>
         <!--
@@ -40,6 +72,17 @@
             so anything that declares UI properties references it directly the way this does.
         -->
         <ProjectReference Include="..\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
+            The VXML compiler. This assembly has no .vxml of its own and the glob that would find
+            one is not imported here, so it generates nothing — the reference is what makes the
+            generator part of this package: `Vixen.Ui` is what a project with an interface
+            references, so it is what has to bring the thing that compiles the markup. It also
+            builds the assembly PackUiGenerators then asks only for the path of.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
     </ItemGroup>

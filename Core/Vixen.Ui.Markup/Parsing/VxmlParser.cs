@@ -158,14 +158,13 @@ sealed class VxmlParser : SyntaxParser {
     void Report(DiagnosticDescriptor descriptor, TextSpan span, params object[] arguments) =>
         diagnostics.Add(descriptor, Location.Create(filePath, span, text), arguments);
 
-    TextSpan CurrentSpan {
-        get {
-            var current = Current;
-            return current.Width > 0
-                ? new TextSpan(current.Position, current.Width)
-                : new TextSpan(Math.Min(current.Position, text.Length), 0);
-        }
-    }
+    TextSpan CurrentSpan => SpanOf(Current);
+
+    /// <summary>Where a token sits in the file, which is the only span a diagnostic may use.</summary>
+    TextSpan SpanOf(LexedToken token) =>
+        token.Width > 0
+            ? new TextSpan(token.Position, token.Width)
+            : new TextSpan(Math.Min(token.Position, text.Length), 0);
 
     static string Describe(LexedToken token) =>
         (VxmlTokenKind)token.RawKind switch {
@@ -289,6 +288,14 @@ sealed class VxmlParser : SyntaxParser {
     // ================================================================== Elements
 
     ElementSyntax ParseElement() {
+        // ⚠ The name's span is taken from the token stream, before the tag is built. A node under
+        // construction has no parent yet, so its `Position` is relative to itself and every span
+        // read off it starts near zero — a diagnostic that points at the top of the file whichever
+        // element it is about. Nothing caught this until a source generator turned these spans into
+        // IDE squiggles, because the parser's own tests assert which diagnostics were reported and
+        // the emitter's assert where *Roslyn* put its own.
+        var nameSpan = SpanOf(Peek(1));
+
         var startTag = ParseStartTag();
         var name = startTag.Name.Text;
 
@@ -300,16 +307,16 @@ sealed class VxmlParser : SyntaxParser {
         var content = ParseContent();
         openElements.RemoveAt(openElements.Count - 1);
 
-        return SyntaxFactory.Element(startTag, content, ParseEndTagFor(name, startTag));
+        return SyntaxFactory.Element(startTag, content, ParseEndTagFor(name, nameSpan));
     }
 
     /// <summary>
     ///     Matches the close tag against the element that is open, and decides which of the two
     ///     possible mistakes was made.
     /// </summary>
-    EndTagSyntax? ParseEndTagFor(string name, StartTagSyntax startTag) {
+    EndTagSyntax? ParseEndTagFor(string name, TextSpan nameSpan) {
         if (!At(VxmlTokenKind.LessThanSlash)) {
-            ReportUnclosed(name, startTag);
+            Report(MarkupDiagnostics.UnclosedElement, nameSpan, name);
             return null;
         }
 
@@ -323,19 +330,17 @@ sealed class VxmlParser : SyntaxParser {
         // one that was never closed. Leaving the tag for them is what keeps the rest of the file
         // parsing as its author wrote it, instead of reparenting everything below.
         if (openElements.Contains(closing)) {
-            ReportUnclosed(name, startTag);
+            Report(MarkupDiagnostics.UnclosedElement, nameSpan, name);
             return null;
         }
 
         // Nobody is waiting for it, so it is this element's close tag, misspelled. Taking it here
         // costs one diagnostic instead of two and leaves the tree the shape the author drew.
+        var closingSpan = SpanOf(Peek(1));
         var endTag = ParseEndTag();
-        Report(MarkupDiagnostics.MismatchedEndTag, endTag.Name.Span, name, closing);
+        Report(MarkupDiagnostics.MismatchedEndTag, closingSpan, name, closing);
         return endTag;
     }
-
-    void ReportUnclosed(string name, StartTagSyntax startTag) =>
-        Report(MarkupDiagnostics.UnclosedElement, startTag.Name.Span, name);
 
     StartTagSyntax ParseStartTag() {
         var lessThan = Take(SyntaxKind.LessThanToken);

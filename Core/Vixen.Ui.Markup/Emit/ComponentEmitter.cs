@@ -46,23 +46,35 @@ public sealed class ComponentEmitter {
     readonly StringBuilder builder = new();
     readonly BoundComponent component;
     readonly string filePath;
+    readonly string? @namespace;
 
     int depth;
     int names;
 
-    ComponentEmitter(BoundComponent component, string filePath) {
+    ComponentEmitter(BoundComponent component, string filePath, string? @namespace) {
         this.component = component;
         this.filePath = filePath;
+        this.@namespace = @namespace;
     }
 
     /// <summary>Emits a bound component as C#.</summary>
     /// <param name="component">What to emit.</param>
     /// <param name="filePath">The <c>.vxml</c> path <c>#line</c> directives point at.</param>
+    /// <param name="namespace">
+    ///     The namespace to declare the class in, or null for the global one.
+    /// </param>
     /// <returns>The generated file's text.</returns>
-    public static string Emit(BoundComponent component, string filePath) {
+    /// <remarks>
+    ///     ⚠ <b>The namespace comes from the caller, not from the markup.</b> A <c>.vxml</c> has no
+    ///     <c>@namespace</c> directive yet, and the caller that matters — the source generator —
+    ///     knows the answer anyway: the project's root namespace plus the file's own folders, which
+    ///     is the convention a C# file in the same directory already follows. An explicit directive
+    ///     is still owed, for the file that wants to disagree with its folder.
+    /// </remarks>
+    public static string Emit(BoundComponent component, string filePath, string? @namespace = null) {
         ArgumentNullException.ThrowIfNull(component);
 
-        var emitter = new ComponentEmitter(component, filePath ?? string.Empty);
+        var emitter = new ComponentEmitter(component, filePath ?? string.Empty, @namespace);
         emitter.EmitFile();
         return emitter.builder.ToString();
     }
@@ -78,6 +90,13 @@ public sealed class ComponentEmitter {
         }
 
         if (component.Usings.Length > 0) {
+            Line();
+        }
+
+        // File-scoped, so the class stays at depth zero: every `#line` span carries a generated
+        // column computed from `depth`, and a braced namespace would shift all of them by four.
+        if (!string.IsNullOrEmpty(@namespace)) {
+            Line($"namespace {@namespace};");
             Line();
         }
 

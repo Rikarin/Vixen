@@ -555,9 +555,13 @@ the codebase is large enough for it to be expensive to fix.
 
   **Owed, and named:** the CLI is not shipped inside the package, so a consumer still needs `vixen`
   restored or installed and doc 08's "restores the Vixen tool versions matching the referenced
-  packages" is not met; nothing generates C# yet, so the `CoreCompile` hook is ordering without cargo
-  until Phases 4d and 5; platform packaging (APK assets, iOS bundle, `wwwroot`) waits for those
-  platforms; and a build-plan diagnostic carries no file, because `ImportDiagnostic` has no path
+  packages" is not met; ~~nothing generates C# yet, so the `CoreCompile` hook is ordering without
+  cargo until Phases 4d and 5~~ — **overtaken in 4d, and not the way this expected**: VXML is
+  compiled by a Roslyn source generator, which needs no ordering at all because it runs *inside*
+  `CoreCompile`. The hook is still there and still carries nothing; what would use it is the `vixen`
+  CLI path for a build that wants the generated C# on disk, which doc 08 also names and which is
+  owed. Platform packaging (APK assets, iOS bundle, `wwwroot`) waits for those platforms; and a
+  build-plan diagnostic carries no file, because `ImportDiagnostic` has no path
   field — its messages name the asset in their text, so only the IDE's jump-to-file loses.
 - 🟡 `Vixen.Cli` — **`import`, `content build`, `content serve` and `doctor` are built; `new`, `run`
   and `build` are not, and are absent rather than stubbed.** The first four are the whole pipeline
@@ -1670,8 +1674,9 @@ sub-piece has its own gate.
   written-out declaration of the contract and that nothing built an element; that was true when it
   was written and is not now. The gate compiles against the real assembly, loads it and runs it.
   Still owed: incremental reparse (the `Blender` exists, but VXML's unit of reuse is not obvious — an element's green node
-  is reusable only if nothing about its *enclosing* content changed), the `IIncrementalGenerator`
-  wrapper in `Vixen.Ui.Markup.Generators`, `bind:` update events and `@namespace`.
+  is reusable only if nothing about its *enclosing* content changed), `bind:` update events and
+  `@namespace`. The `IIncrementalGenerator` wrapper is built — see `Vixen.Ui.Markup.Generators`
+  below, which also records the two bugs in *this* project that only a generator could find.
 - ✅ **`Vixen.Ui.HotReload` — three reload channels, and what each one is allowed to lose.**
 
   **Styles** reload without rebuilding anything: the rule set is replaced and the cascade runs
@@ -1701,9 +1706,10 @@ sub-piece has its own gate.
   ⚠ **What this does not do is deliver the new code.** A changed `.vxml` becomes a different `Build`
   only after something recompiles it. `MetadataUpdate` is registered as a .NET
   `MetadataUpdateHandler` and reloads every live host, so the runtime half is wired; the build half
-  is `Vixen.Ui.Markup.Generators`, which does not exist yet and is the reason the markup channel is
-  testable but not yet useful on a file save. **That generator is now the highest-value thing owed
-  in 4d.**
+  is `Vixen.Ui.Markup.Generators`. ~~which does not exist yet~~ — **corrected in the build: it does,
+  and it landed immediately after this.** See its entry below. The sentence stood for one commit and
+  the note is kept rather than deleted, because what it names is still the boundary: this assembly
+  reloads, and something else has to compile.
 
   Gate: 15 tests. Verified by sabotage: a style reload that adds instead of replacing fails 2, a
   broken sheet that is not rolled back fails 1, asking only the loader what went wrong fails 1, a
@@ -1720,8 +1726,69 @@ sub-piece has its own gate.
   interning cache, so every computed style is a new object and the pass already reports every
   element as changed. The call is kept and the comment now says why it is redundant today and what
   would make it necessary.
-- `Vixen.Ui.Markup.Generators`: the `IIncrementalGenerator` that turns `.vxml` into C# at build
-  time. **Owed, and it is what stands between the markup channel and being usable** — see above.
+- ✅ **`Vixen.Ui.Markup.Generators` — the `IIncrementalGenerator`, and the markup channel is now
+  usable on a file save.** A `.vxml` in a project becomes a class in the compilation with no item in
+  the `.csproj`: `Vixen.Ui` carries `build/Vixen.Ui.targets`, which globs the files into
+  `AdditionalFiles`, and both UI generators now travel inside that package. The namespace is the root
+  namespace plus the file's own folders, which is the convention a hand-written `.cs` beside it
+  already follows.
+
+  ⚠ **The front end is compiled twice, and the alternatives were worse.** A generator runs inside the
+  compiler, so it targets `netstandard2.1`; `Vixen.Core.Syntax` and `Vixen.Ui.Markup` are `net10.0`.
+  Multi-targeting them fixes the *compile* and leaves the *load* — an analyzer's `ProjectReference`
+  dependencies do not reach the analyzer path, so both assemblies would still have to be put there by
+  hand and mis-versioned against the `net10.0` copies. Linking the sources gives one self-contained
+  analyzer with nothing to resolve, and it is cheap here for two checked reasons: neither project
+  touches the file system, the environment or the console, so RS1035 has nothing to say; and
+  `Vixen.Ui.Markup` reaches the internal green tree through `InternalsVisibleTo`, which one assembly
+  makes moot. The cost is one compatibility file — `init` needs `IsExternalInit`, and 116 guard
+  clauses call throw helpers that live *on* framework exception types where no extension method
+  reaches.
+
+  **Two bugs, both found by the move rather than by the tests.** The stricter analyzer set caught
+  every diagnostic message in `Vixen.Core.Syntax` being formatted with `CultureInfo.CurrentCulture`,
+  which makes one machine's compiler output differ from another's — the templates are hard-coded
+  English, so it localised nothing and only cost determinism. And **`VXML1002` and `VXML1003` read
+  their span off a node still under construction**, whose position is relative to itself, so every
+  unclosed element was reported a few characters into the file whichever one it was about. The
+  parser's own tests assert *which* diagnostics were reported and never where; it took a generator
+  turning those spans into editor squiggles for the first one to land on line zero.
+
+  ⚠ **Syntax errors stop the emit and binding errors do not**, and the split is the diagnostic
+  numbering earning its keep. A `VXML1xxx` means the tree is a guess made during recovery, and C#
+  emitted from a guess may not parse — which buries the real diagnostic under a page about generated
+  code the author cannot see. A `VXML2xxx` means the tree is right and its meaning is wrong, so the
+  class is still emitted and the type keeps existing: withholding it turns one real error into one at
+  every use site, none of which names the cause.
+
+  Gate: 19 tests. Most drive a `CSharpGeneratorDriver` — including one that emits the assembly, loads
+  it and drives the component with a signal — and **two run a real `dotnet build`**, for the reason
+  `Vixen.Sdk.Tests` gives: a glob in a `.targets` and two `CompilerVisibleProperty` items do not exist
+  until a build engine reads them.
+
+  Verified by sabotage: folding the hint name's underscores fails 1 (Roslyn throws on a duplicate hint
+  name, and naming files after their component collides between folders), emitting from a recovered
+  tree fails 1, withholding the class on any error fails 1, keeping an absolute path in the hint name
+  fails 4, dropping the namespace fails 4, taking a diagnostic span off a detached node fails 2 here
+  and 1 in `Vixen.Ui.Markup.Tests`, treating every additional file as markup fails 1, and dropping the
+  diagnostic message's arguments fails 1.
+
+  ⚠ **Three sabotages failed to fail.** Two were test gaps, now closed: nothing reached the
+  namespace's leading-digit guard, because every fixture used folders that were already C#
+  identifiers; and nothing reached `EquatableArray`'s equality at all, which takes an edit that
+  re-runs the compile step and then *agrees with itself* — plus its mirror, an error that becomes a
+  different error, because an equality that always answers "same" passes the first test and leaves a
+  corrected file still showing its old message.
+
+  The third was a false claim in a comment, and the pattern is the one this phase keeps finding.
+  Passing a VXML message as a composite format string was written up as a `FormatException` surfacing
+  as CS8785. **It is not**: Roslyn catches it and falls back to the unformatted template, which here
+  is the finished message, so a brace arrives intact and nothing crashes. The `{0}` indirection is
+  kept — the fallback discards arguments silently and has no contract — and is now labelled as
+  insurance rather than as a covered claim.
+
+  Still owed: incremental reparse, an `@namespace` directive, and the `vixen` CLI path for a build
+  that wants the generated C# on disk.
 - UI render feature integrated into the renderer.
 - Gate: draw-list golden tests; parser golden trees + error-recovery tests; hot-reload scenario tests.
 
