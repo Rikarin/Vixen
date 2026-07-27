@@ -93,6 +93,20 @@ public sealed class PointerEvent : UiEvent {
 
     /// <summary>What happened.</summary>
     public PointerAction Action { get; init; }
+
+    /// <summary>When it happened.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Carried on the event rather than read from a clock</b> by whoever needs it. A gesture
+    ///     recogniser that calls <c>DateTime.Now</c> cannot be tested without sleeping, cannot replay
+    ///     a recorded trace, and reports a different gesture when a breakpoint holds the frame. The
+    ///     platform layer already knows what time the input happened, which is a better answer than
+    ///     what time anything downstream got round to asking.
+    ///     <para>
+    ///         Measured from whenever the application decided to start counting rather than from an
+    ///         epoch, because every question asked of it is a difference between two of them.
+    ///     </para>
+    /// </remarks>
+    public TimeSpan Timestamp { get; init; }
 }
 
 /// <summary>What a pointer did.</summary>

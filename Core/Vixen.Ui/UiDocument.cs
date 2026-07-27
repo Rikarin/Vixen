@@ -256,8 +256,21 @@ public sealed partial class UiDocument : IDisposable {
 
         var target = Captured ?? HitTest(args.X, args.Y);
         target?.Raise(args);
+
+        // After the raw event rather than instead of it. A gesture is a reading of the pointer
+        // stream, not a replacement for it, and a control that wants presses and a control that
+        // wants taps are both entitled to what they asked for.
+        Gestures.Process(args, target);
         return target;
     }
+
+    /// <summary>Taps, long presses and drags read out of the pointer stream.</summary>
+    /// <remarks>
+    ///     Exposed rather than hidden behind the document because it needs telling what time it is —
+    ///     see <see cref="GestureRecognizer.Tick" /> — and because its thresholds are an
+    ///     application's decision.
+    /// </remarks>
+    public GestureRecognizer Gestures { get; } = new();
 
     /// <summary>The element currently receiving every pointer event, if any.</summary>
     public UiElement? Captured { get; private set; }

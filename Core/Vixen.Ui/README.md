@@ -23,7 +23,8 @@ top.
 | `DrawList`, `DrawListBuilder` | Backgrounds, borders, radii and clips as commands, diffed frame to frame. |
 | `UiDocument.Focus`, `MoveFocus` | Focus, focus scopes, and HTML's tab order. |
 | `UiDocument.FindInDirection` | Arrow navigation over the layout, by the beam model. |
-| Gestures, access keys | ⏳ |
+| `GestureRecognizer` | Taps with a count, long presses and drags, from timestamped pointer events. |
+| Access keys | ⏳ |
 | Batching, path rendering, text runs | ⏳ |
 
 ## Focus
@@ -75,6 +76,33 @@ and running out of somewhere is a wall. Holding Down in a list that wrapped woul
 ⚠ Distance is measured between the *rectangles*, not between their centres. The centre metric says a
 wide element eighty pixels away is nearer than a narrow one ten pixels away, because distance to a
 shape is distance to the shape.
+
+## Gestures
+
+**Time arrives on the event rather than from a clock the recogniser reads.** One that calls
+`DateTime.Now` cannot be tested without sleeping, cannot replay a recorded trace, and reports a
+different gesture when a breakpoint holds the frame — and the platform layer already knows what time
+the input happened, which is a better answer than what time anything downstream got round to asking.
+
+**A long press is the one gesture that fires because nothing happened**, so `Tick` exists: a
+recogniser fed only by input cannot produce it, because there is no input to be fed.
+
+⚠ **Slop is one-way.** Once a press has wandered far enough to be a drag it can never be a tap again,
+even when the pointer comes back to where it started — which it does at the end of every flick that
+overshoots and settles. Asking how far the pointer is from the press *now* fires a tap at the end of
+a scroll, which is a list that scrolls and then opens whatever stopped under the finger.
+
+**A double tap raises `TapEvent` twice, counting up**, rather than raising a different event.
+Splitting them forces every handler to answer "is a double tap also two taps", which has no general
+answer — a button wants both, a rename wants only the second. This is what the web does, for the same
+reason.
+
+**Every gesture goes to the element the press landed on**, for its whole life. That is pointer
+capture's rule and it is here for pointer capture's reason; the two coexist rather than duplicate,
+because capture redirects raw events and this remembers a target already decided.
+
+⚠ **One pointer at a time.** Two fingers produce two independent taps or drags, which is right, but
+nothing combines them — pinch and rotate are owed rather than approximated.
 
 ## The draw list
 

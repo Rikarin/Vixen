@@ -1320,8 +1320,39 @@ sub-piece has its own gate.
   it a step earlier. The guard is for an element collapsed on one axis only — full height and no
   width, squarely in the beam and exactly as near as the real destination. **A test that cannot reach
   the code it names passes for the wrong reason**, which is now the fourth time in this phase.
-- Owed in `Vixen.Ui`: gestures, access keys, batching, path rendering, text runs, gradients,
-  per-corner elliptical radii, virtualisation primitive, multi-window, DPI, and element removal.
+- ✅ **Gestures.** Taps with a count, long presses and drags, read out of the pointer stream by
+  `GestureRecognizer` and delivered as routed events like anything else.
+
+  **Time arrives on the event rather than from a clock the recogniser reads.** One that calls
+  `DateTime.Now` cannot be tested without sleeping, cannot replay a recorded trace, and reports a
+  different gesture when a breakpoint holds the frame — and the platform layer already knows what
+  time the input happened. **A long press is the one gesture that fires because nothing happened**,
+  which is why `Tick` exists: nothing in the input stream can report the absence of input.
+
+  ⚠ **Slop is one-way.** Once a press has wandered far enough to be a drag it can never be a tap
+  again, even when the pointer returns to where it started — which it does at the end of every flick
+  that overshoots and settles. Asking how far the pointer is from the press *now* fires a tap at the
+  end of a scroll. **A double tap raises `TapEvent` twice, counting up**, rather than raising a
+  different event, because splitting them forces every handler to answer "is a double tap also two
+  taps" and there is no general answer.
+
+  ⚠ **One pointer at a time**: state is per pointer id, so two fingers are two drags. Pinch and
+  rotate are owed rather than approximated, and a test says which of the two it currently is.
+
+  Verified by sabotage: not latching the slop fails 5, letting a long press also be a tap fails 1,
+  delivering a drag wherever the pointer now is rather than to the element it started on fails 1,
+  dropping either half of the double-tap test — the interval or the distance — fails 1 each, letting
+  a drag become a long press fails 1, and reporting a cancelled drag as completed fails 1.
+
+  ⚠ **One sabotage failed to fail, and the comment was corrected rather than the code.** The previous
+  tap is remembered as a nullable, and the comment claimed a plain struct would make the first tap of
+  a session a double tap. It does not: the count is derived as `previous.Count + 1` and a default tap
+  has a count of zero, so the answer is one either way — by arithmetic rather than by the guard. Kept
+  because "there has not been a tap yet" is not "there was a tap at the origin at time zero", and
+  now labelled as unobservable.
+- Owed in `Vixen.Ui`: access keys, batching, path rendering, text runs, gradients, per-corner
+  elliptical radii, pinch and rotate, virtualisation primitive, multi-window, DPI, and element
+  removal.
 - `Vixen.Ui.Markup`: VXML lexer/parser on `Vixen.Core.Syntax`, binder, emitter, `#line` mapping.
 - `Vixen.Ui.HotReload`: three reload channels, keyed reconciliation, `[HotReloadState]`.
 - UI render feature integrated into the renderer.
