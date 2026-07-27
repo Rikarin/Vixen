@@ -155,6 +155,29 @@ public class LibraryReflectionTests {
         Assert.Contains("threshold", bloom.Parameters.Select(p => p.Name));
     }
 
+    /// <summary>
+    ///     A shader's used-key list holds its own keys and nobody else's.
+    /// </summary>
+    /// <remarks>
+    ///     The list handed to the builder is the <em>compilation's</em>, and describing the whole
+    ///     library at once makes that a compilation of forty-odd permutations. Reporting them all
+    ///     against a two-permutation post effect would be wrong by the field's own definition — "the
+    ///     keys that actually affected this output" — and it is the list an effect cache key hashes,
+    ///     so the cost of getting it wrong is a cache that splits on keys the shader never read.
+    /// </remarks>
+    [Fact]
+    public void A_shaders_used_keys_are_its_own() {
+        var described = ReflectionBuilder.Describe(Library(out var used), used);
+
+        Assert.True(used.Count() > 10, "the library should have many permutations, or this proves nothing");
+        Assert.Equal(["KarisAverage", "Mode"], described["Bloom"].UsedPermutationKeys);
+
+        Assert.All(
+            described["Tonemap"].UsedPermutationKeys,
+            key => Assert.Contains(key, described["Tonemap"].Permutations.Select(p => p.Name))
+        );
+    }
+
     /// <summary>The declared defaults reach the reflection, which is where a generated key gets them.</summary>
     [Fact]
     public void The_shaders_declared_defaults_are_in_the_reflection() {

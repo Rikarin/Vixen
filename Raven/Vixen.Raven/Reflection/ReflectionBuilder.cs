@@ -55,7 +55,17 @@ public static class ReflectionBuilder {
                 .. shader.ValueParameters.Select(p => new ValueParameterInfo(p.Name, ShaderDataType.From(p.Type)))
             ],
             RequiredCapabilities = [.. IrCapabilities.Of(shader)],
-            UsedPermutationKeys = [.. (usedPermutationKeys ?? []).Order(StringComparer.Ordinal)],
+
+            // Narrowed to what *this* shader declares. The list handed in is the compilation's, and a
+            // compilation is more than one shader — so a key another shader branched on would
+            // otherwise be reported as having affected this output, which is what the field says it
+            // means and is what an effect cache key hashes. Describing a whole library at once made
+            // that visible: a two-permutation post effect reported forty.
+            UsedPermutationKeys = [
+                .. (usedPermutationKeys ?? [])
+                    .Where(key => shader.Permutations.Any(p => string.Equals(p.Name, key, StringComparison.Ordinal)))
+                    .Order(StringComparer.Ordinal)
+            ],
             Stages = stages
         };
     }
