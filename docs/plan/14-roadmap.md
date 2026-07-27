@@ -666,7 +666,18 @@ the codebase is large enough for it to be expensive to fix.
   > must.
 - **NativeAOT publish in CI on every PR from here on** — the gate exists (`nuke CheckAotIos`); the CI
   leg does not.
-- `Samples/07-AddressablesRemote`.
+- ✅ `Samples/07-AddressablesRemote` — the phase's remote-content exit criterion, made watchable.
+  Builds content, serves it with the same `Vixen.ContentServer` that `vixen content serve` runs,
+  downloads it into a cold cache, republishes with one asset changed, and downloads again: **144.6 KB
+  then 48.6 KB**, with `characters/hero` reported as a cache hit and every request listed. It fails
+  with a non-zero exit code if the update is not cheaper than the cold start, because a demo that
+  quietly stops demonstrating is worse than none.
+
+  The saving is not diffing: bundles are named by content hash, so an unchanged group builds to
+  identical bytes and therefore to a file the client already has. Five things had to be right and each
+  was wrong first — the README lists them, because each is a trap with a misleading symptom. The best
+  of them: the payload was a run of one repeated byte, LZ4 turned 96 KB into 484, and the measurement
+  became one of the compressor rather than the update.
 
 **Exit:** `Samples/01` runs on a physical Android device and a physical iPhone. 🟡 **It runs on the
 iOS Simulator and the Android emulator** — same game class, one head each, and a screenshot of the

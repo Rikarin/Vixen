@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Vixen.Samples.AddressablesRemote</RootNamespace>
+        <AssemblyName>AddressablesRemote</AssemblyName>
+        <IsPackable>false</IsPackable>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            The runtime half: catalog, cache, remote bundle source, content update.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Assets\Vixen.Assets.csproj" />
+
+        <!--
+            The build half. A sample reaching into Editor/ is unusual and is the point here: this one
+            demonstrates the seam between building content and loading it, so it has to stand on both
+            sides of it. A game references neither — it ships the output.
+        -->
+        <ProjectReference Include="..\..\Editor\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
+
+        <!--
+            And the server, which is the same one `vixen content serve` runs. Pointing a phone at a
+            laptop and pointing this sample at itself are the same code path.
+        -->
+        <ProjectReference Include="..\..\Tools\Vixen.ContentServer\Vixen.ContentServer.csproj" />
+    </ItemGroup>
+
+    <!--
+      The [DataContract] generator, which every project defining a serialisable type needs by name.
+      A generator is not inherited through a ProjectReference — it is an analyzer, and analyzers do
+      not flow — so a sample that declares its own asset type has to ask for it, and the failure
+      without it is a run-time "no serializer is registered" rather than a build error.
+    -->
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+</Project>
