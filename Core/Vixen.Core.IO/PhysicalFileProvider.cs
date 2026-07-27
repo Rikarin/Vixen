@@ -163,12 +163,34 @@ public sealed class PhysicalFileProvider : IFileProvider {
     }
 
     /// <inheritdoc />
+    public ValueTask<Stream> OpenAppendAsync(VirtualPath path, CancellationToken cancellationToken = default) {
+        cancellationToken.ThrowIfCancellationRequested();
+        var os = PrepareForWrite(path);
+
+        return ValueTask.FromResult<Stream>(
+            new FileStream(
+                os,
+                new FileStreamOptions {
+                    Mode = FileMode.Append,
+                    Access = FileAccess.Write,
+                    Share = FileShare.None,
+                    Options = FileOptions.Asynchronous
+                }
+            )
+        );
+    }
+
+    /// <inheritdoc />
     public Stream OpenRead(VirtualPath path) =>
         new FileStream(OpenableFile(path), FileMode.Open, FileAccess.Read, FileShare.Read);
 
     /// <inheritdoc />
     public Stream OpenWrite(VirtualPath path) =>
         new FileStream(PrepareForWrite(path), FileMode.Create, FileAccess.Write, FileShare.None);
+
+    /// <inheritdoc />
+    public Stream OpenAppend(VirtualPath path) =>
+        new FileStream(PrepareForWrite(path), FileMode.Append, FileAccess.Write, FileShare.None);
 
     /// <inheritdoc />
     public bool Delete(VirtualPath path) {

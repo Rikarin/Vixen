@@ -64,7 +64,9 @@
     <Project Path="Core/Vixen.Core.Yaml/Vixen.Core.Yaml.csproj" />
     <Project Path="Core/Vixen.Core.Yaml.Tests/Vixen.Core.Yaml.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Imaging/Vixen.Core.Imaging.csproj" />
+    <Project Path="Core/Vixen.Assets/Vixen.Assets.csproj" />
     <Project Path="Core/Vixen.Core.Imaging.Tests/Vixen.Core.Imaging.Tests.csproj" />
+    <Project Path="Core/Vixen.Assets.Tests/Vixen.Assets.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Syntax.Generator/Vixen.Core.Syntax.Generator.csproj" />
     <Project Path="Core/Vixen.Ecs/Vixen.Ecs.csproj" />
     <Project Path="Core/Vixen.Ecs.Generators/Vixen.Ecs.Generators.csproj" />
@@ -115,6 +117,8 @@
   <Folder Name="/Tools/">
     <Project Path="Tools/Vixen.App/Vixen.App.csproj" />
     <Project Path="Tools/Vixen.App.Tests/Vixen.App.Tests.csproj" />
+    <Project Path="Tools/Vixen.ContentServer/Vixen.ContentServer.csproj" />
+    <Project Path="Tools/Vixen.ContentServer.Tests/Vixen.ContentServer.Tests.csproj" />
   </Folder>
 
   <!--

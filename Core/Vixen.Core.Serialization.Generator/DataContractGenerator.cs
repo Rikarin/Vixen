@@ -245,6 +245,13 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
 
                 case "global::System.Nullable<T>":
                     return new(name, qualified, MemberShape.Nullable, string.Empty, first, string.Empty, settable, order, sequence);
+
+                // A content reference is a sealed class, so the ordinary reference path already reads
+                // and writes it. What it needs on top is a registered serializer for its closed
+                // generic, which nothing would otherwise instantiate — see EmitRegistration. The
+                // element type is carried along for exactly that.
+                case "global::Vixen.Core.Serialization.ContentReference<T>":
+                    return new(name, qualified, MemberShape.Reference, string.Empty, first, string.Empty, settable, order, sequence);
             }
         }
 
@@ -536,6 +543,8 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
             _ => $"reader.ReadReference<{member.TypeName}>()"
         };
 
+    const string ContentReferencePrefix = "global::Vixen.Core.Serialization.ContentReference<";
+
     static void EmitRegistration(SourceProductionContext context, ImmutableArray<ContractModel> models) {
         var valid = models.Where(model => model.Error is null && model.QualifiedName is not null).ToArray();
 
@@ -560,6 +569,24 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
 
             source.AppendLine(
                 $"            global::Vixen.Core.Serialization.SerializerRegistry.Register(\"{model.Alias}\", new {model.SafeName}Serializer(){former});"
+            );
+        }
+
+        // Every ContentReference<T> any member of this assembly declares, instantiated here in
+        // generated source. Building the closed generic at run time would need MakeGenericType,
+        // which NativeAOT does not have — so the set of references a build can encounter is decided
+        // by what the compiler saw, which is the same principle the rest of the pipeline runs on.
+        var referenced = valid
+            .SelectMany(model => model.Members.IsDefaultOrEmpty ? [] : model.Members)
+            .Where(member => member.TypeName.StartsWith(ContentReferencePrefix, StringComparison.Ordinal))
+            .Select(member => member.ElementType)
+            .Where(element => !string.IsNullOrEmpty(element))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(element => element, StringComparer.Ordinal);
+
+        foreach (var element in referenced) {
+            source.AppendLine(
+                $"            global::Vixen.Core.Serialization.SerializerRegistry.Register(new global::Vixen.Core.Serialization.ContentReferenceSerializer<{element}>());"
             );
         }
 

@@ -17,6 +17,13 @@
 
     <ItemGroup>
         <PackageReference Include="System.IO.Hashing" />
+
+        <!--
+          Import-time image decoding. Public domain, and editor-only regardless: the runtime reads
+          KTX2 with Vixen's own code and never decodes an authoring format. See Directory.Packages.props
+          for why this is not the ImageSharp doc 01 specified.
+        -->
+        <PackageReference Include="StbImageSharp" />
     </ItemGroup>
 
     <ItemGroup>
@@ -25,6 +32,15 @@
         <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+
+        <!-- The texture importer is decode, filter, compress, write — and everything but the decode
+             is Vixen.Core.Imaging, which is where those decisions can be tested against a spec. -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+
+        <!-- The content build emits a catalog, which is a runtime type: the builder and the loader
+             have to be talking about the same one. -->
+        <ProjectReference Include="..\..\Core\Vixen.Assets\Vixen.Assets.csproj" />
         <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
 
         <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"

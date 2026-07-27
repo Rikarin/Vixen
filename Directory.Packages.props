@@ -114,6 +114,29 @@
     <PackageVersion Include="System.CommandLine" Version="2.0.10" />
   </ItemGroup>
 
+  <!-- ===== Import-time image codecs (docs/plan/01 § dependency register, ADR-015) ===== -->
+  <ItemGroup Label="Imaging">
+    <!--
+      NOT ImageSharp. Doc 01 specified SixLabors.ImageSharp 4.0.0 and weighed its
+      Six Labors Split License; what that analysis did not have is that 4.0.0
+      *fails the build* without a purchased licence key — not a warning, an error
+      out of SixLabors.ImageSharp.targets. An Apache-2.0 engine whose editor no
+      contributor can compile without buying a key is not a trade worth making,
+      and pinning to the 3.1.x line to dodge it means sitting on a version branch
+      that will not get another security fix.
+
+      Doc 01 already named the way out, and this takes it: StbImageSharp is public
+      domain and covers PNG, JPEG, BMP, TGA, PSD, GIF and Radiance HDR. That is
+      more of doc 08's importer table than ImageSharp reached, because it includes
+      the HDR format environment maps actually arrive in.
+
+      Still editor-and-tooling-only, for the reason ADR-015 gives about runtime
+      size rather than about licences now: the runtime reads KTX2 with Vixen's own
+      code and never decodes an authoring format.
+    -->
+    <PackageVersion Include="StbImageSharp" Version="2.30.15" />
+  </ItemGroup>
+
   <!-- ===== Test stack (docs/plan/12 § "Testing strategy") ===== -->
   <ItemGroup Label="Test">
     <PackageVersion Include="xunit.v3" Version="3.2.2" />

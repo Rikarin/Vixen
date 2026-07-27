@@ -112,7 +112,25 @@ public static class SerializerRegistry {
         ArgumentNullException.ThrowIfNull(serializer);
         SerializerHolder<T>.Instance = serializer;
         ByType[typeof(T)] = serializer;
+
+        // The chunk header carries this number and nothing else about the type, so a loader that
+        // has an id and no static type — anything walking a dependency graph — needs the way back.
+        ByTypeId[Storage.ContentHash.TypeId(typeof(T))] = serializer;
     }
+
+    static readonly ConcurrentDictionary<ulong, DataSerializer> ByTypeId = new();
+
+    /// <summary>Finds the serializer for the type a chunk header names.</summary>
+    /// <param name="typeId">The identifier from the header.</param>
+    /// <param name="serializer">Its serializer.</param>
+    /// <returns><see langword="false" /> if nothing registered claims that type.</returns>
+    /// <remarks>
+    ///     What a content loader uses to deserialise a dependency it has only an id for. A chunk
+    ///     whose type is not registered in this process is not corrupt — it belongs to an assembly
+    ///     that was not loaded — so this answers false rather than throwing.
+    /// </remarks>
+    public static bool TryGetByTypeId(ulong typeId, [NotNullWhen(true)] out DataSerializer? serializer) =>
+        ByTypeId.TryGetValue(typeId, out serializer);
 
     /// <summary>Registers a serializer under a name the wire format can carry.</summary>
     /// <typeparam name="T">The type it serialises.</typeparam>

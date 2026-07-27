@@ -53,6 +53,14 @@ local, and an asynchronous form would be a state machine with no caller.
 providers run the same tests. Whether writing into a directory that does not exist creates it,
 whether deleting a non-empty directory throws, whether case is part of a name — those are differences
 that otherwise get discovered by a caller written against one provider and shipped against another.
+A third subject runs the same suite against a provider that implements only the members the interface
+*requires*, so every default implementation is held to the same contract as an overriding one.
+
+**Appending is a first-class operation, because resuming a download is.** `OpenAppend` adds to what
+is there rather than replacing it — a bundle fetch that stopped at 300 MB has to carry on at 300 MB,
+and a provider that quietly truncated would turn every dropped connection into starting again. The
+interface default reads the file back and rewrites it, which is correct everywhere and wasteful; both
+real providers override it with something that genuinely appends.
 
 **Mapping is allowed to decline.** `TryMap` returning `false` is an ordinary answer: a file inside a
 compressed APK entry cannot be mapped, and neither can one above two gigabytes, since the result is

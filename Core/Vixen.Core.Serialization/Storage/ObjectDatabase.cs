@@ -38,17 +38,46 @@ public sealed class ObjectDatabase {
     /// <summary>The backends, most specific first.</summary>
     public IReadOnlyList<IOdbBackend> Backends => backends;
 
-    /// <summary>Creates a database over one or more backends.</summary>
+    /// <summary>Creates a database over any number of backends.</summary>
     /// <param name="backends">Searched in order. The first one takes the writes.</param>
-    /// <exception cref="ArgumentException">No backends were given.</exception>
+    /// <remarks>
+    ///     <b>Zero is allowed, and is the runtime's case.</b> This used to insist on at least one,
+    ///     which was right while backends were fixed at construction; with <see cref="Mount" /> a
+    ///     game legitimately starts with an empty database and gains a backend for each bundle the
+    ///     catalog names as it needs it. A read from an empty database fails by saying the chunk is
+    ///     missing, which is the same thing it says when the chunk is missing from a full one.
+    /// </remarks>
     public ObjectDatabase(params IOdbBackend[] backends) {
         ArgumentNullException.ThrowIfNull(backends);
-
-        if (backends.Length == 0) {
-            throw new ArgumentException("A database needs at least one backend.", nameof(backends));
-        }
-
         this.backends = [.. backends];
+    }
+
+    /// <summary>Adds a backend that was not known when the database was created.</summary>
+    /// <param name="backend">The backend.</param>
+    /// <returns><see langword="false" /> if it was already mounted.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         Bundles are discovered at run time — the catalog names one, the provider fetches it,
+    ///         and only then is there a backend to read from. Requiring every backend at construction
+    ///         would mean opening every bundle a game might ever use before it draws a frame.
+    ///     </para>
+    ///     <para>
+    ///         Mounted last, so a bundle never shadows the loose files an editor is rebuilding into.
+    ///         Adding the same instance twice is a no-op rather than an error, because a load and the
+    ///         preload that raced it both legitimately arrive here with the same bundle.
+    ///     </para>
+    /// </remarks>
+    public bool Mount(IOdbBackend backend) {
+        ArgumentNullException.ThrowIfNull(backend);
+
+        lock (backends) {
+            if (backends.Contains(backend)) {
+                return false;
+            }
+
+            backends.Add(backend);
+            return true;
+        }
     }
 
     /// <summary>Serialises a value and stores it.</summary>
@@ -91,6 +120,13 @@ public sealed class ObjectDatabase {
         var id = ContentHash.Compute(chunk);
 
         if (!Exists(id)) {
+            if (backends.Count == 0) {
+                throw new InvalidOperationException(
+                    "This database has no backends, so there is nowhere to write. A runtime database starts empty "
+                    + "and mounts a read-only backend per bundle; writing needs one that was given at construction."
+                );
+            }
+
             backends[0].Write(id, ChunkFormat.Pack(chunk, compression ?? DefaultCompression));
         }
 
@@ -116,6 +152,38 @@ public sealed class ObjectDatabase {
         }
 
         return Serializer.Read<T>(chunk.AsSpan(payload));
+    }
+
+    /// <summary>Reads a value back without knowing its type.</summary>
+    /// <param name="id">The chunk.</param>
+    /// <returns>The value.</returns>
+    /// <exception cref="SerializationException">The chunk is missing, or its type is not registered here.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         What a content loader walks a dependency graph with. Loading a material means loading
+    ///         the texture it points at first, and the only thing the loader knows about that texture
+    ///         is an id — the static type is in the material's own fields, which have not been read
+    ///         yet.
+    ///     </para>
+    ///     <para>
+    ///         The type comes from the chunk header and the serializer from the registry, so nothing
+    ///         here reflects: every type that can appear was registered by a module initializer the
+    ///         generator wrote.
+    ///     </para>
+    /// </remarks>
+    public object ReadObject(ObjectId id) {
+        var chunk = ReadChunk(id);
+        var payload = ChunkFormat.ReadHeader(chunk, out var typeId, out _);
+
+        if (!SerializerRegistry.TryGetByTypeId(typeId, out var serializer)) {
+            throw new SerializationException(
+                $"Chunk {id} was written by type {typeId:x16}, and nothing registered in this process claims it. "
+                + "The assembly that defines it is either not loaded or has no [DataContract] on the type."
+            );
+        }
+
+        var reader = new SerializationReader(chunk.AsSpan(payload));
+        return serializer.DeserializeObject(ref reader);
     }
 
     /// <summary>Reads a chunk's header without deserialising it.</summary>

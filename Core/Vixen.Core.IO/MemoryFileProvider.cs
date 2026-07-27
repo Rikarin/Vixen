@@ -149,6 +149,28 @@ public sealed class MemoryFileProvider : IFileProvider {
     }
 
     /// <inheritdoc />
+    public ValueTask<Stream> OpenAppendAsync(VirtualPath path, CancellationToken cancellationToken = default) {
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult(OpenAppend(path));
+    }
+
+    /// <inheritdoc />
+    public Stream OpenAppend(VirtualPath path) {
+        ThrowIfReadOnly();
+
+        lock (gate) {
+            AddDirectories(path.Parent);
+            var stream = new CommitOnDisposeStream(this, path);
+
+            if (files.TryGetValue(path, out var file)) {
+                stream.Write(file.Contents);
+            }
+
+            return stream;
+        }
+    }
+
+    /// <inheritdoc />
     public bool Delete(VirtualPath path) {
         ThrowIfReadOnly();
 

@@ -367,6 +367,109 @@ the codebase is large enough for it to be expensive to fix.
   2 000-iteration property test that found three dialect rules wrong.
 - ✅ `Vixen.Editor.Core` asset database: GUID index, reverse-reference index, duplicate detection and
   repair, orphan quarantine. 26 tests; ten thousand assets scanned well inside doc 08's budget.
+- ✅ `Vixen.Core.Imaging`: KTX2 container, mip chains with the three variants
+  [03](03-core-foundation.md) asks for (sRGB-correct, alpha-weighted, normal renormalisation), BC1,
+  BC3, BC4, BC5, BC7 and BC6H encoders, and the split-sum IBL pieces — SH-9 irradiance projection,
+  GGX cubemap prefiltering and the DFG lookup table. 146 tests.
+
+- ✅ `Vixen.Assets`: the content catalog — address to chunk, labels, globs, dependency closure,
+  per-bundle download sizing, and the remote-over-local merge that makes a content update possible.
+  Binary `catalog.bin` with a sorted string table, deterministic by construction, CRC-verified on
+  read. 48 tests. (The object database, chunk format and bundle reader were already built in
+  Phase 1's serialization work; this is the index over them.)
+- ✅ Content references — the piece [03](03-core-foundation.md) deferred out of Phase 1.
+  `ContentReference<T>` writes its chunk id and resolves its value on load, so a material names its
+  textures rather than containing them and two materials sharing one get one object. Ambient
+  resolution during deserialisation, which is defensible where an ambient asset *scope* was not:
+  reading a chunk is synchronous end to end, so "the resolver in force" has one meaning throughout.
+  `ObjectDatabase.ReadObject` and a by-type-id serializer index give the loader the way back from a
+  chunk header to a type. The `[DataContract]` generator emits a registration for every closed
+  `ContentReference<T>` it sees, which is what keeps it AOT-correct.
+- ✅ Content build: `.vxgroup` addressable groups and `ContentBuilder` — packs chunks into bundles
+  by the group's policy (together, separately, by label), names them with their content hash so a CDN
+  cannot serve stale bytes, and emits the catalog. Deterministic, and its build log is too. 77 tests
+  in `Vixen.Editor.Assets.Tests`, including the first end-to-end one in the repository: an address
+  goes into the builder and an object comes out of the runtime.
+- ✅ `Vixen.Assets` loading: `AssetHandle` with ref-counted claims, dependency closures claimed by
+  their dependents, deduplicated deserialisation, explicit scopes, label and glob loading, and a
+  local bundle source over the VFS. 64 tests over real bundles rather than stubs. **Deviation:**
+  scopes take the loads rather than capturing them ambiently — doc 08's sketch does not survive an
+  `await`, and the reason is written where the type is. **Owed:** content references, so a
+  dependency's deserialised object is shared and not just its bundle and lifetime.
+- ✅ Remote content: `IContentTransport` (HTTP, with byte ranges), `BundleCache`,
+  `RemoteBundleSource` and `RoutedBundleSource`, plus the download surface [08](08-asset-pipeline-and-addressables.md)
+  names — `DownloadSize`, `DownloadAsync`, `ClearCache`. The cache is keyed by content hash so a
+  rebuilt bundle is an ordinary miss; downloads resume from a partial file; a server that ignores a
+  byte range is detected and restarted rather than appended to; nothing is committed without matching
+  both the catalog's length and its CRC. A cache *hit* checks length only, with `VerifyAsync` there
+  for a caller who wants the full re-hash. 31 tests, over a transport that can be told to drop the
+  connection, ignore ranges, answer from the wrong offset and serve corrupt bytes.
+  **Enabler:** `IFileProvider.OpenAppend`, without which a resume has to buffer the whole partial
+  download in memory.
+- ✅ Content updates — step 2 of [08](08-asset-pipeline-and-addressables.md)'s boot sequence.
+  `ContentUpdate` fetches the tiny hash file beside the catalog and downloads the catalog only when it
+  names something new, then lays it over the shipped one. **Nothing the server does throws**:
+  unreachable, half-published, built for another platform or corrupt each come back as an outcome
+  with a reason and the best catalog on the device, because every one of them happens in the field
+  and none is a reason for a game not to start. `Offline` and `Rejected` are separate outcomes
+  because one fixes itself and the other does not — a distinction the plan did not name and a log
+  needs. Nothing is cached until it has parsed *and* merged, so an unusable catalog cannot overwrite
+  a usable one. 19 tests, including **this phase's exit criterion**: the server publishes a second
+  build in which one of two packs changed, and the client fetches that pack and nothing else —
+  asserted both by which URLs were requested and by byte count. `HttpContentTransport` got its own
+  8 tests against an `HttpMessageHandler`, which is where the `206`/`200`/`Content-Range` reasoning
+  lives and where it had none.
+- ✅ `Tools/Vixen.ContentServer` — serves a content build directory over HTTP with byte ranges, so a
+  phone can be pointed at a laptop instead of a CDN. All three range forms, a 416 for a range that
+  starts past the end, and a synthesised `catalog.bin.hash` so a build directory can be served exactly
+  as the build wrote it. 34 tests and **no socket**: the request logic is a class, the listener is a
+  shell over it, which is how [12](12-build-ci-and-testing.md)'s "no real network in tests" rule is
+  obeyed without leaving the interesting half unchecked. Path traversal is asserted against seven
+  spellings including percent-encoded ones — and that makes `VirtualPath`'s "escapes above the root"
+  rule load-bearing for a security property for the first time, which is worth knowing before anyone
+  relaxes it. **Sabotage found dead code claiming to be a gate:** a containment check after the path
+  was already normalised, which no mutation could make fail because a normalised path holds no
+  `..`. Removed rather than kept, because a redundant check that reads as defence in depth
+  invites the next reader to believe the real gate is optional.
+- ✅ `BuildPlanner` — the step between "every asset has been imported" and "there is a build", which
+  nothing had built: imports produce chunks and know nothing about addresses, `ContentBuilder` takes
+  addresses and knows nothing about imports, and until now only tests bridged the two by hand. Reads
+  the `addressable:` block, inherits `group` from the nearest folder that names one (labels are not
+  inherited, and the README says why), and invents a reported `Default` group so a project that
+  configures nothing still builds. 17 tests. **The check worth having:** an addressable asset
+  depending on one with no address is an error, because the catalog records dependencies by address —
+  so that chunk is in no bundle, and the build succeeds, ships, and fails at load on a device.
+  **Owed:** addressing sub-assets. `ImportRecord` keeps artefact ids without the sub-asset each
+  belongs to, so a multi-artefact import is refused rather than packed as its first chunk; every
+  importer today writes exactly one, so nothing is blocked.
+- ✅ `TextureImporter`, the first real importer: `IImageDecoder`, StbImageSharp and KTX2 decoders,
+  and settings that say what a texture's bytes mean — which decides the transfer function, the mip
+  filter's variant and the compressed format together. 63 tests in `Vixen.Editor.Assets.Tests`.
+
+> **Doc 01's ImageSharp decision did not survive contact and is corrected there.** ImageSharp 4.0.0
+> fails the build without a purchased licence key — an error from its own targets file, before any
+> code compiles. A repository people are meant to clone and build cannot require that, so
+> `Vixen.Editor.Assets` took doc 01's own stated fallback and uses `StbImageSharp`, which is public
+> domain. The swap cost one class: nothing in the importer, the pipeline or the tests moved, which is
+> `IImageDecoder` earning itself on its first day. Coverage shifted rather than shrank — Radiance HDR
+> arrived, `.exr`, `.tif` and `.webp` left.
+
+> **Two boundaries in this assembly are worth stating in the plan rather than only in its README.**
+>
+> **ASTC and ETC2 have no managed encoder and are not getting one.** Doc 03 already said native was
+> the right call; this makes it load-bearing. Both formats keep their sizes, block extents and KTX2
+> numbers so a build with `astcenc` restored can ship them, and `BlockCompressor` names what is
+> missing rather than reporting an unknown format. **BC7 and BC6H write one mode each** — the
+> single-subset ones — which is valid output at the right size and a real quality ceiling on blocks
+> with an edge through them; doc 01 already registers `ispc_texcomp` for the rest.
+>
+> **Nothing here has been checked against an independent implementation.** Every container and block
+> layout is written from its specification and asserted byte-for-byte against a hand-computed
+> example, which catches a misread of a field's position and not a misunderstanding of what the field
+> means. Running Khronos's `ktx validate` over the KTX2 output and a reference decoder over the BC
+> output is owed, and until then "valid" is a claim about intent. The IBL half is in better shape:
+> irradiance, solid angles and the roughness-zero BRDF all have closed forms to test against, which
+> is why the exact solid-angle formula replaced the midpoint one during this work.
 
 > **The AOT wall arrived on day one of this phase, which is what it was scheduled early for.** The
 > obvious object binder needs `Array.CreateInstance(elementType, n)`, `MakeGenericType` and

@@ -28,7 +28,7 @@ Versions verified against `api.nuget.org` at plan time. These go verbatim into
 | `Silk.NET.Maths` | 2.23.0 | interop shim only | **Not** the engine math type. See ADR-003. |
 | `Silk.NET.Assimp` | 2.23.0 | `Vixen.Editor.Assets` (import-time only) | Model import. Never referenced by runtime assemblies. |
 | `JoltPhysicsSharp` | 2.22.0 | `Vixen.Physics` | As specified. Modern, actively maintained, deterministic-capable, native binaries for all six targets. |
-| `SixLabors.ImageSharp` | 4.0.0 | **`Vixen.Editor.Assets` only** | As specified. Import/authoring-time codec behind `IImageDecoder`. **Never referenced by a runtime assembly** — licence is the Six Labors Split License, not Apache-2.0; see ADR-015. `Vixen.Core.Imaging` reads KTX2/DDS with our own code. |
+| ~~`SixLabors.ImageSharp`~~ → `StbImageSharp` | 2.30.15 | **`Vixen.Editor.Assets` only** | **Changed when it was built.** ImageSharp 4.0.0 *fails the build* without a purchased licence key — an error out of its own targets file, not a warning. An Apache-2.0 engine cannot require a contributor to buy a key to compile the editor, and pinning to the 3.1.x line to dodge it means sitting on a branch that gets no further security fixes. Took mitigation 2 below: StbImageSharp is public domain and reads PNG/JPEG/BMP/TGA/PSD/GIF **and Radiance HDR**, which is more of doc 08's table than ImageSharp reached. Still editor-only, behind `IImageDecoder`. **Owed:** `.exr`, `.tif`, `.webp`, `.dds` — doc 01 names Pfim (MIT) for the last of those. |
 | `ExCSS` | 4.3.2 | `Vixen.Ui.Styling` | As specified. CSS tokenizer/parser for `.vcss`. |
 | `HarfBuzzSharp` | 14.2.1.1 | `Vixen.Ui.Text` | Text shaping. Non-negotiable for correct Arabic/Indic/emoji/ligatures. |
 | `K4os.Compression.LZ4` | 1.3.8 | `Vixen.Core.Serialization` | Bundle chunk compression, fast path (Stride uses LZ4 for the same reason). |
@@ -494,3 +494,16 @@ Applied to Vixen:
    one implementation. If the split licence ever becomes uncomfortable, the zero-ambiguity swap is
    `StbImageSharp` (public domain, covers PNG/JPG/TGA/BMP/HDR/PSD) plus `Pfim` (MIT, DDS/TGA) — lower
    fidelity on EXR/TIFF/PSD, and a day of work behind the interface rather than a refactor.
+
+> ✅ **Mitigation 2 was taken, and sooner than this expected.** ImageSharp 4.0.0 does not merely have
+> an uncomfortable licence: it refuses to build without a purchased key, failing in
+> `SixLabors.ImageSharp.targets` before any code compiles. That is disqualifying for a repository
+> anyone is meant to be able to clone and build, so `Vixen.Editor.Assets` uses `StbImageSharp`.
+>
+> The swap cost one class, which is the interface earning itself — nothing in `TextureImporter`, the
+> pipeline or the tests changed. Coverage moved rather than shrank: Radiance HDR arrived, which is
+> the format an environment map actually ships in and which the BC6H encoder and the IBL prefilter
+> were waiting for; `.exr`, `.tif` and `.webp` left, and `.dds` was never there.
+>
+> **`CheckArchitecture`'s ADR-015 rule stays.** Nothing references ImageSharp now, so the rule guards
+> against a future mistake rather than a present one — which is what it was for.
