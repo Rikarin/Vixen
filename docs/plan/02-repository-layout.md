@@ -307,7 +307,8 @@ Tools/
 ├── Vixen.Templates/              # dotnet new templates: vixen-game, vixen-app, vixen-lib, vixen-plugin
 │   └── Vixen.Templates.Tests/
 ├── Vixen.ApiCheck/               # public API surface diffing, run in CI
-└── Vixen.AotProbe/               # the subject of `nuke CheckAot`: every runtime assembly, rooted
+├── Vixen.AotProbe/               # the subject of `nuke CheckAot`: every runtime assembly, rooted
+└── Vixen.AotProbe.iOS/           # the same for `ios-arm64` — outside the solution, needs the ios workload
 ```
 
 **What `Vixen.Cli` has so far, and one correction to the verb list above.** `import`,

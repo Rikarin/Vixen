@@ -187,6 +187,32 @@ partial class Build : NukeBuild {
             )
         );
 
+    /// <summary>
+    ///     The same gate for iOS, which is the target the phase's exit criterion is actually about.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Separate from <see cref="CheckAot" /> and separate from the solution, because a
+    ///         <c>net10.0-ios</c> project cannot even be evaluated without the <c>ios</c> workload —
+    ///         putting it in <c>Vixen.slnx</c> would break <c>dotnet build</c> for every developer
+    ///         and every CI leg that is not a Mac with Xcode. The cost is that <c>CheckFormat</c>
+    ///         does not see it, which is two files.
+    ///     </para>
+    ///     <para>
+    ///         Nothing is signed: the question is what compiles, not what can be installed on a
+    ///         device.
+    ///     </para>
+    /// </remarks>
+    Target CheckAotIos => definition => definition
+        .Description("Fails if the runtime assemblies cannot be published for iOS ahead of time")
+        .Requires(() => RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        .Executes(() =>
+            DotNetPublish(settings => settings
+                .SetProject(RootDirectory / "Tools" / "Vixen.AotProbe.iOS" / "Vixen.AotProbe.iOS.csproj")
+                .SetConfiguration(Configuration.Release)
+            )
+        );
+
     Target Pack => definition => definition
         .Description("Produces the NuGet packages")
         .DependsOn(Test)

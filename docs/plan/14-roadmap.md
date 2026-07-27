@@ -577,18 +577,31 @@ the codebase is large enough for it to be expensive to fix.
   on reachability from `Main` produced a 1.3 MB binary against 8 MB rooted, which is the measure of how
   much a reachability-only gate would have left unexamined.
 
-  ⚠ **And it found the thing the phase exists to find, in a dependency rather than in Vixen.**
-  `Vixen.Graphics.Vulkan` and `Vixen.Platform.Desktop` cannot be published ahead of time, because
-  `Silk.NET.Core.Loader.DefaultPathResolver` finds native libraries through `Assembly.Location` and the
-  dependency manifest, and NativeAOT has neither. Six errors, none of them ours. Since iOS is
-  NativeAOT-only, **the phase's own "iOS publish with zero warnings" exit criterion is unreachable
-  until the engine resolves its own natives** — which is `Vixen.Platform.Native`, listed in Phase 1 and
-  unbuilt, now promoted from tidiness to load-bearing. Recorded as R11 in
-  [15](15-risks-and-open-questions.md) with the evidence and the one-edit re-test.
+- ✅ **The iOS half of the gate — and the phase's headline exit criterion, met.** `nuke CheckAotIos`
+  publishes the same rooted set for `ios-arm64`, which is the target that matters because
+  [10](10-platforms.md) makes iOS NativeAOT-only. It produces an `.ipa` holding a 7 MB native binary
+  and **no managed assemblies at all**, with zero trim and zero AOT warnings under
+  `TreatWarningsAsErrors`. So: *iOS NativeAOT publish with zero trim/AOT warnings* is **met for the
+  engine's own code**, which is everything except the graphics backend.
 
-  **Owed:** the gate publishes for the host's RID, so covering three operating systems means one leg
-  each in CI; and it cannot publish for iOS or Android at all here, because neither workload is
-  installed on the development machine.
+  The probe is a second project outside `Vixen.slnx`, because a `net10.0-ios` project cannot be
+  evaluated at all without the `ios` workload and putting it in the solution would break `dotnet
+  build` for every developer and CI leg that is not a Mac with Xcode. The cost is that `CheckFormat`
+  does not see its two files.
+
+  ⚠ **Adding `Vixen.Graphics.Vulkan` breaks it, in two different ways that were initially conflated —
+  see R11, which is corrected.** On the desktop, Silk.NET's `DefaultPathResolver` cannot work under
+  AOT, and the fix is `Vixen.Platform.Native`'s `DllImportResolver`. On iOS the resolver is beside the
+  point: everything links statically, so `DllImport`s become symbol references and `clang++` fails
+  with twelve undefined `vk*` symbols because **MoltenVK is not being linked in**. A resolver cannot
+  help there — there is no resolution step to intercept. The first write-up of this named one cause
+  and one fix; designing against it would have produced something that worked on a laptop and failed
+  on the device, which is the exact failure this phase exists to prevent.
+
+  **Owed:** each gate publishes for one RID, so covering three desktop operating systems means one CI
+  leg each; Android is not gated yet, and should be gated on its *default* runtime rather than on
+  NativeAOT, which `warning XA1040` calls experimental and not suitable for production — the plan only
+  ever committed to NativeAOT for iOS.
 - **`Vixen.Platform.Android`** + Vulkan/GLES on device; lifecycle, `AAssetManager`, touch input.
 - **`Vixen.Platform.iOS`** + MoltenVK static; **NativeAOT publish in CI on every PR from here on**.
 - `Samples/07-AddressablesRemote`.
@@ -598,9 +611,10 @@ with **zero** trim/AOT warnings. Content build determinism gate green across thr
 update fetches only changed bundles (asserted by byte count). Incremental import of one texture < 1 s
 in a 10 k-asset fixture project.
 
-**Where the exit criteria stand.** 🟡 AOT: the engine's own runtime assemblies are proven clean by
-`nuke CheckAot`, and the iOS half is blocked on a dependency rather than on Vixen — see the gate above
-and R11. ✅ Remote content update fetches only the changed pack, asserted by
+**Where the exit criteria stand.** ✅ **iOS NativeAOT publish with zero trim/AOT warnings — met for
+the engine's own code**, by `nuke CheckAotIos`, which produces an `.ipa` of native code with no managed
+assemblies in it. The graphics backend is not in that set and cannot be until MoltenVK is linked
+statically; see the gate above and R11. ✅ Remote content update fetches only the changed pack, asserted by
 URL and by byte count. 🟡 Content build determinism is green between runs, and green between two
 projects **at different paths, whose assets were created in a different order and carry different
 GUIDs** — which is what would actually break across operating systems, tested without needing a second

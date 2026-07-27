@@ -45,14 +45,30 @@ the dependency manifest. Under NativeAOT there is no managed assembly on disk an
 manifest, so `DefaultPathResolver` cannot work — these are not pedantic warnings, they are the
 loader telling the truth about itself.
 
-**This matters more than a warning count**, because [doc 10](../../docs/plan/10-platforms.md) makes
-iOS NativeAOT-only. As things stand, an iOS build cannot use Silk.NET's native resolution at all. The
-fix is the one Phase 1 already listed and has not built: `Vixen.Platform.Native`, mapping a RID to a
-binary and registering a `DllImportResolver`, so the engine resolves its own natives and Silk's
+The fix is the one Phase 1 already listed and has not built: `Vixen.Platform.Native`, mapping a RID to
+a binary and registering a `DllImportResolver`, so the engine resolves its own natives and Silk's
 probing is never the thing that has to work. That entry has gone from tidiness to load-bearing.
 
-Re-testing the finding is adding the two projects back to this file's `ProjectReference` and
-`TrimmerRootAssembly` lists. When the dependency or the resolver changes, that is the check.
+**On iOS the failure is a different one, and a resolver does not fix it** — see
+`../Vixen.AotProbe.iOS`. Everything links statically there, so Silk.NET's `DllImport`s become symbol
+references and the link fails on twelve undefined `vk*` symbols because MoltenVK is not linked in.
+Two causes, two fixes; R11 in [doc 15](../../docs/plan/15-risks-and-open-questions.md) carries both.
+
+Re-testing either finding is adding the projects back to the relevant probe's `ProjectReference` and
+`TrimmerRootAssembly` lists. When the dependency, the resolver or the iOS linking changes, that is the
+check.
+
+## The iOS sibling
+
+`../Vixen.AotProbe.iOS` is the same gate for `ios-arm64`, run by `nuke CheckAotIos`. It is a separate
+project and is **deliberately not in `Vixen.slnx`**: a `net10.0-ios` project cannot be evaluated at all
+without the `ios` workload, so putting it in the solution would break `dotnet build` for every
+developer and CI leg that is not a Mac with Xcode. The cost is that `CheckFormat` does not see its two
+files.
+
+It also needs `using Foundation;` in its entry point. That is not decoration — without a reference to
+the platform assembly the managed registrar fails the link with `MT0099: No platform assembly!`, which
+is a confusing way to be told that a console `Main` is not an iOS application.
 
 ## Why `PublishAot` is in the project file
 

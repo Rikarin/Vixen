@@ -245,13 +245,20 @@ SHA-256 verification, a generated third-party licence manifest, and one Nuke tar
 (`RestoreNativeDeps`). Binaries are never committed. A dependency update is a single reviewed PR touching
 one manifest.
 
-### R11 — Silk.NET's native loader cannot be published ahead of time *(likelihood: certain · impact: high)* — **found, not predicted**
+### R11 — Vulkan through Silk.NET does not survive ahead-of-time compilation *(likelihood: certain · impact: high)* — **found, not predicted**
 
-Measured in Phase 3 by `nuke CheckAot`, which publishes every runtime assembly with NativeAOT and all
-of them rooted. **Every `Core/` assembly, `Vixen.Platform`, `Vixen.Platform.Headless` and
-`Vixen.Graphics.Null` publish with zero trim or AOT warnings, and the binary runs.** Rooting
-`Vixen.Graphics.Vulkan` or `Vixen.Platform.Desktop` produces six errors, every one of them inside a
-dependency:
+Measured in Phase 3 by `nuke CheckAot` and `nuke CheckAotIos`, which publish every runtime assembly
+ahead of time with all of them rooted.
+
+**The engine's own code is clean, on both targets.** Every `Core/` assembly, `Vixen.Platform`,
+`Vixen.Platform.Headless` and `Vixen.Graphics.Null` publish with **zero** trim or AOT warnings for
+`osx-arm64` *and* for `ios-arm64` — the iOS build produces a signed-nothing `.ipa` holding a 7 MB
+native binary and no managed assemblies at all. **That is this phase's headline exit criterion met for
+everything except the graphics backend.**
+
+Adding `Vixen.Graphics.Vulkan` breaks it, in **two different ways that were initially conflated**.
+
+**On the desktop, the loader cannot work.** Six diagnostics, every one inside a dependency:
 
 ```
 IL3000  Silk.NET.Core.Loader.DefaultPathResolver…  'Assembly.Location' always returns an empty string
@@ -261,23 +268,36 @@ IL3002  Microsoft.Extensions.DependencyModel…      'DependencyContext.LoadDefa
 ```
 
 Silk.NET finds a native library by asking where its managed assembly is on disk and by reading the
-dependency manifest. Under NativeAOT there is neither. These are not pedantic warnings; they are the
-loader describing its own failure mode.
+dependency manifest. Under NativeAOT there is neither. Not pedantic warnings — the loader describing
+its own failure mode. **Mitigation:** `Vixen.Platform.Native`, listed in Phase 1 and unbuilt, mapping a
+RID to a binary and registering a `DllImportResolver` so the engine resolves its own natives and
+Silk's probing is never the thing that has to work.
 
-**Why this is high impact rather than a warning count.** [10](10-platforms.md) makes iOS
-NativeAOT-only, and [14](14-roadmap.md)'s Phase 3 exit asks for an iOS publish with *zero* trim/AOT
-warnings. As things stand that is unreachable for any assembly that uses Silk.NET's own resolution —
-which today is both graphics backends and the desktop platform.
+**On iOS, the loader is beside the point and the link fails instead.** The same six appear (as
+warnings or errors depending only on our own warnings-as-errors setting, not on the platform), but
+what actually stops the build is `clang++`:
 
-**Mitigation, and it is one already on the plan:** `Vixen.Platform.Native` — listed in Phase 1,
-unbuilt — maps a RID to a binary and registers a `DllImportResolver`, so the engine resolves its own
-natives and Silk's probing is never the thing that has to work. That entry has moved from tidiness to
-load-bearing, and this is the evidence. Until it exists, the gate covers what it can and names what it
-cannot, which is the honest half of the phase's "prove AOT correctness early" goal rather than the
-whole of it.
+```
+Undefined symbols for architecture arm64:
+  "_vkAllocateCommandBuffers", referenced from: _Silk_NET_…
+  "_vkAllocateDescriptorSets",  referenced from: _Silk_NET_…
+  … twelve of them
+```
 
-**Re-testing is one edit:** add the two projects back to `Tools/Vixen.AotProbe`'s reference and root
-lists.
+iOS links everything statically, so Silk.NET's `DllImport`s become direct symbol references that
+something must satisfy at link time — and nothing does, because **MoltenVK is not being linked in**.
+This is the "MoltenVK static" line in [14](14-roadmap.md)'s Phase 3 turning out to be load-bearing
+rather than a note: a `DllImportResolver` cannot help here, because there is no resolution step to
+intercept.
+
+**Why the distinction matters.** The first write-up of this risk named one cause and one fix. There are
+two causes and two fixes, and the iOS one — ship MoltenVK as a static library and give the linker its
+symbols — is a build-integration problem in `Vixen.Platform.iOS`, not a trimming problem. Designing
+`Vixen.Platform.Native` as though a resolver solved both would have produced something that worked on a
+laptop and failed on the device, which is the exact failure mode this phase exists to prevent.
+
+**Re-testing either is one edit:** add `Vixen.Graphics.Vulkan` back to the reference and root lists of
+`Tools/Vixen.AotProbe` (desktop) or `Tools/Vixen.AotProbe.iOS` (iOS).
 
 ---
 

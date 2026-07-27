@@ -1,0 +1,76 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0-ios</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Vixen.AotProbe.Ios</RootNamespace>
+        <IsPackable>false</IsPackable>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+
+        <ApplicationId>dev.vixen.aotprobe</ApplicationId>
+        <ApplicationTitle>Vixen AOT Probe</ApplicationTitle>
+        <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+        <RuntimeIdentifier>ios-arm64</RuntimeIdentifier>
+
+        <!--
+            iOS is NativeAOT-only (doc 10), so this is the target the phase's exit criterion is
+            actually about. Declared here rather than passed on the command line, for the reason in
+            the sibling probe: a command-line property is global and reaches the source generators.
+        -->
+        <PublishAot>true</PublishAot>
+
+        <!-- Nothing is signed. The gate is about what compiles, not about what can be installed. -->
+        <EnableCodeSigning>false</EnableCodeSigning>
+        <CodesignKey></CodesignKey>
+
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <ILLinkTreatWarningsAsErrors>true</ILLinkTreatWarningsAsErrors>
+        <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Assets\Vixen.Assets.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Collections\Vixen.Core.Collections.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Diagnostics\Vixen.Core.Diagnostics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.IO\Vixen.Core.IO.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Memory\Vixen.Core.Memory.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ecs\Vixen.Ecs.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Engine\Vixen.Engine.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Layout\Vixen.Ui.Layout.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Reactive\Vixen.Ui.Reactive.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Platform\Vixen.Platform.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Headless\Vixen.Platform.Headless.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <TrimmerRootAssembly Include="Vixen.Assets" />
+        <TrimmerRootAssembly Include="Vixen.Core" />
+        <TrimmerRootAssembly Include="Vixen.Core.Collections" />
+        <TrimmerRootAssembly Include="Vixen.Core.Diagnostics" />
+        <TrimmerRootAssembly Include="Vixen.Core.IO" />
+        <TrimmerRootAssembly Include="Vixen.Core.Mathematics" />
+        <TrimmerRootAssembly Include="Vixen.Core.Memory" />
+        <TrimmerRootAssembly Include="Vixen.Core.Reflection" />
+        <TrimmerRootAssembly Include="Vixen.Core.Serialization" />
+        <TrimmerRootAssembly Include="Vixen.Core.Threading" />
+        <TrimmerRootAssembly Include="Vixen.Ecs" />
+        <TrimmerRootAssembly Include="Vixen.Engine" />
+        <TrimmerRootAssembly Include="Vixen.Graphics" />
+        <TrimmerRootAssembly Include="Vixen.Graphics.Null" />
+        <TrimmerRootAssembly Include="Vixen.Graphics.RenderGraph" />
+        <TrimmerRootAssembly Include="Vixen.Platform" />
+        <TrimmerRootAssembly Include="Vixen.Platform.Headless" />
+        <TrimmerRootAssembly Include="Vixen.Ui.Layout" />
+        <TrimmerRootAssembly Include="Vixen.Ui.Reactive" />
+    </ItemGroup>
+
+</Project>
