@@ -73,15 +73,22 @@ public sealed partial class Lowerer {
     TypeMap? substitution;
 
     /// <summary>
-    ///     The instantiation whose members are being emitted, or null outside one.
+    ///     The type a body is being emitted <em>for</em>, when that is not the type that declared
+    ///     it.
     /// </summary>
     /// <remarks>
-    ///     A body's field accesses name the <em>definition</em>'s fields — <c>Box&lt;T&gt;.value</c>
-    ///     — because the body was bound once, against the open type. So the struct a field belongs
-    ///     to cannot be found from the field alone while an instantiation is being lowered; this is
-    ///     what says which copy it is.
+    ///     <para>
+    ///         Two features need the same fact, which is why it is one field. An instantiation's
+    ///         body names the <em>definition</em>'s fields — <c>Box&lt;T&gt;.value</c> — because it
+    ///         was bound once against the open type. An inherited body names the <em>base</em>'s
+    ///         fields, for the same reason: it was bound once against the base.
+    ///     </para>
+    ///     <para>
+    ///         In both cases the struct a field belongs to cannot be found from the field alone, and
+    ///         this is what says which copy is being emitted.
+    ///     </para>
     /// </remarks>
-    ConstructedNamedTypeSymbol? currentInstantiation;
+    NamedTypeSymbol? currentSelfType;
     IrVariable? selfLocal;
     IrVariable? selfParameter;
     readonly Dictionary<Symbol, IrVariable> variables = [];
@@ -210,6 +217,14 @@ public sealed partial class Lowerer {
             }
         }
 
+        // After every type's own members, because an inherited copy's name is uniquified against
+        // them and a call inside one may reach any of them.
+        foreach (var type in types) {
+            if (type.TypeKind is TypeKind.Shader or TypeKind.Struct) {
+                DeclareInheritedFunctions(type);
+            }
+        }
+
         foreach (var instantiation in instantiations) {
             DeclareInstantiation(instantiation);
         }
@@ -235,6 +250,8 @@ public sealed partial class Lowerer {
 
         // After every shader exists, because a slot's implementation may be declared later in the
         // file than the shader that composes it, and its globals only exist once it is lowered.
+        // Inheritance first, so a composed shader contributes what it inherits too.
+        MergeInheritedInterfaces(types);
         MergeComposedInterfaces(types);
 
         // After every body exists, and after pruning: a stream's direction comes from what the
@@ -319,7 +336,7 @@ public sealed partial class Lowerer {
     /// <summary>
     ///     Copies one shader's bindings and streams onto another, skipping what it already has.
     /// </summary>
-    static void MergeInterface(IrShader target, IrShader source) {
+    static void MergeInterface(IrShader target, IrShader source, bool qualify = true) {
         var present = target.Bindings.Select(binding => binding.Variable).ToHashSet();
 
         // Continue the target's own numbering. `IrBinding.Slot` counts per kind and is what the
@@ -345,9 +362,14 @@ public sealed partial class Lowerer {
                     slot,
                     binding.Semantic,
                     binding.Set,
-                    // Qualified by the shader that declares it — see IrBinding.Name. `binding.Name`
-                    // rather than the variable's, so a transitive contribution keeps the whole path.
-                    $"{source.Name}.{binding.Name}"
+                    // A composed contribution is qualified by the shader that declares it — see
+                    // IrBinding.Name — using `binding.Name` rather than the variable's, so a
+                    // transitive contribution keeps the whole path. An *inherited* one is not: the
+                    // author wrote `tint` on a base and reads `tint` in the derived shader, and a
+                    // host binding by name should see what the source says. The two differ because
+                    // a composed feature's parameter belongs to the feature, and an inherited field
+                    // belongs to the type that inherited it.
+                    qualify ? $"{source.Name}.{binding.Name}" : binding.Name
                 )
             );
         }
@@ -440,7 +462,7 @@ public sealed partial class Lowerer {
     /// <summary>Creates the signatures an instantiation contributes, before any body is lowered.</summary>
     void DeclareInstantiation(Instantiation instantiation) {
         substitution = instantiation.Map;
-        currentInstantiation = instantiation.Type;
+        currentSelfType = instantiation.Type;
 
         try {
             if (instantiation.Type is { } constructed) {
@@ -455,14 +477,14 @@ public sealed partial class Lowerer {
             }
         } finally {
             substitution = null;
-            currentInstantiation = null;
+            currentSelfType = null;
         }
     }
 
     /// <summary>Lowers an instantiation's bodies through its substitution.</summary>
     void LowerInstantiation(Instantiation instantiation) {
         substitution = instantiation.Map;
-        currentInstantiation = instantiation.Type;
+        currentSelfType = instantiation.Type;
 
         try {
             if (instantiation.Type is { } constructed) {
@@ -477,7 +499,7 @@ public sealed partial class Lowerer {
             }
         } finally {
             substitution = null;
-            currentInstantiation = null;
+            currentSelfType = null;
         }
     }
 
@@ -486,6 +508,19 @@ public sealed partial class Lowerer {
     ///     the call site key the function table alike.
     /// </summary>
     Symbol Canonical(Symbol member) => monomorphiser?.Canonical(member) ?? member;
+
+    /// <summary>
+    ///     Whether a body is being emitted for a type other than the one that declared it, which is
+    ///     what an inherited copy is.
+    /// </summary>
+    /// <remarks>
+    ///     An instantiation is not one of these: its members are read <em>through</em> the
+    ///     constructed type, so the member's container already is the type being emitted for.
+    /// </remarks>
+    static bool IsInheritedCopy(Symbol member, NamedTypeSymbol? owner) =>
+        owner is not null
+        && member.ContainingSymbol is NamedTypeSymbol declaring
+        && !declaring.Equals(owner);
 
     /// <summary>The declaring type of a generic method, for the <c>currentType</c> a body is lowered in.</summary>
     static NamedTypeSymbol? ContainerOf(MethodSymbol method) =>
@@ -533,7 +568,6 @@ public sealed partial class Lowerer {
 
         var slots = new Dictionary<IrBindingKind, int>();
 
-        ReportInheritanceNotFlattened(type);
         DeclareCompileTimeConstants(type, shader);
         DeclareStreams(type, shader);
 
@@ -579,6 +613,7 @@ public sealed partial class Lowerer {
         }
 
         LowerMemberFunctions(type, shader.Add);
+        LowerInheritedFunctions(type, shader.Add);
         LowerBindingInitializers(type, shader);
         ReportOversizedPushConstants(type, shader);
 
@@ -975,11 +1010,10 @@ public sealed partial class Lowerer {
     void DeclareStructFields(NamedTypeSymbol type) {
         List<IrField> fields = [];
 
-        foreach (var member in type.GetMembers()) {
-            if (member is not FieldSymbol { IsConst: false, IsCompose: false, IsStream: false } field) {
-                continue;
-            }
-
+        // A base's fields first, so a derived value's prefix is the base's layout — see
+        // Lowerer.Inheritance. Nothing else in lowering has to know: a field access is by index,
+        // and the index comes from this list.
+        foreach (var field in LayoutFields(type)) {
             var irType = LowerType(field.Type, field.DeclaringSyntax);
             if (!irType.IsVoid) {
                 fields.Add(new(field.Name, irType));
@@ -990,103 +1024,8 @@ public sealed partial class Lowerer {
     }
 
     void LowerStruct(NamedTypeSymbol type) {
-        ReportInheritanceNotFlattened(type);
         LowerMemberFunctions(type, module.Add);
-    }
-
-    /// <summary>
-    ///     Reports the parts of inheritance lowering does not implement: an inherited field, and an
-    ///     <c>override</c>.
-    /// </summary>
-    /// <remarks>
-    ///     <para>
-    ///         The symbol layer models inheritance correctly — member lookup walks the base chain,
-    ///         nearest first — so the binder accepts <c>shader Derived : Base</c> and resolves
-    ///         everything. Lowering is where it stops: a type contributes only its <em>declared</em>
-    ///         members, so a base's fields never become bindings or struct fields, and a base's
-    ///         method body is lowered once against its own type rather than once per derived shader.
-    ///     </para>
-    ///     <para>
-    ///         Three silent failures came out of that, which is why these are errors rather than gaps
-    ///         left open. An inherited uniform emitted GLSL naming an undeclared identifier (SPIR-V
-    ///         at least reported <c>RVN4002</c>); an inherited struct field lowered to the
-    ///         <em>wrong field</em>, because access is by index and a derived type's indices are its
-    ///         own; and an <c>override</c> was dropped, so a base's own call kept reaching the base's
-    ///         method. All three compiled without a word.
-    ///     </para>
-    ///     <para>
-    ///         Deliberately narrow rather than rejecting every base type. Inheritance used purely to
-    ///         supply a member — a stateless base whose method satisfies a protocol that a
-    ///         <c>compose</c> slot resolves against — lowers correctly today, and taking that down
-    ///         with the broken cases would remove a working mechanism. Fixing the rest means
-    ///         flattening: the derived type takes the base's fields into its own layout and its own
-    ///         copy of every inherited body, overrides winning. That is Stride's mixin resolver for a
-    ///         source-declared chain; until something needs it, <c>compose</c> plus a protocol is the
-    ///         composition that works. See docs/plan/07 § J.
-    ///     </para>
-    /// </remarks>
-    void ReportInheritanceNotFlattened(NamedTypeSymbol type) {
-        // A protocol base contributes no storage and no bodies, so it is unaffected — and it is
-        // what `compose` slots are typed against.
-        if (type.BaseType is not { } baseType || baseType.IsErrorType) {
-            return;
-        }
-
-        // A field on the base never reaches the derived layout. Reported on the base's storage
-        // rather than at each use, so it is said once and names the cause.
-        foreach (var inherited in InstanceFields(baseType)) {
-            diagnostics.Add(
-                LoweringDiagnostics.ConstructNotSupported,
-                LocationOf(type.DeclaringSyntax),
-                $"The field '{inherited.Name}' that '{type.Name}' inherits from "
-                + $"'{baseType.ToDisplayString()}' — a base type's storage is not flattened, so it"
-            );
-        }
-
-        // An override does not replace the base's member: the base's own calls were bound to the
-        // base's method, and its body is lowered once.
-        foreach (var member in type.GetMembers()) {
-            if (member is MethodSymbol { MethodKind: MethodKind.Ordinary } method
-                && DeclaresOverride(method)
-                && FindOverridden(baseType, method) is not null) {
-                diagnostics.Add(
-                    LoweringDiagnostics.ConstructNotSupported,
-                    LocationOf(method.DeclaringSyntax),
-                    $"'{method.Name}' overriding '{baseType.ToDisplayString()}.{method.Name}' — "
-                    + "the base's own calls still reach the base's method, so it"
-                );
-            }
-        }
-    }
-
-    /// <summary>Every field of a type and its bases that occupies storage.</summary>
-    static IEnumerable<FieldSymbol> InstanceFields(NamedTypeSymbol type) {
-        for (var current = type; current is not null; current = current.BaseType) {
-            foreach (var member in current.GetMembers()) {
-                if (member is FieldSymbol {
-                        IsConst: false, IsCompose: false, IsValueParameter: false, IsStream: false
-                    } field) {
-                    yield return field;
-                }
-            }
-        }
-    }
-
-    static bool DeclaresOverride(MethodSymbol method) =>
-        method.DeclaringSyntax is MethodDeclarationSyntax declaration
-        && DeclarationFacts.Has(declaration.Modifiers, SyntaxKind.OverrideKeyword);
-
-    /// <summary>The base-chain method a declaration overrides, matched by name and arity.</summary>
-    static MethodSymbol? FindOverridden(NamedTypeSymbol baseType, MethodSymbol method) {
-        for (var current = baseType; current is not null; current = current.BaseType) {
-            foreach (var candidate in current.GetMembers(method.Name).OfType<MethodSymbol>()) {
-                if (candidate.Parameters.Count == method.Parameters.Count) {
-                    return candidate;
-                }
-            }
-        }
-
-        return null;
+        LowerInheritedFunctions(type, module.Add);
     }
 
     // --- Functions ---------------------------------------------------------
@@ -1164,8 +1103,17 @@ public sealed partial class Lowerer {
         // because its fields are globals.
         var selfType = type.TypeKind is TypeKind.Struct ? structs[type] : null;
 
-        foreach (var (name, member, body) in MemberBodies(type, report: true)) {
-            add(LowerFunction(name, body, member, type, SelfTypeFor(body, selfType)));
+        // Set even for a type's own members, because they reach the base's fields too: `self` has
+        // this type's layout whichever type declared the field being read.
+        var previous = currentSelfType;
+        currentSelfType ??= type;
+
+        try {
+            foreach (var (name, member, body) in MemberBodies(type, report: true)) {
+                add(LowerFunction(name, body, member, type, SelfTypeFor(body, selfType)));
+            }
+        } finally {
+            currentSelfType = previous;
         }
     }
 
@@ -1195,9 +1143,15 @@ public sealed partial class Lowerer {
     /// </summary>
     void DeclareMemberFunctions(NamedTypeSymbol type) {
         var selfType = type.TypeKind is TypeKind.Struct ? structs[type] : null;
+        var previous = currentSelfType;
+        currentSelfType ??= type;
 
-        foreach (var (name, member, body) in MemberBodies(type, report: false)) {
-            DeclareFunction(name, body, member, type, SelfTypeFor(body, selfType));
+        try {
+            foreach (var (name, member, body) in MemberBodies(type, report: false)) {
+                DeclareFunction(name, body, member, type, SelfTypeFor(body, selfType));
+            }
+        } finally {
+            currentSelfType = previous;
         }
     }
 
@@ -1236,14 +1190,27 @@ public sealed partial class Lowerer {
             );
         }
 
+        var shell = new FunctionShell(function, shellSelfParameter, shellSelfLocal, [.. parameters]);
+
+        // A copy emitted for a type that did not declare the member is keyed by the pair, because
+        // the member symbol alone already names the base's own function.
+        if (IsInheritedCopy(member, type)) {
+            inherited[(type!, member, body.Kind)] = function;
+            inheritedShells[(type!, member, body.Kind)] = shell;
+            return;
+        }
+
         var key = Canonical(member);
         functions[(key, body.Kind)] = function;
-        shells[(key, body.Kind)] = new(function, shellSelfParameter, shellSelfLocal, [.. parameters]);
+        shells[(key, body.Kind)] = shell;
     }
 
     IrFunction LowerFunction(string name, BoundBody body, Symbol member, NamedTypeSymbol? type, IrStructType? selfType) {
         var constructsSelf = body.Kind == BoundBodyKind.Constructor && selfType is not null;
-        var shell = shells[(Canonical(member), body.Kind)];
+        var shell = IsInheritedCopy(member, type)
+            ? inheritedShells[(type!, member, body.Kind)]
+            : shells[(Canonical(member), body.Kind)];
+
         var function = shell.Function;
 
         BeginFunction(function, type);
@@ -1312,7 +1279,12 @@ public sealed partial class Lowerer {
         }
 
         if (method.MethodKind != MethodKind.Operator) {
-            return instantiation is null ? method.Name : $"{typeName}_{method.Name}";
+            // Qualified when the type inherits: a derived type's override and the base member it
+            // replaces are two functions, and a dump or a frame debugger showing `Scaled` twice
+            // says nothing about which one execution is in.
+            return instantiation is null && !BaseChain(type).Any()
+                ? method.Name
+                : $"{typeName}_{method.Name}";
         }
 
         var symbol = method.Name.StartsWith("operator", StringComparison.Ordinal)

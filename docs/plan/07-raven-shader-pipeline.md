@@ -27,7 +27,6 @@ decision that has been made and built, kept because the reasons stay useful.
 | 🟡 | **`Raven/Library` is written** — 44 files across all eight packages, every shader reaching both backends under `glslc` and `spirv-val`. What is left is depth rather than breadth: the G-buffer geometry pass, the clustered light loop and the compute post-process. **Every language gap that was blocking them is now closed**, so what remains is content | § F | the perf gates |
 
 | ⚪ | **`discard`** — the last of the small stage intrinsics. It is a *terminator*, so it needs a keyword, a statement node and a block-termination rule rather than a table entry | § F | `DepthOnly` and `ShadowCaster` return zero and rely on the host's colour write mask |
-| 🟡 | **Inheritance is not flattened** — now `RVN3002` rather than three silent miscompilations | § I, mixins | the mixin question; `compose` covers the common case |
 | 🟡 | **String interpolation** — needs lexer modes; nothing shipped uses it | § I | nothing |
 | ⚪ | **Nuke is not stood up**: `CompileShaderLibrary`, `CheckFormat` for SPDX enforcement, the CI workflows | § A, § G | shipping the library as a package; SPDX is a real gap, not a closed item |
 | ⚪ | **`Vixen.Raven.Transpile`** (SPIRV-Cross wrapper) and the cross-compilation test pass | § A, § G | HLSL/MSL/WGSL output, which ADR-012 says SPIRV-Cross owns |
@@ -807,7 +806,7 @@ shader graph's generated-source span mapping.
 | 🟡 | **Stream I/O declarations between stages** — no `stream` keyword; interstage data passes as entry-point parameters and returns | ✅ built; see [§ Streams](#streams-interstage-values-declared-once) |
 | ✅ | **`Buffer<T>`-style resources** — `Buffer<T>` and `RWBuffer<T>`, std430, with a runtime-sized last member and `Length` answered at run time. Not generic: a structural type the binder builds, as `T[4]` is, so it never reaches the monomorphiser at all. `DescriptorType.StorageBuffer` and `LayoutRule.Std430` now have something that produces them. See [§ Writable resources](#writable-resources-the-first-thing-a-shader-can-store-into) |
 | ✅ | **Kept in the language but not lowered** — resolved by Tier B: `switch`, operators and tuples are finished, the rest are dropped |
-| 🟡 | **Inheritance is not flattened** — a base's fields never reach the derived layout and an `override` does not replace the base's member. Now `RVN3002` instead of three silent miscompilations; see the mixin section for what implementing it would cost |
+| ✅ | **Inheritance is flattened** — a base's fields reach the derived layout, and an `override` replaces the base's member in the base's own calls. See [§ Flattening](#flattening-a-derived-type-is-a-context-too) |
 | ✅ | **Generics lower, by monomorphisation** — one concrete copy per instantiation, for structs and for methods; the open definition is emitted nowhere and costs nothing. See [§ Monomorphisation](#monomorphisation-one-copy-per-instantiation-and-none-of-the-definition) |
 | ✅ | **A spread element in a collection** — flattening `[1, ..xs, 5]` needs `xs`'s length, which an array type now carries. Lowering emits one extract per index; a spread of an *unsized* array is still `RVN3002`, which is now a statement about that array rather than about spreads |
 | ✅ | **Assigning to a uniform** — now `RVN2119`, checked at the root of the access chain so `tint.rgb = …` and `lights[i].color = …` are caught too. It went unreported for as long as it did because a shader with nothing writable had no correct alternative to name; `RWBuffer<T>` is that alternative |
@@ -907,6 +906,46 @@ backstop for the one route that skips the binder, an unsized array decoded out o
 a backend was the two unsized arrays it declared. Its test has moved with it: bind-clean, then
 lower-clean, now generate-clean. A contract that stops where the language stops cannot tell you when
 the language catches up.
+
+#### Flattening: a derived type is a context too
+
+A base's fields never reached the derived layout and an `override` did not replace the base's
+member — three silent miscompilations, which is why it was `RVN3002` rather than a gap left open.
+
+**Flattening is monomorphisation over a different axis,** and that is what made it affordable
+directly after: the same "emit this body in a context" machinery generics needed does this too. A
+derived type is a context in which `self` has the derived layout, a base's field resolves to the
+derived storage, and a call to an overridden member reaches the override. One copy of each inherited
+body per derived type is what turns a language with **no dynamic dispatch** into one where `override`
+means something — the choice is made once per type at compile time, which is the same trade
+monomorphisation makes for generics.
+
+Three decisions inside it:
+
+- **A shader's storage is merged; a struct's is copied.** A shader's fields are module-scope globals
+  and a global is a name and a type, so the derived shader lists the same `IrVariable` the base does
+  — exactly what `compose` already did through `MergeInterface`. A struct's fields are reached by
+  *index*, so a derived struct genuinely holds the base's, base-first, and a body reaching one
+  resolves it against the derived layout. That index is what the worst of the three defects was: a
+  derived struct's indices are its own, so reading the inherited `a` emitted a read of `b` —
+  type-correct, accepted by `glslc`, and wrong.
+- **Which copy a call reaches comes from the receiver's static type**, or from the type being emitted
+  for when there is no receiver. `self` is typed as the *declaring* type inside a body, because that
+  is what it was bound against, so a copy has to read it as the type the copy is for — the one place
+  the symbol cannot be taken at face value.
+- **An inherited binding keeps its name; a composed one is qualified.** `MergeInterface` does both,
+  and the difference is not an inconsistency: a composed feature's parameter belongs to the feature,
+  so `Diffuse.strength` is what a host should see, while an inherited field belongs to the type that
+  inherited it and the author who wrote `tint` on a base reads `tint` in the derived shader.
+
+Ordering follows the same split: a shader's own bindings come first and everything it pulls in
+follows — one rule for inheritance and `compose` alike, so a shader's layout does not move when a
+base gains a field. A struct is base-first, so a derived value's prefix is the base's layout.
+
+**What this closes.** The mixin question below is answered: `compose` remains the composition to
+reach for, because it is static, has no dispatch and no indirection, and says *what* a shader needs
+rather than where it came from — but source-declared inheritance now lowers correctly rather than
+being refused, so the two are choices rather than one working mechanism and one trap.
 
 #### Monomorphisation: one copy per instantiation, and none of the definition
 
@@ -1713,30 +1752,34 @@ That last clause was the half that was missing until `Material/` was written: re
 pruning all worked, and a feature with a single parameter emitted GLSL naming an identifier nothing
 declared. See § F for the fix and for the resolution-order defect underneath it.
 
-### ⚠️ The inheritance in that table was never implemented below the symbol layer
+### ✅ The inheritance in that table was not implemented below the symbol layer — now it is
 
 An earlier draft described Raven as already having `shader X : Base, Other` inheritance, on the README's
-word. That was **taken on trust and is false**. Member lookup does walk the base chain, nearest first,
-so the binder accepts inheritance and resolves everything. Lowering never flattens it: a type
-contributes only its *declared* members. Three silent miscompilations came out of that, all now
-`RVN3002`:
+word. That was **taken on trust and was false**. Member lookup did walk the base chain, nearest first,
+so the binder accepted inheritance and resolved everything, while lowering flattened nothing: a type
+contributed only its *declared* members. Three silent miscompilations came out of that, each first
+made `RVN3002` and now **fixed** — see
+[§ Flattening](#flattening-a-derived-type-is-a-context-too):
 
 | Written | What happened |
 |---|---|
-| a derived shader reading an inherited uniform | GLSL naming an **undeclared identifier** — `glslc` rejects it, Raven said nothing. SPIR-V was the only backend that noticed, as `RVN4002` |
-| a derived struct reading an inherited field | **the wrong field.** Access lowers to an index and a derived type's indices are its own, so `d.a` emitted as `d.b` — type-correct, accepted by `glslc`, wrong |
-| `override func` on a derived shader | **dropped.** The base's call was bound to the base's method and its body lowered once, so `Compute()` kept returning the base's value |
+| a derived shader reading an inherited uniform | GLSL named an **undeclared identifier** — `glslc` rejected it, Raven said nothing. SPIR-V was the only backend that noticed, as `RVN4002`. Now the base's binding is one of the derived shader's, merged the way `compose` already merged one |
+| a derived struct reading an inherited field | **the wrong field.** Access lowers to an index and a derived type's indices are its own, so `d.a` emitted as `d.b` — type-correct, accepted by `glslc`, wrong. Now the base's fields are in the derived layout, base-first |
+| `override func` on a derived shader | **dropped.** The base's call was bound to the base's method and its body lowered once, so `Compute()` kept returning the base's value. Now the derived type gets its own copy of the base's body, in which the call reaches the override |
 
-The checks are deliberately narrow. **Inheritance used only to supply a member still works** — a
-stateless base whose method satisfies a protocol that a `compose` slot resolves against lowers
-correctly, and `ComposeTests` covers it. Rejecting every base type would have taken a working
-mechanism down with the broken ones.
+Refusing them was the intermediate step rather than the answer, and the checks were deliberately
+narrow while it lasted: **inheritance used only to supply a member always worked** — a stateless base
+whose method satisfies a protocol that a `compose` slot resolves against lowers correctly, and
+`ComposeTests` covers it. Rejecting every base type would have taken a working mechanism down with
+the broken ones.
 
 #### Should Stride's mixin resolver be built?
 
-**Not now — and the `override` row is why the question is sharper than it looks.** Making `override`
-work *is* the mixin mechanism: a base's callers have to reach the derived member, which means
-flattening, and there is no cheap version of that. Against building it:
+**The smaller half is built; the larger one is still not worth it.** Making `override` work *is* part
+of the mixin mechanism — a base's callers have to reach the derived member, which means flattening —
+and that half landed once monomorphisation showed it was the same machinery over a different axis.
+What is still unbuilt is *choosing the chain per effect*, and the arguments against that are
+unchanged:
 
 - Reimplementing what this document calls *"the least-understood, most-load-bearing part of Stride"* is
   a poor bet.
@@ -1751,9 +1794,8 @@ flattening, and there is no cheap version of that. Against building it:
 The trigger to watch for: write § F's material library against `compose`, protocols, streams and
 non-inheriting shaders, and see what cannot be expressed. The likely candidate is a *chain* of
 surface-modifying features where each needs the previous one's result — which is also what `stream`
-was built for, so try that first. Note the two halves are separable: **flattening a source-declared
-chain** is the smaller one and can land alone, while **choosing the chain per effect** is expensive
-and may never be needed.
+was built for, so try that first. The two halves were separable, as predicted: **flattening a
+source-declared chain** was the smaller one and landed alone.
 
 ## Generated C# bindings
 

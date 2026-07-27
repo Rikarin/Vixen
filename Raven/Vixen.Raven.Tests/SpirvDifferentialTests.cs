@@ -297,6 +297,41 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
 
                             """;
 
+    /// <summary>
+    ///     A flattened inheritance chain: a derived struct holding its base's fields and an
+    ///     override reached from the base's own call. Here because the two emitters see the result
+    ///     — one struct, one call — and this checks they see the same one.
+    /// </summary>
+    const string Inheritance = """
+                               package A
+
+                               struct Base {
+                                   var scale: float
+
+                                   func Scaled(v: float3): float3 => v * scale
+                                   func Describe(v: float3): float3 => Scaled(v)
+                               }
+
+                               struct Derived : Base {
+                                   var bias: float3
+
+                                   override func Scaled(v: float3): float3 => v * scale + bias
+                               }
+
+                               shader S {
+                                   var tint: float4
+
+                                   [PixelShader]
+                                   func Pixel(): float4 {
+                                       var d: Derived
+                                       d.scale = 2f
+                                       d.bias = float3(1, 0, 0)
+                                       return float4(d.Describe(tint.rgb), 1)
+                                   }
+                               }
+
+                               """;
+
     /// <summary>A compute post-process: the pass a storage image exists for.</summary>
     const string PostProcess = """
                                package A
@@ -354,6 +389,7 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     [InlineData("render targets and push constants", Interfaces)]
     [InlineData("compute post-process", PostProcess)]
     [InlineData("monomorphised generics", Generics)]
+    [InlineData("flattened inheritance", Inheritance)]
     public void The_two_paths_agree_on_the_interface(string what, string source) {
         if (!ReferenceCompiler.Available) {
             output.WriteLine($"{what}: {ReferenceCompiler.HowToInstall}");
@@ -435,6 +471,7 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     [InlineData("render targets and push constants", Interfaces)]
     [InlineData("compute post-process", PostProcess)]
     [InlineData("monomorphised generics", Generics)]
+    [InlineData("flattened inheritance", Inheritance)]
     public void A_reference_compiler_accepts_Ravens_GLSL(string what, string source) {
         if (ReferenceCompiler.Glslc is null) {
             output.WriteLine($"{what}: {ReferenceCompiler.HowToInstall}");

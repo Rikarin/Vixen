@@ -310,18 +310,34 @@ public sealed partial class Lowerer {
     /// </remarks>
     /// <summary>The struct a field lives in, or null when it lives in none.</summary>
     /// <remarks>
-    ///     While an instantiation is being lowered, a field of the open definition belongs to the
-    ///     instantiation's struct: the body names <c>Box&lt;T&gt;.value</c> because that is what was
-    ///     bound, and there is no struct for <c>Box&lt;T&gt;</c> — only for <c>Box&lt;float4&gt;</c>.
+    ///     <para>
+    ///         While a body is being emitted <em>for</em> another type, a field of the type that
+    ///         declared it belongs to that other one's struct. Both features that need this need it
+    ///         for the same reason: the body was bound once, against the declaring type.
+    ///     </para>
+    ///     <para>
+    ///         An instantiation names <c>Box&lt;T&gt;.value</c>, and there is no struct for
+    ///         <c>Box&lt;T&gt;</c> — only for <c>Box&lt;float4&gt;</c>. An inherited body names
+    ///         <c>Base.origin</c>, and the derived struct is where that field actually sits, at an
+    ///         index of the derived layout's choosing.
+    ///     </para>
     /// </remarks>
     IrStructType? StructOf(FieldSymbol field) =>
         field.ContainingSymbol switch {
-            NamedTypeSymbol named when currentInstantiation is { } instantiation
-                && named.Equals(instantiation.OriginalDefinition) => structs.GetValueOrDefault(instantiation),
+            NamedTypeSymbol named when currentSelfType is { } self && Redirects(named, self) =>
+                structs.GetValueOrDefault(self),
             NamedTypeSymbol named => structs.GetValueOrDefault(named),
             TupleTypeSymbol tuple => tuples.GetValueOrDefault(tuple),
             _ => null
         };
+
+    /// <summary>
+    ///     Whether a member of <paramref name="declaring" /> should resolve against
+    ///     <paramref name="self" /> instead.
+    /// </summary>
+    static bool Redirects(NamedTypeSymbol declaring, NamedTypeSymbol self) =>
+        (self as ConstructedNamedTypeSymbol)?.OriginalDefinition.Equals(declaring) == true
+        || IsSelfOrBase(declaring, self);
 
     // --- Operators ---------------------------------------------------------
 
@@ -476,9 +492,36 @@ public sealed partial class Lowerer {
     ///         instantiation.
     ///     </para>
     /// </remarks>
-    IrFunction? ResolveFunction(MethodSymbol callee, MethodSymbol definition) {
-        if (functions.TryGetValue((Canonical(callee), BoundBodyKind.Method), out var instantiated)) {
+    IrFunction? ResolveFunction(MethodSymbol callee, MethodSymbol definition, BoundExpression? receiver) {
+        // An instantiation's member has a symbol of its own, so it is looked up first and by that
+        // symbol; everything below is about a member whose symbol is the *declaring* type's.
+        if (callee is SubstitutedMethodSymbol
+            && functions.TryGetValue((Canonical(callee), BoundBodyKind.Method), out var instantiated)) {
             return instantiated;
+        }
+
+        // Which type's copy the call reaches is decided by the receiver's static type, or — for a
+        // call with no receiver — by the type whose body is being emitted. That is what makes
+        // `override` mean something in a language with no dynamic dispatch: the choice is made once
+        // per derived type at compile time, which is the same trade monomorphisation makes for
+        // generics.
+        // `self` is typed as the *declaring* type inside a body, because that is what it was
+        // bound against — so a copy has to read it as the type the copy is for, not as what the
+        // symbol says. Any other receiver carries its own static type and decides for itself.
+        var owner = receiver is null or BoundSelfExpression
+            ? currentSelfType
+            : receiver.Type as NamedTypeSymbol;
+
+        if (owner is not null && IsSelfOrBase(definition.ContainingType, owner)) {
+            if (FindImplementation(owner, definition) is { } implementation
+                && !ReferenceEquals(implementation, definition)
+                && functions.GetValueOrDefault((implementation, BoundBodyKind.Method)) is { } overridden) {
+                return overridden;
+            }
+
+            if (inherited.GetValueOrDefault((owner, definition, BoundBodyKind.Method)) is { } copy) {
+                return copy;
+            }
         }
 
         return functions.GetValueOrDefault((definition, BoundBodyKind.Method));
@@ -668,7 +711,7 @@ public sealed partial class Lowerer {
             receiver = null;
         }
 
-        if (ResolveFunction(callee, definition) is not { } function) {
+        if (ResolveFunction(callee, definition, receiver) is not { } function) {
             ReportUnsupported(invocation, $"A call to '{method.Name}'");
             return null;
         }
