@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
+using Vixen.Shaders;
 
 namespace Vixen.Rendering.Features;
 
@@ -34,13 +35,24 @@ namespace Vixen.Rendering.Features;
 ///         most common reason a Vulkan renderer ends up slower than the D3D11 one it replaced.
 ///     </para>
 ///     <para>
+///         <strong>One set per frame, from a <see cref="DescriptorAllocator" />, not one set for
+///         ever.</strong> The buffer is recreated when the scene outgrows it, and a set held across
+///         frames would have to be rewritten to point at the new one — which is a write to a set the
+///         frames still in flight are reading, and drivers execute that without a word. The ring is
+///         exactly <see cref="IGraphicsDevice.FramesInFlight" /> deep, so the set this frame writes
+///         is one no frame still in flight can be reading. The <em>buffer</em> needs no such care:
+///         <see cref="IGraphicsDevice" /> defers every destruction until the frames that could
+///         reference the handle have retired, which descriptor writes have no equivalent of.
+///     </para>
+///     <para>
 ///         The directional light is not in the list. It has no position to test against an object,
 ///         so it reaches everything, and paying list traversal for something present in every list is
 ///         paying for nothing — <c>ForwardPlus.rvn</c> takes it as its own uniform for the same
 ///         reason. <see cref="Sun" /> is what a per-frame binder reads.
 ///     </para>
 /// </remarks>
-public sealed class ForwardLightingRenderFeature : SubRenderFeature, IDrawSubFeature {
+public sealed class ForwardLightingRenderFeature
+    : SubRenderFeature, IDrawSubFeature, IPermutationSubFeature, IDisposable {
     /// <summary>How many bytes precede the light array in the block.</summary>
     /// <remarks>
     ///     A <c>uint</c> count followed by twelve bytes of padding, because std140 starts an array of
@@ -51,6 +63,16 @@ public sealed class ForwardLightingRenderFeature : SubRenderFeature, IDrawSubFea
 
     readonly List<RenderLight> lights = [];
     readonly List<int> punctual = [];
+    readonly UploadBuffer<PunctualLightData> scene = new("ForwardLighting.Scene");
+    readonly List<PermutationKey<bool>> keys;
+
+    // One element, reused: the write is the same shape every frame, and the allocator copies it only
+    // when it has to make a key out of it. Building the span from a collection expression here would
+    // put an array per frame in the path the rendering tests assert allocates nothing.
+    readonly DescriptorWrite[] write = new DescriptorWrite[1];
+
+    PunctualLightData[] flattened = [];
+    bool disposed;
 
     int[] chosen = [];
     float[] scores = [];
@@ -61,6 +83,10 @@ public sealed class ForwardLightingRenderFeature : SubRenderFeature, IDrawSubFea
     BufferHandle buffer;
     DescriptorSetLayoutHandle layout;
     DescriptorSetHandle descriptors;
+    DescriptorAllocator? sets;
+
+    /// <summary>Creates the feature, interning its permutation key.</summary>
+    public ForwardLightingRenderFeature() => keys = [ParameterKeys.NewPermutation(false, "Vixen.Clustered")];
 
     /// <inheritdoc />
     public override string Name => "ForwardLighting";
@@ -103,6 +129,42 @@ public sealed class ForwardLightingRenderFeature : SubRenderFeature, IDrawSubFea
     /// <summary>The device the light buffer lives on. Set before the first frame that prepares.</summary>
     public IGraphicsDevice? Device { get; set; }
 
+    /// <summary>
+    ///     Whether the scene's lights are culled into a cluster grid instead of into per-object lists.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The switch between the two halves of docs/plan/06's default pipeline, and what it turns
+    ///         off is the interesting part: <strong>clustered lighting has no per-object work at
+    ///         all</strong>. No selection, no block per object, no descriptor bound per draw — the
+    ///         whole per-object path here goes quiet, and what replaces it is one compute dispatch and
+    ///         one buffer every fragment indexes.
+    ///     </para>
+    ///     <para>
+    ///         Which is why it is a permutation rather than a branch: the two variants read different
+    ///         bindings, so a runtime branch would keep the per-draw block alive in a shader that
+    ///         never looks at it. <c>ForwardPlus.rvn</c> says the same thing from the other side.
+    ///     </para>
+    /// </remarks>
+    public bool Clustered { get; set; }
+
+    /// <summary>Every light in the scene, as the culling pass reads them.</summary>
+    /// <remarks>
+    ///     One buffer for the whole scene rather than a list per object, and it is filled whichever
+    ///     path is on — the clustered pass culls it, and a host that wants to inspect what a frame
+    ///     was lit by has one place to look.
+    /// </remarks>
+    public BufferHandle SceneBuffer => scene.Buffer;
+
+    /// <summary>How many lights the scene buffer holds this frame.</summary>
+    public int SceneLightCount => scene.Count;
+
+    /// <inheritdoc />
+    public IReadOnlyList<PermutationKey<bool>> PermutationKeys => keys;
+
+    /// <inheritdoc />
+    public bool ValueOf(RenderSystem system, RenderObjectId id, int index) => Clustered;
+
     /// <summary>Which descriptor set the block is bound to.</summary>
     public DescriptorSetSlot Slot { get; set; } = DescriptorSetSlot.PerDraw;
 
@@ -124,11 +186,23 @@ public sealed class ForwardLightingRenderFeature : SubRenderFeature, IDrawSubFea
     /// <summary>The buffer every object's block lives in.</summary>
     public BufferHandle Buffer => buffer;
 
-    /// <summary>The set that binds it, for a host building a pipeline layout.</summary>
+    /// <summary>This frame's set, valid from the moment <see cref="Prepare" /> has run.</summary>
+    /// <remarks>
+    ///     A different handle most frames, and never one a frame still in flight is reading — see the
+    ///     type's remarks. A host building a <em>pipeline layout</em> wants <see cref="Layout" />,
+    ///     which does not change; nothing should hold this across a frame boundary.
+    /// </remarks>
     public DescriptorSetHandle Descriptors => descriptors;
 
     /// <summary>The layout that set was made from.</summary>
     public DescriptorSetLayoutHandle Layout => layout;
+
+    /// <summary>How many sets the ring has had to create, which settles at frames-in-flight.</summary>
+    /// <remarks>
+    ///     The number a leak test wants. A frame allocates one set; growing the buffer changes what
+    ///     that set says and not how many exist, so a run that grows twice still settles here.
+    /// </remarks>
+    public int SetCount => sets?.SetCount ?? 0;
 
     /// <summary>How many bytes one object's block occupies, alignment included.</summary>
     public int BlockStride => stride;
@@ -186,7 +260,22 @@ public sealed class ForwardLightingRenderFeature : SubRenderFeature, IDrawSubFea
         }
 
         SplitByKind();
+        UploadScene();
+
+        // One tick of the ring per frame, and Prepare is what a frame is here. It has to happen on
+        // both paths: the clustered path allocates no set, and a ring that only advanced on the
+        // frames that did would hand one back while a forward frame in flight was still reading it.
+        Ring().BeginFrame();
+
+        if (Clustered) {
+            // Nothing per object. The cluster grid is what a fragment looks itself up in, so choosing
+            // eight lights for an object here would be work whose answer no shader reads.
+            descriptors = default;
+            return;
+        }
+
         Resize();
+        Rebind();
 
         var assignments = system.Objects.Data.Data(Assignments);
         var objects = system.Objects.All;
@@ -234,7 +323,7 @@ public sealed class ForwardLightingRenderFeature : SubRenderFeature, IDrawSubFea
         ArgumentNullException.ThrowIfNull(system);
         ArgumentNullException.ThrowIfNull(context);
 
-        if (!descriptors.IsValid) {
+        if (Clustered || !descriptors.IsValid) {
             return;
         }
 
@@ -355,6 +444,32 @@ public sealed class ForwardLightingRenderFeature : SubRenderFeature, IDrawSubFea
         return false;
     }
 
+    /// <summary>Flattens every punctual light into the scene buffer, once for the frame.</summary>
+    /// <remarks>
+    ///     Directional lights are left out, exactly as they are left out of a per-object list and for
+    ///     the same reason: the culling pass would put one in every cluster, which is paying list
+    ///     traversal for something always present. The sun is a uniform on both paths.
+    /// </remarks>
+    void UploadScene() {
+        scene.Device = Device;
+        scene.Begin();
+
+        if (punctual.Count == 0) {
+            return;
+        }
+
+        if (flattened.Length < punctual.Count) {
+            flattened = new PunctualLightData[Math.Max(punctual.Count, 64)];
+        }
+
+        for (var i = 0; i < punctual.Count; i++) {
+            flattened[i] = lights[punctual[i]].ToGpu();
+        }
+
+        scene.Add(flattened.AsSpan(0, punctual.Count));
+        scene.Upload();
+    }
+
     void SplitByKind() {
         punctual.Clear();
 
@@ -414,12 +529,25 @@ public sealed class ForwardLightingRenderFeature : SubRenderFeature, IDrawSubFea
         }
 
         if (buffer.IsValid) {
+            // Safe with frames in flight, and it is the only half of this that is: the RHI defers
+            // every destruction until the frames that could still reference the handle have retired,
+            // which is the backend's job precisely because a renderer cannot know when that is. The
+            // set pointing at it has no such deferral, which is why Rebind takes a new one rather
+            // than rewriting the old.
             Device.Destroy(buffer);
         }
 
         buffer = Device.CreateBuffer(
             new(size, BufferUsage.Uniform, MemoryAccess.HostUpload, "ForwardLighting.Lights")
         );
+    }
+
+    /// <summary>Takes this frame's set, pointing at whatever buffer this frame ended up with.</summary>
+    void Rebind() {
+        if (Device is null || !buffer.IsValid) {
+            descriptors = default;
+            return;
+        }
 
         if (!layout.IsValid) {
             layout = Device.CreateDescriptorSetLayout(
@@ -429,16 +557,53 @@ public sealed class ForwardLightingRenderFeature : SubRenderFeature, IDrawSubFea
                     "ForwardLighting"
                 )
             );
-
-            descriptors = Device.CreateDescriptorSet(layout, "ForwardLighting");
         }
 
         // The size is the *block's*, not the buffer's: a dynamic offset names where a block starts and
         // the descriptor says how far it extends. Binding the whole buffer would let a shader read
         // every other object's lights, which validation layers do report and drivers do not.
-        Device.UpdateDescriptorSet(descriptors, [DescriptorWrite.Uniform(Binding, buffer, 0, stride)]);
+        write[0] = DescriptorWrite.Uniform(Binding, buffer, 0, stride);
+        descriptors = Ring().Allocate(layout, write);
     }
+
+    /// <summary>The ring the frame's set comes out of, made on the first frame that needs one.</summary>
+    /// <remarks>
+    ///     Its own rather than one a host hands in, because what ticks it is <see cref="Prepare" />
+    ///     and nothing else — a shared allocator is ticked by whoever owns the frame loop, and a
+    ///     feature that guessed wrong about who that was would recycle a set early. It costs
+    ///     frames-in-flight sets, which is two.
+    /// </remarks>
+    DescriptorAllocator Ring() => sets ??= new(Device!, "ForwardLighting");
 
     static int Align(int value, int alignment) =>
         alignment <= 1 ? value : (value + alignment - 1) / alignment * alignment;
+
+    /// <inheritdoc />
+    public void Dispose() {
+        if (disposed) {
+            return;
+        }
+
+        disposed = true;
+        scene.Dispose();
+
+        // The ring first: it destroys the sets it made, and destroying a layout still named by a set
+        // is the ordering a validation layer complains about.
+        sets?.Dispose();
+        sets = null;
+
+        if (Device is not null) {
+            if (buffer.IsValid) {
+                Device.Destroy(buffer);
+            }
+
+            if (layout.IsValid) {
+                Device.Destroy(layout);
+            }
+        }
+
+        buffer = default;
+        layout = default;
+        descriptors = default;
+    }
 }

@@ -113,8 +113,7 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
         }
 
         var members = ImmutableArray.CreateBuilder<MemberModel>();
-        var skipped = new List<string>();
-        CollectMembers(type, members, skipped);
+        CollectMembers(type, members);
 
         var ordered = members.ToImmutable()
             .Sort(static (left, right) => left.Order != right.Order
@@ -136,11 +135,26 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
             // dropping it.
             //
             // The match is retried afterwards rather than only before, because the two orders answer
-            // two different shapes: a positional record's members are *all* unsettable and are
-            // exactly the constructor's parameters, while a type with a computed property and a
-            // non-default constructor only matches once the computed one is out of the way.
-            ordered = ordered.RemoveAll(member => !member.IsSettable);
-            constructorParameters = MatchConstructor(type, ordered);
+            // two different shapes: a positional record's members are exactly the constructor's
+            // parameters and have to be matched while they are all still present, while a type with
+            // a computed property and a non-default constructor only matches once the computed one
+            // is out of the way.
+            // Computed properties come off first, and stored-but-unassignable members only if that
+            // was not enough. An immutable struct — every type in Vixen.Core.Mathematics — is
+            // `readonly` fields plus a constructor plus a handful of derived properties, and
+            // dropping everything unsettable in one step takes the fields with the properties and
+            // leaves nothing for any constructor to match. That produced a serializer with no
+            // members at all: it wrote two varints and read every component back as zero, silently,
+            // for Vector3 and for every other value type in the engine's mathematics.
+            var stored = ordered.RemoveAll(member => member.IsComputed);
+            constructorParameters = MatchConstructor(type, stored);
+
+            if (!constructorParameters.IsDefault) {
+                ordered = stored;
+            } else {
+                ordered = ordered.RemoveAll(member => !member.IsSettable);
+                constructorParameters = MatchConstructor(type, ordered);
+            }
 
             if (constructorParameters.IsDefault && !parameterless) {
                 return Failed(
@@ -172,13 +186,14 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
     static ContractModel Failed(INamedTypeSymbol type, string qualified, string reason) =>
         new(string.Empty, type.Name, type.Name, [], qualified, SafeName(qualified), false, false, 0, false, false, [], [], reason);
 
-    static void CollectMembers(INamedTypeSymbol type, ImmutableArray<MemberModel>.Builder members, List<string> skipped) {
+    static void CollectMembers(INamedTypeSymbol type, ImmutableArray<MemberModel>.Builder members) {
         // Base first, so that adding a member to a base type appends to the stream rather than
         // shifting everything a derived type wrote.
         if (type.BaseType is { SpecialType: SpecialType.None } baseType) {
-            CollectMembers(baseType, members, skipped);
+            CollectMembers(baseType, members);
         }
 
+        var declaring = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         var sequence = members.Count;
 
         foreach (var member in type.GetMembers()) {
@@ -192,44 +207,71 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
 
             ITypeSymbol memberType;
             bool settable;
+            var initOnly = false;
+            var computed = false;
 
             switch (member) {
                 case IFieldSymbol { IsConst: false } field:
                     memberType = field.Type;
                     settable = !field.IsReadOnly;
+
+                    // A field always stores something, whether or not it can be assigned after
+                    // construction. A `readonly` field on an immutable struct is data that arrives
+                    // through the constructor.
                     break;
 
                 case IPropertySymbol { IsIndexer: false, GetMethod: not null } property
                     when property.Name != "EqualityContract":
                     memberType = property.Type;
-                    settable = property.SetMethod is { DeclaredAccessibility: Accessibility.Public, IsInitOnly: false };
+                    settable = property.SetMethod is { DeclaredAccessibility: Accessibility.Public };
+
+                    // An init-only setter is still a setter; it is only the *language* that refuses
+                    // to call it outside an object initializer, and a deserializer has no object
+                    // initializer to write it in. [UnsafeAccessor] binds to it directly — the same
+                    // way Vixen.Core.Reflection's binder does — so a `{ get; init; }` record is
+                    // ordinary data here rather than a type whose members all silently vanish.
+                    initOnly = settable && property.SetMethod!.IsInitOnly;
+
+                    // A property with no setter *at all* has nowhere to put a value, so it is
+                    // derived from something else that is already being written. `Vector3.Length` is
+                    // the example, and writing it would be writing the same number twice.
+                    computed = property.SetMethod is null;
                     break;
 
                 default:
                     continue;
             }
 
-            members.Add(Describe(member.Name, memberType, settable, OrderOf(member), sequence++));
+            members.Add(Describe(member.Name, memberType, settable, initOnly, computed, declaring, OrderOf(member), sequence++));
         }
     }
 
-    static MemberModel Describe(string name, ITypeSymbol type, bool settable, int order, int sequence) {
+    static MemberModel Describe(
+        string name,
+        ITypeSymbol type,
+        bool settable,
+        bool initOnly,
+        bool computed,
+        string declaring,
+        int order,
+        int sequence
+    ) {
         var qualified = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
         var keyword = Keyword(type) ?? qualified;
 
         if (Primitives.TryGetValue(keyword, out var primitive)) {
-            return new(name, keyword, MemberShape.Primitive, primitive, string.Empty, string.Empty, settable, order, sequence);
+            return new(name, keyword, MemberShape.Primitive, primitive, string.Empty, string.Empty, settable, initOnly, computed, declaring, order, sequence);
         }
 
         if (type.TypeKind == TypeKind.Enum && type is INamedTypeSymbol { EnumUnderlyingType: { } underlying }) {
             var underlyingKeyword = Keyword(underlying) ?? underlying.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            return new(name, qualified, MemberShape.Enum, Primitives[underlyingKeyword], underlyingKeyword, string.Empty, settable, order, sequence);
+            return new(name, qualified, MemberShape.Enum, Primitives[underlyingKeyword], underlyingKeyword, string.Empty, settable, initOnly, computed, declaring, order, sequence);
         }
 
         if (type is IArrayTypeSymbol { Rank: 1 } array) {
             var element = Keyword(array.ElementType) ?? array.ElementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             var shape = Blittable.Contains(element) ? MemberShape.BlittableArray : MemberShape.Array;
-            return new(name, qualified, shape, string.Empty, element, string.Empty, settable, order, sequence);
+            return new(name, qualified, shape, string.Empty, element, string.Empty, settable, initOnly, computed, declaring, order, sequence);
         }
 
         if (type is INamedTypeSymbol { IsGenericType: true } generic) {
@@ -238,20 +280,20 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
 
             switch (definition) {
                 case "global::System.Collections.Generic.List<T>":
-                    return new(name, qualified, MemberShape.List, string.Empty, first, string.Empty, settable, order, sequence);
+                    return new(name, qualified, MemberShape.List, string.Empty, first, string.Empty, settable, initOnly, computed, declaring, order, sequence);
 
                 case "global::System.Collections.Generic.Dictionary<TKey, TValue>":
-                    return new(name, qualified, MemberShape.Dictionary, string.Empty, first, Argument(generic, 1), settable, order, sequence);
+                    return new(name, qualified, MemberShape.Dictionary, string.Empty, first, Argument(generic, 1), settable, initOnly, computed, declaring, order, sequence);
 
                 case "global::System.Nullable<T>":
-                    return new(name, qualified, MemberShape.Nullable, string.Empty, first, string.Empty, settable, order, sequence);
+                    return new(name, qualified, MemberShape.Nullable, string.Empty, first, string.Empty, settable, initOnly, computed, declaring, order, sequence);
 
                 // A content reference is a sealed class, so the ordinary reference path already reads
                 // and writes it. What it needs on top is a registered serializer for its closed
                 // generic, which nothing would otherwise instantiate — see EmitRegistration. The
                 // element type is carried along for exactly that.
                 case "global::Vixen.Core.Serialization.ContentReference<T>":
-                    return new(name, qualified, MemberShape.Reference, string.Empty, first, string.Empty, settable, order, sequence);
+                    return new(name, qualified, MemberShape.Reference, string.Empty, first, string.Empty, settable, initOnly, computed, declaring, order, sequence);
             }
         }
 
@@ -261,7 +303,7 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
             ? MemberShape.Value
             : type.IsSealed ? MemberShape.Reference : MemberShape.Polymorphic;
 
-        return new(name, qualified, otherShape, string.Empty, string.Empty, string.Empty, settable, order, sequence);
+        return new(name, qualified, otherShape, string.Empty, string.Empty, string.Empty, settable, initOnly, computed, declaring, order, sequence);
     }
 
     static string Argument(INamedTypeSymbol generic, int index) {
@@ -427,6 +469,7 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
         EmitSerialize(source, model);
         source.AppendLine();
         EmitDeserialize(source, model);
+        EmitInitAccessors(source, model);
 
         source.AppendLine("    }");
         source.AppendLine("}");
@@ -482,13 +525,7 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
         source.AppendLine("            }");
         source.AppendLine();
 
-        // Assignment where it is possible, because it lets an existing instance be filled rather
-        // than replaced. The constructor is for the two cases where it is not: a member with no
-        // setter — a positional record — and a type with no parameterless constructor.
-        var useConstructor = !model.ConstructorParameters.IsEmpty
-            && (!model.Members.All(member => member.IsSettable) || !model.HasParameterlessConstructor);
-
-        if (useConstructor) {
+        if (UsesConstructor(model)) {
             foreach (var member in model.Members) {
                 source.AppendLine($"            var member_{member.Name} = default({member.TypeName});");
             }
@@ -508,11 +545,78 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
             }
 
             for (var index = 0; index < model.Members.Length; index++) {
-                source.AppendLine($"            if (count > {index}) value.{model.Members[index].Name} = {ReadCall(model.Members[index])};");
+                var member = model.Members[index];
+
+                // An init-only member is assigned through the accessor emitted below, because the
+                // language will not let this file write `value.Foo = ...` for it.
+                var write = member.IsInitOnly
+                    ? $"Init_{member.Name}({(model.IsValueType ? "ref " : string.Empty)}value, {ReadCall(member)})"
+                    : $"value.{member.Name} = {ReadCall(member)}";
+
+                source.AppendLine($"            if (count > {index}) {write};");
             }
         }
 
         source.AppendLine("        }");
+    }
+
+    /// <summary>
+    ///     Assignment where it is possible, because it lets an existing instance be filled rather
+    ///     than replaced. The constructor is for the two cases where it is not: a member with no
+    ///     setter — a positional record — and a type with no parameterless constructor.
+    /// </summary>
+    /// <remarks>
+    ///     An init-only member counts as "not plainly assignable" here even though it is settable,
+    ///     so a positional record still goes through its constructor rather than being default-built
+    ///     and then written into. Both produce the same value; the constructor is the one the type
+    ///     was written to be built by, and it is the one that runs whatever the record does in it.
+    /// </remarks>
+    static bool UsesConstructor(ContractModel model) =>
+        !model.ConstructorParameters.IsEmpty
+        && (!model.Members.All(member => member is { IsSettable: true, IsInitOnly: false })
+            || !model.HasParameterlessConstructor);
+
+    /// <summary>
+    ///     One <c>[UnsafeAccessor]</c> per init-only member the assignment path has to write, bound
+    ///     to the setter the language will not let anyone call.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         This is the same trick <c>Vixen.Core.Reflection</c>'s binder uses, and it is here for
+    ///         the same reason: it is compile-time bound, so it survives trimming and NativeAOT, and
+    ///         it calls the real setter rather than writing round the back of it into a backing
+    ///         field.
+    ///     </para>
+    ///     <para>
+    ///         A value type takes <c>ref</c>, so the write lands in the caller's value rather than in
+    ///         a copy. The receiver is the member's declaring type, not the contract's: an accessor
+    ///         looks its target up on that exact type and does not walk the base chain.
+    ///     </para>
+    /// </remarks>
+    static void EmitInitAccessors(StringBuilder source, ContractModel model) {
+        if (UsesConstructor(model)) {
+            // The constructor takes every member, so nothing is assigned and no accessor is needed.
+            return;
+        }
+
+        foreach (var member in model.Members) {
+            if (!member.IsInitOnly) {
+                continue;
+            }
+
+            var receiver = model.IsValueType ? $"ref {member.DeclaringType}" : member.DeclaringType;
+
+            source.AppendLine();
+            source.AppendLine(
+                "        [global::System.Runtime.CompilerServices.UnsafeAccessor("
+                + "global::System.Runtime.CompilerServices.UnsafeAccessorKind.Method, "
+                + $"Name = \"set_{member.Name}\")]"
+            );
+
+            source.AppendLine(
+                $"        static extern void Init_{member.Name}({receiver} instance, {member.TypeName} value);"
+            );
+        }
     }
 
     static string WriteCall(MemberModel member) =>

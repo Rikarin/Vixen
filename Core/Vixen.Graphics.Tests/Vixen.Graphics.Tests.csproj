@@ -21,5 +21,12 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Graphics\Vixen.Graphics.csproj" />
+
+        <!--
+          The Null backend, for the descriptor-allocator tests. A pool that recycles handles has to be
+          tested against something that hands out real ones and notices when a destroyed one is used
+          again — which a stub written for the test would not.
+        -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
     </ItemGroup>
 </Project>

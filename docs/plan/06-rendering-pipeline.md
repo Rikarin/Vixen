@@ -43,16 +43,49 @@ The three ideas worth keeping verbatim:
 `RenderView`/`RenderStage`, `VisibilityGroup` (parallel CPU frustum culling) and `RenderSystem`
 driving extract → cull → prepare → sort, then recording into per-thread command lists.
 
-`MeshRenderFeature` is the first concrete renderable, with transform, material and forward-lighting
-sub-features — four features, four arrays, and none of them referencing another's data. Lighting was
-added after the other three and changed none of them, which is idea 2 above cashing out rather than
-being asserted.
+`MeshRenderFeature` is the first concrete renderable, with transform, material, forward-lighting,
+skinning and instancing sub-features. None references another's data. Lighting, skinning and
+instancing were each added after the mesh feature and changed nothing in it — instancing changed four
+lines, to pass a draw-call argument it now has a source for. That is idea 2 cashing out rather than
+being asserted, and a **skinned instanced mesh** is the case an inheritance hierarchy needs a class
+for: here it is two independent flags on one object, contributed by two features that do not know
+each other exists.
+
+Sub-features say which shader variant their objects need through `IPermutationSubFeature`, because an
+object is skinned when it has a skeleton and not when a material says so. `MaterialRenderFeature`
+applies the contributions without knowing what contributed them, and resolves **per distinct
+(material, flags) pair** — ten thousand objects over twenty materials, half of them skinned, is forty
+resolutions and ten thousand dictionary lookups.
 
 `Compositor/` is idea 3: `GraphicsCompositor` over a tree of `SceneRenderer`s — a sequence, a render
-pass, a single stage from a single view, a delegate. Its **collect phase runs before the render
-system**, so the frame's view list and every view's stage mask are *derived from the tree* rather
-than set beside it: a stage nothing draws costs no culling, and a stage that is drawn cannot have
-been forgotten in a mask. The tree is data; what is not built is loading one from disk.
+pass, a single stage from a single view, a shadow map, a delegate. Its **collect phase runs before
+the render system**, so the frame's view list and every view's stage mask are *derived from the tree*
+rather than set beside it: a stage nothing draws costs no culling, and a stage that is drawn cannot
+have been forgotten in a mask.
+
+**The compositor declares render-graph passes rather than opening render passes**, which is the
+promise three bullets down finally kept. A node names its targets; the graph sizes them, aliases
+them, places the barriers, derives the store actions and drops the passes nothing needed. `Reads` is
+the load-bearing part: one line orders a pass after the one it samples, puts the barrier between
+them, and keeps that producer from being culled — all three asserted, in both directions. The
+frame's final target is *imported*, because a pass writing an import always survives, which is why
+"the last pass" cannot disappear while an over-specified preset's unused passes cost nothing.
+
+A document therefore owns its targets. `resources:` declares them with a `scale` of the frame rather
+than a pixel size, so a half-resolution chain stays half resolution on a window nobody anticipated —
+the half of "the frame is data" that naming host textures could not express.
+
+And it is a file. `GraphicsCompositorAsset` is the same tree as a serialisable record graph with a
+`[DataContract]` name per node type as its YAML tag, and `CompositorBuilder` turns one into a running
+compositor. **The asset names resources; the host binds the names** — a texture handle belongs to a
+device that did not exist when the file was written — so one authored document runs against a
+swapchain, an offscreen buffer or a test's scratch texture unchanged. A test parses twenty lines of
+YAML and draws a two-pass frame with a two-cascade shadow atlas in it, building no renderer tree in
+C# at all. `Vixen.Rendering` does not reference `Vixen.Core.Yaml`: the model carries `[DataContract]`
+so both generators run over it — the reflection one for the editor's YAML binder and the **binary
+one** for the chunk a content build bakes — and a shipping runtime that loads a baked compositor
+never links a parser. A test round-trips the document through `Serializer` and draws the same frame
+out the far side.
 
 Three things the implementation settled that the sketch above leaves open:
 
@@ -76,6 +109,20 @@ Three things the implementation settled that the sketch above leaves open:
   means depth-written wherever it is drawn. The output holds *formats, not textures*, which is what
   lets the swapchain hand out a new image every frame and the render graph alias transient targets
   without invalidating a single pipeline.
+- **Three per-draw data problems, three mechanisms, and none of them is a descriptor set per draw.**
+  Lighting's fixed-size block uses a dynamic descriptor offset; skinning's variable-length palette
+  uses a push constant holding a base index; instancing uses the draw call's own `firstInstance`,
+  which the API adds into `gl_InstanceIndex` before the shader runs and which therefore costs no
+  binding at all. Reaching for one mechanism for all three would have meant padding every bone
+  palette up to `minStorageBufferOffsetAlignment` and picking a maximum bone count in advance.
+- **A pass's own bindings need a lifetime the RHI does not have**, and
+  `Vixen.Graphics.DescriptorAllocator` is it. A pass sampling the shadow atlas cannot own a set,
+  because the atlas is a graph resource whose handle does not exist until the graph compiles and
+  which may alias different memory next frame. So sets are written after the graph resolves, recycled
+  through a ring exactly `FramesInFlight` deep — shorter is a use-after-free most drivers execute in
+  silence — and shared within a frame by anything asking for the same writes, which is the difference
+  between a set per pass and a set per distinct combination. This is what lets a compositor node bind
+  what it declared instead of handing the host a callback.
 
 A settled frame of 10 000 objects through extract → cull → sort **allocates nothing**, asserted by
 test — the guard against a change that starts allocating per object per frame and surfaces months
@@ -86,8 +133,8 @@ Vixen keeps all three, with these changes:
 - Extraction, culling, and command recording are **job-system parallel by default** rather than
   optionally so, and record into per-thread `CommandList`s.
 - `RenderDataHolder` arrays become `NativeArray<T>` in SoA form, addressed by a dense `RenderObjectId`.
-- Passes are submitted through the **render graph** ([05](05-graphics-rhi.md)), so barriers and
-  transient memory are automatic.
+- ✅ Passes are submitted through the **render graph** ([05](05-graphics-rhi.md)), so barriers and
+  transient memory are automatic. The compositor declares; the graph compiles.
 - **GPU-driven culling** where capabilities allow: object bounds uploaded once, frustum + Hi-Z
   occlusion culling in compute, output an indirect draw buffer. The CPU path remains for GL/WebGL.
 
@@ -121,8 +168,14 @@ Three shipped `GraphicsCompositor` presets, all built from the same features:
 The right default in 2026. Depth prepass → light clustering in compute → single opaque forward pass
 with clustered light lookup → transparent pass → post FX.
 
-- **Clustering:** froxel grid (e.g. 16×9×24 with exponential depth slices), lights binned in compute,
-  per-cluster light index list in a storage buffer. Falls back to tiled (2D) on GLES and to
+- **Clustering:** ✅ froxel grid (16×9×24 with exponential depth slices), lights binned in compute,
+  per-cluster light index list in a storage buffer. `ComputeRenderer` is the compute pass as a
+  compositor node, and the edge that made it possible is the one it declares: compute *writes* the
+  cluster buffer and the shading pass *reads* it, so the graph orders them and places the barrier.
+  The buffer is declared rather than imported, so a cull nothing consumes is dropped with its
+  dispatch, and the node binds what it declared out of the per-frame descriptor allocator rather than
+  through a host callback. Clustered lighting then costs **nothing per object** — no selection, no
+  per-draw block, no descriptor per draw. Falls back to tiled (2D) on GLES and to
   per-object light lists (Stride's `ForwardLightingRenderFeature` approach, max N lights per draw) on
   WebGL2 where compute is absent.
 - **Why default:** MSAA works, transparency works, material variety is unconstrained, memory
@@ -165,10 +218,11 @@ Priority column: **P1** = required for the 1.0 renderer, **P2** = post-1.0.
 | Feature | Pri | Notes |
 |---|---|---|
 | Static mesh | ✅ | `MeshRenderFeature` + `TransformRenderFeature` + `MaterialRenderFeature`. A mesh with three materials is three render objects sharing one pair of buffers, so each sorts into its own place — one object with a submesh list would have to pick one sort key for three pipelines and be drawn at the wrong depth for two of them |
-| Skinned mesh | P1 | GPU skinning, bone matrix palette in a storage buffer, dual-quaternion option |
+| Skinned mesh | ✅ | `SkinningRenderFeature`: palettes packed back to back in one storage buffer, the base index pushed as a constant — no dynamic offset, so no padding to `minStorageBufferOffsetAlignment` and no maximum bone count. The palette is `inverseBindPose * boneWorld` already multiplied: one multiply per bone per frame rather than one per vertex. Dual-quaternion option still P2 |
 | Blend shapes / morph targets | P2 | |
-| GPU instancing | P1 | Stride's `InstancingRenderFeature` model; auto-batched by pipeline+material |
-| LOD groups + cross-fade | P1 | screen-height-based, hysteresis to stop popping |
+| GPU instancing | ✅ | `InstancingRenderFeature`. **The instance offset is a draw-call argument, not a binding** — `firstInstance` is added into `gl_InstanceIndex` before the shader runs, so a batch reaches its own run of one shared buffer with no descriptor, no dynamic offset and no fixed maximum. A batch is culled as one object, so batching by locality is the caller's call |
+| LOD groups | ✅ | `LodRenderFeature`. A group is several render objects and this clears the bits of the levels a view is not showing — after culling, because an object outside the frustum has no screen size, and before sorting, because sorting builds the list a level must be absent from. Per view: a shadow cascade leaves `ScreenHeightScale` at zero and sees every level, since a shadow from a different mesh than its caster stops matching it. Hysteresis is asserted in both directions |
+| LOD cross-fade | ✅ | Both levels visible for the transition, each pushed a weight. **Dither, not blend** — two translucent copies of one object write depth twice and sort against each other, where a dithered discard by weight makes the two levels' surviving pixels tile the silhouette exactly once, which is why the weights summing to one is asserted. Off by default: a fade doubles the draws for every object crossing a threshold |
 | Impostors / billboards | P2 | |
 | Sprites, sprite sheets, 9-slice | P1 | shares the UI batcher |
 | Decals (deferred + forward clustered) | P2 | |
@@ -186,9 +240,10 @@ Priority column: **P1** = required for the 1.0 renderer, **P2** = post-1.0.
 | Ambient / environment (IBL) | P1 | split-sum: prefiltered GGX cube + SH-9 irradiance |
 | Light probes (SH, tetrahedral interpolation) | P1 | Stride has this (`LightProbes`); it is the pragmatic indirect-diffuse answer |
 | Reflection probes (box/sphere projected, blended) | P1 | |
-| Shadow maps: CSM (directional), cube (point), perspective (spot) | P1 | |
+| Shadow maps: CSM (directional) | ✅ | `ShadowMapRenderer` — **a cascade is a view**: four `RenderView`s over one stage, culled and sorted by machinery that knows nothing about shadows, into four tiles of one atlas in one pass. Crawl is fixed at its two sources: a *sphere* fit (so turning does not resize the cascade) and texel snapping (so sub-texel movement gives a bit-identical matrix) |
+| Shadow maps: cube (point), perspective (spot) | ✅ | `PunctualShadowRenderer`. Short where cascades are long, and the reason is worth stating: a punctual light *already is* a volume, so nothing has to be invented from the camera and nothing has to be stabilised. Six 90° frusta tile the sphere exactly — asserted over ten thousand directions, because a seam in a shadow cube is light through a wall along one line. A point light is six tiles and a spot is one, and a light that does not fit is dropped **whole** and counted |
 | Shadow filtering: PCF, PCSS, VSM option | P1 | PCF default, PCSS for soft area shadows |
-| Shadow atlas + caching for static casters | P1 | re-render a cascade only when its content changed |
+| Shadow atlas + caching for static casters | ✅ | Directional cascades. Two things had to be true together: the projection has to stop moving, which `ShadowMapRenderer.Slack` buys by cutting the cascade wider than its slice and keeping it while it still covers one — trading resolution for stability, since the same texels then cover 1.5625× the area at 25%; and the static casters have to be separable, which a second `RenderStage` already is, so no filtering machinery was needed. The cache is redrawn only when a cascade re-fits or the host bumps `StaticVersion`, and `StaticRebuilds` is what makes "it caches" checkable. Punctual lights are still redrawn every frame |
 | Contact shadows (screen-space ray-marched) | P2 | |
 | Baked lightmaps + GI bake | P2 | large; a separate lightmapper tool |
 | SSGI / RTXGI-style probes | P2 | |

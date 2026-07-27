@@ -517,8 +517,55 @@ the codebase is large enough for it to be expensive to fix.
 > unbuildable as written and that document now says so — `ImmutableArray<T>` became `T[]`, and
 > `TargetOverride<T>` became a node-level merge rather than a generic partial record. Reaching
 > `init`-only setters through `[UnsafeAccessor]` was a third prerequisite the plan had not foreseen.
-- `Vixen.Editor.Assets`: `TextureImporter`, `ModelImporter` (Assimp), `AudioImporter`,
+- ✅ `Vixen.Editor.Assets`: `TextureImporter`, `ModelImporter` (Assimp), `AudioImporter`,
   `NativeFormatImporter`, `DefaultImporter`. Out-of-process worker (`Tools/Vixen.AssetCompiler`).
+
+  **`DefaultImporter` already existed under doc 08's name for it.** `RawImporter` is the fallback —
+  verbatim copy, an address for anything nothing else claimed — so this is a note rather than a
+  second class under the other name.
+
+  **`NativeFormatImporter`'s output is the dependency graph, not a conversion.** A `.vxmat` is
+  already in the engine's format; what is *not* already known is what it points at, and without that
+  a material's artefact is correct the day it is built and stale for ever after. It walks the node
+  tree rather than scanning the text, because a GUID in a comment is not a reference and a dependency
+  on one would never change and never break anything — the kind of wrongness with no symptom. What it
+  writes is the document, because the YAML → runtime-chunk step is `MaterialCompiler`'s and putting it
+  here would move the compiler's decisions somewhere the artefact cache key cannot see them.
+
+  **`AudioImporter` brought `Vixen.Audio` into existence** — the clip type alone, because the name is
+  in the chunk and moving it when the backend lands would invalidate every audio artefact ever built.
+  The WAV reader is written rather than taken: a PNG decoder is a compression implementation and a WAV
+  file is a chunk header and then the samples. Four things about that format each cost a test that
+  fails when its line is removed — the chunk walk (a DAW puts `LIST`, `bext` and `cue ` between the
+  header and the samples, and a fixed 44-byte seek reads metadata *as audio*), the odd-length pad
+  byte, 8-bit being unsigned, and `WAVE_FORMAT_EXTENSIBLE` hiding the real format code in a GUID.
+
+  **`ModelImporter` is the first importer that produces more than one thing**, and so the first real
+  consumer of the sub-asset addressing `BuildPlanner` has had since it was written. Every matrix is
+  transposed on the way in: Assimp stores a column-vector matrix row-major and Vixen a row-vector one,
+  so a field-for-field copy assembles every hierarchy inside out — consistently and quietly wrong
+  rather than obviously broken. There is no axis conversion, deliberately; a Z-up file arrives Z-up
+  and correcting it is a rotation an artist can see. Parts name their meshes rather than indexing
+  them, because an exporter reorders meshes whenever a material is added.
+
+  **The worker's promise is crash isolation and not speed.** An importer that *throws* was already
+  caught; one that takes its process down — a malformed FBX inside a C++ library — is not catchable
+  from inside that process. The seam is `IImportExecutor` in `Vixen.Editor.Assets`, so one asset's
+  worth of work crosses the boundary and the cache, the key and the sidecar stay in one copy either
+  side. Doc 08's parallelism is **owed**: the pool runs N workers and `ImportPipeline` hands them one
+  job at a time, because its sequential path-ordered loop is what guarantees a dependent sees its
+  dependency's new artefacts. `--isolated` is therefore off by default.
+
+  **A silent serializer bug was found by needing to write these artefacts.** Every immutable struct
+  in the engine — every type in `Vixen.Core.Mathematics` — generated a serializer with no members at
+  all, because the fallback dropped `readonly` fields along with computed properties and left nothing
+  for a constructor to match; it wrote two varints and read every component back as zero, with no
+  diagnostic, and nothing had ever written a `Vector3` so nothing had noticed. A property with no
+  setter is derived and a `readonly` field is not, so the computed ones now come off first and the
+  match is retried. That is the same failure, in the same place, as the `init`-accessor one the
+  compositor work found independently and fixed through `[UnsafeAccessor]` — which is why `VXS0102`
+  has still never been reported: both of the shapes that hit it are handled rather than warned
+  about.
 - `Vixen.Core.Imaging`: KTX2, BCn/ASTC/ETC2 encoding, mip generation, IBL prefiltering.
 - Content build: compiler DAG, `ObjectDatabase` (file + bundle backends), bundle packer, catalog.
 - `Vixen.Assets` runtime: `AssetHandle`, ref counting, scopes, label/glob loading, streaming manager.
@@ -563,10 +610,10 @@ the codebase is large enough for it to be expensive to fix.
   owed. Platform packaging (APK assets, iOS bundle, `wwwroot`) waits for those platforms; and a
   build-plan diagnostic carries no file, because `ImportDiagnostic` has no path
   field — its messages name the asset in their text, so only the IDE's jump-to-file loses.
-- 🟡 `Vixen.Cli` — **`import`, `content build`, `content serve` and `doctor` are built; `new`, `run`
-  and `build` are not, and are absent rather than stubbed.** The first four are the whole pipeline
+- ✅ `Vixen.Cli` — **every verb the plan names is built**: `import`, `content build`, `content serve`,
+  `doctor`, and now `new`, `build` and `run`. The first four are the whole pipeline
   from a terminal, which is what the phase's own gates need: an incremental import, a deterministic
-  content build, and a laptop a phone can be pointed at. 19 tests, driving the real parser over a
+  content build, and a laptop a phone can be pointed at. 41 tests, driving the real parser over a
   real project on a real disk — including **the determinism gate at the level a person runs it**: two
   builds of one project, byte for byte, catalog and bundles alike.
 
@@ -582,9 +629,22 @@ the codebase is large enough for it to be expensive to fix.
   nothing** — it is the first caller of `ScanOptions.ReadOnly`, which was built for exactly this and
   had none.
 
-  **Owed, with reasons:** `new` needs the `Vixen.Sdk` package layout to scaffold against; `build` and
-  `run` wrap `dotnet publish`, which is [17](17-app-heads-and-shipping.md)'s story and needs the
-  platform packaging that arrives with Android and iOS. `vixen doctor systems` from
+  **`new`, `build` and `run` landed once the two things they were waiting for existed.** `new`
+  scaffolds `<Project Sdk="Vixen.Sdk/x.y.z">` — a template listing package references would be wrong
+  one release later — and `build` runs the content build before `dotnet publish`, which is the whole
+  reason it is a command rather than a note. Verified end to end: `vixen new game` then `vixen run`
+  scaffolds, imports, builds content, publishes and launches the result.
+
+  Two things fell out of doing it. `build` turns the SDK's own import and content steps off, because
+  it has just done them — leaving them on repeats a full scan inside the publish *and* demands the
+  `vixen` tool on the PATH of a process the tool itself started. And the variant travels as
+  `-p:VixenVariant` rather than as the compiler configuration, because doc 17's variants are
+  orthogonal to Debug/Release and a Development build is optimised.
+
+  **Owed, and named:** nothing is signed, notarised or packaged beyond what `dotnet publish` emits, so
+  doc 17's DMG/IPA/AAB table is still Nuke's. The `app`, `plugin` and `tool` templates are not written
+  — `app` is the practical test that `Vixen.Ui` has no `Vixen.Engine` dependency and should wait until
+  there is enough of `Vixen.Ui` to scaffold against. `vixen doctor systems` from
   [04](04-ecs-and-scripting.md) needs a game assembly to load, and the GPU and driver checks would
   put a graphics dependency in a tool that today needs none.
 - 🟡 **The NativeAOT gate** — `nuke CheckAot` publishes every runtime assembly ahead of time with all
@@ -670,7 +730,18 @@ the codebase is large enough for it to be expensive to fix.
   > must.
 - **NativeAOT publish in CI on every PR from here on** — the gate exists (`nuke CheckAotIos`); the CI
   leg does not.
-- `Samples/07-AddressablesRemote`.
+- ✅ `Samples/07-AddressablesRemote` — the phase's remote-content exit criterion, made watchable.
+  Builds content, serves it with the same `Vixen.ContentServer` that `vixen content serve` runs,
+  downloads it into a cold cache, republishes with one asset changed, and downloads again: **144.6 KB
+  then 48.6 KB**, with `characters/hero` reported as a cache hit and every request listed. It fails
+  with a non-zero exit code if the update is not cheaper than the cold start, because a demo that
+  quietly stops demonstrating is worse than none.
+
+  The saving is not diffing: bundles are named by content hash, so an unchanged group builds to
+  identical bytes and therefore to a file the client already has. Five things had to be right and each
+  was wrong first — the README lists them, because each is a trap with a misleading symptom. The best
+  of them: the payload was a run of one repeated byte, LZ4 turned 96 KB into 484, and the measurement
+  became one of the compressor rather than the update.
 
 **Exit:** `Samples/01` runs on a physical Android device and a physical iPhone. 🟡 **It runs on the
 iOS Simulator and the Android emulator** — same game class, one head each, and a screenshot of the
@@ -698,7 +769,33 @@ identity being shipped each fail it. (It also asserts doc 08's own sentence, whi
 checked: the GUID never appears in a shipped build.) Running the comparison across three real runners
 still waits for the CI legs.
 🟡 The import budget is **measured, and it lands on the line rather than under it** — see below.
-Android, iOS and the AOT publish are not started.
+
+🟡 **Both mobile platforms and both AOT gates are built and green**, and the sample runs on the iOS
+Simulator and the Android emulator. What is left is a physical device each, and CI legs for the
+gates — see the bullets above, which supersede the sentence that used to stand here saying none of
+this was started.
+
+✅ **The boot path mounts content**, which is the goal sentence's own word and was the last thing
+missing. `Services.Assets` is an `AssetManager` over the content build the application shipped with,
+found at `/app/Content` — **through the virtual file system rather than through a path**, because
+`IFileSystemHost.ApplicationDirectory` is documented as empty where content is not a directory at
+all, which is an APK's assets and an iOS bundle. Going through `/app` means Android's
+`AAssetManager` answers the same call a desktop directory does.
+
+No content is not an error and a catalog that will not read is reported rather than thrown: a
+sample, a batch tool and a test each have nothing to load, and a catalog truncated by a failed
+download happens in the field to an application that then has to be able to say so.
+`--vixen-loose-content` is honoured, with doc 17 Q5b's other half — the warning repeats every sixty
+seconds, because one line at startup has scrolled away by the time anyone reads a QA build's log.
+
+✅ **The host drives the engine.** `Services.Engine` is an `EngineLoop`, on by default because
+`VixenApp.Run<TGame>()` takes a `Game`, and `config.UseEngine = false` for the heads that want the
+host without a world. Its frame runs *before* `Game.OnUpdate`, which is where an application reads
+the world it is about to render. It is handed the unscaled delta and `TimeScale` separately, because
+passing the scaled value with the scale squares it — and `VixenApplication.TimeScale` reaches both
+clocks, so a paused game owes no simulation steps rather than paying them all at once when the menu
+closes. Nothing had ever checked that the two composed: both were built and tested alone, and
+nothing in the shipping path referenced `Vixen.Engine` at all.
 
 > **The 10 k-asset import budget, measured rather than assumed.** A fixture project of 10 200 assets
 > (1 000 of them real PNGs through `TextureImporter`) imports cold in ~6 s. Changing one texture and

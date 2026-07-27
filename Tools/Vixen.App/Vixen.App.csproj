@@ -22,6 +22,24 @@
         <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Diagnostics\Vixen.Core.Diagnostics.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.IO\Vixen.Core.IO.csproj" />
+
+        <!--
+          The content the application loads. A host that could not open a catalog left every game to
+          stand up the catalog, the bundle source and the manager itself, which is what Samples/07
+          does by hand and what a game should not have to. Vixen.Assets is runtime-profile and
+          AOT-clean — it is already rooted in Tools/Vixen.AotProbe.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Assets\Vixen.Assets.csproj" />
+
+        <!--
+          The world, the systems, the behaviours and the fixed-step accumulator. A Game with a world
+          is what this host exists for, so it builds one unless AppConfig.UseEngine says otherwise —
+          which is what a tool head, a server with its own loop, or a UI-only app head says.
+
+          Note what this is not: it is not a licence for Vixen.Ui to reference Vixen.Engine. That
+          boundary is about Vixen.Ui and CheckArchitecture still enforces it.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Engine\Vixen.Engine.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Platform\Vixen.Platform.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />

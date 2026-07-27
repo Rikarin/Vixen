@@ -3,8 +3,39 @@
 
 using Vixen.Core;
 using Vixen.Core.Yaml.Meta;
+using Vixen.Editor.Assets.Audio;
+using Vixen.Editor.Assets.Models;
+using Vixen.Editor.Assets.Textures;
 
 namespace Vixen.Editor.Assets;
+
+/// <summary>The importers this build of the engine has.</summary>
+/// <remarks>
+///     <para>
+///         <b>One list, in one place, and told rather than discovered.</b> An assembly scan for
+///         <c>[Importer]</c> would read metadata a trimmed publish has already deleted; worse, it
+///         would make "which importers imported this project" a question with a different answer in
+///         the editor, in the CLI and in a worker process.
+///     </para>
+///     <para>
+///         That last one is why this moved out of the CLI. A worker whose registry differs from its
+///         coordinator's produces different artefacts for the same file, and the disagreement shows
+///         up as a cache that never hits — or, worse, as a build whose output depends on how many
+///         cores the machine has.
+///     </para>
+/// </remarks>
+public static class BuiltInImporters {
+    /// <summary>Builds the registry.</summary>
+    /// <returns>Every importer that ships, with <see cref="RawImporter" /> as the fallback.</returns>
+    public static ImporterRegistry Create() =>
+        new ImporterRegistry()
+            .Add(new TextureImporter())
+            .Add(new ModelImporter())
+            .Add(new AudioImporter())
+            .Add(new NativeFormatImporter())
+            .Add(new FolderImporter())
+            .AddFallback(new RawImporter());
+}
 
 /// <summary>Settings for the importer that takes anything nothing else claimed.</summary>
 [DataContract("RawImporter")]

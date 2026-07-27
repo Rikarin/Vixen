@@ -48,6 +48,38 @@ public sealed class VisibilityGroup : IDisposable {
     public ReadOnlySpan<ulong> Words(int viewIndex) =>
         viewIndex >= 0 && viewIndex < perView.Count ? perView[viewIndex].AsSpan() : default;
 
+    /// <summary>
+    ///     Removes an object from a view after culling has run.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The seam a refinement pass needs. Frustum culling answers "could this be seen"; LOD
+    ///         answers "is this the copy that should be", and the second question can only be asked
+    ///         once the first has been — an object outside the frustum has no screen size to measure.
+    ///         So a feature narrows the set rather than replacing the test, which is also why this
+    ///         only ever clears a bit: a pass that could <em>add</em> visibility would be one that
+    ///         could draw something the frustum rejected.
+    ///     </para>
+    ///     <para>
+    ///         Call it between <see cref="RenderSystem.Cull" /> and
+    ///         <see cref="RenderSystem.Sort" />; a feature's <c>Prepare</c> is exactly that window.
+    ///         Hiding after sorting would leave the object in a list something already built.
+    ///     </para>
+    /// </remarks>
+    public void Hide(int viewIndex, RenderObjectId id) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (viewIndex < 0 || viewIndex >= perView.Count || id.Index < 0) {
+            return;
+        }
+
+        var word = id.Index >> 6;
+
+        if (word < perView[viewIndex].Length) {
+            perView[viewIndex][word] &= ~(1UL << (id.Index & 63));
+        }
+    }
+
     /// <summary>How many objects are visible in a view.</summary>
     public int VisibleCount(int viewIndex) {
         var total = 0;

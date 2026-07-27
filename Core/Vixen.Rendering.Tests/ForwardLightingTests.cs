@@ -143,6 +143,54 @@ public class ForwardLightingTests : IDisposable {
         return list;
     }
 
+    /// <summary>A colour target to record into, made once so a frame loop creates no resources.</summary>
+    TextureViewHandle Target() =>
+        device.CreateTextureView(
+            device.CreateTexture(
+                new() {
+                    Width = 16, Height = 16, Depth = 1,
+                    MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
+                    Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.ColourTarget
+                }
+            )
+        );
+
+    /// <summary>Runs one whole frame and returns the set every draw in it bound.</summary>
+    /// <remarks>
+    ///     Between <see cref="NullDevice.BeginFrame" /> and <see cref="NullDevice.EndFrame" />
+    ///     because the question this answers is about frames in flight, and a test that never opened
+    ///     one would be asking it of nothing.
+    /// </remarks>
+    long Frame(Harness h, TextureViewHandle target) {
+        device.BeginFrame();
+        device.Recorder!.Clear();
+
+        h.System.Draw();
+
+        var list = device.BeginCommandList();
+        list.BeginRenderPass(new([new(target)], name: "Opaque"));
+
+        h.System.Record(
+            h.Camera,
+            h.Opaque,
+            new(list, effects) { Device = device, Output = new([PixelFormat.Rgba8UNorm]) }
+        );
+
+        list.EndRenderPass();
+        list.Finish();
+        device.GraphicsQueue.Submit([list]);
+        device.EndFrame();
+
+        var bound = device.Recorder!
+            .OfKind(RecordedCommandKind.BindDescriptorSet)
+            .Where(command => command.A == (long)DescriptorSetSlot.PerDraw)
+            .Select(command => command.B)
+            .Distinct()
+            .ToArray();
+
+        return Assert.Single(bound);
+    }
+
     /// <inheritdoc />
     public void Dispose() {
         device.Dispose();
@@ -454,5 +502,106 @@ public class ForwardLightingTests : IDisposable {
             .ToArray();
 
         Assert.Equal(4, offsets.Distinct().Count());
+    }
+
+    // --- Growth, and the frames that are still reading -----------------------
+
+    /// <summary>
+    ///     Outgrowing the light buffer takes a new set rather than rewriting one a frame in flight
+    ///     is reading.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The hazard a persistent set has and this one does not. Growth recreates the buffer, so
+    ///         the set has to be made to say something new — and writing that into the set frame
+    ///         <c>f - 1</c> was bound to points a descriptor the GPU is reading at a buffer that has
+    ///         just been destroyed. Most drivers execute it without a word and the validation layers
+    ///         only catch it with synchronisation validation switched on, which is exactly the class
+    ///         of bug that ships.
+    ///     </para>
+    ///     <para>
+    ///         What is asserted is the property rather than the mechanism: <strong>no set is written
+    ///         twice inside a window of <c>FramesInFlight</c> frames</strong>, growth frame included.
+    ///         Every frame writes exactly one set, so a handle appearing twice in such a window
+    ///         <em>is</em> a rewrite of something still in flight. The buffer needs no equivalent
+    ///         check — <see cref="IGraphicsDevice" /> defers destruction until the frames that could
+    ///         reference it have retired, which is the backend's job and not this feature's.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Growing_the_buffer_never_rewrites_a_set_a_frame_in_flight_is_reading() {
+        using var h = Build();
+        var target = Target();
+
+        h.Lighting.Lights.Add(RenderLight.Point(new(0f, 0f, 11f), 60f, new(1f)));
+
+        for (var i = 0; i < 4; i++) {
+            AddMesh(h, new(0f, 0f, 10f));
+        }
+
+        var seen = new List<long>();
+
+        for (var frame = 0; frame < 4; frame++) {
+            seen.Add(Frame(h, target));
+        }
+
+        var before = h.Lighting.Buffer;
+        var growth = seen.Count;
+
+        // Past the high-water mark the first sizing left, which was room for sixty-four objects.
+        for (var i = 0; i < 80; i++) {
+            AddMesh(h, new(0f, 0f, 10f));
+        }
+
+        for (var frame = 0; frame < 4; frame++) {
+            seen.Add(Frame(h, target));
+        }
+
+        // The premise: it really did grow, and on the frame the assertions below are about.
+        Assert.NotEqual(before, h.Lighting.Buffer);
+
+        var inFlight = seen.GetRange(growth - (device.FramesInFlight - 1), device.FramesInFlight - 1);
+        Assert.DoesNotContain(seen[growth], inFlight);
+
+        for (var first = 0; first + device.FramesInFlight <= seen.Count; first++) {
+            var window = seen.GetRange(first, device.FramesInFlight);
+            Assert.Equal(window.Count, window.Distinct().Count());
+        }
+    }
+
+    /// <summary>Growth costs no sets and no buffers that are never given back.</summary>
+    /// <remarks>
+    ///     The other half of recycling. A ring that took a fresh set every frame would be correct and
+    ///     would also allocate one per frame for ever, so the leak assertion is what makes "recycled"
+    ///     mean something: the count settles at frames-in-flight and growth does not move it.
+    /// </remarks>
+    [Fact]
+    public void Growth_settles_at_frames_in_flight_sets_and_leaks_no_buffers() {
+        using var h = Build();
+        var target = Target();
+
+        h.Lighting.Lights.Add(RenderLight.Point(new(0f, 0f, 11f), 60f, new(1f)));
+        AddMesh(h, new(0f, 0f, 10f));
+
+        for (var frame = 0; frame < 4; frame++) {
+            Frame(h, target);
+        }
+
+        for (var i = 0; i < 80; i++) {
+            AddMesh(h, new(0f, 0f, 10f));
+        }
+
+        for (var frame = 0; frame < 4; frame++) {
+            Frame(h, target);
+        }
+
+        var settled = device.LiveResourceCount;
+
+        for (var frame = 0; frame < 16; frame++) {
+            Frame(h, target);
+        }
+
+        Assert.Equal(device.FramesInFlight, h.Lighting.SetCount);
+        Assert.Equal(settled, device.LiveResourceCount);
     }
 }

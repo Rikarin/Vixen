@@ -21,9 +21,40 @@
         <ProjectReference Include="..\Vixen.Core.Collections\Vixen.Core.Collections.csproj" />
         <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
         <ProjectReference Include="..\Vixen.Core.Memory\Vixen.Core.Memory.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
         <ProjectReference Include="..\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
         <ProjectReference Include="..\Vixen.Graphics\Vixen.Graphics.csproj" />
+
+        <!--
+          The compositor declares render-graph passes rather than opening render passes itself, so
+          barriers, transient memory and pass culling are the graph's rather than every node's. See
+          Compositor/RenderPassRenderer.
+        -->
+        <ProjectReference Include="..\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
         <ProjectReference Include="..\Vixen.Shaders\Vixen.Shaders.csproj" />
+
+        <!--
+          The compositor asset's model types are [DataContract]s of this assembly's own, so it runs
+          the descriptor generator over itself — the same arrangement Vixen.Core.Yaml uses for the
+          .meta model, and for the same reason: analyzers do not flow through a ProjectReference.
+
+          Note what is *not* here: Vixen.Core.Yaml, and therefore YamlDotNet. The model is a plain
+          serialisable record graph; which file format it is read from belongs to whoever reads it,
+          so a shipping runtime that loads a baked compositor never links a YAML parser.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
+          And the binary serializer over the same types, which is what makes a compositor *content*:
+          the editor writes YAML, the content build bakes a chunk, and the runtime reads the chunk
+          through AssetManager with no parser linked in at all.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>

@@ -1,6 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
+using Vixen.Graphics;
+using Vixen.Graphics.RenderGraph;
+using Vixen.Shaders;
+
 namespace Vixen.Rendering.Compositor;
 
 /// <summary>
@@ -75,31 +80,117 @@ public sealed class GraphicsCompositor(RenderSystem system) {
         view.Stages |= stage.Mask;
     }
 
+    /// <summary>Textures the host lends the frame, by the name the tree refers to them by.</summary>
+    /// <remarks>
+    ///     The swapchain image, and anything that has to outlive a frame — a cached shadow atlas, a
+    ///     history buffer for temporal antialiasing. Everything else should be declared instead, so
+    ///     the graph can size it, alias it and drop it.
+    /// </remarks>
+    public Dictionary<string, ImportedTexture> Imports { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Buffers the host lends the frame, by name.</summary>
+    /// <remarks>
+    ///     A scene's light list and the cluster list a compute pass writes into it. Imported rather
+    ///     than declared because the host filled the first before the frame began and owns both, and
+    ///     because a buffer a later frame reads is by definition not transient.
+    /// </remarks>
+    public Dictionary<string, ImportedBuffer> BufferImports { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Transient resources the frame declares, by name.</summary>
+    /// <remarks>
+    ///     Filled by <see cref="CompositorBuilder" /> from the asset's <c>resources</c>, or by a host
+    ///     building a tree in code. They are the graph's to allocate, which means two whose lifetimes
+    ///     do not overlap can be the same memory.
+    /// </remarks>
+    public IList<RenderResourceAsset> Resources { get; } = [];
+
+    /// <summary>Transient buffers the frame declares, by name.</summary>
+    public IList<RenderBufferAsset> BufferResources { get; } = [];
+
+    /// <summary>The frame's reference size, which a scaled resource is a fraction of.</summary>
+    public Int2 FrameSize { get; set; } = new(1, 1);
+
     /// <summary>
-    ///     Runs a whole frame: collect, then the render system's phases, then record.
+    ///     Runs a whole frame: collect, the render system's phases, then declare the graph's passes.
     /// </summary>
     /// <remarks>
-    ///     The three in this order and not another. Collect must precede culling because it is what
-    ///     decides what is culled; recording must follow sorting because it is what consumes the
-    ///     order. See <see cref="RenderSystem.Draw" /> for the same argument one level down.
+    ///     <para>
+    ///         The three in this order and not another. Collect must precede culling because it is
+    ///         what decides what is culled; building must follow sorting because a pass body draws
+    ///         the order sorting produced. See <see cref="RenderSystem.Draw" /> for the same argument
+    ///         one level down.
+    ///     </para>
+    ///     <para>
+    ///         Nothing is recorded here. The caller executes the graph, which is what places the
+    ///         barriers, allocates the transients and drops the passes nothing needed — and which is
+    ///         also the seam a caller uses to inspect a frame before it runs it.
+    ///     </para>
     /// </remarks>
-    public void Draw(RenderDrawContext context) {
-        ArgumentNullException.ThrowIfNull(context);
+    public CompositorFrame Build(RenderGraph graph, EffectSystem effects, IGraphicsDevice? device = null) {
+        ArgumentNullException.ThrowIfNull(graph);
+        ArgumentNullException.ThrowIfNull(effects);
 
-        if (Game is not { Enabled: true }) {
-            return;
+        var frame = new CompositorFrame {
+            Graph = graph,
+            Effects = effects,
+            Device = device,
+            Size = FrameSize
+        };
+
+        foreach (var (name, imported) in Imports) {
+            frame.Add(
+                name,
+                graph.ImportTexture(
+                    imported.Texture,
+                    imported.View,
+                    imported.Description,
+                    imported.EntryState,
+                    imported.ExitState
+                ),
+                imported.Description.Format
+            );
         }
 
-        Collect();
-        System.Draw();
-        Game.Draw(this, context);
+        foreach (var (name, imported) in BufferImports) {
+            frame.Add(
+                name,
+                graph.ImportBuffer(imported.Buffer, imported.Description, imported.EntryState, imported.ExitState)
+            );
+        }
+
+        foreach (var declared in Resources) {
+            // An import of the same name wins. A host that has a real texture for something the
+            // document also describes — a scene colour that is the swapchain image in one preset and
+            // an offscreen buffer in another — should not have to edit the document to say so.
+            if (frame.Has(declared.Name)) {
+                continue;
+            }
+
+            frame.Add(declared.Name, graph.CreateTexture(declared.Describe(FrameSize)), declared.Format);
+        }
+
+        foreach (var declared in BufferResources) {
+            if (frame.HasBuffer(declared.Name)) {
+                continue;
+            }
+
+            frame.Add(declared.Name, graph.CreateBuffer(declared.Describe()));
+        }
+
+        if (Game is { Enabled: true }) {
+            Collect();
+            System.Draw();
+            Game.Build(this, frame);
+        }
+
+        return frame;
     }
 
     /// <summary>Runs the collect phase alone and hands the views to the render system.</summary>
     /// <remarks>
-    ///     Separate from <see cref="Draw" /> for the caller that wants the phases on its own job
-    ///     graph — collect on the main thread, the system's phases as jobs, recording on several
-    ///     threads at once. It is the same sequence either way.
+    ///     Separate from <see cref="Build" /> for the caller that wants the phases on its own job
+    ///     graph — collect on the main thread, the system's phases as jobs, building afterwards. It
+    ///     is the same sequence either way.
     /// </remarks>
     public void Collect() {
         if (Game is not { Enabled: true }) {

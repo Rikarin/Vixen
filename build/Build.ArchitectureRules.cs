@@ -38,8 +38,11 @@ partial class Build {
     ///     ADR-015: ImageSharp is import-time only. Its licence is fine for tooling and its API is
     ///     excellent, but a runtime assembly that references it drags a large managed image codec
     ///     into every shipped game, for a job the runtime does not do — shipped textures are KTX2.
+    ///     Assimp is here for the same reason and more emphatically: it is a large C++ library that
+    ///     reads two dozen authoring formats, and a player loads the meshes the content build has
+    ///     already produced.
     /// </summary>
-    static readonly string[] EditorOnlyPackages = ["SixLabors.ImageSharp"];
+    static readonly string[] EditorOnlyPackages = ["SixLabors.ImageSharp", "Silk.NET.Assimp"];
 
     Target CheckArchitecture => definition => definition
         .Description("Fails on a layer violation, a banned IL-rewriting package, or editor-only code in a runtime assembly")

@@ -6,7 +6,9 @@ using Vixen.Core.IO;
 using Vixen.Core.Serialization.Storage;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Assets;
+using Vixen.Editor.Assets.Audio;
 using Vixen.Editor.Assets.Content;
+using Vixen.Editor.Assets.Models;
 using Vixen.Editor.Assets.Textures;
 using Vixen.Editor.Core;
 
@@ -115,16 +117,12 @@ public sealed class Project {
 
     /// <summary>Which importers this build of the tool has.</summary>
     /// <remarks>
-    ///     Told, never discovered. An assembly scan would read metadata a trimmed publish has already
-    ///     deleted, and would make "which importers imported this project" a question with different
-    ///     answers in the editor and here. This list is the answer, and it is short because Phase 3
-    ///     has one real importer in it.
+    ///     <see cref="BuiltInImporters" />'s list and not a second one. The worker processes
+    ///     <c>Tools/Vixen.AssetCompiler</c> starts build their registry from the same call, because a
+    ///     worker with a different set produces different artefacts for the same file — and that
+    ///     shows up as a cache that never hits, or as a build whose output depends on the machine.
     /// </remarks>
-    public static ImporterRegistry Importers() =>
-        new ImporterRegistry()
-            .Add(new TextureImporter())
-            .Add(new FolderImporter())
-            .AddFallback(new RawImporter());
+    public static ImporterRegistry Importers() => BuiltInImporters.Create();
 
     /// <summary>The build target to assume when nobody said.</summary>
     /// <remarks>

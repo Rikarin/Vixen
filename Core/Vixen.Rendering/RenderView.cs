@@ -47,6 +47,25 @@ public sealed class RenderView(string name) {
     /// </remarks>
     public float MaximumDistance { get; set; }
 
+    /// <summary>
+    ///     Multiply by <c>radius / distance</c> to get the fraction of the viewport's height an
+    ///     object covers. Zero disables screen-size work — LOD selection — for this view.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         One number rather than a field of view and a viewport, because that is all any
+    ///         consumer wants: for a perspective view it is <c>1 / tan(fov / 2)</c>, and the whole
+    ///         projection reduces to it. It is a fraction rather than pixels so that a LOD threshold
+    ///         authored on one screen means the same thing on another.
+    ///     </para>
+    ///     <para>
+    ///         Zero by default, which is the setting a shadow cascade and a probe face want: choosing
+    ///         a different mesh for a shadow than for the object casting it makes the shadow stop
+    ///         matching its caster, and nobody authoring LOD thresholds was thinking about the sun.
+    ///     </para>
+    /// </remarks>
+    public float ScreenHeightScale { get; set; }
+
     /// <inheritdoc />
     public override string ToString() => Name;
 }

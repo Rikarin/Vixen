@@ -9,6 +9,10 @@
         </Description>
         <PackageTags>editor;importer;asset-pipeline;game-engine;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!-- Assimp's binding is a C API of raw pointers. Confined to Models/, and the only place in
+             the repository outside the graphics backends that needs it. -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
     <ItemGroup>
@@ -24,6 +28,14 @@
           for why this is not the ImageSharp doc 01 specified.
         -->
         <PackageReference Include="StbImageSharp" />
+
+        <!--
+          Import-time model reading: FBX, glTF, OBJ, COLLADA. Bindings plus natives, so nothing has
+          to be installed. Editor-only for the same reason as the image codec and more so — a
+          runtime that linked Assimp would carry an FBX parser into every shipped game for a job the
+          runtime does not do. CheckArchitecture enforces that.
+        -->
+        <PackageReference Include="Silk.NET.Assimp" />
     </ItemGroup>
 
     <ItemGroup>
@@ -37,6 +49,14 @@
              is Vixen.Core.Imaging, which is where those decisions can be tested against a spec. -->
         <ProjectReference Include="..\..\Core\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+
+        <!-- The audio importer produces an AudioClip, which is a runtime type for the same reason
+             Ktx2 is: the thing that writes it and the thing that loads it have to be talking about
+             one type, and the type's name is in the chunk. -->
+        <ProjectReference Include="..\..\Core\Vixen.Audio\Vixen.Audio.csproj" />
+
+        <!-- And the model importer produces a ModelData, its meshes, its skeleton and its clips. -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
 
         <!-- The content build emits a catalog, which is a runtime type: the builder and the loader
              have to be talking about the same one. -->

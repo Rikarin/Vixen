@@ -20,5 +20,12 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.App\Vixen.App.csproj" />
+
+        <!-- The content tests write a real bundle and a real catalog, so they need the serializer
+             generated for their own [DataContract] asset. Analyzers do not flow through a
+             ProjectReference. -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 </Project>

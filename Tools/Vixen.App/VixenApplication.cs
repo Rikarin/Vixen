@@ -31,7 +31,11 @@ public sealed class VixenApplication : IDisposable {
     readonly ILogger logger;
     readonly Stopwatch clock = new();
 
+    /// <summary>How often a loose-content build repeats its warning. Doc 17 Q5b says every 60 s.</summary>
+    static readonly TimeSpan LooseContentWarningInterval = TimeSpan.FromSeconds(60);
+
     GameTime time = GameTime.Zero;
+    TimeSpan lastLooseWarning = TimeSpan.Zero;
     long lastTimestamp;
     bool initialised;
     bool stopped;
@@ -47,6 +51,13 @@ public sealed class VixenApplication : IDisposable {
         // everything below it, then the jobs it may have scheduled, then the platform that owns the
         // window those jobs might touch.
         disposables.Add(game);
+
+        // Before the jobs, because its systems may still have work scheduled on them.
+        if (services.Engine is { } engine) {
+            disposables.Add(engine);
+        }
+
+        disposables.Add(services.Content);
         disposables.Add(services.Jobs);
         disposables.Add(services.Platform);
     }
@@ -56,6 +67,25 @@ public sealed class VixenApplication : IDisposable {
 
     /// <summary>The clock, as the last frame saw it.</summary>
     public GameTime Time => time;
+
+    /// <summary>
+    ///     How fast simulated time runs: <c>1</c> for real time, <c>0</c> to pause, above <c>1</c>
+    ///     to fast-forward.
+    /// </summary>
+    /// <remarks>
+    ///     A property rather than a config value, because pausing is something a game does at run
+    ///     time and not something it decides at boot. It reaches both clocks: the host's
+    ///     <see cref="Time" /> and — because the engine is handed the unscaled delta and this
+    ///     separately — the fixed-step accumulator, so a paused game owes no simulation steps rather
+    ///     than accumulating a debt it pays all at once on resume.
+    /// </remarks>
+    public float TimeScale {
+        get => time.TimeScale;
+        set {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            time = time with { TimeScale = value };
+        }
+    }
 
     /// <summary>Whether the loop has been asked to stop.</summary>
     public bool IsStopping =>
@@ -133,9 +163,18 @@ public sealed class VixenApplication : IDisposable {
             HostLog.NoWindow(logger, reason);
         }
 
-        if (Services.Config.LooseContentPath is { } loose) {
+        if (Services.Content is { Assets: { } assets, Root: var root }) {
+            HostLog.ContentMounted(logger, root, assets.Catalog.Entries.Count);
+        } else if (Services.Content.Reason is { } why) {
+            // Not a warning. An application with nothing to load is ordinary — a sample, a batch
+            // tool, a test — and the one line saying so is what turns "my asset was not found" into
+            // a five-second diagnosis.
+            HostLog.NoContent(logger, why);
+        }
+
+        if (Services.Content.IsLoose) {
             // docs/plan/17 Q5b: allowed, and not allowed to be quiet.
-            HostLog.LooseContent(logger, loose);
+            HostLog.LooseContent(logger, Services.Content.Root);
         }
 
         foreach (var argument in Services.Config.UnrecognisedArguments) {
@@ -197,11 +236,50 @@ public sealed class VixenApplication : IDisposable {
             return;
         }
 
+        WarnAboutLooseContent();
+
         Advance();
+
+        // Before the game's own update, which is where an application reads the world it is about
+        // to render. Reading it before it has been stepped renders last frame's positions, which is
+        // the kind of wrong that looks like input lag and gets blamed on everything else.
+        //
+        // Handed the *unscaled* delta and the scale separately, because that is what the loop's own
+        // contract takes: the host has already applied the scale to `time`, and passing the scaled
+        // value with the scale again would square it.
+        Services.Engine?.Frame(time.UnscaledElapsed, time.TimeScale);
+
         game.OnUpdate(time);
         game.OnRender(time);
 
         limiter.Wait(FrameRateLimit());
+    }
+
+    /// <summary>
+    ///     Says again, on a timer, that this build is reading content it did not ship with.
+    /// </summary>
+    /// <remarks>
+    ///     [Doc 17](../../docs/plan/17-app-heads-and-shipping.md) Q5b decides that a release build
+    ///     may be pointed at loose content and <em>refuses to let it be quiet about it</em>: the
+    ///     invariant "release reads only bundles" is being weakened deliberately, and the trade is
+    ///     only acceptable while it is visible. Once at startup is not visible — a build left running
+    ///     overnight in a QA lab scrolled that line away hours ago — so it repeats every minute. The
+    ///     overlay and crash-report stamps doc 17 also asks for arrive with the things that have
+    ///     them.
+    /// </remarks>
+    void WarnAboutLooseContent() {
+        if (!Services.Content.IsLoose) {
+            return;
+        }
+
+        var since = clock.Elapsed - lastLooseWarning;
+
+        if (since < LooseContentWarningInterval) {
+            return;
+        }
+
+        lastLooseWarning = clock.Elapsed;
+        HostLog.LooseContentStill(logger, Services.Content.Root);
     }
 
     /// <summary>Asks the application to stop after the current frame.</summary>
