@@ -82,6 +82,21 @@
       decision without saying so. It does not parse @layer; Vixen reads that one itself.
     -->
     <PackageVersion Include="ExCSS" Version="4.3.2" />
+    <!--
+      Shaping. Doc 09 calls it non-negotiable and it is: nothing else gets Arabic, Indic, emoji
+      clusters and variable fonts right. Verified against this exact version before anything was
+      built on it — docs/plan/spikes/text-harfbuzz/RESULT.md — because it is the first native
+      dependency in the UI stack and Phase 4 exits with a sample running in a browser.
+
+      ⚠ The WebAssembly path is a version-coupled static link. The package ships static archives
+      built by Emscripten 3.1.34 and 3.1.56, and .NET 10 pins Emscripten.3.1.56.Sdk; they match
+      today. A bump of either one has to be checked against the other, and the spike's RESULT.md
+      says so at more length.
+    -->
+    <PackageVersion Include="HarfBuzzSharp" Version="14.2.1.1" />
+    <PackageVersion Include="HarfBuzzSharp.NativeAssets.macOS" Version="14.2.1.1" />
+    <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="14.2.1.1" />
+    <PackageVersion Include="HarfBuzzSharp.NativeAssets.Win32" Version="14.2.1.1" />
   </ItemGroup>
 
   <!-- ===== Platform (docs/plan/01 § dependency register, docs/plan/10) ===== -->

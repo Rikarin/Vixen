@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ui.Text</RootNamespace>
+        <Description>
+            Text for a UI that has to be correct in every script: UAX#29 segmentation, UAX#14 line
+            breaking, UAX#9 bidi, HarfBuzz shaping and an MSDF atlas. Judged by the Unicode
+            Consortium's own conformance suites.
+        </Description>
+        <PackageTags>text;unicode;segmentation;shaping;ui;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The shaper. The managed binding is the API; the three native asset packages are what
+            makes it run on a desktop, and only the matching RID's binary is copied on publish.
+            The mobile and WebAssembly heads bring their own — iOS ships frameworks rather than a
+            dylib, and WASM a static archive that has to be linked, which is why doc 10's app heads
+            reference those directly rather than inheriting them from here.
+        -->
+        <PackageReference Include="HarfBuzzSharp" />
+        <PackageReference Include="HarfBuzzSharp.NativeAssets.macOS" Condition="'$(OS)' != 'Windows_NT'" />
+        <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" Condition="'$(OS)' != 'Windows_NT'" />
+        <PackageReference Include="HarfBuzzSharp.NativeAssets.Win32" Condition="'$(OS)' == 'Windows_NT'" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Ui.Text.Tests" />
+    </ItemGroup>
+
+</Project>

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ui.Styling.Utilities</RootNamespace>
+        <Description>
+            The utility stylesheet generator: design tokens from a config asset, a scanner that finds
+            which utilities a project actually uses, and a VCSS stylesheet emitted into
+            @layer utilities containing only those.
+        </Description>
+        <PackageTags>css;utility;tailwind;design-tokens;ui;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+        <ProjectReference Include="..\Vixen.Ui.Styling\Vixen.Ui.Styling.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Ui.Styling.Utilities.Tests" />
+    </ItemGroup>
+
+</Project>

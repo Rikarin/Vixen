@@ -62,6 +62,31 @@ public sealed class StyleResolver {
     /// <summary>How many elements had to be cascaded.</summary>
     public int Cascades { get; private set; }
 
+    /// <summary>Which properties a child gets from its parent unasked.</summary>
+    /// <remarks>
+    ///     Exposed because a restyle pass has to ask whether a change can reach a child, and the
+    ///     answer is exactly this list. Owned here because the cascade is what applies it.
+    /// </remarks>
+    public InheritedProperties Inherited => inherited;
+
+    /// <summary>Starts a restyle pass, forgetting what the last one shared.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The sharing cache lives for one pass and no longer. Its key describes what an element
+    ///         <i>is</i> — parent, tag, id, classes, state, inline style — and an entry cached before
+    ///         a change knows nothing about the parent having gained a class since. Within a pass the
+    ///         tree is fixed and the key is sound; across passes it is stale.
+    ///     </para>
+    ///     <para>
+    ///         Nothing is lost by that. Sharing's job is to make one pass over a grid cheap, which is
+    ///         entirely within a pass, and the reference identity that survives between passes comes
+    ///         from <see cref="ComputedStyleCache" />, which is never cleared. Working out which
+    ///         entries to evict instead would cost more than rebuilding them and would be one more
+    ///         thing that can be subtly wrong.
+    ///     </para>
+    /// </remarks>
+    public void BeginPass() => shared.Clear();
+
     /// <summary>Resolves an element's style, using the sharing cache where it is sound.</summary>
     /// <param name="tree">The element store.</param>
     /// <param name="element">The element.</param>

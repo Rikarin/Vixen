@@ -364,6 +364,23 @@ The performance-critical part. Naive selector matching is O(elements × rules).
 - **Invalidation**, not recomputation: a class change on an element invalidates only that element's
   computed style plus descendants whose rules could depend on it (determined from the rule set's
   descendant-dependency map). Toggling `.selected` on one row does not restyle the grid.
+
+  ✅ Built. Two bounds, and conflating them is what makes an invalidator either wrong or useless.
+  The **dependency map** bounds what the *rules* reach — and it narrows by the far end's names, so
+  `.selected .cell` reaches the cells rather than the subtree. **Inheritance** bounds what a
+  *changed value* reaches, and no dependency map can see it: the descent continues only while the
+  properties a child would have inherited actually differ. Testing "did anything differ" instead is
+  what makes selecting one row restyle its hundred cells, since a highlight setting `background`
+  cannot possibly reach one.
+
+  So the headline claim holds with a qualifier worth stating: toggling `.selected` restyles **one**
+  element when the rule sets a non-inherited property, and the row plus its cells when it sets an
+  inherited one. The second is not a failure of invalidation — every cell's inherited colour
+  genuinely did change.
+
+  Nothing has to look *upward*, and that is the second thing the `:has()` P2 decision buys after
+  match cost. `:focus-within` looks like an exception and is not: it is stored as element state and
+  set explicitly, so it arrives as an ordinary change.
 - **`ComputedStyle` is immutable, interned, and reference-compared.** Layout reads it and only marks
   itself dirty when the reference changed *and* a layout-affecting property differs.
 
@@ -373,6 +390,27 @@ The performance-critical part. Naive selector matching is O(elements × rules).
 interpolating on a per-property basis (colours in OkLab so gradients and fades look right, lengths
 numerically, transforms decomposed). Springs (`transition: 200ms spring(1, 100, 10)`) as a Vixen
 extension, because game UI wants them and CSS still does not have them.
+
+✅ Built. `Oklab` lives in `Vixen.Core.Mathematics` and is checked against Ottosson's published
+values. `StyleValue` is the typed, interpolatable value — the cascade keeps working on interned
+strings, and only the properties actually being animated get typed, which is what still lets a
+stylesheet carry a property this engine has never heard of.
+
+⚠ **A third thing ExCSS leaves to Vixen.** It expands the `transition` shorthand into longhands
+**only when it recognises every part**, so `transition: opacity 200ms ease-in` arrives as four
+declarations and `transition: opacity 200ms spring(1, 100, 10)` arrives as one unexpanded string.
+Whether the longhands exist therefore depends on whether the author used a Vixen extension. Vixen
+parses the shorthand itself as well as reading the longhands. `@keyframes`, by contrast, ExCSS *does*
+parse, with `from`/`to` normalised — established by probing rather than assumed.
+
+**Springs are solved in closed form**, not integrated, which buys more than accuracy: a value
+depending only on elapsed time cannot drift, so a dropped frame does not change where the spring ends
+up. A spring has no duration of its own, so one is derived — the time by which the oscillation
+envelope decays to a thousandth — which is what lets it sit where CSS expects a timing function
+rather than needing its own integrator plumbed through the animator.
+
+Not built: `animation-name: a, b` runs only the first, and transforms are not decomposed because
+there is no transform property yet.
 
 ### The utility preprocessor (`Vixen.Ui.Styling.Utilities`)
 
@@ -428,13 +466,28 @@ strongly to a monolithic application than to a website.
 **Hot reload of tokens**: changing `vixen.ui.yaml` regenerates utilities and re-resolves `var()`
 values without a restart — a live theme editor becomes trivial, and is a good demo.
 
+✅ Built, apart from the build-step integration and token hot reload, both of which wait on the asset
+pipeline. The generator, the grammar, the variants, the scanner and `@apply` are all there and tested
+against the style engine rather than against expected text.
+
+Two limits that are decisions rather than gaps. `text-` resolves as alignment, then font size, then
+colour, so a colour named `center` or `lg` is unreachable through it — the price of one prefix meaning
+three properties, and worth paying for both `text-lg` and `text-accent` reading right. Two media-query
+variants on one utility (`sm:md:p-4`) are dropped rather than nested, because Vixen's `@media` support
+does not nest.
+
 ## Text (`Vixen.Ui.Text`)
 
 Underestimating text is the classic UI-framework mistake.
 
 - **Shaping**: HarfBuzzSharp. Non-negotiable for ligatures, kerning, Arabic/Hebrew/Indic/Thai, emoji
-  clusters, and variable fonts.
+  clusters, and variable fonts. **Built.** What is Vixen's is not the shaping but the *itemisation*
+  around it — UAX#24 script runs crossed with bidi levels, the direction and script each run is
+  given, the order runs are drawn in, and the cluster-to-character mapping. A correct shaper given
+  the wrong arguments produces wrong glyphs, which is why the gate is an external one.
 - **Bidi**: UAX#9 implementation (or ICU4X bindings if the size cost is acceptable; measure first).
+  **Built**, as Vixen's own — all 91 707 of the Consortium's cases pass, so the ICU4X alternative
+  was never needed and the size cost never paid.
 - **Line breaking**: UAX#14 with a compact rule table; UAX#29 grapheme/word segmentation for cursor
   movement and double-click selection.
 - **Rasterisation**: **MSDF** atlas — multi-channel signed distance fields give crisp text at any
@@ -559,7 +612,7 @@ Details that make it actually work:
 | Grid | Ported WPT (web-platform-tests) CSS Grid cases where they can be expressed without a full browser |
 | Styling | Cascade/specificity/`@layer` order tests against known CSS semantics; selector-matching oracle (bucketed matcher vs. brute-force over randomised trees); style-sharing correctness (shared instances are genuinely identical); invalidation minimality (toggling a class restyles exactly N elements) |
 | Utilities | Candidate extraction over fixture files; each utility family emits the expected declarations; arbitrary values; variant combinations; unused utilities are absent from output |
-| Text | Shaping golden tests per script (Latin/Arabic/Devanagari/Thai/CJK/emoji-ZWJ) against HarfBuzz reference output; line-break conformance against UAX#14 test data; grapheme segmentation against UAX#29 test data; MSDF glyph rendering golden images |
+| Text | Shaping conformance against the Consortium's [text-rendering-tests](https://github.com/unicode-org/text-rendering-tests) — **not** against HarfBuzz reference output, which would be HarfBuzz judging itself and would survive any itemisation bug that handed the shaper the same wrong arguments twice (see [doc 14](14-roadmap.md), 4c); line-break conformance against UAX#14 test data; segmentation against UAX#29; bidi against UAX#9; MSDF glyph rendering golden images |
 | Rendering | Draw-list golden tests (element tree → expected primitive list) — pure CPU, no GPU needed, which makes control rendering unit-testable. Plus golden images per control on the Null/lavapipe path |
 | Input/events | Routing order, capture, focus traversal, gesture recognition state machines |
 | Controls | Per control: keyboard interaction matrix, ARIA-role snapshot, virtualisation (a 10⁶-row grid realises O(viewport) elements), and a golden image in light and dark themes |

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.TextRenderingTestGen</RootNamespace>
+        <IsPackable>false</IsPackable>
+        <Description>
+            Translates the Unicode Consortium's text-rendering-tests into a shaping conformance suite
+            for Vixen.Ui.Text, and copies the fonts those cases need. Run by hand when the reference
+            clone is updated; its output is committed, because CI has no reference clone to generate
+            from.
+        </Description>
+    </PropertyGroup>
+
+</Project>

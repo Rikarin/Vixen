@@ -1,0 +1,334 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Globalization;
+using Vixen.Core.Mathematics;
+
+namespace Vixen.Ui.Styling;
+
+/// <summary>What kind of thing a declaration's value turned out to be.</summary>
+public enum StyleValueKind : byte {
+    /// <summary>Nothing usable — an unparsed value, or one this engine has no reading of.</summary>
+    Unknown,
+
+    /// <summary>A bare number: <c>flex-grow: 2</c>, <c>opacity: 0.5</c>.</summary>
+    Number,
+
+    /// <summary>A length or percentage, with its unit.</summary>
+    Length,
+
+    /// <summary>A colour.</summary>
+    Color,
+
+    /// <summary>An identifier: <c>auto</c>, <c>row</c>, <c>none</c>.</summary>
+    Keyword,
+
+    /// <summary>Several values in sequence: <c>2px 4px</c>, <c>1 1 auto</c>.</summary>
+    List
+}
+
+/// <summary>The units a length can carry.</summary>
+/// <remarks>
+///     Absolute and percentage only. There is no <c>em</c>, <c>rem</c>, <c>vw</c> or <c>vh</c> here,
+///     and their absence is a decision rather than an omission: resolving them needs a context —
+///     the element's own font size, its ancestors', the surface's — that does not exist at parse
+///     time. They belong in the step between the cascade and layout, which is
+///     <c>Vixen.Ui</c>'s to write, and putting a half-resolved <c>em</c> in this type would make
+///     every consumer wonder which half.
+/// </remarks>
+public enum StyleUnit : byte {
+    /// <summary>No unit — a bare number used where a length is expected, which CSS allows only for zero.</summary>
+    None,
+
+    /// <summary>Device-independent pixels.</summary>
+    Pixels,
+
+    /// <summary>A percentage of something the property decides.</summary>
+    Percent,
+
+    /// <summary>Seconds. Durations and delays.</summary>
+    Seconds,
+
+    /// <summary>Degrees. Angles.</summary>
+    Degrees
+}
+
+/// <summary>A declaration's value, parsed far enough to be interpolated.</summary>
+/// <remarks>
+///     <para>
+///         The cascade works on interned strings, and is right to: deciding <i>which</i> declaration
+///         wins needs no opinion about what <c>spring(1, 100, 10)</c> means, and keeping it that way
+///         is what lets a stylesheet carry a property this engine has never heard of. Animation is
+///         the point at which that stops being enough — you cannot interpolate a string — so this is
+///         where the typing happens, once, on the values that are actually being animated.
+///     </para>
+///     <para>
+///         A struct with an overlapping reading rather than a class hierarchy. There is one of these
+///         per animated property per element per frame, and a <c>Number</c> that costs a heap
+///         allocation to represent is a design that stops being usable at exactly the point a UI
+///         gets interesting.
+///     </para>
+/// </remarks>
+public readonly struct StyleValue : IEquatable<StyleValue> {
+    readonly StyleValue[]? items;
+
+    StyleValue(StyleValueKind kind, float number, StyleUnit unit, Color4 colour, int keyword, StyleValue[]? items) {
+        Kind = kind;
+        Number = number;
+        Unit = unit;
+        Color = colour;
+        Keyword = keyword;
+        this.items = items;
+    }
+
+    /// <summary>What kind of value it is.</summary>
+    public StyleValueKind Kind { get; }
+
+    /// <summary>The number, for <see cref="StyleValueKind.Number" /> and <see cref="StyleValueKind.Length" />.</summary>
+    public float Number { get; }
+
+    /// <summary>The unit, for <see cref="StyleValueKind.Length" />.</summary>
+    public StyleUnit Unit { get; }
+
+    /// <summary>The colour, for <see cref="StyleValueKind.Color" />. Linear, not sRGB-encoded.</summary>
+    public Color4 Color { get; }
+
+    /// <summary>The interned identifier, for <see cref="StyleValueKind.Keyword" />.</summary>
+    public int Keyword { get; }
+
+    /// <summary>The parts, for <see cref="StyleValueKind.List" />.</summary>
+    public ReadOnlySpan<StyleValue> Items => items ?? [];
+
+    /// <summary>The value nothing could be made of.</summary>
+    public static StyleValue Unknown => default;
+
+    /// <summary>A bare number.</summary>
+    /// <param name="value">The number.</param>
+    /// <returns>The value.</returns>
+    public static StyleValue FromNumber(float value) =>
+        new(StyleValueKind.Number, value, StyleUnit.None, default, NameTable.None, null);
+
+    /// <summary>A length.</summary>
+    /// <param name="value">The magnitude.</param>
+    /// <param name="unit">Its unit.</param>
+    /// <returns>The value.</returns>
+    public static StyleValue FromLength(float value, StyleUnit unit) =>
+        new(StyleValueKind.Length, value, unit, default, NameTable.None, null);
+
+    /// <summary>A colour.</summary>
+    /// <param name="colour">The colour, linear.</param>
+    /// <returns>The value.</returns>
+    public static StyleValue FromColor(Color4 colour) =>
+        new(StyleValueKind.Color, 0f, StyleUnit.None, colour, NameTable.None, null);
+
+    /// <summary>An identifier.</summary>
+    /// <param name="keyword">Its interned name.</param>
+    /// <returns>The value.</returns>
+    public static StyleValue FromKeyword(int keyword) =>
+        new(StyleValueKind.Keyword, 0f, StyleUnit.None, default, keyword, null);
+
+    /// <summary>A sequence of values.</summary>
+    /// <param name="parts">The parts.</param>
+    /// <returns>The value.</returns>
+    public static StyleValue FromList(StyleValue[] parts) {
+        ArgumentNullException.ThrowIfNull(parts);
+        return new StyleValue(StyleValueKind.List, 0f, StyleUnit.None, default, NameTable.None, parts);
+    }
+
+    /// <summary>Whether two values can be interpolated between.</summary>
+    /// <param name="from">One.</param>
+    /// <param name="to">The other.</param>
+    /// <returns>Whether a midpoint between them means anything.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         Mismatched kinds, mismatched units and keywords are all <i>discrete</i>: CSS says such
+    ///         a transition flips at the halfway mark rather than not happening. So this is not
+    ///         "may this transition" — every transition is allowed — but "is there a value in
+    ///         between", and where there is not, the animator swaps.
+    ///     </para>
+    ///     <para>
+    ///         Mismatched units are the interesting case: <c>width: 100px</c> to <c>width: 50%</c>
+    ///         has a perfectly good midpoint in a browser, which resolves both against the containing
+    ///         block first. Vixen cannot, because resolution happens after the cascade — so it says
+    ///         so and flips, rather than inventing a number.
+    ///     </para>
+    /// </remarks>
+    public static bool CanInterpolate(StyleValue from, StyleValue to) {
+        if (from.Kind != to.Kind) {
+            return false;
+        }
+
+        return from.Kind switch {
+            StyleValueKind.Number or StyleValueKind.Color => true,
+            StyleValueKind.Length => from.Unit == to.Unit,
+            StyleValueKind.List => from.Items.Length == to.Items.Length && EveryPartCan(from, to),
+            _ => false
+        };
+
+        static bool EveryPartCan(StyleValue from, StyleValue to) {
+            for (var i = 0; i < from.Items.Length; i++) {
+                if (!CanInterpolate(from.Items[i], to.Items[i])) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    /// <summary>Interpolates between two values.</summary>
+    /// <param name="from">The value at 0.</param>
+    /// <param name="to">The value at 1.</param>
+    /// <param name="amount">Where between them, which may leave <c>[0, 1]</c>.</param>
+    /// <returns>The interpolated value.</returns>
+    /// <remarks>
+    ///     <paramref name="amount" /> is deliberately not clamped. A spring overshoots, and a
+    ///     <c>cubic-bezier</c> with a control point outside the unit square is legal CSS and
+    ///     overshoots on purpose; clamping here would quietly flatten exactly the motion someone
+    ///     wrote that curve to get.
+    /// </remarks>
+    public static StyleValue Lerp(StyleValue from, StyleValue to, float amount) {
+        if (!CanInterpolate(from, to)) {
+            // Discrete: the change happens at the halfway mark, which is what CSS specifies for
+            // anything with no meaningful midpoint.
+            return amount < 0.5f ? from : to;
+        }
+
+        switch (from.Kind) {
+            case StyleValueKind.Number:
+                return FromNumber(MathUtil.Lerp(from.Number, to.Number, amount));
+
+            case StyleValueKind.Length:
+                return FromLength(MathUtil.Lerp(from.Number, to.Number, amount), from.Unit);
+
+            case StyleValueKind.Color:
+                // Perceptually, per doc 09. A transparent endpoint keeps the other one's hue, so
+                // that fading out does not travel through black — CSS's rule, and the reason it is
+                // applied here rather than in `Oklab.Lerp`, which has no way to know it is a colour
+                // in a stylesheet.
+                return FromColor(Oklab.Lerp(Opaque(from.Color, to.Color), Opaque(to.Color, from.Color), amount));
+
+            case StyleValueKind.List: {
+                var parts = new StyleValue[from.Items.Length];
+                for (var i = 0; i < parts.Length; i++) {
+                    parts[i] = Lerp(from.Items[i], to.Items[i], amount);
+                }
+
+                return FromList(parts);
+            }
+
+            default:
+                return amount < 0.5f ? from : to;
+        }
+
+        static Color4 Opaque(Color4 colour, Color4 other) =>
+            colour.A == 0f ? new Color4(other.R, other.G, other.B, 0f) : colour;
+    }
+
+    /// <inheritdoc />
+    public bool Equals(StyleValue other) {
+        if (Kind != other.Kind) {
+            return false;
+        }
+
+        return Kind switch {
+            StyleValueKind.Number => Number.Equals(other.Number),
+            StyleValueKind.Length => Number.Equals(other.Number) && Unit == other.Unit,
+            StyleValueKind.Color => Color.Equals(other.Color),
+            StyleValueKind.Keyword => Keyword == other.Keyword,
+            StyleValueKind.List => Items.SequenceEqual(other.Items),
+            _ => true
+        };
+    }
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj) => obj is StyleValue other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode() => Kind switch {
+        StyleValueKind.Number => HashCode.Combine(Kind, Number),
+        StyleValueKind.Length => HashCode.Combine(Kind, Number, Unit),
+        StyleValueKind.Color => HashCode.Combine(Kind, Color),
+        StyleValueKind.Keyword => HashCode.Combine(Kind, Keyword),
+        StyleValueKind.List => Items.Length,
+        _ => 0
+    };
+
+    /// <summary>Compares two values.</summary>
+    /// <param name="left">One.</param>
+    /// <param name="right">The other.</param>
+    /// <returns>Whether they are the same value.</returns>
+    public static bool operator ==(StyleValue left, StyleValue right) => left.Equals(right);
+
+    /// <summary>Compares two values.</summary>
+    /// <param name="left">One.</param>
+    /// <param name="right">The other.</param>
+    /// <returns>Whether they differ.</returns>
+    public static bool operator !=(StyleValue left, StyleValue right) => !left.Equals(right);
+
+    /// <summary>Writes the value back as CSS text.</summary>
+    /// <param name="names">The table keywords are interned in.</param>
+    /// <returns>The text.</returns>
+    /// <remarks>
+    ///     What the animator hands back to the cascade, which still works in interned strings.
+    ///     Round-tripping through text rather than threading a typed value through the whole engine
+    ///     is a deliberate trade: it keeps the cascade unaware of types it does not need, and an
+    ///     animated property is a handful per frame rather than the whole stylesheet.
+    /// </remarks>
+    public string ToCss(NameTable names) {
+        ArgumentNullException.ThrowIfNull(names);
+
+        switch (Kind) {
+            case StyleValueKind.Number:
+                return Format(Number);
+
+            case StyleValueKind.Length:
+                return Format(Number) + Unit switch {
+                    StyleUnit.Pixels => "px",
+                    StyleUnit.Percent => "%",
+                    StyleUnit.Seconds => "s",
+                    StyleUnit.Degrees => "deg",
+                    _ => string.Empty
+                };
+
+            case StyleValueKind.Color: {
+                var srgb = Color.ToSrgb();
+                return string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"rgba({Channel(srgb.R)}, {Channel(srgb.G)}, {Channel(srgb.B)}, {Format(Color.A)})"
+                );
+            }
+
+            case StyleValueKind.Keyword:
+                return Keyword == NameTable.None ? string.Empty : names.NameOf(Keyword);
+
+            case StyleValueKind.List: {
+                var parts = new string[Items.Length];
+                for (var i = 0; i < parts.Length; i++) {
+                    parts[i] = Items[i].ToCss(names);
+                }
+
+                return string.Join(' ', parts);
+            }
+
+            default:
+                return string.Empty;
+        }
+
+        static string Format(float value) => value.ToString("0.####", CultureInfo.InvariantCulture);
+
+        static int Channel(float value) => (int) MathF.Round(Math.Clamp(value, 0f, 1f) * 255f);
+    }
+
+    /// <inheritdoc />
+    public override string ToString() => Kind switch {
+        StyleValueKind.Number => Format(Number),
+        StyleValueKind.Length => Format(Number) + Unit,
+        StyleValueKind.Color => Color.ToString(),
+        StyleValueKind.Keyword => "keyword " + Keyword.ToString(CultureInfo.InvariantCulture),
+        StyleValueKind.List => Items.Length.ToString(CultureInfo.InvariantCulture) + " parts",
+        _ => "unknown"
+    };
+
+    static string Format(float value) => value.ToString("0.####", CultureInfo.InvariantCulture);
+}

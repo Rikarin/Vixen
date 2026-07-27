@@ -836,16 +836,238 @@ sub-piece has its own gate.
   `--c: red` arrives as `red`. Every value parser in the property system has to accept both. Doc 09
   records it.
 
-  **Owed:** invalidation, transitions and keyframes.
-- `Vixen.Ui.Styling.Utilities`: token config, candidate scanner, utility grammar, variant system,
-  arbitrary values, `@apply`, generated stylesheet.
+- 🟡 **Invalidation is built and its gate is green.** `StyleInvalidator` derives from the rule set
+  what changing one name on one element can reach; `StyleUpdater` runs the pass, cold or
+  incremental. 90 tests in total for the project.
+
+  **The invalidation-minimality gate is met** — toggling `.selected` on one row of a 100×100 grid
+  restyles exactly one element — and the property that matters more with it: after any sequence of
+  class and state changes, **every** element's computed style equals what a pass from scratch would
+  have produced. Both halves are needed. An invalidator that gave up and restyled everything passes
+  the oracle; one that skipped too much passes the counts by producing a smaller number.
+
+  Two bounds, and conflating them is what makes an invalidator either wrong or useless. The
+  dependency map bounds what the *rules* reach, narrowing by the far end's names so `.selected .cell`
+  reaches the cells and not the subtree. Inheritance bounds what a *changed value* reaches, and no
+  dependency map can see it — the descent continues only while the properties a child would have
+  inherited actually differ. Testing "did anything differ" instead was what made selecting one row
+  restyle its hundred cells, since a highlight setting `background` cannot reach one. Doc 09 now
+  states the qualifier this implies: the one-element claim holds for non-inherited properties, and
+  an inherited one legitimately costs the row and its cells.
+
+  ⚠ **Two of the findings are about the tests, and are the ones worth carrying forward.**
+
+  *An oracle that shares an implementation with its subject is not an oracle.* The incremental
+  oracle first built its cold reference by replaying the same mutations on a second tree. Both sides
+  then reach their final state through the same mutation code, so anything that code gets wrong is
+  wrong identically on both — deleting the ancestor-bloom propagation in `AddClass`, which breaks
+  matching outright, left the property green over three hundred iterations. It builds its tree
+  directly in the final state now.
+
+  *A generator needs a coverage assertion for the same reason a test does.* Every stylesheet the
+  generator produced contained a sibling or position selector, which turns style sharing off for the
+  whole rule set — so a sabotage leaving the sharing cache stale across passes was unreachable by
+  the property meant to catch it. Sharing-safe stylesheets have their own property now, which
+  asserts sharing was enabled before believing what it observed.
+
+  Both were found by sabotage and neither would have been found any other way. Four sabotages run
+  against the final gates; all four fail it.
+
+- 🟡 **Transitions and animations are built.** `Oklab` in `Vixen.Core.Mathematics`, checked against
+  its author's published values; `StyleValue` and its parser; `TimingFunction` with `cubic-bezier`,
+  `steps` and the `spring()` extension; `Animator` running transitions and `@keyframes`. 149 tests
+  in total for the project, plus 10 for Oklab.
+
+  Springs are solved in **closed form** rather than integrated — a value depending only on elapsed
+  time cannot drift, so a dropped frame does not change where it ends up — and are checked against a
+  numerical integration of the differential equation itself, which is two independent routes to the
+  same curve. Interrupting a transition reverses from where the element actually is and takes the
+  half-duration it has left, without which moving a pointer on and off a button drifts further
+  behind every pass.
+
+  ⚠ **A third thing ExCSS leaves to Vixen**, and the pattern is now familiar: it expands the
+  `transition` shorthand only when it recognises every part, so `spring()` — Vixen's own extension —
+  decides whether the longhands exist at all. Vixen parses the shorthand itself as well. By contrast
+  `@keyframes` ExCSS *does* parse, which probing established and assumption would not have.
+
+  Two bugs worth carrying. **A curve solver terminating on the wrong quantity**: inverting a cubic
+  Bézier stopped when the error in *x* was small, which pins nothing where the curve is flat in x —
+  and `cubic-bezier(0, y, 0, y)`, an ordinary slow-start easing, is exactly that near the origin.
+  Found by a property test, and only findable that way: every hand-picked easing passed. **A comma
+  split that cut a function call in half**: `spring(2, 180, 12)` has commas inside it, so the same
+  feature that defeats ExCSS's expansion also defeats a naive split of the shorthand — the same
+  shape as matching braces inside an `@layer` body.
+
+  Also corrects a test-writing habit: `Assert.Equal(x, y, 4)` rounds to four decimals and compares,
+  so a true value sitting on a rounding boundary fails on 3e-7 of float noise. Tolerances, not digit
+  counts.
+
+  **Owed:** several simultaneous animations per element (`animation-name: a, b` runs the first), and
+  transform decomposition, which waits on there being a transform property.
+- ✅ **`Vixen.Ui.Styling.Utilities` is built and its gate is green.** Token config, candidate
+  scanner, utility grammar, variant system, arbitrary values, `@apply`, generated stylesheet.
+  78 tests.
+
+  Everything lands in `@layer utilities`, and that one line is what makes the system behave: a
+  generated `.p-4` is one class and a hand-written `.card .body` is two, so on specificity alone the
+  utility loses every time. The layer settles it declaratively and specificity never enters into it.
+
+  The assertion worth the most is not the family table but the end-to-end one: **a generated utility
+  computes to what the hand-written rule would**, checked by loading the generated sheet into the
+  style engine and resolving an element. That checks the generator against the *engine* rather than
+  against an expectation of the text it ought to produce.
+
+  Two bugs, and one is a repeat. **A bracket-aware search that could never find a bracket** — the
+  parser updated bracket depth in the same `switch` that tested for the separator, so searching for
+  `[` hit the depth-increment arm and returned nothing, and every arbitrary value silently stopped
+  being one. And **a layer test that was asserting document order**: the check that `@layer
+  utilities` loses to an unlayered component rule loaded that rule second, where source order gives
+  the same answer, so it passed with the whole `@layer` wrapper replaced by `@media all`. That is
+  the same mistake the cascade suite's important-origins test made, caught the same way. The lesson
+  is worth stating once more because twice is a pattern: **a test that asserts a winner where the
+  rules differ in more than one respect is testing whichever difference happens to be implemented.**
 - Gate: ✅ selector-matching oracle tests, ✅ style-sharing oracle tests, ✅ cascade/specificity/
-  `@layer` order tests. Owed: invalidation-minimality tests, utility family tests.
+  `@layer` order tests, ✅ invalidation-minimality tests, ✅ utility family tests. **4b is complete.**
 
 **4c — Text (1.0 EM)**
-- HarfBuzz shaping, bidi, UAX#14 line breaking, UAX#29 segmentation, MSDF atlas with LRU eviction,
-  font fallback, rich-text runs, `TextEditor` model with IME.
-- Gate: shaping golden tests per script; UAX conformance data green.
+- ✅ **UAX#29 segmentation is built and the conformance data is green** — all 2 710 of the
+  Consortium's cases, 766 grapheme and 1 944 word, Unicode 17.0.0. Half of 4c's gate is met.
+
+  Sequencing rule 4 applied a second time, and the same bet as the Yoga fixtures: the suite was
+  committed *before* the implementation, excluded from compilation by an ItemGroup whose removal is
+  the next commit's diff. `Tools/Vixen.UnicodeTableGen` produces both the suite and the property
+  tables the implementation reads.
+
+  ⚠ **The finding is a data-modelling one, not a rule one.** `Extended_Pictographic` and
+  `Word_Break` come from different UCD files and *overlap* — U+24C2 is `Word_Break=ALetter` and
+  pictographic at once — so folding them into one sorted range table makes one silently shadow the
+  other, with sort order deciding which. Forty-four cases failed, all containing that one code
+  point. The rules were right the whole time; the mistake was a layer below them, and re-reading
+  UAX#29 would never have surfaced it. **That is what a conformance suite is for.**
+
+  Verified by sabotage: removing regional-indicator pairing fails 6 cases, GB9c fails 16, and WB4 —
+  the rule that makes format characters invisible to every other rule — fails 1 086.
+- ✅ **UAX#14 line breaking is built and its conformance data is green** — all 19 338 of the
+  Consortium's cases. With UAX#29 that is **22 048 conformance cases passing**, and the whole of the
+  "UAX conformance data green" half of 4c's gate.
+
+  It finds *opportunities*, not lines: where a break is permitted and where one is mandatory.
+  Choosing which permitted break to take needs measured widths and is layout's job, and keeping the
+  two apart is what makes the suite applicable at all — it knows nothing about fonts.
+
+  ⚠ **The same class of bug as the UAX#29 finding, four times over.** LB9 gives a combining mark its
+  base's *class*, which is enough for every rule that reads classes and silently wrong for the ones
+  that read identity or position — LB28a names U+25CC by code point, LB15a/LB15b ask whether a
+  quotation mark opens or closes, LB30b asks whether a pictograph is unassigned, LB30a counts
+  regional indicators. A quotation mark followed by a diaeresis stopped being a quotation mark.
+
+  ⚠ **And a comment that disagreed with its own code, twice.** LB15a and LB20a both permit `SP`
+  immediately before them, and both were written to *skip* the spaces and then ask what lay beyond,
+  looking past the answer. One of them carried a comment saying "SP is itself one of the classes the
+  rule allows" above a list that omitted `SP`. Two cases out of nineteen thousand caught it. **A
+  comment is not a test.**
+
+  Also worth recording: LB25 was a regular expression until Unicode 15.1 restated it as pairs, and
+  the pair form is both easier to implement and easier to be sure of — the regex passed most of the
+  suite and failed on `HY × NU`, which has no regex form because a hyphen before a number is not
+  part of the number. Verified by sabotage: removing LB25 or LB9, or mis-resolving `CJ` in LB1, each
+  fails the suite.
+- ✅ **UAX#9 bidi is built and its conformance data is green** — all 91 707 of the Consortium's
+  code-point cases. Paragraph level, per-character levels and visual order are all checked; a level
+  array that is right with a reordering that is wrong is a real and common failure.
+
+  `BidiCharacterTest.txt` rather than `BidiTest.txt`: the first is written in real code points and
+  exercises the property table as well as the algorithm, the second in class names and tests the
+  algorithm alone. Committing both would put fifteen megabytes in the repository to say one thing
+  twice.
+
+  ⚠ **One bug, and it is the third variant of the same mistake.** The implicit rules raise levels
+  *in place*, so everything reading a level for *context* — which run a position belongs to, and the
+  `sos`/`eos` at a sequence's boundaries — must read the explicit rules' output, not what a later
+  rule has since written there. Without the snapshot the isolating run sequences corrupt each other
+  in source order, and the symptom is unrecognisable from the cause: an `LRE` paragraph came out
+  with exactly the levels of the `RLE` one.
+
+  Segmentation had it as "a combining mark inherits its base's class but not its identity"; line
+  breaking had it four times over; bidi has it as "the array you are reading has already been
+  rewritten". **Reading a mutated structure where the unmutated one was meant** — worth naming,
+  because it will happen again.
+
+  ⚠ **The bidi class defaults are not `L`.** `DerivedBidiClass.txt` carries `@missing` lines saying
+  unassigned code points in the Hebrew block are `R` and in the Arabic blocks `AL`, so that a
+  character added tomorrow behaves correctly today. The generator honours them; reading only the
+  explicit ranges would have made every unassigned Arabic code point left-to-right.
+
+  Verified by sabotage: dropping N0's paired brackets, L1's whitespace reset, or I1's two-level bump
+  for numbers each fails the suite.
+- ✅ **HarfBuzzSharp spiked before being built on** —
+  [spikes/text-harfbuzz](spikes/text-harfbuzz/RESULT.md), following sequencing rule 3 as the ExCSS
+  spike did. Doc 01's choice stands. NativeAOT publishes with **zero** IL warnings, which is a
+  stronger result than ExCSS could give since the managed surface is a thin P/Invoke layer the
+  analyzers can see all of. Every target platform has a native asset at the pinned version.
+
+  The risk actually worth spiking was WebAssembly: the package ships *static* archives, so they must
+  be linked by the same Emscripten the .NET WASM build uses. It ships 3.1.34 and 3.1.56, and .NET 10
+  pins `Emscripten.3.1.56.Sdk`. They match. ⚠ Recorded as unverified rather than claimed — no WASM
+  link was performed, because `wasm-tools` is not installed on the machine, so this is read from two
+  manifests rather than demonstrated. **Carry forward: the WASM path is a version-coupled static
+  link, so a bump of either HarfBuzzSharp or the SDK has to be checked against the other.**
+
+  One design consequence, and it validates the order this phase took: HarfBuzz shapes one run at a
+  time and wants runs already itemised by direction, then script, then font — so bidi comes first,
+  which is what was just built. Shaping written first would have been written against a run model
+  that did not exist.
+- ✅ **Shaping is built, and it is judged by somebody else's cases rather than by HarfBuzz's own.**
+  328 of the Consortium's 413
+  [text-rendering-tests](https://github.com/unicode-org/text-rendering-tests) shaping cases pass —
+  Arabic in Nastaliq, Balinese, Kannada, Tai Tham, and the GSUB/GPOS/KERN/CMAP tables shaping is
+  made of. `Tools/Vixen.TextRenderingTestGen` ports them; sequencing rule 4 for the fourth time,
+  suite before implementation.
+
+  ⚠ **The gate this doc asked for was unbuildable as written.** "Shaping golden tests per script
+  against HarfBuzz reference output" is HarfBuzz judging itself: Vixen writes no shaping algorithm,
+  so that comparison stays green through any mistake that hands the shaper the same wrong arguments
+  twice. What Vixen owns is the itemisation — which runs, what direction, what script, what order,
+  and how a glyph maps back to a character — and the Consortium's expectations, written by hand
+  from the OpenType specification, are sensitive to exactly that. **The gate is restated as
+  external-oracle shaping conformance**, which is stronger than what was asked for and is the same
+  bet as the Yoga fixtures and the UAX suites.
+
+  Verified by sabotage, and this is the evidence that the suite tests Vixen and not only HarfBuzz:
+  shaping every run as Latin fails **203** cases, forcing every run left to right fails **6**, and
+  giving spaces and punctuation runs of their own fails **2** — one of which is the case the
+  Consortium named *Space Isn't Nothing*, which exists for that mistake and catches it by name.
+
+  ⚠ **The same sabotage found the hole, which is the more useful half.** Shaping each run *without
+  the text around it* fails **nothing**: every case in the suite is a single run and so has no
+  neighbour to lose. That context decides whether an Arabic letter joins, and losing it also makes
+  every cluster index relative to the run rather than to the text — an off-by-three in every caret
+  and hit test downstream. Four hundred external cases cannot see either; `ShapingTests` covers what
+  they miss. **A gate is only a gate for what it can observe, and finding out which half that is
+  cost one sabotage run.**
+
+  ⚠ **The 85 failures are HarfBuzz's, and they are pinned case by case rather than excused.** The
+  test fails if a quarantined case starts *passing* just as loudly as if a healthy one starts
+  failing. Listing them by group would have been four lines instead of eighty — and would have
+  hidden the 131 Tai Tham cases that now pass: the Consortium's own 2023 report for HarfBuzz fails
+  all 209 of them, and at 14.2.1.1 only 78 still do. A group-level rule would have thrown that away
+  silently and gone on doing so.
+
+  Two findings worth carrying. The suite's positions are in a **1000-unit em**, not the font's, so
+  nine of the fourteen fonts have expectations scaled by 1000/2048 — compared naively, every case
+  with two or more glyphs fails by a factor of 2.048 while every single-glyph case passes, which
+  reads as a shaping bug rather than a units one. And a **bracket that opens before the first
+  letter** remembers a script that does not exist yet, so `(ಲ್ಲಿ)` came out as Kannada followed by a
+  one-character run of nothing in particular; backfilling the leading characters was not enough, the
+  bracket stack had to be backfilled too.
+
+  Shaping is held at **design-unit scale and never at a pixel size** — HarfBuzz's OpenType path has
+  no hinting, so a string shapes identically at every size. That is what will make the shaping cache
+  size-independent rather than one entry per string per DPI scale.
+- Owed: MSDF atlas with LRU eviction, the shaping cache, font fallback, rich-text runs, variable-font
+  axes, `TextEditor` model with IME.
+- Gate: ✅ UAX conformance data green. ✅ shaping conformance green against an external oracle,
+  with the quarantine pinned in both directions.
 
 **4d — Element tree, markup, rendering (1.5 EM)**
 - `Vixen.Ui`: element tree, generated property system, event routing, focus, hit testing, gestures,
