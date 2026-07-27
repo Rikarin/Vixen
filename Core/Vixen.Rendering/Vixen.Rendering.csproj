@@ -25,6 +25,13 @@
         <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
         <ProjectReference Include="..\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
         <ProjectReference Include="..\Vixen.Graphics\Vixen.Graphics.csproj" />
+
+        <!--
+          The compositor declares render-graph passes rather than opening render passes itself, so
+          barriers, transient memory and pass culling are the graph's rather than every node's. See
+          Compositor/RenderPassRenderer.
+        -->
+        <ProjectReference Include="..\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
         <ProjectReference Include="..\Vixen.Shaders\Vixen.Shaders.csproj" />
 
         <!--

@@ -68,16 +68,10 @@ public sealed class CompositorBindingException : Exception {
 /// </remarks>
 public sealed class CompositorBuilder(RenderSystem system) {
     /// <summary>The schema version this builder understands.</summary>
-    public const int SupportedVersion = 1;
+    public const int SupportedVersion = 2;
 
     /// <summary>Views a node may draw from, by the name the asset uses.</summary>
     public Dictionary<string, RenderView> Views { get; } = new(StringComparer.Ordinal);
-
-    /// <summary>Colour attachments a pass may render into, by name.</summary>
-    public Dictionary<string, ColourTargetBinding> ColourTargets { get; } = new(StringComparer.Ordinal);
-
-    /// <summary>Depth attachments a pass or a shadow atlas may render into, by name.</summary>
-    public Dictionary<string, DepthTargetBinding> DepthTargets { get; } = new(StringComparer.Ordinal);
 
     /// <summary>The stages this build created, by name.</summary>
     public Dictionary<string, RenderStage> Stages { get; } = new(StringComparer.Ordinal);
@@ -100,7 +94,13 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Stages[declared.Name] = AddStage(declared);
         }
 
-        return new(system) { Game = asset.Game is null ? null : Node(asset.Game) };
+        var compositor = new GraphicsCompositor(system) { Game = asset.Game is null ? null : Node(asset.Game) };
+
+        foreach (var resource in asset.Resources) {
+            compositor.Resources.Add(resource);
+        }
+
+        return compositor;
     }
 
     RenderStage AddStage(RenderStageAsset declared) {
@@ -165,15 +165,19 @@ public sealed class CompositorBuilder(RenderSystem system) {
         var node = new RenderPassRenderer {
             Name = declared.Name,
             Enabled = declared.Enabled,
-            SampleCount = declared.SampleCount
+            SampleCount = declared.SampleCount,
+            DepthTarget = declared.DepthTarget
         };
 
+        // Names carried straight through rather than resolved here. A target is a render-graph
+        // resource that does not exist until the frame declares it, so binding one at build time
+        // would mean binding a texture that is reallocated, aliased or dropped every frame.
         foreach (var target in declared.ColourTargets) {
-            node.ColourTargets.Add(Bind(ColourTargets, declared.Name, "colour target", target));
+            node.ColourTargets.Add(target);
         }
 
-        if (declared.DepthTarget is { Length: > 0 } depth) {
-            node.DepthTarget = Bind(DepthTargets, declared.Name, "depth target", depth);
+        foreach (var read in declared.Reads) {
+            node.Reads.Add(read);
         }
 
         foreach (var child in declared.Children) {
@@ -184,7 +188,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
     }
 
     SingleStageRenderer Single(SingleStageAsset declared) =>
-        new SingleStageRenderer {
+        new() {
             Name = declared.Name,
             Enabled = declared.Enabled,
             View = Bind(Views, declared.Name, "view", declared.View),
@@ -196,7 +200,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Name = declared.Name,
             Enabled = declared.Enabled,
             CasterStage = Stage(declared.Name, declared.Stage),
-            Atlas = Bind(DepthTargets, declared.Name, "depth target", declared.Atlas),
+            Atlas = declared.Atlas,
             CascadeCount = declared.CascadeCount,
             Resolution = declared.Resolution,
             ShadowDistance = declared.ShadowDistance,
@@ -209,7 +213,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Name = declared.Name,
             Enabled = declared.Enabled,
             CasterStage = Stage(declared.Name, declared.Stage),
-            Atlas = Bind(DepthTargets, declared.Name, "depth target", declared.Atlas),
+            Atlas = declared.Atlas,
             Resolution = declared.Resolution,
             TilesPerSide = declared.TilesPerSide
         };

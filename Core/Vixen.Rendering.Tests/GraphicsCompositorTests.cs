@@ -4,6 +4,7 @@
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
+using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
@@ -44,6 +45,7 @@ public class GraphicsCompositorTests : IDisposable {
     sealed class Harness : IDisposable {
         public required RenderSystem System { get; init; }
         public required GraphicsCompositor Compositor { get; init; }
+        public required RenderGraph Graph { get; init; }
         public required RenderStage Opaque { get; init; }
         public required RenderStage Transparent { get; init; }
         public required RenderView Camera { get; init; }
@@ -51,7 +53,10 @@ public class GraphicsCompositorTests : IDisposable {
         public required MaterialRenderFeature Materials { get; init; }
         public required BufferHandle Vertices { get; init; }
 
-        public void Dispose() => System.Dispose();
+        public void Dispose() {
+            Graph.DisposePool();
+            System.Dispose();
+        }
     }
 
     Harness Build() {
@@ -73,7 +78,8 @@ public class GraphicsCompositorTests : IDisposable {
 
         return new() {
             System = system,
-            Compositor = new(system),
+            Compositor = new(system) { FrameSize = new(16, 16) },
+            Graph = new(device),
             Opaque = system.AddStage(new("Opaque")),
             Transparent = system.AddStage(new("Transparent", RenderSortMode.BackToFront) {
                 Blend = BlendState.AlphaBlend,
@@ -102,20 +108,28 @@ public class GraphicsCompositorTests : IDisposable {
         h.Materials.Assign(h.System, id, material);
     }
 
-    TextureViewHandle Target(PixelFormat format, TextureUsage usage = TextureUsage.ColourTarget) =>
-        device.CreateTextureView(
-            device.CreateTexture(
-                new() {
-                    Width = 16, Height = 16, Depth = 1,
-                    MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
-                    Format = format, Usage = usage
-                }
-            )
-        );
+    /// <summary>Imports a target under a fresh name and hands the name back.</summary>
+    /// <remarks>
+    ///     Imported rather than declared, because nothing in these fixtures samples what a pass wrote:
+    ///     a transient whose only writer produces something no later pass reads is a pass the graph
+    ///     is right to cull. A real frame's last target is the swapchain image, which is imported for
+    ///     the same reason — it has to be handed back in <c>Present</c>.
+    /// </remarks>
+    string Target(Harness h, PixelFormat format, TextureUsage usage = TextureUsage.ColourTarget) {
+        var name = $"{format}#{h.Compositor.Imports.Count}";
+        var description = new TextureDescription(format, 16, 16, usage | TextureUsage.Sampled, Name: name);
+        var texture = device.CreateTexture(description);
 
-    RenderPassRenderer Pass(PixelFormat format, params SceneRenderer[] children) {
-        var pass = new RenderPassRenderer { Name = format.ToString() };
-        pass.ColourTargets.Add(new(Target(format), format));
+        h.Compositor.Imports[name] = new(texture, device.CreateTextureView(texture), description);
+        return name;
+    }
+
+    RenderPassRenderer Pass(Harness h, PixelFormat format, params SceneRenderer[] children) =>
+        Named(h, format.ToString(), format, children);
+
+    RenderPassRenderer Named(Harness h, string name, PixelFormat format, params SceneRenderer[] children) {
+        var pass = new RenderPassRenderer { Name = name };
+        pass.ColourTargets.Add(Target(h, format));
 
         foreach (var child in children) {
             pass.Children.Add(child);
@@ -126,7 +140,13 @@ public class GraphicsCompositorTests : IDisposable {
 
     void Frame(Harness h) {
         var list = device.BeginCommandList();
-        h.Compositor.Draw(new(list, effects) { Device = device });
+
+        // Reset at the top of a frame rather than the bottom, so the graph a frame produced is still
+        // there to be asked about afterwards — which is how a test sees what was culled.
+        h.Graph.Reset();
+        h.Compositor.Build(h.Graph, effects, device);
+        h.Graph.Execute(list);
+
         list.Finish();
         device.GraphicsQueue.Submit([list]);
     }
@@ -152,6 +172,7 @@ public class GraphicsCompositorTests : IDisposable {
         using var h = Build();
 
         h.Compositor.Game = Pass(
+            h,
             PixelFormat.Rgba8UNorm,
             new SingleStageRenderer { View = h.Camera, Stage = h.Opaque }
         );
@@ -169,6 +190,7 @@ public class GraphicsCompositorTests : IDisposable {
         var unused = new RenderView("probe");
 
         h.Compositor.Game = Pass(
+            h,
             PixelFormat.Rgba8UNorm,
             new SingleStageRenderer { View = h.Camera, Stage = h.Opaque }
         );
@@ -191,7 +213,7 @@ public class GraphicsCompositorTests : IDisposable {
 
         var opaque = new SingleStageRenderer { View = h.Camera, Stage = h.Opaque };
         var transparent = new SingleStageRenderer { View = h.Camera, Stage = h.Transparent };
-        var pass = Pass(PixelFormat.Rgba8UNorm, opaque, transparent);
+        var pass = Pass(h, PixelFormat.Rgba8UNorm, opaque, transparent);
 
         h.Compositor.Game = pass;
         h.Compositor.Collect();
@@ -211,6 +233,7 @@ public class GraphicsCompositorTests : IDisposable {
         AddMesh(h, 10f, new Material("Lit"), h.Opaque.Mask);
 
         var pass = Pass(
+            h,
             PixelFormat.Rgba8UNorm,
             new SingleStageRenderer { View = h.Camera, Stage = h.Opaque, Enabled = false }
         );
@@ -238,6 +261,7 @@ public class GraphicsCompositorTests : IDisposable {
         AddMesh(h, 10f, new Material("Lit"), h.Opaque.Mask);
 
         h.Compositor.Game = Pass(
+            h,
             PixelFormat.Rgba8UNorm,
             new SingleStageRenderer { View = h.Camera, Stage = h.Opaque }
         );
@@ -274,8 +298,8 @@ public class GraphicsCompositorTests : IDisposable {
 
         h.Compositor.Game = new SceneRendererSequence {
             Children = {
-                Pass(PixelFormat.Rgba8UNorm, new SingleStageRenderer { View = h.Camera, Stage = h.Opaque }),
-                Pass(PixelFormat.Rgba16Float, new SingleStageRenderer { View = h.Camera, Stage = h.Opaque })
+                Pass(h, PixelFormat.Rgba8UNorm, new SingleStageRenderer { View = h.Camera, Stage = h.Opaque }),
+                Pass(h, PixelFormat.Rgba16Float, new SingleStageRenderer { View = h.Camera, Stage = h.Opaque })
             }
         };
 
@@ -299,8 +323,8 @@ public class GraphicsCompositorTests : IDisposable {
 
         h.Compositor.Game = new SceneRendererSequence {
             Children = {
-                Pass(PixelFormat.Rgba8UNorm, new SingleStageRenderer { View = h.Camera, Stage = h.Opaque }),
-                Pass(PixelFormat.Rgba8UNorm, new SingleStageRenderer { View = h.Camera, Stage = h.Opaque })
+                Pass(h, PixelFormat.Rgba8UNorm, new SingleStageRenderer { View = h.Camera, Stage = h.Opaque }),
+                Pass(h, PixelFormat.Rgba8UNorm, new SingleStageRenderer { View = h.Camera, Stage = h.Opaque })
             }
         };
 
@@ -324,6 +348,7 @@ public class GraphicsCompositorTests : IDisposable {
         AddMesh(h, 10f, material, h.Opaque.Mask | h.Transparent.Mask);
 
         h.Compositor.Game = Pass(
+            h,
             PixelFormat.Rgba8UNorm,
             new SingleStageRenderer { View = h.Camera, Stage = h.Opaque },
             new SingleStageRenderer { View = h.Camera, Stage = h.Transparent }
@@ -353,6 +378,7 @@ public class GraphicsCompositorTests : IDisposable {
         Assert.True(h.Opaque.DepthStencil.DepthTest);
 
         h.Compositor.Game = Pass(
+            h,
             PixelFormat.Rgba8UNorm,
             new SingleStageRenderer { View = h.Camera, Stage = h.Opaque }
         );
@@ -370,14 +396,12 @@ public class GraphicsCompositorTests : IDisposable {
         AddMesh(h, 10f, new Material("Lit"), h.Opaque.Mask);
 
         var pass = Pass(
+            h,
             PixelFormat.Rgba8UNorm,
             new SingleStageRenderer { View = h.Camera, Stage = h.Opaque }
         );
 
-        pass.DepthTarget = new(
-            Target(PixelFormat.Depth32Float, TextureUsage.DepthStencilTarget),
-            PixelFormat.Depth32Float
-        );
+        pass.DepthTarget = Target(h, PixelFormat.Depth32Float, TextureUsage.DepthStencilTarget);
 
         h.Compositor.Game = pass;
         Frame(h);
@@ -385,7 +409,6 @@ public class GraphicsCompositorTests : IDisposable {
         var begin = Assert.Single(device.Recorder!.OfKind(RecordedCommandKind.BeginRenderPass));
 
         Assert.Equal(1, begin.B);
-        Assert.Equal(PixelFormat.Depth32Float, pass.Output.DepthFormat);
         Assert.Single(device.Recorder.OfKind(RecordedCommandKind.Draw));
     }
 
@@ -404,6 +427,7 @@ public class GraphicsCompositorTests : IDisposable {
         AddMesh(h, -10f, new Material("Lit"), h.Opaque.Mask);
 
         h.Compositor.Game = Pass(
+            h,
             PixelFormat.Rgba8UNorm,
             new SingleStageRenderer { View = h.Camera, Stage = h.Opaque }
         );
@@ -413,6 +437,135 @@ public class GraphicsCompositorTests : IDisposable {
         // Two objects, one behind the camera: the frustum ran with this view, not without it.
         Assert.Single(device.Recorder!.OfKind(RecordedCommandKind.Draw));
         Assert.Equal(1, h.System.Visibility.VisibleCount(h.Camera.Index));
+    }
+
+    // --- What the graph buys ------------------------------------------------
+
+    /// <summary>
+    ///     A pass that reads another's target is ordered after it, with a barrier between them.
+    /// </summary>
+    /// <remarks>
+    ///     The reason the compositor declares passes rather than opening them. That ordering and that
+    ///     barrier are derived from one line — <c>Reads</c> — and are exactly what nobody maintains
+    ///     correctly by hand across a frame with shadows, a G-buffer, SSAO, SSR, bloom and TAA in it.
+    /// </remarks>
+    [Fact]
+    public void A_pass_that_reads_another_runs_after_it_and_gets_a_barrier() {
+        using var h = Build();
+        AddMesh(h, 10f, new Material("Lit"), h.Opaque.Mask);
+
+        h.Compositor.Resources.Add(
+            new() {
+                Name = "Offscreen",
+                Format = PixelFormat.Rgba8UNorm,
+                Usage = TextureUsage.ColourTarget | TextureUsage.Sampled
+            }
+        );
+
+        var offscreen = new RenderPassRenderer { Name = "Offscreen" };
+        offscreen.ColourTargets.Add("Offscreen");
+        offscreen.Children.Add(new SingleStageRenderer { View = h.Camera, Stage = h.Opaque });
+
+        var present = Named(
+            h,
+            "Present",
+            PixelFormat.Rgba8UNorm,
+            new SingleStageRenderer { View = h.Camera, Stage = h.Opaque }
+        );
+
+        present.Reads.Add("Offscreen");
+
+        h.Compositor.Game = new SceneRendererSequence { Children = { offscreen, present } };
+
+        Frame(h);
+
+        var passes = device.Recorder!
+            .OfKind(RecordedCommandKind.BeginRenderPass)
+            .Select(command => command.Text ?? string.Empty)
+            .ToArray();
+
+        Assert.Equal(["Offscreen", "Present"], passes);
+        Assert.Equal(2, h.Graph.SurvivingPassCount);
+        Assert.True(h.Graph.BarrierCount > 0, "nothing was placed between the write and the read");
+    }
+
+    /// <summary>
+    ///     A pass whose target nothing reads is dropped, and nothing has to notice.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The behaviour that makes a compositor preset safe to over-specify: a document can list
+    ///         a pass whose output this configuration never consumes, and it costs nothing. It is
+    ///         also the rule that makes <c>Reads</c> load-bearing rather than decorative — a pass
+    ///         that forgets to declare what it samples gets its producer culled.
+    ///     </para>
+    ///     <para>
+    ///         The final target of a real frame is the swapchain image, which is imported, and a pass
+    ///         writing an import always survives. That is why "the last pass" never disappears.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_pass_nothing_reads_is_culled() {
+        using var h = Build();
+        AddMesh(h, 10f, new Material("Lit"), h.Opaque.Mask);
+
+        h.Compositor.Resources.Add(
+            new() {
+                Name = "Unread",
+                Format = PixelFormat.Rgba8UNorm,
+                Usage = TextureUsage.ColourTarget | TextureUsage.Sampled
+            }
+        );
+
+        var orphan = new RenderPassRenderer { Name = "Orphan" };
+        orphan.ColourTargets.Add("Unread");
+        orphan.Children.Add(new SingleStageRenderer { View = h.Camera, Stage = h.Opaque });
+
+        var present = Named(
+            h,
+            "Present",
+            PixelFormat.Rgba8UNorm,
+            new SingleStageRenderer { View = h.Camera, Stage = h.Opaque }
+        );
+
+        h.Compositor.Game = new SceneRendererSequence { Children = { orphan, present } };
+
+        Frame(h);
+
+        Assert.Equal(2, h.Graph.PassCount);
+        Assert.Equal(1, h.Graph.SurvivingPassCount);
+
+        var begun = Assert.Single(device.Recorder!.OfKind(RecordedCommandKind.BeginRenderPass));
+        Assert.Equal("Present", begun.Text);
+
+        // And the culled pass cost no draws, not merely no pass.
+        Assert.Single(device.Recorder.OfKind(RecordedCommandKind.Draw));
+    }
+
+    /// <summary>The document sizes its own targets, and a scaled one follows the frame.</summary>
+    [Fact]
+    public void A_declared_target_is_sized_by_the_frame() {
+        using var h = Build();
+        h.Compositor.FrameSize = new(1280, 720);
+
+        h.Compositor.Resources.Add(
+            new() {
+                Name = "Half",
+                Format = PixelFormat.Rgba16Float,
+                Usage = TextureUsage.ColourTarget | TextureUsage.Sampled,
+                Scale = 0.5f
+            }
+        );
+
+        var pass = new RenderPassRenderer { Name = "Half" };
+        pass.ColourTargets.Add("Half");
+        h.Compositor.Game = pass;
+
+        var frame = h.Compositor.Build(h.Graph, effects, device);
+
+        Assert.True(frame.Has("Half"));
+        Assert.Equal(PixelFormat.Rgba16Float, frame.FormatOf("test", "Half"));
+        Assert.Equal(1, h.Graph.ResourceCount);
     }
 
     /// <summary>A compositor with no root draws nothing rather than throwing.</summary>

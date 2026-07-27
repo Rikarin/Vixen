@@ -5,6 +5,7 @@ using CsCheck;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
+using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
@@ -124,13 +125,17 @@ public class PunctualShadowTests : IDisposable {
     sealed class Harness : IDisposable {
         public required RenderSystem System { get; init; }
         public required GraphicsCompositor Compositor { get; init; }
+        public required RenderGraph Graph { get; init; }
         public required RenderStage Caster { get; init; }
         public required PunctualShadowRenderer Shadows { get; init; }
         public required MeshRenderFeature Meshes { get; init; }
         public required MaterialRenderFeature Materials { get; init; }
         public required BufferHandle Vertices { get; init; }
 
-        public void Dispose() => System.Dispose();
+        public void Dispose() {
+            Graph.DisposePool();
+            System.Dispose();
+        }
     }
 
     Harness Build(int tilesPerSide = 4) {
@@ -151,28 +156,30 @@ public class PunctualShadowTests : IDisposable {
         var shadows = new PunctualShadowRenderer {
             Name = "Punctual",
             CasterStage = caster,
+            Atlas = "PunctualAtlas",
             Resolution = 256,
             TilesPerSide = tilesPerSide
         };
 
         var size = shadows.AtlasSize;
 
-        shadows.Atlas = new(
-            device.CreateTextureView(
-                device.CreateTexture(
-                    new() {
-                        Width = size.X, Height = size.Y, Depth = 1,
-                        MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
-                        Format = PixelFormat.Depth32Float, Usage = TextureUsage.DepthStencilTarget
-                    }
-                )
-            ),
-            PixelFormat.Depth32Float
+        var description = new TextureDescription(
+            PixelFormat.Depth32Float,
+            size.X,
+            size.Y,
+            TextureUsage.DepthStencilTarget | TextureUsage.Sampled,
+            Name: "PunctualAtlas"
         );
+
+        var texture = device.CreateTexture(description);
+        var compositor = new GraphicsCompositor(system) { Game = shadows, FrameSize = size };
+
+        compositor.Imports["PunctualAtlas"] = new(texture, device.CreateTextureView(texture), description);
 
         return new() {
             System = system,
-            Compositor = new(system) { Game = shadows },
+            Compositor = compositor,
+            Graph = new(device),
             Caster = caster,
             Shadows = shadows,
             Meshes = meshes,
@@ -195,7 +202,13 @@ public class PunctualShadowTests : IDisposable {
 
     void Frame(Harness h) {
         var list = device.BeginCommandList();
-        h.Compositor.Draw(new(list, effects) { Device = device });
+
+        // Reset at the top of a frame rather than the bottom, so the graph a frame produced is still
+        // there to be asked about afterwards — which is how a test sees what was culled.
+        h.Graph.Reset();
+        h.Compositor.Build(h.Graph, effects, device);
+        h.Graph.Execute(list);
+
         list.Finish();
         device.GraphicsQueue.Submit([list]);
     }

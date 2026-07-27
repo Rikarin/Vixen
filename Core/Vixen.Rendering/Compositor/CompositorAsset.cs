@@ -2,9 +2,66 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 
 namespace Vixen.Rendering.Compositor;
+
+/// <summary>
+///     A texture the frame declares and the render graph owns.
+/// </summary>
+/// <remarks>
+///     <para>
+///         The part of a compositor that used to be the host's problem. A document that can say "a
+///         half-resolution R11G11B10 bloom chain" is a document that can describe a post-processing
+///         pipeline; one that could only refer to textures somebody else made could describe the
+///         order of passes and nothing about what flows between them.
+///     </para>
+///     <para>
+///         Declared, not imported — which means the graph may give two of these the same memory when
+///         their lifetimes do not overlap, and may skip allocating one whose only writer got culled.
+///         A resource that has to survive the frame is an import instead; see
+///         <see cref="ImportedTexture" />.
+///     </para>
+/// </remarks>
+[DataContract("Resource")]
+public sealed record RenderResourceAsset {
+    /// <summary>What passes refer to it by.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>Its format.</summary>
+    public PixelFormat Format { get; init; } = PixelFormat.Rgba8UNorm;
+
+    /// <summary>What it is for.</summary>
+    public TextureUsage Usage { get; init; } = TextureUsage.ColourTarget | TextureUsage.Sampled;
+
+    /// <summary>Its width in pixels, or 0 to take <see cref="Scale" /> of the frame's.</summary>
+    public int Width { get; init; }
+
+    /// <summary>Its height in pixels, or 0 to take <see cref="Scale" /> of the frame's.</summary>
+    public int Height { get; init; }
+
+    /// <summary>
+    ///     What fraction of the frame's size to be, when no explicit size is given.
+    /// </summary>
+    /// <remarks>
+    ///     A fraction rather than a size, so a bloom chain authored at half resolution stays half
+    ///     resolution on a window nobody anticipated. Rounded up and floored at one, so a chain of
+    ///     halvings ends at a 1×1 texture rather than at a zero-sized one the backend refuses.
+    /// </remarks>
+    public float Scale { get; init; } = 1f;
+
+    /// <summary>How many samples it has.</summary>
+    public int SampleCount { get; init; } = 1;
+
+    /// <summary>This declaration as a texture description, against a frame of a given size.</summary>
+    public TextureDescription Describe(Int2 frameSize) {
+        var width = Width > 0 ? Width : Math.Max((int)MathF.Ceiling(frameSize.X * Scale), 1);
+        var height = Height > 0 ? Height : Math.Max((int)MathF.Ceiling(frameSize.Y * Scale), 1);
+
+        return new(Format, width, height, Usage, SampleCount: SampleCount, Name: Name);
+    }
+}
 
 /// <summary>One node of an authored compositor graph.</summary>
 /// <remarks>
@@ -65,51 +122,51 @@ public enum DepthPreset {
 [DataContract("RenderStage")]
 public sealed record RenderStageAsset {
     /// <summary>What the stage is called, and what a node refers to it by.</summary>
-    public string Name { get; set; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
 
     /// <summary>How its work is ordered.</summary>
-    public RenderSortMode SortMode { get; set; } = RenderSortMode.FrontToBack;
+    public RenderSortMode SortMode { get; init; } = RenderSortMode.FrontToBack;
 
     /// <summary>How its fragments combine with the target.</summary>
-    public BlendPreset Blend { get; set; } = BlendPreset.Opaque;
+    public BlendPreset Blend { get; init; } = BlendPreset.Opaque;
 
     /// <summary>What its draws do with depth.</summary>
-    public DepthPreset Depth { get; set; } = DepthPreset.TestAndWrite;
+    public DepthPreset Depth { get; init; } = DepthPreset.TestAndWrite;
 
     /// <summary>Which faces it discards.</summary>
-    public CullMode Cull { get; set; } = CullMode.Back;
+    public CullMode Cull { get; init; } = CullMode.Back;
 
     /// <summary>A constant added to depth — a shadow-caster stage's peter-panning knob.</summary>
-    public float DepthBias { get; set; }
+    public float DepthBias { get; init; }
 
     /// <summary>A factor on the polygon's depth slope.</summary>
-    public float DepthBiasSlope { get; set; }
+    public float DepthBiasSlope { get; init; }
 
     /// <summary>Whether to clamp depth rather than clip it, so a caster in front of near still casts.</summary>
-    public bool DepthClamp { get; set; }
+    public bool DepthClamp { get; init; }
 }
 
 /// <summary>Several nodes, run in order.</summary>
 [DataContract("Sequence")]
 public sealed record SequenceAsset : ISceneRendererAsset {
     /// <inheritdoc />
-    public string Name { get; set; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
 
     /// <inheritdoc />
-    public bool Enabled { get; set; } = true;
+    public bool Enabled { get; init; } = true;
 
     /// <summary>The children, in the order they run.</summary>
-    public ISceneRendererAsset[] Children { get; set; } = [];
+    public ISceneRendererAsset[] Children { get; init; } = [];
 }
 
 /// <summary>A render pass, and what draws into it.</summary>
 [DataContract("RenderPass")]
 public sealed record RenderPassAsset : ISceneRendererAsset {
     /// <inheritdoc />
-    public string Name { get; set; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
 
     /// <inheritdoc />
-    public bool Enabled { get; set; } = true;
+    public bool Enabled { get; init; } = true;
 
     /// <summary>
     ///     The names of its colour attachments, in the order the shader writes them.
@@ -120,85 +177,94 @@ public sealed record RenderPassAsset : ISceneRendererAsset {
     ///     also what lets one authored compositor run against a swapchain, an offscreen buffer or a
     ///     test's scratch texture without changing.
     /// </remarks>
-    public string[] ColourTargets { get; set; } = [];
+    public string[] ColourTargets { get; init; } = [];
 
     /// <summary>The name of its depth attachment, if it has one.</summary>
-    public string? DepthTarget { get; set; }
+    public string? DepthTarget { get; init; }
 
     /// <summary>How many samples its attachments have.</summary>
-    public int SampleCount { get; set; } = 1;
+    public int SampleCount { get; init; } = 1;
+
+    /// <summary>The names of resources this pass samples.</summary>
+    /// <remarks>
+    ///     Not optional bookkeeping. A pass that samples the shadow atlas must say so: that read is
+    ///     the edge that orders the shadow pass before it and puts a barrier between them, and — if
+    ///     nothing declares it — the edge whose absence gets the shadow pass culled for producing
+    ///     something nobody wanted.
+    /// </remarks>
+    public string[] Reads { get; init; } = [];
 
     /// <summary>What draws into it.</summary>
-    public ISceneRendererAsset[] Children { get; set; } = [];
+    public ISceneRendererAsset[] Children { get; init; } = [];
 }
 
 /// <summary>One stage drawn from one view.</summary>
 [DataContract("SingleStage")]
 public sealed record SingleStageAsset : ISceneRendererAsset {
     /// <inheritdoc />
-    public string Name { get; set; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
 
     /// <inheritdoc />
-    public bool Enabled { get; set; } = true;
+    public bool Enabled { get; init; } = true;
 
     /// <summary>The name of the view to draw from.</summary>
-    public string View { get; set; } = string.Empty;
+    public string View { get; init; } = string.Empty;
 
     /// <summary>The name of the stage to draw.</summary>
-    public string Stage { get; set; } = string.Empty;
+    public string Stage { get; init; } = string.Empty;
 }
 
 /// <summary>A directional light's cascaded shadow map.</summary>
 [DataContract("ShadowMap")]
 public sealed record ShadowMapAsset : ISceneRendererAsset {
     /// <inheritdoc />
-    public string Name { get; set; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
 
     /// <inheritdoc />
-    public bool Enabled { get; set; } = true;
+    public bool Enabled { get; init; } = true;
 
     /// <summary>The name of the stage that draws depth-only casters.</summary>
-    public string Stage { get; set; } = string.Empty;
+    public string Stage { get; init; } = string.Empty;
 
     /// <summary>The name of the depth atlas to render into.</summary>
-    public string Atlas { get; set; } = string.Empty;
+    public string Atlas { get; init; } = string.Empty;
 
     /// <summary>How many cascades to fit.</summary>
-    public int CascadeCount { get; set; } = 4;
+    public int CascadeCount { get; init; } = 4;
 
     /// <summary>One cascade's side in texels.</summary>
-    public int Resolution { get; set; } = 1024;
+    public int Resolution { get; init; } = 1024;
 
     /// <summary>How far shadows are drawn — not the camera's far plane.</summary>
-    public float ShadowDistance { get; set; } = 150f;
+    public float ShadowDistance { get; init; } = 150f;
 
     /// <summary>How far to blend the splits from uniform toward logarithmic.</summary>
-    public float SplitLambda { get; set; } = 0.75f;
+    public float SplitLambda { get; init; } = 0.75f;
 
     /// <summary>How far behind a cascade the light's near plane sits.</summary>
-    public float Extrusion { get; set; } = 50f;
+    public float Extrusion { get; init; } = 50f;
 }
 
 /// <summary>Spot and point light shadows in one atlas.</summary>
 [DataContract("PunctualShadows")]
 public sealed record PunctualShadowAsset : ISceneRendererAsset {
     /// <inheritdoc />
-    public string Name { get; set; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
 
     /// <inheritdoc />
-    public bool Enabled { get; set; } = true;
+    public bool Enabled { get; init; } = true;
 
     /// <summary>The name of the stage that draws depth-only casters.</summary>
-    public string Stage { get; set; } = string.Empty;
+    public string Stage { get; init; } = string.Empty;
 
     /// <summary>The name of the depth atlas to render into.</summary>
-    public string Atlas { get; set; } = string.Empty;
+    public string Atlas { get; init; } = string.Empty;
 
     /// <summary>One tile's side in texels.</summary>
-    public int Resolution { get; set; } = 512;
+    public int Resolution { get; init; } = 512;
 
     /// <summary>How many tiles the atlas is across.</summary>
-    public int TilesPerSide { get; set; } = 4;
+    public int TilesPerSide { get; init; } = 4;
 }
 
 /// <summary>
@@ -216,22 +282,24 @@ public sealed record PunctualShadowAsset : ISceneRendererAsset {
 ///         understands and silently dropping what it does not — which produces a frame that is
 ///         missing a pass and says nothing about it.
 ///     </para>
-///     <para>
-///         <strong>Every member here is settable rather than init-only</strong>, throughout the
-///         model. The generated binary serializer constructs an instance and then assigns to it, so
-///         an <c>init</c> member is one it cannot write and silently leaves at its default — which
-///         is a baked compositor that reads back empty. An asset is an editable document anyway; the
-///         editor mutates one every time somebody drags a node.
-///     </para>
 /// </remarks>
 [DataContract("GraphicsCompositor")]
 public sealed record GraphicsCompositorAsset {
     /// <summary>The schema version this document is written in.</summary>
-    public int Version { get; set; } = 1;
+    /// <remarks>
+    ///     Two. Version 1 named textures the host had already made; version 2 declares them, because
+    ///     a document that cannot describe what flows between its passes cannot describe a
+    ///     post-processing pipeline at all. There is no migration — nothing has shipped a version 1
+    ///     document, and a chain that upgraded one would be a chain with nothing in it.
+    /// </remarks>
+    public int Version { get; init; } = 2;
 
     /// <summary>The stages, which nodes refer to by name.</summary>
-    public RenderStageAsset[] Stages { get; set; } = [];
+    public RenderStageAsset[] Stages { get; init; } = [];
+
+    /// <summary>The transient targets the frame declares, which passes refer to by name.</summary>
+    public RenderResourceAsset[] Resources { get; init; } = [];
 
     /// <summary>The root of the graph — the whole frame.</summary>
-    public ISceneRendererAsset? Game { get; set; }
+    public ISceneRendererAsset? Game { get; init; }
 }
