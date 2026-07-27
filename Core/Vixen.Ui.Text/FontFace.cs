@@ -75,8 +75,18 @@ public sealed class FontFace : IDisposable {
     public static FontFace Load(byte[] data, int index = 0, string? name = null) {
         ArgumentNullException.ThrowIfNull(data);
 
+        // The pin is released here rather than through a callback: `Duplicate` means HarfBuzz takes
+        // its own copy, so the array only has to stay put for the length of the constructor. Handing
+        // the release to HarfBuzz instead would make the lifetime of a pinned managed array depend
+        // on when a native library decides to call back, which is a question not worth having.
         var handle = GCHandle.Alloc(data, GCHandleType.Pinned);
-        var blob = new Blob(handle.AddrOfPinnedObject(), data.Length, MemoryMode.Duplicate, handle.Free);
+        Blob blob;
+
+        try {
+            blob = new Blob(handle.AddrOfPinnedObject(), data.Length, MemoryMode.Duplicate);
+        } finally {
+            handle.Free();
+        }
 
         var face = new Face(blob, index);
         var font = new Font(face);
