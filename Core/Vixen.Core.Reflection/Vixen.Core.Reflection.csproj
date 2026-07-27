@@ -34,9 +34,17 @@
         </TargetsForTfmSpecificContentInPackage>
     </PropertyGroup>
 
+    <!--
+      GetTargetPath, not Build. The generator is already built by the time this runs — the
+      ProjectReference above builds it as part of *this* project's build — so all that is wanted
+      here is where its assembly landed, and GetTargetPath answers that without compiling.
+      Asking for Build works locally and fails the packaging leg: a no-build `dotnet pack` sets
+      NoBuild=true as a global property, the MSBuild task passes global properties down, and a
+      project that is handed NoBuild=true and then asked for Build is exactly NETSDK1085.
+    -->
     <Target Name="PackReflectionGenerator">
         <MSBuild Projects="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
-                 Targets="Build"
+                 Targets="GetTargetPath"
                  Properties="Configuration=$(Configuration)"
                  RemoveProperties="TargetFramework">
             <Output TaskParameter="TargetOutputs" ItemName="ReflectionGeneratorAssembly" />
