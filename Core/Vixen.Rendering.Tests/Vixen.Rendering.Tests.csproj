@@ -29,5 +29,13 @@
           Vixen.Graphics.RenderGraph.Tests does the same.
         -->
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
+
+        <!--
+          The YAML dialect, so the compositor-asset test reads an actual authored document rather
+          than a record graph built in C#. Vixen.Rendering itself does not reference this: which file
+          format a compositor is read from belongs to whoever reads it, so a shipping runtime that
+          loads a baked one never links a YAML parser.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
     </ItemGroup>
 </Project>
