@@ -609,7 +609,7 @@ the codebase is large enough for it to be expensive to fix.
 - ✅ `Vixen.Cli` — **every verb the plan names is built**: `import`, `content build`, `content serve`,
   `doctor`, and now `new`, `build` and `run`. The first four are the whole pipeline
   from a terminal, which is what the phase's own gates need: an incremental import, a deterministic
-  content build, and a laptop a phone can be pointed at. 19 tests, driving the real parser over a
+  content build, and a laptop a phone can be pointed at. 41 tests, driving the real parser over a
   real project on a real disk — including **the determinism gate at the level a person runs it**: two
   builds of one project, byte for byte, catalog and bundles alike.
 
@@ -765,7 +765,21 @@ identity being shipped each fail it. (It also asserts doc 08's own sentence, whi
 checked: the GUID never appears in a shipped build.) Running the comparison across three real runners
 still waits for the CI legs.
 🟡 The import budget is **measured, and it lands on the line rather than under it** — see below.
-Android, iOS and the AOT publish are not started.
+
+🟡 **Both mobile platforms and both AOT gates are built and green**, and the sample runs on the iOS
+Simulator and the Android emulator. What is left is a physical device each, and CI legs for the
+gates — see the bullets above, which supersede the sentence that used to stand here saying none of
+this was started.
+
+❌ **The boot path does not mount content, and that is the goal sentence's own word.**
+`VixenApp.Run<TGame>()` gives a game a window, a job scheduler, a virtual file system and a frame
+loop, and no `AssetManager`: `Vixen.App` references neither `Vixen.Assets` nor `Vixen.Engine`, and
+`--vixen-loose-content` is parsed and logged and then ignored. Content loads from bundles in
+`Vixen.Assets.Tests`, in `Samples/07` and through `vixen content build` — every piece works — but a
+`Game` cannot ask for an address without standing up the catalog, the bundle source and the manager
+itself. The `Vixen.Sdk` copy step puts a build beside the binary and nothing reads it. This is one
+seam rather than a subsystem, and it is the difference between the pipeline being finished and the
+phase being finished.
 
 > **The 10 k-asset import budget, measured rather than assumed.** A fixture project of 10 200 assets
 > (1 000 of them real PNGs through `TextureImporter`) imports cold in ~6 s. Changing one texture and
