@@ -775,8 +775,33 @@ sub-piece has its own gate.
 
   Verified by sabotage: removing regional-indicator pairing fails 6 cases, GB9c fails 16, and WB4 —
   the rule that makes format characters invisible to every other rule — fails 1 086.
-- Owed: HarfBuzz shaping, bidi, UAX#14 line breaking, MSDF atlas with LRU eviction, font fallback,
-  rich-text runs, `TextEditor` model with IME.
+- ✅ **UAX#14 line breaking is built and its conformance data is green** — all 19 338 of the
+  Consortium's cases. With UAX#29 that is **22 048 conformance cases passing**, and the whole of the
+  "UAX conformance data green" half of 4c's gate.
+
+  It finds *opportunities*, not lines: where a break is permitted and where one is mandatory.
+  Choosing which permitted break to take needs measured widths and is layout's job, and keeping the
+  two apart is what makes the suite applicable at all — it knows nothing about fonts.
+
+  ⚠ **The same class of bug as the UAX#29 finding, four times over.** LB9 gives a combining mark its
+  base's *class*, which is enough for every rule that reads classes and silently wrong for the ones
+  that read identity or position — LB28a names U+25CC by code point, LB15a/LB15b ask whether a
+  quotation mark opens or closes, LB30b asks whether a pictograph is unassigned, LB30a counts
+  regional indicators. A quotation mark followed by a diaeresis stopped being a quotation mark.
+
+  ⚠ **And a comment that disagreed with its own code, twice.** LB15a and LB20a both permit `SP`
+  immediately before them, and both were written to *skip* the spaces and then ask what lay beyond,
+  looking past the answer. One of them carried a comment saying "SP is itself one of the classes the
+  rule allows" above a list that omitted `SP`. Two cases out of nineteen thousand caught it. **A
+  comment is not a test.**
+
+  Also worth recording: LB25 was a regular expression until Unicode 15.1 restated it as pairs, and
+  the pair form is both easier to implement and easier to be sure of — the regex passed most of the
+  suite and failed on `HY × NU`, which has no regex form because a hyphen before a number is not
+  part of the number. Verified by sabotage: removing LB25 or LB9, or mis-resolving `CJ` in LB1, each
+  fails the suite.
+- Owed: HarfBuzz shaping, bidi, MSDF atlas with LRU eviction, font fallback, rich-text runs,
+  `TextEditor` model with IME.
 - Gate: ✅ UAX conformance data green. Owed: shaping golden tests per script.
 
 **4d — Element tree, markup, rendering (1.5 EM)**

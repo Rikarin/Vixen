@@ -23,4 +23,14 @@
         <ProjectReference Include="..\Vixen.Ui.Text\Vixen.Ui.Text.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+        <!--
+            19 338 conformance cases as data rather than as generated methods, and the reason is only
+            size: a C# file with that many [Fact]s is tens of megabytes and minutes of discovery.
+            They are still the Consortium's cases and still one test each — they arrive by [Theory]
+            from here instead of by codegen.
+        -->
+        <EmbeddedResource Include="Generated/LineBreakConformance.data" />
+    </ItemGroup>
+
 </Project>
