@@ -88,6 +88,8 @@
     <Project Path="Core/Vixen.Ui.Styling.Tests/Vixen.Ui.Styling.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Styling.Utilities/Vixen.Ui.Styling.Utilities.csproj" />
     <Project Path="Core/Vixen.Ui.Styling.Utilities.Tests/Vixen.Ui.Styling.Utilities.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Text/Vixen.Ui.Text.csproj" />
+    <Project Path="Core/Vixen.Ui.Text.Tests/Vixen.Ui.Text.Tests.csproj" />
   </Folder>
 
   <!--
@@ -130,6 +132,7 @@
     <Project Path="Tools/Vixen.App.Tests/Vixen.App.Tests.csproj" />
     <Project Path="Tools/Vixen.ContentServer/Vixen.ContentServer.csproj" />
     <Project Path="Tools/Vixen.ContentServer.Tests/Vixen.ContentServer.Tests.csproj" />
+    <Project Path="Tools/Vixen.UnicodeTableGen/Vixen.UnicodeTableGen.csproj" />
     <Project Path="Tools/Vixen.YogaTestGen/Vixen.YogaTestGen.csproj" />
   </Folder>
 

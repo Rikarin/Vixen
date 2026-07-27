@@ -27,6 +27,18 @@ git clone --depth 1 https://github.com/fedeAlterio/SignalsDotnet.git signals-dot
 git clone --depth 1 https://github.com/PurrNet/PurrNet.git         purrnet
 ```
 
+The Unicode Character Database is not a repository, so it is fetched file by file. These are the ones
+`Tools/Vixen.UnicodeTableGen` reads — the conformance suites, and the property tables the
+implementation is built from:
+
+```bash
+mkdir -p references/unicode && cd references/unicode
+base=https://www.unicode.org/Public/UCD/latest/ucd
+for f in auxiliary/GraphemeBreakTest.txt auxiliary/GraphemeBreakProperty.txt \
+         auxiliary/WordBreakTest.txt auxiliary/WordBreakProperty.txt \
+         emoji/emoji-data.txt ReadMe.txt; do curl -sSO "$base/$f"; done
+```
+
 ## What each one is for
 
 | Clone | Consulted for | ADR |
@@ -37,6 +49,7 @@ git clone --depth 1 https://github.com/PurrNet/PurrNet.git         purrnet
 | `flexbox` | A C# flexbox implementation, as an algorithm reference. It is .NET Framework 4.6 and allocation-heavy; the *algorithm* is what is wanted. | ADR-006 |
 | `signals-dotnet` | The reactive graph model behind the UI framework's signals. | ADR-007 |
 | `purrnet` | Networking: replication, interest management, the RPC surface. MIT. | doc 16 |
+| `unicode` | **The UAX#29 conformance suites**, ported before the segmentation code is written — the same bet as `yoga` and the reason 4c's gate is phrased as "UAX conformance data green". Also the property tables the implementation needs. | doc 09 |
 
 [Doc 14](../docs/plan/14-roadmap.md) singles these out for a reason: *external oracles judge
 correctness without you having to*, which is the specific defence against AI-assisted code that reads

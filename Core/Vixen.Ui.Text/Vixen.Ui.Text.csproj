@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ui.Text</RootNamespace>
+        <Description>
+            Text for a UI that has to be correct in every script: UAX#29 segmentation, UAX#14 line
+            breaking, UAX#9 bidi, HarfBuzz shaping and an MSDF atlas. Judged by the Unicode
+            Consortium's own conformance suites.
+        </Description>
+        <PackageTags>text;unicode;segmentation;shaping;ui;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Ui.Text.Tests" />
+    </ItemGroup>
+
+</Project>
