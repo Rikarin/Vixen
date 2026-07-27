@@ -216,6 +216,13 @@ public class SelectorMatchingTests {
 
         Assert.Equal(2, compiled.Count);
         Assert.Single(fixture.Compiler.Diagnostics);
-        Assert.Contains("has", fixture.Compiler.Diagnostics[0].Reason, StringComparison.Ordinal);
+
+        // Quoting what the author wrote, not what ExCSS calls it internally. `Contains("has")` was
+        // the assertion here first and it could not tell the two apart — ":has(.x)" and the class
+        // name "HasSelector" both contain it, and the message said the second one.
+        var diagnostic = fixture.Compiler.Diagnostics[0];
+
+        Assert.Contains(":has(.x)", diagnostic.Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain("Selector", diagnostic.Reason, StringComparison.Ordinal);
     }
 }

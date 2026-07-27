@@ -508,18 +508,64 @@ sub-piece has its own gate.
   kind, combinator and attribute operator), and whether the index is any use at all (fifteen hundred
   rules, of which one element reaches three).
 
-  Three bugs it found, each of the kind that does not announce itself. A defaulted struct id
-  silently meant "element zero", so every root without an explicit parent became a child of the
-  first element ever made. Nested `:not()`/`:is()` selectors interleaved with the contiguous ranges
-  being built around them. And `:has()` compiled as `:not()` — both carry an `.Inner`, and matching
-  on the shape rather than the type is exactly how a selector comes to mean the opposite of what it
-  says.
+  Two bugs it found, each of the kind that does not announce itself. A defaulted struct id silently
+  meant "element zero", so every root without an explicit parent became a child of the first element
+  ever made. And nested `:not()`/`:is()` selectors interleaved with the contiguous ranges being
+  built around them.
 
-  **Owed:** the cascade, `ComputedStyle` interning, the style-sharing cache, invalidation,
-  transitions and keyframes.
+  ⚠ **A third finding recorded here was wrong, and is corrected.** This entry and the commit said
+  `:has()` had been compiled as `:not()`, on the reasoning that both carry an `.Inner` and that
+  matching on shape rather than type is how a selector comes to mean its own opposite. Checking it
+  against the library rather than against the story: `HasSelector` and `NotSelector` are siblings
+  under `StylesheetNode`, neither derived from the other, so `case NotSelector` never caught a
+  `:has()`. It was dropped correctly the whole time. The actual defect was the diagnostic, which
+  read `HasSelector is not supported` — an internal type name of a third-party parser shown to
+  someone whose stylesheet says `.bad:has(.x)`. A smaller finding, and a real one: diagnostics now
+  quote the selector as written. The general point is the one worth keeping — **a finding is not
+  verified until it has been reproduced against the thing it is a claim about**, and this one was
+  written up from a plausible reading of a stack trace instead.
+
+- 🟡 **The cascade is built and its gate is green.** `StyleSheetLoader` (rules, `@layer`, `@media`),
+  `CascadePrecedence`, `ComputedStyle` with interning, `StyleResolver` (cascade, inheritance,
+  `var()`, style sharing). 74 tests in total for the project.
+
+  **The style-sharing gate is met:** over three hundred randomised trees and stylesheets, resolving
+  with the sharing cache produces exactly what resolving every element separately produces. Verified
+  by sabotage twice — dropping the element state from the key and dropping the parent from it each
+  fail the property. The property carries its own vacuity guard: one position-dependent rule turns
+  sharing off, so it asserts sharing was *enabled* and *fired* before believing the agreement.
+
+  Cascade ordering has no oracle, and that is stated rather than worked around — CSS Cascading 5 §6
+  is the specification and the tests are its clauses, each naming one tie-break with every other one
+  tied.
+
+  ⚠ **Doc 09's style-sharing key was unsound, and is corrected.** It specified the parent's
+  *computed style*; two parents can hold the same computed style and still be told apart by a
+  selector, so `.a .row` would reach a child that shared with a `.b`'s. The key holds the parent
+  *element*. What separates out of the correction is worth carrying: **interning** and **sharing**
+  were conflated under one heading and do different jobs. Interning gives 10 000 grid cells one
+  `ComputedStyle` object and is untouched; sharing skips the cascade and now does so per row rather
+  than per grid — 102 cascades for 10 001 elements. Doc 09 says so now.
+
+  Three bugs it found. A `DeclarationRange` that did not say *which* arena it indexed had the
+  resolver reading inline styles out of the rule store — fixed by making `InlineStyleId` a distinct
+  type, so the mistake is unrepresentable rather than merely repaired, which is the same remedy the
+  defaulted `StyleNodeId` needed. A `>=` where the cascade wanted `>`, so the *first* of two
+  declarations that tie completely won instead of the last. And — the one worth remembering — **a
+  test that was asserting document order and calling it importance**: flattening every important
+  origin to a single rank left the whole suite green, because that test loaded its two sheets in the
+  order where source order gave the right answer anyway. Sabotage found it; nothing else would have.
+
+  ⚠ **A second ExCSS finding the spike did not reach.** ExCSS normalises what it can see and cannot
+  see through a `var()`, so `color: red` arrives as `rgb(255, 0, 0)` and `color: var(--c)` with
+  `--c: red` arrives as `red`. Every value parser in the property system has to accept both. Doc 09
+  records it.
+
+  **Owed:** invalidation, transitions and keyframes.
 - `Vixen.Ui.Styling.Utilities`: token config, candidate scanner, utility grammar, variant system,
   arbitrary values, `@apply`, generated stylesheet.
-- Gate: ✅ selector-matching oracle tests. Owed: invalidation-minimality tests, utility family tests.
+- Gate: ✅ selector-matching oracle tests, ✅ style-sharing oracle tests, ✅ cascade/specificity/
+  `@layer` order tests. Owed: invalidation-minimality tests, utility family tests.
 
 **4c — Text (1.0 EM)**
 - HarfBuzz shaping, bidi, UAX#14 line breaking, UAX#29 segmentation, MSDF atlas with LRU eviction,
