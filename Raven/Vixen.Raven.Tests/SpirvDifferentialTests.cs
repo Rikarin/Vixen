@@ -197,6 +197,57 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
 
                             """;
 
+    /// <summary>
+    ///     A guarded index, which lowers to a branch <em>inside</em> an expression. Here so both
+    ///     emitters keep agreeing that is legal: GLSL has to hoist the local above the <c>if</c>,
+    ///     and SPIR-V has to structure the merge.
+    /// </summary>
+    const string ShortCircuit = """
+                                package A
+
+                                shader S {
+                                    var weights: float[4]
+                                    var count: int
+
+                                    [PixelShader]
+                                    func Pixel(): float4 {
+                                        var total = 0f
+                                        for (i in 0 .. 3) {
+                                            if (i < count && weights[i] > 0f) {
+                                                total += weights[i]
+                                            }
+                                        }
+
+                                        return float4(total, 0, 0, 1)
+                                    }
+                                }
+
+                                """;
+
+    /// <summary>
+    ///     The intrinsics that reach the two targets by different routes: an explicit-level sample
+    ///     (<c>textureLod</c> against <c>ImageSampleExplicitLod</c>), a size query (which needs a
+    ///     GLSL extension on one side and a capability on the other), and a bit cast.
+    /// </summary>
+    const string Queries = """
+                           package A
+
+                           shader S {
+                               var albedo: Texture2D
+                               var linear: Sampler
+                               var packed: Buffer<uint>
+
+                               [PixelShader]
+                               func Pixel(uv: float2): float4 {
+                                   val size = albedo.GetDimensions(0)
+                                   val texel = float2(1f / float(size.x), 1f / float(size.y))
+                                   val tint = asfloat(packed[0])
+                                   return albedo.SampleLevel(linear, uv + texel, 0f) * tint
+                               }
+                           }
+
+                           """;
+
     [Theory]
     [InlineData("lambert", Lambert)]
     [InlineData("four sets", FourSets)]
@@ -204,6 +255,8 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     [InlineData("texel fetch", Fetch)]
     [InlineData("non-square matrices", Matrices)]
     [InlineData("switch, operators, tuples", Finished)]
+    [InlineData("short-circuit guard", ShortCircuit)]
+    [InlineData("texture queries and bit casts", Queries)]
     public void The_two_paths_agree_on_the_interface(string what, string source) {
         if (!ReferenceCompiler.Available) {
             output.WriteLine($"{what}: {ReferenceCompiler.HowToInstall}");
@@ -280,6 +333,8 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     [InlineData("texel fetch", Fetch)]
     [InlineData("non-square matrices", Matrices)]
     [InlineData("switch, operators, tuples", Finished)]
+    [InlineData("short-circuit guard", ShortCircuit)]
+    [InlineData("texture queries and bit casts", Queries)]
     public void A_reference_compiler_accepts_Ravens_GLSL(string what, string source) {
         if (ReferenceCompiler.Glslc is null) {
             output.WriteLine($"{what}: {ReferenceCompiler.HowToInstall}");

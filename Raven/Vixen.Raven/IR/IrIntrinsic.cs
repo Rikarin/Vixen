@@ -55,11 +55,28 @@ public enum IrIntrinsic {
     All,
     Any,
 
-    /// <summary>Sample a texture through a sampler.</summary>
+    /// <summary>Sample a texture through a sampler, at the level of detail the derivatives imply.</summary>
     SampleTexture,
+
+    /// <summary>
+    ///     Sample a texture through a sampler at a stated level of detail. Separate from
+    ///     <see cref="SampleTexture" /> rather than an optional operand, because the two are
+    ///     different instructions in both targets and only this one is legal outside a fragment
+    ///     stage.
+    /// </summary>
+    SampleTextureLevel,
 
     /// <summary>Fetch a texel by integer coordinate.</summary>
     LoadTexture,
+
+    /// <summary>The size of one mip level of a texture, in texels.</summary>
+    TextureSize,
+
+    /// <summary>
+    ///     The same bits read as another type of the same width — <c>asfloat</c> and friends.
+    ///     One opcode rather than one per pair: the instruction carries both types already.
+    /// </summary>
+    BitCast,
 
     /// <summary>Number of elements in an array.</summary>
     ArrayLength

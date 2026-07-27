@@ -28,9 +28,7 @@ decision that has been made and built, kept because the reasons stay useful.
 | 🟡 | **Storage images** — a writable *texture*, which a compute post-process pass writes into. Storage buffers landed, so everything that reads a result *back* is unblocked; an image needs a format decoration on the declaration, which is syntax that does not exist yet | § I | a compute post-process writing a render target; nothing that only has to read a number back |
 | 🟡 | **Multiple render targets** — an entry point returns one value, and an aggregate return is `RVN4001` in both backends | § F | the G-buffer *geometry* pass; `GBuffer.rvn` is the encoding only, and `Deferred.rvn` reads it |
 | 🟡 | **Generic types and methods do not lower** — front-end only. An open definition is `RVN3001`, and so is an instantiation: there is no monomorphisation, so `Box<float4>` reaches no backend | § I | anything in § F's library that wants a generic container |
-| ⚪ | **Small texture and stage intrinsics**: no `SampleLevel` (explicit mip), no `GetDimensions`, no `discard`, no `SV_VertexID` semantic, no `asfloat`/`asuint` | § F | each shaped a library file rather than blocking it — see § F's list of what it could not express |
-| 🟡 | **`&&` / `\|\|` do not short-circuit** — sound for side-effect-free expressions, wrong the moment the right operand is a guard | § I | correctness of `i < n && data[i] > 0` |
-| 🟡 | **Nested generics do not parse** — `Buffer<Buffer<float>>` ends in `>>`, which lexes as a right shift and the type-argument scanner does not split it. Pre-existing in *every* nested generic; the buffer is only the first type anyone would nest | § I | a nested type argument; the refusal is real but reports `RVN1001` rather than the type rule |
+| ⚪ | **Small stage intrinsics**: no `discard`, no `SV_VertexID`/`SV_InstanceID` semantic. `SampleLevel`, `GetDimensions` and `asfloat`/`asint`/`asuint` **landed** — see § F | § F | each shaped a library file rather than blocking it — see § F's list of what it could not express |
 | 🟡 | **Inheritance is not flattened** — now `RVN3002` rather than three silent miscompilations | § I, mixins | the mixin question; `compose` covers the common case |
 | 🟡 | **Push constants** — no syntax, so `PushConstants` is always empty | § C, § D | nothing yet; reported as absent rather than guessed |
 | 🟡 | **String interpolation** — needs lexer modes; nothing shipped uses it | § I | nothing |
@@ -83,6 +81,17 @@ stood up yet ([12](12-build-ci-and-testing.md)) — so this is a real gap, not a
   `CSharpSyntaxNode` split. The shared `SyntaxToken` and `SyntaxListNode` sit outside that hierarchy
   and `SyntaxVisitor.Visit` routes them with one type test. `Syntax.xml` names the language's base in
   `Root` and its output namespace in `Namespace`.
+- **Navigation is shared, because the questions are.** `FindToken(position)`, `FindNode(span)`, the
+  descendant and ancestor walks, a token's positioned trivia, `IsMissing`, and a trivia-insensitive
+  `IsEquivalentTo` live in `Vixen.Core.Syntax` — none of them is language-specific, and all three front
+  ends are asked the same two things by [doc 09](09-ui-framework.md)'s `CodeEditor` and by the shader
+  graph's mapping from generated source back to the node that produced it. Two rules the traversal
+  follows: **list nodes are flattened away**, since a list is a shape of the tree and not a construct
+  of any grammar (the raw slot walk stays available as `ChildNodesAndTokens`, which the tree dumper and
+  the round-trip tests are written against); and **`FindToken` answers for every position in the file**,
+  trivia included, because a caret in a comment is still somewhere. `IsMissing` is a flag the parser
+  sets rather than a zero-width test — an end-of-file token has no text either, and a missing token can
+  still carry the trivia recovery skipped past.
 
 ### B. Language and semantic features — Raven's Phase 2
 
@@ -586,12 +595,20 @@ Each of these shaped a file rather than blocking it, and each is recorded in the
 - **No multiple render targets** — an entry point returns one value. So `GBuffer.rvn` is the *encoding*
   and not the geometry pass that fills it; `Deferred.rvn` reads through the same `Decode`, so when MRT
   arrives there is one place for the two passes to agree.
-- **No `SampleLevel`**, so nothing can select a mip explicitly. `Ibl` computes the LOD a caller should
-  use and `Bloom` runs per mip instead, which works but means the prefilter contract is a comment
-  rather than a call.
+- ~~**No `SampleLevel`**~~ — landed, along with `GetDimensions` and `asfloat`/`asint`/`asuint`. All
+  three are the same shape of change (a symbol, an IR opcode, a line in each backend). `Msdf.rvn` now
+  queries its atlas instead of hard-coding 1024, a packed storage buffer can be read back at all, and
+  a vertex stage sampling a heightmap can say which mip it means. `Ibl` and `Bloom` are unchanged and
+  deliberately so: `Ibl` takes prefiltered radiance as a parameter rather than sampling, which is what
+  lets a deferred pass reuse it, and `Bloom` runs per mip because the chain is a sequence of passes.
+  Two things worth knowing came out of it: `Sample` takes its level from derivatives, so outside a
+  fragment stage it never meant what it looked like — SPIR-V was quietly substituting level zero; and a
+  size query takes the *plain* image in both targets, which is why the GLSL side asks for
+  `GL_EXT_samplerless_texture_functions` and the SPIR-V side for the `ImageQuery` capability, each
+  declared only in the units that need it.
 - **No `discard`**, so `DepthOnly` and `ShadowCaster` return zero and rely on the host's colour write
-  mask.
-- **No `GetDimensions`**, so `Msdf` hard-codes its atlas width where it should query it.
+  mask. The one remaining intrinsic of this group, and the odd one out: it is a *terminator*, so it
+  needs a keyword, a statement node and a block-termination rule rather than a table entry.
 - **A texture cannot be a struct field** (`RVN2053`, correctly — a descriptor is not a value), so
   `GBuffer.Sample` takes three texture parameters rather than a bundle.
 - **No line continuation**, which shaped every signature in the tree: anything over one line becomes a
@@ -783,7 +800,7 @@ shader graph's generated-source span mapping.
 | | Gap | |
 |---|---|---|
 | 🔴 | **`m[i]` meant a row in the IR and a column in both targets** | ✅ fixed in [§ E](#e-conventions-raven-must-bake-in) |
-| 🟡 | **`&&` and `\|\|` do not short-circuit.** They lower to `logicalAnd`/`logicalOr`, which evaluate both operands, as `?:` lowers to `select`. Sound for the side-effect-free expressions shaders are made of; wrong the moment the right operand is a guard (`i < n && data[i] > 0`) |
+| ✅ | **`&&` and `\|\|` short-circuit** — and `?:` runs one arm — *when the guarded operand can index, call or assign*; otherwise they keep the branch-free `logicalAnd`/`select` form. See [§ Short circuiting](#short-circuiting-a-branch-only-where-one-is-owed) |
 | 🟡 | **Stream I/O declarations between stages** — no `stream` keyword; interstage data passes as entry-point parameters and returns | ✅ built; see [§ Streams](#streams-interstage-values-declared-once) |
 | ✅ | **`Buffer<T>`-style resources** — `Buffer<T>` and `RWBuffer<T>`, std430, with a runtime-sized last member and `Length` answered at run time. Not generic: a structural type the binder builds, as `T[4]` is, which is what lets it work without monomorphisation. `DescriptorType.StorageBuffer` and `LayoutRule.Std430` now have something that produces them. See [§ Writable resources](#writable-resources-the-first-thing-a-shader-can-store-into) |
 | ✅ | **Kept in the language but not lowered** — resolved by Tier B: `switch`, operators and tuples are finished, the rest are dropped |
@@ -807,6 +824,49 @@ language decision needing a coin-flip (HLSL indexes rows, GLSL columns) and was 
 byte-level relationship between host and shader storage was worked out, exactly one answer was free in
 both backends *and* the intuitive one. The derivation is in
 [§ E](#e-conventions-raven-must-bake-in).
+
+#### Short circuiting: a branch only where one is owed
+
+`i < n && data[i] > 0` used to read `data[i]` whichever way the bound went. Both operands were lowered
+and handed to a `logicalAnd`, as `?:` was lowered to a `select` — sound for the side-effect-free
+expressions shaders are mostly made of, and undefined behaviour the moment the right operand is a
+guard.
+
+The fix is not "always branch", and that is the part worth recording. **A branch costs a GPU the whole
+warp**, and moving an implicit-LOD texture sample under one makes its derivatives undefined — so
+lowering every `&&` into a branch would trade a correctness bug for a performance one and a second
+correctness one. Instead the operand is examined, and exactly three things earn a branch:
+
+- an **index**, because that is the guard the feature exists for and an out-of-range read is undefined
+  in both targets;
+- a **call** to a declared function, which may store into a writable resource;
+- an **assignment** or increment, whose effect is the point of writing it.
+
+Everything else — arithmetic, swizzles, loads, and the intrinsic library, which is pure by construction
+— keeps the branch-free form, so an ordinary `a > 0 && b < 1` still emits one `&&` and no local. The
+guarded form is `t = a; if (t) { t = b }`, with the test negated for `||`, which is a structured `if`
+inside an expression: GLSL hoists the local above it and SPIR-V structures the merge. Neither backend
+needed a new instruction, and the golden GLSL, SPIR-V and IR were untouched — which is the evidence
+that the narrow rule was the right one.
+
+#### Nested type arguments: splitting a token the lexer had no way to split
+
+`Buffer<Buffer<float>>` ends in `>>`, and a maximal-munch lexer takes that as a right shift. Roslyn
+solves this from the other side — its C# lexer emits `>` twice and the parser merges them for a shift
+— but Raven's token spelling is pinned by the token-stream differential against the grammar oracle
+([doc 18](18-raven-parser-migration.md)), so the split happens in the parser instead: one `>` comes off
+the front and the rest stays a token for the enclosing list to take. `>>>` works by the same rule.
+
+**What keeps this from swallowing shifts** is that a split has to be *paid for*. The speculative scan
+that decides whether `a < …` is a generic name at all counts the `>`s it took out of a `>>` and must
+have an enclosing type-argument list to hand the leftover to. In `a < b >> c` there is none, so the
+scan is rejected and the expression stays the comparison it always was — the same rule C# applies,
+arrived at from the other side. `>=` is deliberately *not* splittable: its tail is not something an
+enclosing list could take, so splitting it would quietly turn `a < b >= c` into a generic name and an
+assignment.
+
+A nested buffer is still illegal, and that is the visible change: it is `RVN2118` about the element
+type now, rather than `RVN1001` about syntax that was fine.
 
 #### The compute stage: a workgroup size, the dispatch ids, and no interface
 
@@ -1086,10 +1146,11 @@ formats to admit. Nothing that has to read a *number* back needs it — the nume
 `Random.rvn` bit-for-bit and doc 06's VFX path are all buffers — so it is the compute post-process pass
 that is still waiting.
 
-Also found while writing this, and recorded rather than fixed: **`Buffer<Buffer<float>>` does not
-parse.** The `>>` lexes as a right shift and the type-argument scanner does not split it. That is
-pre-existing in every nested generic; a nested buffer is illegal anyway, so the refusal is right and
-only the message is wrong.
+Also found while writing this, and since **fixed**: `Buffer<Buffer<float>>` did not parse. The `>>`
+lexed as a right shift and the type-argument scanner did not split it — pre-existing in every nested
+generic, with a nested buffer only the first type anyone would nest. A nested buffer is still illegal,
+but it is now `RVN2118` about the element type rather than `RVN1001` about syntax that was fine. See
+[§ Nested type arguments](#nested-type-arguments-splitting-a-token-the-lexer-had-no-way-to-split).
 
 #### Superseded rather than carried
 

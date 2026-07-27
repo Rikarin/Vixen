@@ -16,16 +16,34 @@ class SyntaxToken : GreenNode {
 
     public override bool IsToken => true;
 
+    /// <summary>
+    ///     Whether the parser fabricated this token in place of one the source did not have.
+    /// </summary>
+    /// <remarks>
+    ///     A flag rather than a zero-width test, because zero width is not the same question: an
+    ///     end-of-file token has no text either and is not missing, and a missing token can still
+    ///     carry the trivia that recovery skipped past. The parser is the only thing that knows,
+    ///     so the parser is what says so.
+    /// </remarks>
+    public bool IsMissing { get; }
+
     /// <summary>The token's semantic value (identifier text, parsed literal, …). Defaults to the text.</summary>
     public virtual object? Value => Text;
 
     public virtual string ValueText => Text;
 
-    internal SyntaxToken(int rawKind, string text, GreenNode? leading = null, GreenNode? trailing = null)
+    internal SyntaxToken(
+        int rawKind,
+        string text,
+        GreenNode? leading = null,
+        GreenNode? trailing = null,
+        bool isMissing = false
+    )
         : base(rawKind) {
         Text = text;
         LeadingTrivia = leading;
         TrailingTrivia = trailing;
+        IsMissing = isMissing;
         FullWidth = (leading?.FullWidth ?? 0) + text.Length + (trailing?.FullWidth ?? 0);
     }
 
@@ -37,8 +55,8 @@ class SyntaxToken : GreenNode {
     public override int GetLeadingTriviaWidth() => LeadingTrivia?.FullWidth ?? 0;
     public override int GetTrailingTriviaWidth() => TrailingTrivia?.FullWidth ?? 0;
 
-    public SyntaxToken WithLeadingTrivia(GreenNode? trivia) => new(RawKind, Text, trivia, TrailingTrivia);
-    public SyntaxToken WithTrailingTrivia(GreenNode? trivia) => new(RawKind, Text, LeadingTrivia, trivia);
+    public SyntaxToken WithLeadingTrivia(GreenNode? trivia) => new(RawKind, Text, trivia, TrailingTrivia, IsMissing);
+    public SyntaxToken WithTrailingTrivia(GreenNode? trivia) => new(RawKind, Text, LeadingTrivia, trivia, IsMissing);
 
     public override void WriteTo(TextWriter writer) {
         LeadingTrivia?.WriteTo(writer);

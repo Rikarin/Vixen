@@ -36,6 +36,15 @@ sealed class RavenParser : SyntaxParser {
     /// <summary>Raw indices skipped during recovery; they travel as leading trivia.</summary>
     readonly HashSet<int> skipped = [];
 
+    /// <summary>
+    ///     <c>&gt;</c>s a speculative scan has taken out of a <c>&gt;&gt;</c> token and still owes
+    ///     to an enclosing type-argument list. See <see cref="ScanBalancedAngles" />.
+    /// </summary>
+    int pendingCloseAngles;
+
+    /// <summary>Type-argument lists whose arguments the parser is inside of, right now.</summary>
+    int typeArgumentDepth;
+
     RavenParser(
         IReadOnlyList<LexedToken> tokens,
         DiagnosticBag diagnostics,
@@ -92,7 +101,7 @@ sealed class RavenParser : SyntaxParser {
     }
 
     static SyntaxToken Missing(SyntaxKind kind) =>
-        (SyntaxToken)new Green.SyntaxToken((int)kind, string.Empty).CreateRed(null, 0);
+        (SyntaxToken)new Green.SyntaxToken((int)kind, string.Empty, isMissing: true).CreateRed(null, 0);
 
     /// <summary>
     ///     Builds the red token for a consumed raw index, carrying every trivia,
@@ -300,20 +309,53 @@ sealed class RavenParser : SyntaxParser {
 
         List<SyntaxNode?> arguments = [];
         List<SyntaxToken> commas = [];
-        if (!At(RavenTokenKind.GreaterThan)) {
-            arguments.Add(ParseType());
-            while (At(RavenTokenKind.Comma)) {
-                commas.Add(Take(SyntaxKind.CommaToken));
+
+        // Each argument re-scans its own name, so it needs to know an enclosing list is open:
+        // that is what lets the inner list of `Box<Box<float>>` end on a `>>`.
+        typeArgumentDepth++;
+
+        try {
+            if (!At(RavenTokenKind.GreaterThan)) {
                 arguments.Add(ParseType());
+                while (At(RavenTokenKind.Comma)) {
+                    commas.Add(Take(SyntaxKind.CommaToken));
+                    arguments.Add(ParseType());
+                }
             }
+        } finally {
+            typeArgumentDepth--;
         }
 
-        var greaterThan = Expect(RavenTokenKind.GreaterThan, SyntaxKind.GreaterThanToken);
         return (TypeArgumentListSyntax)SyntaxFactory.TypeArgumentList(
             lessThan,
             Separated<TypeSyntax>(arguments, commas),
-            greaterThan
+            ExpectCloseAngle()
         );
+    }
+
+    /// <summary>
+    ///     Consumes the <c>&gt;</c> closing a type-argument list, splitting a <c>&gt;&gt;</c>
+    ///     token when the inner of two nested lists ends on one.
+    /// </summary>
+    /// <remarks>
+    ///     Only reached once <see cref="ScanTypeArgumentList" /> has decided this really is a
+    ///     type-argument list, which is what keeps <c>a &lt; b &gt;&gt; c</c> a comparison: that
+    ///     scan refuses to split a <c>&gt;&gt;</c> whose second half no enclosing list would take.
+    /// </remarks>
+    SyntaxToken ExpectCloseAngle() {
+        // One `>` comes off the front; the rest stays a token for the enclosing list to take,
+        // which is what makes `Box<Box<Box<float>>>`'s `>>>` work by the same rule as `>>`.
+        switch (Kind) {
+            case RavenTokenKind.GreaterThanGreaterThan:
+                SplitCurrentToken((int)RavenTokenKind.GreaterThan, 1, (int)RavenTokenKind.GreaterThan);
+                break;
+
+            case RavenTokenKind.UnsignedShiftRight:
+                SplitCurrentToken((int)RavenTokenKind.GreaterThan, 1, (int)RavenTokenKind.GreaterThanGreaterThan);
+                break;
+        }
+
+        return Expect(RavenTokenKind.GreaterThan, SyntaxKind.GreaterThanToken);
     }
 
     // ================================================================== Types
@@ -410,7 +452,16 @@ sealed class RavenParser : SyntaxParser {
                 commas.Add(Take(SyntaxKind.CommaToken));
             }
         } else {
-            size = ParseExpression();
+            // A size is an expression, so the enclosing type-argument list stops being an
+            // excuse to split a `>>` inside it: `Box<float[a < b >> c]>` is a shift again.
+            var enclosing = typeArgumentDepth;
+            typeArgumentDepth = 0;
+
+            try {
+                size = ParseExpression();
+            } finally {
+                typeArgumentDepth = enclosing;
+            }
         }
 
         var close = Expect(RavenTokenKind.CloseBracket, SyntaxKind.CloseBracketToken);
@@ -473,53 +524,118 @@ sealed class RavenParser : SyntaxParser {
 
     bool ScanTypeArgumentList() {
         var mark = RawPosition;
-        var ok = TryScanTypeArgumentList();
+        var ok = ScanBalancedAngles(ScanTypeArgumentListCore);
         ResetTo(mark);
         return ok;
     }
 
-    bool TryScanTypeArgumentList() {
-        if (!At(RavenTokenKind.LessThan)) {
-            return false;
+    /// <summary>
+    ///     Runs a speculative type scan with its own budget of unmatched <c>&gt;</c>s, and only
+    ///     accepts it if the budget came back to zero.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A <c>&gt;&gt;</c> may stand for the two <c>&gt;</c>s that close
+    ///         <c>Buffer&lt;Buffer&lt;float&gt;&gt;</c> — the lexer took the longer token because
+    ///         nothing at that level told it not to. The inner list consumes the token and leaves a
+    ///         credit for its second half; an enclosing list spends it.
+    ///     </para>
+    ///     <para>
+    ///         Requiring the credit to be spent — by this scan, or by a list the parser has
+    ///         already opened around it — is what keeps this from swallowing shifts. In
+    ///         <c>a &lt; b &gt;&gt; c</c> there is neither, so the credit survives, the scan is
+    ///         rejected, and the expression stays the comparison it was. That is the same rule C#
+    ///         applies, arrived at from the other side.
+    ///     </para>
+    /// </remarks>
+    bool ScanBalancedAngles(Func<bool> scan) {
+        var saved = pendingCloseAngles;
+        pendingCloseAngles = 0;
+
+        var ok = scan() && (pendingCloseAngles == 0 || typeArgumentDepth > 0);
+
+        pendingCloseAngles = saved;
+        return ok;
+    }
+
+    /// <summary>Whether the scan is positioned on a <c>&gt;</c>, counting one owed by a split.</summary>
+    bool AtCloseAngle => pendingCloseAngles > 0 || At(RavenTokenKind.GreaterThan);
+
+    /// <summary>Consumes a <c>&gt;</c>, taking half of a <c>&gt;&gt;</c> and owing the other half.</summary>
+    bool ScanCloseAngle() {
+        if (pendingCloseAngles > 0) {
+            pendingCloseAngles--;
+            return true;
         }
 
-        Advance();
         if (At(RavenTokenKind.GreaterThan)) {
             Advance();
             return true;
         }
 
-        if (!TryScanType(true)) {
+        // `>>` and `>>>` are the only tokens that can be shared, because every character of
+        // them is a `>`. A `>=` is not: its tail is not something an enclosing list could take,
+        // so splitting it would turn `a < b >= c` into a generic name and an assignment.
+        if (At(RavenTokenKind.GreaterThanGreaterThan)) {
+            Advance();
+            pendingCloseAngles += 1;
+            return true;
+        }
+
+        if (At(RavenTokenKind.UnsignedShiftRight)) {
+            Advance();
+            pendingCloseAngles += 2;
+            return true;
+        }
+
+        return false;
+    }
+
+    bool ScanTypeArgumentListCore() {
+        if (!At(RavenTokenKind.LessThan)) {
+            return false;
+        }
+
+        Advance();
+        if (AtCloseAngle) {
+            return ScanCloseAngle();
+        }
+
+        if (!ScanTypeCore(true)) {
             return false;
         }
 
         while (At(RavenTokenKind.Comma)) {
             Advance();
-            if (!TryScanType(true)) {
+            if (!ScanTypeCore(true)) {
                 return false;
             }
         }
 
-        if (!At(RavenTokenKind.GreaterThan)) {
-            return false;
-        }
-
-        Advance();
-        return true;
+        return ScanCloseAngle();
     }
 
     /// <summary>
-    ///     Advances over one <c>type</c> production without building anything.
-    ///     <paramref name="allowSizes" /> must be false wherever the scan is deciding
-    ///     <em>whether</em> this is a type at all against an expression reading — a cast — and
-    ///     true wherever a type is already certain and the scan only has to get past it.
+    ///     Advances over one <c>type</c> production without building anything, as the outermost
+    ///     scan: every <c>&gt;</c> it consumed has to have closed a list it opened.
     /// </summary>
-    bool TryScanType(bool allowSizes) {
+    /// <param name="allowSizes">
+    ///     Must be false wherever the scan is deciding <em>whether</em> this is a type at all
+    ///     against an expression reading — a cast — and true wherever a type is already certain and
+    ///     the scan only has to get past it.
+    /// </param>
+    bool TryScanType(bool allowSizes) => ScanBalancedAngles(() => ScanTypeCore(allowSizes));
+
+    /// <summary>
+    ///     The recursive half of <see cref="TryScanType" />, sharing the enclosing scan's
+    ///     close-angle budget.
+    /// </summary>
+    bool ScanTypeCore(bool allowSizes) {
         if (IsPredefinedTypeKeyword(Kind)) {
             Advance();
         } else if (At(RavenTokenKind.Identifier)) {
             Advance();
-            if (At(RavenTokenKind.LessThan) && !TryScanTypeArgumentList()) {
+            if (At(RavenTokenKind.LessThan) && !ScanTypeArgumentListCore()) {
                 return false;
             }
 
@@ -530,7 +646,7 @@ sealed class RavenParser : SyntaxParser {
                 }
 
                 Advance();
-                if (At(RavenTokenKind.LessThan) && !TryScanTypeArgumentList()) {
+                if (At(RavenTokenKind.LessThan) && !ScanTypeArgumentListCore()) {
                     return false;
                 }
             }
@@ -575,7 +691,7 @@ sealed class RavenParser : SyntaxParser {
             Advance();
         }
 
-        return TryScanType(true);
+        return ScanTypeCore(true);
     }
 
     // ================================================================== Attributes

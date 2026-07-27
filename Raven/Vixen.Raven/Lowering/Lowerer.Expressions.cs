@@ -57,6 +57,12 @@ public sealed partial class Lowerer {
                 return LowerPropertyGet(property, type);
 
             case BoundConditionalExpression conditional: {
+                // Only one arm runs when running the other one would be unsafe or observable;
+                // otherwise a select is the cheaper, branch-free form. Same rule as `&&`.
+                if (NeedsGuarding(conditional.WhenTrue) || NeedsGuarding(conditional.WhenFalse)) {
+                    return LowerGuardedConditional(conditional, type);
+                }
+
                 var condition = LowerExpression(conditional.Condition);
                 var whenTrue = LowerExpression(conditional.WhenTrue);
                 var whenFalse = LowerExpression(conditional.WhenFalse);
@@ -401,6 +407,13 @@ public sealed partial class Lowerer {
     }
 
     IrValue LowerBinary(BoundBinaryExpression binary, IrType type) {
+        // `&&` and `||` only promise not to evaluate the right operand when the left one
+        // already decides the answer. See LowerShortCircuit for when that promise is kept.
+        if (binary.OperatorKind is BinaryOperatorKind.LogicalAnd or BinaryOperatorKind.LogicalOr
+            && NeedsGuarding(binary.Right)) {
+            return LowerShortCircuit(binary, type);
+        }
+
         var left = LowerExpression(binary.Left);
         var right = LowerExpression(binary.Right);
 
@@ -436,6 +449,96 @@ public sealed partial class Lowerer {
             BinaryOperatorKind.GreaterThan => IrBinaryOp.GreaterThan,
             _ => IrBinaryOp.GreaterThanOrEqual
         };
+
+    // --- Short circuiting --------------------------------------------------
+
+    /// <summary>
+    ///     Lowers <c>a &amp;&amp; b</c> / <c>a || b</c> into a branch, so <paramref name="binary" />'s
+    ///     right operand runs only when the left one has not already decided the answer.
+    /// </summary>
+    /// <remarks>
+    ///     The result is a local rather than a value, because it is assigned from two places:
+    ///     <c>t = a; if (t) { t = b }</c> for <c>&amp;&amp;</c>, and the same with the test negated
+    ///     for <c>||</c>. Both targets take it — a structured <c>if</c> is what they are made of —
+    ///     and the extra load is one the backends' own optimisers remove.
+    /// </remarks>
+    IrValue LowerShortCircuit(BoundBinaryExpression binary, IrType type) {
+        var isAnd = binary.OperatorKind == BinaryOperatorKind.LogicalAnd;
+        var result = Function.AddLocal(isAnd ? "and" : "or", type);
+        var place = new IrPlace(result);
+
+        Emit(new IrStoreInstruction(place, LowerExpression(binary.Left)));
+
+        // `||` runs its right operand when the left one was *false*, so it tests the negation.
+        var decided = Load(place);
+        var test = isAnd ? decided : Emit(value => new IrUnaryInstruction(value, IrUnaryOp.Not, decided), type);
+
+        var guarded = EmitInto(() => Emit(new IrStoreInstruction(place, LowerExpression(binary.Right))));
+        Emit(new IrIfStatement(test, guarded, null));
+
+        return Load(place);
+    }
+
+    /// <summary>
+    ///     Lowers <c>c ? a : b</c> into a branch, for the same reason
+    ///     <see cref="LowerShortCircuit" /> exists: a select evaluates both arms.
+    /// </summary>
+    IrValue LowerGuardedConditional(BoundConditionalExpression conditional, IrType type) {
+        var result = Function.AddLocal("cond", type);
+        var place = new IrPlace(result);
+        var condition = LowerExpression(conditional.Condition);
+
+        var whenTrue = EmitInto(() => Emit(new IrStoreInstruction(place, LowerExpression(conditional.WhenTrue))));
+        var whenFalse = EmitInto(() => Emit(new IrStoreInstruction(place, LowerExpression(conditional.WhenFalse))));
+
+        Emit(new IrIfStatement(condition, whenTrue, whenFalse));
+        return Load(place);
+    }
+
+    /// <summary>
+    ///     Whether <paramref name="expression" /> must not be evaluated unless control flow
+    ///     actually reaches it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Evaluating an operand that the source says is unreachable is only observable three
+    ///         ways, and each is checked for rather than assumed:
+    ///     </para>
+    ///     <list type="bullet">
+    ///         <item>
+    ///             an <b>index</b>, because <c>i &lt; n &amp;&amp; data[i] &gt; 0</c> is the guard the
+    ///             whole feature exists for and an out-of-range read is undefined on both targets;
+    ///         </item>
+    ///         <item>a <b>call</b> to a declared function, which may store into a writable resource;</item>
+    ///         <item>an <b>assignment</b> or increment, whose effect is the point of writing it.</item>
+    ///     </list>
+    ///     <para>
+    ///         Everything else — arithmetic, swizzles, loads, and the intrinsic library, which is
+    ///         pure by construction — stays in the branch-free form, so an ordinary
+    ///         <c>a &gt; 0 &amp;&amp; b &lt; 1</c> still emits one <c>&amp;&amp;</c> and no local. That
+    ///         matters more here than in a CPU language: a branch costs a GPU the whole warp, and
+    ///         moving an implicit-LOD texture sample under one would make its derivatives undefined.
+    ///     </para>
+    /// </remarks>
+    static bool NeedsGuarding(BoundExpression expression) =>
+        expression.DescendantsAndSelf()
+            .Any(
+                node => node switch {
+                    BoundArrayAccessExpression => true,
+                    BoundAssignmentExpression => true,
+                    BoundPropertyExpression => true,
+                    BoundObjectCreationExpression creation => creation.Constructor is not null,
+                    BoundInvocationExpression invocation => Definition(invocation.Method).MethodKind
+                        != MethodKind.Intrinsic,
+                    BoundUnaryExpression unary => unary.OperatorKind
+                        is UnaryOperatorKind.PreIncrement or UnaryOperatorKind.PreDecrement
+                        or UnaryOperatorKind.PostIncrement or UnaryOperatorKind.PostDecrement,
+                    _ => false
+                }
+            );
+
+    static MethodSymbol Definition(MethodSymbol method) =>
+        method is SubstitutedMethodSymbol substituted ? substituted.OriginalDefinition : method;
 
     // --- Assignment --------------------------------------------------------
 
@@ -624,8 +727,11 @@ public sealed partial class Lowerer {
             "transpose" => IrIntrinsic.Transpose,
             "all" => IrIntrinsic.All,
             "any" => IrIntrinsic.Any,
+            "asfloat" or "asint" or "asuint" => IrIntrinsic.BitCast,
             "Sample" => IrIntrinsic.SampleTexture,
+            "SampleLevel" => IrIntrinsic.SampleTextureLevel,
             "Load" => IrIntrinsic.LoadTexture,
+            "GetDimensions" => IrIntrinsic.TextureSize,
             _ => null
         };
 

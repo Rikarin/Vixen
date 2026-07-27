@@ -614,9 +614,9 @@ sealed class GlslEmitter {
                 return $"{TypeName(convert.Result.Type)}({Value(convert.Operand)})";
 
             case IrIntrinsicInstruction intrinsic: {
-                if (intrinsic.Intrinsic == IrIntrinsic.LoadTexture) {
-                    // texelFetch on a separate texture, with no sampler to pair it with,
-                    // is what this extension adds. Recorded here so the prologue declares
+                if (intrinsic.Intrinsic is IrIntrinsic.LoadTexture or IrIntrinsic.TextureSize) {
+                    // texelFetch and textureSize on a separate texture, with no sampler to pair it
+                    // with, are what this extension adds. Recorded here so the prologue declares
                     // it only in the units that need it.
                     samplerlessFetch = true;
                 }
@@ -626,7 +626,8 @@ sealed class GlslEmitter {
                     intrinsic.Intrinsic,
                     arguments,
                     [.. intrinsic.Arguments.Select(a => a.Type)],
-                    TypeName(intrinsic.Result!.Type)
+                    TypeName(intrinsic.Result!.Type),
+                    intrinsic.Result.Type
                 );
 
                 if (call is not null) {

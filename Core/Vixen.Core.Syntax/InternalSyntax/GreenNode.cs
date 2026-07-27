@@ -105,6 +105,42 @@ abstract class GreenNode {
         return sw.ToString();
     }
 
+    /// <summary>
+    ///     Whether two subtrees have the same shape and the same token text, ignoring trivia.
+    /// </summary>
+    /// <remarks>
+    ///     Reference equality first, which is the case that matters: an incremental reparse reuses
+    ///     green nodes by reference, so the answer for an untouched member is one comparison rather
+    ///     than a walk. List nodes are compared as themselves rather than flattened — the builder
+    ///     canonicalises a list's shape from its element count, so equal content always has equal
+    ///     shape.
+    /// </remarks>
+    public static bool Equivalent(GreenNode? left, GreenNode? right) {
+        if (ReferenceEquals(left, right)) {
+            return true;
+        }
+
+        if (left is null || right is null || left.RawKind != right.RawKind) {
+            return false;
+        }
+
+        if (left.IsToken || right.IsToken) {
+            return left is SyntaxToken a && right is SyntaxToken b && string.Equals(a.Text, b.Text, StringComparison.Ordinal);
+        }
+
+        if (left.SlotCount != right.SlotCount) {
+            return false;
+        }
+
+        for (var i = 0; i < left.SlotCount; i++) {
+            if (!Equivalent(left.GetSlot(i), right.GetSlot(i))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>Accumulate a child's width into this node's <see cref="FullWidth" />.</summary>
     protected void AdjustWidth(GreenNode? child) {
         if (child != null) {

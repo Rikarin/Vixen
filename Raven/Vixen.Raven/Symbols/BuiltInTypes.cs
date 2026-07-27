@@ -157,17 +157,48 @@ public static class BuiltInTypes {
     static PrimitiveTypeSymbol Mat(string name, SpecialType specialType, int rows, int columns) =>
         new(name, specialType, TypeKind.Matrix, SpecialType.Float, rows, columns);
 
+    /// <summary>
+    ///     The methods a texture carries.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>Sample</c> takes the level of detail from the fragment stage's derivatives, so it
+    ///         means nothing outside one; <c>SampleLevel</c> states the level and works in every
+    ///         stage. That is why a vertex shader reading a heightmap needs it, and why the backends
+    ///         do not have to guess a level for a stage that has no derivatives.
+    ///     </para>
+    ///     <para>
+    ///         <c>GetDimensions</c> returns its answer rather than filling <c>out</c> parameters the
+    ///         way HLSL does — Raven has no by-reference arguments, and both targets' query
+    ///         instructions return a value anyway. Signed, because that is what GLSL's
+    ///         <c>textureSize</c> hands back, and a conversion nobody wrote is worse than a sign.
+    ///     </para>
+    /// </remarks>
     static void AddResourceMembers() {
         Texture2D.SetMembers(
             [
                 new SynthesizedMethodSymbol(Texture2D, "Sample", Float4, [("sampler", Sampler), ("uv", Float2)]),
-                new SynthesizedMethodSymbol(Texture2D, "Load", Float4, [("coordinate", Int3)])
+                new SynthesizedMethodSymbol(
+                    Texture2D,
+                    "SampleLevel",
+                    Float4,
+                    [("sampler", Sampler), ("uv", Float2), ("lod", Float)]
+                ),
+                new SynthesizedMethodSymbol(Texture2D, "Load", Float4, [("coordinate", Int3)]),
+                new SynthesizedMethodSymbol(Texture2D, "GetDimensions", Int2, [("lod", Int)])
             ]
         );
 
         Texture3D.SetMembers(
             [
-                new SynthesizedMethodSymbol(Texture3D, "Sample", Float4, [("sampler", Sampler), ("uvw", Float3)])
+                new SynthesizedMethodSymbol(Texture3D, "Sample", Float4, [("sampler", Sampler), ("uvw", Float3)]),
+                new SynthesizedMethodSymbol(
+                    Texture3D,
+                    "SampleLevel",
+                    Float4,
+                    [("sampler", Sampler), ("uvw", Float3), ("lod", Float)]
+                ),
+                new SynthesizedMethodSymbol(Texture3D, "GetDimensions", Int3, [("lod", Int)])
             ]
         );
 
@@ -178,7 +209,17 @@ public static class BuiltInTypes {
                     "Sample",
                     Float4,
                     [("sampler", Sampler), ("direction", Float3)]
-                )
+                ),
+                new SynthesizedMethodSymbol(
+                    TextureCube,
+                    "SampleLevel",
+                    Float4,
+                    [("sampler", Sampler), ("direction", Float3), ("lod", Float)]
+                ),
+
+                // A cube's faces are square and all six are the same size, so its size is two
+                // numbers, not three — which is also what textureSize(samplerCube) returns.
+                new SynthesizedMethodSymbol(TextureCube, "GetDimensions", Int2, [("lod", Int)])
             ]
         );
     }

@@ -24,14 +24,21 @@ public enum ToyKind {
 
     Word,
     Space,
+    Comment,
     Comma,
     Phrase
 }
 
 /// <summary>Green terminal: a word or punctuation, optionally carrying trivia.</summary>
 sealed class ToyToken : Green.SyntaxToken {
-    internal ToyToken(ToyKind kind, string text, Green.GreenNode? leading = null, Green.GreenNode? trailing = null)
-        : base((int)kind, text, leading, trailing) { }
+    internal ToyToken(
+        ToyKind kind,
+        string text,
+        Green.GreenNode? leading = null,
+        Green.GreenNode? trailing = null,
+        bool isMissing = false
+    )
+        : base((int)kind, text, leading, trailing, isMissing) { }
 }
 
 /// <summary>Green trivia: whitespace between words.</summary>
@@ -41,6 +48,11 @@ static class Toy {
     /// <summary>A green phrase node holding two slots.</summary>
     public static Green.GreenNode Phrase(Green.GreenNode? left, Green.GreenNode? right) =>
         new ToyPhraseGreen(left, right);
+
+    /// <summary>An anonymous list of children, as a language's own list member would build.</summary>
+    public static Green.GreenNode? List(params Green.GreenNode?[] children) => Green.SyntaxList.List(children);
+
+    public static Green.SyntaxTrivia Comment(string text) => new((int)ToyKind.Comment, text);
 }
 
 sealed class ToyPhraseGreen : Green.GreenNode {

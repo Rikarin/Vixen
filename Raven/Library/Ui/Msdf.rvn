@@ -77,10 +77,10 @@ shader Msdf {
 
     /// The atlas width in pixels, needed to turn a UV derivative into texels.
     ///
-    /// Hard-coded rather than queried: Raven has no `GetDimensions` intrinsic, so the host would have
-    /// to supply it as a uniform. Returning a constant keeps the shader compiling and is honest about
-    /// the gap — see docs/plan/07 § F.
-    func TextureWidth(): float => 1024f
+    /// Level zero, because that is the level a glyph atlas is sampled at: an MSDF has no meaningful
+    /// mip chain — averaging distances across a reduction blurs the edge the field exists to describe
+    /// — so the atlas is authored and bound as a single level.
+    func TextureWidth(): float => float(atlas.GetDimensions(0).x)
 
     /// Straight-alpha "source over", for compositing the outline under the glyph.
     func Over(front: float4, back: float4): float4 {

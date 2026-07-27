@@ -657,8 +657,21 @@ partial class SpirvEmitter {
             case IrIntrinsic.SampleTexture:
                 return EmitSample(intrinsic, resultType, arguments);
 
+            case IrIntrinsic.SampleTextureLevel:
+                return EmitSampleLevel(intrinsic, resultType, arguments);
+
             case IrIntrinsic.LoadTexture:
                 return EmitFetch(intrinsic, resultType, arguments);
+
+            case IrIntrinsic.TextureSize:
+                return EmitQuerySize(intrinsic, resultType, arguments);
+
+            case IrIntrinsic.BitCast:
+                // Same width in and out, so the identity is genuinely nothing to emit — and
+                // OpBitcast with equal operand and result types is not legal SPIR-V.
+                return intrinsic.Arguments[0].Type.Equals(result.Type)
+                    ? Value(intrinsic.Arguments[0])
+                    : Emit(SpirvOp.Bitcast, resultType, arguments[0]);
 
             case IrIntrinsic.ArrayLength:
                 // Unsized arrays are rejected before this, so the length is known.
@@ -709,6 +722,41 @@ partial class SpirvEmitter {
             SpirvOperand.Literal(0x2),
             SpirvOperand.Id(types.ConstantFloat(0))
         );
+    }
+
+    /// <summary>
+    ///     Samples at a stated level of detail. The same instruction the non-fragment path of
+    ///     <see cref="EmitSample" /> uses, with the author's level instead of a fabricated zero.
+    /// </summary>
+    uint EmitSampleLevel(IrIntrinsicInstruction intrinsic, uint resultType, SpirvOperand[] arguments) {
+        if (intrinsic.Arguments is not [{ Type: IrTextureType image }, { Type: IrSamplerType }, _, _]) {
+            return Unimplemented("This form of texture sampling", intrinsic.Result!.Type);
+        }
+
+        var combined = Emit(SpirvOp.SampledImage, types.SampledImage(types.Type(image)), arguments[0], arguments[1]);
+
+        return Emit(
+            SpirvOp.ImageSampleExplicitLod,
+            resultType,
+            SpirvOperand.Id(combined),
+            arguments[2],
+            // Image operands: bit 1 is Lod, and the level follows.
+            SpirvOperand.Literal(0x2),
+            arguments[3]
+        );
+    }
+
+    /// <summary>
+    ///     Queries one mip level's size. Takes the plain image rather than a sampled one, which
+    ///     is why the GLSL side needs the samplerless-texture extension to say the same thing.
+    /// </summary>
+    uint EmitQuerySize(IrIntrinsicInstruction intrinsic, uint resultType, SpirvOperand[] arguments) {
+        if (intrinsic.Arguments is not [{ Type: IrTextureType }, _]) {
+            return Unimplemented("This form of texture size query", intrinsic.Result!.Type);
+        }
+
+        module.AddCapability(SpirvCapability.ImageQuery);
+        return Emit(SpirvOp.ImageQuerySizeLod, resultType, arguments[0], arguments[1]);
     }
 
     /// <summary>

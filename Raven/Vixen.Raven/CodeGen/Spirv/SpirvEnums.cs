@@ -9,7 +9,10 @@ namespace Vixen.Raven.CodeGen.Spirv;
 public enum SpirvCapability {
     Matrix = 0,
     Shader = 1,
-    Float64 = 10
+    Float64 = 10,
+
+    /// <summary>Asking an image about itself — <c>OpImageQuerySizeLod</c> and its siblings.</summary>
+    ImageQuery = 50
 }
 
 public enum SpirvAddressingModel {

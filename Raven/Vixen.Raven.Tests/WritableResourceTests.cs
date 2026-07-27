@@ -121,21 +121,22 @@ public class WritableResourceTests {
     }
 
     /// <summary>
-    ///     A nested buffer is refused, but by the <em>lexer</em> rather than by RVN2118.
+    ///     A nested buffer is refused by the element rule, not by the shift token.
     /// </summary>
     /// <remarks>
-    ///     Pinned because the reason is not the one it looks like: <c>Buffer&lt;Buffer&lt;float&gt;&gt;</c>
-    ///     ends in a <c>&gt;&gt;</c>, which lexes as a right shift, and Raven's type-argument scanner
-    ///     does not split it. That is a pre-existing gap in <em>every</em> nested generic — the buffer
-    ///     is simply the first type anyone would nest — so the refusal is real but the message is wrong.
-    ///     Recorded here so that fixing the lexer is visibly a change in what this reports.
+    ///     Worth its own test because it used to be the other way round:
+    ///     <c>Buffer&lt;Buffer&lt;float&gt;&gt;</c> ends in a <c>&gt;&gt;</c>, the parser did not
+    ///     split it, and a type error came back as <c>RVN1001</c> — a syntax error about a
+    ///     construct whose syntax was fine. Now that the parser splits it
+    ///     (<see cref="NestedGenericTests" />), the diagnostic is about the type, which is what
+    ///     the author has to change.
     /// </remarks>
     [Fact]
-    public void ANestedBufferIsRefusedByTheShiftTokenRatherThanTheElementCheck() {
+    public void ANestedBufferIsRefusedByTheElementCheck() {
         var diagnostics = Declare("var data: Buffer<Buffer<float>>");
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN1001" && d.IsError);
-        Assert.DoesNotContain(diagnostics, d => d.Id == "RVN2118");
+        Assert.Contains(diagnostics, d => d.Id == "RVN2118" && d.IsError);
+        Assert.DoesNotContain(diagnostics, d => d.Id == "RVN1001");
     }
 
     [Fact]

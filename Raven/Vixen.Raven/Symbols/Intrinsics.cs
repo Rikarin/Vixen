@@ -93,6 +93,7 @@ public static class Intrinsics {
         }
 
         AddMatrixIntrinsics(methods);
+        AddBitCastIntrinsics(methods);
 
         ByName = methods
             .GroupBy(m => m.Name, StringComparer.Ordinal)
@@ -133,6 +134,44 @@ public static class Intrinsics {
 
                 if (FindMatrix(matrix.Rows, other.Columns) is { } product) {
                     methods.Add(Method("mul", product, ("a", matrix), ("b", other)));
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    ///     <c>asfloat</c>, <c>asint</c> and <c>asuint</c>: the same bits read as another type.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Not a conversion. <c>int(1.5f)</c> is 1; <c>asint(1.5f)</c> is 1069547520, the
+    ///         32 bits of the float read as an integer. What needs it is packing — a normal or a
+    ///         colour squeezed into a <c>uint</c> in a storage buffer, then read back — which is
+    ///         otherwise impossible to write, since a conversion is the only other way to change a
+    ///         value's type and it changes the bits.
+    ///     </para>
+    ///     <para>
+    ///         Lane count is preserved and never changed: reinterpreting across widths is a
+    ///         different operation with different alignment rules, and neither target's single
+    ///         instruction does it. The identity overloads (<c>asfloat(float)</c>) are declared so a
+    ///         generic-looking call site does not have to know which side it is on; they emit
+    ///         nothing.
+    ///     </para>
+    /// </remarks>
+    static void AddBitCastIntrinsics(List<MethodSymbol> methods) {
+        SpecialType[] components = [SpecialType.Float, SpecialType.Int, SpecialType.UInt];
+
+        foreach (var (name, target) in
+                 new[] { ("asfloat", SpecialType.Float), ("asint", SpecialType.Int), ("asuint", SpecialType.UInt) }) {
+            for (var lanes = 1; lanes <= 4; lanes++) {
+                if (BuiltInTypes.Vector(target, lanes) is not { } returnType) {
+                    continue;
+                }
+
+                foreach (var component in components) {
+                    if (BuiltInTypes.Vector(component, lanes) is { } parameter) {
+                        methods.Add(Method(name, returnType, ("x", parameter)));
+                    }
                 }
             }
         }
