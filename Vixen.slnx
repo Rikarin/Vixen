@@ -75,6 +75,8 @@
     <Project Path="Core/Vixen.Graphics.Tests/Vixen.Graphics.Tests.csproj" />
     <Project Path="Core/Vixen.Graphics.RenderGraph/Vixen.Graphics.RenderGraph.csproj" />
     <Project Path="Core/Vixen.Graphics.RenderGraph.Tests/Vixen.Graphics.RenderGraph.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Reactive/Vixen.Ui.Reactive.csproj" />
+    <Project Path="Core/Vixen.Ui.Reactive.Tests/Vixen.Ui.Reactive.Tests.csproj" />
   </Folder>
 
   <!--

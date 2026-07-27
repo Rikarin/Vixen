@@ -409,8 +409,26 @@ in a 10 k-asset fixture project.
 sub-piece has its own gate.
 
 **4a — Reactive and layout (2.0 EM)**
-- `Vixen.Ui.Reactive`: signals, computed, effects, batching, collection signals, scheduler,
-  runaway detection. Zero-allocation and diamond-correctness gates.
+- ✅ `Vixen.Ui.Reactive` — `Signal<T>`, `Computed<T>`, `Effect` with the frame-phase
+  `EffectScheduler`, `CollectionSignal<T>`, `LinkedSignal<TSource,T>`, `AsyncComputed<TRequest,T>`,
+  `Untracked`, `Batch`, and the owning-thread check. 63 tests. **Both gates are met and measured
+  rather than claimed:** the diamond `a → b, a → c, b+c → d` evaluates its join exactly once per
+  change, and a thousand write-and-flush cycles over a settled graph allocate **zero** bytes. A
+  brute-force oracle — random DAGs, random writes, every value compared against what recomputing
+  from the leaves would give — is the correctness net doc 14 argues for. Verified by sabotage:
+  disabling edge pooling and disabling the equality short-circuit each fail their own test.
+
+  Four things differ from [09](09-ui-framework.md) and that document now says so: edge storage is
+  pooled arrays rather than slices of a shared `ChunkedArray` (a slice must be contiguous and chunks
+  are not, so an arena needs a per-node cap or a second allocation path); the thread check is a
+  runtime opt-in rather than a `DEBUG` assertion; `Batch` turns out to be about flush *ordering*
+  rather than coalescing, because queued effects and lazy computeds already coalesce; and
+  `AsyncComputed` had to split into a tracked synchronous request and an untracked asynchronous load,
+  because dependency tracking cannot survive an `await`.
+
+  **Owed:** liveness is decided per node and the notification walk is per write, which is a tight
+  loop over an array that no measurement has yet asked to improve; and `Flush()` has no caller until
+  `UiSystem` arrives in 4d.
 - `Vixen.Ui.Layout`: SoA store, flexbox algorithm, measure cache, dirty propagation, parallel layout.
 - **Port Yoga's conformance suite.** Gate: it is green.
 
