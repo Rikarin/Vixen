@@ -251,6 +251,11 @@ partial class Build : NukeBuild {
                     .SetConfiguration(Configuration)
                 );
 
+                DotNetBuild(settings => settings
+                    .SetProjectFile(RootDirectory / "Samples" / "01-HelloTriangle.Android" / "HelloTriangle.Android.csproj")
+                    .SetConfiguration(Configuration)
+                );
+
                 if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
                     Log.Information("Skipping Vixen.Platform.iOS: it needs macOS and Xcode.");
                     return;
@@ -258,6 +263,14 @@ partial class Build : NukeBuild {
 
                 DotNetBuild(settings => settings
                     .SetProjectFile(RootDirectory / "Platform" / "Vixen.Platform.iOS" / "Vixen.Platform.iOS.csproj")
+                    .SetConfiguration(Configuration)
+                );
+
+                // The sample heads too, because a platform assembly that compiles and an application
+                // that runs are different claims — and the second is the one the phase's exit
+                // criterion makes.
+                DotNetBuild(settings => settings
+                    .SetProjectFile(RootDirectory / "Samples" / "01-HelloTriangle.iOS" / "HelloTriangle.iOS.csproj")
                     .SetConfiguration(Configuration)
                 );
             }

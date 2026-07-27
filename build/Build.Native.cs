@@ -59,6 +59,18 @@ partial class Build {
 
     AbsolutePath NativeManifestFile => RootDirectory / "build" / "native-dependencies.json";
 
+    /// <summary>
+    ///     Whether to restore the artifacts the manifest marks optional as well as the rest.
+    /// </summary>
+    /// <remarks>
+    ///     Optional means large and narrowly useful, not unimportant — today it is the iOS simulator
+    ///     slice of MoltenVK, which is only published inside a 173 MB archive against the device
+    ///     tar's 31 MB. Restoring it on every clone to serve a target most builds do not use is the
+    ///     wrong default.
+    /// </remarks>
+    [Parameter("Also restore the native artifacts the manifest marks optional (large, target-specific)")]
+    readonly bool AllNativeDeps;
+
     Target RestoreNativeDeps => definition => definition
         .Description("Downloads and verifies the pinned native binaries named in build/native-dependencies.json")
         .Executes(async () => {
@@ -71,6 +83,20 @@ partial class Build {
 
                 foreach (var dependency in manifest.Dependencies) {
                     foreach (var artifact in dependency.Artifacts) {
+                        if (artifact.Optional && !AllNativeDeps) {
+                            // Said out loud rather than skipped quietly. A restore that silently
+                            // leaves something out reads as "everything is here" to the next person
+                            // to hit a link error.
+                            Log.Information(
+                                "Skipping {Name} for {Rid} ({Size:N0} bytes, optional). Pass --all-native-deps for it.",
+                                dependency.Name,
+                                artifact.Rid,
+                                artifact.Size
+                            );
+
+                            continue;
+                        }
+
                         var archive = await EnsureArchive(client, dependency, artifact);
                         ExtractArtifact(archive, dependency, artifact);
                     }
@@ -265,7 +291,9 @@ partial class Build {
                 .AppendLine($"- Home: {dependency.Homepage}");
 
             foreach (var artifact in dependency.Artifacts) {
-                text.AppendLine($"- `{artifact.Rid}`: {artifact.Url}")
+                text.AppendLine(
+                        $"- `{artifact.Rid}`{(artifact.Optional && !AllNativeDeps ? " *(optional, not restored)*" : string.Empty)}: {artifact.Url}"
+                    )
                     .AppendLine($"  - sha256 `{artifact.Sha256}`")
                     .AppendLine($"  - files: {string.Join(", ", artifact.Files.Select(file => $"`{file.To}`"))}");
             }
@@ -309,7 +337,8 @@ partial class Build {
         string Url,
         string Sha256,
         long Size,
-        IReadOnlyList<NativeFile> Files
+        IReadOnlyList<NativeFile> Files,
+        bool Optional = false
     );
 
     sealed record NativeFile(string From, string To);

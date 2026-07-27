@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Deliberately almost empty. The activity is declared by the [Activity] attribute on MainActivity,
+  which the Android build merges into the generated manifest — one place to change rather than two
+  that can disagree.
+
+  What is here is what an attribute cannot say.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Vulkan 1.0.3, required. Declaring it keeps the application off the store listing for devices
+      that cannot run it — which is honest today, because there is no GLES fallback yet (see
+      Vixen.Platform.Android's README). When that fallback exists this becomes `required="false"`
+      and the choice moves to run time, where it belongs.
+    -->
+    <uses-feature android:name="android.hardware.vulkan.version" android:version="0x00400003" android:required="true" />
+
+    <!-- No touchscreen requirement: an Android TV or a Chromebook can run this, and it draws the
+         same triangle without anyone touching it. -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <!--
+      hardwareAccelerated stays on even though the engine draws every pixel itself and nothing is
+      layout-inflated: turning it off also disables the SurfaceView's own compositing path on some
+      devices, which is not what "we do not use the system's 2D renderer" was meant to say.
+    -->
+    <application
+        android:label="Hello Triangle"
+        android:allowBackup="false"
+        android:hardwareAccelerated="true" />
+
+</manifest>

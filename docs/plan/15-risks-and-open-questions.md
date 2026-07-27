@@ -357,6 +357,34 @@ laptop and failed on the device, which is the exact failure mode this phase exis
 `Vixen.Graphics.Vulkan` is now in the reference and root lists of **both** probes, so neither half can
 regress without a gate going red.
 
+### ✅ It runs — and running found what compiling did not
+
+`Samples/01` draws its triangle on the **iOS Simulator** and on the **Android emulator**, through
+MoltenVK and through the device's own `libvulkan.so` respectively. On iOS that is a screenshot of the
+triangle; on Android it is a Vulkan device, a swapchain built from the `ANativeWindow`, and gralloc
+buffers imported by SurfaceFlinger at 1080×2400 RGBA8888 — the emulator's `screencap` does not capture
+a hardware-composed `SurfaceView`, so the picture itself is unconfirmed there.
+
+**The first run on iOS died, and `nuke CheckAotIos` had been green the whole time.**
+
+```
+ExecutionEngineException: Attempting to JIT compile method '(wrapper native-to-managed)
+  Vixen.Graphics.Vulkan.VulkanInstance:Report (…)' while running in aot-only mode
+```
+
+`VulkanInstance` handed the validation layers a callback as a **delegate**, and converting a delegate
+to a function pointer needs a native-to-managed thunk that .NET builds by emitting code at run time.
+iOS forbids that. The fix is `[UnmanagedCallersOnly]`, which makes the compiler emit a real entry
+point — and which removes the lifetime problem the `static readonly` delegate field existed to solve,
+because there is no longer an object to keep alive.
+
+⚠ **Why the gate missed it, which matters more than the bug.** ILC analyses the call graph, and
+nothing in the graph says `Marshal.GetFunctionPointerForDelegate` will need a thunk it cannot
+generate. The probe also never *executes* a static constructor. **A gate that compiles is not a gate
+that runs**, and this is the first hard evidence of the distance between them — an argument for the
+simulator and emulator legs doc 10's CI matrix already asks for, on every PR, rather than only a
+publish check.
+
 **The lasting lesson is not about Vulkan.** Both halves of this risk were, at one point, green for a
 reason that had nothing to do with being fixed: the desktop diagnostics would have been suppressed
 rather than removed, and the iOS link stopped failing because its references disappeared rather than

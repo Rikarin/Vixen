@@ -88,10 +88,18 @@ some language, device, or predictive-bar setting.
 
 ## Owed
 
-**It has not run on a device.** MoltenVK is linked, force-loaded and has its 431 entry points
-exported — see [`Vixen.Platform.Native`](../Vixen.Platform.Native/build/MoltenVK.targets) and R11 —
-and `VulkanLoader` resolves them from the process image. What has not happened is a frame appearing
-on a screen. That is the phase's exit criterion and it needs a sample with an iOS head.
+**It runs, in the Simulator.** `Samples/01-HelloTriangle.iOS` draws its triangle through a
+statically linked MoltenVK: 431 entry points exported, resolved from the process image by
+`VulkanLoader`, presenting to this assembly's `IosMetalView`. A **physical device** is what is left,
+and the obstacle is a provisioning profile rather than any code.
+
+Running it is also what found the one bug `nuke CheckAotIos` could not — Vulkan's validation callback
+was a delegate, and turning a delegate into a function pointer needs a thunk iOS will not let the
+runtime emit. See R11.
+
+An application head must **import `MoltenVK.targets` itself**. MSBuild imports are not transitive
+through a `ProjectReference`, and a library links nothing anyway. Putting it here looked right, built
+cleanly, and produced an application with no MoltenVK in it.
 
 **Scenes are used for window creation and not for lifecycle.** The window is built from the connected
 `UIWindowScene`, which is what iOS 26 wants; the lifecycle still comes through `UIApplicationDelegate`.

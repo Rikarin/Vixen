@@ -668,11 +668,14 @@ the codebase is large enough for it to be expensive to fix.
   leg does not.
 - `Samples/07-AddressablesRemote`.
 
-**Exit:** `Samples/01` runs on a physical Android device and a physical iPhone. Both platform
-assemblies now exist and compile; what is missing between here and that sentence is an application
-head for each — a game's `UIApplicationDelegate` and `Activity` are two small classes, but the bundle
-around them (`Info.plist`, `AndroidManifest.xml`, icons, packaging) is not written, and neither is a
-sample that uses them. iOS NativeAOT publish
+**Exit:** `Samples/01` runs on a physical Android device and a physical iPhone. 🟡 **It runs on the
+iOS Simulator and the Android emulator** — same game class, one head each, and on iOS a screenshot of
+the triangle. Physical devices are what is left: an iPhone needs a provisioning profile, which is an
+Apple account rather than a build setting, and no Android device is attached.
+
+Running it is what found the bug the AOT gate could not — a delegate-to-function-pointer thunk that
+iOS will not JIT; see R11. That is the phase's whole thesis arriving on schedule, just later in the
+phase than the gate suggested. iOS NativeAOT publish
 with **zero** trim/AOT warnings. Content build determinism gate green across three OSes. Remote content
 update fetches only changed bundles (asserted by byte count). Incremental import of one texture < 1 s
 in a 10 k-asset fixture project.

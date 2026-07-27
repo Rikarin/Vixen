@@ -7,105 +7,107 @@
 
       iOS has no dynamic Vulkan and no way to load one: there is no system libvulkan, and an
       application may not dlopen a library it did not ship inside its own bundle. So the only way
-      Vulkan exists on a device is as a static archive linked into the executable, and the only way
-      to reach its entry points is to look them up in the process image itself — which is what
+      Vulkan exists there is as a static archive linked into the executable, and the only way to
+      reach its entry points is to look them up in the process image itself — which is what
       VulkanLoader does through NativeLibrary.GetMainProgramHandle.
 
-      Imported by Tools/Vixen.AotProbe.iOS today and by Vixen.Platform.iOS when it exists. One file,
-      because "which flags does an iOS Vulkan build need" must have exactly one answer.
+      Imported by Vixen.Platform.iOS and by anything that links it. One file, because "which flags
+      does an iOS Vulkan build need" must have exactly one answer.
     -->
 
     <PropertyGroup>
         <VixenNativeDirectory Condition="'$(VixenNativeDirectory)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..', '..', 'artifacts', 'native'))</VixenNativeDirectory>
-        <VixenMoltenVkLibrary Condition="'$(VixenMoltenVkLibrary)' == ''">$(VixenNativeDirectory)ios-arm64/libMoltenVK.a</VixenMoltenVkLibrary>
     </PropertyGroup>
 
     <!--
-      Restored, never committed, so a clone has to be told rather than left to fail at the link with
-      a hundred undefined symbols. Runs before the compile so the message arrives early.
-    -->
-    <Target Name="VixenCheckMoltenVk" BeforeTargets="CoreCompile" Condition="'$(RuntimeIdentifier)' == 'ios-arm64'">
-        <Error
-            Condition="!Exists('$(VixenMoltenVkLibrary)')"
-            Code="VX8001"
-            Text="MoltenVK has not been restored: '$(VixenMoltenVkLibrary)' does not exist. Run './build.sh RestoreNativeDeps' — it is pinned and checksummed in build/native-dependencies.json and is deliberately not committed." />
-    </Target>
+      Everything below is inside a target, and that is not tidiness.
 
-    <ItemGroup Condition="'$(RuntimeIdentifier)' == 'ios-arm64' And Exists('$(VixenMoltenVkLibrary)')">
+      Two properties this needs — RuntimeIdentifier and IntermediateOutputPath — are set by the SDK
+      *after* this file is imported, because an import at the end of a project body is still before
+      the SDK's own bottom import. A PropertyGroup or ItemGroup out here reads both as empty: the RID
+      condition never matches, and the symbol list is written into the project directory. Both of
+      those happened. Inside a target they are evaluated when it runs, by which point the SDK has set
+      them.
+    -->
+    <Target Name="VixenLinkMoltenVk" BeforeTargets="CoreCompile;_ComputeLinkerInputs">
+        <PropertyGroup>
+            <!-- ios-arm64 for a device, iossimulator-arm64 or -x64 for the Simulator. Both slices
+                 are pinned in build/native-dependencies.json; the simulator one is optional there
+                 because it is only published inside a much larger archive. -->
+            <VixenMoltenVkLibrary Condition="'$(VixenMoltenVkLibrary)' == ''">$(VixenNativeDirectory)$(RuntimeIdentifier)/libMoltenVK.a</VixenMoltenVkLibrary>
+            <VixenMoltenVkSymbols>$(IntermediateOutputPath)moltenvk-exports.list</VixenMoltenVkSymbols>
+            <VixenIsAppleMobile>false</VixenIsAppleMobile>
+            <VixenIsAppleMobile Condition="$(RuntimeIdentifier.StartsWith('ios'))">true</VixenIsAppleMobile>
+        </PropertyGroup>
+
         <!--
-          NativeReference, not ILC's LinkerArg. The iOS workload does its own link — the
-          _LinkNativeExecutable target assembles a clang++ command from its own items — and never
-          reads LinkerArg, so flags put there are accepted by MSBuild, applied to nothing, and
-          produce a binary indistinguishable from one that was never configured. Found by reading
-          the actual clang++ invocation rather than by trusting the build to have used them.
-
-          ForceLoad is the other half, and is the subtlety worth stating. A static archive
-          contributes only the members something references, and nothing references vk* any more:
-          VulkanLoader reaches every entry point through a function pointer rather than a DllImport,
-          which is exactly what cleared the six IL3000/IL3002. So an ordinary link would accept this
-          archive, take nothing out of it, and produce an app that dies at the first vkCreateInstance
-          on a device with nothing at build time having said so. SmartLink off for the same reason:
-          it is the setting that prunes what appears unreferenced.
+          Restored, never committed, so a clone is told rather than left to fail at the link with a
+          hundred undefined symbols — or worse, to link cleanly and die on the device, which is what
+          happens when nothing references vk* and the archive is simply absent.
         -->
-        <NativeReference Include="$(VixenMoltenVkLibrary)">
-            <Kind>Static</Kind>
-            <ForceLoad>True</ForceLoad>
-            <SmartLink>False</SmartLink>
-            <!-- MoltenVK is Vulkan implemented over Metal. -->
-            <Frameworks>Metal IOSurface QuartzCore CoreGraphics Foundation UIKit</Frameworks>
-        </NativeReference>
-    </ItemGroup>
+        <Error
+            Condition="'$(VixenIsAppleMobile)' == 'true' And !Exists('$(VixenMoltenVkLibrary)')"
+            Code="VX8001"
+            Text="MoltenVK has not been restored for '$(RuntimeIdentifier)': '$(VixenMoltenVkLibrary)' does not exist. Run './build.sh RestoreNativeDeps' — add '--all-native-deps' for a Simulator runtime identifier, whose slice is optional because of its download size. It is pinned and checksummed in build/native-dependencies.json and is deliberately not committed." />
 
-    <!--
-      Every Vulkan entry point has to be *exported*, not merely present.
+        <!--
+          Every Vulkan entry point has to be *exported*, not merely present.
 
-      The iOS SDK links with -exported_symbols_list and then strips, so a symbol that is in the
-      binary but not on that list is invisible to dlopen/dlsym — and dlsym on the main program is
-      the only way VulkanLoader can reach a statically linked MoltenVK. Without this the link
-      succeeds, the binary is 3.5 MB larger, and every single vkGetInstanceProcAddr comes back null
-      on the device.
+          The iOS SDK links with -exported_symbols_list and then strips, so a symbol that is in the
+          binary but not on that list is invisible to dlsym — and dlsym on the main program is the
+          only way VulkanLoader can reach a statically linked MoltenVK. Without this the link
+          succeeds, the binary is megabytes larger, and every entry point comes back null on device.
 
-      Read out of the archive rather than written down. There are 431 of them, they change with
-      every MoltenVK release, and a hand-kept list would be wrong on the first version bump and
-      silent about it. `nm` is an Xcode tool and this whole file is iOS-only, so requiring it costs
-      nothing that was not already required.
-    -->
-    <!--
-      The output path is spelled out at every use rather than hoisted into a property, and that is
-      not an oversight. This file is imported at the end of the consuming project, which is still
-      before the SDK's own bottom import — so IntermediateOutputPath is empty *here* and a property
-      assigned from it would capture that emptiness and write the list into the project directory.
-      Inside a target it is evaluated when the target runs, by which point the SDK has set it. Same
-      family of ordering bug as the one Tools/Vixen.Sdk's targets carry a rule about.
-    -->
-    <Target Name="VixenReadMoltenVkSymbols"
-            Condition="'$(RuntimeIdentifier)' == 'ios-arm64' And Exists('$(VixenMoltenVkLibrary)')"
-            Inputs="$(VixenMoltenVkLibrary)"
-            Outputs="$(IntermediateOutputPath)moltenvk-exports.list">
-        <MakeDir Directories="$(IntermediateOutputPath)" />
-        <Exec Command="nm -gjU &quot;$(VixenMoltenVkLibrary)&quot; | grep '^_vk' | sed 's/^_//' | sort -u &gt; &quot;$(IntermediateOutputPath)moltenvk-exports.list&quot;" />
-    </Target>
+          Read out of the archive rather than written down. There are 431 of them, they change with
+          every MoltenVK release, and a hand-kept list would be wrong on the first version bump and
+          silent about it.
+        -->
+        <Exec
+            Condition="'$(VixenIsAppleMobile)' == 'true'"
+            Command="nm -gjU &quot;$(VixenMoltenVkLibrary)&quot; | grep '^_vk' | sed 's/^_//' | sort -u &gt; &quot;$(VixenMoltenVkSymbols)&quot;" />
 
-    <Target Name="VixenExportMoltenVkSymbols"
-            BeforeTargets="_ComputeLinkerInputs"
-            DependsOnTargets="VixenReadMoltenVkSymbols"
-            Condition="'$(RuntimeIdentifier)' == 'ios-arm64' And Exists('$(VixenMoltenVkLibrary)')">
-        <ReadLinesFromFile File="$(IntermediateOutputPath)moltenvk-exports.list">
+        <ReadLinesFromFile Condition="'$(VixenIsAppleMobile)' == 'true'" File="$(VixenMoltenVkSymbols)">
             <Output TaskParameter="Lines" ItemName="_VixenMoltenVkSymbol" />
         </ReadLinesFromFile>
 
         <Error
-            Condition="'@(_VixenMoltenVkSymbol)' == ''"
+            Condition="'$(VixenIsAppleMobile)' == 'true' And '@(_VixenMoltenVkSymbol)' == ''"
             Code="VX8002"
             Text="No Vulkan entry points were found in '$(VixenMoltenVkLibrary)'. The archive linked but exports nothing named vk*, so every entry point would be null at run time." />
 
-        <ItemGroup>
+        <ItemGroup Condition="'$(VixenIsAppleMobile)' == 'true'">
+            <!--
+              NativeReference, not ILC's LinkerArg. The iOS workload does its own link — the
+              _LinkNativeExecutable target assembles a clang++ command from its own items — and never
+              reads LinkerArg, so flags put there are accepted by MSBuild, applied to nothing, and
+              produce a binary indistinguishable from one that was never configured. Found by reading
+              the actual clang++ invocation rather than by trusting the build to have used them.
+
+              ForceLoad is the other half. A static archive contributes only the members something
+              references, and nothing references vk* any more: VulkanLoader reaches every entry point
+              through a function pointer rather than a DllImport, which is exactly what cleared the
+              six IL3000/IL3002. So an ordinary link would accept this archive, take nothing out of
+              it, and produce an app that dies at the first vkCreateInstance with nothing at build
+              time having said so. SmartLink off for the same reason: it is the setting that prunes
+              what appears unreferenced.
+            -->
+            <NativeReference Include="$(VixenMoltenVkLibrary)">
+                <Kind>Static</Kind>
+                <ForceLoad>True</ForceLoad>
+                <SmartLink>False</SmartLink>
+                <!-- MoltenVK is Vulkan implemented over Metal. -->
+                <Frameworks>Metal IOSurface QuartzCore CoreGraphics Foundation UIKit</Frameworks>
+            </NativeReference>
+
             <ReferenceNativeSymbol Include="@(_VixenMoltenVkSymbol)">
                 <SymbolType>Function</SymbolType>
             </ReferenceNativeSymbol>
         </ItemGroup>
 
-        <Message Importance="high" Text="MoltenVK: exporting @(_VixenMoltenVkSymbol->Count()) Vulkan entry points" />
+        <Message
+            Condition="'$(VixenIsAppleMobile)' == 'true'"
+            Importance="high"
+            Text="MoltenVK: linking $(RuntimeIdentifier) and exporting @(_VixenMoltenVkSymbol->Count()) Vulkan entry points" />
     </Target>
 
 </Project>

@@ -91,9 +91,22 @@ say"; inferring heat from throttling is inferring the cause from the symptom.
 
 ## Owed
 
-**It has not run on a device or an emulator.** The assembly compiles for `net10.0-android` and its
-shared logic is tested — see `TouchTracker` and `MobileLifecycle` in `Vixen.Platform` — but nothing
-has drawn a frame. That, plus APK packaging, is the phase's exit criterion.
+**It runs, on the emulator.** `Samples/01-HelloTriangle.Android` reaches a Vulkan device on the
+device's own `libvulkan.so`, builds a swapchain from the `ANativeWindow` this assembly hands over, and
+queues frames that SurfaceFlinger imports as gralloc buffers at 1080×2400 RGBA8888. The lazy
+device-creation path is exercised exactly as designed: "no window to present to" once, then the
+surface arrives and the device is built.
+
+**The picture itself is unconfirmed.** `adb exec-out screencap` does not capture a hardware-composed
+`SurfaceView` on the emulator, so what is verified is the buffers reaching the compositor rather than
+a screenshot. A physical device would settle it. A `SetZOrderOnTop(true)` was tried and reverted: it
+changed what `screencap` shows and nothing about what is produced, so it was a guess rather than a
+fix.
+
+**Packaging is a `dotnet build` away and not more.** Installing the APK by hand needs
+`-p:EmbedAssembliesIntoApk=true`, because a Debug build otherwise relies on Fast Deployment pushing
+the assemblies separately — and without it the process aborts in `monodroid` with "No assemblies
+found".
 
 **No GLES fallback.** Doc 10 asks for one that is genuinely maintained rather than aspirational, plus
 a device-capability deny-list keyed on GPU and driver version. Neither exists; the Vulkan backend is

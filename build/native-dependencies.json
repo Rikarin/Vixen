@@ -48,6 +48,28 @@
               "to": "libMoltenVK.a"
             }
           ]
+        },
+        {
+          // The simulator, which doc 10's CI matrix wants for a per-PR smoke test and which is the
+          // only way to run an iOS build without a provisioning profile and a physical device.
+          //
+          // `optional`, and that is about size rather than importance: the simulator slice is only
+          // published in MoltenVK-all.tar, which is 173 MB against the device tar's 31 MB. Restoring
+          // it on every clone to serve a target most builds do not use is the wrong default, so it
+          // is fetched by `nuke RestoreNativeDeps --all-native-deps` and by the targets that need it.
+          "rid": "iossimulator-arm64",
+          "optional": true,
+          "url": "https://github.com/KhronosGroup/MoltenVK/releases/download/v1.4.1/MoltenVK-all.tar",
+          "sha256": "2c498bf8c98b88ba1e84c1f153403d4c1a8490c122d9e2a3df238b25d4e10557",
+          "size": 173033984,
+          "files": [
+            {
+              // Fat: arm64 for an Apple-silicon Mac and x86_64 for an Intel one, in one archive
+              // member. The linker takes the slice it needs.
+              "from": "MoltenVK/MoltenVK/static/MoltenVK.xcframework/ios-arm64_x86_64-simulator/libMoltenVK.a",
+              "to": "libMoltenVK.a"
+            }
+          ]
         }
       ]
     }

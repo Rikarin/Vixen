@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Core;
@@ -57,18 +58,32 @@ public sealed unsafe class VulkanInstance : IDisposable {
     const string ValidationLayer = "VK_LAYER_KHRONOS_validation";
     const string PortabilityEnumeration = "VK_KHR_portability_enumeration";
 
-    /// <summary>The one callback delegate, kept alive for as long as the process is.</summary>
+    /// <summary>
+    ///     The validation callback, as an address rather than a delegate.
+    /// </summary>
     /// <remarks>
-    ///     Casting a method group to a <c>Pfn…</c> marshals a freshly created delegate to a function
-    ///     pointer and keeps no reference to it, so the thunk becomes collectable the moment the
-    ///     create-info struct is built — and the layers then call into freed memory the first time
-    ///     they have something to say. Static and readonly is the whole fix, and it has to be a field
-    ///     rather than a property so that the delegate itself, not just the pointer, is rooted.
+    ///     <para>
+    ///         <b>This used to be a <c>static readonly</c> delegate field, and that was wrong on iOS
+    ///         in a way nothing caught until the sample was run on one.</b> Converting a delegate to
+    ///         a function pointer needs a native-to-managed thunk, and .NET builds one by emitting
+    ///         code at run time. iOS forbids that, so the first <c>vkCreateInstance</c> died with
+    ///         <c>ExecutionEngineException: Attempting to JIT compile method '(wrapper
+    ///         native-to-managed) …VulkanInstance:Report' while running in aot-only mode</c>.
+    ///     </para>
+    ///     <para>
+    ///         <c>nuke CheckAotIos</c> did not see it, and that is worth knowing about the gate
+    ///         rather than only about this bug: ILC's analysis is over the call graph, and nothing in
+    ///         the graph says <c>Marshal.GetFunctionPointerForDelegate</c> will need a thunk it
+    ///         cannot generate. A gate that compiles is not a gate that runs.
+    ///     </para>
+    ///     <para>
+    ///         <c>[UnmanagedCallersOnly]</c> makes the compiler emit a real, statically compiled
+    ///         entry point, so <c>&amp;Report</c> is an address that exists in the binary. It also
+    ///         removes the lifetime problem the delegate field was there to solve: there is no object
+    ///         to keep alive.
+    ///     </para>
     /// </remarks>
-    static readonly DebugUtilsMessengerCallbackFunctionEXT Callback = Report;
-
-    static readonly PfnDebugUtilsMessengerCallbackEXT CallbackPointer =
-        (PfnDebugUtilsMessengerCallbackEXT)Callback;
+    static readonly PfnDebugUtilsMessengerCallbackEXT CallbackPointer = new(&Report);
 
     readonly ILogger? logger;
     readonly ExtDebugUtils? debugUtils;
@@ -356,30 +371,43 @@ public sealed unsafe class VulkanInstance : IDisposable {
         PfnUserCallback = CallbackPointer
     };
 
-    static uint Report(
+    /// <summary>What the validation layers call when they have something to say.</summary>
+    /// <remarks>
+    ///     <c>Cdecl</c> because that is what <c>VKAPI_PTR</c> is everywhere except 32-bit Windows,
+    ///     which this does not target.
+    /// </remarks>
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    static Bool32 Report(
         DebugUtilsMessageSeverityFlagsEXT severity,
         DebugUtilsMessageTypeFlagsEXT type,
         DebugUtilsMessengerCallbackDataEXT* data,
         void* userData
     ) {
-        var message = data->PMessage is null
-            ? "(no message)"
-            : Marshal.PtrToStringUTF8((nint)data->PMessage) ?? "(unreadable message)";
+        // Nothing may escape: an exception crossing back into native code from here terminates the
+        // process, and doing that because a log line could not be formatted would be a spectacular
+        // way to lose the actual validation message.
+        try {
+            var message = data->PMessage is null
+                ? "(no message)"
+                : Marshal.PtrToStringUTF8((nint)data->PMessage) ?? "(unreadable message)";
 
-        // Written to the console rather than through the ILogger the instance was given, because the
-        // callback is static — Vulkan hands back a void* and a captured delegate would have to be
-        // pinned for the life of the instance.
-        Console.Error.WriteLine($"[vulkan] {severity}: {message}");
+            // Written to the console rather than through the ILogger the instance was given, because
+            // the callback is static — Vulkan hands back a void* and a captured delegate would have
+            // to be pinned for the life of the instance.
+            Console.Error.WriteLine($"[vulkan] {severity}: {message}");
 
-        // And recorded, so that the test suite can fail on a validation error rather than printing
-        // one. A message on the console is not a gate; it is a thing that scrolls past, which is how
-        // both of the first two bugs this backend had survived a green test run.
-        VulkanDiagnostics.Record((severity & DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt) != 0, message);
+            // And recorded, so that the test suite can fail on a validation error rather than
+            // printing one. A message on the console is not a gate; it is a thing that scrolls past,
+            // which is how both of the first two bugs this backend had survived a green test run.
+            VulkanDiagnostics.Record((severity & DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt) != 0, message);
+        } catch (Exception) {
+            // Deliberately swallowed and deliberately not logged: the logging is what failed.
+        }
 
-        // Zero, always: returning non-zero aborts the call that triggered the message, which is a
+        // False, always: returning true aborts the call that triggered the message, which is a
         // debugging aid the specification reserves for layer development and which turns a warning
         // into a crash.
-        return Vk.False;
+        return false;
     }
 
     /// <summary>The highest Vulkan version this loader supports.</summary>

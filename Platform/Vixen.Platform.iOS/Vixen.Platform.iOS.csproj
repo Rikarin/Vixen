@@ -40,10 +40,4 @@
         <InternalsVisibleTo Include="Vixen.Platform.iOS.Tests" />
     </ItemGroup>
 
-    <!--
-      Imported last, where RuntimeIdentifier has been set. Everything a Vulkan-on-iOS application
-      needs from the linker, in one place; see its header.
-    -->
-    <Import Project="..\Vixen.Platform.Native\build\MoltenVK.targets" />
-
 </Project>

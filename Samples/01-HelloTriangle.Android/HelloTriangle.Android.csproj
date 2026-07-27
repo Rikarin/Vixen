@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0-android</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Vixen.Samples.HelloTriangle</RootNamespace>
+        <AssemblyName>HelloTriangle.Android</AssemblyName>
+        <IsPackable>false</IsPackable>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+
+        <ApplicationId>dev.vixen.samples.hellotriangle</ApplicationId>
+        <ApplicationVersion>1</ApplicationVersion>
+        <ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
+        <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+
+        <!--
+            The default runtime, not NativeAOT. `warning XA1040` calls NativeAOT on Android
+            experimental and not suitable for production, and the plan only ever committed to it for
+            iOS — where Apple leaves no choice. Doc 10 says the runtime here is a publish property
+            rather than an engine dependency, and this is that property being left alone.
+        -->
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Tools\Vixen.App\Vixen.App.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Android\Vixen.Platform.Android.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
+    </ItemGroup>
+
+    <!-- Linked, not referenced. See the iOS head for why. -->
+    <ItemGroup>
+        <Compile Include="..\01-HelloTriangle\TriangleGame.cs" Link="TriangleGame.cs" />
+        <Compile Include="..\01-HelloTriangle\SampleLog.cs" Link="SampleLog.cs" />
+        <Compile Include="..\01-HelloTriangle\ConsoleLog.cs" Link="ConsoleLog.cs" />
+        <EmbeddedResource Include="..\01-HelloTriangle\Shaders\*.spv" />
+    </ItemGroup>
+
+</Project>
