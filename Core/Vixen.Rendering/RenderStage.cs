@@ -81,6 +81,30 @@ public sealed class RenderStage(string name, RenderSortMode sortMode = RenderSor
     /// </remarks>
     public RasterizerState Rasterizer { get; set; } = RasterizerState.Default;
 
+    /// <summary>
+    ///     The shader every object in this stage is drawn with, overriding its material's.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         What makes a depth prepass a prepass and not a second full shading pass. A prepass
+    ///         exists to fill depth as fast as possible, so drawing it with each object's own material
+    ///         would run every fragment shader twice and cost more than the overdraw it was meant to
+    ///         remove. <c>Library/Pipeline/DepthOnly.rvn</c> is a vertex stage and, unless it is alpha
+    ///         tested, no fragment work at all.
+    ///     </para>
+    ///     <para>
+    ///         A shadow-caster stage is the same argument, and the same fix: a shadow map records
+    ///         depth, so a caster has no reason to evaluate a BRDF.
+    ///     </para>
+    ///     <para>
+    ///         Null leaves the material's own shader alone, which is what a colour stage wants. The
+    ///         override is the stage's rather than the material's because it is a property of what the
+    ///         pass is <em>for</em> — the same mesh is drawn with its material in one stage and with
+    ///         depth-only in another, in the same frame.
+    ///     </para>
+    /// </remarks>
+    public string? ShaderName { get; set; }
+
     /// <summary>The stage's index, assigned when it is added to a <see cref="RenderSystem" />.</summary>
     public int Index { get; internal set; } = -1;
 

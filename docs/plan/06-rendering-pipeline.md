@@ -282,9 +282,18 @@ scRGB displays.
 
 Stride's `Images/` directory is essentially the complete list, and the set is right:
 
+Every entry below is a `FullScreenRenderer` or a node built out of several. ✅ **The full-screen pass
+is the edge every one of them was waiting on**: everything else in the compositor draws *objects*, and
+a post effect has none. It draws three vertices generated from `SV_VertexID`, so there is no vertex
+buffer to bind and no quad's diagonal seam across the middle of the screen; it fills its own uniform
+block from an `Effect`'s parameter table, which is what lets a post effect be configured by name
+rather than by generated code; and the two caches behind it — `SamplerCache` and `EffectConstants` —
+are shared, because a chain that made a sampler per pass would reach a driver's limit rather than
+merely waste one.
+
 | Effect | Pri | Implementation note |
 |---|---|---|
-| Depth prepass / Z-prepass | P1 | |
+| Depth prepass / Z-prepass | ✅ | `RenderStage.ShaderName` is what makes it a prepass rather than a second shading pass: one stage draws the objects with `DepthOnly.rvn` while another draws them with their materials, off one extraction and one cull. The per-material set is bound only where the resolved effect declares one, so a depth-only pipeline is not handed a layout it does not have. Every object in the prepass resolves to the same variant, so the stage's sort collapses to pure front-to-back — which is what makes early-Z reject the most |
 | **TAA** | P1 | jittered projection, motion-vector reprojection, neighbourhood clamping, variance clipping. The default AA. |
 | FXAA | P1 | cheap fallback / mobile |
 | SMAA | P1 | 1×/T2× for the no-TAA case |
@@ -292,10 +301,10 @@ Stride's `Images/` directory is essentially the complete list, and the set is ri
 | Upscaling hook | P2 | a `IUpscaler` interface so FSR/XeSS/DLSS can be plugged; ship FSR1 (spatial, no licence friction) in-box |
 | SSAO / GTAO | P1 | GTAO with bent normals |
 | SSR (screen-space reflections) | P1 | Stride's `LocalReflections`; hierarchical depth trace |
-| Bloom + lens flare + light streak | P1 | dual-filter downsample/upsample chain |
+| Bloom + lens flare + light streak | ✅ (bloom) | `BloomRenderer`: Jimenez's 13-tap downsample and 9-tap tent upsample, one shader in three permuted modes. The pyramid is **declared**, so nine textures and nine passes vanish when nothing reads the result. Each pass steps in its *source's* texel grid — taking it from the target makes a bloom that is subtly too soft and that no screenshot answers. Lens flare and light streak still to come |
 | Depth of field | P1 | bokeh, near/far, physical aperture params |
 | Motion blur | P2 | camera + per-object from motion vectors |
-| Tonemap + colour grading | P1 | ACES/AgX/Reinhard/Filmic, 3D LUT, curves, white balance, split toning |
+| Tonemap + colour grading | P1 | `Tonemap.rvn` exists and `FullScreenRenderer` runs it; what is not wired is the grading LUT as an asset. ACES/AgX/Reinhard/Filmic, 3D LUT, curves, white balance, split toning |
 | Auto-exposure | P1 | histogram-based luminance in compute, with adaptation curve |
 | Fog (linear/exp/height) | P1 | |
 | Vignette, chromatic aberration, film grain, dithering | P1 | cheap, expected |

@@ -55,7 +55,8 @@ public sealed class IrBinding(
     string? semantic,
     ResourceSet set = ResourceSet.PerMaterial,
     string? name = null,
-    bool writable = false
+    bool writable = false,
+    object? defaultValue = null
 ) {
     public IrVariable Variable { get; } = variable;
     public IrBindingKind Kind { get; } = kind;
@@ -75,6 +76,25 @@ public sealed class IrBinding(
 
     /// <summary>The descriptor set this binding belongs to.</summary>
     public ResourceSet Set { get; } = set;
+
+    /// <summary>
+    ///     The initialiser the author wrote — <c>var exposure: float = 1f</c> — or null.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Carried because it is the host's default, not the shader's. A uniform's initialiser
+    ///         never runs on the GPU: the block arrives already filled, so what the author wrote is a
+    ///         statement about what a host should put there when it has nothing of its own to say.
+    ///         Dropping it in lowering made <c>exposure = 1f</c> reach the engine as zero, which is a
+    ///         black frame produced by a parameter nobody touched.
+    ///     </para>
+    ///     <para>
+    ///         Literals only, which is what <c>FieldSymbol.DeclaredValue</c> gives a non-const field.
+    ///         A computed initialiser has no value here and none in the reflection, rather than a
+    ///         wrong one.
+    ///     </para>
+    /// </remarks>
+    public object? DefaultValue { get; } = defaultValue;
 
     /// <summary>The pipeline semantic from <c>[Semantic("…")]</c>, if any.</summary>
     public string? Semantic { get; } = semantic;

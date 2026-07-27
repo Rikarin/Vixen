@@ -65,6 +65,61 @@ public class GeneratedBindingsTests {
         Assert.False(LightingKeys.Albedo.IsPermutation);
     }
 
+    /// <summary>
+    ///     Every value in the block has a key, so a caller that knows the shader only by name can
+    ///     fill it.
+    /// </summary>
+    /// <remarks>
+    ///     Two ways to fill one block, for two callers. Code that knows the shader at compile time
+    ///     assigns <c>LightingConstants</c> fields and calls <c>Write</c>. Code that knows it by name
+    ///     — a material read from an asset, a post-process node configured by a compositor document —
+    ///     has no generated type to assign to and sets these through a <c>ParameterCollection</c>.
+    ///     Without them it interns the key from a string, which works and gives up every guarantee
+    ///     interning exists for.
+    /// </remarks>
+    [Fact]
+    public void Every_value_in_the_block_has_a_key_of_its_own() {
+        Assert.Equal("Lighting.exposure", LightingKeys.Exposure.Name);
+        Assert.Equal("Lighting.worldViewProjection", LightingKeys.WorldViewProjection.Name);
+        Assert.Equal("Lighting.ambient", LightingKeys.Ambient.Name);
+
+        Assert.Same(LightingKeys.Exposure, ParameterKeys.New<float>("Lighting.exposure"));
+    }
+
+    /// <summary>
+    ///     A key carries what the shader declared, so a parameter nobody set is not zero.
+    /// </summary>
+    /// <remarks>
+    ///     The end of a chain that starts at <c>var exposure: float = 1f</c>: Raven reports the
+    ///     initialiser, the generator spells it as a literal, the key holds it as bytes, and a buffer
+    ///     writer fills the parameters nobody mentioned from it. Break any link and the shader gets
+    ///     zero exposure — a black frame produced by a parameter nobody touched, reported by nothing.
+    /// </remarks>
+    [Fact]
+    public void A_value_key_carries_the_default_the_shader_declared() {
+        Assert.Equal(1f, LightingKeys.Exposure.DefaultValue);
+        Assert.Equal(2, LightingKeys.LightCount.DefaultValue);
+        Assert.True(LightingKeys.Enabled.DefaultValue);
+
+        Assert.Equal(1f, BitConverter.ToSingle(LightingKeys.Exposure.DefaultBytes));
+
+        // Nothing declared is nothing carried, rather than a zero that looks authored.
+        Assert.Equal(default, LightingKeys.Ambient.DefaultValue);
+    }
+
+    /// <summary>A key is set and read back through a collection, which is the path that needed it.</summary>
+    [Fact]
+    public void A_value_key_round_trips_through_a_collection() {
+        var parameters = new ParameterCollection();
+
+        Assert.Equal(1f, parameters.Get(LightingKeys.Exposure));
+
+        parameters.Set(LightingKeys.Exposure, 4f);
+
+        Assert.Equal(4f, parameters.Get(LightingKeys.Exposure));
+        Assert.Equal(4f, BitConverter.ToSingle(parameters.Bytes(LightingKeys.Exposure)));
+    }
+
     // --- The writer puts bytes where the shader reads them -------------------
 
     /// <summary>

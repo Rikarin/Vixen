@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.InteropServices;
 using Vixen.Shaders;
 using Xunit;
 
@@ -89,5 +90,28 @@ public class ParameterKeyTests {
     public void An_empty_name_is_refused() {
         Assert.Throws<ArgumentException>(() => ParameterKeys.New<float>(string.Empty));
         Assert.Throws<ArgumentNullException>(() => ParameterKeys.New<float>(null!));
+    }
+
+    /// <summary>
+    ///     A key carries its default as bytes, for the writer that copies rather than reads.
+    /// </summary>
+    /// <remarks>
+    ///     A constant-buffer writer fills a block from a table of offsets, and a parameter nobody set
+    ///     has to land as the value the shader declared rather than as zero. <c>var exposure: float =
+    ///     1f</c> arriving as zero is a black frame that nothing anywhere reports.
+    /// </remarks>
+    [Fact]
+    public void A_key_carries_its_default_as_bytes() {
+        var key = ParameterKeys.New("Test.Bytes.Exposure", 2.5f);
+
+        Assert.Equal(4, key.DefaultBytes.Length);
+        Assert.Equal(2.5f, MemoryMarshal.Read<float>(key.DefaultBytes));
+    }
+
+    /// <summary>A key whose type no buffer could hold has no bytes rather than wrong ones.</summary>
+    [Fact]
+    public void A_key_that_names_a_resource_has_no_bytes() {
+        Assert.True(ParameterKeys.New<string>("Test.Bytes.Texture").DefaultBytes.IsEmpty);
+        Assert.True(ParameterKeys.NewPermutation(true, "Test.Bytes.Flag").DefaultBytes.IsEmpty);
     }
 }
