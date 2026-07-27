@@ -306,9 +306,14 @@ dotnet_diagnostic.CS1591.severity = none
 # aimed at API surface that could later want validation; a component cannot have
 # validation, because nothing calls anything when a chunk byte changes.
 #
+# Scoped by file name rather than by directory, so the exemption is something a
+# file opts into by being called what it is. A file that declares components is
+# named `*Components.cs`; anything else in the same project still answers to the
+# rule.
+#
 # Users' own component types live in their own assemblies and will meet this rule
 # too. That is a documented consequence rather than an oversight, and the manual
 # says so where it introduces components.
 # ─────────────────────────────────────────────────────────────────────────────
-[Core/Vixen.Ecs.Tests/TestComponents.cs]
+[**/*Components.cs]
 dotnet_diagnostic.CA1051.severity = none
