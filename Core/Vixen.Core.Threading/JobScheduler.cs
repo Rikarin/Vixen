@@ -88,7 +88,14 @@ public sealed class JobScheduler : IDisposable {
     [ThreadStatic] static JobScheduler? workerOf;
     [ThreadStatic] static int workerIndex;
     [ThreadStatic] static uint stealSeed;
-    [ThreadStatic] static int executingSlot;
+
+    // Slot index *plus one*, so that zero — the value a thread that has never run a work item has —
+    // means "this thread is running nothing" instead of aliasing slot 0. It aliased slot 0, and the
+    // self-completion guard below fired on the main thread whenever the job it was waiting for
+    // happened to live there. Paired with the version, because a slot recycled between the two
+    // reads is a different job in the same place.
+    [ThreadStatic] static int executingSlotPlusOne;
+    [ThreadStatic] static int executingVersion;
 
     readonly JobSlot[] slots = new JobSlot[MaxJobsInFlight];
     readonly int[] freeSlots = new int[MaxJobsInFlight];
@@ -272,7 +279,7 @@ public sealed class JobScheduler : IDisposable {
         var slot = slots[handle.Index];
 
 #if DEBUG || VIXEN_JOB_SAFETY
-        if (executingSlot == handle.Index && Volatile.Read(ref slot.Version) == handle.Version) {
+        if (executingSlotPlusOne == handle.Index + 1 && executingVersion == handle.Version) {
             throw new InvalidOperationException(
                 "A job cannot complete itself. This would wait forever: the work item doing the "
                 + "waiting is the one the job is waiting for."
@@ -714,8 +721,10 @@ public sealed class JobScheduler : IDisposable {
         // A job whose dependency threw has no inputs. Running it would turn one failure into an
         // unrelated second one somewhere further down, which is the harder bug to read.
         if (slot.Failure is null) {
-            var previous = executingSlot;
-            executingSlot = index;
+            var previousSlot = executingSlotPlusOne;
+            var previousVersion = executingVersion;
+            executingSlotPlusOne = index + 1;
+            executingVersion = slot.Version;
 
             try {
                 var start = batch * slot.BatchSize;
@@ -729,7 +738,11 @@ public sealed class JobScheduler : IDisposable {
                 // whoever completes the handle, which is the thread that can act on it.
                 Interlocked.CompareExchange(ref slot.Failure, ExceptionDispatchInfo.Capture(exception), null);
             } finally {
-                executingSlot = previous;
+                // Restored rather than cleared: a thread that ran out of slots mid-schedule executes
+                // somebody else's work item from inside its own, and forgetting what it was doing
+                // would blind the guard for the rest of that job.
+                executingSlotPlusOne = previousSlot;
+                executingVersion = previousVersion;
             }
         }
 
@@ -780,8 +793,6 @@ public sealed class JobScheduler : IDisposable {
         workerOf = this;
         workerIndex = ordinal;
         stealSeed = (uint)(Environment.CurrentManagedThreadId * 2654435761u) | 1u;
-        executingSlot = -1;
-
         var spins = 0;
 
         while (!stopping) {

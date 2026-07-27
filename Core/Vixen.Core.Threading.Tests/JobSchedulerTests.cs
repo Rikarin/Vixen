@@ -317,6 +317,52 @@ public class JobSchedulerTests {
         Assert.Equal(15, counter.Value);
     }
 
+    /// <summary>
+    ///     A thread that is running no job can complete a job in any slot, including the first.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The self-completion guard reads a thread-static holding the slot the thread is
+    ///         executing. A thread that has never executed a work item — the main thread, in every
+    ///         application — has the default value in it, and the default value was <c>0</c>, which
+    ///         is a real slot index. So <c>Complete</c> on a job that happened to live in slot 0
+    ///         threw "a job cannot complete itself" at a caller that was doing nothing of the kind.
+    ///     </para>
+    ///     <para>
+    ///         It hid for two reasons. The free list is last-in-first-out, so slot 0 is the
+    ///         <i>thousand-and-twenty-fourth</i> one handed out and an ordinary test never reaches
+    ///         it; and the guard is compiled out of release builds, which is what CI runs. It
+    ///         surfaced as an intermittent failure of the test below, on a machine loaded enough
+    ///         that the slot ring actually ran dry. Renting every slot before completing any is what
+    ///         makes it certain instead.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AJobInAnySlotCanBeCompletedByAThreadRunningNothing() {
+        using var scheduler = new JobScheduler(2);
+        using var gate = new ManualResetEventSlim(false);
+        var counter = new StrongBox<int>();
+        var handles = new JobHandle[JobScheduler.MaxJobsInFlight];
+        var slots = new HashSet<int>();
+
+        // Gated, so nothing finishes and nothing returns a slot: every index is rented exactly once.
+        for (var index = 0; index < handles.Length; index++) {
+            handles[index] = scheduler.Schedule(new GatedIncrementJob(gate, counter));
+            slots.Add(handles[index].Index);
+        }
+
+        Assert.Contains(0, slots);
+        Assert.Equal(handles.Length, slots.Count);
+
+        gate.Set();
+
+        foreach (var handle in handles) {
+            scheduler.Complete(handle);
+        }
+
+        Assert.Equal(handles.Length, counter.Value);
+    }
+
     [Fact]
     public void MoreJobsThanTheRingHoldsStillCompletes() {
         using var scheduler = new JobScheduler(2);
