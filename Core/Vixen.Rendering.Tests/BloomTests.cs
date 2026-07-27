@@ -9,6 +9,7 @@ using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Shaders;
+using Vixen.Shaders.Generated;
 using Xunit;
 
 namespace Tests;
@@ -31,8 +32,10 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class BloomTests : IDisposable {
-    static readonly ParameterKey<Vector2> TexelSize = ParameterKeys.New<Vector2>("Bloom.texelSize");
-    static readonly PermutationKey<int> Mode = ParameterKeys.NewPermutation(1, "Bloom.Mode");
+    // The shader's own keys rather than strings interned here, so a rename in Bloom.rvn breaks the
+    // build rather than quietly making these assertions about a parameter nothing reads.
+    static readonly ParameterKey<Vector2> TexelSize = BloomKeys.TexelSize;
+    static readonly PermutationKey<int> Mode = BloomKeys.Mode;
 
     readonly NullDevice device = new(new() { Record = true, FramesInFlight = 2 });
     readonly EffectSystem effects = new();
