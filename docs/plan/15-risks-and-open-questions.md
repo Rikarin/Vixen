@@ -360,10 +360,16 @@ regress without a gate going red.
 ### ✅ It runs — and running found what compiling did not
 
 `Samples/01` draws its triangle on the **iOS Simulator** and on the **Android emulator**, through
-MoltenVK and through the device's own `libvulkan.so` respectively. On iOS that is a screenshot of the
-triangle; on Android it is a Vulkan device, a swapchain built from the `ANativeWindow`, and gralloc
-buffers imported by SurfaceFlinger at 1080×2400 RGBA8888 — the emulator's `screencap` does not capture
-a hardware-composed `SurfaceView`, so the picture itself is unconfirmed there.
+MoltenVK and through the device's own `libvulkan.so` respectively. Both are screenshots.
+
+**Android needs `-gpu swiftshader_indirect`, and finding that out is its own lesson.** Under the
+default `-gpu host` the engine reported complete success — device, swapchain, buffers queued and
+imported by SurfaceFlinger at 1080×2400 RGBA8888, ninety per cent CPU — and drew nothing. Two fixes
+were reasoned from the symptom (a z-order change, a null window background), both wrong, both
+reverted. The same unmodified APK renders under SwiftShader, which proves the emulator's GFXStream
+host-GPU path and not the engine. **Every layer said it was working, and the picture was still
+blank**: on a platform with this much between the draw call and the glass, "no error" is not
+evidence.
 
 **The first run on iOS died, and `nuke CheckAotIos` had been green the whole time.**
 
