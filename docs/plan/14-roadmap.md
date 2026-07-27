@@ -800,7 +800,35 @@ sub-piece has its own gate.
   suite and failed on `HY × NU`, which has no regex form because a hyphen before a number is not
   part of the number. Verified by sabotage: removing LB25 or LB9, or mis-resolving `CJ` in LB1, each
   fails the suite.
-- Owed: HarfBuzz shaping, bidi, MSDF atlas with LRU eviction, font fallback, rich-text runs,
+- ✅ **UAX#9 bidi is built and its conformance data is green** — all 91 707 of the Consortium's
+  code-point cases. Paragraph level, per-character levels and visual order are all checked; a level
+  array that is right with a reordering that is wrong is a real and common failure.
+
+  `BidiCharacterTest.txt` rather than `BidiTest.txt`: the first is written in real code points and
+  exercises the property table as well as the algorithm, the second in class names and tests the
+  algorithm alone. Committing both would put fifteen megabytes in the repository to say one thing
+  twice.
+
+  ⚠ **One bug, and it is the third variant of the same mistake.** The implicit rules raise levels
+  *in place*, so everything reading a level for *context* — which run a position belongs to, and the
+  `sos`/`eos` at a sequence's boundaries — must read the explicit rules' output, not what a later
+  rule has since written there. Without the snapshot the isolating run sequences corrupt each other
+  in source order, and the symptom is unrecognisable from the cause: an `LRE` paragraph came out
+  with exactly the levels of the `RLE` one.
+
+  Segmentation had it as "a combining mark inherits its base's class but not its identity"; line
+  breaking had it four times over; bidi has it as "the array you are reading has already been
+  rewritten". **Reading a mutated structure where the unmutated one was meant** — worth naming,
+  because it will happen again.
+
+  ⚠ **The bidi class defaults are not `L`.** `DerivedBidiClass.txt` carries `@missing` lines saying
+  unassigned code points in the Hebrew block are `R` and in the Arabic blocks `AL`, so that a
+  character added tomorrow behaves correctly today. The generator honours them; reading only the
+  explicit ranges would have made every unassigned Arabic code point left-to-right.
+
+  Verified by sabotage: dropping N0's paired brackets, L1's whitespace reset, or I1's two-level bump
+  for numbers each fails the suite.
+- Owed: HarfBuzz shaping, MSDF atlas with LRU eviction, font fallback, rich-text runs,
   `TextEditor` model with IME.
 - Gate: ✅ UAX conformance data green. Owed: shaping golden tests per script.
 

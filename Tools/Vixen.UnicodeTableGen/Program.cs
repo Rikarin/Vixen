@@ -75,6 +75,21 @@ static class Program {
         WriteTable(Path.Combine(tables, "WordBreakTable.g.cs"), "WordBreakClass", word, version);
         WriteTable(Path.Combine(tables, "LineBreakTable.g.cs"), "LineBreakClass", ReadProperties(Path.Combine(ucd, "LineBreak.txt")), version);
 
+        WriteTable(
+            Path.Combine(tables, "BidiClassTable.g.cs"),
+            "BidiClass",
+            ReadBidiClasses(Path.Combine(ucd, "DerivedBidiClass.txt")),
+            version
+        );
+
+        WriteBracketTable(Path.Combine(tables, "BidiBracketTable.g.cs"), Path.Combine(ucd, "BidiBrackets.txt"), version);
+
+        WriteBidiConformance(
+            Path.Combine(ucd, "BidiCharacterTest.txt"),
+            Path.Combine(tests, "BidiCharacterConformance.data"),
+            version
+        );
+
         // LB30 asks whether a bracket is East Asian, which is a property in a file of its own again.
         WriteTable(
             Path.Combine(tables, "EastAsianWidthTable.g.cs"),
@@ -178,6 +193,187 @@ static class Program {
         }
 
         return properties;
+    }
+
+    /// <summary>Reads the bidi classes, honouring the defaults for code points nobody has assigned.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The default is not <c>L</c> everywhere.</b> DerivedBidiClass.txt carries a set of
+    ///     <c>@missing</c> lines in its comments saying that unassigned code points in the Hebrew
+    ///     block are <c>R</c>, in the Arabic blocks <c>AL</c>, and in the currency block <c>ET</c> —
+    ///     so that a character added to those blocks tomorrow behaves correctly today. Reading only
+    ///     the explicit ranges and defaulting the rest to <c>L</c> would silently make every
+    ///     unassigned Arabic code point left-to-right.
+    /// </remarks>
+    static SortedDictionary<string, List<(int First, int Last)>> ReadBidiClasses(string path) {
+        var defaults = new List<(int First, int Last, string Class)>();
+
+        foreach (var line in File.ReadLines(path)) {
+            var marker = line.IndexOf("@missing:", StringComparison.Ordinal);
+            if (marker < 0) {
+                continue;
+            }
+
+            var body = line[(marker + "@missing:".Length)..];
+            var semicolon = body.IndexOf(';', StringComparison.Ordinal);
+            var range = body[..semicolon].Trim();
+            var dots = range.IndexOf("..", StringComparison.Ordinal);
+
+            defaults.Add((
+                int.Parse(range[..dots], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
+                int.Parse(range[(dots + 2)..], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
+                Abbreviate(body[(semicolon + 1)..].Trim())
+            ));
+        }
+
+        // Later @missing lines are narrower and override the wide one that opens the file.
+        var explicitRanges = ReadProperties(path);
+        var occupied = new List<(int First, int Last)>();
+
+        foreach (var ranges in explicitRanges.Values) {
+            occupied.AddRange(ranges);
+        }
+
+        occupied.Sort(static (left, right) => left.First.CompareTo(right.First));
+
+        // Every gap between explicit ranges takes the narrowest @missing default covering it.
+        var cursor = 0;
+        foreach (var (first, last) in occupied) {
+            if (first > cursor) {
+                AddDefaults(explicitRanges, defaults, cursor, first - 1);
+            }
+
+            cursor = Math.Max(cursor, last + 1);
+        }
+
+        AddDefaults(explicitRanges, defaults, cursor, 0x10FFFF);
+        return explicitRanges;
+    }
+
+    static void AddDefaults(
+        SortedDictionary<string, List<(int First, int Last)>> into,
+        List<(int First, int Last, string Class)> defaults,
+        int from,
+        int to
+    ) {
+        for (var codePoint = from; codePoint <= to;) {
+            var name = "L";
+            var end = to;
+
+            foreach (var (first, last, value) in defaults) {
+                if (codePoint < first || codePoint > last) {
+                    continue;
+                }
+
+                name = value;
+                end = Math.Min(end, last);
+            }
+
+            foreach (var (first, _, _) in defaults) {
+                if (first > codePoint) {
+                    end = Math.Min(end, first - 1);
+                }
+            }
+
+            if (!into.TryGetValue(name, out var ranges)) {
+                ranges = [];
+                into[name] = ranges;
+            }
+
+            ranges.Add((codePoint, end));
+            codePoint = end + 1;
+        }
+    }
+
+    /// <summary>The short names the algorithm is written in, from the long ones the file uses.</summary>
+    static string Abbreviate(string name) => name switch {
+        "Left_To_Right" => "L",
+        "Right_To_Left" => "R",
+        "Arabic_Letter" => "AL",
+        "European_Terminator" => "ET",
+        _ => name
+    };
+
+    /// <summary>Writes the paired-bracket table N0 needs.</summary>
+    static void WriteBracketTable(string path, string source, string version) {
+        var entries = new List<(int Code, int Paired, char Kind)>();
+
+        foreach (var raw in File.ReadLines(source)) {
+            var line = raw;
+            var hash = line.IndexOf('#', StringComparison.Ordinal);
+            if (hash >= 0) {
+                line = line[..hash];
+            }
+
+            var fields = line.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            if (fields.Length != 3) {
+                continue;
+            }
+
+            entries.Add((
+                int.Parse(fields[0], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
+                int.Parse(fields[1], NumberStyles.HexNumber, CultureInfo.InvariantCulture),
+                fields[2][0]
+            ));
+        }
+
+        entries.Sort(static (left, right) => left.Code.CompareTo(right.Code));
+
+        var builder = new StringBuilder();
+        builder.Append("// SPDX-FileCopyrightText: Copyright (c) Rikarin\n");
+        builder.Append("// SPDX-License-Identifier: Apache-2.0\n//\n// <auto-generated>\n");
+        builder.Append("//     Generated by Tools/Vixen.UnicodeTableGen from the Unicode Character Database,\n");
+        builder.Append(CultureInfo.InvariantCulture, $"//     version {version}. Do not edit — re-run the generator.\n");
+        builder.Append("// </auto-generated>\n\nnamespace Vixen.Ui.Text;\n\n");
+        builder.Append("/// <summary>The brackets rule N0 pairs up, and what each one pairs with.</summary>\n");
+        builder.Append("static class BidiBracketTable {\n");
+        builder.Append("    static readonly int[] Codes = [\n");
+        AppendNumbers(builder, entries.Select(entry => entry.Code));
+        builder.Append("    ];\n\n    static readonly int[] Paired = [\n");
+        AppendNumbers(builder, entries.Select(entry => entry.Paired));
+        builder.Append("    ];\n\n    static readonly bool[] Opens = [\n        ");
+
+        var count = 0;
+        foreach (var entry in entries) {
+            builder.Append(entry.Kind == 'o' ? "true, " : "false, ");
+            if (++count % 12 == 0) {
+                builder.Append("\n        ");
+            }
+        }
+
+        builder.Append("\n    ];\n\n");
+        builder.Append("    /// <summary>Looks a bracket up.</summary>\n");
+        builder.Append("    /// <param name=\"codePoint\">The code point.</param>\n");
+        builder.Append("    /// <param name=\"paired\">Receives the bracket that closes or opens it.</param>\n");
+        builder.Append("    /// <param name=\"opens\">Whether this one is the opening half.</param>\n");
+        builder.Append("    /// <returns>Whether it is a paired bracket at all.</returns>\n");
+        builder.Append("    public static bool TryGet(int codePoint, out int paired, out bool opens) {\n");
+        builder.Append("        var index = Array.BinarySearch(Codes, codePoint);\n\n");
+        builder.Append("        if (index < 0) {\n            paired = 0;\n            opens = false;\n            return false;\n        }\n\n");
+        builder.Append("        paired = Paired[index];\n        opens = Opens[index];\n        return true;\n    }\n}\n");
+
+        File.WriteAllText(path, builder.ToString());
+        Console.WriteLine($"{Path.GetFileName(path)}: {entries.Count} brackets");
+    }
+
+    /// <summary>Writes BidiCharacterTest as compact data.</summary>
+    static void WriteBidiConformance(string source, string path, string version) {
+        var builder = new StringBuilder();
+        var cases = 0;
+
+        builder.Append(CultureInfo.InvariantCulture, $"# Unicode {version}. Generated by Tools/Vixen.UnicodeTableGen — do not edit.\n");
+        builder.Append("# codePoints;paragraphDirection;resolvedParagraphLevel;levels;visualOrder\n");
+
+        foreach (var raw in File.ReadLines(source)) {
+            if (raw.Length == 0 || raw[0] == '#') {
+                continue;
+            }
+
+            builder.Append(raw).Append('\n');
+            cases++;
+        }
+
+        File.WriteAllText(path, builder.ToString());
+        Console.WriteLine($"{Path.GetFileName(path)}: {cases} cases");
     }
 
     static void WriteTable(

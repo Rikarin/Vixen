@@ -5,7 +5,8 @@ same one `Vixen.Ui.Layout` used: **be judged by somebody else's conformance suit
 
 ## State
 
-**UAX#29 segmentation and UAX#14 line breaking are built, and all 22 048 conformance cases pass.**
+**UAX#29 segmentation, UAX#14 line breaking and UAX#9 bidi are built, and all 113 755 conformance
+cases pass.**
 The UAX#29 suite was committed before its implementation, which is what that commit's diff shows.
 
 | | |
@@ -14,8 +15,9 @@ The UAX#29 suite was committed before its implementation, which is what that com
 | `GraphemeBreaker` | UAX#29 cluster boundaries. What backspace and the caret move in. |
 | `WordBreaker` | UAX#29 word boundaries. What a double-click selects. |
 | `LineBreaker` | UAX#14 break opportunities. Where a paragraph may wrap. |
-| Property tables | 1 386 grapheme, 1 100 word, 2 920 line, 1 201 width, 473 conjunct, 156 pictographic ranges. Unicode 17.0.0. |
-| UAX#9 bidi | ⏳ next |
+| Property tables | 1 386 grapheme, 1 100 word, 2 920 line, 1 267 bidi, 1 201 width, 473 conjunct, 156 pictographic ranges and 128 bracket pairs. Unicode 17.0.0. |
+| `BidiAlgorithm` | UAX#9. Which way each character runs, and the order they are drawn in. |
+| HarfBuzz shaping | ⏳ next, and a spike first |
 | HarfBuzz shaping, MSDF atlas, font fallback | ⏳ |
 | `TextEditor` model with IME | ⏳ |
 
@@ -73,6 +75,16 @@ context before them, and both were written to *skip* the spaces and then ask wha
 looking straight past the answer. The comment above one of them said "SP is itself one of the classes
 the rule allows" while the list below it omitted `SP`. Two cases out of nineteen thousand caught it:
 `: « E` and `Mac Pro -tietokone`.
+
+**And once more in bidi, in a different disguise.** The implicit rules (I1, I2) raise levels *in
+place* — a right-to-left character by one, a number by two. Everything that reads a level for
+*context* has to read what the explicit rules decided, not what a rule from a different sequence has
+since written there. Without that snapshot the isolating run sequences corrupt each other in source
+order, and the symptom looks nothing like the cause: an `LRE` paragraph came out with exactly the
+levels of the `RLE` one, because the run before it had already been raised.
+
+Three subsystems, three variants of the same mistake: **reading a mutated array where the unmutated
+one was meant.** It is worth naming because it will happen again.
 
 ## Why the tables are generated and committed
 
