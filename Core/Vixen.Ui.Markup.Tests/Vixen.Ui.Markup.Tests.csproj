@@ -28,5 +28,13 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Ui.Markup\Vixen.Ui.Markup.csproj" />
+
+        <!--
+            The runtime the emitter's output calls. Vixen.Ui.Markup does not reference it and must
+            not — a markup compiler that needed the framework it compiles for could not run inside
+            the compiler. The test does, because the only worthwhile question about generated code
+            is whether it compiles and runs against the real thing.
+        -->
+        <ProjectReference Include="..\Vixen.Ui\Vixen.Ui.csproj" />
     </ItemGroup>
 </Project>

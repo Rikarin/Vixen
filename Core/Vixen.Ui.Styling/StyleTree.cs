@@ -183,6 +183,54 @@ public sealed class StyleTree {
         Kill(index);
     }
 
+    /// <summary>Moves an element to another position among its siblings.</summary>
+    /// <param name="element">The element to move.</param>
+    /// <param name="index">Where it should end up.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only within one parent, and deliberately so.</b> Reparenting would move an
+    ///         element's slot relative to its new parent's, and a child whose index is below its
+    ///         parent's breaks the same three passes a reused slot would — see
+    ///         <see cref="Remove" />. A reconciler reorders siblings, which is the case that has to
+    ///         be fast and the case that is safe.
+    ///     </para>
+    ///     <para>
+    ///         The slot itself does not move. What moves is the entry in the parent's child run, and
+    ///         <c>IndexInParent</c> for everything between the two positions — which is the field
+    ///         <c>:nth-child</c> and the sibling combinators read, so a rotation that forgot it
+    ///         would leave a reordered list striped in its old order.
+    ///     </para>
+    /// </remarks>
+    public void Move(StyleNodeId element, int index) {
+        var elementIndex = Validate(element);
+        var parent = links[elementIndex].Parent;
+
+        if (parent < 0) {
+            throw new InvalidOperationException($"{element} has no parent, so it has no siblings to move among.");
+        }
+
+        ref var parentLinks = ref links[parent];
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, parentLinks.ChildCount);
+
+        var from = links[elementIndex].IndexInParent;
+        if (from == index) {
+            return;
+        }
+
+        var offset = parentLinks.ChildOffset;
+        var step = from < index ? 1 : -1;
+
+        for (var i = from; i != index; i += step) {
+            var moved = childArena[offset + i + step];
+            childArena[offset + i] = moved;
+            links[moved].IndexInParent = i;
+        }
+
+        childArena[offset + index] = elementIndex;
+        links[elementIndex].IndexInParent = index;
+    }
+
     /// <summary>Takes an element out of its parent's list of children.</summary>
     /// <remarks>
     ///     ⚠ The later siblings' <c>IndexInParent</c> has to come down with it. That field is what

@@ -35,11 +35,11 @@ namespace Vixen.Ui.Markup.Emit;
 public sealed class ComponentEmitter {
     /// <summary>The namespace the generated code expects its runtime in.</summary>
     /// <remarks>
-    ///     ⚠ <b>This runtime does not exist yet.</b> The emitter's contract is written out here in
-    ///     full, and the tests compile its output against a declaration of exactly this shape — so
-    ///     what is verified today is that the output is valid C# and that a deliberate error lands
-    ///     on the right <c>.vxml</c> line. Building the elements for real is
-    ///     <c>Vixen.Ui.Composition</c>'s job and is owed.
+    ///     <c>Vixen.Ui.Composition</c>, in <c>Vixen.Ui</c> — which this assembly deliberately does
+    ///     not reference. A markup compiler runs inside the C# compiler and cannot depend on the
+    ///     framework it compiles for; it knows the contract by writing calls to it, and Roslyn
+    ///     checks that it got them right. The tests do reference it, compile this output against it,
+    ///     load the result and run it.
     /// </remarks>
     public const string RuntimeNamespace = "global::Vixen.Ui.Composition";
 

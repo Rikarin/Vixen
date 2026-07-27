@@ -27,6 +27,8 @@ top.
 | `FontRegistry`, `TextRun` | `font-family` → a face, shaping through a cache, measurement into layout, glyphs into the draw list. |
 | `PathBuilder`, `OnDraw` | Lines, curves, fills and strokes for the controls a stylesheet cannot describe. |
 | `DrawBatcher` | Contiguous, order-preserving, maximal runs a renderer can submit as one. |
+| `UiDocument.Move` | Reordering a sibling in all three stores, so `:nth-child` moves with it. |
+| `Component`, `BuildContext` | What a compiled `.vxml` calls: elements, effects, branches, keyed lists, events, slots. |
 | Access keys | ⏳ |
 
 ## Focus
@@ -448,3 +450,47 @@ because an unparseable one is already filtered a step earlier. A bare `5` is the
 the code being tested.
 
 Licensed under Apache-2.0.
+
+## Composition
+
+`Vixen.Ui.Composition` is the runtime a `.vxml` compiles into, and it is the same API somebody
+writing a component by hand would use — the generated half is ordinary, steppable C# rather than
+magic (ADR-002).
+
+**`Build` runs once.** That is the whole of ADR-010: no render function to call again, no virtual
+DOM, and no reason to walk a tree that did not change. What changes later changes because an effect
+ran, and an effect assigns exactly the property it was written for.
+
+**`@if` and `@switch` are one primitive.** `ctx.Switch` takes a selector saying which arm is live and
+a builder that constructs it; a condition chain and a pattern match differ only in how the number is
+produced. Two constructs for swapping a subtree in and out would be two places to get the disposal
+of a branch's effects wrong.
+
+**Keys buy identity, and identity is what a list is for.** An item whose key survives keeps its
+element — and so its focus, its scroll offset and its animation state. Without a key the fallback is
+the item itself, never the index: an index makes every element after an insertion compare unequal,
+which is exactly the failure `VXML2004` warns about.
+
+### Regions, and the question "where"
+
+An `@if` in the middle of a `<div>` has siblings on both sides, and the element tree only appends.
+So a region knows what it comes *after* and asks: an element answers "one past me", another region
+answers "wherever I end", and an empty region defers to its host. Nothing is stored that can go
+stale.
+
+⚠ **That last case is not decoration.** A branch that *opens* a loop item follows no element, and
+where its item starts is not known until the list is in its final order. An earlier version
+snapshotted the position at build time and put every leading branch at index zero of the parent — in
+somebody else's item. It is asked for now, and there is a test whose whole job is that shape.
+
+The alternative was an anchor element, which is what the DOM frameworks use. Here it would have to
+be a real element in all three stores, and a real element is counted by `:nth-child`. Rows that
+stripe wrongly because of a hidden marker is a worse bug than this is complexity.
+
+### Owed
+
+Named slot projection (`slot="footer"` on a child), `scoped` actually scoping, a component's
+stylesheet loaded once per type rather than per instance, and a
+longest-increasing-subsequence pass so a reorder moves a minimal set rather than every surviving
+item. The last one is correctness-neutral: a move that changes nothing returns immediately, so an
+unchanged list already costs a walk and nothing else.

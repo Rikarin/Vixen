@@ -160,6 +160,54 @@ public sealed partial class UiDocument : IDisposable {
         return element;
     }
 
+    /// <summary>Moves an element to another position among its siblings.</summary>
+    /// <param name="element">The element to move.</param>
+    /// <param name="index">Where it should end up.</param>
+    /// <remarks>
+    ///     <para>
+    ///         All three stores at once, for the same reason removal is: an element is a handle into
+    ///         a style tree and a layout tree, and one moved in only two of them is in two places.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Reordering is a style change, not just a layout one.</b> <c>:nth-child</c>,
+    ///         <c>:first-child</c> and the sibling combinators all read position, so moving an
+    ///         element restyles it and the siblings it passed. That is why this invalidates rather
+    ///         than only marking the layout dirty — and it is the reason a reconciler that moves
+    ///         elements is worth having over one that rebuilds them, because a rebuild loses the
+    ///         focus and the scroll position as well.
+    ///     </para>
+    ///     <para>
+    ///         Within one parent only. Reparenting would move an element's style slot relative to
+    ///         its new parent's, and a child whose slot is below its parent's breaks the three
+    ///         passes that read slot order as depth order — the same invariant that makes removal
+    ///         tombstone rather than reuse.
+    ///     </para>
+    /// </remarks>
+    public void Move(UiElement element, int index) {
+        ArgumentNullException.ThrowIfNull(element);
+
+        if (!ReferenceEquals(element.Document, this)) {
+            throw new ArgumentException("that element belongs to another document.", nameof(element));
+        }
+
+        if (element.Parent is not { } parent) {
+            throw new InvalidOperationException("the root has no siblings to move among.");
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, parent.Children.Count);
+
+        if (element.IndexInParent == index) {
+            return;
+        }
+
+        parent.MoveChild(element, index);
+        Layout.RemoveChild(parent.LayoutNode, element.LayoutNode);
+        Layout.InsertChild(parent.LayoutNode, element.LayoutNode, index);
+        Styles.Tree.Move(element.StyleNode, index);
+        Invalidate();
+    }
+
     /// <summary>Removes an element and everything under it.</summary>
     /// <param name="element">The element.</param>
     /// <remarks>

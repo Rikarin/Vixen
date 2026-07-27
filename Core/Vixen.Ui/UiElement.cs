@@ -271,6 +271,28 @@ public partial class UiElement {
     protected internal virtual void OnPropertyChanged(UiPropertyKey key) {
     }
 
+    /// <summary>Raised after any generated UI property changes.</summary>
+    /// <remarks>
+    ///     The outside world's version of <see cref="OnPropertyChanged" />. The override is for a
+    ///     type reacting to its own tree; this is for something that is not the element at all — a
+    ///     two-way binding, an inspector, a recorder — and neither can be expressed as the other.
+    /// </remarks>
+    public event Action<UiElement, UiPropertyKey>? PropertyChanged;
+
+    /// <summary>Tells the override and the subscribers that a property changed.</summary>
+    /// <param name="key">Which property.</param>
+    /// <remarks>
+    ///     ⚠ What the generated setter calls, rather than <see cref="OnPropertyChanged" /> directly.
+    ///     Routing both through one non-virtual method is what stops an override that forgets to
+    ///     call its base from silently unsubscribing every two-way binding on the element — a bug
+    ///     that would show up as a text box that stops writing back, in a type that never mentioned
+    ///     binding.
+    /// </remarks>
+    protected void RaisePropertyChanged(UiPropertyKey key) {
+        OnPropertyChanged(key);
+        PropertyChanged?.Invoke(this, key);
+    }
+
     /// <summary>Draws whatever this element is, beyond what a stylesheet can describe.</summary>
     /// <param name="context">What to draw with.</param>
     /// <remarks>
@@ -403,6 +425,14 @@ public partial class UiElement {
     internal void Attach(UiElement child) => children.Add(child);
 
     internal void Detach(UiElement child) => children.Remove(child);
+
+    internal void MoveChild(UiElement child, int index) {
+        children.Remove(child);
+        children.Insert(index, child);
+    }
+
+    /// <summary>Where this element sits among its siblings, or -1 if it has no parent.</summary>
+    public int IndexInParent => Parent?.children.IndexOf(this) ?? -1;
 
     internal void Retire() => IsRemoved = true;
 

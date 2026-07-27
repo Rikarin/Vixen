@@ -26,6 +26,12 @@
         <ProjectReference Include="..\Vixen.Ui.Styling\Vixen.Ui.Styling.csproj" />
         <ProjectReference Include="..\Vixen.Ui.Layout\Vixen.Ui.Layout.csproj" />
         <ProjectReference Include="..\Vixen.Ui.Text\Vixen.Ui.Text.csproj" />
+
+        <!--
+            The signal graph. Vixen.Ui.Composition is where markup meets state: one effect per
+            dynamic expression is the whole of ADR-010, and an effect is what Reactive is.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Reactive\Vixen.Ui.Reactive.csproj" />
     </ItemGroup>
 
     <ItemGroup>

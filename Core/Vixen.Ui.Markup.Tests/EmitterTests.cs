@@ -2,11 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
+using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Vixen.Ui.Composition;
 using Vixen.Ui.Markup.Binding;
 using Vixen.Ui.Markup.Emit;
+using Vixen.Ui.Reactive;
 using Xunit;
+using Binder = Vixen.Ui.Markup.Binding.Binder;
 using Diagnostic = Microsoft.CodeAnalysis.Diagnostic;
 
 namespace Vixen.Ui.Markup.Tests;
@@ -15,10 +19,10 @@ namespace Vixen.Ui.Markup.Tests;
 ///     The generated C#, and the mapping that makes an error in it land on the markup.
 /// </summary>
 /// <remarks>
-///     These tests do not read the output and check it looks right. They hand it to Roslyn, because
-///     the only two claims worth making about a code generator are "this compiles" and "when it
-///     does not, the message points at what the author wrote" — and both of those are questions
-///     only a real compiler can answer.
+///     These tests do not read the output and check it looks right. They hand it to Roslyn and then
+///     to a <see cref="UiDocument" />, because the only claims worth making about a code generator
+///     are that it compiles, that it runs, and that when it does not the message points at what the
+///     author wrote — and none of those is a question about text.
 /// </remarks>
 public class EmitterTests {
     const string Path = "Counter.vxml";
@@ -179,6 +183,109 @@ public class EmitterTests {
         Assert.Contains("static i => i!,", emitted, StringComparison.Ordinal);
     }
 
+    // ================================================================== Running it
+
+    const string Greeter = """
+                           @component Greeter
+                           @using Vixen.Ui.Reactive
+
+                           @code {
+                               public Signal<int> Count { get; } = new(0);
+                               public Signal<string[]> Items { get; } = new([]);
+                           }
+
+                           <div class="root">
+                               <span>Count: @Count.Value</span>
+
+                               @if (Count.Value > 0) {
+                                   <em>positive</em>
+                               }
+
+                               @for (var item in Items.Value) {
+                                   <li key="@item">@item</li>
+                               }
+                           </div>
+                           """;
+
+    /// <summary>
+    ///     The end of the chain: markup to a syntax tree to a component model to C# to IL to an
+    ///     element tree that reacts to a signal. Everything before this proves a stage; this proves
+    ///     they compose.
+    /// </summary>
+    [Fact]
+    public void A_compiled_component_builds_a_tree_and_follows_its_signals() {
+        var (component, instance, document) = Run(Greeter);
+
+        using var owned = document;
+        var root = component.Root.Children.Single();
+        var span = root.Children[0];
+
+        EffectScheduler.Default.Flush();
+        Assert.Equal("div", root.Tag);
+        Assert.True(root.HasClass("root"));
+        Assert.Equal(["Count: ", "0"], span.Children.Select(child => child.Text));
+
+        // A signal write reaches exactly the effect that reads it.
+        Count(instance).Value = 3;
+        EffectScheduler.Default.Flush();
+        Assert.Equal(["Count: ", "3"], span.Children.Select(child => child.Text));
+
+        // ...and the branch it gates appears, in its place among the siblings.
+        Assert.Equal(["span", "em"], root.Children.Select(child => child.Tag));
+
+        Count(instance).Value = 0;
+        EffectScheduler.Default.Flush();
+        Assert.Equal(["span"], root.Children.Select(child => child.Tag));
+    }
+
+    [Fact]
+    public void A_compiled_loop_keeps_the_elements_of_the_items_that_survive() {
+        var (component, instance, document) = Run(Greeter);
+
+        using var owned = document;
+        var root = component.Root.Children.Single();
+
+        Items(instance).Value = ["a", "b"];
+        EffectScheduler.Default.Flush();
+
+        var b = root.Children.Single(child => child.Tag == "li" && Text(child) == "b");
+
+        Items(instance).Value = ["b", "a"];
+        EffectScheduler.Default.Flush();
+
+        Assert.Same(b, root.Children.Single(child => child.Tag == "li" && Text(child) == "b"));
+        Assert.Equal(["b", "a"], root.Children.Where(child => child.Tag == "li").Select(Text));
+    }
+
+    static string Text(UiElement element) => element.Children.Single().Text ?? string.Empty;
+
+    static Signal<int> Count(object instance) => (Signal<int>)Property(instance, "Count");
+
+    static Signal<string[]> Items(object instance) => (Signal<string[]>)Property(instance, "Items");
+
+    static object Property(object instance, string name) =>
+        instance.GetType().GetProperty(name)!.GetValue(instance)!;
+
+    /// <summary>Emits, compiles, loads and builds — the whole pipeline, end to end.</summary>
+    static (Component Component, object Instance, UiDocument Document) Run(string source) {
+        var compilation = Compile(Emit(source));
+        Assert.Empty(Errors(compilation));
+
+        using var image = new MemoryStream();
+        var result = compilation.Emit(image);
+        Assert.True(result.Success);
+
+        var type = Assembly.Load(image.ToArray()).GetType("Greeter")!;
+        var document = new UiDocument(400f, 400f);
+
+        var built = typeof(BuildContext)
+            .GetMethod(nameof(BuildContext.Build))!
+            .MakeGenericMethod(type)
+            .Invoke(null, [document, document.Root])!;
+
+        return ((Component)built, built, document);
+    }
+
     // ================================================================== Helpers
 
     static string Emit(string source) {
@@ -191,11 +298,7 @@ public class EmitterTests {
     static CSharpCompilation Compile(string generated) =>
         CSharpCompilation.Create(
             "Generated",
-            [
-                Parse(RuntimeContract.Source, "Contract.cs"),
-                Parse(RuntimeContract.Components, "Components.cs"),
-                Parse(generated, "Counter.g.cs")
-            ],
+            [Parse(RuntimeContract.Components, "Components.cs"), Parse(generated, "Counter.g.cs")],
             References,
             new(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable)
         );
@@ -216,10 +319,16 @@ public class EmitterTests {
         return count;
     }
 
+    /// <summary>
+    ///     Everything loaded next to the test, which is the framework and the runtime the generated
+    ///     code calls.
+    /// </summary>
     static readonly ImmutableArray<MetadataReference> References = [
         .. ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
             .Split(System.IO.Path.PathSeparator)
+            .Concat(Directory.EnumerateFiles(AppContext.BaseDirectory, "Vixen.*.dll"))
             .Where(path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.Ordinal)
             .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
     ];
 }

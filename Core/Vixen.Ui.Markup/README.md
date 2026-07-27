@@ -29,7 +29,6 @@ SourceText
 | `ComponentEmitter` | The generated partial, with `#line` spans. |
 | Incremental reparse | ⏳ |
 | The source generator | ⏳ |
-| `Vixen.Ui.Composition` — the runtime the output calls | ⏳ |
 
 ## The syntax
 
@@ -165,12 +164,13 @@ Without a `key`, a loop falls back to the item's own identity — never to its i
 every element after an insertion compare unequal, which is precisely the failure `VXML2004` warns
 about; a fallback that quietly did it would make the warning a lie.
 
+The runtime it calls is `Vixen.Ui.Composition`. The emitter's gate compiles its output against that
+assembly, loads the result, builds it into a `UiDocument` and drives it with a signal — so what is
+tested is markup to syntax tree to component model to C# to IL to an element tree, and not the shape
+of a string.
+
 ## What is owed
 
-- **`Vixen.Ui.Composition`.** The generated code calls a runtime that does not exist yet. The tests
-  compile the output against a written-out declaration of the contract, which proves the output is
-  valid C# and that errors map back correctly — and proves nothing about building elements, because
-  nothing builds them yet.
 - **Incremental reparse.** The shared `Blender` exists and Raven uses it, but node reuse needs a
   unit of reuse. Raven offers member declarations; VXML's is not obvious, because an element's green
   node is reusable only if nothing about its *enclosing* content changed — an unclosed tag anywhere

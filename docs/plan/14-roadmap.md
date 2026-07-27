@@ -1560,6 +1560,59 @@ sub-piece has its own gate.
   own walk rather than by the store. The descendants would have been unreachable from any live parent
   and cascaded every frame regardless. The test now asserts `StyleTree.LiveCount`, which is the store
   speaking for itself.
+- ✅ **`Vixen.Ui.Composition` — the runtime a compiled `.vxml` calls.** `Component`,
+  `BuildContext`, and the two primitives that make the shape of the tree depend on state. This is
+  what the markup emitter was writing against, and it is now the real thing rather than a declared
+  contract: `Vixen.Ui.Markup.Tests` compiles its output against this assembly, loads the result,
+  builds it into a `UiDocument` and drives it with a signal.
+
+  **`@if` and `@switch` are one primitive.** `ctx.Switch` takes a selector saying which arm is live
+  and a builder that constructs it — a condition chain and a pattern match differ only in how the
+  number is produced, and two constructs for swapping a subtree in and out would be two places to
+  get the disposal of a branch's effects wrong.
+
+  ⚠ **Regions answer "where", and they have to ask rather than remember.** An `@if` in the middle of
+  a `<div>` has siblings on both sides and the element tree only appends, so a region knows what it
+  comes *after*: an element answers "one past me", a preceding region answers "wherever I end", and
+  an empty one defers to its host. The first version snapshotted the position instead, which put a
+  branch that *opens* a loop item at index zero of the parent — inside somebody else's item. Found
+  by a sabotage that failed to fail, fixed, and now has a test whose only job is that shape.
+
+  ⚠ **The alternative was an anchor element**, as the DOM frameworks use. Here it would be a real
+  element in all three stores, and a real element is counted by `:nth-child`. Rows that stripe
+  wrongly because of a hidden marker is a worse bug than this is complexity.
+
+  Prerequisite, and its own piece of work: **`UiDocument.Move`**, reordering a sibling across the
+  element, style and layout trees at once. Reordering is a *style* change as much as a layout one —
+  `:nth-child`, `:first-child` and the sibling combinators all read position — which is exactly why
+  a reconciler that moves elements beats one that rebuilds them, since a rebuild loses the focus and
+  the scroll offset too. Within one parent only: reparenting would move a style slot relative to its
+  new parent's, breaking the same invariant that makes removal tombstone rather than reuse.
+
+  Also landed: `UiElement.PropertyChanged`, raised through a non-virtual `RaisePropertyChanged` that
+  the generated setter calls — so an override forgetting to call its base cannot silently
+  unsubscribe every two-way binding on the element.
+
+  Gate: 203 tests in `Vixen.Ui`, and the markup project's end-to-end one — markup to syntax tree to
+  component model to C# to IL to an element tree that reacts to a signal.
+
+  Verified by sabotage: a region that ignores its predecessor fails 5, one that follows nothing and
+  does not ask its host fails 1, a region that clears without disposing its effects fails 1, a move
+  that skips the style tree fails 1, a style move that leaves `IndexInParent` stale fails 1, a loop
+  that rebuilds instead of reusing fails 2, a loop that does not rechain after a reorder fails 1, a
+  component that builds into the mount rather than its own root fails 16, a class binding that
+  appends rather than replaces fails 1, `once` that does not unsubscribe fails 1, and children that
+  ignore the default slot fail 1.
+
+  ⚠ **Two sabotages failed to fail and both were test bugs worth having found.** A leaked effect
+  counted its runs *after* touching its element — and touching a removed element throws, so the
+  scheduler suspended the effect before it could count, and a leak looked like a clean shutdown. And
+  a stale `IndexInParent` broke nothing because the only reorder test read the child arena, which is
+  a different fact; it takes a `:first-child` rule to reach the field at all.
+
+  Owed here: named slot projection, `scoped` actually scoping, a component stylesheet loaded once
+  per type rather than per instance, and a longest-increasing-subsequence pass so a reorder moves a
+  minimal set. The last is correctness-neutral — a move that changes nothing returns immediately.
 - Owed in `Vixen.Ui`: style-slot compaction, access keys, line wrapping, rich-text runs,
   font fallback and weight matching, gradients, per-corner elliptical radii, pinch and rotate,
   virtualisation primitive, multi-window and DPI.
@@ -1612,12 +1665,11 @@ sub-piece has its own gate.
   the recursion the check had just been given was never reached. A test for it was added, and the
   sabotage then fails 1.
 
-  ⚠ **The generated code calls a runtime that does not exist.** `Vixen.Ui.Composition` — `Component`,
-  `BuildContext`, and the keyed reconciler behind `ctx.For` — is `Vixen.Ui`'s work rather than the
-  markup language's, and it is owed. The tests compile the emitter's output against a written-out
-  declaration of the contract, which is honest about proving two things and not a third: the output
-  is valid C# and its errors map back, and nothing yet builds an element. Also owed: incremental
-  reparse (the `Blender` exists, but VXML's unit of reuse is not obvious — an element's green node
+  ⚠ **The runtime the generated code calls now exists** — see `Vixen.Ui.Composition` above, landed
+  immediately after this. The note that stood here said the emitter's output was compiled against a
+  written-out declaration of the contract and that nothing built an element; that was true when it
+  was written and is not now. The gate compiles against the real assembly, loads it and runs it.
+  Still owed: incremental reparse (the `Blender` exists, but VXML's unit of reuse is not obvious — an element's green node
   is reusable only if nothing about its *enclosing* content changed), the `IIncrementalGenerator`
   wrapper in `Vixen.Ui.Markup.Generators`, `bind:` update events and `@namespace`.
 - `Vixen.Ui.HotReload`: three reload channels, keyed reconciliation, `[HotReloadState]`.
