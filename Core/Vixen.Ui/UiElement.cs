@@ -24,6 +24,7 @@ namespace Vixen.Ui;
 /// </remarks>
 public class UiElement {
     readonly List<UiElement> children = [];
+    List<HandlerRegistration>? handlers;
     UiDocument? document;
 
     /// <summary>Creates a detached element.</summary>
@@ -155,6 +156,88 @@ public class UiElement {
     protected internal virtual void OnPropertyChanged(UiPropertyKey key) {
     }
 
+    /// <summary>Its left edge in document space, after the last layout pass.</summary>
+    public float AbsoluteLeft { get; internal set; }
+
+    /// <summary>Its top edge in document space.</summary>
+    public float AbsoluteTop { get; internal set; }
+
+    /// <summary>Whether a pointer can land on it. <c>pointer-events: none</c> makes it false.</summary>
+    /// <remarks>
+    ///     Read from the computed style rather than stored, because it is a stylesheet's decision and
+    ///     a stylesheet can change it between frames. An element that is not hit-testable does not
+    ///     stop its children from being — that is what CSS says, and it is what makes an overlay
+    ///     usable.
+    /// </remarks>
+    public bool IsHitTestVisible => !Document.PointerEventsNone(Style);
+
+    /// <summary>Listens for an event on its way through this element.</summary>
+    /// <typeparam name="T">The event type.</typeparam>
+    /// <param name="handler">What to run.</param>
+    /// <param name="strategy">Which leg of the route to listen on.</param>
+    /// <param name="handledEventsToo">
+    ///     Whether to run even after something has handled it. For the listeners that need to know
+    ///     an event happened rather than to act on it — a focus manager, a diagnostic overlay.
+    /// </param>
+    public void AddHandler<T>(Action<UiElement, T> handler, RoutingStrategy strategy = RoutingStrategy.Bubble, bool handledEventsToo = false)
+        where T : UiEvent {
+        ArgumentNullException.ThrowIfNull(handler);
+
+        handlers ??= [];
+        handlers.Add(new HandlerRegistration(typeof(T), handler, strategy, handledEventsToo));
+    }
+
+    /// <summary>Stops listening.</summary>
+    /// <typeparam name="T">The event type.</typeparam>
+    /// <param name="handler">The handler that was added.</param>
+    /// <returns>Whether it was there.</returns>
+    public bool RemoveHandler<T>(Action<UiElement, T> handler) where T : UiEvent {
+        ArgumentNullException.ThrowIfNull(handler);
+
+        if (handlers is null) {
+            return false;
+        }
+
+        for (var i = 0; i < handlers.Count; i++) {
+            if (handlers[i].Handler.Equals(handler)) {
+                handlers.RemoveAt(i);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Sends an event to this element and along its route.</summary>
+    /// <typeparam name="T">The event type.</typeparam>
+    /// <param name="args">The event.</param>
+    public void Raise<T>(T args) where T : UiEvent {
+        ArgumentNullException.ThrowIfNull(args);
+        EventRouter.Raise(this, args);
+    }
+
+    internal void Invoke<T>(T args, RoutingStrategy strategy) where T : UiEvent {
+        if (handlers is null) {
+            return;
+        }
+
+        // ⚠ Indexed, and the count is re-read every step. A handler is entitled to add or remove
+        // handlers while it runs — a button that unsubscribes on click is the ordinary case — and a
+        // foreach over the list would throw halfway through delivering the event that caused it.
+        for (var i = 0; i < handlers.Count; i++) {
+            var registration = handlers[i];
+
+            if (registration.Strategy != strategy
+                || registration.EventType != typeof(T)
+                || (args.Handled && !registration.HandledEventsToo)) {
+                continue;
+            }
+
+            args.Current = this;
+            ((Action<UiElement, T>) registration.Handler)(this, args);
+        }
+    }
+
     internal void Bind(UiDocument owner, string tag, UiElement? parent, StyleNodeId styleNode, LayoutNodeId layoutNode) {
         document = owner;
         Tag = tag;
@@ -164,4 +247,11 @@ public class UiElement {
     }
 
     internal void Attach(UiElement child) => children.Add(child);
+
+    readonly record struct HandlerRegistration(
+        Type EventType,
+        Delegate Handler,
+        RoutingStrategy Strategy,
+        bool HandledEventsToo
+    );
 }

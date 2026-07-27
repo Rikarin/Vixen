@@ -32,6 +32,10 @@ public sealed class UiDocument : IDisposable {
     readonly List<UiElement> elements = [];
     readonly List<ComputedStyle?> appliedStyles = [];
     readonly List<float> appliedFontSizes = [];
+    readonly int pointerEvents;
+    readonly int overflow;
+    readonly int none;
+    readonly int visible;
     bool dirty = true;
 
     /// <summary>Creates a document over a surface of a given size.</summary>
@@ -43,6 +47,12 @@ public sealed class UiDocument : IDisposable {
         Layout = new LayoutTree();
         Builder = new LayoutStyleBuilder(Styles.Properties, Styles.Values, Styles.Names);
         Viewport = LengthContext.ForViewport(width, height, rootFontSize);
+
+        pointerEvents = Styles.Properties.Intern("pointer-events");
+        overflow = Styles.Properties.Intern("overflow");
+        none = Styles.Values.Intern("none");
+        visible = Styles.Values.Intern("visible");
+
         Root = Create("root", null, null, []);
     }
 
@@ -188,7 +198,117 @@ public sealed class UiDocument : IDisposable {
         }
 
         Layout.CalculateLayout(Root.LayoutNode, Viewport.ViewportWidth, Viewport.ViewportHeight, Direction.Ltr);
+        Accumulate(Root, 0f, 0f);
         return true;
+    }
+
+    /// <summary>The element a pointer would land on.</summary>
+    /// <param name="x">Its x, in document space.</param>
+    /// <param name="y">Its y.</param>
+    /// <returns>The deepest element under the point, or <c>null</c> if none is.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         Front to back, which for children drawn in document order means <b>last child
+    ///         first</b>. A later sibling is painted over an earlier one, so it is the one a click
+    ///         lands on, and testing in document order would return whatever happens to be
+    ///         underneath.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <c>pointer-events: none</c> makes an element transparent to the pointer <i>without
+    ///         making its children so</i> — that asymmetry is what makes an overlay usable, and
+    ///         treating the subtree as one unit would either block everything under a full-screen
+    ///         layer or let clicks through a modal.
+    ///     </para>
+    ///     <para>
+    ///         Doc 09 asks for a quadtree over the top level. This descends the tree instead, which
+    ///         only enters subtrees that contain the point, so it is O(depth × siblings) rather than
+    ///         O(elements). The quadtree is owed and should be measured against this before it is
+    ///         written — the doc says "measured to be sufficient" about the simple version and that
+    ///         measurement has not been taken.
+    ///     </para>
+    /// </remarks>
+    public UiElement? HitTest(float x, float y) => HitTest(Root, x, y);
+
+    /// <summary>Sends a pointer event to whatever is under it.</summary>
+    /// <param name="args">The event, positioned in document space.</param>
+    /// <returns>The element it went to, or <c>null</c> if nothing was under it.</returns>
+    /// <remarks>
+    ///     ⚠ A captured pointer goes to the capturing element wherever it is, which is the whole
+    ///     point of capture: a drag that leaves the scrollbar it started on must keep reaching the
+    ///     scrollbar. Hit testing during a drag is exactly the bug capture exists to prevent.
+    /// </remarks>
+    public UiElement? Dispatch(PointerEvent args) {
+        ArgumentNullException.ThrowIfNull(args);
+
+        var target = Captured ?? HitTest(args.X, args.Y);
+        target?.Raise(args);
+        return target;
+    }
+
+    /// <summary>The element currently receiving every pointer event, if any.</summary>
+    public UiElement? Captured { get; private set; }
+
+    /// <summary>Sends every pointer event to one element until it is released.</summary>
+    /// <param name="element">The element.</param>
+    public void CapturePointer(UiElement element) {
+        ArgumentNullException.ThrowIfNull(element);
+        Captured = element;
+    }
+
+    /// <summary>Stops sending every pointer event to one element.</summary>
+    public void ReleasePointer() => Captured = null;
+
+    internal bool PointerEventsNone(ComputedStyle style) =>
+        style.TryGet(pointerEvents, out var value) && value == none;
+
+    UiElement? HitTest(UiElement element, float x, float y) {
+        var inside = Contains(element, x, y);
+
+        // ⚠ Being outside an element is not a reason to skip its children. `overflow: visible` is
+        // CSS's default and means exactly that a child may hang outside its parent and still be
+        // drawn — so it must still be clickable. Returning early on `!inside` would make every
+        // overflowing element, every dropdown and every tooltip unhittable, and the bug would look
+        // like the click landing on whatever is behind them.
+        if (!inside && Clips(element)) {
+            return null;
+        }
+
+        for (var i = element.Children.Count - 1; i >= 0; i--) {
+            if (HitTest(element.Children[i], x, y) is { } hit) {
+                return hit;
+            }
+        }
+
+        return inside && element.IsHitTestVisible ? element : null;
+    }
+
+    /// <summary>Whether an element cuts off what hangs outside it.</summary>
+    /// <remarks>
+    ///     The clip is asked about on the <i>parent</i>, because it is the parent that clips and the
+    ///     child has no idea it is being cut.
+    /// </remarks>
+    bool Clips(UiElement element) =>
+        element.Style.TryGet(overflow, out var value) && value != visible;
+
+    static bool Contains(UiElement element, float x, float y) =>
+        x >= element.AbsoluteLeft
+        && y >= element.AbsoluteTop
+        && x < element.AbsoluteLeft + element.Width
+        && y < element.AbsoluteTop + element.Height;
+
+    /// <summary>Turns the parent-relative layout results into document-space rectangles.</summary>
+    /// <remarks>
+    ///     Accumulated once per pass rather than walked per query. Hit testing asks for absolute
+    ///     bounds several times per pointer move, and the draw list will ask for every element's
+    ///     every frame; a walk to the root per read is the same arithmetic done depth times over.
+    /// </remarks>
+    static void Accumulate(UiElement element, float x, float y) {
+        element.AbsoluteLeft = x + element.Left;
+        element.AbsoluteTop = y + element.Top;
+
+        foreach (var child in element.Children) {
+            Accumulate(child, element.AbsoluteLeft, element.AbsoluteTop);
+        }
     }
 
     /// <inheritdoc />

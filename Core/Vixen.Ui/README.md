@@ -18,8 +18,37 @@ top.
 | `UiElement` | One node. A class, holding no geometry and no style — a handle into the two stores that do. |
 | `UiDocument` | The tree, its stylesheets, and the four-walk pass. |
 | `[UiProperty]` | Generated properties with defaults, coercion, change callbacks, inheritance and a runtime identity. |
-| Event routing, focus, hit testing | ⏳ |
+| `UiDocument.HitTest` | What is under a point, front to back, with `pointer-events` and `overflow` honoured. |
+| `EventRouter` | Capture, target, bubble, `Handled`, and pointer capture. |
+| Focus, keyboard navigation, gestures | ⏳ |
 | Draw list, batching, clipping | ⏳ |
+
+## Input
+
+**Front to back means the last child first.** A later sibling is painted over an earlier one, so it
+is the one a click lands on; testing in document order returns whatever happens to be underneath.
+
+⚠ **Being outside an element is not a reason to skip its children.** `overflow: visible` is CSS's
+default and means precisely that a child may hang outside its parent and still be drawn — so it must
+still be clickable. Returning early on a missed parent makes every dropdown, tooltip and popover
+unhittable, and the bug looks like the click landing on whatever is behind them. The clip is asked
+about on the *parent*, because it is the parent that clips and the child has no idea it is being cut.
+
+⚠ **`pointer-events: none` is transparent without making its children so.** That asymmetry is what
+makes an overlay usable; treating the subtree as one unit either blocks everything under a
+full-screen layer or lets clicks through a modal.
+
+**A captured pointer goes to the capturing element wherever it is** — a drag that leaves the
+scrollbar it started on must keep reaching the scrollbar. Hit-testing during a drag is the bug
+capture exists to prevent.
+
+Handlers are invoked by index with the count re-read each step, because unsubscribing from inside a
+handler is the ordinary case and a `foreach` throws part-way through delivering the event that
+caused it.
+
+Doc 09 asks for a quadtree over the top level. This descends the tree instead, entering only subtrees
+that contain the point. The doc says the simple version was "measured to be sufficient"; **that
+measurement has not been taken here**, and it should be before the quadtree is written.
 
 ## The property system
 

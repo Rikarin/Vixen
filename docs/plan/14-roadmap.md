@@ -1216,7 +1216,35 @@ sub-piece has its own gate.
   Ignoring the attribute's declared default does not fail a test: it fails to *compile*, because the
   generated code is type-checked like any other, which takes a class of generator bugs off the
   testing budget entirely.
-- Owed in `Vixen.Ui`: event routing, focus, hit testing, gestures, draw list, batching, clipping,
+- ✅ **Hit testing and routed events.** Layout results accumulate into document-space rectangles once
+  per pass; `HitTest` finds what is under a point front to back; events route capture → target →
+  bubble with `Handled`, and a captured pointer overrides the hit test entirely.
+
+  ⚠ **The first version skipped a subtree whenever the point was outside its parent**, which is
+  wrong for CSS's default: `overflow: visible` means a child may hang outside and still be drawn, so
+  it must still be clickable. That makes every dropdown, tooltip and popover unhittable, and the bug
+  looks like the click landing on whatever is behind them. The clip is asked about on the *parent*,
+  because the child has no idea it is being cut — and a dead condition in the first draft was hiding
+  the whole question.
+
+  ⚠ **`pointer-events: none` is transparent without making its children so**, which is what makes an
+  overlay usable — the subtree-as-one-unit reading either blocks everything under a full-screen layer
+  or lets clicks through a modal.
+
+  Verified by sabotage: testing children in document order fails 1, skipping a subtree outside its
+  parent fails 1, hiding the children of a `pointer-events: none` element fails 1, ignoring pointer
+  capture fails 1, and letting `Handled` not stop the route fails 1.
+
+  ⚠ **One sabotage failed to fail, and the comment was corrected rather than the code.** The router
+  snapshots the route before invoking anything, on the argument that a handler may change the tree
+  mid-event. That is the right model and it is currently *untestable*: the tree is append-only and
+  `Parent` is fixed at creation, so no handler can change an ancestor chain and walking as you go is
+  indistinguishable. Kept as insurance, and now labelled as insurance rather than as a covered claim.
+
+  Doc 09 asks for a quadtree over the top level and says the simple version was "measured to be
+  sufficient". This descends the tree, entering only subtrees containing the point; **that
+  measurement has not been taken here** and should be before the quadtree is written.
+- Owed in `Vixen.Ui`: focus and keyboard navigation, gestures, draw list, batching, clipping,
   path rendering, virtualisation primitive, multi-window, DPI, and element removal.
 - `Vixen.Ui.Markup`: VXML lexer/parser on `Vixen.Core.Syntax`, binder, emitter, `#line` mapping.
 - `Vixen.Ui.HotReload`: three reload channels, keyed reconciliation, `[HotReloadState]`.
