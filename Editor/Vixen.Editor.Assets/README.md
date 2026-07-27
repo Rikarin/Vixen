@@ -109,6 +109,44 @@ player loads — a `MaterialAsset` with named parameters and asset references be
 a resolved pipeline and `ObjectId`s. That compiler does not exist yet. Emitting a half-resolved binary
 here would move its decisions inside the importer, where the artefact cache key cannot see them.
 
+## `AudioImporter`, and a WAV reader written rather than taken
+
+Decode, mix, convert, write. The decode is an `IAudioDecoder` — the same licence seam as
+`IImageDecoder`, and audio has *more* codec churn than images, not less.
+
+**The WAV reader is written here**, which is the opposite of the choice made for images. A PNG
+decoder is a compression implementation and writing one would be foolish; a WAV file is a chunk
+header and then the samples. A dependency for it would be a licence, a supply-chain entry and a
+version to track, in exchange for about a hundred lines.
+
+**The chunks are walked, not assumed.** The naive reader — seek 44 bytes, take the rest — works on
+the files a tool writes and fails on the ones a DAW writes, which carry `LIST`, `fact`, `bext` and
+`cue ` between the header and the samples. It fails by reading metadata *as audio*: a burst of noise
+at the start of the clip, diagnosed by ear rather than by a stack trace. Odd-length chunks are
+followed by a pad byte that is not counted in their size, and missing that shifts every chunk after
+the first odd one.
+
+Three more places the format bites, each with a test that fails when the line is removed:
+
+- **8-bit WAV is unsigned**, centred on 128. Read as signed it comes out inverted around the
+  midpoint, which sounds like distortion rather than like silence.
+- **`WAVE_FORMAT_EXTENSIBLE` hides the real format code in a GUID** at the end of the `fmt ` chunk.
+  Anything above two channels or above 16 bits is written that way, so a reader that stops at `0xFFFE`
+  rejects most of what a DAW exports.
+- **24-bit is rounded to 16, not truncated.** Truncation biases every sample towards negative
+  infinity, which is a DC offset across the whole clip and a click at each end.
+
+`ForceMono` is the one setting that earns its place: **a stereo clip cannot be positioned in the
+world.** It already says which ear it is in, so panning does nothing and the sound stays in the
+listener's head wherever its emitter is. It averages rather than sums, because summing two correlated
+channels clips anything mastered near full scale.
+
+**It claims `.ogg`, `.mp3` and `.flac` without being able to read them**, which is a deviation from
+`TextureImporter` and deliberate. That importer claims only what it decodes, so an `.exr` falls to
+`RawImporter` and ships as a blob. Doc 08's table promises those three formats, and an artist who
+drops an `.ogg` in and finds it silently became an unplayable byte blob has learned nothing; failing
+with the name of what is missing is the more useful of the two silences.
+
 ## The pipeline, and the key's chicken and egg
 
 `ImportPipeline` reads the sidecar, decides which importer claims the file, resolves the per-target

@@ -38,6 +38,11 @@
         <ProjectReference Include="..\..\Core\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
 
+        <!-- The audio importer produces an AudioClip, which is a runtime type for the same reason
+             Ktx2 is: the thing that writes it and the thing that loads it have to be talking about
+             one type, and the type's name is in the chunk. -->
+        <ProjectReference Include="..\..\Core\Vixen.Audio\Vixen.Audio.csproj" />
+
         <!-- The content build emits a catalog, which is a runtime type: the builder and the loader
              have to be talking about the same one. -->
         <ProjectReference Include="..\..\Core\Vixen.Assets\Vixen.Assets.csproj" />
