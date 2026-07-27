@@ -30,12 +30,11 @@ namespace Vixen.Assets;
 ///         for.
 ///     </para>
 ///     <para>
-///         <b>What a claim on a dependency is, and is not.</b> Claiming an address mounts the bundle
-///         it lives in and ties its lifetime to its dependents; it does not deserialise it. Turning a
-///         reference <i>inside</i> a chunk into the loaded object it points at is the content-reference
-///         machinery, which [03](../../docs/plan/03-core-foundation.md) deferred out of Phase 1 and
-///         which is the next piece here. Until it lands, a dependency's bundle and its lifetime are
-///         shared; its deserialised object is shared only if something loads it by address.
+///         <b>A dependency is loaded before the thing that needs it, and shared with it.</b> The
+///         closure comes back dependency-first, each address is deserialised in that order, and a
+///         resolver is in force while it happens — so a material's reference to a texture lands on
+///         the very object the manager already loaded rather than on a second copy of it. That is
+///         what makes two materials sharing a texture mean one texture.
 ///     </para>
 /// </remarks>
 public sealed class AssetManager {
@@ -210,6 +209,15 @@ public sealed class AssetManager {
 
             cancellationToken.ThrowIfCancellationRequested();
 
+            // Dependency-first, which is the order Catalog.Closure hands them over in. Anything a
+            // chunk points at is already an object by the time that chunk is read, which is what
+            // lets the resolver below answer.
+            foreach (var needed in closure) {
+                if (needed != address) {
+                    await Deserialise(needed).ConfigureAwait(false);
+                }
+            }
+
             var loaded = await Deserialise<T>(address).ConfigureAwait(false);
 
             return loaded as T
@@ -237,11 +245,24 @@ public sealed class AssetManager {
     }
 
     /// <summary>
+    ///     Deserialises a dependency, whose static type nothing here knows: it is named by an address
+    ///     and its type is in the chunk header. <see cref="ObjectDatabase.ReadObject" /> is the way
+    ///     back from one to the other.
+    /// </summary>
+    Task<object> Deserialise(string address) => Deserialise(address, database.ReadObject);
+
+    /// <summary>
+    ///     Deserialises the address the caller asked for, with the type they asked for — which is
+    ///     stricter than the header's, and catches asking for the right address as the wrong thing.
+    /// </summary>
+    Task<object> Deserialise<T>(string address) where T : class => Deserialise(address, id => database.Read<T>(id));
+
+    /// <summary>
     ///     Deserialises an address once, however many callers arrive at the same moment. The work
     ///     happens outside the lock and the promise is made inside it, so nothing deserialises twice
     ///     and nothing blocks every other load while one chunk is being read.
     /// </summary>
-    Task<object> Deserialise<T>(string address) where T : class {
+    Task<object> Deserialise(string address, Func<ObjectId, object> read) {
         TaskCompletionSource<object>? mine = null;
         Task<object> value;
 
@@ -258,16 +279,18 @@ public sealed class AssetManager {
         }
 
         try {
-            mine.SetResult(database.Read<T>(Catalog.Get(address).Id));
+            // The resolver is in force only for this one read, and only on this thread. A reference
+            // inside the chunk resolves to whatever is already loaded, which — because the closure
+            // is walked dependency-first — is everything it can legitimately point at.
+            using (ContentResolution.Push(new ClaimResolver(this))) {
+                mine.SetResult(read(Catalog.Get(address).Id));
+            }
         } catch (SerializationException failure) {
             // The database knows the chunk was written by a different type and says so with its
             // hash, which is the right message for a database and a useless one for whoever typed
             // the address. This is the only place that knows both.
             mine.SetException(
-                new InvalidOperationException(
-                    $"'{address}' could not be loaded as {typeof(T).Name}: {failure.Message}",
-                    failure
-                )
+                new InvalidOperationException($"'{address}' could not be loaded: {failure.Message}", failure)
             );
         } catch (Exception failure) {
             // The claim keeps the faulted task, so a second caller gets the same failure rather than
@@ -276,6 +299,29 @@ public sealed class AssetManager {
         }
 
         return value;
+    }
+
+    /// <summary>
+    ///     Answers a reference inside a chunk with the object the manager has already loaded for
+    ///     that chunk id. Content addressing is what makes this a lookup rather than a search: the
+    ///     id in the reference and the id in the catalog entry are the same number.
+    /// </summary>
+    sealed class ClaimResolver(AssetManager manager) : IContentResolver {
+        public bool TryResolve(ObjectId id, out object? value) {
+            lock (manager.gate) {
+                foreach (var (address, claim) in manager.claims) {
+                    if (claim.Value is { IsCompletedSuccessfully: true }
+                        && manager.Catalog.TryGet(address, out var entry)
+                        && entry.Id == id) {
+                        value = claim.Value.Result;
+                        return true;
+                    }
+                }
+            }
+
+            value = null;
+            return false;
+        }
     }
 
     sealed class Claim {

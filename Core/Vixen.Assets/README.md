@@ -102,14 +102,15 @@ capture reads beautifully until the first `await`: a load started inside the blo
 it has to belong somewhere and neither answer is right. Since the scope exists *because* implicit
 release semantics leak, replacing one implicit-lifetime rule with another would defeat the point.
 
-**What a claim on a dependency is, and is not.** It mounts the bundle and ties the lifetime; it does
-not deserialise. Turning a reference *inside* a chunk into the object it points at is the
-content-reference machinery, which doc 03 deferred out of Phase 1 and which is the next piece here.
+**A dependency is loaded before the thing that needs it, and shared with it.** The closure comes back
+dependency-first, each address is deserialised in that order, and a resolver is in force while it
+happens — so a material's `ContentReference<Texture>` lands on the very object the manager already
+loaded rather than a second copy. Two materials sharing a texture means one texture.
 
 ## Still to come
 
-Content references, so a dependency's deserialised object is shared and not just its bundle and
-lifetime. The remote provider and the bundle cache with resume and CRC verification. The streaming
-manager. `.vxgroup` files and the build side that emits catalogs.
+The remote provider and the bundle cache with resume and CRC verification. The streaming manager.
+Reloading in place, so a hot-reloaded asset updates the references pointing at it rather than
+replacing them.
 
 Licensed under Apache-2.0.

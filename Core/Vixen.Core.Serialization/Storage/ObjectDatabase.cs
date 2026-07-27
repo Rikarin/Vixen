@@ -154,6 +154,38 @@ public sealed class ObjectDatabase {
         return Serializer.Read<T>(chunk.AsSpan(payload));
     }
 
+    /// <summary>Reads a value back without knowing its type.</summary>
+    /// <param name="id">The chunk.</param>
+    /// <returns>The value.</returns>
+    /// <exception cref="SerializationException">The chunk is missing, or its type is not registered here.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         What a content loader walks a dependency graph with. Loading a material means loading
+    ///         the texture it points at first, and the only thing the loader knows about that texture
+    ///         is an id — the static type is in the material's own fields, which have not been read
+    ///         yet.
+    ///     </para>
+    ///     <para>
+    ///         The type comes from the chunk header and the serializer from the registry, so nothing
+    ///         here reflects: every type that can appear was registered by a module initializer the
+    ///         generator wrote.
+    ///     </para>
+    /// </remarks>
+    public object ReadObject(ObjectId id) {
+        var chunk = ReadChunk(id);
+        var payload = ChunkFormat.ReadHeader(chunk, out var typeId, out _);
+
+        if (!SerializerRegistry.TryGetByTypeId(typeId, out var serializer)) {
+            throw new SerializationException(
+                $"Chunk {id} was written by type {typeId:x16}, and nothing registered in this process claims it. "
+                + "The assembly that defines it is either not loaded or has no [DataContract] on the type."
+            );
+        }
+
+        var reader = new SerializationReader(chunk.AsSpan(payload));
+        return serializer.DeserializeObject(ref reader);
+    }
+
     /// <summary>Reads a chunk's header without deserialising it.</summary>
     /// <param name="id">The chunk.</param>
     /// <param name="info">What it says about itself.</param>

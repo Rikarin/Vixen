@@ -377,6 +377,14 @@ the codebase is large enough for it to be expensive to fix.
   Binary `catalog.bin` with a sorted string table, deterministic by construction, CRC-verified on
   read. 48 tests. (The object database, chunk format and bundle reader were already built in
   Phase 1's serialization work; this is the index over them.)
+- ✅ Content references — the piece [03](03-core-foundation.md) deferred out of Phase 1.
+  `ContentReference<T>` writes its chunk id and resolves its value on load, so a material names its
+  textures rather than containing them and two materials sharing one get one object. Ambient
+  resolution during deserialisation, which is defensible where an ambient asset *scope* was not:
+  reading a chunk is synchronous end to end, so "the resolver in force" has one meaning throughout.
+  `ObjectDatabase.ReadObject` and a by-type-id serializer index give the loader the way back from a
+  chunk header to a type. The `[DataContract]` generator emits a registration for every closed
+  `ContentReference<T>` it sees, which is what keeps it AOT-correct.
 - ✅ Content build: `.vxgroup` addressable groups and `ContentBuilder` — packs chunks into bundles
   by the group's policy (together, separately, by label), names them with their content hash so a CDN
   cannot serve stale bytes, and emits the catalog. Deterministic, and its build log is too. 77 tests
