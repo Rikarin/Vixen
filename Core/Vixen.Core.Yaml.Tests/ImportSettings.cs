@@ -2,18 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Core.Yaml.Meta;
 
 namespace Vixen.Core.Yaml.Tests;
-
-/// <summary>
-///     The importer settings from [08](../../docs/plan/08-asset-pipeline-and-addressables.md) § Import,
-///     as close to the document as the type system allows, so the binder is tested against the schema
-///     it exists for rather than against something invented for the test.
-/// </summary>
-public interface IImportSettings {
-    /// <summary>The importer's own version. Bumping it invalidates every artefact it produced.</summary>
-    int Version { get; }
-}
 
 public enum ColorSpace {
     Linear,

@@ -89,6 +89,13 @@ public static class YamlSerializer {
         var nullable = underlying != expected || !expected.IsValueType;
 
         if (IsNull(node)) {
+            // A few types have a null of their own — AssetReference's is a real reference to
+            // nothing, not the absence of a reference — so the converter gets asked before the
+            // document's null is treated as C#'s.
+            if (!nullable && YamlScalarConverters.TryGet(underlying, out var nullConverter) && nullConverter.AcceptsNull) {
+                return nullConverter.Parse("null");
+            }
+
             return nullable
                 ? null
                 : throw new YamlBindingException(path, $"null cannot be read as {underlying.Name}.");
@@ -173,33 +180,14 @@ public static class YamlSerializer {
         }
     }
 
-    static object BindOtherScalar(string text, Type type, string path) {
-        if (type == typeof(Guid)) {
-            return Guid.Parse(text, CultureInfo.InvariantCulture);
-        }
-
-        if (type == typeof(TimeSpan)) {
-            return TimeSpan.Parse(text, CultureInfo.InvariantCulture);
-        }
-
-        if (type == typeof(DateTimeOffset)) {
-            return DateTimeOffset.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
-        }
-
-        if (type == typeof(DateTime)) {
-            return DateTime.Parse(text, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
-        }
-
-        if (type == typeof(Uri)) {
-            return new Uri(text, UriKind.RelativeOrAbsolute);
-        }
-
-        if (type == typeof(Version)) {
-            return Version.Parse(text);
-        }
-
-        throw new YamlBindingException(path, $"There is no way to read a scalar as {type.Name}.");
-    }
+    static object BindOtherScalar(string text, Type type, string path) =>
+        YamlScalarConverters.TryGet(type, out var converter)
+            ? converter.Parse(text)
+            : throw new YamlBindingException(
+                path,
+                $"There is no way to read a scalar as {type.Name}. Register one with "
+                + "YamlScalarConverters.Register if it should be one."
+            );
 
     static bool ParseBoolean(string text, string path) =>
         text switch {
@@ -354,27 +342,16 @@ public static class YamlSerializer {
             return new YamlScalar(value.ToString()!, YamlScalarStyle.Plain);
         }
 
+        if (YamlScalarConverters.TryGet(runtime, out var converter)) {
+            return new YamlScalar(converter.Format(value), converter.Style);
+        }
+
         switch (value) {
             case bool flag:
                 return new YamlScalar(flag ? "true" : "false", YamlScalarStyle.Plain);
 
-            case Guid guid:
-                // 32 lowercase hex with no dashes, which is doc 08's GUID form everywhere it appears.
-                return new YamlScalar(guid.ToString("N", CultureInfo.InvariantCulture));
-
             case IFormattable formattable when runtime.IsPrimitive || runtime == typeof(decimal):
                 return new YamlScalar(formattable.ToString(null, CultureInfo.InvariantCulture), YamlScalarStyle.Plain);
-
-            case IFormattable formattable when runtime == typeof(TimeSpan)
-                || runtime == typeof(DateTime)
-                || runtime == typeof(DateTimeOffset):
-                return new YamlScalar(formattable.ToString("O", CultureInfo.InvariantCulture));
-
-            case Uri uri:
-                return new YamlScalar(uri.ToString());
-
-            case Version version:
-                return new YamlScalar(version.ToString());
 
             case IDictionary dictionary:
                 return EmitDictionary(dictionary, runtime, options, path);

@@ -90,6 +90,43 @@ is backed by an array, which satisfies it with no copy.
 record it is just as immutable. Doc 08's worked example uses `ImmutableArray<T>` and is wrong about
 this.
 
+## `.meta` sidecars
+
+```csharp
+var meta = AssetMetaFile.ReadFile("Assets/Textures/hero.png.meta");
+AssetMetaFile.WriteFile(AssetMetaFile.PathFor("Assets/Textures/hero.png"), meta with { … });
+```
+
+The pattern is Unity's, unchanged (ADR-005): one sidecar per file, one per folder, committed, and the
+GUID is the identity — generated once, never rewritten, path-independent, so moving or renaming
+breaks nothing. The schema inside is Vixen's.
+
+**`MetaScanner` reads three lines and stops.** Doc 08 budgets a GUID-index rebuild of a hundred
+thousand assets at under ten seconds; parsing a hundred thousand complete documents does not fit in
+that, and reading each file's envelope does. It is a line scanner rather than the YAML parser, and it
+only looks at column-zero keys — an importer's block has a `version:` of its own, and a scanner that
+wandered into it would produce an index that is confidently wrong. Anything it cannot make sense of it
+declines, and the caller falls back to a full parse.
+
+**`metaVersion` has a real chain behind it.** Each step takes a document from *n* to *n+1*, so a file
+five versions old is upgraded by five small reviewable functions rather than one that knows every
+historical shape. Steps work on the **node tree**, which is the only place they can — a document old
+enough to need migrating does not fit the current type — and which means everything a step did not
+touch, comments included, is written back exactly as it was found. There are no steps yet; the
+mechanism ships now so the first real migration is one function rather than a design.
+
+**Sub-asset ids come from what the sub-asset is** — importer, kind, name, hashed with XxHash32 — never
+from where it landed in the source file. Unity's `fileID` values are internal magic numbers, so
+re-exporting an FBX whose mesh order changed renumbers everything and breaks every reference; "my
+prefab lost its mesh after an artist re-exported" is avoidable by construction. A collision is
+reported naming both, at import, rather than silently resolved.
+
+**Per-target overrides are a node-level merge**, not a partial record per settings type. `Android` is
+applied before `Android/Vulkan`, so the more specific target wins, and a prefix must be a whole
+segment — `Windows` applies to `Windows/x64` and not to `WindowsStore`. Sparseness falls out of a key
+being absent rather than a member being null, which also means an override cannot accidentally clear
+something by not mentioning it.
+
 ## What is not in the dialect
 
 **Anchors and aliases.** An asset reference is a `vx:` scalar, which answers the same question

@@ -18,11 +18,20 @@
 
     <ItemGroup>
         <PackageReference Include="YamlDotNet" />
+        <PackageReference Include="System.IO.Hashing" />
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+
+        <!--
+          The .meta model types are [DataContract]s of this assembly's own, so it runs the descriptor
+          generator over itself. Analyzers do not flow transitively through a ProjectReference.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>
