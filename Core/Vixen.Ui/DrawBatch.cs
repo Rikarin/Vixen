@@ -5,11 +5,24 @@ namespace Vixen.Ui;
 
 /// <summary>What kind of work a batch is.</summary>
 /// <remarks>
-///     ⚠ <b>A guess at where a renderer's pipeline boundaries will be, and there is no renderer yet
-///     to check it against.</b> Rounded rectangles and borders are grouped on the argument that both
-///     are signed-distance quads; a filled path and a stroked one are separated on the argument that
-///     tessellating an interior and tessellating an outline are different work. The UI render feature
-///     in phase 5 is what will actually know, and this enum is where it will disagree.
+///     <para>
+///         ⚠ <b>A coarse stand-in for two of the four things that actually decide a pipeline.</b>
+///         <c>Vixen.Rendering</c> already answers this question: a pipeline is keyed on the effect,
+///         the stage, the vertex layout and the render output, and its own remarks argue that those
+///         four are what makes the key complete rather than merely sufficient so far. Only two of
+///         them are a draw list's to know — which shader and which vertex format — because the stage
+///         carries blend, depth and raster state and the output carries attachment formats, and both
+///         belong to the compositor rather than to anything that walks an element tree.
+///     </para>
+///     <para>
+///         So this is deliberately allowed to be wrong in one direction only: rectangles and borders
+///         are grouped on the argument that both are signed-distance quads, and a filled path is
+///         separated from a stroked one on the argument that tessellating an interior and
+///         tessellating an outline are different work. Both are claims about a shader that has not
+///         been written. <b>What it must not do is grow to describe the other two</b> — a draw list
+///         that decided its own blend state would be deciding something the pass it is drawn in
+///         already decided.
+///     </para>
 ///     <para>
 ///         What is <i>not</i> a guess is everything the batcher does with these: batches are
 ///         contiguous, they preserve order, and they are maximal. Those hold whatever the grouping
@@ -65,6 +78,15 @@ public readonly record struct DrawBatch(
 ///         the text over the panel that was supposed to cover it.
 ///     </para>
 ///     <para>
+///         ⚠ <b>The renderer already agrees, and it is worth knowing where.</b>
+///         <c>RenderSortMode.ByGroup</c> exists and its own remarks say it is "for UI and anything
+///         else already ordered" — depth left out, sorted on a group value alone. Which means a UI
+///         render feature has to make that group <i>be</i> the painting order: the sort is stable and
+///         orders by group, so a group that meant anything else — a material, a pipeline, a texture —
+///         would reorder the interface on the way to the screen and undo everything below. The batch
+///         index is that number.
+///     </para>
+///     <para>
 ///         So the win here is bounded and honest: adjacent things that happen to match are merged,
 ///         and nothing else is. A list of a hundred alternating labels and boxes batches into two
 ///         hundred batches, and that is the correct answer rather than a failure to optimise. What
@@ -75,6 +97,17 @@ public readonly record struct DrawBatch(
 ///         The batches are a <b>partition</b>: every command is in exactly one, in order, so a
 ///         consumer walks the batches alone and never has to fall back to the commands to find what
 ///         it missed.
+///     </para>
+///     <para>
+///         ⚠ <b>The renderer does not work this way, and the difference is the point.</b>
+///         <c>MeshRenderFeature</c> has no batch list: it walks its nodes in sorted order and
+///         re-binds only when the pipeline handle changes, which reaches the same runs with two
+///         locals and no array. That is right for a mesh, whose nodes are rebuilt from culling every
+///         frame so nothing precomputed would survive. A user interface is the opposite case — most
+///         frames draw exactly what the last one drew — so the runs are worked out <i>behind the
+///         frame diff</i> and a still interface pays nothing. If the UI render feature ends up
+///         binding on change anyway, this list is what stops it recomputing the grouping every frame,
+///         and if it does not, this is the thing to delete.
 ///     </para>
 /// </remarks>
 public static class DrawBatcher {

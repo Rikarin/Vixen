@@ -192,11 +192,29 @@ that drew the same thing has the same batches by construction — so the cached 
 version exists to protect keeps its batches with it. `Batched` counts the rebuilds, because a claim
 about work avoided that cannot be measured is one nobody can check.
 
-⚠ **`BatchKind` is a guess at where a renderer's pipeline boundaries will be, and there is no
-renderer yet to check it against.** Rectangles and borders are grouped as signed-distance quads;
-filled and stroked paths are separated as different tessellation work. Phase 5's render feature is
-what will know. What is *not* a guess is that batches are contiguous, ordered and maximal, which
-holds whatever the grouping turns out to be.
+⚠ **`BatchKind` is a coarse stand-in for two of the four things that decide a pipeline.**
+`Vixen.Rendering` already answers this: a pipeline is keyed on the effect, the stage, the vertex
+layout and the render output. Only two of those are a draw list's to know — which shader and which
+vertex format — because the stage carries blend, depth and raster state and the output carries
+attachment formats, and both belong to the compositor. Rectangles and borders are grouped as
+signed-distance quads, filled and stroked paths separated as different tessellation work; both are
+claims about a shader nobody has written. **What this must not do is grow to describe the other two.**
+
+⚠ **The renderer does not use a batch list, and the difference is the point.** `MeshRenderFeature`
+walks its nodes in sorted order and re-binds only when the pipeline handle changes — the same runs,
+with two locals and no array. That is right for a mesh, whose nodes are rebuilt from culling every
+frame so nothing precomputed would survive. A UI is the opposite case: most frames draw exactly what
+the last one drew, so the runs are worked out behind the frame diff and a still interface pays
+nothing. If the UI render feature binds on change anyway, this is what stops it regrouping every
+frame; if it does not, this is the thing to delete.
+
+⚠ **`RenderSortMode.ByGroup` already says "for UI and anything else already ordered"** — depth left
+out, sorted on a group value alone, stably. So the UI render feature has to make that group *be* the
+painting order: a group meaning a material or a texture would reorder the interface on the way to the
+screen and undo everything above. The batch index is that number.
+
+What is *not* a guess is that batches are contiguous, ordered and maximal, which holds whatever the
+grouping turns out to be.
 
 ## The draw list
 

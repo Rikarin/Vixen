@@ -1431,12 +1431,30 @@ sub-piece has its own gate.
   same thing has the same batches by construction, so the cached command buffer keeps its batches
   with it, and `Batched` counts the rebuilds.
 
-  ⚠ **`BatchKind` is a guess at where a renderer's pipeline boundaries will be, and there is no
-  renderer to check it against.** Rectangles and borders are grouped as signed-distance quads; filled
-  and stroked paths are separated as different tessellation work. Phase 5's render feature is what
-  will know, and this is where it will disagree. What is not a guess is that the batches are
-  contiguous, ordered and maximal — properties held by a CsCheck generator over random command
-  streams rather than by examples.
+  ⚠ **`BatchKind` was written as a guess at a renderer that turned out to exist**, and checking it
+  against `Vixen.Rendering` changed what it claims rather than what it does. Three findings:
+
+  1. **A pipeline is already keyed**, on the effect, the stage, the vertex layout and the render
+     output — and `PipelineKey`'s own remarks argue those four are what make the key complete rather
+     than merely sufficient so far. Only **two** of them are a draw list's to know: which shader and
+     which vertex format. The stage carries blend, depth and raster state and the output carries
+     attachment formats, and both belong to the compositor. So `BatchKind` is a coarse stand-in for
+     two of four, and the thing it must not do is grow to describe the other two.
+  2. **The renderer does not use a batch list at all.** `MeshRenderFeature` walks its nodes in sorted
+     order and re-binds only when the pipeline handle changes — the same runs, two locals, no array.
+     That is right for a mesh, whose nodes are rebuilt from culling every frame so nothing
+     precomputed survives; a UI is the opposite case, since most frames draw what the last one drew,
+     and the runs are worked out *behind the frame diff*. If the UI render feature binds on change
+     anyway, `Batches` is what stops it regrouping every frame; if it does not, `Batches` is the
+     thing to delete. **Recorded as the open question it is rather than settled either way.**
+  3. **`RenderSortMode.ByGroup` already exists and says it is "for UI and anything else already
+     ordered."** It sorts stably on a group value with depth left out — which means the UI render
+     feature has to make that group *be* the painting order, because a group meaning a material or a
+     texture would reorder the interface on the way to the screen. The batch index is that number,
+     and this is the no-reordering argument arriving independently from the renderer's side.
+
+  What is not a guess is that the batches are contiguous, ordered and maximal — properties held by a
+  CsCheck generator over random command streams rather than by examples.
 
   Verified by sabotage: never merging fails 3, merging with any earlier batch rather than the last —
   the reordering this exists to refuse — fails 5, letting a clip join a batch fails 1, dropping the
