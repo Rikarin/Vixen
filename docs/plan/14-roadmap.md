@@ -1415,7 +1415,34 @@ sub-piece has its own gate.
   ⚠ **One sabotage failed to fail and the test was sharpened.** Resetting the pen in `Clear` broke
   nothing, because every test cleared and then moved — the reset only shows when a caller reads
   `Current` on a freshly cleared builder, which is what a control reusing one between frames does.
-- Owed in `Vixen.Ui`: access keys, batching, line wrapping, rich-text runs,
+- ✅ **Batching.** `DrawBatcher` groups the frame's commands into runs a renderer can submit as one.
+
+  **Runs of consecutive commands, and never a reordering** — which is worth being blunt about,
+  because reordering is what batching means everywhere else. A 3D renderer sorts draws by material
+  because a depth buffer decides what ends up in front; a user interface has no depth buffer, so
+  order *is* the answer, and moving two runs of the same font together across the panel between them
+  draws the text over the panel that was meant to cover it. The win is therefore bounded and honest:
+  a hundred alternating labels and boxes batch into two hundred batches, and that is correct rather
+  than a failure to optimise.
+
+  **The batches partition the commands** — every one is in exactly one batch, in order — so a
+  consumer walks the batches alone and cannot miss anything, which is why a clip gets a batch of its
+  own instead of being skipped. And batching sits **behind the frame diff**: a frame that drew the
+  same thing has the same batches by construction, so the cached command buffer keeps its batches
+  with it, and `Batched` counts the rebuilds.
+
+  ⚠ **`BatchKind` is a guess at where a renderer's pipeline boundaries will be, and there is no
+  renderer to check it against.** Rectangles and borders are grouped as signed-distance quads; filled
+  and stroked paths are separated as different tessellation work. Phase 5's render feature is what
+  will know, and this is where it will disagree. What is not a guess is that the batches are
+  contiguous, ordered and maximal — properties held by a CsCheck generator over random command
+  streams rather than by examples.
+
+  Verified by sabotage: never merging fails 3, merging with any earlier batch rather than the last —
+  the reordering this exists to refuse — fails 5, letting a clip join a batch fails 1, dropping the
+  font or the fill rule from the key fails 2 each, treating a stroke as a fill fails 2, and batching
+  on every frame rather than behind the diff fails 1.
+- Owed in `Vixen.Ui`: access keys, line wrapping, rich-text runs,
   font fallback and weight matching, gradients, per-corner elliptical radii, pinch and rotate,
   virtualisation primitive, multi-window, DPI, and element removal.
 - `Vixen.Ui.Markup`: VXML lexer/parser on `Vixen.Core.Syntax`, binder, emitter, `#line` mapping.

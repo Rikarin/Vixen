@@ -124,6 +124,7 @@ public sealed class DrawList {
     readonly List<PathSegment> segments = [];
     readonly List<PathSegment> previousSegments = [];
     readonly List<FontFace> fonts = [];
+    readonly List<DrawBatch> batches = [];
 
     /// <summary>The commands, in the order they are drawn.</summary>
     public IReadOnlyList<DrawCommand> Commands => commands;
@@ -140,6 +141,21 @@ public sealed class DrawList {
 
     /// <summary>The faces the text commands refer to, in the order they were first used.</summary>
     public IReadOnlyList<FontFace> Fonts => fonts;
+
+    /// <summary>The commands grouped into runs a renderer can submit together.</summary>
+    /// <remarks>
+    ///     A partition of <see cref="Commands" />: every command is in exactly one batch, in order,
+    ///     so a consumer walks this alone.
+    /// </remarks>
+    public IReadOnlyList<DrawBatch> Batches => batches;
+
+    /// <summary>How many times the batches have been rebuilt.</summary>
+    /// <remarks>
+    ///     Exposed for the same reason <c>UiDocument.StylesApplied</c> is: the claim is that a frame
+    ///     that drew the same thing does no batching work, and a claim about work avoided that cannot
+    ///     be measured is one nobody can check.
+    /// </remarks>
+    public int Batched { get; private set; }
 
     /// <summary>Bumped whenever the commands differ from the previous frame's.</summary>
     public int Version { get; private set; }
@@ -222,6 +238,12 @@ public sealed class DrawList {
 
         if (ChangedLastFrame) {
             Version++;
+
+            // Behind the diff rather than beside it. Batching is a walk of every command in the
+            // interface, and a frame that drew the same thing has the same batches by construction —
+            // so the cached command buffer the version exists to protect keeps its batches with it.
+            DrawBatcher.Build(commands, batches);
+            Batched++;
         }
 
         return ChangedLastFrame;

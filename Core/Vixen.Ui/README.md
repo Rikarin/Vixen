@@ -26,7 +26,8 @@ top.
 | `GestureRecognizer` | Taps with a count, long presses and drags, from timestamped pointer events. |
 | `FontRegistry`, `TextRun` | `font-family` → a face, shaping through a cache, measurement into layout, glyphs into the draw list. |
 | `PathBuilder`, `OnDraw` | Lines, curves, fills and strokes for the controls a stylesheet cannot describe. |
-| Access keys, batching | ⏳ |
+| `DrawBatcher` | Contiguous, order-preserving, maximal runs a renderer can submit as one. |
+| Access keys | ⏳ |
 
 ## Focus
 
@@ -169,6 +170,33 @@ own `MoveTo`, which is what makes a path with a hole in it possible at all.
 
 `PathFillRule.EvenOdd` is there because it is how most icon sets punch the hole in a letter `o`, and
 a renderer that only knew non-zero would fill it in.
+
+## Batching
+
+**Runs of consecutive commands, and never a reordering.** Worth being blunt about, because reordering
+is what batching means everywhere else: a 3D renderer sorts draws by material because a depth buffer
+decides what ends up in front. A user interface has no depth buffer. Order *is* the answer to what is
+in front, so moving two runs of the same font together across the panel between them draws the text
+over the panel that was supposed to cover it.
+
+So the win is bounded and honest. A hundred alternating labels and boxes batch into two hundred
+batches, and that is the correct answer rather than a failure to optimise — what improves it is
+emitting fewer interleavings, which is a question for whoever writes the controls.
+
+**The batches partition the commands**: every command is in exactly one, in order, so a consumer
+walks the batches alone and never has to fall back to the command list to find what it missed. That
+is why a clip gets a batch of its own rather than being skipped.
+
+**Behind the frame diff, not beside it.** Batching walks every command in the interface, and a frame
+that drew the same thing has the same batches by construction — so the cached command buffer the
+version exists to protect keeps its batches with it. `Batched` counts the rebuilds, because a claim
+about work avoided that cannot be measured is one nobody can check.
+
+⚠ **`BatchKind` is a guess at where a renderer's pipeline boundaries will be, and there is no
+renderer yet to check it against.** Rectangles and borders are grouped as signed-distance quads;
+filled and stroked paths are separated as different tessellation work. Phase 5's render feature is
+what will know. What is *not* a guess is that batches are contiguous, ordered and maximal, which
+holds whatever the grouping turns out to be.
 
 ## The draw list
 
