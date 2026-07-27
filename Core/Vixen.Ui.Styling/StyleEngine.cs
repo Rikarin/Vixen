@@ -30,7 +30,8 @@ public sealed class StyleEngine {
         Matcher = new SelectorMatcher(Selectors);
         Interning = new ComputedStyleCache();
         InlineStyles = new InlineStyleStore();
-        Loader = new StyleSheetLoader(Rules, Compiler);
+        Keyframes = new KeyframesTable();
+        Loader = new StyleSheetLoader(Rules, Keyframes, Compiler);
         Resolver = new StyleResolver(Rules, InlineStyles, Matcher, Interning);
         Tree = new StyleTree(Names);
     }
@@ -61,6 +62,9 @@ public sealed class StyleEngine {
 
     /// <summary>The declarations written on elements themselves.</summary>
     public InlineStyleStore InlineStyles { get; }
+
+    /// <summary>The <c>@keyframes</c> rules.</summary>
+    public KeyframesTable Keyframes { get; }
 
     /// <summary>The stylesheet loader.</summary>
     public StyleSheetLoader Loader { get; }

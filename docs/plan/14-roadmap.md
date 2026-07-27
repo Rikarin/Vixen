@@ -701,7 +701,37 @@ sub-piece has its own gate.
   Both were found by sabotage and neither would have been found any other way. Four sabotages run
   against the final gates; all four fail it.
 
-  **Owed:** transitions and keyframes.
+- 🟡 **Transitions and animations are built.** `Oklab` in `Vixen.Core.Mathematics`, checked against
+  its author's published values; `StyleValue` and its parser; `TimingFunction` with `cubic-bezier`,
+  `steps` and the `spring()` extension; `Animator` running transitions and `@keyframes`. 149 tests
+  in total for the project, plus 10 for Oklab.
+
+  Springs are solved in **closed form** rather than integrated — a value depending only on elapsed
+  time cannot drift, so a dropped frame does not change where it ends up — and are checked against a
+  numerical integration of the differential equation itself, which is two independent routes to the
+  same curve. Interrupting a transition reverses from where the element actually is and takes the
+  half-duration it has left, without which moving a pointer on and off a button drifts further
+  behind every pass.
+
+  ⚠ **A third thing ExCSS leaves to Vixen**, and the pattern is now familiar: it expands the
+  `transition` shorthand only when it recognises every part, so `spring()` — Vixen's own extension —
+  decides whether the longhands exist at all. Vixen parses the shorthand itself as well. By contrast
+  `@keyframes` ExCSS *does* parse, which probing established and assumption would not have.
+
+  Two bugs worth carrying. **A curve solver terminating on the wrong quantity**: inverting a cubic
+  Bézier stopped when the error in *x* was small, which pins nothing where the curve is flat in x —
+  and `cubic-bezier(0, y, 0, y)`, an ordinary slow-start easing, is exactly that near the origin.
+  Found by a property test, and only findable that way: every hand-picked easing passed. **A comma
+  split that cut a function call in half**: `spring(2, 180, 12)` has commas inside it, so the same
+  feature that defeats ExCSS's expansion also defeats a naive split of the shorthand — the same
+  shape as matching braces inside an `@layer` body.
+
+  Also corrects a test-writing habit: `Assert.Equal(x, y, 4)` rounds to four decimals and compares,
+  so a true value sitting on a rounding boundary fails on 3e-7 of float noise. Tolerances, not digit
+  counts.
+
+  **Owed:** several simultaneous animations per element (`animation-name: a, b` runs the first), and
+  transform decomposition, which waits on there being a transform property.
 - `Vixen.Ui.Styling.Utilities`: token config, candidate scanner, utility grammar, variant system,
   arbitrary values, `@apply`, generated stylesheet.
 - Gate: ✅ selector-matching oracle tests, ✅ style-sharing oracle tests, ✅ cascade/specificity/

@@ -391,6 +391,27 @@ interpolating on a per-property basis (colours in OkLab so gradients and fades l
 numerically, transforms decomposed). Springs (`transition: 200ms spring(1, 100, 10)`) as a Vixen
 extension, because game UI wants them and CSS still does not have them.
 
+✅ Built. `Oklab` lives in `Vixen.Core.Mathematics` and is checked against Ottosson's published
+values. `StyleValue` is the typed, interpolatable value — the cascade keeps working on interned
+strings, and only the properties actually being animated get typed, which is what still lets a
+stylesheet carry a property this engine has never heard of.
+
+⚠ **A third thing ExCSS leaves to Vixen.** It expands the `transition` shorthand into longhands
+**only when it recognises every part**, so `transition: opacity 200ms ease-in` arrives as four
+declarations and `transition: opacity 200ms spring(1, 100, 10)` arrives as one unexpanded string.
+Whether the longhands exist therefore depends on whether the author used a Vixen extension. Vixen
+parses the shorthand itself as well as reading the longhands. `@keyframes`, by contrast, ExCSS *does*
+parse, with `from`/`to` normalised — established by probing rather than assumed.
+
+**Springs are solved in closed form**, not integrated, which buys more than accuracy: a value
+depending only on elapsed time cannot drift, so a dropped frame does not change where the spring ends
+up. A spring has no duration of its own, so one is derived — the time by which the oscillation
+envelope decays to a thousandth — which is what lets it sit where CSS expects a timing function
+rather than needing its own integrator plumbed through the animator.
+
+Not built: `animation-name: a, b` runs only the first, and transforms are not decomposed because
+there is no transform property yet.
+
 ### The utility preprocessor (`Vixen.Ui.Styling.Utilities`)
 
 A Tailwind-shaped system, written for the engine, running as part of the build.
