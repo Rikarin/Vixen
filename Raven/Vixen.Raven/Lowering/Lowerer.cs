@@ -50,6 +50,38 @@ public sealed partial class Lowerer {
     IrBlock currentBlock = new();
     IrFunction? currentFunction;
     NamedTypeSymbol? currentType;
+
+    /// <summary>The instantiations to emit, once <see cref="PlanInstantiations" /> has run.</summary>
+    Monomorphiser? monomorphiser;
+
+    /// <summary>The flattened name each instantiation was given, and the names already taken.</summary>
+    readonly Dictionary<ConstructedNamedTypeSymbol, string> instantiationNames = [];
+
+    readonly HashSet<string> instantiationNamesUsed = new(StringComparer.Ordinal);
+
+    /// <summary>
+    ///     The substitution in force while an instantiation's bodies are lowered, or null outside
+    ///     one.
+    /// </summary>
+    /// <remarks>
+    ///     One field rather than a parameter threaded through every <c>Lower*</c> method, because
+    ///     that is what it is: a property of which copy of a body is being emitted, not of any one
+    ///     expression. <see cref="LowerType" /> applies it before anything else looks at a type, so
+    ///     no other part of lowering has to know instantiation is happening — a <c>T</c> simply
+    ///     never reaches them.
+    /// </remarks>
+    TypeMap? substitution;
+
+    /// <summary>
+    ///     The instantiation whose members are being emitted, or null outside one.
+    /// </summary>
+    /// <remarks>
+    ///     A body's field accesses name the <em>definition</em>'s fields — <c>Box&lt;T&gt;.value</c>
+    ///     — because the body was bound once, against the open type. So the struct a field belongs
+    ///     to cannot be found from the field alone while an instantiation is being lowered; this is
+    ///     what says which copy it is.
+    /// </remarks>
+    ConstructedNamedTypeSymbol? currentInstantiation;
     IrVariable? selfLocal;
     IrVariable? selfParameter;
     readonly Dictionary<Symbol, IrVariable> variables = [];
@@ -122,7 +154,11 @@ public sealed partial class Lowerer {
     IrModule LowerModule() {
         CollectBodies();
 
-        var types = compilation.GetAllTypes();
+        // An open generic is never emitted — only its instantiations are, which is what
+        // monomorphisation means and the only thing either target can take.
+        var declared = compilation.GetAllTypes();
+        var types = declared.Where(t => t.TypeParameters.Count == 0).ToArray();
+        var instantiations = PlanInstantiations(declared);
         var link = LinkReferences(types);
 
         // Shells first: a function body can call anything in the module, and a
@@ -138,6 +174,16 @@ public sealed partial class Lowerer {
             }
         }
 
+        // An instantiation's shell alongside the ordinary ones, for exactly the same reason: a
+        // body may name `Box<float4>` before the pass that fills its fields runs.
+        foreach (var instantiation in instantiations) {
+            if (instantiation.Type is { } constructed) {
+                var structType = new IrStructType(MangledName(constructed));
+                structs[constructed] = structType;
+                module.Add(structType);
+            }
+        }
+
         // Struct fields before any body, because a field access lowers to an index into them: a
         // struct declared after its first user would otherwise have an empty field list when that
         // user's body was lowered. Separate from the shell pass because resolving a field's type can
@@ -145,6 +191,12 @@ public sealed partial class Lowerer {
         foreach (var type in types) {
             if (type.TypeKind == TypeKind.Struct) {
                 DeclareStructFields(type);
+            }
+        }
+
+        foreach (var instantiation in instantiations) {
+            if (instantiation.Type is { } constructed) {
+                DeclareStructFields(constructed);
             }
         }
 
@@ -156,6 +208,10 @@ public sealed partial class Lowerer {
             if (type.TypeKind is TypeKind.Shader or TypeKind.Struct) {
                 DeclareMemberFunctions(type);
             }
+        }
+
+        foreach (var instantiation in instantiations) {
+            DeclareInstantiation(instantiation);
         }
 
         // The libraries' functions after the compilation's own shells, so a name a source
@@ -171,6 +227,10 @@ public sealed partial class Lowerer {
                     LowerStruct(type);
                     break;
             }
+        }
+
+        foreach (var instantiation in instantiations) {
+            LowerInstantiation(instantiation);
         }
 
         // After every shader exists, because a slot's implementation may be declared later in the
@@ -303,6 +363,135 @@ public sealed partial class Lowerer {
         }
     }
 
+    // --- Monomorphisation --------------------------------------------------
+
+    /// <summary>
+    ///     Works out which instantiations of the compilation's generics are actually used.
+    /// </summary>
+    /// <remarks>
+    ///     Seeded from the non-generic declarations, because those are what the pipeline reaches:
+    ///     an entry point is never generic, so anything a shader uses is reachable from a concrete
+    ///     declaration. An unused <c>Box&lt;T&gt;</c> costs nothing, which is the property that
+    ///     makes a generic library affordable.
+    /// </remarks>
+    IReadOnlyList<Instantiation> PlanInstantiations(IReadOnlyList<NamedTypeSymbol> declared) {
+        monomorphiser = new(member => bodies.GetValueOrDefault(member) ?? (IEnumerable<BoundBody>)[]);
+
+        foreach (var type in declared.Where(t => t.TypeParameters.Count == 0)) {
+            monomorphiser.Seed(type);
+        }
+
+        monomorphiser.Close();
+
+        if (monomorphiser.Overflowed) {
+            diagnostics.Add(
+                LoweringDiagnostics.ConstructNotSupported,
+                Location.None,
+                "A generic instantiation nested deeper than the compiler expands"
+            );
+        }
+
+        return monomorphiser.Instantiations;
+    }
+
+    /// <summary>
+    ///     The IR name of an instantiation: the definition plus its arguments, flattened.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Both backends emit an IR name verbatim as an identifier and neither language has
+    ///         angle brackets, so <c>Box&lt;float4&gt;</c> becomes <c>Box_float4</c> — which reads
+    ///         in a frame debugger and survives a disassembly. A nested argument recurses through
+    ///         the same rule, so <c>Box&lt;Pair&lt;float&gt;&gt;</c> is <c>Box_Pair_float</c> rather
+    ///         than a qualified name with the punctuation beaten out of it.
+    ///     </para>
+    ///     <para>
+    ///         Uniquified against the names already taken, because flattening cannot be injective:
+    ///         a two-argument <c>Box&lt;Pair, float&gt;</c> would land on the same string. A module's
+    ///         struct names are one flat namespace, so a collision has to be resolved here rather
+    ///         than left for a backend to rename one of them and not the other.
+    ///     </para>
+    /// </remarks>
+    string MangledName(ConstructedNamedTypeSymbol type) {
+        if (instantiationNames.TryGetValue(type, out var existing)) {
+            return existing;
+        }
+
+        return instantiationNames[type] = Unique(instantiationNamesUsed, Mangle(Flatten(type)));
+    }
+
+    string MangledName(SubstitutedMethodSymbol method) =>
+        Unique(instantiationNamesUsed, Mangle($"{method.Name}_{Arguments(method.TypeArguments)}"));
+
+    string Flatten(ConstructedNamedTypeSymbol type) =>
+        $"{type.OriginalDefinition.Name}_{Arguments(type.TypeArguments)}";
+
+    string Arguments(IReadOnlyList<TypeSymbol> typeArguments) =>
+        string.Join(
+            "_",
+            typeArguments.Select(
+                a => a is ConstructedNamedTypeSymbol nested ? Flatten(nested) : a.ToDisplayString()
+            )
+        );
+
+    static string Mangle(string name) =>
+        string.Concat(name.Select(c => char.IsLetterOrDigit(c) || c == '_' ? c : '_'));
+
+    /// <summary>Creates the signatures an instantiation contributes, before any body is lowered.</summary>
+    void DeclareInstantiation(Instantiation instantiation) {
+        substitution = instantiation.Map;
+        currentInstantiation = instantiation.Type;
+
+        try {
+            if (instantiation.Type is { } constructed) {
+                DeclareMemberFunctions(constructed);
+                return;
+            }
+
+            var method = instantiation.Method!;
+
+            if (FindBody(method, BoundBodyKind.Method) is { } body) {
+                DeclareFunction(MangledName(method), body, method, ContainerOf(method), null);
+            }
+        } finally {
+            substitution = null;
+            currentInstantiation = null;
+        }
+    }
+
+    /// <summary>Lowers an instantiation's bodies through its substitution.</summary>
+    void LowerInstantiation(Instantiation instantiation) {
+        substitution = instantiation.Map;
+        currentInstantiation = instantiation.Type;
+
+        try {
+            if (instantiation.Type is { } constructed) {
+                LowerMemberFunctions(constructed, module.Add);
+                return;
+            }
+
+            var method = instantiation.Method!;
+
+            if (FindBody(method, BoundBodyKind.Method) is { } body) {
+                module.Add(LowerFunction(MangledName(method), body, method, ContainerOf(method), null));
+            }
+        } finally {
+            substitution = null;
+            currentInstantiation = null;
+        }
+    }
+
+    /// <summary>
+    ///     The one symbol that stands for a member of an instantiation, so the declaration and
+    ///     the call site key the function table alike.
+    /// </summary>
+    Symbol Canonical(Symbol member) => monomorphiser?.Canonical(member) ?? member;
+
+    /// <summary>The declaring type of a generic method, for the <c>currentType</c> a body is lowered in.</summary>
+    static NamedTypeSymbol? ContainerOf(MethodSymbol method) =>
+        method.ContainingSymbol as NamedTypeSymbol ?? (method as SubstitutedMethodSymbol)?.OriginalDefinition
+            .ContainingSymbol as NamedTypeSymbol;
+
     void CollectBodies() {
         foreach (var tree in compilation.SyntaxTrees) {
             foreach (var body in compilation.GetSemanticModel(tree).GetBoundBodies()) {
@@ -315,8 +504,25 @@ public sealed partial class Lowerer {
         }
     }
 
+    /// <summary>
+    ///     The bound body of a member, reached through its definition when the member is a view of
+    ///     one.
+    /// </summary>
+    /// <remarks>
+    ///     An instantiation has no body of its own: <c>Box&lt;float4&gt;.Get</c> and
+    ///     <c>Box&lt;int&gt;.Get</c> are the same bound tree read through different maps, and
+    ///     binding each instantiation separately would type-check the same code twice for no gain.
+    /// </remarks>
     BoundBody? FindBody(Symbol member, BoundBodyKind kind) =>
-        bodies.GetValueOrDefault(member)?.FirstOrDefault(b => b.Kind == kind);
+        bodies.GetValueOrDefault(
+                member switch {
+                    SubstitutedMethodSymbol method => method.OriginalDefinition,
+                    SubstitutedPropertySymbol property => property.OriginalDefinition,
+                    SubstitutedFieldSymbol field => field.OriginalDefinition,
+                    _ => member
+                }
+            )
+            ?.FirstOrDefault(b => b.Kind == kind);
 
     // --- Shaders -----------------------------------------------------------
 
@@ -894,11 +1100,17 @@ public sealed partial class Lowerer {
     ///     Whether to report a missing body or an unsupported member kind. Only the second
     ///     pass does, so nothing is said twice.
     /// </param>
-    IEnumerable<(string Name, BoundBody Body)> MemberBodies(NamedTypeSymbol type, bool report) {
+    IEnumerable<(string Name, Symbol Member, BoundBody Body)> MemberBodies(NamedTypeSymbol type, bool report) {
         HashSet<string> used = [];
 
         foreach (var member in type.GetMembers()) {
             switch (member) {
+                // A method with type parameters of its own is emitted once per instantiation, from
+                // the monomorphiser's plan — never here, where it would be emitted open and every
+                // `T` in it would be RVN3001.
+                case MethodSymbol { TypeParameters.Count: > 0 }:
+                    break;
+
                 case MethodSymbol method when method.MethodKind
                     is MethodKind.Ordinary or MethodKind.Constructor or MethodKind.Operator: {
                     var kind = method.IsConstructor ? BoundBodyKind.Constructor : BoundBodyKind.Method;
@@ -914,7 +1126,7 @@ public sealed partial class Lowerer {
                         continue;
                     }
 
-                    yield return (Unique(used, FunctionName(type, method)), body);
+                    yield return (Unique(used, FunctionName(type, method)), method, body);
                     break;
                 }
 
@@ -933,7 +1145,7 @@ public sealed partial class Lowerer {
                     foreach (var (kind, prefix) in
                              new[] { (BoundBodyKind.PropertyGetter, "get_"), (BoundBodyKind.PropertySetter, "set_") }) {
                         if (FindBody(property, kind) is { } body) {
-                            yield return (Unique(used, prefix + property.Name), body);
+                            yield return (Unique(used, prefix + property.Name), property, body);
                         }
                     }
 
@@ -952,8 +1164,8 @@ public sealed partial class Lowerer {
         // because its fields are globals.
         var selfType = type.TypeKind is TypeKind.Struct ? structs[type] : null;
 
-        foreach (var (name, body) in MemberBodies(type, report: true)) {
-            add(LowerFunction(name, body, type, SelfTypeFor(body, selfType)));
+        foreach (var (name, member, body) in MemberBodies(type, report: true)) {
+            add(LowerFunction(name, body, member, type, SelfTypeFor(body, selfType)));
         }
     }
 
@@ -984,12 +1196,12 @@ public sealed partial class Lowerer {
     void DeclareMemberFunctions(NamedTypeSymbol type) {
         var selfType = type.TypeKind is TypeKind.Struct ? structs[type] : null;
 
-        foreach (var (name, body) in MemberBodies(type, report: false)) {
-            DeclareFunction(name, body, type, SelfTypeFor(body, selfType));
+        foreach (var (name, member, body) in MemberBodies(type, report: false)) {
+            DeclareFunction(name, body, member, type, SelfTypeFor(body, selfType));
         }
     }
 
-    void DeclareFunction(string name, BoundBody body, NamedTypeSymbol type, IrStructType? selfType) {
+    void DeclareFunction(string name, BoundBody body, Symbol member, NamedTypeSymbol? type, IrStructType? selfType) {
         // A struct's constructor builds a value and hands it back, rather than
         // mutating a receiver: the IR has no by-reference parameters.
         var constructsSelf = body.Kind == BoundBodyKind.Constructor && selfType is not null;
@@ -1024,13 +1236,14 @@ public sealed partial class Lowerer {
             );
         }
 
-        functions[(body.Member, body.Kind)] = function;
-        shells[(body.Member, body.Kind)] = new(function, shellSelfParameter, shellSelfLocal, [.. parameters]);
+        var key = Canonical(member);
+        functions[(key, body.Kind)] = function;
+        shells[(key, body.Kind)] = new(function, shellSelfParameter, shellSelfLocal, [.. parameters]);
     }
 
-    IrFunction LowerFunction(string name, BoundBody body, NamedTypeSymbol type, IrStructType? selfType) {
+    IrFunction LowerFunction(string name, BoundBody body, Symbol member, NamedTypeSymbol? type, IrStructType? selfType) {
         var constructsSelf = body.Kind == BoundBodyKind.Constructor && selfType is not null;
-        var shell = shells[(body.Member, body.Kind)];
+        var shell = shells[(Canonical(member), body.Kind)];
         var function = shell.Function;
 
         BeginFunction(function, type);
@@ -1062,7 +1275,7 @@ public sealed partial class Lowerer {
     ///     (see <see cref="DeclareFunction" />). A caller with a receiver restores it from the
     ///     shell straight after.
     /// </remarks>
-    void BeginFunction(IrFunction function, NamedTypeSymbol type) {
+    void BeginFunction(IrFunction function, NamedTypeSymbol? type) {
         currentFunction = function;
         currentType = type;
         currentBlock = function.Body;
@@ -1088,20 +1301,25 @@ public sealed partial class Lowerer {
     ///     <c>operator_1</c>, and so on, and a disassembly would say nothing about which is which.
     ///     Spelling the operator gives <c>Spectrum_Add</c>, which reads in a frame debugger.
     /// </remarks>
-    static string FunctionName(NamedTypeSymbol type, MethodSymbol method) {
+    string FunctionName(NamedTypeSymbol type, MethodSymbol method) {
+        // An instantiation's members are qualified by the mangled type: a module's function names
+        // are one flat namespace, and `Box<float4>.Get` and `Box<int>.Get` are two functions.
+        var instantiation = type as ConstructedNamedTypeSymbol;
+        var typeName = instantiation is null ? type.Name : MangledName(instantiation);
+
         if (method.IsConstructor) {
-            return $"{type.Name}.init";
+            return $"{typeName}.init";
         }
 
         if (method.MethodKind != MethodKind.Operator) {
-            return method.Name;
+            return instantiation is null ? method.Name : $"{typeName}_{method.Name}";
         }
 
         var symbol = method.Name.StartsWith("operator", StringComparison.Ordinal)
             ? method.Name["operator".Length..]
             : method.Name;
 
-        return $"{type.Name}_{OperatorWord(symbol)}";
+        return $"{typeName}_{OperatorWord(symbol)}";
     }
 
     /// <summary>A pronounceable name for an operator symbol.</summary>

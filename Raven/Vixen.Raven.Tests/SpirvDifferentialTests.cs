@@ -254,6 +254,49 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
 
                               """;
 
+    /// <summary>
+    ///     Monomorphised generics: a struct instantiated twice and a generic function called at
+    ///     three argument lists. Here because the two emitters see the result rather than the
+    ///     cause — by the time either runs there is nothing generic left, and this is what checks
+    ///     that is true of both.
+    /// </summary>
+    const string Generics = """
+                            package A
+
+                            struct Box<T> {
+                                var value: T
+
+                                func Get(): T => value
+                            }
+
+                            struct Util {
+                                static func Pick<T>(useFirst: bool, a: T, b: T): T {
+                                    if (useFirst) {
+                                        return a
+                                    }
+
+                                    return b
+                                }
+                            }
+
+                            shader S {
+                                var tint: float4
+                                var flag: int
+
+                                [PixelShader]
+                                func Pixel(): float4 {
+                                    var wide: Box<float4>
+                                    wide.value = tint
+                                    var narrow: Box<float>
+                                    narrow.value = 0.5f
+
+                                    val c = Util.Pick<float4>(flag > 0, wide.Get(), float4(1, 0, 0, 1))
+                                    return c * Util.Pick<float>(flag > 1, narrow.Get(), 1f)
+                                }
+                            }
+
+                            """;
+
     /// <summary>A compute post-process: the pass a storage image exists for.</summary>
     const string PostProcess = """
                                package A
@@ -310,6 +353,7 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     [InlineData("texture queries and bit casts", Queries)]
     [InlineData("render targets and push constants", Interfaces)]
     [InlineData("compute post-process", PostProcess)]
+    [InlineData("monomorphised generics", Generics)]
     public void The_two_paths_agree_on_the_interface(string what, string source) {
         if (!ReferenceCompiler.Available) {
             output.WriteLine($"{what}: {ReferenceCompiler.HowToInstall}");
@@ -390,6 +434,7 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     [InlineData("texture queries and bit casts", Queries)]
     [InlineData("render targets and push constants", Interfaces)]
     [InlineData("compute post-process", PostProcess)]
+    [InlineData("monomorphised generics", Generics)]
     public void A_reference_compiler_accepts_Ravens_GLSL(string what, string source) {
         if (ReferenceCompiler.Glslc is null) {
             output.WriteLine($"{what}: {ReferenceCompiler.HowToInstall}");

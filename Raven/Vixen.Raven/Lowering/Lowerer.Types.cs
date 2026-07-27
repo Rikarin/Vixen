@@ -18,6 +18,18 @@ public sealed partial class Lowerer {
     ///     <c>RVN3001</c> and yields <c>void</c>, which callers treat as "skip".
     /// </summary>
     IrType LowerType(TypeSymbol type, SyntaxNode? syntax) {
+        // Substitution first, and before the cache: inside `Box<float4>` a `T` is an `f32`, and
+        // caching the unsubstituted symbol would hand the next instantiation the wrong answer.
+        if (substitution is { IsEmpty: false }) {
+            type = substitution.Substitute(type);
+        }
+
+        // Two uses of one instantiation must reach one struct, and a constructed symbol is built
+        // fresh at each use — so the canonical instance is what the struct table is keyed by.
+        if (type is ConstructedNamedTypeSymbol constructed && monomorphiser is not null) {
+            type = monomorphiser.Canonical(constructed);
+        }
+
         if (typeCache.TryGetValue(type, out var cached)) {
             return cached;
         }

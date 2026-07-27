@@ -11,8 +11,8 @@ namespace Vixen.Raven.Symbols;
 /// <remarks>
 ///     <para>
 ///         Written with angle brackets and, like <see cref="BufferTypeSymbol" />, <em>not</em> a
-///         generic type: the binder constructs it structurally, which is what lets it reach both
-///         backends while real generics wait for monomorphisation.
+///         generic type: the binder constructs it structurally, so there is no declaration to
+///         instantiate and no body to substitute through.
 ///     </para>
 ///     <para>
 ///         <strong>The element is always a four-lane vector,</strong> because that is what both

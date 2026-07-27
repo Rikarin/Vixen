@@ -308,8 +308,16 @@ public sealed partial class Lowerer {
     ///     Read off <c>ContainingSymbol</c> rather than <c>ContainingType</c>: the latter is a
     ///     <c>NamedTypeSymbol</c>, and a tuple is not one, so it answers null for a tuple's element.
     /// </remarks>
+    /// <summary>The struct a field lives in, or null when it lives in none.</summary>
+    /// <remarks>
+    ///     While an instantiation is being lowered, a field of the open definition belongs to the
+    ///     instantiation's struct: the body names <c>Box&lt;T&gt;.value</c> because that is what was
+    ///     bound, and there is no struct for <c>Box&lt;T&gt;</c> — only for <c>Box&lt;float4&gt;</c>.
+    /// </remarks>
     IrStructType? StructOf(FieldSymbol field) =>
         field.ContainingSymbol switch {
+            NamedTypeSymbol named when currentInstantiation is { } instantiation
+                && named.Equals(instantiation.OriginalDefinition) => structs.GetValueOrDefault(instantiation),
             NamedTypeSymbol named => structs.GetValueOrDefault(named),
             TupleTypeSymbol tuple => tuples.GetValueOrDefault(tuple),
             _ => null
@@ -450,6 +458,32 @@ public sealed partial class Lowerer {
             _ => IrBinaryOp.GreaterThanOrEqual
         };
 
+    /// <summary>
+    ///     The IR function a call resolves to: the instantiation's if there is one, the
+    ///     definition's otherwise.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The order is the whole of it. A call to <c>Box&lt;float4&gt;.Get</c> must reach
+    ///         <c>Box_float4_Get</c> and not some single <c>Get</c>, so the substituted symbol is
+    ///         tried first; a call to an ordinary method arrives already substituted only when the
+    ///         binder read it through a map that changed nothing, and falls through to the
+    ///         definition.
+    ///     </para>
+    ///     <para>
+    ///         Canonicalised on the way in, because a constructed symbol is built fresh at each use
+    ///         and two call sites writing <c>Swap&lt;float&gt;(…)</c> produce two objects for one
+    ///         instantiation.
+    ///     </para>
+    /// </remarks>
+    IrFunction? ResolveFunction(MethodSymbol callee, MethodSymbol definition) {
+        if (functions.TryGetValue((Canonical(callee), BoundBodyKind.Method), out var instantiated)) {
+            return instantiated;
+        }
+
+        return functions.GetValueOrDefault((definition, BoundBodyKind.Method));
+    }
+
     // --- Short circuiting --------------------------------------------------
 
     /// <summary>
@@ -573,7 +607,7 @@ public sealed partial class Lowerer {
     IrValue LowerPropertySet(BoundAssignmentExpression assignment, BoundPropertyExpression property) {
         var type = LowerType(property.Type, assignment.Syntax);
 
-        if (!functions.TryGetValue((property.Property, BoundBodyKind.PropertySetter), out var setter)) {
+        if (!functions.TryGetValue((Canonical(property.Property), BoundBodyKind.PropertySetter), out var setter)) {
             ReportUnsupported(assignment, $"Assigning to '{property.Property.Name}'");
             return Constant(type, null);
         }
@@ -591,7 +625,7 @@ public sealed partial class Lowerer {
     }
 
     IrValue LowerPropertyGet(BoundPropertyExpression property, IrType type) {
-        if (!functions.TryGetValue((property.Property, BoundBodyKind.PropertyGetter), out var getter)) {
+        if (!functions.TryGetValue((Canonical(property.Property), BoundBodyKind.PropertyGetter), out var getter)) {
             ReportUnsupported(property, $"Reading '{property.Property.Name}'");
             return Constant(type, null);
         }
@@ -607,7 +641,8 @@ public sealed partial class Lowerer {
 
     /// <summary>Lowers a call; null when the callee returns nothing.</summary>
     IrValue? LowerCall(BoundInvocationExpression invocation) {
-        var method = invocation.Method;
+        var callee = invocation.Method;
+        var method = callee;
         var definition = method is SubstitutedMethodSymbol substituted ? substituted.OriginalDefinition : method;
         var type = LowerType(invocation.Type, invocation.Syntax);
 
@@ -629,15 +664,18 @@ public sealed partial class Lowerer {
             }
 
             definition = implementation;
+            callee = implementation;
             receiver = null;
         }
 
-        if (!functions.TryGetValue((definition, BoundBodyKind.Method), out var function)) {
+        if (ResolveFunction(callee, definition) is not { } function) {
             ReportUnsupported(invocation, $"A call to '{method.Name}'");
             return null;
         }
 
-        var arguments = BuildArguments(receiver, definition, invocation.Arguments, definition.Parameters);
+        // The callee rather than the definition: a receiver is prepended when the member's
+        // containing type has a struct, and `Box<T>` has none — only `Box<float4>` does.
+        var arguments = BuildArguments(receiver, callee, invocation.Arguments, callee.Parameters);
 
         if (function.ReturnType.IsVoid) {
             Emit(new IrCallInstruction(null, function, arguments.Arguments));
@@ -898,7 +936,7 @@ public sealed partial class Lowerer {
 
     IrValue LowerObjectCreation(BoundObjectCreationExpression creation, IrType type) {
         if (creation.Constructor is { } constructor) {
-            if (!functions.TryGetValue((constructor, BoundBodyKind.Constructor), out var function)) {
+            if (!functions.TryGetValue((Canonical(constructor), BoundBodyKind.Constructor), out var function)) {
                 ReportUnsupported(creation, $"A call to '{constructor.ContainingType?.Name}' constructor");
                 return Constant(type, null);
             }

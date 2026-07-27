@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven;
+using Vixen.Raven.IR;
+using Vixen.Raven.Lowering;
 using Vixen.Raven.Syntax;
 using Xunit;
 
@@ -26,18 +29,25 @@ namespace Tests;
 /// </remarks>
 public class LibraryExampleTests {
     /// <summary>
-    ///     <c>Example1.rvn</c> parses and binds with nothing to report.
+    ///     <c>Example1.rvn</c> parses, binds <em>and lowers</em> with nothing to report.
     /// </summary>
     /// <remarks>
-    ///     Binding, not lowering, is the bar this file is held to. Two of the constructs it
-    ///     shows off cannot reach a backend yet — a generic struct needs monomorphisation, and
-    ///     a spread element needs an array type that carries a length — and both are recorded
-    ///     as open in docs/plan/07. Removing them to turn this test green would make the
-    ///     showcase misrepresent the language; the honest version demonstrates what the
-    ///     language has and the plan says what does not lower.
+    ///     <para>
+    ///         Lowering, not just binding, since monomorphisation landed. The bar used to stop at
+    ///         binding because two of the constructs the file shows off could not reach a backend —
+    ///         a generic struct needed monomorphisation and a spread needed an array type carrying
+    ///         a length — and both are now closed, so the weaker contract would stop noticing a
+    ///         regression in either.
+    ///     </para>
+    ///     <para>
+    ///         Still short of code generation, and for one remaining reason: the file declares
+    ///         unsized arrays outside a storage block, which is <c>RVN4001</c> in both backends and
+    ///         recorded as open in docs/plan/07 § I. Removing them to turn this green would make
+    ///         the showcase misrepresent the language.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void Example1ParsesAndBindsCleanly() {
+    public void Example1ParsesBindsAndLowersCleanly() {
         var tree = SyntaxTree.ParseText(File.ReadAllText(PathTo("Example1.rvn")), path: "Example1.rvn");
         Assert.Empty(tree.Diagnostics);
 
@@ -47,6 +57,15 @@ public class LibraryExampleTests {
         Assert.True(
             diagnostics.Count == 0,
             "Example1.rvn does not bind cleanly:\n" + string.Join("\n", diagnostics.Select(d => d.ToString()))
+        );
+
+        var bag = new DiagnosticBag();
+        var module = Lowerer.Lower(compilation, bag);
+        IrVerifier.Verify(module, bag);
+
+        Assert.True(
+            bag.IsEmpty,
+            "Example1.rvn does not lower cleanly:\n" + string.Join("\n", bag.Select(d => d.ToString()))
         );
     }
 

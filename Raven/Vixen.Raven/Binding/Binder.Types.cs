@@ -164,8 +164,8 @@ public abstract partial class Binder {
     /// <remarks>
     ///     Intercepted before the scope lookup, because the angle brackets are the only thing this
     ///     shares with a generic type: there is no declaration to find, and no substitution to do.
-    ///     It is constructed structurally, exactly as <c>T[4]</c> is — which is what makes it work
-    ///     while real generics still wait for monomorphisation.
+    ///     It is constructed structurally, exactly as <c>T[4]</c> is — so it never reaches the
+    ///     monomorphiser at all.
     /// </remarks>
     TypeSymbol? BindBufferType(string name, IReadOnlyList<TypeSymbol> typeArguments, SyntaxNode syntax) {
         var writable = name == BufferTypeSymbol.ReadWriteName;

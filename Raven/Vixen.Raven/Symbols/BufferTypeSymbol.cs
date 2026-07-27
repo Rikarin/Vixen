@@ -9,9 +9,8 @@ namespace Vixen.Raven.Symbols;
 ///     <para>
 ///         Written with angle brackets but <em>not</em> a generic type. It is a structural type the
 ///         binder constructs directly, the same treatment <see cref="ArrayTypeSymbol" /> gets for
-///         <c>T[4]</c> — which is what lets it work without monomorphisation, the thing Raven's real
-///         generics are still waiting for. A user-declared <c>Box&lt;T&gt;</c> reaches no backend;
-///         <c>Buffer&lt;Particle&gt;</c> reaches both.
+///         <c>T[4]</c>. That is why it needs no monomorphisation even now that Raven has some:
+///         there is no declaration to instantiate and no body to substitute through.
 ///     </para>
 ///     <para>
 ///         One buffer concept, not HLSL's several. A typed (texel) buffer is a different descriptor

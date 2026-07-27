@@ -28,9 +28,9 @@ namespace Tests;
 ///     </para>
 ///     <para>
 ///         Written with angle brackets and <em>not</em> generic. It is a structural type the binder
-///         constructs directly, the same treatment <c>T[4]</c> gets, which is what lets it work while
-///         real generics still wait for monomorphisation: a user-declared <c>Box&lt;T&gt;</c> reaches no
-///         backend, and <c>Buffer&lt;Particle&gt;</c> reaches both.
+///         constructs directly, the same treatment <c>T[4]</c> gets — which is why it worked before
+///         monomorphisation existed and why it needs none now: there is no declaration to
+///         instantiate and no body to substitute through.
 ///     </para>
 /// </remarks>
 public class WritableResourceTests {

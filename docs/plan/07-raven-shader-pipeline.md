@@ -25,7 +25,7 @@ decision that has been made and built, kept because the reasons stay useful.
 | | Open item | Where | Blocks |
 |---|---|---|---|
 | 🟡 | **`Raven/Library` is written** — 44 files across all eight packages, every shader reaching both backends under `glslc` and `spirv-val`. What is left is depth rather than breadth: the G-buffer geometry pass, the clustered light loop and the compute post-process. **Every language gap that was blocking them is now closed**, so what remains is content | § F | the perf gates |
-| 🟡 | **Generic types and methods do not lower** — front-end only. An open definition is `RVN3001`, and so is an instantiation: there is no monomorphisation, so `Box<float4>` reaches no backend | § I | anything in § F's library that wants a generic container |
+| 🟡 | **Unsized arrays** outside a storage block are `RVN4001` in both backends — legal only as a storage block's last member, which the IR cannot express. `Example1.rvn` now parses, binds and lowers clean, and this is the one thing between it and code generation | § I | a runtime-sized array anywhere but a buffer |
 | ⚪ | **Small stage intrinsics**: no `discard`, no `SV_VertexID`/`SV_InstanceID` semantic. `SampleLevel`, `GetDimensions` and `asfloat`/`asint`/`asuint` **landed** — see § F | § F | each shaped a library file rather than blocking it — see § F's list of what it could not express |
 | 🟡 | **Inheritance is not flattened** — now `RVN3002` rather than three silent miscompilations | § I, mixins | the mixin question; `compose` covers the common case |
 | 🟡 | **String interpolation** — needs lexer modes; nothing shipped uses it | § I | nothing |
@@ -801,10 +801,10 @@ shader graph's generated-source span mapping.
 | 🔴 | **`m[i]` meant a row in the IR and a column in both targets** | ✅ fixed in [§ E](#e-conventions-raven-must-bake-in) |
 | ✅ | **`&&` and `\|\|` short-circuit** — and `?:` runs one arm — *when the guarded operand can index, call or assign*; otherwise they keep the branch-free `logicalAnd`/`select` form. See [§ Short circuiting](#short-circuiting-a-branch-only-where-one-is-owed) |
 | 🟡 | **Stream I/O declarations between stages** — no `stream` keyword; interstage data passes as entry-point parameters and returns | ✅ built; see [§ Streams](#streams-interstage-values-declared-once) |
-| ✅ | **`Buffer<T>`-style resources** — `Buffer<T>` and `RWBuffer<T>`, std430, with a runtime-sized last member and `Length` answered at run time. Not generic: a structural type the binder builds, as `T[4]` is, which is what lets it work without monomorphisation. `DescriptorType.StorageBuffer` and `LayoutRule.Std430` now have something that produces them. See [§ Writable resources](#writable-resources-the-first-thing-a-shader-can-store-into) |
+| ✅ | **`Buffer<T>`-style resources** — `Buffer<T>` and `RWBuffer<T>`, std430, with a runtime-sized last member and `Length` answered at run time. Not generic: a structural type the binder builds, as `T[4]` is, so it never reaches the monomorphiser at all. `DescriptorType.StorageBuffer` and `LayoutRule.Std430` now have something that produces them. See [§ Writable resources](#writable-resources-the-first-thing-a-shader-can-store-into) |
 | ✅ | **Kept in the language but not lowered** — resolved by Tier B: `switch`, operators and tuples are finished, the rest are dropped |
 | 🟡 | **Inheritance is not flattened** — a base's fields never reach the derived layout and an `override` does not replace the base's member. Now `RVN3002` instead of three silent miscompilations; see the mixin section for what implementing it would cost |
-| 🟡 | **Generics do not lower at all** — not the open definition and not an instantiation either: `Box<float4>` is `RVN3001` the same as `T` is, because there is no monomorphisation. They parse, bind, and enforce `where` clauses, then stop. Found by making `Example1.rvn` bind |
+| ✅ | **Generics lower, by monomorphisation** — one concrete copy per instantiation, for structs and for methods; the open definition is emitted nowhere and costs nothing. See [§ Monomorphisation](#monomorphisation-one-copy-per-instantiation-and-none-of-the-definition) |
 | ✅ | **A spread element in a collection** — flattening `[1, ..xs, 5]` needs `xs`'s length, which an array type now carries. Lowering emits one extract per index; a spread of an *unsized* array is still `RVN3002`, which is now a statement about that array rather than about spreads |
 | ✅ | **Assigning to a uniform** — now `RVN2119`, checked at the root of the access chain so `tint.rgb = …` and `lights[i].color = …` are caught too. It went unreported for as long as it did because a shader with nothing writable had no correct alternative to name; `RWBuffer<T>` is that alternative |
 | ⚪ | **Flow analysis** — definite assignment and reachability. Dead-branch elimination landed in § B, but that is constant folding, not reachability |
@@ -823,6 +823,44 @@ language decision needing a coin-flip (HLSL indexes rows, GLSL columns) and was 
 byte-level relationship between host and shader storage was worked out, exactly one answer was free in
 both backends *and* the intuitive one. The derivation is in
 [§ E](#e-conventions-raven-must-bake-in).
+
+#### Monomorphisation: one copy per instantiation, and none of the definition
+
+**It is the only way a generic reaches a GPU.** SPIR-V's types are fully concrete and GLSL has no
+templates, so there is nothing either target could do with `Box<T>` — which means the open definition
+is never emitted, and `Box<float4>` is, as an ordinary struct called `Box_float4`. A generic nobody
+instantiates costs nothing, which is the property that makes a generic library affordable.
+
+The bodies are **bound once**, against the open definition, and lowered once per instantiation through
+a substitution. Binding each instantiation separately would type-check the same code twice for the
+same answer; the front end's `TypeMap` / `ConstructedNamedTypeSymbol` / `SubstitutedSymbols` machinery
+already read a member's signature through a map, and what was missing was only the lowering half.
+
+Four things it needed, each of which is a shape worth knowing:
+
+- **A worklist, not a pass.** An instantiation can name another: `Holder<float>`'s field is a
+  `Pair<float>`, and that is only visible once `Holder<T>`'s members are read through its own map. So
+  discovery is seeded from the non-generic declarations — an entry point is never generic, so anything
+  a shader reaches is reachable from a concrete one — and closes transitively.
+- **Canonical instantiations.** A `SubstitutedMethodSymbol` has reference identity: two call sites
+  writing `Pick<float>(…)` build two objects for one instantiation, and a table keyed by the symbol
+  would emit the function twice. They are keyed by declaration-and-arguments instead, and the first
+  symbol seen becomes the one everything else resolves to.
+- **A field belongs to the instantiation, not the definition.** A body says `return value`, bound
+  against `Box<T>.value`, and there is no struct for `Box<T>` — so while an instantiation is being
+  lowered, the definition's fields resolve to *its* struct.
+- **Names are flattened and uniquified.** Neither target has angle brackets, so `Box<Pair<float>>`
+  becomes `Box_Pair_float` — recursing through the same rule rather than beating the punctuation out
+  of a display string, so it still reads in a frame debugger. Uniquified because flattening cannot be
+  injective, and a module's struct names are one flat namespace.
+
+**The boundary, stated:** a generic method *of* a generic type (`Box<T>.Map<U>()`) is not covered —
+its map would carry `U` and not `T`, and the leftover `T` comes back as `RVN3001`. Nothing in
+`Raven/Library` wants one, and the honest error is better than a half-substituted body.
+
+What this closed beyond the row itself: **`Library/Example1.rvn` now lowers clean**, where its contract
+used to stop at binding because a generic struct and a spread element could not reach a backend. The
+one thing between it and code generation is now the unsized arrays it declares outside a storage block.
 
 #### The three interface shapes that are not a set of uniforms
 
@@ -849,7 +887,7 @@ takes, laid out std430 in both targets. Three checks earn their keep: a descript
 the failure is otherwise invisible until a device refuses the pipeline.
 
 **Storage images.** `[Format("rgba16f")] var target: RWTexture2D<float4>` — structural like
-`Buffer<T>`, so it works without monomorphisation. Two things make it more than "a buffer with two
+`Buffer<T>`, so the monomorphiser never sees it. Two things make it more than "a buffer with two
 indices":
 
 - **It is not sampled.** No sampler, no filtering, no mips. `Load`/`Store`/`GetDimensions` by integer
@@ -1114,11 +1152,12 @@ shader ParticleUpdate {
 }
 ```
 
-**Not generic, and that is the load-bearing decision.** Raven's real generics do not lower — there is no
-monomorphisation, so `Box<float4>` is `RVN3001` — and waiting for that would have blocked this
-indefinitely. `BufferTypeSymbol` is instead a **structural** type the binder constructs directly, the
-same treatment `ArrayTypeSymbol` gets for `T[4]`: the angle brackets are the only thing it shares with
-a generic, because there is no declaration to find and no substitution to do. One buffer concept rather
+**Not generic, and that was the load-bearing decision.** Raven's real generics did not lower at the
+time — waiting for monomorphisation would have blocked this indefinitely — and the choice is still the
+right one now that they do: `BufferTypeSymbol` is a **structural** type the binder constructs directly,
+the same treatment `ArrayTypeSymbol` gets for `T[4]`, so it needs no instantiation and reaches the
+monomorphiser not at all. The angle brackets are the only thing it shares with a generic, because
+there is no declaration to find and no substitution to do. One buffer concept rather
 than HLSL's several, too — a typed (texel) buffer is a different descriptor with no advantage on either
 target, and `ByteAddressBuffer` trades the element type, which is the thing that makes an offset
 checkable, for manual byte arithmetic.
@@ -1250,7 +1289,7 @@ finding here is that it stopped too early.
 
 Two constructs came out of the audit still open, and both are recorded rather than fixed: a **range in
 value position** stays `RVN3001` (the syntax remains because `for (i in 0 .. 4)` needs it), and a
-**generic struct** `Box<float>` stays `RVN3001`/`RVN3003` — see § I. A **collection expression** now
+**generic struct** `Box<float>` now lowers by monomorphisation — see § I. A **collection expression** now
 binds, lowers and emits in both backends, including a spread: it was gated on sized arrays, because
 flattening `[1, ..xs, 5]` needs `xs`'s length.
 
@@ -1372,9 +1411,11 @@ again silently.
   declaring the `CoreClass` it called, and making `Epsilon` a `float` — which alone accounted for three
   of the nine, the last cascading through an error type into a bogus arity error.
 
-  Its contract is bind-clean, not lower-clean, and deliberately: two constructs it demonstrates cannot
-  reach a backend (a generic struct, a spread element, both rows in the table at the top). Removing
-  them to get a greener test would make the showcase misrepresent the language.
+  Its contract is now **lower**-clean, which it was not: the two constructs holding it back — a generic
+  struct and a spread element — both lower now, so the weaker bar would have stopped noticing a
+  regression in either. It stops short of code generation for one remaining reason, the unsized arrays
+  it declares outside a storage block (`RVN4001`, the table at the top). Removing them to get a greener
+  test would make the showcase misrepresent the language.
 
 - **`Library/Example2.rvn`** — 21 `RVN1001`s — was **retired and replaced**. Every error was a
   deliberately-removed construct: `class`, `string` as a type, `long`, `null`, `int?`, force-unwrap
