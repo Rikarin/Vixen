@@ -8,6 +8,15 @@
         <IsPackable>true</IsPackable>
         <PackAsTool>true</PackAsTool>
         <ToolCommandName>vixen</ToolCommandName>
+
+        <!--
+            Explicit, because the package id otherwise defaults to AssemblyName and this would ship
+            as `vixen`. The `Vixen.` prefix is the reserved one on nuget.org, so an unprefixed id is
+            not covered by the reservation — and it squats a very generic name besides. The command
+            a person types stays `vixen`; only the thing they install is dotted.
+            Vixen.Raven.Cli reaches the same conclusion for the same reason.
+        -->
+        <PackageId>Vixen.Cli</PackageId>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <Description>
             The Vixen command line: import a project's assets, build its content, check its health,
