@@ -24,6 +24,19 @@
         <ProjectReference Include="..\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
         <ProjectReference Include="..\Vixen.Graphics\Vixen.Graphics.csproj" />
         <ProjectReference Include="..\Vixen.Shaders\Vixen.Shaders.csproj" />
+
+        <!-- Model, mesh, skeleton and clip are chunks in the object database: the content build
+             writes them and the runtime reads them, so they carry [DataContract] and need the
+             serializer that goes with it. -->
+        <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- Analyzers do not flow through a ProjectReference, and a serializer has to be generated
+             in the assembly that declares the type. -->
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>

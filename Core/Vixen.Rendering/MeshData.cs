@@ -1,0 +1,169 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core;
+using Vixen.Core.Mathematics;
+
+namespace Vixen.Rendering;
+
+/// <summary>The geometry of one mesh, as it came out of an authoring tool.</summary>
+/// <remarks>
+///     <para>
+///         The CPU side of <see cref="MeshDraw" />. That struct holds buffer handles and a range,
+///         because it is read once per object in a frame; this holds arrays, because it is read once
+///         per build by something deciding what those buffers should contain.
+///     </para>
+///     <para>
+///         <b>Parallel arrays, and typed ones.</b> A vertex is not a struct here, because the
+///         <em>layout</em> is a compile-time decision — which attributes are present, in what order,
+///         at what precision, interleaved or not — and doc 08 puts that in <c>ModelCompiler</c>
+///         where the whole model is in hand. Separate arrays let a compiler drop an attribute
+///         nothing samples without rewriting the ones it keeps.
+///     </para>
+///     <para>
+///         An attribute the file did not have is an <b>empty array</b> rather than a null or a
+///         defaulted one. Empty says "this mesh has no tangents"; an array of zeros says "this mesh
+///         has tangents and they are all degenerate", and a compiler cannot tell the second from a
+///         bug in the first.
+///     </para>
+/// </remarks>
+[DataContract("MeshData")]
+public sealed record MeshData {
+    /// <summary>What the mesh is called. Its sub-asset name, and part of its address.</summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>One position per vertex.</summary>
+    public Vector3[] Positions { get; set; } = [];
+
+    /// <summary>One normal per vertex, or empty.</summary>
+    public Vector3[] Normals { get; set; } = [];
+
+    /// <summary>
+    ///     One tangent per vertex, or empty. <c>W</c> is the bitangent's sign.
+    /// </summary>
+    /// <remarks>
+    ///     The sign rather than the bitangent itself: it is ±1, it is the only part not recoverable
+    ///     from the normal and the tangent, and storing the third vector costs twelve bytes a vertex
+    ///     to say what one bit says.
+    /// </remarks>
+    public Vector4[] Tangents { get; set; } = [];
+
+    /// <summary>One texture coordinate per vertex, or empty.</summary>
+    public Vector2[] TexCoords { get; set; } = [];
+
+    /// <summary>Three indices per triangle.</summary>
+    public int[] Indices { get; set; } = [];
+
+    /// <summary>Four joint indices per vertex, or empty if the mesh is not skinned.</summary>
+    public int[] BoneIndices { get; set; } = [];
+
+    /// <summary>Four weights per vertex, summing to one, or empty.</summary>
+    public float[] BoneWeights { get; set; } = [];
+
+    /// <summary>Which of the model's materials this is drawn with.</summary>
+    public int MaterialIndex { get; set; }
+
+    /// <summary>Everything the mesh occupies, in the model's space.</summary>
+    public BoundingBox Bounds { get; set; }
+
+    /// <summary>How many vertices it has.</summary>
+    public int VertexCount => Positions.Length;
+
+    /// <summary>How many triangles it has.</summary>
+    public int TriangleCount => Indices.Length / 3;
+
+    /// <summary>Whether it carries skinning weights.</summary>
+    public bool IsSkinned => BoneWeights.Length > 0;
+}
+
+/// <summary>One joint of a skeleton.</summary>
+[DataContract("SkeletonJoint")]
+public sealed record SkeletonJoint {
+    /// <summary>What the joint is called. Animation channels name it.</summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Its parent's index, or −1 for the root.</summary>
+    public int Parent { get; set; } = -1;
+
+    /// <summary>
+    ///     The transform from model space into this joint's space at bind time.
+    /// </summary>
+    /// <remarks>
+    ///     Stored inverted, because that is the direction skinning uses: a vertex is taken out of
+    ///     model space, into joint space, and back out through the joint's animated transform.
+    ///     Inverting it per joint per frame would be a matrix inverse in the hot path to recover a
+    ///     value that never changes.
+    /// </remarks>
+    public Matrix4x4 InverseBindPose { get; set; } = Matrix4x4.Identity;
+}
+
+/// <summary>The joints a skinned mesh is deformed by.</summary>
+/// <remarks>
+///     Its own sub-asset rather than a field on each mesh, because a character's meshes share one
+///     skeleton — a body, a coat and a hat all deform by the same joints, and three copies of it
+///     would be three things to keep in step and three chunks where the object database wants one.
+/// </remarks>
+[DataContract("Skeleton")]
+public sealed record SkeletonData {
+    /// <summary>What the skeleton is called.</summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>The joints, parents before children.</summary>
+    public SkeletonJoint[] Joints { get; set; } = [];
+}
+
+/// <summary>What one animation does to one node, as three independent tracks.</summary>
+/// <remarks>
+///     <para>
+///         Position, rotation and scale keep their own time arrays, because an exporter emits keys
+///         only where a track actually changes. A character that translates for two seconds while
+///         rotating on every frame would otherwise carry two hundred position keys that all say the
+///         same thing.
+///     </para>
+///     <para>
+///         Rotation is a quaternion and is deliberately not decomposed into Euler angles: a track
+///         sampled between two Euler triples takes a different path than one sampled between the
+///         rotations they represent, and the difference is the gimbal artefact everybody has seen.
+///     </para>
+/// </remarks>
+[DataContract("AnimationChannel")]
+public sealed record AnimationChannel {
+    /// <summary>Which node or joint it drives, by name.</summary>
+    public string Target { get; set; } = string.Empty;
+
+    /// <summary>When each position key is, in seconds.</summary>
+    public float[] PositionTimes { get; set; } = [];
+
+    /// <summary>The position keys.</summary>
+    public Vector3[] Positions { get; set; } = [];
+
+    /// <summary>When each rotation key is, in seconds.</summary>
+    public float[] RotationTimes { get; set; } = [];
+
+    /// <summary>The rotation keys.</summary>
+    public Quaternion[] Rotations { get; set; } = [];
+
+    /// <summary>When each scale key is, in seconds.</summary>
+    public float[] ScaleTimes { get; set; } = [];
+
+    /// <summary>The scale keys.</summary>
+    public Vector3[] Scales { get; set; } = [];
+}
+
+/// <summary>One animation: how long it is and what it moves.</summary>
+[DataContract("AnimationClip")]
+public sealed record AnimationClipData {
+    /// <summary>What the clip is called. Its sub-asset name, and part of its address.</summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>How long it plays for, in seconds.</summary>
+    /// <remarks>
+    ///     In seconds, converted on import. A file stores its duration in ticks against a ticks-per-
+    ///     second it also stores, and a clip that carried both would make every consumer redo that
+    ///     division — and get it wrong for the exporters that leave the rate at zero.
+    /// </remarks>
+    public float Duration { get; set; }
+
+    /// <summary>What it moves.</summary>
+    public AnimationChannel[] Channels { get; set; } = [];
+}

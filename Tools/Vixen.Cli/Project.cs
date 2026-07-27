@@ -8,6 +8,7 @@ using Vixen.Core.Yaml;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Audio;
 using Vixen.Editor.Assets.Content;
+using Vixen.Editor.Assets.Models;
 using Vixen.Editor.Assets.Textures;
 using Vixen.Editor.Core;
 
@@ -131,6 +132,7 @@ public sealed class Project {
     public static ImporterRegistry Importers() =>
         new ImporterRegistry()
             .Add(new TextureImporter())
+            .Add(new ModelImporter())
             .Add(new AudioImporter())
             .Add(new NativeFormatImporter())
             .Add(new FolderImporter())

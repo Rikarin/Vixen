@@ -109,6 +109,44 @@ player loads — a `MaterialAsset` with named parameters and asset references be
 a resolved pipeline and `ObjectId`s. That compiler does not exist yet. Emitting a half-resolved binary
 here would move its decisions inside the importer, where the artefact cache key cannot see them.
 
+## `ModelImporter`, the first one that produces more than one thing
+
+A model is a model, and also a mesh per material, a skeleton and a clip per animation. Each of those
+is separately addressable, separately deduplicated by the object database and separately loadable —
+which makes this the first real consumer of the sub-asset addressing `BuildPlanner` already had.
+
+`ModelReader` does the conversion and `ModelImporter` is the plumbing, so the part where every
+decision lives is testable against a file with no import context in the way. The fixtures are OBJ and
+glTF, both text and both written in the test that needs them; a binary model checked in beside the
+tests is a thing nobody can edit and nobody can read the diff of.
+
+**Every matrix is transposed on the way in.** Assimp's `aiMatrix4x4` is row-major storage of a
+*column-vector* matrix, so a node's translation sits in its fourth column; Vixen is row-major storage
+of a *row-vector* matrix, where it sits in the fourth row. A field-for-field copy compiles, runs, and
+assembles every hierarchy inside out — consistently and quietly wrong rather than obviously broken.
+Two tests fail when the transpose is removed.
+
+**No axis conversion.** Assimp's convention is right-handed and Y-up, which is `Vector3`'s. A file
+authored Z-up therefore arrives Z-up, and correcting it is a rotation on the root node an artist can
+see rather than a silent transform in a build step. `MakeLeftHanded` and `FlipWindingOrder` are
+deliberately absent.
+
+**Parts are named, not numbered.** An exporter reorders its meshes whenever an artist adds a material
+and re-exports, which would break every reference stored by position. A sub-asset id is derived from
+the name, so renaming breaks a reference and reordering does not. Two meshes called the same thing —
+which is what an exporter does all the time — would derive one id and be refused outright, so names
+are made distinct before anything is written.
+
+**Skinning weights are renormalised, not just truncated.** Dropping a fifth influence leaves the
+remaining weights summing to less than one, and a vertex whose weights sum to 0.9 is drawn ten per
+cent of the way towards the model's origin. A weight against a bone the skeleton walk never reached
+is dropped and reported rather than silently indexed to joint 0, which would attach part of a mesh to
+the root.
+
+**The skeleton is collected across every mesh**, because a character's body, coat and hat deform by
+one skeleton, and it is ordered by the node tree rather than by whichever mesh listed its bones
+first — so a joint always precedes its children.
+
 ## `AudioImporter`, and a WAV reader written rather than taken
 
 Decode, mix, convert, write. The decode is an `IAudioDecoder` — the same licence seam as
@@ -271,7 +309,17 @@ model another asset was pointing at.
 
 ## Still to come
 
-The importers with native dependencies (`ModelImporter` via Assimp) and the out-of-process,
-crash-isolated worker doc 08 specifies.
+**The compilers.** Doc 08 splits import from compile, and only the first half exists. `ModelCompiler`
+is what does vertex-layout packing, meshlets, LOD generation and index reordering — none of which can
+be decided one mesh at a time, which is why they are not in the importer. `MaterialCompiler` is what
+turns a `.vxmat`'s named parameters into a resolved pipeline, which is why `NativeFormatImporter`
+carries the document forward rather than emitting a half-resolved binary.
+
+**The importers that need a decoder nobody has chosen.** Ogg, MP3 and FLAC for audio; `.exr`, `.tif`,
+`.webp` and `.dds` for textures. Fonts, shaders, VXML, VCSS and video have their own phases.
+
+**The out-of-process, crash-isolated worker** doc 08 specifies. `ImportPipeline` already survives an
+importer that *throws*; surviving one that takes the process with it — a malformed FBX inside a C++
+library — needs a separate process, and that is what `Tools/Vixen.AssetCompiler` is for.
 
 Licensed under Apache-2.0.
