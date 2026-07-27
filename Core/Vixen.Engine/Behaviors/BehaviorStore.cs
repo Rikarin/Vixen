@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Ecs;
+using Vixen.Engine.Coroutines;
 
 namespace Vixen.Engine.Behaviors;
 
@@ -75,11 +76,20 @@ public sealed class BehaviorStore {
         }
     }
 
+    /// <summary>The scheduler this store's behaviours run their coroutines on.</summary>
+    public CoroutineScheduler Coroutines { get; }
+
     /// <summary>Creates a store for a world.</summary>
     /// <param name="world">The world.</param>
-    public BehaviorStore(World world) {
+    /// <param name="coroutines">
+    ///     The coroutine scheduler behaviours here should use, or <see langword="null" /> to make
+    ///     one. <c>EngineLoop</c> passes its own, so that the loop's drain systems and the store's
+    ///     behaviours are talking about the same queues.
+    /// </param>
+    public BehaviorStore(World world, CoroutineScheduler? coroutines = null) {
         ArgumentNullException.ThrowIfNull(world);
         this.world = world;
+        Coroutines = coroutines ?? new CoroutineScheduler();
     }
 
     /// <summary>Attaches a behaviour to an entity.</summary>

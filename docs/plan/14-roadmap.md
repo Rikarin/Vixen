@@ -332,6 +332,11 @@ Vulkan validation clean under lavapipe in CI. Zero-allocation gate green for an 
   per-entity forms (bounding by the span's own length makes it the fastest form instead), and
   `Create` was building a `ComponentSignature` per entity for a set fixed at compile time — caching
   the archetype per combination of type parameters made it 46% faster.
+- ✅ Coroutines: `async Coroutine` with `await NextFrame()`, `await Seconds()`, `await Until()`, a
+  frame-synchronous scheduler drained at four resume points, and cancellation on destroy. 25 tests.
+  Two properties are measured rather than claimed: resumption order is the order the waits were made
+  (which the determinism criterion needs), and a Release build allocates **zero** bytes per start
+  against 160 for the same method written as a plain `async ValueTask`.
 - ✅ `Samples/04-EcsStressTest`.
 
 **Exit:** ✅ 100 k entities created and iterated — 70 ns to create, 0.50 ns per entity to iterate.
@@ -344,9 +349,9 @@ compared by `WorldDigest` throughout.
 on a renderer — Phase 2's goal line says "rendering nothing but debug lines" and nothing renders yet,
 which is the one part of this phase Phase 4 has to carry.
 
-**Also owed, and a genuine omission rather than a deferral:** the `await NextFrame()` /
-`await Seconds()` coroutine surface [04](04-ecs-and-scripting.md) § Layer 3 specifies for `Behavior`.
-It is not blocked by anything — see the note there.
+**Owed inside the coroutines:** `WhenAny`, which needs a completion source of its own rather than the
+sequential awaits `WhenAll` gets away with; and stopping a *single* launched coroutine, which the
+design refuses on purpose — see [04](04-ecs-and-scripting.md) § Layer 3.
 
 ---
 

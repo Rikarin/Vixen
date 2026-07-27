@@ -148,8 +148,15 @@ public sealed class EngineLoopTests {
         using var loop = new EngineLoop();
         var names = loop.Systems.Graph.All.Select(node => node.Name).ToArray();
 
+        // Each coroutine drain is registered after the behaviour pass it shares a phase with, and
+        // neither declares access, so the runner's registration-order tie-break keeps them in that
+        // order — which is what makes a coroutine resumed this frame see a world Update has already
+        // had its say about.
         Assert.Equal(
-            ["BehaviorLifecycleSystem", "BehaviorUpdateSystem", "BehaviorLateUpdateSystem", "TransformSystem"],
+            [
+                "BehaviorLifecycleSystem", "CoroutineFixedStepSystem", "BehaviorUpdateSystem", "CoroutineUpdateSystem",
+                "BehaviorLateUpdateSystem", "CoroutineLateUpdateSystem", "TransformSystem", "CoroutineEndOfFrameSystem"
+            ],
             names
         );
     }

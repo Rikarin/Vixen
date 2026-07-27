@@ -84,6 +84,54 @@ Doc 04 has a generator emit a dispatch method per behaviour type to get that. It
 its loop is the same monomorphic walk over the same contiguous array. The generator is still owed for
 the `[Inspector]` metadata the editor needs, which genuinely cannot be had another way.
 
+## Coroutines
+
+```csharp
+protected override void Start() => Run(OpenDoor());
+
+async Coroutine OpenDoor() {
+    await Seconds(0.5f);
+    while (Angle < 90f) { Angle += 60f * Time.DeltaSeconds; await NextFrame(); }
+    await Until(() => PlayerIsInside);
+    await Seconds(2f);
+}
+```
+
+`async`/`await` rather than Unity's `IEnumerator`, which is doc 04's call and the right one: real
+stack traces, breakpoints across the `await`, working `try`/`finally` and `using`, and exceptions
+that propagate. Alongside `await NextFrame()` there are `Seconds`, `UnscaledSeconds`, `Until`,
+`While`, `Coroutine.WhenAll` and `StopCoroutines()`.
+
+**The scheduler is a list per resume point, drained on the loop thread, and nothing else.** No timer,
+no thread pool, no synchronisation context. Resumption order is the order the waits were made, which
+is what lets a coroutine be as deterministic as a system — the swap-back removal used everywhere else
+in this codebase is exactly wrong here, so the drain compacts in order instead.
+
+**Nothing resumes in the frame it suspended in**, `await Seconds(0f)` included. A zero wait that
+completed synchronously would turn `while (true) await Seconds(0f);` into a hang, and people write
+that.
+
+**Zero allocation per start**, measured: `Coroutine`'s method builder forwards to
+`PoolingAsyncValueTaskMethodBuilder`, the waiting entries are structs in reused lists, and the
+bookkeeping object comes off a free list. A Release build allocates **0 bytes** per start against 160
+for the same method written as a plain `async ValueTask`. (A Debug build costs 88 — the C# compiler
+emits an async state machine as a *class* there so the debugger can inspect it, which every `async`
+method in the process pays regardless.)
+
+**Cancellation is per-owner.** Destroying a behaviour, or calling `StopCoroutines()`, cancels
+everything it has suspended — including a coroutine several `await`s deep, which no per-coroutine
+handle could reach, because a nested coroutine's continuation is held by its caller's state machine
+rather than by the scheduler. Cancelling throws into the coroutine rather than abandoning it, so
+`finally` blocks run.
+
+Four resume points — `Update`, `LateUpdate`, `FixedStep`, `EndOfFrame` — and `FixedStep` ticks with
+the steps rather than the frames, so a frame owing three steps resumes a waiter three times.
+
+Awaiting a real `Task` takes the coroutine off the loop thread, where it must not touch the world;
+`await ResumeOnLoop()` is the way back, and it is the only wait that may be made from another thread.
+Every other wait reads the clock and the frame counter, so making one off-thread throws rather than
+racing.
+
 ## Scenes and prefabs
 
 Several scenes share one world, additively, each unloadable on its own — because a world per scene

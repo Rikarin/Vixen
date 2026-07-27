@@ -264,13 +264,42 @@ need throughput. Both are first-class and documented as such.
 > this document already schedules explicitly; and the `IWorldCommand` undo/redo vocabulary, which
 > arrives with the editor. The ImGui scaffold is **cut** — see [14](14-roadmap.md) § Phase 2.
 >
-> **And the coroutines, which are an omission rather than a deferral.** The `Coroutines` row above is
-> the one part of Layer 3 that was specified and not built, and nothing blocks it: it wants a
-> frame-synchronous continuation queue drained at a phase boundary, awaitables that carry the
-> behaviour's cancellation token, and a pooled async method builder. Two properties this phase now
-> measures constrain its design rather than merely suggesting one — continuations must resume in a
-> deterministic order, and the state machines must not allocate per frame, or the determinism and
-> zero-Gen0 exit criteria stop holding the moment anyone uses it.
+> ✅ **The coroutines, built as the row above specifies.** `Core/Vixen.Engine/Coroutines/`, 25 tests:
+> `async Coroutine` with `await NextFrame()`, `await Seconds(2f)`, `await UnscaledSeconds()`,
+> `await Until(…)`, `await While(…)`, `Coroutine.WhenAll`, and `Run` / `StopCoroutines` on
+> `Behavior`. Six things are worth recording, because each was a decision rather than a translation:
+>
+> - **The scheduler is a list per resume point drained on the loop thread, and nothing else.** No
+>   timer, no thread pool, no synchronisation context. Resumption order is the order the waits were
+>   made — order-preserving compaction rather than the swap-back this codebase uses everywhere the
+>   order is meaningless — because the determinism criterion this phase measures dies the moment two
+>   coroutines resume in an order the scheduler picked for its own convenience.
+> - **Nothing resumes in the frame it suspended in**, `await Seconds(0f)` included, or
+>   `while (true) await Seconds(0f);` would be a hang rather than a loop, and users write that.
+> - **`PoolingAsyncValueTaskMethodBuilder` is the whole of the allocation story.** UniTask exists
+>   largely because Unity's runtime had no such builder and Cysharp had to write the pool, the
+>   `IUniTaskSource` and the version token by hand; .NET has one, so `Coroutine` is a wrapper over
+>   `ValueTask` and `CoroutineMethodBuilder` forwards every member. Measured in Release: **0 bytes**
+>   per coroutine start, against 160 for the same method as a plain `async ValueTask`. (In Debug the
+>   C# compiler emits the state machine as a class rather than a struct, so every `async` method in
+>   the process allocates one — 88 bytes here, and nothing to do with pooling.)
+> - **Four resume points, not nine phases.** `ResumePoint` is `Update`, `LateUpdate`, `FixedStep`,
+>   `EndOfFrame` — the four questions gameplay actually asks, and the four Unity's coroutines offer.
+>   A resume point costs a drain call per frame whether or not anything waits on it. `FixedStep`
+>   ticks with the steps rather than the frames, so a frame owing three steps resumes a waiter three
+>   times.
+> - **Cancellation is per-owner, and a `CoroutineHandle` deliberately has no `Cancel`.** A launched
+>   coroutine and one it awaits are indistinguishable once suspended — the second's continuation is
+>   held by the first's state machine, not by the scheduler — so a per-coroutine cancel would quietly
+>   miss the nested half. `StopCoroutines()` bumps a generation on the owner, and every wait made
+>   before the call carries the old one, which reaches all of it. Cancelling *throws* rather than
+>   abandoning the state machine, so `using` and `finally` run.
+> - **One base class, not Stride's two.** `SyncScript`/`AsyncScript` forces the choice between
+>   `Update` and coroutines at the moment a class is declared, which is the moment least is known.
+>
+> **Owed here:** `WhenAny`, which needs a completion source of its own; and a coroutine suspended on
+> a foreign `Task` is out of reach of `StopCoroutines` until it comes back through `ResumeOnLoop`,
+> which is the documented seam between frame coroutines and real async I/O rather than a defect.
 
 **Component data lives in ECS. Behaviour holds no state that isn't either a component or private
 scratch.** Enforced by an analyzer: a public/`[Inspector]` field on a `Behavior` is either a

@@ -6,6 +6,7 @@ using Vixen.Core.Threading;
 using Vixen.Ecs;
 using Vixen.Ecs.Systems;
 using Vixen.Engine.Behaviors;
+using Vixen.Engine.Coroutines;
 using Vixen.Engine.Transforms;
 
 namespace Vixen.Engine.Frames;
@@ -39,6 +40,9 @@ public sealed class EngineLoop : IDisposable {
     /// <summary>The behaviours attached to this world's entities.</summary>
     public BehaviorStore Behaviors { get; }
 
+    /// <summary>Where suspended coroutines wait.</summary>
+    public CoroutineScheduler Coroutines { get; } = new();
+
     /// <summary>How the frame delta is turned into whole simulation steps.</summary>
     public FixedStepAccumulator FixedStep { get; }
 
@@ -65,14 +69,23 @@ public sealed class EngineLoop : IDisposable {
         ownsWorld = world is null;
         World = world ?? new World("Game");
         FixedStep = fixedStep ?? new FixedStepAccumulator();
-        Behaviors = new(World);
+        Behaviors = new(World, Coroutines);
         Systems = new(World, jobs);
 
         if (registerDefaultSystems) {
+            // The coroutine drains are registered after the behaviour passes they share a phase
+            // with, and neither declares access, so the runner's registration-order tie-break puts
+            // them in that order. A coroutine resumed this frame therefore sees a world that
+            // Update has already had its say about — which is where Unity puts its coroutine pass,
+            // and what code written against either will assume.
             Systems.Add(new BehaviorLifecycleSystem(Behaviors))
+                .Add(new CoroutineFixedStepSystem(Coroutines))
                 .Add(new BehaviorUpdateSystem(Behaviors))
+                .Add(new CoroutineUpdateSystem(Coroutines))
                 .Add(new BehaviorLateUpdateSystem(Behaviors))
-                .Add(new TransformSystem());
+                .Add(new CoroutineLateUpdateSystem(Coroutines))
+                .Add(new TransformSystem())
+                .Add(new CoroutineEndOfFrameSystem(Coroutines));
         }
     }
 
@@ -89,6 +102,11 @@ public sealed class EngineLoop : IDisposable {
     /// <param name="timeScale">The time scale to apply. Zero pauses the simulation.</param>
     public void Frame(TimeSpan elapsed, float timeScale = 1f) {
         Time = Time.Advance(elapsed, timeScale);
+
+        // Before any phase runs, so that a coroutine started from Start() — which happens in the
+        // lifecycle drain in EarlyUpdate — has been started *this* frame, and its first
+        // await NextFrame() therefore lands on the next one rather than an hour later today.
+        Coroutines.BeginFrame(Time);
 
         Systems.RunPhase(SystemPhase.EarlyUpdate, Time);
         Systems.RunPhase(SystemPhase.Input, Time);

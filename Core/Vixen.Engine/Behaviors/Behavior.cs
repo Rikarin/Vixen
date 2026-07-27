@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
+using Vixen.Engine.Coroutines;
 using Vixen.Engine.Transforms;
 
 namespace Vixen.Engine.Behaviors;
@@ -33,7 +34,7 @@ namespace Vixen.Engine.Behaviors;
 ///         is not an API anyone should have to remember.
 ///     </para>
 /// </remarks>
-public abstract class Behavior {
+public abstract partial class Behavior : ICoroutineOwner {
     bool enabled = true;
 
     /// <summary>The entity this is attached to.</summary>
