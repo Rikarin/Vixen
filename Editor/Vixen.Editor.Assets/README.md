@@ -108,11 +108,48 @@ surviving a crash rather than an exception; this is the in-process half of the s
 The sidecar is written back through the node tree, so an import is a diff of the two lines it changed
 and not of the whole file.
 
+## Planning a build
+
+`BuildPlanner` is the step between "every asset has been imported" and "there is a build". Imports
+produce chunks and know nothing about addresses; `ContentBuilder` takes addresses and knows nothing
+about imports. This reads the `addressable:` block out of each sidecar, resolves what it leaves
+unsaid, and finds the mistakes that would otherwise surface as a load failure on a device.
+
+**Group is inherited from the nearest folder that names one**, which is what makes "everything under
+`Assets/UI` ships together" one line rather than one line per file. The walk stops at the first
+ancestor that names a group, so a subfolder can override its parent.
+
+**Labels are not inherited.** A folder-wide label would be impossible to remove from one of its
+children, and a label is a query — the thing you most want to say "all of these except that one"
+about.
+
+**An asset with no address is not an error.** It is not shipped by name, which is the ordinary state
+of most files in a project: a source texture only a material refers to is reached through the chunk
+graph and never asked for.
+
+**An addressable asset depending on one that is not addressable *is* an error**, and it is the check
+worth having. The catalog records dependencies by address, so a dependency with no address is in no
+bundle — the build succeeds, ships, and fails at load on a chunk that was never packed.
+
+**Every error leaves its asset out of the plan.** Two assets claiming one address are both refused
+rather than one winning by enumeration order; an asset whose group nothing defines, whose import
+never ran, or whose dependency has no address is left out too. A tool reading the plan never sees an
+entry that a diagnostic elsewhere calls unbuildable.
+
+**A project that configures nothing still builds**, in a `Default` group the planner invents and
+reports. Silence would be worse in both directions: demanding a `.vxgroup` before one `address:` does
+anything is friction, and inventing one quietly leaves a project wondering where its compression
+policy came from.
+
 ## Still to come
 
-The pipeline that ties this together — resolving overrides for a target, computing the key, checking
-the artefact database, writing what comes back — and the importers with native dependencies
-(`ModelImporter` via Assimp, `TextureImporter` via the BCn/ASTC encoders). The out-of-process,
-crash-isolated worker doc 08 specifies is a separate piece again.
+**Addressing sub-assets.** `ImportRecord` keeps artefact ids without the sub-asset each belongs to,
+so an import that produced several artefacts cannot have them named. The planner refuses such an
+asset rather than packing its first chunk — a model whose meshes are missing fails at load, and the
+failure names the mesh rather than the thing that dropped it. Every importer today writes exactly one
+artefact, so nothing is blocked; the fix is for the record to carry `SubAssetId` alongside each id.
+
+The importers with native dependencies (`ModelImporter` via Assimp) and the out-of-process,
+crash-isolated worker doc 08 specifies.
 
 Licensed under Apache-2.0.

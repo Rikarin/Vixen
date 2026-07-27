@@ -431,6 +431,17 @@ the codebase is large enough for it to be expensive to fix.
   was already normalised, which no mutation could make fail because a normalised path holds no
   `..`. Removed rather than kept, because a redundant check that reads as defence in depth
   invites the next reader to believe the real gate is optional.
+- ✅ `BuildPlanner` — the step between "every asset has been imported" and "there is a build", which
+  nothing had built: imports produce chunks and know nothing about addresses, `ContentBuilder` takes
+  addresses and knows nothing about imports, and until now only tests bridged the two by hand. Reads
+  the `addressable:` block, inherits `group` from the nearest folder that names one (labels are not
+  inherited, and the README says why), and invents a reported `Default` group so a project that
+  configures nothing still builds. 17 tests. **The check worth having:** an addressable asset
+  depending on one with no address is an error, because the catalog records dependencies by address —
+  so that chunk is in no bundle, and the build succeeds, ships, and fails at load on a device.
+  **Owed:** addressing sub-assets. `ImportRecord` keeps artefact ids without the sub-asset each
+  belongs to, so a multi-artefact import is refused rather than packed as its first chunk; every
+  importer today writes exactly one, so nothing is blocked.
 - ✅ `TextureImporter`, the first real importer: `IImageDecoder`, StbImageSharp and KTX2 decoders,
   and settings that say what a texture's bytes mean — which decides the transfer function, the mip
   filter's variant and the compressed format together. 63 tests in `Vixen.Editor.Assets.Tests`.
