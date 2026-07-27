@@ -58,10 +58,20 @@ applies the contributions without knowing what contributed them, and resolves **
 resolutions and ten thousand dictionary lookups.
 
 `Compositor/` is idea 3: `GraphicsCompositor` over a tree of `SceneRenderer`s — a sequence, a render
-pass, a single stage from a single view, a delegate. Its **collect phase runs before the render
-system**, so the frame's view list and every view's stage mask are *derived from the tree* rather
-than set beside it: a stage nothing draws costs no culling, and a stage that is drawn cannot have
-been forgotten in a mask. The tree is data; what is not built is loading one from disk.
+pass, a single stage from a single view, a shadow map, a delegate. Its **collect phase runs before
+the render system**, so the frame's view list and every view's stage mask are *derived from the tree*
+rather than set beside it: a stage nothing draws costs no culling, and a stage that is drawn cannot
+have been forgotten in a mask.
+
+And it is a file. `GraphicsCompositorAsset` is the same tree as a serialisable record graph with a
+`[DataContract]` name per node type as its YAML tag, and `CompositorBuilder` turns one into a running
+compositor. **The asset names resources; the host binds the names** — a texture handle belongs to a
+device that did not exist when the file was written — so one authored document runs against a
+swapchain, an offscreen buffer or a test's scratch texture unchanged. A test parses twenty lines of
+YAML and draws a two-pass frame with a two-cascade shadow atlas in it, building no renderer tree in
+C# at all. `Vixen.Rendering` does not reference `Vixen.Core.Yaml`: the model is a record graph, and
+which format it is read from belongs to whoever reads it, so a shipping runtime that loads a baked
+compositor never links a YAML parser.
 
 Three things the implementation settled that the sketch above leaves open:
 
@@ -183,7 +193,8 @@ Priority column: **P1** = required for the 1.0 renderer, **P2** = post-1.0.
 | Skinned mesh | ✅ | `SkinningRenderFeature`: palettes packed back to back in one storage buffer, the base index pushed as a constant — no dynamic offset, so no padding to `minStorageBufferOffsetAlignment` and no maximum bone count. The palette is `inverseBindPose * boneWorld` already multiplied: one multiply per bone per frame rather than one per vertex. Dual-quaternion option still P2 |
 | Blend shapes / morph targets | P2 | |
 | GPU instancing | ✅ | `InstancingRenderFeature`. **The instance offset is a draw-call argument, not a binding** — `firstInstance` is added into `gl_InstanceIndex` before the shader runs, so a batch reaches its own run of one shared buffer with no descriptor, no dynamic offset and no fixed maximum. A batch is culled as one object, so batching by locality is the caller's call |
-| LOD groups + cross-fade | P1 | screen-height-based, hysteresis to stop popping |
+| LOD groups | ✅ | `LodRenderFeature`. A group is several render objects and this clears the bits of the levels a view is not showing — after culling, because an object outside the frustum has no screen size, and before sorting, because sorting builds the list a level must be absent from. Per view: a shadow cascade leaves `ScreenHeightScale` at zero and sees every level, since a shadow from a different mesh than its caster stops matching it. Hysteresis is asserted in both directions |
+| LOD cross-fade | P2 | a level change is a hard swap today |
 | Impostors / billboards | P2 | |
 | Sprites, sprite sheets, 9-slice | P1 | shares the UI batcher |
 | Decals (deferred + forward clustered) | P2 | |
@@ -202,7 +213,7 @@ Priority column: **P1** = required for the 1.0 renderer, **P2** = post-1.0.
 | Light probes (SH, tetrahedral interpolation) | P1 | Stride has this (`LightProbes`); it is the pragmatic indirect-diffuse answer |
 | Reflection probes (box/sphere projected, blended) | P1 | |
 | Shadow maps: CSM (directional) | ✅ | `ShadowMapRenderer` — **a cascade is a view**: four `RenderView`s over one stage, culled and sorted by machinery that knows nothing about shadows, into four tiles of one atlas in one pass. Crawl is fixed at its two sources: a *sphere* fit (so turning does not resize the cascade) and texel snapping (so sub-texel movement gives a bit-identical matrix) |
-| Shadow maps: cube (point), perspective (spot) | P1 | |
+| Shadow maps: cube (point), perspective (spot) | ✅ | `PunctualShadowRenderer`. Short where cascades are long, and the reason is worth stating: a punctual light *already is* a volume, so nothing has to be invented from the camera and nothing has to be stabilised. Six 90° frusta tile the sphere exactly — asserted over ten thousand directions, because a seam in a shadow cube is light through a wall along one line. A point light is six tiles and a spot is one, and a light that does not fit is dropped **whole** and counted |
 | Shadow filtering: PCF, PCSS, VSM option | P1 | PCF default, PCSS for soft area shadows |
 | Shadow atlas + caching for static casters | P1 | re-render a cascade only when its content changed |
 | Contact shadows (screen-space ray-marched) | P2 | |

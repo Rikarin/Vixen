@@ -250,6 +250,46 @@ blended toward uniform at λ = 0.75, because pure logarithmic puts the first bou
 to the eye. Shadow distance is its own setting rather than the camera's far plane; cascades sized to
 a two-kilometre view distance spend their whole budget on terrain nobody can see a shadow on.
 
+`PunctualShadowRenderer` does spot and point lights, and it is short for a reason worth naming: a
+directional light has no position, so a cascade has to be **invented** from the camera and everything
+hard about it follows from that. A punctual light already is a volume — a spot's shadow frustum *is*
+its cone, a point's is six of them — so there is nothing to stabilise, because nothing moves when the
+camera does. `ShadowProjections` is forty lines against `ShadowCascades`'s two hundred.
+
+Six 90° frusta tile the sphere of directions exactly, which is what makes a cube map a cube map; ten
+thousand random directions each land in at least one face, because a wrong up vector or a field of
+view that is not exactly 90° leaves a seam, and a seam in a shadow cube is light through a wall along
+one line.
+
+**A point light is six tiles and a spot light is one** — six times the culling, six times the draws,
+six times the atlas. That is why the atlas is allocated in tile units: a spot light still fits behind
+a point light that did not. When it runs out, lights are dropped **whole and counted**; a point light
+with four of six faces rendered is worse than one with none, because the two missing directions are
+lit as though nothing occludes them.
+
+## Level of detail
+
+A LOD group is **several render objects**, not one object that swaps its mesh — the same argument that
+makes a three-material mesh three render objects: one object would have to pick one sort key for
+meshes that resolve to different pipelines. `LodRenderFeature` decides which level a view sees and
+clears the others' visibility bits.
+
+Selection sits **after culling and before sorting**, which is the only gap it fits in. Earlier and an
+object outside the frustum has no screen size to measure — and asking would mean measuring every
+object rather than every visible one. Later and sorting has already built the list a level would have
+to be absent from. `VisibilityGroup.Hide` is the seam, and it only ever clears a bit: a pass that
+could *add* visibility would be one that could draw what the frustum rejected.
+
+**Per view, because screen size is.** The same tree is level 0 to the camera and level 3 to a distant
+probe. A view with `ScreenHeightScale` at zero — a shadow cascade, by default — sees every level,
+because a shadow drawn from a different mesh than its caster stops matching it.
+
+**Hysteresis is the difference between LOD that works and LOD that flickers.** An object drifting at
+exactly a threshold would otherwise change mesh every frame, and a level change is a different
+silhouette — far more visible than the detail the switch was protecting. Ten frames across a boundary
+decide once; a clear move past it still changes level, which is the paired test that keeps the first
+one honest.
+
 ### What decides a pipeline
 
 `DescribePipeline` is gone. Four things decide what a driver compiles, and each contributes only what
@@ -272,15 +312,42 @@ freely, yet neither invalidates a single pipeline. Two passes of the same format
 pipeline; two passes of different formats share none — both asserted, because the second is the one
 that fails as a validation-layer complaint on one driver and a wrong image on another.
 
+### The compositor as a file
+
+`GraphicsCompositorAsset` is the same tree as a serialisable record graph, and `CompositorBuilder`
+turns one into a running compositor. A `[DataContract]` name per node type is the YAML tag, so
+`!ShadowMap` selects the type — the same polymorphism the `.meta` model uses, with no registration
+table to keep in sync.
+
+**The asset names resources; the host binds the names.** A texture handle belongs to a device that
+did not exist when the file was written, and a `RenderView` is built from a camera that moves —
+neither can be in a document. So one authored compositor runs against a swapchain, an offscreen
+buffer or a test's scratch texture without changing a line. An unbound name throws naming the node,
+the kind and the name, because binding what it can and skipping the rest produces a frame missing a
+pass that reports nothing.
+
+Stages are created rather than bound, because a stage *is* its authored settings; blend and depth are
+named presets rather than spelled-out states, since those four and those three are what a stage has
+ever wanted and an author writing seven blend factors is an author about to get one wrong. The
+version is checked rather than ignored — a file from a later editor is refused by number.
+
+`Vixen.Rendering` does **not** reference `Vixen.Core.Yaml`. The model is a plain record graph; which
+format it is read from belongs to whoever reads it, so a shipping runtime that loads a baked
+compositor never links a YAML parser.
+
 ## What is not here yet
 
-The compositor as a serialised *asset* — the tree is data, but nothing loads one from disk. Point and
-spot shadows (cube and perspective maps; the cascade machinery is directional-only), a shadow atlas
-cached for static casters, and blend shapes. Area lights, and clustered light culling on the CPU
-side — the clustered shader half (`Library/Pipeline/ClusterCulling.rvn`) already exists.
+A shadow atlas cached for static casters — every cascade and tile is re-rendered every frame. Blend
+shapes, area lights, and clustered light culling on the CPU side (the shader half,
+`Library/Pipeline/ClusterCulling.rvn`, already exists). LOD **cross-fade**: a level change is a hard
+swap, so hysteresis is what keeps it from being noticed rather than a dissolve.
 
-LOD groups, and instance batching by locality: an instanced batch is culled as one object, so what
-goes in one is the caller's decision and there is nothing here to help make it.
+Instance batching by locality: an instanced batch is culled as one object, so what goes in one is the
+caller's decision and there is nothing here to help make it.
+
+The compositor asset is a document but not yet an *addressable* one — nothing resolves a
+`GraphicsCompositor` through `AssetManager`, and the shadow renderers still take a light direction and
+a camera from a host rather than from the scene.
 
 GPU-driven culling is a second implementation of `VisibilityGroup` behind the same interface, which
 is why that interface is bits rather than a list.

@@ -21,9 +21,23 @@
         <ProjectReference Include="..\Vixen.Core.Collections\Vixen.Core.Collections.csproj" />
         <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
         <ProjectReference Include="..\Vixen.Core.Memory\Vixen.Core.Memory.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
         <ProjectReference Include="..\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
         <ProjectReference Include="..\Vixen.Graphics\Vixen.Graphics.csproj" />
         <ProjectReference Include="..\Vixen.Shaders\Vixen.Shaders.csproj" />
+
+        <!--
+          The compositor asset's model types are [DataContract]s of this assembly's own, so it runs
+          the descriptor generator over itself — the same arrangement Vixen.Core.Yaml uses for the
+          .meta model, and for the same reason: analyzers do not flow through a ProjectReference.
+
+          Note what is *not* here: Vixen.Core.Yaml, and therefore YamlDotNet. The model is a plain
+          serialisable record graph; which file format it is read from belongs to whoever reads it,
+          so a shipping runtime that loads a baked compositor never links a YAML parser.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>
