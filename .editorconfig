@@ -367,6 +367,20 @@ dotnet_diagnostic.CA1711.severity = none
 dotnet_diagnostic.CA1051.severity = none
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Animation/BoneTransform.cs
+#
+# CA1051 (do not declare visible instance fields). A `BoneTransform` is one
+# element of a pose array, and every blend in the module writes it in place
+# through a `Span<BoneTransform>` — `bones[i].Rotation = …`. A property returning
+# a copy would compile and silently drop the write, which is the same trap
+# RenderObject.cs and the ECS components are exempted for. It is also the element
+# of the array a hundred of which are read per character per frame, so the
+# indirection is not free either.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Animation/BoneTransform.cs]
+dotnet_diagnostic.CA1051.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Core/Vixen.Rendering/Lights.cs
 #
 # CA1051 (do not declare visible instance fields). Two structs, exempted for two
