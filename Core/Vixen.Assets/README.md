@@ -141,11 +141,41 @@ there for a caller who wants it.
 underneath it is refused on Windows and, on Unix, quietly leaves a reader on something nothing can
 find. Refusing everywhere is the behaviour that is the same everywhere.
 
+## Content updates
+
+`ContentUpdate` is step 2 of doc 08's boot sequence: fetch the tiny hash file beside the catalog,
+and if it names something new, download the catalog and lay it over the shipped one.
+
+```csharp
+var result = await update.ApplyAsync(shippedCatalog);
+var assets = new AssetManager(result.Catalog, bundles);
+```
+
+**The hash file is checked first because it is tiny.** A catalog for a real game is hundreds of
+kilobytes and almost always unchanged; 32 bytes next to it turns the common case — launch, nothing is
+new — into one request the size of a packet. It also gives the downloaded catalog something to be
+checked against, which a catalog fetched alone does not have.
+
+**Nothing the server does throws.** Unreachable, half-published, built for another platform, corrupt
+— each comes back as an outcome with a reason and the best catalog available, because all of them
+happen in the field and none is a reason for a game not to start. The distinction that matters in a
+log is `Offline` against `Rejected`: offline is a player in a tunnel and fixes itself, rejected is a
+broken publish and will not.
+
+**Nothing is cached until it has been parsed and merged.** A catalog that cannot be used must not
+overwrite one that can, or the next launch is broken with nothing left to fall back to. The hash file
+is written second and read first, so a crash between the two writes reads as "nothing cached" and is
+refetched.
+
+**An update can replace an address but not remove one** — the shipped application still has the
+bundle on the device, and a runtime that forgot the address would refuse to load something it is
+sitting on.
+
 ## Still to come
 
 The streaming manager. Reloading in place, so a hot-reloaded asset updates the references pointing at
-it rather than replacing them. `Tools/Vixen.ContentServer`, and with it the end-to-end update test
-doc 08 describes — server publishes v2, client fetches only the changed bundles, asserted by byte
-counts.
+it rather than replacing them. `Tools/Vixen.ContentServer` — the client half of the update story is
+here and tested (including doc 08's byte-count assertion), but there is no tool yet that serves a
+content build over HTTP for a developer to point a device at.
 
 Licensed under Apache-2.0.

@@ -416,6 +416,14 @@ The catalog itself is versioned and addressable. Boot flow on mobile:
    download with resume + CRC verify if absent; then read chunks
 ```
 
+**As built, step 2 never fails the boot.** `ContentUpdate.ApplyAsync` returns an outcome and the best
+catalog on the device rather than throwing, for every way the server can disappoint it: unreachable,
+a hash file and catalog from different builds, a catalog built for another platform, a catalog that
+does not parse. All four happen in the field and none of them is a reason for a game not to start.
+Two outcomes are kept apart — `Offline` (could not reach it) and `Rejected` (reached it, and what it
+served cannot be used) — because a player in a tunnel and a broken publish want different responses
+from whoever reads the log, and the sketch above did not distinguish them.
+
 ### Runtime API
 
 ```csharp

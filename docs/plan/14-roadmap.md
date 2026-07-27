@@ -405,8 +405,21 @@ the codebase is large enough for it to be expensive to fix.
   for a caller who wants the full re-hash. 31 tests, over a transport that can be told to drop the
   connection, ignore ranges, answer from the wrong offset and serve corrupt bytes.
   **Enabler:** `IFileProvider.OpenAppend`, without which a resume has to buffer the whole partial
-  download in memory. **Owed:** `Tools/Vixen.ContentServer` and doc 08's end-to-end update test —
-  server publishes v2, client fetches only the changed bundles, asserted by byte counts.
+  download in memory.
+- ✅ Content updates — step 2 of [08](08-asset-pipeline-and-addressables.md)'s boot sequence.
+  `ContentUpdate` fetches the tiny hash file beside the catalog and downloads the catalog only when it
+  names something new, then lays it over the shipped one. **Nothing the server does throws**:
+  unreachable, half-published, built for another platform or corrupt each come back as an outcome
+  with a reason and the best catalog on the device, because every one of them happens in the field
+  and none is a reason for a game not to start. `Offline` and `Rejected` are separate outcomes
+  because one fixes itself and the other does not — a distinction the plan did not name and a log
+  needs. Nothing is cached until it has parsed *and* merged, so an unusable catalog cannot overwrite
+  a usable one. 19 tests, including **this phase's exit criterion**: the server publishes a second
+  build in which one of two packs changed, and the client fetches that pack and nothing else —
+  asserted both by which URLs were requested and by byte count. `HttpContentTransport` got its own
+  8 tests against an `HttpMessageHandler`, which is where the `206`/`200`/`Content-Range` reasoning
+  lives and where it had none. **Owed:** `Tools/Vixen.ContentServer`, so a developer can point a
+  device at a content build; the client half is done and tested.
 - ✅ `TextureImporter`, the first real importer: `IImageDecoder`, StbImageSharp and KTX2 decoders,
   and settings that say what a texture's bytes mean — which decides the transfer function, the mip
   filter's variant and the compressed format together. 63 tests in `Vixen.Editor.Assets.Tests`.

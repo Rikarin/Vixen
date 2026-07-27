@@ -18,6 +18,9 @@ sealed class FakeContentTransport : IContentTransport {
     /// <summary>The offset each request asked to start at, in order.</summary>
     public List<long> RequestedOffsets { get; } = [];
 
+    /// <summary>What each request asked for, in order.</summary>
+    public List<string> RequestedUrls { get; } = [];
+
     long bytesServed;
 
     /// <summary>How many bytes have actually been handed out across every request.</summary>
@@ -43,6 +46,9 @@ sealed class FakeContentTransport : IContentTransport {
 
     /// <summary>Publishes a resource.</summary>
     public void Serve(string url, byte[] contents) => resources[url] = contents;
+
+    /// <summary>Takes every resource away, as a train tunnel does.</summary>
+    public void Unserve() => resources.Clear();
 
     /// <summary>
     ///     Makes every request block until <see cref="Release" />, so that two callers really are in
@@ -80,6 +86,7 @@ sealed class FakeContentTransport : IContentTransport {
 
         lock (gate) {
             RequestedOffsets.Add(offset);
+            RequestedUrls.Add(url);
             waiting = held;
         }
 
