@@ -32,6 +32,7 @@ public sealed class UiDocument : IDisposable {
     readonly List<UiElement> elements = [];
     readonly List<ComputedStyle?> appliedStyles = [];
     readonly List<float> appliedFontSizes = [];
+    readonly DrawListBuilder drawings;
     readonly int pointerEvents;
     readonly int overflow;
     readonly int none;
@@ -46,6 +47,7 @@ public sealed class UiDocument : IDisposable {
         Styles = new StyleEngine();
         Layout = new LayoutTree();
         Builder = new LayoutStyleBuilder(Styles.Properties, Styles.Values, Styles.Names);
+        drawings = new DrawListBuilder(Styles.Properties, Styles.Values, Styles.Names);
         Viewport = LengthContext.ForViewport(width, height, rootFontSize);
 
         pointerEvents = Styles.Properties.Intern("pointer-events");
@@ -64,6 +66,9 @@ public sealed class UiDocument : IDisposable {
 
     /// <summary>The step between them.</summary>
     public LayoutStyleBuilder Builder { get; }
+
+    /// <summary>The commands the last <see cref="Draw" /> produced.</summary>
+    public DrawList Drawing { get; } = new();
 
     /// <summary>The surface's size and root font size.</summary>
     public LengthContext Viewport { get; private set; }
@@ -201,6 +206,15 @@ public sealed class UiDocument : IDisposable {
         Accumulate(Root, 0f, 0f);
         return true;
     }
+
+    /// <summary>Rebuilds the draw list from the current layout and styles.</summary>
+    /// <returns>Whether the drawing differs from the previous frame's.</returns>
+    /// <remarks>
+    ///     Separate from <see cref="Update" /> because they answer different questions and a caller
+    ///     may want one without the other — a hit test needs layout and no drawing, and a window
+    ///     that was merely uncovered needs the drawing and no layout.
+    /// </remarks>
+    public bool Draw() => drawings.Build(this, Drawing);
 
     /// <summary>The element a pointer would land on.</summary>
     /// <param name="x">Its x, in document space.</param>

@@ -20,8 +20,35 @@ top.
 | `[UiProperty]` | Generated properties with defaults, coercion, change callbacks, inheritance and a runtime identity. |
 | `UiDocument.HitTest` | What is under a point, front to back, with `pointer-events` and `overflow` honoured. |
 | `EventRouter` | Capture, target, bubble, `Handled`, and pointer capture. |
+| `DrawList`, `DrawListBuilder` | Backgrounds, borders, radii and clips as commands, diffed frame to frame. |
 | Focus, keyboard navigation, gestures | ⏳ |
-| Draw list, batching, clipping | ⏳ |
+| Batching, path rendering, text runs | ⏳ |
+
+## The draw list
+
+The last step of the chain: the cascade said what applies, the bridge turned it into lengths, flexbox
+turned those into rectangles, and this turns the rectangles into commands. Nothing here decides
+anything — it reads.
+
+**Painting order is document order**, and hit testing walks it in reverse. The two have to agree: the
+element drawn last is on top, so it is the one a click lands on, and any rule that made them disagree
+would be a UI where things are not where they look. One test asserts both at once.
+
+**The frame diff is against the previous content, not against a dirty flag.** A flag says what the
+framework believes changed; the content says what actually did, and the two part company exactly when
+something is invalidated too eagerly — which is the failure a cache is supposed to absorb rather than
+propagate. `Version` changes when the drawing changes and not when it is merely rebuilt, so a
+renderer compares one integer.
+
+⚠ **ExCSS expands `border-color` and `border-radius` too**, the same way it expands `margin`. Written
+against the shorthands, every border and every rounded corner in the document silently disappears —
+the second time that assumption has cost something in this assembly.
+
+⚠ **A corner radius arrives as two lengths** — `8px 8px`, the horizontal and vertical radii of an
+ellipse — even when the stylesheet wrote one. `DrawCommand` carries a single radius where CSS has
+four corners each with two, so the top-left horizontal one is taken and the rest dropped. Right for
+every circular corner, wrong for an elliptical one; owed rather than approximated further, because a
+half-right rounded corner reads as a bug in the renderer rather than a gap in the model.
 
 ## Input
 

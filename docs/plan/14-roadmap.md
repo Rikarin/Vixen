@@ -1244,8 +1244,33 @@ sub-piece has its own gate.
   Doc 09 asks for a quadtree over the top level and says the simple version was "measured to be
   sufficient". This descends the tree, entering only subtrees containing the point; **that
   measurement has not been taken here** and should be before the quadtree is written.
-- Owed in `Vixen.Ui`: focus and keyboard navigation, gestures, draw list, batching, clipping,
-  path rendering, virtualisation primitive, multi-window, DPI, and element removal.
+- ✅ **The draw list**, and with it the whole chain this assembly exists for: cascade → bridge →
+  flexbox → commands. Backgrounds, borders, corner radii and clip push/pop, in document space.
+
+  **Painting order is document order and hit testing walks it in reverse**, asserted together in one
+  test — the element drawn last is on top, so it is the one a click lands on, and a rule that made
+  them disagree would be a UI where things are not where they look.
+
+  **The frame diff is against the previous content, not a dirty flag**, which is what doc 09 asks for
+  when it says a static UI re-submits a cached command buffer. A flag says what the framework
+  believes changed; the content says what actually did, and they part company exactly when something
+  is invalidated too eagerly — the failure a cache should absorb rather than propagate. There is a
+  test where a class changes, the computed style changes, and the drawing correctly does not.
+
+  ⚠ **ExCSS expands `border-color` and `border-radius` as well** — the second time that assumption
+  has cost something here. Written against the shorthands, every border and every rounded corner in
+  the document silently disappears. And a corner radius arrives as *two* lengths even when one was
+  written, since CSS corners are elliptical; `DrawCommand` carries one radius for four corners, so
+  the rest is dropped and owed rather than approximated.
+
+  Verified by sabotage: painting children before their parent fails 5, never popping a clip fails 2,
+  bumping the version on every rebuild fails 2, and emitting commands for a zero-sized element fails
+  1 — that last only after a test was written that could reach the guard, since `display: none`
+  arrives as geometry rather than as a keyword and nothing else in the suite gave a hidden element
+  anything to draw.
+- Owed in `Vixen.Ui`: focus and keyboard navigation, gestures, batching, path rendering, text runs,
+  gradients, per-corner elliptical radii, virtualisation primitive, multi-window, DPI, and element
+  removal.
 - `Vixen.Ui.Markup`: VXML lexer/parser on `Vixen.Core.Syntax`, binder, emitter, `#line` mapping.
 - `Vixen.Ui.HotReload`: three reload channels, keyed reconciliation, `[HotReloadState]`.
 - UI render feature integrated into the renderer.
