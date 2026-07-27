@@ -84,4 +84,31 @@ Doc 04 has a generator emit a dispatch method per behaviour type to get that. It
 its loop is the same monomorphic walk over the same contiguous array. The generator is still owed for
 the `[Inspector]` metadata the editor needs, which genuinely cannot be had another way.
 
+## Scenes and prefabs
+
+Several scenes share one world, additively, each unloadable on its own — because a world per scene
+means every system runs once per scene and no query can see across them. Membership is a `SceneTag`
+component, so unloading is a query and a destroy rather than a list that drifts out of step with the
+world.
+
+A `Prefab` is held as a **world of its own**. That gives the capture nothing to serialise and nothing
+to reinterpret — the components are already laid out exactly as they will be in the target — so
+instantiating is one `CreateMany` per distinct archetype and a row copy each, which is what doc 04
+means by "one archetype write per archetype, not entity-at-a-time". It also means a prefab can be
+inspected and edited with the same API as anything else.
+
+**The hierarchy is rebuilt, not remapped.** `Parent`/`Child`/`Sibling` hold entity handles, and a
+handle copied into another world names a slot in the world it came from. The capture records the tree
+as indices and instantiation re-parents, so nothing has to know which fields of which components are
+handles. Managed components are copied *by reference*: a hundred instances of a prefab share one
+mesh, which is the point of them being managed at all.
+
+## Cameras
+
+A camera is a component, so an entity can be one and a scene can have any number without the engine
+holding a list. `CameraMath` derives the view and projection from it and the entity's world
+transform — **reverse-Z in both projection modes**, because the rest of the engine clears depth to 0
+and tests `GREATER`, and a projection that disagreed would render a picture that is correct except
+that everything is behind everything else.
+
 Licensed under Apache-2.0.

@@ -240,6 +240,95 @@ public sealed class World : IDisposable {
     /// <returns>Something to <c>foreach</c> over.</returns>
     public ChunkSequence Chunks(QueryDescription description, uint since = 0) => Query(description).Chunks(since);
 
+    /// <summary>Creates a run of entities in one archetype.</summary>
+    /// <param name="archetype">Where to put them. Their components are zeroed.</param>
+    /// <param name="created">Filled with the new entities. Its length says how many to make.</param>
+    /// <remarks>
+    ///     What a prefab's instantiate plan and a scene load are written in terms of: a two-hundred
+    ///     entity prefab is a handful of these rather than two hundred separate archetype lookups.
+    ///     The rows are allocated through the same path a single <see cref="Create(Archetype)" />
+    ///     uses, so nothing about chunk packing or versioning is special-cased.
+    /// </remarks>
+    public void CreateMany(Archetype archetype, Span<Entity> created) {
+        for (var index = 0; index < created.Length; index++) {
+            created[index] = Create(archetype);
+        }
+    }
+
+    /// <summary>
+    ///     Copies every component the target's archetype has from another entity, which may be in
+    ///     another world.
+    /// </summary>
+    /// <param name="target">Where to copy to. Its archetype decides what is copied.</param>
+    /// <param name="source">The world the source entity lives in. May be this one.</param>
+    /// <param name="sourceEntity">What to copy from.</param>
+    /// <remarks>
+    ///     <para>
+    ///         Components the source has and the target's archetype does not are skipped, and the
+    ///         other way round leaves the target's zeroed. That makes this a projection rather than a
+    ///         clone, which is what a prefab variant and a partial scene load both need.
+    ///     </para>
+    ///     <para>
+    ///         <b>Entity-valued components are copied verbatim, not remapped.</b> A handle copied
+    ///         into another world names a slot in the world it came from. Nothing here can know which
+    ///         fields are handles, so the caller fixes up what it knows about — which for the
+    ///         hierarchy means rebuilding it rather than translating it.
+    ///     </para>
+    /// </remarks>
+    public void CopyComponentsFrom(Entity target, World source, Entity sourceEntity) {
+        ArgumentNullException.ThrowIfNull(source);
+
+        ref var targetInfo = ref Live(target);
+        ref var sourceInfo = ref source.Live(sourceEntity);
+        var targetArchetype = targetInfo.Archetype!;
+        var sourceArchetype = sourceInfo.Archetype!;
+
+        for (var column = 0; column < sourceArchetype.ColumnCount; column++) {
+            var id = sourceArchetype.ColumnIds[column];
+            var targetColumn = targetArchetype.ColumnOf(id);
+
+            if (targetColumn < 0) {
+                continue;
+            }
+
+            if (!ComponentRegistry.Get(id).IsManaged) {
+                sourceInfo.Chunk!.RawRow(column, sourceInfo.Row)
+                    .CopyTo(targetInfo.Chunk!.RawRow(targetColumn, targetInfo.Row));
+
+                continue;
+            }
+
+            // A managed component's chunk cell is a handle into the store of *its* world, so the
+            // value is boxed out of one and into a slot taken in the other. The source's store is
+            // what tells the target's world which typed store to make, since neither has the type.
+            if (source.StoreFor(id) is not { } sourceStore) {
+                continue;
+            }
+
+            var boxed = sourceStore.Box(sourceInfo.Chunk!.At<int>(column, sourceInfo.Row));
+            var targetStore = EnsureStoreLike(id, sourceStore);
+            ref var handle = ref targetInfo.Chunk!.At<int>(targetColumn, targetInfo.Row);
+
+            if (handle == 0) {
+                handle = targetStore.TakeSlot();
+            }
+
+            targetStore.Unbox(handle, boxed);
+            targetInfo.Chunk.MarkWritten(targetColumn, Version);
+        }
+    }
+
+    IManagedComponentStore? StoreFor(ComponentTypeId id) =>
+        id.Value < managedStores.Length ? managedStores[id.Value] : null;
+
+    IManagedComponentStore EnsureStoreLike(ComponentTypeId id, IManagedComponentStore like) {
+        if (id.Value >= managedStores.Length) {
+            Array.Resize(ref managedStores, Math.Max(id.Value + 1, managedStores.Length * 2));
+        }
+
+        return managedStores[id.Value] ??= like.CreateSibling();
+    }
+
     /// <summary>The archetype for a set of component types, creating it if this is the first ask.</summary>
     /// <param name="componentTypes">The component type ids, in any order.</param>
     /// <returns>The archetype.</returns>

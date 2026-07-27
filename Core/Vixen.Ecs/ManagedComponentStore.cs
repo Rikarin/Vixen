@@ -13,6 +13,35 @@ internal interface IManagedComponentStore {
 
     /// <summary>Drops every slot.</summary>
     void Clear();
+
+    /// <summary>Reads a slot as an object, for the type-erased copy paths.</summary>
+    /// <param name="handle">The one-based handle, or zero for nothing.</param>
+    /// <returns>The value, boxed if it is a struct.</returns>
+    /// <remarks>
+    ///     Boxing, and deliberately so: this is how a prefab, a scene load and the editor's clipboard
+    ///     move a managed component between worlds without knowing its type. All three are one-off
+    ///     operations measured in entities per user action, not per frame.
+    /// </remarks>
+    object? Box(int handle);
+
+    /// <summary>Writes a boxed value into a slot that already exists.</summary>
+    /// <param name="handle">The one-based handle. Zero does nothing.</param>
+    /// <param name="value">The value, boxed. A value of the wrong type writes the default.</param>
+    void Unbox(int handle, object? value);
+
+    /// <summary>Takes an empty slot.</summary>
+    /// <returns>The one-based handle.</returns>
+    int TakeSlot();
+
+    /// <summary>An empty store of the same component type.</summary>
+    /// <returns>The new store.</returns>
+    /// <remarks>
+    ///     How a world that has never seen a component type gets a correctly typed store for it
+    ///     without knowing the type. The store does know — it is the closed generic — so it can make
+    ///     one, where reflection would have to construct a generic type at run time and would not
+    ///     survive NativeAOT.
+    /// </remarks>
+    IManagedComponentStore CreateSibling();
 }
 
 /// <summary>
@@ -71,6 +100,22 @@ internal sealed class ManagedComponentStore<T> : IManagedComponentStore {
         values[handle - 1] = default!;
         free.Push(handle - 1);
     }
+
+    /// <inheritdoc />
+    public object? Box(int handle) => handle == 0 ? null : values[handle - 1];
+
+    /// <inheritdoc />
+    public void Unbox(int handle, object? value) {
+        if (handle != 0) {
+            values[handle - 1] = value is T typed ? typed : default!;
+        }
+    }
+
+    /// <inheritdoc />
+    public int TakeSlot() => Allocate(default!);
+
+    /// <inheritdoc />
+    public IManagedComponentStore CreateSibling() => new ManagedComponentStore<T>();
 
     /// <inheritdoc />
     public void Clear() {
