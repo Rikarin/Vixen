@@ -7,14 +7,51 @@ using Vixen.Shaders;
 namespace Vixen.Rendering.Features;
 
 /// <summary>
+///     A sub-feature that decides part of which shader variant its objects need.
+/// </summary>
+/// <remarks>
+///     <para>
+///         Skinning and instancing are not material settings — a mesh is skinned because it has a
+///         skeleton, not because an artist ticked a box — yet both change which shader has to be
+///         compiled. This is how a sub-feature says so without <see cref="MaterialRenderFeature" />
+///         knowing that either exists.
+///     </para>
+///     <para>
+///         Booleans only, and that is a real limit rather than an oversight: a permutation with more
+///         than two states multiplies the cache by more than two, and every case that has come up so
+///         far — skinned, instanced, shadow-receiving — is a flag. An integer permutation like a
+///         light-count bucket belongs on the material, where a human chose it.
+///     </para>
+/// </remarks>
+public interface IPermutationSubFeature {
+    /// <summary>The permutation keys this sub-feature decides.</summary>
+    /// <remarks>
+    ///     The name is the <em>renderer's</em> — <c>Vixen.Skinned</c>, not <c>ForwardPlus.Skinned</c>
+    ///     — because one feature drives the same flag across every shader that has it, and a key per
+    ///     shader would mean a feature that had to enumerate them. A host maps it onto a shader by
+    ///     listing it in <see cref="MaterialRenderFeature.PermutationKeys" /> for that shader, which
+    ///     is the same place the shader's own permutations are declared.
+    /// </remarks>
+    IReadOnlyList<PermutationKey<bool>> PermutationKeys { get; }
+
+    /// <summary>This sub-feature's value for one object and one of its keys.</summary>
+    /// <param name="system">The render system.</param>
+    /// <param name="id">The object.</param>
+    /// <param name="index">Which of <see cref="PermutationKeys" />.</param>
+    bool ValueOf(RenderSystem system, RenderObjectId id, int index);
+}
+
+/// <summary>
 ///     Which material each object uses, and which shader variant that resolves to.
 /// </summary>
 /// <remarks>
 ///     <para>
 ///         This is where the shader half of the engine meets the renderer half. Preparation turns a
-///         material's <see cref="ParameterCollection" /> into an <see cref="EffectKey" />, resolves
-///         it through the <see cref="EffectSystem" />, and remembers the answer per object — so by
-///         the time anything is recorded, "which shader" is an array lookup.
+///         material's <see cref="ParameterCollection" /> — plus whatever the object's other
+///         sub-features contribute through <see cref="IPermutationSubFeature" /> — into an
+///         <see cref="EffectKey" />, resolves it through the <see cref="EffectSystem" />, and
+///         remembers the answer per object, so by the time anything is recorded "which shader" is an
+///         array lookup.
 ///     </para>
 ///     <para>
 ///         <strong>Resolution happens in preparation, not in the draw call, and not in
@@ -22,6 +59,12 @@ namespace Vixen.Rendering.Features;
 ///         inside a command list is the stall that a frame budget cannot absorb. Not in extraction
 ///         because the answer is only needed for objects that survived culling, which in a
 ///         well-culled scene is far fewer — the same reason the phase exists at all.
+///     </para>
+///     <para>
+///         <strong>Per distinct variant, not per object.</strong> The per-object step is building a
+///         small flag mask and one dictionary lookup; building the key and asking the effect system
+///         happens once per <em>(material, flags)</em> pair that has ever been seen. Ten thousand
+///         objects over twenty materials, half of them skinned, is forty resolutions.
 ///     </para>
 ///     <para>
 ///         <strong>The sort group is derived from the resolved effect.</strong> That is what turns
@@ -36,16 +79,31 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
     readonly List<Material> materials = [];
     readonly Dictionary<Material, int> indices = [];
     readonly Dictionary<EffectKey, uint> groups = new();
-    readonly List<Effect?> resolved = [];
+    readonly List<Variant> variants = [];
+    readonly Dictionary<(int Material, uint Flags), int> variantIndices = [];
+    readonly List<IPermutationSubFeature> contributors = [];
+    readonly ParameterCollection scratch = new();
 
     /// <inheritdoc />
     public override string Name => "Material";
 
-    /// <summary>Each object's index into <see cref="Materials" />, or -1 for none.</summary>
+    /// <summary>Each object's index into <see cref="Materials" />, or 0 for none.</summary>
     public RenderDataKey<int> MaterialIndex { get; private set; }
+
+    /// <summary>Each object's resolved variant — its effect and its sort group.</summary>
+    /// <remarks>
+    ///     Separate from <see cref="MaterialIndex" /> because one material is more than one variant
+    ///     as soon as a sub-feature contributes a permutation: a skinned and an unskinned object can
+    ///     share a material and must not share a pipeline.
+    /// </remarks>
+    public RenderDataKey<int> VariantIndex { get; private set; }
 
     /// <summary>The materials this feature knows about.</summary>
     public IReadOnlyList<Material> Materials => materials;
+
+    /// <summary>How many distinct variants preparation has resolved.</summary>
+    /// <remarks>Includes the "no material" sentinel at index 0.</remarks>
+    public int VariantCount => variants.Count;
 
     /// <summary>Which permutation keys the shader's variants are selected by, per shader name.</summary>
     /// <remarks>
@@ -54,6 +112,12 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
     ///         this cannot compile one. The generated <c>…Keys.UsedPermutationKeys</c> is exactly
     ///         this list, so a host registers it once per shader and the key is built from the same
     ///         set the compiler reported.
+    ///     </para>
+    ///     <para>
+    ///         A sub-feature's contributed keys are <em>not</em> added automatically. A shader that
+    ///         does not branch on <c>Skinned</c> must not have it in its key, or the cache splits in
+    ///         two for variants that would compile to the same bytes — which is the difference
+    ///         between a tractable cache and 2ⁿ entries where a handful are distinct.
     ///     </para>
     ///     <para>
     ///         A shader with no entry gets an empty set and therefore one variant, which is right for
@@ -69,13 +133,16 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
 
     /// <inheritdoc />
     protected internal override void Initialize(RenderSystem system) {
+        ArgumentNullException.ThrowIfNull(system);
+
         MaterialIndex = system.Objects.Data.Register<int>();
+        VariantIndex = system.Objects.Data.Register<int>();
 
         // Zero is a valid index and the arrays start zeroed, so an object nobody assigned a material
         // to would silently claim the first one. Registering a null sentinel at 0 makes the default
         // mean "none" without every caller having to write -1.
         materials.Add(null!);
-        resolved.Add(null);
+        variants.Add(new(null, uint.MaxValue));
     }
 
     /// <summary>Registers a material and returns the index objects refer to it by.</summary>
@@ -88,7 +155,6 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
 
         var index = materials.Count;
         materials.Add(material);
-        resolved.Add(null);
         indices[material] = index;
         return index;
     }
@@ -101,33 +167,52 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
 
     /// <inheritdoc />
     protected internal override void Prepare(RenderSystem system) {
-        if (Effects is null) {
+        ArgumentNullException.ThrowIfNull(system);
+
+        if (Effects is null || Parent is null) {
             return;
         }
 
-        // Per material, not per object: a scene of ten thousand objects sharing twenty materials
-        // resolves twenty times. The per-object step is the array read in `EffectOf`.
-        for (var i = 1; i < materials.Count; i++) {
-            var material = materials[i];
-            var key = EffectKey.From(material.ShaderName, material.Parameters, KeysFor(material.ShaderName));
+        // Gathered here rather than at Initialize, because a sub-feature may be attached after this
+        // one — the mesh feature's own order of Add calls should not decide whether skinning works.
+        contributors.Clear();
 
-            resolved[i] = Effects.Resolve(key);
-
-            if (!groups.ContainsKey(key)) {
-                // Dense and assigned in first-seen order. The value means nothing on its own — only
-                // that two objects sharing an effect share a group, which is what puts them adjacent
-                // in the sorted list.
-                groups[key] = (uint)groups.Count;
+        foreach (var subFeature in Parent.SubFeatures) {
+            if (subFeature is IPermutationSubFeature contributor && contributor.PermutationKeys.Count > 0) {
+                contributors.Add(contributor);
             }
+        }
+
+        var materialIndices = system.Objects.Data.Data(MaterialIndex);
+        var variantIndex = system.Objects.Data.Data(VariantIndex);
+        var objects = system.Objects.All;
+
+        for (var index = 0; index < objects.Length; index++) {
+            ref readonly var candidate = ref objects[index];
+
+            if (!candidate.IsAlive || candidate.FeatureIndex != Parent.Index) {
+                continue;
+            }
+
+            if (!IsVisibleAnywhere(system, index)) {
+                continue;
+            }
+
+            var material = materialIndices[index];
+
+            if (material <= 0 || material >= materials.Count) {
+                variantIndex[index] = 0;
+                continue;
+            }
+
+            variantIndex[index] = VariantOf(system, new(index), material);
         }
     }
 
     /// <summary>The effect an object resolved to, or null when it has none.</summary>
     public Effect? EffectOf(RenderSystem system, RenderObjectId id) {
         ArgumentNullException.ThrowIfNull(system);
-
-        var index = system.Objects.Data.Data(MaterialIndex)[id.Index];
-        return index > 0 && index < resolved.Count ? resolved[index] : null;
+        return VariantAt(system, id).Effect;
     }
 
     /// <summary>The descriptor set an object's material binds, invalid when it has none.</summary>
@@ -138,24 +223,96 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
         return index > 0 && index < materials.Count ? materials[index].Descriptors : default;
     }
 
-    /// <summary>The sort group for an object: its effect's, so equal effects sort together.</summary>
+    /// <summary>The sort group for an object: its variant's, so equal pipelines sort together.</summary>
+    /// <remarks>
+    ///     Read from the array preparation filled rather than recomputed. Sorting asks this once per
+    ///     visible object per stage, and building an <see cref="EffectKey" /> there would put string
+    ///     work inside the frame's hottest loop.
+    /// </remarks>
     public uint SortGroupOf(RenderSystem system, RenderObjectId id) {
         ArgumentNullException.ThrowIfNull(system);
+        return VariantAt(system, id).Group;
+    }
 
-        var index = system.Objects.Data.Data(MaterialIndex)[id.Index];
+    Variant VariantAt(RenderSystem system, RenderObjectId id) {
+        var index = system.Objects.Data.Data(VariantIndex)[id.Index];
+        return index > 0 && index < variants.Count ? variants[index] : variants[0];
+    }
 
-        if (index <= 0 || index >= materials.Count) {
-            return uint.MaxValue;
+    int VariantOf(RenderSystem system, RenderObjectId id, int material) {
+        var flags = FlagsOf(system, id);
+
+        if (variantIndices.TryGetValue((material, flags), out var existing)) {
+            return existing;
         }
 
-        var material = materials[index];
-        var key = EffectKey.From(material.ShaderName, material.Parameters, KeysFor(material.ShaderName));
+        var source = materials[material];
 
-        // Objects whose effect nothing has resolved sort last rather than first. They draw nothing,
-        // and putting them at the front would break the run of everything that does.
-        return groups.TryGetValue(key, out var group) ? group : uint.MaxValue;
+        // A scratch collection layered material-then-contributions, so a sub-feature's flag wins over
+        // a material that happened to set the same key. The material describes a surface; whether
+        // that surface is on a skeleton is not the material's to claim.
+        scratch.Clear();
+        scratch.Apply(source.Parameters);
+        Contribute(system, id);
+
+        var key = EffectKey.From(source.ShaderName, scratch, KeysFor(source.ShaderName));
+
+        if (!groups.TryGetValue(key, out var group)) {
+            // Dense and assigned in first-seen order. The value means nothing on its own — only that
+            // two objects sharing an effect share a group, which is what puts them adjacent in the
+            // sorted list.
+            group = (uint)groups.Count;
+            groups[key] = group;
+        }
+
+        var index = variants.Count;
+        variants.Add(new(Effects!.Resolve(key), group));
+        variantIndices[(material, flags)] = index;
+        return index;
+    }
+
+    void Contribute(RenderSystem system, RenderObjectId id) {
+        foreach (var contributor in contributors) {
+            for (var i = 0; i < contributor.PermutationKeys.Count; i++) {
+                scratch.Set(contributor.PermutationKeys[i], contributor.ValueOf(system, id, i));
+            }
+        }
+    }
+
+    /// <summary>One object's contributed permutations, packed into a bit per key.</summary>
+    /// <remarks>
+    ///     A mask rather than a list, because it is a dictionary key looked up once per visible
+    ///     object per frame and a list would allocate for every one of them. Thirty-two contributed
+    ///     flags is the ceiling — far past the handful that will ever exist, and past it two variants
+    ///     that differ only in a high flag would share a cache entry.
+    /// </remarks>
+    uint FlagsOf(RenderSystem system, RenderObjectId id) {
+        var flags = 0u;
+        var bit = 0;
+
+        foreach (var contributor in contributors) {
+            for (var i = 0; i < contributor.PermutationKeys.Count && bit < 32; i++, bit++) {
+                if (contributor.ValueOf(system, id, i)) {
+                    flags |= 1u << bit;
+                }
+            }
+        }
+
+        return flags;
+    }
+
+    static bool IsVisibleAnywhere(RenderSystem system, int index) {
+        foreach (var view in system.Views) {
+            if (system.Visibility.IsVisible(view.Index, new(index))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     IReadOnlyList<ParameterKey> KeysFor(string shaderName) =>
         PermutationKeys.TryGetValue(shaderName, out var keys) ? keys : [];
+
+    readonly record struct Variant(Effect? Effect, uint Group);
 }

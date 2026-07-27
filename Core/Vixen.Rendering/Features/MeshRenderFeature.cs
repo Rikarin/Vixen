@@ -65,6 +65,7 @@ public sealed class MeshRenderFeature : RootRenderFeature {
 
         var draws = system.Objects.Data.Data(Draws);
         var materials = MaterialsOf(system);
+        var instances = SubFeatures.OfType<IInstanceSource>().FirstOrDefault();
 
         var boundPipeline = default(PipelineHandle);
         var boundDescriptors = default(DescriptorSetHandle);
@@ -110,16 +111,19 @@ public sealed class MeshRenderFeature : RootRenderFeature {
 
             context.CommandList.BindVertexBuffer(0, draw.VertexBuffer);
 
+            // An instancing sub-feature overrides the draw's own count and supplies the offset its
+            // transforms start at. `firstInstance` rather than a binding: Vulkan adds it into
+            // `gl_InstanceIndex` before the shader runs, so a batch reaches its own run of one shared
+            // buffer with no descriptor and no alignment of its own.
+            var batch = instances?.InstanceCountOf(system, node.Object) ?? 0;
+            var count = Math.Max(batch > 0 ? batch : draw.InstanceCount, 1);
+            var first = batch > 0 ? instances!.FirstInstanceOf(system, node.Object) : 0;
+
             if (draw.IsIndexed) {
                 context.CommandList.BindIndexBuffer(draw.IndexBuffer, draw.IndexFormat);
-                context.CommandList.DrawIndexed(
-                    draw.Count,
-                    Math.Max(draw.InstanceCount, 1),
-                    draw.FirstIndex,
-                    draw.VertexOffset
-                );
+                context.CommandList.DrawIndexed(draw.Count, count, draw.FirstIndex, draw.VertexOffset, first);
             } else {
-                context.CommandList.Draw(draw.Count, Math.Max(draw.InstanceCount, 1), draw.FirstIndex);
+                context.CommandList.Draw(draw.Count, count, draw.FirstIndex, first);
             }
         }
     }

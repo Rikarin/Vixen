@@ -113,14 +113,19 @@ example of everything above:
 |---|---|---|
 | `MeshRenderFeature` | the draw calls | `MeshDraw` — buffers and a range |
 | `TransformRenderFeature` | where the object is | `Matrix4x4` world |
-| `MaterialRenderFeature` | which shader variant | `int` index into a material list |
+| `MaterialRenderFeature` | which shader variant | a material index and a variant index |
 | `ForwardLightingRenderFeature` | which lights reach it | `LightAssignment` — an offset and a count |
+| `SkinningRenderFeature` | its bone palette | `BonePalette` — a first bone and a count |
+| `InstancingRenderFeature` | its copies | `InstanceBatch` — a first instance and a count |
 
 **None of them references the others' data**, which is the arrangement working rather than a
-coincidence of it. Lighting was in fact added after the other three and changed none of them — a mesh
-that gains skinning goes the same way. A UI quad or a particle billboard has bounds and needs culling
-but has no world matrix at all — putting one on every object would make them carry 64 bytes to say
-nothing.
+coincidence of it. Lighting, skinning and instancing were each added after the mesh feature and
+changed nothing in it — instancing changed four lines, to pass a draw-call argument it now has a
+source for. A UI quad or a particle billboard has bounds and needs culling but has no world matrix at
+all — putting one on every object would make them carry 64 bytes to say nothing.
+
+A **skinned, instanced mesh** is the case an inheritance hierarchy needs a class for. Here it is two
+independent flags on one object, and neither feature knows the other exists.
 
 `MaterialRenderFeature` is where the shader half of the engine meets the renderer half: preparation
 turns a material's `ParameterCollection` into an `EffectKey`, resolves it, and remembers the answer
@@ -166,6 +171,36 @@ replaced. The block's layout is `PunctualLight` from `Library/Shading/Lighting.r
 comment, because the failure is silent — the shader reads whatever is at the offsets it was compiled
 for.
 
+## Skinning and instancing, and three ways to reach per-draw data
+
+Both want the same thing — a variable-length run of matrices per object, in one buffer written once a
+frame (`MatrixBuffer`). They get it to the shader by deliberately different routes, because the
+cheapest mechanism differs:
+
+| | Per-draw data | Reached by |
+|---|---|---|
+| lighting | a light block | a **dynamic descriptor offset** |
+| skinning | a bone palette | a **push constant** holding the base index |
+| instancing | a run of transforms | the draw call's own **`firstInstance`** |
+
+Instancing needs no binding at all: Vulkan adds `firstInstance` into `gl_InstanceIndex` before the
+shader runs. Skinning needs four bytes of the push block that already exists for the transform — 68
+of Vulkan's guaranteed 128 between them. Only lighting has a fixed-size block that every draw reads
+the same way, which is the one case a dynamic offset actually fits.
+
+Skinning uploads **skinning matrices**, `inverseBindPose * boneWorld` already multiplied: one
+multiply per bone per frame instead of one per vertex, which for a hundred bones and fifty thousand
+vertices is four orders of magnitude.
+
+**Both contribute a permutation** through `IPermutationSubFeature`, because an object is skinned
+when it has a skeleton and not when a material says so. `MaterialRenderFeature` applies the
+contributions without knowing either feature exists, and resolves **per distinct (material, flags)
+pair** — ten thousand objects over twenty materials, half of them skinned, is forty resolutions and
+ten thousand dictionary lookups.
+
+A batch of one is *not* instanced. It would draw identically and would compile a second pipeline to
+do it.
+
 ## The compositor
 
 `Compositor/` is docs/plan/06's third idea from Stride: **the frame's structure is data the user
@@ -189,6 +224,31 @@ tree stops being sorted for, instead of quietly producing a list nobody reads.
 There is no `ClearRenderer`, and that is not an omission — **clearing is a load action on an
 attachment.** Issuing it as its own operation is a D3D11-ism that costs a tile-based GPU a full extra
 pass writing a colour the next pass overwrites.
+
+### Shadows
+
+`ShadowMapRenderer` is the clearest thing the compositor buys, because **a cascade is a view**. Four
+cascades are four `RenderView`s over one stage, culled and sorted by machinery that knows nothing
+about shadows, drawn into four tiles of one atlas in **one pass with a viewport per tile** — four
+passes would be four loads and stores of a depth buffer nothing reads outside the frame. The pass has
+no colour attachment at all.
+
+`ShadowCascades` is pure arithmetic, and it is where cascaded shadow maps go wrong in their two
+famous ways:
+
+- **Crawl when the camera turns** — fixed by fitting a **sphere**, not the eight frustum corners. A
+  corner fit's extent depends on where the camera points, so turning on the spot resizes the cascade,
+  which resizes its texels. The sphere's radius is a function of the split distances and the field of
+  view alone. Twelve directions, one radius, asserted.
+- **Crawl when it moves** — fixed by snapping the fitted centre to the light's texel grid, on all
+  three axes. Sub-texel movement then produces a *bit-identical* matrix; movement past a texel does
+  move it, which is the other half of the test and the reason it means something.
+
+The fit is checked against the eight corners it was deliberately not computed from, so the test and
+the implementation do not share their arithmetic. Splits use the practical scheme — logarithmic
+blended toward uniform at λ = 0.75, because pure logarithmic puts the first boundary absurdly close
+to the eye. Shadow distance is its own setting rather than the camera's far plane; cascades sized to
+a two-kilometre view distance spend their whole budget on terrain nobody can see a shadow on.
 
 ### What decides a pipeline
 
@@ -214,9 +274,13 @@ that fails as a validation-layer complaint on one driver and a wrong image on an
 
 ## What is not here yet
 
-Shadows, skinning, instancing, and the compositor as a serialised *asset* — the tree is data, but
-nothing loads one from disk yet. Area lights and clustered light culling on the CPU side; the
-clustered shader half (`Library/Pipeline/ClusterCulling.rvn`) already exists.
+The compositor as a serialised *asset* — the tree is data, but nothing loads one from disk. Point and
+spot shadows (cube and perspective maps; the cascade machinery is directional-only), a shadow atlas
+cached for static casters, and blend shapes. Area lights, and clustered light culling on the CPU
+side — the clustered shader half (`Library/Pipeline/ClusterCulling.rvn`) already exists.
+
+LOD groups, and instance batching by locality: an instanced batch is culled as one object, so what
+goes in one is the caller's decision and there is nothing here to help make it.
 
 GPU-driven culling is a second implementation of `VisibilityGroup` behind the same interface, which
 is why that interface is bits rather than a list.
