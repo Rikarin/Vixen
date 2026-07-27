@@ -359,24 +359,26 @@ public class MeshRenderFeatureTests : IDisposable {
     // --- The arrangement itself ---------------------------------------------
 
     /// <summary>
-    ///     Each feature registered its own array, and none of them knows about the others'.
+    ///     Each feature registered its own arrays, and none of them knows about the others'.
     /// </summary>
     /// <remarks>
-    ///     The claim `RenderDataHolder` exists to make, asserted rather than described: three
-    ///     features, three arrays, one object count. A fourth — skinning — would be a fourth array
-    ///     and no change to any of these three.
+    ///     The claim `RenderDataHolder` exists to make, asserted rather than described. Four arrays
+    ///     over three features: the material feature owns two, because one material is more than one
+    ///     variant as soon as a sub-feature contributes a permutation, and a skinned and an unskinned
+    ///     object sharing a material must not share a pipeline.
     /// </remarks>
     [Fact]
-    public void The_three_features_hold_three_independent_arrays() {
+    public void Each_feature_holds_its_own_independent_arrays() {
         using var h = Build();
         AddMesh(h, 10f, new Material("Lit"));
 
         var data = h.System.Objects.Data;
 
-        Assert.Equal(3, data.ArrayCount);
+        Assert.Equal(4, data.ArrayCount);
         Assert.True(data.Data(h.Meshes.Draws).Length >= h.System.Objects.Count);
         Assert.True(data.Data(h.Transforms.World).Length >= h.System.Objects.Count);
         Assert.True(data.Data(h.Materials.MaterialIndex).Length >= h.System.Objects.Count);
+        Assert.True(data.Data(h.Materials.VariantIndex).Length >= h.System.Objects.Count);
     }
 
     /// <summary>
