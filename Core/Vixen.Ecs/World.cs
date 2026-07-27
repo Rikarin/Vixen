@@ -44,6 +44,7 @@ public sealed class World : IDisposable {
     int freeCount;
     int nextId = 1;
     IManagedComponentStore?[] managedStores = new IManagedComponentStore?[8];
+    Archetype?[] cachedArchetypes = new Archetype?[16];
 
     /// <summary>Which world this is. Present in every entity handle it hands out.</summary>
     public short Id { get; }
@@ -114,7 +115,7 @@ public sealed class World : IDisposable {
     /// <param name="component0">Its value.</param>
     /// <returns>Its handle.</returns>
     public Entity Create<T0>(in T0 component0) {
-        var entity = Create(ArchetypeOf([ComponentType<T0>.Id]));
+        var entity = Create(CachedArchetype(ArchetypeKey<T0>.Index, [ComponentType<T0>.Id]));
         Write(entity, component0);
         return entity;
     }
@@ -126,7 +127,10 @@ public sealed class World : IDisposable {
     /// <param name="component1">The second value.</param>
     /// <returns>Its handle.</returns>
     public Entity Create<T0, T1>(in T0 component0, in T1 component1) {
-        var entity = Create(ArchetypeOf([ComponentType<T0>.Id, ComponentType<T1>.Id]));
+        var entity = Create(
+            CachedArchetype(ArchetypeKey<T0, T1>.Index, [ComponentType<T0>.Id, ComponentType<T1>.Id])
+        );
+
         Write(entity, component0);
         Write(entity, component1);
         return entity;
@@ -141,7 +145,13 @@ public sealed class World : IDisposable {
     /// <param name="component2">The third value.</param>
     /// <returns>Its handle.</returns>
     public Entity Create<T0, T1, T2>(in T0 component0, in T1 component1, in T2 component2) {
-        var entity = Create(ArchetypeOf([ComponentType<T0>.Id, ComponentType<T1>.Id, ComponentType<T2>.Id]));
+        var entity = Create(
+            CachedArchetype(
+                ArchetypeKey<T0, T1, T2>.Index,
+                [ComponentType<T0>.Id, ComponentType<T1>.Id, ComponentType<T2>.Id]
+            )
+        );
+
         Write(entity, component0);
         Write(entity, component1);
         Write(entity, component2);
@@ -165,7 +175,10 @@ public sealed class World : IDisposable {
         in T3 component3
     ) {
         var entity = Create(
-            ArchetypeOf([ComponentType<T0>.Id, ComponentType<T1>.Id, ComponentType<T2>.Id, ComponentType<T3>.Id])
+            CachedArchetype(
+                ArchetypeKey<T0, T1, T2, T3>.Index,
+                [ComponentType<T0>.Id, ComponentType<T1>.Id, ComponentType<T2>.Id, ComponentType<T3>.Id]
+            )
         );
 
         Write(entity, component0);
@@ -327,6 +340,53 @@ public sealed class World : IDisposable {
         }
 
         return managedStores[id.Value] ??= like.CreateSibling();
+    }
+
+    /// <summary>
+    ///     The archetype for a combination of type parameters, remembered so the second
+    ///     <c>Create&lt;Position, Velocity&gt;</c> costs an array index.
+    /// </summary>
+    /// <remarks>
+    ///     Without this every create builds a <see cref="ComponentSignature" /> — allocate, sort,
+    ///     de-duplicate, hash — for a set that was fixed when the call site was compiled. It measured
+    ///     129 ns per entity at a hundred thousand, most of it that; the key is assigned once per
+    ///     distinct combination of type parameters in the process, and the lookup after that is a
+    ///     bounds check.
+    /// </remarks>
+    Archetype CachedArchetype(int key, ReadOnlySpan<ComponentTypeId> componentTypes) {
+        if ((uint)key < (uint)cachedArchetypes.Length && cachedArchetypes[key] is { } cached) {
+            return cached;
+        }
+
+        var archetype = ArchetypeOf(componentTypes);
+
+        if (key >= cachedArchetypes.Length) {
+            Array.Resize(ref cachedArchetypes, Math.Max(key + 1, cachedArchetypes.Length * 2));
+        }
+
+        cachedArchetypes[key] = archetype;
+        return archetype;
+    }
+
+    static int nextArchetypeKey = -1;
+
+    /// <summary>A dense index for one combination of type parameters, assigned once per process.</summary>
+    static int NextArchetypeKey() => Interlocked.Increment(ref nextArchetypeKey);
+
+    static class ArchetypeKey<T0> {
+        public static readonly int Index = NextArchetypeKey();
+    }
+
+    static class ArchetypeKey<T0, T1> {
+        public static readonly int Index = NextArchetypeKey();
+    }
+
+    static class ArchetypeKey<T0, T1, T2> {
+        public static readonly int Index = NextArchetypeKey();
+    }
+
+    static class ArchetypeKey<T0, T1, T2, T3> {
+        public static readonly int Index = NextArchetypeKey();
     }
 
     /// <summary>The archetype for a set of component types, creating it if this is the first ask.</summary>

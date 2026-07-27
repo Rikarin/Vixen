@@ -296,21 +296,49 @@ Vulkan validation clean under lavapipe in CI. Zero-allocation gate green for an 
 
 **Goal:** entities with transforms and behaviours, rendering nothing but debug lines, at 10 k scale.
 
-- `Vixen.Ecs`: archetypes, chunks, edge graph, queries + generator, `CommandBuffer`, change versions,
-  managed component store, world serialisation.
-- `Vixen.Ecs` scheduler: `ISystem`, phases, read/write inference, DAG execution on the job system.
-- Transform hierarchy with depth-split archetypes and dirty propagation.
-- `Vixen.Engine`: game loop with fixed-step accumulator, `Behavior` + generated dispatch,
-  `Transform`/`Camera` façades, scenes, `SceneTag`, additive load/unload.
-- Prefabs: serialised subtree + bulk instantiate plan.
-- `DebugDraw` + the diagnostic overlays from [13](13-diagnostics.md).
-- ImGui debug overlay behind `VIXEN_DEBUG_IMGUI` (scaffold; deleted in Phase 6).
-- Ported Arch benchmarks in `Benchmarks/Vixen.Benchmarks.Ecs`.
-- `Samples/04-EcsStressTest`.
+- ✅ `Vixen.Ecs`: archetypes, chunks, edge graph, queries + generator, `CommandBuffer`, change
+  versions, managed component store. 90 tests. **Owed:** world serialisation — `WorldDigest` gives a
+  canonical hash of a world's state, which is what the determinism test needed, but writing one to a
+  stream needs the per-component serialisers of [08](08-asset-pipeline-and-addressables.md). Also
+  owed: the `VIXEN_ECS_EVENTS` hooks.
+- ✅ `Vixen.Ecs` scheduler: `ISystem`, nine phases, the conflict graph, DAG execution on the job
+  system, DOT and Mermaid dumps. **Owed:** read/write *inference* — the attributes and the
+  programmatic declaration are there, the generator that reads query bodies is not.
+- 🟡 Transform hierarchy with dirty propagation. **Not depth-split**: a component's value takes no
+  part in its archetype, which needs shared components. Roots are an archetype question and so are a
+  sequential sweep; the levels below are walked through the child lists into reused per-depth
+  buckets. One visit per moved entity either way, random access instead of sequential below the
+  roots, and a steady state that allocates nothing.
+- ✅ `Vixen.Engine`: game loop with fixed-step accumulator, `Behavior` with per-concrete-type bucket
+  dispatch, `Transform` and camera façades, scenes, `SceneTag`, additive load/unload. 58 tests.
+  **The dispatch generator turned out not to be needed** — `BehaviorBucket<T>` is closed at the
+  `Add<T>` call site and its loop is the same monomorphic walk a generated method would be. The
+  generator is still owed for `[Inspector]` metadata, which genuinely cannot be had another way.
+- ✅ Prefabs: the subtree is captured into a world of its own, and instantiation is one
+  `CreateMany` per distinct archetype plus a row copy each. The hierarchy is rebuilt from recorded
+  indices rather than remapped, which also collapses the archetype count — without stripping the
+  hierarchy components every depth would be its own archetype.
+- ⬜ `DebugDraw` + the diagnostic overlays from [13](13-diagnostics.md). **Not started.** The
+  accumulator half is buildable now and the drawing half is not: there is no renderer to draw
+  through until Phase 4.
+- ⬜ ImGui debug overlay behind `VIXEN_DEBUG_IMGUI`. **Not started**, and deliberately last: it is a
+  scaffold this plan already schedules for deletion in Phase 6, and it needs the same renderer.
+- ✅ Ported Arch benchmarks in `Benchmarks/Vixen.Benchmarks.Ecs`. Two findings, both of which changed
+  code: the obvious chunk loop keeps its bounds checks and is 34% slower than the generated
+  per-entity forms (bounding by the span's own length makes it the fastest form instead), and
+  `Create` was building a `ComponentSignature` per entity for a set fixed at compile time — caching
+  the archetype per combination of type parameters made it 46% faster.
+- ✅ `Samples/04-EcsStressTest`.
 
-**Exit:** 100 k entities created/iterated within the Arch benchmark baseline. 10 k-entity scene with
-transform hierarchy at zero Gen0 collections over 10 000 frames. `Behavior` lifecycle golden-ordering
-tests green. Determinism test (two worlds, identical input log, 10 000 steps) green.
+**Exit:** ✅ 100 k entities created and iterated — 70 ns to create, 0.50 ns per entity to iterate.
+✅ 10 k-entity scene with a transform hierarchy, 10 000 frames, **zero Gen0 collections**, 514 µs mean
+frame. ✅ `Behavior` lifecycle golden-ordering test green. ✅ Determinism test green — two worlds, one
+input log, 10 000 steps, one running direct and the other through a command buffer's parallel writer,
+compared by `WorldDigest` throughout.
+
+**Not met:** the two rendering-dependent items above. Phase 2's goal line says "rendering nothing but
+debug lines", and nothing renders yet — that is the one part of this phase that Phase 4 has to
+carry.
 
 ---
 

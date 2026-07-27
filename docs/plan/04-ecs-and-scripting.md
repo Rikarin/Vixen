@@ -62,7 +62,7 @@ world.Query(query, static (ref Position p, ref Velocity v) => p.Value += v.Value
   own this rather than adopt one that does not model it.
 
 > ✅ **Built.** `Core/Vixen.Ecs/`, `Core/Vixen.Ecs.Generators/` and `Core/Vixen.Ecs.Tests/` (71
-> tests) are live: storage, archetypes, the edge graph, the managed store, change versions, the whole
+> tests, now 90) are live: storage, archetypes, the edge graph, the managed store, change versions, the whole
 > query surface for arities 1–16, and the command buffer with its parallel writer. All three property
 > tests this document asks for are there — random structural sequences against a
 > dictionary-per-entity oracle, random queries against a linear scan, and parallel playback
@@ -103,7 +103,9 @@ world.Query(query, static (ref Position p, ref Velocity v) => p.Value += v.Value
 >   when it is wrong.
 >
 > **Owed, and named rather than approximated:** world serialisation and the `VIXEN_ECS_EVENTS` hooks.
-> The scheduler, transforms and `Behavior` are the layers below and have not started.
+> `WorldDigest` covers what the determinism test needed — a canonical hash, ordered by component type
+> *name* because ids are handed out in first-touch order — but writing a world to a stream needs the
+> per-component serialisers of [08](08-asset-pipeline-and-addressables.md).
 
 ### Structural change safety
 
@@ -237,6 +239,30 @@ MonoBehaviour path. It is the honest trade: convenience where users want it, `IS
 need throughput. Both are first-class and documented as such.
 
 ### The rule that keeps this coherent
+
+> ✅ **Built.** `Core/Vixen.Engine/` with 58 tests: the frame loop and its fixed-step accumulator,
+> `Behavior` with its lifecycle queues, the transform hierarchy and its pass, the `Transform` and
+> camera façades, scenes with additive load and unload, and prefabs. Four things differ:
+>
+> - **No dispatch generator, and none needed.** `BehaviorBucket<T>` is closed at the `Add<T>` call
+>   site, where the concrete type is already known, and its loop is the same monomorphic walk over
+>   the same contiguous array that a generated `Update_PlayerController(Span<…>)` would be. The
+>   enabled behaviours live in a prefix of the array, so `[SkipIfDisabled]` is not an attribute
+>   either — there is no reason not to always do it. The generator is still owed for `[Inspector]`
+>   metadata.
+> - **The lifecycle callbacks are `protected`, reached through internal bridges.** `protected
+>   internal` compiles until an assembly with `InternalsVisibleTo` has to write `protected internal
+>   override` while everyone else writes `protected override`.
+> - **The transform pass is not depth-split by archetype** — see the roadmap entry. Roots are, the
+>   levels below are walked through the child lists.
+> - **A prefab is a world, not a blob.** Capture has nothing to serialise and instantiation has
+>   nothing to reinterpret, so the bulk path this document asks for falls out: one `CreateMany` per
+>   distinct archetype. The hierarchy is rebuilt from recorded indices rather than remapped, because
+>   remapping would need to know which fields of which components are entity handles.
+>
+> **Owed:** `DebugDraw` and the ImGui scaffold, both of which need a renderer; prefab
+> variants/overrides, which this document already schedules explicitly; and the `IWorldCommand`
+> undo/redo vocabulary, which arrives with the editor.
 
 **Component data lives in ECS. Behaviour holds no state that isn't either a component or private
 scratch.** Enforced by an analyzer: a public/`[Inspector]` field on a `Behavior` is either a

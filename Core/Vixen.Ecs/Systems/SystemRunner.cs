@@ -33,6 +33,8 @@ public sealed class SystemRunner : IDisposable {
     readonly List<ISystem> registered = [];
     readonly CommandBuffer commands;
 
+    readonly Dictionary<SystemPhase, JobHandle[]> handlesByPhase = [];
+
     SystemGraph? graph;
     bool initialised;
 
@@ -115,7 +117,13 @@ public sealed class SystemRunner : IDisposable {
         World.AdvanceVersion();
 
         var context = new SystemContext(World, time, Jobs, commands, phase);
-        var handles = new JobHandle[nodes.Count];
+
+        // Kept per phase rather than allocated per call. Nine phases a frame is nine small arrays,
+        // which is nothing on its own and is 3.5 MB over the ten thousand frames the Phase 2 exit
+        // criterion runs — enough to turn "zero gen-0 collections" into several.
+        if (!handlesByPhase.TryGetValue(phase, out var handles) || handles.Length != nodes.Count) {
+            handlesByPhase[phase] = handles = new JobHandle[nodes.Count];
+        }
 
         for (var index = 0; index < nodes.Count; index++) {
             handles[index] = nodes[index].System.Update(in context, Dependency(nodes[index], handles));
@@ -123,8 +131,8 @@ public sealed class SystemRunner : IDisposable {
 
         // Complete before playback, not after: a structural change moves rows between chunks, and a
         // job still walking one would be walking memory that has just been overwritten.
-        foreach (var handle in handles) {
-            Jobs?.Complete(handle);
+        for (var index = 0; index < handles.Length; index++) {
+            Jobs?.Complete(handles[index]);
         }
 
         commands.Playback();

@@ -190,12 +190,32 @@ public sealed class CommandBuffer {
         }
 
         merged.Clear();
-        resolved.Clear();
         placeholders = 0;
+
+        // `resolved` deliberately survives, so Resolve still answers for the playback that has just
+        // happened. It is rebuilt at the start of the next one.
+    }
+
+    /// <summary>What a placeholder from <see cref="Create()" /> became.</summary>
+    /// <param name="placeholder">The handle a recording call handed back.</param>
+    /// <returns>The entity playback created, or <see cref="Entity.Null" /> if it was culled.</returns>
+    /// <remarks>
+    ///     Valid from the end of a playback until the start of the next one. Without it a caller
+    ///     that spawns through a buffer has no way to reach what it spawned, which is most of what
+    ///     makes the parallel writer worth having: a job that creates an entity almost always wants
+    ///     to record it somewhere afterwards.
+    /// </remarks>
+    public Entity Resolve(Entity placeholder) {
+        if (placeholder.Id >= 0) {
+            return placeholder;
+        }
+
+        var index = PlaceholderIndex(placeholder);
+        return index < resolved.Count ? resolved[index] : Entity.Null;
     }
 
     void Apply(in Command command) {
-        var entity = Resolve(command.Entity);
+        var entity = ResolveDuringPlayback(command.Entity);
 
         if (command.Kind == CommandKind.Create) {
             resolved[PlaceholderIndex(command.Entity)] = world.Create();
@@ -228,7 +248,7 @@ public sealed class CommandBuffer {
         }
     }
 
-    Entity Resolve(Entity entity) => entity.Id < 0 ? resolved[PlaceholderIndex(entity)] : entity;
+    Entity ResolveDuringPlayback(Entity entity) => entity.Id < 0 ? resolved[PlaceholderIndex(entity)] : entity;
 
     static int PlaceholderIndex(Entity entity) => -entity.Id - 1;
 

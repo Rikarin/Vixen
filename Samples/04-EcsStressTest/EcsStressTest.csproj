@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Vixen.Samples.EcsStressTest</RootNamespace>
+        <AssemblyName>EcsStressTest</AssemblyName>
+        <IsPackable>false</IsPackable>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Engine\Vixen.Engine.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
+    </ItemGroup>
+
+</Project>
