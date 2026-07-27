@@ -256,7 +256,7 @@ public sealed record TextureImportSettings : IImportSettings
     public ColorSpace ColorSpace { get; init; } = ColorSpace.Srgb;
     public TextureUsage Usage { get; init; } = TextureUsage.Albedo;
     // ...
-    public ImmutableArray<TargetOverride<TextureImportSettings>> Overrides { get; init; } = [];
+    public TargetOverride[] Overrides { get; init; } = [];   // see the note below
 }
 ```
 
@@ -264,6 +264,32 @@ The `[DataContract]` name is the discriminator: one attribute defines the `.meta
 type, and the serializer, with no separate registration table to keep in sync. `[DataAlias]` handles
 renames without breaking existing `.meta` files, exactly as it does for runtime types
 ([03](03-core-foundation.md)).
+
+> ✅ **Built, and two things in the sketch above turned out to be unbuildable as written.**
+> `Core/Vixen.Core.Yaml/` binds a document to types through the generated type registry, exactly as
+> this section claims — tag to type by alias, member access through generated lambdas, no
+> `Type.GetType` and no assembly scan. 50 tests. What changed:
+>
+> - **`ImmutableArray<T>` became `T[]`.** Building an `ImmutableArray<T>` for a `T` known only at run
+>   time needs `MakeGenericMethod`; `Array.CreateInstance(elementType, n)`, `MakeGenericType` and
+>   `Activator.CreateInstance(Type)` are all `RequiresDynamicCode` for the same family of reasons.
+>   This repository compiles `IL3050` as an error, so the build refused the obvious binder outright —
+>   which is precisely the discovery [14](14-roadmap.md) schedules this phase early to force. The fix
+>   is the one the rest of the engine already uses: **a generator saw the type, so a generator writes
+>   the constructor.** `CollectionFactory` holds a `static count => new TargetOverride[count]` per
+>   collection type reachable from any described member, emitted by the reflection generator, and the
+>   binder asks for one instead of building a type. A list *interface* is backed by an array, which
+>   satisfies it with no copy. `ImmutableArray<T>` is refused by name with the reason in the message;
+>   in an init-only record a `T[]` is just as immutable.
+> - **`TargetOverride` is not generic.** The reflection generator describes closed types only
+>   (`VXS0201`), so `TargetOverride<TextureImportSettings>` has no descriptor and cannot be bound. It
+>   does not need to be generic: an override is a *sparse patch*, and a patch is better expressed at
+>   the node level — read the base, apply the matching overrides as node-level merges, bind once — than
+>   as a partial record per settings type. That is how the `.meta` layer applies them.
+>
+> Also settled here: init-only setters. `{ get; init; }` is this section's shape for every settings
+> record, and a descriptor could not write one until the reflection generator learned to reach the
+> setter through `[UnsafeAccessor]`. See [03](03-core-foundation.md).
 
 `ImportContext` gives virtual-path source access, the deserialised settings, the target build platform,
 a dependency registrar (`ctx.DependsOn(guid)` / `ctx.DependsOnFile(path)`), a diagnostics sink, and an

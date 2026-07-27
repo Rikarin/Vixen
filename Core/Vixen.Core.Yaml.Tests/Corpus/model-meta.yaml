@@ -1,0 +1,23 @@
+guid: 1a2b3c4d5e6f70819a2b3c4d5e6f7081
+metaVersion: 1
+importer: !ModelImporter
+  version: 5
+  sourceHash: 55c1a0f3e9d24b18
+  scale: 0.01
+  importAnimations: true
+  importBlendShapes: false
+  generateTangents: WhenMissing
+  generateLods: { count: 3, reduction: 0.5 }
+  optimizeIndexOrder: true
+  materialMapping:
+    Body: vx:9e8a44c9930c64e388ca034c5fe4c426
+    Cloth: vx:c1d2e3f4a5b60718c1d2e3f4a5b60718
+  mainSubAsset: 8c1d4a70
+addressable:
+  address: characters/hero
+  group: Characters
+subAssets:
+  - { id: 8c1d4a70, name: Hero, type: Model }
+  - { id: 2b9e5f13, name: Hero_Mesh, type: Mesh }
+  - { id: 7d4c8a21, name: Skeleton, type: Skeleton }
+  - { id: 91f0b3e6, name: Idle, type: AnimationClip }

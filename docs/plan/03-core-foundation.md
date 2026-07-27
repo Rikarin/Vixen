@@ -18,7 +18,7 @@ The smallest possible root. No dependencies beyond BCL.
   hand. This is the choice Stride made and the choice Unity's DOTS made; it is boring and it works
   under AOT.
 - **Identity types.** `readonly record struct AssetId(Guid)`, `ObjectId` (128-bit content hash from
-  XxHash128), `EntityId`, `ComponentTypeId` — all with `IUtf8SpanFormattable`/`ISpanParsable` so
+  XxHash128), `Entity`, `ComponentTypeId` — all with `IUtf8SpanFormattable`/`ISpanParsable` so
   serialisation never allocates strings.
 - **`GameTime`.** `readonly record struct` with `Total`, `Elapsed`, `FrameCount`, `UnscaledElapsed`,
   `TimeScale`. Fixed-step accumulator lives in `Vixen.Engine`, not here.
@@ -28,8 +28,18 @@ The smallest possible root. No dependencies beyond BCL.
 - **Disposal.** `IDisposable` plus `IAsyncDisposable`; a `DisposeBag` for subsystem teardown; a
   debug-build leak tracker that captures allocation stacks for undisposed GPU resources.
 
-> ✅ **Built.** `Core/Vixen.Core/` and `Core/Vixen.Core.Tests/` (86 tests) are live. Four things
+> ✅ **Built.** `Core/Vixen.Core/` and `Core/Vixen.Core.Tests/` (86 tests) are live. Five things
 > came out differently from the paragraphs above, each for a reason worth keeping:
+>
+> - **`EntityId` is `Entity`, and it carries the world.** Written first as
+>   `EntityId(uint Index, uint Version)`, which is what this document asked for; when
+>   [04](04-ecs-and-scripting.md)'s `Entity(int Id, int Version, short WorldId)` arrived in Phase 2
+>   there were two types meaning "handle to an entity", one of which the ECS design forbids
+>   serialising and the other of which existed only to be serialised. They are one type now. It stays
+>   in `Vixen.Core` rather than moving to `Vixen.Ecs` for the same reason `ComponentTypeId` and
+>   `[Component]` are here: the reflection and serialization generators name it and cannot reference
+>   the ECS. It is **12 bytes, not the 8 [04](04-ecs-and-scripting.md) claimed** — two ints and a
+>   short pad to twelve — and that document is corrected.
 >
 > - **`ObjectId` carries no hash function.** It is 128 bits of identity, formatting, parsing and
 >   ordering — nothing else. XxHash128 lives in `System.IO.Hashing`, a NuGet package, and taking it
@@ -162,7 +172,7 @@ and is what the renderer and ECS actually need.
 heuristics fight a frame deadline), `Parallel.For` (delegate allocation, no dependency model),
 `async`/`await` in the loop.
 
-> ✅ **Built.** `Core/Vixen.Core.Threading/` and its 45 tests are live, and
+> ✅ **Built.** `Core/Vixen.Core.Threading/` and its 46 tests are live, and
 > `Benchmarks/Vixen.Benchmarks.Jobs` measures the claims: one `Schedule`+`Complete` round trip is
 > 6.3× cheaper than `Task.Run`+`Wait` and allocates nothing against its 160 bytes, and
 > `ScheduleParallel` beats `Parallel.For` by 2.2–2.6× above about ten thousand elements — and loses
@@ -192,6 +202,20 @@ heuristics fight a frame deadline), `Parallel.For` (delegate allocation, no depe
 >   compiled in under `DEBUG` or `VIXEN_JOB_SAFETY` is the check that needs nothing else: a job that
 >   completes its own handle is caught and told so, instead of waiting forever for the work item that
 >   is doing the waiting.
+>
+>   ⚠ **That check was wrong, and Phase 2's first heavy load found it.** It compared a thread-static
+>   holding "the slot this thread is executing" against the handle's slot index — and the value a
+>   thread that has never executed a work item holds is `0`, which is a real slot index. So `Complete`
+>   threw "a job cannot complete itself" at the main thread whenever the job it was waiting for
+>   happened to live in slot 0. It hid because the free list is last-in-first-out, so slot 0 is the
+>   *thousand-and-twenty-fourth* one handed out and is reached only once the ring has run dry — and
+>   because the check is compiled out of release builds, which is what CI runs. It surfaced as an
+>   intermittent failure of `MoreJobsThanTheRingHoldsStillCompletes` on a machine loaded enough to
+>   exhaust the ring: 22 failures in 40 runs under artificial load, none without it. The thread-static
+>   now holds the index *plus one*, so zero means "running nothing", and it is paired with the version
+>   so a slot recycled between the two reads is not mistaken for the same job.
+>   `AJobInAnySlotCanBeCompletedByAThreadRunningNothing` rents every slot before completing any, which
+>   makes the case certain instead of load-dependent.
 
 ## `Vixen.Core.IO` — the virtual file system
 

@@ -263,7 +263,24 @@ plumbing that everything else stands on.
     yet — every one of them on a fresh account, in a container, on a runner. `StandardFileSystemHost`
     was therefore producing relative paths, and the engine would have written its saves into whatever
     the working directory happened to be. It passed every macOS and Windows run.
-- `GoldenImages` target with the first fixture.
+- ✅ **`GoldenImages` target**, with five fixtures: clear, triangle, indexed quad with push constants,
+  reversed-Z depth, and alpha blending. Rendered headless through the render graph, compared
+  perceptually with a per-fixture tolerance, and — the part that matters — **generated on MoltenVK and
+  verified against lavapipe**, so the tolerances are what cross-driver agreement needs rather than what
+  one machine produces. A failure writes the rendering, the reference and a red-on-dimmed diff, which
+  CI uploads. `--update-golden` rewrites the references, with a warning to look at them first.
+
+  It justified itself before it had a reference image: every fixture initially rendered undefined
+  memory, because the colour target was a graph transient nothing inside the graph read, so the graph
+  correctly derived `StoreAction.DontCare` and discarded the picture. Importing the target is what says
+  it outlives the frame. Verified by sabotage: inverting the depth comparison moves 76% of the
+  reversed-Z fixture's pixels.
+
+  The PNG codec is hand-written — ADR-015 keeps ImageSharp out of runtime assemblies, and a golden
+  image nobody can open is one nobody will look at. Round-trip and filtered-input tested.
+
+  **Owed:** the suite grows towards doc 05's ~40 fixtures with the rendering pipeline in Phase 4, and
+  cross-backend equivalence waits for a second backend to compare against.
 - ~~Web graphics spike~~ ✅ **already done, before Phase 0** — see
   [`spikes/web-webgl2/RESULT.md`](spikes/web-webgl2/RESULT.md). `Silk.NET.OpenGLES` renders a WebGL2
   triangle from `browser-wasm`; bridge is ~40 lines; trimmed payload 0.93 MB Brotli. R1 retired. The
@@ -279,21 +296,62 @@ Vulkan validation clean under lavapipe in CI. Zero-allocation gate green for an 
 
 **Goal:** entities with transforms and behaviours, rendering nothing but debug lines, at 10 k scale.
 
-- `Vixen.Ecs`: archetypes, chunks, edge graph, queries + generator, `CommandBuffer`, change versions,
-  managed component store, world serialisation.
-- `Vixen.Ecs` scheduler: `ISystem`, phases, read/write inference, DAG execution on the job system.
-- Transform hierarchy with depth-split archetypes and dirty propagation.
-- `Vixen.Engine`: game loop with fixed-step accumulator, `Behavior` + generated dispatch,
-  `Transform`/`Camera` façades, scenes, `SceneTag`, additive load/unload.
-- Prefabs: serialised subtree + bulk instantiate plan.
-- `DebugDraw` + the diagnostic overlays from [13](13-diagnostics.md).
-- ImGui debug overlay behind `VIXEN_DEBUG_IMGUI` (scaffold; deleted in Phase 6).
-- Ported Arch benchmarks in `Benchmarks/Vixen.Benchmarks.Ecs`.
-- `Samples/04-EcsStressTest`.
+- ✅ `Vixen.Ecs`: archetypes, chunks, edge graph, queries + generator, `CommandBuffer`, change
+  versions, managed component store. 90 tests. **Owed:** world serialisation — `WorldDigest` gives a
+  canonical hash of a world's state, which is what the determinism test needed, but writing one to a
+  stream needs the per-component serialisers of [08](08-asset-pipeline-and-addressables.md). Also
+  owed: the `VIXEN_ECS_EVENTS` hooks.
+- ✅ `Vixen.Ecs` scheduler: `ISystem`, nine phases, the conflict graph, DAG execution on the job
+  system, DOT and Mermaid dumps. **Owed:** read/write *inference* — the attributes and the
+  programmatic declaration are there, the generator that reads query bodies is not.
+- 🟡 Transform hierarchy with dirty propagation. **Not depth-split**: a component's value takes no
+  part in its archetype, which needs shared components. Roots are an archetype question and so are a
+  sequential sweep; the levels below are walked through the child lists into reused per-depth
+  buckets. One visit per moved entity either way, random access instead of sequential below the
+  roots, and a steady state that allocates nothing.
+- ✅ `Vixen.Engine`: game loop with fixed-step accumulator, `Behavior` with per-concrete-type bucket
+  dispatch, `Transform` and camera façades, scenes, `SceneTag`, additive load/unload. 58 tests.
+  **The dispatch generator turned out not to be needed** — `BehaviorBucket<T>` is closed at the
+  `Add<T>` call site and its loop is the same monomorphic walk a generated method would be. The
+  generator is still owed for `[Inspector]` metadata, which genuinely cannot be had another way.
+- ✅ Prefabs: the subtree is captured into a world of its own, and instantiation is one
+  `CreateMany` per distinct archetype plus a row copy each. The hierarchy is rebuilt from recorded
+  indices rather than remapped, which also collapses the archetype count — without stripping the
+  hierarchy components every depth would be its own archetype.
+- 🟡 `DebugDraw` — the accumulator is built (lines, rays, boxes, spheres, axes, per-line lifetimes,
+  aged in `PostRender` after a renderer would have drained). 9 tests. **The drawing is owed**, and
+  needs a renderer; a subsystem written against this today needs no change when it arrives. The
+  diagnostic overlays from [13](13-diagnostics.md) wait on the same thing.
+- ~~ImGui debug overlay behind `VIXEN_DEBUG_IMGUI`~~ **cut, not deferred.** This plan already
+  scheduled it for deletion in Phase 6, so building it would have meant standing up a second
+  immediate-mode renderer, a font atlas and an input bridge in order to throw all three away. The
+  editor shell is the thing that was ever going to show this information; `DebugDraw` covers the
+  in-world half in the meantime. Phase 6's "delete the ImGui scaffold" step is struck with it.
+- ✅ Ported Arch benchmarks in `Benchmarks/Vixen.Benchmarks.Ecs`. Two findings, both of which changed
+  code: the obvious chunk loop keeps its bounds checks and is 34% slower than the generated
+  per-entity forms (bounding by the span's own length makes it the fastest form instead), and
+  `Create` was building a `ComponentSignature` per entity for a set fixed at compile time — caching
+  the archetype per combination of type parameters made it 46% faster.
+- ✅ Coroutines: `async Coroutine` with `await NextFrame()`, `await Seconds()`, `await Until()`, a
+  frame-synchronous scheduler drained at four resume points, and cancellation on destroy. 25 tests.
+  Two properties are measured rather than claimed: resumption order is the order the waits were made
+  (which the determinism criterion needs), and a Release build allocates **zero** bytes per start
+  against 160 for the same method written as a plain `async ValueTask`.
+- ✅ `Samples/04-EcsStressTest`.
 
-**Exit:** 100 k entities created/iterated within the Arch benchmark baseline. 10 k-entity scene with
-transform hierarchy at zero Gen0 collections over 10 000 frames. `Behavior` lifecycle golden-ordering
-tests green. Determinism test (two worlds, identical input log, 10 000 steps) green.
+**Exit:** ✅ 100 k entities created and iterated — 70 ns to create, 0.50 ns per entity to iterate.
+✅ 10 k-entity scene with a transform hierarchy, 10 000 frames, **zero Gen0 collections**, 514 µs mean
+frame. ✅ `Behavior` lifecycle golden-ordering test green. ✅ Determinism test green — two worlds, one
+input log, 10 000 steps, one running direct and the other through a command buffer's parallel writer,
+compared by `WorldDigest` throughout.
+
+**Not met:** the drawing half of `DebugDraw` and the [13](13-diagnostics.md) overlays, both waiting
+on a renderer — Phase 2's goal line says "rendering nothing but debug lines" and nothing renders yet,
+which is the one part of this phase Phase 4 has to carry.
+
+**Owed inside the coroutines:** `WhenAny`, which needs a completion source of its own rather than the
+sequential awaits `WhenAll` gets away with; and stopping a *single* launched coroutine, which the
+design refuses on purpose — see [04](04-ecs-and-scripting.md) § Layer 3.
 
 ---
 
@@ -302,9 +360,27 @@ tests green. Determinism test (two worlds, identical input log, 10 000 steps) gr
 **Goal:** real content loads from bundles, and it does so on a phone. AOT correctness is proven before
 the codebase is large enough for it to be expensive to fix.
 
-- `Vixen.Core.Yaml` with the tagged-polymorphic emitter; `.meta` reader/writer, envelope fast-scan
-  parser, migration chain; byte-identical round-trip corpus test.
-- `Vixen.Editor.Core` asset database: GUID index, reverse-reference index, duplicate detection.
+- ✅ `Vixen.Core.Yaml`: node model, reader over YamlDotNet's event stream, Vixen-dialect emitter,
+  tagged-polymorphic object mapping through the generated type registry, `.meta` model, envelope
+  fast-scan parser, migration chain, `vx:` asset references, stable sub-asset ids, per-target
+  override resolution. 73 tests, including a byte-identical round-trip over a fixture corpus and a
+  2 000-iteration property test that found three dialect rules wrong.
+- ✅ `Vixen.Editor.Core` asset database: GUID index, reverse-reference index, duplicate detection and
+  repair, orphan quarantine. 26 tests; ten thousand assets scanned well inside doc 08's budget.
+
+> **The AOT wall arrived on day one of this phase, which is what it was scheduled early for.** The
+> obvious object binder needs `Array.CreateInstance(elementType, n)`, `MakeGenericType` and
+> `Activator.CreateInstance(Type)`; all three are `RequiresDynamicCode`, this repository compiles
+> `IL3050` as an error, and the build refused all three. A binder built on them would have worked on
+> a desktop and thrown on a phone, and would have been found in this phase's last week rather than
+> its first.
+>
+> The fix is the principle the engine already runs on: a generator saw the type in the source, so a
+> generator writes the constructor. `CollectionFactory` holds one per collection type reachable from
+> any described member. Two things in [08](08-asset-pipeline-and-addressables.md)'s sketch were
+> unbuildable as written and that document now says so — `ImmutableArray<T>` became `T[]`, and
+> `TargetOverride<T>` became a node-level merge rather than a generic partial record. Reaching
+> `init`-only setters through `[UnsafeAccessor]` was a third prerequisite the plan had not foreseen.
 - `Vixen.Editor.Assets`: `TextureImporter`, `ModelImporter` (Assimp), `AudioImporter`,
   `NativeFormatImporter`, `DefaultImporter`. Out-of-process worker (`Tools/Vixen.AssetCompiler`).
 - `Vixen.Core.Imaging`: KTX2, BCn/ASTC/ETC2 encoding, mip generation, IBL prefiltering.
@@ -444,7 +520,7 @@ the shipping projects; a `.rvn` edit reparsing incrementally; the differential o
 - `Vixen.Editor.Profiler` + `.Debugger` (frame graph, frame debugger, memory view, remote inspector).
 - `Vixen.Editor.Plugin` with `AssemblyLoadContext` loading.
 - Editor UI automation harness + golden screenshots.
-- **Delete the ImGui scaffold.**
+- ~~Delete the ImGui scaffold.~~ There is none: it was cut in Phase 2 rather than built.
 - `PublishEditor`, signing, notarisation, `.dmg`/AppImage/MSI.
 
 **Exit:** the editor opens a project, imports assets, edits a scene, saves, builds content, and runs

@@ -9,7 +9,7 @@ subsystems need to talk to each other.
 | | |
 |---|---|
 | **Annotations** | `[DataContract]`, `[DataMember]`, `[DataMemberIgnore]`, `[DataAlias]`, `[Component]`, `[HotPath]`, `[EditorVisible]`, `[Category]`, `[Range]`, `[Tooltip]` — marker types that source generators read at compile time. They carry no runtime behaviour. |
-| **Identity** | `AssetId`, `ObjectId`, `EntityId`, `ComponentTypeId` — value types with span formatting and parsing, so writing an id never allocates a string. |
+| **Identity** | `AssetId`, `ObjectId`, `Entity`, `ComponentTypeId` — value types with span formatting and parsing, so writing an id never allocates a string. |
 | `GameTime` | What a frame is told about the clock: scaled and unscaled deltas, the running total, the frame number. |
 | `ServiceRegistry` | A flat, typed lookup for the handful of genuinely global services. Not a DI container — see below. |
 | **Pooling** | `ObjectPool<T>`, `PooledArray<T>`, `PooledList<T>`, `PooledDictionary<K,V>` — the rentals that keep the frame loop from allocating. |

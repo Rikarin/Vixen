@@ -90,6 +90,19 @@ jobs:
           path: artifacts/test-results/
           if-no-files-found: ignore
 
+      # The golden-image fixtures run under Test, so a wrong picture already fails the build. What
+      # this adds is the ability to *see* it: a failure writes the rendering, the reference and a
+      # diff, and without them the report says a number of pixels differed and nothing else.
+      - name: Upload golden-image diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-diff-${{ matrix.os }}
+          path: |
+            artifacts/golden-diff/
+            **/bin/Release/net10.0/golden-diff/
+          if-no-files-found: ignore
+
   checks:
     name: checks
     runs-on: ubuntu-latest

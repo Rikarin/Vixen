@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ecs</RootNamespace>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Description>
+            The archetype entity-component-system: entities as generation-checked handles,
+            components stored struct-of-arrays in 16 KB chunks grouped by archetype, structural
+            change through a cached edge graph, and per-component change versions so a system can
+            skip what did not move.
+        </Description>
+        <PackageTags>ecs;entity-component-system;archetype;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Collections\Vixen.Core.Collections.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            Referenced by this project and by nothing else, and deliberately not packed. Its output
+            depends on no input, so an assembly that also referenced it would emit a second copy of
+            the same partial and the same extension class. The generators meant for a user's own
+            compilation join it with the layers that need them.
+        -->
+        <ProjectReference Include="..\Vixen.Ecs.Generators\Vixen.Ecs.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Ecs.Tests" />
+    </ItemGroup>
+
+</Project>

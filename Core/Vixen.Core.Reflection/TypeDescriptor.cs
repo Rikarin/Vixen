@@ -86,6 +86,22 @@ public sealed class MemberDescriptor {
     /// <summary>Whether it can be written at all.</summary>
     public bool CanWrite => setter is not null;
 
+    /// <summary>Whether it is <c>init</c>-only — settable, but only meant to be set once.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="SetValue" /> works regardless: the generator reaches an <c>init</c> setter
+    ///         through <c>[UnsafeAccessor]</c>, because a deserializer building a
+    ///         <c>{ get; init; }</c> record from a file has no object initializer to write it in.
+    ///     </para>
+    ///     <para>
+    ///         It is recorded separately because a *tool* may reasonably want to behave differently.
+    ///         An inspector editing an immutable settings record probably wants to rebuild it with
+    ///         <c>with</c> and raise a change event rather than write through the box behind
+    ///         everyone's back, and this is how it can tell.
+    ///     </para>
+    /// </remarks>
+    public bool IsInitOnly { get; }
+
     /// <summary>Describes a member.</summary>
     /// <param name="name">Its name.</param>
     /// <param name="memberType">What it holds.</param>
@@ -93,14 +109,17 @@ public sealed class MemberDescriptor {
     /// <param name="getter">Reads it, or <see langword="null" /> if it cannot be read.</param>
     /// <param name="setter">Writes it, or <see langword="null" /> if it cannot be written.</param>
     /// <param name="presentation">How it should be presented.</param>
+    /// <param name="isInitOnly">Whether the setter is <c>init</c>-only.</param>
     public MemberDescriptor(
         string name,
         Type memberType,
         int order,
         Func<object, object?>? getter,
         Action<object, object?>? setter,
-        MemberPresentation presentation = default
+        MemberPresentation presentation = default,
+        bool isInitOnly = false
     ) {
+        IsInitOnly = isInitOnly;
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentNullException.ThrowIfNull(memberType);
         Name = name;

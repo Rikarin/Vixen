@@ -16,6 +16,14 @@ struct StampJob(int[] stamps, int index, StrongBox<int> clock) : IJob {
     public void Execute() => stamps[index] = Interlocked.Increment(ref clock.Value);
 }
 
+/// <summary>Waits for a gate, then counts. Lets a test hold slots without holding threads.</summary>
+struct GatedIncrementJob(ManualResetEventSlim gate, StrongBox<int> counter) : IJob {
+    public void Execute() {
+        gate.Wait();
+        Interlocked.Increment(ref counter.Value);
+    }
+}
+
 /// <summary>Counts how many times each index was visited.</summary>
 struct VisitJob(int[] visits) : IJobParallelFor {
     public void Execute(int index) => Interlocked.Increment(ref visits[index]);

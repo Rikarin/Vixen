@@ -149,6 +149,7 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
             ITypeSymbol memberType;
             bool canRead;
             bool canWrite;
+            var isInitOnly = false;
 
             switch (member) {
                 case IFieldSymbol { IsConst: false } field:
@@ -160,7 +161,13 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
                 case IPropertySymbol { IsIndexer: false } property when property.Name != "EqualityContract":
                     memberType = property.Type;
                     canRead = property.GetMethod is { DeclaredAccessibility: Accessibility.Public };
-                    canWrite = property.SetMethod is { DeclaredAccessibility: Accessibility.Public, IsInitOnly: false };
+                    canWrite = property.SetMethod is { DeclaredAccessibility: Accessibility.Public };
+
+                    // An init-only setter is still a setter; it is only the *language* that refuses
+                    // to call it outside an object initializer. [UnsafeAccessor] binds to it
+                    // directly, which is what lets a `{ get; init; }` record — the shape doc 08 uses
+                    // for every importer's settings — be built from a .meta file at all.
+                    isInitOnly = canWrite && property.SetMethod!.IsInitOnly;
                     break;
 
                 default:
@@ -171,19 +178,102 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
                 continue;
             }
 
+            var factories = ImmutableArray.CreateBuilder<string>();
+            CollectFactories(memberType, factories, 0);
+
             members.Add(
                 Describe(
                     member,
                     memberType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
                     order++,
                     canRead,
-                    canWrite
+                    canWrite,
+                    isInitOnly,
+                    factories.ToImmutable()
                 )
             );
         }
     }
 
-    static DescribedMember Describe(ISymbol member, string typeName, int order, bool canRead, bool canWrite) {
+    /// <summary>
+    ///     Writes out the constructor for every collection type reachable from a member's declared
+    ///     type, so that a data binder never has to build one at run time.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>Array.CreateInstance(elementType, n)</c>, <c>MakeGenericType</c> and
+    ///         <c>Activator.CreateInstance(Type)</c> are all <c>RequiresDynamicCode</c>: a binder
+    ///         built on them works on a desktop and throws on a phone. Here the element type is a
+    ///         symbol the generator is holding, so the constructor is ordinary C# — bound at compile
+    ///         time, and correct after trimming.
+    ///     </para>
+    ///     <para>
+    ///         A list interface is registered backed by an array, which satisfies it with no copy.
+    ///         Recursion is bounded because a member type nested four collections deep is a data
+    ///         model problem rather than something to support.
+    ///     </para>
+    /// </remarks>
+    static void CollectFactories(ITypeSymbol type, ImmutableArray<string>.Builder into, int depth) {
+        if (depth > 3) {
+            return;
+        }
+
+        if (type is IArrayTypeSymbol array) {
+            var element = array.ElementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            into.Add($"typeof({element}[]), static count => new {element}[count]");
+            CollectFactories(array.ElementType, into, depth + 1);
+            return;
+        }
+
+        if (type is not INamedTypeSymbol { IsGenericType: true } named) {
+            return;
+        }
+
+        var self = named.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var definition = named.ConstructedFrom.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var arguments = named.TypeArguments;
+
+        switch (definition) {
+            case "global::System.Collections.Generic.List<T>":
+                into.Add($"typeof({self}), static count => new {self}(count)");
+                CollectFactories(arguments[0], into, depth + 1);
+                return;
+
+            case "global::System.Collections.Generic.IList<T>":
+            case "global::System.Collections.Generic.ICollection<T>":
+            case "global::System.Collections.Generic.IEnumerable<T>":
+            case "global::System.Collections.Generic.IReadOnlyList<T>":
+            case "global::System.Collections.Generic.IReadOnlyCollection<T>": {
+                var element = arguments[0].ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                into.Add($"typeof({self}), static count => new {element}[count]");
+                CollectFactories(arguments[0], into, depth + 1);
+                return;
+            }
+
+            case "global::System.Collections.Generic.Dictionary<TKey, TValue>":
+            case "global::System.Collections.Generic.IDictionary<TKey, TValue>":
+            case "global::System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>": {
+                var key = arguments[0].ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                var value = arguments[1].ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                into.Add(
+                    $"typeof({self}), static count => new global::System.Collections.Generic.Dictionary<{key}, {value}>(count)"
+                );
+
+                CollectFactories(arguments[1], into, depth + 1);
+                return;
+            }
+        }
+    }
+
+    static DescribedMember Describe(
+        ISymbol member,
+        string typeName,
+        int order,
+        bool canRead,
+        bool canWrite,
+        bool isInitOnly,
+        ImmutableArray<string> collectionFactories
+    ) {
         string? category = null;
         string? displayName = null;
         string? tooltip = null;
@@ -245,6 +335,7 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
             order,
             canRead,
             canWrite,
+            isInitOnly,
             category,
             displayName,
             tooltip,
@@ -253,7 +344,8 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
             step,
             logarithmic,
             editorVisible,
-            editorReadOnly
+            editorReadOnly,
+            collectionFactories
         );
     }
 
@@ -359,6 +451,18 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
             source.AppendLine($"            global::Vixen.Core.Reflection.TypeRegistry.Register(Describe_{model.SafeName}());");
         }
 
+        // Distinct, because two members of two types routinely declare the same List<T>, and
+        // ordered, because a generator whose output moves for no reason makes every build a diff.
+        var factories = valid
+            .SelectMany(model => model.Members)
+            .SelectMany(member => member.CollectionFactories)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(entry => entry, StringComparer.Ordinal);
+
+        foreach (var factory in factories) {
+            source.AppendLine($"            global::Vixen.Core.Reflection.CollectionFactory.Register({factory});");
+        }
+
         source.AppendLine("        }");
 
         foreach (var model in valid) {
@@ -392,8 +496,15 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
                 ? $"global::System.Runtime.CompilerServices.Unsafe.Unbox<{model.QualifiedName}>(instance)"
                 : $"(({model.QualifiedName})instance)";
 
+            // An init-only setter cannot be called from an assignment — the language forbids it
+            // outside an object initializer — so it goes through the [UnsafeAccessor] emitted below.
+            // Same setter, reached the only way there is; nothing here is reflection, and it survives
+            // trimming and NativeAOT like the rest of this file.
             var setter = member.CanWrite
-                ? $"static (instance, value) => {target}.{member.Name} = ({member.TypeName})value"
+                ? member.IsInitOnly
+                    ? $"static (instance, value) => Init_{model.SafeName}_{member.Name}("
+                    + $"{(model.IsValueType ? "ref " : string.Empty)}{target}, ({member.TypeName})value)"
+                    : $"static (instance, value) => {target}.{member.Name} = ({member.TypeName})value"
                 : "null";
 
             source.AppendLine("                new(");
@@ -407,8 +518,10 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
                 + $"{Quote(member.Category)}, {Quote(member.DisplayName)}, {Quote(member.Tooltip)}, "
                 + $"{Number(member.Minimum)}, {Number(member.Maximum)}, "
                 + $"{member.Step.ToString("R", CultureInfo.InvariantCulture)}d, "
-                + $"{Lower(member.Logarithmic)}, {Lower(member.IsEditorVisible)}, {Lower(member.IsEditorReadOnly)})"
+                + $"{Lower(member.Logarithmic)}, {Lower(member.IsEditorVisible)}, {Lower(member.IsEditorReadOnly)}),"
             );
+
+            source.AppendLine($"                    {Lower(member.IsInitOnly)}");
             source.AppendLine("                ),");
         }
 
@@ -423,6 +536,37 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
         );
 
         source.AppendLine("        );");
+        EmitInitAccessors(source, model);
+    }
+
+    /// <summary>
+    ///     One <c>[UnsafeAccessor]</c> per init-only member, bound to the setter the language will
+    ///     not let anyone call.
+    /// </summary>
+    /// <remarks>
+    ///     A value type takes <c>ref</c>, so the write lands in the box the caller handed over rather
+    ///     than in a copy — the same reason the ordinary setter unboxes.
+    /// </remarks>
+    static void EmitInitAccessors(StringBuilder source, DescriptorModel model) {
+        foreach (var member in model.Members) {
+            if (member is not { CanWrite: true, IsInitOnly: true }) {
+                continue;
+            }
+
+            var receiver = model.IsValueType ? $"ref {model.QualifiedName}" : model.QualifiedName;
+
+            source.AppendLine();
+            source.AppendLine(
+                "        [global::System.Runtime.CompilerServices.UnsafeAccessor("
+                + "global::System.Runtime.CompilerServices.UnsafeAccessorKind.Method, "
+                + $"Name = \"set_{member.Name}\")]"
+            );
+
+            source.AppendLine(
+                $"        static extern void Init_{model.SafeName}_{member.Name}("
+                + $"{receiver} instance, {member.TypeName} value);"
+            );
+        }
     }
 
     static string Lower(bool value) => value ? "true" : "false";

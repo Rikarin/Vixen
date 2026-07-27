@@ -43,7 +43,7 @@ static class BuiltInSerializers {
 
         SerializerRegistry.Register(new AssetIdSerializer());
         SerializerRegistry.Register(new ObjectIdSerializer());
-        SerializerRegistry.Register(new EntityIdSerializer());
+        SerializerRegistry.Register(new EntitySerializer());
         SerializerRegistry.Register(new ComponentTypeIdSerializer());
     }
 
@@ -164,12 +164,19 @@ static class BuiltInSerializers {
         }
     }
 
-    sealed class EntityIdSerializer : DataSerializer<EntityId> {
-        public override void Serialize(ref SerializationWriter writer, in EntityId value) => writer.WriteUInt64(value.Packed);
+    sealed class EntitySerializer : DataSerializer<Entity> {
+        // Present so that a type holding an entity is serialisable at all — a command buffer's
+        // recorded payload, an editor's undo record, a diagnostic dump. It is emphatically not for
+        // scene files: ids are dense and reused, so a saved one addresses whatever occupies the slot
+        // next time. See Entity's remarks.
+        public override void Serialize(ref SerializationWriter writer, in Entity value) {
+            writer.WriteUInt64(value.Packed);
+            writer.WriteInt16(value.WorldId);
+        }
 
-        public override void Deserialize(ref SerializationReader reader, ref EntityId value) {
+        public override void Deserialize(ref SerializationReader reader, ref Entity value) {
             var packed = reader.ReadUInt64();
-            value = new((uint)packed, (uint)(packed >> 32));
+            value = Entity.FromPacked(packed, reader.ReadInt16());
         }
     }
 

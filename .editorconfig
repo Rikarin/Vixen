@@ -294,3 +294,26 @@ dotnet_diagnostic.CA1051.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Platform/Vixen.Platform/Input/Key.cs]
 dotnet_diagnostic.CS1591.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ECS component declarations
+#
+# CA1051 (do not declare visible instance fields). A component *is* a public
+# mutable field or several. `world.Get<Position>(e).Y = 9` writes through a `ref`
+# into a chunk, and a property returning a copy would silently drop the write —
+# which is why docs/plan/04 § Storage specifies fields, and why the same choice
+# is already made for the mathematics types (docs/plan/03 § Layout). The rule is
+# aimed at API surface that could later want validation; a component cannot have
+# validation, because nothing calls anything when a chunk byte changes.
+#
+# Scoped by file name rather than by directory, so the exemption is something a
+# file opts into by being called what it is. A file that declares components is
+# named `*Components.cs`; anything else in the same project still answers to the
+# rule.
+#
+# Users' own component types live in their own assemblies and will meet this rule
+# too. That is a documented consequence rather than an oversight, and the manual
+# says so where it introduces components.
+# ─────────────────────────────────────────────────────────────────────────────
+[**/*Components.cs]
+dotnet_diagnostic.CA1051.severity = none

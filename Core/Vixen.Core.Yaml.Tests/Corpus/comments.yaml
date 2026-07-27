@@ -1,0 +1,12 @@
+# The header an artist wrote, which a migration must not delete.
+# It runs to two lines.
+guid: 0123456789abcdef0123456789abcdef
+metaVersion: 1
+importer: !TextureImporter
+  # Bumping this re-imports everything this importer produced.
+  version: 3
+  maxSize: 1024 # the phone build cannot afford more
+  overrides:
+    # Only the fields that differ from the base.
+    - target: Android
+      maxSize: 512

@@ -12,6 +12,7 @@ readonly record struct DescribedMember(
     int Order,
     bool CanRead,
     bool CanWrite,
+    bool IsInitOnly,
     string? Category,
     string? DisplayName,
     string? Tooltip,
@@ -20,7 +21,12 @@ readonly record struct DescribedMember(
     double Step,
     bool Logarithmic,
     bool IsEditorVisible,
-    bool IsEditorReadOnly
+    bool IsEditorReadOnly,
+    /// <summary>
+    ///     Rendered argument lists for <c>CollectionFactory.Register</c>, one per collection type
+    ///     reachable from this member's declared type. Empty for everything that is not a collection.
+    /// </summary>
+    ImmutableArray<string> CollectionFactories
 );
 
 /// <summary>One described type.</summary>

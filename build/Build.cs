@@ -90,6 +90,47 @@ partial class Build : NukeBuild {
             }
         );
 
+    [Parameter("Rewrite the golden reference images instead of checking them")]
+    readonly bool UpdateGolden;
+
+    AbsolutePath GoldenDiffDirectory => ArtifactsDirectory / "golden-diff";
+
+    Target GoldenImages => definition => definition
+        .Description("Renders the fixture suite and compares it with the committed reference images")
+        .DependsOn(Compile)
+        .Produces(GoldenDiffDirectory / "*.png")
+        .Executes(() => {
+                GoldenDiffDirectory.CreateOrCleanDirectory();
+
+                // Set on this process so the test host inherits them. Nuke's typed settings have
+                // moved their environment API between versions and the inherited environment has
+                // not — the same reasoning as CheckFormat's raw CLI invocation above.
+                Environment.SetEnvironmentVariable("VIXEN_GOLDEN_DIFF", GoldenDiffDirectory);
+                Environment.SetEnvironmentVariable("VIXEN_UPDATE_GOLDEN", UpdateGolden ? "1" : "0");
+
+                // Run separately from `Test` rather than only as part of it. The fixtures need a
+                // driver, they write artefacts a human looks at, and `--update-golden` rewrites the
+                // repository — none of which belongs behind a target whose job is to be run on every
+                // save. They still run under `Test` too, so a broken picture fails a normal build.
+                DotNetTest(settings => settings
+                    .SetProjectFile(RootDirectory / "Platform" / "Vixen.Graphics.Golden.Tests"
+                        / "Vixen.Graphics.Golden.Tests.csproj")
+                    .SetConfiguration(Configuration)
+                    .EnableNoRestore()
+                    .EnableNoBuild()
+                    .SetSettingsFile(RootDirectory / ".runsettings")
+                    .SetResultsDirectory(TestResultsDirectory)
+                );
+
+                if (UpdateGolden) {
+                    Serilog.Log.Warning(
+                        "The reference images have been rewritten. Look at them before committing: a "
+                        + "suite that updates its own expectations is a suite that always passes."
+                    );
+                }
+            }
+        );
+
     Target CheckFormat => definition => definition
         .Description("Fails if any file deviates from .editorconfig")
         .DependsOn(Restore)

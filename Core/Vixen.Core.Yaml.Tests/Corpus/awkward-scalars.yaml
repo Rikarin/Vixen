@@ -1,0 +1,18 @@
+plain: Srgb
+reference: vx:9e8a44c9930c64e388ca034c5fe4c426
+subAssetReference: vx:1a2b3c4d5e6f70819a2b3c4d5e6f7081#2b9e5f13
+looksLikeANumber: '2048'
+looksLikeABoolean: 'true'
+looksLikeNull: 'null'
+hasAColonAndSpace: 'width: 2048'
+hasAHash: 'red # not a comment'
+leadingDash: '-8'
+empty: ''
+quotedWithApostrophe: 'it''s fine'
+doubleQuoted: "a\tb"
+unset: null
+negative: -8
+fraction: 0.5
+exponent: 1.5e-3
+emptyMapping: {}
+emptySequence: []

@@ -61,7 +61,16 @@
     <Project Path="Core/Vixen.Core.Threading.Tests/Vixen.Core.Threading.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Syntax/Vixen.Core.Syntax.csproj" />
     <Project Path="Core/Vixen.Core.Syntax.Tests/Vixen.Core.Syntax.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Yaml/Vixen.Core.Yaml.csproj" />
+    <Project Path="Core/Vixen.Core.Yaml.Tests/Vixen.Core.Yaml.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Imaging/Vixen.Core.Imaging.csproj" />
+    <Project Path="Core/Vixen.Core.Imaging.Tests/Vixen.Core.Imaging.Tests.csproj" />
     <Project Path="Core/Vixen.Core.Syntax.Generator/Vixen.Core.Syntax.Generator.csproj" />
+    <Project Path="Core/Vixen.Ecs/Vixen.Ecs.csproj" />
+    <Project Path="Core/Vixen.Ecs.Generators/Vixen.Ecs.Generators.csproj" />
+    <Project Path="Core/Vixen.Ecs.Tests/Vixen.Ecs.Tests.csproj" />
+    <Project Path="Core/Vixen.Engine/Vixen.Engine.csproj" />
+    <Project Path="Core/Vixen.Engine.Tests/Vixen.Engine.Tests.csproj" />
     <Project Path="Core/Vixen.Graphics/Vixen.Graphics.csproj" />
     <Project Path="Core/Vixen.Graphics.Tests/Vixen.Graphics.Tests.csproj" />
     <Project Path="Core/Vixen.Graphics.RenderGraph/Vixen.Graphics.RenderGraph.csproj" />
@@ -83,8 +92,20 @@
     <Project Path="Platform/Vixen.Platform.Desktop.Tests/Vixen.Platform.Desktop.Tests.csproj" />
     <Project Path="Platform/Vixen.Graphics.Null/Vixen.Graphics.Null.csproj" />
     <Project Path="Platform/Vixen.Graphics.Null.Tests/Vixen.Graphics.Null.Tests.csproj" />
+    <Project Path="Platform/Vixen.Graphics.Golden.Tests/Vixen.Graphics.Golden.Tests.csproj" />
     <Project Path="Platform/Vixen.Graphics.Vulkan/Vixen.Graphics.Vulkan.csproj" />
     <Project Path="Platform/Vixen.Graphics.Vulkan.Tests/Vixen.Graphics.Vulkan.Tests.csproj" />
+  </Folder>
+
+  <!--
+    Editor — docs/plan/02 § Editor/. Vixen.Editor.Core is the project model everything
+    else in the editor is built on: the asset database and the two indexes over it.
+  -->
+  <Folder Name="/Editor/">
+    <Project Path="Editor/Vixen.Editor.Core/Vixen.Editor.Core.csproj" />
+    <Project Path="Editor/Vixen.Editor.Core.Tests/Vixen.Editor.Core.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Assets/Vixen.Editor.Assets.csproj" />
+    <Project Path="Editor/Vixen.Editor.Assets.Tests/Vixen.Editor.Assets.Tests.csproj" />
   </Folder>
 
   <!--
@@ -103,6 +124,7 @@
   <Folder Name="/Benchmarks/">
     <Project Path="Benchmarks/Vixen.Benchmarks.Math/Vixen.Benchmarks.Math.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Jobs/Vixen.Benchmarks.Jobs.csproj" />
+    <Project Path="Benchmarks/Vixen.Benchmarks.Ecs/Vixen.Benchmarks.Ecs.csproj" />
   </Folder>
 
   <!--
@@ -118,6 +140,7 @@
     <Project Path="Raven/Vixen.Raven.Cli/Vixen.Raven.Cli.csproj" />
   </Folder>
   <Project Path="Samples/01-HelloTriangle/HelloTriangle.csproj" />
+  <Project Path="Samples/04-EcsStressTest/EcsStressTest.csproj" />
 
 
 </Solution>
