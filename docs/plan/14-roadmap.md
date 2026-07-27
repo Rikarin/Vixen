@@ -758,9 +758,26 @@ sub-piece has its own gate.
   `@layer` order tests, ✅ invalidation-minimality tests, ✅ utility family tests. **4b is complete.**
 
 **4c — Text (1.0 EM)**
-- HarfBuzz shaping, bidi, UAX#14 line breaking, UAX#29 segmentation, MSDF atlas with LRU eviction,
-  font fallback, rich-text runs, `TextEditor` model with IME.
-- Gate: shaping golden tests per script; UAX conformance data green.
+- ✅ **UAX#29 segmentation is built and the conformance data is green** — all 2 710 of the
+  Consortium's cases, 766 grapheme and 1 944 word, Unicode 17.0.0. Half of 4c's gate is met.
+
+  Sequencing rule 4 applied a second time, and the same bet as the Yoga fixtures: the suite was
+  committed *before* the implementation, excluded from compilation by an ItemGroup whose removal is
+  the next commit's diff. `Tools/Vixen.UnicodeTableGen` produces both the suite and the property
+  tables the implementation reads.
+
+  ⚠ **The finding is a data-modelling one, not a rule one.** `Extended_Pictographic` and
+  `Word_Break` come from different UCD files and *overlap* — U+24C2 is `Word_Break=ALetter` and
+  pictographic at once — so folding them into one sorted range table makes one silently shadow the
+  other, with sort order deciding which. Forty-four cases failed, all containing that one code
+  point. The rules were right the whole time; the mistake was a layer below them, and re-reading
+  UAX#29 would never have surfaced it. **That is what a conformance suite is for.**
+
+  Verified by sabotage: removing regional-indicator pairing fails 6 cases, GB9c fails 16, and WB4 —
+  the rule that makes format characters invisible to every other rule — fails 1 086.
+- Owed: HarfBuzz shaping, bidi, UAX#14 line breaking, MSDF atlas with LRU eviction, font fallback,
+  rich-text runs, `TextEditor` model with IME.
+- Gate: ✅ UAX conformance data green. Owed: shaping golden tests per script.
 
 **4d — Element tree, markup, rendering (1.5 EM)**
 - `Vixen.Ui`: element tree, generated property system, event routing, focus, hit testing, gestures,

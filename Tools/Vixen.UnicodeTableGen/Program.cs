@@ -51,12 +51,27 @@ static class Program {
         var word = ReadProperties(Path.Combine(ucd, "WordBreakProperty.txt"));
         var pictographic = ReadProperties(Path.Combine(ucd, "emoji-data.txt"), "Extended_Pictographic");
 
-        // Extended_Pictographic lives in a different file and is a grapheme *and* word class, so it
-        // is folded into both tables here rather than looked up separately at runtime.
-        grapheme["Extended_Pictographic"] = pictographic["Extended_Pictographic"];
-        word["Extended_Pictographic"] = pictographic["Extended_Pictographic"];
+        // GB9c — the indic conjunct rule — needs a property that lives in neither of the files
+        // above. `InCB` is in DerivedCoreProperties.txt and is written `; InCB; Consonant`, a second
+        // semicolon the range reader has to be told about.
+        var conjunct = ReadProperties(Path.Combine(ucd, "DerivedCoreProperties.txt"), prefix: "InCB");
+
+        // ⚠ Extended_Pictographic gets a table of its own and is *not* folded into the other two.
+        // It comes from a different UCD file and overlaps them: U+24C2 CIRCLED LATIN CAPITAL LETTER M
+        // is Word_Break=ALetter and Extended_Pictographic=Yes at the same time. Merging the ranges
+        // into one class table makes one of the two silently shadow the other — which one depends on
+        // sort order — and the word suite says exactly that, in forty-four cases all containing
+        // U+24C2. A code point has one Word_Break property and separately may or may not be
+        // pictographic; the tables have to say so too.
+        WriteTable(
+            Path.Combine(tables, "ExtendedPictographicTable.g.cs"),
+            "ExtendedPictographicClass",
+            pictographic,
+            version
+        );
 
         WriteTable(Path.Combine(tables, "GraphemeBreakTable.g.cs"), "GraphemeBreakClass", grapheme, version);
+        WriteTable(Path.Combine(tables, "IndicConjunctTable.g.cs"), "IndicConjunctClass", conjunct, version);
         WriteTable(Path.Combine(tables, "WordBreakTable.g.cs"), "WordBreakClass", word, version);
 
         WriteConformance(
@@ -91,7 +106,11 @@ static class Program {
     }
 
     /// <summary>Reads a <c>range ; Property</c> file into ranges per property.</summary>
-    static SortedDictionary<string, List<(int First, int Last)>> ReadProperties(string path, string? only = null) {
+    static SortedDictionary<string, List<(int First, int Last)>> ReadProperties(
+        string path,
+        string? only = null,
+        string? prefix = null
+    ) {
         var properties = new SortedDictionary<string, List<(int, int)>>(StringComparer.Ordinal);
 
         foreach (var raw in File.ReadLines(path)) {
@@ -107,6 +126,18 @@ static class Program {
             }
 
             var name = line[(semicolon + 1)..].Trim();
+
+            if (prefix is not null) {
+                // `0300 ; InCB; Extend` — the property is two fields, and every other line in the
+                // file is a different property entirely.
+                var second = name.IndexOf(';', StringComparison.Ordinal);
+                if (second < 0 || name[..second].Trim() != prefix) {
+                    continue;
+                }
+
+                name = name[(second + 1)..].Trim();
+            }
+
             if (name.Length == 0 || (only is not null && name != only)) {
                 continue;
             }
