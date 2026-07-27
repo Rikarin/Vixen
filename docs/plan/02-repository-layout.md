@@ -309,6 +309,13 @@ Tools/
 └── Vixen.ApiCheck/               # public API surface diffing, run in CI
 ```
 
+**What `Vixen.Cli` has so far, and one correction to the verb list above.** `import`,
+`content build`, `content serve` and `doctor` are built ([README](../../Tools/Vixen.Cli/README.md));
+`new`, `run` and `build` need the SDK package layout and the platform packaging and are absent rather
+than stubbed. `serve` is grouped under `content` rather than sitting at the top level, because
+[08](08-asset-pipeline-and-addressables.md) already writes `vixen content build` and the two commands
+are about the same directory — one noun, its verbs beneath it.
+
 ## `Samples/` and `Benchmarks/`
 
 ```

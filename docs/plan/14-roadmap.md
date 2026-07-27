@@ -507,7 +507,30 @@ the codebase is large enough for it to be expensive to fix.
 - `Vixen.Assets` runtime: `AssetHandle`, ref counting, scopes, label/glob loading, streaming manager.
 - Addressable groups (`.vxgroup`), local + remote providers, `Tools/Vixen.ContentServer`.
 - `Vixen.Sdk` MSBuild integration so `dotnet build` does content builds.
-- `Vixen.Cli` (`new`, `import`, `build`, `run`, `doctor`).
+- 🟡 `Vixen.Cli` — **`import`, `content build`, `content serve` and `doctor` are built; `new`, `run`
+  and `build` are not, and are absent rather than stubbed.** The first four are the whole pipeline
+  from a terminal, which is what the phase's own gates need: an incremental import, a deterministic
+  content build, and a laptop a phone can be pointed at. 19 tests, driving the real parser over a
+  real project on a real disk — including **the determinism gate at the level a person runs it**: two
+  builds of one project, byte for byte, catalog and bundles alike.
+
+  What the CLI made visible rather than invented: nothing had ever loaded a `.vxgroup` from disk (the
+  planner took groups as an argument and only tests supplied them), and nothing had ever written a
+  content build to a directory — every test until now held bundles in memory. Both are the kind of
+  gap that only a tool with a working directory finds.
+
+  Three decisions worth naming. **`content build` imports first**, always, because it is incremental
+  and a build that packed a stale artefact because somebody forgot a step is a bug report about the
+  wrong thing. **The build writes `catalog.bin.hash`** even though `Vixen.ContentServer` synthesises
+  one, because the shipping path is a CDN and a CDN synthesises nothing. And **`doctor` repairs
+  nothing** — it is the first caller of `ScanOptions.ReadOnly`, which was built for exactly this and
+  had none.
+
+  **Owed, with reasons:** `new` needs the `Vixen.Sdk` package layout to scaffold against; `build` and
+  `run` wrap `dotnet publish`, which is [17](17-app-heads-and-shipping.md)'s story and needs the
+  platform packaging that arrives with Android and iOS. `vixen doctor systems` from
+  [04](04-ecs-and-scripting.md) needs a game assembly to load, and the GPU and driver checks would
+  put a graphics dependency in a tool that today needs none.
 - **`Vixen.Platform.Android`** + Vulkan/GLES on device; lifecycle, `AAssetManager`, touch input.
 - **`Vixen.Platform.iOS`** + MoltenVK static; **NativeAOT publish in CI on every PR from here on**.
 - `Samples/07-AddressablesRemote`.
