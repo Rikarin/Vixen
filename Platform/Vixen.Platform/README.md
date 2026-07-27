@@ -83,11 +83,28 @@ refuses to touch one from anywhere else — so hiding it behind a lock would tur
 deadlock. `PlatformEventBuffer.Post` is the exception and is safe from anywhere, because Android's
 lifecycle callbacks arrive on the UI thread and a browser's on the JS thread.
 
+## Two implementation helpers live here, and it is not for convenience
+
+`PlatformEventBuffer` and `StandardFileSystemHost` were the first; `TouchTracker` and
+`MobileLifecycle` are the second pair, and they are here for a sharper reason than sharing.
+
+`Vixen.Platform.iOS` and `Vixen.Platform.Android` **cannot be in `Vixen.slnx`** — a `net10.0-ios` or
+`net10.0-android` project cannot be evaluated without its workload, so its presence breaks
+`dotnet build` for anyone without one. Nothing in either is therefore seen by `Test`, `CheckFormat` or
+`CheckArchitecture`.
+
+So the half that is arithmetic rather than UIKit lives here, where the solution does see it.
+`TouchTracker` turns a `UITouch` address or an Android pointer id into a small stable finger id and
+derives the delta neither platform provides; `MobileLifecycle` is the state machine both drive with
+different vocabulary for the same three states. Both are genuinely shared and both are tested — the
+transitions worth testing being the ones nobody exercises by hand, like a repeated suspend that must
+not raise twice or a memory warning at an unchanged level that must.
+
 ## Still to come
 
-**The implementations.** `Vixen.Platform.Headless` is built;
-[doc 02](../../docs/plan/02-repository-layout.md) lists Desktop, Windows, Linux, MacOS, Android, iOS
-and Web, each of which adds what SDL does not cover well.
+**The rest of the implementations.** Headless, Desktop, Android and iOS are built;
+[doc 02](../../docs/plan/02-repository-layout.md) also lists Windows, Linux, MacOS and Web, each of
+which adds what SDL does not cover well.
 
 **Affinity.** `IProcessorTopology` describes it; pinning a thread is per-OS work that lands with the
 per-OS assemblies, and `SupportsAffinity` reports `false` until then rather than pretending.

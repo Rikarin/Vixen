@@ -623,11 +623,56 @@ the codebase is large enough for it to be expensive to fix.
   leg each; Android is not gated yet, and should be gated on its *default* runtime rather than on
   NativeAOT, which `warning XA1040` calls experimental and not suitable for production — the plan only
   ever committed to NativeAOT for iOS.
-- **`Vixen.Platform.Android`** + Vulkan/GLES on device; lifecycle, `AAssetManager`, touch input.
-- **`Vixen.Platform.iOS`** + MoltenVK static; **NativeAOT publish in CI on every PR from here on**.
+- 🟡 **`Vixen.Platform.iOS`** — built, and not yet run. UIKit behind `IPlatform`: a `CAMetalLayer`-backed
+  view for MoltenVK to present to (a `UIView` cannot be given one after the fact, which is why the view
+  is a type rather than a configured `UIView`), the lifecycle translated into `MobileLifecycle`, and a
+  `CADisplayLink` where a desktop has a `while` loop — `UIApplicationMain` never returns, so there is
+  nowhere to put one, which is the first time doc 17's "every step of the boot path is public" pays
+  for itself. Multi-touch, the soft keyboard with its rectangle read from the system notification
+  rather than guessed, `UIPasteboard` text, `UIAlertController`, battery and thermal state.
+
+  **Refused rather than approximated**, each with the reason in the README: file dialogs (iOS has a
+  document picker returning a security-scoped URL, not a path), clipboard images, gamepads, and
+  hardware keyboard and trackpad.
+- 🟡 **`Vixen.Platform.Android`** — built, and not yet run. A `SurfaceView` giving Vulkan an
+  `ANativeWindow` through `ANativeWindow_fromSurface`, the activity lifecycle, the `Choreographer`
+  driving frames, multi-touch, `AAssetManager` behind an `IFileProvider`, clipboard, soft keyboard,
+  battery and thermal.
+
+  **The ordering on the way down is the design**, and doc 10 said why in advance: the surface is
+  destroyed under a running renderer, and `surfaceDestroyed` may not return until nothing is using it.
+  `OnPause` removes the frame callback first, `OnStop` raises `Suspending` while the window is still
+  valid, and only then does the surface go — so no handshake is needed and no frame is ever in flight
+  across the teardown. `IWindow.Surface` reports `CanPresent` false in between, which is a state an
+  application spends real time in rather than an error.
+
+  **Owed:** the GLES fallback and the device-capability deny-list doc 10 asks for, key translation
+  (`Key` is a physical position by contract and Android's keycodes are a mix of positions and labels,
+  so the table is the easy part), safe-area insets, and sensors.
+
+  > **Neither can be in `Vixen.slnx`, and that costs something worth naming.** A `net10.0-ios` or
+  > `net10.0-android` project cannot be *evaluated* without its workload — not built, evaluated — so
+  > either one in the solution breaks `dotnet build` outright for a developer or a CI leg without it,
+  > and iOS additionally needs macOS and Xcode. `nuke CompileMobile` builds them instead, skipping the
+  > iOS half off macOS rather than failing. The cost is that neither is seen by `Test`, `CheckFormat`,
+  > `CheckArchitecture` or `Pack`.
+  >
+  > **Which is why the testable half is not in them.** The finger bookkeeping (`TouchTracker`) and the
+  > lifecycle state machine (`MobileLifecycle`) are in `Vixen.Platform`, where the solution does see
+  > them, with 19 tests. That is not a workaround: both are genuinely shared — UIKit identifies a touch
+  > by an object address and Android by a renumbering pointer index, and neither is a number an
+  > application should see — and the transitions worth testing are the ones nobody exercises by hand,
+  > like a repeated suspend that must not raise twice or a memory warning at an unchanged level that
+  > must.
+- **NativeAOT publish in CI on every PR from here on** — the gate exists (`nuke CheckAotIos`); the CI
+  leg does not.
 - `Samples/07-AddressablesRemote`.
 
-**Exit:** `Samples/01` runs on a physical Android device and a physical iPhone. iOS NativeAOT publish
+**Exit:** `Samples/01` runs on a physical Android device and a physical iPhone. Both platform
+assemblies now exist and compile; what is missing between here and that sentence is an application
+head for each — a game's `UIApplicationDelegate` and `Activity` are two small classes, but the bundle
+around them (`Info.plist`, `AndroidManifest.xml`, icons, packaging) is not written, and neither is a
+sample that uses them. iOS NativeAOT publish
 with **zero** trim/AOT warnings. Content build determinism gate green across three OSes. Remote content
 update fetches only changed bundles (asserted by byte count). Incremental import of one texture < 1 s
 in a 10 k-asset fixture project.
