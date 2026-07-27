@@ -108,6 +108,33 @@ surviving a crash rather than an exception; this is the in-process half of the s
 The sidecar is written back through the node tree, so an import is a diff of the two lines it changed
 and not of the whole file.
 
+## Deciding is parallel; importing is not
+
+In a project where nothing has changed, the entire cost of an import is deciding that: a sidecar read,
+a parse, a hash of the source, a lookup in the cache. None of it writes anything, so `ImportAllAsync`
+does all of it at once and then imports, sequentially, only what needs it. On a ten-thousand-asset
+project that was the difference between missing this phase's one-second budget by half and meeting it.
+
+The imports themselves stay sequential and every semantic stays exactly as it was: one importer at a
+time, writing chunks, sidecars and cache records, in path order. Running *importers* in parallel is
+what doc 08's out-of-process worker is for, and it buys crash isolation along the way.
+
+**A decision is discarded if something it depends on re-imported first.** A dependency's artefact ids
+are part of a dependent's key, so a decision taken before that dependency ran was taken against ids
+that no longer exist. Without that rule everything still converges — one run later — which is exactly
+"I changed the texture and the material did not update until I imported twice".
+
+**An asset's own source is hashed once, not twice.** It is in the declared file dependencies, because
+the importer is allowed to read it, and it is `sourceHash` in its own right — so the key computation
+was opening and reading every source file in the project a second time on every run. The already
+computed hash is handed to the dependency walk instead, which keeps the key bit-for-bit what it was
+rather than dropping a contributor and invalidating every artefact in existence.
+
+**Settings are bound after the cache check, not before.** A cache hit needs the settings' *hash*, not
+the settings, and the object was being built for every asset on every run to be thrown away. It costs
+no safety: a record only exists because an import succeeded, so settings that still hash the same
+still bind.
+
 ## Planning a build
 
 `BuildPlanner` is the step between "every asset has been imported" and "there is a build". Imports

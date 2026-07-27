@@ -149,6 +149,40 @@ public sealed class ImportPipelineTests : IDisposable {
     }
 
     /// <summary>
+    ///     <b>A dependent re-imports in the same run as the dependency it follows.</b> Deciding what
+    ///     to import happens for the whole project at once and in parallel, before anything runs — so
+    ///     a decision taken about an asset whose dependency then re-imported was taken against
+    ///     artefact ids that no longer exist, and has to be thrown away. This is the row that
+    ///     parallelism could quietly break: everything would still converge, one run late, which is
+    ///     "I changed the texture and the material did not update until I imported twice".
+    /// </summary>
+    [Fact]
+    public async Task ADependentIsReimportedInTheSameRunAsItsDependency() {
+        Write("Assets/a-palette.pal", "the palette");
+        Write("Assets/b-material.pal", "the material");
+
+        var database = Database();
+        var palette = Entry(database, "Assets/a-palette.pal");
+
+        var pipeline = new ImportPipeline(
+            database,
+            Registry(new PaletteImporter { DependsOnAsset = palette.Guid }),
+            Artifacts(),
+            Files()
+        );
+
+        await pipeline.ImportAllAsync(TestContext.Current.CancellationToken);
+
+        // The palette changes; the material declared a dependency on it and nothing else moved.
+        Write("Assets/a-palette.pal", "the palette, repainted");
+
+        var outcomes = await pipeline.ImportAllAsync(TestContext.Current.CancellationToken);
+        var material = outcomes.Single(outcome => outcome.Asset == Entry(database, "Assets/b-material.pal").Guid);
+
+        Assert.False(material.WasCached, "the material follows the palette and the palette moved");
+    }
+
+    /// <summary>
     ///     The same asset for two targets is two cache entries. A texture is BC7 on a desktop and
     ///     ASTC on a phone, and sharing one entry would ship the wrong one.
     /// </summary>
