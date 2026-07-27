@@ -84,8 +84,13 @@ manifest ([doc 10](../../docs/plan/10-platforms.md) § Native binaries, R10). Mo
 is in it. Jolt, HarfBuzz, SPIRV-Cross, astcenc and Recast are not, and the `.zip` and `.tar.gz` paths
 have not yet met a real dependency.
 
-**`Vixen.Platform.Desktop` still uses its own SDL loading.** `Vixen.Graphics.Vulkan` is wired up;
-that one is not, and works today because it is not published ahead of time. It is the remaining call
-site.
+**Both call sites are wired up.** `Vixen.Graphics.Vulkan` and `Vixen.Platform.Desktop` load through
+this project and construct their Silk.NET API over the handle, so neither `Vk.GetApi()` nor
+`Sdl.GetApi()` is called and Silk's `DefaultPathResolver` is not in the graph at all. Rooting both in
+`nuke CheckAot` reports **zero** IL3000/IL3002. Each was checked by putting its `GetApi()` back, which
+brings six straight back.
+
+**No suppression has been taken, anywhere in the repository.** That was the expected cost of clearing
+this gate and it turned out not to be owed.
 
 Licensed under Apache-2.0.
