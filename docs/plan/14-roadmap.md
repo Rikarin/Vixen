@@ -1150,8 +1150,45 @@ sub-piece has its own gate.
   at all, because ExCSS validates as it parses. The test had to go through inline declarations
   *and* use a value that parses but is not a length. **A test that cannot reach the code it names
   passes for the wrong reason**, which is the third time this phase that has come up.
-- `Vixen.Ui`: element tree, generated property system, event routing, focus, hit testing, gestures,
-  draw list, batching, clipping, path rendering, virtualisation primitive, multi-window, DPI.
+- ✅ **The element tree and the frame pass.** `UiElement` and `UiDocument`: a tree registered with
+  both the style tree and the layout tree, and the four walks that turn a stylesheet into rectangles.
+  Three subsystems built and tested apart now run together, and it is the first thing in this phase
+  that can be judged by looking at it rather than by a conformance suite.
+
+  Elements are **classes**, which is the departure from the rest of the engine doc 09 argues for: a
+  UI node has identity, virtual behaviour and handlers, and there are 10⁴ of them rather than 10⁶.
+  The struct-of-arrays discipline stays where the loops are — the layout store, and later the draw
+  list — and `UiElement` holds no geometry and no style of its own, only handles into the two stores
+  that do.
+
+  **An unchanged document does no work on the next frame, and one changed class rebuilds one
+  element.** That is what interning `ComputedStyle` buys, and `StylesApplied` reports the count
+  because a claim about work avoided that cannot be measured is a claim nobody can check. ⚠ The
+  resolved font size has to be part of that test as well as the style: an element whose own
+  declarations did not change still needs rebuilding when an ancestor's font size did, and its
+  computed style is the same interned object, so a check on the style alone skips it.
+
+  ⚠ **A real finding about the cascade: it inherits *specified* values, and CSS inherits *computed*
+  ones.** A child inheriting the text `font-size: 1.5em` resolves that `em` against its own parent a
+  second time, so a size meant to apply once compounds at every level — two deep is 2.25× where CSS
+  says 1.5×, and the error grows with depth. CSS avoids it by computing `font-size` to an absolute
+  length before anyone inherits it, so **`font-size` is removed from `InheritedProperties` and
+  inherited in computed form by `Vixen.Ui`**, which is both what CSS means and simpler than what was
+  there. Owed: the same gap stays open for `line-height`, `letter-spacing`, `word-spacing` and
+  `text-indent`, where an inherited relative unit measures against the descendant's font size — the
+  error is bounded at one level there because none of them feeds back into its own unit, and the
+  general fix is a computed-value stage in the cascade.
+
+  Verified by sabotage: inheriting `font-size` as a specified value again fails 2, testing the
+  computed style without the font size fails 1, letting a resize mark the document dirty without
+  forgetting what was applied fails 1 — every `vw` keeps its old value while the window visibly
+  changes size — and building against the parent's font size rather than the element's fails 3.
+
+  ⚠ **The tree is append-only**, because `StyleTree` is: elements are created parents-first and never
+  removed. Enough to lay out a document and not enough to run an application. Owed with the rest.
+- Owed in `Vixen.Ui`: generated property system, event routing, focus, hit testing, gestures,
+  draw list, batching, clipping, path rendering, virtualisation primitive, multi-window, DPI,
+  and element removal.
 - `Vixen.Ui.Markup`: VXML lexer/parser on `Vixen.Core.Syntax`, binder, emitter, `#line` mapping.
 - `Vixen.Ui.HotReload`: three reload channels, keyed reconciliation, `[HotReloadState]`.
 - UI render feature integrated into the renderer.

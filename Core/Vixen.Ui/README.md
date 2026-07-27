@@ -1,12 +1,13 @@
 # Vixen.Ui
 
-The UI framework proper. Right now it is one thing: **the step between the cascade and layout**.
+The UI framework proper: an element tree, the stylesheets that describe it, and the pass that turns
+one into geometry.
 
 `Vixen.Ui.Styling` decides which declaration wins without knowing what a length measures.
 `Vixen.Ui.Layout` measures without knowing where its numbers came from. Neither references the other,
 which is what keeps a flexbox engine usable without a stylesheet and a cascade testable without a
-layout — and it leaves a gap that something has to close. This is that something, and it is the first
-thing doc 09 says `Vixen.Ui` owes.
+layout — and it leaves a gap that something has to close. This closes it, and then puts a tree on
+top.
 
 ## State
 
@@ -14,8 +15,31 @@ thing doc 09 says `Vixen.Ui` owes.
 |---|---|
 | `LengthContext` | What a relative length is relative to: the element's font size, the root's, the viewport. |
 | `LayoutStyleBuilder` | `ComputedStyle` → `LayoutStyle`. Every layout-affecting property, the nine CSS edges, and the font-size chain. |
-| Element tree, property system, event routing | ⏳ |
+| `UiElement` | One node. A class, holding no geometry and no style — a handle into the two stores that do. |
+| `UiDocument` | The tree, its stylesheets, and the four-walk pass. |
+| Property system, event routing, hit testing | ⏳ |
 | Draw list, batching, clipping | ⏳ |
+
+## The pass
+
+Four walks, and they cannot be merged. The cascade needs parents resolved before children because
+inheritance reads the parent's resolved table. Font size needs the same order for the same reason and
+cannot fold into the cascade, because it is a *computed* value the cascade has no opinion about. The
+layout style depends on the font size. And layout is the flexbox algorithm, which is not a walk.
+
+**An unchanged document does nothing on the next frame**, and one changed class rebuilds one element.
+That is what `ComputedStyle` being interned buys: two elements that resolved alike hold the same
+object, so the test is a pointer comparison rather than a walk of a property table. `StylesApplied`
+reports the count, because a claim about work avoided that cannot be measured is a claim nobody can
+check.
+
+⚠ The font size has to be part of that test as well as the style. An element whose own declarations
+did not change still needs rebuilding when an ancestor's font size did, because every `em` on it
+measures against a different number now — its computed style is the same interned object, so a check
+on the style alone skips it and `2em` keeps meaning twenty pixels while the text around it doubles.
+
+⚠ **The tree is append-only**, because `StyleTree` is. Elements are created parents-first and never
+removed. Enough to lay out a document, not enough to run an application; removal is owed.
 
 ## What the bridge is for
 
@@ -62,6 +86,19 @@ follow rather than to drop the exponent.
 splits on whitespace sees one token. Read here rather than by teaching `StyleValueParser` that `/`
 separates values — it does in CSS, but making it a general separator changes how every shorthand
 parses.
+
+⚠ **This cascade inherits specified values; CSS inherits computed ones.** A child inheriting the text
+`font-size: 1.5em` resolves that `em` against its own parent a second time, so a size meant to apply
+once compounds at every level — two deep comes out at 2.25× where CSS says 1.5×, and the error grows
+with depth. CSS avoids it by computing `font-size` to an absolute length before anyone inherits it,
+so `font-size` was removed from `InheritedProperties` and is inherited here in computed form instead.
+An element that declares none simply keeps its parent's resolved pixel size, which is both what CSS
+means and simpler than what was there.
+
+The same gap stays open, narrowly, for the other inherited properties that take relative units —
+`line-height`, `letter-spacing`, `word-spacing`, `text-indent`. None of them feeds back into the unit
+it is written in, so the error is bounded at one level rather than growing. The general fix is a
+computed-value stage, recorded in doc 14.
 
 **And relative units belong in `StyleValue` after all.** They were deliberately left out, on the
 argument that resolving them needs a context that does not exist at parse time. That was right about
