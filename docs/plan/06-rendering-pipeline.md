@@ -36,6 +36,34 @@ The three ideas worth keeping verbatim:
 3. **`GraphicsCompositor` is an asset.** The frame's structure is data the user edits, not code. That
    is what makes "swap forward for deferred" a project setting rather than a fork.
 
+### ✅ Status: all three are built
+
+`Core/Vixen.Rendering` holds the spine: `RenderObjectStore` (flat, dense, stable ids),
+`RenderDataHolder` (per-feature SoA arrays in native memory), `RootRenderFeature`/`SubRenderFeature`,
+`RenderView`/`RenderStage`, `VisibilityGroup` (parallel CPU frustum culling) and `RenderSystem`
+driving extract → cull → prepare → sort. What is not built is **recording** — it needs the effect
+system, which needs `ParameterCollection`.
+
+Three things the implementation settled that the sketch above leaves open:
+
+- **The phase order is a data dependency.** Culling needs everything extracted or a late object is
+  tested against a stale bitset; preparation needs culling or it loses its point; sorting needs
+  preparation because a feature's sort group may be what preparation resolved. Reordering any pair
+  gives a frame that is quietly wrong rather than one that fails, which is why the order is stated in
+  the code rather than left to the caller.
+- **Culling parallelises over objects, not views**, and the batch size is a multiple of 64. A frame
+  has a handful of views and tens of thousands of objects, so splitting by view leaves most threads
+  idle — and since a `ulong` holds 64 objects' bits, whole-word batches are what make the parallel
+  path need no lock and no atomic anywhere.
+- **The sort key puts grouping above depth in one 64-bit comparison.** That is what makes a
+  front-to-back sort also a state-change-minimising one. Sorting purely by depth makes a scene
+  *slower the better it is culled*, because the draw order stops correlating with pipeline state; a
+  transparent stage leaves grouping out entirely, because reordering blended draws changes the image.
+
+A settled frame of 10 000 objects through extract → cull → sort **allocates nothing**, asserted by
+test — the guard against a change that starts allocating per object per frame and surfaces months
+later as a GC spike nobody can attribute.
+
 Vixen keeps all three, with these changes:
 
 - Extraction, culling, and command recording are **job-system parallel by default** rather than

@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Rendering</RootNamespace>
+        <Description>
+            The render system: scene data extracted once per frame into flat arrays, culled per
+            view, sorted per stage, and recorded in parallel. Stride's RenderObject/RenderNode
+            model with per-feature data held in structure-of-arrays native memory.
+        </Description>
+        <PackageTags>rendering;render-graph;culling;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Collections\Vixen.Core.Collections.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Memory\Vixen.Core.Memory.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
+        <ProjectReference Include="..\Vixen.Graphics\Vixen.Graphics.csproj" />
+        <ProjectReference Include="..\Vixen.Shaders\Vixen.Shaders.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Rendering.Tests" />
+    </ItemGroup>
+
+</Project>

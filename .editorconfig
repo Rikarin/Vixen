@@ -317,3 +317,20 @@ dotnet_diagnostic.CS1591.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [**/*Components.cs]
 dotnet_diagnostic.CA1051.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Rendering/RenderObject.cs
+#
+# CA1051 (do not declare visible instance fields). The same reasoning as the ECS
+# components above, arrived at from the other end: `system.Objects[id].Bounds =
+# …` writes through a `ref` into a NativeArray, and a property returning a copy
+# would silently drop the write. `RenderObject` is one element of the array the
+# culling loop walks for every object in the scene, so it is a data layout rather
+# than an API surface — and a layout cannot have validation, because nothing
+# calls anything when a byte in native memory changes.
+#
+# Scoped to the one file that declares it. Everything else in the project, this
+# type's own methods included, still answers to the rule.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Rendering/RenderObject.cs]
+dotnet_diagnostic.CA1051.severity = none

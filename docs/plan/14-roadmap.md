@@ -1131,9 +1131,11 @@ scroll/focus/selection. A `DockingHost` layout round-trips through serialisation
 - `Raven/Library`: ✅ the full shader library from [07](07-raven-shader-pipeline.md) — Core, Shading,
   Geometry, Material, Pipeline, PostFx, Ui, Vfx — every shader reaching both backends under `glslc`
   and `spirv-val`.
-- `Vixen.Rendering`: `RenderSystem`, `RenderObject`/`RenderNode`, root + sub render features
-  (mesh, transform, skinning, instancing, material, lighting, shadow-caster), `VisibilityGroup` with
-  parallel and GPU culling, `RenderView`/`RenderStage`, `GraphicsCompositor` as an asset, sort modes.
+- `Vixen.Rendering`: ✅ **the spine** — `RenderSystem`, `RenderObject`/`RenderNode`, the
+  root/sub render-feature extension points, `VisibilityGroup` with parallel CPU culling,
+  `RenderView`/`RenderStage`, sort modes. Still open: the concrete features (mesh, transform,
+  skinning, instancing, material, lighting, shadow-caster), GPU culling, and `GraphicsCompositor` as
+  an asset.
 - Materials: the composable feature tree, metallic-roughness + spec-gloss, all BSDF layers from
   [06](06-rendering-pipeline.md), layering, cel shading.
 - Lighting: all light types, clustered binning, IBL (prefiltered + SH), light probes, reflection probes.

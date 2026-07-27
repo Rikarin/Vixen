@@ -104,7 +104,7 @@ Core/
 ├── Vixen.Shaders/                      # ✅ param keys + std140 writers; effect system still open
 ├── Vixen.Shaders.Generators/           # ✅ source generator: Raven reflection → C# keys ──
 ├── Vixen.Shaders.Tests/
-├── Vixen.Rendering/                    # render system, features, stages, materials, lights, shadows
+├── Vixen.Rendering/                    # ✅ objects, features, views, stages, culling, sorting
 ├── Vixen.Rendering.Tests/
 ├── Vixen.Rendering.PostFx/             # post-processing chain (own project: heavy, optional)
 ├── Vixen.Rendering.PostFx.Tests/
