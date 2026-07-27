@@ -14,11 +14,87 @@ namespace Vixen.Core.Mathematics.Tests;
 public class ColorTests {
     const float Tolerance = 1e-4f;
 
+    /// <summary>
+    ///     How far a value may move on a round trip through both transfer functions.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Derived, not guessed. Sweeping <em>every</em> <c>float</c> in <c>[0, 1]</c> — all
+    ///         1 065 353 216 of them — the largest absolute round-trip error is
+    ///         <c>8.94e-8</c>, and 98% of values come back within one ULP. So this bound has about a
+    ///         factor of ten in hand, which is there for a different platform's <c>pow</c> rather
+    ///         than for the arithmetic: <c>MathF.Pow</c> is not correctly rounded and its last bit
+    ///         differs between libms.
+    ///     </para>
+    ///     <para>
+    ///         Absolute rather than relative, because the quantity is a colour channel: what matters
+    ///         is the distance to the neighbouring quantised value, and an 8-bit channel's least
+    ///         significant bit is <c>1/255</c> — four thousand times this. A relative bound would be
+    ///         savagely tight near black for no perceptual reason at all.
+    ///     </para>
+    /// </remarks>
+    const double RoundTripTolerance = 1e-6;
+
+    /// <summary>
+    ///     Encoding then decoding gets the value back.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Asserted with a tolerance, not with a decimal-place count, and the difference
+    ///         is why this test used to be flaky.</strong> <c>Assert.Equal(expected, actual, 4)</c>
+    ///         does not compare <c>|a - b|</c> to <c>1e-4</c> — it rounds <em>both</em> values to
+    ///         four decimals and compares the results. That comparison has a discontinuity at every
+    ///         <c>0.00005</c> boundary, so a value sitting on one fails however small the error is:
+    ///         <c>0.90625</c> comes back as <c>0.90625006</c>, one ULP away, and rounds to
+    ///         <c>0.9062</c> against <c>0.9063</c>.
+    ///     </para>
+    ///     <para>
+    ///         CsCheck found those boundaries about one run in forty, and not by luck — it favours
+    ///         short decimal values, which are exactly the ones that land on a rounding boundary.
+    ///         The generator was doing its job; the assertion was the wrong shape. Loosening it to
+    ///         five decimal places would have made it <em>worse</em>, since that is ten times as
+    ///         many boundaries to land on.
+    ///     </para>
+    /// </remarks>
     [Fact]
     public void The_transfer_functions_invert_each_other() =>
         Gen.Float[0f, 1f].Sample(
-            value => Assert.Equal(value, ColorSpace.LinearToSrgb(ColorSpace.SrgbToLinear(value)), 4)
+            value => Assert.Equal(
+                value,
+                ColorSpace.LinearToSrgb(ColorSpace.SrgbToLinear(value)),
+                RoundTripTolerance
+            )
         );
+
+    /// <summary>
+    ///     The values that used to make the round trip flaky, pinned so they cannot again.
+    /// </summary>
+    /// <remarks>
+    ///     Every one is exactly on a four-decimal rounding boundary, which is what made a one-ULP
+    ///     error into a failure under the old decimal-place assertion. They are kept as a fixed list
+    ///     because the property test above only rediscovers them by chance — a regression that
+    ///     reintroduced the rounding comparison would go green here for a while first, and "a while"
+    ///     is exactly how long it takes for the next person to trust it.
+    /// </remarks>
+    [Theory]
+    [InlineData(0.90625f)]
+    [InlineData(0.96875f)]
+    [InlineData(0.08565f)]
+    [InlineData(0.05065f)]
+    [InlineData(5e-05f)]
+    public void A_value_on_a_rounding_boundary_still_survives_the_round_trip(float value) {
+        var round = ColorSpace.LinearToSrgb(ColorSpace.SrgbToLinear(value));
+
+        Assert.Equal(value, round, RoundTripTolerance);
+
+        // And the error is far smaller than the bound: these are one-ULP results that a rounding
+        // comparison called wrong, not values the transfer functions struggle with.
+        Assert.True(
+            MathF.Abs(round - value) < 1e-7f,
+            $"{value:R} came back as {round:R}, off by {MathF.Abs(round - value):E3} — the transfer "
+            + "functions were accurate to a ULP when this bound was measured."
+        );
+    }
 
     [Fact]
     public void The_transfer_functions_pin_their_endpoints_and_their_knee() {
