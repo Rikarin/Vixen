@@ -75,10 +75,6 @@ one** for the chunk a content build bakes — and a shipping runtime that loads 
 never links a parser. A test round-trips the document through `Serializer` and draws the same frame
 out the far side.
 
-Every member of that model is settable rather than init-only, and it is worth writing down why: the
-generated binary serializer constructs and then assigns, so an `init` member is one it silently
-leaves at its default — a baked compositor that reads back empty. It cost a test to find.
-
 Three things the implementation settled that the sketch above leaves open:
 
 - **The phase order is a data dependency.** Culling needs everything extracted or a late object is

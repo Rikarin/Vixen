@@ -374,11 +374,6 @@ uses, and the **binary one** for the chunk a content build bakes. The runtime re
 never links a parser — asserted by round-tripping a document through `Serializer` and drawing the
 same frame out the far side.
 
-Every member of the model is settable rather than init-only, and that is not an oversight: the
-generated binary serializer constructs and then assigns, so an `init` member is one it silently
-leaves at its default — a baked compositor that reads back empty. It cost a test to find and is
-written down where the model is.
-
 ## What is not here yet
 
 Blend shapes, area lights, and clustered light culling on the CPU side (the shader half,
