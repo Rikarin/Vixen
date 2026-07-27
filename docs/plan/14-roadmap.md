@@ -2114,13 +2114,55 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
 - Identity and spawning: `NetworkId`, prefab ids derived from asset GUIDs, build-time-baked ids for
   scene-placed objects, ownership with transfer.
 - **`NetworkRules`** policy assets (`.vxnetrules`) — spawn/despawn/call/observe/write permissions.
-- `Vixen.Net.Generators`: RPC senders (the `Rpc.Method(...)` accessor pattern — see
-  [16](16-networking.md) on why we do not weave IL), manifest with stable hashed ids, serializers, delta
-  serializers, quantizers, networked-type registry.
-- Replication: per-connection baselines + acks, delta encoding over the ECS `.WithChanged(sinceTick)`
-  query, bit packing, `[Quantize]`, `SyncVar<T>`/`SyncList<T>`/`NetworkModule`, bandwidth budget with
-  priority shedding.
-- Interest management: scene scope, explicit overrides, distance grid, `NetworkLOD` rate falloff.
+- ✅ **Replication, and the generator that writes its serializers.** 51 further tests; 204 across the
+  networking projects in total.
+
+  Bit packing first, because everything above it is built on it: `BitWriter`/`BitReader` over
+  caller-owned spans, and `QuantizeRange`, which is the `[Quantize]` declaration as a value. A
+  position to three centimetres over a two-kilometre range is sixteen bits rather than
+  thirty-two, and — the actual point — the precision is *declared at the field* rather than being
+  whatever `float` happens to be, with `MaxError` saying what was given up.
+
+  Replication itself rests on four decisions. **Capture once, copy many**: reading, quantizing and
+  packing a component happens once a tick, and a connection's snapshot is a copy of those bits, so
+  fifty players cost fifty memcpys and one encode. **Two filters, cheap then exact**: the ECS's
+  per-chunk change versions say which chunks are worth looking at — the structural payoff
+  [16](16-networking.md) claims for having built an ECS with them — and a hash of the encoded value
+  says which entities within them actually differ. **Acknowledged, not sent**: nothing enters a
+  connection's baseline until an ack for its tick returns, so on loss the next snapshot is computed
+  against the older baseline and the client gets the *current* value rather than a retransmission of
+  a stale one. **The budget sheds rather than truncating**: records go out in priority order and the
+  writer is rewound if one would go over, so a snapshot is always a whole number of complete records
+  and a shed takes the same path out as a loss.
+
+  Two things the first working version got wrong, both worth recording. The wire carried the 32-bit
+  type hash per record, which is five bytes as a variable-length integer on every record of every
+  tick — the size assertion on a one-field update is what gave it away. It now carries a position in
+  a manifest ordered by hash, with the hash kept as the stable identity and `ManifestHash` as the one
+  number two peers compare. And the capture's change-version comparison is off by one if the world's
+  version advances between a write and the capture that should see it: the update is simply never
+  sent, and nothing reports an error. The ordering rule is now stated on `Capture` and asserted.
+
+  `Vixen.Net.Generators` emits the `IComponentReplicator` for each `[Replicated]` struct and the
+  closed-set registration for the assembly. It has to be generated rather than reflected — iOS is
+  NativeAOT and reflecting over a struct's fields is what trimming removes — and rather than woven,
+  which ADR-002 bans. The claim that it emits what a careful person would have written is a test:
+  the test project declares a component, hand-writes its replicator, and asserts the two produce
+  **the same bits**. Four diagnostics (`VXNET1001`–`1004`), an error emitting nothing for that
+  component, and an assertion against Roslyn's own recorded reasons that an unrelated edit re-runs
+  nothing.
+
+  **Owed:** field-level delta against a stored previous value — the delta granularity today is the
+  component, which the change versions give exactly and cheaply. `SyncVar<T>`/`SyncList<T>`/
+  `NetworkModule`, which are the behaviour-facing authoring style over the same mechanism. RPC
+  senders and the manifest, which need an RPC runtime that does not exist yet. And packaging the
+  generator into the `Vixen.Net` package the way `Vixen.Ui` carries its own — today a project takes
+  it through a `ProjectReference`.
+- Interest management: ✅ the resolver seam and the default. `IInterestResolver` is what decides which
+  entities a player is told about, and `ReplicateEverythingResolver` is what a new project gets —
+  a deliberate ergonomics choice rather than a placeholder, so a prototype works before anyone has
+  thought about it. **Owed:** scene scope, explicit overrides, the distance grid and `NetworkLOD`,
+  which are resolvers to write against a seam that now exists.
 - Motion: snapshot interpolation, clamped extrapolation, `NetworkTransform`, owner-side smoothing.
 - Lag compensation: transform/collider history ring + rewound Jolt shape casts. **Deferred within the
   phase.** It is the one item here that cannot start: it rewinds colliders, and `Vixen.Physics` is

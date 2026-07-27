@@ -107,6 +107,8 @@
     <Project Path="Core/Vixen.Ui.HotReload/Vixen.Ui.HotReload.csproj" />
     <Project Path="Core/Vixen.Ui.HotReload.Tests/Vixen.Ui.HotReload.Tests.csproj" />
     <Project Path="Core/Vixen.Net/Vixen.Net.csproj" />
+    <Project Path="Core/Vixen.Net.Generators/Vixen.Net.Generators.csproj" />
+    <Project Path="Core/Vixen.Net.Generators.Tests/Vixen.Net.Generators.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Tests/Vixen.Net.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Transport.Local/Vixen.Net.Transport.Local.csproj" />
     <Project Path="Core/Vixen.Net.Transport.Local.Tests/Vixen.Net.Transport.Local.Tests.csproj" />

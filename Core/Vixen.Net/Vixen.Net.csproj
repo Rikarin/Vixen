@@ -18,6 +18,17 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!--
+            Replication is the reason: it queries the world's per-chunk change versions directly,
+            which is the structural payoff doc 16 names for having built an ECS with them. Nothing
+            below Vixen.Engine may reference this package in return — the layer rules in doc 00 run
+            one way.
+        -->
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Net.Tests" />
     </ItemGroup>
 

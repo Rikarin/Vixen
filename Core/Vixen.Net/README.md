@@ -13,9 +13,10 @@ land on top of these and are not built yet; see the roadmap for what is owed.
 ```
 Vixen.Net              Channel · ConnectionId · DisconnectReason · Tick
 Vixen.Net.Transport    ITransport · ITransportEvents · NetworkSimulation
-Vixen.Net.Messaging    PacketWriter · PacketReader
+Vixen.Net.Messaging    PacketWriter · PacketReader · BitWriter · BitReader · QuantizeRange
 Vixen.Net.Time         TickRate · TickManager · RoundTripEstimator
 Vixen.Net.Sessions     NetworkSession · NetworkPlayer · PlayerId · ISessionAuthenticator
+Vixen.Net.Replication  NetworkId · [Replicated] · [Quantize] · ReplicationServer/Client
 ```
 
 ## Three rules the transport contract is built on
@@ -149,6 +150,51 @@ Four decisions worth knowing:
   host's own client half does the same handshake through the loopback that a remote client does over
   a socket. `StartOffline` is mechanically identical and differs only in what the game means by it:
   single player is a one-player multiplayer game, and there is no offline path to rot.
+
+## Replication
+
+The server turns its world into a snapshot per connection, once a tick:
+
+```csharp
+replication.Capture(world);                       // read and encode what changed — once
+foreach (var player in session.Players) {
+    if (replication.TryWriteSnapshot(world, player.Id, session.Tick, buffer, out var snapshot)) {
+        session.SendToPlayer(player.Id, snapshot, Channel.Unreliable);
+    }
+}
+```
+
+Four things carry it.
+
+**Capture once, copy many.** Reading a component, quantizing it and packing it happens once a tick;
+a connection's snapshot is a copy of those bits for the values it does not already have. Fifty
+players cost fifty memcpys and one encode.
+
+**Two filters, cheap then exact.** The ECS's per-chunk change versions say which chunks are worth
+looking at — that is the structural reason for having built an ECS with them — and a hash of the
+encoded value says which entities in those chunks actually differ from what a connection has
+*acknowledged*.
+
+**Acknowledged, not sent.** A value that was sent may be in a packet that never arrived, so nothing
+enters a connection's baseline until an ack for its tick comes back. The consequence is the one that
+is easy to get wrong: on loss the next snapshot is computed against the older baseline, so the client
+gets the *current* value rather than a retransmission of a value that is stale by now.
+
+**The budget sheds, it does not truncate.** Records go out in priority order and the writer is
+rewound if one would take the snapshot over budget, so a snapshot is always a whole number of
+complete records. What was shed was never acknowledged, so it goes in the next one — a shed and a
+loss take the same path out.
+
+⚠ **The world's version must not advance between a write and the capture that should see it.**
+Advance–write–capture, or write–capture–advance. Advancing in between puts the write on the far side
+of the comparison and the client never learns about it, with nothing reporting an error.
+
+Components declare themselves, and `Vixen.Net.Generators` writes the code:
+
+```csharp
+[Replicated(Channel = Channel.Unreliable, Priority = 10)]
+struct Position { [Quantize(-1000f, 1000f, 16)] public float X, Y, Z; }
+```
 
 ## Testing
 

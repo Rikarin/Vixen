@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            Both an analyzer and a reference, deliberately. As an analyzer it runs over the
+            components declared in this project, so the end-to-end test compares generated code
+            against a hand-written replicator by running both rather than by reading them. As a
+            reference it can be constructed directly, which is what the diagnostic and incrementality
+            tests drive through CSharpGeneratorDriver.
+        -->
+        <ProjectReference Include="..\Vixen.Net.Generators\Vixen.Net.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="true" />
+
+        <!-- The runtime the generated code calls. -->
+        <ProjectReference Include="..\Vixen.Net\Vixen.Net.csproj" />
+        <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
+    </ItemGroup>
+</Project>
