@@ -372,6 +372,18 @@ the codebase is large enough for it to be expensive to fix.
   BC3, BC4, BC5, BC7 and BC6H encoders, and the split-sum IBL pieces — SH-9 irradiance projection,
   GGX cubemap prefiltering and the DFG lookup table. 146 tests.
 
+- ✅ `TextureImporter`, the first real importer: `IImageDecoder`, StbImageSharp and KTX2 decoders,
+  and settings that say what a texture's bytes mean — which decides the transfer function, the mip
+  filter's variant and the compressed format together. 63 tests in `Vixen.Editor.Assets.Tests`.
+
+> **Doc 01's ImageSharp decision did not survive contact and is corrected there.** ImageSharp 4.0.0
+> fails the build without a purchased licence key — an error from its own targets file, before any
+> code compiles. A repository people are meant to clone and build cannot require that, so
+> `Vixen.Editor.Assets` took doc 01's own stated fallback and uses `StbImageSharp`, which is public
+> domain. The swap cost one class: nothing in the importer, the pipeline or the tests moved, which is
+> `IImageDecoder` earning itself on its first day. Coverage shifted rather than shrank — Radiance HDR
+> arrived, `.exr`, `.tif` and `.webp` left.
+
 > **Two boundaries in this assembly are worth stating in the plan rather than only in its README.**
 >
 > **ASTC and ETC2 have no managed encoder and are not getting one.** Doc 03 already said native was
