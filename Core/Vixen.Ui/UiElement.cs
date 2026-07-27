@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
 using Vixen.Ui.Layout;
 using Vixen.Ui.Styling;
 
@@ -199,6 +200,9 @@ public partial class UiElement {
 
     /// <summary>Its top edge in document space.</summary>
     public float AbsoluteTop { get; internal set; }
+
+    /// <summary>Where it is in document space, after the last layout pass.</summary>
+    public Rectangle Bounds => new(AbsoluteLeft, AbsoluteTop, Width, Height);
 
     /// <summary>Whether a pointer can land on it. <c>pointer-events: none</c> makes it false.</summary>
     /// <remarks>

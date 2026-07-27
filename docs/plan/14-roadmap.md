@@ -1292,9 +1292,36 @@ sub-piece has its own gate.
   not — state is only read during `Update`, which cannot run part-way through the method, so nothing
   can observe the intermediate. The ordering is still the correct model; it is now labelled as
   unobservable rather than as defended.
-- Owed in `Vixen.Ui`: gestures, arrow navigation, access keys, batching, path rendering, text runs,
-  gradients, per-corner elliptical radii, virtualisation primitive, multi-window, DPI, and element
-  removal.
+- ✅ **Arrow navigation, by the beam model.** Tab walks an *order* the document decides in advance;
+  an arrow walks a *layout*, decided by where things ended up. Two questions that move the same
+  focus, so `NavigationDirection` is its own enum rather than two more members of `FocusDirection`.
+
+  A candidate has to start past the edge the arrow points at. Among those, the ones whose other axis
+  overlaps this element's are **in the beam**, and any of them beats any candidate outside it however
+  close that one is; inside the beam nearest along the axis wins, outside it nearest by straight line
+  between the two rectangles. **The point is that there is no constant to tune.** The alternative —
+  distance along plus some multiple of distance across — has no principled multiplier, so it gets
+  tuned until the layouts someone happened to test behave and Down drifts diagonally in the ones they
+  did not.
+
+  ⚠ **Touching is not overlapping**: the beam test is a strictly positive overlap, because two cells
+  of a grid share an edge exactly and a non-strict test puts the diagonal neighbour in the beam
+  alongside the one directly below. **An element's own focusable children fall out as unreachable**
+  without a rule saying so — they are inside it, so they are past none of its edges. And **arrows do
+  not wrap**, because holding Down in a list that wrapped would never settle.
+
+  Verified by sabotage: a non-strict beam overlap fails 4, letting a near candidate outside the beam
+  win fails 5, requiring a strict gap so abutting elements are unreachable fails 5, and navigating
+  the whole tree rather than the focus scope fails 1.
+
+  ⚠ **One sabotage failed to fail, and it is the same shape as the one the bridge found.** Deleting
+  the zero-size guard broke nothing: the test used `display: none`, which arrives as a 0×0 box, and a
+  box with no extent on *either* axis shares no width with anything, so the beam had already excluded
+  it a step earlier. The guard is for an element collapsed on one axis only — full height and no
+  width, squarely in the beam and exactly as near as the real destination. **A test that cannot reach
+  the code it names passes for the wrong reason**, which is now the fourth time in this phase.
+- Owed in `Vixen.Ui`: gestures, access keys, batching, path rendering, text runs, gradients,
+  per-corner elliptical radii, virtualisation primitive, multi-window, DPI, and element removal.
 - `Vixen.Ui.Markup`: VXML lexer/parser on `Vixen.Core.Syntax`, binder, emitter, `#line` mapping.
 - `Vixen.Ui.HotReload`: three reload channels, keyed reconciliation, `[HotReloadState]`.
 - UI render feature integrated into the renderer.

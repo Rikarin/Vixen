@@ -22,7 +22,8 @@ top.
 | `EventRouter` | Capture, target, bubble, `Handled`, and pointer capture. |
 | `DrawList`, `DrawListBuilder` | Backgrounds, borders, radii and clips as commands, diffed frame to frame. |
 | `UiDocument.Focus`, `MoveFocus` | Focus, focus scopes, and HTML's tab order. |
-| Gestures, arrow navigation, access keys | ⏳ |
+| `UiDocument.FindInDirection` | Arrow navigation over the layout, by the beam model. |
+| Gestures, access keys | ⏳ |
 | Batching, path rendering, text runs | ⏳ |
 
 ## Focus
@@ -44,6 +45,36 @@ the keyboard.
 
 `:focus` and `:focus-within` are set on the style tree, so a focus ring is a stylesheet's business
 rather than a special case in the renderer.
+
+## Arrow navigation
+
+Tab walks an *order* — a list the document decides in advance. An arrow walks a *layout*, decided by
+where things actually ended up. Two different questions that move the same focus, which is why
+`NavigationDirection` is its own enum rather than two more members of `FocusDirection`.
+
+**The beam model, and it has no constant to tune.** A candidate has to start past the edge the arrow
+points at. Among those, the ones whose other axis overlaps this element's are *in the beam*, and any
+of them beats any candidate outside it however close that one is; inside the beam nearest along the
+axis wins, outside it nearest by straight line between the two rectangles.
+
+The alternative is a weighted score — distance along plus some multiple of distance across — and the
+multiple is the problem. It has no principled value, so it gets tuned until the layouts someone
+happened to test behave, and Down drifts diagonally in the layouts they did not.
+
+⚠ **Touching is not overlapping.** The beam test is a strictly positive overlap, and it has to be:
+two cells of a grid share an edge exactly, so a non-strict test puts the diagonal neighbour in the
+beam alongside the one directly below and the grid navigates sideways.
+
+**An element's own focusable children are in no direction from it**, and nothing had to say so — they
+are inside it, so they are past none of its edges. Entering a group is a separate idea from moving
+between things, and conflating them makes Right mean two things.
+
+**Arrows do not wrap.** Tab is a cycle because an order has no far end; an arrow points at somewhere,
+and running out of somewhere is a wall. Holding Down in a list that wrapped would never settle.
+
+⚠ Distance is measured between the *rectangles*, not between their centres. The centre metric says a
+wide element eighty pixels away is nearer than a narrow one ten pixels away, because distance to a
+shape is distance to the shape.
 
 ## The draw list
 
