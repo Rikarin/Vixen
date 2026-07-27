@@ -43,6 +43,16 @@ public static class VixenCommand {
             Description = "The project directory. Default: the working directory or the nearest ancestor with an Assets/ folder."
         };
 
+    /// <summary>
+    ///     How diagnostics come out. <c>msbuild</c> is what <c>Vixen.Sdk</c> passes, so that what an
+    ///     importer said reaches the IDE's error list instead of scrolling past in a build log.
+    /// </summary>
+    static Option<DiagnosticFormat> FormatOption() =>
+        new("--format") {
+            Description = "How to write diagnostics: text for a person, msbuild for a build.",
+            DefaultValueFactory = _ => DiagnosticFormat.Text
+        };
+
     static Option<string> TargetOption() =>
         new("--target", "-t") {
             Description = "Which build target — Windows, Linux, MacOS, Android, iOS, Web, optionally narrowed as Android/Vulkan.",
@@ -52,11 +62,13 @@ public static class VixenCommand {
     static Command Import(TextWriter? output, TextWriter? error) {
         var project = ProjectOption();
         var target = TargetOption();
+        var format = FormatOption();
         var verbose = new Option<bool>("--verbose", "-v") { Description = "Name every asset, not only the ones with something to say." };
 
         var command = new Command("import", "Import everything in the project that has changed.") {
             project,
             target,
+            format,
             verbose
         };
 
@@ -64,20 +76,22 @@ public static class VixenCommand {
                 var writer = output ?? Console.Out;
 
                 if (!Project.TryOpen(parseResult.GetValue(project), out var opened, out var why)) {
-                    (error ?? Console.Error).WriteLine(why);
+                    Complain(parseResult.GetValue(format), error ?? Console.Error, why);
                     return (int)ExitCode.UsageError;
                 }
+
+                var diagnostics = new DiagnosticWriter(writer, parseResult.GetValue(format), opened.Paths.Root);
 
                 var summary = await ImportRunner.RunAsync(
                         opened,
                         parseResult.GetRequiredValue(target),
-                        writer,
+                        diagnostics,
                         parseResult.GetValue(verbose),
                         cancellationToken
                     )
                     .ConfigureAwait(false);
 
-                ImportRunner.Report(summary, writer);
+                ImportRunner.Report(summary, diagnostics);
                 return (int)(summary.Failed > 0 ? ExitCode.Failed : ExitCode.Success);
             }
         );
@@ -94,48 +108,68 @@ public static class VixenCommand {
     static Command ContentBuild(TextWriter? output, TextWriter? error) {
         var project = ProjectOption();
         var target = TargetOption();
+        var format = FormatOption();
 
         var outputDirectory = new Option<string?>("--output", "-o") {
             Description = "Where to write the bundles and the catalog. Default: Build/<target>."
         };
 
+        // For a caller that has provably just imported — Vixen.Sdk runs `vixen import` as its own
+        // build step so that generated C# exists before the compiler runs, and importing again here
+        // would be the same scan and the same ten thousand decisions a second time in one build.
+        var noImport = new Option<bool>("--no-import") {
+            Description = "Do not import first. Only for a caller that has already done it in this build."
+        };
+
         var command = new Command("build", "Pack imported content into bundles and write the catalog.") {
             project,
             target,
-            outputDirectory
+            format,
+            outputDirectory,
+            noImport
         };
 
         command.SetAction(async (parseResult, cancellationToken) => {
                 var writer = output ?? Console.Out;
+                var chosen = parseResult.GetValue(format);
 
                 if (!Project.TryOpen(parseResult.GetValue(project), out var opened, out var why)) {
-                    (error ?? Console.Error).WriteLine(why);
+                    Complain(chosen, error ?? Console.Error, why);
                     return (int)ExitCode.UsageError;
                 }
 
                 var forTarget = parseResult.GetRequiredValue(target);
+                var diagnostics = new DiagnosticWriter(writer, chosen, opened.Paths.Root);
 
-                // Imported first, always. It is incremental, so it costs nothing when nothing has
+                // Imported first by default. It is incremental, so it costs nothing when nothing has
                 // changed — and a build that packed a stale artefact because somebody forgot a step
                 // is a bug report about the wrong thing.
-                var summary = await ImportRunner.RunAsync(opened, forTarget, writer, false, cancellationToken)
-                    .ConfigureAwait(false);
+                if (!parseResult.GetValue(noImport)) {
+                    var summary = await ImportRunner.RunAsync(opened, forTarget, diagnostics, false, cancellationToken)
+                        .ConfigureAwait(false);
 
-                ImportRunner.Report(summary, writer);
+                    ImportRunner.Report(summary, diagnostics);
 
-                if (summary.Failed > 0) {
-                    (error ?? Console.Error).WriteLine(
-                        $"{summary.Failed} asset(s) failed to import, so there is nothing to pack for them."
-                    );
+                    if (summary.Failed > 0) {
+                        Complain(
+                            chosen,
+                            error ?? Console.Error,
+                            $"{summary.Failed} asset(s) failed to import, so there is nothing to pack for them."
+                        );
 
-                    return (int)ExitCode.Failed;
+                        return (int)ExitCode.Failed;
+                    }
+                } else {
+                    // The scan still has to run: the planner reads the asset index, and a caller
+                    // that skipped the import did not skip having a project.
+                    opened.Database.Scan();
                 }
 
                 var directory = parseResult.GetValue(outputDirectory) is { Length: > 0 } named
                     ? Path.GetFullPath(named)
                     : opened.DefaultOutput(forTarget);
 
-                return (int)(ContentBuildRunner.Run(opened, forTarget, directory, writer)
+                return (int)(ContentBuildRunner.Run(opened, forTarget, directory, diagnostics)
                     ? ExitCode.Success
                     : ExitCode.Failed);
             }
@@ -143,6 +177,18 @@ public static class VixenCommand {
 
         return command;
     }
+
+    /// <summary>
+    ///     Writes the tool's own failure — the kind that is about the invocation rather than about an
+    ///     asset — in whichever form the caller asked for.
+    /// </summary>
+    /// <remarks>
+    ///     It has to carry a code in the MSBuild form too. A build that stops because the tool could
+    ///     not find a project and says so only in prose leaves MSBuild reporting "exited with code 2"
+    ///     and nothing else, which is the least actionable failure a build can have.
+    /// </remarks>
+    static void Complain(DiagnosticFormat format, TextWriter error, string message) =>
+        error.WriteLine(format == DiagnosticFormat.MSBuild ? $"error {DiagnosticCode.Usage}: {message}" : message);
 
     static Command ContentServe(TextWriter? output, TextWriter? error) {
         var project = ProjectOption();

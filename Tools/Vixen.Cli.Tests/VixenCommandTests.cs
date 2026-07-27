@@ -200,6 +200,86 @@ public sealed class VixenCommandTests : IDisposable {
         Assert.Equal(0, CatalogFormat.Read(File.ReadAllBytes(Path.Combine(Build(), "catalog.bin"))).Count);
     }
 
+    /// <summary>
+    ///     <b>What makes an asset problem an entry in the IDE's error list.</b> MSBuild picks
+    ///     <c>file: error CODE: text</c> out of a tool's output and nothing else, so the file has to
+    ///     be absolute — a relative one is resolved against whatever directory the build is running
+    ///     in, which is not the project's — and the code has to be there or the line is prose.
+    /// </summary>
+    [Fact]
+    public async Task TheMsbuildFormatCarriesAnAbsolutePathAndACode() {
+        Asset("hero.txt", "hero", address: "ui/hero", group: "Missing");
+
+        var (code, output) = await Run("content", "build", "--format", "msbuild");
+
+        Assert.Equal(ExitCode.Failed, code);
+        Assert.Contains($"error {DiagnosticCode.Plan}:", output, StringComparison.Ordinal);
+
+        // No "  error  " column, which is the human form and which MSBuild reads as prose.
+        Assert.DoesNotContain("  error  ", output, StringComparison.Ordinal);
+    }
+
+    /// <summary>An asset's own diagnostics carry the asset, absolute, so the IDE can open it.</summary>
+    [Fact]
+    public async Task AnAssetDiagnosticNamesTheAssetByItsFullPath() {
+        File.WriteAllText(Path.Combine(root, "Assets", "loose.txt"), "no sidecar");
+
+        var (_, output) = await Run("import", "--format", "msbuild");
+
+        var expected = Path.Combine(root, "Assets", "loose.txt");
+        Assert.Contains(expected, output, StringComparison.Ordinal);
+        Assert.Contains(Path.DirectorySeparatorChar, expected);
+    }
+
+    /// <summary>
+    ///     A tool that cannot find a project has to say so with a code too. Without one, MSBuild
+    ///     reports "exited with code 2" and nothing else, which is the least actionable failure a
+    ///     build can have.
+    /// </summary>
+    [Fact]
+    public async Task TheToolsOwnFailureCarriesACodeInTheMsbuildFormat() {
+        var elsewhere = Path.Combine(root, "not-a-project");
+        Directory.CreateDirectory(elsewhere);
+
+        var (code, _, error) = await RunFull("import", "--project", elsewhere, "--format", "msbuild");
+
+        Assert.Equal(ExitCode.UsageError, code);
+        Assert.StartsWith($"error {DiagnosticCode.Usage}:", error, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Information is not an error-list entry, and dressing it as one would put "this project has
+    ///     no addressable assets" in a CI failure summary.
+    /// </summary>
+    [Fact]
+    public async Task AnInformationLineIsNotDressedAsADiagnostic() {
+        Asset("notes.txt", "just a file");
+
+        var (code, output) = await Run("content", "build", "--format", "msbuild");
+
+        Assert.Equal(ExitCode.Success, code);
+        Assert.Contains("has an address", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("error", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("warning", output, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     <c>--no-import</c> exists for one caller — the SDK, which has provably just imported in
+    ///     the same build — and it does what it says rather than importing anyway.
+    /// </summary>
+    [Fact]
+    public async Task NoImportSkipsTheImportAndStillBuilds() {
+        Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");
+        Group("UiCore");
+
+        await Run("import");
+        var (code, output) = await Run("content", "build", "--no-import");
+
+        Assert.Equal(ExitCode.Success, code);
+        Assert.DoesNotContain("Imported", output, StringComparison.Ordinal);
+        Assert.True(File.Exists(Path.Combine(Build(), "catalog.bin")));
+    }
+
     [Fact]
     public async Task DoctorOnAnImportedProjectFindsNothingBroken() {
         Asset("hero.txt", "hero", address: "ui/hero", group: "UiCore");

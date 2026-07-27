@@ -24,6 +24,20 @@ was wrong or there is no project where one was expected. A build script needs to
 wrong" from "the content is wrong", because one of those is a script to fix and the other is an asset
 to fix.
 
+## `--format msbuild`
+
+Diagnostics come out as `<absolute path>: error VX1001: <message>` instead of the human column, which
+is what MSBuild parses into the IDE's error list and a CI log's summary. The path is absolute because
+a relative one is resolved against whatever directory the build is running in, which is not the
+project's, so the IDE would open nothing. The codes are registered in
+[docs/manual/diagnostic-codes.md](../../docs/manual/diagnostic-codes.md); a code is the contract and
+the wording is not.
+
+Information-level lines carry no code and are not dressed as diagnostics, because "this project has
+no addressable assets" does not belong in a failure summary.
+
+[`Vixen.Sdk`](../Vixen.Sdk/README.md) passes this flag. Nobody else needs to.
+
 ## `import`
 
 Scans, then imports every asset whose source, settings, importer version, target or declared
@@ -38,6 +52,11 @@ An importer that throws fails that asset and not the run.
 Imports first — incrementally, so it costs nothing when nothing changed — then plans, packs and
 writes. A build that packed a stale artefact because somebody forgot a step is a bug report about the
 wrong thing.
+
+`--no-import` exists for exactly one caller: [`Vixen.Sdk`](../Vixen.Sdk/README.md), which runs
+`vixen import` as its own MSBuild step so that generated C# precedes the compiler. Importing again
+inside one build would repeat a full scan and every decision in the project for nothing. It is not a
+flag to reach for otherwise, and the SDK only passes it when its own import step actually ran.
 
 The output directory holds `catalog.bin`, `catalog.bin.hash` and the bundles. **The hash file is
 written even though `Vixen.ContentServer` would synthesise one**, because the shipping path is a CDN

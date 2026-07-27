@@ -516,6 +516,20 @@ addresses, which is what "dependencies" was trying to say.
 This is how Stride integrates (`Stride.AssetCompiler.targets`) and it is the right pattern: a user
 should never have to run a separate content build step manually.
 
+**Built, with 1 and 5 owed.** Steps 2, 4 and 6 are done — `vixen import` before `CoreCompile`,
+`vixen content build` after `Build`, and diagnostics in MSBuild's own form so they reach the IDE's
+error list ([codes](../manual/diagnostic-codes.md)). Step 3 is ordering with nothing to order yet; the
+generators arrive in Phases 4d and 5. Step 1 is not done: the CLI is not shipped inside the SDK
+package, so a consumer needs `vixen` restored or installed. Step 5 copies the content beside the
+binary and into a publish, but the *platform* packages — APK assets, iOS bundle, `wwwroot` — wait for
+those platforms.
+
+One rule the implementation had to find by running a real build, recorded because it reads perfectly
+on the page and fails silently: **anything derived from another property belongs in the `.targets`,
+never in the `.props`.** A `.props` is imported before the consuming project's body, so a plain
+default is safe there — an unconditional assignment in a `.csproj` overwrites it — but a property
+computed *from* one has already been computed by the time the body runs, and nothing recomputes it.
+
 ## Testing
 
 | Area | Test |

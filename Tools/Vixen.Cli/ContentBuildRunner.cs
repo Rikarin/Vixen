@@ -37,7 +37,7 @@ public static class ContentBuildRunner {
     /// <param name="outputDirectory">Where to write it.</param>
     /// <param name="output">Where to write progress and diagnostics.</param>
     /// <returns>Whether it produced a build.</returns>
-    public static bool Run(Project project, string target, string outputDirectory, TextWriter output) {
+    public static bool Run(Project project, string target, string outputDirectory, DiagnosticWriter output) {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentException.ThrowIfNullOrEmpty(target);
         ArgumentException.ThrowIfNullOrEmpty(outputDirectory);
@@ -46,7 +46,7 @@ public static class ContentBuildRunner {
         var groups = project.Groups(out var unreadable);
 
         foreach (var failure in unreadable) {
-            output.WriteLine($"  error   {failure}");
+            output.Project(ImportSeverity.Error, DiagnosticCode.Plan, failure);
         }
 
         if (unreadable.Count > 0) {
@@ -61,7 +61,7 @@ public static class ContentBuildRunner {
         );
 
         foreach (var diagnostic in plan.Diagnostics) {
-            output.WriteLine($"  {Word(diagnostic.Severity)} {diagnostic.Message}");
+            output.Project(diagnostic.Severity, DiagnosticCode.Plan, diagnostic.Message);
         }
 
         if (!plan.Succeeded) {
@@ -72,13 +72,17 @@ public static class ContentBuildRunner {
             // Not an error. A project can legitimately have nothing addressable yet, and a build with
             // an empty catalog is what a game with no content loads — but silence here would look
             // like success at packing everything.
-            output.WriteLine("  note    Nothing in this project has an address, so the catalog is empty.");
+            output.Project(
+                ImportSeverity.Information,
+                DiagnosticCode.Plan,
+                "Nothing in this project has an address, so the catalog is empty."
+            );
         }
 
         var built = new ContentBuilder(target).Build(plan.Groups, plan.Assets, project.Chunks);
 
         foreach (var diagnostic in built.Diagnostics) {
-            output.WriteLine($"  {Word(diagnostic.Severity)} {diagnostic.Message}");
+            output.Project(diagnostic.Severity, DiagnosticCode.Pack, diagnostic.Message);
         }
 
         if (built.Diagnostics.Any(diagnostic => diagnostic.Severity == ImportSeverity.Error)) {
@@ -89,7 +93,7 @@ public static class ContentBuildRunner {
 
         var bytes = built.Bundles.Sum(bundle => (long)bundle.Bytes.Length);
 
-        output.WriteLine(
+        output.Line(
             string.Create(
                 CultureInfo.InvariantCulture,
                 $"Built {plan.Assets.Length} {Plural(plan.Assets.Length, "address", "addresses")} into "
@@ -138,11 +142,4 @@ public static class ContentBuildRunner {
     }
 
     static string Plural(int count, string one, string many) => count == 1 ? one : many;
-
-    static string Word(ImportSeverity severity) =>
-        severity switch {
-            ImportSeverity.Error => "error  ",
-            ImportSeverity.Warning => "warning",
-            _ => "note   "
-        };
 }

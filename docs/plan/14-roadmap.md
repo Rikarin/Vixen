@@ -506,7 +506,42 @@ the codebase is large enough for it to be expensive to fix.
 - Content build: compiler DAG, `ObjectDatabase` (file + bundle backends), bundle packer, catalog.
 - `Vixen.Assets` runtime: `AssetHandle`, ref counting, scopes, label/glob loading, streaming manager.
 - Addressable groups (`.vxgroup`), local + remote providers, `Tools/Vixen.ContentServer`.
-- `Vixen.Sdk` MSBuild integration so `dotnet build` does content builds.
+- ✅ `Vixen.Sdk` MSBuild integration so `dotnet build` does content builds — import before
+  `CoreCompile`, content build after `Build`, the result copied beside the binary and into a publish,
+  and `Clean` taking back what it copied and nothing else. Both consumption forms
+  (`<Project Sdk="Vixen.Sdk">` and a plain `PackageReference`) land on one pair of files. 7 tests,
+  each of them a real `dotnet build` of a real project, because there is no way to test MSBuild
+  integration except by running MSBuild — they are the slowest tests in the repository and that is
+  the price of the only kind that can catch what they catch.
+
+  **Doc 08's point 6 is met and is the reason the CLI grew a diagnostic format.** The tool is invoked
+  with `--format msbuild`, so what an importer said arrives as `<absolute path>: error VX1001: …` — an
+  entry in the IDE's error list rather than prose from a subprocess. The path has to be absolute (a
+  relative one resolves against the build's directory, not the project's) and the code has to exist or
+  MSBuild reads the line as prose. Codes are registered in
+  [`docs/manual/diagnostic-codes.md`](../manual/diagnostic-codes.md), which is new and follows the
+  log-event register's rules.
+
+  **`content build --no-import` exists for exactly one caller.** The SDK imports as its own step so
+  generated C# can precede the compiler, so the content build would otherwise repeat a full scan and
+  ten thousand decisions inside one build. The flag follows the same condition as the target, or a
+  project that turned the import step off would pack what nothing had imported.
+
+  **The rule the first real build found**, written down in the targets and the README: anything
+  derived from another property is computed in the `.targets`, never in the `.props`. A `.props` is
+  imported before the consuming project's body, so a plain default is safe there — an unconditional
+  assignment in a `.csproj` overwrites it — but a property computed *from* one has already been
+  computed by then and nothing recomputes it. `VixenToolCommand` derives from `VixenToolPath` and is
+  what proves it. **The first sabotage written to verify this was wrong** and is recorded as such:
+  moving the `VixenTarget` block into the `.props` changes nothing, for the reason above. Moving
+  `VixenToolCommand` fails six of the seven tests.
+
+  **Owed, and named:** the CLI is not shipped inside the package, so a consumer still needs `vixen`
+  restored or installed and doc 08's "restores the Vixen tool versions matching the referenced
+  packages" is not met; nothing generates C# yet, so the `CoreCompile` hook is ordering without cargo
+  until Phases 4d and 5; platform packaging (APK assets, iOS bundle, `wwwroot`) waits for those
+  platforms; and a build-plan diagnostic carries no file, because `ImportDiagnostic` has no path
+  field — its messages name the asset in their text, so only the IDE's jump-to-file loses.
 - 🟡 `Vixen.Cli` — **`import`, `content build`, `content serve` and `doctor` are built; `new`, `run`
   and `build` are not, and are absent rather than stubbed.** The first four are the whole pipeline
   from a terminal, which is what the phase's own gates need: an incremental import, a deterministic

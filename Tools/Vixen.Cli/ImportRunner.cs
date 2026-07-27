@@ -38,7 +38,7 @@ public static class ImportRunner {
     public static async Task<ImportSummary> RunAsync(
         Project project,
         string target,
-        TextWriter output,
+        DiagnosticWriter output,
         bool verbose,
         CancellationToken cancellationToken = default
     ) {
@@ -49,7 +49,7 @@ public static class ImportRunner {
         var scan = project.Database.Scan();
 
         foreach (var issue in scan.Issues) {
-            output.WriteLine($"  {Word(issue.Kind)} {issue.Path}: {issue.Message}");
+            output.Asset(DiagnosticWriter.SeverityOf(issue.Kind), issue.Path, DiagnosticCode.Scan, issue.Message);
         }
 
         var pipeline = new ImportPipeline(
@@ -80,11 +80,11 @@ public static class ImportRunner {
             }
 
             foreach (var diagnostic in outcome.Diagnostics) {
-                output.WriteLine($"  {Word(diagnostic.Severity)} {path}: {diagnostic.Message}");
+                output.Asset(diagnostic.Severity, path, DiagnosticCode.Import, diagnostic.Message);
             }
 
             if (verbose && outcome.Importer is not null && outcome.Diagnostics.Count == 0) {
-                output.WriteLine($"  {(outcome.WasCached ? "cached " : "import ")} {path} ({outcome.Importer})");
+                output.Line($"  {(outcome.WasCached ? "cached " : "import ")} {path} ({outcome.Importer})");
             }
         }
 
@@ -96,10 +96,10 @@ public static class ImportRunner {
     /// <summary>Prints the one line a person reads when nothing went wrong.</summary>
     /// <param name="summary">What the import did.</param>
     /// <param name="output">Where to write it.</param>
-    public static void Report(ImportSummary summary, TextWriter output) {
+    public static void Report(ImportSummary summary, DiagnosticWriter output) {
         ArgumentNullException.ThrowIfNull(output);
 
-        output.WriteLine(
+        output.Line(
             string.Create(
                 CultureInfo.InvariantCulture,
                 $"Imported {summary.Imported}, {summary.Cached} unchanged, {summary.Failed} failed in "
@@ -107,17 +107,4 @@ public static class ImportRunner {
             )
         );
     }
-
-    static string Word(ImportSeverity severity) =>
-        severity switch {
-            ImportSeverity.Error => "error  ",
-            ImportSeverity.Warning => "warning",
-            _ => "note   "
-        };
-
-    static string Word(AssetIssueKind kind) =>
-        kind switch {
-            AssetIssueKind.MetaUnreadable or AssetIssueKind.DuplicateGuid => "warning",
-            _ => "note   "
-        };
 }
