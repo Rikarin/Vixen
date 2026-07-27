@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Assets</RootNamespace>
+        <Description>
+            The runtime half of the asset pipeline: the catalog that turns an address into a chunk,
+            and the bundle table that says where that chunk lives and what it costs to fetch.
+        </Description>
+        <PackageTags>assets;addressables;catalog;content;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.IO\Vixen.Core.IO.csproj" />
+
+        <!-- ObjectId, the chunk format and the bundle reader all live there; the catalog is the index
+             over them rather than a second copy of them. -->
+        <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Assets.Tests" />
+    </ItemGroup>
+
+</Project>

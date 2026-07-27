@@ -372,6 +372,11 @@ the codebase is large enough for it to be expensive to fix.
   BC3, BC4, BC5, BC7 and BC6H encoders, and the split-sum IBL pieces — SH-9 irradiance projection,
   GGX cubemap prefiltering and the DFG lookup table. 146 tests.
 
+- ✅ `Vixen.Assets`: the content catalog — address to chunk, labels, globs, dependency closure,
+  per-bundle download sizing, and the remote-over-local merge that makes a content update possible.
+  Binary `catalog.bin` with a sorted string table, deterministic by construction, CRC-verified on
+  read. 48 tests. (The object database, chunk format and bundle reader were already built in
+  Phase 1's serialization work; this is the index over them.)
 - ✅ `TextureImporter`, the first real importer: `IImageDecoder`, StbImageSharp and KTX2 decoders,
   and settings that say what a texture's bytes mean — which decides the transfer function, the mip
   filter's variant and the compressed format together. 63 tests in `Vixen.Editor.Assets.Tests`.
