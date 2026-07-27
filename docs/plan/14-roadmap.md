@@ -1281,9 +1281,31 @@ sub-piece has its own gate.
   Not built, and **not owed**: point-matched composites and `seac` — no glyph in 242 fonts used
   either. Owed with the variable-font axes: `gvar` deltas, so a variable font currently parses at its
   default instance.
-- Owed: the outline parser itself (spiked above, not yet a project), then the MSDF atlas with LRU
-  eviction — **that pair is now the head of Phase 4's critical path**, because nothing renders text
-  until it exists. Also font fallback, rich-text runs, variable-font axes,
+- ✅ **The outline reader is built** — `FontFace.GetOutline`, over `glyf`/`loca` and `CFF ` Type 2
+  charstrings, positioned to agree with the extents everything else in the assembly comes from. The
+  spike's parser, made AOT- and trim-clean and gated in CI.
+
+  Gate: HarfBuzz's own extents over every glyph of all fourteen embedded fonts — 2,066 of them.
+  Verified by sabotage: restoring the compound-assignment bug fails 10, dropping the left-side-bearing
+  shift fails 1, and stopping a composite after its first component fails 7.
+
+  ⚠ **Two sabotages failed to fail for a reason worth keeping: a bounds oracle cannot see a path.**
+  The rules that turn TrueType's points into a path — an implied on-curve point midway between two
+  off-curve ones, and a contour that begins off-curve — move points that already lie inside the hull
+  of their neighbours, so breaking either changes the shape and not the box. Golden paths for three
+  glyphs close it, and finding the right three meant counting which branch each of the 2,066 glyphs
+  took: every Kannada contour starts on-curve, so the first golden reached only one of the two rules.
+
+  ⚠ **Two more are unreachable with the corpus that can be committed, and that is measured rather
+  than assumed.** The embedded fonts contain **zero stem operators and zero hintmasks**, so the CFF
+  width-parity rule is never executed and inverting it passes everything; and **not one of their 530
+  composite components carries both a transform and an offset**, so the rule about which matrix the
+  offset travels through is never exercised. Both were gated by the spike's 259,298 glyphs, whose
+  fonts belong to the operating system. Named here rather than papered over with a test that cannot
+  reach what it claims.
+
+- Owed: the MSDF atlas with LRU eviction — **now the head of Phase 4's critical path**, because
+  nothing renders text until it exists. Also font fallback, rich-text runs, variable-font axes,
   `TextEditor` model with IME and caret affinity.
 - Gate: ✅ UAX conformance data green. ✅ shaping conformance green against an external oracle,
   with the quarantine pinned in both directions.

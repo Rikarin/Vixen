@@ -170,6 +170,50 @@ tie in the other direction. Telling them apart needs a caret **affinity** carrie
 which is an editor's concern and is owed with `TextEditor`. Asserting the round trip everywhere would
 have meant deleting the mixed case or inventing a rule to make it pass; both would have buried this.
 
+## Glyph outlines, which HarfBuzz does not have
+
+`FontFace.GetOutline` returns a glyph's contours in design units. It exists because
+**HarfBuzzSharp exposes no outline API at all** — `TryGetGlyphExtents` is a bounding box, and there
+is no `Draw`, `Outline`, `Path` or `Paint` type in the pinned assembly — so an MSDF atlas has
+nothing to build a distance field from. Vixen reads the raw `glyf`/`loca` and `CFF ` tables that
+`Face.ReferenceTable` will hand over. Spiked before it was built on:
+[`docs/plan/spikes/text-glyph-outlines/RESULT.md`](../../docs/plan/spikes/text-glyph-outlines/RESULT.md).
+
+**Curves stay curves**, for the reason `PathBuilder` gives in `Vixen.Ui`: how finely to flatten
+depends on a device scale nothing here knows, and a distance field wants the curve itself. ⚠ **Both
+quadratic and cubic segments appear and neither is converted** — TrueType draws in quadratics, CFF
+in cubics. Promoting a quadratic to a cubic is exact and would double the control points a distance
+function solves against; the other direction is an approximation. A consumer handles both verbs.
+
+⚠ **The outline is positioned, and the font's own coordinates are not.** HarfBuzz reports a `glyf`
+glyph's extents shifted so its `xMin` lands on the left side bearing, and where a font's stored
+`xMin` disagrees with its `lsb` — common, and universal in italics — the two spaces differ by that
+much. Every other number in this assembly comes from HarfBuzz, so the outline is put in HarfBuzz's
+space rather than the other way round. A glyph drawn straight from the table sits `lsb − xMin` units
+off, on exactly the fonts nobody tests with.
+
+### What the gate can and cannot see
+
+The gate is HarfBuzz's own extents over every glyph of all fourteen embedded fonts — a separate
+implementation of the same tables, which at 2,066 glyphs is the only oracle available. The spike ran
+the same comparison over 242 system fonts and 259,298 glyphs: 99.999 % on `glyf`, 99.777 % on `CFF`.
+
+⚠ **A bounds oracle cannot see a path, and two sabotages proved it.** The rules that turn TrueType's
+points into a path — an implied on-curve point midway between two off-curve ones, and a contour that
+begins off-curve — move points that already lie inside the hull of their neighbours. Break either and
+the shape changes while the bounding box does not, so every comparison stays green. Golden paths for
+three glyphs close that, and finding the right three meant counting which branch each of the 2,066
+took: all the Kannada contours start on-curve, so the first golden caught only one of the two rules.
+
+⚠ **And the CFF interpreter is barely gated here at all** — counted, not guessed: the embedded corpus
+contains **zero stem operators and zero hintmasks**, so the width-parity rule that decides how many
+bytes a `hintmask` skips is never executed, and inverting it passes every test in this project. That
+rule's real gate was the spike's 17,934 CFF glyphs, whose fonts belong to the operating system and
+cannot be committed. The flex operators are unreached for the same reason.
+
+**Not implemented, and not owed**: point-matched composites and `seac`. No glyph in 242 fonts used
+either. **Owed**: `gvar` deltas, so a variable font currently reads at its default instance.
+
 ## Why the tables are generated and committed
 
 CI has no copy of the Unicode Character Database, and fetching one at build time would make a build
