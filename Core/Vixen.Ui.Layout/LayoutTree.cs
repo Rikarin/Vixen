@@ -81,6 +81,8 @@ public sealed partial class LayoutTree : IDisposable {
         results[index] = default;
         results[index].ComputedFlexBasis = float.NaN;
         results[index].ComputedAutoMinMainSize = float.NaN;
+        results[index].MinContentSizes[0] = float.NaN;
+        results[index].MinContentSizes[1] = float.NaN;
         results[index].LastOwnerDirection = Direction.Inherit;
         links[index] = new LayoutLinks { Parent = -1, ChildOffset = -1 };
         flags[index] = LayoutNodeState.Live | LayoutNodeState.Dirty | LayoutNodeState.HasNewLayout;
@@ -347,6 +349,8 @@ public sealed partial class LayoutTree : IDisposable {
         while (index >= 0 && (flags[index] & LayoutNodeState.Dirty) == 0) {
             flags[index] |= LayoutNodeState.Dirty;
             results[index].ComputedFlexBasis = float.NaN;
+            results[index].MinContentSizes[0] = float.NaN;
+            results[index].MinContentSizes[1] = float.NaN;
             index = links[index].Parent;
         }
     }

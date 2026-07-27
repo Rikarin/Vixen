@@ -81,6 +81,25 @@ public struct LayoutResult {
 
     /// <summary>Which line of a wrapping container this node landed on.</summary>
     public int LineIndex;
+
+    /// <summary>
+    ///     The node's min-content size on each axis, or NaN for "not computed since it last changed".
+    /// </summary>
+    /// <remarks>
+    ///     Cached separately from the measurement cache because it is a different question. A
+    ///     measurement asks "how big are you given this much room" and the answer depends on the
+    ///     room; a min-content size asks "how small can you be" and the answer depends only on the
+    ///     subtree and on what percentages resolve against. So it is keyed on the owner size rather
+    ///     than on the available size, and it is invalidated by the dirty flag — which propagates
+    ///     upward, so a change anywhere below a node clears the node's own entry too.
+    /// </remarks>
+    public DimensionValues MinContentSizes;
+
+    /// <summary>The owner width <see cref="MinContentSizes" /> was computed against.</summary>
+    public float MinContentOwnerWidth;
+
+    /// <summary>The owner height <see cref="MinContentSizes" /> was computed against.</summary>
+    public float MinContentOwnerHeight;
 }
 
 /// <summary>One remembered answer to "how big are you, given this much room".</summary>

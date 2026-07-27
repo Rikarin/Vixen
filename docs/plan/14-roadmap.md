@@ -457,8 +457,28 @@ sub-piece has its own gate.
   its four cases fail without the floor. External oracles are worth what doc 14 says they are worth;
   knowing where they stop is part of using them.
 
-  **Owed:** a steady-state allocation gate. The line representation was chosen so that a layout pass
-  over a settled tree allocates nothing, and that is not the same as having measured it.
+- ✅ `Benchmarks/Vixen.Benchmarks.Ui` and the layout-pass gates. **A settled tree allocates zero
+  bytes per frame** — asserted by three tests and by the benchmark at 110 001 nodes — and **an
+  unchanged tree costs 11 ns whatever its size**, because the pass never descends past the dirty
+  flag. An incremental frame at the 10⁴ elements doc 00's editor bar names is 1.16 ms.
+
+  Two findings, one fixed and one recorded.
+
+  **Fixed:** the CSS §4.5 min-content probe was calling measure functions directly, bypassing the
+  measurement cache — a per-frame text measurement of every flex item, which is precisely what doc
+  09 says that cache exists to prevent. Min-content size depends only on the subtree and on what
+  percentages resolve against, so it is now cached per node and per owner size and invalidated by
+  the dirty flag. A test asserts an untouched leaf is measured once and never again.
+
+  **Recorded, and owed:** the frame cost is not the algorithm. Instrumented, a one-leaf change in an
+  11 001-node tree runs the algorithm 21 times against a cold pass's 22 001. What costs 60–70 % of
+  an incremental frame is the **pixel-rounding pass, which walks the whole tree every time**. It
+  cannot merely be skipped: rounded edges derive from *absolute* positions — which is what stops two
+  adjacent boxes rounding into a one-pixel seam — so an ancestor moving half a pixel changes every
+  descendant's result without any of them being dirty. Doing it incrementally needs a per-node
+  record of the offset it was last rounded at plus a stamp for whether the algorithm ran for it this
+  pass; both are small, their interaction with rounding positions in place is not, and it deserves
+  its own change with its own tests. `OneLeafChangedWithoutRounding` keeps the number visible.
 
 **4b — Styling (1.5 EM)**
 - `Vixen.Ui.Styling`: ExCSS integration, cascade, `@layer`, rule bucketing, ancestor bloom filter,

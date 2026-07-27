@@ -212,6 +212,34 @@ public sealed partial class LayoutTree {
     /// </remarks>
     float ComputeMinContentSize(int index, FlexDirection requestedAxis, Direction ownerDirection, float ownerWidth, float ownerHeight) {
         var wantRow = FlexAxis.IsRow(requestedAxis);
+        var axis = wantRow ? 0 : 1;
+
+        // Without this the §4.5 probe measures every flex item on every pass, uncached — which is
+        // precisely the per-frame text measurement doc 09 says the measure cache exists to prevent.
+        // It is keyed on the owner size because percentage margins and padding resolve against it,
+        // and invalidated by the dirty flag, which a change anywhere below this node has already set.
+        if (!float.IsNaN(results[index].MinContentSizes[axis])
+            && Inexact(results[index].MinContentOwnerWidth, ownerWidth)
+            && Inexact(results[index].MinContentOwnerHeight, ownerHeight)) {
+            return results[index].MinContentSizes[axis];
+        }
+
+        var computed = ComputeMinContentSizeUncached(index, requestedAxis, ownerDirection, ownerWidth, ownerHeight);
+
+        if (!Inexact(results[index].MinContentOwnerWidth, ownerWidth)
+            || !Inexact(results[index].MinContentOwnerHeight, ownerHeight)) {
+            results[index].MinContentSizes[0] = float.NaN;
+            results[index].MinContentSizes[1] = float.NaN;
+            results[index].MinContentOwnerWidth = ownerWidth;
+            results[index].MinContentOwnerHeight = ownerHeight;
+        }
+
+        results[index].MinContentSizes[axis] = computed;
+        return computed;
+    }
+
+    float ComputeMinContentSizeUncached(int index, FlexDirection requestedAxis, Direction ownerDirection, float ownerWidth, float ownerHeight) {
+        var wantRow = FlexAxis.IsRow(requestedAxis);
 
         if ((flags[index] & LayoutNodeState.HasMeasureFunction) != 0) {
             var size = Measure(

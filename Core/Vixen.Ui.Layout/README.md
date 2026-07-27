@@ -73,6 +73,17 @@ the writing-mode-relative pair were counted. A hundred thousand nodes is therefo
 five allocations — against the reference port's several hundred thousand heap objects for the same
 tree, which is the comparison ADR-006 was actually making.
 
+## What is measured
+
+| | |
+|---|---|
+| Steady-state allocation | **0 bytes** per frame — three `LayoutPassTests` gates, and the benchmark at 110 001 nodes. |
+| An unchanged tree | **11 ns**, any size. One dirty-flag comparison; the pass never descends. |
+| A one-leaf change in an 11 001-node tree | The algorithm runs **21** times. Dirty propagation and the measure cache do their job. |
+| An incremental frame at 10⁴ elements | 1.16 ms, inside the [doc 00](../../docs/plan/00-vision-and-principles.md) editor budget. |
+
+Numbers and method in [the benchmark's README](../../Benchmarks/Vixen.Benchmarks.Ui/README.md).
+
 ## Regenerating the conformance suite
 
 The fixtures are committed because CI has no reference clone. To re-translate after updating the
@@ -93,12 +104,15 @@ specification than flexbox and it does not share the flex line machinery, so it 
 piece rather than as a variation on this one.
 
 **Parallel layout.** Independent subtrees with a fixed available size are jobs, and text measurement
-of siblings is where the win is. It needs a measurement of the serial version to beat, and there is
-no benchmark yet — the same reason `Vixen.Core.Collections` gives for not having written a second
-hash table.
+of siblings is where the win is. `Benchmarks/Vixen.Benchmarks.Ui` now gives the serial number to
+beat, and it says the algorithm is not where an incremental frame's time goes — so this waits behind
+the rounding pass, which is.
 
-**A steady-state allocation gate.** The reactive layer has one and this does not. A layout pass over
-a settled tree should allocate nothing — the line representation was chosen so that it can — but
-"should" is not "was measured", and it will not be claimed here until a test asserts it.
+**Incremental pixel rounding.** The rounding pass walks the whole tree every frame and is 60–70 % of
+an incremental one. It cannot simply be skipped — rounded edges are derived from *absolute*
+positions, which is what stops adjacent boxes rounding into a seam, so an ancestor moving half a
+pixel changes every descendant's result. Doing it properly needs a per-node record of the offset it
+was last rounded at plus a stamp for whether the algorithm ran for it this pass. The benchmark
+measures the gap so it stays visible.
 
 Licensed under Apache-2.0.
