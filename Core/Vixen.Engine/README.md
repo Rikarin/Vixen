@@ -111,4 +111,23 @@ transform — **reverse-Z in both projection modes**, because the rest of the en
 and tests `GREATER`, and a projection that disagreed would render a picture that is correct except
 that everything is behind everything else.
 
+## Debug geometry
+
+```csharp
+draw.Line(contact, contact + normal, Color4.Red, seconds: 2f);
+draw.Box(bounds, Color4.Green);
+draw.Axes(transform.LocalToWorld);
+```
+
+Immediate mode: a call site owns nothing, creates nothing and disposes nothing, and removing the
+investigation means removing the call. Every shape is lines, including the round ones — a sphere is
+three rings and reads as a sphere, where a mesh would mean a second pipeline plus a depth decision
+plus a lighting decision for geometry whose whole job is to be unmistakably not part of the scene.
+
+**This is the accumulator, not the renderer.** A renderer drains `Lines` once a frame; there is no
+renderer yet, so what is closed here is the half every subsystem needs to be able to *call*, and a
+subsystem written against it today needs no change when the drawing arrives. `DebugDrawSystem` ages
+the geometry in `PostRender` — after the draining, or a line asked for during a frame would never be
+seen.
+
 Licensed under Apache-2.0.

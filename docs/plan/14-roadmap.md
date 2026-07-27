@@ -318,9 +318,10 @@ Vulkan validation clean under lavapipe in CI. Zero-allocation gate green for an 
   `CreateMany` per distinct archetype plus a row copy each. The hierarchy is rebuilt from recorded
   indices rather than remapped, which also collapses the archetype count — without stripping the
   hierarchy components every depth would be its own archetype.
-- ⬜ `DebugDraw` + the diagnostic overlays from [13](13-diagnostics.md). **Not started.** The
-  accumulator half is buildable now and the drawing half is not: there is no renderer to draw
-  through until Phase 4.
+- 🟡 `DebugDraw` — the accumulator is built (lines, rays, boxes, spheres, axes, per-line lifetimes,
+  aged in `PostRender` after a renderer would have drained). 9 tests. **The drawing is owed**, and
+  needs a renderer; a subsystem written against this today needs no change when it arrives. The
+  diagnostic overlays from [13](13-diagnostics.md) wait on the same thing.
 - ⬜ ImGui debug overlay behind `VIXEN_DEBUG_IMGUI`. **Not started**, and deliberately last: it is a
   scaffold this plan already schedules for deletion in Phase 6, and it needs the same renderer.
 - ✅ Ported Arch benchmarks in `Benchmarks/Vixen.Benchmarks.Ecs`. Two findings, both of which changed
@@ -336,9 +337,10 @@ frame. ✅ `Behavior` lifecycle golden-ordering test green. ✅ Determinism test
 input log, 10 000 steps, one running direct and the other through a command buffer's parallel writer,
 compared by `WorldDigest` throughout.
 
-**Not met:** the two rendering-dependent items above. Phase 2's goal line says "rendering nothing but
-debug lines", and nothing renders yet — that is the one part of this phase that Phase 4 has to
-carry.
+**Not met:** the drawing half of `DebugDraw`, the [13](13-diagnostics.md) overlays, and the ImGui
+scaffold. Phase 2's goal line says "rendering nothing but debug lines", and nothing renders yet —
+that is the one part of this phase Phase 4 has to carry, and all three of these are waiting on the
+same pipeline rather than on each other.
 
 ---
 
