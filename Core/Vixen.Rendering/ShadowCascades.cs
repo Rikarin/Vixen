@@ -100,6 +100,58 @@ public static class ShadowCascades {
     }
 
     /// <summary>
+    ///     The bounding sphere of one slice of the camera's frustum.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Computed from the split distances and the field of view alone — never from the eight
+    ///         corners. That is what makes the radius independent of where the camera is pointing,
+    ///         and therefore what stops the cascade resizing as it turns.
+    ///     </para>
+    ///     <para>
+    ///         Exposed separately from <see cref="Fit" /> because a caller that caches shadow maps
+    ///         needs to ask "does the cascade I already have still cover the slice" without building
+    ///         a projection to find out.
+    ///     </para>
+    /// </remarks>
+    public static (Vector3 Centre, float Radius) Sphere(
+        Vector3 eye,
+        Vector3 forward,
+        float fieldOfView,
+        float aspectRatio,
+        float near,
+        float far
+    ) {
+        var view = Vector3.Normalize(forward);
+
+        var tanY = MathF.Tan(fieldOfView * 0.5f);
+        var tanX = tanY * aspectRatio;
+        var spread = (tanX * tanX) + (tanY * tanY);
+
+        var distance = (near + far) * 0.5f * (1f + spread);
+
+        if (distance > far) {
+            // The slice is long relative to the cone's width: the smallest enclosing sphere is the
+            // one through the far corners, centred on the far plane. Without this the centre runs
+            // past the slice and the radius grows without bound.
+            distance = far;
+        }
+
+        var radius = MathF.Sqrt((far * far * spread) + ((distance - far) * (distance - far)));
+
+        return (eye + (view * distance), radius);
+    }
+
+    /// <summary>Whether a cascade still covers a slice's sphere entirely.</summary>
+    /// <remarks>
+    ///     What makes a cached shadow map possible. A cascade fitted with slack stays valid while the
+    ///     camera moves inside it, so its map does not have to be redrawn — and without that, a
+    ///     cascade re-fits the moment the camera moves a texel and nothing is ever worth caching.
+    /// </remarks>
+    public static bool Covers(in ShadowCascade cascade, Vector3 centre, float radius) =>
+        Vector3.Distance(cascade.Centre, centre) + radius <= cascade.Radius;
+
+    /// <summary>
     ///     Fits one cascade to a slice of the camera's frustum and returns its light transform.
     /// </summary>
     /// <param name="eye">The camera's position.</param>
@@ -117,6 +169,24 @@ public static class ShadowCascades {
     ///     How far behind the fitted sphere to place the light's near plane, so that casters outside
     ///     the cascade still cast into it.
     /// </param>
+    /// <param name="slack">
+    ///     How much larger than the slice's own sphere to cut the cascade, as a fraction.
+    /// </param>
+    /// <remarks>
+    ///     <para>
+    ///         <paramref name="slack" /> buys <em>stability</em> with resolution, and it is the whole
+    ///         reason a shadow map can be cached: a cascade cut twenty per cent wide stays valid
+    ///         while the camera moves inside the margin, so its content does not have to be redrawn.
+    ///         With no slack a cascade re-fits the moment the camera moves a texel, and nothing is
+    ///         ever worth keeping.
+    ///     </para>
+    ///     <para>
+    ///         The cost is real and is paid every frame: at twenty per cent the same texels cover
+    ///         1.44 times the area, so everything in shadow is that much coarser. It is worth it when
+    ///         the alternative is re-rendering a level's worth of static geometry four times a frame,
+    ///         and not otherwise.
+    ///     </para>
+    /// </remarks>
     public static ShadowCascade Fit(
         Vector3 eye,
         Vector3 forward,
@@ -127,31 +197,14 @@ public static class ShadowCascades {
         float near,
         float far,
         int resolution,
-        float extrusion = 50f
+        float extrusion = 50f,
+        float slack = 0f
     ) {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(resolution);
 
-        var view = Vector3.Normalize(forward);
         var light = Vector3.Normalize(lightDirection);
-
-        // The slice's bounding sphere, from the split distances and the field of view alone — never
-        // from the eight corners. That is what makes the radius independent of where the camera is
-        // pointing, and therefore what stops the cascade resizing as it turns.
-        var tanY = MathF.Tan(fieldOfView * 0.5f);
-        var tanX = tanY * aspectRatio;
-        var spread = (tanX * tanX) + (tanY * tanY);
-
-        var distance = (near + far) * 0.5f * (1f + spread);
-
-        if (distance > far) {
-            // The slice is long relative to the cone's width: the smallest enclosing sphere is the
-            // one through the far corners, centred on the far plane. Without this the centre runs
-            // past the slice and the radius grows without bound.
-            distance = far;
-        }
-
-        var radius = MathF.Sqrt((far * far * spread) + ((distance - far) * (distance - far)));
-        var centre = eye + (view * distance);
+        var (centre, tight) = Sphere(eye, forward, fieldOfView, aspectRatio, near, far);
+        var radius = tight * (1f + MathF.Max(slack, 0f));
 
         // A light basis that does not depend on the camera. Deriving `up` from the camera would put
         // the camera's roll back into the projection and undo the sphere fit.

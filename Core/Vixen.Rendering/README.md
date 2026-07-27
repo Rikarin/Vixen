@@ -267,6 +267,31 @@ a point light that did not. When it runs out, lights are dropped **whole and cou
 with four of six faces rendered is worse than one with none, because the two missing directions are
 lit as though nothing occludes them.
 
+### Caching a cascade
+
+Two things have to be true together, and neither is worth anything alone.
+
+**The projection has to stop moving.** A tight fit re-fits the moment the camera moves a texel, so
+there is never anything to keep. `Slack` cuts the cascade wider than its slice, and it is kept while
+it still covers one — buying stability with resolution, since the same texels then cover 1.5625 times
+the area at 25%. That trade is the whole feature, and it is asserted as a number.
+
+**The static casters have to be separable.** They already are: "which objects, in what order" is what
+a `RenderStage` *means*, so a host puts level geometry in one stage and everything that moves in
+another, and no filtering machinery is needed. The static stage is drawn into a cache atlas only when
+something invalidates it — a cascade re-fitted, or the host bumped `StaticVersion` — and every frame
+copies that into the working atlas and draws the movers on top with a `Load`.
+
+The copy is a full depth atlas per frame, so this is a trade rather than a win: it pays when a
+level's worth of geometry would otherwise be rasterised into four cascades every frame, and not when
+the scene is small. Leaving `StaticCasterStage` null keeps the uncached path exactly as it was.
+`StaticRebuilds` is the number the whole thing is judged by — "it caches" is otherwise a claim
+nothing can check.
+
+"Static" is a claim the scene makes and the renderer cannot verify: a host that moves a static caster
+without saying so gets a shadow where the object used to be, which is the bargain the word already
+implied.
+
 ## Level of detail
 
 A LOD group is **several render objects**, not one object that swaps its mesh — the same argument that
@@ -289,6 +314,18 @@ exactly a threshold would otherwise change mesh every frame, and a level change 
 silhouette — far more visible than the detail the switch was protecting. Ten frames across a boundary
 decide once; a clear move past it still changes level, which is the paired test that keeps the first
 one honest.
+
+**Cross-fade** (`CrossFadeDuration`, off by default) keeps both levels visible for the transition and
+gives each a weight, pushed as a constant. Dither, not blend: two translucent copies of one object
+write depth twice and sort against each other, where a dithered discard by weight makes the two
+levels' surviving pixels tile the silhouette exactly once — which is why the weights summing to one
+is asserted. It is off by default because a fade doubles the draws for every object crossing a
+threshold, and only a fading object pushes anything. A fade interrupted mid-way turns round rather
+than finishing, so a camera swinging past a boundary and back does not pay the duration twice showing
+a level it is no longer going to.
+
+`DeltaTime` is supplied rather than measured — a renderer that reads a clock is one whose frames
+cannot be reproduced, and a fade is exactly what a golden-image test wants to step through.
 
 ### What decides a pipeline
 
@@ -331,23 +368,29 @@ named presets rather than spelled-out states, since those four and those three a
 ever wanted and an author writing seven blend factors is an author about to get one wrong. The
 version is checked rather than ignored — a file from a later editor is refused by number.
 
-`Vixen.Rendering` does **not** reference `Vixen.Core.Yaml`. The model is a plain record graph; which
-format it is read from belongs to whoever reads it, so a shipping runtime that loads a baked
-compositor never links a YAML parser.
+`Vixen.Rendering` does **not** reference `Vixen.Core.Yaml`. The model is a plain record graph carrying
+`[DataContract]`, so both generators run over it: the reflection one for the YAML binder an editor
+uses, and the **binary one** for the chunk a content build bakes. The runtime reads the chunk and
+never links a parser — asserted by round-tripping a document through `Serializer` and drawing the
+same frame out the far side.
+
+Every member of the model is settable rather than init-only, and that is not an oversight: the
+generated binary serializer constructs and then assigns, so an `init` member is one it silently
+leaves at its default — a baked compositor that reads back empty. It cost a test to find and is
+written down where the model is.
 
 ## What is not here yet
 
-A shadow atlas cached for static casters — every cascade and tile is re-rendered every frame. Blend
-shapes, area lights, and clustered light culling on the CPU side (the shader half,
-`Library/Pipeline/ClusterCulling.rvn`, already exists). LOD **cross-fade**: a level change is a hard
-swap, so hysteresis is what keeps it from being noticed rather than a dissolve.
+Blend shapes, area lights, and clustered light culling on the CPU side (the shader half,
+`Library/Pipeline/ClusterCulling.rvn`, already exists). Punctual shadows are not cached — only the
+directional cascades are, and a spot light over static geometry has the same argument waiting for it.
 
 Instance batching by locality: an instanced batch is culled as one object, so what goes in one is the
 caller's decision and there is nothing here to help make it.
 
-The compositor asset is a document but not yet an *addressable* one — nothing resolves a
-`GraphicsCompositor` through `AssetManager`, and the shadow renderers still take a light direction and
-a camera from a host rather than from the scene.
+The shadow renderers still take a light direction and a camera from a host rather than from the
+scene, and nothing yet resolves a compositor by *address* — the binary form is proven, the
+`AssetManager` lookup around it is not wired up here.
 
 GPU-driven culling is a second implementation of `VisibilityGroup` behind the same interface, which
 is why that interface is bits rather than a list.

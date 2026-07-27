@@ -69,9 +69,15 @@ compositor. **The asset names resources; the host binds the names** — a textur
 device that did not exist when the file was written — so one authored document runs against a
 swapchain, an offscreen buffer or a test's scratch texture unchanged. A test parses twenty lines of
 YAML and draws a two-pass frame with a two-cascade shadow atlas in it, building no renderer tree in
-C# at all. `Vixen.Rendering` does not reference `Vixen.Core.Yaml`: the model is a record graph, and
-which format it is read from belongs to whoever reads it, so a shipping runtime that loads a baked
-compositor never links a YAML parser.
+C# at all. `Vixen.Rendering` does not reference `Vixen.Core.Yaml`: the model carries `[DataContract]`
+so both generators run over it — the reflection one for the editor's YAML binder and the **binary
+one** for the chunk a content build bakes — and a shipping runtime that loads a baked compositor
+never links a parser. A test round-trips the document through `Serializer` and draws the same frame
+out the far side.
+
+Every member of that model is settable rather than init-only, and it is worth writing down why: the
+generated binary serializer constructs and then assigns, so an `init` member is one it silently
+leaves at its default — a baked compositor that reads back empty. It cost a test to find.
 
 Three things the implementation settled that the sketch above leaves open:
 
@@ -194,7 +200,7 @@ Priority column: **P1** = required for the 1.0 renderer, **P2** = post-1.0.
 | Blend shapes / morph targets | P2 | |
 | GPU instancing | ✅ | `InstancingRenderFeature`. **The instance offset is a draw-call argument, not a binding** — `firstInstance` is added into `gl_InstanceIndex` before the shader runs, so a batch reaches its own run of one shared buffer with no descriptor, no dynamic offset and no fixed maximum. A batch is culled as one object, so batching by locality is the caller's call |
 | LOD groups | ✅ | `LodRenderFeature`. A group is several render objects and this clears the bits of the levels a view is not showing — after culling, because an object outside the frustum has no screen size, and before sorting, because sorting builds the list a level must be absent from. Per view: a shadow cascade leaves `ScreenHeightScale` at zero and sees every level, since a shadow from a different mesh than its caster stops matching it. Hysteresis is asserted in both directions |
-| LOD cross-fade | P2 | a level change is a hard swap today |
+| LOD cross-fade | ✅ | Both levels visible for the transition, each pushed a weight. **Dither, not blend** — two translucent copies of one object write depth twice and sort against each other, where a dithered discard by weight makes the two levels' surviving pixels tile the silhouette exactly once, which is why the weights summing to one is asserted. Off by default: a fade doubles the draws for every object crossing a threshold |
 | Impostors / billboards | P2 | |
 | Sprites, sprite sheets, 9-slice | P1 | shares the UI batcher |
 | Decals (deferred + forward clustered) | P2 | |
@@ -215,7 +221,7 @@ Priority column: **P1** = required for the 1.0 renderer, **P2** = post-1.0.
 | Shadow maps: CSM (directional) | ✅ | `ShadowMapRenderer` — **a cascade is a view**: four `RenderView`s over one stage, culled and sorted by machinery that knows nothing about shadows, into four tiles of one atlas in one pass. Crawl is fixed at its two sources: a *sphere* fit (so turning does not resize the cascade) and texel snapping (so sub-texel movement gives a bit-identical matrix) |
 | Shadow maps: cube (point), perspective (spot) | ✅ | `PunctualShadowRenderer`. Short where cascades are long, and the reason is worth stating: a punctual light *already is* a volume, so nothing has to be invented from the camera and nothing has to be stabilised. Six 90° frusta tile the sphere exactly — asserted over ten thousand directions, because a seam in a shadow cube is light through a wall along one line. A point light is six tiles and a spot is one, and a light that does not fit is dropped **whole** and counted |
 | Shadow filtering: PCF, PCSS, VSM option | P1 | PCF default, PCSS for soft area shadows |
-| Shadow atlas + caching for static casters | P1 | re-render a cascade only when its content changed |
+| Shadow atlas + caching for static casters | ✅ | Directional cascades. Two things had to be true together: the projection has to stop moving, which `ShadowMapRenderer.Slack` buys by cutting the cascade wider than its slice and keeping it while it still covers one — trading resolution for stability, since the same texels then cover 1.5625× the area at 25%; and the static casters have to be separable, which a second `RenderStage` already is, so no filtering machinery was needed. The cache is redrawn only when a cascade re-fits or the host bumps `StaticVersion`, and `StaticRebuilds` is what makes "it caches" checkable. Punctual lights are still redrawn every frame |
 | Contact shadows (screen-space ray-marched) | P2 | |
 | Baked lightmaps + GI bake | P2 | large; a separate lightmapper tool |
 | SSGI / RTXGI-style probes | P2 | |
