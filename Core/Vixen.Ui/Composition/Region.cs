@@ -1,0 +1,166 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+namespace Vixen.Ui.Composition;
+
+/// <summary>
+///     A run of a parent's children that some piece of control flow owns, and can replace.
+/// </summary>
+/// <remarks>
+///     <para>
+///         The problem regions exist to solve is <b>where</b>. An <c>@if</c> in the middle of a
+///         <c>&lt;div&gt;</c> has siblings on both sides; when its condition changes, the elements it
+///         builds have to land back between them. The element tree only appends, so something has to
+///         know the index — and it cannot be a fixed number, because a region above may have grown
+///         or shrunk since.
+///     </para>
+///     <para>
+///         So a region knows what it comes <i>after</i>, and asks. If that is an element, the answer
+///         is one past it. If it is another region, the answer is that region's end — which recurses
+///         through however many empty regions sit between, and bottoms out at the start of the
+///         parent. Nothing is stored that can go stale.
+///     </para>
+///     <para>
+///         ⚠ <b>The alternative was an anchor element</b>, which is what the DOM frameworks use — a
+///         comment node or an empty text node holding the place. Here it would have to be a real
+///         element in all three stores, and a real element is counted by <c>:nth-child</c>. Striped
+///         rows that stripe wrongly because of a hidden marker is a worse bug than this is
+///         complexity.
+///     </para>
+/// </remarks>
+sealed class Region {
+    /// <summary>What this region's contents hang from.</summary>
+    readonly UiElement parent;
+
+    /// <summary>What it follows within its host: an element, a sibling region, or nothing yet.</summary>
+    object? after;
+
+    /// <summary>
+    ///     The region this one is a slot of, for when it follows nothing.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A region, not the index it had when this one was created.</b> A branch that opens a
+    ///     loop item has no element in front of it, and where that item starts is not known until
+    ///     the list is in its final order — so the answer has to be asked for rather than
+    ///     remembered. Snapshotting it put every leading branch at index zero of the parent, in
+    ///     somebody else's item.
+    /// </remarks>
+    readonly Region? host;
+
+    /// <summary>
+    ///     Its own top-level contents in order, each either a <see cref="UiElement" /> or a nested
+    ///     <see cref="Region" />.
+    /// </summary>
+    readonly List<object> slots = [];
+
+    /// <summary>What was subscribed inside it: effects, and the handlers a two-way binding added.</summary>
+    readonly List<IDisposable> subscriptions = [];
+
+    internal Region(UiElement parent, object? after, Region? host = null) {
+        this.parent = parent;
+        this.after = after;
+        this.host = host;
+    }
+
+    /// <summary>The element this region's contents start at.</summary>
+    internal int Start =>
+        after switch {
+            UiElement element => element.IndexInParent + 1,
+            Region region => region.End,
+            _ => host?.Start ?? 0
+        };
+
+    /// <summary>One past this region's last element, or its start when it is empty.</summary>
+    internal int End =>
+        slots.Count == 0
+            ? Start
+            : slots[^1] switch {
+                UiElement element => element.IndexInParent + 1,
+                Region region => region.End,
+                _ => Start
+            };
+
+    /// <summary>The last thing in this region, or null when nothing is in it yet.</summary>
+    internal object? Last => slots.Count == 0 ? null : slots[^1];
+
+    internal void Add(UiElement element) => slots.Add(element);
+
+    internal void Add(Region region) => slots.Add(region);
+
+    internal void Track(IDisposable subscription) => subscriptions.Add(subscription);
+
+    /// <summary>Points this region at a new predecessor after a reorder.</summary>
+    internal void Rebind(object? predecessor) => after = predecessor;
+
+    /// <summary>Replaces this region's contents list, keeping the regions themselves.</summary>
+    internal void Reorder(IEnumerable<object> ordered) {
+        slots.Clear();
+        slots.AddRange(ordered);
+    }
+
+    /// <summary>Takes everything this region built back out.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Subscriptions first, elements second.</b> An effect disposed after its element is
+    ///     removed may already have run against a detached element; disposing it first means the
+    ///     only thing that could still write to these elements has stopped before they go.
+    /// </remarks>
+    internal void Clear() {
+        foreach (var subscription in subscriptions) {
+            subscription.Dispose();
+        }
+
+        subscriptions.Clear();
+
+        foreach (var slot in slots) {
+            switch (slot) {
+                case Region region:
+                    region.Clear();
+                    break;
+                case UiElement element when !element.IsRemoved:
+                    element.Remove();
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        slots.Clear();
+    }
+
+    /// <summary>Moves this region's contents into its place among its siblings.</summary>
+    /// <remarks>
+    ///     Building appends, so a rebuilt region's elements arrive at the end of the parent. Moving
+    ///     them left one at a time in order works because they stay contiguous: taking the first out
+    ///     of the tail and putting it at <c>Start</c> shifts everything between right by one and
+    ///     leaves the rest of the tail where it was.
+    /// </remarks>
+    internal void Reposition() {
+        var target = Start;
+
+        foreach (var slot in slots) {
+            foreach (var element in Elements(slot)) {
+                parent.Document.Move(element, target++);
+            }
+        }
+    }
+
+    static IEnumerable<UiElement> Elements(object slot) {
+        switch (slot) {
+            case UiElement element:
+                yield return element;
+                break;
+
+            case Region region:
+                foreach (var nested in region.slots) {
+                    foreach (var element in Elements(nested)) {
+                        yield return element;
+                    }
+                }
+
+                break;
+
+            default:
+                break;
+        }
+    }
+}

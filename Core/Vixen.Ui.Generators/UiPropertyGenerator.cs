@@ -342,7 +342,7 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
             builder.Append("                ").Append(property.Changed).Append("(previous, incoming);\n");
         }
 
-        builder.Append("                OnPropertyChanged(").Append(property.Name).Append("Property);\n");
+        builder.Append("                RaisePropertyChanged(").Append(property.Name).Append("Property);\n");
         builder.Append("            }\n");
         builder.Append("        }\n");
         builder.Append("    }\n\n");
@@ -361,7 +361,7 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
             builder.Append("            ").Append(property.Changed).Append("(previous, current);\n");
         }
 
-        builder.Append("            OnPropertyChanged(").Append(property.Name).Append("Property);\n");
+        builder.Append("            RaisePropertyChanged(").Append(property.Name).Append("Property);\n");
         builder.Append("        }\n");
         builder.Append("    }\n");
     }

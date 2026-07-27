@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            A plain reference rather than an Analyzer one: these tests drive the generator through
+            CSharpGeneratorDriver themselves, which needs to construct it.
+
+            ⚠ And deliberately *not* alongside Vixen.Ui.Markup. The generator assembly contains its
+            own compilation of that front end, so referencing both would make every type in it
+            ambiguous — which is the linked-source arrangement showing through, and the one place it
+            is visible from outside.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj" />
+
+        <!-- The runtime the generated code calls, so the end-to-end test can run what it built. -->
+        <ProjectReference Include="..\Vixen.Ui\Vixen.Ui.csproj" />
+    </ItemGroup>
+
+    <!--
+        What BuildIntegrationTests builds a project against, handed over as metadata rather than
+        found at run time by walking up from the test assembly looking for a repository — a test
+        that has to locate its own subject breaks when somebody moves a directory. Same arrangement
+        as Vixen.Sdk.Tests, for the same reason.
+    -->
+    <ItemGroup>
+        <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+            <_Parameter1>VixenUiProject</_Parameter1>
+            <_Parameter2>$(MSBuildThisFileDirectory)../Vixen.Ui/Vixen.Ui.csproj</_Parameter2>
+        </AssemblyAttribute>
+
+        <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+            <_Parameter1>VixenMarkupGeneratorProject</_Parameter1>
+            <_Parameter2>$(MSBuildThisFileDirectory)../Vixen.Ui.Markup.Generators/Vixen.Ui.Markup.Generators.csproj</_Parameter2>
+        </AssemblyAttribute>
+
+        <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+            <_Parameter1>VixenUiBuildTargets</_Parameter1>
+            <_Parameter2>$(MSBuildThisFileDirectory)../Vixen.Ui/build/Vixen.Ui.targets</_Parameter2>
+        </AssemblyAttribute>
+    </ItemGroup>
+</Project>

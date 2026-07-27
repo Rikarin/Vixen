@@ -1,0 +1,179 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Collections.Immutable;
+using Vixen.Core.Syntax.Diagnostics;
+using Vixen.Ui.Markup.Binding;
+using Xunit;
+
+namespace Vixen.Ui.Markup.Tests;
+
+/// <summary>What the binder resolves, and the mistakes only it can see.</summary>
+public class BinderTests {
+    [Fact]
+    public void A_lowercase_tag_is_an_element_and_an_uppercase_one_is_a_component() {
+        var content = BindClean("@component A\n<div><Callout /></div>").Content;
+
+        var div = Assert.IsType<BoundElement>(Assert.Single(content));
+        Assert.False(div.IsComponent);
+        Assert.True(Assert.IsType<BoundElement>(Assert.Single(div.Children)).IsComponent);
+    }
+
+    [Fact]
+    public void A_using_directive_survives_to_the_bound_component() {
+        var component = BindClean("@component A\n@using Vixen.Ui.Controls\n<div />");
+        Assert.Equal(["Vixen.Ui.Controls"], component.Usings);
+    }
+
+    [Fact]
+    public void Code_blocks_concatenate_in_source_order() {
+        var component = BindClean("@component A\n@code { int a; }\n<div />\n@code { int b; }");
+        Assert.Equal([" int a; ", " int b; "], component.Code.Select(c => c.Text));
+    }
+
+    [Fact]
+    public void A_style_block_reaches_the_component_with_its_scoped_flag() {
+        var component = BindClean("@component A\n<div />\n<style scoped>.a{}</style>");
+
+        Assert.Equal(".a{}", component.Css);
+        Assert.True(component.CssIsScoped);
+    }
+
+    /// <summary>
+    ///     Both spellings of an event binding, and the closed alias list that keeps a parameter
+    ///     called <c>online</c> from being mistaken for one.
+    /// </summary>
+    [Theory]
+    [InlineData("on:click", BoundAttributeKind.Event, "click")]
+    [InlineData("onclick", BoundAttributeKind.Event, "click")]
+    [InlineData("onkeydown", BoundAttributeKind.Event, "keydown")]
+    [InlineData("online", BoundAttributeKind.Parameter, "online")]
+    [InlineData("bind:value", BoundAttributeKind.Bind, "value")]
+    [InlineData("key", BoundAttributeKind.Key, "key")]
+    [InlineData("title", BoundAttributeKind.Parameter, "title")]
+    public void An_attribute_name_resolves_to_what_it_means(string written, BoundAttributeKind kind, string name) {
+        var attribute = Assert.Single(FirstElement($"@component A\n<div {written}=\"@x\" />").Attributes);
+
+        Assert.Equal(kind, attribute.Kind);
+        Assert.Equal(name, attribute.Name);
+    }
+
+    [Fact]
+    public void An_event_keeps_its_modifiers_in_source_order() {
+        var attribute = Assert.Single(FirstElement("@component A\n<div on:click.stop.once=\"@Go\" />").Attributes);
+
+        Assert.Equal("click", attribute.Name);
+        Assert.Equal(["stop", "once"], attribute.Modifiers);
+    }
+
+    [Fact]
+    public void A_mixed_value_binds_as_its_parts_rather_than_as_one_string() {
+        var attribute = Assert.Single(FirstElement("@component A\n<div class=\"btn @kind\" />").Attributes);
+
+        Assert.True(attribute.IsDynamic);
+        Assert.Collection(
+            attribute.Value,
+            part => Assert.Equal("btn ", Assert.IsType<BoundLiteralPart>(part).Text),
+            part => Assert.Equal("kind", Assert.IsType<BoundExpressionPart>(part).Expression.Text)
+        );
+    }
+
+    [Fact]
+    public void The_escape_for_a_literal_at_sign_is_decoded() {
+        var content = BindClean("@component A\n<div>a @@ b</div>").Content;
+        var div = Assert.IsType<BoundElement>(Assert.Single(content));
+
+        Assert.Equal("a @ b", Assert.IsType<BoundText>(Assert.Single(div.Children)).Text);
+    }
+
+    /// <summary>
+    ///     <c>else if</c> nests in the tree, because that is what it is, and flattens here, because
+    ///     that is what an emitter wants.
+    /// </summary>
+    [Fact]
+    public void An_else_if_chain_flattens_into_branches_and_one_else() {
+        var @if = Assert.IsType<BoundIf>(
+            Assert.Single(BindClean("@component A\n@if (a) { <x /> } else if (b) { <y /> } else { <z /> }").Content)
+        );
+
+        Assert.Equal(["a", "b"], @if.Branches.Select(branch => branch.Condition.Text));
+        Assert.Single(@if.Else.OfType<BoundElement>());
+    }
+
+    [Fact]
+    public void A_loop_takes_its_key_from_the_body_root() {
+        var @for = Assert.IsType<BoundFor>(
+            Assert.Single(BindClean("@component A\n@for (var i in xs) { <p key=\"@i\">x</p> }").Content)
+        );
+
+        Assert.Equal("i", @for.Variable);
+        Assert.Equal("xs", @for.Sequence.Text);
+        Assert.Equal("i", @for.Key!.Text);
+    }
+
+    /// <summary>
+    ///     A key identifies one element among its siblings, so the requirement is on the roots of a
+    ///     loop body — everything below moves with the root it hangs from.
+    /// </summary>
+    [Fact]
+    public void Only_the_roots_of_a_loop_body_are_asked_for_a_key() {
+        Assert.Equal(
+            ["VXML2004"],
+            Ids("@component A\n@for (var i in xs) { <p><span /></p> }")
+        );
+    }
+
+    [Fact]
+    public void A_slot_takes_its_name_and_the_second_one_of_a_name_is_reported() {
+        Assert.Equal("footer", Assert.IsType<BoundSlot>(BindClean("@component A\n<slot name=\"footer\" />").Content[0]).Name);
+        Assert.Equal("default", Assert.IsType<BoundSlot>(BindClean("@component A\n<slot />").Content[0]).Name);
+        Assert.Equal(["VXML2005"], Ids("@component A\n<div><slot name=\"a\" /><slot name=\"a\" /></div>"));
+    }
+
+    /// <summary>
+    ///     A component whose whole markup sits inside an <c>@if</c> builds something, and an
+    ///     emptiness check that only looked at the top level would say it did not.
+    /// </summary>
+    [Fact]
+    public void Markup_that_only_exists_inside_control_flow_still_counts_as_markup() {
+        Assert.Empty(Ids("@component A\n@if (x) { <div /> }"));
+        Assert.Empty(Ids("@component A\n@switch (x) { case 1: <div /> }"));
+        Assert.Empty(Ids("@component A\n@for (var i in xs) { <div key=\"@i\" /> }"));
+    }
+
+    [Theory]
+    [InlineData("", "VXML2001")]
+    [InlineData("@component A\n<div a=\"1\" a=\"2\" />", "VXML2002")]
+    [InlineData("@component A\n<div on:click=\"go\" />", "VXML2003")]
+    [InlineData("@component A\n<div bind:value=\"x\" />", "VXML2003")]
+    [InlineData("@component A\n<div at:click=\"@Go\" />", "VXML2006")]
+    [InlineData("@component A\n<div on:click.stopp=\"@Go\" />", "VXML2007")]
+    [InlineData("@component A\n<Callout data-id=\"1\" />", "VXML2008")]
+    [InlineData("@component A\n@code { int a; }", "VXML2009")]
+    public void The_structural_mistakes_a_C_sharp_compiler_would_never_see(string source, string expected) =>
+        Assert.Contains(expected, Ids(source));
+
+    /// <summary>
+    ///     <c>class</c> is universal: it names style classes, which a component's root element has
+    ///     as much as a <c>&lt;div&gt;</c> does. It is also a C# keyword, so it could not be a
+    ///     parameter even if one wanted it to be.
+    /// </summary>
+    [Fact]
+    public void Class_on_a_component_is_not_a_parameter_name_error() =>
+        Assert.Empty(Ids("@component A\n<Callout class=\"warn\" />"));
+
+    static BoundComponent BindClean(string source) {
+        var component = Binder.Bind(Vxml.Parse(source), out var diagnostics);
+
+        Assert.Empty(diagnostics.Where(d => d.IsError).Select(d => d.ToString()));
+        return component!;
+    }
+
+    static BoundElement FirstElement(string source) =>
+        BindClean(source).Content.OfType<BoundElement>().First();
+
+    static ImmutableArray<string> Ids(string source) {
+        _ = Binder.Bind(Vxml.Parse(source), out var diagnostics);
+        return [.. diagnostics.Select(d => d.Descriptor.Id)];
+    }
+}

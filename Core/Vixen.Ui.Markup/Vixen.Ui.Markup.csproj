@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ui.Markup</RootNamespace>
+        <Description>
+            VXML: the markup language behind Vixen's UI framework. A hand-written lexer and
+            recursive-descent parser over the shared green/red tree, a binder that resolves the
+            markup into a component model, and an emitter that turns that model into a C# partial
+            class with #line directives pointing back at the .vxml.
+        </Description>
+        <PackageTags>markup;parser;syntax-tree;ui;source-generator;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <AdditionalFiles Include="Syntax\Syntax.xml" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The shared green/red tree, SourceText and the diagnostics model. This is the whole
+            reason the language is cheap: VXML brings a grammar, not a tree.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Syntax\Vixen.Core.Syntax.csproj" />
+
+        <!-- Turns Syntax\Syntax.xml into the node classes. Analyzer-only, no reference. -->
+        <ProjectReference Include="..\Vixen.Core.Syntax.Generator\Vixen.Core.Syntax.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Ui.Markup.Tests" />
+    </ItemGroup>
+
+</Project>

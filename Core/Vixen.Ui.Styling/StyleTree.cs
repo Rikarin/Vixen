@@ -52,7 +52,9 @@ public sealed class StyleTree {
     AttributeRange[] attributes = new AttributeRange[64];
     ElementLinks[] links = new ElementLinks[64];
     AncestorBloom[] blooms = new AncestorBloom[64];
+    bool[] alive = new bool[64];
     int count;
+    int dead;
 
     /// <summary>Creates a store.</summary>
     /// <param name="names">The table tag, id, class and attribute names are interned in.</param>
@@ -64,8 +66,24 @@ public sealed class StyleTree {
     /// <summary>The table this store's names live in.</summary>
     public NameTable Names => names;
 
-    /// <summary>How many elements there are.</summary>
+    /// <summary>How many slots have ever been used, live and removed alike.</summary>
+    /// <remarks>
+    ///     The bound for anything walking the store by index, which is why it counts removed slots
+    ///     too. <see cref="LiveCount" /> is how many elements there actually are.
+    /// </remarks>
     public int Count => count;
+
+    /// <summary>How many elements are still in the tree.</summary>
+    public int LiveCount => count - dead;
+
+    /// <summary>How many slots removal has left behind.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Exposed because it only ever goes up.</b> A removed slot is tombstoned and never
+    ///     reused, so a document that builds and tears down a list every frame grows without bound,
+    ///     and this is the number that says so. Compaction is owed; see <see cref="Remove" /> for
+    ///     why reuse is not the obvious fix it looks like.
+    /// </remarks>
+    public int DeadCount => dead;
 
     /// <summary>Adds an element.</summary>
     /// <param name="tag">Its tag name.</param>
@@ -94,6 +112,7 @@ public sealed class StyleTree {
         }
 
         var index = count++;
+        alive[index] = true;
         tags[index] = names.Intern(tag);
         identifiers[index] = id is null ? NameTable.None : names.Intern(id);
         states[index] = ElementState.None;
@@ -119,6 +138,143 @@ public sealed class StyleTree {
 
         blooms[index] = BuildBloom(index);
         return new StyleNodeId(index);
+    }
+
+    /// <summary>Whether an element is still in the tree.</summary>
+    /// <param name="element">The element.</param>
+    /// <returns>Whether it has not been removed.</returns>
+    public bool IsAlive(StyleNodeId element) =>
+        (uint) element.Index < (uint) count && alive[element.Index];
+
+    /// <summary>Removes an element and everything under it.</summary>
+    /// <param name="element">The element.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Tombstoned, never reused</b>, and that is the whole design decision. The obvious
+    ///         implementation is a free list handing removed slots back out, and it would quietly
+    ///         break three separate things that all rest on one unwritten invariant: <i>a parent's
+    ///         index is lower than its children's</i>. <c>StyleUpdater.ResolveAll</c> walks slots in
+    ///         ascending order because that is parents-before-children and inheritance needs it;
+    ///         its incremental pass uses the index as a priority for the same reason; and
+    ///         <see cref="AddToDescendantBlooms" /> sweeps forward from an element and gives up the
+    ///         moment a climb passes below the ancestor's index. Fill a hole with a new child of a
+    ///         later parent and the first two resolve a child before its parent, and the third
+    ///         answers "not a descendant" about something that is — a descendant selector that
+    ///         silently stops matching.
+    ///     </para>
+    ///     <para>
+    ///         So slots leak, and <see cref="DeadCount" /> says by how much. The fix is compaction
+    ///         rather than reuse: rebuilding the arrays without the dead slots preserves relative
+    ///         order, so all three invariants survive it, where reuse is exactly what does not. Owed.
+    ///     </para>
+    ///     <para>
+    ///         The subtree goes with it. A child of a removed element is not an orphan to be
+    ///         reparented or a root to be left standing — it is gone, and leaving it in the store
+    ///         would leave it matching selectors and being resolved every pass.
+    ///     </para>
+    /// </remarks>
+    public void Remove(StyleNodeId element) {
+        var index = Validate(element);
+        if (!alive[index]) {
+            throw new InvalidOperationException($"{element} has already been removed.");
+        }
+
+        Detach(index);
+        Kill(index);
+    }
+
+    /// <summary>Moves an element to another position among its siblings.</summary>
+    /// <param name="element">The element to move.</param>
+    /// <param name="index">Where it should end up.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only within one parent, and deliberately so.</b> Reparenting would move an
+    ///         element's slot relative to its new parent's, and a child whose index is below its
+    ///         parent's breaks the same three passes a reused slot would — see
+    ///         <see cref="Remove" />. A reconciler reorders siblings, which is the case that has to
+    ///         be fast and the case that is safe.
+    ///     </para>
+    ///     <para>
+    ///         The slot itself does not move. What moves is the entry in the parent's child run, and
+    ///         <c>IndexInParent</c> for everything between the two positions — which is the field
+    ///         <c>:nth-child</c> and the sibling combinators read, so a rotation that forgot it
+    ///         would leave a reordered list striped in its old order.
+    ///     </para>
+    /// </remarks>
+    public void Move(StyleNodeId element, int index) {
+        var elementIndex = Validate(element);
+        var parent = links[elementIndex].Parent;
+
+        if (parent < 0) {
+            throw new InvalidOperationException($"{element} has no parent, so it has no siblings to move among.");
+        }
+
+        ref var parentLinks = ref links[parent];
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, parentLinks.ChildCount);
+
+        var from = links[elementIndex].IndexInParent;
+        if (from == index) {
+            return;
+        }
+
+        var offset = parentLinks.ChildOffset;
+        var step = from < index ? 1 : -1;
+
+        for (var i = from; i != index; i += step) {
+            var moved = childArena[offset + i + step];
+            childArena[offset + i] = moved;
+            links[moved].IndexInParent = i;
+        }
+
+        childArena[offset + index] = elementIndex;
+        links[elementIndex].IndexInParent = index;
+    }
+
+    /// <summary>Takes an element out of its parent's list of children.</summary>
+    /// <remarks>
+    ///     ⚠ The later siblings' <c>IndexInParent</c> has to come down with it. That field is what
+    ///     <c>:nth-child</c> and the sibling combinators read, so a stale one leaves the third item
+    ///     of a list still believing it is the fourth after the second is deleted — striped rows that
+    ///     stripe wrongly, and a <c>:first-child</c> rule that lands on nothing.
+    /// </remarks>
+    void Detach(int index) {
+        var parent = links[index].Parent;
+        if (parent < 0) {
+            return;
+        }
+
+        ref var parentLinks = ref links[parent];
+        var position = links[index].IndexInParent;
+
+        for (var i = position; i < parentLinks.ChildCount - 1; i++) {
+            var moved = childArena[parentLinks.ChildOffset + i + 1];
+            childArena[parentLinks.ChildOffset + i] = moved;
+            links[moved].IndexInParent = i;
+        }
+
+        parentLinks.ChildCount--;
+        links[index].Parent = NoParent;
+    }
+
+    /// <summary>Marks an element and its descendants as gone.</summary>
+    void Kill(int index) {
+        if (!alive[index]) {
+            return;
+        }
+
+        alive[index] = false;
+        dead++;
+
+        var range = links[index];
+        for (var i = 0; i < range.ChildCount; i++) {
+            Kill(childArena[range.ChildOffset + i]);
+        }
+
+        // The children go with it, so the run is emptied rather than left addressable. A dead
+        // element that still lists its dead children is a shape nothing needs and every walk has to
+        // remember to check.
+        links[index].ChildCount = 0;
     }
 
     /// <summary>Sets an attribute.</summary>
@@ -314,6 +470,8 @@ public sealed class StyleTree {
         return element.Index;
     }
 
+    internal bool IsAliveAt(int index) => alive[index];
+
     internal int TagOf(int index) => tags[index];
 
     internal int IdOf(int index) => identifiers[index];
@@ -395,7 +553,7 @@ public sealed class StyleTree {
     /// </remarks>
     void AddToDescendantBlooms(int index, int nameId) {
         for (var i = index + 1; i < count; i++) {
-            if (IsDescendantOf(i, index)) {
+            if (alive[i] && IsDescendantOf(i, index)) {
                 blooms[i].Add(nameId);
             }
         }
@@ -472,6 +630,7 @@ public sealed class StyleTree {
         Array.Resize(ref attributes, next);
         Array.Resize(ref links, next);
         Array.Resize(ref blooms, next);
+        Array.Resize(ref alive, next);
     }
 
     readonly record struct ClassRange(int Start, int Count);

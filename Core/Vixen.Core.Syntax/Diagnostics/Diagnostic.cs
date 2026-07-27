@@ -39,10 +39,19 @@ public sealed class Diagnostic {
         new(descriptor, location ?? Location.None, descriptor.DefaultSeverity, arguments ?? []);
 
     /// <summary>The descriptor's message template filled with this diagnostic's arguments.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Invariant, not current.</b> Every <see cref="DiagnosticDescriptor.MessageFormat" />
+    ///     in this repository is a hard-coded English template, so the current culture localises
+    ///     nothing and only decides how a number or a span inside the message is punctuated — which
+    ///     makes one compiler's output differ from another's on the same source. Found when the
+    ///     front end was first compiled into a source generator, where RS1035 bans
+    ///     <c>CultureInfo.CurrentCulture</c> outright for exactly this reason: a compiler formats
+    ///     against the locale it was given, not the one the machine happens to be set to.
+    /// </remarks>
     public string GetMessage() =>
         arguments.Length == 0
             ? Descriptor.MessageFormat
-            : string.Format(CultureInfo.CurrentCulture, Descriptor.MessageFormat, arguments);
+            : string.Format(CultureInfo.InvariantCulture, Descriptor.MessageFormat, arguments);
 
     /// <summary>Roslyn-style <c>path(line,col): severity ID: message</c>.</summary>
     public override string ToString() {

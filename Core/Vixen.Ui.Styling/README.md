@@ -282,3 +282,19 @@ selector, never approximated. A rule that silently matches more than it says pro
 wrong everywhere nobody looked; a rule that does not load produces a message.
 
 Licensed under Apache-2.0.
+
+## Reloading a stylesheet
+
+The engine keeps the text of every sheet it loaded, and `Replace` rebuilds the rule set from them.
+
+⚠ **Everything reloads, not just the sheet that changed.** Rules are appended and never removed — an
+index, a layer order and a declaration arena all assume it — so a sheet cannot be lifted out of the
+middle of a set. Rebuilding is a few milliseconds for a stylesheet a human just typed, and it is the
+difference between a reload and an *overlay*: replaying the sheets is what makes a deleted rule stop
+applying.
+
+What survives is what elements hold handles to: the name tables the style tree interned its tags and
+classes against, the inline-style store, and the tree. What does not is the rule set and everything
+derived from it, the interning cache included — so a computed style from before a reload is a
+different object from the identical one after, and a caller has to forget what it applied rather
+than compare against it.

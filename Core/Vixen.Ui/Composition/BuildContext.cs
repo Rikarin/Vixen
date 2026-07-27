@@ -1,0 +1,605 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Globalization;
+using Vixen.Ui.Reactive;
+
+namespace Vixen.Ui.Composition;
+
+/// <summary>
+///     What a <see cref="Component" />'s <c>Build</c> constructs with, and what
+///     <c>Vixen.Ui.Markup</c> emits calls to.
+/// </summary>
+/// <remarks>
+///     <para>
+///         Per ADR-010 every method here does one thing once. <see cref="Element" /> creates an
+///         element; <see cref="Attribute" /> sets a value that will never change; <see cref="Bind(System.Action)" />
+///         registers one effect that assigns one property. Nothing walks a tree, nothing diffs, and
+///         a steady-state interface allocates nothing because nothing runs.
+///     </para>
+///     <para>
+///         The two exceptions are <see cref="Switch" /> and <see cref="For" />, which is the point:
+///         those are the only two places where the <i>shape</i> of the tree depends on state, so
+///         those are the only two places that add and remove elements.
+///     </para>
+/// </remarks>
+public sealed class BuildContext {
+    /// <summary>The name of the slot a component's children go to when they name none.</summary>
+    public const string DefaultSlot = "default";
+
+    /// <summary>
+    ///     How each event name subscribes. A table rather than a type switch, because a control
+    ///     library has to be able to add to it — and rather than reflection, because
+    ///     <c>Core</c> is AOT-compatible and a name-to-type lookup that ends in
+    ///     <c>MakeGenericMethod</c> is not.
+    /// </summary>
+    static readonly Dictionary<string, Action<UiElement, Action<UiEvent>, RoutingStrategy>> Subscriptions =
+        new(StringComparer.Ordinal) {
+            ["click"] = (element, handler, strategy) =>
+                element.AddHandler<TapEvent>((_, args) => handler(args), strategy),
+            ["dblclick"] = (element, handler, strategy) =>
+                element.AddHandler<TapEvent>((_, args) => { if (args.Count >= 2) { handler(args); } }, strategy),
+            ["longpress"] = (element, handler, strategy) =>
+                element.AddHandler<LongPressEvent>((_, args) => handler(args), strategy),
+            ["pointerdown"] = (element, handler, strategy) =>
+                element.AddHandler<PointerEvent>(
+                    (_, args) => { if (args.Action == PointerAction.Pressed) { handler(args); } },
+                    strategy
+                ),
+            ["pointerup"] = (element, handler, strategy) =>
+                element.AddHandler<PointerEvent>(
+                    (_, args) => { if (args.Action == PointerAction.Released) { handler(args); } },
+                    strategy
+                ),
+            ["pointermove"] = (element, handler, strategy) =>
+                element.AddHandler<PointerEvent>(
+                    (_, args) => { if (args.Action == PointerAction.Moved) { handler(args); } },
+                    strategy
+                ),
+            ["dragstart"] = (element, handler, strategy) =>
+                element.AddHandler<DragEvent>(
+                    (_, args) => { if (args.Stage == DragStage.Started) { handler(args); } },
+                    strategy
+                ),
+            ["drag"] = (element, handler, strategy) =>
+                element.AddHandler<DragEvent>(
+                    (_, args) => { if (args.Stage == DragStage.Moved) { handler(args); } },
+                    strategy
+                ),
+            ["dragend"] = (element, handler, strategy) =>
+                element.AddHandler<DragEvent>(
+                    (_, args) => { if (args.Stage is DragStage.Completed or DragStage.Cancelled) { handler(args); } },
+                    strategy
+                )
+        };
+
+    /// <summary>The region currently being built into, per parent element.</summary>
+    readonly Dictionary<UiElement, Region> regions = [];
+
+    /// <summary>Where subscriptions go, so that clearing a branch stops everything inside it.</summary>
+    Region building;
+
+    /// <summary>The component whose <c>Build</c> is running, so a <c>&lt;slot&gt;</c> knows whose it is.</summary>
+    Component? owner;
+
+    BuildContext(UiDocument document, UiElement mount) {
+        Document = document;
+        Mount = mount;
+        Anchor = mount;
+        building = RegionOf(mount);
+    }
+
+    /// <summary>The document being built into.</summary>
+    public UiDocument Document { get; }
+
+    /// <summary>The element the root component hangs from.</summary>
+    public UiElement Mount { get; }
+
+    /// <summary>What a null parent means right now.</summary>
+    /// <remarks>
+    ///     ⚠ The <i>running component's</i> root, not the document's mount point. A component's
+    ///     top-level markup belongs to that component: if a null parent meant the mount, every
+    ///     component in the tree would build into the same element and the nesting the markup drew
+    ///     would exist nowhere.
+    /// </remarks>
+    public UiElement Anchor { get; private set; }
+
+    /// <summary>Builds a component into a document.</summary>
+    /// <typeparam name="T">The component type.</typeparam>
+    /// <param name="document">The document.</param>
+    /// <param name="mount">The element it hangs from.</param>
+    /// <returns>The component, already built.</returns>
+    public static T Build<T>(UiDocument document, UiElement mount) where T : Component, new() {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(mount);
+
+        var context = new BuildContext(document, mount);
+        var component = context.Child<T>(mount);
+        return component;
+    }
+
+    /// <summary>Builds an already-created component, so a caller can choose how it was made.</summary>
+    /// <param name="component">The component.</param>
+    /// <param name="document">The document.</param>
+    /// <param name="mount">The element it hangs from.</param>
+    /// <returns>The context that built it, which is what can rebuild it.</returns>
+    /// <remarks>
+    ///     The <see cref="Build{T}" /> overload constructs the component itself, which is what
+    ///     markup wants and what a reload cannot use: replacing an instance means carrying state
+    ///     into the new one before it builds anything.
+    /// </remarks>
+    public static BuildContext BuildInto(Component component, UiDocument document, UiElement mount) {
+        ArgumentNullException.ThrowIfNull(component);
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(mount);
+
+        var context = new BuildContext(document, mount);
+        context.Adopt(component, mount);
+        return context;
+    }
+
+    void Adopt(Component component, UiElement parent) {
+        var host = Element(parent, component.GetType().Name.ToLowerInvariant());
+
+        owner = component;
+        Anchor = host;
+        building = RegionOf(host);
+
+        component.Mount(this, host);
+    }
+
+    /// <summary>Throws away what a component built and builds it again.</summary>
+    /// <param name="component">The component, which keeps its identity and its fields.</param>
+    /// <remarks>
+    ///     <para>
+    ///         What a hot reload calls once the method body behind <c>Build</c> has been replaced.
+    ///         The component object survives, so everything it holds survives with it — its signals
+    ///         above all, which is most of what "state was preserved" means in practice.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The elements do not survive, and cannot.</b> Two <c>Build</c> bodies are two
+    ///         different programs; there is no identity an element from the first shares with one
+    ///         from the second beyond its position, and reconciling on position alone would move
+    ///         state onto whatever happened to be in the same slot. What is carried across is
+    ///         carried deliberately, by name, by whoever asked for the reload.
+    ///     </para>
+    /// </remarks>
+    public void Rebuild(Component component) {
+        ArgumentNullException.ThrowIfNull(component);
+
+        var root = component.Root;
+        RegionOf(root).Clear();
+        regions.Remove(root);
+
+        var previousOwner = owner;
+        var previousAnchor = Anchor;
+        var previousBuilding = building;
+
+        owner = component;
+        Anchor = root;
+        building = RegionOf(root);
+
+        try {
+            component.Mount(this, root);
+        } finally {
+            owner = previousOwner;
+            Anchor = previousAnchor;
+            building = previousBuilding;
+        }
+    }
+
+    // ================================================================== Elements
+
+    /// <summary>Creates an intrinsic element.</summary>
+    /// <param name="parent">Its parent, or null for the mount point.</param>
+    /// <param name="tag">Its element name.</param>
+    /// <returns>The element.</returns>
+    public UiElement Element(UiElement? parent, string tag) {
+        var target = parent ?? Anchor;
+        var element = Document.Create(tag, target);
+        RegionOf(target).Add(element);
+        return element;
+    }
+
+    /// <summary>Creates a component and builds it.</summary>
+    /// <typeparam name="T">The component type.</typeparam>
+    /// <param name="parent">Its parent, or null for the mount point.</param>
+    /// <returns>The component.</returns>
+    /// <remarks>
+    ///     The host element's tag is the type's name in lower case, so <c>&lt;Callout /&gt;</c> is
+    ///     styled by <c>callout { … }</c> — a component is a kind of element as far as a stylesheet
+    ///     is concerned, and CSS type selectors are lower case.
+    /// </remarks>
+    public T Child<T>(UiElement? parent) where T : Component, new() {
+        var host = Element(parent, typeof(T).Name.ToLowerInvariant());
+        var component = new T();
+
+        var previousOwner = owner;
+        var previousAnchor = Anchor;
+        var previousBuilding = building;
+
+        owner = component;
+        Anchor = host;
+        building = RegionOf(host);
+
+        try {
+            component.Mount(this, host);
+        } finally {
+            owner = previousOwner;
+            Anchor = previousAnchor;
+            building = previousBuilding;
+        }
+
+        return component;
+    }
+
+    /// <summary>Creates an element holding fixed text.</summary>
+    /// <param name="parent">Its parent, or null for the mount point.</param>
+    /// <param name="text">The text.</param>
+    /// <returns>The element.</returns>
+    public UiElement Text(UiElement? parent, string text) {
+        var element = Element(parent, "text");
+        element.Text = text;
+        return element;
+    }
+
+    /// <summary>Creates an element holding text that follows an expression.</summary>
+    /// <param name="parent">Its parent, or null for the mount point.</param>
+    /// <param name="text">What to show. Re-read whenever something it read changes.</param>
+    /// <returns>The element.</returns>
+    public UiElement Text(UiElement? parent, Func<object?> text) {
+        ArgumentNullException.ThrowIfNull(text);
+
+        var element = Element(parent, "text");
+        Bind(() => element.Text = Format(text()));
+        return element;
+    }
+
+    // ================================================================== Values
+
+    /// <summary>Sets a value that will not change.</summary>
+    /// <param name="target">The element.</param>
+    /// <param name="name">The attribute name.</param>
+    /// <param name="value">Its value.</param>
+    /// <remarks>
+    ///     <c>class</c> is the one name handled specially, because it is a set rather than a value:
+    ///     writing it replaces the classes rather than appending to them, which is what makes
+    ///     <c>class="btn @variant"</c> behave when <c>variant</c> changes.
+    /// </remarks>
+    public void Attribute(UiElement target, string name, string value) {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(value);
+
+        if (string.Equals(name, "class", StringComparison.Ordinal)) {
+            SetClasses(target, value);
+            return;
+        }
+
+        Document.Styles.Tree.SetAttribute(target.StyleNode, name, value);
+        Document.Invalidate();
+    }
+
+    /// <summary>Keeps an attribute equal to an expression.</summary>
+    /// <param name="target">The element.</param>
+    /// <param name="name">The attribute name.</param>
+    /// <param name="value">What it should be.</param>
+    public void Bind(UiElement target, string name, Func<object?> value) {
+        ArgumentNullException.ThrowIfNull(value);
+        Bind(() => Attribute(target, name, Format(value())));
+    }
+
+    /// <summary>Runs an assignment now, and again whenever what it read changes.</summary>
+    /// <param name="assign">The assignment.</param>
+    /// <remarks>
+    ///     One effect per dynamic expression. It is registered against the region being built, so a
+    ///     branch that leaves the tree takes its effects with it — an effect that outlived its
+    ///     element would keep the element alive through its closure and keep assigning to it.
+    /// </remarks>
+    public void Bind(Action assign) {
+        ArgumentNullException.ThrowIfNull(assign);
+        building.Track(new Effect(assign));
+    }
+
+    /// <summary>Subscribes a handler to an event by name.</summary>
+    /// <param name="target">The element.</param>
+    /// <param name="name">The event name, as written after <c>on:</c>.</param>
+    /// <param name="handler">What to run.</param>
+    /// <param name="modifiers">
+    ///     <c>stop</c> marks the event handled, <c>capture</c> listens on the way down, <c>self</c>
+    ///     ignores events that started somewhere else, and <c>once</c> unsubscribes afterwards.
+    /// </param>
+    public void On(UiElement target, string name, Action handler, params string[] modifiers) {
+        ArgumentNullException.ThrowIfNull(handler);
+        On<UiEvent>(target, name, _ => handler(), modifiers);
+    }
+
+    /// <summary>Subscribes a handler that wants the event.</summary>
+    /// <typeparam name="TEvent">The event type the handler expects.</typeparam>
+    /// <param name="target">The element.</param>
+    /// <param name="name">The event name, as written after <c>on:</c>.</param>
+    /// <param name="handler">What to run.</param>
+    /// <param name="modifiers">As above.</param>
+    /// <exception cref="ArgumentException">The name is not one the runtime knows.</exception>
+    public void On<TEvent>(UiElement target, string name, Action<TEvent> handler, params string[] modifiers)
+        where TEvent : UiEvent {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(handler);
+
+        if (!Subscriptions.TryGetValue(name, out var subscribe)) {
+            // The markup compiler cannot catch this — it does not know what events exist — and the
+            // runtime can, so it does, loudly. A silently ignored `on:clcik` is a control that does
+            // nothing for a reason nobody can see.
+            throw new ArgumentException(
+                $"'{name}' is not an event. Known events: {string.Join(", ", Subscriptions.Keys.Order(StringComparer.Ordinal))}.",
+                nameof(name)
+            );
+        }
+
+        var once = modifiers.Contains("once", StringComparer.Ordinal);
+        var self = modifiers.Contains("self", StringComparer.Ordinal);
+        var stop = modifiers.Contains("stop", StringComparer.Ordinal);
+        var strategy = modifiers.Contains("capture", StringComparer.Ordinal)
+            ? RoutingStrategy.Capture
+            : RoutingStrategy.Bubble;
+
+        var spent = false;
+
+        void Invoke(UiEvent args) {
+            if (spent || (self && !ReferenceEquals(args.Source, target)) || args is not TEvent typed) {
+                return;
+            }
+
+            spent = once;
+            handler(typed);
+
+            if (stop) {
+                args.Handled = true;
+            }
+        }
+
+        subscribe(target, Invoke, strategy);
+    }
+
+    /// <summary>Binds a property in both directions.</summary>
+    /// <typeparam name="T">The property's type.</typeparam>
+    /// <param name="target">The element.</param>
+    /// <param name="name">The property's name.</param>
+    /// <param name="get">Reads the source.</param>
+    /// <param name="set">Writes it back.</param>
+    /// <exception cref="ArgumentException">The element has no such property.</exception>
+    /// <remarks>
+    ///     The write-back arrives through <see cref="UiElement.PropertyChanged" /> rather than
+    ///     through a poll, and is guarded so that the assignment this binding just made does not
+    ///     come straight back as a change to write to the source — which would be a loop the effect
+    ///     scheduler's runaway detector would catch, several frames after the cause.
+    /// </remarks>
+    public void TwoWay<T>(UiElement target, string name, Func<T> get, Action<T> set) {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(get);
+        ArgumentNullException.ThrowIfNull(set);
+
+        if (!UiPropertyRegistry.TryFindFor(target, name, out var key)) {
+            throw new ArgumentException($"'{target.Tag}' has no property called '{name}'.", nameof(name));
+        }
+
+        var writing = false;
+
+        Bind(() => {
+            writing = true;
+            try {
+                key.SetValue(target, get());
+            } finally {
+                writing = false;
+            }
+        });
+
+        void Changed(UiElement _, UiPropertyKey changed) {
+            if (writing || !ReferenceEquals(changed, key)) {
+                return;
+            }
+
+            set((T)key.GetValue(target)!);
+        }
+
+        target.PropertyChanged += Changed;
+        building.Track(new Unsubscribe(() => target.PropertyChanged -= Changed));
+    }
+
+    /// <summary>Declares where a caller's children go.</summary>
+    /// <param name="parent">Its parent, or null for the mount point.</param>
+    /// <param name="name">The slot's name.</param>
+    public void Slot(UiElement? parent, string name) {
+        ArgumentNullException.ThrowIfNull(name);
+        owner?.Declare(name, Element(parent, "slot"));
+    }
+
+    // ================================================================== Control flow
+
+    /// <summary>Builds whichever arm a selector picks, and rebuilds when it picks another.</summary>
+    /// <param name="parent">Its parent, or null for the mount point.</param>
+    /// <param name="arm">Which arm is live, or a negative number for none.</param>
+    /// <param name="build">Builds the arm it is given.</param>
+    /// <remarks>
+    ///     ⚠ <b><c>@if</c> and <c>@switch</c> are the same thing here.</b> They differ only in how
+    ///     the arm is chosen, and giving the runtime two constructs for swapping a subtree in and
+    ///     out would mean two places to get the disposal of a branch's effects wrong.
+    /// </remarks>
+    public void Switch(UiElement? parent, Func<int> arm, Action<BuildContext, UiElement, int> build) {
+        ArgumentNullException.ThrowIfNull(arm);
+        ArgumentNullException.ThrowIfNull(build);
+
+        var target = parent ?? Anchor;
+        var region = Open(target);
+        var current = int.MinValue;
+
+        Bind(() => {
+            var next = arm();
+            if (next == current) {
+                return;
+            }
+
+            current = next;
+            region.Clear();
+
+            if (next < 0) {
+                return;
+            }
+
+            In(target, region, () => build(this, target, next));
+            region.Reposition();
+        });
+    }
+
+    /// <summary>Builds one subtree per item, keyed, and reconciles when the sequence changes.</summary>
+    /// <typeparam name="T">The item type.</typeparam>
+    /// <param name="parent">Its parent, or null for the mount point.</param>
+    /// <param name="items">The sequence.</param>
+    /// <param name="key">What identifies an item across changes.</param>
+    /// <param name="build">Builds one item.</param>
+    /// <remarks>
+    ///     <para>
+    ///         An item whose key is still there keeps its elements — and therefore its focus, its
+    ///         scroll offset and its animation state. That is the whole reason keys exist, and why a
+    ///         missing one is a warning at compile time rather than a silent fallback to the index.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Reordering moves every surviving item rather than a minimal set.</b> A move that
+    ///         does not change an element's index returns immediately, so an unchanged list costs a
+    ///         walk and nothing else; a rotation costs one move per item where a
+    ///         longest-increasing-subsequence pass would cost far fewer. Owed, and the honest
+    ///         statement is that this is correct and not yet minimal.
+    ///     </para>
+    /// </remarks>
+    public void For<T>(
+        UiElement? parent,
+        Func<IEnumerable<T>> items,
+        Func<T, object> key,
+        Action<BuildContext, UiElement, T> build
+    ) {
+        ArgumentNullException.ThrowIfNull(items);
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(build);
+
+        var target = parent ?? Anchor;
+        var region = Open(target);
+        var live = new Dictionary<object, Region>();
+
+        Bind(() => {
+            var wanted = new List<Region>();
+            var kept = new Dictionary<object, Region>();
+
+            foreach (var item in items()) {
+                var identity = key(item);
+
+                if (live.Remove(identity, out var existing)) {
+                    kept[identity] = existing;
+                    wanted.Add(existing);
+                    continue;
+                }
+
+                var created = new Region(target, null, region);
+                var captured = item;
+                In(target, created, () => build(this, target, captured));
+
+                kept[identity] = created;
+                wanted.Add(created);
+            }
+
+            // Whatever is left in `live` is what the new sequence does not contain.
+            foreach (var gone in live.Values) {
+                gone.Clear();
+            }
+
+            live.Clear();
+            foreach (var (identity, item) in kept) {
+                live[identity] = item;
+            }
+
+            // The chain has to be rewritten before anything is repositioned: a region's index comes
+            // from what it follows, and after a reorder that is a different region than it was.
+            object? predecessor = null;
+            foreach (var item in wanted) {
+                item.Rebind(predecessor);
+                predecessor = item;
+            }
+
+            region.Reorder(wanted);
+            region.Reposition();
+        });
+    }
+
+    // ================================================================== Regions
+
+    Region RegionOf(UiElement parent) {
+        if (!regions.TryGetValue(parent, out var region)) {
+            region = new Region(parent, null);
+            regions[parent] = region;
+        }
+
+        return region;
+    }
+
+    /// <summary>Opens a sub-region after whatever is currently last in its parent.</summary>
+    Region Open(UiElement parent) {
+        var host = RegionOf(parent);
+        var region = new Region(parent, host.Last, host);
+        host.Add(region);
+        return region;
+    }
+
+    /// <summary>Runs a build with a region as the destination for that parent's content.</summary>
+    void In(UiElement parent, Region region, Action build) {
+        regions.TryGetValue(parent, out var previousRegion);
+        var previousBuilding = building;
+
+        regions[parent] = region;
+        building = region;
+
+        try {
+            build();
+        } finally {
+            if (previousRegion is null) {
+                regions.Remove(parent);
+            } else {
+                regions[parent] = previousRegion;
+            }
+
+            building = previousBuilding;
+        }
+    }
+
+    // ================================================================== Helpers
+
+    void SetClasses(UiElement target, string value) {
+        var wanted = value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        foreach (var existing in Document.Styles.Tree.GetClassNames(target.StyleNode)) {
+            if (!wanted.Contains(existing, StringComparer.Ordinal)) {
+                target.RemoveClass(existing);
+            }
+        }
+
+        foreach (var className in wanted) {
+            target.AddClass(className);
+        }
+    }
+
+    static string Format(object? value) =>
+        value switch {
+            null => string.Empty,
+            string text => text,
+            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+            _ => value.ToString() ?? string.Empty
+        };
+
+    sealed class Unsubscribe(Action undo) : IDisposable {
+        Action? undo = undo;
+
+        public void Dispose() {
+            undo?.Invoke();
+            undo = null;
+        }
+    }
+}

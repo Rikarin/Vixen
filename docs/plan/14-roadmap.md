@@ -602,9 +602,13 @@ the codebase is large enough for it to be expensive to fix.
 
   **Owed, and named:** the CLI is not shipped inside the package, so a consumer still needs `vixen`
   restored or installed and doc 08's "restores the Vixen tool versions matching the referenced
-  packages" is not met; nothing generates C# yet, so the `CoreCompile` hook is ordering without cargo
-  until Phases 4d and 5; platform packaging (APK assets, iOS bundle, `wwwroot`) waits for those
-  platforms; and a build-plan diagnostic carries no file, because `ImportDiagnostic` has no path
+  packages" is not met; ~~nothing generates C# yet, so the `CoreCompile` hook is ordering without
+  cargo until Phases 4d and 5~~ — **overtaken in 4d, and not the way this expected**: VXML is
+  compiled by a Roslyn source generator, which needs no ordering at all because it runs *inside*
+  `CoreCompile`. The hook is still there and still carries nothing; what would use it is the `vixen`
+  CLI path for a build that wants the generated C# on disk, which doc 08 also names and which is
+  owed. Platform packaging (APK assets, iOS bundle, `wwwroot`) waits for those platforms; and a
+  build-plan diagnostic carries no file, because `ImportDiagnostic` has no path
   field — its messages name the asset in their text, so only the IDE's jump-to-file loses.
 - ✅ `Vixen.Cli` — **every verb the plan names is built**: `import`, `content build`, `content serve`,
   `doctor`, and now `new`, `build` and `run`. The first four are the whole pipeline
@@ -1334,8 +1338,8 @@ sub-piece has its own gate.
   forgetting what was applied fails 1 — every `vw` keeps its old value while the window visibly
   changes size — and building against the parent's font size rather than the element's fails 3.
 
-  ⚠ **The tree is append-only**, because `StyleTree` is: elements are created parents-first and never
-  removed. Enough to lay out a document and not enough to run an application. Owed with the rest.
+  ⚠ **The tree was append-only**, because `StyleTree` was: elements were created parents-first and
+  never removed. Enough to lay out a document and not enough to run an application — closed below.
 - ✅ **The generated property system.** `[UiProperty]` on a partial property, and
   `Vixen.Ui.Generators` supplies the accessors, the default, coercion, the change callback, optional
   inheritance and a `UiPropertyKey` the runtime can find by name. Generated rather than reflected and
@@ -1390,6 +1394,9 @@ sub-piece has its own gate.
   mid-event. That is the right model and it is currently *untestable*: the tree is append-only and
   `Parent` is fixed at creation, so no handler can change an ancestor chain and walking as you go is
   indistinguishable. Kept as insurance, and now labelled as insurance rather than as a covered claim.
+  *(Removal has since made the first half of that reason false and the conclusion still true — see
+  the removal entry below. `Parent` survives removal, so the chain a later walk would climb is still
+  there; reparenting is what will finally make the difference visible.)*
 
   Doc 09 asks for a quadtree over the top level and says the simple version was "measured to be
   sufficient". This descends the tree, entering only subtrees containing the point; **that
@@ -1610,11 +1617,275 @@ sub-piece has its own gate.
   the reordering this exists to refuse — fails 5, letting a clip join a batch fails 1, dropping the
   font or the fill rule from the key fails 2 each, treating a stroke as a fill fails 2, and batching
   on every frame rather than behind the diff fails 1.
-- Owed in `Vixen.Ui`: access keys, line wrapping, rich-text runs,
+- ✅ **Element removal**, which was 4d's longest-standing owed item and the one the element tree kept
+  being described as too incomplete without. `UiElement.Remove()` takes an element and its subtree out
+  of all three stores at once — which is why it lives on the document rather than in any of them.
+
+  ⚠ **A removed style slot is tombstoned and never reused, and that is the decision.** The obvious
+  implementation is a free list, and it would quietly break three separate things resting on one
+  unwritten invariant — *a parent's index is lower than its children's*. `ResolveAll` walks slots
+  ascending because that is parents-before-children and inheritance needs it; the incremental pass
+  uses the index as a queue priority for the same reason; and the bloom sweep gives up the moment a
+  climb passes below the ancestor's index. Fill a hole with a new child of a later parent and the
+  first two resolve a child before its parent, while the third answers "not a descendant" about
+  something that is — a descendant selector that silently stops matching. So slots leak,
+  `StyleTree.DeadCount` says by how much, and **compaction rather than reuse is the fix**, because
+  rebuilding without the dead slots preserves relative order where reuse is exactly what does not.
+  **Owed, and it is the one thing keeping this from being finished rather than merely working.**
+
+  ⚠ **The layout tree already reused its slots and the style tree cannot**, and the asymmetry is not
+  an oversight: the layout algorithm descends from the root, so it never cared what order the slots
+  were in; the cascade walks the array by index and reads each parent's resolved table, so for it the
+  slot number *is* the ordering.
+
+  ⚠ **The frame pass now walks the tree rather than a list in creation order** — which removal forced
+  and which should have been there anyway. The list version was correct only because elements were
+  created parents-first and never removed, so its index order *happened* to be its depth order. The
+  property the pass needs is "parents before children", and a descent is that by construction. It
+  also deleted two parallel arrays: what an element had applied last time now lives on the element,
+  so removing one takes its bookkeeping with it.
+
+  ⚠ **Whatever was pointing at it has to stop** — the focus, a captured pointer, a gesture in
+  progress — and each has to be checked against the whole *subtree* rather than the element itself,
+  because a dialog closing takes the focused field inside it. A drag whose target is removed ends
+  **silently** rather than as a cancellation: a cancelled drag tells its target to put back what it
+  was carrying, and the target is the thing being deleted.
+
+  Verified by sabotage: leaving the later siblings' `IndexInParent` stale fails 1 — `:first-child`
+  landing on nothing — releasing nothing that pointed at it fails 3, checking only the element itself
+  for the focus rather than the subtree fails 1, letting a gesture survive its target fails 1, and
+  letting a removed element answer instead of throwing fails 2.
+
+  ⚠ **One sabotage failed to fail.** Killing only the element handed in, rather than its descendants,
+  broke nothing: the test asserted `IsRemoved` on the children, and that flag is set by the document's
+  own walk rather than by the store. The descendants would have been unreachable from any live parent
+  and cascaded every frame regardless. The test now asserts `StyleTree.LiveCount`, which is the store
+  speaking for itself.
+- ✅ **`Vixen.Ui.Composition` — the runtime a compiled `.vxml` calls.** `Component`,
+  `BuildContext`, and the two primitives that make the shape of the tree depend on state. This is
+  what the markup emitter was writing against, and it is now the real thing rather than a declared
+  contract: `Vixen.Ui.Markup.Tests` compiles its output against this assembly, loads the result,
+  builds it into a `UiDocument` and drives it with a signal.
+
+  **`@if` and `@switch` are one primitive.** `ctx.Switch` takes a selector saying which arm is live
+  and a builder that constructs it — a condition chain and a pattern match differ only in how the
+  number is produced, and two constructs for swapping a subtree in and out would be two places to
+  get the disposal of a branch's effects wrong.
+
+  ⚠ **Regions answer "where", and they have to ask rather than remember.** An `@if` in the middle of
+  a `<div>` has siblings on both sides and the element tree only appends, so a region knows what it
+  comes *after*: an element answers "one past me", a preceding region answers "wherever I end", and
+  an empty one defers to its host. The first version snapshotted the position instead, which put a
+  branch that *opens* a loop item at index zero of the parent — inside somebody else's item. Found
+  by a sabotage that failed to fail, fixed, and now has a test whose only job is that shape.
+
+  ⚠ **The alternative was an anchor element**, as the DOM frameworks use. Here it would be a real
+  element in all three stores, and a real element is counted by `:nth-child`. Rows that stripe
+  wrongly because of a hidden marker is a worse bug than this is complexity.
+
+  Prerequisite, and its own piece of work: **`UiDocument.Move`**, reordering a sibling across the
+  element, style and layout trees at once. Reordering is a *style* change as much as a layout one —
+  `:nth-child`, `:first-child` and the sibling combinators all read position — which is exactly why
+  a reconciler that moves elements beats one that rebuilds them, since a rebuild loses the focus and
+  the scroll offset too. Within one parent only: reparenting would move a style slot relative to its
+  new parent's, breaking the same invariant that makes removal tombstone rather than reuse.
+
+  Also landed: `UiElement.PropertyChanged`, raised through a non-virtual `RaisePropertyChanged` that
+  the generated setter calls — so an override forgetting to call its base cannot silently
+  unsubscribe every two-way binding on the element.
+
+  Gate: 203 tests in `Vixen.Ui`, and the markup project's end-to-end one — markup to syntax tree to
+  component model to C# to IL to an element tree that reacts to a signal.
+
+  Verified by sabotage: a region that ignores its predecessor fails 5, one that follows nothing and
+  does not ask its host fails 1, a region that clears without disposing its effects fails 1, a move
+  that skips the style tree fails 1, a style move that leaves `IndexInParent` stale fails 1, a loop
+  that rebuilds instead of reusing fails 2, a loop that does not rechain after a reorder fails 1, a
+  component that builds into the mount rather than its own root fails 16, a class binding that
+  appends rather than replaces fails 1, `once` that does not unsubscribe fails 1, and children that
+  ignore the default slot fail 1.
+
+  ⚠ **Two sabotages failed to fail and both were test bugs worth having found.** A leaked effect
+  counted its runs *after* touching its element — and touching a removed element throws, so the
+  scheduler suspended the effect before it could count, and a leak looked like a clean shutdown. And
+  a stale `IndexInParent` broke nothing because the only reorder test read the child arena, which is
+  a different fact; it takes a `:first-child` rule to reach the field at all.
+
+  Owed here: named slot projection, `scoped` actually scoping, a component stylesheet loaded once
+  per type rather than per instance, and a longest-increasing-subsequence pass so a reorder moves a
+  minimal set. The last is correctness-neutral — a move that changes nothing returns immediately.
+- Owed in `Vixen.Ui`: style-slot compaction, access keys, line wrapping, rich-text runs,
   font fallback and weight matching, gradients, per-corner elliptical radii, pinch and rotate,
-  virtualisation primitive, multi-window, DPI, and element removal.
-- `Vixen.Ui.Markup`: VXML lexer/parser on `Vixen.Core.Syntax`, binder, emitter, `#line` mapping.
-- `Vixen.Ui.HotReload`: three reload channels, keyed reconciliation, `[HotReloadState]`.
+  virtualisation primitive, multi-window and DPI.
+- `Vixen.Ui.Markup`: ✅ **VXML — lexer, parser, binder, emitter and `#line` mapping.** A `.vxml`
+  becomes a green/red tree over `Vixen.Core.Syntax`, then a `BoundComponent`, then a C# partial
+  class. Second grammar on the shared tree, which is the first evidence that the Phase 0 extraction
+  paid for itself: VXML brought `Syntax.xml`, a kind enum and two files of front end, and got trivia
+  fidelity, precise spans and one diagnostics model for nothing.
+
+  ⚠ **The binder resolves no types, and the plan said it would.** [09](09-ui-framework.md) specified
+  a binder running inside the source generator, resolving `<Counter Title="x" />` against the C#
+  type and typechecking the parameter through Roslyn's `Compilation`. It does not need to: if the
+  emitter writes the tag name where a type name goes and the attribute name where a property name
+  goes, both under a `#line`, then an unknown component, a misspelt parameter and a wrong expression
+  type are **all reported by Roslyn against the right character of the `.vxml`** with no type
+  resolution on this side. That leaves the binder exactly the mistakes a C# compiler cannot see —
+  duplicate attributes, an event handler given a string, two slots with one name, a loop without
+  keys — which is what every `VXML2xxx` now is. Doc 09 is corrected accordingly; there is
+  deliberately no diagnostic range for type errors.
+
+  ⚠ **`#line` uses the span form, not the line form.** `#line N "file"` lands a squiggle at the
+  start of a generated line, which for `ctx.Bind(n3, "class", () => kind)` is several tokens from
+  the word that came out of the markup. `#line (l,c)-(l,c) offset "file"` carries the exact
+  characters — verified by asserting that a missing member reports at the *member name's* column in
+  the `.vxml`, not the expression's.
+
+  **Two rules earn their keep.** *A `}` closes a directive body only at the element depth its `{`
+  was written at*, so `@if (x) { <div>a } b</div> }` reads the first brace as text with no lookahead
+  and no backtracking; the same test keeps `case` inside a `<p>` from starting a switch section.
+  And *a whitespace run that crosses a line break is trivia, one that does not is text* — indentation
+  is formatting, the space you typed on one line is content, and no later pass has to guess.
+
+  **VXML never parses C#.** Every expression, `@code` body and `<style>` body is one token found by
+  balancing, with C# strings, chars, comments, verbatim and raw strings skipped. `SkipCSharp` knows
+  how a literal ends and nothing else.
+
+  Gate: 100 tests. Byte-exact round-trip over every construct **and over every prefix of a real
+  file** — the editor reparses on each keystroke and half of those land mid-word. The emitter's gate
+  is a real Roslyn compilation of its output, because "does this compile" and "does the error point
+  at the markup" are questions only a compiler can answer.
+
+  Verified by sabotage: a keyword boundary that allows name characters fails 1 (`default:` never
+  ends), a brace that closes at any depth fails 1, a code body that does not skip C# strings fails 2,
+  inverting the mismatched-close ancestor lookup fails 2, dropping skipped source instead of keeping
+  it as trivia fails 1, treating any `on…` name as an event fails 1, a `#line` that ignores the
+  generated offset fails 5, and a keyless loop that keys by index fails 1.
+
+  ⚠ **One sabotage failed to fail.** Making the "component builds nothing" check stop at control
+  flow broke nothing — every test whose markup lived inside an `@if` also had markup outside one, so
+  the recursion the check had just been given was never reached. A test for it was added, and the
+  sabotage then fails 1.
+
+  ⚠ **The runtime the generated code calls now exists** — see `Vixen.Ui.Composition` above, landed
+  immediately after this. The note that stood here said the emitter's output was compiled against a
+  written-out declaration of the contract and that nothing built an element; that was true when it
+  was written and is not now. The gate compiles against the real assembly, loads it and runs it.
+  Still owed: incremental reparse (the `Blender` exists, but VXML's unit of reuse is not obvious — an element's green node
+  is reusable only if nothing about its *enclosing* content changed), `bind:` update events and
+  `@namespace`. The `IIncrementalGenerator` wrapper is built — see `Vixen.Ui.Markup.Generators`
+  below, which also records the two bugs in *this* project that only a generator could find.
+- ✅ **`Vixen.Ui.HotReload` — three reload channels, and what each one is allowed to lose.**
+
+  **Styles** reload without rebuilding anything: the rule set is replaced and the cascade runs
+  again, so every element keeps its identity and therefore its focus and its animation state. This
+  needed a change one layer down — `StyleEngine` now keeps the text of every sheet and rebuilds from
+  them, because rules are appended and never removed and a sheet cannot be lifted out of the middle
+  of a set. ⚠ **That is the difference between a reload and an overlay**: replaying the sheets is
+  what makes a *deleted* rule stop applying, where re-adding the new text leaves the old one
+  underneath, still winning wherever the new one says nothing. A sheet that does not load puts the
+  previous one back, because half a stylesheet is worse than the old one.
+
+  **Markup** re-runs `Build` on the same component objects, so their fields — their signals above
+  all — survive by construction. ⚠ **The elements do not, and cannot**: two `Build` bodies are two
+  different programs, with no identity shared beyond position, and reconciling on position alone
+  would move state onto whatever happened to be in the same slot. The focus is put back by path and
+  the report says whether that worked. ⚠ **A `Build` that throws leaves the component empty** —
+  clear-then-build has no snapshot. Doc 09 promised "a deliberately broken file leaves the previous
+  UI intact"; that is true of the *file* case, where a broken `.vxml` does not compile so no update
+  arrives, and not of a `Build` that throws at run time. Recorded rather than glossed.
+
+  **Component replacement** is the third channel and the only one `[HotReloadState]` is for. The
+  original plan implied the attribute carried state across every reload; it does not need to,
+  because a re-run keeps the instance. It earns its keep when the instance is replaced — a rude edit
+  — and it carries by name, checking that the value still fits, because the point of a reload is
+  that the type changed.
+
+  ⚠ **What this does not do is deliver the new code.** A changed `.vxml` becomes a different `Build`
+  only after something recompiles it. `MetadataUpdate` is registered as a .NET
+  `MetadataUpdateHandler` and reloads every live host, so the runtime half is wired; the build half
+  is `Vixen.Ui.Markup.Generators`. ~~which does not exist yet~~ — **corrected in the build: it does,
+  and it landed immediately after this.** See its entry below. The sentence stood for one commit and
+  the note is kept rather than deleted, because what it names is still the boundary: this assembly
+  reloads, and something else has to compile.
+
+  Gate: 15 tests. Verified by sabotage: a style reload that adds instead of replacing fails 2, a
+  broken sheet that is not rolled back fails 1, asking only the loader what went wrong fails 1, a
+  rebuild that leaves the previous elements fails 5, a replacement that carries nothing fails 1, one
+  that lands at the end rather than in its place fails 1, a focus reported restored without being
+  restored fails 1, carried state written without a type check fails 1, and a rebuild that keeps the
+  previous build's slots fails 1.
+
+  ⚠ **Three sabotages failed to fail.** Two were test gaps, now closed — a carried value of the
+  wrong type was aimed at a member that was never carried, and the slot test only covered a slot the
+  new build *also* declared, where overwriting hides the bug; it takes a slot the new build drops.
+  The third was a false claim in a comment: `ReloadStyles` said forgetting every applied style
+  catches a case a plain `Invalidate` would miss, and it does not — the reload rebuilds the
+  interning cache, so every computed style is a new object and the pass already reports every
+  element as changed. The call is kept and the comment now says why it is redundant today and what
+  would make it necessary.
+- ✅ **`Vixen.Ui.Markup.Generators` — the `IIncrementalGenerator`, and the markup channel is now
+  usable on a file save.** A `.vxml` in a project becomes a class in the compilation with no item in
+  the `.csproj`: `Vixen.Ui` carries `build/Vixen.Ui.targets`, which globs the files into
+  `AdditionalFiles`, and both UI generators now travel inside that package. The namespace is the root
+  namespace plus the file's own folders, which is the convention a hand-written `.cs` beside it
+  already follows.
+
+  ⚠ **The front end is compiled twice, and the alternatives were worse.** A generator runs inside the
+  compiler, so it targets `netstandard2.1`; `Vixen.Core.Syntax` and `Vixen.Ui.Markup` are `net10.0`.
+  Multi-targeting them fixes the *compile* and leaves the *load* — an analyzer's `ProjectReference`
+  dependencies do not reach the analyzer path, so both assemblies would still have to be put there by
+  hand and mis-versioned against the `net10.0` copies. Linking the sources gives one self-contained
+  analyzer with nothing to resolve, and it is cheap here for two checked reasons: neither project
+  touches the file system, the environment or the console, so RS1035 has nothing to say; and
+  `Vixen.Ui.Markup` reaches the internal green tree through `InternalsVisibleTo`, which one assembly
+  makes moot. The cost is one compatibility file — `init` needs `IsExternalInit`, and 116 guard
+  clauses call throw helpers that live *on* framework exception types where no extension method
+  reaches.
+
+  **Two bugs, both found by the move rather than by the tests.** The stricter analyzer set caught
+  every diagnostic message in `Vixen.Core.Syntax` being formatted with `CultureInfo.CurrentCulture`,
+  which makes one machine's compiler output differ from another's — the templates are hard-coded
+  English, so it localised nothing and only cost determinism. And **`VXML1002` and `VXML1003` read
+  their span off a node still under construction**, whose position is relative to itself, so every
+  unclosed element was reported a few characters into the file whichever one it was about. The
+  parser's own tests assert *which* diagnostics were reported and never where; it took a generator
+  turning those spans into editor squiggles for the first one to land on line zero.
+
+  ⚠ **Syntax errors stop the emit and binding errors do not**, and the split is the diagnostic
+  numbering earning its keep. A `VXML1xxx` means the tree is a guess made during recovery, and C#
+  emitted from a guess may not parse — which buries the real diagnostic under a page about generated
+  code the author cannot see. A `VXML2xxx` means the tree is right and its meaning is wrong, so the
+  class is still emitted and the type keeps existing: withholding it turns one real error into one at
+  every use site, none of which names the cause.
+
+  Gate: 19 tests. Most drive a `CSharpGeneratorDriver` — including one that emits the assembly, loads
+  it and drives the component with a signal — and **two run a real `dotnet build`**, for the reason
+  `Vixen.Sdk.Tests` gives: a glob in a `.targets` and two `CompilerVisibleProperty` items do not exist
+  until a build engine reads them.
+
+  Verified by sabotage: folding the hint name's underscores fails 1 (Roslyn throws on a duplicate hint
+  name, and naming files after their component collides between folders), emitting from a recovered
+  tree fails 1, withholding the class on any error fails 1, keeping an absolute path in the hint name
+  fails 4, dropping the namespace fails 4, taking a diagnostic span off a detached node fails 2 here
+  and 1 in `Vixen.Ui.Markup.Tests`, treating every additional file as markup fails 1, and dropping the
+  diagnostic message's arguments fails 1.
+
+  ⚠ **Three sabotages failed to fail.** Two were test gaps, now closed: nothing reached the
+  namespace's leading-digit guard, because every fixture used folders that were already C#
+  identifiers; and nothing reached `EquatableArray`'s equality at all, which takes an edit that
+  re-runs the compile step and then *agrees with itself* — plus its mirror, an error that becomes a
+  different error, because an equality that always answers "same" passes the first test and leaves a
+  corrected file still showing its old message.
+
+  The third was a false claim in a comment, and the pattern is the one this phase keeps finding.
+  Passing a VXML message as a composite format string was written up as a `FormatException` surfacing
+  as CS8785. **It is not**: Roslyn catches it and falls back to the unformatted template, which here
+  is the finished message, so a brace arrives intact and nothing crashes. The `{0}` indirection is
+  kept — the fallback discards arguments silently and has no contract — and is now labelled as
+  insurance rather than as a covered claim.
+
+  Still owed: incremental reparse, an `@namespace` directive, and the `vixen` CLI path for a build
+  that wants the generated C# on disk.
 - UI render feature integrated into the renderer.
 - Gate: draw-list golden tests; parser golden trees + error-recovery tests; hot-reload scenario tests.
 

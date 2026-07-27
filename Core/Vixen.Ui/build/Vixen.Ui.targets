@@ -1,0 +1,34 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    What makes a .vxml compile by being in the project. Imported automatically by a
+    PackageReference to Vixen.Ui; inside this repository a project has to name the generator
+    itself, because analyzers are not transitive through a ProjectReference.
+-->
+<Project>
+
+    <!--
+        A .targets rather than a .props, and for the same reason the Vixen.Sdk pair records: this is
+        imported *after* the consuming project's body, which is when DefaultItemExcludes finally
+        holds the project's own additions to it. Globbed in a .props, a .vxml copied into bin/ by a
+        previous build would be compiled a second time under a different path — two classes with one
+        name, and an error naming neither the file the author wrote nor the reason.
+    -->
+    <ItemGroup Condition="'$(EnableVixenMarkup)' != 'false'">
+        <AdditionalFiles Include="**/*.vxml" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+    </ItemGroup>
+
+    <!--
+        The two the generator asks MSBuild for. RootNamespace and the folders below the project
+        directory are what a component's namespace is built from — the same convention a
+        hand-written .cs file in the same folder already follows — and the project directory is also
+        what keeps a generated file's hint name relative, so two machines building the same source
+        produce the same compilation.
+    -->
+    <ItemGroup>
+        <CompilerVisibleProperty Include="RootNamespace" />
+        <CompilerVisibleProperty Include="ProjectDir" />
+    </ItemGroup>
+
+</Project>

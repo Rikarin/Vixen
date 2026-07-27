@@ -172,6 +172,41 @@ public static class UiPropertyRegistry {
         return result;
     }
 
+    /// <summary>Finds a property by name on an element that already exists.</summary>
+    /// <param name="element">The element.</param>
+    /// <param name="name">The property's name.</param>
+    /// <param name="key">Receives the key.</param>
+    /// <returns>Whether it was found.</returns>
+    /// <remarks>
+    ///     ⚠ <b>No <c>DynamicallyAccessedMembers</c> annotation, and none is needed.</b>
+    ///     <see cref="Of" /> carries one because it forces static constructors to run — a type may
+    ///     never have been touched. An element that exists has already run its own and its bases',
+    ///     because constructing it did, so this walks <c>BaseType</c> and reads the table and
+    ///     touches no metadata a trimmer could remove.
+    /// </remarks>
+    public static bool TryFindFor(UiElement element, string name, [NotNullWhen(true)] out UiPropertyKey? key) {
+        ArgumentNullException.ThrowIfNull(element);
+        ArgumentNullException.ThrowIfNull(name);
+
+        for (var type = element.GetType(); type is not null; type = type.BaseType) {
+            if (!Declared.TryGetValue(type, out var keys)) {
+                continue;
+            }
+
+            lock (keys) {
+                foreach (var candidate in keys) {
+                    if (string.Equals(candidate.Name, name, StringComparison.Ordinal)) {
+                        key = candidate;
+                        return true;
+                    }
+                }
+            }
+        }
+
+        key = null;
+        return false;
+    }
+
     /// <summary>Finds a property by name on a type or one of its bases.</summary>
     /// <param name="ownerType">The type.</param>
     /// <param name="name">The property's name.</param>

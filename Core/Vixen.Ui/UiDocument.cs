@@ -23,16 +23,13 @@ namespace Vixen.Ui;
 ///         the font size; and layout itself is the flexbox algorithm, which is not a walk at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The tree is append-only</b>, because <see cref="StyleTree" /> is: elements are
-///         created parents-first and never removed. That is enough to lay out a document and not
-///         enough to run an application, and removal is owed with the rest of the element tree.
-///         Said plainly rather than left for someone to discover.
+///         Elements can be removed as well as added — see <see cref="Remove" /> — but a removed
+///         style slot is tombstoned rather than reused, so a document that builds and tears down a
+///         list every frame grows without bound. <see cref="StyleTree.DeadCount" /> is the number
+///         that says so, and compaction is owed.
 ///     </para>
 /// </remarks>
 public sealed partial class UiDocument : IDisposable {
-    readonly List<UiElement> elements = [];
-    readonly List<ComputedStyle?> appliedStyles = [];
-    readonly List<float> appliedFontSizes = [];
     readonly DrawListBuilder drawings;
     readonly int pointerEvents;
     readonly int fontFamily;
@@ -90,9 +87,34 @@ public sealed partial class UiDocument : IDisposable {
     /// <summary>Loads a stylesheet.</summary>
     /// <param name="css">Its text.</param>
     /// <param name="origin">Who it came from.</param>
-    public void Load(string css, StyleOrigin origin = StyleOrigin.Author) {
-        Styles.Load(css, origin);
+    /// <returns>The sheet's index, for <see cref="ReloadStyles" />.</returns>
+    public int Load(string css, StyleOrigin origin = StyleOrigin.Author) {
+        var sheet = Styles.Load(css, origin);
         Invalidate();
+        return sheet;
+    }
+
+    /// <summary>Replaces a loaded stylesheet with new text.</summary>
+    /// <param name="sheet">The index <see cref="Load" /> returned.</param>
+    /// <param name="css">The new text.</param>
+    /// <remarks>
+    ///     <para>
+    ///         Forgets what every element applied, for the same reason <see cref="Resize" /> does.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is currently redundant, and kept anyway.</b> A reload rebuilds the interning
+    ///         cache, so a computed style from before it is a different object from the identical
+    ///         one after — the pass's reference comparison already calls every element changed, and
+    ///         replacing this with a plain <c>Invalidate</c> breaks no test. It stays because the
+    ///         redundancy is an accident of how the reload happens to be implemented rather than a
+    ///         property of what it means, and an interning cache that survived a reload one day
+    ///         would turn that accident into every element keeping the geometry a deleted rule gave
+    ///         it. Said out loud rather than defended by a test that cannot exist.
+    ///     </para>
+    /// </remarks>
+    public void ReloadStyles(int sheet, string css) {
+        Styles.Replace(sheet, css);
+        Forget();
     }
 
     /// <summary>Changes the surface's size.</summary>
@@ -116,11 +138,16 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>Marks every element as needing its layout style rebuilt.</summary>
     void Forget() {
-        for (var i = 0; i < appliedStyles.Count; i++) {
-            appliedStyles[i] = null;
-        }
-
+        Forget(Root);
         Invalidate();
+    }
+
+    static void Forget(UiElement element) {
+        element.AppliedStyle = null;
+
+        foreach (var child in element.Children) {
+            Forget(child);
+        }
     }
 
     /// <summary>Creates an element.</summary>
@@ -154,12 +181,129 @@ public sealed partial class UiDocument : IDisposable {
             Layout.AddChild(parent.LayoutNode, layoutNode);
         }
 
-        elements.Add(element);
-        appliedStyles.Add(null);
-        appliedFontSizes.Add(float.NaN);
-
         Invalidate();
         return element;
+    }
+
+    /// <summary>Moves an element to another position among its siblings.</summary>
+    /// <param name="element">The element to move.</param>
+    /// <param name="index">Where it should end up.</param>
+    /// <remarks>
+    ///     <para>
+    ///         All three stores at once, for the same reason removal is: an element is a handle into
+    ///         a style tree and a layout tree, and one moved in only two of them is in two places.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Reordering is a style change, not just a layout one.</b> <c>:nth-child</c>,
+    ///         <c>:first-child</c> and the sibling combinators all read position, so moving an
+    ///         element restyles it and the siblings it passed. That is why this invalidates rather
+    ///         than only marking the layout dirty — and it is the reason a reconciler that moves
+    ///         elements is worth having over one that rebuilds them, because a rebuild loses the
+    ///         focus and the scroll position as well.
+    ///     </para>
+    ///     <para>
+    ///         Within one parent only. Reparenting would move an element's style slot relative to
+    ///         its new parent's, and a child whose slot is below its parent's breaks the three
+    ///         passes that read slot order as depth order — the same invariant that makes removal
+    ///         tombstone rather than reuse.
+    ///     </para>
+    /// </remarks>
+    public void Move(UiElement element, int index) {
+        ArgumentNullException.ThrowIfNull(element);
+
+        if (!ReferenceEquals(element.Document, this)) {
+            throw new ArgumentException("that element belongs to another document.", nameof(element));
+        }
+
+        if (element.Parent is not { } parent) {
+            throw new InvalidOperationException("the root has no siblings to move among.");
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, parent.Children.Count);
+
+        if (element.IndexInParent == index) {
+            return;
+        }
+
+        parent.MoveChild(element, index);
+        Layout.RemoveChild(parent.LayoutNode, element.LayoutNode);
+        Layout.InsertChild(parent.LayoutNode, element.LayoutNode, index);
+        Styles.Tree.Move(element.StyleNode, index);
+        Invalidate();
+    }
+
+    /// <summary>Removes an element and everything under it.</summary>
+    /// <param name="element">The element.</param>
+    /// <remarks>
+    ///     <para>
+    ///         Out of all three stores at once, which is the point of doing it here rather than in
+    ///         any of them: an element is a handle into a style tree and a layout tree, and one that
+    ///         left either behind would keep matching selectors or keep taking up space in a flex
+    ///         line while being gone from the document.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Whatever was pointing at it has to stop.</b> The focus, a captured pointer and a
+    ///         gesture in progress all name an element, and each of them outlives the element unless
+    ///         something says otherwise — a drag whose target was deleted mid-drag delivers its next
+    ///         move to a detached object, and a focus left on a removed element makes Tab start from
+    ///         somewhere that is not on the screen.
+    ///     </para>
+    ///     <para>
+    ///         The root cannot be removed. A document without one has no tree to walk and nothing to
+    ///         lay out, and the alternative to refusing is a null check in every pass.
+    ///     </para>
+    /// </remarks>
+    public void Remove(UiElement element) {
+        ArgumentNullException.ThrowIfNull(element);
+
+        if (ReferenceEquals(element, Root)) {
+            throw new InvalidOperationException("the root cannot be removed — a document is its tree.");
+        }
+
+        if (!ReferenceEquals(element.Document, this)) {
+            throw new ArgumentException("that element belongs to another document.", nameof(element));
+        }
+
+        // Before anything is detached, because finding out whether the focus is inside the subtree
+        // means walking up from the focus to a parent this is about to clear.
+        Release(element);
+
+        element.Parent?.Detach(element);
+        Layout.RemoveChild(element.Parent!.LayoutNode, element.LayoutNode);
+        Layout.DestroyRecursive(element.LayoutNode);
+        Styles.Tree.Remove(element.StyleNode);
+
+        Retire(element);
+        Invalidate();
+    }
+
+    /// <summary>Drops anything that was pointing into a subtree about to go.</summary>
+    void Release(UiElement element) {
+        for (var focused = Focused; focused is not null; focused = focused.Parent) {
+            if (ReferenceEquals(focused, element)) {
+                Focus(null);
+                break;
+            }
+        }
+
+        for (var captured = Captured; captured is not null; captured = captured.Parent) {
+            if (ReferenceEquals(captured, element)) {
+                ReleasePointer();
+                break;
+            }
+        }
+
+        Gestures.Forget(element);
+    }
+
+    /// <summary>Marks a subtree as no longer part of any document.</summary>
+    static void Retire(UiElement element) {
+        element.Retire();
+
+        foreach (var child in element.Children) {
+            Retire(child);
+        }
     }
 
     /// <summary>Runs the passes, if anything has changed since the last one.</summary>
@@ -174,40 +318,54 @@ public sealed partial class UiDocument : IDisposable {
         StylesApplied = 0;
 
         var computed = Styles.ResolveAll();
-
-        // Parents before children, which ascending index already is: elements are created
-        // parents-first and the style tree indexes them in creation order.
-        for (var i = 0; i < elements.Count; i++) {
-            var element = elements[i];
-            var style = computed[element.StyleNode.Index];
-            var parentFontSize = element.Parent?.FontSize ?? Viewport.RootFontSize;
-
-            element.Style = style;
-            element.FontSize = Builder.ResolveFontSize(style, parentFontSize, Viewport);
-
-            // ⚠ Reference equality, which is the whole reason ComputedStyle is interned. Two
-            // elements that resolved alike hold the same object, so this is one pointer comparison
-            // rather than a walk of a property table — and a table of ten thousand identical cells
-            // rebuilds nothing.
-            //
-            // The font size has to be part of the test as well as the style: an element whose own
-            // declarations did not change still needs rebuilding if an ancestor's font size did,
-            // because every `em` on it measures against a different number now.
-            if (ReferenceEquals(appliedStyles[i], style) && appliedFontSizes[i].Equals(element.FontSize)) {
-                continue;
-            }
-
-            appliedStyles[i] = style;
-            appliedFontSizes[i] = element.FontSize;
-            StylesApplied++;
-
-            var layoutStyle = Builder.Build(style, Viewport.WithFontSize(element.FontSize));
-            Layout.SetStyle(element.LayoutNode, layoutStyle);
-        }
+        Apply(computed, Root, Viewport.RootFontSize);
 
         Layout.CalculateLayout(Root.LayoutNode, Viewport.ViewportWidth, Viewport.ViewportHeight, Direction.Ltr);
         Accumulate(Root, 0f, 0f);
         return true;
+    }
+
+    /// <summary>Writes each element's resolved style through to the layout store.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A walk of the tree rather than of a list in creation order</b>, which is what
+    ///         removal forced and what should have been here anyway. The list version was correct
+    ///         only because elements were created parents-first and never removed, so its index order
+    ///         happened to be its depth order — an invariant a removal would quietly have broken,
+    ///         with children resolved against a parent's font size from the previous frame. The
+    ///         property this actually needs is "parents before children", and a descent is that by
+    ///         construction rather than by coincidence.
+    ///     </para>
+    ///     <para>
+    ///         It also deletes two arrays. What each element had applied last time is now on the
+    ///         element, where removing one takes its bookkeeping with it instead of leaving a hole
+    ///         in three parallel lists.
+    ///     </para>
+    /// </remarks>
+    void Apply(ComputedStyle[] computed, UiElement element, float parentFontSize) {
+        var style = computed[element.StyleNode.Index];
+
+        element.Style = style;
+        element.FontSize = Builder.ResolveFontSize(style, parentFontSize, Viewport);
+
+        // ⚠ Reference equality, which is the whole reason ComputedStyle is interned. Two elements
+        // that resolved alike hold the same object, so this is one pointer comparison rather than a
+        // walk of a property table — and a table of ten thousand identical cells rebuilds nothing.
+        //
+        // The font size has to be part of the test as well as the style: an element whose own
+        // declarations did not change still needs rebuilding if an ancestor's font size did, because
+        // every `em` on it measures against a different number now.
+        if (!ReferenceEquals(element.AppliedStyle, style) || !element.AppliedFontSize.Equals(element.FontSize)) {
+            element.AppliedStyle = style;
+            element.AppliedFontSize = element.FontSize;
+            StylesApplied++;
+
+            Layout.SetStyle(element.LayoutNode, Builder.Build(style, Viewport.WithFontSize(element.FontSize)));
+        }
+
+        foreach (var child in element.Children) {
+            Apply(computed, child, element.FontSize);
+        }
     }
 
     /// <summary>Rebuilds the draw list from the current layout and styles.</summary>
