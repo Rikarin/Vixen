@@ -109,6 +109,30 @@ public abstract class FieldSymbol : Symbol {
     /// </remarks>
     public virtual ResourceSet ResourceSet => ResourceSet.PerMaterial;
 
+    /// <summary>
+    ///     Whether this field is marked <c>[PushConstant]</c>: a small value the host writes into
+    ///     the command buffer rather than into a descriptor.
+    /// </summary>
+    /// <remarks>
+    ///     Not a fifth <see cref="Symbols.ResourceSet" />, because a push constant is not in a set —
+    ///     it has no descriptor at all, which is the point of it. A shader gets one push-constant
+    ///     block, so the marker says "this value" rather than "this set", and
+    ///     <see cref="ResourceSet" /> stops meaning anything for a field that carries it.
+    /// </remarks>
+    public virtual bool IsPushConstant => false;
+
+    /// <summary>
+    ///     The texel format from <c>[Format("…")]</c>, resolved. Null unless this field is a
+    ///     storage image with a recognised format.
+    /// </summary>
+    /// <remarks>
+    ///     A property of the field rather than of the type, because it is: two
+    ///     <c>RWTexture2D&lt;float4&gt;</c> bindings may hold <c>rgba16f</c> and <c>rgba8</c>, and
+    ///     the element type — four float lanes — is the same for both. What the type says is what
+    ///     the shader sees; what this says is how the texels are stored.
+    /// </remarks>
+    public virtual ImageFormat? ImageFormat => null;
+
     /// <summary>The pipeline semantic from a <c>[Semantic("…")]</c> attribute, or null.</summary>
     public virtual string? SemanticName => null;
 

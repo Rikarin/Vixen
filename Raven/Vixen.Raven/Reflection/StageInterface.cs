@@ -20,9 +20,13 @@ namespace Vixen.Raven.Reflection;
 ///         The rule is Vulkan's rather than either language's. An interface variable gets one
 ///         <c>location</c>, so it has to be one scalar or vector; an aggregate would need a location
 ///         per leaf and a layout rule to assign them, and a boolean has no interface representation
-///         at all because <c>OpTypeBool</c> has no size. Multiple render targets are the case worth
-///         naming: they are exactly an aggregate output, so they need a stage output list rather
-///         than this check being relaxed.
+///         at all because <c>OpTypeBool</c> has no size.
+///     </para>
+///     <para>
+///         Multiple render targets are the case that proves the rule rather than the exception to
+///         it: a fragment stage returning a struct is taken apart into one output <em>per member</em>
+///         before it reaches here, and every one of those is asked this same question. So the check
+///         never had to be relaxed — what changed was that an entry point may have several outputs.
 ///     </para>
 /// </remarks>
 public static class StageInterface {

@@ -24,13 +24,10 @@ decision that has been made and built, kept because the reasons stay useful.
 
 | | Open item | Where | Blocks |
 |---|---|---|---|
-| 🟡 | **`Raven/Library` is written** — 44 files across all eight packages, every shader reaching both backends under `glslc` and `spirv-val`. What is left is depth rather than breadth: the clustered light loop, the G-buffer geometry pass and the particle compute dispatch, each blocked by a language gap below rather than by content | § F | the perf gates; the numeric tests additionally need a writable resource |
-| 🟡 | **Storage images** — a writable *texture*, which a compute post-process pass writes into. Storage buffers landed, so everything that reads a result *back* is unblocked; an image needs a format decoration on the declaration, which is syntax that does not exist yet | § I | a compute post-process writing a render target; nothing that only has to read a number back |
-| 🟡 | **Multiple render targets** — an entry point returns one value, and an aggregate return is `RVN4001` in both backends | § F | the G-buffer *geometry* pass; `GBuffer.rvn` is the encoding only, and `Deferred.rvn` reads it |
+| 🟡 | **`Raven/Library` is written** — 44 files across all eight packages, every shader reaching both backends under `glslc` and `spirv-val`. What is left is depth rather than breadth: the G-buffer geometry pass, the clustered light loop and the compute post-process. **Every language gap that was blocking them is now closed**, so what remains is content | § F | the perf gates |
 | 🟡 | **Generic types and methods do not lower** — front-end only. An open definition is `RVN3001`, and so is an instantiation: there is no monomorphisation, so `Box<float4>` reaches no backend | § I | anything in § F's library that wants a generic container |
 | ⚪ | **Small stage intrinsics**: no `discard`, no `SV_VertexID`/`SV_InstanceID` semantic. `SampleLevel`, `GetDimensions` and `asfloat`/`asint`/`asuint` **landed** — see § F | § F | each shaped a library file rather than blocking it — see § F's list of what it could not express |
 | 🟡 | **Inheritance is not flattened** — now `RVN3002` rather than three silent miscompilations | § I, mixins | the mixin question; `compose` covers the common case |
-| 🟡 | **Push constants** — no syntax, so `PushConstants` is always empty | § C, § D | nothing yet; reported as absent rather than guessed |
 | 🟡 | **String interpolation** — needs lexer modes; nothing shipped uses it | § I | nothing |
 | ⚪ | **Flow analysis** — definite assignment and reachability. Dead-branch elimination is constant folding, not this | § I | silent partial initialisation of a struct |
 | ⚪ | **Nuke is not stood up**: `CompileShaderLibrary`, `CheckFormat` for SPDX enforcement, the CI workflows | § A, § G | shipping the library as a package; SPDX is a real gap, not a closed item |
@@ -176,7 +173,7 @@ exist here.
 | | Requirement | |
 |---|---|---|
 | 🔴 | **SPIR-V emitter** — the canonical output (ADR-012). The engine consumes it directly; no bridge, no intermediate | ✅ |
-| 🔴 | **GLSL emitter, Vulkan-flavoured**: `#version 450`+, explicit `layout(set = N, binding = M)` via `GL_KHR_vulkan_glsl`, `layout(push_constant)`, `layout(location = N)` on every stage in/out, explicit `std140`/`std430`. Required so `shaderc` can compile it back to SPIR-V for the **differential oracle** below, and because it is the most readable form for the frame debugger | ✅ except `push_constant`, which needs syntax Raven has not got |
+| 🔴 | **GLSL emitter, Vulkan-flavoured**: `#version 450`+, explicit `layout(set = N, binding = M)` via `GL_KHR_vulkan_glsl`, `layout(push_constant)`, `layout(location = N)` on every stage in/out, explicit `std140`/`std430`. Required so `shaderc` can compile it back to SPIR-V for the **differential oracle** below, and because it is the most readable form for the frame debugger | ✅ |
 | 🔴 | **Reflection comes from the semantic phase**, never from either emitted form. The engine writes constant buffers by generated offset | ✅ |
 | 🔴 | Honour the **four-set descriptor convention** (set 0 per-frame, 1 per-view, 2 per-material, 3 per-draw) when assigning bindings ([05](05-graphics-rhi.md)) — both emitters must agree, which the differential test enforces | ✅ |
 | 🟡 | **Differential test**: Raven's SPIR-V vs `glslc`(Raven's GLSL) must be semantically equivalent. The strongest correctness signal available, and free once both emitters exist | ✅ interface-level |
@@ -403,10 +400,11 @@ reused node's width lands on a token boundary of the new stream, so a candidate 
 is simply reparsed: **the blender can only make a parse faster, never different**, which is pinned by
 comparing every incremental result against a full parse.
 
-**Reported as absent rather than guessed:** `PushConstants` and `SpecConstants` are always empty.
-Raven has no syntax for push constants, and a `[Permutation]` key is resolved at compile time rather
-than left specialisable — that is what makes the dead branch disappear. An empty array is honest; a
-fabricated one would be a bug the engine could not see.
+**`PushConstants` is populated** from a shader's `[PushConstant]` fields — one range, offset 0, std430
+members, which is what a Vulkan pipeline layout takes. **`SpecConstants` is still always empty, and
+deliberately:** a `[Permutation]` key is resolved when the shader is *compiled* rather than left
+specialisable at pipeline creation, which is what makes the dead branch disappear. An empty array is
+honest; a fabricated one would be a bug the engine could not see.
 
 **What a shader can be varied by is reported separately from the cache key,** and the separation is the
 point rather than duplication:
@@ -592,9 +590,10 @@ Each of these shaped a file rather than blocking it, and each is recorded in the
   doc 06's CPU/GPU bit-for-bit comparison a transliteration, and `WritableResourceTests` now asserts
   the split rather than only the compile, because a force that read a binding would break the
   comparison silently.
-- **No multiple render targets** — an entry point returns one value. So `GBuffer.rvn` is the *encoding*
-  and not the geometry pass that fills it; `Deferred.rvn` reads through the same `Decode`, so when MRT
-  arrives there is one place for the two passes to agree.
+- ~~**No multiple render targets**~~ — landed. `GBuffer.rvn` is still the *encoding* rather than the
+  geometry pass that fills it, and that is now content rather than a language gap: the pass returns a
+  struct of the targets and `Deferred.rvn` reads through the same `Decode`, so the two agree in one
+  place. See [§ The three interface shapes](#the-three-interface-shapes-that-are-not-a-set-of-uniforms).
 - ~~**No `SampleLevel`**~~ — landed, along with `GetDimensions` and `asfloat`/`asint`/`asuint`. All
   three are the same shape of change (a symbol, an IR opcode, a line in each backend). `Msdf.rvn` now
   queries its atlas instead of hard-coding 1024, a packed storage buffer can be read back at all, and
@@ -824,6 +823,54 @@ language decision needing a coin-flip (HLSL indexes rows, GLSL columns) and was 
 byte-level relationship between host and shader storage was worked out, exactly one answer was free in
 both backends *and* the intuitive one. The derivation is in
 [§ E](#e-conventions-raven-must-bake-in).
+
+#### The three interface shapes that are not a set of uniforms
+
+Multiple render targets, push constants and storage images landed together, and they belong together:
+each is a thing a shader presents to the pipeline that is neither a uniform block nor a stage
+parameter, and each needed the *shape* of the interface to change rather than a new intrinsic.
+
+**Multiple render targets.** An interface variable takes one `location` and therefore has to be one
+scalar or vector, which is why an aggregate output stayed `RVN4001` for as long as it did. So a
+fragment stage that writes four targets returns a struct and the entry-point wrapper takes it apart —
+one extract, one store, per target. `IrEntryPoint.Outputs` is a list now, and an output carries the
+index of the member it came from so neither backend has to re-derive which member is which target.
+**Declaration order is target order**, the same rule `StreamPlan` uses: a number both sides derive
+beats a number one side spells. Fragment stages only — a vertex stage's several outputs are `stream`s,
+where a location is a property of the shader and the two stages agree without either declaring the
+other's struct.
+
+**Push constants.** `[PushConstant] var offset: float2`, beside the `[PerFrame]`…`[PerDraw]` markers
+and deliberately *not* a fifth one: a push constant is not in a descriptor set at all, which is the
+entire reason to reach for it. One block per shader, because that is what a Vulkan pipeline layout
+takes, laid out std430 in both targets. Three checks earn their keep: a descriptor cannot be pushed
+(`RVN2120` — a texture is a handle, not bytes), a set marker on one says something untrue
+(`RVN2121`), and a block over 128 bytes warns (`RVN3007`) because that is the guaranteed minimum and
+the failure is otherwise invisible until a device refuses the pipeline.
+
+**Storage images.** `[Format("rgba16f")] var target: RWTexture2D<float4>` — structural like
+`Buffer<T>`, so it works without monomorphisation. Two things make it more than "a buffer with two
+indices":
+
+- **It is not sampled.** No sampler, no filtering, no mips. `Load`/`Store`/`GetDimensions` by integer
+  texel, which is `imageLoad`/`imageStore`/`imageSize` and `OpImageRead`/`OpImageWrite`/
+  `OpImageQuerySize`. `Store` is the one intrinsic in the language that returns nothing, which is why
+  it emits as a statement in both backends.
+- **The format is part of the type**, not of the binding, because it is part of the type in SPIR-V:
+  `OpTypeImage` carries an `ImageFormat`, so two images with different formats are different types
+  and a function parameter has to say which it takes. That is why a parameter carries its own
+  `[Format]`. It is *required* (`RVN2123`) rather than defaulted: GLSL needs the qualifier on any
+  image that is read, SPIR-V needs a known format or the `StorageImageReadWithoutFormat` capability,
+  and there is nothing to guess — the host creates the view.
+
+The element is always a four-lane vector, and that is not a simplification: both targets read and
+write four components whatever the format stores, so an `r32f` image reads as `(r, 0, 0, 1)`.
+Declaring `RWTexture2D<float>` would be a shape neither target has, so it is `RVN2122`.
+
+**One pre-existing hole came out of it.** Assigning a binding *itself* — `target = source`,
+`data = other` — was refused for read-only bindings and let through for writable ones, because the
+check asked "is this resource writable" where it meant "is this a write *through* the resource". A
+descriptor is not a value in either target; it is now `RVN2119` for the writable forms too.
 
 #### Short circuiting: a branch only where one is owed
 
@@ -1137,14 +1184,15 @@ relative to the start of an element, which is what a host writing an array of th
 is reported too, and cannot be inferred: read-only and read-write are the same descriptor type, and the
 difference decides which barrier the frame graph inserts around the dispatch.
 
-##### Still missing
+##### ✅ And the storage image that went with it
 
-A **storage image** — a writable texture. It is a smaller thing than it looks, but not a free one: GLSL
-requires a format qualifier on the declaration and SPIR-V an `ImageFormat` operand on `OpTypeImage`, so
-it needs syntax that does not exist (`[Format("rgba16f")]` or similar) and a decision about which
-formats to admit. Nothing that has to read a *number* back needs it — the numeric BRDF readback,
-`Random.rvn` bit-for-bit and doc 06's VFX path are all buffers — so it is the compute post-process pass
-that is still waiting.
+A **storage image** — a writable texture — landed as `[Format("rgba16f")] var target:
+RWTexture2D<float4>`. It was a smaller thing than it looked but not a free one, and the format is the
+reason: GLSL requires a qualifier on the declaration and SPIR-V an `ImageFormat` operand on
+`OpTypeImage`, so it needed syntax and a decision about which formats to admit — sixteen, all of them
+in Vulkan's must-support-storage list. The compute post-process pass is no longer waiting on the
+language, only on the content. See
+[§ The three interface shapes](#the-three-interface-shapes-that-are-not-a-set-of-uniforms).
 
 Also found while writing this, and since **fixed**: `Buffer<Buffer<float>>` did not parse. The `>>`
 lexed as a right shift and the type-argument scanner did not split it — pre-existing in every nested

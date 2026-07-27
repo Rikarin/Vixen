@@ -197,14 +197,51 @@ public static class DeclarationFacts {
     /// <summary>True when the name is one of the recognised descriptor-set markers.</summary>
     public static bool IsResourceSetAttributeName(string name) => SetAttributes.ContainsKey(name);
 
+    /// <summary>Whether the declaration is marked <c>[PushConstant]</c>.</summary>
+    public static bool IsPushConstant(SyntaxList<AttributeListSyntax> attributeLists) {
+        foreach (var attribute in GetAttributes(attributeLists)) {
+            if (GetAttributeName(attribute) == "PushConstant") {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     The texel format a declaration is tagged with — <c>[Format("rgba16f")]</c> — or null.
+    /// </summary>
+    /// <remarks>
+    ///     The string as written, not a resolved <see cref="ImageFormat" />: an unrecognised name
+    ///     has to reach the diagnostic that lists the recognised ones, and returning null for it
+    ///     would report "no format" for a declaration that plainly has one.
+    /// </remarks>
+    public static string? GetImageFormat(SyntaxList<AttributeListSyntax> attributeLists) =>
+        StringArgumentOf(attributeLists, "Format");
+
+    /// <summary>Whether the declaration carries a <c>[Format]</c> at all, well-formed or not.</summary>
+    public static bool HasFormat(SyntaxList<AttributeListSyntax> attributeLists) {
+        foreach (var attribute in GetAttributes(attributeLists)) {
+            if (GetAttributeName(attribute) == "Format") {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>
     ///     The pipeline semantic a declaration is tagged with —
     ///     <c>[Semantic("POSITION")]</c>, <c>[Semantic("SV_Target")]</c> — or null.
     ///     This is what the backends key stage inputs and outputs off.
     /// </summary>
-    public static string? GetSemanticName(SyntaxList<AttributeListSyntax> attributeLists) {
+    public static string? GetSemanticName(SyntaxList<AttributeListSyntax> attributeLists) =>
+        StringArgumentOf(attributeLists, "Semantic");
+
+    /// <summary>The first string literal passed to the named attribute, or null.</summary>
+    static string? StringArgumentOf(SyntaxList<AttributeListSyntax> attributeLists, string name) {
         foreach (var attribute in GetAttributes(attributeLists)) {
-            if (GetAttributeName(attribute) != "Semantic" || attribute.ArgumentList is not { } arguments) {
+            if (GetAttributeName(attribute) != name || attribute.ArgumentList is not { } arguments) {
                 continue;
             }
 

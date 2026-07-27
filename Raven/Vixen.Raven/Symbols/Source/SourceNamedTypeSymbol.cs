@@ -597,12 +597,18 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
             }
 
             var markers = DeclarationFacts.GetResourceSets(field.AttributeLists).ToArray();
+            var location = field.DeclaringSyntax?.GetLocation() ?? Location.None;
+
+            ReportImageFormatIssues(field, location);
+
+            if (field.IsPushConstant) {
+                ReportPushConstantIssues(field, markers, location);
+                continue;
+            }
 
             if (markers.Length == 0) {
                 continue;
             }
-
-            var location = field.DeclaringSyntax?.GetLocation() ?? Location.None;
 
             if (markers.Length > 1) {
                 outerBinder.Diagnostics.Add(
@@ -622,6 +628,104 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
                     markers[0].Name
                 );
             }
+        }
+    }
+
+    /// <summary>
+    ///     Checks a storage image's <c>[Format]</c>: present, recognised, and agreeing with the
+    ///     element type the image is declared with.
+    /// </summary>
+    /// <remarks>
+    ///     All three are errors rather than guesses, because there is nothing honest to guess. The
+    ///     host creates the view; only the author knows what it holds, and a format that disagrees
+    ///     with the element type is a read that returns whatever the driver felt like converting.
+    /// </remarks>
+    void ReportImageFormatIssues(SourceFieldSymbol field, Location location) {
+        if (field.Type is not StorageImageTypeSymbol image) {
+            if (DeclarationFacts.HasFormat(field.AttributeLists)) {
+                outerBinder.Diagnostics.Add(SemanticDiagnostics.FormatOnNonImage, location, field.Name);
+            }
+
+            return;
+        }
+
+        var declared = DeclarationFacts.GetImageFormat(field.AttributeLists);
+
+        if (declared is null) {
+            outerBinder.Diagnostics.Add(
+                SemanticDiagnostics.StorageImageNeedsFormat,
+                location,
+                field.Name,
+                ImageFormats.Names
+            );
+
+            return;
+        }
+
+        if (ImageFormats.Lookup(declared) is not { } format) {
+            outerBinder.Diagnostics.Add(
+                SemanticDiagnostics.StorageImageFormatMismatch,
+                location,
+                field.Name,
+                declared,
+                $"is not a format Raven admits. One of: {ImageFormats.Names}"
+            );
+
+            return;
+        }
+
+        if (!ImageFormats.ElementType(format).Equals(image.ElementType)) {
+            outerBinder.Diagnostics.Add(
+                SemanticDiagnostics.StorageImageFormatMismatch,
+                location,
+                field.Name,
+                declared,
+                $"is read as '{ImageFormats.ElementType(format).ToDisplayString()}' rather than the "
+                + $"'{image.ElementType.ToDisplayString()}' it is declared with"
+            );
+        }
+    }
+
+    /// <summary>
+    ///     Checks a <c>[PushConstant]</c> field: it has to be a value, and a descriptor-set marker
+    ///     on it says something untrue.
+    /// </summary>
+    /// <remarks>
+    ///     A marked field that is not a binding at all — a <c>const</c>, a <c>compose</c> slot, a
+    ///     <c>stream</c> — takes the same <c>RVN2091</c> treatment every other misplaced marker
+    ///     does, because the value does not reach the pipeline by any route.
+    /// </remarks>
+    void ReportPushConstantIssues(
+        SourceFieldSymbol field,
+        (string Name, ResourceSet Set)[] markers,
+        Location location
+    ) {
+        if (markers.Length > 0) {
+            outerBinder.Diagnostics.Add(
+                SemanticDiagnostics.PushConstantHasNoSet,
+                location,
+                field.Name,
+                markers[0].Name
+            );
+        }
+
+        if (!field.IsBinding) {
+            outerBinder.Diagnostics.Add(
+                SemanticDiagnostics.ResourceSetOnNonBinding,
+                location,
+                field.Name,
+                "PushConstant"
+            );
+            return;
+        }
+
+        if (field.ResourceKind is not (ResourceKind.None or ResourceKind.Uniform)) {
+            outerBinder.Diagnostics.Add(
+                SemanticDiagnostics.PushConstantMustBeAValue,
+                location,
+                field.Name,
+                field.Type.ToDisplayString()
+            );
         }
     }
 

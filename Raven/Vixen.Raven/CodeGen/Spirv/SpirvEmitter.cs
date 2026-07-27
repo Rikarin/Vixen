@@ -64,6 +64,9 @@ sealed partial class SpirvEmitter {
 
     readonly List<(IrStageIo Io, uint Variable)> inputs = [];
 
+    /// <summary>The <c>Output</c> variables, in the order of <c>IrEntryPoint.Outputs</c>.</summary>
+    readonly List<(IrStageIo Io, uint Variable)> outputs = [];
+
     /// <summary>
     ///     The <c>Input</c> and <c>Output</c> variable a stream resolves to, by direction.
     /// </summary>
@@ -78,7 +81,6 @@ sealed partial class SpirvEmitter {
     readonly Dictionary<IrVariable, uint> streamWrites = [];
 
     uint extendedInstructions;
-    uint? outputVariable;
 
     internal SpirvEmitter(
         IrModule irModule,
@@ -100,6 +102,8 @@ sealed partial class SpirvEmitter {
     // --- Declarations ------------------------------------------------------
 
     void EmitBindings() {
+        EmitPushConstants();
+
         // Which (set, binding) each resource gets is BindingPlan's decision, not this
         // emitter's — the GLSL emitter and the reflection read the same plan, so the three
         // cannot drift apart.
@@ -216,6 +220,56 @@ sealed partial class SpirvEmitter {
         }
     }
 
+    /// <summary>
+    ///     Declares the push-constant block: one <c>Block</c>-decorated struct in the
+    ///     <c>PushConstant</c> storage class, laid out std430.
+    /// </summary>
+    /// <remarks>
+    ///     No <c>DescriptorSet</c> and no <c>Binding</c>, which is the difference that matters — a
+    ///     push constant is not in a descriptor set, and decorating one as if it were is a module
+    ///     <c>spirv-val</c> rejects. Layout is std430 rather than std140, matching both the GLSL
+    ///     side and what <c>glslc</c> gives a <c>layout(push_constant)</c> block.
+    /// </remarks>
+    void EmitPushConstants() {
+        if (BindingPlan.PushConstants(shader) is not { IsEmpty: false } constants) {
+            return;
+        }
+
+        foreach (var constant in constants.Where(c => ContainsBool(c.Type))) {
+            // Same reason as a uniform block: OpTypeBool has no size, so it cannot live anywhere
+            // the host writes bytes into.
+            Report(BackendDiagnostics.NotExpressible, $"The boolean in push constant '{constant.Name}'");
+        }
+
+        var members = constants.Select(c => c.Type).ToArray();
+        var structId = module.AddDeclaration(
+            SpirvOp.TypeStruct,
+            null,
+            [.. members.Select(m => SpirvOperand.Id(types.Type(m, LayoutRule.Std430)))]
+        );
+
+        var blockName = BindingPlan.PushConstantBlockName(shader);
+        module.AddName(structId, blockName);
+        module.Decorate(structId, SpirvDecoration.Block);
+        types.DecorateLayout(structId, members, LayoutRule.Std430);
+
+        for (var i = 0; i < constants.Length; i++) {
+            module.AddMemberName(structId, i, constants[i].Name);
+        }
+
+        var variable = module.AddDeclaration(
+            SpirvOp.Variable,
+            types.Pointer(SpirvStorageClass.PushConstant, structId),
+            SpirvOperand.Enumerant(SpirvStorageClass.PushConstant)
+        );
+
+        module.AddName(variable, char.ToLowerInvariant(blockName[0]) + blockName[1..]);
+
+        for (var i = 0; i < constants.Length; i++) {
+            globals[constants[i].Variable] = new(variable, SpirvStorageClass.PushConstant, i, LayoutRule.Std430);
+        }
+    }
+
     uint DeclareOpaque(IrBinding resource, PlannedBinding planned) {
         var variable = module.AddDeclaration(
             SpirvOp.Variable,
@@ -263,24 +317,17 @@ sealed partial class SpirvEmitter {
             inputs.Add((input, variable));
         }
 
-        if (entryPoint.Output is not { } output) {
-            return;
-        }
+        var outputLocation = (uint)StreamPlan.OutputBase(shader, entryPoint.Stage);
 
-        outputVariable = DeclareStageVariable(output, SpirvStorageClass.Output, "out_" + output.Name);
+        foreach (var output in entryPoint.Outputs) {
+            var variable = DeclareStageVariable(output, SpirvStorageClass.Output, "out_" + output.Name);
+            outputs.Add((output, variable));
 
-        if (OutputGoesToBuiltIn()) {
-            module.Decorate(
-                outputVariable.Value,
-                SpirvDecoration.BuiltIn,
-                SpirvOperand.Enumerant(SpirvBuiltIn.Position)
-            );
-        } else {
-            module.Decorate(
-                outputVariable.Value,
-                SpirvDecoration.Location,
-                SpirvOperand.Literal((uint)StreamPlan.OutputBase(shader, entryPoint.Stage))
-            );
+            if (OutputGoesToBuiltIn()) {
+                module.Decorate(variable, SpirvDecoration.BuiltIn, SpirvOperand.Enumerant(SpirvBuiltIn.Position));
+            } else {
+                module.Decorate(variable, SpirvDecoration.Location, SpirvOperand.Literal(outputLocation++));
+            }
         }
     }
 
@@ -529,8 +576,19 @@ sealed partial class SpirvEmitter {
         var returnType = types.Type(target.ReturnType);
         var call = Emit(SpirvOp.FunctionCall, returnType, [SpirvOperand.Id(functions[target]), .. arguments]);
 
-        if (outputVariable is { } output && !target.ReturnType.IsVoid) {
-            Add(new(SpirvOp.Store, null, null, SpirvOperand.Id(output), SpirvOperand.Id(call)));
+        foreach (var (io, variable) in outputs) {
+            // A render target takes one member of the returned struct; anything else takes the
+            // returned value itself. One call either way — the extracts share its result.
+            var value = io.Member is { } member
+                ? Emit(
+                    SpirvOp.CompositeExtract,
+                    types.Type(io.Type),
+                    SpirvOperand.Id(call),
+                    SpirvOperand.Literal((uint)member)
+                )
+                : call;
+
+            Add(new(SpirvOp.Store, null, null, SpirvOperand.Id(variable), SpirvOperand.Id(value)));
         }
 
         Add(new(SpirvOp.Return, null, null));

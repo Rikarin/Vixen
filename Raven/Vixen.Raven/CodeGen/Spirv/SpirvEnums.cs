@@ -47,6 +47,12 @@ public enum SpirvStorageClass {
     Function = 7,
 
     /// <summary>
+    ///     The push-constant block: read-only state the host writes into the command buffer rather
+    ///     than into a descriptor.
+    /// </summary>
+    PushConstant = 9,
+
+    /// <summary>
     ///     A storage buffer. Distinct from <see cref="Uniform" /> because it is the writable one and
     ///     because it carries a std430 layout; in SPIR-V 1.0 it also requires the
     ///     <c>SPV_KHR_storage_buffer_storage_class</c> extension, which Vulkan 1.0 has and 1.1 folded in.

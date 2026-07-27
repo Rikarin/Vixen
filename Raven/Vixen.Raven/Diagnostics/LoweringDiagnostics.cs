@@ -83,6 +83,29 @@ public static class LoweringDiagnostics {
         DiagnosticSeverity.Error
     );
 
+    /// <summary>A push-constant block larger than every Vulkan implementation is required to offer.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         128 bytes is <c>maxPushConstantsSize</c>'s guaranteed minimum — small on purpose,
+    ///         because the whole point of a push constant is that it travels in the command buffer
+    ///         rather than through a descriptor. A shader that goes over it still compiles and will
+    ///         run on the many devices that offer more, so this is a warning: the alternative would
+    ///         refuse a shader that is correct for its target.
+    ///     </para>
+    ///     <para>
+    ///         Measured std430, which is what both targets lay a push-constant block out with — so
+    ///         the number here is the number the host will have to fit.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor PushConstantsOverGuaranteedSize = new(
+        "RVN3007",
+        "Push constants exceed the guaranteed size",
+        "Shader '{0}' pushes {1} bytes, and a Vulkan implementation is only required to offer 128; "
+        + "move the values that change least often into a uniform binding",
+        Lowering,
+        DiagnosticSeverity.Warning
+    );
+
     // --- Verification -----------------------------------------------------
 
     public static readonly DiagnosticDescriptor MalformedIr = new(

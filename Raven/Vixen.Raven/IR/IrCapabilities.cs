@@ -28,6 +28,16 @@ public static class IrCapability {
 
     /// <summary>A compute stage.</summary>
     public const string Compute = "Compute";
+
+    /// <summary>
+    ///     Writing into a texture — a storage image rather than a sampled one.
+    /// </summary>
+    /// <remarks>
+    ///     Worth gating on even though every desktop and modern mobile GPU has it: the host has to
+    ///     create the view with storage usage, and on a tiler the format list that supports it is
+    ///     narrower than the one that supports sampling.
+    /// </remarks>
+    public const string StorageImage = "StorageImage";
 }
 
 /// <summary>
@@ -100,7 +110,7 @@ public static class IrCapabilities {
                 CollectType(io.Type, required);
             }
 
-            if (entryPoint.Output is { } output) {
+            foreach (var output in entryPoint.Outputs) {
                 CollectType(output.Type, required);
             }
 
@@ -196,6 +206,16 @@ public static class IrCapabilities {
                 }
 
                 CollectType(texture.SampledType, required);
+                break;
+
+            case IrStorageImageType image:
+                required.Add(IrCapability.StorageImage);
+
+                if (image.Dimension == IrTextureDimension.Texture3D) {
+                    required.Add(IrCapability.Texture3D);
+                }
+
+                CollectType(image.TexelType, required);
                 break;
 
             case IrStructType structType:

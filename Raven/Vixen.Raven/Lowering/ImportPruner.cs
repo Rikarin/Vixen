@@ -120,6 +120,10 @@ internal static class ImportPruner {
                 case IrTextureType texture:
                     Note(texture.SampledType);
                     break;
+
+                case IrStorageImageType image:
+                    Note(image.TexelType);
+                    break;
             }
         }
 
@@ -151,7 +155,7 @@ internal static class ImportPruner {
                     Note(input.Type);
                 }
 
-                if (entryPoint.Output is { } output) {
+                foreach (var output in entryPoint.Outputs) {
                     Note(output.Type);
                 }
             }

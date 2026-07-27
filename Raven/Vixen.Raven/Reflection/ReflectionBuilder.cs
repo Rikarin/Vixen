@@ -40,6 +40,7 @@ public static class ReflectionBuilder {
 
         return new() {
             Sets = sets,
+            PushConstants = BuildPushConstants(shader, stageFlags),
             VertexInputs = BuildVertexInputs(shader),
             Outputs = BuildOutputs(shader),
             Parameters = BuildParameters(sets),
@@ -95,6 +96,39 @@ public static class ReflectionBuilder {
         }
 
         return sets.ToImmutable();
+    }
+
+    /// <summary>
+    ///     Describes the push-constant range, if the shader has one.
+    /// </summary>
+    /// <remarks>
+    ///     One range, not one per marked field, because that is what a pipeline layout takes.
+    ///     Offset 0: Raven emits a shader's whole block and does not sub-range it per stage, so a
+    ///     host that pushes the block pushes all of it. Std430, which is what both backends laid it
+    ///     out with — the offsets here are the ones that were generated, not a second computation
+    ///     of them.
+    /// </remarks>
+    static ImmutableArray<PushConstantInfo> BuildPushConstants(IrShader shader, ShaderStages stages) {
+        if (BindingPlan.PushConstants(shader) is not { IsEmpty: false } constants) {
+            return [];
+        }
+
+        var (offsets, size) = ShaderLayout.Members([.. constants.Select(c => c.Type)], LayoutRule.Std430);
+        var members = ImmutableArray.CreateBuilder<MemberInfo>();
+
+        for (var i = 0; i < constants.Length; i++) {
+            Flatten(constants[i].Name, constants[i].Type, offsets[i], LayoutRule.Std430, members);
+        }
+
+        return [
+            new PushConstantInfo(
+                BindingPlan.PushConstantBlockName(shader),
+                0,
+                size,
+                stages,
+                members.ToImmutable()
+            )
+        ];
     }
 
     /// <summary>
@@ -173,7 +207,12 @@ public static class ReflectionBuilder {
             type switch {
                 IrSamplerType => DescriptorType.Sampler,
                 IrTextureType => DescriptorType.SampledTexture,
-                _ => kind == IrBindingKind.Sampler ? DescriptorType.Sampler : DescriptorType.SampledTexture
+                IrStorageImageType => DescriptorType.StorageImage,
+                _ => kind switch {
+                    IrBindingKind.Sampler => DescriptorType.Sampler,
+                    IrBindingKind.StorageImage => DescriptorType.StorageImage,
+                    _ => DescriptorType.SampledTexture
+                }
             },
             count
         );
@@ -254,12 +293,29 @@ public static class ReflectionBuilder {
         ];
     }
 
+    /// <summary>
+    ///     The fragment stage's render targets, one entry per location.
+    /// </summary>
+    /// <remarks>
+    ///     Location is the index, which is the render-target index — so a shader returning a
+    ///     G-buffer struct reports one output per member in declaration order, and the host builds
+    ///     its colour-attachment list straight off this.
+    /// </remarks>
     static ImmutableArray<FragmentOutputInfo> BuildOutputs(IrShader shader) {
-        if (shader.EntryPoints.FirstOrDefault(e => e.Stage == ShaderStage.Pixel) is not { Output: { } output }) {
+        if (shader.EntryPoints.FirstOrDefault(e => e.Stage == ShaderStage.Pixel) is not { } pixel) {
             return [];
         }
 
-        return [new FragmentOutputInfo(0, output.Name, ShaderDataType.From(output.Type), output.Semantic)];
+        return [
+            .. pixel.Outputs.Select(
+                (output, location) => new FragmentOutputInfo(
+                    location,
+                    output.Name,
+                    ShaderDataType.From(output.Type),
+                    output.Semantic
+                )
+            )
+        ];
     }
 
     /// <summary>

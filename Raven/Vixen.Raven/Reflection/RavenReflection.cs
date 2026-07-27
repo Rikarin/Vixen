@@ -19,7 +19,17 @@ public enum DescriptorType {
     SampledTexture,
 
     /// <summary>A standalone sampler.</summary>
-    Sampler
+    Sampler,
+
+    /// <summary>
+    ///     A storage image: a texture the shader stores into, addressed by texel.
+    /// </summary>
+    /// <remarks>
+    ///     A different descriptor type from <see cref="SampledTexture" /> rather than the same one
+    ///     with a flag, matching Vulkan: a sampled image and a storage image need different image
+    ///     usage on the view the host creates, so a host reading this has to be told which.
+    /// </remarks>
+    StorageImage
 }
 
 /// <summary>Which stages reference a binding. Flags, because one binding often serves several.</summary>

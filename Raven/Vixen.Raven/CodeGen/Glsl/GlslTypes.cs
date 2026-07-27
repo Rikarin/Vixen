@@ -138,6 +138,17 @@ public static class GlslTypes {
             },
             IrSamplerType => "sampler",
 
+            // A storage image is its own GLSL type, prefixed by the component class it reads as:
+            // `image2D` for float, `iimage2D` for int, `uimage2D` for uint. Nothing pairs with it —
+            // there is no sampler — which is why a load is `imageLoad` rather than `texelFetch`.
+            IrStorageImageType image =>
+                image.TexelType.ComponentType.Kind switch {
+                    IrTypeKind.Int => "i",
+                    IrTypeKind.UInt => "u",
+                    _ => string.Empty
+                }
+                + (image.Dimension == IrTextureDimension.Texture3D ? "image3D" : "image2D"),
+
             // GLSL's prefix array type: `float[4]`, which is what an array constructor spells.
             // A declaration puts the extents after the *name* instead — see `Declare` — and both
             // forms are legal GLSL for the same type, which is why the two are separate methods.

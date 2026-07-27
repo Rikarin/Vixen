@@ -39,7 +39,13 @@ public sealed class SourceParameterSymbol : ParameterSymbol {
 
     TypeSymbol ResolveType() {
         if (syntax.Type is { } annotation) {
-            return binder.BindType(annotation);
+            var bound = binder.BindType(annotation);
+
+            // A parameter carries its own `[Format]`, because the format is part of the image type
+            // in SPIR-V — a function that takes an `rgba16f` image cannot be handed an `rgba8` one.
+            return bound is StorageImageTypeSymbol image
+                ? image.WithFormat(DeclarationFacts.GetImageFormat(syntax.AttributeLists))
+                : bound;
         }
 
         // `count: int = 42` is the normal form; a default with no annotation still

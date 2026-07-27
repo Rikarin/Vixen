@@ -72,7 +72,13 @@ public enum ResourceKind {
     ///     whose element count the host decides. Read-only and read-write are the same descriptor
     ///     type in Vulkan, so the direction lives on the field rather than here.
     /// </summary>
-    StorageBuffer
+    StorageBuffer,
+
+    /// <summary>
+    ///     A <c>RWTexture2D&lt;T&gt;</c> or <c>RWTexture3D&lt;T&gt;</c>: a texture a shader stores
+    ///     into, addressed by integer texel and carrying an explicit storage format.
+    /// </summary>
+    StorageImage
 }
 
 /// <summary>

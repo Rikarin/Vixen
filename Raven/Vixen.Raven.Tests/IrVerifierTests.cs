@@ -160,7 +160,7 @@ public class IrVerifierTests {
     public void An_entry_point_must_belong_to_its_shader() {
         var stray = Identity();
         var shader = new IrShader("S");
-        shader.Add(new IrEntryPoint(ShaderStage.Vertex, stray, [new("x", IrScalarType.Float, null)], null));
+        shader.Add(new IrEntryPoint(ShaderStage.Vertex, stray, [new("x", IrScalarType.Float, null)], []));
 
         var module = new IrModule("Test");
         module.Add(shader);

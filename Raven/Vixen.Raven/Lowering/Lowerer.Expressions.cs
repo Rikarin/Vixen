@@ -656,7 +656,7 @@ public sealed partial class Lowerer {
         return result;
     }
 
-    IrValue LowerIntrinsic(BoundInvocationExpression invocation, MethodSymbol method, IrType type) {
+    IrValue? LowerIntrinsic(BoundInvocationExpression invocation, MethodSymbol method, IrType type) {
         // A member intrinsic (`texture.Sample(…)`) takes its receiver first, and
         // the receiver is evaluated before the arguments.
         var receiver = method.ContainingSymbol is not null && invocation.Receiver is { } value
@@ -674,13 +674,38 @@ public sealed partial class Lowerer {
             );
         }
 
-        if (MapIntrinsic(method.Name) is not { } intrinsic) {
+        if (MapIntrinsic(method.Name, method.ContainingSymbol) is not { } intrinsic) {
             ReportUnsupported(invocation, $"The intrinsic '{method.Name}'");
             return Constant(type, null);
         }
 
+        // A texel store is the one intrinsic with no result, so it is emitted as a statement.
+        if (type.IsVoid) {
+            Emit(new IrIntrinsicInstruction(null, intrinsic, arguments));
+            return null;
+        }
+
         return Emit(result => new IrIntrinsicInstruction(result, intrinsic, arguments), type);
     }
+
+    /// <summary>
+    ///     The opcode an intrinsic's name means.
+    /// </summary>
+    /// <param name="name">The method name as declared.</param>
+    /// <param name="container">
+    ///     The type the method is a member of, or null for a free function. Three names —
+    ///     <c>Load</c>, <c>Store</c> and <c>GetDimensions</c> — mean different instructions on a
+    ///     sampled texture and on a storage image, and the receiver's type is what says which.
+    /// </param>
+    static IrIntrinsic? MapIntrinsic(string name, Symbol? container) =>
+        container is StorageImageTypeSymbol
+            ? name switch {
+                "Load" => IrIntrinsic.LoadImage,
+                "Store" => IrIntrinsic.StoreImage,
+                "GetDimensions" => IrIntrinsic.ImageSize,
+                _ => null
+            }
+            : MapIntrinsic(name);
 
     static IrIntrinsic? MapIntrinsic(string name) =>
         name switch {

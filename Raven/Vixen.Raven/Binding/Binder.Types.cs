@@ -131,6 +131,10 @@ public abstract partial class Binder {
             return buffer;
         }
 
+        if (BindStorageImageType(name, typeArguments, syntax) is { } image) {
+            return image;
+        }
+
         var type = LookupType(name, typeArguments.Count);
 
         if (type is null) {
@@ -190,6 +194,51 @@ public abstract partial class Binder {
         }
 
         return new BufferTypeSymbol(element, writable);
+    }
+
+    /// <summary>
+    ///     Builds a <c>RWTexture2D&lt;T&gt;</c> or <c>RWTexture3D&lt;T&gt;</c>, or null when the
+    ///     name is neither.
+    /// </summary>
+    /// <remarks>
+    ///     Structural, exactly as a buffer is. The element has to be a four-lane vector of
+    ///     <c>float</c>, <c>int</c> or <c>uint</c> — not a narrowing of the format's channel count —
+    ///     because <c>imageLoad</c> and <c>OpImageRead</c> both hand back four components whatever
+    ///     the format stores.
+    /// </remarks>
+    TypeSymbol? BindStorageImageType(string name, IReadOnlyList<TypeSymbol> typeArguments, SyntaxNode syntax) {
+        var volume = name == StorageImageTypeSymbol.Texture3DName;
+
+        if (!volume && name != StorageImageTypeSymbol.Texture2DName) {
+            return null;
+        }
+
+        if (typeArguments.Count != 1) {
+            Report(SemanticDiagnostics.WrongTypeArgumentCount, syntax, name, 1, typeArguments.Count);
+            return ErrorTypeSymbol.Instance;
+        }
+
+        var element = typeArguments[0];
+
+        if (element.IsErrorType) {
+            return ErrorTypeSymbol.Instance;
+        }
+
+        if (element is not PrimitiveTypeSymbol {
+                TypeKind: TypeKind.Vector, ComponentCount: 4,
+                ComponentSpecialType: SpecialType.Float or SpecialType.Int or SpecialType.UInt
+            } texel) {
+            Report(
+                SemanticDiagnostics.StorageImageElementNotATexel,
+                syntax,
+                element.ToDisplayString(),
+                name
+            );
+
+            return ErrorTypeSymbol.Instance;
+        }
+
+        return new StorageImageTypeSymbol(texel, volume);
     }
 
     TypeSymbol Construct(TypeSymbol type, IReadOnlyList<TypeSymbol> typeArguments, SyntaxNode syntax) {

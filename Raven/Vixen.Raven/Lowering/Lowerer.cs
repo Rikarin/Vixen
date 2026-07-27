@@ -344,10 +344,14 @@ public sealed partial class Lowerer {
                 continue;
             }
 
-            var kind = field.ResourceKind switch {
-                ResourceKind.Texture => IrBindingKind.Texture,
-                ResourceKind.Sampler => IrBindingKind.Sampler,
-                ResourceKind.StorageBuffer => IrBindingKind.StorageBuffer,
+            var kind = field switch {
+                // Checked before the resource kind, because `[PushConstant]` on anything but a
+                // plain value is RVN2120 — an opaque resource has no bytes to push.
+                { IsPushConstant: true } => IrBindingKind.PushConstant,
+                { ResourceKind: ResourceKind.Texture } => IrBindingKind.Texture,
+                { ResourceKind: ResourceKind.Sampler } => IrBindingKind.Sampler,
+                { ResourceKind: ResourceKind.StorageBuffer } => IrBindingKind.StorageBuffer,
+                { ResourceKind: ResourceKind.StorageImage } => IrBindingKind.StorageImage,
                 _ => IrBindingKind.Uniform
             };
 
@@ -370,12 +374,43 @@ public sealed partial class Lowerer {
 
         LowerMemberFunctions(type, shader.Add);
         LowerBindingInitializers(type, shader);
+        ReportOversizedPushConstants(type, shader);
 
         foreach (var member in type.GetMembers()) {
             if (member is MethodSymbol { Stage: not ShaderStage.None } method
                 && functions.TryGetValue((method, BoundBodyKind.Method), out var function)) {
                 shader.Add(BuildEntryPoint(method, function));
             }
+        }
+    }
+
+    /// <summary>
+    ///     Warns when a shader's push-constant block is bigger than every Vulkan implementation
+    ///     has to offer.
+    /// </summary>
+    /// <remarks>
+    ///     Here rather than in the binder because the size is a property of the <em>laid-out</em>
+    ///     block: it is std430 packing over the IR types, which is the number the host has to fit
+    ///     and the number both backends decorate their members with.
+    /// </remarks>
+    void ReportOversizedPushConstants(NamedTypeSymbol type, IrShader shader) {
+        const int Guaranteed = 128;
+
+        if (Reflection.BindingPlan.PushConstants(shader) is not { IsEmpty: false } constants) {
+            return;
+        }
+
+        var size = Reflection.ShaderLayout
+            .Members([.. constants.Select(c => c.Type)], Reflection.LayoutRule.Std430)
+            .Size;
+
+        if (size > Guaranteed) {
+            diagnostics.Add(
+                LoweringDiagnostics.PushConstantsOverGuaranteedSize,
+                LocationOf(type.DeclaringSyntax),
+                shader.Name,
+                size
+            );
         }
     }
 
@@ -644,15 +679,46 @@ public sealed partial class Lowerer {
             .Select((p, i) => new IrStageIo(p.Name, function.Parameters[i].Type, p.SemanticName))
             .ToArray();
 
-        var output = function.ReturnType.IsVoid
-            ? null
-            : new IrStageIo("result", function.ReturnType, method.SemanticName);
-
         // Only on the stage that has workgroups. A size the binder warned about (RVN2106) is
         // dropped here rather than carried to a backend that has nowhere to put it.
         var workgroupSize = method.Stage == ShaderStage.Compute ? method.WorkgroupSize : null;
 
-        return new(method.Stage, function, inputs, output, workgroupSize);
+        return new(method.Stage, function, inputs, BuildOutputs(method, function), workgroupSize);
+    }
+
+    /// <summary>
+    ///     The stage's outputs: one, none, or one per member of a fragment stage's returned struct.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Multiple render targets.</strong> An interface variable takes one location and
+    ///         so has to be one scalar or vector; a stage that writes four targets therefore returns a
+    ///         struct, and this is where it comes apart. The <em>declaration order</em> of the struct
+    ///         is the render-target order — the same rule <c>StreamPlan</c> uses for streams, and the
+    ///         same reason: a number both sides can derive beats a number one side spells.
+    ///     </para>
+    ///     <para>
+    ///         Fragment stages only. A vertex stage's several outputs are <c>stream</c>s, which is a
+    ///         different mechanism and a better one — a stream's location is a property of the shader,
+    ///         so the writing and reading stages agree without either declaring the other's struct.
+    ///         Everywhere else an aggregate output stays <c>RVN4001</c>, which is what
+    ///         <c>StageInterface</c> is for.
+    ///     </para>
+    /// </remarks>
+    static IrStageIo[] BuildOutputs(MethodSymbol method, IrFunction function) {
+        if (function.ReturnType.IsVoid) {
+            return [];
+        }
+
+        if (method.Stage != ShaderStage.Pixel || function.ReturnType is not IrStructType targets) {
+            return [new IrStageIo("result", function.ReturnType, method.SemanticName)];
+        }
+
+        return [
+            .. targets.Fields.Select(
+                (field, index) => new IrStageIo(field.Name, field.Type, $"SV_Target{index}", index)
+            )
+        ];
     }
 
     /// <summary>

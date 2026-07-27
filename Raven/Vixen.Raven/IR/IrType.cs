@@ -17,7 +17,10 @@ public enum IrTypeKind {
     Array,
     Struct,
     Texture,
-    Sampler
+    Sampler,
+
+    /// <summary>A texture a shader stores into: no sampler, no mips, an explicit texel format.</summary>
+    StorageImage
 }
 
 /// <summary>How many coordinates a texture is sampled with.</summary>
@@ -233,6 +236,45 @@ public sealed class IrTextureType : IrType, IEquatable<IrTextureType> {
 
     public override bool Equals(object? obj) => Equals(obj as IrTextureType);
     public override int GetHashCode() => HashCode.Combine(Dimension, SampledType);
+}
+
+/// <summary>An opaque storage image: a texture a shader loads from and stores into by texel.</summary>
+/// <remarks>
+///     Distinct from <see cref="IrTextureType" /> rather than a flag on it, because they are two
+///     descriptor types and two SPIR-V image types — a sampled image has <c>Sampled = 1</c> and no
+///     format; a storage image has <c>Sampled = 2</c> and must carry one.
+/// </remarks>
+public sealed class IrStorageImageType : IrType, IEquatable<IrStorageImageType> {
+    public IrTextureDimension Dimension { get; }
+
+    /// <summary>What a load returns and a store takes: always four components.</summary>
+    public IrType TexelType { get; }
+
+    /// <summary>
+    ///     The GLSL layout qualifier for the storage format — <c>rgba16f</c>. The SPIR-V enumerant
+    ///     is looked up from it, so the two targets read one decision.
+    /// </summary>
+    public string Format { get; }
+
+    public override IrTypeKind Kind => IrTypeKind.StorageImage;
+
+    public override string Name =>
+        $"image{(Dimension == IrTextureDimension.Texture3D ? "3d" : "2d")}<{Format}>";
+
+    public IrStorageImageType(IrTextureDimension dimension, IrType texelType, string format) {
+        Dimension = dimension;
+        TexelType = texelType;
+        Format = format;
+    }
+
+    public bool Equals(IrStorageImageType? other) =>
+        other is not null
+        && Dimension == other.Dimension
+        && TexelType.Equals(other.TexelType)
+        && string.Equals(Format, other.Format, StringComparison.Ordinal);
+
+    public override bool Equals(object? obj) => Equals(obj as IrStorageImageType);
+    public override int GetHashCode() => HashCode.Combine(Dimension, TexelType, Format);
 }
 
 /// <summary>An opaque sampler state.</summary>

@@ -111,8 +111,11 @@ public sealed record LibraryIrTypeReference {
 
     public IrTextureDimension Dimension { get; init; }
 
-    /// <summary>What a sample of a texture returns.</summary>
+    /// <summary>What a sample of a texture, or a load of a storage image, returns.</summary>
     public LibraryIrTypeReference? Sampled { get; init; }
+
+    /// <summary>The texel format, for <see cref="IrTypeKind.StorageImage" />.</summary>
+    public string? Format { get; init; }
 }
 
 /// <summary>

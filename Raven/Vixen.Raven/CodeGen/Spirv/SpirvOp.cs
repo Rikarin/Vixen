@@ -67,6 +67,9 @@ public enum SpirvOp {
     ImageSampleImplicitLod = 87,
     ImageSampleExplicitLod = 88,
     ImageFetch = 95,
+    ImageRead = 98,
+    ImageWrite = 99,
+    ImageQuerySize = 104,
     ImageQuerySizeLod = 103,
 
     ConvertFToU = 109,

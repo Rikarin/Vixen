@@ -72,6 +72,15 @@ public enum IrIntrinsic {
     /// <summary>The size of one mip level of a texture, in texels.</summary>
     TextureSize,
 
+    /// <summary>Read one texel of a storage image. No sampler and no filtering.</summary>
+    LoadImage,
+
+    /// <summary>Write one texel of a storage image. The only intrinsic that returns nothing.</summary>
+    StoreImage,
+
+    /// <summary>The size of a storage image, which has exactly one level.</summary>
+    ImageSize,
+
     /// <summary>
     ///     The same bits read as another type of the same width — <c>asfloat</c> and friends.
     ///     One opcode rather than one per pair: the instruction carries both types already.

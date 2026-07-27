@@ -80,9 +80,9 @@ public static class IrPrinter {
         }
 
         foreach (var entryPoint in shader.EntryPoints) {
-            var output = entryPoint.Output is null
+            var output = entryPoint.Outputs.Count == 0
                 ? string.Empty
-                : $" -> {Describe(entryPoint.Output)}";
+                : " -> " + string.Join(", ", entryPoint.Outputs.Select(Describe));
             var inputs = string.Join(", ", entryPoint.Inputs.Select(Describe));
             writer.Line(
                 $"entry {entryPoint.Stage.ToString().ToLowerInvariant()} "

@@ -4,6 +4,7 @@
 using System.Globalization;
 using Vixen.Raven.IR;
 using Vixen.Raven.Reflection;
+using Vixen.Raven.Symbols;
 
 namespace Vixen.Raven.CodeGen.Spirv;
 
@@ -162,6 +163,36 @@ sealed class SpirvTypes {
         );
     }
 
+    /// <summary>
+    ///     A storage image: <c>Sampled = 2</c> and a stated <c>ImageFormat</c>.
+    /// </summary>
+    /// <remarks>
+    ///     Both differences from <see cref="Image" /> matter. <c>Sampled = 2</c> is what says this
+    ///     image is read and written directly rather than through a sampler, and a known format is
+    ///     what keeps the module from needing <c>StorageImageReadWithoutFormat</c> — a capability
+    ///     not every device offers. The enumerant comes off <see cref="ImageFormats" />, the same
+    ///     table the GLSL layout qualifier is spelled from.
+    /// </remarks>
+    uint StorageImage(IrStorageImageType image) {
+        var dimension = image.Dimension == IrTextureDimension.Texture3D ? SpirvDim.Dim3D : SpirvDim.Dim2D;
+        var format = ImageFormats.Lookup(image.Format);
+
+        return module.Intern(
+            $"storage image {dimension} {image.TexelType.ComponentType.Name} {image.Format}",
+            () => module.AddDeclaration(
+                SpirvOp.TypeImage,
+                null,
+                SpirvOperand.Id(Scalar(image.TexelType.ComponentType)),
+                SpirvOperand.Enumerant(dimension),
+                SpirvOperand.Literal(0),
+                SpirvOperand.Literal(0),
+                SpirvOperand.Literal(0),
+                SpirvOperand.Literal(2),
+                SpirvOperand.Literal(format?.SpirvValue ?? 0)
+            )
+        );
+    }
+
     // --- Types -------------------------------------------------------------
 
     /// <param name="layout">
@@ -220,6 +251,9 @@ sealed class SpirvTypes {
 
             case IrTextureType texture:
                 return Image(texture);
+
+            case IrStorageImageType image:
+                return StorageImage(image);
 
             case IrSamplerType:
                 return module.Intern("sampler", () => module.AddDeclaration(SpirvOp.TypeSampler, null));

@@ -109,6 +109,19 @@ public static class GlslIntrinsics {
                 // sampler in just to ask for it would need a sampler the shader may not have.
                 return arguments.Count == 2 ? $"textureSize({arguments[0]}, {arguments[1]})" : null;
 
+            case IrIntrinsic.LoadImage:
+                return arguments.Count == 2 ? $"imageLoad({arguments[0]}, {arguments[1]})" : null;
+
+            case IrIntrinsic.StoreImage:
+                return arguments.Count == 3
+                    ? $"imageStore({arguments[0]}, {arguments[1]}, {arguments[2]})"
+                    : null;
+
+            case IrIntrinsic.ImageSize:
+                // No level: a storage image has exactly one, which is why this takes no argument
+                // where textureSize takes a lod.
+                return arguments.Count == 1 ? $"imageSize({arguments[0]})" : null;
+
             case IrIntrinsic.BitCast:
                 return arguments.Count == 1
                     ? BitCast(argumentTypes[0].ComponentType.Kind, result, arguments[0], resultType)

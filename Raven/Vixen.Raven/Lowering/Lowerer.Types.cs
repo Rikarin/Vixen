@@ -60,6 +60,22 @@ public sealed partial class Lowerer {
                 return element.IsVoid ? NotRepresentable(type, syntax) : new IrArrayType(element);
             }
 
+            // Its own IR type rather than a flag on IrTextureType, because a sampled image and a
+            // storage image are two descriptor types and two SPIR-V image types. The format is
+            // already on the symbol — the binder folded the declaration's `[Format]` in — and it
+            // has to survive to both backends, so it travels in the type.
+            case StorageImageTypeSymbol { Format: { } format } image:
+                return new IrStorageImageType(
+                    image.IsVolume ? IrTextureDimension.Texture3D : IrTextureDimension.Texture2D,
+                    LowerType(image.ElementType, syntax),
+                    format
+                );
+
+            // Only reachable when RVN2123 already refused the declaration, which stops the
+            // compilation before this runs; kept honest rather than assumed.
+            case StorageImageTypeSymbol:
+                return NotRepresentable(type, syntax);
+
             case NamedTypeSymbol { TypeKind: TypeKind.Enum }:
                 // An enum is its underlying integer once the constants are folded.
                 return IrScalarType.Int;

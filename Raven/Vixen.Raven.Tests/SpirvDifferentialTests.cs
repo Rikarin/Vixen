@@ -225,6 +225,57 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
                                 """;
 
     /// <summary>
+    ///     The two interface shapes that are not a set of uniforms: several render targets, and a
+    ///     push-constant block. Each is a place the targets spell the same thing differently — a
+    ///     GLSL layout qualifier against a SPIR-V decoration — which is what a differential is for.
+    /// </summary>
+    const string Interfaces = """
+                              package A
+
+                              struct Targets {
+                                  var albedo: float4
+                                  var normal: float4
+                              }
+
+                              shader S {
+                                  [PushConstant] var jitter: float2
+
+                                  var albedoMap: Texture2D
+                                  var linear: Sampler
+
+                                  [PixelShader]
+                                  func Pixel(uv: float2): Targets {
+                                      var t: Targets
+                                      t.albedo = albedoMap.Sample(linear, uv + jitter)
+                                      t.normal = float4(0, 0, 1, 0)
+                                      return t
+                                  }
+                              }
+
+                              """;
+
+    /// <summary>A compute post-process: the pass a storage image exists for.</summary>
+    const string PostProcess = """
+                               package A
+
+                               shader S {
+                                   var source: Texture2D
+                                   var linear: Sampler
+
+                                   [Format("rgba16f")] var target: RWTexture2D<float4>
+
+                                   [ComputeShader(8, 8, 1)]
+                                   func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+                                       val size = target.GetDimensions()
+                                       val coord = int2(int(id.x), int(id.y))
+                                       val uv = float2(float(coord.x) / float(size.x), float(coord.y) / float(size.y))
+                                       target.Store(coord, source.SampleLevel(linear, uv, 0f))
+                                   }
+                               }
+
+                               """;
+
+    /// <summary>
     ///     The intrinsics that reach the two targets by different routes: an explicit-level sample
     ///     (<c>textureLod</c> against <c>ImageSampleExplicitLod</c>), a size query (which needs a
     ///     GLSL extension on one side and a capability on the other), and a bit cast.
@@ -257,6 +308,8 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     [InlineData("switch, operators, tuples", Finished)]
     [InlineData("short-circuit guard", ShortCircuit)]
     [InlineData("texture queries and bit casts", Queries)]
+    [InlineData("render targets and push constants", Interfaces)]
+    [InlineData("compute post-process", PostProcess)]
     public void The_two_paths_agree_on_the_interface(string what, string source) {
         if (!ReferenceCompiler.Available) {
             output.WriteLine($"{what}: {ReferenceCompiler.HowToInstall}");
@@ -335,6 +388,8 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     [InlineData("switch, operators, tuples", Finished)]
     [InlineData("short-circuit guard", ShortCircuit)]
     [InlineData("texture queries and bit casts", Queries)]
+    [InlineData("render targets and push constants", Interfaces)]
+    [InlineData("compute post-process", PostProcess)]
     public void A_reference_compiler_accepts_Ravens_GLSL(string what, string source) {
         if (ReferenceCompiler.Glslc is null) {
             output.WriteLine($"{what}: {ReferenceCompiler.HowToInstall}");

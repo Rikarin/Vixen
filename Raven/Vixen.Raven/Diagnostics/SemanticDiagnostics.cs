@@ -863,4 +863,93 @@ public static class SemanticDiagnostics {
         Binding,
         DiagnosticSeverity.Error
     );
+
+    // --- Push constants ----------------------------------------------------
+
+    /// <summary>A <c>[PushConstant]</c> on something that is not bytes the host can push.</summary>
+    /// <remarks>
+    ///     A push constant is a small run of memory written into the command buffer. A texture, a
+    ///     sampler or a buffer is a <em>descriptor</em> — a handle the driver resolves — so there is
+    ///     nothing to push, and both targets reject a push-constant block containing one. Reported
+    ///     at the declaration rather than left to the backends, because the declaration is what has
+    ///     to change and two backends would otherwise say it twice.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor PushConstantMustBeAValue = new(
+        "RVN2120",
+        "Push constant is not a value",
+        "'{0}' cannot be a push constant: a push constant is bytes the host writes into the command "
+        + "buffer, and '{1}' is a descriptor rather than a value",
+        Declaration,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>A descriptor-set marker on a field that is a push constant.</summary>
+    /// <remarks>
+    ///     On the <c>RVN2091</c> policy: the shader still compiles and the marker is simply
+    ///     dropped, but the author believes the value lives in a descriptor set and it does not —
+    ///     that is the one thing a push constant is defined by not doing.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor PushConstantHasNoSet = new(
+        "RVN2121",
+        "Descriptor-set marker on a push constant",
+        "'[{1}]' on '{0}' has no effect: a push constant is not in a descriptor set",
+        Binding,
+        DiagnosticSeverity.Warning
+    );
+
+    // --- Storage images ----------------------------------------------------
+
+    /// <summary>A storage image whose element is not a four-lane texel.</summary>
+    /// <remarks>
+    ///     Both targets read and write four components whatever the format stores — an
+    ///     <c>r32f</c> image reads as <c>(r, 0, 0, 1)</c>. Declaring <c>RWTexture2D&lt;float&gt;</c>
+    ///     would be a shape neither target has, so it is refused rather than quietly widened.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor StorageImageElementNotATexel = new(
+        "RVN2122",
+        "Storage image element is not a texel",
+        "'{0}' cannot be the element type of a '{1}': a storage image is read and written four "
+        + "components at a time, so the element must be 'float4', 'int4' or 'uint4'",
+        Declaration,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>A storage image with no <c>[Format("…")]</c>.</summary>
+    /// <remarks>
+    ///     Required rather than defaulted. GLSL needs the layout qualifier on any image that is
+    ///     read, and SPIR-V needs a known <c>ImageFormat</c> or the module must declare
+    ///     <c>StorageImageReadWithoutFormat</c> — a capability not every device offers. There is
+    ///     also no format that could be guessed: the host creates the view, and only the shader
+    ///     author knows what it will hold.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor StorageImageNeedsFormat = new(
+        "RVN2123",
+        "Storage image has no format",
+        "'{0}' needs a '[Format(\"…\")]': a storage image's texel format is part of its "
+        + "declaration in both targets. One of: {1}",
+        Declaration,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>A <c>[Format]</c> naming something that is not a format, or not this image's.</summary>
+    public static readonly DiagnosticDescriptor StorageImageFormatMismatch = new(
+        "RVN2124",
+        "Storage image format does not match its element",
+        "'{0}' is declared '[Format(\"{1}\")]', which {2}",
+        Declaration,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>A <c>[Format]</c> on something that is not a storage image.</summary>
+    /// <remarks>
+    ///     On the <c>RVN2091</c> policy: nothing else in the language has a texel format, so the
+    ///     attribute is dropped — but the author believes it says something and it does not.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor FormatOnNonImage = new(
+        "RVN2125",
+        "Format on a declaration that has no texels",
+        "'[Format]' on '{0}' has no effect: only a storage image has a texel format",
+        Binding,
+        DiagnosticSeverity.Warning
+    );
 }

@@ -550,7 +550,28 @@ public abstract partial class Binder {
     ///     </para>
     /// </remarks>
     void CheckBindingIsWritable(BoundExpression target, ExpressionSyntax syntax) {
-        if (RootBinding(target) is not { } field || field.Type.IsWritableResource) {
+        if (RootBinding(target) is not { } field) {
+            return;
+        }
+
+        // Assigning the *descriptor* is never a write into what it points at. A writable resource
+        // is written through — `data[i] = x`, `image.Store(…)` — and neither target has an
+        // assignment for the handle itself, so this is refused even for the writable forms.
+        if (target is BoundFieldExpression whole
+            && ReferenceEquals(whole.Field, field)
+            && field.Type.ResourceKind is not (ResourceKind.None or ResourceKind.Uniform)) {
+            Report(
+                SemanticDiagnostics.CannotWriteToBinding,
+                syntax,
+                field.Name,
+                $"a '{field.Type.ToDisplayString()}' is a descriptor rather than a value, so it is "
+                + "written through rather than assigned to"
+            );
+
+            return;
+        }
+
+        if (field.Type.IsWritableResource) {
             return;
         }
 

@@ -274,7 +274,7 @@ public class ComputeTests {
         var shader = new IrShader("S");
         var function = new IrFunction("Main", IrScalarType.Void);
         shader.Add(function);
-        shader.Add(new IrEntryPoint(ShaderStage.Compute, function, [], null));
+        shader.Add(new IrEntryPoint(ShaderStage.Compute, function, [], []));
 
         var module = new IrModule("Test");
         module.Add(shader);

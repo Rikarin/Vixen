@@ -50,6 +50,10 @@ sealed class GlslEmitter {
     readonly GlslOptions options;
     readonly IrShader shader;
     readonly List<string> inputNames = [];
+
+    /// <summary>The declared <c>out</c> variables, in the order of <c>IrEntryPoint.Outputs</c>.</summary>
+    readonly List<string> outputNames = [];
+
     readonly Dictionary<IrVariable, string> variableNames = [];
     readonly Dictionary<int, string> values = [];
     readonly Writer writer = new();
@@ -68,7 +72,6 @@ sealed class GlslEmitter {
     readonly Dictionary<IrVariable, string> streamWrites = [];
 
     int loopCounter;
-    string? outputName;
     bool samplerlessFetch;
 
     /// <summary>
@@ -153,6 +156,34 @@ sealed class GlslEmitter {
     }
 
     /// <summary>
+    ///     Declares the push-constant block, if the shader has one.
+    /// </summary>
+    /// <remarks>
+    ///     <c>std430</c> stated rather than left implicit: it is what a Vulkan push-constant block
+    ///     takes by default and what the SPIR-V side decorates its members with, and writing it
+    ///     down is what keeps the differential from depending on two defaults agreeing. No
+    ///     <c>set</c> or <c>binding</c> — a push constant has no descriptor, which is the whole
+    ///     reason to use one.
+    /// </remarks>
+    void EmitPushConstants() {
+        if (BindingPlan.PushConstants(shader) is not { IsEmpty: false } constants) {
+            return;
+        }
+
+        writer.Line($"layout(push_constant, std430) uniform {Reserve(BindingPlan.PushConstantBlockName(shader))} {{");
+        writer.Indent();
+
+        foreach (var constant in constants) {
+            var name = ReserveVariable(constant.Variable);
+            writer.Line(Declare(constant.Type, name, constant.Name) + ";" + Comment(constant.Semantic));
+        }
+
+        writer.Outdent();
+        writer.Line("};");
+        writer.Blank();
+    }
+
+    /// <summary>
     ///     Declares the bindings, each with the explicit <c>set</c> and <c>binding</c> that
     ///     <see cref="BindingPlan" /> assigned.
     /// </summary>
@@ -163,6 +194,8 @@ sealed class GlslEmitter {
     /// </remarks>
     void EmitBindings() {
         var opaque = false;
+
+        EmitPushConstants();
 
         foreach (var planned in BindingPlan.Of(shader)) {
             var layout = $"set = {(int)planned.Set}, binding = {planned.Binding}";
@@ -175,8 +208,14 @@ sealed class GlslEmitter {
 
             if (planned.Resource is { } resource) {
                 var name = ReserveVariable(resource.Variable);
+
+                // A storage image carries its texel format in the layout qualifier. GLSL requires
+                // it on any image that is read, and stating it always keeps the two backends
+                // emitting the same declaration.
+                var format = resource.Type is IrStorageImageType image ? image.Format + ", " : string.Empty;
+
                 writer.Line(
-                    $"layout({layout}) uniform {Declare(resource.Type, name, resource.Name)};"
+                    $"layout({format}{layout}) uniform {Declare(resource.Type, name, resource.Name)};"
                     + Comment(resource.Semantic)
                 );
 
@@ -252,15 +291,20 @@ sealed class GlslEmitter {
             return;
         }
 
-        if (entryPoint.Output is { } output) {
+        var outputLocation = StreamPlan.OutputBase(shader, entryPoint.Stage);
+
+        foreach (var output in entryPoint.Outputs) {
             RequireCarryable(output, false);
 
-            outputName = Reserve("out_" + output.Name);
+            var name = Reserve("out_" + output.Name);
+            outputNames.Add(name);
             writer.Line(
-                $"layout(location = {StreamPlan.OutputBase(shader, entryPoint.Stage)}) out "
-                + $"{Declare(output.Type, outputName, output.Name)};"
+                $"layout(location = {outputLocation++}) out {Declare(output.Type, name, output.Name)};"
                 + Comment(output.Semantic)
             );
+        }
+
+        if (entryPoint.Outputs.Count > 0) {
             writer.Blank();
         }
     }
@@ -434,12 +478,21 @@ sealed class GlslEmitter {
         // threads them into the user's function.
         var call = $"{functionNames[entryPoint.Function]}({string.Join(", ", inputNames)})";
 
-        if (entryPoint.Output is null) {
+        if (entryPoint.Outputs.Count == 0) {
             writer.Line(call + ";");
         } else if (OutputGoesToBuiltIn()) {
             writer.Line($"gl_Position = {call};");
+        } else if (entryPoint.Outputs is [{ Member: null }]) {
+            writer.Line($"{outputNames[0]} = {call};");
         } else {
-            writer.Line($"{outputName} = {call};");
+            // Several render targets: the result is a struct, so it lands in a local once and
+            // each target takes its member. Calling per target would run the shader body N times.
+            var result = Reserve("_targets");
+            writer.Line($"{TypeName(entryPoint.Function.ReturnType)} {result} = {call};");
+
+            foreach (var (output, name) in entryPoint.Outputs.Zip(outputNames)) {
+                writer.Line($"{name} = {result}.{GlslTypes.Identifier(output.Name)};");
+            }
         }
 
         writer.Outdent();
@@ -575,15 +628,20 @@ sealed class GlslEmitter {
             case IrCallInstruction { Result: null } call:
                 writer.Line($"{functionNames[call.Function]}({CallArguments(call.Arguments)});");
                 return;
+
+            // A texel store produces nothing, so it is a statement rather than an assignment.
+            case IrIntrinsicInstruction { Result: null } effect:
+                writer.Line(IntrinsicCall(effect) + ";");
+                return;
         }
 
         if (instruction.Result is not { } result) {
             return;
         }
 
-        // GLSL forbids locals of opaque type, so a texture or sampler value is
+        // GLSL forbids locals of opaque type, so a texture, sampler or image value is
         // never materialized: uses refer straight back to the uniform.
-        if (result.Type is IrSamplerType or IrTextureType) {
+        if (result.Type is IrSamplerType or IrTextureType or IrStorageImageType) {
             values[result.Id] = instruction is IrLoadInstruction opaque ? Place(opaque.Place) : "/* opaque */";
             return;
         }
@@ -591,6 +649,38 @@ sealed class GlslEmitter {
         var expression = Expression(instruction);
         var declaration = Declare(result.Type, Name(result), $"%{result.Id}");
         writer.Line($"{declaration} = {expression};");
+    }
+
+    /// <summary>
+    ///     The GLSL for one intrinsic call, whether or not it produces a value.
+    /// </summary>
+    /// <remarks>
+    ///     Separate from <see cref="Expression" /> because a texel store is a statement: it has no
+    ///     result to assign, and it is the one intrinsic that does not.
+    /// </remarks>
+    string IntrinsicCall(IrIntrinsicInstruction intrinsic) {
+        if (intrinsic.Intrinsic is IrIntrinsic.LoadTexture or IrIntrinsic.TextureSize) {
+            // texelFetch and textureSize on a separate texture, with no sampler to pair it
+            // with, are what this extension adds. Recorded here so the prologue declares
+            // it only in the units that need it.
+            samplerlessFetch = true;
+        }
+
+        var resultType = intrinsic.Result?.Type ?? IrScalarType.Void;
+        var call = GlslIntrinsics.Call(
+            intrinsic.Intrinsic,
+            [.. intrinsic.Arguments.Select(Value)],
+            [.. intrinsic.Arguments.Select(a => a.Type)],
+            TypeName(resultType),
+            resultType
+        );
+
+        if (call is not null) {
+            return call;
+        }
+
+        Report(BackendDiagnostics.NotImplemented, $"The '{intrinsic.Intrinsic}' intrinsic");
+        return "0";
     }
 
     string Expression(IrInstruction instruction) {
@@ -613,30 +703,8 @@ sealed class GlslEmitter {
                 // A GLSL constructor is both the numeric conversion and the splat.
                 return $"{TypeName(convert.Result.Type)}({Value(convert.Operand)})";
 
-            case IrIntrinsicInstruction intrinsic: {
-                if (intrinsic.Intrinsic is IrIntrinsic.LoadTexture or IrIntrinsic.TextureSize) {
-                    // texelFetch and textureSize on a separate texture, with no sampler to pair it
-                    // with, are what this extension adds. Recorded here so the prologue declares
-                    // it only in the units that need it.
-                    samplerlessFetch = true;
-                }
-
-                var arguments = intrinsic.Arguments.Select(Value).ToArray();
-                var call = GlslIntrinsics.Call(
-                    intrinsic.Intrinsic,
-                    arguments,
-                    [.. intrinsic.Arguments.Select(a => a.Type)],
-                    TypeName(intrinsic.Result!.Type),
-                    intrinsic.Result.Type
-                );
-
-                if (call is not null) {
-                    return call;
-                }
-
-                Report(BackendDiagnostics.NotImplemented, $"The '{intrinsic.Intrinsic}' intrinsic");
-                return "0";
-            }
+            case IrIntrinsicInstruction intrinsic:
+                return IntrinsicCall(intrinsic);
 
             case IrCallInstruction call:
                 return $"{functionNames[call.Function]}({CallArguments(call.Arguments)})";

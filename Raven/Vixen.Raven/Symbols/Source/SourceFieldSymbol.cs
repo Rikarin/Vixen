@@ -226,6 +226,11 @@ public sealed class SourceFieldSymbol : FieldSymbol {
     public override ResourceSet ResourceSet =>
         DeclarationFacts.GetResourceSet(syntax.AttributeLists) ?? base.ResourceSet;
 
+    public override bool IsPushConstant => DeclarationFacts.IsPushConstant(syntax.AttributeLists);
+
+    public override ImageFormat? ImageFormat =>
+        ImageFormats.Lookup(DeclarationFacts.GetImageFormat(syntax.AttributeLists));
+
     internal SourceFieldSymbol(NamedTypeSymbol containingType, FieldDeclarationSyntax syntax, Binder binder) {
         ContainingSymbol = containingType;
         this.syntax = syntax;
@@ -241,7 +246,12 @@ public sealed class SourceFieldSymbol : FieldSymbol {
         resolving = true;
         try {
             if (Declaration.Type is { } annotation) {
-                return binder.BindType(annotation);
+                var bound = binder.BindType(annotation);
+
+                // A storage image's texel format is part of its type in SPIR-V, and it is spelled
+                // as an attribute on the declaration — so it is folded in here rather than left for
+                // the backends to look it back up off the symbol.
+                return bound is StorageImageTypeSymbol image ? image.WithFormat(ImageFormat?.Name) : bound;
             }
 
             if (Declaration.Initializer?.Value is { } initializer) {

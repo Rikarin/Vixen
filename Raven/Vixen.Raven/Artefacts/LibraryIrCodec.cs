@@ -88,6 +88,12 @@ internal sealed class LibraryIrEncoder {
                 Dimension = texture.Dimension,
                 Sampled = EncodeType(texture.SampledType)
             },
+            IrStorageImageType image => new() {
+                Kind = IrTypeKind.StorageImage,
+                Dimension = image.Dimension,
+                Sampled = EncodeType(image.TexelType),
+                Format = image.Format
+            },
             IrSamplerType => new() { Kind = IrTypeKind.Sampler },
             // Scalars, void included: the kind is the whole identity.
             _ => new() { Kind = type.Kind }
@@ -406,6 +412,11 @@ internal sealed class LibraryIrDecoder {
             IrTypeKind.Texture => new IrTextureType(
                 type.Dimension,
                 type.Sampled is { } sampled ? DecodeType(sampled) : IrScalarType.Void
+            ),
+            IrTypeKind.StorageImage => new IrStorageImageType(
+                type.Dimension,
+                type.Sampled is { } texel ? DecodeType(texel) : IrScalarType.Void,
+                type.Format ?? string.Empty
             ),
             IrTypeKind.Sampler => IrSamplerType.Instance,
             _ => Scalar(type.Kind)

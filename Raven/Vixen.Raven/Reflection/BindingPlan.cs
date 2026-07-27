@@ -66,8 +66,12 @@ public static class BindingPlan {
 
         var plan = ImmutableArray.CreateBuilder<PlannedBinding>();
 
-        foreach (var set in shader.Bindings.Select(b => b.Set).Distinct().Order()) {
-            var inSet = shader.Bindings.Where(b => b.Set == set).ToArray();
+        // Push constants are deliberately absent: they have no descriptor, so numbering them into
+        // a set would give a host a (set, binding) pair to bind against that means nothing.
+        var descriptors = shader.Bindings.Where(b => b.Kind != IrBindingKind.PushConstant).ToArray();
+
+        foreach (var set in descriptors.Select(b => b.Set).Distinct().Order()) {
+            var inSet = descriptors.Where(b => b.Set == set).ToArray();
             var binding = 0;
 
             if (inSet.Where(b => b.Kind == IrBindingKind.Uniform).ToImmutableArray() is { IsEmpty: false } uniforms) {
@@ -81,7 +85,8 @@ public static class BindingPlan {
             foreach (var kind in (IrBindingKind[])[
                 IrBindingKind.Texture,
                 IrBindingKind.Sampler,
-                IrBindingKind.StorageBuffer
+                IrBindingKind.StorageBuffer,
+                IrBindingKind.StorageImage
             ]) {
                 foreach (var resource in inSet.Where(b => b.Kind == kind)) {
                     plan.Add(new(set, binding++, kind, resource.Name, [], resource));
@@ -96,5 +101,33 @@ public static class BindingPlan {
     public static string BlockName(IrShader shader, ResourceSet set) {
         ArgumentNullException.ThrowIfNull(shader);
         return $"{shader.Name}{set}Uniforms";
+    }
+
+    /// <summary>
+    ///     The shader's push constants, in declaration order — the members of its one
+    ///     push-constant block.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>One block per shader, not one per marked field.</strong> Vulkan gives a
+    ///         pipeline a single push-constant range, so several marked fields are several members
+    ///         of one block rather than several blocks; a second block is not a thing a driver
+    ///         could bind.
+    ///     </para>
+    ///     <para>
+    ///         The bytes are guaranteed to be scarce — the Vulkan minimum is 128 — which is what
+    ///         <c>RVN2121</c> warns about. That is a warning rather than an error because a device
+    ///         may offer more and a shader that knows its target may legitimately use it.
+    ///     </para>
+    /// </remarks>
+    public static ImmutableArray<IrBinding> PushConstants(IrShader shader) {
+        ArgumentNullException.ThrowIfNull(shader);
+        return [.. shader.Bindings.Where(b => b.Kind == IrBindingKind.PushConstant)];
+    }
+
+    /// <summary>The name of a shader's push-constant block.</summary>
+    public static string PushConstantBlockName(IrShader shader) {
+        ArgumentNullException.ThrowIfNull(shader);
+        return $"{shader.Name}PushConstants";
     }
 }

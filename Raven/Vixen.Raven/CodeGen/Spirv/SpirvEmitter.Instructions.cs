@@ -305,6 +305,23 @@ partial class SpirvEmitter {
 
                 return;
             }
+
+            // A texel store defines nothing, so it never lands in `values`. OpImageWrite takes no
+            // result id at all, unlike OpFunctionCall above.
+            case IrIntrinsicInstruction { Result: null, Intrinsic: IrIntrinsic.StoreImage } store
+                when store.Arguments.Count == 3:
+                Add(
+                    new(
+                        SpirvOp.ImageWrite,
+                        null,
+                        null,
+                        SpirvOperand.Id(Value(store.Arguments[0])),
+                        SpirvOperand.Id(Value(store.Arguments[1])),
+                        SpirvOperand.Id(Value(store.Arguments[2]))
+                    )
+                );
+
+                return;
         }
 
         if (instruction.Result is not { } target) {
@@ -665,6 +682,15 @@ partial class SpirvEmitter {
 
             case IrIntrinsic.TextureSize:
                 return EmitQuerySize(intrinsic, resultType, arguments);
+
+            case IrIntrinsic.LoadImage:
+                return Emit(SpirvOp.ImageRead, resultType, arguments[0], arguments[1]);
+
+            case IrIntrinsic.ImageSize:
+                // No level operand: a storage image has one, which is also why this is
+                // OpImageQuerySize rather than the Lod form a sampled texture needs.
+                module.AddCapability(SpirvCapability.ImageQuery);
+                return Emit(SpirvOp.ImageQuerySize, resultType, arguments[0]);
 
             case IrIntrinsic.BitCast:
                 // Same width in and out, so the identity is genuinely nothing to emit — and

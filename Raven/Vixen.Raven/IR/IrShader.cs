@@ -21,7 +21,21 @@ public enum IrBindingKind {
     ///     member. Everywhere else it stays <c>RVN4001</c>, so the IR now expresses precisely what
     ///     the targets allow rather than a superset of it.
     /// </remarks>
-    StorageBuffer
+    StorageBuffer,
+
+    /// <summary>A storage image: a texture the shader stores into, with an explicit texel format.</summary>
+    StorageImage,
+
+    /// <summary>
+    ///     A push constant: a member of the one small block the host writes into the command buffer.
+    /// </summary>
+    /// <remarks>
+    ///     It has no descriptor, so <see cref="IrBinding.Set" /> and the <c>(set, binding)</c> pair
+    ///     say nothing about it — which is why it is a kind here rather than a fifth
+    ///     <see cref="ResourceSet" />. Laid out std430, matching what both targets give a
+    ///     push-constant block by default.
+    /// </remarks>
+    PushConstant
 }
 
 /// <summary>
@@ -93,7 +107,21 @@ public sealed class IrBinding(
 }
 
 /// <summary>One input or output of an entry point.</summary>
-public sealed record IrStageIo(string Name, IrType Type, string? Semantic);
+/// <param name="Name">The interface variable's name.</param>
+/// <param name="Type">Its type, which <see cref="Reflection.StageInterface" /> has to accept.</param>
+/// <param name="Semantic">The pipeline semantic, if any.</param>
+/// <param name="Member">
+///     For an output, the index of the returned struct's member this output takes its value from;
+///     null when the output <em>is</em> the returned value.
+/// </param>
+/// <remarks>
+///     <paramref name="Member" /> is what multiple render targets are made of. A stage interface
+///     variable gets one location and therefore has to be one scalar or vector, so a fragment stage
+///     writing four targets returns a struct and the entry-point wrapper takes it apart — one
+///     extract, one store, per target. Recording the index here rather than re-deriving it in each
+///     backend keeps the two from disagreeing about which member is which target.
+/// </remarks>
+public sealed record IrStageIo(string Name, IrType Type, string? Semantic, int? Member = null);
 
 /// <summary>
 ///     An interstage value the shader declares with <c>stream</c>: written by one stage, read by
@@ -163,7 +191,7 @@ public sealed class IrEntryPoint(
     ShaderStage stage,
     IrFunction function,
     IReadOnlyList<IrStageIo> inputs,
-    IrStageIo? output,
+    IReadOnlyList<IrStageIo> outputs,
     WorkgroupSize? workgroupSize = null
 ) {
     public ShaderStage Stage { get; } = stage;
@@ -182,8 +210,23 @@ public sealed class IrEntryPoint(
     /// </remarks>
     public WorkgroupSize? WorkgroupSize { get; } = workgroupSize;
 
-    /// <summary>The stage output, or null when the entry point returns nothing.</summary>
-    public IrStageIo? Output { get; } = output;
+    /// <summary>
+    ///     The stage's outputs, in location order. Empty when the entry point returns nothing.
+    /// </summary>
+    /// <remarks>
+    ///     A list rather than one value because a fragment stage may write several render targets.
+    ///     Every other stage has exactly one output or none: a vertex stage's varyings are
+    ///     <c>stream</c>s, which is a different mechanism and a better one, and a compute stage has
+    ///     no pipeline interface at all.
+    /// </remarks>
+    public IReadOnlyList<IrStageIo> Outputs { get; } = outputs;
+
+    /// <summary>The single stage output, or null when there is not exactly one.</summary>
+    /// <remarks>
+    ///     For the places that genuinely mean "the one output" — a vertex position, a stage whose
+    ///     result goes straight into an interface variable with no extract in between.
+    /// </remarks>
+    public IrStageIo? Output => Outputs.Count == 1 ? Outputs[0] : null;
 
     /// <summary>
     ///     The shader's streams this stage reads, in the shader's declaration order.
