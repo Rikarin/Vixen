@@ -237,8 +237,16 @@ public sealed partial class LayoutTree {
 
     /// <summary>Sets the aspect ratio the node is forced into.</summary>
     /// <param name="node">The node.</param>
-    /// <param name="aspectRatio">Width divided by height.</param>
+    /// <param name="aspectRatio">Width divided by height. Zero and infinity mean no ratio at all.</param>
+    /// <remarks>
+    ///     A degenerate ratio behaves as <c>auto</c> rather than as a ratio — css-sizing-4 says so,
+    ///     and the alternative is dividing by it.
+    /// </remarks>
     public void SetAspectRatio(LayoutNodeId node, float aspectRatio) {
+        if (aspectRatio == 0f || float.IsInfinity(aspectRatio)) {
+            aspectRatio = float.NaN;
+        }
+
         var index = Validate(node);
         if (SameFloat(styles[index].AspectRatio, aspectRatio)) {
             return;

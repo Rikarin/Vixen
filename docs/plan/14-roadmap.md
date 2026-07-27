@@ -429,26 +429,36 @@ sub-piece has its own gate.
   **Owed:** liveness is decided per node and the notification walk is per write, which is a tight
   loop over an array that no measurement has yet asked to improve; and `Flush()` has no caller until
   `UiSystem` arrives in 4d.
-- 🟡 `Vixen.Ui.Layout` — **the store and the public API are built; the algorithm is not.**
-  `LayoutTree` holds styles, results, links and flags as parallel `NativeArray`s with a shared
-  arena for child ids; `StyleResolution` implements CSS edge precedence, percentage resolution and
-  box sizing; `FlexAxis` is the flow-relative-to-physical translation. 14 tests on the store itself.
+- ✅ `Vixen.Ui.Layout` — the SoA store and **the complete flexbox algorithm**. `LayoutTree` holds
+  styles, results, links and node state as parallel `NativeArray`s with a shared arena for child
+  ids; `CalculateLayout` is the port of Yoga's `CalculateLayout`, `AbsoluteLayout`, `FlexLine`,
+  `Baseline`, `PixelGrid` and the measure cache. 552 tests.
   Two departures from [09](09-ui-framework.md), recorded there: children are a contiguous run
   rather than a linked list, because the algorithm addresses them by index inside its inner loops
   and a list would make several O(n) passes O(n²) on the widest nodes; and a style is ~400 bytes
   rather than 120, because the estimate predated counting the edge shorthands and the
   writing-mode-relative pair.
-- ✅ **Yoga's conformance suite is ported — 534 fixtures — and it is committed before the
-  implementation, which is what sequencing rule 4 asks for.** `Tools/Vixen.YogaTestGen` translates
-  Yoga's generated C++ into xunit against `LayoutTree`; the output is committed because CI has no
-  reference clone. It is a line translator rather than a C++ parser, which is defensible only
-  because the input is machine-generated — and a line it does not recognise drops the whole fixture
-  and says so rather than guessing. Nine fixtures are skipped, all `display: contents`, which doc 09
-  puts outside the scope; each is named in the generated file's header.
-  The suite is excluded from compilation by one `ItemGroup` that explains itself, and deleting that
-  `ItemGroup` is the last step of the port. **Gate: it is green.** Not yet met.
-- **Port the flexbox algorithm.** Yoga's `CalculateLayout`, `AbsoluteLayout`, `FlexLine`,
-  `Baseline`, `PixelGrid` and the measure cache, onto the store above.
+- ✅ **Yoga's conformance suite is ported — 534 fixtures — and it is green.** Committed before the
+  implementation, which is what sequencing rule 4 asks for and which is why it was able to do its
+  job: 530 of 534 passed on the first run. `Tools/Vixen.YogaTestGen` translates Yoga's generated
+  C++ into xunit against `LayoutTree`; the output is committed because CI has no reference clone.
+  A line the translator does not recognise drops the whole fixture and says so rather than guessing.
+  Nine fixtures are skipped, all `display: contents`, which doc 09 puts outside the scope; each is
+  named in the generated file's header.
+
+  Of the four fixtures that failed on the first run, three were a careless port of Yoga's *test
+  helper* rather than of the algorithm, and one was a real rule the port had missed: a degenerate
+  `aspect-ratio` behaves as `auto` rather than being divided by (css-sizing-4).
+
+  **And a limit of the oracle, found by sabotage and worth recording.** Deleting the CSS Flexbox
+  §4.5 automatic-minimum floor leaves all 534 fixtures green — Yoga's generator emits no fixture
+  that shrinks a measured leaf past its own content, so ~150 lines implementing a specification
+  section had no test over it. `AutomaticMinimumSizeTests` is hand-written to close that, and two of
+  its four cases fail without the floor. External oracles are worth what doc 14 says they are worth;
+  knowing where they stop is part of using them.
+
+  **Owed:** a steady-state allocation gate. The line representation was chosen so that a layout pass
+  over a settled tree allocates nothing, and that is not the same as having measured it.
 
 **4b — Styling (1.5 EM)**
 - `Vixen.Ui.Styling`: ExCSS integration, cascade, `@layer`, rule bucketing, ancestor bloom filter,

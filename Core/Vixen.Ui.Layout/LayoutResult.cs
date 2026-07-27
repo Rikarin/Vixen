@@ -78,6 +78,9 @@ public struct LayoutResult {
 
     /// <summary>The last full layout, cached separately from the measurements.</summary>
     public CachedMeasurement CachedLayout;
+
+    /// <summary>Which line of a wrapping container this node landed on.</summary>
+    public int LineIndex;
 }
 
 /// <summary>One remembered answer to "how big are you, given this much room".</summary>

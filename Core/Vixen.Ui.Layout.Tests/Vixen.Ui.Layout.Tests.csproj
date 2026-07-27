@@ -23,18 +23,4 @@
         <ProjectReference Include="..\Vixen.Ui.Layout\Vixen.Ui.Layout.csproj" />
     </ItemGroup>
 
-    <!--
-        The 534 ported Yoga fixtures are committed but not yet compiled: they call
-        LayoutTree.CalculateLayout, which does not exist until the algorithm port lands.
-
-        This is deliberate and temporary, and it is the shape ADR-006 and sequencing rule 4 in
-        docs/plan/14 ask for — the suite is ported *before* the implementation, so that writing it
-        is a red/green loop against Chrome's own answers rather than three thousand lines followed
-        by a discovery. Removing this ItemGroup is the last step of that port, and it is a build
-        error until every one of them passes rather than something anyone can forget.
-    -->
-    <ItemGroup>
-        <Compile Remove="Generated/**/*.cs" />
-        <None Include="Generated/**/*.cs" />
-    </ItemGroup>
 </Project>

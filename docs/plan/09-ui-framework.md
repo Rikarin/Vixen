@@ -223,19 +223,32 @@ against Yoga's own conformance suite.
 ### Storage
 
 ```csharp
-// SoA: parallel NativeArrays indexed by LayoutNodeId (dense int)
-struct LayoutStore
+// SoA: parallel NativeArrays indexed by LayoutNodeId (dense int). As built:
+sealed class LayoutTree
 {
-    NativeArray<LayoutStyle>  Styles;     // ~120 bytes, all values as (float, Unit) pairs
-    NativeArray<LayoutResult> Results;    // x, y, w, h, borders[4], padding[4], margin[4], direction
-    NativeArray<LayoutLinks>  Links;      // parent, firstChild, nextSibling, childCount
-    NativeArray<LayoutFlags>  Flags;      // IsDirty, HasNewLayout, HasMeasureFunc, HasBaselineFunc
-    NativeArray<CachedMeasurement> Cache; // Yoga's measure cache, 16 entries per node
+    NativeArray<LayoutStyle>     Styles;  // ~400 bytes, all values as (float, Unit) pairs — the
+                                          //   120 above predated counting the nine CSS edges
+    NativeArray<LayoutResult>    Results; // position[4], dimensions, margin/border/padding[4],
+                                          //   direction, and the 8-entry measure cache
+    NativeArray<LayoutLinks>     Links;   // parent, and (offset, count, capacity) into ChildArena
+    NativeArray<LayoutNodeState> State;   // Live, Dirty, HasNewLayout, HasMeasureFunction, …
+    ChildArena                   Children;// every node's child ids, contiguous, power-of-two blocks
 }
 ```
 
-One allocation per array, growing geometrically. 100 000 nodes ≈ 30 MB and zero GC objects, versus the
-reference port's ~400 000 heap objects for the same tree.
+One allocation per array, growing geometrically. 100 000 nodes ≈ 40 MB and zero GC objects, versus the
+reference port's ~400 000 heap objects for the same tree — which is the comparison that matters, and
+which the corrected style size does not change.
+
+**Children are a contiguous run of ids, not a `firstChild`/`nextSibling` list.** The algorithm
+addresses children by index inside its inner loops — a flex line *is* a range of them — and a linked
+list makes each of those a walk, turning several O(n) passes into O(n²) on the widest nodes in the
+tree. The list is in a shared arena with power-of-two blocks and free lists, so it is still no heap
+object per node.
+
+**The measure cache is 8 entries per node, not 16.** Eight is Yoga's own figure from measuring real
+layouts; the 16 here came from an older revision of the same comment, and doubling the largest term
+in a node's footprint for the last 2 % of cases is not a trade worth making.
 
 ### Algorithm scope
 
@@ -255,15 +268,27 @@ reference port's ~400 000 heap objects for the same tree.
 - **Block/inline flow**: minimal — enough for a paragraph of mixed inline text and images. A full
   CSS inline formatting context is out of scope and stated as such.
 - **Parallel layout**: independent subtrees (those with a fixed available size) layout as jobs. Text
-  measurement of siblings parallelises well and is where the win is.
+  measurement of siblings parallelises well and is where the win is. Not built: it needs a
+  measurement of the serial version to beat, and there is no layout benchmark yet.
 
 ### Correctness
 
 Yoga's repository generates its test suite from HTML fixtures rendered in a real browser. That
-generator is run against Vixen (`references/yoga` → a T4-free C# emitter in
+generator is run against Vixen (`references/yoga` → `Tools/Vixen.YogaTestGen`, emitting into
 `Vixen.Ui.Layout.Tests/Generated/`), producing several hundred conformance tests. **Flexbox is not
 "implemented" until that suite is green.** This is the single most important de-risking decision in the
 UI plan: it turns "re-implement a subtle CSS algorithm" from a research project into a red/green loop.
+
+✅ **Done: 534 fixtures, green.** It paid for itself on the first run — 530 passed immediately, and
+of the four that did not, one was a real rule the port had missed (a degenerate `aspect-ratio`
+behaves as `auto`; css-sizing-4). Nine of Yoga's 543 are `display: contents` and are skipped by
+name, which is the scope stated below.
+
+**And a limit of it, worth stating because the plan leans on external oracles so heavily.** Deleting
+the CSS Flexbox §4.5 automatic minimum size leaves all 534 green: Yoga's generator emits no fixture
+that shrinks a measured leaf past its own content. An oracle answers the questions it was built to
+ask and no others, so the sections it does not reach still need tests written by hand —
+`AutomaticMinimumSizeTests` is that, for this one.
 
 ## Styling (`Vixen.Ui.Styling`)
 

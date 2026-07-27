@@ -32,6 +32,7 @@ public readonly record struct LayoutNodeId(int Index) {
 public readonly record struct LayoutSize(float Width, float Height);
 
 /// <summary>What a measure function is being asked.</summary>
+/// <param name="Tree">The tree the node belongs to, so the callback can read its style.</param>
 /// <param name="Node">Which node.</param>
 /// <param name="Context">Whatever was attached to it with <see cref="LayoutTree.SetContext" />.</param>
 /// <param name="AvailableWidth">The width on offer, or NaN.</param>
@@ -39,6 +40,7 @@ public readonly record struct LayoutSize(float Width, float Height);
 /// <param name="AvailableHeight">The height on offer, or NaN.</param>
 /// <param name="HeightMode">What the height means.</param>
 public readonly record struct MeasureRequest(
+    LayoutTree Tree,
     LayoutNodeId Node,
     object? Context,
     float AvailableWidth,

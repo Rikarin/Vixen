@@ -10,28 +10,39 @@ algorithm is the valuable part.
 
 ## State
 
-**The store, the public API and the conformance suite are here. The algorithm is not yet.**
+**Flexbox is complete and the conformance suite is green: 552 tests, 534 of them Yoga's.**
 
 | | |
 |---|---|
-| `LayoutTree` | The store: styles, results, links and flags as parallel `NativeArray`s, plus the tree operations and the whole style surface. ✅ |
-| `LayoutStyle`, `StyleLength` | Every length as a `(value, unit)` pair, all nine CSS edges kept apart. ✅ |
-| `StyleResolution` | Edge precedence, percentage resolution, box sizing, `flex` shorthand resolution. ✅ |
-| `FlexAxis` | Flow-relative to physical translation. ✅ |
-| `Vixen.Ui.Layout.Tests/Generated/` | **534 conformance fixtures**, translated from Yoga by `Tools/Vixen.YogaTestGen`. ⏳ committed, not yet compiled |
-| `LayoutTree.CalculateLayout` | ⏳ the port itself |
-
-The suite is committed before the implementation deliberately. Sequencing rule 4 in
-[doc 14](../../docs/plan/14-roadmap.md) says so in as many words, and the reason is that a red suite
-driving an implementation is a completely different experience from writing three thousand lines and
-then finding out. It is excluded from compilation by an `ItemGroup` in the test project that says
-why; removing that `ItemGroup` is the last step of the port, and until every fixture passes it is a
-build error rather than something anyone can forget.
+| `LayoutTree` | The store: styles, results, links and node state as parallel `NativeArray`s, plus the tree operations and the whole style surface. |
+| `LayoutStyle`, `StyleLength` | Every length as a `(value, unit)` pair, all nine CSS edges kept apart. |
+| `StyleResolution`, `FlexAxis` | Edge precedence, percentages, box sizing; flow-relative to physical. |
+| `LayoutTree.CalculateLayout` | The algorithm: flex basis, line breaking, the two-pass free-space distribution, justification, cross-axis alignment, multi-line alignment, absolute positioning, pixel-grid rounding. |
+| `Generated/` | 534 conformance fixtures, translated from Yoga by `Tools/Vixen.YogaTestGen`. |
 
 Every expected number in those fixtures came out of a real browser laying out a real HTML fixture.
 That is what makes this a *conformance* suite rather than a regression suite, and it is the specific
 defence doc 14 names against the failure mode of AI-assisted work — code that reads plausibly and is
-wrong.
+wrong. It earned that on the first run: 530 of 534 passed, and of the four that did not, three were
+a sloppy port of Yoga's *test helper* rather than of the algorithm, and one was a real rule —
+a degenerate `aspect-ratio` has to behave as `auto` rather than be divided by.
+
+### What is not covered by the ported suite
+
+Sabotaging the CSS Flexbox §4.5 automatic minimum size leaves all 534 fixtures green. Yoga's
+generator emits no fixture that shrinks a measured leaf past its own content, so roughly 150 lines
+implementing a specification section had no test over it at all. `AutomaticMinimumSizeTests` is
+hand-written to close that: four cases, two of which fail without the floor. An external oracle is
+worth what doc 14 says it is worth, and it is still worth knowing where it stops.
+
+### What is not implemented, and why
+
+- `display: contents` — outside the algorithm scope doc 09 states. The nine fixtures using it are
+  skipped by name.
+- Yoga's errata flags and experimental features — a default configuration turns none of them on, so
+  porting them would be porting dead branches.
+- The separate min-content measure callback. Its fallback — asking the ordinary measure function
+  under `AtMost 0` — is what a text measurer answers with its longest word anyway.
 
 ## The store
 
@@ -82,7 +93,12 @@ specification than flexbox and it does not share the flex line machinery, so it 
 piece rather than as a variation on this one.
 
 **Parallel layout.** Independent subtrees with a fixed available size are jobs, and text measurement
-of siblings is where the win is. It needs the algorithm first, and it needs a measurement of the
-serial version to beat.
+of siblings is where the win is. It needs a measurement of the serial version to beat, and there is
+no benchmark yet — the same reason `Vixen.Core.Collections` gives for not having written a second
+hash table.
+
+**A steady-state allocation gate.** The reactive layer has one and this does not. A layout pass over
+a settled tree should allocate nothing — the line representation was chosen so that it can — but
+"should" is not "was measured", and it will not be claimed here until a test asserts it.
 
 Licensed under Apache-2.0.
