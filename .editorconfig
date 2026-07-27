@@ -400,3 +400,32 @@ dotnet_diagnostic.CA1051.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Ui.Markup/Binding/BoundNodes.cs]
 dotnet_diagnostic.CA1711.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Editor/Vixen.Editor.Core/CommandStack.cs
+#
+# CA1711 (identifiers should not have incorrect suffix). The rule reserves
+# `…Stack` for types deriving from System.Collections.Stack, a non-generic .NET
+# 1.0 type nothing should derive from. `CommandStack` is the undo history, and
+# "command stack" is the term docs/plan/11 uses for it and the term every editor
+# uses for it — Photoshop, Blender, Visual Studio. It is also literally a stack
+# in the sense that matters: entries are pushed, undone from the top, and moved
+# to a second stack. Naming it `CommandHistory` to satisfy the rule would rename
+# the concept the whole document model is built around.
+# ─────────────────────────────────────────────────────────────────────────────
+[Editor/Vixen.Editor.Core/CommandStack.cs]
+dotnet_diagnostic.CA1711.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Editor/Vixen.Editor.Core/IEditorCommand.cs
+#
+# CA1716 (identifiers should not match keywords). `Do` is a Visual Basic keyword,
+# and the rule's concern is a VB consumer implementing the interface. Vixen has
+# no VB surface and will not grow one; against that, `Do`/`Undo` is the pair
+# docs/plan/11 specifies and the pair that reads correctly at every call site —
+# `command.Do(context)` beside `command.Undo(context)`. The alternatives break
+# the symmetry (`Apply`/`Undo`) or collide with the stack's own vocabulary
+# (`Execute`, which is what CommandStack.Execute does *to* a command).
+# ─────────────────────────────────────────────────────────────────────────────
+[Editor/Vixen.Editor.Core/IEditorCommand.cs]
+dotnet_diagnostic.CA1716.severity = none

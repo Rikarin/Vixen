@@ -1967,8 +1967,17 @@ the shipping projects; a `.rvn` edit reparsing incrementally; the differential o
 
 **Goal:** the editor is usable for real work, and ImGui is deleted.
 
-- `Vixen.Editor.Core`: command stack with merging, per-document + global stacks, signal-backed
-  document model, project model, settings assets.
+- ✅ `Vixen.Editor.Core`: `IEditorCommand` and a `CommandStack` with merging, capacity, transactions
+  and clean-marking; a per-document stack plus the project's global one; the signal-backed document
+  model (`EditorObject`, `EditorProperty<T>`, `SetPropertyCommand<T>`); `EditorProject` over the
+  Phase 3 asset database; `Selection<T>`; and settings assets as `[DataContract]` types under
+  `ProjectSettings/`. 48 tests, including the randomised do/undo/redo/merge sequences doc 11 asks for
+  — checked against a snapshot model, which caught a merge that kept the wrong pre-edit value.
+  Two decisions worth recording: **merging ends on an explicit `Seal()`** rather than on a time
+  window, because a window makes how many undo steps an edit produced depend on how fast somebody
+  moved a mouse; and **a global operation discards the redo stacks of the documents it touched**,
+  declared by the command through `EditorContext.Touch`, because rewriting those entries instead
+  would need every command type to know how to be rebased.
 - `Vixen.Editor.Ui`: docking shell, command registry, menus/toolbars/context menus, command palette,
   theming, notifications, background-task manager, localisation.
 - `Vixen.Editor.Inspector`: generated drawers, attribute set, custom drawers, multi-object editing.
