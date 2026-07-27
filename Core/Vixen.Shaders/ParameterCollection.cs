@@ -56,13 +56,31 @@ public sealed class ParameterCollection {
     // --- Values -------------------------------------------------------------
 
     /// <summary>Sets a value.</summary>
+    /// <remarks>
+    ///     Setting a key to what it already holds does not bump <see cref="Version" />, which is what
+    ///     makes the version mean "something changed" rather than "something was assigned". A caller
+    ///     that rebuilds its parameters every frame from values that rarely move — a post-process node
+    ///     reconfiguring its chain — would otherwise re-upload a constant buffer every frame that
+    ///     nothing in it had changed. <see cref="Set{T}(PermutationKey{T}, T)" /> has always worked
+    ///     this way; this is the same rule for values.
+    /// </remarks>
     public void Set<T>(ParameterKey<T> key, T value) where T : unmanaged {
         ArgumentNullException.ThrowIfNull(key);
 
         var size = Unsafe.SizeOf<T>();
-        var slot = Reserve(key, size);
 
-        MemoryMarshal.Write(storage.AsSpan(slot.Offset, size), in value);
+        // Whether the key was already here, asked before Reserve creates it. A slot this call just
+        // allocated holds whatever a previous Clear left behind, and comparing against that would
+        // occasionally decide a brand-new key had not changed.
+        var existing = slots.TryGetValue(key, out var previous) && previous.Size == size;
+        var slot = Reserve(key, size);
+        var destination = storage.AsSpan(slot.Offset, size);
+
+        if (existing && destination.SequenceEqual(MemoryMarshal.AsBytes(new ReadOnlySpan<T>(in value)))) {
+            return;
+        }
+
+        MemoryMarshal.Write(destination, in value);
         Version++;
     }
 

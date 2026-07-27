@@ -68,6 +68,54 @@ public class ParameterCollectionTests {
     }
 
     /// <summary>
+    ///     Setting a value to the one it already holds does not move the version.
+    /// </summary>
+    /// <remarks>
+    ///     The same rule permutations have always had, and for the same reason one level down: the
+    ///     version is what a constant-buffer writer skips work on, and a node that re-asserts its
+    ///     parameters every frame — a post-process chain reconfiguring itself — would otherwise
+    ///     re-upload a block in which nothing had changed, every frame, forever.
+    /// </remarks>
+    [Fact]
+    public void Setting_a_value_to_what_it_already_is_changes_nothing() {
+        var parameters = new ParameterCollection();
+        var key = Value<float>("Unchanged");
+
+        parameters.Set(key, 1f);
+        var settled = parameters.Version;
+
+        parameters.Set(key, 1f);
+        Assert.Equal(settled, parameters.Version);
+
+        parameters.Set(key, 2f);
+        Assert.NotEqual(settled, parameters.Version);
+    }
+
+    /// <summary>
+    ///     A key set for the first time always moves the version, whatever was in the buffer.
+    /// </summary>
+    /// <remarks>
+    ///     The check on the one above. A slot handed out after a <see cref="ParameterCollection.Clear" />
+    ///     holds whatever the last fill left there, so comparing against it would occasionally decide
+    ///     a brand-new key had not changed — a value that never reaches the GPU because nothing
+    ///     believed it was new.
+    /// </remarks>
+    [Fact]
+    public void A_key_set_after_a_clear_still_moves_the_version() {
+        var parameters = new ParameterCollection();
+        var key = Value<float>("Recycled");
+
+        parameters.Set(key, 7f);
+        parameters.Clear();
+
+        var settled = parameters.Version;
+        parameters.Set(key, 7f);
+
+        Assert.NotEqual(settled, parameters.Version);
+        Assert.Equal(7f, parameters.Get(key));
+    }
+
+    /// <summary>
     ///     Setting a permutation to the value it already had does not invalidate the effect.
     /// </summary>
     /// <remarks>

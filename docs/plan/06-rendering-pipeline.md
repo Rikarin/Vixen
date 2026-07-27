@@ -282,6 +282,15 @@ scRGB displays.
 
 Stride's `Images/` directory is essentially the complete list, and the set is right:
 
+Every entry below is a `FullScreenRenderer` or a node built out of several. ✅ **The full-screen pass
+is the edge every one of them was waiting on**: everything else in the compositor draws *objects*, and
+a post effect has none. It draws three vertices generated from `SV_VertexID`, so there is no vertex
+buffer to bind and no quad's diagonal seam across the middle of the screen; it fills its own uniform
+block from an `Effect`'s parameter table, which is what lets a post effect be configured by name
+rather than by generated code; and the two caches behind it — `SamplerCache` and `EffectConstants` —
+are shared, because a chain that made a sampler per pass would reach a driver's limit rather than
+merely waste one.
+
 | Effect | Pri | Implementation note |
 |---|---|---|
 | Depth prepass / Z-prepass | P1 | |

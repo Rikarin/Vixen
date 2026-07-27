@@ -477,6 +477,73 @@ The binding index itself still comes from the host rather than from reflection: 
 it is a small one, because the alternative is a node reaching for a device handle it has no way to
 have.
 
+## Post-processing
+
+Everything else in the compositor draws *objects*. A post effect has none, which is why a node that
+draws three vertices was the last thing between the compositor and doc 06's fifteen post-process
+entries.
+
+`FullScreenRenderer` is that node. The triangle comes out of `SV_VertexID` in
+`Library/PostFx/Fullscreen.rvn`, so there is nothing to allocate and nothing to bind — and a triangle
+rather than a quad, because two triangles meeting across the screen have a diagonal seam where the
+interpolators are least accurate. It declares its own pass, like every other node that needs graph
+resources, and its pipeline cache is its own rather than `PipelineCache`: three of that key's four
+parts are degenerate here, since there is no vertex layout, no stage list, and the "stage" is the
+node.
+
+Two caches sit behind it, and both are shared rather than per-node.
+
+**`SamplerCache`** is the smallest cache in the renderer and the one with the widest reach. A sampler
+is pure state, so two that describe the same filtering *are* the same sampler — and Vulkan caps how
+many a device will create, which turns "make one where you need one" from wasteful into a device-lost.
+
+**`EffectConstants`** fills an effect's uniform block from a `ParameterCollection`, using the offset
+table `Effect.Parameters` has carried since the effect system was written. **Every parameter is
+written, not only the ones somebody set**: `var exposure: float = 1f` arriving as zero is a black
+frame that nothing anywhere reports, so the default comes off the key. It re-uploads only when the
+values change — which needed a fix one level down, since `ParameterCollection.Set` used to move the
+version even when the value was identical, and a post chain reconfigures itself every frame.
+
+### The depth prepass, and what actually made it one
+
+A prepass drawn with each object's own material is not a prepass: it runs every fragment shader twice
+and costs more than the overdraw it removes. So the load-bearing piece is not the second pass, which
+the compositor could always express — it is **`RenderStage.ShaderName`**, which lets one stage draw
+the objects with `DepthOnly.rvn` while another draws them with their materials, in the same frame and
+off one extraction and one cull.
+
+The override resolves in *preparation*, per distinct `(material, flags, shader)`, for the same reason
+the base variant does: resolving can compile, and compiling inside a command list is a stall a frame
+budget cannot absorb. The draw-time cost is one array index into a variant × stage table.
+
+Two consequences fall out. The per-material set is bound **only where the resolved effect declares
+one**, because a depth-only pipeline's layout has no per-material set and binding one is a validation
+error rather than a wasted call — and the shader is what knows, not the stage. And every object in a
+prepass resolves to the same variant, so they share a sort group and the stage's sort collapses to
+pure front-to-back, which is exactly what makes early-Z reject the most.
+
+It is the same fix a shadow-caster stage wants, for the same reason.
+
+### Bloom
+
+The first effect that is more than one pass, and worth building early for that reason: a pyramid is
+nine textures whose lifetimes overlap in a strict pattern, each written by one pass and read by
+exactly one other, which is precisely the shape transient aliasing exists for.
+
+`BloomRenderer` builds the chain out of real `FullScreenRenderer`s and **keeps them between frames** —
+each owns a pipeline cache and a uniform buffer, and rebuilding them every frame would recompile the
+same pipelines and reallocate the same buffers. What is rebuilt is only what depends on the frame's
+size.
+
+**The pyramid is declared, not imported**, so a bloom nothing reads costs no passes and no memory at
+all. **Each pass steps in its source's texel grid, not its target's** — both filters offset their taps
+by a texel of what they are reading, and taking it from the target makes the downsample's taps land
+half a texel apart and the upsample's tent twice as wide. That is a bloom that is subtly too soft: it
+throws nothing, and no screenshot answers it, so it is asserted.
+
+The up-chain is one shorter than the down-chain, which is not an off-by-one — the smallest level is
+already its own upsample source, so there is nothing to add into it.
+
 ## What is not here yet
 
 Blend shapes and area lights. Punctual shadows are not cached — only the directional cascades are,
@@ -498,6 +565,19 @@ loaded from disk declares its dependencies correctly and binds nothing until a h
 grows, and destroys the old buffer immediately. Growth happens once during warm-up in practice, but
 "in practice" is doing real work in that sentence: the frames in flight at that moment are reading
 both. It is the same hazard the allocator exists to remove, and it has not been moved over.
+
+A post-process node is built in code, not authored: `FullScreenRenderer` and `BloomRenderer` have no
+entry in the compositor asset, for the same reason bindings do not — a binding index is a shader's
+decision and a sampler is a device handle. Closing the binding-plan gap closes both at once.
+
+**The generator does not pass a value key's declared default.** `BindingsEmitter` emits
+`ParameterKeys.New<T>("Shader.name")` with no default, so `DefaultBytes` for a generated key is zeros
+even where the shader declared otherwise. `EffectConstants` does the right thing with whatever the key
+carries; what is missing is the default reaching the key. Until it does, a post node has to set
+anything it cares about explicitly — which is what `BloomRenderer` does.
+
+Bloom has no lens flare and no light streak, and the tonemap pass has no grading LUT as an asset —
+the shader takes one, nothing loads one.
 
 GPU-driven culling is a second implementation of `VisibilityGroup` behind the same interface, which
 is why that interface is bits rather than a list.

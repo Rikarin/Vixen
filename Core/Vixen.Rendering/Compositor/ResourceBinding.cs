@@ -140,11 +140,20 @@ sealed class BoundBindings(
     DescriptorSetLayoutHandle layout,
     DescriptorSetSlot slot
 ) {
-    readonly DescriptorWrite[] writes = new DescriptorWrite[bindings.Length];
+    DescriptorWrite[] writes = new DescriptorWrite[bindings.Length];
 
     /// <summary>Writes the set and binds it.</summary>
     /// <param name="context">The running pass, which is the first moment the handles exist.</param>
-    public void Bind(RenderGraphContext context) {
+    /// <param name="extra">
+    ///     Writes the node supplies itself, appended after the resolved ones. For a binding whose
+    ///     resource is not a graph resource at all — a node's own uniform block — which has no name to
+    ///     resolve and no edge to declare.
+    /// </param>
+    public void Bind(RenderGraphContext context, ReadOnlySpan<DescriptorWrite> extra = default) {
+        if (writes.Length != bindings.Length + extra.Length) {
+            writes = new DescriptorWrite[bindings.Length + extra.Length];
+        }
+
         for (var i = 0; i < bindings.Length; i++) {
             var binding = bindings[i];
 
@@ -165,6 +174,7 @@ sealed class BoundBindings(
             };
         }
 
+        extra.CopyTo(writes.AsSpan(bindings.Length));
         context.CommandList.BindDescriptorSet(slot, allocator.Allocate(layout, writes));
     }
 }
