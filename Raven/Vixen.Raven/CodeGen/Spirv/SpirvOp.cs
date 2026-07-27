@@ -149,6 +149,7 @@ public enum SpirvOp {
     Label = 248,
     Branch = 249,
     BranchConditional = 250,
+    Kill = 252,
     Return = 253,
     ReturnValue = 254,
     Unreachable = 255

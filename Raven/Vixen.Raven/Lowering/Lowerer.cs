@@ -95,6 +95,15 @@ public sealed partial class Lowerer {
     readonly Dictionary<(Symbol Member, BoundBodyKind Kind), IrFunction> functions = [];
     readonly Dictionary<(Symbol Member, BoundBodyKind Kind), FunctionShell> shells = [];
 
+    /// <summary>Where each function lowered from source first <c>discard</c>s.</summary>
+    /// <remarks>
+    ///     Kept beside the IR rather than in it, because an <see cref="IrStatement" /> carries no
+    ///     span. A function linked from a <c>.rvnlib</c> has none to record, which is why the check
+    ///     itself asks <see cref="IrFunction.Discards" /> and only consults this for the location:
+    ///     the rule holds for linked code too, and there the diagnostic simply has no span to offer.
+    /// </remarks>
+    readonly Dictionary<IrFunction, SyntaxNode> discards = [];
+
     /// <summary>
     ///     A function created before its body was lowered: the signature, and the mapping
     ///     from parameter symbols to the IR variables holding them.
@@ -258,6 +267,7 @@ public sealed partial class Lowerer {
         // stage's reachable code does with it, which is only knowable once the module is settled.
         ImportPruner.Prune(module, importedStructs, importedFunctions);
         ResolveStreamDirections();
+        ReportDiscardsOutsideFragmentStages();
 
         return module;
     }
@@ -825,6 +835,51 @@ public sealed partial class Lowerer {
         }
     }
 
+    /// <summary>
+    ///     Refuses a <c>discard</c> that some stage other than a fragment one can reach.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Reachability rather than where the keyword sits, for the reason
+    ///         <see cref="ResolveStreamDirections" /> gives about streams: a helper belongs to
+    ///         whichever stages call it, and the file it is written in cannot say which those are. A
+    ///         cutout test shared by the depth prepass and a compute pass is wrong only in the
+    ///         second.
+    ///     </para>
+    ///     <para>
+    ///         Once per discarding function rather than once per entry point that reaches it: one
+    ///         function is one mistake, and the author fixes it in one place.
+    ///     </para>
+    ///     <para>
+    ///         Asked of every function the graph reaches, not only the ones lowered here, so a
+    ///         helper linked from a <c>.rvnlib</c> is covered — that one has no syntax to point at,
+    ///         and a diagnostic with no span still beats <c>spirv-val</c> rejecting the module for
+    ///         an <c>OpKill</c> outside the Fragment execution model.
+    ///     </para>
+    /// </remarks>
+    void ReportDiscardsOutsideFragmentStages() {
+        HashSet<IrFunction> said = [];
+
+        foreach (var entryPoint in module.Shaders.SelectMany(shader => shader.EntryPoints)) {
+            if (entryPoint.Stage == ShaderStage.Pixel) {
+                continue;
+            }
+
+            foreach (var function in CallGraph.Reachable(entryPoint.Function)) {
+                if (!function.Discards || !said.Add(function)) {
+                    continue;
+                }
+
+                diagnostics.Add(
+                    LoweringDiagnostics.DiscardOutsideFragmentStage,
+                    LocationOf(discards.GetValueOrDefault(function)),
+                    entryPoint.Stage.ToString().ToLowerInvariant(),
+                    entryPoint.Function.Name
+                );
+            }
+        }
+    }
+
     /// <summary>The declaration a lowered stream came from, so the warning has a span.</summary>
     SyntaxNode? SyntaxOf(IrShader shader, IrStream stream) =>
         globals.FirstOrDefault(entry => ReferenceEquals(entry.Value, stream.Variable)).Key?.DeclaringSyntax;
@@ -1354,7 +1409,8 @@ public sealed partial class Lowerer {
     ///     always reachable through the other branch.
     /// </remarks>
     bool CurrentBlockIsTerminated =>
-        currentBlock.Statements is [.., IrReturnStatement or IrBreakStatement or IrContinueStatement];
+        currentBlock.Statements is
+            [.., IrReturnStatement or IrBreakStatement or IrContinueStatement or IrDiscardStatement];
 
     /// <summary>Emits an instruction and hands back the value it defines.</summary>
     IrValue Emit(Func<IrValue, IrInstruction> build, IrType resultType) {

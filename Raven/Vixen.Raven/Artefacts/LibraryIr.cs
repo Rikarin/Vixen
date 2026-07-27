@@ -140,6 +140,7 @@ public sealed record LibraryIrTypeReference {
 [JsonDerivedType(typeof(LibraryIrReturn), "return")]
 [JsonDerivedType(typeof(LibraryIrBreak), "break")]
 [JsonDerivedType(typeof(LibraryIrContinue), "continue")]
+[JsonDerivedType(typeof(LibraryIrDiscard), "discard")]
 public abstract record LibraryIrStatement;
 
 /// <summary>A sequence of statements.</summary>
@@ -202,6 +203,8 @@ public sealed record LibraryIrReturn(int? Value) : LibraryIrStatement;
 public sealed record LibraryIrBreak : LibraryIrStatement;
 
 public sealed record LibraryIrContinue : LibraryIrStatement;
+
+public sealed record LibraryIrDiscard : LibraryIrStatement;
 
 /// <summary>
 ///     A storage location: a root variable plus a chain of accesses into it.

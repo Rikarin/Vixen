@@ -50,6 +50,7 @@ public enum RavenTokenKind {
     CaseKeyword,
     ContinueKeyword,
     DefaultKeyword,
+    DiscardKeyword,
     ElseKeyword,
     EnumKeyword,
     FalseKeyword,

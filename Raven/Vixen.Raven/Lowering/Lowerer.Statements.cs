@@ -106,6 +106,15 @@ public sealed partial class Lowerer {
                 Emit(new IrContinueStatement());
                 break;
 
+            case BoundDiscardStatement discard:
+                // Noted against the function rather than checked here: whether this is a stage that
+                // may discard depends on which entry points reach the function, which is not known
+                // until every body is lowered. First site per function, because one function that
+                // discards is one mistake however many times it does it.
+                discards.TryAdd(Function, discard.Syntax);
+                Emit(new IrDiscardStatement());
+                break;
+
             case BoundNoOpStatement:
                 break;
 

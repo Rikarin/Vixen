@@ -196,6 +196,10 @@ public static class IrPrinter {
             case IrContinueStatement:
                 writer.Line("continue");
                 break;
+
+            case IrDiscardStatement:
+                writer.Line("discard");
+                break;
         }
     }
 

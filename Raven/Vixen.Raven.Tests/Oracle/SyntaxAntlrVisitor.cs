@@ -795,6 +795,12 @@ public class SyntaxAntlrVisitor : RavenParserBaseVisitor<SyntaxNode> {
         return SyntaxFactory.ContinueStatement(new(SyntaxList.List(attributes)), keyword);
     }
 
+    public override SyntaxNode VisitDiscard_statement(RavenParser.Discard_statementContext context) {
+        var attributes = context.attribute_list().Select(Visit).ToArray();
+        var keyword = Token(context.DISCARD().Symbol, SyntaxKind.DiscardKeyword);
+        return SyntaxFactory.DiscardStatement(new(SyntaxList.List(attributes)), keyword);
+    }
+
     public override SyntaxNode VisitRepeat_statement(RavenParser.Repeat_statementContext context) {
         var attributes = SyntaxList.List(context.attribute_list().Select(Visit).ToArray());
         var repeatKeyword = Token(context.REPEAT().Symbol, SyntaxKind.RepeatKeyword);

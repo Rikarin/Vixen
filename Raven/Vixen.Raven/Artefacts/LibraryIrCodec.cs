@@ -246,6 +246,7 @@ internal sealed class LibraryIrEncoder {
             IrReturnStatement @return => new LibraryIrReturn(@return.Value?.Id),
             IrBreakStatement => new LibraryIrBreak(),
             IrContinueStatement => new LibraryIrContinue(),
+            IrDiscardStatement => new LibraryIrDiscard(),
             _ => throw new InvalidOperationException(
                 $"Cannot export IR statement '{statement.GetType().Name}': the library encoder has no case for it."
             )
@@ -547,6 +548,7 @@ internal sealed class LibraryIrDecoder {
                 ),
                 LibraryIrBreak => new IrBreakStatement(),
                 LibraryIrContinue => new IrContinueStatement(),
+                LibraryIrDiscard => new IrDiscardStatement(),
                 _ => null
             };
 

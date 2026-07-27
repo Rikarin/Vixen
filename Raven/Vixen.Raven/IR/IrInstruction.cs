@@ -251,3 +251,11 @@ public sealed class IrReturnStatement(IrValue? value) : IrStatement {
 public sealed class IrBreakStatement : IrStatement;
 
 public sealed class IrContinueStatement : IrStatement;
+
+/// <summary>Ends the invocation without writing anything.</summary>
+/// <remarks>
+///     A terminator, and the only one that ends more than the function: SPIR-V spells it
+///     <c>OpKill</c>, which must be the last instruction in its block. GLSL's <c>discard</c> is an
+///     ordinary statement by comparison, and that difference is the GLSL emitter's to absorb.
+/// </remarks>
+public sealed class IrDiscardStatement : IrStatement;

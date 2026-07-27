@@ -38,6 +38,7 @@ public static class SyntaxFacts {
             SyntaxKind.CaseKeyword => "case",
             SyntaxKind.BreakKeyword => "break",
             SyntaxKind.ContinueKeyword => "continue",
+            SyntaxKind.DiscardKeyword => "discard",
             SyntaxKind.WhereKeyword => "where",
             SyntaxKind.SelfKeyword => "self",
             SyntaxKind.BaseKeyword => "base",

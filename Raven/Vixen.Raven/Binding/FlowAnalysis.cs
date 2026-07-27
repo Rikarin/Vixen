@@ -43,12 +43,25 @@ static class FlowAnalysis {
         /// <summary>Control leaves the function.</summary>
         Returns,
 
+        /// <summary>
+        ///     Control leaves the whole invocation: a <c>discard</c>, which no caller resumes from.
+        /// </summary>
+        /// <remarks>
+        ///     Kept apart from <see cref="Returns" /> only so a diagnostic can name what it was that
+        ///     made the code after it dead. Everywhere a decision is made, the two behave alike —
+        ///     see <see cref="Leaves" />.
+        /// </remarks>
+        Discards,
+
         /// <summary>Control leaves the enclosing loop or switch section.</summary>
         Breaks,
 
         /// <summary>Control jumps to the enclosing loop's next iteration.</summary>
         Continues
     }
+
+    /// <summary>Whether an exit means the rest of the function is not reached from here.</summary>
+    static bool Leaves(Exit exit) => exit is Exit.Returns or Exit.Discards;
 
     /// <summary>
     ///     Checks one body and reports what it finds.
@@ -121,7 +134,7 @@ static class FlowAnalysis {
                 case BoundRepeatStatement loop: {
                     var exit = Walk(loop.Body);
                     Read(loop.Condition);
-                    return exit == Exit.Returns ? Exit.Returns : Exit.FallsThrough;
+                    return Leaves(exit) ? exit : Exit.FallsThrough;
                 }
 
                 case BoundForStatement loop:
@@ -146,6 +159,9 @@ static class FlowAnalysis {
                 case BoundContinueStatement:
                     return Exit.Continues;
 
+                case BoundDiscardStatement:
+                    return Exit.Discards;
+
                 default:
                     return Exit.FallsThrough;
             }
@@ -166,6 +182,7 @@ static class FlowAnalysis {
                             statement.Syntax.GetLocation(),
                             exit switch {
                                 Exit.Returns => "a 'return'",
+                                Exit.Discards => "a 'discard'",
                                 Exit.Breaks => "a 'break'",
                                 _ => "a 'continue'"
                             }
@@ -224,7 +241,8 @@ static class FlowAnalysis {
             var entry = Snapshot();
             HashSet<Symbol>? common = null;
             var hasDefault = @switch.Sections.Any(s => s.IsDefault);
-            var everySectionReturns = @switch.Sections.Count > 0;
+            var everySectionLeaves = @switch.Sections.Count > 0;
+            var anySectionReturns = false;
 
             foreach (var section in @switch.Sections) {
                 Restore(entry);
@@ -233,13 +251,15 @@ static class FlowAnalysis {
                     Read(label);
                 }
 
-                if (WalkBlock(section.Statements) == Exit.Returns) {
+                var sectionExit = WalkBlock(section.Statements);
+                if (Leaves(sectionExit)) {
+                    anySectionReturns |= sectionExit == Exit.Returns;
                     continue;
                 }
 
                 // A section that leaves by `break` — or by running out — reaches the code after the
                 // switch, so it is one of the paths the intersection is over.
-                everySectionReturns = false;
+                everySectionLeaves = false;
                 common = common is null ? Snapshot() : Intersect(common, Snapshot());
             }
 
@@ -253,7 +273,11 @@ static class FlowAnalysis {
                 }
             }
 
-            return hasDefault && everySectionReturns ? Exit.Returns : Exit.FallsThrough;
+            if (!hasDefault || !everySectionLeaves) {
+                return Exit.FallsThrough;
+            }
+
+            return anySectionReturns ? Exit.Returns : Exit.Discards;
         }
 
         /// <summary>Walks a body that may not run, keeping only what was assigned before it.</summary>
@@ -424,9 +448,12 @@ static class FlowAnalysis {
         static Exit Combine(Exit left, Exit right) =>
             left == right ? left
             : left == Exit.FallsThrough || right == Exit.FallsThrough ? Exit.FallsThrough
-            // Two different jumps: neither reaches the next statement, and `return` is the one that
-            // matters to the caller — a `break` still leaves the loop reachable from elsewhere.
+            // Two different jumps: neither reaches the next statement, and leaving the function is
+            // the one that matters to the caller — a `break` still leaves the loop reachable from
+            // elsewhere. `return` outranks `discard` only so a message names what the caller can act
+            // on; the two are the same claim about reachability.
             : left == Exit.Returns || right == Exit.Returns ? Exit.Returns
+            : Leaves(left) || Leaves(right) ? Exit.Discards
             : Exit.Breaks;
     }
 }

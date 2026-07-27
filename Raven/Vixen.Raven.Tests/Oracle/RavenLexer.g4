@@ -79,6 +79,7 @@ BREAK:          'break';
 CASE:           'case';
 CONTINUE:       'continue';
 DEFAULT:        'default';
+DISCARD:        'discard';
 ELSE:           'else';
 ENUM:           'enum';
 FALSE:          'false';

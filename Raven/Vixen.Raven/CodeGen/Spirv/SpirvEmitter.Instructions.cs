@@ -113,6 +113,13 @@ partial class SpirvEmitter {
                 terminated = true;
                 break;
 
+            // A block terminator in its own right, so nothing follows it and no branch is needed:
+            // the invocation ends here rather than control moving somewhere else.
+            case IrDiscardStatement:
+                Add(new(SpirvOp.Kill, null, null));
+                terminated = true;
+                break;
+
             case IrBreakStatement when loops.Count > 0:
                 Branch(loops.Peek().Merge);
                 break;

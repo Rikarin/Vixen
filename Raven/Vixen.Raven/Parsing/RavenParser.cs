@@ -1611,6 +1611,12 @@ sealed class RavenParser : SyntaxParser {
                 return (StatementSyntax)SyntaxFactory.ContinueStatement(attributes, keyword);
             }
 
+            case RavenTokenKind.DiscardKeyword: {
+                var keyword = Take(SyntaxKind.DiscardKeyword);
+                ExpectNewLines();
+                return (StatementSyntax)SyntaxFactory.DiscardStatement(attributes, keyword);
+            }
+
             case RavenTokenKind.RepeatKeyword:
                 return ParseRepeatStatement(attributes);
 
@@ -1647,6 +1653,7 @@ sealed class RavenParser : SyntaxParser {
         kind is RavenTokenKind.OpenBrace
             or RavenTokenKind.BreakKeyword
             or RavenTokenKind.ContinueKeyword
+            or RavenTokenKind.DiscardKeyword
             or RavenTokenKind.RepeatKeyword
             or RavenTokenKind.ForKeyword
             or RavenTokenKind.IfKeyword

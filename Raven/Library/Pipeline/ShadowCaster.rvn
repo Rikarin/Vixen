@@ -82,13 +82,16 @@ shader ShadowCaster {
         return Skinning.BlendMatrix(palette, weights)
     }
 
+    /// A cut-out texel casts no shadow, which only a `discard` can say: a returned zero still writes
+    /// depth into the shadow map, and a shadow map is nothing but depth — so the holes in a leaf
+    /// would cast the shadow of a solid quad.
     [PixelShader]
     [Semantic("SV_Target")]
     func Pixel(): float4 {
         if (AlphaTested) {
             val opacity = opacityMap.Sample(opacitySampler, uv).a
             if (opacity < alphaCutoff) {
-                return float4(0f, 0f, 0f, 0f)
+                discard
             }
         }
 
