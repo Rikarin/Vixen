@@ -118,12 +118,51 @@ The host's own lines are generated `[LoggerMessage]` call sites with ids registe
 [`docs/manual/log-events.md`](../../docs/manual/log-events.md) — the first entries in that register,
 which existed empty until something logged.
 
+## Content
+
+`Services.Assets` is an `AssetManager` over the content build the application shipped with, or
+**null** when it shipped with none.
+
+The host looks for `catalog.bin` under `/app/Content` — the folder `Vixen.Sdk` copies a build into,
+spelled once in `VixenContentFolderName` and once in `ContentMount.FolderName` because two spellings
+of one name is how a build that produced content and an application that found none end up in the
+same release.
+
+**It reads through the virtual file system, not through a path.** The obvious version takes
+`IFileSystemHost.ApplicationDirectory` and appends `Content`, and it is wrong on the two platforms
+Phase 3 exists for: that property is documented as empty where content is not a directory at all,
+which is an APK's assets and an iOS bundle. Going through `/app` means Android's `AAssetManager`
+answers the same call a desktop directory does.
+
+**No content is not an error.** A sample that draws a triangle, a batch tool and a test each have
+nothing to load, and a host that refused to start without a catalog would make the smallest possible
+program the hardest one to write. The host logs one line saying why, which turns "my asset was not
+found" from an afternoon into five seconds.
+
+**A catalog it cannot read is reported, not thrown.** Truncated by a failed download, corrupted on a
+phone's flash, written by a newer build — each happens in the field, and an application that refused
+to start over one could not even show the message saying why.
+
+### `--vixen-loose-content`
+
+Points a build at a content directory it did not ship with, which is
+[doc 17](../../docs/plan/17-app-heads-and-shipping.md) Q5b: a bug that only reproduces in a shipping
+configuration has to be pokeable. The directory is mounted at `/content` and read instead of `/app`.
+
+The trade is that "release reads only bundles" stops being an invariant, so **it is not allowed to be
+quiet**: the host warns at startup and then **every sixty seconds** for as long as the build runs.
+Once is not visible — a build left overnight in a QA lab scrolled that line away hours ago. The
+diagnostic-overlay and crash-report stamps doc 17 also asks for arrive with the things that have them.
+
+Today "loose" means a content *build* directory outside the package — what `vixen content build
+--output` writes and what `vixen content serve` serves. Reading unbundled loose files, which is what
+the Editor variant will want, needs a provider that does not exist yet.
+
 ## Still to come
 
-**Content**, **graphics** and **the engine loop** are the three things this host will build and does
-not yet: `--vixen-loose-content` is parsed and not honoured, `OnRender` runs with nothing to render
-to, and the fixed-step accumulator arrives with `Vixen.Engine`. The shape is deliberate — the hooks
-and the ordering are what later phases fill in, not what they replace.
+**Graphics** and **the engine loop** are what this host will build and does not yet: `OnRender` runs
+with nothing to render to, and `Services.Engine` is opt-in rather than the default. The shape is
+deliberate — the hooks and the ordering are what later phases fill in, not what they replace.
 
 **The meta-package.** [Doc 02](../../docs/plan/02-repository-layout.md) also describes `Vixen.App` as
 the package that pulls in the graphics backends valid for a RID. That half arrives with the backends.

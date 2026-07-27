@@ -106,7 +106,22 @@ public sealed class AppBuilder {
             ? host.CreateWindow(options with { Title = options.Title == "Vixen" ? config.Name : options.Title })
             : null;
 
-        var services = new AppServices(host, window, jobs, mainThread, fileSystem, logs, loggerFactory, config);
+        // After the standard locations are mounted, because /app is where a shipped content build
+        // is; before the game sees the services, because OnInitialise is the first place a game
+        // would reasonably ask for an asset.
+        var content = ContentMount.Open(fileSystem, config.LooseContentPath);
+
+        var services = new AppServices(
+            host,
+            window,
+            jobs,
+            mainThread,
+            fileSystem,
+            logs,
+            loggerFactory,
+            config,
+            content
+        );
 
         foreach (var configure in configurations) {
             configure(services);

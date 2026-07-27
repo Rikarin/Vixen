@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Microsoft.Extensions.Logging;
+using Vixen.Core.IO;
 
 namespace Vixen.App;
 
@@ -29,7 +30,7 @@ static partial class HostLog {
         Level = LogLevel.Warning,
         Message = "LOOSE CONTENT — reading from {Path} instead of bundles."
     )]
-    public static partial void LooseContent(ILogger logger, string path);
+    public static partial void LooseContent(ILogger logger, VirtualPath path);
 
     [LoggerMessage(
         EventId = 13004,
@@ -47,4 +48,30 @@ static partial class HostLog {
         Message = "The frame loop threw and the application is stopping."
     )]
     public static partial void FrameLoopFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(
+        EventId = 13007,
+        Level = LogLevel.Information,
+        Message = "Content mounted from {Root}: {Addresses} addresses."
+    )]
+    public static partial void ContentMounted(ILogger logger, VirtualPath root, int addresses);
+
+    /// <summary>
+    ///     Information rather than a warning. An application with nothing to load is ordinary — a
+    ///     sample, a batch tool, a test — but "my asset was not found" is a five-second diagnosis
+    ///     with this line and an afternoon without it.
+    /// </summary>
+    [LoggerMessage(EventId = 13008, Level = LogLevel.Information, Message = "No content: {Reason}")]
+    public static partial void NoContent(ILogger logger, string reason);
+
+    /// <summary>
+    ///     Said again every minute, because doc 17 Q5b's trade is only acceptable while it is
+    ///     visible and one line at startup scrolls away.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 13009,
+        Level = LogLevel.Warning,
+        Message = "LOOSE CONTENT — still reading from {Path} instead of bundles."
+    )]
+    public static partial void LooseContentStill(ILogger logger, VirtualPath path);
 }
