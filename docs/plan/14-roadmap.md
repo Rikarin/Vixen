@@ -828,7 +828,24 @@ sub-piece has its own gate.
 
   Verified by sabotage: dropping N0's paired brackets, L1's whitespace reset, or I1's two-level bump
   for numbers each fails the suite.
-- Owed: HarfBuzz shaping, MSDF atlas with LRU eviction, font fallback, rich-text runs,
+- ✅ **HarfBuzzSharp spiked before being built on** —
+  [spikes/text-harfbuzz](spikes/text-harfbuzz/RESULT.md), following sequencing rule 3 as the ExCSS
+  spike did. Doc 01's choice stands. NativeAOT publishes with **zero** IL warnings, which is a
+  stronger result than ExCSS could give since the managed surface is a thin P/Invoke layer the
+  analyzers can see all of. Every target platform has a native asset at the pinned version.
+
+  The risk actually worth spiking was WebAssembly: the package ships *static* archives, so they must
+  be linked by the same Emscripten the .NET WASM build uses. It ships 3.1.34 and 3.1.56, and .NET 10
+  pins `Emscripten.3.1.56.Sdk`. They match. ⚠ Recorded as unverified rather than claimed — no WASM
+  link was performed, because `wasm-tools` is not installed on the machine, so this is read from two
+  manifests rather than demonstrated. **Carry forward: the WASM path is a version-coupled static
+  link, so a bump of either HarfBuzzSharp or the SDK has to be checked against the other.**
+
+  One design consequence, and it validates the order this phase took: HarfBuzz shapes one run at a
+  time and wants runs already itemised by direction, then script, then font — so bidi comes first,
+  which is what was just built. Shaping written first would have been written against a run model
+  that did not exist.
+- Owed: HarfBuzz shaping itself, MSDF atlas with LRU eviction, font fallback, rich-text runs,
   `TextEditor` model with IME.
 - Gate: ✅ UAX conformance data green. Owed: shaping golden tests per script.
 
