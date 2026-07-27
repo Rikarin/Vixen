@@ -559,8 +559,8 @@ the codebase is large enough for it to be expensive to fix.
   until Phases 4d and 5; platform packaging (APK assets, iOS bundle, `wwwroot`) waits for those
   platforms; and a build-plan diagnostic carries no file, because `ImportDiagnostic` has no path
   field — its messages name the asset in their text, so only the IDE's jump-to-file loses.
-- 🟡 `Vixen.Cli` — **`import`, `content build`, `content serve` and `doctor` are built; `new`, `run`
-  and `build` are not, and are absent rather than stubbed.** The first four are the whole pipeline
+- ✅ `Vixen.Cli` — **every verb the plan names is built**: `import`, `content build`, `content serve`,
+  `doctor`, and now `new`, `build` and `run`. The first four are the whole pipeline
   from a terminal, which is what the phase's own gates need: an incremental import, a deterministic
   content build, and a laptop a phone can be pointed at. 19 tests, driving the real parser over a
   real project on a real disk — including **the determinism gate at the level a person runs it**: two
@@ -578,9 +578,22 @@ the codebase is large enough for it to be expensive to fix.
   nothing** — it is the first caller of `ScanOptions.ReadOnly`, which was built for exactly this and
   had none.
 
-  **Owed, with reasons:** `new` needs the `Vixen.Sdk` package layout to scaffold against; `build` and
-  `run` wrap `dotnet publish`, which is [17](17-app-heads-and-shipping.md)'s story and needs the
-  platform packaging that arrives with Android and iOS. `vixen doctor systems` from
+  **`new`, `build` and `run` landed once the two things they were waiting for existed.** `new`
+  scaffolds `<Project Sdk="Vixen.Sdk/x.y.z">` — a template listing package references would be wrong
+  one release later — and `build` runs the content build before `dotnet publish`, which is the whole
+  reason it is a command rather than a note. Verified end to end: `vixen new game` then `vixen run`
+  scaffolds, imports, builds content, publishes and launches the result.
+
+  Two things fell out of doing it. `build` turns the SDK's own import and content steps off, because
+  it has just done them — leaving them on repeats a full scan inside the publish *and* demands the
+  `vixen` tool on the PATH of a process the tool itself started. And the variant travels as
+  `-p:VixenVariant` rather than as the compiler configuration, because doc 17's variants are
+  orthogonal to Debug/Release and a Development build is optimised.
+
+  **Owed, and named:** nothing is signed, notarised or packaged beyond what `dotnet publish` emits, so
+  doc 17's DMG/IPA/AAB table is still Nuke's. The `app`, `plugin` and `tool` templates are not written
+  — `app` is the practical test that `Vixen.Ui` has no `Vixen.Engine` dependency and should wait until
+  there is enough of `Vixen.Ui` to scaffold against. `vixen doctor systems` from
   [04](04-ecs-and-scripting.md) needs a game assembly to load, and the GPU and driver checks would
   put a graphics dependency in a tool that today needs none.
 - 🟡 **The NativeAOT gate** — `nuke CheckAot` publishes every runtime assembly ahead of time with all

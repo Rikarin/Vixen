@@ -398,15 +398,19 @@ public sealed class VixenCommandTests : IDisposable {
     }
 
     /// <summary>
-    ///     The three verbs doc 14 lists that are not here are not here, rather than parsing and
-    ///     apologising: a build script can only discover the second kind at run time.
+    ///     Every verb doc 14 lists now parses. This test used to assert the opposite — that `new`,
+    ///     `build` and `run` were absent rather than present-and-apologising, because a build script
+    ///     can only discover the second kind at run time. That was the right assertion while they
+    ///     were owed, and it is kept inverted rather than deleted so the transition is visible.
     /// </summary>
     [Theory]
     [InlineData("new")]
     [InlineData("run")]
     [InlineData("build")]
-    public void TheVerbsThatNeedWhatDoesNotExistYetAreAbsent(string verb) =>
-        Assert.NotEmpty(VixenCommand.Create().Parse([verb]).Errors);
+    [InlineData("import")]
+    [InlineData("doctor")]
+    public void EveryVerbTheRoadmapNamesIsPresent(string verb) =>
+        Assert.Contains(VixenCommand.Create().Subcommands, command => command.Name == verb);
 
     string Build() => Path.Combine(root, "Build", Project.HostTarget.Replace('/', '-'));
 
@@ -467,6 +471,166 @@ public sealed class VixenCommandTests : IDisposable {
     static Dictionary<string, byte[]> Files(string directory) =>
         Directory.GetFiles(directory)
             .ToDictionary(file => Path.GetFileName(file), File.ReadAllBytes, StringComparer.Ordinal);
+
+    // ── vixen new ───────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    ///     A scaffolded game is a project the SDK drives, which is the whole reason `new` waited for
+    ///     `Vixen.Sdk` to exist: the alternative is a template listing package references that are
+    ///     wrong one release later.
+    /// </summary>
+    [Fact]
+    public async Task NewGameWritesAProjectDrivenByTheSdk() {
+        var where = Path.Combine(root, "Fresh");
+
+        var (code, output, _) = await RunFull("new", "game", "Asteroids", "-o", where);
+
+        Assert.Equal(ExitCode.Success, code);
+        Assert.Contains("Created game 'Asteroids'", output, StringComparison.Ordinal);
+
+        var project = await File.ReadAllTextAsync(
+            Path.Combine(where, "Asteroids.csproj"),
+            TestContext.Current.CancellationToken
+        );
+
+        Assert.Contains($"Sdk=\"Vixen.Sdk/{ScaffoldRunner.SdkVersion}\"", project, StringComparison.Ordinal);
+
+        // Everything a first `dotnet run` needs: a host, a game, somewhere for assets, and a
+        // gitignore that keeps Library/ out of the history.
+        Assert.True(File.Exists(Path.Combine(where, "Program.cs")));
+        Assert.True(File.Exists(Path.Combine(where, "AsteroidsGame.cs")));
+        Assert.True(File.Exists(Path.Combine(where, "Assets", "Default.vxgroup")));
+        Assert.Contains("Library/", await File.ReadAllTextAsync(Path.Combine(where, ".gitignore"), TestContext.Current.CancellationToken), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     The name reaches both places it has to: the namespace and the type the host starts.
+    /// </summary>
+    [Fact]
+    public async Task TheNameIsUsedAsBothANamespaceAndATypeName() {
+        var where = Path.Combine(root, "Named");
+
+        await RunFull("new", "game", "Asteroids", "-o", where);
+
+        var program = await File.ReadAllTextAsync(Path.Combine(where, "Program.cs"), TestContext.Current.CancellationToken);
+        var game = await File.ReadAllTextAsync(Path.Combine(where, "AsteroidsGame.cs"), TestContext.Current.CancellationToken);
+
+        Assert.Contains("VixenApp.Run<AsteroidsGame>(args)", program, StringComparison.Ordinal);
+        Assert.Contains("using Asteroids;", program, StringComparison.Ordinal);
+        Assert.Contains("namespace Asteroids;", game, StringComparison.Ordinal);
+        Assert.Contains("public sealed class AsteroidsGame : Game", game, StringComparison.Ordinal);
+
+        // Top-level statements cannot follow a namespace declaration, so Program.cs must not have one.
+        Assert.DoesNotContain("namespace Asteroids;\n\n// Everything", program, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Nothing is written when anything would be overwritten — and nothing means nothing, not
+    ///     "the files that did not collide". A half-scaffolded directory is worse than an untouched
+    ///     one, because the second is obviously a no-op.
+    /// </summary>
+    [Fact]
+    public async Task NewRefusesRatherThanOverwritingAndWritesNothingAtAll() {
+        var where = Path.Combine(root, "Occupied");
+        Directory.CreateDirectory(where);
+        await File.WriteAllTextAsync(Path.Combine(where, "Program.cs"), "mine", TestContext.Current.CancellationToken);
+
+        var (code, output, _) = await RunFull("new", "game", "Asteroids", "-o", where);
+
+        Assert.Equal(ExitCode.UsageError, code);
+        Assert.Contains("Nothing was written", output, StringComparison.Ordinal);
+        Assert.Equal("mine", await File.ReadAllTextAsync(Path.Combine(where, "Program.cs"), TestContext.Current.CancellationToken));
+        Assert.False(File.Exists(Path.Combine(where, "Asteroids.csproj")));
+    }
+
+    /// <summary>
+    ///     A name that is not a legal identifier is refused here rather than by the compiler, whose
+    ///     complaint arrives after the files exist and names a generated line.
+    /// </summary>
+    [Theory]
+    [InlineData("9Lives")]
+    [InlineData("my-game")]
+    [InlineData("my game")]
+    public async Task AnUnusableNameIsRefusedBeforeAnythingIsWritten(string name) {
+        var where = Path.Combine(root, "Bad");
+
+        var (code, _, _) = await RunFull("new", "game", name, "-o", where);
+
+        Assert.Equal(ExitCode.UsageError, code);
+        Assert.False(Directory.Exists(where) && Directory.GetFiles(where).Length > 0);
+    }
+
+    /// <summary>
+    ///     A library gets no SDK, because it has no assets to import and no content to build — two
+    ///     no-op build steps and a tool dependency for nothing.
+    /// </summary>
+    [Fact]
+    public async Task NewLibraryDoesNotUseTheSdk() {
+        var where = Path.Combine(root, "Lib");
+
+        var (code, _, _) = await RunFull("new", "library", "Physics", "-o", where);
+
+        Assert.Equal(ExitCode.Success, code);
+
+        var project = await File.ReadAllTextAsync(Path.Combine(where, "Physics.csproj"), TestContext.Current.CancellationToken);
+
+        Assert.Contains("Microsoft.NET.Sdk", project, StringComparison.Ordinal);
+        Assert.DoesNotContain("Vixen.Sdk", project, StringComparison.Ordinal);
+    }
+
+    // ── vixen build / run ───────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    ///     Every target doc 17's packaging table names has a shape, and a target that is not one is
+    ///     refused by name rather than handed to `dotnet publish` to fail on.
+    /// </summary>
+    [Theory]
+    [InlineData("Windows", "win-x64")]
+    [InlineData("Linux", "linux-x64")]
+    [InlineData("iOS", "ios-arm64")]
+    public void EveryPublishableTargetHasARuntimeIdentifier(string target, string rid) {
+        Assert.True(PublishRunner.TryDescribe(target, out var shape));
+        Assert.Equal(rid, shape.Rid);
+    }
+
+    /// <summary>
+    ///     Android is selected by target framework rather than runtime identifier — publishing
+    ///     `net10.0` for an Android RID produces a console application that cannot start.
+    /// </summary>
+    [Fact]
+    public void AndroidIsSelectedByFrameworkRatherThanRuntimeIdentifier() {
+        Assert.True(PublishRunner.TryDescribe("Android", out var shape));
+        Assert.Equal("net10.0-android", shape.Framework);
+        Assert.False(shape.Runnable);
+    }
+
+    [Fact]
+    public void AnUnknownTargetIsNotDescribed() {
+        Assert.False(PublishRunner.TryDescribe("Dreamcast", out _));
+    }
+
+    /// <summary>
+    ///     And the command says so, rather than spending a minute in `dotnet publish` first.
+    /// </summary>
+    [Fact]
+    public async Task BuildingForAnUnknownTargetIsAUsageError() {
+        var (code, _, error) = await RunFull("build", "--project", root, "--target", "Dreamcast");
+
+        Assert.Equal(ExitCode.UsageError, code);
+        Assert.Contains("Dreamcast", error, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     A project directory with no .csproj has nothing to publish, and saying which command
+    ///     writes one is more useful than reporting that MSBuild found no project.
+    /// </summary>
+    [Fact]
+    public async Task BuildingWithNoProjectFileSaysHowToGetOne() {
+        var (code, _, error) = await RunFull("build", "--project", root);
+
+        Assert.Equal(ExitCode.UsageError, code);
+        Assert.Contains("vixen new game", error, StringComparison.Ordinal);
+    }
 
     /// <summary>Runs a command against this test's project.</summary>
     async Task<(ExitCode Code, string Output)> Run(params string[] args) {
