@@ -664,11 +664,48 @@ sub-piece has its own gate.
   `--c: red` arrives as `red`. Every value parser in the property system has to accept both. Doc 09
   records it.
 
-  **Owed:** invalidation, transitions and keyframes.
+- 🟡 **Invalidation is built and its gate is green.** `StyleInvalidator` derives from the rule set
+  what changing one name on one element can reach; `StyleUpdater` runs the pass, cold or
+  incremental. 90 tests in total for the project.
+
+  **The invalidation-minimality gate is met** — toggling `.selected` on one row of a 100×100 grid
+  restyles exactly one element — and the property that matters more with it: after any sequence of
+  class and state changes, **every** element's computed style equals what a pass from scratch would
+  have produced. Both halves are needed. An invalidator that gave up and restyled everything passes
+  the oracle; one that skipped too much passes the counts by producing a smaller number.
+
+  Two bounds, and conflating them is what makes an invalidator either wrong or useless. The
+  dependency map bounds what the *rules* reach, narrowing by the far end's names so `.selected .cell`
+  reaches the cells and not the subtree. Inheritance bounds what a *changed value* reaches, and no
+  dependency map can see it — the descent continues only while the properties a child would have
+  inherited actually differ. Testing "did anything differ" instead was what made selecting one row
+  restyle its hundred cells, since a highlight setting `background` cannot reach one. Doc 09 now
+  states the qualifier this implies: the one-element claim holds for non-inherited properties, and
+  an inherited one legitimately costs the row and its cells.
+
+  ⚠ **Two of the findings are about the tests, and are the ones worth carrying forward.**
+
+  *An oracle that shares an implementation with its subject is not an oracle.* The incremental
+  oracle first built its cold reference by replaying the same mutations on a second tree. Both sides
+  then reach their final state through the same mutation code, so anything that code gets wrong is
+  wrong identically on both — deleting the ancestor-bloom propagation in `AddClass`, which breaks
+  matching outright, left the property green over three hundred iterations. It builds its tree
+  directly in the final state now.
+
+  *A generator needs a coverage assertion for the same reason a test does.* Every stylesheet the
+  generator produced contained a sibling or position selector, which turns style sharing off for the
+  whole rule set — so a sabotage leaving the sharing cache stale across passes was unreachable by
+  the property meant to catch it. Sharing-safe stylesheets have their own property now, which
+  asserts sharing was enabled before believing what it observed.
+
+  Both were found by sabotage and neither would have been found any other way. Four sabotages run
+  against the final gates; all four fail it.
+
+  **Owed:** transitions and keyframes.
 - `Vixen.Ui.Styling.Utilities`: token config, candidate scanner, utility grammar, variant system,
   arbitrary values, `@apply`, generated stylesheet.
 - Gate: ✅ selector-matching oracle tests, ✅ style-sharing oracle tests, ✅ cascade/specificity/
-  `@layer` order tests. Owed: invalidation-minimality tests, utility family tests.
+  `@layer` order tests, ✅ invalidation-minimality tests. Owed: utility family tests.
 
 **4c — Text (1.0 EM)**
 - HarfBuzz shaping, bidi, UAX#14 line breaking, UAX#29 segmentation, MSDF atlas with LRU eviction,

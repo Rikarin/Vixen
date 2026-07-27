@@ -7,7 +7,7 @@ before anything was built on it is
 
 ## State
 
-**Matching and the cascade are built, and both of their gates are green. Invalidation is not.**
+**Matching, the cascade and invalidation are built, and all three gates are green.**
 
 | | |
 |---|---|
@@ -19,7 +19,9 @@ before anything was built on it is
 | `CascadePrecedence` | Origin, importance, layer, specificity, source order — as one comparable key. |
 | `ComputedStyle` | Immutable, interned, reference-compared. |
 | `StyleResolver` | The cascade, inheritance, `var()`, and the style-sharing cache. |
-| Invalidation, transitions, keyframes | ⏳ next |
+| `StyleInvalidator` | What changing one name on one element can reach, derived from the rule set. |
+| `StyleUpdater` | The restyle pass, cold and incremental. |
+| Transitions, keyframes | ⏳ next |
 | `Vixen.Ui.Styling.Utilities` | ⏳ its own project |
 
 ## The three ideas
@@ -64,6 +66,29 @@ with its text intact — established by the spike, deliberately, before anything
 forms are read here: the statement `@layer a, b;` that fixes the order without contributing rules,
 and the block that contributes them.
 
+## Invalidation
+
+Recomputing is not an option: a `DataGrid` restyles when a row is selected, and if that cost a pass
+over ten thousand cells the grid would be unusable. So the question is never "what changed" but
+"what could a rule have noticed", and that is a static property of the stylesheet — for every name a
+rule mentions, does it appear against the element itself, as an ancestor, or before a sibling
+combinator, and *what does the far end of that rule test*. The last part is what turns "restyle the
+subtree" into "restyle the `.cell`s in the subtree".
+
+Nothing needs to look upward, because Vixen does not support `:has()`. That is the second thing doc
+09's P2 decision buys, after match cost.
+
+Then the pass descends, and the stopping rule is the whole design: re-resolving gives back an
+*interned* style, so the question at each element is whether the properties a child would have
+**inherited** differ. Not whether anything differs — that coarser test is what made selecting one
+row restyle its hundred cells, since a highlight setting `background` changes the row and cannot
+possibly reach a cell.
+
+Two mechanisms therefore bound what invalidation can do, and they are worth keeping apart. The
+dependency map bounds what the *rules* reach; inheritance bounds what a *changed value* reaches, and
+no dependency map can see it. A `.selected` that sets `background` touches one element; the same
+highlight written with `color` touches the row and every cell, and that is correct.
+
 ## The gates
 
 `SelectorOracleTests` is the one [doc 14](../../docs/plan/14-roadmap.md) names for 4b: over four
@@ -86,6 +111,14 @@ resolving every element separately produces**. Both halves again: a test that th
 fires (one that never hit would pass the oracle), and — the guard that matters most — an assertion
 inside the property that sharing was *enabled* for the generated stylesheet, since one position-
 dependent rule turns it off and would leave the oracle comparing one code path with itself.
+
+`IncrementalRestyleOracleTests` is the third: after any sequence of class and state changes, **every
+element's computed style equals what a pass from scratch would have produced**. Every element, not
+just the invalidated ones — the elements an invalidator wrongly skips are precisely the ones it did
+not think to look at. `InvalidationTests` is the count half, and doc 14's named gate: toggling a
+class restyles exactly N elements. Both halves are needed and neither substitutes for the other. An
+invalidator that gave up and restyled everything passes the oracle; one that skipped too much passes
+the counts by producing a smaller number.
 
 Cascade ordering has no oracle. CSS Cascading 5 §6 is the specification and `CascadeOrderTests` is
 its clauses written as assertions; a browser would be a real oracle and running one inside a unit
@@ -131,6 +164,22 @@ so with origins tied the user sheet won on source order and the assertion still 
 sabotage, and it is the exact failure the file's own header warns about — *a test that asserts a
 winner where two rules differ in three respects will pass with two of the three implemented*. The
 sheets are loaded in the losing order now.
+
+**An oracle that reached its answer the same way the thing it was checking did.** The incremental
+restyle oracle first built its cold reference by *replaying the same mutations* on a second tree.
+That reads like a fair comparison and is not one: both sides then reach their final state through
+the same mutation code, so anything that code gets wrong is wrong identically on both and the
+comparison sees nothing. Deleting the ancestor-bloom propagation in `AddClass` — which breaks
+matching outright — left the whole property green. The oracle builds its tree directly in the final
+state now, so its blooms are right by construction. **An oracle that shares an implementation with
+its subject is not an oracle.**
+
+**A property test that could not reach the thing it was meant to test.** Every stylesheet the same
+generator produced contained a sibling or position selector, which turns style sharing off for the
+entire rule set — so a sabotage that left the sharing cache stale across passes sailed through 300
+iterations. Sharing-safe stylesheets now get their own property, which asserts sharing was actually
+*enabled* before believing anything it observed. Generators need coverage assertions for the same
+reason tests do.
 
 ## Where doc 09 was wrong
 

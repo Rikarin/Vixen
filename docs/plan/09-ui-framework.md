@@ -364,6 +364,23 @@ The performance-critical part. Naive selector matching is O(elements × rules).
 - **Invalidation**, not recomputation: a class change on an element invalidates only that element's
   computed style plus descendants whose rules could depend on it (determined from the rule set's
   descendant-dependency map). Toggling `.selected` on one row does not restyle the grid.
+
+  ✅ Built. Two bounds, and conflating them is what makes an invalidator either wrong or useless.
+  The **dependency map** bounds what the *rules* reach — and it narrows by the far end's names, so
+  `.selected .cell` reaches the cells rather than the subtree. **Inheritance** bounds what a
+  *changed value* reaches, and no dependency map can see it: the descent continues only while the
+  properties a child would have inherited actually differ. Testing "did anything differ" instead is
+  what makes selecting one row restyle its hundred cells, since a highlight setting `background`
+  cannot possibly reach one.
+
+  So the headline claim holds with a qualifier worth stating: toggling `.selected` restyles **one**
+  element when the rule sets a non-inherited property, and the row plus its cells when it sets an
+  inherited one. The second is not a failure of invalidation — every cell's inherited colour
+  genuinely did change.
+
+  Nothing has to look *upward*, and that is the second thing the `:has()` P2 decision buys after
+  match cost. `:focus-within` looks like an exception and is not: it is stored as element state and
+  set explicitly, so it arrives as an ordinary change.
 - **`ComputedStyle` is immutable, interned, and reference-compared.** Layout reads it and only marks
   itself dirty when the reference changed *and* a layout-affecting property differs.
 

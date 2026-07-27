@@ -163,10 +163,127 @@ public sealed class StyleTree {
     /// <param name="state">The new state.</param>
     public void SetState(StyleNodeId element, ElementState state) => states[Validate(element)] = state;
 
+    /// <summary>Adds a class to an element.</summary>
+    /// <param name="element">The element.</param>
+    /// <param name="className">The class.</param>
+    /// <returns>Whether it was not already there.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The class list is re-pointed to the end of the arena, leaking the old run, for the
+    ///         same reason <see cref="SetAttribute" /> does: the arena is compacted when the tree is
+    ///         rebuilt, and a free list is complexity no measurement has asked for.
+    ///     </para>
+    ///     <para>
+    ///         The expensive half is the bloom. Every descendant carries a summary of its
+    ///         <i>ancestors'</i> names, so a class appearing on an ancestor has to appear in all of
+    ///         them or a descendant combinator gets a false negative — and a false negative in a
+    ///         bloom filter is a rule that silently stops matching. It is only an OR per descendant
+    ///         rather than a rebuild, and it is skipped entirely when nothing in the tree has
+    ///         children.
+    ///     </para>
+    /// </remarks>
+    public bool AddClass(StyleNodeId element, string className) {
+        var index = Validate(element);
+        ArgumentNullException.ThrowIfNull(className);
+
+        var classId = names.Intern(className);
+        if (HasClass(index, classId)) {
+            return false;
+        }
+
+        var range = classes[index];
+        var start = classArena.Count;
+
+        for (var i = 0; i < range.Count; i++) {
+            classArena.Add(classArena[range.Start + i]);
+        }
+
+        classArena.Add(classId);
+        classes[index] = new ClassRange(start, range.Count + 1);
+
+        AddToDescendantBlooms(index, classId);
+        return true;
+    }
+
+    /// <summary>Removes a class from an element.</summary>
+    /// <param name="element">The element.</param>
+    /// <param name="className">The class.</param>
+    /// <returns>Whether it was there.</returns>
+    /// <remarks>
+    ///     Descendants' blooms are deliberately <i>not</i> touched, and not because a bloom cannot
+    ///     un-set a bit. A stale bit makes the filter say "an ancestor might be called this" when
+    ///     none is, which costs the tree walk that would have happened anyway and cannot change an
+    ///     answer. The filter is allowed to be conservative; it is never allowed to be wrong.
+    /// </remarks>
+    public bool RemoveClass(StyleNodeId element, string className) {
+        var index = Validate(element);
+        ArgumentNullException.ThrowIfNull(className);
+
+        var classId = names.Lookup(className);
+        if (classId == NameTable.None || !HasClass(index, classId)) {
+            return false;
+        }
+
+        var range = classes[index];
+        var start = classArena.Count;
+
+        for (var i = 0; i < range.Count; i++) {
+            if (classArena[range.Start + i] != classId) {
+                classArena.Add(classArena[range.Start + i]);
+            }
+        }
+
+        classes[index] = new ClassRange(start, range.Count - 1);
+        return true;
+    }
+
+    /// <summary>Whether an element carries a class.</summary>
+    /// <param name="element">The element.</param>
+    /// <param name="className">The class.</param>
+    /// <returns>Whether it does.</returns>
+    public bool HasClass(StyleNodeId element, string className) {
+        var index = Validate(element);
+        ArgumentNullException.ThrowIfNull(className);
+
+        var classId = names.Lookup(className);
+        return classId != NameTable.None && HasClass(index, classId);
+    }
+
     /// <summary>The transient state of an element.</summary>
     /// <param name="element">The element.</param>
     /// <returns>Its state.</returns>
     public ElementState GetState(StyleNodeId element) => states[Validate(element)];
+
+    /// <summary>An element's tag name.</summary>
+    /// <param name="element">The element.</param>
+    /// <returns>The tag.</returns>
+    public string GetTagName(StyleNodeId element) => names.NameOf(tags[Validate(element)]);
+
+    /// <summary>An element's id attribute.</summary>
+    /// <param name="element">The element.</param>
+    /// <returns>The id, or <see langword="null" /> if it has none.</returns>
+    public string? GetId(StyleNodeId element) {
+        var id = identifiers[Validate(element)];
+        return id == NameTable.None ? null : names.NameOf(id);
+    }
+
+    /// <summary>An element's classes, in the order they were added.</summary>
+    /// <param name="element">The element.</param>
+    /// <returns>The class names.</returns>
+    /// <remarks>
+    ///     Allocates, and is meant to: this is for inspectors, diagnostics and tests rebuilding a
+    ///     tree, none of which run per frame. Matching never asks — it compares interned ids.
+    /// </remarks>
+    public string[] GetClassNames(StyleNodeId element) {
+        var range = classes[Validate(element)];
+        var result = new string[range.Count];
+
+        for (var i = 0; i < range.Count; i++) {
+            result[i] = names.NameOf(classArena[range.Start + i]);
+        }
+
+        return result;
+    }
 
     /// <summary>An element's parent, or <see cref="StyleNodeId.Invalid" />.</summary>
     /// <param name="element">The element.</param>
@@ -266,6 +383,38 @@ public sealed class StyleTree {
         for (var i = 0; i < range.Count; i++) {
             visit(classArena[range.Start + i]);
         }
+    }
+
+    /// <summary>ORs a name into the ancestor bloom of everything below an element.</summary>
+    /// <param name="index">The element whose name it now is.</param>
+    /// <param name="nameId">The name.</param>
+    /// <remarks>
+    ///     Elements are created parents-before-children, so a descendant always has a higher index
+    ///     than its ancestors — which means one ascending sweep does the whole subtree without a
+    ///     stack, and without visiting anything above it.
+    /// </remarks>
+    void AddToDescendantBlooms(int index, int nameId) {
+        for (var i = index + 1; i < count; i++) {
+            if (IsDescendantOf(i, index)) {
+                blooms[i].Add(nameId);
+            }
+        }
+    }
+
+    bool IsDescendantOf(int candidate, int ancestor) {
+        for (var walk = links[candidate].Parent; walk >= 0; walk = links[walk].Parent) {
+            if (walk == ancestor) {
+                return true;
+            }
+
+            if (walk < ancestor) {
+                // Parents always have lower indices, so once the climb passes the ancestor's index
+                // without hitting it, it never will.
+                return false;
+            }
+        }
+
+        return false;
     }
 
     AncestorBloom BuildBloom(int index) {

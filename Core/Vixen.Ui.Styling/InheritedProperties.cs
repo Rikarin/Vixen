@@ -87,6 +87,68 @@ public sealed class InheritedProperties {
         return isCustom;
     }
 
+    /// <summary>Whether two styles differ in any property a child would have inherited.</summary>
+    /// <param name="before">One style.</param>
+    /// <param name="after">The other.</param>
+    /// <returns>Whether a child of an element holding these could be affected by the difference.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The question a restyle pass asks at every element it touches, and asking the coarser
+    ///         version instead — <i>did anything at all change</i> — is what made selecting one row
+    ///         of a grid restyle its hundred cells. A highlight that changes <c>background</c> cannot
+    ///         reach a child; one that changes <c>color</c> reaches all of them. Only the second is a
+    ///         reason to descend.
+    ///     </para>
+    ///     <para>
+    ///         A merge over two arrays already sorted by property id, so it costs one pass over the
+    ///         two tables and no allocation.
+    ///     </para>
+    /// </remarks>
+    public bool InheritedPortionDiffers(ComputedStyle before, ComputedStyle after) {
+        ArgumentNullException.ThrowIfNull(before);
+        ArgumentNullException.ThrowIfNull(after);
+
+        if (ReferenceEquals(before, after)) {
+            return false;
+        }
+
+        var left = before.Properties;
+        var right = after.Properties;
+        int i = 0, j = 0;
+
+        while (i < left.Length && j < right.Length) {
+            if (left[i] == right[j]) {
+                if (before.Values[i] != after.Values[j] && Inherits(left[i])) {
+                    return true;
+                }
+
+                i++;
+                j++;
+            } else if (left[i] < right[j]) {
+                // Set on the way in and gone on the way out.
+                if (Inherits(left[i++])) {
+                    return true;
+                }
+            } else if (Inherits(right[j++])) {
+                return true;
+            }
+        }
+
+        while (i < left.Length) {
+            if (Inherits(left[i++])) {
+                return true;
+            }
+        }
+
+        while (j < right.Length) {
+            if (Inherits(right[j++])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Whether a property name is a custom property.</summary>
     /// <param name="name">The property name.</param>
     /// <returns>Whether it begins with <c>--</c>.</returns>
