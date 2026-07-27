@@ -117,26 +117,12 @@ public sealed class Project {
 
     /// <summary>Which importers this build of the tool has.</summary>
     /// <remarks>
-    ///     <para>
-    ///         Told, never discovered. An assembly scan would read metadata a trimmed publish has
-    ///         already deleted, and would make "which importers imported this project" a question with
-    ///         different answers in the editor and here. This list is the answer, and it is the same
-    ///         list the out-of-process worker uses — a worker with a different set would produce
-    ///         different artefacts for the same file.
-    ///     </para>
-    ///     <para>
-    ///         <c>RawImporter</c> is the fallback and is what doc 14 calls <c>DefaultImporter</c>:
-    ///         whatever nothing else claimed still gets a GUID, an address and a byte blob.
-    ///     </para>
+    ///     <see cref="BuiltInImporters" />'s list and not a second one. The worker processes
+    ///     <c>Tools/Vixen.AssetCompiler</c> starts build their registry from the same call, because a
+    ///     worker with a different set produces different artefacts for the same file — and that
+    ///     shows up as a cache that never hits, or as a build whose output depends on the machine.
     /// </remarks>
-    public static ImporterRegistry Importers() =>
-        new ImporterRegistry()
-            .Add(new TextureImporter())
-            .Add(new ModelImporter())
-            .Add(new AudioImporter())
-            .Add(new NativeFormatImporter())
-            .Add(new FolderImporter())
-            .AddFallback(new RawImporter());
+    public static ImporterRegistry Importers() => BuiltInImporters.Create();
 
     /// <summary>The build target to assume when nobody said.</summary>
     /// <remarks>

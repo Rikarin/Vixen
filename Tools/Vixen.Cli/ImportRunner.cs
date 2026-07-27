@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using System.Globalization;
+using Vixen.AssetCompiler;
 using Vixen.Core;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Core;
@@ -27,6 +28,7 @@ public static class ImportRunner {
     /// <param name="target">Which build target to import for.</param>
     /// <param name="output">Where to write progress and diagnostics.</param>
     /// <param name="verbose">Whether to name every asset, rather than only the ones with something to say.</param>
+    /// <param name="isolated">Whether to run importers in worker processes.</param>
     /// <param name="cancellationToken">Cancels the import.</param>
     /// <returns>What it did.</returns>
     /// <remarks>
@@ -40,6 +42,7 @@ public static class ImportRunner {
         string target,
         DiagnosticWriter output,
         bool verbose,
+        bool isolated = false,
         CancellationToken cancellationToken = default
     ) {
         ArgumentNullException.ThrowIfNull(project);
@@ -61,6 +64,18 @@ public static class ImportRunner {
         ) {
             Target = target
         };
+
+        // Worker processes, when asked for. Doc 08's reason is crash isolation and not speed: an
+        // importer that *throws* is already caught, and an importer that takes its process down —
+        // a malformed FBX inside a C++ library — is not catchable from inside that process. Off by
+        // default because it costs a process start and a copy of every artefact over a pipe, and the
+        // failure it protects against is rare enough to be worth asking for.
+        using var pool = isolated ? new CompilerPool(project.Paths.Root) : null;
+
+        if (pool is not null) {
+            pipeline.Executor = pool;
+            output.Line($"  Importing in {pool.WorkerCount} worker process(es).");
+        }
 
         var pathOf = project.Database.Entries.ToDictionary(entry => entry.Guid, entry => entry.Path);
         var outcomes = await pipeline.ImportAllAsync(cancellationToken).ConfigureAwait(false);

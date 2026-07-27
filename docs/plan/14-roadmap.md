@@ -517,8 +517,54 @@ the codebase is large enough for it to be expensive to fix.
 > unbuildable as written and that document now says so — `ImmutableArray<T>` became `T[]`, and
 > `TargetOverride<T>` became a node-level merge rather than a generic partial record. Reaching
 > `init`-only setters through `[UnsafeAccessor]` was a third prerequisite the plan had not foreseen.
-- `Vixen.Editor.Assets`: `TextureImporter`, `ModelImporter` (Assimp), `AudioImporter`,
+- ✅ `Vixen.Editor.Assets`: `TextureImporter`, `ModelImporter` (Assimp), `AudioImporter`,
   `NativeFormatImporter`, `DefaultImporter`. Out-of-process worker (`Tools/Vixen.AssetCompiler`).
+
+  **`DefaultImporter` already existed under doc 08's name for it.** `RawImporter` is the fallback —
+  verbatim copy, an address for anything nothing else claimed — so this is a note rather than a
+  second class under the other name.
+
+  **`NativeFormatImporter`'s output is the dependency graph, not a conversion.** A `.vxmat` is
+  already in the engine's format; what is *not* already known is what it points at, and without that
+  a material's artefact is correct the day it is built and stale for ever after. It walks the node
+  tree rather than scanning the text, because a GUID in a comment is not a reference and a dependency
+  on one would never change and never break anything — the kind of wrongness with no symptom. What it
+  writes is the document, because the YAML → runtime-chunk step is `MaterialCompiler`'s and putting it
+  here would move the compiler's decisions somewhere the artefact cache key cannot see them.
+
+  **`AudioImporter` brought `Vixen.Audio` into existence** — the clip type alone, because the name is
+  in the chunk and moving it when the backend lands would invalidate every audio artefact ever built.
+  The WAV reader is written rather than taken: a PNG decoder is a compression implementation and a WAV
+  file is a chunk header and then the samples. Four things about that format each cost a test that
+  fails when its line is removed — the chunk walk (a DAW puts `LIST`, `bext` and `cue ` between the
+  header and the samples, and a fixed 44-byte seek reads metadata *as audio*), the odd-length pad
+  byte, 8-bit being unsigned, and `WAVE_FORMAT_EXTENSIBLE` hiding the real format code in a GUID.
+
+  **`ModelImporter` is the first importer that produces more than one thing**, and so the first real
+  consumer of the sub-asset addressing `BuildPlanner` has had since it was written. Every matrix is
+  transposed on the way in: Assimp stores a column-vector matrix row-major and Vixen a row-vector one,
+  so a field-for-field copy assembles every hierarchy inside out — consistently and quietly wrong
+  rather than obviously broken. There is no axis conversion, deliberately; a Z-up file arrives Z-up
+  and correcting it is a rotation an artist can see. Parts name their meshes rather than indexing
+  them, because an exporter reorders meshes whenever a material is added.
+
+  **The worker's promise is crash isolation and not speed.** An importer that *throws* was already
+  caught; one that takes its process down — a malformed FBX inside a C++ library — is not catchable
+  from inside that process. The seam is `IImportExecutor` in `Vixen.Editor.Assets`, so one asset's
+  worth of work crosses the boundary and the cache, the key and the sidecar stay in one copy either
+  side. Doc 08's parallelism is **owed**: the pool runs N workers and `ImportPipeline` hands them one
+  job at a time, because its sequential path-ordered loop is what guarantees a dependent sees its
+  dependency's new artefacts. `--isolated` is therefore off by default.
+
+  **Two silent serializer bugs were found by needing to write these artefacts.** Every immutable
+  struct in the engine — every type in `Vixen.Core.Mathematics` — generated a serializer with no
+  members at all, because the fallback dropped `readonly` fields along with computed properties and
+  left nothing for a constructor to match; it wrote two varints and read every component back as
+  zero, with no diagnostic, and nothing had ever written a `Vector3` so nothing had noticed. That is
+  fixed. The same shape with `init` accessors is **not** fixed and is written down in
+  `Vixen.Core.Serialization`'s README: `VXS0102` exists for exactly that case and has never been
+  reported, and wiring it up fails the build across the repository because every import-settings
+  record is a `[DataContract]` with `init` properties bound through YAML rather than binary.
 - `Vixen.Core.Imaging`: KTX2, BCn/ASTC/ETC2 encoding, mip generation, IBL prefiltering.
 - Content build: compiler DAG, `ObjectDatabase` (file + bundle backends), bundle packer, catalog.
 - `Vixen.Assets` runtime: `AssetHandle`, ref counting, scopes, label/glob loading, streaming manager.

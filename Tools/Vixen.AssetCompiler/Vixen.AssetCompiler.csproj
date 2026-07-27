@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.AssetCompiler</RootNamespace>
+        <AssemblyName>Vixen.AssetCompiler</AssemblyName>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+          The importers, the executor seam, and the pipeline types the protocol mirrors. A worker is
+          the same importer set as its coordinator by construction — see BuiltInImporters.
+        -->
+        <ProjectReference Include="..\..\Editor\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          The protocol types are [DataContract] records serialised with the engine's own binary
+          serializer, as doc 08 specifies for this IPC. Analyzers do not flow through a
+          ProjectReference, so the generator is named here or the messages have no serializers.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.AssetCompiler.Tests" />
+    </ItemGroup>
+
+</Project>
