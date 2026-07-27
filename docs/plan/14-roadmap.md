@@ -2036,11 +2036,81 @@ interest management, and lag compensation. Full design in [16](16-networking.md)
 Sequenced here because it depends on the ECS change-version machinery (Phase 2), deterministic prefab
 and content IDs (Phase 3), and physics for lag compensation (Phase 8).
 
-- `Vixen.Net.Transport.Local` **first** — in-process transport, so every later piece is unit-testable
-  without sockets. Then `Udp` (reliable + unreliable + fragmentation), `WebSocket`, `Relay`, `Composite`,
-  and the `NetworkSimulation` decorator (latency/jitter/loss injection, on by default in dev builds).
-- Session layer: Server/Client/Host/Offline topologies, players, authentication hook, reconnect tokens.
-- `TickManager`: fixed tick shared with the ECS `FixedUpdate` phase, clock sync, RTT/jitter estimation.
+- ✅ **The transport layer: the contract, the in-process transport, and the simulation decorator.**
+  85 tests. `Vixen.Net` holds the vocabulary — the four `Channel`s with their guarantees asked rather
+  than remembered (`IsReliable`/`IsOrdered`/`MayDrop`/`MayDuplicate`, so the reliability layer and the
+  delta encoder derive behaviour from one place instead of each writing a `switch`), `ConnectionId`,
+  `DisconnectReason`, and `ITransport`/`ITransportEvents`.
+
+  Three decisions in that contract are load-bearing and were made here rather than discovered later.
+  **One object holds both halves**, so a listen server is one transport with a loopback in it rather
+  than a second code path through every layer above. **Nothing is delivered outside `Poll`** — no
+  callback on a socket thread — which is what lets replication be ordinary code at a known point in
+  the schedule. And **time is a parameter, not a reading**: `Poll(elapsed, events)` is *told* how much
+  time passed, so a test observing a 200 ms round trip does it in a loop rather than in 200 ms.
+
+  `Vixen.Net.Transport.Local` is a perfect wire on purpose — nothing lost, reordered or duplicated, so
+  all four channels are honoured for free — and imperfection belongs entirely to `NetworkSimulation`,
+  which wraps any transport and injects latency, jitter, loss and duplication, with reordering falling
+  out of jitter. It **respects the channel it is injecting into** (a `Reliable` payload is delayed but
+  never dropped or overtaken; a `Sequenced` one may be dropped but not reordered), so the layer above
+  is exercised against its contract rather than against a violation of it, and it **replays**: the
+  seed is a required constructor argument, delays are spent against the virtual clock `Poll` advances,
+  and the draws happen in a fixed order per send.
+
+  The contract is executable rather than described — `TransportConformance` is an abstract suite of
+  everything `ITransport` promises, run against the local transport *and* against the simulation
+  wrapped around it in a `Perfect` profile, where the decorator has to be invisible. Every later
+  transport inherits the same suite.
+
+  **Owed:** `Udp` (reliable + unreliable + fragmentation), `WebSocket`, `Relay`, `Composite`. And
+  switching the simulation on by default in dev builds, which is a session-layer wiring decision and
+  has nowhere to live until the session layer exists.
+- ✅ **The tick, the packet codec, and the session.** 68 further tests; 153 across the networking
+  projects in total.
+
+  `Tick` is a wrap-safe `uint`, and its comparisons are signed distances rather than `<`. It
+  deliberately has **no comparison operators and no `IComparable`**: modular comparison is not a
+  total order — with three ticks far enough apart, A is after B, B is after C and C is after A — so a
+  type that looked sortable would eventually be sorted, and that is a bug that reproduces once every
+  two years of uptime. `TickManager` turns frame deltas into whole ticks and, on a client,
+  **corrects by drifting rather than jumping**: an error of a few ticks scales the tick *length* by
+  up to 10 % until it is worked off, so nothing keyed by tick moves under anyone. Past a second of
+  error it snaps and counts the snap, because a 10 % correction would take minutes. RTT and jitter
+  come from the RFC 6298 estimator — the weights are TCP's, which is a deliberate refusal to invent a
+  constant by eye — and the client's lead and the interpolation delay are both sized from the
+  *variance*, not the mean.
+
+  `PacketWriter`/`PacketReader` are `ref struct`s over caller-owned spans, little-endian everywhere so
+  the bit-exactness gate has something to assert. **The reader never throws**: every read returns a
+  `bool`, the first failure is sticky, no read allocates on a length the packet supplied, and every
+  blob and string takes a cap from the caller. That is the security posture of § Security as code
+  rather than as a paragraph, and there is a ten-thousand-packet random-bytes test on every build
+  ahead of the real `SharpFuzz` corpus. The writer's mirror: overflow sets a flag and `TryFinish`
+  refuses to hand over a truncated packet, because shedding a packet is the right answer to a
+  bandwidth spike and unwinding the stack is not.
+
+  `NetworkSession` owns the handshake, the clock and the player list, and nothing else. **Nothing is
+  dispatched before the handshake completes** — protocol version, content hash, then the
+  authenticator — so every layer above may assume its peer agreed on all three. **A `PlayerId` is not
+  a `ConnectionId`**: a dropped player keeps their id and their slot for the reconnect window and
+  resumes with a server-issued token, freshly minted on every connect. The authenticator is
+  **asked repeatedly rather than awaited** (it may answer `Pending`, with a timeout), which keeps the
+  session single-threaded; `Task<bool>` would have made every layer it touches thread-safe for an
+  event that happens twice a minute. And **host mode is not a special case**: `StartHost` starts both
+  halves of one transport and its own client half does the same handshake through the loopback, with
+  `StartOffline` mechanically identical to it — single player is a one-player multiplayer game, so
+  there is no offline path to rot.
+
+  One defect worth recording, found by a test that expected one exception and got another: a record's
+  generated `ToString` calls every property, so `TickRate.Duration` throwing on a default-constructed
+  rate meant the `ArgumentOutOfRangeException` complaining about that rate could not render its own
+  message. A property that can throw does not belong in a generated `ToString`; the type writes its
+  own.
+
+  **Owed:** the session sends and receives opaque payloads and does not yet know what is in them —
+  that is replication and RPC. Bandwidth budgeting and priority shedding have the writer's overflow
+  flag to build on and are not built.
 - Identity and spawning: `NetworkId`, prefab ids derived from asset GUIDs, build-time-baked ids for
   scene-placed objects, ownership with transfer.
 - **`NetworkRules`** policy assets (`.vxnetrules`) — spawn/despawn/call/observe/write permissions.
@@ -2052,7 +2122,10 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   priority shedding.
 - Interest management: scene scope, explicit overrides, distance grid, `NetworkLOD` rate falloff.
 - Motion: snapshot interpolation, clamped extrapolation, `NetworkTransform`, owner-side smoothing.
-- Lag compensation: transform/collider history ring + rewound Jolt shape casts.
+- Lag compensation: transform/collider history ring + rewound Jolt shape casts. **Deferred within the
+  phase.** It is the one item here that cannot start: it rewinds colliders, and `Vixen.Physics` is
+  Phase 8 and not built. The tick history it needs is keyed by `Tick`, which now exists, so the ring
+  is the work and the query is Jolt's — the sequencing note at the top of this phase stands.
 - Security pass: packet validation, rate limits, closed-set deserialization, protocol/content hash
   handshake. Fuzzing corpus over the packet reader.
 - **Server variant end to end** ([17](17-app-heads-and-shipping.md)): headless host on the `Null`

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Net</RootNamespace>
+        <Description>
+            Networking for Vixen: the transport contract every transport implements, the channel
+            vocabulary the layers above speak, and the simulation decorator that makes a perfect
+            in-process wire behave like a bad one. Optional — a single-player game that never
+            references it pays nothing.
+        </Description>
+        <PackageTags>networking;multiplayer;transport;replication;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Net.Tests" />
+    </ItemGroup>
+
+</Project>
