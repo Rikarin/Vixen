@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Core.Imaging</RootNamespace>
+        <Description>
+            Engine texture data: the KTX2 container the runtime reads, mip chains, and the format
+            arithmetic that both depend on. No image codec — decoding a PNG is import-time work.
+        </Description>
+        <PackageTags>imaging;ktx2;texture;mipmap;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+
+        <!--
+          For PixelFormat and its block arithmetic. That enum is the engine's shared vocabulary for
+          "what is in these bytes", and a second copy of it here would be two tables to keep in step.
+          Vixen.Graphics is the RHI *abstraction* — no backend, no native dependency — so this costs
+          nothing at run time.
+        -->
+        <ProjectReference Include="..\Vixen.Graphics\Vixen.Graphics.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Core.Imaging.Tests" />
+    </ItemGroup>
+
+</Project>
