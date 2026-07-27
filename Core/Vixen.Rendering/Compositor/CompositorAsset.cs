@@ -65,51 +65,51 @@ public enum DepthPreset {
 [DataContract("RenderStage")]
 public sealed record RenderStageAsset {
     /// <summary>What the stage is called, and what a node refers to it by.</summary>
-    public string Name { get; init; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
 
     /// <summary>How its work is ordered.</summary>
-    public RenderSortMode SortMode { get; init; } = RenderSortMode.FrontToBack;
+    public RenderSortMode SortMode { get; set; } = RenderSortMode.FrontToBack;
 
     /// <summary>How its fragments combine with the target.</summary>
-    public BlendPreset Blend { get; init; } = BlendPreset.Opaque;
+    public BlendPreset Blend { get; set; } = BlendPreset.Opaque;
 
     /// <summary>What its draws do with depth.</summary>
-    public DepthPreset Depth { get; init; } = DepthPreset.TestAndWrite;
+    public DepthPreset Depth { get; set; } = DepthPreset.TestAndWrite;
 
     /// <summary>Which faces it discards.</summary>
-    public CullMode Cull { get; init; } = CullMode.Back;
+    public CullMode Cull { get; set; } = CullMode.Back;
 
     /// <summary>A constant added to depth — a shadow-caster stage's peter-panning knob.</summary>
-    public float DepthBias { get; init; }
+    public float DepthBias { get; set; }
 
     /// <summary>A factor on the polygon's depth slope.</summary>
-    public float DepthBiasSlope { get; init; }
+    public float DepthBiasSlope { get; set; }
 
     /// <summary>Whether to clamp depth rather than clip it, so a caster in front of near still casts.</summary>
-    public bool DepthClamp { get; init; }
+    public bool DepthClamp { get; set; }
 }
 
 /// <summary>Several nodes, run in order.</summary>
 [DataContract("Sequence")]
 public sealed record SequenceAsset : ISceneRendererAsset {
     /// <inheritdoc />
-    public string Name { get; init; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
 
     /// <inheritdoc />
-    public bool Enabled { get; init; } = true;
+    public bool Enabled { get; set; } = true;
 
     /// <summary>The children, in the order they run.</summary>
-    public ISceneRendererAsset[] Children { get; init; } = [];
+    public ISceneRendererAsset[] Children { get; set; } = [];
 }
 
 /// <summary>A render pass, and what draws into it.</summary>
 [DataContract("RenderPass")]
 public sealed record RenderPassAsset : ISceneRendererAsset {
     /// <inheritdoc />
-    public string Name { get; init; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
 
     /// <inheritdoc />
-    public bool Enabled { get; init; } = true;
+    public bool Enabled { get; set; } = true;
 
     /// <summary>
     ///     The names of its colour attachments, in the order the shader writes them.
@@ -120,85 +120,85 @@ public sealed record RenderPassAsset : ISceneRendererAsset {
     ///     also what lets one authored compositor run against a swapchain, an offscreen buffer or a
     ///     test's scratch texture without changing.
     /// </remarks>
-    public string[] ColourTargets { get; init; } = [];
+    public string[] ColourTargets { get; set; } = [];
 
     /// <summary>The name of its depth attachment, if it has one.</summary>
-    public string? DepthTarget { get; init; }
+    public string? DepthTarget { get; set; }
 
     /// <summary>How many samples its attachments have.</summary>
-    public int SampleCount { get; init; } = 1;
+    public int SampleCount { get; set; } = 1;
 
     /// <summary>What draws into it.</summary>
-    public ISceneRendererAsset[] Children { get; init; } = [];
+    public ISceneRendererAsset[] Children { get; set; } = [];
 }
 
 /// <summary>One stage drawn from one view.</summary>
 [DataContract("SingleStage")]
 public sealed record SingleStageAsset : ISceneRendererAsset {
     /// <inheritdoc />
-    public string Name { get; init; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
 
     /// <inheritdoc />
-    public bool Enabled { get; init; } = true;
+    public bool Enabled { get; set; } = true;
 
     /// <summary>The name of the view to draw from.</summary>
-    public string View { get; init; } = string.Empty;
+    public string View { get; set; } = string.Empty;
 
     /// <summary>The name of the stage to draw.</summary>
-    public string Stage { get; init; } = string.Empty;
+    public string Stage { get; set; } = string.Empty;
 }
 
 /// <summary>A directional light's cascaded shadow map.</summary>
 [DataContract("ShadowMap")]
 public sealed record ShadowMapAsset : ISceneRendererAsset {
     /// <inheritdoc />
-    public string Name { get; init; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
 
     /// <inheritdoc />
-    public bool Enabled { get; init; } = true;
+    public bool Enabled { get; set; } = true;
 
     /// <summary>The name of the stage that draws depth-only casters.</summary>
-    public string Stage { get; init; } = string.Empty;
+    public string Stage { get; set; } = string.Empty;
 
     /// <summary>The name of the depth atlas to render into.</summary>
-    public string Atlas { get; init; } = string.Empty;
+    public string Atlas { get; set; } = string.Empty;
 
     /// <summary>How many cascades to fit.</summary>
-    public int CascadeCount { get; init; } = 4;
+    public int CascadeCount { get; set; } = 4;
 
     /// <summary>One cascade's side in texels.</summary>
-    public int Resolution { get; init; } = 1024;
+    public int Resolution { get; set; } = 1024;
 
     /// <summary>How far shadows are drawn — not the camera's far plane.</summary>
-    public float ShadowDistance { get; init; } = 150f;
+    public float ShadowDistance { get; set; } = 150f;
 
     /// <summary>How far to blend the splits from uniform toward logarithmic.</summary>
-    public float SplitLambda { get; init; } = 0.75f;
+    public float SplitLambda { get; set; } = 0.75f;
 
     /// <summary>How far behind a cascade the light's near plane sits.</summary>
-    public float Extrusion { get; init; } = 50f;
+    public float Extrusion { get; set; } = 50f;
 }
 
 /// <summary>Spot and point light shadows in one atlas.</summary>
 [DataContract("PunctualShadows")]
 public sealed record PunctualShadowAsset : ISceneRendererAsset {
     /// <inheritdoc />
-    public string Name { get; init; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
 
     /// <inheritdoc />
-    public bool Enabled { get; init; } = true;
+    public bool Enabled { get; set; } = true;
 
     /// <summary>The name of the stage that draws depth-only casters.</summary>
-    public string Stage { get; init; } = string.Empty;
+    public string Stage { get; set; } = string.Empty;
 
     /// <summary>The name of the depth atlas to render into.</summary>
-    public string Atlas { get; init; } = string.Empty;
+    public string Atlas { get; set; } = string.Empty;
 
     /// <summary>One tile's side in texels.</summary>
-    public int Resolution { get; init; } = 512;
+    public int Resolution { get; set; } = 512;
 
     /// <summary>How many tiles the atlas is across.</summary>
-    public int TilesPerSide { get; init; } = 4;
+    public int TilesPerSide { get; set; } = 4;
 }
 
 /// <summary>
@@ -216,15 +216,22 @@ public sealed record PunctualShadowAsset : ISceneRendererAsset {
 ///         understands and silently dropping what it does not — which produces a frame that is
 ///         missing a pass and says nothing about it.
 ///     </para>
+///     <para>
+///         <strong>Every member here is settable rather than init-only</strong>, throughout the
+///         model. The generated binary serializer constructs an instance and then assigns to it, so
+///         an <c>init</c> member is one it cannot write and silently leaves at its default — which
+///         is a baked compositor that reads back empty. An asset is an editable document anyway; the
+///         editor mutates one every time somebody drags a node.
+///     </para>
 /// </remarks>
 [DataContract("GraphicsCompositor")]
 public sealed record GraphicsCompositorAsset {
     /// <summary>The schema version this document is written in.</summary>
-    public int Version { get; init; } = 1;
+    public int Version { get; set; } = 1;
 
     /// <summary>The stages, which nodes refer to by name.</summary>
-    public RenderStageAsset[] Stages { get; init; } = [];
+    public RenderStageAsset[] Stages { get; set; } = [];
 
     /// <summary>The root of the graph — the whole frame.</summary>
-    public ISceneRendererAsset? Game { get; init; }
+    public ISceneRendererAsset? Game { get; set; }
 }

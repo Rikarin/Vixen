@@ -339,4 +339,175 @@ public class LodTests : IDisposable {
 
         Assert.Equal(3, h.Lods.Groups[group].LevelCount);
     }
+
+    // --- Cross-fade ---------------------------------------------------------
+
+    /// <summary>
+    ///     During a fade both levels are visible, and their weights sum to one.
+    /// </summary>
+    /// <remarks>
+    ///     Summing to one is what makes a dithered fade look like one object rather than two: a
+    ///     material discards a fraction of its pixels by the weight, so the two levels' surviving
+    ///     pixels tile the silhouette exactly once. Dither rather than blending, because two
+    ///     translucent copies of one object write depth twice and sort against each other.
+    /// </remarks>
+    [Fact]
+    public void Both_levels_are_visible_during_a_fade_and_their_weights_sum_to_one() {
+        using var h = Build();
+        h.Lods.CrossFadeDuration = 1f;
+
+        var group = h.Lods.Add([0.5f]);
+        var fine = AddLevel(h, Vector3.Zero, group, 0);
+        var coarse = AddLevel(h, Vector3.Zero, group, 1);
+        var boundary = h.Camera.ScreenHeightScale / 0.5f;
+
+        Move(h, [fine, coarse], boundary * 0.5f);
+        Assert.Equal(0, h.Lods.LevelOf(group, h.Camera.Index));
+
+        h.Lods.DeltaTime = 0.25f;
+        Move(h, [fine, coarse], boundary * 2f);
+
+        Assert.Equal(1, h.Lods.LevelOf(group, h.Camera.Index));
+        Assert.Equal(0, h.Lods.FadingFrom(group, h.Camera.Index));
+
+        Assert.True(h.System.Visibility.IsVisible(h.Camera.Index, fine));
+        Assert.True(h.System.Visibility.IsVisible(h.Camera.Index, coarse));
+
+        var into = h.Lods.FadeOf(group, h.Camera.Index, 1);
+        var outOf = h.Lods.FadeOf(group, h.Camera.Index, 0);
+
+        Assert.Equal(1f, into + outOf, 5);
+    }
+
+    /// <summary>The fade runs to completion and then the old level goes.</summary>
+    [Fact]
+    public void A_fade_finishes_and_leaves_one_level() {
+        using var h = Build();
+        h.Lods.CrossFadeDuration = 1f;
+
+        var group = h.Lods.Add([0.5f]);
+        var fine = AddLevel(h, Vector3.Zero, group, 0);
+        var coarse = AddLevel(h, Vector3.Zero, group, 1);
+        var boundary = h.Camera.ScreenHeightScale / 0.5f;
+
+        Move(h, [fine, coarse], boundary * 0.5f);
+
+        h.Lods.DeltaTime = 0.4f;
+        Move(h, [fine, coarse], boundary * 2f);
+
+        for (var frame = 0; frame < 3; frame++) {
+            Move(h, [fine, coarse], boundary * 2f);
+        }
+
+        Assert.Equal(-1, h.Lods.FadingFrom(group, h.Camera.Index));
+        Assert.False(h.System.Visibility.IsVisible(h.Camera.Index, fine));
+        Assert.True(h.System.Visibility.IsVisible(h.Camera.Index, coarse));
+        Assert.Equal(1f, h.Lods.FadeOf(group, h.Camera.Index, 1));
+    }
+
+    /// <summary>With no duration the swap is instant and nothing fades.</summary>
+    /// <remarks>
+    ///     The default, and not timidity: a fade doubles the draws for every object crossing a
+    ///     threshold, and a project whose levels are close enough that hysteresis already hides the
+    ///     switch should not pay for it.
+    /// </remarks>
+    [Fact]
+    public void With_no_duration_the_swap_is_instant() {
+        using var h = Build();
+
+        var group = h.Lods.Add([0.5f]);
+        var fine = AddLevel(h, Vector3.Zero, group, 0);
+        var coarse = AddLevel(h, Vector3.Zero, group, 1);
+        var boundary = h.Camera.ScreenHeightScale / 0.5f;
+
+        Move(h, [fine, coarse], boundary * 0.5f);
+        Move(h, [fine, coarse], boundary * 2f);
+
+        Assert.Equal(-1, h.Lods.FadingFrom(group, h.Camera.Index));
+        Assert.False(h.System.Visibility.IsVisible(h.Camera.Index, fine));
+        Assert.Equal(1f, h.Lods.FadeOf(group, h.Camera.Index, 1));
+    }
+
+    /// <summary>
+    ///     A fade turning round mid-way fades out where it was heading, not where it started.
+    /// </summary>
+    /// <remarks>
+    ///     A camera swinging past a threshold and back would otherwise pay the whole duration twice
+    ///     and spend it showing the level it is no longer going to.
+    /// </remarks>
+    [Fact]
+    public void An_interrupted_fade_turns_round_rather_than_finishing() {
+        using var h = Build();
+        h.Lods.CrossFadeDuration = 1f;
+
+        var group = h.Lods.Add([0.5f]);
+        var fine = AddLevel(h, Vector3.Zero, group, 0);
+        var coarse = AddLevel(h, Vector3.Zero, group, 1);
+        var boundary = h.Camera.ScreenHeightScale / 0.5f;
+
+        Move(h, [fine, coarse], boundary * 0.5f);
+
+        h.Lods.DeltaTime = 0.25f;
+        Move(h, [fine, coarse], boundary * 2f);
+        Move(h, [fine, coarse], boundary * 0.5f);
+
+        Assert.Equal(0, h.Lods.LevelOf(group, h.Camera.Index));
+        Assert.Equal(1, h.Lods.FadingFrom(group, h.Camera.Index));
+    }
+
+    /// <summary>Only a fading object pushes a weight.</summary>
+    /// <remarks>
+    ///     Everything else is fully visible, and pushing a constant of 1 for it would be a per-draw
+    ///     cost for the objects and the frames that are not fading — which is nearly all of them.
+    /// </remarks>
+    [Fact]
+    public void Only_a_fading_object_pushes_a_weight() {
+        using var h = Build();
+        h.Lods.CrossFadeDuration = 1f;
+
+        var group = h.Lods.Add([0.5f]);
+        var fine = AddLevel(h, Vector3.Zero, group, 0);
+        var coarse = AddLevel(h, Vector3.Zero, group, 1);
+        var boundary = h.Camera.ScreenHeightScale / 0.5f;
+
+        Move(h, [fine, coarse], boundary * 0.5f);
+        Record(h);
+
+        Assert.Empty(device.Recorder!.OfKind(RecordedCommandKind.PushConstants));
+
+        h.Lods.DeltaTime = 0.25f;
+        Move(h, [fine, coarse], boundary * 2f);
+        Record(h);
+
+        // Both levels drawn, both pushing four bytes at the LOD offset.
+        var pushes = device.Recorder.OfKind(RecordedCommandKind.PushConstants).ToArray();
+
+        Assert.Equal(2, pushes.Length);
+        Assert.All(pushes, push => Assert.Equal((68, 4), (push.B, push.C)));
+    }
+
+    void Record(Harness h) {
+        var target = device.CreateTextureView(
+            device.CreateTexture(
+                new() {
+                    Width = 16, Height = 16, Depth = 1,
+                    MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
+                    Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.ColourTarget
+                }
+            )
+        );
+
+        var list = device.BeginCommandList();
+        list.BeginRenderPass(new([new(target)], name: "Opaque"));
+
+        h.System.Record(
+            h.Camera,
+            h.Opaque,
+            new(list, effects) { Device = device, Output = new([PixelFormat.Rgba8UNorm]) }
+        );
+
+        list.EndRenderPass();
+        list.Finish();
+        device.GraphicsQueue.Submit([list]);
+    }
 }

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Core.Serialization;
 using Vixen.Core.Yaml;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
@@ -362,6 +363,67 @@ public class CompositorAssetTests : IDisposable {
         var thrown = Assert.Throws<NotSupportedException>(() => h.Builder.Build(asset));
 
         Assert.Contains("version 2", thrown.Message, StringComparison.Ordinal);
+    }
+
+    // --- The baked form -----------------------------------------------------
+
+    /// <summary>
+    ///     A compositor survives the binary path a content build bakes and a runtime reads.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The other half of "the frame is data". The editor writes the YAML above; the content
+    ///         build serialises the same record graph into a chunk; the runtime reads the chunk
+    ///         through <c>AssetManager</c> and never links a parser. The types carry
+    ///         <c>[DataContract]</c>, so the serializer is generated at compile time and nothing is
+    ///         discovered by reflection — which is what makes this work on a trimmed NativeAOT build.
+    ///     </para>
+    ///     <para>
+    ///         The tags have to survive too: a node graph whose types were resolved by a YAML tag has
+    ///         to come back out of bytes as the same types, or a baked build gets a compositor whose
+    ///         shadow node deserialised as something else.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_compositor_survives_the_baked_binary_form() {
+        var authored = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
+
+        var baked = Serializer.ToBytes(authored);
+        var loaded = Serializer.Read<GraphicsCompositorAsset>(baked);
+
+        Assert.Equal(1, loaded.Version);
+        Assert.Equal(3, loaded.Stages.Length);
+
+        var root = Assert.IsType<SequenceAsset>(loaded.Game);
+        var shadows = Assert.IsType<ShadowMapAsset>(root.Children[0]);
+        var main = Assert.IsType<RenderPassAsset>(root.Children[1]);
+
+        Assert.Equal(2, shadows.CascadeCount);
+        Assert.Equal(["SceneColour"], main.ColourTargets);
+        Assert.Equal("Transparent", Assert.IsType<SingleStageAsset>(main.Children[1]).Stage);
+    }
+
+    /// <summary>And the baked form builds and draws the same frame the authored one did.</summary>
+    /// <remarks>
+    ///     The claim that matters for a shipping build: what comes out of the bundle is not merely
+    ///     structurally equal to what went in, it renders the same.
+    /// </remarks>
+    [Fact]
+    public void The_baked_form_draws_the_same_frame() {
+        var authored = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
+        var loaded = Serializer.Read<GraphicsCompositorAsset>(Serializer.ToBytes(authored));
+
+        using var h = Build();
+        var compositor = h.Builder.Build(loaded);
+        var everywhere = h.Builder.Stages.Values.Aggregate(RenderStageMask.None, (mask, stage) => mask | stage.Mask);
+
+        AddMesh(h, -10f, new Material("Lit"), everywhere);
+
+        Frame(compositor);
+
+        Assert.Equal(2, device.Recorder!.CountOf(RecordedCommandKind.BeginRenderPass));
+        Assert.Equal(2, device.Recorder.CountOf(RecordedCommandKind.SetViewport));
+        Assert.Equal(4, device.Recorder.CountOf(RecordedCommandKind.Draw));
     }
 
     /// <summary>Building the same asset twice does not add its stages twice.</summary>

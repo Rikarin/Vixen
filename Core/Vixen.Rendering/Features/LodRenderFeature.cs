@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
+using Vixen.Graphics;
 
 namespace Vixen.Rendering.Features;
 
@@ -38,13 +40,54 @@ public readonly record struct LodMembership(int Group, int Level);
 ///         because a shadow drawn from a different mesh than its caster stops matching it.
 ///     </para>
 /// </remarks>
-public sealed class LodRenderFeature : SubRenderFeature {
+public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
     readonly List<LodGroup> groups = [];
-    readonly List<int> current = [];
+    readonly List<Transition> current = [];
     int viewStride;
 
     /// <inheritdoc />
     public override string Name => "Lod";
+
+    /// <summary>
+    ///     How long a level change takes, in seconds. Zero swaps instantly.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A hard swap is visible however good the thresholds are, because two levels of the same
+    ///         object have different silhouettes and the eye is very good at edges appearing. During
+    ///         a fade <em>both</em> levels are drawn and each is given a weight, which a material
+    ///         turns into a dithered discard — dither rather than blending, because two translucent
+    ///         copies of one object write depth twice and sort against each other.
+    ///     </para>
+    ///     <para>
+    ///         Zero by default, and that is not timidity: a fade doubles the draws for the objects
+    ///         crossing a threshold, and a project whose LOD levels are close enough that hysteresis
+    ///         already hides the switch should not pay for it.
+    ///     </para>
+    /// </remarks>
+    public float CrossFadeDuration { get; set; }
+
+    /// <summary>
+    ///     How long the last frame took, in seconds. Set by the host before the frame.
+    /// </summary>
+    /// <remarks>
+    ///     Supplied rather than measured, because a renderer that reads a clock is a renderer whose
+    ///     frames cannot be reproduced — and a fade is exactly the thing a golden-image test would
+    ///     want to step through one frame at a time.
+    /// </remarks>
+    public float DeltaTime { get; set; }
+
+    /// <summary>Which stages see the fade weight.</summary>
+    public ShaderStage Stages { get; set; } = ShaderStage.Fragment;
+
+    /// <summary>
+    ///     Where the fade weight goes in the push-constant block.
+    /// </summary>
+    /// <remarks>
+    ///     Sixty-eight by default, after the transform's <c>mat4</c> and skinning's base index — 72
+    ///     of Vulkan's guaranteed 128 for all three together.
+    /// </remarks>
+    public int Offset { get; set; } = 68;
 
     /// <summary>Which group and level each object is.</summary>
     public RenderDataKey<LodMembership> Membership { get; private set; }
@@ -114,9 +157,63 @@ public sealed class LodRenderFeature : SubRenderFeature {
     }
 
     /// <summary>Which level a group is showing in a view, or -1 if it has not been decided.</summary>
-    public int LevelOf(int group, int viewIndex) {
+    public int LevelOf(int group, int viewIndex) => At(group, viewIndex).Level;
+
+    /// <summary>Which level a group is fading out of in a view, or -1 when it is not fading.</summary>
+    public int FadingFrom(int group, int viewIndex) => At(group, viewIndex).From;
+
+    /// <summary>
+    ///     How visible one level of a group is in a view: 1 outside a transition, and the two levels
+    ///     of a transition summing to 1 during one.
+    /// </summary>
+    public float FadeOf(int group, int viewIndex, int level) {
+        var transition = At(group, viewIndex);
+
+        if (transition.From < 0 || CrossFadeDuration <= 0f) {
+            return 1f;
+        }
+
+        var t = Math.Clamp(transition.Elapsed / CrossFadeDuration, 0f, 1f);
+
+        if (level == transition.Level) {
+            return t;
+        }
+
+        return level == transition.From ? 1f - t : 0f;
+    }
+
+    Transition At(int group, int viewIndex) {
         var slot = (group * viewStride) + viewIndex;
-        return viewStride > 0 && slot >= 0 && slot < current.Count ? current[slot] : -1;
+        return viewStride > 0 && slot >= 0 && slot < current.Count ? current[slot] : new(-1, -1, 0f);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Pushed only for an object whose group is mid-transition. Everything else is fully visible
+    ///     and would be pushing a constant of 1 that a shader would multiply by — which is a per-draw
+    ///     cost for the frames and the objects that are not fading, which is nearly all of them.
+    /// </remarks>
+    public void Draw(RenderSystem system, RenderDrawContext context, in RenderNode node) {
+        ArgumentNullException.ThrowIfNull(system);
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (CrossFadeDuration <= 0f || context.View is not { } view) {
+            return;
+        }
+
+        var member = system.Objects.Data.Data(Membership)[node.Object.Index];
+
+        if (member.Group <= 0 || FadingFrom(member.Group, view.Index) < 0) {
+            return;
+        }
+
+        var weight = FadeOf(member.Group, view.Index, member.Level);
+
+        context.CommandList.PushConstants(
+            Stages,
+            Offset,
+            MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref weight, 1))
+        );
     }
 
     /// <inheritdoc />
@@ -173,7 +270,7 @@ public sealed class LodRenderFeature : SubRenderFeature {
             }
 
             var slot = (member.Group * viewStride) + view.Index;
-            current[slot] = Choose(groups[member.Group], current[slot], Height(candidate.Bounds, view));
+            current[slot] = Advance(current[slot], groups[member.Group], Height(candidate.Bounds, view));
         }
 
         for (var index = 0; index < objects.Length; index++) {
@@ -189,10 +286,41 @@ public sealed class LodRenderFeature : SubRenderFeature {
                 continue;
             }
 
-            if (current[(member.Group * viewStride) + view.Index] != member.Level) {
+            var transition = current[(member.Group * viewStride) + view.Index];
+
+            // Both ends of a transition stay visible; everything else goes. Two draws for one object
+            // is exactly what a cross-fade costs, and it is why the fade is off by default.
+            if (member.Level != transition.Level && member.Level != transition.From) {
                 system.Visibility.Hide(view.Index, new(index));
             }
         }
+    }
+
+    /// <summary>Moves a group's transition on by one frame and starts a new one if the level changed.</summary>
+    /// <remarks>
+    ///     A transition that is interrupted by another takes the level it was heading for as the one
+    ///     it now fades out of, rather than the one it started from. The alternative — refusing to
+    ///     turn round until the first fade finishes — makes a camera swinging past a threshold pay
+    ///     the whole duration twice, and shows the level it is no longer heading towards.
+    /// </remarks>
+    Transition Advance(Transition transition, LodGroup group, float height) {
+        var chosen = Choose(group, transition.Level, height);
+
+        if (transition.Level < 0) {
+            return new(chosen, -1, 0f);
+        }
+
+        if (chosen != transition.Level) {
+            return CrossFadeDuration <= 0f ? new(chosen, -1, 0f) : new(chosen, transition.Level, 0f);
+        }
+
+        if (transition.From < 0) {
+            return transition;
+        }
+
+        var elapsed = transition.Elapsed + MathF.Max(DeltaTime, 0f);
+
+        return elapsed >= CrossFadeDuration ? new(chosen, -1, 0f) : transition with { Elapsed = elapsed };
     }
 
     /// <summary>The fraction of the viewport's height an object covers.</summary>
@@ -254,9 +382,15 @@ public sealed class LodRenderFeature : SubRenderFeature {
         current.Clear();
 
         for (var i = 0; i < wanted; i++) {
-            current.Add(-1);
+            current.Add(new(-1, -1, 0f));
         }
     }
+
+    /// <summary>What one group is showing in one view, and what it is still fading out of.</summary>
+    /// <param name="Level">The level it has chosen, or -1 before the first frame that saw it.</param>
+    /// <param name="From">The level being faded out, or -1 when nothing is.</param>
+    /// <param name="Elapsed">How far into the fade it is, in seconds.</param>
+    readonly record struct Transition(int Level, int From, float Elapsed);
 }
 
 /// <summary>One LOD group's switch points.</summary>

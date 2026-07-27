@@ -38,15 +38,28 @@ public readonly record struct ColourTargetBinding(
 ///     is why it is the default — clearing to one is the classic mistake and depth-tests the scene
 ///     away entirely.
 /// </param>
+/// <param name="Texture">
+///     The texture behind the view, for the one thing a view cannot do: be the source or destination
+///     of a copy. A cached shadow atlas is copied rather than redrawn, and a copy names a texture.
+///     Optional — a pass that is only rendered into never needs it.
+/// </param>
 public readonly record struct DepthTargetBinding(
     TextureViewHandle View,
     PixelFormat Format,
     LoadAction Load = LoadAction.Clear,
     StoreAction Store = StoreAction.Store,
-    float ClearDepth = 0f
+    float ClearDepth = 0f,
+    TextureHandle Texture = default
 ) {
     /// <summary>This binding as the attachment a render pass takes.</summary>
     public DepthStencilAttachment ToAttachment() => new(View, Load, Store, ClearDepth);
+
+    /// <summary>This binding as the attachment, with a different load action.</summary>
+    /// <remarks>
+    ///     What a cached atlas needs: the same target, loaded rather than cleared, because what is
+    ///     already in it is the point.
+    /// </remarks>
+    public DepthStencilAttachment ToAttachment(LoadAction load) => new(View, load, Store, ClearDepth);
 }
 
 /// <summary>
