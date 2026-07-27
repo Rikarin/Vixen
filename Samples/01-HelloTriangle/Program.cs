@@ -43,9 +43,10 @@ static class Program {
             RequestGpuSurface = true
         });
 
+        // No console provider: the host adds one for every variant except Release, which is where
+        // the thirty lines this sample used to carry now live.
         using var application = VixenApp.Create(arguments)
             .WithPlatform(platform)
-            .WithServices(services => services.LoggerFactory.AddProvider(new ConsoleLogProvider()))
             .Build(new TriangleGame());
 
         return application.Run();

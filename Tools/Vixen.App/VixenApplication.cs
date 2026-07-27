@@ -51,6 +51,12 @@ public sealed class VixenApplication : IDisposable {
         // everything below it, then the jobs it may have scheduled, then the platform that owns the
         // window those jobs might touch.
         disposables.Add(game);
+
+        // Before the jobs, because its systems may still have work scheduled on them.
+        if (services.Engine is { } engine) {
+            disposables.Add(engine);
+        }
+
         disposables.Add(services.Content);
         disposables.Add(services.Jobs);
         disposables.Add(services.Platform);
@@ -61,6 +67,25 @@ public sealed class VixenApplication : IDisposable {
 
     /// <summary>The clock, as the last frame saw it.</summary>
     public GameTime Time => time;
+
+    /// <summary>
+    ///     How fast simulated time runs: <c>1</c> for real time, <c>0</c> to pause, above <c>1</c>
+    ///     to fast-forward.
+    /// </summary>
+    /// <remarks>
+    ///     A property rather than a config value, because pausing is something a game does at run
+    ///     time and not something it decides at boot. It reaches both clocks: the host's
+    ///     <see cref="Time" /> and — because the engine is handed the unscaled delta and this
+    ///     separately — the fixed-step accumulator, so a paused game owes no simulation steps rather
+    ///     than accumulating a debt it pays all at once on resume.
+    /// </remarks>
+    public float TimeScale {
+        get => time.TimeScale;
+        set {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            time = time with { TimeScale = value };
+        }
+    }
 
     /// <summary>Whether the loop has been asked to stop.</summary>
     public bool IsStopping =>
@@ -214,6 +239,16 @@ public sealed class VixenApplication : IDisposable {
         WarnAboutLooseContent();
 
         Advance();
+
+        // Before the game's own update, which is where an application reads the world it is about
+        // to render. Reading it before it has been stepped renders last frame's positions, which is
+        // the kind of wrong that looks like input lag and gets blamed on everything else.
+        //
+        // Handed the *unscaled* delta and the scale separately, because that is what the loop's own
+        // contract takes: the host has already applied the scale to `time`, and passing the scaled
+        // value with the scale again would square it.
+        Services.Engine?.Frame(time.UnscaledElapsed, time.TimeScale);
+
         game.OnUpdate(time);
         game.OnRender(time);
 

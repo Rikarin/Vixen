@@ -173,7 +173,75 @@ public sealed class VixenSdkTests : IDisposable {
         OperatingSystem.IsWindows() ? "Windows" : OperatingSystem.IsMacOS() ? "MacOS" : "Linux";
 
     /// <summary>Writes a game project that imports the SDK the way a consumer of the package would.</summary>
-    void Project(string? group = "UiCore", string? properties = null, bool assets = true) {
+    /// <summary>
+    ///     The variant reaches the binary that has to know it. Doc 17's five variants are orthogonal
+    ///     to Debug/Release — a Server build differs from a Release one only in having no window — so
+    ///     nothing at run time can recover it from the compiler configuration.
+    /// </summary>
+    /// <remarks>
+    ///     It was travelling and dying: the CLI passed <c>VixenVariant</c> into the publish as a
+    ///     property and neither the build nor the runtime read it, so a server publish started up,
+    ///     detected Release, and asked for a window. The project here declares the two types itself
+    ///     rather than referencing <c>Vixen.App</c>, because the SDK deliberately adds no engine
+    ///     references and there is no feed to resolve one from — what is under test is whether the
+    ///     SDK emits the attribute, not where the type lives.
+    /// </remarks>
+    [Fact]
+    public void TheBuildVariantReachesTheAssemblyThatWasBuiltWithIt() {
+        Project(properties: "<VixenVariant>Server</VixenVariant>", entryPoint: VariantProbe);
+
+        var build = Run("run");
+
+        Assert.True(build.Succeeded, build.Output);
+        Assert.Contains("variant=Server", build.Output, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     And a project that names no variant gets no attribute, so a plain `dotnet build` does not
+    ///     silently declare one. <c>BuildVariants.Detect</c> falls back to the compilation's own
+    ///     <c>DEBUG</c> flag there, which is a worse answer and an honest one.
+    /// </summary>
+    [Fact]
+    public void AProjectThatNamesNoVariantDeclaresNone() {
+        Project(entryPoint: VariantProbe);
+
+        var build = Run("run");
+
+        Assert.True(build.Succeeded, build.Output);
+        Assert.Contains("variant=none", build.Output, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Prints whatever variant the assembly declares, the way <c>BuildVariants.Detect</c> reads
+    ///     it. The attribute is declared here because the SDK adds no engine references by design.
+    /// </summary>
+    const string VariantProbe = """
+        using System;
+        using System.Linq;
+        using System.Reflection;
+
+        var declared = Assembly.GetEntryAssembly()!
+            .GetCustomAttributes<Vixen.App.BuildVariantAttribute>()
+            .SingleOrDefault();
+
+        Console.WriteLine($"variant={(declared is null ? "none" : declared.Variant.ToString())}");
+
+        namespace Vixen.App {
+            public enum BuildVariant { Editor, Debug, Development, Release, Server }
+
+            [AttributeUsage(AttributeTargets.Assembly)]
+            public sealed class BuildVariantAttribute(BuildVariant variant) : Attribute {
+                public BuildVariant Variant { get; } = variant;
+            }
+        }
+        """;
+
+    void Project(
+        string? group = "UiCore",
+        string? properties = null,
+        bool assets = true,
+        string? entryPoint = null
+    ) {
         Directory.CreateDirectory(root);
 
         if (assets) {
@@ -189,7 +257,7 @@ public sealed class VixenSdkTests : IDisposable {
             File.WriteAllText(Path.Combine(assetDirectory, "UiCore.vxgroup"), "name: UiCore\n");
         }
 
-        File.WriteAllText(Path.Combine(root, "Program.cs"), "System.Console.WriteLine(\"game\");\n");
+        File.WriteAllText(Path.Combine(root, "Program.cs"), entryPoint ?? "System.Console.WriteLine(\"game\");\n");
 
         // Imported by path rather than through `<Project Sdk="Vixen.Sdk">`, because the Sdk form
         // resolves through a NuGet feed and there is no published package to resolve. The two forms

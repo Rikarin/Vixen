@@ -771,15 +771,27 @@ Simulator and the Android emulator. What is left is a physical device each, and 
 gates — see the bullets above, which supersede the sentence that used to stand here saying none of
 this was started.
 
-❌ **The boot path does not mount content, and that is the goal sentence's own word.**
-`VixenApp.Run<TGame>()` gives a game a window, a job scheduler, a virtual file system and a frame
-loop, and no `AssetManager`: `Vixen.App` references neither `Vixen.Assets` nor `Vixen.Engine`, and
-`--vixen-loose-content` is parsed and logged and then ignored. Content loads from bundles in
-`Vixen.Assets.Tests`, in `Samples/07` and through `vixen content build` — every piece works — but a
-`Game` cannot ask for an address without standing up the catalog, the bundle source and the manager
-itself. The `Vixen.Sdk` copy step puts a build beside the binary and nothing reads it. This is one
-seam rather than a subsystem, and it is the difference between the pipeline being finished and the
-phase being finished.
+✅ **The boot path mounts content**, which is the goal sentence's own word and was the last thing
+missing. `Services.Assets` is an `AssetManager` over the content build the application shipped with,
+found at `/app/Content` — **through the virtual file system rather than through a path**, because
+`IFileSystemHost.ApplicationDirectory` is documented as empty where content is not a directory at
+all, which is an APK's assets and an iOS bundle. Going through `/app` means Android's
+`AAssetManager` answers the same call a desktop directory does.
+
+No content is not an error and a catalog that will not read is reported rather than thrown: a
+sample, a batch tool and a test each have nothing to load, and a catalog truncated by a failed
+download happens in the field to an application that then has to be able to say so.
+`--vixen-loose-content` is honoured, with doc 17 Q5b's other half — the warning repeats every sixty
+seconds, because one line at startup has scrolled away by the time anyone reads a QA build's log.
+
+✅ **The host drives the engine.** `Services.Engine` is an `EngineLoop`, on by default because
+`VixenApp.Run<TGame>()` takes a `Game`, and `config.UseEngine = false` for the heads that want the
+host without a world. Its frame runs *before* `Game.OnUpdate`, which is where an application reads
+the world it is about to render. It is handed the unscaled delta and `TimeScale` separately, because
+passing the scaled value with the scale squares it — and `VixenApplication.TimeScale` reaches both
+clocks, so a paused game owes no simulation steps rather than paying them all at once when the menu
+closes. Nothing had ever checked that the two composed: both were built and tested alone, and
+nothing in the shipping path referenced `Vixen.Engine` at all.
 
 > **The 10 k-asset import budget, measured rather than assumed.** A fixture project of 10 200 assets
 > (1 000 of them real PNGs through `TextureImporter`) imports cold in ~6 s. Changing one texture and

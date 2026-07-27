@@ -81,6 +81,16 @@ public sealed class AppConfig {
     /// <summary>The lowest level the log ring keeps.</summary>
     public LogLevel LogLevel { get; set; } = LogLevel.Information;
 
+    /// <summary>Whether the host also writes the log to the terminal.</summary>
+    /// <remarks>
+    ///     Resolved from the variant in <see cref="Apply" /> and overridable there:
+    ///     [doc 17](../../docs/plan/17-app-heads-and-shipping.md)'s table lists a console for
+    ///     Development and full logging for Server, and gives Release the log ring and the crash
+    ///     reporter and nothing else. A shipped game has no terminal to write to and would pay for
+    ///     every string it formatted; a dedicated server has nothing but the terminal.
+    /// </remarks>
+    public bool LogToConsole { get; set; } = true;
+
     /// <summary>
     ///     A directory of loose content to read instead of bundles, from
     ///     <c>--vixen-loose-content</c>.
@@ -88,6 +98,34 @@ public sealed class AppConfig {
     /// <remarks>Honoured by the content system in Phase 3. See
     /// <see cref="AppArguments.LooseContentPath" /> for why it is parsed now.</remarks>
     public string? LooseContentPath { get; set; }
+
+    /// <summary>Whether the host builds a world, its systems and its fixed-step accumulator.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         On, because <c>VixenApp.Run&lt;TGame&gt;()</c> takes a <see cref="Game" /> and a game
+    ///         with a world is what this host exists for. Off is one line in <c>OnConfigure</c>, and
+    ///         it is the right line for the three heads that do not want one:
+    ///         [doc 17](../../docs/plan/17-app-heads-and-shipping.md)'s batch tool, a server that
+    ///         drives its own simulation, and a UI-only application.
+    ///     </para>
+    ///     <para>
+    ///         The cost of leaving it on for a head that ignores it is a world with no entities and
+    ///         eight system phases that iterate nothing — nanoseconds a frame, and measured rather
+    ///         than assumed in <c>Benchmarks/Vixen.Benchmarks.Ecs</c>.
+    ///     </para>
+    /// </remarks>
+    public bool UseEngine { get; set; } = true;
+
+    /// <summary>
+    ///     How much simulated time one fixed step covers, or <see langword="null" /> for sixty a
+    ///     second.
+    /// </summary>
+    /// <remarks>
+    ///     Here rather than only on the accumulator, because it is a decision a game makes once and
+    ///     a physics engine, a network tick rate and a replay format all have to agree with. Ignored
+    ///     when <see cref="UseEngine" /> is off.
+    /// </remarks>
+    public TimeSpan? FixedStep { get; set; }
 
     /// <summary>Which SDL video driver to insist on, or <see langword="null" /> to let it choose.</summary>
     public string? VideoDriver { get; set; }
@@ -127,6 +165,7 @@ public sealed class AppConfig {
 
         Variant = BuildVariants.Detect(arguments.Variant);
         Headless = arguments.Headless || Variant.IsHeadless();
+        LogToConsole = Variant != BuildVariant.Release;
         Arguments = arguments.Remaining;
         UnrecognisedArguments = arguments.Unrecognised;
 

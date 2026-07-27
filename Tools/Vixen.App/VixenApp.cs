@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Vixen.Core.Diagnostics;
 using Vixen.Core.IO;
 using Vixen.Core.Threading;
+using Vixen.Engine.Frames;
 using Vixen.Platform;
 
 namespace Vixen.App;
@@ -89,7 +90,10 @@ public sealed class AppBuilder {
         game.OnConfigure(config);
 
         var logs = new RingBufferSink { MinimumLevel = config.LogLevel };
-        var loggerFactory = new HostLoggerFactory(logs);
+
+        var loggerFactory = config.LogToConsole
+            ? new HostLoggerFactory(logs, new ConsoleLogProvider(config.LogLevel))
+            : new HostLoggerFactory(logs);
         var host = platform ?? PlatformHost.Create(config);
 
         var fileSystem = new VirtualFileSystem();
@@ -111,6 +115,12 @@ public sealed class AppBuilder {
         // would reasonably ask for an asset.
         var content = ContentMount.Open(fileSystem, config.LooseContentPath);
 
+        // After the jobs, because systems hand work to them; before the game sees the services,
+        // because OnInitialise is where a game adds its own systems and spawns its first entities.
+        var engine = config.UseEngine
+            ? new EngineLoop(jobs: jobs, fixedStep: config.FixedStep is { } step ? new(step) : null)
+            : null;
+
         var services = new AppServices(
             host,
             window,
@@ -120,7 +130,8 @@ public sealed class AppBuilder {
             logs,
             loggerFactory,
             config,
-            content
+            content,
+            engine
         );
 
         foreach (var configure in configurations) {
