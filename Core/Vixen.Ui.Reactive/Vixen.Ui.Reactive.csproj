@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ui.Reactive</RootNamespace>
+        <Description>
+            The signal graph the UI framework is built on: writable signals, lazily-evaluated
+            computed values with automatic dependency tracking, and effects that run at a defined
+            point in the frame rather than whenever a scheduler feels like it. Push invalidation,
+            pull evaluation, and no allocation once the graph is warm.
+        </Description>
+        <PackageTags>signals;reactive;computed;effects;ui;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Ui.Reactive.Tests" />
+    </ItemGroup>
+
+</Project>

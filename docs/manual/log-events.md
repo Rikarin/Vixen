@@ -31,7 +31,7 @@ identifies its origin on sight.
 | 4 000 – 4 999 | `Vixen.Rendering`, `Vixen.Rendering.PostFx` | reserved |
 | 5 000 – 5 999 | `Vixen.Ecs`, `Vixen.Engine` | reserved |
 | 6 000 – 6 999 | `Vixen.Assets`, content pipeline | reserved |
-| 7 000 – 7 999 | `Vixen.Ui.*` | reserved |
+| 7 000 – 7 999 | `Vixen.Ui.*` | **in use** |
 | 8 000 – 8 999 | `Vixen.Platform.*` | reserved |
 | 9 000 – 9 999 | `Vixen.Physics`, `Vixen.Audio`, `Vixen.Animation`, `Vixen.Input` | reserved |
 | 10 000 – 10 999 | `Vixen.Net.*` | reserved |
@@ -48,6 +48,14 @@ identifies its origin on sight.
 |---|---|---|---|
 | 2001 | Warning | The Vulkan validation layers were asked for and are not installed | 0.1.0 |
 | 2002 | Warning | The validation layer was found but would not load; the instance was created without it | 0.1.0 |
+
+### `Vixen.Ui.Reactive` — the signal graph
+
+| Id | Level | Message | Since |
+|---|---|---|---|
+| 7001 | Error | `The effect declared at {Origin} re-triggered itself {Runs} times in one flush and has been suspended.` | 0.1.0 |
+| 7002 | Error | `The effect declared at {Origin} threw and has been suspended.` | 0.1.0 |
+| 7003 | Warning | `An effect flush hit its budget of {Budget} runs with work still queued.` | 0.1.0 |
 
 ### `Vixen.App` — the host
 

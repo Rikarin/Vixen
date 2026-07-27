@@ -31,6 +31,9 @@
     <File Path="docs/plan/15-risks-and-open-questions.md" />
     <File Path="docs/plan/16-networking.md" />
     <File Path="docs/plan/17-app-heads-and-shipping.md" />
+    <File Path="docs/plan/18-raven-parser-migration.md" />
+    <File Path="docs/plan/spikes/web-webgl2/RESULT.md" />
+    <File Path="docs/plan/spikes/vcss-excss/RESULT.md" />
   </Folder>
 
   <!--
@@ -77,6 +80,12 @@
     <Project Path="Core/Vixen.Graphics.Tests/Vixen.Graphics.Tests.csproj" />
     <Project Path="Core/Vixen.Graphics.RenderGraph/Vixen.Graphics.RenderGraph.csproj" />
     <Project Path="Core/Vixen.Graphics.RenderGraph.Tests/Vixen.Graphics.RenderGraph.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Reactive/Vixen.Ui.Reactive.csproj" />
+    <Project Path="Core/Vixen.Ui.Reactive.Tests/Vixen.Ui.Reactive.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Layout/Vixen.Ui.Layout.csproj" />
+    <Project Path="Core/Vixen.Ui.Layout.Tests/Vixen.Ui.Layout.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Styling/Vixen.Ui.Styling.csproj" />
+    <Project Path="Core/Vixen.Ui.Styling.Tests/Vixen.Ui.Styling.Tests.csproj" />
   </Folder>
 
   <!--
@@ -119,6 +128,7 @@
     <Project Path="Tools/Vixen.App.Tests/Vixen.App.Tests.csproj" />
     <Project Path="Tools/Vixen.ContentServer/Vixen.ContentServer.csproj" />
     <Project Path="Tools/Vixen.ContentServer.Tests/Vixen.ContentServer.Tests.csproj" />
+    <Project Path="Tools/Vixen.YogaTestGen/Vixen.YogaTestGen.csproj" />
   </Folder>
 
   <!--
@@ -129,6 +139,7 @@
     <Project Path="Benchmarks/Vixen.Benchmarks.Math/Vixen.Benchmarks.Math.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Jobs/Vixen.Benchmarks.Jobs.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Ecs/Vixen.Benchmarks.Ecs.csproj" />
+    <Project Path="Benchmarks/Vixen.Benchmarks.Ui/Vixen.Benchmarks.Ui.csproj" />
   </Folder>
 
   <!--

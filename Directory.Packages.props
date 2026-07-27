@@ -73,6 +73,17 @@
     <PackageVersion Include="YamlDotNet" Version="18.1.0" />
   </ItemGroup>
 
+  <!-- ===== UI (docs/plan/01 § dependency register, ADR-009) ===== -->
+  <ItemGroup Label="Ui">
+    <!--
+      The VCSS front end. Verified against this exact version before anything was built on it —
+      docs/plan/spikes/vcss-excss/RESULT.md — because ADR-009 assumes the selector tree is reachable
+      and typed, and a parser that handed back only selector strings would have inverted that
+      decision without saying so. It does not parse @layer; Vixen reads that one itself.
+    -->
+    <PackageVersion Include="ExCSS" Version="4.3.2" />
+  </ItemGroup>
+
   <!-- ===== Platform (docs/plan/01 § dependency register, docs/plan/10) ===== -->
   <ItemGroup Label="Platform">
     <!--

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ui.Styling</RootNamespace>
+        <Description>
+            VCSS: stylesheets parsed by ExCSS, and everything after parsing written here — the
+            selector model, the bucketed matcher with its ancestor bloom filter, the cascade, and the
+            interned computed styles the layout and render passes read.
+        </Description>
+        <PackageTags>css;styling;selectors;cascade;ui;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="ExCSS" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Ui.Styling.Tests" />
+    </ItemGroup>
+
+</Project>

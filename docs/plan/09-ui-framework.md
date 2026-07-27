@@ -174,15 +174,43 @@ Implementation:
   the "glitch-free" property).
 - **Auto-tracking** via an ambient `[ThreadStatic] ConsumerNode? _activeConsumer`; reading a signal
   while a consumer is active adds the edge.
-- **Pooled edge storage.** Dependency lists are slices of a shared `ChunkedArray<Edge>` with free
-  lists, not `List<T>` per node. A steady-state UI does zero allocation on signal reads/writes.
+- **Pooled edge storage.** ~~Dependency lists are slices of a shared `ChunkedArray<Edge>` with free
+  lists~~ — **corrected in the build**: they are free-listed `Edge[]` arrays bucketed by power-of-two
+  length, not slices of an arena. A slice has to be one contiguous `Span` and chunks are not
+  contiguous with each other, so an arena needs either a cap on edges per node at the chunk size or a
+  second allocation path for the nodes that exceed it. Pooling whole arrays gives the property that
+  was actually wanted with no cap and no special case. Either way: not `List<T>` per node, and a
+  steady-state UI does zero allocation on signal reads/writes.
+- **Liveness.** A producer notifies only consumers that something is *watching*, transitively; a
+  computed nobody reads registers no edge back from its dependencies at all and is verified by
+  polling on the next read. This was not in the original sketch and is not optional — without it,
+  every computed ever created is retained forever by whatever signal it read once.
 - **Effects are queued, not immediate.** `EffectScheduler` drains in a defined frame phase
   (`UiSystem.FlushEffects()` between input and layout), with a per-frame budget and a "runaway effect"
-  detector (an effect that re-dirties itself > N times in a frame is logged with its stack and
-  suspended, instead of hanging the app).
+  detector (an effect that re-dirties itself > N times in a frame is logged with its origin and
+  suspended, instead of hanging the app). The run count is per *flush*, not per lifetime: an effect
+  that runs once a frame forever is correct. An effect that throws is suspended and reported the same
+  way, because a UI framework where one bad binding takes the window down is one nobody can develop
+  against.
+- **The equality short-circuit reaches the effects too.** Being woken means a dependency *may* have
+  changed; the effect polls its dependencies on the way in and does not run if none of them moved.
 - **Diamond correctness** test: `a → b, a → c, b+c → d` evaluates `d` exactly once per `a` change.
-- **Thread affinity.** Signals are main-thread by default with a debug-mode assertion. A separate
-  `AsyncComputed` handles off-thread work and marshals results back.
+- **Thread affinity.** Signals are single-threaded. The check is a runtime opt-in
+  (`ReactiveGraph.OwningThread`) rather than the debug-mode assertion originally specified: it costs
+  one comparison against a usually-null static, a plug-in touching the graph from a worker thread is
+  worth catching in a shipping editor, and a library-level default would force a parallel test host —
+  or an editor with two independent graphs — onto one thread. `AsyncComputed` handles off-thread work
+  and marshals results back through `EffectScheduler.Post`, which is the only member of the assembly
+  another thread may call.
+- **`AsyncComputed` is two functions, not one.** A synchronous, tracked *request* and an
+  asynchronous, untracked *load*. Dependency tracking cannot survive an `await` — the ambient
+  consumer is thread-local and the continuation is elsewhere — so a single `async` computation would
+  silently record half its dependencies.
+- **`Batch` is about flush ordering.** Not about coalescing writes, which is what `batch` is for in
+  every other signal library and which is already true here without it: effects are queued and drained
+  once per frame, and computeds are lazy, so a hundred writes between two frames cost one run and one
+  recomputation. What a batch adds is that an explicit `Flush()` asked for inside it happens after the
+  group rather than in the middle of it.
 
 Signals also serve non-UI use: the editor's document model, the inspector's property bindings, and
 `Vixen.Ecs` change-version bridging (`world.Observe<Position>(entity)` yields a signal).
@@ -195,19 +223,32 @@ against Yoga's own conformance suite.
 ### Storage
 
 ```csharp
-// SoA: parallel NativeArrays indexed by LayoutNodeId (dense int)
-struct LayoutStore
+// SoA: parallel NativeArrays indexed by LayoutNodeId (dense int). As built:
+sealed class LayoutTree
 {
-    NativeArray<LayoutStyle>  Styles;     // ~120 bytes, all values as (float, Unit) pairs
-    NativeArray<LayoutResult> Results;    // x, y, w, h, borders[4], padding[4], margin[4], direction
-    NativeArray<LayoutLinks>  Links;      // parent, firstChild, nextSibling, childCount
-    NativeArray<LayoutFlags>  Flags;      // IsDirty, HasNewLayout, HasMeasureFunc, HasBaselineFunc
-    NativeArray<CachedMeasurement> Cache; // Yoga's measure cache, 16 entries per node
+    NativeArray<LayoutStyle>     Styles;  // ~400 bytes, all values as (float, Unit) pairs — the
+                                          //   120 above predated counting the nine CSS edges
+    NativeArray<LayoutResult>    Results; // position[4], dimensions, margin/border/padding[4],
+                                          //   direction, and the 8-entry measure cache
+    NativeArray<LayoutLinks>     Links;   // parent, and (offset, count, capacity) into ChildArena
+    NativeArray<LayoutNodeState> State;   // Live, Dirty, HasNewLayout, HasMeasureFunction, …
+    ChildArena                   Children;// every node's child ids, contiguous, power-of-two blocks
 }
 ```
 
-One allocation per array, growing geometrically. 100 000 nodes ≈ 30 MB and zero GC objects, versus the
-reference port's ~400 000 heap objects for the same tree.
+One allocation per array, growing geometrically. 100 000 nodes ≈ 40 MB and zero GC objects, versus the
+reference port's ~400 000 heap objects for the same tree — which is the comparison that matters, and
+which the corrected style size does not change.
+
+**Children are a contiguous run of ids, not a `firstChild`/`nextSibling` list.** The algorithm
+addresses children by index inside its inner loops — a flex line *is* a range of them — and a linked
+list makes each of those a walk, turning several O(n) passes into O(n²) on the widest nodes in the
+tree. The list is in a shared arena with power-of-two blocks and free lists, so it is still no heap
+object per node.
+
+**The measure cache is 8 entries per node, not 16.** Eight is Yoga's own figure from measuring real
+layouts; the 16 here came from an older revision of the same comment, and doubling the largest term
+in a node's footprint for the last 2 % of cases is not a trade worth making.
 
 ### Algorithm scope
 
@@ -227,15 +268,27 @@ reference port's ~400 000 heap objects for the same tree.
 - **Block/inline flow**: minimal — enough for a paragraph of mixed inline text and images. A full
   CSS inline formatting context is out of scope and stated as such.
 - **Parallel layout**: independent subtrees (those with a fixed available size) layout as jobs. Text
-  measurement of siblings parallelises well and is where the win is.
+  measurement of siblings parallelises well and is where the win is. Not built: it needs a
+  measurement of the serial version to beat, and there is no layout benchmark yet.
 
 ### Correctness
 
 Yoga's repository generates its test suite from HTML fixtures rendered in a real browser. That
-generator is run against Vixen (`references/yoga` → a T4-free C# emitter in
+generator is run against Vixen (`references/yoga` → `Tools/Vixen.YogaTestGen`, emitting into
 `Vixen.Ui.Layout.Tests/Generated/`), producing several hundred conformance tests. **Flexbox is not
 "implemented" until that suite is green.** This is the single most important de-risking decision in the
 UI plan: it turns "re-implement a subtle CSS algorithm" from a research project into a red/green loop.
+
+✅ **Done: 534 fixtures, green.** It paid for itself on the first run — 530 passed immediately, and
+of the four that did not, one was a real rule the port had missed (a degenerate `aspect-ratio`
+behaves as `auto`; css-sizing-4). Nine of Yoga's 543 are `display: contents` and are skipped by
+name, which is the scope stated below.
+
+**And a limit of it, worth stating because the plan leans on external oracles so heavily.** Deleting
+the CSS Flexbox §4.5 automatic minimum size leaves all 534 green: Yoga's generator emits no fixture
+that shrinks a measured leaf past its own content. An oracle answers the questions it was built to
+ask and no others, so the sections it does not reach still need tests written by hand —
+`AutomaticMinimumSizeTests` is that, for this one.
 
 ## Styling (`Vixen.Ui.Styling`)
 
@@ -243,6 +296,17 @@ UI plan: it turns "re-implement a subtle CSS algorithm" from a research project 
 
 CSS as understood by ExCSS 4.3.2, with a documented supported-subset. Parsing is ExCSS; **everything
 after parsing is Vixen's**, because ExCSS is a parser, not a style engine.
+
+✅ **Verified before it was built on** — [spikes/vcss-excss](spikes/vcss-excss/RESULT.md). The
+selector tree is fully typed and reachable (so Vixen writes a visitor, not a parser), specificity is
+computed for us, shorthands are expanded, and both `var()` and properties ExCSS has never heard of —
+including this document's own `spring()` transition — survive verbatim.
+
+⚠ **`@layer` is Vixen's to parse.** ExCSS 4.3.2 predates cascade layers and hands the whole rule back
+as an unknown one with its text intact. Both forms need reading — the statement `@layer a, b;` that
+fixes order, and the block `@layer name { … }` whose body is handed back to ExCSS — and the same
+applies one level down inside `@media`. This is a bounded piece of the stylesheet loader rather than
+a hole in the design, but it is work the plan did not know about.
 
 Supported: type/class/id/universal selectors, descendant/child/sibling combinators, attribute
 selectors, `:hover`/`:active`/`:focus`/`:focus-visible`/`:disabled`/`:checked`/`:first-child`/
@@ -463,7 +527,7 @@ Details that make it actually work:
 | Lexer/parser | Golden syntax trees over a corpus (as Raven already does); round-trip byte fidelity; one error-recovery test per diagnostic, including mid-typing states |
 | Binder | Positive/negative fixtures; `#line` mapping verified by asserting a deliberate expression error reports the `.vxml` line |
 | Generator | Snapshot tests on emitted C#; compile-and-run tests asserting the generated component behaves correctly |
-| Signals | Diamond evaluates once; equality short-circuit stops propagation; `Batch` coalesces; no allocation after warm-up (BenchmarkDotNet `MemoryDiagnoser` asserting 0 bytes); runaway-effect detection fires; disposal removes all edges |
+| Signals | ✅ Diamond evaluates once; equality short-circuit stops propagation, including at the effect; `Batch` defers the flush to its close; **zero** allocation after warm-up, asserted by `GC.GetAllocatedBytesForCurrentThread` in a test rather than by a benchmark, so it fails the build rather than a report; runaway-effect detection fires; disposal removes all edges in both directions; and a brute-force oracle over random DAGs |
 | Layout | **The ported Yoga conformance suite** (several hundred cases) — the primary gate. Plus: dirty propagation (a static tree costs 0 measured nodes), parallel layout equals serial layout, 100 k-node throughput benchmark |
 | Grid | Ported WPT (web-platform-tests) CSS Grid cases where they can be expressed without a full browser |
 | Styling | Cascade/specificity/`@layer` order tests against known CSS semantics; selector-matching oracle (bucketed matcher vs. brute-force over randomised trees); style-sharing correctness (shared instances are genuinely identical); invalidation minimality (toggling a class restyles exactly N elements) |

@@ -512,17 +512,117 @@ in a 10 k-asset fixture project.
 sub-piece has its own gate.
 
 **4a — Reactive and layout (2.0 EM)**
-- `Vixen.Ui.Reactive`: signals, computed, effects, batching, collection signals, scheduler,
-  runaway detection. Zero-allocation and diamond-correctness gates.
-- `Vixen.Ui.Layout`: SoA store, flexbox algorithm, measure cache, dirty propagation, parallel layout.
-- **Port Yoga's conformance suite.** Gate: it is green.
+- ✅ `Vixen.Ui.Reactive` — `Signal<T>`, `Computed<T>`, `Effect` with the frame-phase
+  `EffectScheduler`, `CollectionSignal<T>`, `LinkedSignal<TSource,T>`, `AsyncComputed<TRequest,T>`,
+  `Untracked`, `Batch`, and the owning-thread check. 63 tests. **Both gates are met and measured
+  rather than claimed:** the diamond `a → b, a → c, b+c → d` evaluates its join exactly once per
+  change, and a thousand write-and-flush cycles over a settled graph allocate **zero** bytes. A
+  brute-force oracle — random DAGs, random writes, every value compared against what recomputing
+  from the leaves would give — is the correctness net doc 14 argues for. Verified by sabotage:
+  disabling edge pooling and disabling the equality short-circuit each fail their own test.
+
+  Four things differ from [09](09-ui-framework.md) and that document now says so: edge storage is
+  pooled arrays rather than slices of a shared `ChunkedArray` (a slice must be contiguous and chunks
+  are not, so an arena needs a per-node cap or a second allocation path); the thread check is a
+  runtime opt-in rather than a `DEBUG` assertion; `Batch` turns out to be about flush *ordering*
+  rather than coalescing, because queued effects and lazy computeds already coalesce; and
+  `AsyncComputed` had to split into a tracked synchronous request and an untracked asynchronous load,
+  because dependency tracking cannot survive an `await`.
+
+  **Owed:** liveness is decided per node and the notification walk is per write, which is a tight
+  loop over an array that no measurement has yet asked to improve; and `Flush()` has no caller until
+  `UiSystem` arrives in 4d.
+- ✅ `Vixen.Ui.Layout` — the SoA store and **the complete flexbox algorithm**. `LayoutTree` holds
+  styles, results, links and node state as parallel `NativeArray`s with a shared arena for child
+  ids; `CalculateLayout` is the port of Yoga's `CalculateLayout`, `AbsoluteLayout`, `FlexLine`,
+  `Baseline`, `PixelGrid` and the measure cache. 552 tests.
+  Two departures from [09](09-ui-framework.md), recorded there: children are a contiguous run
+  rather than a linked list, because the algorithm addresses them by index inside its inner loops
+  and a list would make several O(n) passes O(n²) on the widest nodes; and a style is ~400 bytes
+  rather than 120, because the estimate predated counting the edge shorthands and the
+  writing-mode-relative pair.
+- ✅ **Yoga's conformance suite is ported — 534 fixtures — and it is green.** Committed before the
+  implementation, which is what sequencing rule 4 asks for and which is why it was able to do its
+  job: 530 of 534 passed on the first run. `Tools/Vixen.YogaTestGen` translates Yoga's generated
+  C++ into xunit against `LayoutTree`; the output is committed because CI has no reference clone.
+  A line the translator does not recognise drops the whole fixture and says so rather than guessing.
+  Nine fixtures are skipped, all `display: contents`, which doc 09 puts outside the scope; each is
+  named in the generated file's header.
+
+  Of the four fixtures that failed on the first run, three were a careless port of Yoga's *test
+  helper* rather than of the algorithm, and one was a real rule the port had missed: a degenerate
+  `aspect-ratio` behaves as `auto` rather than being divided by (css-sizing-4).
+
+  **And a limit of the oracle, found by sabotage and worth recording.** Deleting the CSS Flexbox
+  §4.5 automatic-minimum floor leaves all 534 fixtures green — Yoga's generator emits no fixture
+  that shrinks a measured leaf past its own content, so ~150 lines implementing a specification
+  section had no test over it. `AutomaticMinimumSizeTests` is hand-written to close that, and two of
+  its four cases fail without the floor. External oracles are worth what doc 14 says they are worth;
+  knowing where they stop is part of using them.
+
+- ✅ `Benchmarks/Vixen.Benchmarks.Ui` and the layout-pass gates. **A settled tree allocates zero
+  bytes per frame** — asserted by three tests and by the benchmark at 110 001 nodes — and **an
+  unchanged tree costs 11 ns whatever its size**, because the pass never descends past the dirty
+  flag. An incremental frame at the 10⁴ elements doc 00's editor bar names is 1.16 ms.
+
+  Two findings, one fixed and one recorded.
+
+  **Fixed:** the CSS §4.5 min-content probe was calling measure functions directly, bypassing the
+  measurement cache — a per-frame text measurement of every flex item, which is precisely what doc
+  09 says that cache exists to prevent. Min-content size depends only on the subtree and on what
+  percentages resolve against, so it is now cached per node and per owner size and invalidated by
+  the dirty flag. A test asserts an untouched leaf is measured once and never again.
+
+  **Also fixed, and it turned out to be two bugs rather than one optimisation.** The frame cost was
+  never the algorithm: instrumented, a one-leaf change in an 11 001-node tree runs it 21 times
+  against a cold pass's 22 001. What cost 60–70 % of an incremental frame was the **pixel-rounding
+  pass walking the whole tree every time**. Skipping unchanged subtrees needs a stamp for whether
+  the algorithm actually ran for a node — a cache hit does not rewrite its children — and a record
+  of the absolute offset it was last rounded against, because rounded edges derive from *absolute*
+  positions and an ancestor moving half a pixel changes every descendant without any of them being
+  dirty.
+
+  Writing that shortcut and then writing a property test for it — every node of an incrementally
+  updated tree against a second tree built from the same styles and laid out cold — found that the
+  two **already disagreed, with the shortcut disabled**. The cause is in the reference design:
+  rounding writes back into the position and size that the next pass reads for every node it does
+  not recompute, so an incremental layout drifts from a cold one by up to half a pixel per level.
+  The rounded result now lives in its own fields and the raw layout is never overwritten, which
+  makes rounding a pure function of the raw layout — correct, and what makes the shortcut sound.
+  An incremental frame is **2.4× to 3.3× faster**, and identical to a cold one to the bit.
 
 **4b — Styling (1.5 EM)**
-- `Vixen.Ui.Styling`: ExCSS integration, cascade, `@layer`, rule bucketing, ancestor bloom filter,
-  style sharing cache, invalidation, transitions, keyframe animations.
+- ✅ **ExCSS verified as the front end before anything was built on it** —
+  [spikes/vcss-excss](spikes/vcss-excss/RESULT.md), following sequencing rule 3. ADR-009 stands: the
+  selector tree is fully typed and reachable, so the selector work it saves is real. One finding that
+  changes what has to be written — **ExCSS 4.3.2 does not parse `@layer`**, which arrives as an
+  unknown rule with its text intact, so Vixen reads the prelude and re-parses the body. Doc 09 and
+  doc 01 now say so. Cheap to know now; expensive to find in the middle of the cascade.
+- 🟡 `Vixen.Ui.Styling` — **the selector engine is built and its gate is green; the cascade is not.**
+  `StyleTree` is the element store a selector questions; `SelectorCompiler` is the ExCSS visitor
+  ADR-009 buys by taking the dependency; `SelectorMatcher` matches right to left with the 128-bit
+  ancestor bloom in front of every descendant combinator; `RuleIndex` buckets by the rightmost
+  compound's most selective part. 15 tests.
+
+  **The selector-matching oracle gate is met:** over four hundred randomised trees and stylesheets,
+  the rules the bucketed-and-bloomed path finds are exactly the rules a brute-force pass finds.
+  Verified by sabotage — dropping the bloom's second hash fails four tests. Two things the oracle
+  cannot say are tested separately: whether either path is right about CSS (one test per selector
+  kind, combinator and attribute operator), and whether the index is any use at all (fifteen hundred
+  rules, of which one element reaches three).
+
+  Three bugs it found, each of the kind that does not announce itself. A defaulted struct id
+  silently meant "element zero", so every root without an explicit parent became a child of the
+  first element ever made. Nested `:not()`/`:is()` selectors interleaved with the contiguous ranges
+  being built around them. And `:has()` compiled as `:not()` — both carry an `.Inner`, and matching
+  on the shape rather than the type is exactly how a selector comes to mean the opposite of what it
+  says.
+
+  **Owed:** the cascade, `ComputedStyle` interning, the style-sharing cache, invalidation,
+  transitions and keyframes.
 - `Vixen.Ui.Styling.Utilities`: token config, candidate scanner, utility grammar, variant system,
   arbitrary values, `@apply`, generated stylesheet.
-- Gate: selector-matching oracle tests, invalidation-minimality tests, utility family tests.
+- Gate: ✅ selector-matching oracle tests. Owed: invalidation-minimality tests, utility family tests.
 
 **4c — Text (1.0 EM)**
 - HarfBuzz shaping, bidi, UAX#14 line breaking, UAX#29 segmentation, MSDF atlas with LRU eviction,
