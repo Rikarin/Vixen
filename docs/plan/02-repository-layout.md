@@ -120,7 +120,7 @@ Core/
 ├── Vixen.Audio.Tests/
 ├── Vixen.Physics/                      # Jolt integration
 ├── Vixen.Physics.Tests/
-├── Vixen.Animation/                    # skeletal, blend trees, IK, state machine
+├── Vixen.Animation/                    # ✅ skeletal, blend trees, layers, IK, state machine
 ├── Vixen.Animation.Tests/
 ├── Vixen.Vfx/                          # particles + node-graph VFX runtime
 ├── Vixen.Vfx.Tests/
