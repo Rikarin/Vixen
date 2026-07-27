@@ -31,7 +31,7 @@ shader Sharpen {
 
     [VertexShader]
     [Semantic("SV_Position")]
-    func Vertex(vertexIndex: float): float4 {
+    func Vertex([Semantic("SV_VertexID")] vertexIndex: int): float4 {
         uv = Fullscreen.Uv(vertexIndex)
         return Fullscreen.Position(vertexIndex)
     }

@@ -436,7 +436,7 @@ public class CompiledLibraryTests {
                               }
 
                               struct Shapes {
-                                  static func Loops(n: int, weights: float[]): float {
+                                  static func Loops(n: int, weights: float[16]): float {
                                       var acc = Accumulator(0f, 0)
 
                                       for (i in 0 .. n) {
@@ -478,7 +478,7 @@ public class CompiledLibraryTests {
 
                                 shader Lit {
                                     var n: int
-                                    var weights: float[]
+                                    var weights: float[16]
                                     var m: mat3
                                     var v: float3
 

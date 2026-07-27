@@ -214,7 +214,7 @@ public class LoweringTests {
                             total = total + n
                         }
             """,
-            "    var numbers: int[]\n"
+            "    var numbers: int[4]\n"
         );
 
         Assert.Contains("local !n#index : i32", printed);

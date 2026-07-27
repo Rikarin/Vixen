@@ -25,8 +25,8 @@ decision that has been made and built, kept because the reasons stay useful.
 | | Open item | Where | Blocks |
 |---|---|---|---|
 | 🟡 | **`Raven/Library` is written** — 44 files across all eight packages, every shader reaching both backends under `glslc` and `spirv-val`. What is left is depth rather than breadth: the G-buffer geometry pass, the clustered light loop and the compute post-process. **Every language gap that was blocking them is now closed**, so what remains is content | § F | the perf gates |
-| 🟡 | **Unsized arrays** outside a storage block are `RVN4001` in both backends — legal only as a storage block's last member, which the IR cannot express. `Example1.rvn` now parses, binds and lowers clean, and this is the one thing between it and code generation | § I | a runtime-sized array anywhere but a buffer |
-| ⚪ | **Small stage intrinsics**: no `discard`, no `SV_VertexID`/`SV_InstanceID` semantic. `SampleLevel`, `GetDimensions` and `asfloat`/`asint`/`asuint` **landed** — see § F | § F | each shaped a library file rather than blocking it — see § F's list of what it could not express |
+
+| ⚪ | **`discard`** — the last of the small stage intrinsics. It is a *terminator*, so it needs a keyword, a statement node and a block-termination rule rather than a table entry | § F | `DepthOnly` and `ShadowCaster` return zero and rely on the host's colour write mask |
 | 🟡 | **Inheritance is not flattened** — now `RVN3002` rather than three silent miscompilations | § I, mixins | the mixin question; `compose` covers the common case |
 | 🟡 | **String interpolation** — needs lexer modes; nothing shipped uses it | § I | nothing |
 | ⚪ | **Flow analysis** — definite assignment and reachability. Dead-branch elimination is constant folding, not this | § I | silent partial initialisation of a struct |
@@ -605,6 +605,11 @@ Each of these shaped a file rather than blocking it, and each is recorded in the
   size query takes the *plain* image in both targets, which is why the GLSL side asks for
   `GL_EXT_samplerless_texture_functions` and the SPIR-V side for the `ImageQuery` capability, each
   declared only in the units that need it.
+- ~~**No `SV_VertexID`**~~ — landed, and it turned up a claim the library was not keeping. Every
+  post-process effect took the fullscreen triangle's index as `vertexIndex: float`, an *attribute*,
+  so the host had to bind a vertex buffer of floats — for a shader whose whole point is binding none.
+  Ten files now take the built-in. See
+  [§ Stage built-ins](#stage-built-ins-a-value-the-pipeline-supplies-not-the-host).
 - **No `discard`**, so `DepthOnly` and `ShadowCaster` return zero and rely on the host's colour write
   mask. The one remaining intrinsic of this group, and the odd one out: it is a *terminator*, so it
   needs a keyword, a statement node and a block-termination rule rather than a table entry.
@@ -815,7 +820,7 @@ shader graph's generated-source span mapping.
 |---|---|
 | ✅ | **Reading a whole struct out of a uniform block** (was `RVN4002`, SPIR-V). Its laid-out type is a distinct type from the plain one, so it needs a member-by-member copy — built, because `lights[i]` in a light loop is exactly that read and there is no way to write the loop without it |
 | 🟡 | **A boolean in a uniform, or a boolean/aggregate as stage I/O** (`RVN4001`). `OpTypeBool` has no size and no memory layout. Reported rather than mis-emitted, but note the targets **disagree about what is legal**: GLSL hides it by giving a bool four bytes in a std140 block |
-| 🟡 | **Unsized arrays** (`RVN4001`) — legal only as a storage block's last member, which the IR cannot express |
+| ✅ | **Unsized arrays** — `RVN2126` at the declaration, naming the two ways out: give it a length, or make it a `Buffer<T>`, which is what a count the host decides actually is. It was `RVN4001` from both backends, about a lowered type, with no source span between them |
 
 **The matrix indexing defect — fixed.** `m[i]` was typed as a *row* while both targets index by
 column: SPIR-V refused to emit it (`RVN4002`) and GLSL emitted the wrong thing silently. It read as a
@@ -823,6 +828,54 @@ language decision needing a coin-flip (HLSL indexes rows, GLSL columns) and was 
 byte-level relationship between host and shader storage was worked out, exactly one answer was free in
 both backends *and* the intuitive one. The derivation is in
 [§ E](#e-conventions-raven-must-bake-in).
+
+#### Stage built-ins: a value the pipeline supplies, not the host
+
+`[Semantic("SV_VertexID")] vertexIndex: int` — the same mechanism the compute dispatch ids already
+used, widened to the vertex stage. One table (`Symbols/StageBuiltIns`) that the binder, both backends
+and the reflection read, so a built-in's semantic, its type and its spelling in each target are one
+decision.
+
+What made it more than a table entry is that **a graphics stage has located inputs**. A built-in gets
+a `BuiltIn` decoration, and `Location` and `BuiltIn` are mutually exclusive — so it must not *consume*
+a location either, or one sitting between two attributes would leave a hole in the vertex layout the
+host binds against. The numbering therefore comes from `StreamPlan.InputLocations`, which both
+emitters and the reflection read; three copies of that rule would be three chances to disagree, and
+the disagreement is invisible until a mesh renders with its normals in the tangent slot.
+
+Two smaller decisions:
+
+- **Signed, unlike HLSL.** GLSL declares `in int gl_VertexIndex` and SPIR-V's `VertexIndex` is a
+  signed 32-bit integer under Vulkan, so `uint` would put a conversion nobody wrote in front of every
+  use. Refused (`RVN2109`) rather than converted, exactly as the dispatch ids are.
+- **The vertex table is open where the compute one is closed.** An unrecognised semantic on a vertex
+  parameter is `POSITION` or `TEXCOORD0` — an ordinary attribute — while a compute stage has no
+  attributes at all, so an unknown name there is `RVN2108`. That is why the table is keyed on
+  (semantic, *stage*) rather than on the name alone.
+
+**What it fixed in the library.** `Fullscreen.rvn` says a triangle needs no vertex buffer, and every
+post-process effect then took the index as `vertexIndex: float` — an *attribute*, so the host had to
+bind a buffer of floats after all. Ten files now take `SV_VertexID` and bind nothing, which is what
+the file always claimed.
+
+#### Unsized arrays: refused where they can be fixed
+
+`var lookup: int[]` was `RVN4001` from both backends, about a lowered type, with no source span
+between them. It is now `RVN2126` at the declaration — and the message matters more than the move,
+because "not expressible" is not something an author can act on. There are exactly two ways out and
+it names both: give the array a length, or declare it a `Buffer<T>`, which is what an array whose
+count the host decides actually is.
+
+**A length is part of an array's type,** not a detail of it: SPIR-V's `OpTypeArray` takes a constant
+extent, GLSL writes one into the declaration, `ArrayStride` is computed from it, and the host reads it
+back to size the buffer it uploads. So there is nowhere an unsized array can go — not a binding, not
+a parameter (both targets pass arrays by value), not a local. Both backends keep their `RVN4001` as a
+backstop for the one route that skips the binder, an unsized array decoded out of a `.rvnlib`.
+
+**`Library/Example1.rvn` now compiles end to end** — the last thing between the language showcase and
+a backend was the two unsized arrays it declared. Its test has moved with it: bind-clean, then
+lower-clean, now generate-clean. A contract that stops where the language stops cannot tell you when
+the language catches up.
 
 #### Monomorphisation: one copy per instantiation, and none of the definition
 

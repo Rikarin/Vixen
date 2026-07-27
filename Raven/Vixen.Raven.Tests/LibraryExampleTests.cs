@@ -29,26 +29,27 @@ namespace Tests;
 /// </remarks>
 public class LibraryExampleTests {
     /// <summary>
-    ///     <c>Example1.rvn</c> parses, binds <em>and lowers</em> with nothing to report.
+    ///     <c>Example1.rvn</c> compiles the whole way through, in both backends.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         Lowering, not just binding, since monomorphisation landed. The bar used to stop at
-    ///         binding because two of the constructs the file shows off could not reach a backend —
-    ///         a generic struct needed monomorphisation and a spread needed an array type carrying
-    ///         a length — and both are now closed, so the weaker contract would stop noticing a
-    ///         regression in either.
+    ///         The bar this file is held to has moved twice, and each move closed the gap that was
+    ///         holding it. It stopped at <em>binding</em> while a generic struct and a spread could
+    ///         not reach a backend; at <em>lowering</em> once monomorphisation and sized arrays
+    ///         landed; and now at code generation, because the last thing between it and a backend
+    ///         — the unsized arrays it declared — is <c>RVN2126</c> at the declaration rather than
+    ///         <c>RVN4001</c> twice at the end.
     ///     </para>
     ///     <para>
-    ///         Still short of code generation, and for one remaining reason: the file declares
-    ///         unsized arrays outside a storage block, which is <c>RVN4001</c> in both backends and
-    ///         recorded as open in docs/plan/07 § I. Removing them to turn this green would make
-    ///         the showcase misrepresent the language.
+    ///         That progression is the point of keeping the weaker bar out: a contract that stops
+    ///         where the language stops cannot tell you when the language catches up.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void Example1ParsesBindsAndLowersCleanly() {
-        var tree = SyntaxTree.ParseText(File.ReadAllText(PathTo("Example1.rvn")), path: "Example1.rvn");
+    public void Example1CompilesEndToEnd() {
+        var source = File.ReadAllText(PathTo("Example1.rvn"));
+
+        var tree = SyntaxTree.ParseText(source, path: "Example1.rvn");
         Assert.Empty(tree.Diagnostics);
 
         var compilation = Compilation.Create("Example1", tree);
@@ -67,6 +68,10 @@ public class LibraryExampleTests {
             bag.IsEmpty,
             "Example1.rvn does not lower cleanly:\n" + string.Join("\n", bag.Select(d => d.ToString()))
         );
+
+        // Both backends, so neither can be the one that quietly cannot take it.
+        CodeGenTestBase.GenerateClean(source);
+        CodeGenTestBase.GenerateClean(source, "spirv");
     }
 
     /// <summary>

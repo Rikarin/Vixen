@@ -59,7 +59,23 @@ public abstract partial class Binder {
                         continue;
                     }
 
-                    element = new ArrayTypeSymbol(element, rank.Commas.Count + 1, BindArraySize(rank.Size));
+                    var size = BindArraySize(rank.Size);
+
+                    // No length, and there is nowhere one could go: both targets need a constant
+                    // extent to lay an array out, and neither has a by-reference parameter that
+                    // would let one travel without a size. Named here rather than at emit time,
+                    // where the message would be about a lowered type and appear twice.
+                    if (size is null && rank.Size is null) {
+                        Report(
+                            SemanticDiagnostics.ArrayNeedsLength,
+                            rank,
+                            new ArrayTypeSymbol(element, rank.Commas.Count + 1).ToDisplayString(),
+                            element.ToDisplayString(),
+                            BufferTypeSymbol.ReadOnlyName
+                        );
+                    }
+
+                    element = new ArrayTypeSymbol(element, rank.Commas.Count + 1, size);
                 }
 
                 return element;

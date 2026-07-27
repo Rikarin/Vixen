@@ -891,6 +891,8 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
 
             if (method.Stage == ShaderStage.Compute) {
                 ReportComputeInterfaceIssues(method, location);
+            } else {
+                ReportStageBuiltInIssues(method);
             }
 
             if (!stages.TryAdd(method.Stage, method)) {
@@ -930,6 +932,42 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
     }
 
     /// <summary>
+    ///     Checks the type of a graphics-stage parameter that names a pipeline-supplied value.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Only the recognised ones, and that asymmetry with the compute check is the point: a
+    ///         graphics stage's parameter list is mostly vertex attributes the host feeds, so an
+    ///         unrecognised semantic is <c>POSITION</c> or <c>TEXCOORD0</c> rather than a mistake.
+    ///         A compute stage has no attributes at all, so its table is closed and an unknown
+    ///         semantic there is <c>RVN2108</c>.
+    ///     </para>
+    ///     <para>
+    ///         The type is refused rather than converted, exactly as it is for a dispatch id:
+    ///         <c>SV_VertexID</c> is signed in both targets, so declaring it <c>uint</c> would put
+    ///         a conversion nobody wrote between the built-in and its first use.
+    ///     </para>
+    /// </remarks>
+    void ReportStageBuiltInIssues(MethodSymbol method) {
+        foreach (var parameter in method.Parameters) {
+            if (StageBuiltIns.Of(parameter.SemanticName, method.Stage) is not { } builtIn) {
+                continue;
+            }
+
+            if (!parameter.Type.IsErrorType && !ReferenceEquals(parameter.Type, builtIn.Type)) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.ComputeSemanticTypeMismatch,
+                    parameter.DeclaringSyntax?.GetLocation() ?? Location.None,
+                    builtIn.Semantic,
+                    builtIn.Type.ToDisplayString(),
+                    parameter.Name,
+                    parameter.Type.ToDisplayString()
+                );
+            }
+        }
+    }
+
+    /// <summary>
     ///     Checks that a compute entry point asks for nothing the stage cannot give it.
     /// </summary>
     /// <remarks>
@@ -958,24 +996,25 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
                     parameterLocation,
                     $"The parameter '{parameter.Name}'",
                     method.Name,
-                    $"vertex attributes to feed it; mark it with a dispatch built-in ({ComputeBuiltIns.Names})"
+                    $"vertex attributes to feed it; mark it with a dispatch built-in "
+                    + $"({StageBuiltIns.Names(ShaderStage.Compute)})"
                 );
                 continue;
             }
 
-            var builtIn = ComputeBuiltIns.Of(parameter.SemanticName);
+            var builtIn = StageBuiltIns.Of(parameter.SemanticName, ShaderStage.Compute);
 
-            if (builtIn == ComputeBuiltIn.None) {
+            if (builtIn is null) {
                 outerBinder.Diagnostics.Add(
                     SemanticDiagnostics.UnknownComputeSemantic,
                     parameterLocation,
                     parameter.SemanticName,
-                    ComputeBuiltIns.Names
+                    StageBuiltIns.Names(ShaderStage.Compute)
                 );
                 continue;
             }
 
-            var expected = ComputeBuiltIns.TypeOf(builtIn);
+            var expected = builtIn.Type;
 
             // An error type was already reported as unresolved; a second diagnostic about its
             // shape would only send the author somewhere else.

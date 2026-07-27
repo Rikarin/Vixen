@@ -309,11 +309,24 @@ sealed partial class SpirvEmitter {
 
         EmitStreamInterface();
 
-        var location = (uint)StreamPlan.ParameterBase(shader);
+        var locations = StreamPlan.InputLocations(shader, entryPoint);
 
-        foreach (var input in entryPoint.Inputs) {
+        for (var i = 0; i < entryPoint.Inputs.Count; i++) {
+            var input = entryPoint.Inputs[i];
             var variable = DeclareStageVariable(input, SpirvStorageClass.Input, "in_" + input.Name);
-            module.Decorate(variable, SpirvDecoration.Location, SpirvOperand.Literal(location++));
+
+            // `Location` and `BuiltIn` are mutually exclusive, so a pipeline-supplied value takes
+            // the second and the plan gave it no location to spend.
+            if (StageBuiltIns.Of(input.Semantic, entryPoint.Stage) is { } builtIn) {
+                module.Decorate(
+                    variable,
+                    SpirvDecoration.BuiltIn,
+                    SpirvOperand.Enumerant(SpirvBuiltIns.Of(builtIn.BuiltIn))
+                );
+            } else {
+                module.Decorate(variable, SpirvDecoration.Location, SpirvOperand.Literal((uint)locations[i]!.Value));
+            }
+
             inputs.Add((input, variable));
         }
 
@@ -349,7 +362,7 @@ sealed partial class SpirvEmitter {
             module.Decorate(
                 variable,
                 SpirvDecoration.BuiltIn,
-                SpirvOperand.Enumerant(SpirvBuiltIns.Of(ComputeBuiltIns.Of(input.Semantic)))
+                SpirvOperand.Enumerant(SpirvBuiltIns.Of(StageBuiltIns.Of(input.Semantic, ShaderStage.Compute)!.BuiltIn))
             );
 
             inputs.Add((input, variable));

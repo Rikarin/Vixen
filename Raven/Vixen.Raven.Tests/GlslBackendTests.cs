@@ -368,26 +368,21 @@ public class GlslBackendTests {
         Assert.Contains("vec3 At(Ray self, float t)", code);
     }
 
+    /// <summary>
+    ///     An unsized array is still refused here, though nothing written in Raven reaches it.
+    /// </summary>
+    /// <remarks>
+    ///     <c>RVN2126</c> now catches the declaration, which is where the fix is. This stays as a
+    ///     backstop for the one route that skips the binder — an unsized array decoded out of a
+    ///     <c>.rvnlib</c> — and is built from the IR directly, because there is no longer any source
+    ///     that produces one.
+    /// </remarks>
     [Fact]
     public void An_unsized_array_is_rejected_rather_than_emitted() {
-        Generate(
-            """
-            package A
-
-            shader S {
-                var lookup: int[]
-
-                [PixelShader]
-                func Pixel(): float4 {
-                    return float4(lookup[0], 0, 0, 1)
-                }
-            }
-
-            """,
-            out var diagnostics
+        Assert.Contains(
+            UnsizedArrayDiagnostics("glsl"),
+            d => d.Id == "RVN4001" && d.IsError
         );
-
-        Assert.Contains(diagnostics, d => d.Id == "RVN4001" && d.IsError);
     }
 
     /// <summary>

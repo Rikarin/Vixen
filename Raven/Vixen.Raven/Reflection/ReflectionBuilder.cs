@@ -273,7 +273,7 @@ public static class ReflectionBuilder {
             return [];
         }
 
-        var parameterBase = StreamPlan.ParameterBase(shader);
+        var locations = StreamPlan.InputLocations(shader, vertex);
 
         return [
             .. vertex.StreamInputs.Select(stream => new VertexInputInfo(
@@ -283,13 +283,19 @@ public static class ReflectionBuilder {
                     null
                 )
             ),
-            .. vertex.Inputs.Select((io, i) => new VertexInputInfo(
-                    parameterBase + i,
-                    io.Name,
-                    ShaderDataType.From(io.Type),
-                    io.Semantic
+
+            // A built-in has no location and nothing for the host to bind, so it is absent rather
+            // than listed with a placeholder: this list *is* the vertex layout.
+            .. vertex.Inputs
+                .Select((io, i) => (Io: io, Location: locations[i]))
+                .Where(entry => entry.Location is not null)
+                .Select(entry => new VertexInputInfo(
+                        entry.Location!.Value,
+                        entry.Io.Name,
+                        ShaderDataType.From(entry.Io.Type),
+                        entry.Io.Semantic
+                    )
                 )
-            )
         ];
     }
 

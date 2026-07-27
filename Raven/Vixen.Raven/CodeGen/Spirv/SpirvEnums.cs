@@ -91,34 +91,40 @@ public enum SpirvBuiltIn {
     FragCoord = 15,
     FragDepth = 22,
 
-    // The compute dispatch ids. Numbers are from the SPIR-V spec's BuiltIn table; the names
-    // are SPIR-V's, which differ from HLSL's semantics — see Symbols/ComputeBuiltIns.
+    // The stage-supplied values. Numbers are from the SPIR-V spec's BuiltIn table; the names
+    // are SPIR-V's, which differ from HLSL's semantics — see Symbols/StageBuiltIns.
     WorkgroupSize = 25,
     WorkgroupId = 26,
     LocalInvocationId = 27,
     GlobalInvocationId = 28,
-    LocalInvocationIndex = 29
+    LocalInvocationIndex = 29,
+    VertexIndex = 42,
+    InstanceIndex = 43
 }
 
 /// <summary>
-///     The SPIR-V built-in each dispatch semantic maps to.
+///     The SPIR-V built-in each stage semantic maps to.
 /// </summary>
 /// <remarks>
-///     Separate from <c>ComputeBuiltIns</c>'s GLSL mapping so that neither target's spelling is
-///     the one the other has to be derived from — but both read the same
-///     <see cref="Symbols.ComputeBuiltIn" />, so a built-in added in one place cannot be
-///     silently missing here.
+///     Separate from <c>StageBuiltIns</c>'s GLSL name so that neither target's spelling is the one
+///     the other has to be derived from — but both read the same
+///     <see cref="Symbols.StageBuiltIn" />, so a built-in added in one place cannot be silently
+///     missing here. Kept as an enumerant rather than flattened to its number, because that is
+///     what puts <c>BuiltIn VertexIndex</c> rather than <c>BuiltIn 42</c> in a listing.
 /// </remarks>
 public static class SpirvBuiltIns {
-    public static SpirvBuiltIn Of(Symbols.ComputeBuiltIn builtIn) =>
+    public static SpirvBuiltIn Of(Symbols.StageBuiltIn builtIn) =>
         builtIn switch {
-            Symbols.ComputeBuiltIn.DispatchThreadId => SpirvBuiltIn.GlobalInvocationId,
-            Symbols.ComputeBuiltIn.GroupId => SpirvBuiltIn.WorkgroupId,
-            Symbols.ComputeBuiltIn.GroupThreadId => SpirvBuiltIn.LocalInvocationId,
-            Symbols.ComputeBuiltIn.GroupIndex => SpirvBuiltIn.LocalInvocationIndex,
-            _ => throw new ArgumentOutOfRangeException(nameof(builtIn), builtIn, "Not a dispatch built-in.")
+            Symbols.StageBuiltIn.DispatchThreadId => SpirvBuiltIn.GlobalInvocationId,
+            Symbols.StageBuiltIn.GroupId => SpirvBuiltIn.WorkgroupId,
+            Symbols.StageBuiltIn.GroupThreadId => SpirvBuiltIn.LocalInvocationId,
+            Symbols.StageBuiltIn.GroupIndex => SpirvBuiltIn.LocalInvocationIndex,
+            Symbols.StageBuiltIn.VertexId => SpirvBuiltIn.VertexIndex,
+            Symbols.StageBuiltIn.InstanceId => SpirvBuiltIn.InstanceIndex,
+            _ => throw new ArgumentOutOfRangeException(nameof(builtIn), builtIn, "Not a stage built-in.")
         };
 }
+
 
 public enum SpirvFunctionControl {
     None = 0

@@ -68,6 +68,39 @@ public static class StreamPlan {
     public static int OutputBase(IrShader shader, ShaderStage stage) =>
         stage == ShaderStage.Pixel ? 0 : ParameterBase(shader);
 
+    /// <summary>
+    ///     The location each of a stage's own parameters occupies, in order — <c>null</c> for one
+    ///     the pipeline supplies rather than the host.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A built-in has no location: it arrives as <c>gl_VertexIndex</c> or a
+    ///         <c>BuiltIn</c>-decorated variable, and <c>Location</c> and <c>BuiltIn</c> are
+    ///         mutually exclusive decorations. So it must not <em>consume</em> one either — a
+    ///         <c>SV_VertexID</c> between two attributes would otherwise leave a hole in the vertex
+    ///         layout the host binds against.
+    ///     </para>
+    ///     <para>
+    ///         Here rather than counted independently in each of the two emitters and the
+    ///         reflection, for the reason the rest of this file exists: three copies of a numbering
+    ///         rule is three chances to disagree, and this one is invisible until a mesh renders
+    ///         with its normals in the tangent slot.
+    ///     </para>
+    /// </remarks>
+    public static ImmutableArray<int?> InputLocations(IrShader shader, IrEntryPoint entryPoint) {
+        ArgumentNullException.ThrowIfNull(shader);
+        ArgumentNullException.ThrowIfNull(entryPoint);
+
+        var locations = ImmutableArray.CreateBuilder<int?>(entryPoint.Inputs.Count);
+        var next = ParameterBase(shader);
+
+        foreach (var input in entryPoint.Inputs) {
+            locations.Add(StageBuiltIns.Of(input.Semantic, entryPoint.Stage) is null ? next++ : null);
+        }
+
+        return locations.ToImmutable();
+    }
+
     /// <summary>The location assigned to one stream, or -1 when the shader does not declare it.</summary>
     public static int LocationOf(IrShader shader, IrStream stream) {
         ArgumentNullException.ThrowIfNull(shader);

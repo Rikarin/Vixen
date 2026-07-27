@@ -7,6 +7,7 @@ using Vixen.Raven.CodeGen;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
+using Vixen.Raven.Symbols;
 using Vixen.Raven.Syntax;
 using Xunit;
 
@@ -47,6 +48,32 @@ public static class CodeGenTestBase {
         var generated = backend.Generate(module, bag);
         diagnostics = bag.ToArray();
         return generated;
+    }
+
+    /// <summary>
+    ///     Runs a backend over a module holding an unsized array, which no source can now produce.
+    /// </summary>
+    /// <remarks>
+    ///     <c>RVN2126</c> refuses the declaration, so the only route to an unsized array left is a
+    ///     <c>.rvnlib</c> decoded straight into the IR. Both backends still have to refuse it rather
+    ///     than emit something neither language has, and this is how that stays tested: the module
+    ///     is built by hand, exactly as such a library would arrive.
+    /// </remarks>
+    public static IReadOnlyList<Diagnostic> UnsizedArrayDiagnostics(string target) {
+        var shader = new IrShader("S");
+        var lookup = new IrVariable("lookup", new IrArrayType(IrScalarType.Int), IrVariableKind.Global);
+        shader.Add(new IrBinding(lookup, IrBindingKind.Uniform, 0, null));
+
+        var function = new IrFunction("Pixel", new IrVectorType(IrScalarType.Float, 4));
+        shader.Add(function);
+        shader.Add(new IrEntryPoint(ShaderStage.Pixel, function, [], [new("result", function.ReturnType, null)]));
+
+        var module = new IrModule("Test");
+        module.Add(shader);
+
+        var bag = new DiagnosticBag();
+        TargetBackends.Create(target)!.Generate(module, bag);
+        return bag.ToArray();
     }
 
     /// <summary>Generates and asserts the backend reported no errors.</summary>

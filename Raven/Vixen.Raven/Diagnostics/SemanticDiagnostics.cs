@@ -897,6 +897,34 @@ public static class SemanticDiagnostics {
         DiagnosticSeverity.Warning
     );
 
+    // --- Arrays ------------------------------------------------------------
+
+    /// <summary>An array type with no length.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The length is not a detail of an array type, it <em>is</em> part of it: SPIR-V's
+    ///         <c>OpTypeArray</c> takes a constant extent, GLSL writes one into the declaration,
+    ///         <c>ArrayStride</c> is computed from it, and the host reads it back to size the buffer
+    ///         it uploads. So there is nowhere an unsized array can go — not a binding, not a
+    ///         parameter (both targets pass arrays by value), not a local.
+    ///     </para>
+    ///     <para>
+    ///         Reported at the declaration rather than left to the backends' <c>RVN4001</c>, because
+    ///         the declaration is what has to change and there are exactly two ways to change it:
+    ///         give it a length, or make it a <c>Buffer&lt;T&gt;</c>, which is what a count the host
+    ///         decides actually is. Both backends said so twice with no source span between them,
+    ///         which is the shape worth removing rather than just the message.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor ArrayNeedsLength = new(
+        "RVN2126",
+        "Array type has no length",
+        "'{0}' has no length, and an array's length is part of its type on both targets. Give it one "
+        + "— '{1}[4]' — or declare it '{2}<{1}>', which is an array whose count the host decides",
+        Declaration,
+        DiagnosticSeverity.Error
+    );
+
     // --- Storage images ----------------------------------------------------
 
     /// <summary>A storage image whose element is not a four-lane texel.</summary>

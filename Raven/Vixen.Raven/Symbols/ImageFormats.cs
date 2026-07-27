@@ -69,7 +69,7 @@ public static class ImageFormats {
 
     /// <summary>The recognised format names, in the order a diagnostic should list them.</summary>
     /// <remarks>
-    ///     An array rather than the dictionary's keys, for the reason <c>ComputeBuiltIns.Names</c>
+    ///     An array rather than the dictionary's keys, for the reason <c>StageBuiltIns.Names</c>
     ///     is: this ends up in diagnostic text, and a message that varies between runs is a golden
     ///     test that fails for no reason.
     /// </remarks>

@@ -47,9 +47,9 @@ shader Deferred {
     /// semantic for it yet, so the id arrives as an ordinary vertex attribute the host supplies.
     [VertexShader]
     [Semantic("SV_Position")]
-    func Vertex(vertexIndex: float): float4 {
-        val x = mod(vertexIndex, 2f) * 4f - 1f
-        val y = floor(vertexIndex * 0.5f) * 4f - 1f
+    func Vertex([Semantic("SV_VertexID")] vertexIndex: int): float4 {
+        val x = float(vertexIndex % 2) * 4f - 1f
+        val y = float(vertexIndex / 2) * 4f - 1f
 
         uv = Transform.NdcToUv(float3(x, y, 0f))
         return float4(x, y, 0f, 1f)

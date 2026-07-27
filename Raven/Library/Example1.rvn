@@ -27,8 +27,10 @@ shader TestShader : ExampleBase, CustomShader {
     var albedo: Texture2D
     var albedoSampler: Sampler
 
-    var lookup: int[]
-    var grid: float[][]
+    // Sized, because a length is part of an array's type on both targets: an unsized array is
+    // RVN2126 wherever it is written, and a count the host decides is a `Buffer<T>` instead.
+    var lookup: int[4]
+    var grid: float[2][3]
 
     // Get-only. A shader's `var` is a binding the host uploads, so a setter would store into host
     // state — RVN2119, and a store both reference compilers reject. Everything mutable in this file

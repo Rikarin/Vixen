@@ -85,13 +85,17 @@ public class BindingTests {
 
     [Theory]
     [InlineData("numbers[0]", "int")]
-    [InlineData("numbers[1 .. 2]", "int[]")]
+    // A slice keeps the *source's* length rather than the range's, which is wrong — this one has
+    // two elements, not four. Harmless today because a range in value position is RVN3001 and never
+    // reaches a backend; pinned as it is rather than as it should be, so the day it starts to matter
+    // this test says so. See docs/plan/07 § J on ranges.
+    [InlineData("numbers[1 .. 2]", "int[4]")]
     [InlineData("v[0]", "float")]
     [InlineData("m[0]", "float3")]
     public void Indexing_yields_the_element_type(string expression, string expected) =>
         Assert.Equal(
             expected,
-            TypeOfExpression(expression, "    val numbers: int[]\n    val v: float3\n    val m: mat3\n")
+            TypeOfExpression(expression, "    val numbers: int[4]\n    val v: float3\n    val m: mat3\n")
         );
 
     [Fact]

@@ -270,20 +270,31 @@ sealed class GlslEmitter {
 
         EmitStreamInterface();
 
-        var location = StreamPlan.ParameterBase(shader);
+        var locations = StreamPlan.InputLocations(shader, entryPoint);
+        var declared = 0;
 
-        foreach (var input in entryPoint.Inputs) {
+        for (var i = 0; i < entryPoint.Inputs.Count; i++) {
+            var input = entryPoint.Inputs[i];
+
+            // A built-in is a variable GLSL already declares, so `main` passes it straight through
+            // — there is no `in` to write and no location to spend.
+            if (StageBuiltIns.Of(input.Semantic, entryPoint.Stage) is { } builtIn) {
+                inputNames.Add(builtIn.GlslName);
+                continue;
+            }
+
             RequireCarryable(input, true);
 
             var name = Reserve("in_" + input.Name);
             inputNames.Add(name);
+            declared++;
             writer.Line(
-                $"layout(location = {location++}) in {Declare(input.Type, name, input.Name)};"
+                $"layout(location = {locations[i]}) in {Declare(input.Type, name, input.Name)};"
                 + Comment(input.Semantic)
             );
         }
 
-        if (entryPoint.Inputs.Count > 0) {
+        if (declared > 0) {
             writer.Blank();
         }
 
@@ -352,7 +363,7 @@ sealed class GlslEmitter {
         writer.Blank();
 
         foreach (var input in entryPoint.Inputs) {
-            inputNames.Add(ComputeBuiltIns.GlslName(ComputeBuiltIns.Of(input.Semantic)));
+            inputNames.Add(StageBuiltIns.Of(input.Semantic, ShaderStage.Compute)!.GlslName);
         }
     }
 

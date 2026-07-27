@@ -177,8 +177,10 @@ public class SizedArrayTests {
         var inner = Assert.IsType<ArrayTypeSymbol>(outer.ElementType);
         Assert.Equal(3, inner.Length);
 
-        // `[,]` adds a dimension instead of a size, so there is nothing to be sized.
-        var rank2 = Assert.IsType<ArrayTypeSymbol>(FieldOf("var grid: float[,]", "grid").Type);
+        // `[,]` adds a dimension instead of a size, so there is nothing to be sized — and
+        // nothing to declare either, since an unsized array is RVN2126 wherever it is written.
+        // Built directly, because this is a fact about the symbol rather than about the language.
+        var rank2 = new ArrayTypeSymbol(BuiltInTypes.Float, 2);
         Assert.Equal(2, rank2.Rank);
         Assert.Null(rank2.Length);
     }
@@ -194,9 +196,10 @@ public class SizedArrayTests {
         Assert.True(length.IsConst);
         Assert.Equal(5, length.ConstantValue);
 
-        // And nothing is claimed for an unsized one.
+        // And nothing is claimed for an unsized one, which is a symbol nothing can declare —
+        // so it is built rather than bound.
         Assert.Null(
-            Assert.IsType<ArrayTypeSymbol>(FieldOf("var data: float[]", "data").Type)
+            new ArrayTypeSymbol(BuiltInTypes.Float)
                 .GetMembers()
                 .OfType<FieldSymbol>()
                 .Single(member => member.Name == "Length")
@@ -280,36 +283,33 @@ public class SizedArrayTests {
         Assert.Equal(6, LengthOfLocal("val ys = [1f, 2f]\n        val xs = [0f, ..ys, ..ys, 5f]"));
     }
 
-    /// <summary>A spread of an <em>unsized</em> array still cannot be flattened.</summary>
-    [Fact]
-    public void ASpreadOfAnUnsizedArrayIsRefusedByLowering() {
-        var bag = new DiagnosticBag();
+    /// <summary>
+    ///     An unsized array is refused where it is declared, which is the one place it can be fixed.
+    /// </summary>
+    /// <remarks>
+    ///     This used to be a lowering diagnostic about a spread that could not be flattened, reached
+    ///     by declaring <c>var loose: float[]</c> and spreading it. The declaration is now
+    ///     <c>RVN2126</c>, so the spread never gets that far — and the message says the two things
+    ///     that would fix it rather than naming a construct that was only the first to notice.
+    ///     Lowering keeps its guard for an unsized array arriving from a <c>.rvnlib</c>.
+    /// </remarks>
+    [Theory]
+    [InlineData("var loose: float[]")]
+    [InlineData("var grid: float[,]")]
+    [InlineData("func Take(xs: float[]): float => xs[0]")]
+    [InlineData("func Make(): float[] => [1f, 2f]")]
+    public void AnUnsizedArrayIsRefusedAtItsDeclaration(string member) {
         var compilation = Compilation.Create(
             "Test",
-            SyntaxTree.ParseText(
-                """
-                package A
-
-                shader S {
-                    var loose: float[]
-
-                    [PixelShader]
-                    [Semantic("SV_Target")]
-                    func Pixel(): float4 {
-                        val xs = [0f, ..loose]
-                        return float4(xs[0])
-                    }
-                }
-
-                """,
-                path: "Test.rvn"
-            )
+            SyntaxTree.ParseText($"package A\n\nshader S {{\n    {member}\n}}\n", path: "Test.rvn")
         );
 
-        Assert.Empty(compilation.GetDiagnostics());
-        Lowerer.Lower(compilation, bag);
+        var error = Assert.Single(compilation.GetDiagnostics(), d => d.Id == "RVN2126");
+        Assert.True(error.IsError);
 
-        Assert.Contains(bag.ToArray(), d => d.Id == "RVN3002" && d.IsError);
+        // Both ways out are named, because "not expressible" is not something an author can act on.
+        Assert.Contains("float[4]", error.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("Buffer<float>", error.GetMessage(), StringComparison.Ordinal);
     }
 
     // --- Lowering and layout ----------------------------------------------

@@ -12,21 +12,22 @@ import Vixen.Shaders.Geometry
 // the winding or the UV origin wrong.
 //
 // A triangle rather than a quad: three vertices instead of six, no diagonal seam where two triangles
-// meet, and the positions come out of the vertex index so there is no vertex buffer to bind.
+// meet, and the positions come out of `SV_VertexID` — so there is genuinely no vertex buffer to bind,
+// which is what the index being a pipeline built-in rather than an attribute buys.
 
 struct Fullscreen {
     /// Clip-space position for vertex 0, 1 or 2 of a viewport-covering triangle.
     ///
     /// The triangle is twice the viewport's size, so the visible region is its lower-left quarter and
     /// the UV mapping stays a plain 0..1 over the screen.
-    static func Position(vertexIndex: float): float4 {
-        val x = mod(vertexIndex, 2f) * 4f - 1f
-        val y = floor(vertexIndex * 0.5f) * 4f - 1f
+    static func Position(vertexIndex: int): float4 {
+        val x = float(vertexIndex % 2) * 4f - 1f
+        val y = float(vertexIndex / 2) * 4f - 1f
         return float4(x, y, 0f, 1f)
     }
 
     /// The UV for the same vertex, with the origin top-left.
-    static func Uv(vertexIndex: float): float2 {
+    static func Uv(vertexIndex: int): float2 {
         val position = Position(vertexIndex)
         return Transform.NdcToUv(position.xyz)
     }
