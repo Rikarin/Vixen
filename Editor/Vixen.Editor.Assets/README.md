@@ -78,6 +78,36 @@ shrug rather than a blocker. `FolderImporter` produces nothing — a folder is a
 where an addressable group is inherited from and where a GUID has to live so renaming a directory
 does not orphan everything under it.
 
+## The pipeline, and the key's chicken and egg
+
+`ImportPipeline` reads the sidecar, decides which importer claims the file, resolves the per-target
+overrides, hashes the source and the resolved settings, computes the key, and only then decides
+whether to run anything. Artefacts go into the content-addressed `ObjectDatabase`, so two assets that
+import to identical bytes are one chunk.
+
+**The key includes what the import depended on — which is only known once it has run.** So the key
+tested against is computed from what the *previous* import declared, and the key *stored* is
+recomputed from what this one actually declared. Storing the speculative key instead would mean every
+asset imported twice on a first build: the first run knew no dependencies, the second would know them
+and compute something different. A newly-declared dependency is therefore respected from the second
+import onwards, which is right — the first import is the one that ran.
+
+**The settings hash covers the author's settings, not the fields the import writes back.** An import
+records `sourceHash` and `version` into the sidecar when it finishes; hashing those would mean every
+import changed the thing it had just hashed and nothing would ever hit the cache. Both are already
+first-class parts of the key.
+
+**A failure writes nothing and discards nothing.** A record is a true statement about the input it
+was made from, so a failure on a *different* input does not falsify it — an author who breaks a file
+and reverts it should not pay for a re-import.
+
+**An importer that throws fails that asset and not the run** — the difference between "one bad asset"
+and "the editor won't open". The out-of-process worker doc 08 specifies takes this further by
+surviving a crash rather than an exception; this is the in-process half of the same promise.
+
+The sidecar is written back through the node tree, so an import is a diff of the two lines it changed
+and not of the whole file.
+
 ## Still to come
 
 The pipeline that ties this together — resolving overrides for a target, computing the key, checking

@@ -178,8 +178,14 @@ public sealed class PaletteImporter : AssetImporter<PaletteImportSettings> {
     /// <summary>Something to complain about, or <see langword="null" />.</summary>
     public string? Complaint { get; init; }
 
+    /// <summary>Whether to throw rather than return, standing in for a malformed file.</summary>
+    public bool Explode { get; init; }
+
+    /// <summary>What to report as its version, so a bump can be tested.</summary>
+    public int VersionOverride { get; init; } = 1;
+
     /// <inheritdoc />
-    public override int Version => 1;
+    public override int Version => VersionOverride;
 
     /// <inheritdoc />
     protected override async ValueTask<ImportResult> ImportAsync(
@@ -187,6 +193,10 @@ public sealed class PaletteImporter : AssetImporter<PaletteImportSettings> {
         PaletteImportSettings settings,
         CancellationToken cancellationToken
     ) {
+        if (Explode) {
+            throw new InvalidOperationException("this palette is malformed beyond recovery");
+        }
+
         if (Complaint is not null) {
             context.Report(ImportSeverity.Error, Complaint);
             return context.Finish();

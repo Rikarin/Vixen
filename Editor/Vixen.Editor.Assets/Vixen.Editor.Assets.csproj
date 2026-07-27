@@ -24,6 +24,7 @@
         <ProjectReference Include="..\..\Core\Vixen.Core.IO\Vixen.Core.IO.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
         <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
 
         <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
