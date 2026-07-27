@@ -151,12 +151,23 @@ public readonly struct BoundingSphere : IEquatable<BoundingSphere>, IFormattable
     /// <summary>Which side of a plane the sphere is on.</summary>
     /// <param name="plane">The plane.</param>
     /// <returns>The side, or <see cref="PlaneIntersectionType.Intersecting" /> if it straddles.</returns>
+    /// <remarks>
+    ///     Conservative at the boundary in the same way, and for the same reason, as
+    ///     <see cref="BoundingBox.Intersects(Plane)" /> — which is where the margin is derived.
+    /// </remarks>
     public PlaneIntersectionType Intersects(Plane plane) {
         var distance = plane.DotCoordinate(Center);
 
-        return distance > Radius
+        // Same shape as the box test, one term shorter: the radius is stored rather than computed
+        // from two corners, so only the cancelling dot product contributes an error the result
+        // cannot absorb. Sharing the scale keeps a sphere and its bounding box from disagreeing
+        // about which of them is tangent.
+        var margin = MathUtil.RoundingSlack
+            * (Radius + Vector3.Dot(Vector3.Abs(Center), Vector3.Abs(plane.Normal)) + MathF.Abs(plane.D));
+
+        return distance > Radius + margin
             ? PlaneIntersectionType.Front
-            : distance < -Radius
+            : distance < -Radius - margin
                 ? PlaneIntersectionType.Back
                 : PlaneIntersectionType.Intersecting;
     }

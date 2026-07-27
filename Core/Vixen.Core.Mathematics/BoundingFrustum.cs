@@ -102,6 +102,9 @@ public readonly struct BoundingFrustum : IEquatable<BoundingFrustum> {
     ///     is reported as <see cref="ContainmentType.Intersects" /> rather than
     ///     <see cref="ContainmentType.Disjoint" />. That costs an occasional draw call and never
     ///     costs a missing object, which is the right way round for a cull.
+    ///     The "never" leans on <see cref="BoundingBox.Intersects(Plane)" /> being conservative at
+    ///     the boundary too — any <see cref="PlaneIntersectionType.Back" /> becomes Disjoint here, so
+    ///     a box tangent to a plane that rounded to Back would vanish from the render.
     /// </remarks>
     public ContainmentType Contains(BoundingBox box) {
         var straddles = false;

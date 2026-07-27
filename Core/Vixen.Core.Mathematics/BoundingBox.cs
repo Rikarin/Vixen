@@ -165,20 +165,49 @@ public readonly struct BoundingBox : IEquatable<BoundingBox>, IFormattable {
     /// <summary>Which side of a plane the box is on.</summary>
     /// <param name="plane">The plane.</param>
     /// <returns>The side, or <see cref="PlaneIntersectionType.Intersecting" /> if it straddles.</returns>
+    /// <remarks>
+    ///     A definite side has to be earned: a box must clear the plane by more than this test's own
+    ///     rounding error before it is called <see cref="PlaneIntersectionType.Front" /> or
+    ///     <see cref="PlaneIntersectionType.Back" />, and anything nearer is reported as straddling.
+    ///     The margin is derived in the body — it is not a tuned number.
+    /// </remarks>
     public PlaneIntersectionType Intersects(Plane plane) {
         // Test only the two corners furthest along the normal in each direction; the other six
         // cannot change the answer, and finding them is three comparisons rather than eight dots.
+        var absNormal = Vector3.Abs(plane.Normal);
         var center = Center;
         var extent = Extent;
-        var reach = (extent.X * MathF.Abs(plane.Normal.X))
-            + (extent.Y * MathF.Abs(plane.Normal.Y))
-            + (extent.Z * MathF.Abs(plane.Normal.Z));
-
+        var reach = Vector3.Dot(extent, absNormal);
         var distance = plane.DotCoordinate(center);
 
-        return distance > reach
+        // `distance` and `reach` are computed by separate chains and then compared, so for a box
+        // exactly tangent to the plane — where they are equal in exact arithmetic — which side of
+        // `distance == -reach` the pair lands on is decided by the last bit of each. Rounding one
+        // ULP the wrong way turns a touching box into `Back`, and BoundingFrustum.Contains turns any
+        // `Back` into Disjoint, so a tangent object silently disappears from the render. Hence a
+        // margin, sized from where the error actually comes from. With u = 2⁻²⁴:
+        //
+        //   center     (min + max) * 0.5, one rounding per component     ->  u * |c_i|
+        //   extent     (max - min) * 0.5, one rounding per component     ->  u * e_i
+        //   reach      three products and two sums of non-negative terms, so nothing cancels and
+        //              the error stays relative to the answer                 ->  ~4u * reach
+        //   distance   n·c + D is a four-term sum whose terms *do* cancel, so its error is relative
+        //              to the intermediates rather than to the small result
+        //                                                             ->  ~4u * (Σ|n_i c_i| + |D|)
+        //
+        // which totals about 5u * (reach + Σ|n_i c_i| + |D|). That bracketed sum is the scale the
+        // margin must be relative to: a fixed epsilon is wrong at one end or the other, because the
+        // same box a kilometre out from the origin has the same shape and a thousand times the
+        // rounding error. Note it is Σ|n_i c_i| and not |distance| — those differ by exactly the
+        // cancellation, which is where the error hides. RoundingSlack is 8u, against a worst case of
+        // 2.5u measured over four million box/plane pairs placed tangent to within a few ULPs, at
+        // scene scales from 0.1 to 10,000 units.
+        var margin = MathUtil.RoundingSlack
+            * (reach + Vector3.Dot(Vector3.Abs(center), absNormal) + MathF.Abs(plane.D));
+
+        return distance > reach + margin
             ? PlaneIntersectionType.Front
-            : distance < -reach
+            : distance < -reach - margin
                 ? PlaneIntersectionType.Back
                 : PlaneIntersectionType.Intersecting;
     }

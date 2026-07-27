@@ -28,6 +28,19 @@ public static class MathUtil {
     /// </summary>
     public const float ZeroTolerance = 1e-6f;
 
+    /// <summary>
+    ///     The slack a predicate needs when it compares two quantities that were rounded
+    ///     independently: eight times <see cref="float" />'s unit roundoff of 2⁻²⁴, which is about
+    ///     the loss of a chain of half a dozen operations with room to spare.
+    /// </summary>
+    /// <remarks>
+    ///     Relative, not absolute — multiply it by the magnitudes that went into the computation
+    ///     rather than by the result. Cancellation can leave the result far below the intermediates
+    ///     that produced it, and it is the intermediates that set the error. See
+    ///     <see cref="BoundingBox.Intersects(Plane)" /> for a worked example of choosing that scale.
+    /// </remarks>
+    public const float RoundingSlack = 8f * 5.9604645e-08f;
+
     /// <summary>Converts degrees to radians.</summary>
     /// <param name="degrees">The angle in degrees.</param>
     /// <returns>The angle in radians.</returns>

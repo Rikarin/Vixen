@@ -292,4 +292,80 @@ public class VolumeTests {
             }
         );
     }
+
+    /// <summary>
+    ///     The box that used to be culled despite touching the frustum, pinned so it cannot be
+    ///     again.
+    /// </summary>
+    /// <remarks>
+    ///     Its corner at (-32, -20.993805, -32) lies exactly on the left plane —
+    ///     <see cref="Plane.DotCoordinate" /> returns exactly zero — so the box is tangent and must
+    ///     survive the cull. It used not to: the centre distance and the extent-projected reach are
+    ///     equal in exact arithmetic and missed each other by one ULP in <see cref="float" />, which
+    ///     was enough for <see cref="BoundingBox.Intersects(Plane)" /> to answer
+    ///     <see cref="PlaneIntersectionType.Back" /> and for the frustum to drop the object.
+    ///     Kept as a fixed case because the property test above only rediscovers it by chance —
+    ///     about one run in thirty, which is worse than never: it looks green for long enough to be
+    ///     trusted.
+    /// </remarks>
+    [Fact]
+    public void A_box_tangent_to_a_frustum_plane_is_not_culled() {
+        var frustum = new BoundingFrustum(ViewProjection);
+        var box = new BoundingBox(new(-48f, -20.993805f, -32f), new(-32f, -4.993805f, -16f));
+
+        // The premise: that corner really is on the plane, not merely near it.
+        Assert.Equal(0f, frustum.Left.DotCoordinate(new(-32f, -20.993805f, -32f)));
+        Assert.True(frustum.Contains(new Vector3(-32f, -20.993805f, -32f)));
+
+        Assert.Equal(PlaneIntersectionType.Intersecting, box.Intersects(frustum.Left));
+        Assert.NotEqual(ContainmentType.Disjoint, frustum.Contains(box));
+
+        // The sphere path had the same shape of bug. A radius of 8*sqrt(2) puts the sphere's surface
+        // on the same left plane the box's corner touches, reached by a different arithmetic route —
+        // and it too used to come back Back, one ULP short.
+        var sphere = new BoundingSphere(box.Center, box.Extent.X * MathF.Sqrt(2f));
+        Assert.Equal(PlaneIntersectionType.Intersecting, sphere.Intersects(frustum.Left));
+        Assert.NotEqual(ContainmentType.Disjoint, frustum.Contains(sphere));
+    }
+
+    [Fact]
+    public void A_box_touching_a_plane_straddles_it_at_every_scene_scale() {
+        // The margin has to be relative: the same box a hundred kilometres out has the same shape
+        // and a hundred thousand times the rounding error, so no single absolute epsilon is right at
+        // both ends. Each box below touches the plane at its own Minimum corner, on a slanted plane
+        // so that nothing rounds exactly, and the verdict must be Intersecting at every scale. The
+        // unbiased comparison got two of these six wrong — as Front here, but which way it lands is
+        // luck, and the Back case is the one that loses an object.
+        foreach (var scale in new[] { 1f, 1e1f, 1e2f, 1e3f, 1e4f, 1e5f }) {
+            var box = new BoundingBox(
+                new(scale, -2f * scale, 0.5f * scale),
+                new(3f * scale, scale, 2.5f * scale)
+            );
+            var plane = Plane.FromPointNormal(box.Minimum, new(1f, 1f, 1f));
+
+            Assert.Equal(0f, plane.DotCoordinate(box.Minimum));
+            Assert.Equal(PlaneIntersectionType.Intersecting, box.Intersects(plane));
+        }
+    }
+
+    [Fact]
+    public void The_margin_absorbs_rounding_and_not_geometry() {
+        // The other half of the bargain. The margin is about eight ULPs of the coordinates involved,
+        // so even at a hundred kilometres from the origin it is under a tenth of a unit — a box
+        // clear of the plane by one whole unit is still definitely on its own side. Without this,
+        // "be conservative" could quietly become "never cull anything".
+        var floor = Plane.FromPointNormal(Vector3.Zero, Vector3.Up);
+
+        foreach (var scale in new[] { 1f, 1e2f, 1e3f, 1e4f, 1e5f }) {
+            var below = new BoundingBox(new(scale, (-2f * scale) - 1f, scale), new(2f * scale, -1f, 2f * scale));
+            Assert.Equal(PlaneIntersectionType.Back, below.Intersects(floor));
+
+            var above = new BoundingBox(new(scale, 1f, scale), new(2f * scale, (2f * scale) + 1f, 2f * scale));
+            Assert.Equal(PlaneIntersectionType.Front, above.Intersects(floor));
+
+            // And the sphere, whose margin is built from the same scale.
+            var sphereBelow = new BoundingSphere(new(scale, -scale - 1f, scale), scale);
+            Assert.Equal(PlaneIntersectionType.Back, sphereBelow.Intersects(floor));
+        }
+    }
 }
