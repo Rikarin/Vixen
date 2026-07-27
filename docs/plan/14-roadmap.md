@@ -1268,7 +1268,31 @@ sub-piece has its own gate.
   1 — that last only after a test was written that could reach the guard, since `display: none`
   arrives as geometry rather than as a keyword and nothing else in the suite gave a hidden element
   anything to draw.
-- Owed in `Vixen.Ui`: focus and keyboard navigation, gestures, batching, path rendering, text runs,
+- ✅ **Focus, focus scopes and the tab order.** `Focusable`, `TabIndex` and `IsFocusScope` are
+  `[UiProperty]`s — the property system's first real user rather than a test of it — and `:focus` and
+  `:focus-within` are set on the style tree, so a focus ring is a stylesheet's business rather than a
+  special case in the renderer.
+
+  **HTML's tab order, faithfully rather than sanely.** A positive index comes before *every* zero, so
+  one element written at the bottom of a form jumps to the front of it; zero is document order;
+  negative is focusable but not a stop. Quietly reinterpreting this gives a tab order nobody can
+  predict from the markup. The sort is stable because two elements sharing a positive index must stay
+  in document order relative to each other — an unstable one changes the tab order with the number of
+  elements on the page, which is a bug nobody can reproduce.
+
+  Verified by sabotage: sorting positive indices among the zeroes fails 2, an unstable sort fails 2,
+  making negative indices stops fails 1, and ignoring focus scopes so Tab escapes a dialog fails 1.
+
+  ⚠ **Two sabotages failed to fail, and both were answered by changing what was written rather than
+  what runs.** One found **dead code**: `Collect` filtered on tab index, which the two buckets in
+  `TabOrder` already do, so a negative index was excluded twice — and a redundant test in a second
+  place is worse than none, because a reader believes the rule lives in both and keeps them in step.
+  The other found **a comment inventing a consequence**: the focus-state walk clears the old chain
+  before setting the new one, and the comment claimed this stopped a transition restarting. It does
+  not — state is only read during `Update`, which cannot run part-way through the method, so nothing
+  can observe the intermediate. The ordering is still the correct model; it is now labelled as
+  unobservable rather than as defended.
+- Owed in `Vixen.Ui`: gestures, arrow navigation, access keys, batching, path rendering, text runs,
   gradients, per-corner elliptical radii, virtualisation primitive, multi-window, DPI, and element
   removal.
 - `Vixen.Ui.Markup`: VXML lexer/parser on `Vixen.Core.Syntax`, binder, emitter, `#line` mapping.

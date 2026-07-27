@@ -21,8 +21,29 @@ top.
 | `UiDocument.HitTest` | What is under a point, front to back, with `pointer-events` and `overflow` honoured. |
 | `EventRouter` | Capture, target, bubble, `Handled`, and pointer capture. |
 | `DrawList`, `DrawListBuilder` | Backgrounds, borders, radii and clips as commands, diffed frame to frame. |
-| Focus, keyboard navigation, gestures | ⏳ |
+| `UiDocument.Focus`, `MoveFocus` | Focus, focus scopes, and HTML's tab order. |
+| Gestures, arrow navigation, access keys | ⏳ |
 | Batching, path rendering, text runs | ⏳ |
+
+## Focus
+
+`Focusable`, `TabIndex` and `IsFocusScope` are themselves `[UiProperty]`s, which is the property
+system's first real user rather than a test of it.
+
+**HTML's tab order, implemented faithfully rather than sanely.** A positive `TabIndex` comes before
+*every* zero, in numeric order — so one element written at the bottom of a form jumps to the front of
+it. Zero is document order; negative is focusable but not a stop. A framework that quietly
+reinterprets this produces a tab order nobody can predict from the markup.
+
+The sort is stable, and that is not decoration: two elements sharing a positive index must stay in
+document order relative to each other, or the tab order changes with how many elements are on the
+page — a bug nobody can reproduce.
+
+**Tab stays inside the innermost focus scope and wraps there**, which is what makes a dialog modal to
+the keyboard.
+
+`:focus` and `:focus-within` are set on the style tree, so a focus ring is a stylesheet's business
+rather than a special case in the renderer.
 
 ## The draw list
 

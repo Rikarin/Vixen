@@ -28,7 +28,7 @@ namespace Vixen.Ui;
 ///         Said plainly rather than left for someone to discover.
 ///     </para>
 /// </remarks>
-public sealed class UiDocument : IDisposable {
+public sealed partial class UiDocument : IDisposable {
     readonly List<UiElement> elements = [];
     readonly List<ComputedStyle?> appliedStyles = [];
     readonly List<float> appliedFontSizes = [];

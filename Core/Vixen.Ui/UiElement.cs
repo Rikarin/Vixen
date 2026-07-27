@@ -22,7 +22,7 @@ namespace Vixen.Ui;
 ///         anything.
 ///     </para>
 /// </remarks>
-public class UiElement {
+public partial class UiElement {
     readonly List<UiElement> children = [];
     List<HandlerRegistration>? handlers;
     UiDocument? document;
@@ -143,6 +143,44 @@ public class UiElement {
             Document.Invalidate();
         }
     }
+
+    /// <summary>Whether the focus can rest on it.</summary>
+    /// <remarks>
+    ///     False by default, because most elements are boxes. A control sets it, and setting it is
+    ///     what puts an element in the tab order — see <see cref="TabIndex" /> for the exception.
+    /// </remarks>
+    [UiProperty]
+    public partial bool Focusable { get; set; }
+
+    /// <summary>Where it comes in the tab order.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         HTML's rule, and it is stranger than it looks. <b>Zero</b> means "in the tab order, in
+    ///         document order", which is what almost everything wants. <b>Negative</b> means
+    ///         focusable by a click or by code but skipped by Tab — the escape hatch for a pane that
+    ///         can hold focus without being a stop on the way round. <b>Positive</b> means "before
+    ///         every zero, in numeric order", which is a foot-gun everyone who has used it regrets:
+    ///         one element with <c>tabindex="1"</c> jumps to the front of a form it was written at
+    ///         the bottom of.
+    ///     </para>
+    ///     <para>
+    ///         Implemented faithfully rather than sanely, because a UI framework that quietly
+    ///         reinterprets the rule produces a tab order nobody can predict from the markup.
+    ///     </para>
+    /// </remarks>
+    [UiProperty]
+    public partial int TabIndex { get; set; }
+
+    /// <summary>Whether tab navigation stays inside it.</summary>
+    /// <remarks>
+    ///     What makes a dialog modal to the keyboard. Tab moves within the innermost scope that
+    ///     contains the focus and wraps there rather than escaping into the window behind.
+    /// </remarks>
+    [UiProperty]
+    public partial bool IsFocusScope { get; set; }
+
+    /// <summary>Whether the focus is on it.</summary>
+    public bool IsFocused => ReferenceEquals(Document.Focused, this);
 
     /// <summary>Raised after any generated UI property changes.</summary>
     /// <remarks>
