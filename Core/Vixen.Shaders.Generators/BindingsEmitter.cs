@@ -152,12 +152,82 @@ static class BindingsEmitter {
         }
 
         if (uniforms is not null) {
+            EmitValueKeys(writer, shaderName, reflection, uniforms);
+
             writer.AppendLine();
             writer.AppendLine($"    /// <summary>The uniform block's size in bytes — what to allocate.</summary>");
             writer.AppendLine($"    public const int ConstantBufferSize = {uniforms.Binding.Size};");
         }
 
         writer.AppendLine("}");
+    }
+
+    /// <summary>
+    ///     A key per value in the uniform block, alongside the struct that writes the whole thing.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Two ways to fill one block, because two callers want different things. Code that knows
+    ///         the shader at compile time wants <c>…Constants</c>: assign fields, call
+    ///         <c>Write(Span&lt;byte&gt;)</c>, no lookups. Code that knows it only by <em>name</em> —
+    ///         a material read from an asset, a post-process node configured by a compositor document
+    ///         — has no generated type to assign to, and needs a <see cref="ParameterKey" /> it can
+    ///         set through a <c>ParameterCollection</c>. Without these it interns the key from a
+    ///         string, which works and gives up every guarantee interning exists for.
+    ///     </para>
+    ///     <para>
+    ///         <strong>The default comes from the shader.</strong> A key carries its default as bytes,
+    ///         and a buffer writer fills the parameters nobody set from it — so emitting
+    ///         <c>New&lt;float&gt;(name)</c> where the author wrote <c>= 1f</c> would put a zero where
+    ///         they asked for a one, in a block that is otherwise entirely correct.
+    ///     </para>
+    ///     <para>
+    ///         Arrays are skipped: a key's value is written whole, and a shader's array length is a
+    ///         ceiling a host fills to a different depth each frame. That case is what
+    ///         <c>…Constants</c>' nullable array field is for.
+    ///     </para>
+    /// </remarks>
+    static void EmitValueKeys(
+        StringBuilder writer,
+        string shaderName,
+        ShaderReflection reflection,
+        UniformBlockInfo uniforms
+    ) {
+        var values = reflection.Parameters
+            .Where(p => p.Set == uniforms.Set && p.Binding == uniforms.Binding.Index)
+            // A leaf of a struct array is skipped for the reason the constants struct skips it: its
+            // offset is element zero's, so a key for it would write one element of a table and look
+            // like it had written the table.
+            .Where(p => !p.Name.Contains("[]"))
+            .Where(p => !p.Type.IsArray && !p.Type.IsStruct && ShaderTypes.Name(p.Type) is not null)
+            .ToArray();
+
+        if (values.Length == 0) {
+            return;
+        }
+
+        writer.AppendLine();
+        writer.AppendLine("    // --- Value keys: what a name-driven caller fills the block through.");
+
+        foreach (var parameter in values) {
+            var type = ShaderTypes.Name(parameter.Type)!;
+            var name = ShaderTypes.Identifier(parameter.Name);
+            var value = ValueLiteral(parameter.Type, parameter.DefaultValue);
+
+            writer.AppendLine();
+            writer.AppendLine(
+                $"    /// <summary><c>{Escape(parameter.Name)}</c> at byte {parameter.Offset}"
+                + (value is null ? string.Empty : $", declared <c>{Escape(parameter.DefaultValue)}</c>")
+                + ".</summary>"
+            );
+
+            writer.AppendLine(
+                $"    public static readonly ParameterKey<{type}> {name} = ParameterKeys.New<{type}>("
+                + $"\"{Escape(Qualified(shaderName, parameter.Name))}\""
+                + (value is null ? string.Empty : $", {value}")
+                + ");"
+            );
+        }
     }
 
     static void EmitConstants(
@@ -357,6 +427,34 @@ static class BindingsEmitter {
             _ => (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i) ? i : 0)
                 .ToString(CultureInfo.InvariantCulture)
         };
+
+    /// <summary>
+    ///     A uniform's declared default as a C# literal, or null when there is nothing to spell.
+    /// </summary>
+    /// <remarks>
+    ///     Scalars only, which is all Raven reports: a non-const field's default comes from a literal
+    ///     initialiser, and <c>float2(0.001f, 0.001f)</c> is a call. Null rather than a zero literal
+    ///     when the text is absent or unparsable — the key then carries <c>default(T)</c>, which is
+    ///     what it carried before and is honestly "nobody said".
+    /// </remarks>
+    static string? ValueLiteral(DataType type, string value) {
+        if (string.IsNullOrEmpty(value) || type.IsArray || type.IsMatrix || type.Rows != 1 || type.Columns != 1) {
+            return null;
+        }
+
+        return type.Scalar switch {
+            "Bool" when bool.TryParse(value, out var b) => b ? "true" : "false",
+            "Int" when int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i) =>
+                i.ToString(CultureInfo.InvariantCulture),
+            "UInt" when uint.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var u) =>
+                u.ToString(CultureInfo.InvariantCulture) + "u",
+            "Float" when float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var f) =>
+                f.ToString("R", CultureInfo.InvariantCulture) + "f",
+            "Double" when double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var d) =>
+                d.ToString("R", CultureInfo.InvariantCulture) + "d",
+            _ => null
+        };
+    }
 
     static string Escape(string value) => value.Replace("\\", "\\\\").Replace("\"", "\\\"");
 }

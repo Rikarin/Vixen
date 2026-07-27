@@ -279,6 +279,90 @@ public class ReflectionTests {
         Assert.DoesNotContain("albedo", Describe(Material).Parameters.Select(p => p.Name));
 
     /// <summary>
+    ///     A uniform's initialiser is reported, because it is the <em>host's</em> default.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A uniform's initialiser never runs anywhere: the block arrives already filled. So
+    ///         <c>var exposure: float = 1f</c> is a statement about what a host should put there when
+    ///         it has nothing of its own to say — and until this was carried, a buffer writer filling
+    ///         only the parameters somebody set gave it zero, which is a black frame produced by a
+    ///         parameter nobody touched.
+    ///     </para>
+    ///     <para>
+    ///         Text in the invariant spelling, matching how a permutation's default is reported, so a
+    ///         generator that cannot reference this assembly reads one format for both.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_uniforms_initialiser_is_reported_as_its_default() {
+        var parameters = Describe(
+            """
+            package A
+
+            shader S {
+                var exposure: float = 2.5f
+                var samples: int = 8
+                var enabled: bool = true
+                var tint: float4
+
+                [PixelShader]
+                func Pixel(): float4 {
+                    return tint * exposure
+                }
+            }
+
+            """
+        ).Parameters;
+
+        Assert.Equal("2.5", Assert.Single(parameters, p => p.Name == "exposure").DefaultValue);
+        Assert.Equal("8", Assert.Single(parameters, p => p.Name == "samples").DefaultValue);
+        Assert.Equal("true", Assert.Single(parameters, p => p.Name == "enabled").DefaultValue);
+
+        // Nothing written is nothing reported, rather than a zero that looks authored.
+        Assert.Equal(string.Empty, Assert.Single(parameters, p => p.Name == "tint").DefaultValue);
+    }
+
+    /// <summary>
+    ///     A default belongs to the member the author wrote, not to a struct's fields.
+    /// </summary>
+    /// <remarks>
+    ///     The same struct used in two blocks would otherwise report two answers for one field, and
+    ///     which one it reported would depend on the order they were described in.
+    /// </remarks>
+    [Fact]
+    public void A_structs_fields_do_not_inherit_the_blocks_default() {
+        var parameters = Describe(
+            """
+            package A
+
+            struct Fog {
+                var density: float
+                var height: float
+            }
+
+            shader S {
+                var fog: Fog
+                var scale: float = 3f
+
+                [PixelShader]
+                func Pixel(): float4 {
+                    return float4(fog.density * scale, 0f, 0f, 1f)
+                }
+            }
+
+            """
+        ).Parameters;
+
+        Assert.Equal("3", Assert.Single(parameters, p => p.Name == "scale").DefaultValue);
+
+        Assert.All(
+            parameters.Where(p => p.Name.StartsWith("fog", StringComparison.Ordinal)),
+            p => Assert.Equal(string.Empty, p.DefaultValue)
+        );
+    }
+
+    /// <summary>
     ///     A struct array in a uniform block reports its element's layout once, under
     ///     <c>name[].field</c>, with the element stride on every leaf.
     /// </summary>

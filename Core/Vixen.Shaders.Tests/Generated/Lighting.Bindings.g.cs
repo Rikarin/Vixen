@@ -42,6 +42,26 @@ public static class LightingKeys {
     /// <summary>set 2, binding 3.</summary>
     public static readonly ParameterKey<global::Vixen.Graphics.BufferHandle> Overflow = ParameterKeys.New<global::Vixen.Graphics.BufferHandle>("Lighting.overflow");
 
+    // --- Value keys: what a name-driven caller fills the block through.
+
+    /// <summary><c>worldViewProjection</c> at byte 0.</summary>
+    public static readonly ParameterKey<global::Vixen.Core.Mathematics.Matrix4x4> WorldViewProjection = ParameterKeys.New<global::Vixen.Core.Mathematics.Matrix4x4>("Lighting.worldViewProjection");
+
+    /// <summary><c>normalMatrix</c> at byte 64.</summary>
+    public static readonly ParameterKey<global::Vixen.Core.Mathematics.Matrix3x3> NormalMatrix = ParameterKeys.New<global::Vixen.Core.Mathematics.Matrix3x3>("Lighting.normalMatrix");
+
+    /// <summary><c>ambient</c> at byte 112.</summary>
+    public static readonly ParameterKey<global::Vixen.Core.Mathematics.Vector3> Ambient = ParameterKeys.New<global::Vixen.Core.Mathematics.Vector3>("Lighting.ambient");
+
+    /// <summary><c>exposure</c> at byte 124, declared <c>1</c>.</summary>
+    public static readonly ParameterKey<float> Exposure = ParameterKeys.New<float>("Lighting.exposure", 1f);
+
+    /// <summary><c>lightCount</c> at byte 128, declared <c>2</c>.</summary>
+    public static readonly ParameterKey<int> LightCount = ParameterKeys.New<int>("Lighting.lightCount", 2);
+
+    /// <summary><c>enabled</c> at byte 132, declared <c>true</c>.</summary>
+    public static readonly ParameterKey<bool> Enabled = ParameterKeys.New<bool>("Lighting.enabled", true);
+
     /// <summary>The uniform block's size in bytes — what to allocate.</summary>
     public const int ConstantBufferSize = 336;
 }

@@ -60,6 +60,9 @@ sealed class Parameter {
     public int Size { get; set; }
     public int ArrayStride { get; set; }
     public int MatrixStride { get; set; }
+
+    /// <summary>The author's initialiser as text, or empty. See <c>ParameterInfo.DefaultValue</c>.</summary>
+    public string DefaultValue { get; set; } = string.Empty;
 }
 
 sealed class Permutation {

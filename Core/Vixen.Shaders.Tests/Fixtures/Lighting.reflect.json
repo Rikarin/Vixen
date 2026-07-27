@@ -76,7 +76,8 @@
               "Offset": 124,
               "Size": 4,
               "ArrayStride": 0,
-              "MatrixStride": 0
+              "MatrixStride": 0,
+              "DefaultValue": "1"
             },
             {
               "Name": "lightCount",
@@ -93,7 +94,8 @@
               "Offset": 128,
               "Size": 4,
               "ArrayStride": 0,
-              "MatrixStride": 0
+              "MatrixStride": 0,
+              "DefaultValue": "2"
             },
             {
               "Name": "enabled",
@@ -110,7 +112,8 @@
               "Offset": 132,
               "Size": 4,
               "ArrayStride": 0,
-              "MatrixStride": 0
+              "MatrixStride": 0,
+              "DefaultValue": "true"
             },
             {
               "Name": "weights",
@@ -508,7 +511,8 @@
       "Offset": 124,
       "Size": 4,
       "ArrayStride": 0,
-      "MatrixStride": 0
+      "MatrixStride": 0,
+      "DefaultValue": "1"
     },
     {
       "Name": "lightCount",
@@ -527,7 +531,8 @@
       "Offset": 128,
       "Size": 4,
       "ArrayStride": 0,
-      "MatrixStride": 0
+      "MatrixStride": 0,
+      "DefaultValue": "2"
     },
     {
       "Name": "enabled",
@@ -546,7 +551,8 @@
       "Offset": 132,
       "Size": 4,
       "ArrayStride": 0,
-      "MatrixStride": 0
+      "MatrixStride": 0,
+      "DefaultValue": "true"
     },
     {
       "Name": "weights",

@@ -102,13 +102,20 @@ public sealed record ShaderDataType(
 /// <param name="Size">Bytes the member occupies. A <c>float3</c> is 12 even though it aligns to 16.</param>
 /// <param name="ArrayStride">Bytes between array elements, or 0 when not an array.</param>
 /// <param name="MatrixStride">Bytes between matrix columns, or 0 when not a matrix.</param>
+/// <param name="DefaultValue">
+///     The initialiser the author wrote, as text, or empty. Only a top-level block member has one:
+///     a nested field's default belongs to the struct that declares it, and the same struct used in
+///     two blocks would otherwise report two answers. Text for the same reason
+///     <see cref="PermutationInfo.DefaultValue" /> is — see <see cref="ParameterInfo.DefaultValue" />.
+/// </param>
 public sealed record MemberInfo(
     string Name,
     ShaderDataType Type,
     int Offset,
     int Size,
     int ArrayStride,
-    int MatrixStride
+    int MatrixStride,
+    string DefaultValue = ""
 );
 
 /// <summary>One binding within a descriptor set.</summary>
@@ -242,6 +249,23 @@ public sealed record ValueParameterInfo(string Name, ShaderDataType Type);
 /// <param name="Size">Bytes occupied.</param>
 /// <param name="ArrayStride">Bytes between array elements, or 0.</param>
 /// <param name="MatrixStride">Bytes between matrix columns, or 0.</param>
+/// <param name="DefaultValue">
+///     What the author initialised it to, as text, or empty when it had no initialiser or a computed
+///     one.
+///
+///     <para>
+///         This is the <em>host's</em> default, not the shader's: a uniform block arrives already
+///         filled, so a uniform's initialiser never runs anywhere. It says what a host should put
+///         there when it has nothing of its own — and a writer that filled only the parameters
+///         somebody set would give <c>var exposure: float = 1f</c> the value zero, which is a black
+///         frame produced by a parameter nobody touched.
+///     </para>
+///     <para>
+///         Text rather than a typed value, for the reason <see cref="PermutationInfo.DefaultValue" />
+///         is: the schema crosses to a source generator that cannot reference this assembly, and one
+///         invariant spelling is easier to agree on than a union.
+///     </para>
+/// </param>
 public sealed record ParameterInfo(
     string Name,
     ShaderDataType Type,
@@ -250,7 +274,8 @@ public sealed record ParameterInfo(
     int Offset,
     int Size,
     int ArrayStride,
-    int MatrixStride
+    int MatrixStride,
+    string DefaultValue = ""
 );
 
 /// <summary>

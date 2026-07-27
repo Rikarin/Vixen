@@ -512,9 +512,11 @@ many a device will create, which turns "make one where you need one" from wastef
 **`EffectConstants`** fills an effect's uniform block from a `ParameterCollection`, using the offset
 table `Effect.Parameters` has carried since the effect system was written. **Every parameter is
 written, not only the ones somebody set**: `var exposure: float = 1f` arriving as zero is a black
-frame that nothing anywhere reports, so the default comes off the key. It re-uploads only when the
-values change — which needed a fix one level down, since `ParameterCollection.Set` used to move the
-version even when the value was identical, and a post chain reconfigures itself every frame.
+frame that nothing anywhere reports, so the default comes off the key — which meant carrying the
+author's initialiser the whole way from Raven's lowering, through the reflection, into the generated
+literal. It re-uploads only when the values change, which needed a fix one level down:
+`ParameterCollection.Set` used to move the version even when the value was identical, and a post chain
+reconfigures itself every frame.
 
 ### The depth prepass, and what actually made it one
 
@@ -577,11 +579,11 @@ A post-process node is built in code, not authored: `FullScreenRenderer` and `Bl
 entry in the compositor asset, for the same reason bindings do not — a binding index is a shader's
 decision and a sampler is a device handle. Closing the binding-plan gap closes both at once.
 
-**The generator does not pass a value key's declared default.** `BindingsEmitter` emits
-`ParameterKeys.New<T>("Shader.name")` with no default, so `DefaultBytes` for a generated key is zeros
-even where the shader declared otherwise. `EffectConstants` does the right thing with whatever the key
-carries; what is missing is the default reaching the key. Until it does, a post node has to set
-anything it cares about explicitly — which is what `BloomRenderer` does.
+A post node still interns its parameter keys from strings. The generator now emits a
+`ParameterKey` per value in a shader's uniform block, carrying the default the shader declared — but
+nothing yet runs it over `Raven/Library`, so `BloomRenderer` spells `"Bloom.texelSize"` by hand rather
+than naming `BloomKeys.TexelSize`. The names are the ones the generator would produce, which is the
+most that can be true until the library is part of a content build.
 
 Bloom has no lens flare and no light streak, and the tonemap pass has no grading LUT as an asset —
 the shader takes one, nothing loads one.
