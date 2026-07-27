@@ -669,8 +669,10 @@ the codebase is large enough for it to be expensive to fix.
 - `Samples/07-AddressablesRemote`.
 
 **Exit:** `Samples/01` runs on a physical Android device and a physical iPhone. 🟡 **It runs on the
-iOS Simulator and the Android emulator** — same game class, one head each, and on iOS a screenshot of
-the triangle. Physical devices are what is left: an iPhone needs a provisioning profile, which is an
+iOS Simulator and the Android emulator** — same game class, one head each, and a screenshot of the
+triangle on both. The Android emulator must be started with `-gpu swiftshader_indirect`: its
+host-GPU path reports every step succeeding and presents nothing, which is the emulator's and not
+the engine's. Physical devices are what is left: an iPhone needs a provisioning profile, which is an
 Apple account rather than a build setting, and no Android device is attached.
 
 Running it is what found the bug the AOT gate could not — a delegate-to-function-pointer thunk that

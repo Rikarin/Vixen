@@ -91,17 +91,24 @@ say"; inferring heat from throttling is inferring the cause from the symptom.
 
 ## Owed
 
-**It runs, on the emulator.** `Samples/01-HelloTriangle.Android` reaches a Vulkan device on the
-device's own `libvulkan.so`, builds a swapchain from the `ANativeWindow` this assembly hands over, and
-queues frames that SurfaceFlinger imports as gralloc buffers at 1080×2400 RGBA8888. The lazy
+**It runs, on the emulator — and the emulator's GPU mode decides whether you can see it.**
+`Samples/01-HelloTriangle.Android` reaches a Vulkan device on the device's own `libvulkan.so`, builds
+a swapchain from the `ANativeWindow` this assembly hands over, and draws the triangle. The lazy
 device-creation path is exercised exactly as designed: "no window to present to" once, then the
 surface arrives and the device is built.
 
-**The picture itself is unconfirmed.** `adb exec-out screencap` does not capture a hardware-composed
-`SurfaceView` on the emulator, so what is verified is the buffers reaching the compositor rather than
-a screenshot. A physical device would settle it. A `SetZOrderOnTop(true)` was tried and reverted: it
-changed what `screencap` shows and nothing about what is produced, so it was a guess rather than a
-fix.
+> ⚠ **Start the emulator with `-gpu swiftshader_indirect`.**
+>
+> With the default `-gpu host`, everything reports success — device created, swapchain built, buffers
+> queued and imported by SurfaceFlinger at 1080×2400 RGBA8888, ninety per cent CPU — **and the screen
+> stays blank**. The same APK on the same emulator with SwiftShader draws the triangle. So the
+> emulator's GFXStream host-GPU path does not present a `SurfaceView`-backed Vulkan swapchain, and
+> nothing about it is this engine's doing.
+>
+> That cost an hour and two wrong fixes: a `SetZOrderOnTop(true)` and a null window background, both
+> reasoned from the symptom, both reverted. What settled it was changing the *one* variable neither
+> touched. Worth remembering the next time an Android surface is invisible: rule out the emulator
+> before rewriting the view.
 
 **Packaging is a `dotnet build` away and not more.** Installing the APK by hand needs
 `-p:EmbedAssembliesIntoApk=true`, because a Debug build otherwise relies on Fast Deployment pushing
