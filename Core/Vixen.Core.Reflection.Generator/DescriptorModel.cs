@@ -12,6 +12,7 @@ readonly record struct DescribedMember(
     int Order,
     bool CanRead,
     bool CanWrite,
+    bool IsInitOnly,
     string? Category,
     string? DisplayName,
     string? Tooltip,

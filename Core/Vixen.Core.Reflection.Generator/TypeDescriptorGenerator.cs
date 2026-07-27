@@ -149,6 +149,7 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
             ITypeSymbol memberType;
             bool canRead;
             bool canWrite;
+            var isInitOnly = false;
 
             switch (member) {
                 case IFieldSymbol { IsConst: false } field:
@@ -160,7 +161,13 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
                 case IPropertySymbol { IsIndexer: false } property when property.Name != "EqualityContract":
                     memberType = property.Type;
                     canRead = property.GetMethod is { DeclaredAccessibility: Accessibility.Public };
-                    canWrite = property.SetMethod is { DeclaredAccessibility: Accessibility.Public, IsInitOnly: false };
+                    canWrite = property.SetMethod is { DeclaredAccessibility: Accessibility.Public };
+
+                    // An init-only setter is still a setter; it is only the *language* that refuses
+                    // to call it outside an object initializer. [UnsafeAccessor] binds to it
+                    // directly, which is what lets a `{ get; init; }` record — the shape doc 08 uses
+                    // for every importer's settings — be built from a .meta file at all.
+                    isInitOnly = canWrite && property.SetMethod!.IsInitOnly;
                     break;
 
                 default:
@@ -177,13 +184,21 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
                     memberType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
                     order++,
                     canRead,
-                    canWrite
+                    canWrite,
+                    isInitOnly
                 )
             );
         }
     }
 
-    static DescribedMember Describe(ISymbol member, string typeName, int order, bool canRead, bool canWrite) {
+    static DescribedMember Describe(
+        ISymbol member,
+        string typeName,
+        int order,
+        bool canRead,
+        bool canWrite,
+        bool isInitOnly
+    ) {
         string? category = null;
         string? displayName = null;
         string? tooltip = null;
@@ -245,6 +260,7 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
             order,
             canRead,
             canWrite,
+            isInitOnly,
             category,
             displayName,
             tooltip,
@@ -392,8 +408,15 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
                 ? $"global::System.Runtime.CompilerServices.Unsafe.Unbox<{model.QualifiedName}>(instance)"
                 : $"(({model.QualifiedName})instance)";
 
+            // An init-only setter cannot be called from an assignment — the language forbids it
+            // outside an object initializer — so it goes through the [UnsafeAccessor] emitted below.
+            // Same setter, reached the only way there is; nothing here is reflection, and it survives
+            // trimming and NativeAOT like the rest of this file.
             var setter = member.CanWrite
-                ? $"static (instance, value) => {target}.{member.Name} = ({member.TypeName})value"
+                ? member.IsInitOnly
+                    ? $"static (instance, value) => Init_{model.SafeName}_{member.Name}("
+                    + $"{(model.IsValueType ? "ref " : string.Empty)}{target}, ({member.TypeName})value)"
+                    : $"static (instance, value) => {target}.{member.Name} = ({member.TypeName})value"
                 : "null";
 
             source.AppendLine("                new(");
@@ -407,8 +430,10 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
                 + $"{Quote(member.Category)}, {Quote(member.DisplayName)}, {Quote(member.Tooltip)}, "
                 + $"{Number(member.Minimum)}, {Number(member.Maximum)}, "
                 + $"{member.Step.ToString("R", CultureInfo.InvariantCulture)}d, "
-                + $"{Lower(member.Logarithmic)}, {Lower(member.IsEditorVisible)}, {Lower(member.IsEditorReadOnly)})"
+                + $"{Lower(member.Logarithmic)}, {Lower(member.IsEditorVisible)}, {Lower(member.IsEditorReadOnly)}),"
             );
+
+            source.AppendLine($"                    {Lower(member.IsInitOnly)}");
             source.AppendLine("                ),");
         }
 
@@ -423,6 +448,37 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
         );
 
         source.AppendLine("        );");
+        EmitInitAccessors(source, model);
+    }
+
+    /// <summary>
+    ///     One <c>[UnsafeAccessor]</c> per init-only member, bound to the setter the language will
+    ///     not let anyone call.
+    /// </summary>
+    /// <remarks>
+    ///     A value type takes <c>ref</c>, so the write lands in the box the caller handed over rather
+    ///     than in a copy — the same reason the ordinary setter unboxes.
+    /// </remarks>
+    static void EmitInitAccessors(StringBuilder source, DescriptorModel model) {
+        foreach (var member in model.Members) {
+            if (member is not { CanWrite: true, IsInitOnly: true }) {
+                continue;
+            }
+
+            var receiver = model.IsValueType ? $"ref {model.QualifiedName}" : model.QualifiedName;
+
+            source.AppendLine();
+            source.AppendLine(
+                "        [global::System.Runtime.CompilerServices.UnsafeAccessor("
+                + "global::System.Runtime.CompilerServices.UnsafeAccessorKind.Method, "
+                + $"Name = \"set_{member.Name}\")]"
+            );
+
+            source.AppendLine(
+                $"        static extern void Init_{model.SafeName}_{member.Name}("
+                + $"{receiver} instance, {member.TypeName} value);"
+            );
+        }
     }
 
     static string Lower(bool value) => value ? "true" : "false";

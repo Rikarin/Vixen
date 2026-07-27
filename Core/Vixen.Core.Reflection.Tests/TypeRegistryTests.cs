@@ -87,6 +87,60 @@ public class TypeRegistryTests {
         Assert.Equal(3f, ((Velocity)boxed).DeltaX);
     }
 
+    /// <summary>
+    ///     An <c>init</c> setter is still a setter; only the language refuses to call it outside an
+    ///     object initializer. A deserializer reading a <c>.meta</c> file has no initializer to write
+    ///     it in, and the settings records
+    ///     [08](../../docs/plan/08-asset-pipeline-and-addressables.md) specifies are all this shape,
+    ///     so the generator binds to it through <c>[UnsafeAccessor]</c>.
+    /// </summary>
+    [Fact]
+    public void AnInitOnlyMemberIsWrittenThroughAnUnsafeAccessor() {
+        Assert.True(TypeRegistry.TryGet<ImportSettings>(out var descriptor));
+        var settings = new ImportSettings();
+
+        var maxSize = descriptor.FindMember("MaxSize")!;
+        Assert.True(maxSize.CanWrite);
+        Assert.True(maxSize.IsInitOnly);
+        Assert.Equal(2048, maxSize.GetValue(settings));
+
+        maxSize.SetValue(settings, 512);
+        descriptor.FindMember("Compression")!.SetValue(settings, "Astc6x6");
+
+        Assert.Equal(512, settings.MaxSize);
+        Assert.Equal("Astc6x6", settings.Compression);
+    }
+
+    /// <summary>And on a struct it has to land in the box, like every other setter here.</summary>
+    [Fact]
+    public void AnInitOnlyMemberOnABoxedStructReachesTheBox() {
+        Assert.True(TypeRegistry.TryGet<Extent>(out var descriptor));
+        object boxed = new Extent();
+
+        descriptor.FindMember("Width")!.SetValue(boxed, 1920);
+        descriptor.FindMember("Height")!.SetValue(boxed, 1080);
+
+        Assert.Equal(1920, ((Extent)boxed).Width);
+        Assert.Equal(1080, ((Extent)boxed).Height);
+    }
+
+    /// <summary>
+    ///     Reaching <c>init</c> setters must not make everything settable: a get-only property has no
+    ///     setter to bind to, and a plain <c>set</c> is not init-only.
+    /// </summary>
+    [Fact]
+    public void InitOnlyIsRecordedSeparatelyFromWritableAndFromUnwritable() {
+        Assert.True(TypeRegistry.TryGet<ImportSettings>(out var descriptor));
+
+        var streaming = descriptor.FindMember("Streaming")!;
+        Assert.True(streaming.CanWrite);
+        Assert.False(streaming.IsInitOnly);
+
+        var derived = descriptor.FindMember("IsHighResolution")!;
+        Assert.False(derived.CanWrite);
+        Assert.False(derived.IsInitOnly);
+    }
+
     [Fact]
     public void AMemberWithNoSetterIsDescribedButRefusesToBeWritten() {
         Assert.True(TypeRegistry.TryGet<Health>(out var descriptor));

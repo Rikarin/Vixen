@@ -46,6 +46,14 @@ arbitrary members on a platform where `System.Reflection`'s member access has be
 frame-loop API: it is for tooling, inspection and boot-time discovery, where one allocation per
 property read is invisible. Frame code uses the generated serializer or touches the field directly.
 
+**An `init` setter is reached through `[UnsafeAccessor]`.** `{ get; init; }` is the shape doc 08 uses
+for every importer's settings record, and a deserializer reading a `.meta` file has no object
+initializer to write it in — so the generator binds to the setter directly rather than declaring the
+member unwritable. `IsInitOnly` records the distinction, because a *tool* may reasonably want to
+behave differently: an inspector editing an immutable record probably wants to rebuild it with `with`
+and raise a change event rather than write through the box behind everyone's back. Nothing here is
+reflection; `[UnsafeAccessor]` is bound at compile time and survives trimming like the rest.
+
 **A struct's setter reaches into the box.** Assigning through a cast would modify a temporary copy
 and silently do nothing, so the generator emits `Unsafe.Unbox<T>(instance).X = …` for value types.
 The caller sees the change on the object it handed over, which is what an inspector editing a boxed

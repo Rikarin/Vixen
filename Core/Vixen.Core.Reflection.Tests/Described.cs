@@ -73,3 +73,28 @@ public sealed class Anchored {
 
     public int Target { get; set; }
 }
+
+/// <summary>
+///     The shape [08](../../docs/plan/08-asset-pipeline-and-addressables.md) uses for every
+///     importer's settings: an immutable record with defaults, which a deserializer has to be able to
+///     fill in without an object initializer to write it in.
+/// </summary>
+[DataContract("TextureImportSettings")]
+public sealed record ImportSettings {
+    public int MaxSize { get; init; } = 2048;
+
+    public string Compression { get; init; } = "Bc7";
+
+    /// <summary>Mixed with the init-only ones, because a real settings record is.</summary>
+    public bool Streaming { get; set; } = true;
+
+    /// <summary>Genuinely unwritable, so <c>init</c> support must not make everything settable.</summary>
+    public bool IsHighResolution => MaxSize > 1024;
+}
+
+/// <summary>An init-only member on a struct, where the write has to land in the box.</summary>
+[DataContract]
+public struct Extent {
+    public int Width { get; init; }
+    public int Height { get; init; }
+}
