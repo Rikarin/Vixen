@@ -322,8 +322,11 @@ Vulkan validation clean under lavapipe in CI. Zero-allocation gate green for an 
   aged in `PostRender` after a renderer would have drained). 9 tests. **The drawing is owed**, and
   needs a renderer; a subsystem written against this today needs no change when it arrives. The
   diagnostic overlays from [13](13-diagnostics.md) wait on the same thing.
-- ⬜ ImGui debug overlay behind `VIXEN_DEBUG_IMGUI`. **Not started**, and deliberately last: it is a
-  scaffold this plan already schedules for deletion in Phase 6, and it needs the same renderer.
+- ~~ImGui debug overlay behind `VIXEN_DEBUG_IMGUI`~~ **cut, not deferred.** This plan already
+  scheduled it for deletion in Phase 6, so building it would have meant standing up a second
+  immediate-mode renderer, a font atlas and an input bridge in order to throw all three away. The
+  editor shell is the thing that was ever going to show this information; `DebugDraw` covers the
+  in-world half in the meantime. Phase 6's "delete the ImGui scaffold" step is struck with it.
 - ✅ Ported Arch benchmarks in `Benchmarks/Vixen.Benchmarks.Ecs`. Two findings, both of which changed
   code: the obvious chunk loop keeps its bounds checks and is 34% slower than the generated
   per-entity forms (bounding by the span's own length makes it the fastest form instead), and
@@ -337,10 +340,13 @@ frame. ✅ `Behavior` lifecycle golden-ordering test green. ✅ Determinism test
 input log, 10 000 steps, one running direct and the other through a command buffer's parallel writer,
 compared by `WorldDigest` throughout.
 
-**Not met:** the drawing half of `DebugDraw`, the [13](13-diagnostics.md) overlays, and the ImGui
-scaffold. Phase 2's goal line says "rendering nothing but debug lines", and nothing renders yet —
-that is the one part of this phase Phase 4 has to carry, and all three of these are waiting on the
-same pipeline rather than on each other.
+**Not met:** the drawing half of `DebugDraw` and the [13](13-diagnostics.md) overlays, both waiting
+on a renderer — Phase 2's goal line says "rendering nothing but debug lines" and nothing renders yet,
+which is the one part of this phase Phase 4 has to carry.
+
+**Also owed, and a genuine omission rather than a deferral:** the `await NextFrame()` /
+`await Seconds()` coroutine surface [04](04-ecs-and-scripting.md) § Layer 3 specifies for `Behavior`.
+It is not blocked by anything — see the note there.
 
 ---
 
@@ -491,7 +497,7 @@ the shipping projects; a `.rvn` edit reparsing incrementally; the differential o
 - `Vixen.Editor.Profiler` + `.Debugger` (frame graph, frame debugger, memory view, remote inspector).
 - `Vixen.Editor.Plugin` with `AssemblyLoadContext` loading.
 - Editor UI automation harness + golden screenshots.
-- **Delete the ImGui scaffold.**
+- ~~Delete the ImGui scaffold.~~ There is none: it was cut in Phase 2 rather than built.
 - `PublishEditor`, signing, notarisation, `.dmg`/AppImage/MSI.
 
 **Exit:** the editor opens a project, imports assets, edits a scene, saves, builds content, and runs

@@ -260,9 +260,17 @@ need throughput. Both are first-class and documented as such.
 >   distinct archetype. The hierarchy is rebuilt from recorded indices rather than remapped, because
 >   remapping would need to know which fields of which components are entity handles.
 >
-> **Owed:** `DebugDraw` and the ImGui scaffold, both of which need a renderer; prefab
-> variants/overrides, which this document already schedules explicitly; and the `IWorldCommand`
-> undo/redo vocabulary, which arrives with the editor.
+> **Owed:** the drawing half of `DebugDraw`, which needs a renderer; prefab variants/overrides, which
+> this document already schedules explicitly; and the `IWorldCommand` undo/redo vocabulary, which
+> arrives with the editor. The ImGui scaffold is **cut** — see [14](14-roadmap.md) § Phase 2.
+>
+> **And the coroutines, which are an omission rather than a deferral.** The `Coroutines` row above is
+> the one part of Layer 3 that was specified and not built, and nothing blocks it: it wants a
+> frame-synchronous continuation queue drained at a phase boundary, awaitables that carry the
+> behaviour's cancellation token, and a pooled async method builder. Two properties this phase now
+> measures constrain its design rather than merely suggesting one — continuations must resume in a
+> deterministic order, and the state machines must not allocate per frame, or the determinism and
+> zero-Gen0 exit criteria stop holding the moment anyone uses it.
 
 **Component data lives in ECS. Behaviour holds no state that isn't either a component or private
 scratch.** Enforced by an analyzer: a public/`[Inspector]` field on a `Behavior` is either a
