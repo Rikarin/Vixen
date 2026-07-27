@@ -428,10 +428,16 @@ h.Release();                   // ref-count decrement; unloads at zero
 // batch / label
 await Assets.LoadByLabelAsync<Texture>("ui");
 await Assets.PreloadAsync(["level1/*"]);           // glob over the catalog
-long bytes = await Assets.GetDownloadSizeAsync("dlc-pack-2");
-await Assets.DownloadDependenciesAsync("dlc-pack-2", progress);
-Assets.ClearDependencyCache("dlc-pack-2");
+long bytes = Assets.DownloadSize("dlc-pack-2/*");            // built: synchronous, see below
+await Assets.DownloadAsync(["dlc-pack-2/*"], progress);
+Assets.ClearCache("dlc-pack-2/*");
 ```
+
+**As built, three of these differ from the sketch above.** `DownloadSize` is synchronous: it is a
+catalog lookup plus a length check per bundle, all local, and making it a `Task` would add a state
+machine to a call a UI thread can make between frames. The other two dropped `Dependencies` from
+their names because they never took a single key — every one of them operates on a closure of
+addresses, which is what "dependencies" was trying to say.
 
 - **Ref-counted with explicit release**, plus a scope helper (`using var scope = Assets.Scope();`) that
   releases everything acquired in it. Unity's `Addressables` release semantics are a documented source

@@ -396,6 +396,17 @@ the codebase is large enough for it to be expensive to fix.
   scopes take the loads rather than capturing them ambiently — doc 08's sketch does not survive an
   `await`, and the reason is written where the type is. **Owed:** content references, so a
   dependency's deserialised object is shared and not just its bundle and lifetime.
+- ✅ Remote content: `IContentTransport` (HTTP, with byte ranges), `BundleCache`,
+  `RemoteBundleSource` and `RoutedBundleSource`, plus the download surface [08](08-asset-pipeline-and-addressables.md)
+  names — `DownloadSize`, `DownloadAsync`, `ClearCache`. The cache is keyed by content hash so a
+  rebuilt bundle is an ordinary miss; downloads resume from a partial file; a server that ignores a
+  byte range is detected and restarted rather than appended to; nothing is committed without matching
+  both the catalog's length and its CRC. A cache *hit* checks length only, with `VerifyAsync` there
+  for a caller who wants the full re-hash. 31 tests, over a transport that can be told to drop the
+  connection, ignore ranges, answer from the wrong offset and serve corrupt bytes.
+  **Enabler:** `IFileProvider.OpenAppend`, without which a resume has to buffer the whole partial
+  download in memory. **Owed:** `Tools/Vixen.ContentServer` and doc 08's end-to-end update test —
+  server publishes v2, client fetches only the changed bundles, asserted by byte counts.
 - ✅ `TextureImporter`, the first real importer: `IImageDecoder`, StbImageSharp and KTX2 decoders,
   and settings that say what a texture's bytes mean — which decides the transfer function, the mip
   filter's variant and the compressed format together. 63 tests in `Vixen.Editor.Assets.Tests`.

@@ -71,6 +71,41 @@ public interface IFileProvider {
     /// <exception cref="NotSupportedException">The provider is read-only.</exception>
     ValueTask<Stream> OpenWriteAsync(VirtualPath path, CancellationToken cancellationToken = default);
 
+    /// <summary>Opens a file for writing at its end, creating it if it is not there.</summary>
+    /// <param name="path">The path, relative to the mount.</param>
+    /// <param name="cancellationToken">Cancels the open.</param>
+    /// <returns>A writable stream positioned at the end of what is already there.</returns>
+    /// <exception cref="NotSupportedException">The provider is read-only.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         What resuming an interrupted download is made of: a bundle cache writes what it has
+    ///         received to a partial file, and picking that up after a crash or a lost connection means
+    ///         adding to it rather than replacing it.
+    ///     </para>
+    ///     <para>
+    ///         The default reads the existing contents back and rewrites them, which is correct
+    ///         everywhere and wasteful. A provider whose underlying store can genuinely append should
+    ///         override it — <see cref="PhysicalFileProvider" /> and <see cref="MemoryFileProvider" />
+    ///         both do — because the whole point of resuming a 400 MB download is not touching the
+    ///         first 300 MB again.
+    ///     </para>
+    /// </remarks>
+    async ValueTask<Stream> OpenAppendAsync(VirtualPath path, CancellationToken cancellationToken = default) {
+        byte[] existing = [];
+
+        if (Exists(path)) {
+            using var reading = await OpenReadAsync(path, cancellationToken).ConfigureAwait(false);
+            using var buffer = new MemoryStream();
+            await reading.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
+            existing = buffer.ToArray();
+        }
+
+        var writing = await OpenWriteAsync(path, cancellationToken).ConfigureAwait(false);
+        await writing.WriteAsync(existing, cancellationToken).ConfigureAwait(false);
+
+        return writing;
+    }
+
     /// <summary>Deletes a file, or an empty directory.</summary>
     /// <param name="path">The path, relative to the mount.</param>
     /// <returns><see langword="false" /> if there was nothing to delete.</returns>
@@ -93,6 +128,12 @@ public interface IFileProvider {
     /// <returns>A writable stream the caller owns.</returns>
     /// <exception cref="NotSupportedException">The provider is read-only.</exception>
     Stream OpenWrite(VirtualPath path) => OpenWriteAsync(path).AsTask().GetAwaiter().GetResult();
+
+    /// <summary>Opens a file for writing at its end, creating it if it is not there.</summary>
+    /// <param name="path">The path, relative to the mount.</param>
+    /// <returns>A writable stream positioned at the end of what is already there.</returns>
+    /// <exception cref="NotSupportedException">The provider is read-only.</exception>
+    Stream OpenAppend(VirtualPath path) => OpenAppendAsync(path).AsTask().GetAwaiter().GetResult();
 
     /// <summary>Maps a file into memory, if this provider can.</summary>
     /// <param name="path">The path, relative to the mount.</param>

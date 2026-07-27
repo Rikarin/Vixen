@@ -154,6 +154,17 @@ public sealed class VirtualFileSystem {
         return provider.OpenWriteAsync(providerPath, cancellationToken);
     }
 
+    /// <summary>Opens a file for writing at its end, creating it if it is not there.</summary>
+    /// <param name="path">The virtual path.</param>
+    /// <param name="cancellationToken">Cancels the open.</param>
+    /// <returns>A writable stream positioned at the end of what is already there.</returns>
+    /// <exception cref="DirectoryNotFoundException">No mount covers the path.</exception>
+    /// <exception cref="NotSupportedException">The mount is read-only.</exception>
+    public ValueTask<Stream> OpenAppendAsync(VirtualPath path, CancellationToken cancellationToken = default) {
+        var (provider, providerPath) = Resolve(path);
+        return provider.OpenAppendAsync(providerPath, cancellationToken);
+    }
+
     /// <summary>Opens a file for reading. Blocking; for editor and tooling code.</summary>
     /// <param name="path">The virtual path.</param>
     /// <returns>A readable stream the caller owns.</returns>
@@ -168,6 +179,14 @@ public sealed class VirtualFileSystem {
     public Stream OpenWrite(VirtualPath path) {
         var (provider, providerPath) = Resolve(path);
         return provider.OpenWrite(providerPath);
+    }
+
+    /// <summary>Opens a file for writing at its end. Blocking; for editor and tooling code.</summary>
+    /// <param name="path">The virtual path.</param>
+    /// <returns>A writable stream positioned at the end of what is already there.</returns>
+    public Stream OpenAppend(VirtualPath path) {
+        var (provider, providerPath) = Resolve(path);
+        return provider.OpenAppend(providerPath);
     }
 
     /// <summary>Deletes a file, or an empty directory.</summary>

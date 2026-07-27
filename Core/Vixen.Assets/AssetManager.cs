@@ -141,6 +141,58 @@ public sealed class AssetManager {
     /// <returns>The scope.</returns>
     public AssetScope Scope() => new(this);
 
+    /// <summary>How many bytes have to be downloaded before some addresses can load.</summary>
+    /// <param name="addresses">The addresses.</param>
+    /// <returns>The size on the wire, counting each bundle once and skipping cached ones.</returns>
+    /// <remarks>
+    ///     The number a "this pack is 240 MB, continue?" prompt shows, which is why it asks the bundle
+    ///     source what is already here rather than reporting the pack's full size to a player who
+    ///     downloaded most of it yesterday.
+    /// </remarks>
+    public long DownloadSize(params IEnumerable<string> addresses) =>
+        Catalog.DownloadSize(addresses, Bundles.IsAvailable);
+
+    /// <summary>Downloads everything some addresses need, without loading any of it.</summary>
+    /// <param name="addresses">The addresses.</param>
+    /// <param name="progress">Told how each bundle is getting on.</param>
+    /// <param name="cancellationToken">Cancels the downloads. What arrived stays and resumes.</param>
+    /// <returns>Nothing; the bundles are on the device when it completes.</returns>
+    /// <exception cref="BundleUnavailableException">One of them could not be fetched.</exception>
+    /// <remarks>
+    ///     One bundle at a time on purpose. Parallel downloads make a progress bar jump about, and on
+    ///     the connection this feature exists for they do not go faster — they divide the same
+    ///     bandwidth into streams that each take longer to become a usable, resumable file.
+    /// </remarks>
+    public async Task DownloadAsync(
+        IEnumerable<string> addresses,
+        IProgress<BundleProgress>? progress = null,
+        CancellationToken cancellationToken = default
+    ) {
+        foreach (var bundle in Catalog.RemoteBundlesFor(addresses)) {
+            await Bundles.EnsureAsync(bundle, progress, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Deletes the cached copies of everything some addresses need.</summary>
+    /// <param name="addresses">The addresses.</param>
+    /// <returns>How many bundles went.</returns>
+    /// <remarks>
+    ///     A bundle that something still has open is left alone and not counted, because a backend is
+    ///     a window onto a mapped file and deleting the file underneath it does not close the window.
+    ///     Releasing what holds it and asking again is the way to get that space back.
+    /// </remarks>
+    public int ClearCache(params IEnumerable<string> addresses) {
+        var cleared = 0;
+
+        foreach (var bundle in Catalog.RemoteBundlesFor(addresses)) {
+            if (Bundles.Evict(bundle)) {
+                cleared++;
+            }
+        }
+
+        return cleared;
+    }
+
     /// <summary>Whether an address is currently held by anyone.</summary>
     /// <param name="address">The address.</param>
     /// <returns>Whether it is.</returns>

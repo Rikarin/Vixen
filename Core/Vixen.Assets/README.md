@@ -107,10 +107,45 @@ dependency-first, each address is deserialised in that order, and a resolver is 
 happens — so a material's `ContentReference<Texture>` lands on the very object the manager already
 loaded rather than a second copy. Two materials sharing a texture means one texture.
 
+## Downloaded content
+
+`BundleCache` keeps downloaded bundles on the device and `RemoteBundleSource` reads them;
+`RoutedBundleSource` puts a local and a remote source behind one `IBundleSource`, picking by whether
+the bundle has a URL. Nothing above them knows the difference — an address in a downloadable pack is
+asked for exactly like one that shipped in the install.
+
+```csharp
+long bytes = assets.DownloadSize("dlc/pack-2/*");        // what is actually missing, not what it weighs
+await assets.DownloadAsync(["dlc/pack-2/*"], progress);  // fetch it, without loading any of it
+assets.ClearCache("dlc/pack-2/*");                       // give the space back
+```
+
+**Keyed by content hash, not by name.** A bundle called `dlc-pack-2` that gets rebuilt is a different
+file with the same name, and a cache that trusted the name would serve the old one for ever. Filing
+it under its hash makes a rebuilt bundle an ordinary miss, and makes two catalog versions that share
+an unchanged bundle share the download.
+
+**Downloads resume.** Bytes accumulate in `<hash>.part` and a fetch that finds one asks the server to
+continue from where it stopped. On the connections this feature exists for that is not an
+optimisation — a 400 MB pack over a link that drops every few minutes never finishes without it. A
+server that ignores the range and sends the whole resource is detected and started again rather than
+appended to.
+
+**Nothing is committed unverified.** A completed download has to be the length the catalog says *and*
+hash to the CRC the catalog says before it is moved into place, which catches a corrupted transfer and
+a URL serving something else entirely. A cache *hit* checks length only: re-hashing hundreds of
+megabytes in front of every loading screen is not where that check belongs, and `VerifyAsync` is
+there for a caller who wants it.
+
+**An open bundle is not evicted.** A backend is a window onto a mapped file; deleting the file
+underneath it is refused on Windows and, on Unix, quietly leaves a reader on something nothing can
+find. Refusing everywhere is the behaviour that is the same everywhere.
+
 ## Still to come
 
-The remote provider and the bundle cache with resume and CRC verification. The streaming manager.
-Reloading in place, so a hot-reloaded asset updates the references pointing at it rather than
-replacing them.
+The streaming manager. Reloading in place, so a hot-reloaded asset updates the references pointing at
+it rather than replacing them. `Tools/Vixen.ContentServer`, and with it the end-to-end update test
+doc 08 describes — server publishes v2, client fetches only the changed bundles, asserted by byte
+counts.
 
 Licensed under Apache-2.0.

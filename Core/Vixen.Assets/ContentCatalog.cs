@@ -426,25 +426,41 @@ public sealed class ContentCatalog {
     ///     is 40 MB.
     /// </remarks>
     public long DownloadSize(IEnumerable<string> addresses, Func<CatalogBundle, bool>? isCached = null) {
-        ArgumentNullException.ThrowIfNull(addresses);
-
-        var counted = new HashSet<string>(StringComparer.Ordinal);
         var total = 0L;
 
-        foreach (var address in Closure([.. addresses])) {
-            if (!entries.TryGetValue(address, out var entry)
-                || entry.Provider != ContentProvider.Remote
-                || !bundles.TryGetValue(entry.Bundle, out var bundle)
-                || !counted.Add(bundle.Name)) {
-                continue;
-            }
-
+        foreach (var bundle in RemoteBundlesFor(addresses)) {
             if (isCached is null || !isCached(bundle)) {
                 total += bundle.Size;
             }
         }
 
         return total;
+    }
+
+    /// <summary>Every remote bundle that has to be present before some addresses can load.</summary>
+    /// <param name="addresses">The addresses.</param>
+    /// <returns>The bundles, each once, in the order the closure reaches them.</returns>
+    /// <remarks>
+    ///     The closure, not the addresses themselves: a level that is local but whose textures are in
+    ///     a downloadable pack still needs that pack. What a pre-download button downloads, what a
+    ///     size estimate sums, and what clearing a cache deletes are all this same list.
+    /// </remarks>
+    public ImmutableArray<CatalogBundle> RemoteBundlesFor(IEnumerable<string> addresses) {
+        ArgumentNullException.ThrowIfNull(addresses);
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var found = ImmutableArray.CreateBuilder<CatalogBundle>();
+
+        foreach (var address in Closure([.. addresses])) {
+            if (entries.TryGetValue(address, out var entry)
+                && entry.Provider == ContentProvider.Remote
+                && bundles.TryGetValue(entry.Bundle, out var bundle)
+                && seen.Add(bundle.Name)) {
+                found.Add(bundle);
+            }
+        }
+
+        return found.ToImmutable();
     }
 
     /// <summary>Finds the entry for an address, or says which one is missing.</summary>

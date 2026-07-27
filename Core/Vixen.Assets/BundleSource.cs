@@ -32,13 +32,50 @@ public interface IBundleSource {
     /// <returns>A backend over its chunks. The source owns it.</returns>
     /// <exception cref="BundleUnavailableException">It is not here and could not be fetched.</exception>
     ValueTask<IOdbBackend> OpenAsync(CatalogBundle bundle, CancellationToken cancellationToken = default);
+
+    /// <summary>Gets a bundle onto the device without opening it.</summary>
+    /// <param name="bundle">The bundle.</param>
+    /// <param name="progress">Told how far a download has got, if one happens.</param>
+    /// <param name="cancellationToken">Cancels the fetch.</param>
+    /// <returns>Nothing; the bundle is here when it completes.</returns>
+    /// <exception cref="BundleUnavailableException">It could not be fetched.</exception>
+    /// <remarks>
+    ///     What a "download this DLC now, play it later" button is made of. Separate from
+    ///     <see cref="OpenAsync" /> because opening memory-maps the file, and pre-fetching a whole
+    ///     expansion pack should not map every byte of it into a process that is not going to read
+    ///     them yet.
+    /// </remarks>
+    ValueTask EnsureAsync(
+        CatalogBundle bundle,
+        IProgress<BundleProgress>? progress = null,
+        CancellationToken cancellationToken = default
+    ) {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return IsAvailable(bundle)
+            ? ValueTask.CompletedTask
+            : throw new BundleUnavailableException(
+                bundle.Name,
+                "it is not here and this source cannot fetch anything."
+            );
+    }
+
+    /// <summary>Gives back whatever local copy this source is keeping of a bundle.</summary>
+    /// <param name="bundle">The bundle.</param>
+    /// <returns><see langword="false" /> if there was nothing to give back, or it is in use.</returns>
+    /// <remarks>
+    ///     Only a caching source has anything to evict; a bundle that shipped inside the application
+    ///     is not the runtime's to delete, so the default says no.
+    /// </remarks>
+    bool Evict(CatalogBundle bundle) => false;
 }
 
 /// <summary>A bundle that is not on the device and could not be fetched.</summary>
 /// <param name="bundle">Which bundle.</param>
 /// <param name="reason">Why not.</param>
-public sealed class BundleUnavailableException(string bundle, string reason)
-    : Exception($"Bundle '{bundle}' could not be opened: {reason}") {
+/// <param name="inner">What went wrong underneath, if anything did.</param>
+public sealed class BundleUnavailableException(string bundle, string reason, Exception? inner = null)
+    : Exception($"Bundle '{bundle}' could not be opened: {reason}", inner) {
     /// <summary>Which bundle.</summary>
     public string Bundle { get; } = bundle;
 }
@@ -109,5 +146,152 @@ public sealed class LocalBundleSource : IBundleSource, IDisposable {
 
             opened.Clear();
         }
+    }
+}
+
+/// <summary>Bundles that are downloaded and cached.</summary>
+/// <remarks>
+///     <para>
+///         Thin over <see cref="BundleCache" />, which does the fetching, resuming and verifying. What
+///         this adds is the same thing <see cref="LocalBundleSource" /> adds: one open backend per
+///         bundle, because a backend is a window onto a mapped file and mapping the same file twice
+///         gives two lifetimes to get right instead of one.
+///     </para>
+///     <para>
+///         <b>An open bundle cannot be evicted.</b> Deleting a file that is currently mapped is
+///         permitted on Unix and refused on Windows, and the version that "works" on Unix leaves the
+///         backend reading a file nothing can find. Refusing in both places is the behaviour that is
+///         the same everywhere, and the caller who wanted the space back can release what is holding
+///         it and ask again.
+///     </para>
+/// </remarks>
+public sealed class RemoteBundleSource : IBundleSource, IDisposable {
+    readonly Dictionary<string, IOdbBackend> opened = new(StringComparer.Ordinal);
+    readonly VirtualFileSystem files;
+    readonly bool verifyChecksum;
+    readonly Lock gate = new();
+
+    /// <summary>The cache behind it.</summary>
+    public BundleCache Cache { get; }
+
+    /// <summary>Reads bundles that have to be downloaded first.</summary>
+    /// <param name="files">Where the cache directory lives.</param>
+    /// <param name="cache">The cache.</param>
+    /// <param name="verifyChecksum">Whether to check each bundle's own checksum as it is opened.</param>
+    public RemoteBundleSource(VirtualFileSystem files, BundleCache cache, bool verifyChecksum = false) {
+        ArgumentNullException.ThrowIfNull(files);
+        ArgumentNullException.ThrowIfNull(cache);
+
+        this.files = files;
+        Cache = cache;
+        this.verifyChecksum = verifyChecksum;
+    }
+
+    /// <inheritdoc />
+    public bool IsAvailable(CatalogBundle bundle) => Cache.IsCached(bundle);
+
+    /// <inheritdoc />
+    public async ValueTask<IOdbBackend> OpenAsync(
+        CatalogBundle bundle,
+        CancellationToken cancellationToken = default
+    ) {
+        lock (gate) {
+            if (opened.TryGetValue(bundle.Name, out var already)) {
+                return already;
+            }
+        }
+
+        var path = await Cache.EnsureAsync(bundle, null, cancellationToken).ConfigureAwait(false);
+
+        lock (gate) {
+            // Checked again: two loads that both missed the first check both got here, and only one
+            // of them should map the file.
+            if (opened.TryGetValue(bundle.Name, out var already)) {
+                return already;
+            }
+
+            var backend = BundleOdbBackend.Open(files, path, verifyChecksum);
+            opened[bundle.Name] = backend;
+
+            return backend;
+        }
+    }
+
+    /// <inheritdoc />
+    public async ValueTask EnsureAsync(
+        CatalogBundle bundle,
+        IProgress<BundleProgress>? progress = null,
+        CancellationToken cancellationToken = default
+    ) => await Cache.EnsureAsync(bundle, progress, cancellationToken).ConfigureAwait(false);
+
+    /// <inheritdoc />
+    public bool Evict(CatalogBundle bundle) {
+        lock (gate) {
+            if (opened.ContainsKey(bundle.Name)) {
+                return false;
+            }
+
+            return Cache.Evict(bundle);
+        }
+    }
+
+    /// <inheritdoc />
+    public void Dispose() {
+        lock (gate) {
+            foreach (var backend in opened.Values) {
+                (backend as IDisposable)?.Dispose();
+            }
+
+            opened.Clear();
+        }
+    }
+}
+
+/// <summary>Sends each bundle to the source that can supply it.</summary>
+/// <remarks>
+///     <para>
+///         A real catalog mixes the two: the base game ships inside the application and an expansion
+///         is downloaded, and the asset manager is given one source rather than being taught the
+///         difference. This is that one source.
+///     </para>
+///     <para>
+///         <b>The URL decides, not <see cref="ContentProvider" />.</b> The provider is a property of an
+///         <i>address</i> — it says what a load will cost the player — and what a bundle needs is a
+///         property of the <i>bundle</i>. They agree in a well-formed catalog, and when they do not,
+///         the one that determines whether there is anything to fetch is the one with the URL in it.
+///     </para>
+/// </remarks>
+/// <param name="local">Bundles that shipped with the application.</param>
+/// <param name="remote">Bundles that are downloaded.</param>
+public sealed class RoutedBundleSource(IBundleSource local, IBundleSource remote) : IBundleSource, IDisposable {
+    readonly IBundleSource local = local ?? throw new ArgumentNullException(nameof(local));
+    readonly IBundleSource remote = remote ?? throw new ArgumentNullException(nameof(remote));
+
+    /// <summary>Which source a bundle comes from.</summary>
+    /// <param name="bundle">The bundle.</param>
+    /// <returns>The source.</returns>
+    public IBundleSource SourceFor(CatalogBundle bundle) => bundle.Url.Length == 0 ? local : remote;
+
+    /// <inheritdoc />
+    public bool IsAvailable(CatalogBundle bundle) => SourceFor(bundle).IsAvailable(bundle);
+
+    /// <inheritdoc />
+    public ValueTask<IOdbBackend> OpenAsync(CatalogBundle bundle, CancellationToken cancellationToken = default) =>
+        SourceFor(bundle).OpenAsync(bundle, cancellationToken);
+
+    /// <inheritdoc />
+    public ValueTask EnsureAsync(
+        CatalogBundle bundle,
+        IProgress<BundleProgress>? progress = null,
+        CancellationToken cancellationToken = default
+    ) => SourceFor(bundle).EnsureAsync(bundle, progress, cancellationToken);
+
+    /// <inheritdoc />
+    public bool Evict(CatalogBundle bundle) => SourceFor(bundle).Evict(bundle);
+
+    /// <inheritdoc />
+    public void Dispose() {
+        (local as IDisposable)?.Dispose();
+        (remote as IDisposable)?.Dispose();
     }
 }
