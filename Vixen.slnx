@@ -102,6 +102,8 @@
   <Folder Name="/Editor/">
     <Project Path="Editor/Vixen.Editor.Core/Vixen.Editor.Core.csproj" />
     <Project Path="Editor/Vixen.Editor.Core.Tests/Vixen.Editor.Core.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Assets/Vixen.Editor.Assets.csproj" />
+    <Project Path="Editor/Vixen.Editor.Assets.Tests/Vixen.Editor.Assets.Tests.csproj" />
   </Folder>
 
   <!--
