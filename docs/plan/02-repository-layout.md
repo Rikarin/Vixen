@@ -116,7 +116,7 @@ Core/
 ├── Vixen.Engine.Tests/
 ├── Vixen.Input/                        # action-map input system
 ├── Vixen.Input.Tests/
-├── Vixen.Audio/
+├── Vixen.Audio/                        # ✅ AudioClip only — the backend and mixer are Phase 6
 ├── Vixen.Audio.Tests/
 ├── Vixen.Physics/                      # Jolt integration
 ├── Vixen.Physics.Tests/
@@ -297,7 +297,7 @@ piece of tested infrastructure plus three grammars.
 Tools/
 ├── Vixen.Cli/                    # `dotnet vixen` global tool: new, build, run, import, pack, serve, doctor
 │   └── Vixen.Cli.Tests/
-├── Vixen.AssetCompiler/          # out-of-process import/compile worker (parallel, crash-isolated)
+├── Vixen.AssetCompiler/          # ✅ out-of-process import worker, crash-isolated; parallel owed
 │   └── Vixen.AssetCompiler.Tests/
 ├── Vixen.ContentServer/          # local CDN emulator for addressable remote-catalog testing
 │   └── Vixen.ContentServer.Tests/

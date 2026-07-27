@@ -74,9 +74,116 @@ last-one-wins means an artist's file being imported as the wrong kind of thing d
 order.
 
 `RawImporter` is the fallback and copies a file verbatim, so "this format has no importer yet" is a
-shrug rather than a blocker. `FolderImporter` produces nothing — a folder is an asset because that is
-where an addressable group is inherited from and where a GUID has to live so renaming a directory
-does not orphan everything under it.
+shrug rather than a blocker. It is what [doc 14](../../docs/plan/14-roadmap.md) calls
+`DefaultImporter`; there is one of it under the name doc 08 uses, rather than two under both.
+`FolderImporter` produces nothing — a folder is an asset because that is where an addressable group
+is inherited from and where a GUID has to live so renaming a directory does not orphan everything
+under it.
+
+## `NativeFormatImporter`, whose job is the graph and not the conversion
+
+`.vxmat`, `.vxscene`, `.vxprefab`, `.vxgroup`, `.vxanim`, `.vxvfx`. There is nothing to convert —
+these files are already in the engine's own format, which is the point of doc 08's YAML dialect. What
+is *not* already known is what each one **points at**, and that is what makes a material re-import
+when the texture it names is replaced.
+
+So it walks the node tree and declares every `vx:` scalar it finds. **A walk and not a regular
+expression over the text**, because a GUID inside a comment or a quoted description is not a
+reference — and a dependency on one would never change and never break anything, which is exactly the
+kind of wrongness that is never found.
+
+**A scalar beginning `vx:` that does not parse fails the import.** Whoever typed the prefix meant a
+reference; the alternatives are failing here with the file and the text named, or shipping an asset
+whose pointer resolves to nothing on a player's machine. Anything without the prefix is left alone,
+because a string field holding arbitrary text is ordinary.
+
+**An empty document is a warning, not an error.** The reader turns an empty file into an empty mapping
+deliberately, so a truncated `.meta` re-imports rather than stopping the editor from opening — which
+means an asset caught mid-save arrives here looking exactly like a valid one with no fields set.
+Failing the build would punish an author who is still typing; silence would let a material that was
+never saved ship as one.
+
+**What it writes is the document, and that is a deliberate stopping point.** Doc 08 splits import from
+compile: import produces editor-domain objects and the *compiler* turns them into the runtime chunks a
+player loads — a `MaterialAsset` with named parameters and asset references becomes a `Material` with
+a resolved pipeline and `ObjectId`s. That compiler does not exist yet. Emitting a half-resolved binary
+here would move its decisions inside the importer, where the artefact cache key cannot see them.
+
+## `ModelImporter`, the first one that produces more than one thing
+
+A model is a model, and also a mesh per material, a skeleton and a clip per animation. Each of those
+is separately addressable, separately deduplicated by the object database and separately loadable —
+which makes this the first real consumer of the sub-asset addressing `BuildPlanner` already had.
+
+`ModelReader` does the conversion and `ModelImporter` is the plumbing, so the part where every
+decision lives is testable against a file with no import context in the way. The fixtures are OBJ and
+glTF, both text and both written in the test that needs them; a binary model checked in beside the
+tests is a thing nobody can edit and nobody can read the diff of.
+
+**Every matrix is transposed on the way in.** Assimp's `aiMatrix4x4` is row-major storage of a
+*column-vector* matrix, so a node's translation sits in its fourth column; Vixen is row-major storage
+of a *row-vector* matrix, where it sits in the fourth row. A field-for-field copy compiles, runs, and
+assembles every hierarchy inside out — consistently and quietly wrong rather than obviously broken.
+Two tests fail when the transpose is removed.
+
+**No axis conversion.** Assimp's convention is right-handed and Y-up, which is `Vector3`'s. A file
+authored Z-up therefore arrives Z-up, and correcting it is a rotation on the root node an artist can
+see rather than a silent transform in a build step. `MakeLeftHanded` and `FlipWindingOrder` are
+deliberately absent.
+
+**Parts are named, not numbered.** An exporter reorders its meshes whenever an artist adds a material
+and re-exports, which would break every reference stored by position. A sub-asset id is derived from
+the name, so renaming breaks a reference and reordering does not. Two meshes called the same thing —
+which is what an exporter does all the time — would derive one id and be refused outright, so names
+are made distinct before anything is written.
+
+**Skinning weights are renormalised, not just truncated.** Dropping a fifth influence leaves the
+remaining weights summing to less than one, and a vertex whose weights sum to 0.9 is drawn ten per
+cent of the way towards the model's origin. A weight against a bone the skeleton walk never reached
+is dropped and reported rather than silently indexed to joint 0, which would attach part of a mesh to
+the root.
+
+**The skeleton is collected across every mesh**, because a character's body, coat and hat deform by
+one skeleton, and it is ordered by the node tree rather than by whichever mesh listed its bones
+first — so a joint always precedes its children.
+
+## `AudioImporter`, and a WAV reader written rather than taken
+
+Decode, mix, convert, write. The decode is an `IAudioDecoder` — the same licence seam as
+`IImageDecoder`, and audio has *more* codec churn than images, not less.
+
+**The WAV reader is written here**, which is the opposite of the choice made for images. A PNG
+decoder is a compression implementation and writing one would be foolish; a WAV file is a chunk
+header and then the samples. A dependency for it would be a licence, a supply-chain entry and a
+version to track, in exchange for about a hundred lines.
+
+**The chunks are walked, not assumed.** The naive reader — seek 44 bytes, take the rest — works on
+the files a tool writes and fails on the ones a DAW writes, which carry `LIST`, `fact`, `bext` and
+`cue ` between the header and the samples. It fails by reading metadata *as audio*: a burst of noise
+at the start of the clip, diagnosed by ear rather than by a stack trace. Odd-length chunks are
+followed by a pad byte that is not counted in their size, and missing that shifts every chunk after
+the first odd one.
+
+Three more places the format bites, each with a test that fails when the line is removed:
+
+- **8-bit WAV is unsigned**, centred on 128. Read as signed it comes out inverted around the
+  midpoint, which sounds like distortion rather than like silence.
+- **`WAVE_FORMAT_EXTENSIBLE` hides the real format code in a GUID** at the end of the `fmt ` chunk.
+  Anything above two channels or above 16 bits is written that way, so a reader that stops at `0xFFFE`
+  rejects most of what a DAW exports.
+- **24-bit is rounded to 16, not truncated.** Truncation biases every sample towards negative
+  infinity, which is a DC offset across the whole clip and a click at each end.
+
+`ForceMono` is the one setting that earns its place: **a stereo clip cannot be positioned in the
+world.** It already says which ear it is in, so panning does nothing and the sound stays in the
+listener's head wherever its emitter is. It averages rather than sums, because summing two correlated
+channels clips anything mastered near full scale.
+
+**It claims `.ogg`, `.mp3` and `.flac` without being able to read them**, which is a deviation from
+`TextureImporter` and deliberate. That importer claims only what it decodes, so an `.exr` falls to
+`RawImporter` and ships as a blob. Doc 08's table promises those three formats, and an artist who
+drops an `.ogg` in and finds it silently became an unplayable byte blob has learned nothing; failing
+with the name of what is missing is the more useful of the two silences.
 
 ## The pipeline, and the key's chicken and egg
 
@@ -202,7 +309,17 @@ model another asset was pointing at.
 
 ## Still to come
 
-The importers with native dependencies (`ModelImporter` via Assimp) and the out-of-process,
-crash-isolated worker doc 08 specifies.
+**The compilers.** Doc 08 splits import from compile, and only the first half exists. `ModelCompiler`
+is what does vertex-layout packing, meshlets, LOD generation and index reordering — none of which can
+be decided one mesh at a time, which is why they are not in the importer. `MaterialCompiler` is what
+turns a `.vxmat`'s named parameters into a resolved pipeline, which is why `NativeFormatImporter`
+carries the document forward rather than emitting a half-resolved binary.
+
+**The importers that need a decoder nobody has chosen.** Ogg, MP3 and FLAC for audio; `.exr`, `.tif`,
+`.webp` and `.dds` for textures. Fonts, shaders, VXML, VCSS and video have their own phases.
+
+**The out-of-process, crash-isolated worker** doc 08 specifies. `ImportPipeline` already survives an
+importer that *throws*; surviving one that takes the process with it — a malformed FBX inside a C++
+library — needs a separate process, and that is what `Tools/Vixen.AssetCompiler` is for.
 
 Licensed under Apache-2.0.

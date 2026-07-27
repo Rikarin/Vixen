@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Audio</RootNamespace>
+        <Description>
+            Engine audio data: the decoded clip a backend submits and the content pipeline produces.
+            No device, no mixer and no codec yet — decoding a WAV is import-time work.
+        </Description>
+        <PackageTags>audio;pcm;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- For [DataContract]. A clip is a chunk in the object database like everything else, so it
+             is described by the same attribute and serialised by the same generated code. -->
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          Named here because analyzers do not flow through a ProjectReference. The serializer has to
+          be generated in the assembly that *declares* AudioClip: a consumer that references the
+          generator sees no AudioClip in its own compilation and emits nothing, and the failure is a
+          run-time "no serializer is registered" rather than a build error.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Audio.Tests" />
+    </ItemGroup>
+
+</Project>

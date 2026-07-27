@@ -47,6 +47,12 @@ somebody running this is asking for.
 
 An importer that throws fails that asset and not the run.
 
+`--isolated` runs importers in worker processes, through
+[`Vixen.AssetCompiler`](../Vixen.AssetCompiler/README.md). What that buys is the failure an exception
+handler cannot catch: an importer that takes its **process** down — a malformed FBX inside a C++
+library — fails that asset instead of the whole command. It costs a process start and a copy of every
+artefact over a pipe, and doc 08's parallelism is not there yet, which is why it is off by default.
+
 ## `content build`
 
 Imports first — incrementally, so it costs nothing when nothing changed — then plans, packs and
@@ -92,9 +98,14 @@ A development server: no TLS, no authentication, no access control.
 
 ## Which importers this has
 
-Told, never discovered — `TextureImporter`, `FolderImporter`, and `RawImporter` as the fallback. An
-assembly scan would read metadata a trimmed publish has already deleted, and would make "which
-importers imported this project" a question with different answers in the editor and here.
+`TextureImporter`, `ModelImporter`, `AudioImporter`, `NativeFormatImporter`, `FolderImporter`, and
+`RawImporter` as the fallback — doc 14's `DefaultImporter` under the name doc 08 uses.
+
+**Told, never discovered.** An assembly scan would read metadata a trimmed publish has already
+deleted, and would make "which importers imported this project" a question with different answers in
+the editor, here, and in a worker process. The list lives in `BuiltInImporters.Create()` and every one
+of those three calls it, because a worker whose registry differs from its coordinator's produces
+different artefacts for the same file.
 
 ## `new`, `build`, `run`
 

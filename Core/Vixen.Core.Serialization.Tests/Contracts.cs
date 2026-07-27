@@ -188,3 +188,27 @@ public class InitOnlyBase {
 public sealed class InitOnlyDerived : InitOnlyBase {
     public string? DerivedText { get; init; }
 }
+
+/// <summary>
+///     An immutable value type: <c>readonly</c> fields, a constructor that takes them, and a derived
+///     property alongside. Every type in <c>Vixen.Core.Mathematics</c> has this shape.
+/// </summary>
+/// <remarks>
+///     It generated a serializer with <b>no members at all</b> — two varints out, every field back as
+///     its default, and no diagnostic. Nothing had ever written one, so nothing had noticed. The
+///     fallback dropped everything unassignable in a single step, which took the <c>readonly</c>
+///     fields along with the derived property and left no members for any constructor to match. That
+///     is a different failure from the <c>init</c> one above and outlived the fix for it.
+/// </remarks>
+[DataContract]
+public readonly struct Extent {
+    public readonly int Width;
+    public readonly int Height;
+
+    public Extent(int width, int height) {
+        Width = width;
+        Height = height;
+    }
+
+    public int Area => Width * Height;
+}

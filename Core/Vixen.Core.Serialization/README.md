@@ -79,6 +79,20 @@ It handles mutable fields and settable properties by assignment, and get-only me
 reconstruct is a **build error** (`VXS0101`) rather than a crash on the machine that loads the save
 file, which is most of the argument for doing this at compile time.
 
+**A property with no setter is derived; a `readonly` field is not.** That distinction is load-bearing
+and was missing. When no constructor matches the members as they stand, the *computed properties*
+come off first and the match is retried; only if that fails does everything unassignable come off.
+Dropping both in one step is what an immutable struct looks like — `readonly` fields, a constructor
+that takes them, a handful of derived properties — and it took the fields with the properties, left
+nothing for any constructor to match, and generated a serializer with **no members at all**: two
+varints out, every field back as its default, silently. Every type in `Vixen.Core.Mathematics` has
+that shape, and nothing had written one, so nothing had noticed.
+
+**An `init` setter is a setter**, reached through `[UnsafeAccessor]` — the same failure with the same
+silence, found separately and fixed separately. The two together are why `VXS0102` has still never
+been reported: it is declared for "written but cannot be read back", and both of the shapes that
+actually hit it are now handled rather than warned about.
+
 Members are ordered by `[DataMember(Order)]` and then by declaration, base class first, so adding a
 member to a base type appends to the stream rather than shifting everything a derived type wrote.
 

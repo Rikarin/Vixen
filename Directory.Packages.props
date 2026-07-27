@@ -161,6 +161,20 @@
       code and never decodes an authoring format.
     -->
     <PackageVersion Include="StbImageSharp" Version="2.30.15" />
+
+    <!--
+      Model import: FBX, glTF, OBJ, COLLADA and the rest of doc 08's ModelImporter
+      row, through the Silk.NET binding doc 01 registers. Bindings plus natives:
+      Ultz.Native.Assimp ships libassimp for win/linux/macOS on x64 and arm64, so
+      the editor and the CLI need nothing installed.
+
+      Editor-and-tooling-only, and more emphatically than the image codec. Assimp
+      is a large C++ library that reads two dozen authoring formats; a runtime that
+      linked it would carry an FBX parser into every shipped game for a job the
+      runtime does not do — a player loads meshes the content build already
+      produced.
+    -->
+    <PackageVersion Include="Silk.NET.Assimp" Version="2.23.0" />
   </ItemGroup>
 
   <!-- ===== Test stack (docs/plan/12 § "Testing strategy") ===== -->

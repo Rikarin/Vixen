@@ -68,11 +68,19 @@ public static class VixenCommand {
         var format = FormatOption();
         var verbose = new Option<bool>("--verbose", "-v") { Description = "Name every asset, not only the ones with something to say." };
 
+        // Off by default. It costs a process start and a copy of every artefact over a pipe, and
+        // what it buys — surviving an importer that takes its process down rather than one that
+        // throws — is rare enough to be worth asking for rather than paying for always.
+        var isolated = new Option<bool>("--isolated") {
+            Description = "Run importers in worker processes, so a crash in one fails that asset instead of the run."
+        };
+
         var command = new Command("import", "Import everything in the project that has changed.") {
             project,
             target,
             format,
-            verbose
+            verbose,
+            isolated
         };
 
         command.SetAction(async (parseResult, cancellationToken) => {
@@ -90,6 +98,7 @@ public static class VixenCommand {
                         parseResult.GetRequiredValue(target),
                         diagnostics,
                         parseResult.GetValue(verbose),
+                        parseResult.GetValue(isolated),
                         cancellationToken
                     )
                     .ConfigureAwait(false);
@@ -148,7 +157,7 @@ public static class VixenCommand {
                 // changed — and a build that packed a stale artefact because somebody forgot a step
                 // is a bug report about the wrong thing.
                 if (!parseResult.GetValue(noImport)) {
-                    var summary = await ImportRunner.RunAsync(opened, forTarget, diagnostics, false, cancellationToken)
+                    var summary = await ImportRunner.RunAsync(opened, forTarget, diagnostics, false, isolated: false, cancellationToken)
                         .ConfigureAwait(false);
 
                     ImportRunner.Report(summary, diagnostics);
@@ -506,7 +515,7 @@ public static class VixenCommand {
 
         if (!skipContent) {
             var summary = await ImportRunner
-                .RunAsync(opened, target, diagnostics, verbose: false, cancellationToken)
+                .RunAsync(opened, target, diagnostics, verbose: false, isolated: false, cancellationToken)
                 .ConfigureAwait(false);
 
             ImportRunner.Report(summary, diagnostics);

@@ -506,6 +506,25 @@ public class SerializationTests {
         Assert.Equal("derived", result.DerivedText);
     }
 
+    /// <summary>
+    ///     An immutable value type — <c>readonly</c> fields, a constructor that takes them, and a
+    ///     derived property — is the shape of every type in <c>Vixen.Core.Mathematics</c>, and it
+    ///     used to generate a serializer with no members at all: two varints out, every field back as
+    ///     its default, no diagnostic. The fallback dropped everything unassignable in a single step,
+    ///     which took the fields along with the derived property and left nothing for a constructor
+    ///     to match against.
+    /// </summary>
+    [Fact]
+    public void AnImmutableStructGoesThroughItsConstructorRatherThanLosingItsFields() {
+        var result = RoundTrip(new Extent(1920, 1080));
+
+        Assert.Equal(1920, result.Width);
+        Assert.Equal(1080, result.Height);
+
+        // Two members and a two-byte header, and not the two bytes alone that this wrote before.
+        Assert.Equal(2 + 4 + 4, Serializer.ToBytes(new Extent(1920, 1080)).Length);
+    }
+
     static T RoundTrip<T>(T value) => Serializer.Read<T>(Serializer.ToBytes(value));
 
     sealed class Unregistered {

@@ -48,6 +48,11 @@ enum MemberShape {
 ///     Whether deserialisation can put a value back. An <c>init</c>-only setter counts: see
 ///     <paramref name="IsInitOnly" />.
 /// </param>
+/// <param name="IsComputed">
+///     Whether the member is a property with no setter at all, and so is derived from something else
+///     that is already being written. That is not the same as being unassignable: a <c>readonly</c>
+///     field stores data and reaches it through a constructor.
+/// </param>
 /// <param name="IsInitOnly">
 ///     Whether the setter is <c>init</c>-only, and so has to be reached through an
 ///     <c>[UnsafeAccessor]</c> rather than an assignment.
@@ -66,6 +71,7 @@ readonly record struct MemberModel(
     string SecondElementType,
     bool IsSettable,
     bool IsInitOnly,
+    bool IsComputed,
     string DeclaringType,
     int Order,
     int Sequence

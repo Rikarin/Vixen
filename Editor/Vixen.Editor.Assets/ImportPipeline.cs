@@ -75,6 +75,15 @@ public sealed class ImportPipeline {
     /// <summary>Whether an importer that reads an undeclared file fails.</summary>
     public bool EnforceDeclaredReads { get; set; } = true;
 
+    /// <summary>Where importers actually run.</summary>
+    /// <remarks>
+    ///     In this process by default. <c>Tools/Vixen.AssetCompiler</c> supplies one that runs them in
+    ///     worker processes, which buys the thing an exception handler cannot: surviving an importer
+    ///     that takes its process down. Everything else about an import is the same either way, which
+    ///     is the whole point of the seam being here and not further out.
+    /// </remarks>
+    public IImportExecutor Executor { get; set; }
+
     /// <summary>Sets up a pipeline over a project.</summary>
     /// <param name="database">The project's assets.</param>
     /// <param name="importers">Which importers this build has.</param>
@@ -98,6 +107,7 @@ public sealed class ImportPipeline {
         this.artifacts = artifacts;
         this.files = files;
         Cache = cache ?? new ImportCache();
+        Executor = new InProcessImportExecutor(importers, files);
     }
 
     /// <summary>Imports everything in the project that needs it.</summary>
@@ -186,35 +196,15 @@ public sealed class ImportPipeline {
         var sourceHash = decision.SourceHash;
         var settingsHash = decision.SettingsHash;
 
-        IImportSettings settings;
-
-        try {
-            settings = (IImportSettings)YamlSerializer.Deserialize(resolved, importer.SettingsType)!;
-        } catch (YamlBindingException failure) {
-            return Refused(entry, $"Its import settings do not fit {importer.Name}: {failure.Message}");
-        }
-
-        var context = new ImportContext(
-            entry.Guid,
-            source,
-            settings,
-            files,
-            importer.Name,
-            Target,
-            EnforceDeclaredReads
-        );
-
-        ImportResult result;
-
-        try {
-            result = await importer.ImportAsync(context, cancellationToken).ConfigureAwait(false);
-        } catch (Exception failure) when (failure is not OperationCanceledException) {
-            // One bad file must not stop the import of everything else — the difference, as doc 08
-            // puts it, between "one bad asset" and "the editor won't open". The out-of-process
-            // worker takes this further by surviving a crash rather than an exception; this is the
-            // in-process half of the same promise.
-            return Refused(entry, $"{importer.Name} threw: {failure.Message}");
-        }
+        // Where the importer actually runs, which may not be here. Everything around it — the
+        // decision, the key, the sidecar, the cache — stays in one copy whichever executor is in
+        // force; what crosses the boundary is one asset's worth of work. See IImportExecutor.
+        var result = await Executor
+            .ExecuteAsync(
+                new(entry.Guid, importer.Name, source, YamlWriter.Write(resolved), Target, EnforceDeclaredReads),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
 
         if (!result.Succeeded) {
             // Nothing is written, and — deliberately — nothing already there is thrown away. A
@@ -236,12 +226,8 @@ public sealed class ImportPipeline {
             )
             .ToArray();
 
-        var fileDependencies = context.FileDependencies
-            .Select(path => path.ToString())
-            .Order(StringComparer.Ordinal)
-            .ToArray();
-
-        var assetDependencies = context.AssetDependencies.Order().ToArray();
+        var fileDependencies = result.FileDependencies.Order(StringComparer.Ordinal).ToArray();
+        var assetDependencies = result.AssetDependencies.Order().ToArray();
 
         // The key stored is the one describing what the import *actually* depended on, not the
         // speculative one it was tested against. Storing the speculative key would mean the first
@@ -258,7 +244,7 @@ public sealed class ImportPipeline {
         );
 
         Cache.Set(fresh);
-        WriteBack(metaPath, root, importer, sourceHash, result);
+        WriteBack(metaPath, root, importer, sourceHash, result.SubAssets);
         return new(entry.Guid, importer.Name, false, true, fresh, result.Diagnostics);
     }
 
@@ -456,7 +442,7 @@ public sealed class ImportPipeline {
         YamlMapping root,
         IAssetImporter importer,
         ObjectId sourceHash,
-        ImportResult result
+        IReadOnlyList<SubAssetEntry> subAssets
     ) {
         var settings = root["importer"] as YamlMapping ?? new YamlMapping();
         settings.Tag = importer.Name;
@@ -468,10 +454,10 @@ public sealed class ImportPipeline {
 
         root.Set("importer", settings);
 
-        if (result.SubAssets.Count > 0) {
+        if (subAssets.Count > 0) {
             var declared = new YamlSequence();
 
-            foreach (var subAsset in result.SubAssets) {
+            foreach (var subAsset in subAssets) {
                 declared.Add(
                     new YamlMapping()
                         .Set("id", new YamlScalar(subAsset.Id.ToString()))
