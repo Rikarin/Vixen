@@ -21,8 +21,10 @@ Both suites were committed before their implementations, which is what those com
 | `BidiAlgorithm` | UAX#9. Which way each character runs, and the order they are drawn in. |
 | `TextItemizer` | UAX#24 script runs × bidi levels — the runs a shaper can be handed. |
 | `FontFace`, `TextShaper` | HarfBuzz shaping, and the glyphs it produces. |
-| MSDF atlas, font fallback | ⏳ |
-| `TextEditor` model with IME | ⏳ |
+| `ShapedText.CaretOffset` | Where a caret goes, and what a click means, in graphemes rather than glyphs. |
+| `ShapingCache` | Shaped paragraphs with LRU eviction. Keyed without the size. |
+| MSDF atlas, font fallback, rich-text runs | ⏳ |
+| `TextEditor` model with IME and caret affinity | ⏳ |
 
 ## What the rules cost
 
@@ -127,6 +129,23 @@ the leading characters was not enough; the bracket stack had to be backfilled to
 has no hinting and no size-specific behaviour. The same string at 12pt and at 48pt shapes identically
 at proportional positions, which is what will make the shaping cache size-independent — one entry per
 string rather than one per string per DPI scale.
+
+## The cache, and what its key deliberately leaves out
+
+`ShapingCache` keeps shaped paragraphs with least-recently-used eviction, judged against shaping
+without one: a cache is only ever wrong by answering differently from the thing it stands in for, so
+that is what is checked, over random sequences of lookups rather than over cases somebody chose.
+Verified by sabotage — not promoting an entry on a hit, dropping the font or the direction from the
+key, evicting one entry too late, and confusing two paragraphs of the same length all fail it.
+
+**The size is not in the key**, which is the payoff for holding the font at design-unit scale. One
+entry serves every size and every DPI scale the label is drawn at; a size-keyed cache would miss on
+every frame of a growing label.
+
+⚠ **Whole paragraphs, not runs**, and that follows from a decision two files away. A run is shaped
+with the text around it as context, so its glyphs are not a function of the run alone — a run-keyed
+cache would either be unsound or need the context in the key, at which point it is a paragraph cache
+with extra steps. Reuse between paragraphs that share a word is given up on purpose.
 
 ## The caret, and a function that cannot be inverted
 

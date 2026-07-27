@@ -910,8 +910,20 @@ sub-piece has its own gate.
   beside the index, which is owed with `TextEditor`. Asserting the round trip everywhere would have
   meant deleting the mixed case or inventing a rule to make it pass, and both would have buried a
   real property of the writing system.
-- Owed: MSDF atlas with LRU eviction, the shaping cache, font fallback, rich-text runs, variable-font
-  axes, `TextEditor` model with IME and caret affinity.
+- ✅ **The shaping cache**, with LRU eviction and an oracle gate: a cache is only ever wrong by
+  answering differently from the thing it stands in for, so that is what is checked, over random
+  sequences of lookups rather than over chosen cases. Verified by sabotage — failing to promote an
+  entry on a hit, dropping the font or the direction from the key, evicting one entry too late, and
+  confusing two paragraphs of the same length each fail it.
+
+  **The size is not in the key**, which is the payoff for holding the font at design-unit scale: one
+  entry serves every size and DPI scale, where a size-keyed cache would miss on every frame of a
+  growing label. ⚠ And it caches **paragraphs rather than runs**, which follows from the context
+  decision — a run is shaped with the text around it, so its glyphs are not a function of the run
+  alone, and a run-keyed cache would either be unsound or need the context in the key. Reuse between
+  paragraphs sharing a word is given up on purpose.
+- Owed: MSDF atlas with LRU eviction, font fallback, rich-text runs, variable-font axes,
+  `TextEditor` model with IME and caret affinity.
 - Gate: ✅ UAX conformance data green. ✅ shaping conformance green against an external oracle,
   with the quarantine pinned in both directions.
 
