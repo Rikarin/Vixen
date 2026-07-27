@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.InteropServices;
 using Nuke.Common;
 using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
@@ -150,6 +151,66 @@ partial class Build : NukeBuild {
                 DotNet($"format style \"{Solution.Path}\" --verify-no-changes --severity warn --no-restore");
                 DotNet($"format analyzers \"{Solution.Path}\" --verify-no-changes --severity warn --no-restore");
             }
+        );
+
+    /// <summary>
+    ///     Publishes every runtime assembly ahead of time, with all of them rooted, and fails on any
+    ///     trim or AOT warning.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Doc 14 puts this in Phase 3 and says why: iOS is NativeAOT-only, and every plan that
+    ///         defers it discovers in month 30 that some subsystem needs reflection and pays for it
+    ///         ten times over. This is that discovery, made cheap and made repeatable.
+    ///     </para>
+    ///     <para>
+    ///         The subject is <c>Tools/Vixen.AotProbe</c>, which roots each runtime assembly rather
+    ///         than calling into it — ILC analyses what is reachable, so a probe that constructs a
+    ///         few types proves those types clean and says nothing about the rest.
+    ///     </para>
+    ///     <para>
+    ///         Published for the host's own runtime identifier. ILC cross-compiles poorly and the
+    ///         analysis that matters here — what needs reflection, what needs dynamic code — is the
+    ///         same on every target, which is why one leg per operating system in CI is coverage
+    ///         rather than three-thirds of one check.
+    ///     </para>
+    /// </remarks>
+    Target CheckAot => definition => definition
+        .Description("Fails if any runtime assembly cannot be published ahead of time")
+        .DependsOn(Restore)
+        .Executes(() =>
+            DotNetPublish(settings => settings
+                .SetProject(RootDirectory / "Tools" / "Vixen.AotProbe" / "Vixen.AotProbe.csproj")
+                .SetConfiguration(Configuration.Release)
+                .SetRuntime(RuntimeInformation.RuntimeIdentifier)
+                .SetOutput(ArtifactsDirectory / "aot")
+            )
+        );
+
+    /// <summary>
+    ///     The same gate for iOS, which is the target the phase's exit criterion is actually about.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Separate from <see cref="CheckAot" /> and separate from the solution, because a
+    ///         <c>net10.0-ios</c> project cannot even be evaluated without the <c>ios</c> workload —
+    ///         putting it in <c>Vixen.slnx</c> would break <c>dotnet build</c> for every developer
+    ///         and every CI leg that is not a Mac with Xcode. The cost is that <c>CheckFormat</c>
+    ///         does not see it, which is two files.
+    ///     </para>
+    ///     <para>
+    ///         Nothing is signed: the question is what compiles, not what can be installed on a
+    ///         device.
+    ///     </para>
+    /// </remarks>
+    Target CheckAotIos => definition => definition
+        .Description("Fails if the runtime assemblies cannot be published for iOS ahead of time")
+        .Requires(() => RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        .Executes(() =>
+            DotNetPublish(settings => settings
+                .SetProject(RootDirectory / "Tools" / "Vixen.AotProbe.iOS" / "Vixen.AotProbe.iOS.csproj")
+                .SetConfiguration(Configuration.Release)
+            )
         );
 
     Target Pack => definition => definition

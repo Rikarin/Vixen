@@ -137,9 +137,27 @@ plumbing that everything else stands on.
   corrected. **Owed, and visibly missing rather than approximated:** file pickers (SDL 2 has none),
   clipboard images and custom formats, thread affinity, thermal state — all four belong to
   `Vixen.Platform.Windows`/`.Linux`/`.MacOS`, which [02](02-repository-layout.md) already reserves.
-- `Vixen.Platform.Native` — RID→binary mapping and checksummed acquisition. Now load-bearing rather
-  than tidy: `Silk.NET.SDL` ships no native binary, so CI installs `libSDL2` from a package manager
-  and Windows has nothing to install it with.
+- 🟡 `Vixen.Platform.Native` — **the runtime half is built; acquisition is not.** RID chain computed
+  rather than looked up (a NativeAOT binary has no `runtimeconfig.json` to read one from), the
+  `runtimes/<rid>/native/` layout searched before the operating system is asked, the versioned soname
+  tried as well as the development symlink, and a `DllImportResolver` that answers before the default
+  rules. 12 tests, all of them pure functions from a name to a list of candidates — a rule about
+  Windows that can only be checked on Windows is a rule that is checked once a release.
+
+  **What it fixes and what it does not, verified rather than assumed.** A registered resolver means
+  the binding library's probing is never reached at run time, which is the functional half of R11's
+  desktop mitigation. It does **not** silence the six IL3000/IL3002 diagnostics: rooting
+  `Vixen.Graphics.Vulkan` with this in place still reports six, because ILC's analysis is static and
+  code unreachable *in practice* is still reachable *in the graph*. Suppressing them is a separate
+  decision that only becomes defensible once this is in force, and is deliberately not taken in the
+  same commit as the thing that would justify it.
+
+  **Owed:** the acquisition half — pinned versions, checksummed URLs, SHA-256 verification, a licence
+  manifest, restored by a Nuke target and never committed ([10](10-platforms.md) § Native binaries,
+  R10) — which belongs in the `build/Build.Native.cs` that [02](02-repository-layout.md) already
+  reserves. And nothing registers the resolver yet: `Vixen.Graphics.Vulkan` and
+  `Vixen.Platform.Desktop` keep their own loading, which works because neither is published ahead of
+  time today. Wiring them up belongs with the acquisition that puts the binaries where this looks.
 - Windows/Linux/macOS specialisations.
 - ✅ `Vixen.App` host (`VixenApp.Run<TGame>()`) and the build-variant matrix — the boot sequence, the
   `Game` hooks, the frame loop, the `--vixen-*` argument contract, the headless fallback and frame
@@ -439,9 +457,25 @@ the codebase is large enough for it to be expensive to fix.
   configures nothing still builds. 17 tests. **The check worth having:** an addressable asset
   depending on one with no address is an error, because the catalog records dependencies by address —
   so that chunk is in no bundle, and the build succeeds, ships, and fails at load on a device.
-  **Owed:** addressing sub-assets. `ImportRecord` keeps artefact ids without the sub-asset each
-  belongs to, so a multi-artefact import is refused rather than packed as its first chunk; every
-  importer today writes exactly one, so nothing is blocked.
+- ✅ **Addressing sub-assets** — the piece `BuildPlanner` owed, and the prerequisite for any importer
+  that produces more than one thing. `ImportRecord` carries the `SubAssetId` beside each chunk id, and
+  a sub-asset is addressed under its owner as `characters/hero#Hero_Mesh` — the name where a `vx:`
+  reference carries the id, because an address is typed by a person and eight hex digits are not.
+  Doc 08 records the form; it had specified the reference and not the address.
+
+  **The part worth stating: a sub-asset needs a catalog entry, not just a place in a bundle.** A chunk
+  is reachable only once the bundle holding it is mounted, and what mounts one is an address in the
+  load closure — so the asset depends on its own parts, which both mounts them and deserialises them
+  first, which is what lets the model's reference to its mesh resolve to the object. Without it a
+  model in a `PackSeparately` group loads with its meshes in a file nobody opened. Verified by
+  sabotage: dropping that dependency fails three tests, and dropping the claim on a sub-asset's
+  address fails the collision test.
+
+  A chunk that cannot be named refuses the whole asset — an artefact the sidecar does not declare, two
+  chunks for one sub-asset, or an import with no main object. Shipping the nameable half is how a model
+  reaches a device with its meshes missing. The import cache's format is version 2 for the pair it now
+  stores, and a line it cannot parse is dropped rather than thrown on: it is a cache in `Library/` that
+  a killed editor can truncate, and the cost of not understanding one line is re-importing one asset.
 - ✅ `TextureImporter`, the first real importer: `IImageDecoder`, StbImageSharp and KTX2 decoders,
   and settings that say what a texture's bytes mean — which decides the transfer function, the mip
   filter's variant and the compressed format together. 63 tests in `Vixen.Editor.Assets.Tests`.
@@ -490,8 +524,102 @@ the codebase is large enough for it to be expensive to fix.
 - Content build: compiler DAG, `ObjectDatabase` (file + bundle backends), bundle packer, catalog.
 - `Vixen.Assets` runtime: `AssetHandle`, ref counting, scopes, label/glob loading, streaming manager.
 - Addressable groups (`.vxgroup`), local + remote providers, `Tools/Vixen.ContentServer`.
-- `Vixen.Sdk` MSBuild integration so `dotnet build` does content builds.
-- `Vixen.Cli` (`new`, `import`, `build`, `run`, `doctor`).
+- ✅ `Vixen.Sdk` MSBuild integration so `dotnet build` does content builds — import before
+  `CoreCompile`, content build after `Build`, the result copied beside the binary and into a publish,
+  and `Clean` taking back what it copied and nothing else. Both consumption forms
+  (`<Project Sdk="Vixen.Sdk">` and a plain `PackageReference`) land on one pair of files. 7 tests,
+  each of them a real `dotnet build` of a real project, because there is no way to test MSBuild
+  integration except by running MSBuild — they are the slowest tests in the repository and that is
+  the price of the only kind that can catch what they catch.
+
+  **Doc 08's point 6 is met and is the reason the CLI grew a diagnostic format.** The tool is invoked
+  with `--format msbuild`, so what an importer said arrives as `<absolute path>: error VX1001: …` — an
+  entry in the IDE's error list rather than prose from a subprocess. The path has to be absolute (a
+  relative one resolves against the build's directory, not the project's) and the code has to exist or
+  MSBuild reads the line as prose. Codes are registered in
+  [`docs/manual/diagnostic-codes.md`](../manual/diagnostic-codes.md), which is new and follows the
+  log-event register's rules.
+
+  **`content build --no-import` exists for exactly one caller.** The SDK imports as its own step so
+  generated C# can precede the compiler, so the content build would otherwise repeat a full scan and
+  ten thousand decisions inside one build. The flag follows the same condition as the target, or a
+  project that turned the import step off would pack what nothing had imported.
+
+  **The rule the first real build found**, written down in the targets and the README: anything
+  derived from another property is computed in the `.targets`, never in the `.props`. A `.props` is
+  imported before the consuming project's body, so a plain default is safe there — an unconditional
+  assignment in a `.csproj` overwrites it — but a property computed *from* one has already been
+  computed by then and nothing recomputes it. `VixenToolCommand` derives from `VixenToolPath` and is
+  what proves it. **The first sabotage written to verify this was wrong** and is recorded as such:
+  moving the `VixenTarget` block into the `.props` changes nothing, for the reason above. Moving
+  `VixenToolCommand` fails six of the seven tests.
+
+  **Owed, and named:** the CLI is not shipped inside the package, so a consumer still needs `vixen`
+  restored or installed and doc 08's "restores the Vixen tool versions matching the referenced
+  packages" is not met; nothing generates C# yet, so the `CoreCompile` hook is ordering without cargo
+  until Phases 4d and 5; platform packaging (APK assets, iOS bundle, `wwwroot`) waits for those
+  platforms; and a build-plan diagnostic carries no file, because `ImportDiagnostic` has no path
+  field — its messages name the asset in their text, so only the IDE's jump-to-file loses.
+- 🟡 `Vixen.Cli` — **`import`, `content build`, `content serve` and `doctor` are built; `new`, `run`
+  and `build` are not, and are absent rather than stubbed.** The first four are the whole pipeline
+  from a terminal, which is what the phase's own gates need: an incremental import, a deterministic
+  content build, and a laptop a phone can be pointed at. 19 tests, driving the real parser over a
+  real project on a real disk — including **the determinism gate at the level a person runs it**: two
+  builds of one project, byte for byte, catalog and bundles alike.
+
+  What the CLI made visible rather than invented: nothing had ever loaded a `.vxgroup` from disk (the
+  planner took groups as an argument and only tests supplied them), and nothing had ever written a
+  content build to a directory — every test until now held bundles in memory. Both are the kind of
+  gap that only a tool with a working directory finds.
+
+  Three decisions worth naming. **`content build` imports first**, always, because it is incremental
+  and a build that packed a stale artefact because somebody forgot a step is a bug report about the
+  wrong thing. **The build writes `catalog.bin.hash`** even though `Vixen.ContentServer` synthesises
+  one, because the shipping path is a CDN and a CDN synthesises nothing. And **`doctor` repairs
+  nothing** — it is the first caller of `ScanOptions.ReadOnly`, which was built for exactly this and
+  had none.
+
+  **Owed, with reasons:** `new` needs the `Vixen.Sdk` package layout to scaffold against; `build` and
+  `run` wrap `dotnet publish`, which is [17](17-app-heads-and-shipping.md)'s story and needs the
+  platform packaging that arrives with Android and iOS. `vixen doctor systems` from
+  [04](04-ecs-and-scripting.md) needs a game assembly to load, and the GPU and driver checks would
+  put a graphics dependency in a tool that today needs none.
+- 🟡 **The NativeAOT gate** — `nuke CheckAot` publishes every runtime assembly ahead of time with all
+  of them **rooted**, so ILC compiles every method rather than the few a probe happens to reach, and
+  fails on any trim or AOT warning. `Tools/Vixen.AotProbe` is its subject.
+
+  **Every `Core/` assembly, `Vixen.Platform`, `Vixen.Platform.Headless` and `Vixen.Graphics.Null`
+  publish with zero warnings, and the binary runs.** That is the phase's "prove AOT correctness before
+  the codebase is large enough for it to be expensive" goal, met for the engine's own code — and it is
+  a real result rather than a hopeful one because rooting is what makes it one: the same probe relying
+  on reachability from `Main` produced a 1.3 MB binary against 8 MB rooted, which is the measure of how
+  much a reachability-only gate would have left unexamined.
+
+- ✅ **The iOS half of the gate — and the phase's headline exit criterion, met.** `nuke CheckAotIos`
+  publishes the same rooted set for `ios-arm64`, which is the target that matters because
+  [10](10-platforms.md) makes iOS NativeAOT-only. It produces an `.ipa` holding a 7 MB native binary
+  and **no managed assemblies at all**, with zero trim and zero AOT warnings under
+  `TreatWarningsAsErrors`. So: *iOS NativeAOT publish with zero trim/AOT warnings* is **met for the
+  engine's own code**, which is everything except the graphics backend.
+
+  The probe is a second project outside `Vixen.slnx`, because a `net10.0-ios` project cannot be
+  evaluated at all without the `ios` workload and putting it in the solution would break `dotnet
+  build` for every developer and CI leg that is not a Mac with Xcode. The cost is that `CheckFormat`
+  does not see its two files.
+
+  ⚠ **Adding `Vixen.Graphics.Vulkan` breaks it, in two different ways that were initially conflated —
+  see R11, which is corrected.** On the desktop, Silk.NET's `DefaultPathResolver` cannot work under
+  AOT, and the fix is `Vixen.Platform.Native`'s `DllImportResolver`. On iOS the resolver is beside the
+  point: everything links statically, so `DllImport`s become symbol references and `clang++` fails
+  with twelve undefined `vk*` symbols because **MoltenVK is not being linked in**. A resolver cannot
+  help there — there is no resolution step to intercept. The first write-up of this named one cause
+  and one fix; designing against it would have produced something that worked on a laptop and failed
+  on the device, which is the exact failure this phase exists to prevent.
+
+  **Owed:** each gate publishes for one RID, so covering three desktop operating systems means one CI
+  leg each; Android is not gated yet, and should be gated on its *default* runtime rather than on
+  NativeAOT, which `warning XA1040` calls experimental and not suitable for production — the plan only
+  ever committed to NativeAOT for iOS.
 - **`Vixen.Platform.Android`** + Vulkan/GLES on device; lifecycle, `AAssetManager`, touch input.
 - **`Vixen.Platform.iOS`** + MoltenVK static; **NativeAOT publish in CI on every PR from here on**.
 - `Samples/07-AddressablesRemote`.
@@ -500,6 +628,50 @@ the codebase is large enough for it to be expensive to fix.
 with **zero** trim/AOT warnings. Content build determinism gate green across three OSes. Remote content
 update fetches only changed bundles (asserted by byte count). Incremental import of one texture < 1 s
 in a 10 k-asset fixture project.
+
+**Where the exit criteria stand.** ✅ **iOS NativeAOT publish with zero trim/AOT warnings — met for
+the engine's own code**, by `nuke CheckAotIos`, which produces an `.ipa` of native code with no managed
+assemblies in it. The graphics backend is not in that set and cannot be until MoltenVK is linked
+statically; see the gate above and R11. ✅ Remote content update fetches only the changed pack, asserted by
+URL and by byte count. 🟡 Content build determinism is green between runs, and green between two
+projects **at different paths, whose assets were created in a different order and carry different
+GUIDs** — which is what would actually break across operating systems, tested without needing a second
+one: an absolute path reaching the catalog, an enumeration order leaking into it, or an authoring
+identity being shipped each fail it. (It also asserts doc 08's own sentence, which nothing had
+checked: the GUID never appears in a shipped build.) Running the comparison across three real runners
+still waits for the CI legs.
+🟡 The import budget is **measured, and it lands on the line rather than under it** — see below.
+Android, iOS and the AOT publish are not started.
+
+> **The 10 k-asset import budget, measured rather than assumed.** A fixture project of 10 200 assets
+> (1 000 of them real PNGs through `TextureImporter`) imports cold in ~6 s. Changing one texture and
+> re-importing cost **2.0–2.3 s** against a budget of one second, and — the part that pointed at the
+> cause — a run where *nothing* had changed cost the same. The budget is not about importing; it is
+> about deciding not to.
+>
+> Three things were wrong, all of them per-asset and all of them on the do-nothing path. Every source
+> file was **opened and hashed twice**, because an asset's own source is in its declared file
+> dependencies as well as being `sourceHash`. Every asset's settings were **bound into an object**
+> before the cache was consulted, to be thrown away. And the whole decision pass ran **sequentially**,
+> at about 104 % CPU on a machine with cores to spare, while the scan beside it was already parallel.
+>
+> With the source hash reused, the binding moved after the check, and deciding done for the whole
+> project at once, the same change now costs **0.88–1.2 s, median ~1.05 s** — about half, and *at* the
+> line rather than beyond it. Measured on an Apple Silicon laptop with other work running, which is
+> why the spread is wide and why the honest reading is "met on a quiet machine, without margin".
+>
+> **What is left is the scan**: ~630 ms of it, two-thirds of the remaining cost, opening and
+> fast-scanning ten thousand sidecars. It cannot be skipped with `AssetDatabase.IsStale()`, and the
+> reason is worth writing down — that heuristic compares the number of `.meta` files and the newest
+> one's write time, and **a newly added source file has no `.meta` yet**, so it moves neither. The
+> heuristic is sound for the running editor it was built for, which watches the filesystem; a command
+> whose whole job is "import what changed" cannot use it. Making the scan cheaper means trusting the
+> persisted index per entry on an unchanged mtime, which is `AssetDatabase`'s own performance story
+> and is owed.
+>
+> **Also owed: the gate itself.** These numbers come from a fixture generated by hand for the
+> measurement. A repeatable version belongs with the benchmark suite, the way the layout gates in
+> Phase 4a do, and until it exists this is a measurement rather than a gate.
 
 > This phase is deliberately early and deliberately painful. Every plan that defers iOS discovers in
 > month 30 that some subsystem needs reflection, and pays for it ten times over.

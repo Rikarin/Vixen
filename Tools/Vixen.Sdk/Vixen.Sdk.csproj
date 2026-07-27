@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <RootNamespace>Vixen.Sdk</RootNamespace>
+        <IsPackable>true</IsPackable>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+
+        <!--
+            A package of MSBuild logic and nothing else. There is no assembly to ship, so there is no
+            assembly to reference: IncludeBuildOutput=false keeps lib/ out of the package, and
+            NU5128 is the warning that a package with no lib/ has a dependency group it cannot
+            match — which is exactly the shape a props/targets package has.
+        -->
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+        <NoWarn>$(NoWarn);NU5128</NoWarn>
+        <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+
+        <!--
+            No symbols, against the repository-wide default. There is no assembly in this package to
+            debug into, so the symbol package would be empty — and an empty one is not a harmless
+            extra file: `dotnet pack` fails it with NU5017, after having successfully written the
+            real package, which reads as a broken build.
+        -->
+        <IncludeSymbols>false</IncludeSymbols>
+
+        <Description>
+            MSBuild integration for Vixen: `dotnet build` imports the project's assets and builds its
+            content, and what the importers said arrives as MSBuild diagnostics.
+        </Description>
+        <PackageTags>msbuild;sdk;content;addressables;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageType>MSBuildSdk</PackageType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+
+        <!--
+            Two entry points for two ways of consuming it. `Sdk/` is what `<Project Sdk="Vixen.Sdk">`
+            imports; `build/` is what a plain PackageReference imports. Both land on the same two
+            files, so there is one implementation and no way for the two forms to drift.
+        -->
+        <None Include="Sdk\Sdk.props" Pack="true" PackagePath="Sdk\" />
+        <None Include="Sdk\Sdk.targets" Pack="true" PackagePath="Sdk\" />
+        <None Include="build\Vixen.Sdk.props" Pack="true" PackagePath="build\" />
+        <None Include="build\Vixen.Sdk.targets" Pack="true" PackagePath="build\" />
+    </ItemGroup>
+
+</Project>

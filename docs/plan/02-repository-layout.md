@@ -203,7 +203,7 @@ Platform/
 │
 ├── Vixen.Audio.Backend.OpenAL/
 ├── Vixen.Audio.Backend.WebAudio/
-└── Vixen.Platform.Native/              # native binary acquisition, RID mapping, runtimes/ layout
+└── Vixen.Platform.Native/              # ✅ RID mapping, runtimes/ layout, DllImportResolver (acquisition owed)
 ```
 
 Backend projects live under `Platform/` rather than `Core/` because they are *platform
@@ -306,8 +306,17 @@ Tools/
 ├── Vixen.App/                    # meta-package: sensible default reference set for an app head
 ├── Vixen.Templates/              # dotnet new templates: vixen-game, vixen-app, vixen-lib, vixen-plugin
 │   └── Vixen.Templates.Tests/
-└── Vixen.ApiCheck/               # public API surface diffing, run in CI
+├── Vixen.ApiCheck/               # public API surface diffing, run in CI
+├── Vixen.AotProbe/               # the subject of `nuke CheckAot`: every runtime assembly, rooted
+└── Vixen.AotProbe.iOS/           # the same for `ios-arm64` — outside the solution, needs the ios workload
 ```
+
+**What `Vixen.Cli` has so far, and one correction to the verb list above.** `import`,
+`content build`, `content serve` and `doctor` are built ([README](../../Tools/Vixen.Cli/README.md));
+`new`, `run` and `build` need the SDK package layout and the platform packaging and are absent rather
+than stubbed. `serve` is grouped under `content` rather than sitting at the top level, because
+[08](08-asset-pipeline-and-addressables.md) already writes `vixen content build` and the two commands
+are about the same directory — one noun, its verbs beneath it.
 
 ## `Samples/` and `Benchmarks/`
 

@@ -103,11 +103,58 @@ public sealed class ImportPipeline {
     /// <summary>Imports everything in the project that needs it.</summary>
     /// <param name="cancellationToken">Cancels the import.</param>
     /// <returns>What happened to each asset, in path order.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Deciding is parallel; importing is not.</b> Working out whether an asset needs
+    ///         anything done is a read of its sidecar, a parse, a hash of its source and a lookup in
+    ///         the cache — no writes, anywhere — and in a project where nothing has changed it is the
+    ///         whole cost of the command. Measured on a ten-thousand-asset project it was the
+    ///         difference between the phase's one-second budget being met and being missed by half.
+    ///     </para>
+    ///     <para>
+    ///         The imports themselves stay sequential, which keeps every semantic exactly as it was:
+    ///         one importer at a time writing chunks, sidecars and cache records, in path order.
+    ///         Running <i>importers</i> in parallel is what the out-of-process worker
+    ///         [08](../../docs/plan/08-asset-pipeline-and-addressables.md) specifies is for, and it
+    ///         buys crash isolation with it.
+    ///     </para>
+    ///     <para>
+    ///         <b>A decision is discarded if something it depends on re-imported first.</b> A
+    ///         dependency's artefact ids are part of a dependent's key, so a decision taken before
+    ///         that dependency ran was taken against ids that no longer exist. That reproduces the
+    ///         sequential loop's behaviour exactly — in path order, a dependent sees its dependency's
+    ///         new artefacts if and only if the dependency came first.
+    ///     </para>
+    /// </remarks>
     public async ValueTask<IReadOnlyList<ImportOutcome>> ImportAllAsync(CancellationToken cancellationToken = default) {
-        var outcomes = new List<ImportOutcome>();
+        var entries = database.Entries.OrderBy(entry => entry.Path, StringComparer.Ordinal).ToArray();
+        var prepared = new Prepared[entries.Length];
 
-        foreach (var entry in database.Entries.OrderBy(entry => entry.Path, StringComparer.Ordinal)) {
-            outcomes.Add(await ImportAsync(entry, cancellationToken).ConfigureAwait(false));
+        Parallel.For(
+            0,
+            entries.Length,
+            new ParallelOptions { CancellationToken = cancellationToken },
+            index => prepared[index] = Prepare(entries[index])
+        );
+
+        var outcomes = new List<ImportOutcome>(entries.Length);
+        var reimported = new HashSet<AssetId>();
+
+        for (var index = 0; index < entries.Length; index++) {
+            var entry = entries[index];
+            var decision = prepared[index];
+
+            if (decision.Reusable is { } record && !record.AssetDependencies.Any(reimported.Contains)) {
+                outcomes.Add(new(entry.Guid, decision.Importer!.Name, true, true, record, []));
+                continue;
+            }
+
+            var outcome = await ImportAsync(entry, cancellationToken).ConfigureAwait(false);
+            outcomes.Add(outcome);
+
+            if (outcome is { WasCached: false, Record: not null }) {
+                reimported.Add(entry.Guid);
+            }
         }
 
         return outcomes;
@@ -118,26 +165,26 @@ public sealed class ImportPipeline {
     /// <param name="cancellationToken">Cancels the import.</param>
     /// <returns>What happened.</returns>
     public async ValueTask<ImportOutcome> ImportAsync(AssetEntry entry, CancellationToken cancellationToken = default) {
-        var metaPath = AssetMetaFile.PathFor(database.Paths.Absolute(entry.Path));
+        var decision = Prepare(entry);
 
-        if (YamlReader.Read(File.ReadAllText(metaPath)) is not YamlMapping root) {
-            return Refused(entry, "Its .meta is not a mapping.");
+        if (decision.Refusal is { } refusal) {
+            return Refused(entry, refusal);
         }
 
-        if (!TryChooseImporter(entry, root, out var importer)) {
+        if (decision.Importer is not { } importer) {
             return new(entry.Guid, null, false, true, null, []);
         }
 
-        var settingsNode = root["importer"] as YamlMapping ?? new YamlMapping { Tag = importer.Name };
-        var resolved = Target.Length == 0 ? settingsNode : TargetOverrides.Resolve(settingsNode, Target);
-
-        var forHashing = new YamlMapping { Tag = resolved.Tag };
-
-        foreach (var (settingKey, value) in resolved.Entries) {
-            if (!RecordedByImport.Contains(settingKey, StringComparer.Ordinal)) {
-                forHashing.Set(settingKey, value);
-            }
+        if (decision.Reusable is { } reusable) {
+            return new(entry.Guid, importer.Name, true, true, reusable, []);
         }
+
+        var metaPath = decision.MetaPath;
+        var root = decision.Root!;
+        var resolved = decision.Resolved!;
+        var source = decision.Source;
+        var sourceHash = decision.SourceHash;
+        var settingsHash = decision.SettingsHash;
 
         IImportSettings settings;
 
@@ -147,22 +194,9 @@ public sealed class ImportPipeline {
             return Refused(entry, $"Its import settings do not fit {importer.Name}: {failure.Message}");
         }
 
-        var sourceHash = entry.IsFolder ? ObjectId.Empty : HashOfSource(entry);
-        var settingsHash = ArtifactKey.HashOf(YamlWriter.Write(forHashing));
-        var previous = Cache.TryGet(entry.Guid, out var record) ? record : null;
-
-        // Computed from what the *previous* import declared, because what this one will declare is
-        // not known until it has run. If nothing it depended on has moved, this matches the key that
-        // import stored and there is nothing to do.
-        if (previous is not null
-            && previous.Key == Key(importer, sourceHash, settingsHash, previous.FileDependencies, previous.AssetDependencies)
-            && previous.Artifacts.All(artifacts.Exists)) {
-            return new(entry.Guid, importer.Name, true, true, previous, []);
-        }
-
         var context = new ImportContext(
             entry.Guid,
-            new VirtualPath("/" + entry.Path),
+            source,
             settings,
             files,
             importer.Name,
@@ -192,8 +226,14 @@ public sealed class ImportPipeline {
             return new(entry.Guid, importer.Name, false, false, null, result.Diagnostics);
         }
 
+        // Each chunk keeps the sub-asset it holds, because the id alone cannot be addressed: two
+        // meshes out of one model are two chunks and the build has to know which is which.
         var stored = result.Artifacts
-            .Select(artifact => artifacts.WriteRaw(ContentHash.TypeId(typeof(ImportedArtifact)), [], artifact.Content.Span))
+            .Select(artifact => new StoredArtifact(
+                    artifact.SubAsset,
+                    artifacts.WriteRaw(ContentHash.TypeId(typeof(ImportedArtifact)), [], artifact.Content.Span)
+                )
+            )
             .ToArray();
 
         var fileDependencies = context.FileDependencies
@@ -222,12 +262,102 @@ public sealed class ImportPipeline {
         return new(entry.Guid, importer.Name, false, true, fresh, result.Diagnostics);
     }
 
+    /// <summary>
+    ///     Everything that can be worked out about an asset without running anything, and the answer
+    ///     to whether anything needs to run.
+    /// </summary>
+    /// <param name="MetaPath">Where its sidecar is.</param>
+    /// <param name="Root">The parsed sidecar.</param>
+    /// <param name="Importer">Which importer claims it, or <see langword="null" /> if none does.</param>
+    /// <param name="Resolved">Its settings node with per-target overrides applied.</param>
+    /// <param name="Source">Its source file.</param>
+    /// <param name="SourceHash">That file's content hash.</param>
+    /// <param name="SettingsHash">The hash of the settings the author wrote.</param>
+    /// <param name="Reusable">The previous record, if this import can be skipped entirely.</param>
+    /// <param name="Refusal">Why nothing can be decided, if that is the case.</param>
+    readonly record struct Prepared(
+        string MetaPath,
+        YamlMapping? Root,
+        IAssetImporter? Importer,
+        YamlMapping? Resolved,
+        VirtualPath Source,
+        ObjectId SourceHash,
+        ObjectId SettingsHash,
+        ImportRecord? Reusable,
+        string? Refusal
+    );
+
+    /// <summary>
+    ///     Reads the sidecar, resolves the overrides, hashes what the key is made of, and decides
+    ///     whether the previous import still stands.
+    /// </summary>
+    /// <remarks>
+    ///     <b>It writes nothing and it throws nothing</b>, which is what lets a whole project's worth
+    ///     of these run at once. Everything it touches — the sidecar on disk, the source file, the
+    ///     importer registry, the cache — is read-only for the duration.
+    /// </remarks>
+    Prepared Prepare(AssetEntry entry) {
+        var metaPath = AssetMetaFile.PathFor(database.Paths.Absolute(entry.Path));
+
+        try {
+            if (YamlReader.Read(File.ReadAllText(metaPath)) is not YamlMapping root) {
+                return Refusal(metaPath, "Its .meta is not a mapping.");
+            }
+
+            if (!TryChooseImporter(entry, root, out var importer)) {
+                return new(metaPath, root, null, null, default, default, default, null, null);
+            }
+
+            var settingsNode = root["importer"] as YamlMapping ?? new YamlMapping { Tag = importer.Name };
+            var resolved = Target.Length == 0 ? settingsNode : TargetOverrides.Resolve(settingsNode, Target);
+            var forHashing = new YamlMapping { Tag = resolved.Tag };
+
+            foreach (var (settingKey, value) in resolved.Entries) {
+                if (!RecordedByImport.Contains(settingKey, StringComparer.Ordinal)) {
+                    forHashing.Set(settingKey, value);
+                }
+            }
+
+            var source = new VirtualPath("/" + entry.Path);
+            var sourceHash = entry.IsFolder ? ObjectId.Empty : HashOfSource(entry);
+            var settingsHash = ArtifactKey.HashOf(YamlWriter.Write(forHashing));
+            var previous = Cache.TryGet(entry.Guid, out var record) ? record : null;
+
+            // Computed from what the *previous* import declared, because what this one will declare
+            // is not known until it has run. If nothing it depended on has moved, this matches the
+            // key that import stored and there is nothing to do.
+            var reusable = previous is not null
+                && previous.Key == Key(
+                    importer,
+                    sourceHash,
+                    settingsHash,
+                    previous.FileDependencies,
+                    previous.AssetDependencies,
+                    entry.IsFolder ? null : (source.ToString(), sourceHash)
+                )
+                && previous.Artifacts.All(artifact => artifacts.Exists(artifact.Id))
+                    ? previous
+                    : null;
+
+            return new(metaPath, root, importer, resolved, source, sourceHash, settingsHash, reusable, null);
+        } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException
+                                              or YamlParseException) {
+            // A sidecar that has gone or will not parse fails that asset rather than the run, the
+            // same way an importer that throws does. It is one file, and the message names it.
+            return Refusal(metaPath, $"Its .meta could not be read: {failure.Message}");
+        }
+    }
+
+    static Prepared Refusal(string metaPath, string why) =>
+        new(metaPath, null, null, null, default, default, default, null, why);
+
     ArtifactKey Key(
         IAssetImporter importer,
         ObjectId sourceHash,
         ObjectId settingsHash,
         IReadOnlyList<string> fileDependencies,
-        IReadOnlyList<AssetId> assetDependencies
+        IReadOnlyList<AssetId> assetDependencies,
+        (string Path, ObjectId Hash)? alreadyHashed = null
     ) =>
         ArtifactKey.Compute(
             importer.Name,
@@ -235,7 +365,7 @@ public sealed class ImportPipeline {
             sourceHash,
             settingsHash,
             Target,
-            DependencyHashes(fileDependencies, assetDependencies)
+            DependencyHashes(fileDependencies, assetDependencies, alreadyHashed)
         );
 
     /// <summary>
@@ -252,12 +382,27 @@ public sealed class ImportPipeline {
     ///         A file that has been deleted contributes nothing, which is correct: its absence is a
     ///         change, and the absence of its hash is what expresses that.
     ///     </para>
+    ///     <para>
+    ///         <b>An asset's own source is in this list and has already been hashed</b> — it is
+    ///         declared for the importer, and it is <c>sourceHash</c> in its own right. Reading it
+    ///         again would be the single largest cost of deciding that a project needs nothing done:
+    ///         one extra open and one extra read per asset, on every asset, on every run.
+    ///         <paramref name="alreadyHashed" /> hands the value over instead, which keeps the key
+    ///         bit-for-bit what it was rather than dropping a contributor and invalidating every
+    ///         cache in existence.
+    ///     </para>
     /// </remarks>
     IEnumerable<ObjectId> DependencyHashes(
         IReadOnlyList<string> fileDependencies,
-        IReadOnlyList<AssetId> assetDependencies
+        IReadOnlyList<AssetId> assetDependencies,
+        (string Path, ObjectId Hash)? alreadyHashed = null
     ) {
         foreach (var path in fileDependencies) {
+            if (alreadyHashed is { } known && string.Equals(path, known.Path, StringComparison.Ordinal)) {
+                yield return known.Hash;
+                continue;
+            }
+
             var absolute = database.Paths.Absolute(path.TrimStart('/'));
 
             if (File.Exists(absolute)) {
@@ -269,7 +414,7 @@ public sealed class ImportPipeline {
         foreach (var asset in assetDependencies) {
             if (Cache.TryGet(asset, out var record) && record is not null) {
                 foreach (var artifact in record.Artifacts) {
-                    yield return artifact;
+                    yield return artifact.Id;
                 }
             }
         }

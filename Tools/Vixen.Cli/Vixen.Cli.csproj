@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Vixen.Cli</RootNamespace>
+        <AssemblyName>vixen</AssemblyName>
+        <IsPackable>true</IsPackable>
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>vixen</ToolCommandName>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <Description>
+            The Vixen command line: import a project's assets, build its content, check its health,
+            and serve a build to a device.
+        </Description>
+        <PackageTags>cli;tooling;addressables;content;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="System.CommandLine" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Editor\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
+        <ProjectReference Include="..\..\Editor\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
+
+        <!-- `content serve` is the same server the standalone tool is, so that a project has one
+             entry point rather than two things to install. -->
+        <ProjectReference Include="..\Vixen.ContentServer\Vixen.ContentServer.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Cli.Tests" />
+    </ItemGroup>
+
+</Project>

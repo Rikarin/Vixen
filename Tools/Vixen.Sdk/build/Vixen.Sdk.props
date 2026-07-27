@@ -1,0 +1,26 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Switches, and only switches.
+
+    This file is imported *before* the consuming project's own body, so a property set here is one
+    the project can still overwrite by assigning it — which is what makes each of these a default.
+    What must NOT live here is anything derived from another property, because the value it would
+    derive from has not been set yet. Those are in Vixen.Sdk.targets, and the reason is written
+    there.
+-->
+<Project>
+
+    <PropertyGroup>
+        <VixenSdkDirectory>$(MSBuildThisFileDirectory)</VixenSdkDirectory>
+
+        <VixenImportOnBuild Condition="'$(VixenImportOnBuild)' == ''">true</VixenImportOnBuild>
+        <VixenContentBuildOnBuild Condition="'$(VixenContentBuildOnBuild)' == ''">true</VixenContentBuildOnBuild>
+        <VixenCopyContentToOutput Condition="'$(VixenCopyContentToOutput)' == ''">true</VixenCopyContentToOutput>
+
+        <!-- Where the content lands inside the application's own output, and inside a publish. -->
+        <VixenContentFolderName Condition="'$(VixenContentFolderName)' == ''">Content</VixenContentFolderName>
+    </PropertyGroup>
+
+</Project>

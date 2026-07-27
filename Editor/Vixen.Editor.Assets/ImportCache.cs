@@ -6,6 +6,20 @@ using Vixen.Core;
 
 namespace Vixen.Editor.Assets;
 
+/// <summary>A chunk an import wrote, and which part of the asset it is.</summary>
+/// <param name="SubAsset">
+///     Which sub-asset it holds, or <see cref="SubAssetId.Main" /> for the asset's own object.
+/// </param>
+/// <param name="Id">The chunk.</param>
+/// <remarks>
+///     <b>The pair, not the id on its own.</b> A record that kept only the ids describes a model as
+///     four chunks with nothing to say which is the mesh — so the build could not name them, and an
+///     asset that imported to more than one thing had to be refused. Everything an address needs is
+///     the sub-asset each chunk belongs to; the <i>name</i> comes from the sidecar, which the same
+///     import wrote.
+/// </remarks>
+public readonly record struct StoredArtifact(SubAssetId SubAsset, ObjectId Id);
+
 /// <summary>What one import produced, and what it depended on to produce it.</summary>
 /// <param name="Asset">Which asset.</param>
 /// <param name="Importer">Which importer ran.</param>
@@ -19,7 +33,7 @@ public sealed record ImportRecord(
     string Importer,
     int ImporterVersion,
     ArtifactKey Key,
-    IReadOnlyList<ObjectId> Artifacts,
+    IReadOnlyList<StoredArtifact> Artifacts,
     IReadOnlyList<string> FileDependencies,
     IReadOnlyList<AssetId> AssetDependencies
 );
@@ -46,7 +60,12 @@ public sealed record ImportRecord(
 ///     </para>
 /// </remarks>
 public sealed class ImportCache {
-    const string Header = "vixen-import-cache 1";
+    /// <summary>
+    ///     Bumped when the encoding changes, which makes an older file unreadable rather than
+    ///     misread — a cache that lives in <c>Library/</c> and describes work that can be redone has
+    ///     no reason to carry a migration.
+    /// </summary>
+    const string Header = "vixen-import-cache 2";
 
     readonly Dictionary<AssetId, ImportRecord> byAsset = [];
 
@@ -102,7 +121,7 @@ public sealed class ImportCache {
                     record.Importer,
                     record.ImporterVersion.ToString(CultureInfo.InvariantCulture),
                     record.Key.Value,
-                    string.Join(',', record.Artifacts),
+                    string.Join(',', record.Artifacts.Select(artifact => $"{artifact.SubAsset}:{artifact.Id}")),
                     string.Join(',', record.AssetDependencies),
                     string.Join('\t', record.FileDependencies)
                 )
@@ -134,24 +153,53 @@ public sealed class ImportCache {
             if (parts.Length < 6
                 || !AssetId.TryParse(parts[0], out var asset)
                 || !int.TryParse(parts[2], CultureInfo.InvariantCulture, out var version)
-                || !ObjectId.TryParse(parts[3], out var key)) {
+                || !ObjectId.TryParse(parts[3], out var key)
+                || TryReadArtifacts(parts[4]) is not { } artifacts
+                || TryReadAssets(parts[5]) is not { } dependencies) {
+                // A line that does not parse is dropped rather than thrown on. This file is a
+                // cache in Library/ that a truncated write or a killed editor can leave malformed,
+                // and the cost of not understanding one line of it is re-importing one asset.
                 continue;
             }
 
-            Set(
-                new(
-                    asset,
-                    parts[1],
-                    version,
-                    new(key),
-                    [.. Split(parts[4]).Select(text => ObjectId.Parse(text))],
-                    [.. parts[6..]],
-                    [.. Split(parts[5]).Select(text => AssetId.Parse(text))]
-                )
-            );
+            Set(new(asset, parts[1], version, new(key), artifacts, [.. parts[6..]], dependencies));
         }
 
         return true;
+    }
+
+    /// <summary>Reads the artefact list, or <see langword="null" /> if any of it is malformed.</summary>
+    static List<StoredArtifact>? TryReadArtifacts(string joined) {
+        var artifacts = new List<StoredArtifact>();
+
+        foreach (var text in Split(joined)) {
+            var separator = text.IndexOf(':');
+
+            if (separator < 0
+                || !SubAssetId.TryParse(text.AsSpan(..separator), out var subAsset)
+                || !ObjectId.TryParse(text.AsSpan((separator + 1)..), out var id)) {
+                return null;
+            }
+
+            artifacts.Add(new(subAsset, id));
+        }
+
+        return artifacts;
+    }
+
+    /// <summary>Reads the asset-dependency list, or <see langword="null" /> if any of it is malformed.</summary>
+    static List<AssetId>? TryReadAssets(string joined) {
+        var assets = new List<AssetId>();
+
+        foreach (var text in Split(joined)) {
+            if (!AssetId.TryParse(text, out var asset)) {
+                return null;
+            }
+
+            assets.Add(asset);
+        }
+
+        return assets;
     }
 
     static IEnumerable<string> Split(string joined) =>

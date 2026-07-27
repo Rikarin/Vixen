@@ -175,6 +175,9 @@ public sealed class PaletteImporter : AssetImporter<PaletteImportSettings> {
     /// <summary>A sub-asset to declare, or <see langword="null" />.</summary>
     public string? SubAssetName { get; init; }
 
+    /// <summary>Another asset to declare a dependency on, so the key picks up its artefacts.</summary>
+    public AssetId DependsOnAsset { get; init; }
+
     /// <summary>Something to complain about, or <see langword="null" />.</summary>
     public string? Complaint { get; init; }
 
@@ -202,6 +205,8 @@ public sealed class PaletteImporter : AssetImporter<PaletteImportSettings> {
             return context.Finish();
         }
 
+        context.DependsOn(DependsOnAsset);
+
         var palette = new VirtualPath("/Assets/shared.pal");
 
         if (context.Files.Exists(palette)) {
@@ -216,8 +221,20 @@ public sealed class PaletteImporter : AssetImporter<PaletteImportSettings> {
             await stream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
         }
 
-        var id = SubAssetName is null ? SubAssetId.Main : context.DeclareSubAsset("Palette", SubAssetName);
-        context.Write(id, "Palette", new byte[] { 1, 2, 3 });
+        // The source's own bytes, so that changing the file moves the artefact's id — which is what
+        // a dependent's cache key is made of, and what makes a dependency's change reach it.
+        await using var own = await context.OpenSourceAsync(cancellationToken).ConfigureAwait(false);
+        using var content = new MemoryStream();
+        await own.CopyToAsync(content, cancellationToken).ConfigureAwait(false);
+
+        context.Write(SubAssetId.Main, "Palette", content.ToArray());
+
+        if (SubAssetName is not null) {
+            // A second chunk, under a sub-asset of its own — the shape a model importer has, where
+            // the asset is one thing and the meshes inside it are others.
+            context.Write(context.DeclareSubAsset("Palette", SubAssetName), "Palette", new byte[] { 4, 5, 6 });
+        }
+
         return context.Finish();
     }
 }
