@@ -289,6 +289,11 @@ its own failure mode.
 constructs `Vk` over a `LamdaNativeContext`, so every entry point is a function pointer it looked up.
 Rooting `Vixen.Graphics.Vulkan` in `nuke CheckAot` now reports **zero**.
 
+The same was true of `SdlLibrary` and `Sdl.GetApi()`, for the same reason and with the same fix.
+`Vixen.Platform.Desktop` is now rooted in the probe too — it never had been — and also reports zero.
+Both were confirmed causally by putting the `GetApi()` call back. **The repository still contains no
+trim or AOT suppressions.**
+
 ⚠ **This paragraph used to predict the opposite, and the prediction was wrong.** It said a suppression
 would be needed regardless, on the correct general principle that ILC's analysis is static and code
 unreachable *in practice* stays reachable *in the graph*. That holds only while something still calls

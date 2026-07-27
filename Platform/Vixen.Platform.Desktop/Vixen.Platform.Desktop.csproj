@@ -19,6 +19,10 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Platform\Vixen.Platform.csproj" />
+
+        <!-- The loader search: the application's own runtimes/<rid>/native/ layout before the
+             system's. See SdlLibrary and R11. -->
+        <ProjectReference Include="..\Vixen.Platform.Native\Vixen.Platform.Native.csproj" />
     </ItemGroup>
 
     <ItemGroup>
