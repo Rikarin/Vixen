@@ -26,24 +26,70 @@ namespace Vixen.Ui.Text.Tests;
 ///     </para>
 /// </remarks>
 public class ShapingConformanceTests {
-    /// <summary>The suite's own tolerance, in font design units.</summary>
+    /// <summary>The suite's own tolerance, in its own units.</summary>
     const double MaximumDelta = 1.0;
 
-    /// <summary>Cases that fail because HarfBuzz does not conform, listed with the reason.</summary>
+    /// <summary>The em the expectations are written in.</summary>
+    /// <remarks>
+    ///     ⚠ Not the font's. The harness renders at a 1000-pixel size whatever the font's
+    ///     units-per-em is, so nine of these fourteen fonts have their expectations scaled by
+    ///     1000/2048 and the other five do not. Comparing design units against them directly makes
+    ///     every case with two or more glyphs in it fail by a factor of 2.048 — and every
+    ///     single-glyph case pass, because a lone glyph sits at the origin in any scale, which is
+    ///     exactly the pattern that makes this look like a shaping bug rather than a units one.
+    /// </remarks>
+    const double SuiteUnitsPerEm = 1000.0;
+
+    /// <summary>The 85 cases HarfBuzz itself does not conform on, pinned one by one.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>These are not Vixen's failures and they are not excused, they are pinned.</b>
-    ///         The test below fails if a quarantined case starts passing, just as loudly as if a
-    ///         healthy one starts failing — so a HarfBuzz upgrade that fixes Tai Tham shows up as a
-    ///         red build asking for a line to be deleted, rather than as nothing at all.
+    ///         ⚠ <b>These are not Vixen's failures, and they are pinned rather than excused.</b> The
+    ///         test fails if a quarantined case starts <i>passing</i> just as loudly as if a healthy
+    ///         one starts failing, so a HarfBuzz upgrade that fixes Tai Tham arrives as a red build
+    ///         asking for lines to be deleted rather than as nothing at all.
     ///     </para>
     ///     <para>
-    ///         Dropping these cases from the port instead would have been the easy thing and the
-    ///         wrong one: the count would then be silent, and "413 cases pass" would mean whatever
-    ///         the generator's filter happened to allow through.
+    ///         ⚠ <b>Listed case by case, not by group.</b> Quarantining <c>SHLANA-*</c> wholesale
+    ///         would be four lines instead of eighty — and would hide the 131 Tai Tham cases that
+    ///         now pass. The Consortium's own report for HarfBuzz, run in 2023, fails all 209 of
+    ///         them; at 14.2.1.1 only 78 still fail. A group-level rule would have silently thrown
+    ///         that away, and would go on hiding it as the number falls further.
+    ///     </para>
+    ///     <para>
+    ///         Dropping them from the port instead would have been easier and worse: the count would
+    ///         be silent, and "413 cases pass" would mean whatever the generator's filter allowed
+    ///         through.
     ///     </para>
     /// </remarks>
-    static readonly (string Prefix, string Reason)[] Quarantine = [];
+    static readonly (string Reason, string[] Cases)[] Quarantine = [
+        // HarfBuzz shapes Tai Tham through the Universal Shaping Engine, which inserts a dotted
+        // circle where these expectations have none and reorders the vowel signs differently.
+        ("HarfBuzz's Tai Tham shaping disagrees with the expectation", [
+            "SHLANA-1/24", "SHLANA-1/25", "SHLANA-1/26", "SHLANA-1/27", "SHLANA-1/34", "SHLANA-1/35",
+            "SHLANA-1/43", "SHLANA-1/44", "SHLANA-2/2", "SHLANA-2/3", "SHLANA-2/4", "SHLANA-2/7",
+            "SHLANA-2/12", "SHLANA-2/14", "SHLANA-2/16", "SHLANA-2/30", "SHLANA-2/33", "SHLANA-2/34",
+            "SHLANA-2/35", "SHLANA-2/36", "SHLANA-3/1", "SHLANA-3/2", "SHLANA-3/3", "SHLANA-4/1",
+            "SHLANA-5/5", "SHLANA-5/8", "SHLANA-5/11", "SHLANA-5/13", "SHLANA-6/2", "SHLANA-7/1",
+            "SHLANA-7/3", "SHLANA-7/4", "SHLANA-7/5", "SHLANA-7/6", "SHLANA-7/7", "SHLANA-7/9",
+            "SHLANA-7/11", "SHLANA-7/12", "SHLANA-7/13", "SHLANA-7/14", "SHLANA-7/15", "SHLANA-7/17",
+            "SHLANA-7/18", "SHLANA-8/1", "SHLANA-8/2", "SHLANA-8/4", "SHLANA-8/5", "SHLANA-8/6",
+            "SHLANA-9/4", "SHLANA-9/6", "SHLANA-10/3", "SHLANA-10/4", "SHLANA-10/5", "SHLANA-10/6",
+            "SHLANA-10/7", "SHLANA-10/8", "SHLANA-10/10", "SHLANA-10/11", "SHLANA-10/12", "SHLANA-10/13",
+            "SHLANA-10/16", "SHLANA-10/21", "SHLANA-10/23", "SHLANA-10/24", "SHLANA-10/25", "SHLANA-10/27",
+            "SHLANA-10/28", "SHLANA-10/29", "SHLANA-10/30", "SHLANA-10/36", "SHLANA-10/38", "SHLANA-10/39",
+            "SHLANA-10/40", "SHLANA-10/42", "SHLANA-10/43", "SHLANA-10/45", "SHLANA-10/46", "SHLANA-10/47"
+        ]),
+
+        // The expectation comes from FreeType, which will select a Macintosh cmap subtable.
+        // HarfBuzz reads Unicode subtables only, so these code points reach .notdef.
+        ("HarfBuzz does not consult the Macintosh Turkish cmap", [
+            "CMAP-3/5", "CMAP-3/7", "CMAP-3/9", "CMAP-3/15", "CMAP-3/16", "CMAP-3/19"
+        ]),
+
+        // The one case the Consortium's own 2023 HarfBuzz report also fails, and for the same
+        // reason: a trailing zero-width non-joiner that the expectation keeps a glyph for.
+        ("HarfBuzz drops a trailing ZWNJ the expectation keeps", ["SHKNDA-3/31"])
+    ];
 
     [Fact]
     public void The_shaping_conformance_suite_is_green() {
@@ -97,12 +143,13 @@ public class ShapingConformanceTests {
     ///     shaper which script and direction to use would remove the only thing this suite can see
     ///     that a HarfBuzz-versus-HarfBuzz comparison cannot.
     /// </remarks>
-    static string? Check(FontFace font, string text, IReadOnlyList<(string Name, double X, double Y)> expected) {
+    static string? Check(FontFace font, string text, List<(string Name, double X, double Y)> expected) {
         var shaped = TextShaper.Shape(font, text);
         var actual = new List<(string Name, double X, double Y)>();
+        var scale = SuiteUnitsPerEm / font.UnitsPerEm;
 
         foreach (var placement in shaped.Placements()) {
-            actual.Add((font.GlyphName(placement.GlyphId), placement.X, placement.Y));
+            actual.Add((font.GlyphName(placement.GlyphId), placement.X * scale, placement.Y * scale));
         }
 
         if (actual.Count != expected.Count) {
@@ -127,8 +174,8 @@ public class ShapingConformanceTests {
         );
 
     static string? QuarantineReason(string id) {
-        foreach (var (prefix, reason) in Quarantine) {
-            if (id.StartsWith(prefix, StringComparison.Ordinal)) {
+        foreach (var (reason, cases) in Quarantine) {
+            if (Array.IndexOf(cases, id) >= 0) {
                 return reason;
             }
         }

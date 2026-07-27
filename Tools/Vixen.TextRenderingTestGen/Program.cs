@@ -133,7 +133,7 @@ static class Program {
     /// <summary>One case: a font, a string, and the glyphs a conforming engine draws.</summary>
     sealed record Case(string Id, string Font, string Text, List<Glyph> Glyphs);
 
-    /// <summary>A drawn glyph, by name, at a position in font design units.</summary>
+    /// <summary>A drawn glyph, by name, at a position in the suite's 1000-unit em.</summary>
     sealed record Glyph(string Name, double X, double Y);
 
     /// <summary>Reads the drawn glyphs out of a case's expected SVG.</summary>
@@ -151,9 +151,17 @@ static class Program {
     ///         contain dots. <c>#GSUB-1/1.a.alt</c> is the glyph <c>a.alt</c>, not <c>alt</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ SVG's y axis points down and a font's points up, so the y here is the negation of
-    ///         the shaper's offset. Ignoring that costs nothing on Latin, where every offset is
-    ///         zero, and produces a suite that passes while every Nastaliq mark is upside down.
+    ///         ⚠ The y here is <i>not</i> negated, although these are SVG coordinates and SVG's y
+    ///         axis points down. The harness writes the shaper's own y-up offsets into the
+    ///         attribute and its report stylesheet flips the whole drawing back with
+    ///         <c>transform: scaleY(-1)</c>. Assuming the usual convention costs nothing on Latin,
+    ///         where every offset is zero, and turns every Nastaliq mark upside down.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The positions are in a <b>1000-unit em</b>, not in the font's own units. The
+    ///         harness sets FreeType to a 1000-pixel size, so a 2048-unit font's expectations come
+    ///         out scaled by 1000/2048. Nine of these fourteen fonts are 2048, and every case with
+    ///         more than one glyph in it says so.
     ///     </para>
     /// </remarks>
     static List<Glyph> ReadGlyphs(XElement element, string id) {
@@ -166,15 +174,7 @@ static class Program {
                 continue;
             }
 
-            var y = Coordinate(use, "y");
-
-            glyphs.Add(new Glyph(
-                href[prefix.Length..],
-                Coordinate(use, "x"),
-                // Negating a zero produces a negative zero, which formats as "-0" and makes a
-                // hundred lines of the data file look like they mean something they do not.
-                y == 0 ? 0 : -y
-            ));
+            glyphs.Add(new Glyph(href[prefix.Length..], Coordinate(use, "x"), Coordinate(use, "y")));
         }
 
         return glyphs;
@@ -224,7 +224,8 @@ static class Program {
         builder.Append("# an oracle instead of a recording.\n");
         builder.Append("#\n");
         builder.Append("# id<TAB>font<TAB>text as code points<TAB>glyphName:x:y ...\n");
-        builder.Append("# Positions are in font design units, y up, pen origin at zero.\n");
+        builder.Append("# Positions are in a 1000-unit em, y up, pen origin at zero: the harness renders at a\n");
+        builder.Append("# 1000-pixel size, so the expectations for a 2048-unit font are scaled by 1000/2048.\n");
 
         foreach (var entry in cases) {
             builder.Append(entry.Id).Append('\t').Append(entry.Font).Append('\t');

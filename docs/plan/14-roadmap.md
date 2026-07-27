@@ -845,9 +845,57 @@ sub-piece has its own gate.
   time and wants runs already itemised by direction, then script, then font — so bidi comes first,
   which is what was just built. Shaping written first would have been written against a run model
   that did not exist.
-- Owed: HarfBuzz shaping itself, MSDF atlas with LRU eviction, font fallback, rich-text runs,
-  `TextEditor` model with IME.
-- Gate: ✅ UAX conformance data green. Owed: shaping golden tests per script.
+- ✅ **Shaping is built, and it is judged by somebody else's cases rather than by HarfBuzz's own.**
+  328 of the Consortium's 413
+  [text-rendering-tests](https://github.com/unicode-org/text-rendering-tests) shaping cases pass —
+  Arabic in Nastaliq, Balinese, Kannada, Tai Tham, and the GSUB/GPOS/KERN/CMAP tables shaping is
+  made of. `Tools/Vixen.TextRenderingTestGen` ports them; sequencing rule 4 for the fourth time,
+  suite before implementation.
+
+  ⚠ **The gate this doc asked for was unbuildable as written.** "Shaping golden tests per script
+  against HarfBuzz reference output" is HarfBuzz judging itself: Vixen writes no shaping algorithm,
+  so that comparison stays green through any mistake that hands the shaper the same wrong arguments
+  twice. What Vixen owns is the itemisation — which runs, what direction, what script, what order,
+  and how a glyph maps back to a character — and the Consortium's expectations, written by hand
+  from the OpenType specification, are sensitive to exactly that. **The gate is restated as
+  external-oracle shaping conformance**, which is stronger than what was asked for and is the same
+  bet as the Yoga fixtures and the UAX suites.
+
+  Verified by sabotage, and this is the evidence that the suite tests Vixen and not only HarfBuzz:
+  shaping every run as Latin fails **203** cases, forcing every run left to right fails **6**, and
+  giving spaces and punctuation runs of their own fails **2** — one of which is the case the
+  Consortium named *Space Isn't Nothing*, which exists for that mistake and catches it by name.
+
+  ⚠ **The same sabotage found the hole, which is the more useful half.** Shaping each run *without
+  the text around it* fails **nothing**: every case in the suite is a single run and so has no
+  neighbour to lose. That context decides whether an Arabic letter joins, and losing it also makes
+  every cluster index relative to the run rather than to the text — an off-by-three in every caret
+  and hit test downstream. Four hundred external cases cannot see either; `ShapingTests` covers what
+  they miss. **A gate is only a gate for what it can observe, and finding out which half that is
+  cost one sabotage run.**
+
+  ⚠ **The 85 failures are HarfBuzz's, and they are pinned case by case rather than excused.** The
+  test fails if a quarantined case starts *passing* just as loudly as if a healthy one starts
+  failing. Listing them by group would have been four lines instead of eighty — and would have
+  hidden the 131 Tai Tham cases that now pass: the Consortium's own 2023 report for HarfBuzz fails
+  all 209 of them, and at 14.2.1.1 only 78 still do. A group-level rule would have thrown that away
+  silently and gone on doing so.
+
+  Two findings worth carrying. The suite's positions are in a **1000-unit em**, not the font's, so
+  nine of the fourteen fonts have expectations scaled by 1000/2048 — compared naively, every case
+  with two or more glyphs fails by a factor of 2.048 while every single-glyph case passes, which
+  reads as a shaping bug rather than a units one. And a **bracket that opens before the first
+  letter** remembers a script that does not exist yet, so `(ಲ್ಲಿ)` came out as Kannada followed by a
+  one-character run of nothing in particular; backfilling the leading characters was not enough, the
+  bracket stack had to be backfilled too.
+
+  Shaping is held at **design-unit scale and never at a pixel size** — HarfBuzz's OpenType path has
+  no hinting, so a string shapes identically at every size. That is what will make the shaping cache
+  size-independent rather than one entry per string per DPI scale.
+- Owed: MSDF atlas with LRU eviction, the shaping cache, font fallback, rich-text runs, variable-font
+  axes, `TextEditor` model with IME.
+- Gate: ✅ UAX conformance data green. ✅ shaping conformance green against an external oracle,
+  with the quarantine pinned in both directions.
 
 **4d — Element tree, markup, rendering (1.5 EM)**
 - `Vixen.Ui`: element tree, generated property system, event routing, focus, hit testing, gestures,

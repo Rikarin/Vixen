@@ -46,16 +46,5 @@
         <EmbeddedResource Include="Fonts/*.otf" />
     </ItemGroup>
 
-    <ItemGroup>
-        <!--
-            ⚠ Sequencing rule 4, for the fourth time: the suite lands before the implementation that
-            has to pass it, and this line is what the next commit deletes. Writing the gate first is
-            what stops it from being shaped around whatever the code turned out to do — and it
-            matters more here than anywhere, because Vixen delegates shaping to HarfBuzz and could
-            otherwise "verify" it by asking HarfBuzz what HarfBuzz does.
-        -->
-        <Compile Remove="ShapingConformanceTests.cs" />
-        <None Include="ShapingConformanceTests.cs" />
-    </ItemGroup>
 
 </Project>

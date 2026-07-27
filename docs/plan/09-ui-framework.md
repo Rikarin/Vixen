@@ -481,8 +481,13 @@ does not nest.
 Underestimating text is the classic UI-framework mistake.
 
 - **Shaping**: HarfBuzzSharp. Non-negotiable for ligatures, kerning, Arabic/Hebrew/Indic/Thai, emoji
-  clusters, and variable fonts.
+  clusters, and variable fonts. **Built.** What is Vixen's is not the shaping but the *itemisation*
+  around it — UAX#24 script runs crossed with bidi levels, the direction and script each run is
+  given, the order runs are drawn in, and the cluster-to-character mapping. A correct shaper given
+  the wrong arguments produces wrong glyphs, which is why the gate is an external one.
 - **Bidi**: UAX#9 implementation (or ICU4X bindings if the size cost is acceptable; measure first).
+  **Built**, as Vixen's own — all 91 707 of the Consortium's cases pass, so the ICU4X alternative
+  was never needed and the size cost never paid.
 - **Line breaking**: UAX#14 with a compact rule table; UAX#29 grapheme/word segmentation for cursor
   movement and double-click selection.
 - **Rasterisation**: **MSDF** atlas — multi-channel signed distance fields give crisp text at any
@@ -607,7 +612,7 @@ Details that make it actually work:
 | Grid | Ported WPT (web-platform-tests) CSS Grid cases where they can be expressed without a full browser |
 | Styling | Cascade/specificity/`@layer` order tests against known CSS semantics; selector-matching oracle (bucketed matcher vs. brute-force over randomised trees); style-sharing correctness (shared instances are genuinely identical); invalidation minimality (toggling a class restyles exactly N elements) |
 | Utilities | Candidate extraction over fixture files; each utility family emits the expected declarations; arbitrary values; variant combinations; unused utilities are absent from output |
-| Text | Shaping golden tests per script (Latin/Arabic/Devanagari/Thai/CJK/emoji-ZWJ) against HarfBuzz reference output; line-break conformance against UAX#14 test data; grapheme segmentation against UAX#29 test data; MSDF glyph rendering golden images |
+| Text | Shaping conformance against the Consortium's [text-rendering-tests](https://github.com/unicode-org/text-rendering-tests) — **not** against HarfBuzz reference output, which would be HarfBuzz judging itself and would survive any itemisation bug that handed the shaper the same wrong arguments twice (see [doc 14](14-roadmap.md), 4c); line-break conformance against UAX#14 test data; segmentation against UAX#29; bidi against UAX#9; MSDF glyph rendering golden images |
 | Rendering | Draw-list golden tests (element tree → expected primitive list) — pure CPU, no GPU needed, which makes control rendering unit-testable. Plus golden images per control on the Null/lavapipe path |
 | Input/events | Routing order, capture, focus traversal, gesture recognition state machines |
 | Controls | Per control: keyboard interaction matrix, ARIA-role snapshot, virtualisation (a 10⁶-row grid realises O(viewport) elements), and a golden image in light and dark themes |
