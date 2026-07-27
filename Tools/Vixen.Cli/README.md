@@ -96,13 +96,53 @@ Told, never discovered — `TextureImporter`, `FolderImporter`, and `RawImporter
 assembly scan would read metadata a trimmed publish has already deleted, and would make "which
 importers imported this project" a question with different answers in the editor and here.
 
-## Still to come
+## `new`, `build`, `run`
 
-**`new`, `run` and `build` are absent rather than stubbed.** `new` needs the `Vixen.Sdk` package
-layout to scaffold a project against; `build` and `run` wrap `dotnet publish` of a game project,
-which is [doc 17](../../docs/plan/17-app-heads-and-shipping.md)'s shipping story and needs the
-platform packaging that lands with Android and iOS. A verb that parses and then apologises is worse
-than one that is not there, because a build script can only discover the second kind at run time.
+```
+vixen new game Asteroids     # a project the SDK drives
+vixen build --target iOS     # content, then dotnet publish
+vixen run -- --vixen-frames 5
+```
+
+**`new` scaffolds against the SDK rather than against a package list.** A game project is
+`<Project Sdk="Vixen.Sdk/x.y.z">` plus one `PackageReference` for the host, and the import-before-compile
+and content-build-after-build wiring arrives with the SDK. A template that listed every package the
+engine currently needs would be wrong one release later. The SDK version it writes is read from this
+assembly, so a scaffolded project asks for the SDK matching the tool that made it.
+
+It refuses rather than overwriting, and refuses *entirely*: every collision is found before anything is
+written, because a half-scaffolded directory is worse than an untouched one.
+
+**`build` runs the content build and then `dotnet publish`.** That ordering is the reason the command
+exists — content is stale unless something rebuilt it, and a publish that copies last week's bundles is
+a bug that looks like caching. The variant travels as `-p:VixenVariant`, not as the compiler
+configuration, because doc 17's five variants are orthogonal to Debug/Release: Development is optimised
+*and* keeps its diagnostics.
+
+**It turns the SDK's own content steps off**, with `VixenImportOnBuild=false` and
+`VixenContentBuildOnBuild=false`. They are right for `dotnet build`; here the work has just been done,
+and leaving them on repeats a full scan inside the publish — and requires the `vixen` tool on the PATH
+of a process this tool started, which is a strange thing for the tool to demand of itself.
+
+**`run` is host-target and Debug by default**, and returns the application's own exit code rather than
+translating it: a game that crashes exits 1 by `VixenApplication.Run`'s contract, and flattening that
+into this tool's would lose the difference between a failed build and a bad run.
+
+### What they do not do
+
+**Nothing is signed, notarised or bundled beyond what `dotnet publish` emits.** Doc 17's packaging
+table ends in notarised DMGs, provisioned IPAs and AABs with per-ABI splits; those are Nuke's job and
+need credentials. `--target iOS` produces what the iOS SDK produces and says so.
+
+**A consumer still needs the engine packages.** `vixen build` works against a feed that has them —
+verified end to end against a local one — and until they are on nuget.org a scaffolded project needs a
+`nuget.config` pointing somewhere they exist.
+
+**`app`, `plugin` and `tool` templates are not written.** Doc 17 lists five; `game` and `library` are
+here. `app` in particular is the practical test that `Vixen.Ui` does not depend on `Vixen.Engine`, and
+it should be written when `Vixen.Ui` is far enough along to be worth scaffolding against.
+
+## Still to come
 
 Also owed: `vixen doctor systems` from [doc 04](../../docs/plan/04-ecs-and-scripting.md), which needs
 a game assembly to load; and the GPU and driver checks, which need `Vixen.Graphics.Vulkan`'s loader
