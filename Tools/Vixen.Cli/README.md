@@ -109,6 +109,9 @@ different artefacts for the same file.
 
 ## `new`, `build`, `run`
 
+A step-by-step version of this, including the dedicated server, is in
+[docs/manual/building-a-game-and-a-server.md](../../docs/manual/building-a-game-and-a-server.md).
+
 ```
 vixen new game Asteroids     # a project the SDK drives
 vixen build --target iOS     # content, then dotnet publish

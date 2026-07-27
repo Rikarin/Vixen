@@ -90,7 +90,10 @@ public sealed class AppBuilder {
         game.OnConfigure(config);
 
         var logs = new RingBufferSink { MinimumLevel = config.LogLevel };
-        var loggerFactory = new HostLoggerFactory(logs);
+
+        var loggerFactory = config.LogToConsole
+            ? new HostLoggerFactory(logs, new ConsoleLogProvider(config.LogLevel))
+            : new HostLoggerFactory(logs);
         var host = platform ?? PlatformHost.Create(config);
 
         var fileSystem = new VirtualFileSystem();

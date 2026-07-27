@@ -51,6 +51,31 @@
         <VixenTarget Condition="'$(VixenTarget)' == ''">Linux</VixenTarget>
     </PropertyGroup>
 
+    <!--
+        The build variant, carried into the binary that has to know it.
+
+        Doc 17's five variants are orthogonal to Debug/Release — a Development build is optimised and
+        keeps its profiler, and a Server build differs from a Release one only in having no window —
+        so the variant cannot be recovered from the compiler configuration at run time. There is no
+        other way to get it there either: `#if` cannot express five states across packages that ship
+        once, and an environment variable can be wrong.
+
+        `BuildVariantAttribute`'s own documentation says the SDK applies it "rather than by hand",
+        and until now nothing did: the CLI's build verb passed VixenVariant into the publish as a
+        property and no part of the build or the runtime read it, so a server publish started up,
+        detected Release from the configuration, and asked for a window.
+
+        Executables only. BuildVariants.Detect reads the *entry* assembly, so the attribute on a
+        library is dead weight — and emitting it there would fail the build of any library that uses
+        this SDK without referencing Vixen.App, which is where the type lives.
+    -->
+    <ItemGroup Condition="'$(VixenVariant)' != '' AND '$(OutputType)' == 'Exe' AND '$(VixenEmitBuildVariant)' != 'false'">
+        <AssemblyAttribute Include="Vixen.App.BuildVariantAttribute">
+            <_Parameter1>Vixen.App.BuildVariant.$(VixenVariant)</_Parameter1>
+            <_Parameter1_IsLiteral>true</_Parameter1_IsLiteral>
+        </AssemblyAttribute>
+    </ItemGroup>
+
     <PropertyGroup>
         <VixenContentOutputDirectory Condition="'$(VixenContentOutputDirectory)' == ''">$(VixenProjectDirectory)/Build/$(VixenTarget)</VixenContentOutputDirectory>
 

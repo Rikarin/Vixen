@@ -81,6 +81,16 @@ public sealed class AppConfig {
     /// <summary>The lowest level the log ring keeps.</summary>
     public LogLevel LogLevel { get; set; } = LogLevel.Information;
 
+    /// <summary>Whether the host also writes the log to the terminal.</summary>
+    /// <remarks>
+    ///     Resolved from the variant in <see cref="Apply" /> and overridable there:
+    ///     [doc 17](../../docs/plan/17-app-heads-and-shipping.md)'s table lists a console for
+    ///     Development and full logging for Server, and gives Release the log ring and the crash
+    ///     reporter and nothing else. A shipped game has no terminal to write to and would pay for
+    ///     every string it formatted; a dedicated server has nothing but the terminal.
+    /// </remarks>
+    public bool LogToConsole { get; set; } = true;
+
     /// <summary>
     ///     A directory of loose content to read instead of bundles, from
     ///     <c>--vixen-loose-content</c>.
@@ -155,6 +165,7 @@ public sealed class AppConfig {
 
         Variant = BuildVariants.Detect(arguments.Variant);
         Headless = arguments.Headless || Variant.IsHeadless();
+        LogToConsole = Variant != BuildVariant.Release;
         Arguments = arguments.Remaining;
         UnrecognisedArguments = arguments.Unrecognised;
 

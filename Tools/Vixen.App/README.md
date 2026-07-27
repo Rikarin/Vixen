@@ -58,6 +58,9 @@ hooks.
 
 ## Build variants
 
+Building a game and a dedicated server from one project is written up in
+[docs/manual/building-a-game-and-a-server.md](../../docs/manual/building-a-game-and-a-server.md).
+
 Five, orthogonal to platform ([doc 17](../../docs/plan/17-app-heads-and-shipping.md) § Build
 variants): `Editor`, `Debug`, `Development`, `Release`, `Server`. Resolved once from three sources in
 order — `--vixen-variant`, a `[BuildVariant]` attribute on the entry assembly, and finally the
@@ -113,6 +116,15 @@ vsync is off or there is no window — a server's tick rate, or a tool's.
 The always-on ring buffer from `Vixen.Core.Diagnostics`, behind a twenty-line `ILoggerFactory` —
 ADR-008 takes `Microsoft.Extensions.Logging.Abstractions` and no more, so the concrete `LoggerFactory`
 (and the configuration and options stack behind it) is deliberately not available.
+
+**And a console, for every variant except `Release`.** That is doc 17's table read literally:
+Development lists a console among the things it carries and Server lists full logging, while Release
+gets the ring and the crash reporter and nothing else — a shipped game has no terminal to write to
+and would pay for every string it formatted. `config.LogToConsole` overrides it either way.
+
+Until that existed the host added no providers at all, so a scaffolded game printed nothing and
+`Samples/01` carried its own thirty-line copy — which is the usual sign that they belonged one layer
+down. A dedicated server logging into a ring nobody reads is the same bug with worse consequences.
 
 The host's own lines are generated `[LoggerMessage]` call sites with ids registered in
 [`docs/manual/log-events.md`](../../docs/manual/log-events.md) — the first entries in that register,
