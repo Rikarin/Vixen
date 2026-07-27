@@ -117,6 +117,8 @@
   <Folder Name="/Tools/">
     <Project Path="Tools/Vixen.App/Vixen.App.csproj" />
     <Project Path="Tools/Vixen.App.Tests/Vixen.App.Tests.csproj" />
+    <Project Path="Tools/Vixen.ContentServer/Vixen.ContentServer.csproj" />
+    <Project Path="Tools/Vixen.ContentServer.Tests/Vixen.ContentServer.Tests.csproj" />
   </Folder>
 
   <!--

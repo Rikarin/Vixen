@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Vixen.ContentServer</RootNamespace>
+        <AssemblyName>vixen-content-server</AssemblyName>
+        <IsPackable>true</IsPackable>
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>vixen-content-server</ToolCommandName>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <Description>
+            Serves a content build directory over HTTP with byte-range support, so a device can be
+            pointed at a laptop instead of a CDN. A development tool: no TLS, no authentication.
+        </Description>
+        <PackageTags>content;addressables;http;tooling;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core.IO\Vixen.Core.IO.csproj" />
+
+        <!-- ContentHash, so a hash file can be synthesised from the catalog it names rather than
+             having to be present in the directory somebody copied. -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.ContentServer.Tests" />
+    </ItemGroup>
+
+</Project>

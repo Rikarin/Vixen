@@ -418,8 +418,19 @@ the codebase is large enough for it to be expensive to fix.
   build in which one of two packs changed, and the client fetches that pack and nothing else —
   asserted both by which URLs were requested and by byte count. `HttpContentTransport` got its own
   8 tests against an `HttpMessageHandler`, which is where the `206`/`200`/`Content-Range` reasoning
-  lives and where it had none. **Owed:** `Tools/Vixen.ContentServer`, so a developer can point a
-  device at a content build; the client half is done and tested.
+  lives and where it had none.
+- ✅ `Tools/Vixen.ContentServer` — serves a content build directory over HTTP with byte ranges, so a
+  phone can be pointed at a laptop instead of a CDN. All three range forms, a 416 for a range that
+  starts past the end, and a synthesised `catalog.bin.hash` so a build directory can be served exactly
+  as the build wrote it. 34 tests and **no socket**: the request logic is a class, the listener is a
+  shell over it, which is how [12](12-build-ci-and-testing.md)'s "no real network in tests" rule is
+  obeyed without leaving the interesting half unchecked. Path traversal is asserted against seven
+  spellings including percent-encoded ones — and that makes `VirtualPath`'s "escapes above the root"
+  rule load-bearing for a security property for the first time, which is worth knowing before anyone
+  relaxes it. **Sabotage found dead code claiming to be a gate:** a containment check after the path
+  was already normalised, which no mutation could make fail because a normalised path holds no
+  `..`. Removed rather than kept, because a redundant check that reads as defence in depth
+  invites the next reader to believe the real gate is optional.
 - ✅ `TextureImporter`, the first real importer: `IImageDecoder`, StbImageSharp and KTX2 decoders,
   and settings that say what a texture's bytes mean — which decides the transfer function, the mip
   filter's variant and the compressed format together. 63 tests in `Vixen.Editor.Assets.Tests`.
