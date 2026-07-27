@@ -54,10 +54,42 @@ Only uncompressed eight-bit formats can be reduced, and that is not a gap: a cha
 *before* compression, because reducing compressed blocks means decode, filter, re-encode, and each
 round loses more than the filter gains. Asking for the other order says so.
 
+## Block compression
+
+`BlockCompressor.Encode` produces **BC1, BC3, BC4, BC5, BC7 and BC6H**. It is build-time code: the
+runtime never decodes a block, because a shipped texture is already in the format the GPU samples.
+`Decode` exists so an editor can preview what compression will do and so the encoders can be tested
+against something other than themselves.
+
+**BC1, BC3, BC4 and BC5 are complete.** They fit the principal axis of the block's own colours and
+refine the endpoints by least squares, and those formats have no modes left to choose between. BC4
+picks between its two interpolation modes by measured error, which is the whole of the decision.
+
+**BC7 and BC6H write one mode each — mode 6 of eight, and mode 11 of fourteen.** Both are the
+single-subset modes: one line through colour space, no partitioning. On smooth content that is the
+mode a full encoder picks anyway; on a block with a hard edge running through it a partitioned mode
+would be visibly better and this will not find it. What comes out is valid, correctly sized, and any
+decoder reads it. Doc 03 calls for the native encoder for production quality and doc 01 registers
+`ispc_texcomp` and `astcenc`; this is what a build uses until those are bound.
+
+**ASTC and ETC2 have no encoder here and are not getting one in managed code.** Doc 03 gives the
+reason — ASTC encoding is measured in minutes per gigabyte outside a vectorised native encoder. Both
+formats have sizes, block extents and KTX2 numbers so a build with the native encoder can ship them,
+and asking `BlockCompressor` for one names what is missing.
+
+**Not validated against an independent BC decoder.** Same standard and same limit as KTX2: every
+block layout is written from the specification and checked byte-for-byte against a hand-computed
+block, which catches a misread but not a misunderstanding. Running the output past a GPU or a
+reference decoder is owed.
+
+What *is* measured, over twenty thousand random blocks each: texels lying on a line come back within
+40 for BC1 and BC3, 21 and 23 for BC4 and BC5, and 9 for BC7 — the formats' own ordering, four steps
+along the line against eight against sixteen. The tests hold those as bounds.
+
 ## Still to come
 
-The block encoders — BCn, ASTC, ETC2 — which is where the native dependencies start (`astcenc` is in
-doc 01's register). Nothing here encodes yet; `TextureData` and `Ktx2` carry compressed formats
-through, they simply do not produce them. IBL prefiltering is owed from doc 08 as well.
+IBL prefiltering — GGX cubemap prefiltering and SH-9 irradiance projection — is owed from doc 03,
+along with alpha-weighted mips and normal-map renormalisation. The DDS reader doc 03 names for legacy
+interop is not written either.
 
 Licensed under Apache-2.0.
