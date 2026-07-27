@@ -1,0 +1,8 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+<Project>
+    <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+    <Import Project="$(MSBuildThisFileDirectory)../build/Vixen.Sdk.targets" />
+</Project>

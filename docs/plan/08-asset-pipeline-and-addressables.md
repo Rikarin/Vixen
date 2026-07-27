@@ -210,6 +210,34 @@ One scalar instead of a three-key flow mapping is a real gain, not cosmetics: it
 merges cleanly, greps trivially (`rg 'vx:9e8a44c9'` finds every referrer), and is unambiguous to
 round-trip.
 
+### Addressing a sub-asset
+
+**Built, and this document did not previously say what the address looks like.** A sub-asset is
+addressed under its owner with the same `#`, and with its **name** where a reference carries its id:
+
+```
+characters/hero              # the model
+characters/hero#Hero_Mesh    # the mesh inside it
+```
+
+The id is right for a reference — written by the editor, read by nothing, and fixed-width. The name is
+right for an address, which a person types into `LoadAsync`. Neither is more stable than the other: the
+id is derived from the name, so renaming a sub-asset changes both.
+
+**Every sub-asset gets a catalog entry, and its owner depends on it.** This is not bookkeeping. A chunk
+is reachable only once the bundle holding it is mounted, and what mounts a bundle is an address in the
+load closure — so a model in a `PackSeparately` group whose meshes had no address would load with its
+meshes in a file nobody opened. The dependency is also what deserialises the parts *first*, which is
+what lets the model's `ContentReference` to its mesh resolve to the object.
+
+A part carries its owner's group, labels and dependencies. The first two keep an asset's pieces in one
+bundle; the third is over-claimed deliberately, because which part uses which dependency is not
+recorded and a mesh loaded on its own must still mount what it needs.
+
+A dependency on an asset is a dependency on the *asset*: the dependent names the address and gets
+everything inside it through the closure. Nothing records which part of a model another asset pointed
+at, and nothing needs to.
+
 ### Addressable metadata placement
 
 The per-asset facts (address, labels, group membership) live in the `.meta`; the group *policy*
@@ -487,6 +515,20 @@ addresses, which is what "dependencies" was trying to say.
 
 This is how Stride integrates (`Stride.AssetCompiler.targets`) and it is the right pattern: a user
 should never have to run a separate content build step manually.
+
+**Built, with 1 and 5 owed.** Steps 2, 4 and 6 are done — `vixen import` before `CoreCompile`,
+`vixen content build` after `Build`, and diagnostics in MSBuild's own form so they reach the IDE's
+error list ([codes](../manual/diagnostic-codes.md)). Step 3 is ordering with nothing to order yet; the
+generators arrive in Phases 4d and 5. Step 1 is not done: the CLI is not shipped inside the SDK
+package, so a consumer needs `vixen` restored or installed. Step 5 copies the content beside the
+binary and into a publish, but the *platform* packages — APK assets, iOS bundle, `wwwroot` — wait for
+those platforms.
+
+One rule the implementation had to find by running a real build, recorded because it reads perfectly
+on the page and fails silently: **anything derived from another property belongs in the `.targets`,
+never in the `.props`.** A `.props` is imported before the consuming project's body, so a plain
+default is safe there — an unconditional assignment in a `.csproj` overwrites it — but a property
+computed *from* one has already been computed by the time the body runs, and nothing recomputes it.
 
 ## Testing
 

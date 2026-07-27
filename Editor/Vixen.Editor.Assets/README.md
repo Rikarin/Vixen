@@ -108,6 +108,33 @@ surviving a crash rather than an exception; this is the in-process half of the s
 The sidecar is written back through the node tree, so an import is a diff of the two lines it changed
 and not of the whole file.
 
+## Deciding is parallel; importing is not
+
+In a project where nothing has changed, the entire cost of an import is deciding that: a sidecar read,
+a parse, a hash of the source, a lookup in the cache. None of it writes anything, so `ImportAllAsync`
+does all of it at once and then imports, sequentially, only what needs it. On a ten-thousand-asset
+project that was the difference between missing this phase's one-second budget by half and meeting it.
+
+The imports themselves stay sequential and every semantic stays exactly as it was: one importer at a
+time, writing chunks, sidecars and cache records, in path order. Running *importers* in parallel is
+what doc 08's out-of-process worker is for, and it buys crash isolation along the way.
+
+**A decision is discarded if something it depends on re-imported first.** A dependency's artefact ids
+are part of a dependent's key, so a decision taken before that dependency ran was taken against ids
+that no longer exist. Without that rule everything still converges — one run later — which is exactly
+"I changed the texture and the material did not update until I imported twice".
+
+**An asset's own source is hashed once, not twice.** It is in the declared file dependencies, because
+the importer is allowed to read it, and it is `sourceHash` in its own right — so the key computation
+was opening and reading every source file in the project a second time on every run. The already
+computed hash is handed to the dependency walk instead, which keeps the key bit-for-bit what it was
+rather than dropping a contributor and invalidating every artefact in existence.
+
+**Settings are bound after the cache check, not before.** A cache hit needs the settings' *hash*, not
+the settings, and the object was being built for every asset on every run to be thrown away. It costs
+no safety: a record only exists because an import succeeded, so settings that still hash the same
+still bind.
+
 ## Planning a build
 
 `BuildPlanner` is the step between "every asset has been imported" and "there is a build". Imports
@@ -141,13 +168,39 @@ reports. Silence would be worse in both directions: demanding a `.vxgroup` befor
 anything is friction, and inventing one quietly leaves a project wondering where its compression
 policy came from.
 
-## Still to come
+## Addressing sub-assets
 
-**Addressing sub-assets.** `ImportRecord` keeps artefact ids without the sub-asset each belongs to,
-so an import that produced several artefacts cannot have them named. The planner refuses such an
-asset rather than packing its first chunk — a model whose meshes are missing fails at load, and the
-failure names the mesh rather than the thing that dropped it. Every importer today writes exactly one
-artefact, so nothing is blocked; the fix is for the record to carry `SubAssetId` alongside each id.
+An import can produce more than one chunk — a model is a model, and also a mesh, a skeleton and four
+animation clips. `ImportRecord` keeps the `SubAssetId` alongside each chunk id, and the planner gives
+each one an address under its owner's: `characters/hero`, `characters/hero#Hero_Mesh`. The `#` is what
+a `vx:` reference already uses to mean "something inside this asset". The *name* goes after it where a
+reference carries the *id*, because an address is typed by a person into a call to `LoadAsync` and
+eight hex digits would be unusable there; both break identically when a sub-asset is renamed, since
+the id is derived from the name, so the readability costs no stability.
+
+**They are in the catalog, not merely in a bundle.** A chunk is reachable only once the bundle holding
+it is mounted, and what mounts a bundle is an address in the load closure. So the asset **depends on
+its own parts** — that is what mounts them, and what deserialises them first so the model's reference
+to its mesh resolves to the object rather than to nothing. A group that packs every address separately
+would otherwise load a model whose meshes are in a file nobody opened.
+
+**A part carries its owner's group, labels and dependencies.** The group and the labels keep an
+asset's pieces in one bundle and make "preload everything labelled `level1`" reach a labelled model's
+meshes. The dependencies are over-claimed on purpose: which part uses which is not recorded, and a
+mesh loaded on its own with its material's bundle unmounted fails at load, while claiming one bundle
+that was going to be there anyway costs nothing.
+
+**A chunk that cannot be named refuses the whole asset.** An artefact whose sub-asset the sidecar does
+not declare, two chunks for one sub-asset, or an import with no main object at all — each is an error
+and none of the asset is packed. Shipping the parts that happened to be nameable is how a model
+arrives on a device with its meshes missing, and that failure names the mesh rather than the thing
+that dropped it.
+
+**A dependency on an asset is a dependency on the asset**, never on a part of it. A dependent names
+the address and gets everything inside through its closure, so nothing has to record which part of a
+model another asset was pointing at.
+
+## Still to come
 
 The importers with native dependencies (`ModelImporter` via Assimp) and the out-of-process,
 crash-isolated worker doc 08 specifies.

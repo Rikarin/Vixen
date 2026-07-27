@@ -1,0 +1,181 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    What makes `dotnet build` do a content build. Doc 08 § Vixen.Sdk.
+-->
+<Project>
+
+    <!--
+        ==========================================================================================
+        Everything *derived from another property* lives here rather than in Vixen.Sdk.props, and
+        this is the ordering rule that decides it: a .props is imported before the consuming
+        project's body and a .targets after it.
+
+        A plain default is safe in the .props — `<VixenTarget>Android</VixenTarget>` in a .csproj
+        body is an unconditional assignment and overwrites whatever the .props defaulted to. What
+        is not safe is a property computed *from* one, because that computation has already
+        happened by the time the body runs and nothing recomputes it. VixenToolCommand is the one
+        that proves it: derived from VixenToolPath, and a consumer setting VixenToolPath in its
+        body against a .props-derived command gets `dotnet vixen` and a tool-not-found failure.
+
+        Found by running a real build rather than by reading, and the first sabotage written for it
+        was wrong — moving the VixenTarget block here changes nothing, for the reason above. Moving
+        the VixenToolCommand block fails six of this package's seven tests.
+        ==========================================================================================
+    -->
+    <PropertyGroup>
+        <!-- Which directory holds Assets/. A game's project file usually sits in it. -->
+        <VixenProjectDirectory Condition="'$(VixenProjectDirectory)' == ''">$(MSBuildProjectDirectory)</VixenProjectDirectory>
+        <VixenAssetsDirectory Condition="'$(VixenAssetsDirectory)' == ''">$(VixenProjectDirectory)/Assets</VixenAssetsDirectory>
+    </PropertyGroup>
+
+    <!--
+        The build target, which decides the texture format, the shader dialect and everything else
+        that differs per platform. A RuntimeIdentifier is the strongest signal there is — somebody
+        publishing for android-arm64 wants Android content — and the machine it is running on is the
+        answer when there is no RID, because that is what `dotnet build` on a laptop means.
+    -->
+    <PropertyGroup Condition="'$(VixenTarget)' == '' AND '$(RuntimeIdentifier)' != ''">
+        <VixenTarget Condition="$(RuntimeIdentifier.StartsWith('android'))">Android</VixenTarget>
+        <VixenTarget Condition="$(RuntimeIdentifier.StartsWith('ios'))">iOS</VixenTarget>
+        <VixenTarget Condition="$(RuntimeIdentifier.StartsWith('browser'))">Web</VixenTarget>
+        <VixenTarget Condition="$(RuntimeIdentifier.StartsWith('win'))">Windows</VixenTarget>
+        <VixenTarget Condition="$(RuntimeIdentifier.StartsWith('osx'))">MacOS</VixenTarget>
+        <VixenTarget Condition="$(RuntimeIdentifier.StartsWith('linux'))">Linux</VixenTarget>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(VixenTarget)' == ''">
+        <VixenTarget Condition="$([MSBuild]::IsOSPlatform('Windows'))">Windows</VixenTarget>
+        <VixenTarget Condition="$([MSBuild]::IsOSPlatform('OSX'))">MacOS</VixenTarget>
+        <VixenTarget Condition="'$(VixenTarget)' == ''">Linux</VixenTarget>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <VixenContentOutputDirectory Condition="'$(VixenContentOutputDirectory)' == ''">$(VixenProjectDirectory)/Build/$(VixenTarget)</VixenContentOutputDirectory>
+
+        <!--
+            The content build imports first unless somebody has already done it in this build, and
+            in a normal build VixenImport is exactly that somebody. It has to follow the same
+            condition rather than being passed unconditionally: a project that turns the import
+            step off and leaves the content build on would otherwise pack a project nothing had
+            imported, and be told so by an error about every addressable asset it has.
+        -->
+        <VixenSkipImportFlag Condition="'$(VixenImportOnBuild)' == 'true'">--no-import</VixenSkipImportFlag>
+    </PropertyGroup>
+
+    <!--
+        How to run the tool. Three answers, most specific first:
+
+        1. `VixenToolPath`, which a consumer sets when it has its own build of the CLI, and which is
+           how this package's own tests drive it without installing anything.
+        2. The copy inside this package, if one was shipped with it. Version-locked to the targets
+           that call it, which is the whole argument for shipping it here: an SDK and a tool that can
+           drift apart will, and the failure is a content build that half works.
+        3. `dotnet vixen`, the tool restored into the repository or installed globally.
+    -->
+    <PropertyGroup Condition="'$(VixenToolPath)' == '' AND Exists('$(VixenSdkDirectory)../tools/vixen.dll')">
+        <VixenToolPath>$(VixenSdkDirectory)../tools/vixen.dll</VixenToolPath>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(VixenToolCommand)' == ''">
+        <VixenToolCommand Condition="'$(VixenToolPath)' != '' AND $(VixenToolPath.EndsWith('.dll'))">dotnet "$(VixenToolPath)"</VixenToolCommand>
+        <VixenToolCommand Condition="'$(VixenToolCommand)' == '' AND '$(VixenToolPath)' != ''">"$(VixenToolPath)"</VixenToolCommand>
+        <VixenToolCommand Condition="'$(VixenToolCommand)' == ''">dotnet vixen</VixenToolCommand>
+    </PropertyGroup>
+
+    <!--
+        Import before the compiler runs, because generated C# — VXML components, shader parameter
+        keys — has to exist before CoreCompile reads the compile items. Nothing generates C# yet;
+        the ordering is what makes that a scheduling detail later rather than a redesign.
+
+        The msbuild diagnostic format is the point of the whole target. What an importer said about
+        an asset arrives as an MSBuild diagnostic with a file and a code, so it lands in the IDE's
+        error list and in a CI log's summary rather than scrolling past as prose from a subprocess.
+    -->
+    <Target Name="VixenImport"
+            BeforeTargets="CoreCompile"
+            Condition="'$(VixenImportOnBuild)' == 'true' AND Exists('$(VixenAssetsDirectory)')">
+
+        <Message Importance="normal" Text="Vixen: importing $(VixenProjectDirectory) for $(VixenTarget)" />
+
+        <Exec Command="$(VixenToolCommand) import --project &quot;$(VixenProjectDirectory)&quot; --target $(VixenTarget) --format msbuild"
+              WorkingDirectory="$(VixenProjectDirectory)"
+              StandardOutputImportance="high" />
+    </Target>
+
+    <!--
+        And build the content after the assembly exists, so that a failure to compile is reported
+        before a content build nobody can use yet, and so the content can be copied beside the
+        binary it belongs to.
+    -->
+    <Target Name="VixenContentBuild"
+            AfterTargets="Build"
+            Condition="'$(VixenContentBuildOnBuild)' == 'true' AND Exists('$(VixenAssetsDirectory)')"
+            DependsOnTargets="VixenImport">
+
+        <Message Importance="normal" Text="Vixen: building content into $(VixenContentOutputDirectory)" />
+
+        <Exec Command="$(VixenToolCommand) content build --project &quot;$(VixenProjectDirectory)&quot; --target $(VixenTarget) --output &quot;$(VixenContentOutputDirectory)&quot; --format msbuild $(VixenSkipImportFlag)"
+              WorkingDirectory="$(VixenProjectDirectory)"
+              StandardOutputImportance="high" />
+
+        <CallTarget Targets="VixenCopyContentToOutput" Condition="'$(VixenCopyContentToOutput)' == 'true'" />
+    </Target>
+
+    <!--
+        Beside the binary, under Content/, which is where the app host looks. Copied rather than
+        linked because a game's output directory is what gets zipped, and SkipUnchangedFiles so that
+        rebuilding a project whose content did not change does not rewrite every bundle it has.
+    -->
+    <Target Name="VixenCopyContentToOutput">
+        <ItemGroup>
+            <VixenBuiltContent Include="$(VixenContentOutputDirectory)/*.bundle;
+                                        $(VixenContentOutputDirectory)/catalog.bin;
+                                        $(VixenContentOutputDirectory)/catalog.bin.hash" />
+        </ItemGroup>
+
+        <Copy SourceFiles="@(VixenBuiltContent)"
+              DestinationFolder="$(OutDir)$(VixenContentFolderName)"
+              SkipUnchangedFiles="true"
+              Condition="'@(VixenBuiltContent)' != ''" />
+    </Target>
+
+    <!--
+        Publishing needs the same files named again rather than the copy above: `dotnet publish`
+        builds its own list from ResolvedFileToPublish, and anything that merely sits in the output
+        directory is not in it.
+    -->
+    <Target Name="VixenAddContentToPublish"
+            BeforeTargets="ComputeResolvedFilesToPublishList"
+            Condition="'$(VixenCopyContentToOutput)' == 'true' AND Exists('$(VixenContentOutputDirectory)')">
+
+        <ItemGroup>
+            <VixenPublishContent Include="$(VixenContentOutputDirectory)/*.bundle;
+                                          $(VixenContentOutputDirectory)/catalog.bin;
+                                          $(VixenContentOutputDirectory)/catalog.bin.hash" />
+
+            <ResolvedFileToPublish Include="@(VixenPublishContent)">
+                <RelativePath>$(VixenContentFolderName)/%(Filename)%(Extension)</RelativePath>
+                <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+            </ResolvedFileToPublish>
+        </ItemGroup>
+    </Target>
+
+    <!--
+        Clean takes back what this put in the output directory, and nothing else. The project's own
+        Build/<target> is not cleaned: it is where a person keeps the script that publishes it, and
+        deleting somebody's directory because they typed `dotnet clean` is not a trade this makes.
+        `vixen content build` already removes the bundles it is replacing.
+    -->
+    <Target Name="VixenCleanContent" AfterTargets="Clean">
+        <ItemGroup>
+            <VixenCopiedContent Include="$(OutDir)$(VixenContentFolderName)/*.bundle;
+                                         $(OutDir)$(VixenContentFolderName)/catalog.bin;
+                                         $(OutDir)$(VixenContentFolderName)/catalog.bin.hash" />
+        </ItemGroup>
+
+        <Delete Files="@(VixenCopiedContent)" />
+    </Target>
+
+</Project>

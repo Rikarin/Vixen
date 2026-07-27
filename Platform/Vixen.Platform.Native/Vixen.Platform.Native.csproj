@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Platform.Native</RootNamespace>
+        <Description>
+            Where a native library comes from: the runtimes/&lt;rid&gt;/native layout a published
+            application ships, the RID fallback chain, the file names each platform actually uses,
+            and the DllImportResolver that makes all three answer before the operating system is
+            asked.
+        </Description>
+        <PackageTags>native;interop;rid;platform;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Platform.Native.Tests" />
+    </ItemGroup>
+
+</Project>

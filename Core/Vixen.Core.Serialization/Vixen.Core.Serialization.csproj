@@ -45,9 +45,15 @@
         </TargetsForTfmSpecificContentInPackage>
     </PropertyGroup>
 
+    <!--
+      GetTargetPath, not Build — see the identical note in Vixen.Core.Reflection.csproj. The
+      generator is already built by the ProjectReference above; asking for Build here fails a
+      no-build `dotnet pack` with NETSDK1085, because NoBuild=true is a global property and the
+      MSBuild task hands global properties to the project it invokes.
+    -->
     <Target Name="PackSerializationGenerator">
         <MSBuild Projects="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
-                 Targets="Build"
+                 Targets="GetTargetPath"
                  Properties="Configuration=$(Configuration)"
                  RemoveProperties="TargetFramework">
             <Output TaskParameter="TargetOutputs" ItemName="SerializationGeneratorAssembly" />

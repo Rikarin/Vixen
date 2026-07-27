@@ -1,0 +1,11 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    The `<Project Sdk="Vixen.Sdk">` entry point. It brings in the .NET SDK — a Vixen project is a
+    .NET project first — and then this package's own defaults.
+-->
+<Project>
+    <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+    <Import Project="$(MSBuildThisFileDirectory)../build/Vixen.Sdk.props" />
+</Project>

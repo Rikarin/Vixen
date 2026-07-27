@@ -1,0 +1,89 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.AotProbe</RootNamespace>
+        <AssemblyName>vixen-aot-probe</AssemblyName>
+        <IsPackable>false</IsPackable>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+
+        <!--
+            Declared here rather than passed as `-p:PublishAot=true`, and that is not a style
+            preference. A property on the command line is a *global* property: MSBuild hands it to
+            every project in the graph, including the netstandard2.1 source generators, and a
+            generator asked to compile ahead of time fails with NETSDK1207. Declaring it in the one
+            project that means it keeps it where it belongs.
+        -->
+        <PublishAot>true</PublishAot>
+        <InvariantGlobalization>true</InvariantGlobalization>
+
+        <!--
+            The whole point. ILC reports IL2xxx/IL3xxx as warnings by default and a warning nobody
+            fails on is a warning nobody reads, which is the state doc 00 calls out by name.
+        -->
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <ILLinkTreatWarningsAsErrors>true</ILLinkTreatWarningsAsErrors>
+        <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    </PropertyGroup>
+
+    <!--
+        Every RUNTIME-profile assembly that can be published ahead of time today. The two that are
+        missing are missing for a reason written down in README.md, and adding them back is how that
+        finding gets re-tested when the dependency moves.
+    -->
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Assets\Vixen.Assets.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Collections\Vixen.Core.Collections.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Diagnostics\Vixen.Core.Diagnostics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.IO\Vixen.Core.IO.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Memory\Vixen.Core.Memory.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ecs\Vixen.Ecs.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Engine\Vixen.Engine.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Layout\Vixen.Ui.Layout.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Reactive\Vixen.Ui.Reactive.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Platform\Vixen.Platform.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Native\Vixen.Platform.Native.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Headless\Vixen.Platform.Headless.csproj" />
+    </ItemGroup>
+
+    <!--
+        Rooted, not merely referenced. ILC analyses what is reachable, so a probe that only
+        constructs a few types proves those few types AOT-clean and says nothing about the rest —
+        the assembly could be full of reflection nobody called from here. Rooting each assembly asks
+        ILC to compile every method in it, which is the question actually being asked: "is this
+        assembly publishable ahead of time", not "is this one path through it".
+    -->
+    <ItemGroup>
+        <TrimmerRootAssembly Include="Vixen.Assets" />
+        <TrimmerRootAssembly Include="Vixen.Core" />
+        <TrimmerRootAssembly Include="Vixen.Core.Collections" />
+        <TrimmerRootAssembly Include="Vixen.Core.Diagnostics" />
+        <TrimmerRootAssembly Include="Vixen.Core.IO" />
+        <TrimmerRootAssembly Include="Vixen.Core.Mathematics" />
+        <TrimmerRootAssembly Include="Vixen.Core.Memory" />
+        <TrimmerRootAssembly Include="Vixen.Core.Reflection" />
+        <TrimmerRootAssembly Include="Vixen.Core.Serialization" />
+        <TrimmerRootAssembly Include="Vixen.Core.Threading" />
+        <TrimmerRootAssembly Include="Vixen.Ecs" />
+        <TrimmerRootAssembly Include="Vixen.Engine" />
+        <TrimmerRootAssembly Include="Vixen.Graphics" />
+        <TrimmerRootAssembly Include="Vixen.Graphics.Null" />
+        <TrimmerRootAssembly Include="Vixen.Graphics.RenderGraph" />
+        <TrimmerRootAssembly Include="Vixen.Platform" />
+        <TrimmerRootAssembly Include="Vixen.Platform.Native" />
+        <TrimmerRootAssembly Include="Vixen.Platform.Headless" />
+        <TrimmerRootAssembly Include="Vixen.Ui.Layout" />
+        <TrimmerRootAssembly Include="Vixen.Ui.Reactive" />
+    </ItemGroup>
+
+</Project>
