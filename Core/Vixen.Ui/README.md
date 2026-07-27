@@ -318,8 +318,51 @@ did not change still needs rebuilding when an ancestor's font size did, because 
 measures against a different number now — its computed style is the same interned object, so a check
 on the style alone skips it and `2em` keeps meaning twenty pixels while the text around it doubles.
 
-⚠ **The tree is append-only**, because `StyleTree` is. Elements are created parents-first and never
-removed. Enough to lay out a document, not enough to run an application; removal is owed.
+## Removal
+
+`UiElement.Remove()` takes an element and its subtree out of all three stores at once — which is why
+it lives on the document rather than in any of them. One that left either store behind would keep
+matching selectors or keep taking up space in a flex line while being gone from the document.
+
+⚠ **A removed style slot is tombstoned and never reused**, and that is the design decision rather
+than a shortcut. The obvious implementation is a free list, and it would quietly break three separate
+things that all rest on one unwritten invariant — *a parent's index is lower than its children's*.
+`ResolveAll` walks slots ascending because that is parents-before-children and inheritance needs it;
+the incremental pass uses the index as a queue priority for the same reason; and the bloom sweep
+gives up the moment a climb passes below the ancestor's index. Fill a hole with a new child of a
+later parent, and the first two resolve a child before its parent while the third answers "not a
+descendant" about something that is — a descendant selector that silently stops matching.
+
+So slots leak, `StyleTree.DeadCount` says by how much, and **compaction is the fix rather than
+reuse**: rebuilding the arrays without the dead slots preserves relative order, which is exactly what
+reuse does not. Owed.
+
+⚠ **The layout tree reuses its slots and the style tree cannot**, and the asymmetry is not an
+oversight. The layout algorithm descends from the root, so it never cared what order the slots were
+in; the cascade walks the array by index and reads each parent's resolved table, so for it the slot
+number *is* the ordering.
+
+⚠ **`IndexInParent` has to come down with the removal.** It is what `:nth-child` and the sibling
+combinators read, so a stale one leaves the third item of a list still believing it is the fourth
+after the second is deleted.
+
+**Whatever was pointing at it has to stop.** The focus, a captured pointer and a gesture in progress
+each name an element and each outlives it unless something says otherwise — and each has to be
+checked against the whole subtree, not the element itself, because a dialog closing takes the focused
+field inside it. A drag whose target is removed ends *silently* rather than as a cancellation: a
+cancelled drag tells its target to put back what it was carrying, and the target is the thing being
+deleted.
+
+**A removed element throws rather than answering.** Its node ids address slots the layout tree has
+already handed to someone else, so answering means reading another element's width and restyling a
+stranger — a wrong answer rather than an absent one.
+
+⚠ **The frame pass walks the tree rather than a list in creation order**, which removal forced and
+which should have been there anyway. The list version was correct only because elements were created
+parents-first and never removed, so its index order happened to be its depth order. The property the
+pass needs is "parents before children", and a descent is that by construction rather than by
+coincidence — and it deletes two parallel arrays, since what each element had applied last time now
+lives on the element.
 
 ## What the bridge is for
 

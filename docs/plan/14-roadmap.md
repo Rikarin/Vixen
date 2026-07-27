@@ -1237,8 +1237,8 @@ sub-piece has its own gate.
   forgetting what was applied fails 1 — every `vw` keeps its old value while the window visibly
   changes size — and building against the parent's font size rather than the element's fails 3.
 
-  ⚠ **The tree is append-only**, because `StyleTree` is: elements are created parents-first and never
-  removed. Enough to lay out a document and not enough to run an application. Owed with the rest.
+  ⚠ **The tree was append-only**, because `StyleTree` was: elements were created parents-first and
+  never removed. Enough to lay out a document and not enough to run an application — closed below.
 - ✅ **The generated property system.** `[UiProperty]` on a partial property, and
   `Vixen.Ui.Generators` supplies the accessors, the default, coercion, the change callback, optional
   inheritance and a `UiPropertyKey` the runtime can find by name. Generated rather than reflected and
@@ -1293,6 +1293,9 @@ sub-piece has its own gate.
   mid-event. That is the right model and it is currently *untestable*: the tree is append-only and
   `Parent` is fixed at creation, so no handler can change an ancestor chain and walking as you go is
   indistinguishable. Kept as insurance, and now labelled as insurance rather than as a covered claim.
+  *(Removal has since made the first half of that reason false and the conclusion still true — see
+  the removal entry below. `Parent` survives removal, so the chain a later walk would climb is still
+  there; reparenting is what will finally make the difference visible.)*
 
   Doc 09 asks for a quadtree over the top level and says the simple version was "measured to be
   sufficient". This descends the tree, entering only subtrees containing the point; **that
@@ -1513,9 +1516,53 @@ sub-piece has its own gate.
   the reordering this exists to refuse — fails 5, letting a clip join a batch fails 1, dropping the
   font or the fill rule from the key fails 2 each, treating a stroke as a fill fails 2, and batching
   on every frame rather than behind the diff fails 1.
-- Owed in `Vixen.Ui`: access keys, line wrapping, rich-text runs,
+- ✅ **Element removal**, which was 4d's longest-standing owed item and the one the element tree kept
+  being described as too incomplete without. `UiElement.Remove()` takes an element and its subtree out
+  of all three stores at once — which is why it lives on the document rather than in any of them.
+
+  ⚠ **A removed style slot is tombstoned and never reused, and that is the decision.** The obvious
+  implementation is a free list, and it would quietly break three separate things resting on one
+  unwritten invariant — *a parent's index is lower than its children's*. `ResolveAll` walks slots
+  ascending because that is parents-before-children and inheritance needs it; the incremental pass
+  uses the index as a queue priority for the same reason; and the bloom sweep gives up the moment a
+  climb passes below the ancestor's index. Fill a hole with a new child of a later parent and the
+  first two resolve a child before its parent, while the third answers "not a descendant" about
+  something that is — a descendant selector that silently stops matching. So slots leak,
+  `StyleTree.DeadCount` says by how much, and **compaction rather than reuse is the fix**, because
+  rebuilding without the dead slots preserves relative order where reuse is exactly what does not.
+  **Owed, and it is the one thing keeping this from being finished rather than merely working.**
+
+  ⚠ **The layout tree already reused its slots and the style tree cannot**, and the asymmetry is not
+  an oversight: the layout algorithm descends from the root, so it never cared what order the slots
+  were in; the cascade walks the array by index and reads each parent's resolved table, so for it the
+  slot number *is* the ordering.
+
+  ⚠ **The frame pass now walks the tree rather than a list in creation order** — which removal forced
+  and which should have been there anyway. The list version was correct only because elements were
+  created parents-first and never removed, so its index order *happened* to be its depth order. The
+  property the pass needs is "parents before children", and a descent is that by construction. It
+  also deleted two parallel arrays: what an element had applied last time now lives on the element,
+  so removing one takes its bookkeeping with it.
+
+  ⚠ **Whatever was pointing at it has to stop** — the focus, a captured pointer, a gesture in
+  progress — and each has to be checked against the whole *subtree* rather than the element itself,
+  because a dialog closing takes the focused field inside it. A drag whose target is removed ends
+  **silently** rather than as a cancellation: a cancelled drag tells its target to put back what it
+  was carrying, and the target is the thing being deleted.
+
+  Verified by sabotage: leaving the later siblings' `IndexInParent` stale fails 1 — `:first-child`
+  landing on nothing — releasing nothing that pointed at it fails 3, checking only the element itself
+  for the focus rather than the subtree fails 1, letting a gesture survive its target fails 1, and
+  letting a removed element answer instead of throwing fails 2.
+
+  ⚠ **One sabotage failed to fail.** Killing only the element handed in, rather than its descendants,
+  broke nothing: the test asserted `IsRemoved` on the children, and that flag is set by the document's
+  own walk rather than by the store. The descendants would have been unreachable from any live parent
+  and cascaded every frame regardless. The test now asserts `StyleTree.LiveCount`, which is the store
+  speaking for itself.
+- Owed in `Vixen.Ui`: style-slot compaction, access keys, line wrapping, rich-text runs,
   font fallback and weight matching, gradients, per-corner elliptical radii, pinch and rotate,
-  virtualisation primitive, multi-window, DPI, and element removal.
+  virtualisation primitive, multi-window and DPI.
 - `Vixen.Ui.Markup`: VXML lexer/parser on `Vixen.Core.Syntax`, binder, emitter, `#line` mapping.
 - `Vixen.Ui.HotReload`: three reload channels, keyed reconciliation, `[HotReloadState]`.
 - UI render feature integrated into the renderer.

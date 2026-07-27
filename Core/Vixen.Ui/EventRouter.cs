@@ -17,12 +17,14 @@ public static class EventRouter {
     ///         removed or skip one whose parent had changed underneath.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>That is insurance, and it is currently untestable.</b> The tree is append-only
-    ///         and <c>Parent</c> is fixed at creation, so no handler can yet change an ancestor
-    ///         chain and snapshotting is indistinguishable from walking as you go — sabotaging it
-    ///         fails nothing. It is kept because it is the correct model and because element removal
-    ///         is owed, not because a test defends it. Said here so that nobody reads the paragraph
-    ///         above as a covered claim.
+    ///         ⚠ <b>That is insurance, and it is still untestable — though no longer for the reason
+    ///         first given here.</b> The original note said the tree was append-only, and it is not
+    ///         any more: an element can be removed mid-event. What keeps the two indistinguishable is
+    ///         narrower and worth stating exactly — <c>Parent</c> is fixed at creation and
+    ///         <i>survives removal</i>, so even a handler that deletes the target's ancestor leaves
+    ///         the chain a later walk would climb. Sabotaging the snapshot still fails nothing. It is
+    ///         kept because it is the correct model, not because a test defends it, and reparenting
+    ///         is what will finally make the difference visible.
     ///     </para>
     ///     <para>
     ///         The target is invoked once, with both its <see cref="RoutingStrategy.Direct" /> and

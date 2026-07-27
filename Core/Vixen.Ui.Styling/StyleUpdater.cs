@@ -60,20 +60,29 @@ public sealed class StyleUpdater {
 
     /// <summary>Resolves every element from scratch.</summary>
     /// <remarks>
-    ///     What a stylesheet reload does, and what an incremental pass is checked against. Parents
-    ///     before children, because inheritance reads the parent's resolved table — and elements are
-    ///     created parents-first, so ascending index already is that order.
+    ///     <para>
+    ///         What a stylesheet reload does, and what an incremental pass is checked against.
+    ///         Parents before children, because inheritance reads the parent's resolved table — and
+    ///         elements are created parents-first, so ascending index already is that order.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That is the invariant removal has to protect</b>, and why a removed slot is
+    ///         tombstoned rather than handed back out. See <see cref="StyleTree.Remove" />.
+    ///     </para>
     /// </remarks>
     public void ResolveAll() {
         invalidator.Read(engine.Rules);
         Grow();
 
         engine.Resolver.BeginPass();
-        LastPassResolved = engine.Tree.Count;
+        LastPassResolved = engine.Tree.LiveCount;
         LastPassStopped = 0;
 
         for (var i = 0; i < engine.Tree.Count; i++) {
-            styles[i] = Resolve(i);
+            // A removed slot resolves to nothing rather than to a style. Left in, it would be
+            // cascaded every pass, counted in the work the incremental story is measured by, and
+            // put in the sharing cache under a key describing a tree it is no longer part of.
+            styles[i] = engine.Tree.IsAliveAt(i) ? Resolve(i) : null;
         }
     }
 

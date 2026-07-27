@@ -48,11 +48,24 @@ public partial class UiElement {
     }
 
     /// <summary>The document this belongs to.</summary>
-    /// <exception cref="InvalidOperationException">If it has not been added to one.</exception>
+    /// <exception cref="InvalidOperationException">If it has not been added to one, or has been removed.</exception>
+    /// <remarks>
+    ///     ⚠ <b>A removed element throws rather than answering</b>, and the message says which of the
+    ///     two it is. Everything an element can do reaches the document through here, so this is the
+    ///     one place a use-after-removal has to be caught — and the alternative is worse than a
+    ///     crash: the node ids it still holds address slots the trees have handed to somebody else,
+    ///     so reading a removed element's width returns another element's width and setting its class
+    ///     restyles a stranger.
+    /// </remarks>
     public UiDocument Document =>
-        document ?? throw new InvalidOperationException(
-            $"this {GetType().Name} is not in a document — create it with UiDocument.Create or UiElement.Add"
-        );
+        IsRemoved
+            ? throw new InvalidOperationException($"this {GetType().Name} has been removed from its document")
+            : document ?? throw new InvalidOperationException(
+                $"this {GetType().Name} is not in a document — create it with UiDocument.Create or UiElement.Add"
+            );
+
+    /// <summary>Whether it has been taken out of its document.</summary>
+    public bool IsRemoved { get; private set; }
 
     /// <summary>Its element name, which selectors match on.</summary>
     public string Tag { get; private set; }
@@ -374,7 +387,24 @@ public partial class UiElement {
         LayoutNode = layoutNode;
     }
 
+    /// <summary>Takes this element and everything under it out of its document.</summary>
+    public void Remove() => Document.Remove(this);
+
+    /// <summary>What the last pass wrote through to the layout store.</summary>
+    /// <remarks>
+    ///     Kept on the element rather than in a list beside it, so that removing one takes its
+    ///     bookkeeping with it instead of leaving a hole in a parallel array.
+    /// </remarks>
+    internal ComputedStyle? AppliedStyle { get; set; }
+
+    /// <summary>The font size that went with it.</summary>
+    internal float AppliedFontSize { get; set; } = float.NaN;
+
     internal void Attach(UiElement child) => children.Add(child);
+
+    internal void Detach(UiElement child) => children.Remove(child);
+
+    internal void Retire() => IsRemoved = true;
 
     readonly record struct HandlerRegistration(
         Type EventType,

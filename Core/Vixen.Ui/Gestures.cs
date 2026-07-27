@@ -226,6 +226,26 @@ public sealed class GestureRecognizer {
         return true;
     }
 
+    /// <summary>Drops any gesture in progress on an element that is going away.</summary>
+    /// <param name="element">The subtree root being removed.</param>
+    /// <remarks>
+    ///     ⚠ Silently rather than as a cancellation. A cancelled drag tells its target to put back
+    ///     whatever it was carrying, and the target is the thing being deleted — raising an event on
+    ///     an element mid-removal hands a handler a half-detached tree to react to.
+    /// </remarks>
+    internal void Forget(UiElement element) {
+        foreach (var (id, press) in presses) {
+            for (var walk = press.Target; walk is not null; walk = walk.Parent) {
+                if (!ReferenceEquals(walk, element)) {
+                    continue;
+                }
+
+                presses.Remove(id);
+                break;
+            }
+        }
+    }
+
     void Move(PointerEvent args, Press press) {
         // ⚠ Slop is one-way. Once a press has wandered far enough to be a drag it can never be a tap
         // again, even if the pointer comes back to where it started — which it does at the end of

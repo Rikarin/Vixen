@@ -99,6 +99,14 @@ public sealed class StyleEngine {
         var styles = new ComputedStyle[Tree.Count];
 
         for (var i = 0; i < Tree.Count; i++) {
+            // ⚠ A removed slot keeps its place so that the indices above it do not move — see
+            // StyleTree.Remove — and resolves to nothing. Cascading it would be work for an element
+            // no longer in the document, against a parent that has usually been removed with it.
+            if (!Tree.IsAliveAt(i)) {
+                styles[i] = ComputedStyle.Empty;
+                continue;
+            }
+
             var parent = Tree.ParentOf(i);
             styles[i] = Resolver.Resolve(Tree, new StyleNodeId(i), parent < 0 ? null : styles[parent]);
         }
