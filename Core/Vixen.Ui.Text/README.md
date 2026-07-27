@@ -128,6 +128,29 @@ has no hinting and no size-specific behaviour. The same string at 12pt and at 48
 at proportional positions, which is what will make the shaping cache size-independent — one entry per
 string rather than one per string per DPI scale.
 
+## The caret, and a function that cannot be inverted
+
+A shaping cluster is not a grapheme cluster. A cluster is whatever the shaper could not subdivide —
+a ligature, a reordered Indic syllable — and it can hold several user-perceived characters behind one
+glyph. A caret moves in graphemes, so it has to land *inside* such a glyph; `CaretOffset` interpolates
+across the cluster by grapheme count. Snapping to the cluster edge instead skips a character in
+Kannada and jumps the whole of an `ffi` in Latin, which both look like a broken arrow key.
+
+The gate is a round trip rather than a table of numbers: hit-test a caret's own offset and you must
+get the caret back. It holds for scripts nobody thought to write a case for. Verified by sabotage —
+not reversing right-to-left clusters into logical order fails 7 of the 18, treating zero steps as
+"the next boundary" fails 6, forgetting that the fraction runs the other way inside a right-to-left
+cluster fails 4, and snapping to the cluster edge fails 3.
+
+⚠ **But the round trip is only true where the text runs one way, and that is a property of bidi
+rather than a gap.** In `abcلسان` the index 3 is both *after the c* and *before the first Arabic
+letter*, and those are at opposite ends of the Arabic run — one index, two places. The same point on
+screen therefore answers to two indices. No function from an index to a position can return both, so
+this one answers with the leading edge of the character the index names, and drawing order breaks the
+tie in the other direction. Telling them apart needs a caret **affinity** carried beside the index,
+which is an editor's concern and is owed with `TextEditor`. Asserting the round trip everywhere would
+have meant deleting the mixed case or inventing a rule to make it pass; both would have buried this.
+
 ## Why the tables are generated and committed
 
 CI has no copy of the Unicode Character Database, and fetching one at build time would make a build

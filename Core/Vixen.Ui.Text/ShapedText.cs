@@ -63,7 +63,7 @@ public sealed class ShapedRun {
 ///     Everything here is in the font's design units, not pixels — see <see cref="FontFace" /> for
 ///     why. Multiply by <c>size / UnitsPerEm</c> at the point of drawing.
 /// </remarks>
-public sealed class ShapedText {
+public sealed partial class ShapedText {
     internal ShapedText(string text, IReadOnlyList<ShapedRun> runs, float advance) {
         Text = text;
         Runs = runs;
