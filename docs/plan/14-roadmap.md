@@ -566,6 +566,29 @@ the codebase is large enough for it to be expensive to fix.
   platform packaging that arrives with Android and iOS. `vixen doctor systems` from
   [04](04-ecs-and-scripting.md) needs a game assembly to load, and the GPU and driver checks would
   put a graphics dependency in a tool that today needs none.
+- 🟡 **The NativeAOT gate** — `nuke CheckAot` publishes every runtime assembly ahead of time with all
+  of them **rooted**, so ILC compiles every method rather than the few a probe happens to reach, and
+  fails on any trim or AOT warning. `Tools/Vixen.AotProbe` is its subject.
+
+  **Every `Core/` assembly, `Vixen.Platform`, `Vixen.Platform.Headless` and `Vixen.Graphics.Null`
+  publish with zero warnings, and the binary runs.** That is the phase's "prove AOT correctness before
+  the codebase is large enough for it to be expensive" goal, met for the engine's own code — and it is
+  a real result rather than a hopeful one because rooting is what makes it one: the same probe relying
+  on reachability from `Main` produced a 1.3 MB binary against 8 MB rooted, which is the measure of how
+  much a reachability-only gate would have left unexamined.
+
+  ⚠ **And it found the thing the phase exists to find, in a dependency rather than in Vixen.**
+  `Vixen.Graphics.Vulkan` and `Vixen.Platform.Desktop` cannot be published ahead of time, because
+  `Silk.NET.Core.Loader.DefaultPathResolver` finds native libraries through `Assembly.Location` and the
+  dependency manifest, and NativeAOT has neither. Six errors, none of them ours. Since iOS is
+  NativeAOT-only, **the phase's own "iOS publish with zero warnings" exit criterion is unreachable
+  until the engine resolves its own natives** — which is `Vixen.Platform.Native`, listed in Phase 1 and
+  unbuilt, now promoted from tidiness to load-bearing. Recorded as R11 in
+  [15](15-risks-and-open-questions.md) with the evidence and the one-edit re-test.
+
+  **Owed:** the gate publishes for the host's RID, so covering three operating systems means one leg
+  each in CI; and it cannot publish for iOS or Android at all here, because neither workload is
+  installed on the development machine.
 - **`Vixen.Platform.Android`** + Vulkan/GLES on device; lifecycle, `AAssetManager`, touch input.
 - **`Vixen.Platform.iOS`** + MoltenVK static; **NativeAOT publish in CI on every PR from here on**.
 - `Samples/07-AddressablesRemote`.
@@ -575,7 +598,9 @@ with **zero** trim/AOT warnings. Content build determinism gate green across thr
 update fetches only changed bundles (asserted by byte count). Incremental import of one texture < 1 s
 in a 10 k-asset fixture project.
 
-**Where the exit criteria stand.** ✅ Remote content update fetches only the changed pack, asserted by
+**Where the exit criteria stand.** 🟡 AOT: the engine's own runtime assemblies are proven clean by
+`nuke CheckAot`, and the iOS half is blocked on a dependency rather than on Vixen — see the gate above
+and R11. ✅ Remote content update fetches only the changed pack, asserted by
 URL and by byte count. 🟡 Content build determinism is green between runs, and green between two
 projects **at different paths, whose assets were created in a different order and carry different
 GUIDs** — which is what would actually break across operating systems, tested without needing a second

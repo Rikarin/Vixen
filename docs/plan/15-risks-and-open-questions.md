@@ -245,6 +245,40 @@ SHA-256 verification, a generated third-party licence manifest, and one Nuke tar
 (`RestoreNativeDeps`). Binaries are never committed. A dependency update is a single reviewed PR touching
 one manifest.
 
+### R11 — Silk.NET's native loader cannot be published ahead of time *(likelihood: certain · impact: high)* — **found, not predicted**
+
+Measured in Phase 3 by `nuke CheckAot`, which publishes every runtime assembly with NativeAOT and all
+of them rooted. **Every `Core/` assembly, `Vixen.Platform`, `Vixen.Platform.Headless` and
+`Vixen.Graphics.Null` publish with zero trim or AOT warnings, and the binary runs.** Rooting
+`Vixen.Graphics.Vulkan` or `Vixen.Platform.Desktop` produces six errors, every one of them inside a
+dependency:
+
+```
+IL3000  Silk.NET.Core.Loader.DefaultPathResolver…  'Assembly.Location' always returns an empty string
+IL3002  Silk.NET.Core.Loader.DefaultPathResolver…  'Assembly.CodeBase' throws in a single-file app
+IL3002  Silk.NET.Core.Loader.DefaultPathResolver…  'DependencyContext.Default' returns null
+IL3002  Microsoft.Extensions.DependencyModel…      'DependencyContext.LoadDefault' …
+```
+
+Silk.NET finds a native library by asking where its managed assembly is on disk and by reading the
+dependency manifest. Under NativeAOT there is neither. These are not pedantic warnings; they are the
+loader describing its own failure mode.
+
+**Why this is high impact rather than a warning count.** [10](10-platforms.md) makes iOS
+NativeAOT-only, and [14](14-roadmap.md)'s Phase 3 exit asks for an iOS publish with *zero* trim/AOT
+warnings. As things stand that is unreachable for any assembly that uses Silk.NET's own resolution —
+which today is both graphics backends and the desktop platform.
+
+**Mitigation, and it is one already on the plan:** `Vixen.Platform.Native` — listed in Phase 1,
+unbuilt — maps a RID to a binary and registers a `DllImportResolver`, so the engine resolves its own
+natives and Silk's probing is never the thing that has to work. That entry has moved from tidiness to
+load-bearing, and this is the evidence. Until it exists, the gate covers what it can and names what it
+cannot, which is the honest half of the phase's "prove AOT correctness early" goal rather than the
+whole of it.
+
+**Re-testing is one edit:** add the two projects back to `Tools/Vixen.AotProbe`'s reference and root
+lists.
+
 ---
 
 ## Decision register — ✅ all resolved

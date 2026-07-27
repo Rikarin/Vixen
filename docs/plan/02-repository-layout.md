@@ -306,7 +306,8 @@ Tools/
 ├── Vixen.App/                    # meta-package: sensible default reference set for an app head
 ├── Vixen.Templates/              # dotnet new templates: vixen-game, vixen-app, vixen-lib, vixen-plugin
 │   └── Vixen.Templates.Tests/
-└── Vixen.ApiCheck/               # public API surface diffing, run in CI
+├── Vixen.ApiCheck/               # public API surface diffing, run in CI
+└── Vixen.AotProbe/               # the subject of `nuke CheckAot`: every runtime assembly, rooted
 ```
 
 **What `Vixen.Cli` has so far, and one correction to the verb list above.** `import`,

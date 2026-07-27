@@ -124,6 +124,7 @@
     through and, later, the meta-package that pulls in the backends valid for a RID.
   -->
   <Folder Name="/Tools/">
+    <Project Path="Tools/Vixen.AotProbe/Vixen.AotProbe.csproj" />
     <Project Path="Tools/Vixen.App/Vixen.App.csproj" />
     <Project Path="Tools/Vixen.App.Tests/Vixen.App.Tests.csproj" />
     <Project Path="Tools/Vixen.Cli/Vixen.Cli.csproj" />
