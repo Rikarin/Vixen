@@ -1064,8 +1064,38 @@ sub-piece has its own gate.
   Shaping is held at **design-unit scale and never at a pixel size** — HarfBuzz's OpenType path has
   no hinting, so a string shapes identically at every size. That is what will make the shaping cache
   size-independent rather than one entry per string per DPI scale.
-- Owed: MSDF atlas with LRU eviction, the shaping cache, font fallback, rich-text runs, variable-font
-  axes, `TextEditor` model with IME.
+- ✅ **Shaping clusters reconciled with grapheme clusters** — the thing the HarfBuzz spike flagged as
+  "agree often enough to be dangerous". A caret moves in graphemes and a glyph is drawn per shaping
+  cluster, so a caret has to land *inside* a ligature or a reordered Kannada syllable;
+  `CaretOffset` interpolates across the cluster by grapheme count rather than snapping to its edge.
+
+  Gated by a round trip rather than a table of numbers — hit-test a caret's own offset and get the
+  caret back — which holds for scripts nobody wrote a case for. Verified by sabotage: not reversing
+  right-to-left clusters into logical order fails 7 of 18, treating zero steps as "the next
+  boundary" fails 6, forgetting that the fraction runs the other way inside a right-to-left cluster
+  fails 4, snapping to the cluster edge fails 3.
+
+  ⚠ **The round trip is only true where the text runs one way, and that is bidi rather than a gap.**
+  In `abcلسان` index 3 is both *after the c* and *before the first Arabic letter*, at opposite ends
+  of the Arabic run — one index, two places, and the same screen point answering to two indices. No
+  index-to-position function can return both. Telling them apart needs a caret **affinity** carried
+  beside the index, which is owed with `TextEditor`. Asserting the round trip everywhere would have
+  meant deleting the mixed case or inventing a rule to make it pass, and both would have buried a
+  real property of the writing system.
+- ✅ **The shaping cache**, with LRU eviction and an oracle gate: a cache is only ever wrong by
+  answering differently from the thing it stands in for, so that is what is checked, over random
+  sequences of lookups rather than over chosen cases. Verified by sabotage — failing to promote an
+  entry on a hit, dropping the font or the direction from the key, evicting one entry too late, and
+  confusing two paragraphs of the same length each fail it.
+
+  **The size is not in the key**, which is the payoff for holding the font at design-unit scale: one
+  entry serves every size and DPI scale, where a size-keyed cache would miss on every frame of a
+  growing label. ⚠ And it caches **paragraphs rather than runs**, which follows from the context
+  decision — a run is shaped with the text around it, so its glyphs are not a function of the run
+  alone, and a run-keyed cache would either be unsound or need the context in the key. Reuse between
+  paragraphs sharing a word is given up on purpose.
+- Owed: MSDF atlas with LRU eviction, font fallback, rich-text runs, variable-font axes,
+  `TextEditor` model with IME and caret affinity.
 - Gate: ✅ UAX conformance data green. ✅ shaping conformance green against an external oracle,
   with the quarantine pinned in both directions.
 
