@@ -22,6 +22,14 @@
         <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Diagnostics\Vixen.Core.Diagnostics.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.IO\Vixen.Core.IO.csproj" />
+
+        <!--
+          The content the application loads. A host that could not open a catalog left every game to
+          stand up the catalog, the bundle source and the manager itself, which is what Samples/07
+          does by hand and what a game should not have to. Vixen.Assets is runtime-profile and
+          AOT-clean — it is already rooted in Tools/Vixen.AotProbe.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Assets\Vixen.Assets.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Platform\Vixen.Platform.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />

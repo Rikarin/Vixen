@@ -67,6 +67,9 @@ identifies its origin on sight.
 | 13004 | Warning | `Unrecognised engine argument {Argument} — it was ignored.` | 0.1.0 |
 | 13005 | Information | `Stopping after {Frames} frames.` | 0.1.0 |
 | 13006 | Critical | `The frame loop threw and the application is stopping.` | 0.1.0 |
+| 13007 | Information | `Content mounted from {Root}: {Addresses} addresses.` | 0.1.0 |
+| 13008 | Information | `No content: {Reason}` — ordinary for a sample or a tool, and the line that makes "my asset was not found" a five-second diagnosis | 0.1.0 |
+| 13009 | Warning | `LOOSE CONTENT — still reading from {Path} instead of bundles.` — repeated every 60 s, per docs/plan/17 Q5b | 0.1.0 |
 
 Every other range is still reserved rather than allocated: the subsystems that will log have not been
 written, and the ranges exist so that when they are, nobody has to invent a numbering scheme under

@@ -31,7 +31,11 @@ public sealed class VixenApplication : IDisposable {
     readonly ILogger logger;
     readonly Stopwatch clock = new();
 
+    /// <summary>How often a loose-content build repeats its warning. Doc 17 Q5b says every 60 s.</summary>
+    static readonly TimeSpan LooseContentWarningInterval = TimeSpan.FromSeconds(60);
+
     GameTime time = GameTime.Zero;
+    TimeSpan lastLooseWarning = TimeSpan.Zero;
     long lastTimestamp;
     bool initialised;
     bool stopped;
@@ -47,6 +51,7 @@ public sealed class VixenApplication : IDisposable {
         // everything below it, then the jobs it may have scheduled, then the platform that owns the
         // window those jobs might touch.
         disposables.Add(game);
+        disposables.Add(services.Content);
         disposables.Add(services.Jobs);
         disposables.Add(services.Platform);
     }
@@ -133,9 +138,18 @@ public sealed class VixenApplication : IDisposable {
             HostLog.NoWindow(logger, reason);
         }
 
-        if (Services.Config.LooseContentPath is { } loose) {
+        if (Services.Content is { Assets: { } assets, Root: var root }) {
+            HostLog.ContentMounted(logger, root, assets.Catalog.Entries.Count);
+        } else if (Services.Content.Reason is { } why) {
+            // Not a warning. An application with nothing to load is ordinary — a sample, a batch
+            // tool, a test — and the one line saying so is what turns "my asset was not found" into
+            // a five-second diagnosis.
+            HostLog.NoContent(logger, why);
+        }
+
+        if (Services.Content.IsLoose) {
             // docs/plan/17 Q5b: allowed, and not allowed to be quiet.
-            HostLog.LooseContent(logger, loose);
+            HostLog.LooseContent(logger, Services.Content.Root);
         }
 
         foreach (var argument in Services.Config.UnrecognisedArguments) {
@@ -197,11 +211,40 @@ public sealed class VixenApplication : IDisposable {
             return;
         }
 
+        WarnAboutLooseContent();
+
         Advance();
         game.OnUpdate(time);
         game.OnRender(time);
 
         limiter.Wait(FrameRateLimit());
+    }
+
+    /// <summary>
+    ///     Says again, on a timer, that this build is reading content it did not ship with.
+    /// </summary>
+    /// <remarks>
+    ///     [Doc 17](../../docs/plan/17-app-heads-and-shipping.md) Q5b decides that a release build
+    ///     may be pointed at loose content and <em>refuses to let it be quiet about it</em>: the
+    ///     invariant "release reads only bundles" is being weakened deliberately, and the trade is
+    ///     only acceptable while it is visible. Once at startup is not visible — a build left running
+    ///     overnight in a QA lab scrolled that line away hours ago — so it repeats every minute. The
+    ///     overlay and crash-report stamps doc 17 also asks for arrive with the things that have
+    ///     them.
+    /// </remarks>
+    void WarnAboutLooseContent() {
+        if (!Services.Content.IsLoose) {
+            return;
+        }
+
+        var since = clock.Elapsed - lastLooseWarning;
+
+        if (since < LooseContentWarningInterval) {
+            return;
+        }
+
+        lastLooseWarning = clock.Elapsed;
+        HostLog.LooseContentStill(logger, Services.Content.Root);
     }
 
     /// <summary>Asks the application to stop after the current frame.</summary>
