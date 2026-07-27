@@ -7,6 +7,7 @@ using Vixen.Core;
 using Vixen.Core.Diagnostics;
 using Vixen.Core.IO;
 using Vixen.Core.Threading;
+using Vixen.Engine.Frames;
 using Vixen.Platform;
 
 namespace Vixen.App;
@@ -35,7 +36,8 @@ public sealed class AppServices {
         RingBufferSink logs,
         ILoggerFactory loggerFactory,
         AppConfig config,
-        ContentMount content
+        ContentMount content,
+        EngineLoop? engine
     ) {
         Platform = platform;
         Window = window;
@@ -46,6 +48,7 @@ public sealed class AppServices {
         LoggerFactory = loggerFactory;
         Config = config;
         Content = content;
+        Engine = engine;
 
         Registry = new();
         Registry.Add(platform);
@@ -62,6 +65,11 @@ public sealed class AppServices {
 
         if (content.Assets is { } assets) {
             Registry.Add(assets);
+        }
+
+        if (engine is not null) {
+            Registry.Add(engine);
+            Registry.Add(engine.World);
         }
     }
 
@@ -112,6 +120,17 @@ public sealed class AppServices {
     ///     <see cref="Content" /> says why when this is null.
     /// </remarks>
     public AssetManager? Assets => Content.Assets;
+
+    /// <summary>
+    ///     The world, its systems, its behaviours and its fixed-step accumulator, or
+    ///     <see langword="null" /> if <see cref="AppConfig.UseEngine" /> is off.
+    /// </summary>
+    /// <remarks>
+    ///     Driven by the host, once per frame, <em>before</em> <see cref="Game.OnUpdate" />. That
+    ///     order is the useful one: <c>OnUpdate</c> is where an application reads the world it is
+    ///     about to render, and reading it before it has been stepped renders last frame's positions.
+    /// </remarks>
+    public EngineLoop? Engine { get; }
 
     /// <summary>The same set, for code that resolves generically.</summary>
     public ServiceRegistry Registry { get; }

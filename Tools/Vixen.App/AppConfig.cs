@@ -89,6 +89,34 @@ public sealed class AppConfig {
     /// <see cref="AppArguments.LooseContentPath" /> for why it is parsed now.</remarks>
     public string? LooseContentPath { get; set; }
 
+    /// <summary>Whether the host builds a world, its systems and its fixed-step accumulator.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         On, because <c>VixenApp.Run&lt;TGame&gt;()</c> takes a <see cref="Game" /> and a game
+    ///         with a world is what this host exists for. Off is one line in <c>OnConfigure</c>, and
+    ///         it is the right line for the three heads that do not want one:
+    ///         [doc 17](../../docs/plan/17-app-heads-and-shipping.md)'s batch tool, a server that
+    ///         drives its own simulation, and a UI-only application.
+    ///     </para>
+    ///     <para>
+    ///         The cost of leaving it on for a head that ignores it is a world with no entities and
+    ///         eight system phases that iterate nothing — nanoseconds a frame, and measured rather
+    ///         than assumed in <c>Benchmarks/Vixen.Benchmarks.Ecs</c>.
+    ///     </para>
+    /// </remarks>
+    public bool UseEngine { get; set; } = true;
+
+    /// <summary>
+    ///     How much simulated time one fixed step covers, or <see langword="null" /> for sixty a
+    ///     second.
+    /// </summary>
+    /// <remarks>
+    ///     Here rather than only on the accumulator, because it is a decision a game makes once and
+    ///     a physics engine, a network tick rate and a replay format all have to agree with. Ignored
+    ///     when <see cref="UseEngine" /> is off.
+    /// </remarks>
+    public TimeSpan? FixedStep { get; set; }
+
     /// <summary>Which SDL video driver to insist on, or <see langword="null" /> to let it choose.</summary>
     public string? VideoDriver { get; set; }
 

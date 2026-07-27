@@ -158,11 +158,35 @@ Today "loose" means a content *build* directory outside the package — what `vi
 --output` writes and what `vixen content serve` serves. Reading unbundled loose files, which is what
 the Editor variant will want, needs a provider that does not exist yet.
 
+## The world
+
+`Services.Engine` is an `EngineLoop` — a world, its systems, its behaviours, its coroutines and its
+fixed-step accumulator — and the host runs one frame of it per frame of its own.
+
+**On by default**, because `VixenApp.Run<TGame>()` takes a `Game` and a game with a world is what
+this host is for. `config.UseEngine = false` is one line, and it is the right line for the three
+heads that do not want one: [doc 17](../../docs/plan/17-app-heads-and-shipping.md)'s batch tool, a
+server driving its own simulation, and a UI-only application. Leaving it on for a head that ignores
+it costs a world with no entities and eight system phases iterating nothing.
+
+That this reference exists is **not** a licence for `Vixen.Ui` to reference `Vixen.Engine`. That
+boundary is about `Vixen.Ui`, it is the thing that makes the application-framework claim real, and
+`CheckArchitecture` still enforces it.
+
+**The engine frame runs before `OnUpdate`.** That is the useful order: `OnUpdate` is where an
+application reads the world it is about to render, and reading it before it has been stepped renders
+last frame's positions — which looks like input lag and gets blamed on everything else.
+
+**The engine is handed the unscaled delta and `TimeScale` separately**, because that is what
+`EngineLoop.Frame` takes. Passing the already-scaled value along with the scale squares it, and half
+speed silently becomes a quarter. `VixenApplication.TimeScale` is the one place to set it and it
+reaches both clocks, so a paused game owes no simulation steps rather than accumulating a debt it
+pays all at once when the menu closes.
+
 ## Still to come
 
-**Graphics** and **the engine loop** are what this host will build and does not yet: `OnRender` runs
-with nothing to render to, and `Services.Engine` is opt-in rather than the default. The shape is
-deliberate — the hooks and the ordering are what later phases fill in, not what they replace.
+**Graphics.** `OnRender` runs with nothing to render to. The shape is deliberate — the hooks and the
+ordering are what a later phase fills in, not what it replaces.
 
 **The meta-package.** [Doc 02](../../docs/plan/02-repository-layout.md) also describes `Vixen.App` as
 the package that pulls in the graphics backends valid for a RID. That half arrives with the backends.
