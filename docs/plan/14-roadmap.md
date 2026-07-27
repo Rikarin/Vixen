@@ -495,11 +495,31 @@ sub-piece has its own gate.
   changes what has to be written — **ExCSS 4.3.2 does not parse `@layer`**, which arrives as an
   unknown rule with its text intact, so Vixen reads the prelude and re-parses the body. Doc 09 and
   doc 01 now say so. Cheap to know now; expensive to find in the middle of the cascade.
-- `Vixen.Ui.Styling`: ExCSS integration, cascade, `@layer`, rule bucketing, ancestor bloom filter,
-  style sharing cache, invalidation, transitions, keyframe animations.
+- 🟡 `Vixen.Ui.Styling` — **the selector engine is built and its gate is green; the cascade is not.**
+  `StyleTree` is the element store a selector questions; `SelectorCompiler` is the ExCSS visitor
+  ADR-009 buys by taking the dependency; `SelectorMatcher` matches right to left with the 128-bit
+  ancestor bloom in front of every descendant combinator; `RuleIndex` buckets by the rightmost
+  compound's most selective part. 15 tests.
+
+  **The selector-matching oracle gate is met:** over four hundred randomised trees and stylesheets,
+  the rules the bucketed-and-bloomed path finds are exactly the rules a brute-force pass finds.
+  Verified by sabotage — dropping the bloom's second hash fails four tests. Two things the oracle
+  cannot say are tested separately: whether either path is right about CSS (one test per selector
+  kind, combinator and attribute operator), and whether the index is any use at all (fifteen hundred
+  rules, of which one element reaches three).
+
+  Three bugs it found, each of the kind that does not announce itself. A defaulted struct id
+  silently meant "element zero", so every root without an explicit parent became a child of the
+  first element ever made. Nested `:not()`/`:is()` selectors interleaved with the contiguous ranges
+  being built around them. And `:has()` compiled as `:not()` — both carry an `.Inner`, and matching
+  on the shape rather than the type is exactly how a selector comes to mean the opposite of what it
+  says.
+
+  **Owed:** the cascade, `ComputedStyle` interning, the style-sharing cache, invalidation,
+  transitions and keyframes.
 - `Vixen.Ui.Styling.Utilities`: token config, candidate scanner, utility grammar, variant system,
   arbitrary values, `@apply`, generated stylesheet.
-- Gate: selector-matching oracle tests, invalidation-minimality tests, utility family tests.
+- Gate: ✅ selector-matching oracle tests. Owed: invalidation-minimality tests, utility family tests.
 
 **4c — Text (1.0 EM)**
 - HarfBuzz shaping, bidi, UAX#14 line breaking, UAX#29 segmentation, MSDF atlas with LRU eviction,

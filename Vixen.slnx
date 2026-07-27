@@ -82,6 +82,8 @@
     <Project Path="Core/Vixen.Ui.Reactive.Tests/Vixen.Ui.Reactive.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Layout/Vixen.Ui.Layout.csproj" />
     <Project Path="Core/Vixen.Ui.Layout.Tests/Vixen.Ui.Layout.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Styling/Vixen.Ui.Styling.csproj" />
+    <Project Path="Core/Vixen.Ui.Styling.Tests/Vixen.Ui.Styling.Tests.csproj" />
   </Folder>
 
   <!--
