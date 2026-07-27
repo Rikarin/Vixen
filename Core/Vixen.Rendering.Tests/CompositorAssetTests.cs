@@ -6,6 +6,7 @@ using Vixen.Core.Serialization;
 using Vixen.Core.Yaml;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
+using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
@@ -28,7 +29,14 @@ public class CompositorAssetTests : IDisposable {
     readonly EffectSystem effects = new();
 
     const string Document = """
-        version: 1
+        version: 2
+        resources:
+          - name: SceneColour
+            format: Rgba16Float
+            usage: ColourTarget, Sampled
+          - name: SceneDepth
+            format: Depth32Float
+            usage: DepthStencilTarget
         stages:
           - name: ShadowCaster
             cull: Front
@@ -53,6 +61,7 @@ public class CompositorAssetTests : IDisposable {
               name: Main
               colourTargets: [SceneColour]
               depthTarget: SceneDepth
+              reads: [ShadowAtlas]
               children:
                 - !SingleStage
                   name: OpaqueDraw
@@ -82,24 +91,24 @@ public class CompositorAssetTests : IDisposable {
     sealed class Harness : IDisposable {
         public required RenderSystem System { get; init; }
         public required CompositorBuilder Builder { get; init; }
+        public required RenderGraph Graph { get; init; }
         public required RenderView Camera { get; init; }
         public required MeshRenderFeature Meshes { get; init; }
         public required MaterialRenderFeature Materials { get; init; }
         public required BufferHandle Vertices { get; init; }
 
-        public void Dispose() => System.Dispose();
+        public void Dispose() {
+            Graph.DisposePool();
+            System.Dispose();
+        }
     }
 
-    TextureViewHandle Target(PixelFormat format, TextureUsage usage) =>
-        device.CreateTextureView(
-            device.CreateTexture(
-                new() {
-                    Width = 512, Height = 512, Depth = 1,
-                    MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
-                    Format = format, Usage = usage
-                }
-            )
-        );
+    ImportedTexture Imported(PixelFormat format, TextureUsage usage, string name) {
+        var description = new TextureDescription(format, 512, 512, usage | TextureUsage.Sampled, Name: name);
+        var texture = device.CreateTexture(description);
+
+        return new(texture, device.CreateTextureView(texture), description);
+    }
 
     Harness Build() {
         var system = new RenderSystem();
@@ -122,18 +131,10 @@ public class CompositorAssetTests : IDisposable {
         var builder = new CompositorBuilder(system);
         builder.Views["Camera"] = camera;
 
-        builder.ColourTargets["SceneColour"] =
-            new(Target(PixelFormat.Rgba16Float, TextureUsage.ColourTarget), PixelFormat.Rgba16Float);
-
-        builder.DepthTargets["SceneDepth"] =
-            new(Target(PixelFormat.Depth32Float, TextureUsage.DepthStencilTarget), PixelFormat.Depth32Float);
-
-        builder.DepthTargets["ShadowAtlas"] =
-            new(Target(PixelFormat.Depth32Float, TextureUsage.DepthStencilTarget), PixelFormat.Depth32Float);
-
         return new() {
             System = system,
             Builder = builder,
+            Graph = new(device),
             Camera = camera,
             Meshes = meshes,
             Materials = materials,
@@ -157,9 +158,41 @@ public class CompositorAssetTests : IDisposable {
         h.Materials.Assign(h.System, id, material);
     }
 
-    void Frame(GraphicsCompositor compositor) {
+    /// <summary>Builds the compositor an asset describes, and lends it the host-owned textures.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Two imports, for the two reasons anything is imported. The shadow atlas outlives the
+    ///         frame. The scene colour <em>is</em> the swapchain image here, and the frame's last
+    ///         target has to be one: a transient nothing reads afterwards is a pass the graph is
+    ///         right to cull, and the only thing that makes the final pass matter is that its target
+    ///         belongs to somebody outside the graph.
+    ///     </para>
+    ///     <para>
+    ///         The document declares <c>SceneColour</c> too, and the import wins — which is the point
+    ///         of that rule: the same document runs against a swapchain in one preset and an
+    ///         offscreen buffer in another without being edited.
+    ///     </para>
+    /// </remarks>
+    GraphicsCompositor Compose(Harness h, GraphicsCompositorAsset asset) {
+        var compositor = h.Builder.Build(asset);
+        compositor.FrameSize = new(512, 512);
+
+        compositor.Imports["ShadowAtlas"] =
+            Imported(PixelFormat.Depth32Float, TextureUsage.DepthStencilTarget, "ShadowAtlas");
+
+        compositor.Imports["SceneColour"] =
+            Imported(PixelFormat.Rgba16Float, TextureUsage.ColourTarget, "SceneColour");
+
+        return compositor;
+    }
+
+    void Frame(Harness h, GraphicsCompositor compositor) {
         var list = device.BeginCommandList();
-        compositor.Draw(new(list, effects) { Device = device });
+
+        h.Graph.Reset();
+        compositor.Build(h.Graph, effects, device);
+        h.Graph.Execute(list);
+
         list.Finish();
         device.GraphicsQueue.Submit([list]);
     }
@@ -184,7 +217,7 @@ public class CompositorAssetTests : IDisposable {
     public void A_document_parses_into_the_tree_its_tags_describe() {
         var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
 
-        Assert.Equal(1, asset.Version);
+        Assert.Equal(2, asset.Version);
         Assert.Equal(3, asset.Stages.Length);
 
         var root = Assert.IsType<SequenceAsset>(asset.Game);
@@ -261,12 +294,12 @@ public class CompositorAssetTests : IDisposable {
         var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
         using var h = Build();
 
-        var compositor = h.Builder.Build(asset);
+        var compositor = Compose(h, asset);
         var everywhere = h.Builder.Stages.Values.Aggregate(RenderStageMask.None, (mask, stage) => mask | stage.Mask);
 
         AddMesh(h, -10f, new Material("Lit"), everywhere);
 
-        Frame(compositor);
+        Frame(h, compositor);
 
         // The shadow atlas and the main pass.
         Assert.Equal(2, device.Recorder!.CountOf(RecordedCommandKind.BeginRenderPass));
@@ -291,13 +324,13 @@ public class CompositorAssetTests : IDisposable {
         var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
         using var h = Build();
 
-        var compositor = h.Builder.Build(asset);
+        var compositor = Compose(h, asset);
         var opaque = h.Builder.Stages["Opaque"];
         var transparent = h.Builder.Stages["Transparent"];
 
         AddMesh(h, -10f, new Material("Lit"), opaque.Mask | transparent.Mask);
 
-        Frame(compositor);
+        Frame(h, compositor);
 
         Assert.Equal(2, h.Meshes.Pipelines!.Count);
     }
@@ -315,7 +348,7 @@ public class CompositorAssetTests : IDisposable {
         var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
         using var h = Build();
 
-        var compositor = h.Builder.Build(asset);
+        var compositor = Compose(h, asset);
         compositor.Collect();
 
         Assert.Equal(3, compositor.Views.Count);
@@ -324,23 +357,72 @@ public class CompositorAssetTests : IDisposable {
 
     // --- Refusals -----------------------------------------------------------
 
-    /// <summary>An unbound name names the node, the kind and the name.</summary>
+    /// <summary>A target neither declared nor imported names the node, the kind and the name.</summary>
     /// <remarks>
-    ///     Binding what it can and skipping the rest would produce a frame missing a pass and report
-    ///     nothing — the failure that takes a day to find.
+    ///     Declaring what it can and skipping the rest would produce a frame missing a pass and
+    ///     report nothing — the failure that takes a day to find. It surfaces at build time rather
+    ///     than at parse time because a name is only wrong once you know what the frame has, and the
+    ///     frame is what the host contributes to.
     /// </remarks>
     [Fact]
-    public void An_unbound_name_is_refused_by_name() {
+    public void A_target_that_is_neither_declared_nor_imported_is_refused_by_name() {
         var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
         using var h = Build();
 
-        h.Builder.ColourTargets.Remove("SceneColour");
+        var compositor = Compose(h, asset);
+        compositor.Resources.Clear();
 
-        var thrown = Assert.Throws<CompositorBindingException>(() => h.Builder.Build(asset));
+        var thrown = Assert.Throws<CompositorBindingException>(() => Frame(h, compositor));
 
+        // SceneColour survives — the host imported it — and SceneDepth, which only the document
+        // declared, is the one that is now bound to nothing.
         Assert.Equal("Main", thrown.Node);
-        Assert.Equal("colour target", thrown.Kind);
-        Assert.Equal("SceneColour", thrown.Name);
+        Assert.Equal("target", thrown.Kind);
+        Assert.Equal("SceneDepth", thrown.Name);
+    }
+
+    /// <summary>
+    ///     The document's own resources are what the frame renders into.
+    /// </summary>
+    /// <remarks>
+    ///     The half of "the frame is data" that version 1 could not express. A document that can say
+    ///     "a half-resolution R11G11B10 target" can describe a post-processing chain; one that could
+    ///     only name textures somebody else made could describe the order of passes and nothing about
+    ///     what flows between them.
+    /// </remarks>
+    [Fact]
+    public void The_document_declares_the_targets_it_renders_into() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
+        using var h = Build();
+
+        Assert.Equal(2, asset.Resources.Length);
+        Assert.Equal(PixelFormat.Rgba16Float, asset.Resources[0].Format);
+
+        var compositor = Compose(h, asset);
+        var frame = compositor.Build(h.Graph, effects, device);
+
+        // Two imports plus the one declaration the imports did not already cover.
+        Assert.Equal(3, h.Graph.ResourceCount);
+        Assert.True(frame.Has("SceneColour"));
+        Assert.True(frame.Has("ShadowAtlas"));
+    }
+
+    /// <summary>A scaled resource is a fraction of the frame, not a fixed size.</summary>
+    /// <remarks>
+    ///     What lets a bloom chain authored at half resolution stay half resolution on a window
+    ///     nobody anticipated. Floored at one, so a chain of halvings ends at 1×1 rather than at a
+    ///     zero-sized texture the backend refuses.
+    /// </remarks>
+    [Theory]
+    [InlineData(1f, 512, 512)]
+    [InlineData(0.5f, 256, 256)]
+    [InlineData(0.001f, 1, 1)]
+    public void A_scaled_resource_follows_the_frame_size(float scale, int width, int height) {
+        var declared = new RenderResourceAsset { Name = "Bloom", Scale = scale };
+        var description = declared.Describe(new(512, 512));
+
+        Assert.Equal(width, description.Width);
+        Assert.Equal(height, description.Height);
     }
 
     /// <summary>A node naming a stage that the document does not declare is refused too.</summary>
@@ -357,12 +439,12 @@ public class CompositorAssetTests : IDisposable {
     /// <summary>A document from a later editor is refused by version rather than half-read.</summary>
     [Fact]
     public void A_future_version_is_refused() {
-        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document) with { Version = 2 };
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document) with { Version = 3 };
         using var h = Build();
 
         var thrown = Assert.Throws<NotSupportedException>(() => h.Builder.Build(asset));
 
-        Assert.Contains("version 2", thrown.Message, StringComparison.Ordinal);
+        Assert.Contains("version 3", thrown.Message, StringComparison.Ordinal);
     }
 
     // --- The baked form -----------------------------------------------------
@@ -391,7 +473,7 @@ public class CompositorAssetTests : IDisposable {
         var baked = Serializer.ToBytes(authored);
         var loaded = Serializer.Read<GraphicsCompositorAsset>(baked);
 
-        Assert.Equal(1, loaded.Version);
+        Assert.Equal(2, loaded.Version);
         Assert.Equal(3, loaded.Stages.Length);
 
         var root = Assert.IsType<SequenceAsset>(loaded.Game);
@@ -414,12 +496,12 @@ public class CompositorAssetTests : IDisposable {
         var loaded = Serializer.Read<GraphicsCompositorAsset>(Serializer.ToBytes(authored));
 
         using var h = Build();
-        var compositor = h.Builder.Build(loaded);
+        var compositor = Compose(h, loaded);
         var everywhere = h.Builder.Stages.Values.Aggregate(RenderStageMask.None, (mask, stage) => mask | stage.Mask);
 
         AddMesh(h, -10f, new Material("Lit"), everywhere);
 
-        Frame(compositor);
+        Frame(h, compositor);
 
         Assert.Equal(2, device.Recorder!.CountOf(RecordedCommandKind.BeginRenderPass));
         Assert.Equal(2, device.Recorder.CountOf(RecordedCommandKind.SetViewport));

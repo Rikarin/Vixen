@@ -3,124 +3,73 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
+using Vixen.Graphics.RenderGraph;
 
 namespace Vixen.Rendering.Compositor;
-
-/// <summary>One colour attachment a pass renders into, and the format a pipeline needs for it.</summary>
-/// <param name="View">What to render into.</param>
-/// <param name="Format">
-///     Its format. Carried rather than asked of the view, because a
-///     <see cref="TextureViewHandle" /> is an opaque index into a table the device owns — the RHI has
-///     no introspection by design, and the pipeline needs the format.
-/// </param>
-/// <param name="Load">What to do with it at the start of the pass.</param>
-/// <param name="Store">What to do with it at the end.</param>
-/// <param name="ClearColour">What to clear to, when <paramref name="Load" /> clears.</param>
-public readonly record struct ColourTargetBinding(
-    TextureViewHandle View,
-    PixelFormat Format,
-    LoadAction Load = LoadAction.Clear,
-    StoreAction Store = StoreAction.Store,
-    Color4 ClearColour = default
-) {
-    /// <summary>This binding as the attachment a render pass takes.</summary>
-    public ColourAttachment ToAttachment() => new(View, Load, Store, ClearColour);
-}
-
-/// <summary>The depth attachment a pass renders into.</summary>
-/// <param name="View">What to render into.</param>
-/// <param name="Format">Its format, for the same reason as
-/// <see cref="ColourTargetBinding.Format" />.</param>
-/// <param name="Load">What to do with depth at the start of the pass.</param>
-/// <param name="Store">What to do with depth at the end.</param>
-/// <param name="ClearDepth">
-///     What to clear depth to. Zero is <em>far</em> under the engine's reversed-Z convention, which
-///     is why it is the default — clearing to one is the classic mistake and depth-tests the scene
-///     away entirely.
-/// </param>
-/// <param name="Texture">
-///     The texture behind the view, for the one thing a view cannot do: be the source or destination
-///     of a copy. A cached shadow atlas is copied rather than redrawn, and a copy names a texture.
-///     Optional — a pass that is only rendered into never needs it.
-/// </param>
-public readonly record struct DepthTargetBinding(
-    TextureViewHandle View,
-    PixelFormat Format,
-    LoadAction Load = LoadAction.Clear,
-    StoreAction Store = StoreAction.Store,
-    float ClearDepth = 0f,
-    TextureHandle Texture = default
-) {
-    /// <summary>This binding as the attachment a render pass takes.</summary>
-    public DepthStencilAttachment ToAttachment() => new(View, Load, Store, ClearDepth);
-
-    /// <summary>This binding as the attachment, with a different load action.</summary>
-    /// <remarks>
-    ///     What a cached atlas needs: the same target, loaded rather than cleared, because what is
-    ///     already in it is the point.
-    /// </remarks>
-    public DepthStencilAttachment ToAttachment(LoadAction load) => new(View, load, Store, ClearDepth);
-}
 
 /// <summary>
 ///     A render pass, and the renderers that draw into it.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         The node that resolves what <c>Vixen.Rendering</c>'s README used to leave to the caller:
-///         a stage does not open a pass, because one pass draws several stages and one stage feeds
-///         several passes. The compositor is where the two meet, and this is that node.
+///         The node that resolves what a stage deliberately does not: a stage is <em>which</em>
+///         objects and in what order, a pass is where they land. One stage feeds several passes and
+///         one pass draws several stages, so the compositor is where the two meet.
 ///     </para>
 ///     <para>
-///         <strong>There is no separate "clear" renderer, and that is not an omission.</strong>
-///         Clearing is a load action on an attachment. Issuing it as its own operation is a D3D11-ism
-///         that on a tile-based GPU costs an extra full-screen pass writing a colour that the next
-///         pass immediately overwrites — the exact opposite of what a mobile-first renderer wants.
+///         <strong>It declares a pass rather than opening one.</strong> Targets are named, and the
+///         render graph decides what they are: how big, whether two of them can share memory,
+///         whether the contents ever have to reach memory at all, what barriers precede the pass, and
+///         whether the pass is worth running. A node that called <c>BeginRenderPass</c> itself would
+///         be answering all of those with "I do not know".
 ///     </para>
 ///     <para>
-///         The <see cref="RenderOutput" /> is computed from the bindings and put on the draw context,
-///         so every pipeline built inside this pass is built for the formats the pass actually has.
-///         That is the link that lets <see cref="Features.MeshRenderFeature" /> stop taking a
-///         pipeline-description callback from its host.
+///         <strong><see cref="Reads" /> is not optional bookkeeping.</strong> A pass that samples the
+///         shadow atlas must say so, because that read is the edge that orders the shadow pass before
+///         it and puts a barrier between them — and, if nothing says so, the edge that keeps the
+///         shadow pass from being culled for producing something nobody wanted.
+///     </para>
+///     <para>
+///         There is still no separate "clear" renderer: clearing is a load action on an attachment.
+///         Issuing it as its own operation costs a tile-based GPU a full extra pass writing a colour
+///         the next pass overwrites.
 ///     </para>
 /// </remarks>
 public sealed class RenderPassRenderer : SceneRenderer {
-    ColourAttachment[] attachments = [];
-    RenderOutput output;
-    bool outputStale = true;
+    /// <summary>The names of its colour attachments, in the order the shader writes them.</summary>
+    public IList<string> ColourTargets { get; } = [];
 
-    /// <summary>The colour attachments, in the order the shader writes them.</summary>
-    public IList<ColourTargetBinding> ColourTargets { get; } = [];
+    /// <summary>The name of its depth attachment, or null for a pass with none.</summary>
+    public string? DepthTarget { get; set; }
 
-    /// <summary>The depth attachment, or null for a pass with none.</summary>
-    public DepthTargetBinding? DepthTarget { get; set; }
+    /// <summary>The names of resources this pass samples.</summary>
+    public IList<string> Reads { get; } = [];
 
-    /// <summary>How many samples the attachments have.</summary>
+    /// <summary>What to do with the colour attachments at the start of the pass.</summary>
+    public LoadAction Load { get; set; } = LoadAction.Clear;
+
+    /// <summary>What to clear them to.</summary>
+    public Color4 ClearColour { get; set; }
+
+    /// <summary>What to do with depth at the start of the pass.</summary>
+    public LoadAction DepthLoad { get; set; } = LoadAction.Clear;
+
+    /// <summary>
+    ///     What to clear depth to. Zero is <em>far</em> under the engine's reversed-Z convention.
+    /// </summary>
+    public float ClearDepth { get; set; }
+
+    /// <summary>Whether the pass only tests depth, which lets a shader sample it at the same time.</summary>
+    public bool ReadOnlyDepth { get; set; }
+
+    /// <summary>How many samples its attachments have.</summary>
     public int SampleCount { get; set; } = 1;
 
-    /// <summary>The viewport to set, or null to leave whatever was set before.</summary>
+    /// <summary>The viewport to set, or null for the whole target.</summary>
     public Viewport? Viewport { get; set; }
 
     /// <summary>What draws into this pass.</summary>
     public IList<SceneRenderer> Children { get; } = [];
-
-    /// <summary>Marks the attachments as changed, so the next frame recomputes the output.</summary>
-    /// <remarks>
-    ///     Called by a host that swapped an attachment — a new swapchain image of the same format
-    ///     does not need it, a resize to a different format does. Cheap enough to call every frame.
-    /// </remarks>
-    public void Invalidate() => outputStale = true;
-
-    /// <summary>The formats this pass renders into.</summary>
-    public RenderOutput Output {
-        get {
-            if (outputStale) {
-                Rebuild();
-            }
-
-            return output;
-        }
-    }
 
     /// <inheritdoc />
     protected internal override void Collect(GraphicsCompositor compositor) {
@@ -132,55 +81,62 @@ public sealed class RenderPassRenderer : SceneRenderer {
     }
 
     /// <inheritdoc />
-    protected internal override void Draw(GraphicsCompositor compositor, RenderDrawContext context) {
+    protected internal override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
         ArgumentNullException.ThrowIfNull(compositor);
-        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(frame);
 
-        if (outputStale || attachments.Length != ColourTargets.Count) {
-            Rebuild();
-        }
-
-        var list = context.CommandList;
-        var previous = context.Output;
-        context.Output = output;
-
-        list.PushDebugGroup(ToString());
-        list.BeginRenderPass(new(attachments, DepthTarget?.ToAttachment(), Name));
-
-        if (Viewport is { } viewport) {
-            list.SetViewport(viewport);
-            list.SetScissor(new((int)viewport.X, (int)viewport.Y, (int)viewport.Width, (int)viewport.Height));
-        }
-
-        foreach (var child in Children) {
-            if (child.Enabled) {
-                child.Draw(compositor, context);
-            }
-        }
-
-        list.EndRenderPass();
-        list.PopDebugGroup();
-
-        // Restored rather than cleared, so a pass nested inside another leaves the outer one's
-        // formats in place for whatever draws after it.
-        context.Output = previous;
-    }
-
-    void Rebuild() {
-        if (attachments.Length != ColourTargets.Count) {
-            attachments = new ColourAttachment[ColourTargets.Count];
-        }
-
-        Span<PixelFormat> formats = ColourTargets.Count <= 8
-            ? stackalloc PixelFormat[ColourTargets.Count]
-            : new PixelFormat[ColourTargets.Count];
+        var colours = new GraphTexture[ColourTargets.Count];
+        var formats = new PixelFormat[ColourTargets.Count];
 
         for (var i = 0; i < ColourTargets.Count; i++) {
-            attachments[i] = ColourTargets[i].ToAttachment();
-            formats[i] = ColourTargets[i].Format;
+            colours[i] = frame.Texture(ToString(), ColourTargets[i]);
+            formats[i] = frame.FormatOf(ToString(), ColourTargets[i]);
         }
 
-        output = new(formats, DepthTarget?.Format ?? PixelFormat.Undefined, SampleCount);
-        outputStale = false;
+        var depth = DepthTarget is { Length: > 0 } name ? frame.Texture(ToString(), name) : GraphTexture.None;
+        var depthFormat = depth.IsValid ? frame.FormatOf(ToString(), DepthTarget!) : PixelFormat.Undefined;
+        var output = new RenderOutput(formats, depthFormat, SampleCount);
+        var sampled = Reads.Select(read => frame.Texture(ToString(), read)).ToArray();
+
+        frame.Graph.AddPass(
+            ToString(),
+            pass => {
+                foreach (var colour in colours) {
+                    pass.ColourAttachment(colour, Load, ClearColour);
+                }
+
+                if (depth.IsValid) {
+                    pass.DepthAttachment(depth, DepthLoad, ClearDepth, readOnly: ReadOnlyDepth);
+                }
+
+                foreach (var read in sampled) {
+                    pass.Reads(read);
+                }
+
+                pass.Execute(
+                    graphContext => {
+                        var context = frame.Context(graphContext.CommandList);
+                        var previous = context.Output;
+                        context.Output = output;
+
+                        if (Viewport is { } viewport) {
+                            graphContext.CommandList.SetViewport(viewport);
+
+                            graphContext.CommandList.SetScissor(
+                                new((int)viewport.X, (int)viewport.Y, (int)viewport.Width, (int)viewport.Height)
+                            );
+                        }
+
+                        foreach (var child in Children) {
+                            if (child.Enabled) {
+                                child.Record(compositor, context);
+                            }
+                        }
+
+                        context.Output = previous;
+                    }
+                );
+            }
+        );
     }
 }

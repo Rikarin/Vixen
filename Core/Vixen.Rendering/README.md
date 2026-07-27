@@ -99,7 +99,8 @@ and changing the image.
 The render pass belongs to the caller, not to this. One pass may draw several stages, and the
 attachments belong to the render graph — a stage that opened its own pass could not be one of
 several in a subpass-fused mobile path. The Null backend refusing a draw outside a pass is what says
-so out loud. `Compositor/RenderPassRenderer` is that caller in a composed frame.
+so out loud. `Compositor/RenderPassRenderer` declares that pass in a composed frame, and the render graph opens
+it.
 
 One `(view, stage)` at a time, because that is the unit a caller can put on its own thread: each gets
 a `RenderDrawContext` with its own command list, and they share nothing that is written.
@@ -208,13 +209,19 @@ edits, not code.** A `GraphicsCompositor` holds a tree of `SceneRenderer`s — a
 pass, a single stage from a single view, or a delegate — and "swap forward for deferred" is a
 different tree rather than a different build.
 
-Two phases, and the split is the design:
+Three phases, and each can only do its own job:
 
 ```
 Collect   nodes declare which views they need and which stages those views draw
           → then extract, cull, prepare, sort
-Draw      nodes open passes and record; nothing may declare a view here
+Build     nodes declare render-graph passes: what each reads, writes and does
+          → then the graph places barriers, sizes transients and culls
+Record    runs inside a pass the graph opened; only drawing is left
 ```
+
+The last split is not bureaucracy, it is the RHI's own: a draw has to be inside a render pass and a
+pass has to be declared before the graph can order it, so a node either owns a pass or draws into
+someone else's. A node that did both would be declaring a pass from inside one.
 
 **The view list is derived from the tree, not handed to it.** A stage is in a view's mask because a
 node draws it, so a stage nothing draws costs no culling and a stage that is drawn cannot have been
@@ -224,6 +231,40 @@ tree stops being sorted for, instead of quietly producing a list nobody reads.
 There is no `ClearRenderer`, and that is not an omission — **clearing is a load action on an
 attachment.** Issuing it as its own operation is a D3D11-ism that costs a tile-based GPU a full extra
 pass writing a colour the next pass overwrites.
+
+### It declares passes rather than opening them
+
+A compositor node names its targets and hands the naming to
+[`Vixen.Graphics.RenderGraph`](../Vixen.Graphics.RenderGraph/README.md), which then decides how big
+each one is, whether two of them can share memory, whether their contents ever have to reach memory,
+what barriers precede a pass, and whether the pass is worth running. A node that called
+`BeginRenderPass` itself would be answering all of those with "I do not know" — which is what it was
+doing before.
+
+**`Reads` is load-bearing, not bookkeeping.** A pass that samples the shadow atlas says so, and that
+one line is the edge that orders the shadow pass before it, puts the barrier between them, and keeps
+the shadow pass from being culled for producing something nobody wanted. Both directions are
+asserted: a pass that reads another runs after it with a barrier, and a pass whose target nothing
+reads is dropped along with its draws.
+
+That last rule is why the frame's final target is **imported**. A pass writing an import always
+survives — the swapchain image belongs to the presentation engine and has to be handed back in
+`Present` — so "the last pass" cannot disappear, while an over-specified preset's unused passes cost
+nothing.
+
+### The document owns its targets
+
+`resources:` is the half of "the frame is data" that naming host textures could not express. A
+document that can say *a half-resolution R11G11B10 chain* can describe a post-processing pipeline;
+one that could only refer to textures somebody else made could describe the order of passes and
+nothing about what flows between them. Sizes are a `scale` of the frame rather than pixels, so a
+bloom chain authored at half resolution stays half resolution on a window nobody anticipated.
+
+Two things stay imports, for opposite reasons: the swapchain image, because it belongs to the
+presentation engine; and a **cached** shadow atlas, because a cache outlives its frame by definition
+and the graph's pool exists precisely to recycle memory whose lifetime ends inside one. An import
+wins over a declaration of the same name, so one document runs against a swapchain in one preset and
+an offscreen buffer in another without being edited.
 
 ### Shadows
 
@@ -386,6 +427,11 @@ caller's decision and there is nothing here to help make it.
 The shadow renderers still take a light direction and a camera from a host rather than from the
 scene, and nothing yet resolves a compositor by *address* — the binary form is proven, the
 `AssetManager` lookup around it is not wired up here.
+
+**Compute is the next gap.** Nothing here dispatches: `PipelineCache` builds graphics pipelines only,
+and there is no compute node. That is what Forward+ needs — its light-culling dispatch writes the
+cluster buffer the shading pass reads, and now that the compositor declares its dependencies, that
+edge is one `Reads` away rather than a barrier somebody has to remember.
 
 GPU-driven culling is a second implementation of `VisibilityGroup` behind the same interface, which
 is why that interface is bits rather than a list.

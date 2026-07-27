@@ -35,7 +35,7 @@ public sealed class SingleStageRenderer : SceneRenderer {
     }
 
     /// <inheritdoc />
-    protected internal override void Draw(GraphicsCompositor compositor, RenderDrawContext context) {
+    protected internal override void Record(GraphicsCompositor compositor, RenderDrawContext context) {
         ArgumentNullException.ThrowIfNull(compositor);
         ArgumentNullException.ThrowIfNull(context);
 

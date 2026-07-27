@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
+using Vixen.Graphics.RenderGraph;
 
 namespace Vixen.Rendering.Compositor;
 
@@ -53,8 +54,8 @@ public sealed class PunctualShadowRenderer : SceneRenderer {
     /// <summary>The stage that draws depth-only casters.</summary>
     public required RenderStage CasterStage { get; init; }
 
-    /// <summary>The atlas to render into, and its format.</summary>
-    public DepthTargetBinding? Atlas { get; set; }
+    /// <summary>The name of the atlas to render into.</summary>
+    public string Atlas { get; set; } = string.Empty;
 
     /// <summary>The lights to shadow. Directional lights are skipped — they are the cascades'.</summary>
     public IList<RenderLight> Lights { get; } = [];
@@ -142,37 +143,44 @@ public sealed class PunctualShadowRenderer : SceneRenderer {
     }
 
     /// <inheritdoc />
-    protected internal override void Draw(GraphicsCompositor compositor, RenderDrawContext context) {
+    protected internal override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
         ArgumentNullException.ThrowIfNull(compositor);
-        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(frame);
 
-        if (Atlas is not { } atlas || tiles.Count == 0) {
+        if (tiles.Count == 0 || Atlas.Length == 0) {
             return;
         }
 
-        var list = context.CommandList;
-        var previous = context.Output;
+        var atlas = frame.Texture(ToString(), Atlas);
+        var format = frame.FormatOf(ToString(), Atlas);
         var side = Math.Max(TilesPerSide, 1);
 
-        context.Output = new([], atlas.Format);
+        frame.Graph.AddPass(
+            ToString(),
+            pass => {
+                pass.DepthAttachment(atlas);
 
-        list.PushDebugGroup(ToString());
-        list.BeginRenderPass(new([], atlas.ToAttachment(), Name));
+                pass.Execute(
+                    graphContext => {
+                        var context = frame.Context(graphContext.CommandList);
+                        var previous = context.Output;
+                        context.Output = new([], format);
 
-        for (var slot = 0; slot < tiles.Count; slot++) {
-            var x = slot % side * Resolution;
-            var y = slot / side * Resolution;
+                        for (var slot = 0; slot < tiles.Count; slot++) {
+                            var x = slot % side * Resolution;
+                            var y = slot / side * Resolution;
 
-            list.SetViewport(new(x, y, Resolution, Resolution));
-            list.SetScissor(new(x, y, Resolution, Resolution));
+                            graphContext.CommandList.SetViewport(new(x, y, Resolution, Resolution));
+                            graphContext.CommandList.SetScissor(new(x, y, Resolution, Resolution));
 
-            compositor.System.Record(views[slot], CasterStage, context);
-        }
+                            compositor.System.Record(views[slot], CasterStage, context);
+                        }
 
-        list.EndRenderPass();
-        list.PopDebugGroup();
-
-        context.Output = previous;
+                        context.Output = previous;
+                    }
+                );
+            }
+        );
     }
 
     /// <inheritdoc />

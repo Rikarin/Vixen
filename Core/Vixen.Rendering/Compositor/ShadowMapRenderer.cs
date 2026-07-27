@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
+using Vixen.Graphics.RenderGraph;
 
 namespace Vixen.Rendering.Compositor;
 
@@ -42,8 +43,8 @@ public sealed class ShadowMapRenderer : SceneRenderer {
     /// <summary>The stage that draws depth-only casters.</summary>
     public required RenderStage CasterStage { get; init; }
 
-    /// <summary>The atlas to render into, and its format.</summary>
-    public DepthTargetBinding? Atlas { get; set; }
+    /// <summary>The name of the atlas to render into.</summary>
+    public string Atlas { get; set; } = string.Empty;
 
     /// <summary>
     ///     The stage that draws casters which do not move, or null to redraw everything every frame.
@@ -66,8 +67,15 @@ public sealed class ShadowMapRenderer : SceneRenderer {
     /// </remarks>
     public RenderStage? StaticCasterStage { get; set; }
 
-    /// <summary>Where the cached static content lives. Needs a texture, because a copy names one.</summary>
-    public DepthTargetBinding? StaticAtlas { get; set; }
+    /// <summary>
+    ///     The name of the texture the cached static content lives in, or empty for no cache.
+    /// </summary>
+    /// <remarks>
+    ///     This one has to be an <see cref="ImportedTexture" /> rather than a declared resource, and
+    ///     the reason is the definition of both: a cache outlives its frame, and the graph's pool
+    ///     exists precisely to recycle memory whose lifetime ends inside one.
+    /// </remarks>
+    public string StaticAtlas { get; set; } = string.Empty;
 
     /// <summary>
     ///     How much larger than each slice to cut its cascade, as a fraction.
@@ -214,63 +222,36 @@ public sealed class ShadowMapRenderer : SceneRenderer {
     }
 
     /// <inheritdoc />
-    protected internal override void Draw(GraphicsCompositor compositor, RenderDrawContext context) {
+    protected internal override void Build(GraphicsCompositor compositor, CompositorFrame frame) {
         ArgumentNullException.ThrowIfNull(compositor);
-        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(frame);
 
-        if (Atlas is not { } atlas || count == 0) {
+        if (count == 0 || Atlas.Length == 0) {
             return;
         }
 
-        var list = context.CommandList;
-        var previous = context.Output;
+        var atlas = frame.Texture(ToString(), Atlas);
+        var format = frame.FormatOf(ToString(), Atlas);
 
-        // No colour attachment at all. A shadow pass writes depth and nothing else, and a bound
-        // colour target would be bandwidth spent on a value no one ever reads — on a mobile tiler,
-        // the single most expensive mistake available in a shadow pass.
-        context.Output = new([], atlas.Format);
-        list.PushDebugGroup(ToString());
-
-        var cached = StaticCasterStage is not null && StaticAtlas is { Texture.IsValid: true };
-
-        if (cached) {
-            DrawCached(compositor, context, atlas, StaticAtlas!.Value, StaticCasterStage!);
-        } else {
-            Pass(compositor, context, atlas.ToAttachment(), CasterStage, Name);
-        }
-
-        list.PopDebugGroup();
-        context.Output = previous;
-    }
-
-    /// <summary>
-    ///     Redraws the static atlas only when something invalidated it, then copies and adds the
-    ///     movers.
-    /// </summary>
-    /// <remarks>
-    ///     The invalidation is exactly two things, and both are things the atlas's <em>content</em>
-    ///     depends on: a cascade that re-fitted, so what it covers changed; and a bump of
-    ///     <see cref="StaticVersion" />, so what is in it changed. A camera that moved without either
-    ///     happening changes nothing about the map, which is the whole point of cutting the cascade
-    ///     with slack.
-    /// </remarks>
-    void DrawCached(
-        GraphicsCompositor compositor,
-        RenderDrawContext context,
-        in DepthTargetBinding atlas,
-        in DepthTargetBinding statics,
-        RenderStage staticStage
-    ) {
-        if (!atlas.Texture.IsValid) {
-            // No texture to copy *into*, so nothing cached could ever reach the working atlas.
-            // Checked before the rebuild rather than after it, because filling a cache that cannot
-            // be read is the one outcome worse than not caching. Drawing both stages here is exactly
-            // what an uncached frame costs, and a slow shadow beats a missing one.
-            Pass(compositor, context, atlas.ToAttachment(), staticStage, $"{Name}.Static");
-            Pass(compositor, context, atlas.ToAttachment(LoadAction.Load), CasterStage, Name);
+        if (StaticCasterStage is null) {
+            Pass(compositor, frame, ToString(), atlas, format, LoadAction.Clear, CasterStage);
             return;
         }
 
+        if (StaticAtlas.Length == 0) {
+            // Half a cache is worse than none: the static casters would be in a stage nothing draws,
+            // so a level's shadows would simply not appear, and nothing would say why. The name is
+            // missing rather than the texture, which is a thing a document can be wrong about.
+            throw new CompositorBindingException(
+                $"'{ToString()}' has a static caster stage and no static atlas to cache it in, so "
+                + "every static caster would be dropped rather than drawn."
+            );
+        }
+
+        // Resolved rather than probed. A cache whose name is bound to nothing is a configuration
+        // mistake, and falling back to the uncached path would draw the moving casters and silently
+        // lose every static one.
+        var statics = frame.Texture(ToString(), StaticAtlas);
         var stale = cachedStaticVersion != StaticVersion;
 
         for (var i = 0; i < count && !stale; i++) {
@@ -278,41 +259,83 @@ public sealed class ShadowMapRenderer : SceneRenderer {
         }
 
         if (stale) {
-            Pass(compositor, context, statics.ToAttachment(), staticStage, $"{Name}.Static");
+            Pass(compositor, frame, $"{Name}.Static", statics, format, LoadAction.Clear, StaticCasterStage!);
             cachedStaticVersion = StaticVersion;
             StaticRebuilds++;
         }
 
+        // Declared as a copy, so the graph is the one that knows the cache has to be a copy source and
+        // the working atlas a copy destination before this runs — and, when the static pass did run
+        // this frame, that it has to finish first. Hand-written, those are the two barriers a shadow
+        // cache gets wrong.
         var size = AtlasSize;
-        context.CommandList.CopyTexture(new(statics.Texture), new(atlas.Texture), new(size.X, size.Y, 1));
+
+        frame.Graph.AddPass(
+            $"{Name}.Copy",
+            pass => {
+                pass.Reads(statics, ResourceState.CopySource);
+                pass.Writes(atlas, ResourceState.CopyDestination);
+
+                pass.Execute(
+                    context => context.CommandList.CopyTexture(
+                        new(context.Texture(statics)),
+                        new(context.Texture(atlas)),
+                        new(size.X, size.Y, 1)
+                    )
+                );
+            }
+        );
 
         // Loaded, not cleared: what the copy just put there is the point.
-        Pass(compositor, context, atlas.ToAttachment(LoadAction.Load), CasterStage, Name);
+        Pass(compositor, frame, ToString(), atlas, format, LoadAction.Load, CasterStage);
     }
 
+    /// <summary>Declares one pass that draws a stage into every cascade's tile.</summary>
     void Pass(
         GraphicsCompositor compositor,
-        RenderDrawContext context,
-        in DepthStencilAttachment attachment,
-        RenderStage stage,
-        string name
+        CompositorFrame frame,
+        string name,
+        GraphTexture target,
+        PixelFormat format,
+        LoadAction load,
+        RenderStage stage
     ) {
-        var list = context.CommandList;
-        list.BeginRenderPass(new([], attachment, name));
+        frame.Graph.AddPass(
+            name,
+            pass => {
+                pass.DepthAttachment(target, load);
 
-        for (var i = 0; i < count; i++) {
-            var viewport = ShadowCascades.TileViewport(i, count, Resolution);
+                pass.Execute(
+                    graphContext => {
+                        var context = frame.Context(graphContext.CommandList);
+                        var previous = context.Output;
 
-            list.SetViewport(viewport);
-            list.SetScissor(new((int)viewport.X, (int)viewport.Y, (int)viewport.Width, (int)viewport.Height));
+                        // No colour attachment at all. A shadow pass writes depth and nothing else, and
+                        // a bound colour target would be bandwidth spent on a value no one ever reads —
+                        // on a mobile tiler, the most expensive mistake available in a shadow pass.
+                        context.Output = new([], format);
 
-            // The scissor is what makes one atlas safe. A caster whose triangle crosses the tile
-            // edge would otherwise write into the neighbouring cascade, and a shadow that appears in
-            // a cascade it was never fitted for is the artefact nobody can attribute.
-            compositor.System.Record(views[i], stage, context);
-        }
+                        for (var i = 0; i < count; i++) {
+                            var viewport = ShadowCascades.TileViewport(i, count, Resolution);
 
-        list.EndRenderPass();
+                            graphContext.CommandList.SetViewport(viewport);
+
+                            graphContext.CommandList.SetScissor(
+                                new((int)viewport.X, (int)viewport.Y, (int)viewport.Width, (int)viewport.Height)
+                            );
+
+                            // The scissor is what makes one atlas safe. A caster whose triangle crosses
+                            // a tile edge would otherwise write into the neighbouring cascade, and a
+                            // shadow in a cascade it was never fitted for is the artefact nobody can
+                            // attribute.
+                            compositor.System.Record(views[i], stage, context);
+                        }
+
+                        context.Output = previous;
+                    }
+                );
+            }
+        );
     }
 
     /// <inheritdoc />

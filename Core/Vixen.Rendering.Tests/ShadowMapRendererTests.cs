@@ -4,6 +4,7 @@
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
+using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
@@ -41,13 +42,17 @@ public class ShadowMapRendererTests : IDisposable {
     sealed class Harness : IDisposable {
         public required RenderSystem System { get; init; }
         public required GraphicsCompositor Compositor { get; init; }
+        public required RenderGraph Graph { get; init; }
         public required RenderStage Caster { get; init; }
         public required ShadowMapRenderer Shadows { get; init; }
         public required MeshRenderFeature Meshes { get; init; }
         public required MaterialRenderFeature Materials { get; init; }
         public required BufferHandle Vertices { get; init; }
 
-        public void Dispose() => System.Dispose();
+        public void Dispose() {
+            Graph.DisposePool();
+            System.Dispose();
+        }
     }
 
     Harness Build(int cascades = 4) {
@@ -71,6 +76,7 @@ public class ShadowMapRendererTests : IDisposable {
         var shadows = new ShadowMapRenderer {
             Name = "Shadows",
             CasterStage = caster,
+            Atlas = "ShadowAtlas",
             CascadeCount = cascades,
             Resolution = 512,
             ShadowDistance = 100f,
@@ -79,24 +85,18 @@ public class ShadowMapRendererTests : IDisposable {
             LightDirection = Vector3.Normalize(new(0f, -1f, 0f))
         };
 
-        var size = shadows.AtlasSize;
+        var compositor = new GraphicsCompositor(system) { Game = shadows, FrameSize = shadows.AtlasSize };
 
-        shadows.Atlas = new(
-            device.CreateTextureView(
-                device.CreateTexture(
-                    new() {
-                        Width = size.X, Height = size.Y, Depth = 1,
-                        MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
-                        Format = PixelFormat.Depth32Float, Usage = TextureUsage.DepthStencilTarget
-                    }
-                )
-            ),
-            PixelFormat.Depth32Float
-        );
+        // Imported rather than declared, and that is not a shortcut for a test: a shadow atlas that
+        // nothing samples is a transient whose only writer the graph would cull for producing
+        // something nobody wanted. A real atlas is host-owned and read by the forward pass; an
+        // import is the shape that says so.
+        compositor.Imports["ShadowAtlas"] = Imported(shadows.AtlasSize);
 
         return new() {
             System = system,
-            Compositor = new(system) { Game = shadows },
+            Compositor = compositor,
+            Graph = new(device),
             Caster = caster,
             Shadows = shadows,
             Meshes = meshes,
@@ -117,9 +117,28 @@ public class ShadowMapRendererTests : IDisposable {
         h.Materials.Assign(h.System, id, new("DepthOnly"));
     }
 
+    ImportedTexture Imported(Int2 size) {
+        var description = new TextureDescription(
+            PixelFormat.Depth32Float,
+            size.X,
+            size.Y,
+            TextureUsage.DepthStencilTarget | TextureUsage.Sampled,
+            Name: "ShadowAtlas"
+        );
+
+        var texture = device.CreateTexture(description);
+        return new(texture, device.CreateTextureView(texture), description);
+    }
+
     void Frame(Harness h) {
         var list = device.BeginCommandList();
-        h.Compositor.Draw(new(list, effects) { Device = device });
+
+        // Reset at the top of a frame rather than the bottom, so the graph a frame produced is still
+        // there to be asked about afterwards — which is how a test sees what was culled.
+        h.Graph.Reset();
+        h.Compositor.Build(h.Graph, effects, device);
+        h.Graph.Execute(list);
+
         list.Finish();
         device.GraphicsQueue.Submit([list]);
     }
@@ -278,7 +297,7 @@ public class ShadowMapRendererTests : IDisposable {
     [Fact]
     public void No_atlas_means_no_pass() {
         using var h = Build();
-        h.Shadows.Atlas = null;
+        h.Shadows.Atlas = string.Empty;
         AddCaster(h, new(0f, 0f, -10f));
 
         Frame(h);

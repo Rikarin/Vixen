@@ -4,6 +4,7 @@
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
+using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
@@ -46,6 +47,7 @@ public class ShadowCacheTests : IDisposable {
     sealed class Harness : IDisposable {
         public required RenderSystem System { get; init; }
         public required GraphicsCompositor Compositor { get; init; }
+        public required RenderGraph Graph { get; init; }
         public required RenderStage Statics { get; init; }
         public required RenderStage Movers { get; init; }
         public required ShadowMapRenderer Shadows { get; init; }
@@ -53,19 +55,24 @@ public class ShadowCacheTests : IDisposable {
         public required MaterialRenderFeature Materials { get; init; }
         public required BufferHandle Vertices { get; init; }
 
-        public void Dispose() => System.Dispose();
+        public void Dispose() {
+            Graph.DisposePool();
+            System.Dispose();
+        }
     }
 
-    (TextureHandle Texture, TextureViewHandle View) Depth(Int2 size) {
-        var texture = device.CreateTexture(
-            new() {
-                Width = size.X, Height = size.Y, Depth = 1,
-                MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
-                Format = PixelFormat.Depth32Float, Usage = TextureUsage.DepthStencilTarget
-            }
+    ImportedTexture Depth(Int2 size, string name) {
+        var description = new TextureDescription(
+            PixelFormat.Depth32Float,
+            size.X,
+            size.Y,
+            TextureUsage.DepthStencilTarget | TextureUsage.Sampled | TextureUsage.CopySource
+            | TextureUsage.CopyDestination,
+            Name: name
         );
 
-        return (texture, device.CreateTextureView(texture));
+        var texture = device.CreateTexture(description);
+        return new(texture, device.CreateTextureView(texture), description);
     }
 
     Harness Build(bool cached = true) {
@@ -87,6 +94,7 @@ public class ShadowCacheTests : IDisposable {
         var shadows = new ShadowMapRenderer {
             Name = "Shadows",
             CasterStage = movers,
+            Atlas = "ShadowAtlas",
             CascadeCount = 2,
             Resolution = 256,
             ShadowDistance = 100f,
@@ -97,20 +105,23 @@ public class ShadowCacheTests : IDisposable {
         };
 
         var size = shadows.AtlasSize;
-        var working = Depth(size);
+        var compositor = new GraphicsCompositor(system) { Game = shadows, FrameSize = size };
 
-        shadows.Atlas = new(working.View, PixelFormat.Depth32Float, Texture: working.Texture);
+        // Both atlases are imports. The working one because nothing in this fixture samples it, and
+        // the cache because a cache outlives its frame by definition — the graph's pool exists to
+        // recycle memory whose lifetime ends inside one.
+        compositor.Imports["ShadowAtlas"] = Depth(size, "ShadowAtlas");
 
         if (cached) {
-            var cache = Depth(size);
-
             shadows.StaticCasterStage = statics;
-            shadows.StaticAtlas = new(cache.View, PixelFormat.Depth32Float, Texture: cache.Texture);
+            shadows.StaticAtlas = "ShadowCache";
+            compositor.Imports["ShadowCache"] = Depth(size, "ShadowCache");
         }
 
         return new() {
             System = system,
-            Compositor = new(system) { Game = shadows },
+            Compositor = compositor,
+            Graph = new(device),
             Statics = statics,
             Movers = movers,
             Shadows = shadows,
@@ -134,7 +145,13 @@ public class ShadowCacheTests : IDisposable {
 
     void Frame(Harness h) {
         var list = device.BeginCommandList();
-        h.Compositor.Draw(new(list, effects) { Device = device });
+
+        // Reset at the top of a frame rather than the bottom, so the graph a frame produced is still
+        // there to be asked about afterwards — which is how a test sees what was culled.
+        h.Graph.Reset();
+        h.Compositor.Build(h.Graph, effects, device);
+        h.Graph.Execute(list);
+
         list.Finish();
         device.GraphicsQueue.Submit([list]);
     }
@@ -295,28 +312,32 @@ public class ShadowCacheTests : IDisposable {
     }
 
     /// <summary>
-    ///     A cache with no texture behind its atlas falls back to drawing everything.
+    ///     A cache whose atlas name is bound to nothing is refused, not worked around.
     /// </summary>
     /// <remarks>
-    ///     A copy names a texture and a view is not one, so a host that bound only views gets the
-    ///     uncached frame rather than a working atlas with nothing in it. A slow shadow is a great
-    ///     deal better than a missing one.
+    ///     The only sensible fallback would be to draw the moving casters and silently lose every
+    ///     static one, which is a level with no shadows on it and nothing anywhere saying why. Names
+    ///     are the one thing a document can get wrong, so a wrong one is reported like every other.
     /// </remarks>
     [Fact]
-    public void A_cache_with_no_texture_draws_everything_instead() {
+    public void A_cache_bound_to_nothing_is_refused() {
         using var h = Build();
-
-        // A view with no texture beside it — the shape a host gets wrong first.
-        h.Shadows.Atlas = h.Shadows.Atlas!.Value with { Texture = default };
-
+        h.Shadows.StaticAtlas = "NotBound";
         AddCaster(h, h.Statics, new(0f, 0f, -10f));
-        AddCaster(h, h.Movers, new(0f, 0f, -12f));
 
-        Frame(h);
+        var thrown = Assert.Throws<CompositorBindingException>(() => Frame(h));
 
-        Assert.Empty(device.Recorder!.OfKind(RecordedCommandKind.CopyTexture));
+        Assert.Equal("NotBound", thrown.Name);
+        Assert.Equal("target", thrown.Kind);
+    }
 
-        // Two cascades each for the static and the moving caster, all of it this frame.
-        Assert.Equal(4, device.Recorder.CountOf(RecordedCommandKind.Draw));
+    /// <summary>A static stage with no atlas at all is refused for the same reason.</summary>
+    [Fact]
+    public void A_static_stage_with_no_atlas_is_refused() {
+        using var h = Build();
+        h.Shadows.StaticAtlas = string.Empty;
+        AddCaster(h, h.Statics, new(0f, 0f, -10f));
+
+        Assert.Throws<CompositorBindingException>(() => Frame(h));
     }
 }

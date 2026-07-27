@@ -2,9 +2,66 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 
 namespace Vixen.Rendering.Compositor;
+
+/// <summary>
+///     A texture the frame declares and the render graph owns.
+/// </summary>
+/// <remarks>
+///     <para>
+///         The part of a compositor that used to be the host's problem. A document that can say "a
+///         half-resolution R11G11B10 bloom chain" is a document that can describe a post-processing
+///         pipeline; one that could only refer to textures somebody else made could describe the
+///         order of passes and nothing about what flows between them.
+///     </para>
+///     <para>
+///         Declared, not imported — which means the graph may give two of these the same memory when
+///         their lifetimes do not overlap, and may skip allocating one whose only writer got culled.
+///         A resource that has to survive the frame is an import instead; see
+///         <see cref="ImportedTexture" />.
+///     </para>
+/// </remarks>
+[DataContract("Resource")]
+public sealed record RenderResourceAsset {
+    /// <summary>What passes refer to it by.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>Its format.</summary>
+    public PixelFormat Format { get; init; } = PixelFormat.Rgba8UNorm;
+
+    /// <summary>What it is for.</summary>
+    public TextureUsage Usage { get; init; } = TextureUsage.ColourTarget | TextureUsage.Sampled;
+
+    /// <summary>Its width in pixels, or 0 to take <see cref="Scale" /> of the frame's.</summary>
+    public int Width { get; init; }
+
+    /// <summary>Its height in pixels, or 0 to take <see cref="Scale" /> of the frame's.</summary>
+    public int Height { get; init; }
+
+    /// <summary>
+    ///     What fraction of the frame's size to be, when no explicit size is given.
+    /// </summary>
+    /// <remarks>
+    ///     A fraction rather than a size, so a bloom chain authored at half resolution stays half
+    ///     resolution on a window nobody anticipated. Rounded up and floored at one, so a chain of
+    ///     halvings ends at a 1×1 texture rather than at a zero-sized one the backend refuses.
+    /// </remarks>
+    public float Scale { get; init; } = 1f;
+
+    /// <summary>How many samples it has.</summary>
+    public int SampleCount { get; init; } = 1;
+
+    /// <summary>This declaration as a texture description, against a frame of a given size.</summary>
+    public TextureDescription Describe(Int2 frameSize) {
+        var width = Width > 0 ? Width : Math.Max((int)MathF.Ceiling(frameSize.X * Scale), 1);
+        var height = Height > 0 ? Height : Math.Max((int)MathF.Ceiling(frameSize.Y * Scale), 1);
+
+        return new(Format, width, height, Usage, SampleCount: SampleCount, Name: Name);
+    }
+}
 
 /// <summary>One node of an authored compositor graph.</summary>
 /// <remarks>
@@ -128,6 +185,15 @@ public sealed record RenderPassAsset : ISceneRendererAsset {
     /// <summary>How many samples its attachments have.</summary>
     public int SampleCount { get; init; } = 1;
 
+    /// <summary>The names of resources this pass samples.</summary>
+    /// <remarks>
+    ///     Not optional bookkeeping. A pass that samples the shadow atlas must say so: that read is
+    ///     the edge that orders the shadow pass before it and puts a barrier between them, and — if
+    ///     nothing declares it — the edge whose absence gets the shadow pass culled for producing
+    ///     something nobody wanted.
+    /// </remarks>
+    public string[] Reads { get; init; } = [];
+
     /// <summary>What draws into it.</summary>
     public ISceneRendererAsset[] Children { get; init; } = [];
 }
@@ -220,10 +286,19 @@ public sealed record PunctualShadowAsset : ISceneRendererAsset {
 [DataContract("GraphicsCompositor")]
 public sealed record GraphicsCompositorAsset {
     /// <summary>The schema version this document is written in.</summary>
-    public int Version { get; init; } = 1;
+    /// <remarks>
+    ///     Two. Version 1 named textures the host had already made; version 2 declares them, because
+    ///     a document that cannot describe what flows between its passes cannot describe a
+    ///     post-processing pipeline at all. There is no migration — nothing has shipped a version 1
+    ///     document, and a chain that upgraded one would be a chain with nothing in it.
+    /// </remarks>
+    public int Version { get; init; } = 2;
 
     /// <summary>The stages, which nodes refer to by name.</summary>
     public RenderStageAsset[] Stages { get; init; } = [];
+
+    /// <summary>The transient targets the frame declares, which passes refer to by name.</summary>
+    public RenderResourceAsset[] Resources { get; init; } = [];
 
     /// <summary>The root of the graph — the whole frame.</summary>
     public ISceneRendererAsset? Game { get; init; }

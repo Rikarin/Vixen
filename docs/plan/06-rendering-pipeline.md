@@ -63,6 +63,18 @@ the render system**, so the frame's view list and every view's stage mask are *d
 rather than set beside it: a stage nothing draws costs no culling, and a stage that is drawn cannot
 have been forgotten in a mask.
 
+**The compositor declares render-graph passes rather than opening render passes**, which is the
+promise three bullets down finally kept. A node names its targets; the graph sizes them, aliases
+them, places the barriers, derives the store actions and drops the passes nothing needed. `Reads` is
+the load-bearing part: one line orders a pass after the one it samples, puts the barrier between
+them, and keeps that producer from being culled — all three asserted, in both directions. The
+frame's final target is *imported*, because a pass writing an import always survives, which is why
+"the last pass" cannot disappear while an over-specified preset's unused passes cost nothing.
+
+A document therefore owns its targets. `resources:` declares them with a `scale` of the frame rather
+than a pixel size, so a half-resolution chain stays half resolution on a window nobody anticipated —
+the half of "the frame is data" that naming host textures could not express.
+
 And it is a file. `GraphicsCompositorAsset` is the same tree as a serialisable record graph with a
 `[DataContract]` name per node type as its YAML tag, and `CompositorBuilder` turns one into a running
 compositor. **The asset names resources; the host binds the names** — a texture handle belongs to a
@@ -113,8 +125,8 @@ Vixen keeps all three, with these changes:
 - Extraction, culling, and command recording are **job-system parallel by default** rather than
   optionally so, and record into per-thread `CommandList`s.
 - `RenderDataHolder` arrays become `NativeArray<T>` in SoA form, addressed by a dense `RenderObjectId`.
-- Passes are submitted through the **render graph** ([05](05-graphics-rhi.md)), so barriers and
-  transient memory are automatic.
+- ✅ Passes are submitted through the **render graph** ([05](05-graphics-rhi.md)), so barriers and
+  transient memory are automatic. The compositor declares; the graph compiles.
 - **GPU-driven culling** where capabilities allow: object bounds uploaded once, frustum + Hi-Z
   occlusion culling in compute, output an indirect draw buffer. The CPU path remains for GL/WebGL.
 
