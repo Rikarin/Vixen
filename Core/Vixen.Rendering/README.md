@@ -172,6 +172,18 @@ replaced. The block's layout is `PunctualLight` from `Library/Shading/Lighting.r
 comment, because the failure is silent — the shader reads whatever is at the offsets it was compiled
 for.
 
+**One set per frame, out of a `DescriptorAllocator`, not one set for ever.** The buffer is recreated
+when the scene outgrows it, and a set held across frames would then have to be rewritten to point at
+the new one — a write to a set the frames still in flight are reading, which most drivers execute
+without a word and the validation layers only catch with synchronisation validation switched on. The
+feature ticks a ring exactly `FramesInFlight` deep from its own `Prepare`, so the set a frame writes
+is one no frame in flight can be reading. The *buffer* needs no such care and gets none:
+`IGraphicsDevice` defers every destruction until the frames that could reference the handle have
+retired, which is the backend's job precisely because a renderer cannot know when that is. A test
+grows the buffer mid-run and asserts the property rather than the mechanism — no set is written
+twice inside a window of `FramesInFlight` frames, growth frame included — and a second one pins that
+the ring settles at `FramesInFlight` sets and leaks no buffers.
+
 ## Skinning and instancing, and three ways to reach per-draw data
 
 Both want the same thing — a variable-length run of matrices per object, in one buffer written once a
@@ -493,11 +505,6 @@ A node's bindings are set in code, not in the compositor document. A binding ind
 decision and a sampler is a device handle, and the asset model can express neither — so a compositor
 loaded from disk declares its dependencies correctly and binds nothing until a host fills in
 `Descriptors`. Reflecting the binding plan onto `Effect` is what closes it.
-
-`ForwardLightingRenderFeature` still rewrites its one persistent descriptor set when its light buffer
-grows, and destroys the old buffer immediately. Growth happens once during warm-up in practice, but
-"in practice" is doing real work in that sentence: the frames in flight at that moment are reading
-both. It is the same hazard the allocator exists to remove, and it has not been moved over.
 
 GPU-driven culling is a second implementation of `VisibilityGroup` behind the same interface, which
 is why that interface is bits rather than a list.
