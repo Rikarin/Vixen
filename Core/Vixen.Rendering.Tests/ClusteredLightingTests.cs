@@ -228,8 +228,8 @@ public class ClusteredLightingTests : IDisposable {
             Groups = ClusterGrid.GroupCount
         };
 
-        culling.Reads.Add("SceneLights");
-        culling.Writes.Add("Clusters");
+        culling.BufferReads.Add("SceneLights");
+        culling.BufferWrites.Add("Clusters");
 
         var shading = new RenderPassRenderer { Name = "Forward" };
         shading.ColourTargets.Add("SceneColour");
@@ -465,7 +465,7 @@ public class ClusteredLightingTests : IDisposable {
     [Fact]
     public void A_compute_node_naming_an_unbound_buffer_is_refused() {
         using var h = Build();
-        h.Culling.Reads.Add("NotBound");
+        h.Culling.BufferReads.Add("NotBound");
 
         var thrown = Assert.Throws<CompositorBindingException>(() => Frame(h));
 

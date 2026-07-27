@@ -1,0 +1,394 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Collections.Immutable;
+using Vixen.Core.Mathematics;
+using Vixen.Graphics;
+using Vixen.Graphics.Null;
+using Vixen.Graphics.RenderGraph;
+using Vixen.Rendering;
+using Vixen.Rendering.Compositor;
+using Vixen.Rendering.Features;
+using Vixen.Shaders;
+using Xunit;
+
+namespace Tests;
+
+/// <summary>
+///     Compositor nodes binding their own graph resources.
+/// </summary>
+/// <remarks>
+///     <para>
+///         Declaring a read was always only half of it. The declaration is what orders the producing
+///         pass first and puts the barrier in; it does not put anything in front of a shader. Until
+///         there was a per-frame allocator there was nowhere for the other half to live — a graph
+///         resource has no handle until the graph compiles, so a node could not own a set the way a
+///         material owns one.
+///     </para>
+///     <para>
+///         The check on all of it is the last test: a binding may only name something the node itself
+///         declared. Resolving against the frame at large would compile, and would sample a texture
+///         nothing had transitioned.
+///     </para>
+/// </remarks>
+public class DescriptorBindingTests : IDisposable {
+    readonly NullDevice device = new(new() { Record = true, FramesInFlight = 2 });
+    readonly EffectSystem effects = new();
+    readonly DescriptorAllocator allocator;
+    readonly DescriptorSetLayoutHandle computeLayout;
+    readonly DescriptorSetLayoutHandle viewLayout;
+
+    public DescriptorBindingTests() {
+        allocator = new(device);
+
+        computeLayout = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerMaterial,
+                [
+                    new(0, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+                    new(1, DescriptorKind.StorageBuffer, ShaderStage.Compute)
+                ],
+                "Cull"
+            )
+        );
+
+        viewLayout = device.CreateDescriptorSetLayout(
+            new(DescriptorSetSlot.PerView, [new(0, DescriptorKind.StorageBuffer, ShaderStage.Fragment)], "View")
+        );
+    }
+
+    /// <inheritdoc />
+    public void Dispose() {
+        allocator.Dispose();
+        device.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    // --- The fixture --------------------------------------------------------
+
+    sealed class AlwaysCompiles(ImmutableArray<DescriptorSetLayoutHandle> layouts) : IEffectProvider {
+        public Effect? TryGet(EffectKey key) =>
+            new() {
+                Key = key,
+                Stages = key.ShaderName.Contains("Cull", StringComparison.Ordinal)
+                    ? [new(ShaderStage.Compute, [1, 2, 3, 4], "main")]
+                    : [
+                        new(ShaderStage.Vertex, [1, 2, 3, 4], "main"),
+                        new(ShaderStage.Fragment, [5, 6, 7, 8], "main")
+                    ],
+                SetLayouts = layouts
+            };
+    }
+
+    sealed class Harness : IDisposable {
+        public required RenderSystem System { get; init; }
+        public required GraphicsCompositor Compositor { get; init; }
+        public required RenderGraph Graph { get; init; }
+        public required RenderStage Opaque { get; init; }
+        public required MeshRenderFeature Meshes { get; init; }
+        public required MaterialRenderFeature Materials { get; init; }
+        public required BufferHandle Vertices { get; init; }
+
+        public void Dispose() {
+            Graph.DisposePool();
+            System.Dispose();
+        }
+    }
+
+    ImportedBuffer Storage(string name) {
+        var description = new BufferDescription(4096, BufferUsage.Storage, MemoryAccess.DeviceLocal, name);
+        return new(device.CreateBuffer(description), description);
+    }
+
+    ImportedTexture Colour(string name) {
+        var description = new TextureDescription(
+            PixelFormat.Rgba16Float,
+            256,
+            256,
+            TextureUsage.ColourTarget | TextureUsage.Sampled,
+            Name: name
+        );
+
+        var texture = device.CreateTexture(description);
+        return new(texture, device.CreateTextureView(texture), description);
+    }
+
+    /// <summary>A compositor with the resources every test here binds, and nothing running yet.</summary>
+    Harness Build() {
+        var system = new RenderSystem();
+        var opaque = system.AddStage(new("Opaque"));
+
+        var meshes = new MeshRenderFeature {
+            Pipelines = new(device),
+            Describer = new EffectPipelineDescriber(device)
+        };
+
+        var materials = new MaterialRenderFeature { Effects = effects };
+
+        meshes.Add(materials);
+        system.AddFeature(meshes);
+        effects.AddProvider(new AlwaysCompiles([default, default, computeLayout, default]));
+
+        var compositor = new GraphicsCompositor(system) { FrameSize = new(256, 256) };
+
+        compositor.Imports["SceneColour"] = Colour("SceneColour");
+        compositor.Imports["Overlay"] = Colour("Overlay");
+        compositor.BufferImports["SceneLights"] = Storage("SceneLights");
+        compositor.BufferResources.Add(new() { Name = "Clusters", Size = 4096, Usage = BufferUsage.Storage });
+
+        return new() {
+            System = system,
+            Compositor = compositor,
+            Graph = new(device),
+            Opaque = opaque,
+            Meshes = meshes,
+            Materials = materials,
+            Vertices = device.CreateBuffer(new() { Size = 1024, Usage = BufferUsage.Vertex })
+        };
+    }
+
+    ComputeRenderer Cull() {
+        var node = new ComputeRenderer {
+            Name = "Cull",
+            ShaderName = "ClusterCull",
+            Pipelines = new(device),
+            Groups = new(4, 3, 6)
+        };
+
+        node.BufferReads.Add("SceneLights");
+        node.BufferWrites.Add("Clusters");
+        node.Descriptors.Allocator = allocator;
+
+        node.Descriptors.Bindings.Add(
+            new() { Binding = 0, Kind = DescriptorKind.StorageBuffer, Resource = "SceneLights" }
+        );
+
+        node.Descriptors.Bindings.Add(
+            new() { Binding = 1, Kind = DescriptorKind.StorageBuffer, Resource = "Clusters" }
+        );
+
+        return node;
+    }
+
+    static void AddMesh(Harness h) {
+        var id = h.System.Objects.Add(
+            new() { Bounds = new(new Vector3(0f, 0f, -10f), 1f), Stages = h.Opaque.Mask, FeatureIndex = h.Meshes.Index }
+        );
+
+        h.System.Objects.Data.Data(h.Meshes.Draws)[id.Index] = new() {
+            VertexBuffer = h.Vertices, Count = 3, InstanceCount = 1
+        };
+
+        h.Materials.Assign(h.System, id, new("Lit"));
+    }
+
+    void Frame(Harness h) {
+        var list = device.BeginCommandList();
+
+        allocator.BeginFrame();
+        h.Graph.Reset();
+        h.Compositor.Build(h.Graph, effects, device);
+        h.Graph.Execute(list);
+
+        list.Finish();
+        device.GraphicsQueue.Submit([list]);
+    }
+
+    // --- The tests ----------------------------------------------------------
+
+    /// <summary>
+    ///     A compute node binds what it declared, between the pipeline and the dispatch.
+    /// </summary>
+    /// <remarks>
+    ///     What used to require the host to supply a callback, and therefore to know which graph
+    ///     resource the node had resolved. The node knows; it just had no lifetime to put a set in.
+    /// </remarks>
+    [Fact]
+    public void A_compute_node_binds_the_buffers_it_declared() {
+        using var h = Build();
+        var cull = Cull();
+
+        var reader = new RenderPassRenderer { Name = "Forward" };
+        reader.ColourTargets.Add("SceneColour");
+        reader.BufferReads.Add("Clusters");
+
+        h.Compositor.Game = new SceneRendererSequence { Children = { cull, reader } };
+
+        Frame(h);
+
+        var stream = device.Recorder!.Commands.ToList();
+        var pipeline = stream.FindIndex(command => command.Kind == RecordedCommandKind.BindPipeline);
+        var bind = stream.FindIndex(command => command.Kind == RecordedCommandKind.BindDescriptorSet);
+        var dispatch = stream.FindIndex(command => command.Kind == RecordedCommandKind.Dispatch);
+
+        Assert.True(dispatch > 0, "nothing dispatched");
+        Assert.True(bind > pipeline, "the set was bound before the pipeline it belongs to");
+        Assert.True(dispatch > bind, "the dispatch ran without its resources");
+        Assert.Equal((long)DescriptorSetSlot.PerMaterial, stream[bind].A);
+        Assert.Equal(1, allocator.WriteCount);
+    }
+
+    /// <summary>
+    ///     The layout comes from the effect the pipeline was built from.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="Effect.SetLayouts" /> has existed unused since the effect system was written, and
+    ///     this is what it is for. A set is only bindable to a pipeline whose layout it was allocated
+    ///     from, so letting the node take one from anywhere else is how a frame ends up with a set the
+    ///     validation layers reject and a release driver mis-binds in silence.
+    /// </remarks>
+    [Fact]
+    public void The_layout_comes_from_the_effect_when_the_host_supplies_none() {
+        using var h = Build();
+        var cull = Cull();
+
+        var reader = new RenderPassRenderer { Name = "Forward" };
+        reader.ColourTargets.Add("SceneColour");
+        reader.BufferReads.Add("Clusters");
+
+        h.Compositor.Game = new SceneRendererSequence { Children = { cull, reader } };
+
+        Assert.False(cull.Descriptors.Layout.IsValid);
+
+        Frame(h);
+
+        Assert.Equal(computeLayout, cull.Descriptors.Layout);
+    }
+
+    /// <summary>A node with no allocator declares its dependencies and binds nothing.</summary>
+    /// <remarks>
+    ///     Which keeps the two halves independent: the ordering and the barriers are the graph's, and
+    ///     a host that would rather bind resources its own way loses none of them.
+    /// </remarks>
+    [Fact]
+    public void A_node_with_no_allocator_binds_nothing() {
+        using var h = Build();
+        var cull = Cull();
+        cull.Descriptors.Allocator = null;
+
+        var reader = new RenderPassRenderer { Name = "Forward" };
+        reader.ColourTargets.Add("SceneColour");
+        reader.BufferReads.Add("Clusters");
+
+        h.Compositor.Game = new SceneRendererSequence { Children = { cull, reader } };
+
+        Frame(h);
+
+        Assert.Single(device.Recorder!.OfKind(RecordedCommandKind.Dispatch));
+        Assert.Empty(device.Recorder.OfKind(RecordedCommandKind.BindDescriptorSet));
+    }
+
+    /// <summary>
+    ///     A pass binds its reads once, before anything under it draws.
+    /// </summary>
+    /// <remarks>
+    ///     Per-view rather than per-draw, so the materials drawing into the pass rebind sets 2 and 3
+    ///     without disturbing it. That ordering is the whole reason the four slots are ordered by how
+    ///     often they change.
+    /// </remarks>
+    [Fact]
+    public void A_pass_binds_its_reads_before_its_children_draw() {
+        using var h = Build();
+        AddMesh(h);
+
+        var shading = new RenderPassRenderer { Name = "Forward" };
+        shading.ColourTargets.Add("SceneColour");
+        shading.BufferReads.Add("SceneLights");
+        shading.Descriptors.Allocator = allocator;
+        shading.Descriptors.Layout = viewLayout;
+
+        shading.Descriptors.Bindings.Add(
+            new() { Binding = 0, Kind = DescriptorKind.StorageBuffer, Resource = "SceneLights" }
+        );
+
+        shading.Children.Add(new SingleStageRenderer { View = View(), Stage = h.Opaque });
+        h.Compositor.Game = shading;
+
+        Frame(h);
+
+        var stream = device.Recorder!.Commands.ToList();
+        var bind = stream.FindIndex(command => command.Kind == RecordedCommandKind.BindDescriptorSet);
+        var draw = stream.FindIndex(command => command.Kind == RecordedCommandKind.Draw);
+
+        Assert.True(draw > 0, "nothing was drawn");
+        Assert.True(bind >= 0 && bind < draw, "the pass's set was not bound before its children drew");
+        Assert.Equal((long)DescriptorSetSlot.PerView, stream[bind].A);
+    }
+
+    /// <summary>
+    ///     Two passes reading the same thing share one set.
+    /// </summary>
+    /// <remarks>
+    ///     The reason the allocator is content-addressed rather than a plain ring. Every pass in a
+    ///     shading chain reads the same shadow atlas and the same light list, so a set per pass is a
+    ///     set per pass for no reason at all.
+    /// </remarks>
+    [Fact]
+    public void Two_passes_reading_the_same_thing_share_one_set() {
+        using var h = Build();
+
+        h.Compositor.Game = new SceneRendererSequence {
+            Children = { Reader("First", "SceneColour"), Reader("Second", "Overlay") }
+        };
+
+        Frame(h);
+
+        Assert.Equal(2, device.Recorder!.CountOf(RecordedCommandKind.BindDescriptorSet));
+        Assert.Equal(1, allocator.WriteCount);
+        Assert.Equal(1, allocator.ReuseCount);
+    }
+
+    /// <summary>
+    ///     A binding may only name something the node itself declared.
+    /// </summary>
+    /// <remarks>
+    ///     The check on everything above. Resolving against the frame at large would compile and would
+    ///     drop the edge that orders the producer first and places the barrier — so a pass would sample
+    ///     a resource nothing had transitioned, which is corruption on a tiler and nothing at all on a
+    ///     desktop driver until it is somebody else's machine.
+    /// </remarks>
+    [Fact]
+    public void A_binding_naming_something_the_node_never_declared_is_refused() {
+        using var h = Build();
+        var cull = Cull();
+
+        // Imported, resolvable, and never declared by this node.
+        cull.Descriptors.Bindings.Add(
+            new() { Binding = 2, Kind = DescriptorKind.StorageBuffer, Resource = "Undeclared" }
+        );
+
+        h.Compositor.BufferImports["Undeclared"] = Storage("Undeclared");
+
+        var reader = new RenderPassRenderer { Name = "Forward" };
+        reader.ColourTargets.Add("SceneColour");
+        reader.BufferReads.Add("Clusters");
+
+        h.Compositor.Game = new SceneRendererSequence { Children = { cull, reader } };
+
+        var thrown = Assert.Throws<CompositorBindingException>(() => Frame(h));
+
+        Assert.Equal("bound buffer", thrown.Kind);
+        Assert.Equal("Undeclared", thrown.Name);
+    }
+
+    RenderPassRenderer Reader(string name, string target) {
+        var pass = new RenderPassRenderer { Name = name };
+        pass.ColourTargets.Add(target);
+        pass.BufferReads.Add("SceneLights");
+        pass.Descriptors.Allocator = allocator;
+        pass.Descriptors.Layout = viewLayout;
+
+        pass.Descriptors.Bindings.Add(
+            new() { Binding = 0, Kind = DescriptorKind.StorageBuffer, Resource = "SceneLights" }
+        );
+
+        return pass;
+    }
+
+    static RenderView View() {
+        var view = Matrix4x4.LookAt(Vector3.Zero, new(0f, 0f, -1f), new(0f, 1f, 0f));
+        var projection = Matrix4x4.PerspectiveFieldOfView(MathF.PI / 3f, 1f, 0.1f, 1000f);
+
+        return new("camera") { Position = Vector3.Zero, Frustum = new(view * projection) };
+    }
+}

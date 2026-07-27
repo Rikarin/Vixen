@@ -447,11 +447,40 @@ descriptor bound per draw — `ForwardLightingRenderFeature.Clustered` turns the
 off, and eight objects produce eight draws and nothing else. That is the point of the pipeline, and
 it is easy to claim and easy to get wrong, so it is asserted.
 
+## Binding what a node declared
+
+Declaring a read was always only half of it. The declaration orders the producing pass first and puts
+the barrier in; it does not put anything in front of a shader. The other half had nowhere to live,
+because a graph resource has no handle until the graph compiles — so a compute node bound through a
+callback, and a pass that declared it read the shadow atlas bound nothing at all.
+
+`Vixen.Graphics.DescriptorAllocator` is the missing lifetime, and `DescriptorBindings` is what a node
+says with it: a list of `ResourceBinding`s naming a graph resource, a binding index and a kind.
+`ComputeRenderer` binds its set between the pipeline and the dispatch; `RenderPassRenderer` binds its
+own once, before anything under it draws, which is why its default slot is `PerView` — the materials
+drawing into it rebind sets 2 and 3 without disturbing it.
+
+**A binding may only name a resource the node itself declared.** Resolving against the frame at large
+would compile, and would silently drop the edge that orders the producer first and places the
+barrier: a pass would sample a texture nothing had transitioned, which is corruption on a tiler and
+nothing at all on a desktop driver until it is somebody else's machine. So resolution goes through
+the node's own read lists and anything else throws while the frame is being built.
+
+**The layout comes from the effect**, through `Effect.SetLayouts`, which had been carried unused since
+the effect system was written. A set is only bindable to a pipeline whose layout it was allocated
+from, so a node taking one from anywhere else is how a frame ends up with a set the validation layers
+reject and a release driver mis-binds in silence. A host may still supply its own — a
+`RenderPassRenderer` has no effect of its own and must.
+
+The binding index itself still comes from the host rather than from reflection: Raven decides what
+`binding = 3` means, and nothing yet carries that per resource onto the effect. That is the seam, and
+it is a small one, because the alternative is a node reaching for a device handle it has no way to
+have.
+
 ## What is not here yet
 
-Blend shapes, area lights, and clustered light culling on the CPU side (the shader half,
-`Library/Pipeline/ClusterCulling.rvn`, already exists). Punctual shadows are not cached — only the
-directional cascades are, and a spot light over static geometry has the same argument waiting for it.
+Blend shapes and area lights. Punctual shadows are not cached — only the directional cascades are,
+and a spot light over static geometry has the same argument waiting for it.
 
 Instance batching by locality: an instanced batch is culled as one object, so what goes in one is the
 caller's decision and there is nothing here to help make it.
@@ -460,10 +489,15 @@ The shadow renderers still take a light direction and a camera from a host rathe
 scene, and nothing yet resolves a compositor by *address* — the binary form is proven, the
 `AssetManager` lookup around it is not wired up here.
 
-`ComputeRenderer` binds its own resources through a callback rather than owning a descriptor set,
-because the buffers it reads are graph resources whose handles do not exist until the graph has
-allocated them. A per-frame descriptor allocator is the missing piece, and it is missing engine-wide
-rather than here.
+A node's bindings are set in code, not in the compositor document. A binding index is a shader's
+decision and a sampler is a device handle, and the asset model can express neither — so a compositor
+loaded from disk declares its dependencies correctly and binds nothing until a host fills in
+`Descriptors`. Reflecting the binding plan onto `Effect` is what closes it.
+
+`ForwardLightingRenderFeature` still rewrites its one persistent descriptor set when its light buffer
+grows, and destroys the old buffer immediately. Growth happens once during warm-up in practice, but
+"in practice" is doing real work in that sentence: the frames in flight at that moment are reading
+both. It is the same hazard the allocator exists to remove, and it has not been moved over.
 
 GPU-driven culling is a second implementation of `VisibilityGroup` behind the same interface, which
 is why that interface is bits rather than a list.

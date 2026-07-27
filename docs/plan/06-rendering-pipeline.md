@@ -115,6 +115,14 @@ Three things the implementation settled that the sketch above leaves open:
   which the API adds into `gl_InstanceIndex` before the shader runs and which therefore costs no
   binding at all. Reaching for one mechanism for all three would have meant padding every bone
   palette up to `minStorageBufferOffsetAlignment` and picking a maximum bone count in advance.
+- **A pass's own bindings need a lifetime the RHI does not have**, and
+  `Vixen.Graphics.DescriptorAllocator` is it. A pass sampling the shadow atlas cannot own a set,
+  because the atlas is a graph resource whose handle does not exist until the graph compiles and
+  which may alias different memory next frame. So sets are written after the graph resolves, recycled
+  through a ring exactly `FramesInFlight` deep — shorter is a use-after-free most drivers execute in
+  silence — and shared within a frame by anything asking for the same writes, which is the difference
+  between a set per pass and a set per distinct combination. This is what lets a compositor node bind
+  what it declared instead of handing the host a callback.
 
 A settled frame of 10 000 objects through extract → cull → sort **allocates nothing**, asserted by
 test — the guard against a change that starts allocating per object per frame and surfaces months
@@ -165,8 +173,9 @@ with clustered light lookup → transparent pass → post FX.
   compositor node, and the edge that made it possible is the one it declares: compute *writes* the
   cluster buffer and the shading pass *reads* it, so the graph orders them and places the barrier.
   The buffer is declared rather than imported, so a cull nothing consumes is dropped with its
-  dispatch. Clustered lighting then costs **nothing per object** — no selection, no per-draw block,
-  no descriptor per draw. Falls back to tiled (2D) on GLES and to
+  dispatch, and the node binds what it declared out of the per-frame descriptor allocator rather than
+  through a host callback. Clustered lighting then costs **nothing per object** — no selection, no
+  per-draw block, no descriptor per draw. Falls back to tiled (2D) on GLES and to
   per-object light lists (Stride's `ForwardLightingRenderFeature` approach, max N lights per draw) on
   WebGL2 where compute is absent.
 - **Why default:** MSAA works, transparency works, material variety is unconstrained, memory

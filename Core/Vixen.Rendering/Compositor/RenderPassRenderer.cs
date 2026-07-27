@@ -77,6 +77,17 @@ public sealed class RenderPassRenderer : SceneRenderer {
     /// <summary>The viewport to set, or null for the whole target.</summary>
     public Viewport? Viewport { get; set; }
 
+    /// <summary>The set the pass binds once, before anything under it draws.</summary>
+    /// <remarks>
+    ///     Where a frame's shared reads belong: the shadow atlas, the cluster list, the depth buffer a
+    ///     post pass samples. Declaring the read was only ever half of it — the read orders the passes
+    ///     and places the barrier, and this is what actually puts the resource in front of a shader.
+    ///     <see cref="DescriptorBindings.Slot" /> should be <see cref="DescriptorSetSlot.PerView" />
+    ///     or lower for a pass, so that the materials drawing into it rebind set 2 and 3 without
+    ///     disturbing it.
+    /// </remarks>
+    public DescriptorBindings Descriptors { get; } = new() { Slot = DescriptorSetSlot.PerView };
+
     /// <summary>What draws into this pass.</summary>
     public IList<SceneRenderer> Children { get; } = [];
 
@@ -105,8 +116,11 @@ public sealed class RenderPassRenderer : SceneRenderer {
         var depth = DepthTarget is { Length: > 0 } name ? frame.Texture(ToString(), name) : GraphTexture.None;
         var depthFormat = depth.IsValid ? frame.FormatOf(ToString(), DepthTarget!) : PixelFormat.Undefined;
         var output = new RenderOutput(formats, depthFormat, SampleCount);
-        var sampled = Reads.Select(read => frame.Texture(ToString(), read)).ToArray();
-        var consumed = BufferReads.Select(read => frame.Buffer(ToString(), read)).ToArray();
+        var textures = Reads.ToDictionary(read => read, read => frame.Texture(ToString(), read), StringComparer.Ordinal);
+        var buffers = BufferReads.ToDictionary(read => read, read => frame.Buffer(ToString(), read), StringComparer.Ordinal);
+        var bound = Descriptors.Resolve(ToString(), textures, buffers);
+        var sampled = Reads.Select(read => textures[read]).ToArray();
+        var consumed = BufferReads.Select(read => buffers[read]).ToArray();
 
         frame.Graph.AddPass(
             ToString(),
@@ -132,6 +146,8 @@ public sealed class RenderPassRenderer : SceneRenderer {
                         var context = frame.Context(graphContext.CommandList);
                         var previous = context.Output;
                         context.Output = output;
+
+                        bound?.Bind(graphContext);
 
                         if (Viewport is { } viewport) {
                             graphContext.CommandList.SetViewport(viewport);

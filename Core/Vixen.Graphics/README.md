@@ -14,10 +14,14 @@ have to be right before anything can be built on them.
 | `GraphicsEnums` | Queues, usages, topology, blend, depth-stencil, sampler, vertex, load/store, present, and the `ResourceState` barrier model. |
 | `GraphicsDeviceFeatures` | ~25 capabilities and limits, queried once. |
 | `Resources` | Typed handles, and the descriptions a device is asked to create things from. |
+| `Pipelines` | Descriptor set slots and kinds, pipeline layouts, vertex layouts, and the graphics and compute pipeline descriptions. |
+| `Barriers` | Buffer and texture barriers, submitted as a group rather than one at a time. |
 
-**Still to come, and next:** `IGraphicsDevice`, `ICommandList`, `ICommandQueue`, `ISwapChain`, then
-`Vixen.Graphics.Null` and the `RecordingBackend` harness — which is what makes "did my render feature
-emit the right calls" a unit test rather than a screenshot diff, and which
+The **interfaces** — `IGraphicsDevice`, `ICommandList`, `ICommandSubmitter`, `ISwapChain` — and the one
+piece of machinery that is not vocabulary: `DescriptorAllocator`.
+
+`Vixen.Graphics.Null` implements all of it against no GPU, and with recording turned on is what makes
+"did my render feature emit the right calls" a unit test rather than a screenshot diff — which
 [doc 14](../../docs/plan/14-roadmap.md) § Sequencing makes a Phase 1 obligation because every later
 phase's testability depends on it.
 
@@ -56,6 +60,41 @@ battery. Saying so when it is true is one of the highest-value things the enum d
 
 **The format set is deliberately not exhaustive.** Every format here is one the engine uses or a
 swapchain may hand us. A format nobody has a use for is a format nobody has tested.
+
+## The lifetime the RHI does not have
+
+`DescriptorAllocator` is the one thing here that is machinery rather than vocabulary, and it exists
+because a frame graph needs a descriptor lifetime nothing else does. A pass that samples the shadow
+atlas cannot own a set: the atlas is a graph resource, so its handle does not exist until the graph
+has compiled, and next frame the same name may alias different memory. The set has to be written
+*after* the graph resolves and thrown away when the frame ends.
+
+Three things it does, in the order they matter:
+
+**Sets are recycled, not destroyed.** A retired set goes back to a free list keyed by its layout.
+`vkResetDescriptorPool` is cheap and `vkAllocateDescriptorSets` is not, and a pool that grows to fit
+the worst frame never shrinks.
+
+**The ring is `FramesInFlight` deep, and that is not a tuning knob.** A set written for frame *f* is
+still being read while the CPU records *f+1*. Rewriting it earlier points a descriptor the GPU is
+reading at something else — a use-after-free that most drivers execute without a word, and that the
+validation layers only catch with synchronisation validation switched on. `BeginFrame` already blocks
+until frame *f − FramesInFlight* completed, so a ring of exactly that depth is necessary and
+sufficient. The test for it is that the same request on consecutive frames returns *different* sets
+until the ring comes round, and that a steady frame then settles at exactly that many.
+
+**Identical writes within a frame return the same set.** The cache is content-addressed over the
+layout plus the exact sequence of `DescriptorWrite`s, so every pass reading the same atlas and the
+same light list shares one set — the difference between a set per pass and a set per *distinct
+combination*. Which also means the set you are handed may be shared, so never `UpdateDescriptorSet`
+on it yourself. The cache does not survive the frame, and that is the point rather than an oversight:
+the handles in it name transient memory the next frame's graph is free to give to something else, so
+a persistent cache would be correct exactly until two frames' graphs differed.
+
+A lookup probes with a `ReadOnlySpan<DescriptorWrite>` through `Dictionary.GetAlternateLookup`, not
+with a constructed key. Building a key would mean copying the writes into an array on every request
+including the hits — the allocation the cache exists to avoid, once per lookup instead of once per
+set.
 
 ## Nothing here names Vulkan
 
