@@ -306,7 +306,17 @@ including this document's own `spring()` transition — survive verbatim.
 as an unknown one with its text intact. Both forms need reading — the statement `@layer a, b;` that
 fixes order, and the block `@layer name { … }` whose body is handed back to ExCSS — and the same
 applies one level down inside `@media`. This is a bounded piece of the stylesheet loader rather than
-a hole in the design, but it is work the plan did not know about.
+a hole in the design, but it is work the plan did not know about. ✅ Written, in `LayerRuleParser`.
+It turned out to need brace matching that skips strings and comments: a body containing
+`content: "}"` would otherwise be cut in half and the rules after the cut would load into no layer
+at all.
+
+⚠ **ExCSS normalises what it can see, and it cannot see through a `var()`.** A second finding, from
+building the cascade rather than from the spike. `color: red` reaches Vixen already normalised to
+`rgb(255, 0, 0)`, but `color: var(--c)` with `--c: red` reaches it as `red`, because any value
+containing a `var()` is left verbatim and substitution happens afterwards, in Vixen. Both forms are
+correct CSS and they are not the same string, so **every value parser in the property system must
+accept both**. Cheap to know before the property system is written; expensive to find inside it.
 
 Supported: type/class/id/universal selectors, descendant/child/sibling combinators, attribute
 selectors, `:hover`/`:active`/`:focus`/`:focus-visible`/`:disabled`/`:checked`/`:first-child`/
@@ -330,10 +340,27 @@ The performance-critical part. Naive selector matching is O(elements × rules).
   a descendant combinator is rejected without walking the tree if the bloom says the ancestor cannot
   exist. This is Gecko/Servo's technique.
 - **Right-to-left matching** of the remaining candidates.
-- **Style sharing cache**: elements with identical (tag, class set, inline style, parent computed
-  style, pseudo state) share a `ComputedStyle` instance by hash. In a DataGrid with 10 000 identical
-  cells, one `ComputedStyle` is computed. This is *the* reason browsers can render large tables and it
-  is the reason a Vixen `DataGrid` can too.
+- **Style sharing cache**: elements with identical (**parent element**, tag, id, class set, inline
+  style, pseudo state) share a `ComputedStyle` instance by hash.
+
+  ⚠ **Corrected.** This originally said *parent computed style*, and that is unsound — found while
+  building it, and now covered by a test that fails if the key is widened back. Two parents can hold
+  the same computed style and still be told apart by a selector: given `.a { color: red }` and
+  `.b { color: red }`, an `.a` and a `.b` intern to one identical style, and then `.a .row` matches
+  one of their children and not the other's. Keyed on the parent *element*, sharing happens between
+  siblings and every descendant and child combinator is sound for free, because the two elements
+  have literally the same ancestor chain. Gecko does this, for this reason.
+
+  Sharing is additionally refused whenever any rule matches on something the key cannot carry — a
+  position pseudo-class, a sibling combinator, or an attribute selector.
+
+  **What this does not cost.** Two mechanisms were conflated under one heading and they separate
+  cleanly. *Interning* is what gives every identical cell the same `ComputedStyle` reference, and it
+  is untouched by the narrower key: 10 000 cells across 100 rows still hold **one** object, so the
+  reference-compared invalidation below still works exactly as designed. *Sharing* is what lets the
+  cascade be **skipped**, and that now happens per row rather than per grid — 102 cascades for
+  10 001 elements rather than 1. Still the reason a Vixen `DataGrid` can render, and now also
+  correct.
 - **Invalidation**, not recomputation: a class change on an element invalidates only that element's
   computed style plus descendants whose rules could depend on it (determined from the rule set's
   descendant-dependency map). Toggling `.selected` on one row does not restyle the grid.

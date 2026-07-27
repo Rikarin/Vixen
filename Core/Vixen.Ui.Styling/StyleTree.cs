@@ -247,6 +247,15 @@ public sealed class StyleTree {
         return false;
     }
 
+    internal int ClassCountOf(int index) => classes[index].Count;
+
+    internal void ForEachClass(int index, Action<int> visit) {
+        var range = classes[index];
+        for (var i = 0; i < range.Count; i++) {
+            visit(classArena[range.Start + i]);
+        }
+    }
+
     internal void ForEachIdentifier(int index, Action<int> visit) {
         visit(tags[index]);
         if (identifiers[index] != NameTable.None) {

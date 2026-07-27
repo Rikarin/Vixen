@@ -42,7 +42,9 @@ sealed class StyleFixture {
         var sheet = Parser.Parse(css);
         var compiled = new List<Selector>();
 
-        foreach (var rule in sheet.Children.OfType<StyleRule>()) {
+        // `IStyleRule`, not `StyleRule`: Vixen has a `StyleRule` of its own now and the unqualified
+        // name here resolves to it. The same collision `CompoundSelector` already had.
+        foreach (var rule in sheet.Children.OfType<IStyleRule>()) {
             Compiler.Compile(rule.Selector, compiled);
         }
 
@@ -59,7 +61,7 @@ sealed class StyleFixture {
     public Selector Compile(string selectorText) {
         var compiled = new List<Selector>();
         var sheet = Parser.Parse(selectorText + " { color: red }");
-        Compiler.Compile(((StyleRule) sheet.Children.First()).Selector, compiled);
+        Compiler.Compile(((IStyleRule) sheet.Children.First()).Selector, compiled);
         return compiled.Single();
     }
 
