@@ -96,6 +96,38 @@ command destroyed is skipped. A recorder runs during iteration and cannot look a
 out whether its change is redundant; a caller that *can* look uses `World` and gets told when it is
 wrong.
 
+## Systems
+
+```csharp
+[UpdateInGroup(SystemPhase.FixedUpdate)]
+[Reads(typeof(Velocity))]
+[Writes(typeof(Position))]
+sealed class IntegrateSystem : SystemBase {
+    public override JobHandle Update(in SystemContext context, JobHandle dependency) =>
+        context.Jobs!.ScheduleParallel(new Integrate(context.World), count, 0, dependency);
+}
+
+using var runner = new SystemRunner(world, jobs);
+runner.Add(new IntegrateSystem()).Add(new CollisionSystem());
+runner.RunPhase(SystemPhase.FixedUpdate, time);
+```
+
+`Update` returns a handle instead of waiting. The runner has already worked out which systems
+conflict, so a system that returns promptly lets every non-conflicting system after it start
+immediately, and **a phase costs its critical path rather than its sum**.
+
+Conflict is decided from the declared access: read against read is not one, write against anything
+is, and a write implies a read so "only writes X" and "only reads X" are never mistaken for
+disjoint. **A system that declares nothing conflicts with everything** — the only safe reading of "I
+did not say".
+
+A phase is bracketed: the world version moves on, the systems run, their work is completed, the
+command buffer is played back. Completing before playback is not a detail — a structural change
+moves rows between chunks, and a job still walking one would be walking overwritten memory.
+
+`runner.Graph.ToDot()` and `.ToMermaid()` dump the schedule. The fixed-step accumulator is *not*
+here: how many times `FixedUpdate` runs in a frame is the game loop's decision.
+
 ## Decisions worth knowing about
 
 **Three storage classes, not one.** A plain struct lives inline in the chunk. A tag

@@ -158,6 +158,29 @@ public interface ISystem
 - The whole graph is dumped as a DOT/Mermaid diagram from the CLI (`vixen doctor systems`) — an
   underrated debugging aid that costs nothing.
 
+> ✅ **Built.** `Core/Vixen.Ecs/Systems/` with 16 tests: `ISystem`, the nine phases,
+> `[Reads]`/`[Writes]`/`[UpdateInGroup]`/`[UpdateBefore]`/`[UpdateAfter]`, the topological order with
+> a cycle error that names its participants, the conflict graph, and both dumps. Verified by
+> sabotage: weakening conflict detection to write-versus-write fails five of them.
+>
+> Three things differ from the paragraphs above:
+>
+> - **`Update` takes `in SystemContext` and returns `JobHandle`**, as specified — but the context
+>   also carries the phase's `CommandBuffer`, because a system that could not record structural
+>   change would have nowhere to put it.
+> - **A system that declares nothing conflicts with everything.** Not stated above and load-bearing:
+>   the other reading of an undeclared system — that it touches nothing — is silently wrong exactly
+>   when it matters. Over-declaring costs parallelism; under-declaring is a data race.
+> - **Read/write inference is not implemented; the attributes are.** Programmatic declaration via
+>   `IDeclaredAccess` and `SystemAccess.Declare()` is the path that also *registers* the component
+>   types it names, which an attribute cannot do — an attribute can only look an id up, and there is
+>   nothing to look up until something has stored one. The generator that infers access from query
+>   bodies is owed, and it will emit into `IDeclaredAccess` rather than into attributes for that
+>   reason.
+>
+> **Owed:** the inference generator, and `vixen doctor systems` — the dumps exist, the CLI that
+> prints them is Phase 3.
+
 ## Layer 3 — `Behavior`, the MonoBehaviour-shaped API
 
 This is the API 95% of users touch. It must feel like Unity while being ECS underneath.
