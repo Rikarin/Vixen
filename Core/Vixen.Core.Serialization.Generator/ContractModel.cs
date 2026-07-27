@@ -44,6 +44,19 @@ enum MemberShape {
 }
 
 /// <summary>One serialised member.</summary>
+/// <param name="IsSettable">
+///     Whether deserialisation can put a value back. An <c>init</c>-only setter counts: see
+///     <paramref name="IsInitOnly" />.
+/// </param>
+/// <param name="IsInitOnly">
+///     Whether the setter is <c>init</c>-only, and so has to be reached through an
+///     <c>[UnsafeAccessor]</c> rather than an assignment.
+/// </param>
+/// <param name="DeclaringType">
+///     The type that declares the member, which is not the contract type when it was inherited. An
+///     <c>[UnsafeAccessor]</c> looks its target up on the receiver's own type and does not walk the
+///     base chain, so this is the receiver the accessor has to take.
+/// </param>
 readonly record struct MemberModel(
     string Name,
     string TypeName,
@@ -52,6 +65,8 @@ readonly record struct MemberModel(
     string ElementType,
     string SecondElementType,
     bool IsSettable,
+    bool IsInitOnly,
+    string DeclaringType,
     int Order,
     int Sequence
 );
