@@ -22,9 +22,9 @@ Apple M-series, .NET 10, `--job short`.
 
 | Rows | Nodes | Cold | One leaf changed | Nothing changed | Allocated |
 |---|---|---|---|---|---|
-| 100 | 1 101 | 466 µs | 100 µs | **11 ns** | **0 B** |
-| 1 000 | 11 001 | 4.85 ms | 1.16 ms | **11 ns** | **0 B** |
-| 10 000 | 110 001 | 60.0 ms | 18.7 ms | **13 ns** | **0 B** |
+| 100 | 1 101 | 466 µs | 37 µs | **11 ns** | **0 B** |
+| 1 000 | 11 001 | 4.85 ms | 354 µs | **11 ns** | **0 B** |
+| 10 000 | 110 001 | 60.0 ms | 7.8 ms | **13 ns** | **0 B** |
 
 **Zero bytes, everywhere.** This is the measurement behind the claim that a settled UI allocates
 nothing per frame, at a scale a unit test would not reach.
@@ -43,36 +43,30 @@ a real UI". Min-content size depends only on the subtree and on what percentages
 it is now cached per node and per owner size, invalidated by the dirty flag. That is the difference
 between a per-frame text shaping pass per item and none.
 
+**The pixel-grid rounding pass was the cost, and it was O(whole tree) every frame.** Before it was
+made incremental, one changed leaf cost 100 µs / 1.16 ms / 18.7 ms at the three sizes, of which
+64 %, 71 % and 60 % was rounding. It is now 15–35 %, and an incremental frame is **2.4× to 3.3×
+faster**.
+
+| Rows | One leaf changed | …with rounding off | Rounding's share |
+|---|---|---|---|
+| 100 | 37.3 µs | 31.6 µs | 15 % |
+| 1 000 | 354 µs | 286 µs | 19 % |
+| 10 000 | 7.8 ms | 5.0 ms | 35 % |
+
+What was left is not a shortcut anybody can take: the container whose child changed has to re-place
+all of its children, and at 10 000 rows that is 10 000 of them. Rounding is now proportional to that
+walk rather than to the whole tree.
+
 ## What it found and did not change
 
 **Incremental layout is near-perfect, and the frame cost is not the algorithm.** Instrumenting a
 1 000-row tree: an unchanged pass runs the algorithm **0** times, a one-leaf change runs it **21**
 times out of 11 001 nodes, and a cold pass runs it 22 001 times. Dirty propagation and the
-measurement cache are doing exactly what they are supposed to.
+measurement cache are doing exactly what they are supposed to. What is left in an incremental frame
+is the O(children) re-placement at the one container whose child moved, which is inherent.
 
-**The pixel-grid rounding pass is the cost, and it is O(whole tree) every frame.**
-
-| Rows | One leaf changed | …with rounding off | Rounding's share |
-|---|---|---|---|
-| 100 | 100 µs | 36 µs | 64 % |
-| 1 000 | 1.16 ms | 0.33 ms | 71 % |
-| 10 000 | 18.7 ms | 7.4 ms | 60 % |
-
-The reason it cannot simply be skipped is real rather than an oversight: a node's rounded edges are
-derived from its *absolute* position, not its relative one — that is the whole point, and it is what
-stops two adjacent boxes rounding into a one-pixel seam. An ancestor moving by half a pixel therefore
-changes every descendant's rounded result without any of them being dirty.
-
-Skipping it correctly needs a per-node record of the absolute offset it was last rounded at, plus a
-stamp saying whether the algorithm actually ran for that node this pass (a cache hit does not rewrite
-its children, so its subtree is untouched). Both are small; the interaction between them and the
-in-place rounding of positions is not, and it deserves its own change with its own tests rather than
-being bolted onto the end of the port. `OneLeafChangedWithoutRounding` exists to keep the number
-visible until then.
-
-**It is not urgent at the scale that matters.** The editor-shell target in
-[doc 00](../../docs/plan/00-vision-and-principles.md) is 10⁴ elements, where an incremental frame is
-1.16 ms — inside budget with room to spare. The 110 001-node figure is a scaling limit worth knowing,
-not a blocker.
+**Numbers are medians where the mean is noisy.** The 10 000-row case has a long tail — a background
+collection lands inside some iterations — so its median is quoted and its mean is not.
 
 Licensed under Apache-2.0.

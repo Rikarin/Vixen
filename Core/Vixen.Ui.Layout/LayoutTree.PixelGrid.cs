@@ -17,6 +17,12 @@ namespace Vixen.Ui.Layout;
 ///         rounded down, because a glyph that fits in 40.2 points does not fit in 40 and the visible
 ///         result is a truncated word rather than a seam.
 ///     </para>
+///     <para>
+///         The pass reads the raw layout and writes somewhere else. The reference implementation
+///         rounds in place, which means the next pass reads rounded values for every node it does
+///         not recompute — so an incremental layout and a cold one drift apart by up to half a pixel
+///         per level. A property test comparing the two found exactly that.
+///     </para>
 /// </remarks>
 public sealed partial class LayoutTree {
     void RoundToPixelGrid(int index, double absoluteLeft, double absoluteTop) {
@@ -32,27 +38,50 @@ public sealed partial class LayoutTree {
         var absoluteNodeRight = absoluteNodeLeft + nodeWidth;
         var absoluteNodeBottom = absoluteNodeTop + nodeHeight;
 
-        if (scale != 0d) {
+        // The far edges are not rounded — nothing derives a seam from them, and the reference does
+        // not round them either. They are carried across so that everything a caller can read comes
+        // from one place.
+        results[index].RoundedPosition[(int) Edge.Right] = results[index].Position[(int) Edge.Right];
+        results[index].RoundedPosition[(int) Edge.Bottom] = results[index].Position[(int) Edge.Bottom];
+
+        if (scale == 0d) {
+            results[index].RoundedPosition[(int) Edge.Left] = (float) nodeLeft;
+            results[index].RoundedPosition[(int) Edge.Top] = (float) nodeTop;
+            results[index].RoundedDimensions[(int) Dimension.Width] = (float) nodeWidth;
+            results[index].RoundedDimensions[(int) Dimension.Height] = (float) nodeHeight;
+        } else {
             var textRounding = (flags[index] & LayoutNodeState.HasMeasureFunction) != 0;
 
-            results[index].RawDimensions[(int) Dimension.Width] = (float) nodeWidth;
-            results[index].RawDimensions[(int) Dimension.Height] = (float) nodeHeight;
-
-            results[index].Position[(int) Edge.Left] = RoundToPixelGrid(nodeLeft, scale, false, textRounding);
-            results[index].Position[(int) Edge.Top] = RoundToPixelGrid(nodeTop, scale, false, textRounding);
+            results[index].RoundedPosition[(int) Edge.Left] = RoundToPixelGrid(nodeLeft, scale, false, textRounding);
+            results[index].RoundedPosition[(int) Edge.Top] = RoundToPixelGrid(nodeTop, scale, false, textRounding);
 
             var scaledWidth = nodeWidth * scale;
             var hasFractionalWidth = !Inexact((float) Math.Round(scaledWidth), (float) scaledWidth);
             var scaledHeight = nodeHeight * scale;
             var hasFractionalHeight = !Inexact((float) Math.Round(scaledHeight), (float) scaledHeight);
 
-            results[index].Dimensions[(int) Dimension.Width] =
+            results[index].RoundedDimensions[(int) Dimension.Width] =
                 RoundToPixelGrid(absoluteNodeRight, scale, textRounding && hasFractionalWidth, textRounding && !hasFractionalWidth)
                 - RoundToPixelGrid(absoluteNodeLeft, scale, false, textRounding);
 
-            results[index].Dimensions[(int) Dimension.Height] =
+            results[index].RoundedDimensions[(int) Dimension.Height] =
                 RoundToPixelGrid(absoluteNodeBottom, scale, textRounding && hasFractionalHeight, textRounding && !hasFractionalHeight)
                 - RoundToPixelGrid(absoluteNodeTop, scale, false, textRounding);
+        }
+
+        // Descending is the expensive half — the pass is O(whole tree) if it always does, which
+        // measured at 60–70 % of an incremental frame. It is safe to stop here when two things
+        // hold: the algorithm did not run for this node, so nothing rewrote its children's raw
+        // positions or sizes; and the offset their rounding is relative to has not moved, so what
+        // they already hold is what they would be given again.
+        var subtreeMoved = !Inexact((float) absoluteNodeLeft, results[index].RoundedAbsoluteLeft)
+            || !Inexact((float) absoluteNodeTop, results[index].RoundedAbsoluteTop);
+
+        results[index].RoundedAbsoluteLeft = (float) absoluteNodeLeft;
+        results[index].RoundedAbsoluteTop = (float) absoluteNodeTop;
+
+        if (!subtreeMoved && results[index].ImplGeneration != generation) {
+            return;
         }
 
         foreach (var child in ChildIds(index)) {

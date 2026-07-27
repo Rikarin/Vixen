@@ -252,6 +252,7 @@ public sealed partial class LayoutTree {
         bool performLayout,
         int currentDepth
     ) {
+        results[index].ImplGeneration = generation;
         var direction = StyleResolution.ResolveDirection(in styles[index], ownerDirection);
         results[index].Direction = direction;
 

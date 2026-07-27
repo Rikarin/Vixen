@@ -44,6 +44,18 @@ worth what doc 14 says it is worth, and it is still worth knowing where it stops
 - The separate min-content measure callback. Its fallback — asking the ordinary measure function
   under `AtMost 0` — is what a text measurer answers with its longest word anyway.
 
+## Rounding reads the raw layout and writes somewhere else
+
+The reference implementation rounds positions and sizes in place. That means the next pass reads
+*rounded* values for every node it does not recompute, and an incremental layout drifts away from a
+cold one by up to half a pixel per level. The property test in `PixelRoundingTests` found exactly
+that within a hundred cases.
+
+So the rounded result lives in its own fields and the raw layout is never overwritten. Rounding
+becomes a pure function of (raw position, raw size, absolute offset), which is both easier to reason
+about and what makes the pass safe to skip for a subtree whose algorithm did not run and whose
+absolute offset has not moved — worth 2.4× to 3.3× on an incremental frame.
+
 ## The store
 
 Five parallel arrays indexed by a dense `int`:
@@ -80,7 +92,8 @@ tree, which is the comparison ADR-006 was actually making.
 | Steady-state allocation | **0 bytes** per frame — three `LayoutPassTests` gates, and the benchmark at 110 001 nodes. |
 | An unchanged tree | **11 ns**, any size. One dirty-flag comparison; the pass never descends. |
 | A one-leaf change in an 11 001-node tree | The algorithm runs **21** times. Dirty propagation and the measure cache do their job. |
-| An incremental frame at 10⁴ elements | 1.16 ms, inside the [doc 00](../../docs/plan/00-vision-and-principles.md) editor budget. |
+| An incremental frame at 10⁴ elements | 354 µs, well inside the [doc 00](../../docs/plan/00-vision-and-principles.md) editor budget. |
+| Incremental layout vs. laying out from cold | Identical, to the bit, under pixel rounding — a property test compares every node against a second tree built from scratch. |
 
 Numbers and method in [the benchmark's README](../../Benchmarks/Vixen.Benchmarks.Ui/README.md).
 
@@ -107,12 +120,5 @@ piece rather than as a variation on this one.
 of siblings is where the win is. `Benchmarks/Vixen.Benchmarks.Ui` now gives the serial number to
 beat, and it says the algorithm is not where an incremental frame's time goes — so this waits behind
 the rounding pass, which is.
-
-**Incremental pixel rounding.** The rounding pass walks the whole tree every frame and is 60–70 % of
-an incremental one. It cannot simply be skipped — rounded edges are derived from *absolute*
-positions, which is what stops adjacent boxes rounding into a seam, so an ancestor moving half a
-pixel changes every descendant's result. Doing it properly needs a per-node record of the offset it
-was last rounded at plus a stamp for whether the algorithm ran for it this pass. The benchmark
-measures the gap so it stays visible.
 
 Licensed under Apache-2.0.

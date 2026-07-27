@@ -32,8 +32,19 @@ public struct LayoutResult {
     /// <summary>The border-box size.</summary>
     public DimensionValues Dimensions;
 
-    /// <summary>The size before pixel rounding, kept so that rounding never accumulates error.</summary>
-    public DimensionValues RawDimensions;
+    /// <summary>The offset after pixel rounding. What <see cref="LayoutTree.GetLeft" /> returns.</summary>
+    /// <remarks>
+    ///     Kept apart from <see cref="Position" /> rather than replacing it, which is the difference
+    ///     between this and the reference implementation. Yoga rounds in place, so the next pass
+    ///     reads rounded values for every node it does not recompute and the rounding compounds:
+    ///     laying out incrementally and laying out from cold stop agreeing. Writing the rounded
+    ///     result somewhere else makes rounding a pure function of the raw layout, which is both
+    ///     easier to reason about and the thing that lets the pass skip unchanged subtrees.
+    /// </remarks>
+    public EdgeValues RoundedPosition;
+
+    /// <summary>The size after pixel rounding. What <see cref="LayoutTree.GetWidth" /> returns.</summary>
+    public DimensionValues RoundedDimensions;
 
     /// <summary>The size the algorithm settled on, before it was written to <see cref="Dimensions" />.</summary>
     public DimensionValues MeasuredDimensions;
@@ -66,6 +77,24 @@ public struct LayoutResult {
 
     /// <summary>The pass in which this node was last laid out.</summary>
     public uint GenerationCount;
+
+    /// <summary>
+    ///     The pass in which the algorithm actually ran for this node, as opposed to answering from
+    ///     cache.
+    /// </summary>
+    /// <remarks>
+    ///     The distinction is what makes incremental pixel rounding possible. Answering from cache
+    ///     rewrites this node's own size and nothing else; running the algorithm rewrites its
+    ///     children's positions. So a node whose algorithm did not run this pass has a subtree that
+    ///     nothing touched.
+    /// </remarks>
+    public uint ImplGeneration;
+
+    /// <summary>The absolute offset this node's children were last rounded against.</summary>
+    public float RoundedAbsoluteLeft;
+
+    /// <summary>The absolute offset this node's children were last rounded against.</summary>
+    public float RoundedAbsoluteTop;
 
     /// <summary>The owner direction of the pass that produced this result.</summary>
     public Direction LastOwnerDirection;

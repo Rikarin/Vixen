@@ -470,15 +470,23 @@ sub-piece has its own gate.
   percentages resolve against, so it is now cached per node and per owner size and invalidated by
   the dirty flag. A test asserts an untouched leaf is measured once and never again.
 
-  **Recorded, and owed:** the frame cost is not the algorithm. Instrumented, a one-leaf change in an
-  11 001-node tree runs the algorithm 21 times against a cold pass's 22 001. What costs 60–70 % of
-  an incremental frame is the **pixel-rounding pass, which walks the whole tree every time**. It
-  cannot merely be skipped: rounded edges derive from *absolute* positions — which is what stops two
-  adjacent boxes rounding into a one-pixel seam — so an ancestor moving half a pixel changes every
-  descendant's result without any of them being dirty. Doing it incrementally needs a per-node
-  record of the offset it was last rounded at plus a stamp for whether the algorithm ran for it this
-  pass; both are small, their interaction with rounding positions in place is not, and it deserves
-  its own change with its own tests. `OneLeafChangedWithoutRounding` keeps the number visible.
+  **Also fixed, and it turned out to be two bugs rather than one optimisation.** The frame cost was
+  never the algorithm: instrumented, a one-leaf change in an 11 001-node tree runs it 21 times
+  against a cold pass's 22 001. What cost 60–70 % of an incremental frame was the **pixel-rounding
+  pass walking the whole tree every time**. Skipping unchanged subtrees needs a stamp for whether
+  the algorithm actually ran for a node — a cache hit does not rewrite its children — and a record
+  of the absolute offset it was last rounded against, because rounded edges derive from *absolute*
+  positions and an ancestor moving half a pixel changes every descendant without any of them being
+  dirty.
+
+  Writing that shortcut and then writing a property test for it — every node of an incrementally
+  updated tree against a second tree built from the same styles and laid out cold — found that the
+  two **already disagreed, with the shortcut disabled**. The cause is in the reference design:
+  rounding writes back into the position and size that the next pass reads for every node it does
+  not recompute, so an incremental layout drifts from a cold one by up to half a pixel per level.
+  The rounded result now lives in its own fields and the raw layout is never overwritten, which
+  makes rounding a pure function of the raw layout — correct, and what makes the shortcut sound.
+  An incremental frame is **2.4× to 3.3× faster**, and identical to a cold one to the bit.
 
 **4b — Styling (1.5 EM)**
 - `Vixen.Ui.Styling`: ExCSS integration, cascade, `@layer`, rule bucketing, ancestor bloom filter,

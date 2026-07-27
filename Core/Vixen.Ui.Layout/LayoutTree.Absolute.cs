@@ -105,6 +105,14 @@ public sealed partial class LayoutTree {
             }
         }
 
+        if (hasNewLayout) {
+            // The rounding pass decides whether to descend by asking whether the algorithm ran for a
+            // node. Absolute descendants are laid out by walking *through* static nodes whose own
+            // algorithm did not run, so without this their subtree would be skipped and their
+            // rounded positions would be a frame stale.
+            results[currentNode].ImplGeneration = generation;
+        }
+
         return hasNewLayout;
     }
 

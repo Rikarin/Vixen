@@ -372,37 +372,37 @@ public sealed partial class LayoutTree {
     /// <param name="node">The node.</param>
     /// <param name="edge">Which edge. Only the four physical ones are meaningful.</param>
     /// <returns>The offset from the parent's content box.</returns>
-    public float GetPosition(LayoutNodeId node, Edge edge) => results[Validate(node)].Position[(int) edge];
+    public float GetPosition(LayoutNodeId node, Edge edge) => results[Validate(node)].RoundedPosition[(int) edge];
 
     /// <summary>The laid-out left edge.</summary>
     /// <param name="node">The node.</param>
     /// <returns>The offset.</returns>
-    public float GetLeft(LayoutNodeId node) => results[Validate(node)].Position[(int) Edge.Left];
+    public float GetLeft(LayoutNodeId node) => results[Validate(node)].RoundedPosition[(int) Edge.Left];
 
     /// <summary>The laid-out top edge.</summary>
     /// <param name="node">The node.</param>
     /// <returns>The offset.</returns>
-    public float GetTop(LayoutNodeId node) => results[Validate(node)].Position[(int) Edge.Top];
+    public float GetTop(LayoutNodeId node) => results[Validate(node)].RoundedPosition[(int) Edge.Top];
 
     /// <summary>The laid-out right edge.</summary>
     /// <param name="node">The node.</param>
     /// <returns>The offset.</returns>
-    public float GetRight(LayoutNodeId node) => results[Validate(node)].Position[(int) Edge.Right];
+    public float GetRight(LayoutNodeId node) => results[Validate(node)].RoundedPosition[(int) Edge.Right];
 
     /// <summary>The laid-out bottom edge.</summary>
     /// <param name="node">The node.</param>
     /// <returns>The offset.</returns>
-    public float GetBottom(LayoutNodeId node) => results[Validate(node)].Position[(int) Edge.Bottom];
+    public float GetBottom(LayoutNodeId node) => results[Validate(node)].RoundedPosition[(int) Edge.Bottom];
 
     /// <summary>The laid-out width.</summary>
     /// <param name="node">The node.</param>
     /// <returns>The border-box width.</returns>
-    public float GetWidth(LayoutNodeId node) => results[Validate(node)].Dimensions[(int) Dimension.Width];
+    public float GetWidth(LayoutNodeId node) => results[Validate(node)].RoundedDimensions[(int) Dimension.Width];
 
     /// <summary>The laid-out height.</summary>
     /// <param name="node">The node.</param>
     /// <returns>The border-box height.</returns>
-    public float GetHeight(LayoutNodeId node) => results[Validate(node)].Dimensions[(int) Dimension.Height];
+    public float GetHeight(LayoutNodeId node) => results[Validate(node)].RoundedDimensions[(int) Dimension.Height];
 
     /// <summary>The resolved margin on one physical edge.</summary>
     /// <param name="node">The node.</param>
