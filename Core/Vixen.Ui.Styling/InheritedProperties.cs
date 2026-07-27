@@ -21,12 +21,38 @@ namespace Vixen.Ui.Styling;
 ///         Custom properties (<c>--x</c>) always inherit and are not in the list — they are
 ///         recognised by their name, since there is no finite set of them.
 ///     </para>
+///     <para>
+///         ⚠ <b>This cascade inherits <i>specified</i> values; CSS inherits <i>computed</i> ones,
+///         and the difference is not cosmetic.</b> A child inheriting <c>font-size: 1.5em</c> as
+///         text would resolve that <c>em</c> against its own parent a second time, so a size meant
+///         to be applied once compounds at every level — a two-deep tree comes out at 2.25× where
+///         CSS says 1.5×, and the error grows with depth. CSS avoids it by computing
+///         <c>font-size</c> to an absolute length before anyone inherits it.
+///     </para>
+///     <para>
+///         <b><c>font-size</c> is therefore removed from this list and inherited in computed form by
+///         <c>Vixen.Ui</c> instead</b>, which is the same thing CSS does and in the same place — an
+///         element that declares none simply keeps its parent's resolved pixel size. Nothing else
+///         needs the specified string, and <c>UiElement.FontSize</c> is the value every consumer
+///         actually wants.
+///     </para>
+///     <para>
+///         The same gap is still open, narrowly, for the other inherited properties that accept
+///         relative units — <c>line-height</c>, <c>letter-spacing</c>, <c>word-spacing</c> and
+///         <c>text-indent</c> — where an inherited <c>em</c> will measure against the descendant's
+///         font size rather than the ancestor's. Those do not compound, because none of them feeds
+///         back into the unit they are written in, so the error is bounded at one level rather than
+///         growing. Doc 14 records the general fix, which is a computed-value stage.
+///     </para>
 /// </remarks>
 public sealed class InheritedProperties {
     static readonly string[] Names = [
         "color",
         "font-family",
-        "font-size",
+
+        // ⚠ `font-size` is CSS-inherited and is deliberately *not* here. See the type's remarks:
+        // this cascade inherits specified values and CSS inherits computed ones, and font size is
+        // the property where the difference compounds.
         "font-style",
         "font-weight",
         "font-stretch",

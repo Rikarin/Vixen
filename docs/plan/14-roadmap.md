@@ -1147,14 +1147,375 @@ sub-piece has its own gate.
   decision — a run is shaped with the text around it, so its glyphs are not a function of the run
   alone, and a run-keyed cache would either be unsound or need the context in the key. Reuse between
   paragraphs sharing a word is given up on purpose.
+- ⚠ **MSDF has an unanswered question underneath it: HarfBuzzSharp exposes no glyph outlines.** The
+  assembly has `TryGetGlyphExtents`, which is a bounding box, and no draw, paint or outline surface
+  at all. Distance-field generation needs contours, so something else has to produce them.
+
+  **Decided direction, to be spiked before the atlas is planned** (sequencing rule 3, as with ExCSS
+  and HarfBuzz): a **managed `glyf`/`CFF` outline parser**, fed by `Face.ReferenceTable`, which
+  HarfBuzzSharp *does* expose. The alternatives are FreeType — a second native dependency, and one
+  whose WebAssembly story would have to be re-run from scratch — or SkiaSharp, which is heavy and
+  duplicates HarfBuzz. The managed route adds no native dependency, keeps the WASM path exactly as
+  the HarfBuzz spike left it, and reuses the binary-format parsing this repository already does for
+  KTX2. What it costs is a real parser for two outline formats, which is why it is a spike and not
+  an assumption.
 - Owed: MSDF atlas with LRU eviction, font fallback, rich-text runs, variable-font axes,
   `TextEditor` model with IME and caret affinity.
 - Gate: ✅ UAX conformance data green. ✅ shaping conformance green against an external oracle,
   with the quarantine pinned in both directions.
 
 **4d — Element tree, markup, rendering (1.5 EM)**
-- `Vixen.Ui`: element tree, generated property system, event routing, focus, hit testing, gestures,
-  draw list, batching, clipping, path rendering, virtualisation primitive, multi-window, DPI.
+- ✅ **The styling↔layout bridge**, which was 4d's first owed item and is what `Vixen.Ui` now
+  contains. `Vixen.Ui.Styling` decides which declaration wins without knowing what a length
+  measures and `Vixen.Ui.Layout` measures without knowing where its numbers came from; neither
+  references the other, and this closes the gap that leaves. `LengthContext` carries what a relative
+  length is relative to, `LayoutStyleBuilder` maps a `ComputedStyle` onto a `LayoutStyle`.
+
+  `em`, `rem`, `vw`, `vh`, `vmin` and `vmax` are now parsed and carried by `StyleValue`. They were
+  deliberately left out on the argument that resolving them needs a context that does not exist at
+  parse time — **right about resolution, wrong about representation, and transitions settled it**:
+  the animator interpolates `StyleValue`, so a unit the type cannot express is a unit that cannot
+  animate, and `width: 2em` under a `transition` snapped while its neighbours eased.
+
+  ⚠ **Yoga's initial values are not CSS's, in four places** — `flex-direction`, `align-content`,
+  `position` and `box-sizing` all differ. `Vixen.Ui.Layout` is right to start where Yoga starts
+  since it is judged by Yoga's suite; the bridge is the boundary where a VCSS author's expectations
+  take over, so `LayoutStyleBuilder.CssInitial` exists and `LayoutStyle.Default` is not what an
+  element with no declarations gets.
+
+  ⚠ **A predicted limitation that turned out not to exist, caught by writing the test first.** The
+  bridge was built to expand the box shorthands itself, reasoning that the cascade stores shorthand
+  and longhand separately and the layout store resolves edges by fixed precedence rather than
+  document order — so `margin-left: 0; margin: 8px` would give zero where a browser gives eight. Its
+  tests said every one of those paths was dead: **ExCSS expands on parse**, exactly as a browser
+  does, so document order does the work. Had the claim been believed rather than tested it would now
+  be a documented known limitation of something that works correctly.
+
+  Two parser findings. **CSS has a unit that begins with the exponent character** — scanning `e`
+  unconditionally made `2em` scan as `2e`, fail, and come back `Unknown`, dropping every `em` in the
+  document. And `aspect-ratio: 16 / 9` reaches the cascade as `16/9`, spaces normalised away, so a
+  whitespace-splitting parser sees one token.
+
+  Verified by sabotage: starting from Yoga's defaults, resolving `font-size`'s `em` against the
+  element's own size, resolving percentages in the bridge, swapping `vw` and `vh`, and dropping the
+  leave-the-initial-value-alone guard each fail the suite. ⚠ **That last one took two attempts**, and
+  the failure is the point — written against a stylesheet, an invalid value never reaches the bridge
+  at all, because ExCSS validates as it parses. The test had to go through inline declarations
+  *and* use a value that parses but is not a length. **A test that cannot reach the code it names
+  passes for the wrong reason**, which is the third time this phase that has come up.
+- ✅ **The element tree and the frame pass.** `UiElement` and `UiDocument`: a tree registered with
+  both the style tree and the layout tree, and the four walks that turn a stylesheet into rectangles.
+  Three subsystems built and tested apart now run together, and it is the first thing in this phase
+  that can be judged by looking at it rather than by a conformance suite.
+
+  Elements are **classes**, which is the departure from the rest of the engine doc 09 argues for: a
+  UI node has identity, virtual behaviour and handlers, and there are 10⁴ of them rather than 10⁶.
+  The struct-of-arrays discipline stays where the loops are — the layout store, and later the draw
+  list — and `UiElement` holds no geometry and no style of its own, only handles into the two stores
+  that do.
+
+  **An unchanged document does no work on the next frame, and one changed class rebuilds one
+  element.** That is what interning `ComputedStyle` buys, and `StylesApplied` reports the count
+  because a claim about work avoided that cannot be measured is a claim nobody can check. ⚠ The
+  resolved font size has to be part of that test as well as the style: an element whose own
+  declarations did not change still needs rebuilding when an ancestor's font size did, and its
+  computed style is the same interned object, so a check on the style alone skips it.
+
+  ⚠ **A real finding about the cascade: it inherits *specified* values, and CSS inherits *computed*
+  ones.** A child inheriting the text `font-size: 1.5em` resolves that `em` against its own parent a
+  second time, so a size meant to apply once compounds at every level — two deep is 2.25× where CSS
+  says 1.5×, and the error grows with depth. CSS avoids it by computing `font-size` to an absolute
+  length before anyone inherits it, so **`font-size` is removed from `InheritedProperties` and
+  inherited in computed form by `Vixen.Ui`**, which is both what CSS means and simpler than what was
+  there. Owed: the same gap stays open for `line-height`, `letter-spacing`, `word-spacing` and
+  `text-indent`, where an inherited relative unit measures against the descendant's font size — the
+  error is bounded at one level there because none of them feeds back into its own unit, and the
+  general fix is a computed-value stage in the cascade.
+
+  Verified by sabotage: inheriting `font-size` as a specified value again fails 2, testing the
+  computed style without the font size fails 1, letting a resize mark the document dirty without
+  forgetting what was applied fails 1 — every `vw` keeps its old value while the window visibly
+  changes size — and building against the parent's font size rather than the element's fails 3.
+
+  ⚠ **The tree is append-only**, because `StyleTree` is: elements are created parents-first and never
+  removed. Enough to lay out a document and not enough to run an application. Owed with the rest.
+- ✅ **The generated property system.** `[UiProperty]` on a partial property, and
+  `Vixen.Ui.Generators` supplies the accessors, the default, coercion, the change callback, optional
+  inheritance and a `UiPropertyKey` the runtime can find by name. Generated rather than reflected and
+  generated rather than rewritten — Stride builds the equivalent with a runtime
+  `DependencyPropertyFactory` and ADR-002 rejects that category.
+
+  ⚠ **Storage is a field, not a sparse table**, which is the opposite of what WPF does and
+  deliberate. A dependency-property table pays a dictionary probe per read to save memory on the
+  hundreds of properties a WPF element declares and never sets; a Vixen control declares perhaps a
+  dozen, there are 10⁴ elements, and reads happen every frame. The table is the more famous design
+  and the slower one.
+
+  ⚠ **Inheritance is generated as a typed walk.** Each inheriting property emits its own loop testing
+  `ancestor is TOwner`, so `Panel.Tint` finds the nearest `Panel` and an `Overlay` that also declares
+  a `Tint` is not it — a name-keyed lookup would have found the wrong one and looked right.
+
+  ⚠ **Construction and registration had to be split.** An element must be registered with both trees,
+  which needs a document, and a base constructor taking one plus two internal node handles would put
+  those handles in every subclass's signature in assemblies where they are not visible — so
+  subclassing `UiElement` from another assembly was impossible until it had a parameterless
+  constructor and `UiDocument.Create<T>` bound it afterwards. Which is also the shape markup needs,
+  since a generated `new Button()` cannot know a document either.
+
+  Verified by sabotage: ignoring whether an ancestor actually set a value fails 2, reading the old
+  value out of the backing field rather than through the property fails 1 — a spurious change on
+  every element that agrees with its parent — and dropping the registry's `RunClassConstructor` fails
+  2, since a property of a type nothing has touched would otherwise correctly report not existing.
+  Ignoring the attribute's declared default does not fail a test: it fails to *compile*, because the
+  generated code is type-checked like any other, which takes a class of generator bugs off the
+  testing budget entirely.
+- ✅ **Hit testing and routed events.** Layout results accumulate into document-space rectangles once
+  per pass; `HitTest` finds what is under a point front to back; events route capture → target →
+  bubble with `Handled`, and a captured pointer overrides the hit test entirely.
+
+  ⚠ **The first version skipped a subtree whenever the point was outside its parent**, which is
+  wrong for CSS's default: `overflow: visible` means a child may hang outside and still be drawn, so
+  it must still be clickable. That makes every dropdown, tooltip and popover unhittable, and the bug
+  looks like the click landing on whatever is behind them. The clip is asked about on the *parent*,
+  because the child has no idea it is being cut — and a dead condition in the first draft was hiding
+  the whole question.
+
+  ⚠ **`pointer-events: none` is transparent without making its children so**, which is what makes an
+  overlay usable — the subtree-as-one-unit reading either blocks everything under a full-screen layer
+  or lets clicks through a modal.
+
+  Verified by sabotage: testing children in document order fails 1, skipping a subtree outside its
+  parent fails 1, hiding the children of a `pointer-events: none` element fails 1, ignoring pointer
+  capture fails 1, and letting `Handled` not stop the route fails 1.
+
+  ⚠ **One sabotage failed to fail, and the comment was corrected rather than the code.** The router
+  snapshots the route before invoking anything, on the argument that a handler may change the tree
+  mid-event. That is the right model and it is currently *untestable*: the tree is append-only and
+  `Parent` is fixed at creation, so no handler can change an ancestor chain and walking as you go is
+  indistinguishable. Kept as insurance, and now labelled as insurance rather than as a covered claim.
+
+  Doc 09 asks for a quadtree over the top level and says the simple version was "measured to be
+  sufficient". This descends the tree, entering only subtrees containing the point; **that
+  measurement has not been taken here** and should be before the quadtree is written.
+- ✅ **The draw list**, and with it the whole chain this assembly exists for: cascade → bridge →
+  flexbox → commands. Backgrounds, borders, corner radii and clip push/pop, in document space.
+
+  **Painting order is document order and hit testing walks it in reverse**, asserted together in one
+  test — the element drawn last is on top, so it is the one a click lands on, and a rule that made
+  them disagree would be a UI where things are not where they look.
+
+  **The frame diff is against the previous content, not a dirty flag**, which is what doc 09 asks for
+  when it says a static UI re-submits a cached command buffer. A flag says what the framework
+  believes changed; the content says what actually did, and they part company exactly when something
+  is invalidated too eagerly — the failure a cache should absorb rather than propagate. There is a
+  test where a class changes, the computed style changes, and the drawing correctly does not.
+
+  ⚠ **ExCSS expands `border-color` and `border-radius` as well** — the second time that assumption
+  has cost something here. Written against the shorthands, every border and every rounded corner in
+  the document silently disappears. And a corner radius arrives as *two* lengths even when one was
+  written, since CSS corners are elliptical; `DrawCommand` carries one radius for four corners, so
+  the rest is dropped and owed rather than approximated.
+
+  Verified by sabotage: painting children before their parent fails 5, never popping a clip fails 2,
+  bumping the version on every rebuild fails 2, and emitting commands for a zero-sized element fails
+  1 — that last only after a test was written that could reach the guard, since `display: none`
+  arrives as geometry rather than as a keyword and nothing else in the suite gave a hidden element
+  anything to draw.
+- ✅ **Focus, focus scopes and the tab order.** `Focusable`, `TabIndex` and `IsFocusScope` are
+  `[UiProperty]`s — the property system's first real user rather than a test of it — and `:focus` and
+  `:focus-within` are set on the style tree, so a focus ring is a stylesheet's business rather than a
+  special case in the renderer.
+
+  **HTML's tab order, faithfully rather than sanely.** A positive index comes before *every* zero, so
+  one element written at the bottom of a form jumps to the front of it; zero is document order;
+  negative is focusable but not a stop. Quietly reinterpreting this gives a tab order nobody can
+  predict from the markup. The sort is stable because two elements sharing a positive index must stay
+  in document order relative to each other — an unstable one changes the tab order with the number of
+  elements on the page, which is a bug nobody can reproduce.
+
+  Verified by sabotage: sorting positive indices among the zeroes fails 2, an unstable sort fails 2,
+  making negative indices stops fails 1, and ignoring focus scopes so Tab escapes a dialog fails 1.
+
+  ⚠ **Two sabotages failed to fail, and both were answered by changing what was written rather than
+  what runs.** One found **dead code**: `Collect` filtered on tab index, which the two buckets in
+  `TabOrder` already do, so a negative index was excluded twice — and a redundant test in a second
+  place is worse than none, because a reader believes the rule lives in both and keeps them in step.
+  The other found **a comment inventing a consequence**: the focus-state walk clears the old chain
+  before setting the new one, and the comment claimed this stopped a transition restarting. It does
+  not — state is only read during `Update`, which cannot run part-way through the method, so nothing
+  can observe the intermediate. The ordering is still the correct model; it is now labelled as
+  unobservable rather than as defended.
+- ✅ **Arrow navigation, by the beam model.** Tab walks an *order* the document decides in advance;
+  an arrow walks a *layout*, decided by where things ended up. Two questions that move the same
+  focus, so `NavigationDirection` is its own enum rather than two more members of `FocusDirection`.
+
+  A candidate has to start past the edge the arrow points at. Among those, the ones whose other axis
+  overlaps this element's are **in the beam**, and any of them beats any candidate outside it however
+  close that one is; inside the beam nearest along the axis wins, outside it nearest by straight line
+  between the two rectangles. **The point is that there is no constant to tune.** The alternative —
+  distance along plus some multiple of distance across — has no principled multiplier, so it gets
+  tuned until the layouts someone happened to test behave and Down drifts diagonally in the ones they
+  did not.
+
+  ⚠ **Touching is not overlapping**: the beam test is a strictly positive overlap, because two cells
+  of a grid share an edge exactly and a non-strict test puts the diagonal neighbour in the beam
+  alongside the one directly below. **An element's own focusable children fall out as unreachable**
+  without a rule saying so — they are inside it, so they are past none of its edges. And **arrows do
+  not wrap**, because holding Down in a list that wrapped would never settle.
+
+  Verified by sabotage: a non-strict beam overlap fails 4, letting a near candidate outside the beam
+  win fails 5, requiring a strict gap so abutting elements are unreachable fails 5, and navigating
+  the whole tree rather than the focus scope fails 1.
+
+  ⚠ **One sabotage failed to fail, and it is the same shape as the one the bridge found.** Deleting
+  the zero-size guard broke nothing: the test used `display: none`, which arrives as a 0×0 box, and a
+  box with no extent on *either* axis shares no width with anything, so the beam had already excluded
+  it a step earlier. The guard is for an element collapsed on one axis only — full height and no
+  width, squarely in the beam and exactly as near as the real destination. **A test that cannot reach
+  the code it names passes for the wrong reason**, which is now the fourth time in this phase.
+- ✅ **Gestures.** Taps with a count, long presses and drags, read out of the pointer stream by
+  `GestureRecognizer` and delivered as routed events like anything else.
+
+  **Time arrives on the event rather than from a clock the recogniser reads.** One that calls
+  `DateTime.Now` cannot be tested without sleeping, cannot replay a recorded trace, and reports a
+  different gesture when a breakpoint holds the frame — and the platform layer already knows what
+  time the input happened. **A long press is the one gesture that fires because nothing happened**,
+  which is why `Tick` exists: nothing in the input stream can report the absence of input.
+
+  ⚠ **Slop is one-way.** Once a press has wandered far enough to be a drag it can never be a tap
+  again, even when the pointer returns to where it started — which it does at the end of every flick
+  that overshoots and settles. Asking how far the pointer is from the press *now* fires a tap at the
+  end of a scroll. **A double tap raises `TapEvent` twice, counting up**, rather than raising a
+  different event, because splitting them forces every handler to answer "is a double tap also two
+  taps" and there is no general answer.
+
+  ⚠ **One pointer at a time**: state is per pointer id, so two fingers are two drags. Pinch and
+  rotate are owed rather than approximated, and a test says which of the two it currently is.
+
+  Verified by sabotage: not latching the slop fails 5, letting a long press also be a tap fails 1,
+  delivering a drag wherever the pointer now is rather than to the element it started on fails 1,
+  dropping either half of the double-tap test — the interval or the distance — fails 1 each, letting
+  a drag become a long press fails 1, and reporting a cancelled drag as completed fails 1.
+
+  ⚠ **One sabotage failed to fail, and the comment was corrected rather than the code.** The previous
+  tap is remembered as a nullable, and the comment claimed a plain struct would make the first tap of
+  a session a double tap. It does not: the count is derived as `previous.Count + 1` and a default tap
+  has a count of zero, so the answer is one either way — by arithmetic rather than by the guard. Kept
+  because "there has not been a tap yet" is not "there was a tap at the origin at time zero", and
+  now labelled as unobservable.
+- ✅ **Text runs.** `font-family` names a face in a `FontRegistry`, the string is shaped through the
+  document's cache, the layout tree asks the shaping how big it is through a measure function, and
+  the draw list gets a `Text` command naming a range of one glyph buffer. Four things built
+  separately in 4a–4c, finally joined.
+
+  **Fonts are registered rather than discovered**: a game ships its fonts, and an interface laid out
+  by whatever the operating system happened to have installed lays out differently on every machine.
+  ⚠ That registry is **not font fallback** — the list is tried until a *registered* family is found,
+  not per character until one with a glyph is found — and weight and style matching is not there
+  either. Both owed and said rather than half-implemented.
+
+  ⚠ **The frame diff has to cover the side buffer.** A command names a *range* of the glyph array, so
+  two frames whose text changed from one word to another of the same length hold byte-identical
+  commands and entirely different glyphs; comparing commands alone, the label changes and the version
+  does not.
+
+  ⚠ **Two findings from the layout tree, both of which it was right about.** A node that measures
+  itself may not also have children — its size would be decided twice by two rules that need not
+  agree — so **an element with text is a leaf, full stop**, and the note claiming it would draw both
+  was wrong before a test reached it. And a node may not be hand-dirtied unless it measures itself,
+  which makes the null-or-empty test in the change callback load-bearing rather than tidy: `null` and
+  `""` are both "no text", so setting one to the other reaches the dirty call with no measure
+  function attached and throws.
+
+  ⚠ **A laid-out width is a measured width snapped to the pixel grid**, so text measurement and
+  element size differ by a fraction, and a test written against the exact measurement fails in a way
+  that looks like a scaling bug.
+
+  Verified by sabotage: drawing the run from the top rather than the baseline fails 1, ignoring the
+  padding fails 1, diffing the commands without the glyph buffer fails 1, and shaping outside the
+  cache fails 2.
+
+  ⚠ **Two sabotages failed to fail, and both were answered with better tests.** Deleting the y
+  negation broke nothing, because **every Latin glyph in the test font sits on the baseline at a zero
+  offset** — the assertion was vacuous, and it is now written in Tai Tham, where a vowel sign hangs
+  below the letter and the sign of the offset decides which side. And leaving the measure function
+  attached when the text goes broke nothing, because a measure function over no text answers zero and
+  looks exactly like not having one; the consequence is that the node stays a *leaf*, so the test now
+  gives the ex-label a child and checks that it is laid out.
+- ✅ **Path rendering, and the custom-drawing hook it exists for.** A stylesheet describes boxes and
+  most of an interface is boxes; a chart, a knob and a hand-drawn icon are not. `UiElement.OnDraw` is
+  where a control draws itself, `DrawContext` is what it draws with, and `PathBuilder` is what it
+  draws — called after the element's background, border and text and before its children, which is
+  where CSS puts an element's own content.
+
+  ⚠ **Curves are kept as curves.** How finely to flatten a Bézier depends on how large it will be on
+  screen, which is a device scale the draw list does not know; flattened here, a path built once and
+  drawn at two zoom levels is faceted at one of them and nothing downstream can recover the curve.
+  **One fixed-size struct per verb** rather than Skia's verb array beside a point array — smaller
+  there, but it needs two ranges on the command and two cursors to walk, and one array keeps the
+  frame diff a comparison and the command's reference one range.
+
+  ⚠ **`Close` carries the point it closes to**, because a stroked path's closing join is drawn
+  differently from a line back to the same place — and a second contour closes to its own `MoveTo`,
+  which is what makes a path with a hole in it possible. `EvenOdd` is carried alongside `NonZero`
+  because it is how most icon sets punch the hole in a letter `o`.
+
+  Verified by sabotage: turning `Close` into a line fails 2, forgetting the contour start on `MoveTo`
+  fails 3, diffing without the path buffer fails 1, emitting a command for an empty path fails 1,
+  drawing custom content over the children rather than under them fails 1, and dropping the clip
+  fails 2.
+
+  ⚠ **One sabotage failed to fail and the test was sharpened.** Resetting the pen in `Clear` broke
+  nothing, because every test cleared and then moved — the reset only shows when a caller reads
+  `Current` on a freshly cleared builder, which is what a control reusing one between frames does.
+- ✅ **Batching.** `DrawBatcher` groups the frame's commands into runs a renderer can submit as one.
+
+  **Runs of consecutive commands, and never a reordering** — which is worth being blunt about,
+  because reordering is what batching means everywhere else. A 3D renderer sorts draws by material
+  because a depth buffer decides what ends up in front; a user interface has no depth buffer, so
+  order *is* the answer, and moving two runs of the same font together across the panel between them
+  draws the text over the panel that was meant to cover it. The win is therefore bounded and honest:
+  a hundred alternating labels and boxes batch into two hundred batches, and that is correct rather
+  than a failure to optimise.
+
+  **The batches partition the commands** — every one is in exactly one batch, in order — so a
+  consumer walks the batches alone and cannot miss anything, which is why a clip gets a batch of its
+  own instead of being skipped. And batching sits **behind the frame diff**: a frame that drew the
+  same thing has the same batches by construction, so the cached command buffer keeps its batches
+  with it, and `Batched` counts the rebuilds.
+
+  ⚠ **`BatchKind` was written as a guess at a renderer that turned out to exist**, and checking it
+  against `Vixen.Rendering` changed what it claims rather than what it does. Three findings:
+
+  1. **A pipeline is already keyed**, on the effect, the stage, the vertex layout and the render
+     output — and `PipelineKey`'s own remarks argue those four are what make the key complete rather
+     than merely sufficient so far. Only **two** of them are a draw list's to know: which shader and
+     which vertex format. The stage carries blend, depth and raster state and the output carries
+     attachment formats, and both belong to the compositor. So `BatchKind` is a coarse stand-in for
+     two of four, and the thing it must not do is grow to describe the other two.
+  2. **The renderer does not use a batch list at all.** `MeshRenderFeature` walks its nodes in sorted
+     order and re-binds only when the pipeline handle changes — the same runs, two locals, no array.
+     That is right for a mesh, whose nodes are rebuilt from culling every frame so nothing
+     precomputed survives; a UI is the opposite case, since most frames draw what the last one drew,
+     and the runs are worked out *behind the frame diff*. If the UI render feature binds on change
+     anyway, `Batches` is what stops it regrouping every frame; if it does not, `Batches` is the
+     thing to delete. **Recorded as the open question it is rather than settled either way.**
+  3. **`RenderSortMode.ByGroup` already exists and says it is "for UI and anything else already
+     ordered."** It sorts stably on a group value with depth left out — which means the UI render
+     feature has to make that group *be* the painting order, because a group meaning a material or a
+     texture would reorder the interface on the way to the screen. The batch index is that number,
+     and this is the no-reordering argument arriving independently from the renderer's side.
+
+  What is not a guess is that the batches are contiguous, ordered and maximal — properties held by a
+  CsCheck generator over random command streams rather than by examples.
+
+  Verified by sabotage: never merging fails 3, merging with any earlier batch rather than the last —
+  the reordering this exists to refuse — fails 5, letting a clip join a batch fails 1, dropping the
+  font or the fill rule from the key fails 2 each, treating a stroke as a fill fails 2, and batching
+  on every frame rather than behind the diff fails 1.
+- Owed in `Vixen.Ui`: access keys, line wrapping, rich-text runs,
+  font fallback and weight matching, gradients, per-corner elliptical radii, pinch and rotate,
+  virtualisation primitive, multi-window, DPI, and element removal.
 - `Vixen.Ui.Markup`: VXML lexer/parser on `Vixen.Core.Syntax`, binder, emitter, `#line` mapping.
 - `Vixen.Ui.HotReload`: three reload channels, keyed reconciliation, `[HotReloadState]`.
 - UI render feature integrated into the renderer.
