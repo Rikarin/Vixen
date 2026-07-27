@@ -26,6 +26,8 @@
         -->
         <InternalsVisibleTo Include="Vixen.Raven"/>
         <InternalsVisibleTo Include="Vixen.Raven.Tests"/>
+        <InternalsVisibleTo Include="Vixen.Ui.Markup"/>
+        <InternalsVisibleTo Include="Vixen.Ui.Markup.Tests"/>
     </ItemGroup>
 
 </Project>

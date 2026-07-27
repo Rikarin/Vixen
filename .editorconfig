@@ -385,3 +385,18 @@ dotnet_diagnostic.CA1051.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Rendering/Lights.cs]
 dotnet_diagnostic.CA1051.severity = none
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Ui.Markup/Binding/BoundNodes.cs
+#
+# CA1711 (identifiers should not have incorrect suffix). `BoundAttribute` is a
+# bound markup attribute — `class="…"`, `on:click="@Go"` — and has nothing to do
+# with `System.Attribute`. The rule exists so that a type named `…Attribute` can
+# be assumed to be one, and here the word is the domain's, not the CLR's: the
+# syntax node beside it is `AttributeSyntax` and the thing in the file is called
+# an attribute by everyone who writes one. Renaming it would make the binder's
+# vocabulary disagree with the language's.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Ui.Markup/Binding/BoundNodes.cs]
+dotnet_diagnostic.CA1711.severity = none

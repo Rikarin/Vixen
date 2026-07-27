@@ -99,17 +99,26 @@ SourceText
                     dangling @, mid-typing states — each has a targeted diagnostic and a
                     recovery that keeps the rest of the file parseable)
   → VxmlSyntaxTree (green/red, from Syntax.xml via the shared generator)
-  → Binder         (resolves tags → component types, attributes → parameters, expressions →
-                    Roslyn semantic model; produces BoundComponent with diagnostics)
+  → Binder         (resolves tags → component-or-intrinsic, attributes → parameters, events,
+                    bindings and keys; produces BoundComponent with diagnostics. No semantic
+                    model — see below)
   → Emitter        (BoundComponent → C# partial class)
 ```
 
-The **binder is the interesting part**: it must resolve `<Counter Title="x" />` against the C# type
-`Counter` and typecheck `Title`. It does this by running inside the source generator, where the Roslyn
-`Compilation` is available — so `@_count.Value == 1 ? "time" : "times"` is typechecked by Roslyn
-itself, not by a hand-rolled expression evaluator. Expressions are emitted verbatim into the generated
-C# and Roslyn reports errors against a mapped span (`#line` directives point diagnostics back at the
-`.vxml`).
+The **binder is the interesting part**, and it turned out to be interesting for the opposite reason
+to the one given here. ~~It must resolve `<Counter Title="x" />` against the C# type `Counter` and
+typecheck `Title`, running inside the source generator where the Roslyn `Compilation` is
+available.~~ — **corrected in the build: it resolves no types at all.** If the emitter writes the
+tag name where a type name goes and the attribute name where a property name goes, each under a
+`#line`, then an unknown component, a misspelt parameter and a wrong expression type are *all*
+reported by Roslyn — against the right character of the `.vxml` — with no type resolution on the
+binder's side and no dependency on a `Compilation`. The conclusion the original paragraph reached
+was right; the mechanism it proposed was more machinery than the conclusion needed.
+
+What is left for the binder is the set of mistakes Roslyn cannot catch, because they are about
+markup rather than about C#: a duplicate attribute, an event handler given a string literal, two
+slots claiming one name, a loop whose elements have no identity. There is deliberately no diagnostic
+range for type errors — a second and worse typechecker is what this design exists to avoid.
 
 That last detail — `#line` mapping — is what makes the whole approach viable. Without it, a typo in an
 interpolation produces an error in generated code the user has never seen.

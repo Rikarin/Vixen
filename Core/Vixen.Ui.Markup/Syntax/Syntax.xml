@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Tree Root="VxmlSyntaxNode" Namespace="Vixen.Ui.Markup.Syntax">
+    <PredefinedNode Name="SyntaxToken" Base="VxmlSyntaxNode"/>
+
+    <!-- ===================================================== Abstract bases -->
+
+    <AbstractNode Name="MarkupSyntax" Base="VxmlSyntaxNode">
+        <TypeComment>
+            <summary>
+                Anything that can appear in a run of content: an element, a text run, an
+                interpolation, a control-flow directive, a code block or a style block. Content is
+                the one list shape the grammar has, and every member of it derives from here.
+            </summary>
+        </TypeComment>
+    </AbstractNode>
+
+    <AbstractNode Name="AttributeValueSyntax" Base="VxmlSyntaxNode">
+        <TypeComment>
+            <summary>
+                The right-hand side of an attribute: either a quoted run that may mix literal text
+                with interpolations, or a bare expression written without quotes.
+            </summary>
+        </TypeComment>
+    </AbstractNode>
+
+    <!-- ===================================================== Document -->
+
+    <Node Name="DocumentSyntax" Base="VxmlSyntaxNode">
+        <Kind Name="Document"/>
+        <Field Name="Component" Type="ComponentDirectiveSyntax" Optional="true">
+            <PropertyComment>
+                <summary>The <c>@component</c> header. Absent only in a file the binder rejects.</summary>
+            </PropertyComment>
+        </Field>
+        <Field Name="Usings" Type="SyntaxList&lt;UsingDirectiveSyntax&gt;">
+            <PropertyComment>
+                <summary>The <c>@using</c> headers, in source order.</summary>
+            </PropertyComment>
+        </Field>
+        <Field Name="Content" Type="SyntaxList&lt;MarkupSyntax&gt;">
+            <PropertyComment>
+                <summary>Everything after the headers: markup, code blocks and style blocks.</summary>
+            </PropertyComment>
+        </Field>
+        <Field Name="EndOfFileToken" Type="SyntaxToken">
+            <Kind Name="EndOfFileToken"/>
+        </Field>
+        <TypeComment>
+            <summary>A whole <c>.vxml</c> file. The root of every VXML tree.</summary>
+        </TypeComment>
+    </Node>
+
+    <Node Name="ComponentDirectiveSyntax" Base="VxmlSyntaxNode">
+        <Kind Name="ComponentDirective"/>
+        <Field Name="ComponentKeyword" Type="SyntaxToken">
+            <Kind Name="ComponentKeyword"/>
+        </Field>
+        <Field Name="Identifier" Type="SyntaxToken">
+            <Kind Name="IdentifierToken"/>
+            <PropertyComment>
+                <summary>The generated partial class's name.</summary>
+            </PropertyComment>
+        </Field>
+        <TypeComment>
+            <summary><c>@component Counter</c> — the file's one required header.</summary>
+        </TypeComment>
+    </Node>
+
+    <Node Name="UsingDirectiveSyntax" Base="VxmlSyntaxNode">
+        <Kind Name="UsingDirective"/>
+        <Field Name="UsingKeyword" Type="SyntaxToken">
+            <Kind Name="UsingKeyword"/>
+        </Field>
+        <Field Name="Name" Type="SyntaxToken">
+            <Kind Name="NameToken"/>
+            <PropertyComment>
+                <summary>A dotted namespace, carried whole as one token.</summary>
+            </PropertyComment>
+        </Field>
+        <TypeComment>
+            <summary><c>@using Vixen.Ui.Controls</c> — copied verbatim into the generated file.</summary>
+        </TypeComment>
+    </Node>
+
+    <!-- ===================================================== Blocks -->
+
+    <Node Name="CodeBlockSyntax" Base="MarkupSyntax">
+        <Kind Name="CodeBlock"/>
+        <Field Name="CodeKeyword" Type="SyntaxToken">
+            <Kind Name="CodeKeyword"/>
+        </Field>
+        <Field Name="OpenBraceToken" Type="SyntaxToken">
+            <Kind Name="OpenBraceToken"/>
+        </Field>
+        <Field Name="Body" Type="SyntaxToken">
+            <Kind Name="CodeToken"/>
+            <PropertyComment>
+                <summary>The C# between the braces, verbatim and unparsed.</summary>
+            </PropertyComment>
+        </Field>
+        <Field Name="CloseBraceToken" Type="SyntaxToken">
+            <Kind Name="CloseBraceToken"/>
+        </Field>
+        <TypeComment>
+            <summary>
+                <c>@code { … }</c>. VXML never parses C#: the body travels as one token and Roslyn
+                is the only thing that ever reads it.
+            </summary>
+        </TypeComment>
+    </Node>
+
+    <Node Name="MarkupBlockSyntax" Base="MarkupSyntax">
+        <Kind Name="MarkupBlock"/>
+        <Field Name="OpenBraceToken" Type="SyntaxToken">
+            <Kind Name="OpenBraceToken"/>
+        </Field>
+        <Field Name="Content" Type="SyntaxList&lt;MarkupSyntax&gt;"/>
+        <Field Name="CloseBraceToken" Type="SyntaxToken">
+            <Kind Name="CloseBraceToken"/>
+        </Field>
+        <TypeComment>
+            <summary>
+                A braced run of content — the body of an <c>@if</c>, an <c>@for</c> or an
+                <c>else</c>. Braces rather than Razor's <c>}</c> sentinels, per ADR-009.
+            </summary>
+        </TypeComment>
+    </Node>
+
+    <!-- ===================================================== Elements -->
+
+    <Node Name="StartTagSyntax" Base="VxmlSyntaxNode">
+        <Kind Name="StartTag"/>
+        <Field Name="LessThanToken" Type="SyntaxToken">
+            <Kind Name="LessThanToken"/>
+        </Field>
+        <Field Name="Name" Type="SyntaxToken">
+            <Kind Name="NameToken"/>
+        </Field>
+        <Field Name="Attributes" Type="SyntaxList&lt;AttributeSyntax&gt;"/>
+        <Field Name="GreaterThanToken" Type="SyntaxToken">
+            <PropertyComment>
+                <summary>
+                    <c>&gt;</c> for an element with content, <c>/&gt;</c> for a self-closing one —
+                    which is also what says whether <see cref="ElementSyntax.EndTag"/> should exist.
+                </summary>
+            </PropertyComment>
+        </Field>
+        <TypeComment>
+            <summary>An opening or self-closing tag with its attributes.</summary>
+        </TypeComment>
+    </Node>
+
+    <Node Name="EndTagSyntax" Base="VxmlSyntaxNode">
+        <Kind Name="EndTag"/>
+        <Field Name="LessThanSlashToken" Type="SyntaxToken">
+            <Kind Name="LessThanSlashToken"/>
+        </Field>
+        <Field Name="Name" Type="SyntaxToken">
+            <Kind Name="NameToken"/>
+        </Field>
+        <Field Name="GreaterThanToken" Type="SyntaxToken">
+            <Kind Name="GreaterThanToken"/>
+        </Field>
+        <TypeComment>
+            <summary>A closing tag.</summary>
+        </TypeComment>
+    </Node>
+
+    <Node Name="ElementSyntax" Base="MarkupSyntax">
+        <Kind Name="Element"/>
+        <Field Name="StartTag" Type="StartTagSyntax"/>
+        <Field Name="Content" Type="SyntaxList&lt;MarkupSyntax&gt;"/>
+        <Field Name="EndTag" Type="EndTagSyntax" Optional="true">
+            <PropertyComment>
+                <summary>
+                    Absent when the tag closed itself — and also when the file did not close it at
+                    all, which is what makes an unclosed element a recoverable parse rather than a
+                    lost one.
+                </summary>
+            </PropertyComment>
+        </Field>
+        <TypeComment>
+            <summary>
+                An element. A lowercase name is an intrinsic; a name starting with an uppercase
+                letter is a component. The parser does not care which — the binder does.
+            </summary>
+        </TypeComment>
+    </Node>
+
+    <Node Name="StyleBlockSyntax" Base="MarkupSyntax">
+        <Kind Name="StyleBlock"/>
+        <Field Name="StartTag" Type="StartTagSyntax"/>
+        <Field Name="Css" Type="SyntaxToken">
+            <Kind Name="CssToken"/>
+            <PropertyComment>
+                <summary>Everything up to <c>&lt;/style&gt;</c>, verbatim. VCSS parses it, not VXML.</summary>
+            </PropertyComment>
+        </Field>
+        <Field Name="EndTag" Type="EndTagSyntax" Optional="true"/>
+        <TypeComment>
+            <summary>
+                <c>&lt;style scoped&gt;…&lt;/style&gt;</c>. A separate node rather than an element
+                because its content is not markup and must never be lexed as such.
+            </summary>
+        </TypeComment>
+    </Node>
+
+    <!-- ===================================================== Attributes -->
+
+    <Node Name="AttributeSyntax" Base="VxmlSyntaxNode">
+        <Kind Name="Attribute"/>
+        <Field Name="Name" Type="SyntaxToken">
+            <Kind Name="NameToken"/>
+            <PropertyComment>
+                <summary>
+                    The whole name including any <c>:</c> and <c>.</c> — <c>on:click.stop</c> is one
+                    token, and splitting it is the binder's job.
+                </summary>
+            </PropertyComment>
+        </Field>
+        <Field Name="EqualsToken" Type="SyntaxToken" Optional="true"/>
+        <Field Name="Value" Type="AttributeValueSyntax" Optional="true">
+            <PropertyComment>
+                <summary>Absent for a valueless attribute such as <c>scoped</c>.</summary>
+            </PropertyComment>
+        </Field>
+        <TypeComment>
+            <summary>One attribute on a tag.</summary>
+        </TypeComment>
+    </Node>
+
+    <Node Name="QuotedAttributeValueSyntax" Base="AttributeValueSyntax">
+        <Kind Name="QuotedAttributeValue"/>
+        <Field Name="OpenQuoteToken" Type="SyntaxToken"/>
+        <Field Name="Content" Type="SyntaxList&lt;MarkupSyntax&gt;">
+            <PropertyComment>
+                <summary>
+                    Text and interpolations, interleaved — so <c>class="btn @variant"</c> is one
+                    value with two parts rather than a string the binder has to re-scan.
+                </summary>
+            </PropertyComment>
+        </Field>
+        <Field Name="CloseQuoteToken" Type="SyntaxToken"/>
+        <TypeComment>
+            <summary>A quoted attribute value. Single and double quotes are both accepted.</summary>
+        </TypeComment>
+    </Node>
+
+    <Node Name="ExpressionAttributeValueSyntax" Base="AttributeValueSyntax">
+        <Kind Name="ExpressionAttributeValue"/>
+        <Field Name="Expression" Type="InterpolationSyntax"/>
+        <TypeComment>
+            <summary>An unquoted <c>@expr</c> value, as in <c>step=@Step</c>.</summary>
+        </TypeComment>
+    </Node>
+
+    <!-- ===================================================== Leaves -->
+
+    <Node Name="TextSyntax" Base="MarkupSyntax">
+        <Kind Name="Text"/>
+        <Field Name="TextToken" Type="SyntaxToken"/>
+        <TypeComment>
+            <summary>
+                A run of literal text. Whitespace that spans a line break never reaches here — the
+                lexer makes it trivia, so indentation is formatting and a space you typed is content.
+            </summary>
+        </TypeComment>
+    </Node>
+
+    <Node Name="InterpolationSyntax" Base="MarkupSyntax">
+        <Kind Name="Interpolation"/>
+        <Field Name="AtToken" Type="SyntaxToken">
+            <Kind Name="AtToken"/>
+        </Field>
+        <Field Name="Expression" Type="SyntaxToken">
+            <Kind Name="ExpressionToken"/>
+            <PropertyComment>
+                <summary>The C# expression, verbatim. Its span is what a <c>#line</c> maps back to.</summary>
+            </PropertyComment>
+        </Field>
+        <TypeComment>
+            <summary><c>@expr</c> — an implicit expression, or a parenthesised one after <c>@(</c>.</summary>
+        </TypeComment>
+    </Node>
+
+    <!-- ===================================================== Control flow -->
+
+    <Node Name="IfSyntax" Base="MarkupSyntax">
+        <Kind Name="If"/>
+        <Field Name="IfKeyword" Type="SyntaxToken">
+            <Kind Name="IfKeyword"/>
+        </Field>
+        <Field Name="OpenParenToken" Type="SyntaxToken">
+            <Kind Name="OpenParenToken"/>
+        </Field>
+        <Field Name="Condition" Type="SyntaxToken">
+            <Kind Name="ExpressionToken"/>
+        </Field>
+        <Field Name="CloseParenToken" Type="SyntaxToken">
+            <Kind Name="CloseParenToken"/>
+        </Field>
+        <Field Name="Body" Type="MarkupBlockSyntax"/>
+        <Field Name="Else" Type="ElseClauseSyntax" Optional="true"/>
+        <TypeComment>
+            <summary><c>@if (cond) { … } else { … }</c>.</summary>
+        </TypeComment>
+    </Node>
+
+    <Node Name="ElseClauseSyntax" Base="VxmlSyntaxNode">
+        <Kind Name="ElseClause"/>
+        <Field Name="ElseKeyword" Type="SyntaxToken">
+            <Kind Name="ElseKeyword"/>
+        </Field>
+        <Field Name="Body" Type="MarkupSyntax">
+            <PropertyComment>
+                <summary>
+                    A <see cref="MarkupBlockSyntax"/> for a plain <c>else</c>, or an
+                    <see cref="IfSyntax"/> for <c>else if</c> — which is how the chain nests.
+                </summary>
+            </PropertyComment>
+        </Field>
+        <TypeComment>
+            <summary>The <c>else</c> arm of an <c>@if</c>.</summary>
+        </TypeComment>
+    </Node>
+
+    <Node Name="ForSyntax" Base="MarkupSyntax">
+        <Kind Name="For"/>
+        <Field Name="ForKeyword" Type="SyntaxToken">
+            <Kind Name="ForKeyword"/>
+        </Field>
+        <Field Name="OpenParenToken" Type="SyntaxToken">
+            <Kind Name="OpenParenToken"/>
+        </Field>
+        <Field Name="VarKeyword" Type="SyntaxToken">
+            <Kind Name="VarKeyword"/>
+        </Field>
+        <Field Name="Identifier" Type="SyntaxToken">
+            <Kind Name="IdentifierToken"/>
+        </Field>
+        <Field Name="InKeyword" Type="SyntaxToken">
+            <Kind Name="InKeyword"/>
+        </Field>
+        <Field Name="Sequence" Type="SyntaxToken">
+            <Kind Name="ExpressionToken"/>
+        </Field>
+        <Field Name="CloseParenToken" Type="SyntaxToken">
+            <Kind Name="CloseParenToken"/>
+        </Field>
+        <Field Name="Body" Type="MarkupBlockSyntax"/>
+        <TypeComment>
+            <summary><c>@for (var i in sequence) { … }</c> — the keyed reconciler's input.</summary>
+        </TypeComment>
+    </Node>
+
+    <Node Name="SwitchSyntax" Base="MarkupSyntax">
+        <Kind Name="Switch"/>
+        <Field Name="SwitchKeyword" Type="SyntaxToken">
+            <Kind Name="SwitchKeyword"/>
+        </Field>
+        <Field Name="OpenParenToken" Type="SyntaxToken">
+            <Kind Name="OpenParenToken"/>
+        </Field>
+        <Field Name="Subject" Type="SyntaxToken">
+            <Kind Name="ExpressionToken"/>
+        </Field>
+        <Field Name="CloseParenToken" Type="SyntaxToken">
+            <Kind Name="CloseParenToken"/>
+        </Field>
+        <Field Name="OpenBraceToken" Type="SyntaxToken">
+            <Kind Name="OpenBraceToken"/>
+        </Field>
+        <Field Name="Sections" Type="SyntaxList&lt;SwitchSectionSyntax&gt;"/>
+        <Field Name="CloseBraceToken" Type="SyntaxToken">
+            <Kind Name="CloseBraceToken"/>
+        </Field>
+        <TypeComment>
+            <summary><c>@switch (subject) { case pattern: … default: … }</c>.</summary>
+        </TypeComment>
+    </Node>
+
+    <Node Name="SwitchSectionSyntax" Base="VxmlSyntaxNode">
+        <Kind Name="SwitchSection"/>
+        <Field Name="Keyword" Type="SyntaxToken">
+            <PropertyComment>
+                <summary><c>case</c> or <c>default</c>.</summary>
+            </PropertyComment>
+        </Field>
+        <Field Name="Pattern" Type="SyntaxToken" Optional="true">
+            <PropertyComment>
+                <summary>
+                    The C# pattern, verbatim; absent on <c>default</c>. Emitted between
+                    <c>case</c> and <c>:</c> without being understood.
+                </summary>
+            </PropertyComment>
+        </Field>
+        <Field Name="ColonToken" Type="SyntaxToken">
+            <Kind Name="ColonToken"/>
+        </Field>
+        <Field Name="Content" Type="SyntaxList&lt;MarkupSyntax&gt;"/>
+        <TypeComment>
+            <summary>One arm of an <c>@switch</c>.</summary>
+        </TypeComment>
+    </Node>
+
+</Tree>

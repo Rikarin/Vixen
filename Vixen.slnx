@@ -98,6 +98,8 @@
     <Project Path="Core/Vixen.Ui/Vixen.Ui.csproj" />
     <Project Path="Core/Vixen.Ui.Generators/Vixen.Ui.Generators.csproj" />
     <Project Path="Core/Vixen.Ui.Tests/Vixen.Ui.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Markup/Vixen.Ui.Markup.csproj" />
+    <Project Path="Core/Vixen.Ui.Markup.Tests/Vixen.Ui.Markup.Tests.csproj" />
   </Folder>
 
   <!--

@@ -1563,7 +1563,63 @@ sub-piece has its own gate.
 - Owed in `Vixen.Ui`: style-slot compaction, access keys, line wrapping, rich-text runs,
   font fallback and weight matching, gradients, per-corner elliptical radii, pinch and rotate,
   virtualisation primitive, multi-window and DPI.
-- `Vixen.Ui.Markup`: VXML lexer/parser on `Vixen.Core.Syntax`, binder, emitter, `#line` mapping.
+- `Vixen.Ui.Markup`: ✅ **VXML — lexer, parser, binder, emitter and `#line` mapping.** A `.vxml`
+  becomes a green/red tree over `Vixen.Core.Syntax`, then a `BoundComponent`, then a C# partial
+  class. Second grammar on the shared tree, which is the first evidence that the Phase 0 extraction
+  paid for itself: VXML brought `Syntax.xml`, a kind enum and two files of front end, and got trivia
+  fidelity, precise spans and one diagnostics model for nothing.
+
+  ⚠ **The binder resolves no types, and the plan said it would.** [09](09-ui-framework.md) specified
+  a binder running inside the source generator, resolving `<Counter Title="x" />` against the C#
+  type and typechecking the parameter through Roslyn's `Compilation`. It does not need to: if the
+  emitter writes the tag name where a type name goes and the attribute name where a property name
+  goes, both under a `#line`, then an unknown component, a misspelt parameter and a wrong expression
+  type are **all reported by Roslyn against the right character of the `.vxml`** with no type
+  resolution on this side. That leaves the binder exactly the mistakes a C# compiler cannot see —
+  duplicate attributes, an event handler given a string, two slots with one name, a loop without
+  keys — which is what every `VXML2xxx` now is. Doc 09 is corrected accordingly; there is
+  deliberately no diagnostic range for type errors.
+
+  ⚠ **`#line` uses the span form, not the line form.** `#line N "file"` lands a squiggle at the
+  start of a generated line, which for `ctx.Bind(n3, "class", () => kind)` is several tokens from
+  the word that came out of the markup. `#line (l,c)-(l,c) offset "file"` carries the exact
+  characters — verified by asserting that a missing member reports at the *member name's* column in
+  the `.vxml`, not the expression's.
+
+  **Two rules earn their keep.** *A `}` closes a directive body only at the element depth its `{`
+  was written at*, so `@if (x) { <div>a } b</div> }` reads the first brace as text with no lookahead
+  and no backtracking; the same test keeps `case` inside a `<p>` from starting a switch section.
+  And *a whitespace run that crosses a line break is trivia, one that does not is text* — indentation
+  is formatting, the space you typed on one line is content, and no later pass has to guess.
+
+  **VXML never parses C#.** Every expression, `@code` body and `<style>` body is one token found by
+  balancing, with C# strings, chars, comments, verbatim and raw strings skipped. `SkipCSharp` knows
+  how a literal ends and nothing else.
+
+  Gate: 100 tests. Byte-exact round-trip over every construct **and over every prefix of a real
+  file** — the editor reparses on each keystroke and half of those land mid-word. The emitter's gate
+  is a real Roslyn compilation of its output, because "does this compile" and "does the error point
+  at the markup" are questions only a compiler can answer.
+
+  Verified by sabotage: a keyword boundary that allows name characters fails 1 (`default:` never
+  ends), a brace that closes at any depth fails 1, a code body that does not skip C# strings fails 2,
+  inverting the mismatched-close ancestor lookup fails 2, dropping skipped source instead of keeping
+  it as trivia fails 1, treating any `on…` name as an event fails 1, a `#line` that ignores the
+  generated offset fails 5, and a keyless loop that keys by index fails 1.
+
+  ⚠ **One sabotage failed to fail.** Making the "component builds nothing" check stop at control
+  flow broke nothing — every test whose markup lived inside an `@if` also had markup outside one, so
+  the recursion the check had just been given was never reached. A test for it was added, and the
+  sabotage then fails 1.
+
+  ⚠ **The generated code calls a runtime that does not exist.** `Vixen.Ui.Composition` — `Component`,
+  `BuildContext`, and the keyed reconciler behind `ctx.For` — is `Vixen.Ui`'s work rather than the
+  markup language's, and it is owed. The tests compile the emitter's output against a written-out
+  declaration of the contract, which is honest about proving two things and not a third: the output
+  is valid C# and its errors map back, and nothing yet builds an element. Also owed: incremental
+  reparse (the `Blender` exists, but VXML's unit of reuse is not obvious — an element's green node
+  is reusable only if nothing about its *enclosing* content changed), the `IIncrementalGenerator`
+  wrapper in `Vixen.Ui.Markup.Generators`, `bind:` update events and `@namespace`.
 - `Vixen.Ui.HotReload`: three reload channels, keyed reconciliation, `[HotReloadState]`.
 - UI render feature integrated into the renderer.
 - Gate: draw-list golden tests; parser golden trees + error-recovery tests; hot-reload scenario tests.
