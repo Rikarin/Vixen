@@ -161,7 +161,9 @@ public class OperatorOverloadTests {
                 [PixelShader]
                 func Pixel(): float4 {
                     var a: Other
+                    a.v = 1f
                     var b: Other
+                    b.v = 2f
                     val sum = a + b
                     return float4(1, 1, 1, 1)
                 }

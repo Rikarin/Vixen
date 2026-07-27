@@ -274,8 +274,15 @@ public sealed class SemanticModel {
         IReadOnlyList<ParameterSymbol> parameters,
         TypeSymbol returnType,
         BoundBlockStatement body
-    ) =>
-        boundBodies.Add(new(member, kind, parameters, returnType, body));
+    ) {
+        var bound = new BoundBody(member, kind, parameters, returnType, body);
+        boundBodies.Add(bound);
+
+        // Here rather than in the binder, because a body is the unit the questions are about:
+        // "is this local assigned on every path" and "can this statement be reached" are only
+        // answerable once the whole body exists.
+        FlowAnalysis.Analyse(bound, context.Diagnostics);
+    }
 
     /// <summary>
     ///     Wraps a single expression body in a block, so an arrow body and a braced

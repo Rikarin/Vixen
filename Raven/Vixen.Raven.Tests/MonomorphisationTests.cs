@@ -299,6 +299,7 @@ public class MonomorphisationTests {
                 [PixelShader]
                 func Pixel(): float4 {
                     var o: Outer<float4>
+                    o.inner.value = float4(1, 1, 1, 1)
                     return o.inner.value
                 }
             }

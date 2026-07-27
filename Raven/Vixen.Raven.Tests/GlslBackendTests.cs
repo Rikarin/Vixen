@@ -356,6 +356,8 @@ public class GlslBackendTests {
                 [PixelShader]
                 func Pixel(): float4 {
                     var ray: Ray
+                    ray.origin = float3(0, 0, 0)
+                    ray.direction = float3(0, 0, 1)
                     return float4(ray.At(1f), 1)
                 }
             }

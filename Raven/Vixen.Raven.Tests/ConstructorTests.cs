@@ -156,12 +156,48 @@ public class ConstructorTests {
     // --- What a constructor cannot do ---------------------------------------
 
     /// <summary>
-    ///     Declaring a value skips its constructor. There is nothing to fix here — a value type
-    ///     with no heap behaves this way in HLSL and GLSL too — but it means an <c>init</c> cannot
-    ///     be relied on to have run.
+    ///     Declaring a value skips its constructor — and reading it without filling it is now
+    ///     <c>RVN2127</c>.
     /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The skip itself is not a defect and is not fixable: a value type with no heap behaves
+    ///         this way in HLSL and GLSL too, so an <c>init</c> is convenience rather than a
+    ///         guarantee and cannot be relied on to have run.
+    ///     </para>
+    ///     <para>
+    ///         What <em>was</em> a defect is that the resulting read compiled. Both targets hand
+    ///         back whatever the register held, so this shader ran differently on different drivers
+    ///         and said nothing. Definite assignment closes it — from the other end than a
+    ///         constructor would, which is why the skip staying legal costs nothing.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public void Declaring_a_value_bypasses_its_constructor() =>
+    public void Declaring_a_value_and_reading_it_unfilled_is_refused() {
+        var error = Assert.Single(
+            SemanticTestBase.Diagnose(
+                Pixel(
+                    """
+                    struct Ray {
+                        var origin: float3
+
+                        init(o: float3) {
+                            origin = o
+                        }
+                    }
+                    """,
+                    "        var r: Ray\n        return float4(r.origin, 1)"
+                )
+            ),
+            d => d.Id == "RVN2127"
+        );
+
+        Assert.True(error.IsError);
+    }
+
+    /// <summary>Filling it by field is the way through, and stays the way through.</summary>
+    [Fact]
+    public void Declaring_a_value_and_filling_it_by_field_compiles() =>
         Assert.NotEmpty(
             GenerateOne(
                 Pixel(
@@ -174,7 +210,7 @@ public class ConstructorTests {
                         }
                     }
                     """,
-                    "        var r: Ray\n        return float4(r.origin, 1)"
+                    "        var r: Ray\n        r.origin = colour\n        return float4(r.origin, 1)"
                 )
             )
         );

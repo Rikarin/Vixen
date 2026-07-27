@@ -897,6 +897,53 @@ public static class SemanticDiagnostics {
         DiagnosticSeverity.Warning
     );
 
+    // --- Flow --------------------------------------------------------------
+
+    /// <summary>A local read on a path that never assigned it.</summary>
+    /// <remarks>
+    ///     An error rather than a warning, because of what it costs on a GPU: an unassigned local is
+    ///     not an exception and not a zero, it is whatever was in the register — which differs
+    ///     between drivers, between invocations and between debug and release. That is the shape of
+    ///     bug that reproduces on one machine and nowhere else.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor UseOfUnassignedLocal = new(
+        "RVN2127",
+        "Local is read before it is assigned",
+        "'{0}' is read here on a path that has not assigned it. An unassigned local holds whatever "
+        + "the target left in the register, so this reads a different value on every driver",
+        Declaration,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>A statement no path reaches.</summary>
+    /// <remarks>
+    ///     A warning, on the <c>RVN2091</c> policy: the shader still means what it says, but the
+    ///     author believes this code runs and it does not. Said once per run of unreachable
+    ///     statements rather than once per statement.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor UnreachableStatement = new(
+        "RVN2128",
+        "Statement is unreachable",
+        "This statement cannot be reached: the path to it ends in {0}",
+        Declaration,
+        DiagnosticSeverity.Warning
+    );
+
+    /// <summary>A value-returning function whose end is reachable.</summary>
+    /// <remarks>
+    ///     The same undefined value <c>RVN2127</c> is about, seen from the other end: falling off
+    ///     the end of a function that promises a value hands the caller whatever the target had.
+    ///     Neither backend can diagnose it, because by then the return is simply missing.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor NotAllPathsReturn = new(
+        "RVN2129",
+        "Not all paths return a value",
+        "'{0}' can reach its end without returning, and its result would be whatever the target "
+        + "left behind",
+        Declaration,
+        DiagnosticSeverity.Error
+    );
+
     // --- Arrays ------------------------------------------------------------
 
     /// <summary>An array type with no length.</summary>

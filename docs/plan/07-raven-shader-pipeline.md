@@ -29,7 +29,6 @@ decision that has been made and built, kept because the reasons stay useful.
 | ⚪ | **`discard`** — the last of the small stage intrinsics. It is a *terminator*, so it needs a keyword, a statement node and a block-termination rule rather than a table entry | § F | `DepthOnly` and `ShadowCaster` return zero and rely on the host's colour write mask |
 | 🟡 | **Inheritance is not flattened** — now `RVN3002` rather than three silent miscompilations | § I, mixins | the mixin question; `compose` covers the common case |
 | 🟡 | **String interpolation** — needs lexer modes; nothing shipped uses it | § I | nothing |
-| ⚪ | **Flow analysis** — definite assignment and reachability. Dead-branch elimination is constant folding, not this | § I | silent partial initialisation of a struct |
 | ⚪ | **Nuke is not stood up**: `CompileShaderLibrary`, `CheckFormat` for SPDX enforcement, the CI workflows | § A, § G | shipping the library as a package; SPDX is a real gap, not a closed item |
 | ⚪ | **`Vixen.Raven.Transpile`** (SPIRV-Cross wrapper) and the cross-compilation test pass | § A, § G | HLSL/MSL/WGSL output, which ADR-012 says SPIRV-Cross owns |
 | ⚪ | **`Vixen.Shaders.Generators`** — Raven supplies everything it needs; the generator waits for the engine's `ParameterKey` | § Generated C# bindings | deliberately engine-side |
@@ -812,7 +811,7 @@ shader graph's generated-source span mapping.
 | ✅ | **Generics lower, by monomorphisation** — one concrete copy per instantiation, for structs and for methods; the open definition is emitted nowhere and costs nothing. See [§ Monomorphisation](#monomorphisation-one-copy-per-instantiation-and-none-of-the-definition) |
 | ✅ | **A spread element in a collection** — flattening `[1, ..xs, 5]` needs `xs`'s length, which an array type now carries. Lowering emits one extract per index; a spread of an *unsized* array is still `RVN3002`, which is now a statement about that array rather than about spreads |
 | ✅ | **Assigning to a uniform** — now `RVN2119`, checked at the root of the access chain so `tint.rgb = …` and `lights[i].color = …` are caught too. It went unreported for as long as it did because a shader with nothing writable had no correct alternative to name; `RWBuffer<T>` is that alternative |
-| ⚪ | **Flow analysis** — definite assignment and reachability. Dead-branch elimination landed in § B, but that is constant folding, not reachability |
+| ✅ | **Flow analysis** — definite assignment (`RVN2127`), reachability (`RVN2128`) and falling off the end of a value-returning function (`RVN2129`). See [§ Flow analysis](#flow-analysis-what-is-true-on-every-path) |
 
 #### Backends
 
@@ -828,6 +827,38 @@ language decision needing a coin-flip (HLSL indexes rows, GLSL columns) and was 
 byte-level relationship between host and shader storage was worked out, exactly one answer was free in
 both backends *and* the intuitive one. The derivation is in
 [§ E](#e-conventions-raven-must-bake-in).
+
+#### Flow analysis: what is true on every path
+
+Two questions nothing could answer, with the same shape. Constant folding already removes a branch
+whose condition is known — that is what makes a `[Permutation]` key pay for itself — but it says
+nothing about a value written on only one side of an `if`.
+
+**Reading an unassigned local is an error, not a warning,** and the reason is what a GPU does with
+one: not an exception and not a zero, but whatever was in the register — which differs between
+drivers, between invocations, and between debug and release. That is the shape of bug that
+reproduces on one machine and nowhere else, so it is refused, on the same reasoning that made a
+missing workgroup size `RVN2104`. `RVN2129` is the same undefined value seen from the other end: a
+function that promises a value and can reach its end hands the caller whatever the target had, and
+neither backend can diagnose it because by then the return is simply missing.
+
+**Sound and deliberately incomplete.** It reports only what it can prove — a read where *no* path
+assigns the local — and three boundaries are drawn on purpose, each because the false positive would
+land on correct code:
+
+- **Partial initialisation is not tracked.** Writing `r.origin` counts as assigning `r`. Proving
+  otherwise needs per-field state, and filling a struct field by field is how a value is built in a
+  language with no constructor requirement.
+- **An `inout` argument counts as written.** Strictly it is both — `inout` is copy-in/copy-out — but
+  filling a value is what it is *for*: Raven has no `out`, and `MaterialSurface`'s whole contract is
+  a feature accumulating into a surface the caller declared.
+- **A loop body's assignments do not survive the loop**, and one arm of an `if` is not both. The same
+  rule C# applies, for the same reason.
+
+What it found on the way in, in code that had been compiling: `var r: Ray` followed by a read of
+`r.origin` — which doc 07 § J had recorded as a property of a value language rather than a defect,
+because there was no analysis to catch it. Both targets accept it and hand back register contents.
+The skip itself is still legal and still not fixable; what is closed is the read.
 
 #### Stage built-ins: a value the pipeline supplies, not the host
 
@@ -1445,10 +1476,13 @@ only a return value.**
   takes over rather than adding to it, so field order never becomes part of a struct's surface by
   accident.
 
-What a constructor **cannot** do is enforce an invariant: `var r: Ray` skips it, and partial
-initialisation is silent for want of definite-assignment analysis (§ I). HLSL and GLSL behave the same
-way, so this is a property of a value language with no heap rather than a defect — but an `init` is
-convenience, not a guarantee, and `ConstructorTests` pins that so the C# reading does not carry over.
+What a constructor **cannot** do is enforce an invariant: `var r: Ray` skips it. HLSL and GLSL behave
+the same way, so that is a property of a value language with no heap rather than a defect — an `init`
+is convenience, not a guarantee, and `ConstructorTests` pins that so the C# reading does not carry
+over. **What the skip used to cost is now closed from the other end:** reading `r` unfilled is
+`RVN2127`, so the value a constructor would have supplied has to come from somewhere. *Partial*
+initialisation is still silent, and deliberately — see [§ Flow analysis](#flow-analysis-what-is-true-on-every-path)
+for why the boundary is there.
 
 #### ✅ The two files that define "what Raven looks like" — fixed
 
