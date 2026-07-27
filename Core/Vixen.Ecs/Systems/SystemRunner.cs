@@ -114,7 +114,7 @@ public sealed class SystemRunner : IDisposable {
         // answer "nothing", which is the one answer a change filter must never get wrong.
         World.AdvanceVersion();
 
-        var context = new SystemContext(World, time, Jobs, commands);
+        var context = new SystemContext(World, time, Jobs, commands, phase);
         var handles = new JobHandle[nodes.Count];
 
         for (var index = 0; index < nodes.Count; index++) {

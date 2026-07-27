@@ -13,7 +13,14 @@ namespace Vixen.Ecs.Systems;
 /// <param name="Commands">
 ///     Where structural change goes. Played back at the end of the phase, when nothing is iterating.
 /// </param>
-public readonly record struct SystemContext(World World, GameTime Time, JobScheduler? Jobs, CommandBuffer Commands);
+/// <param name="Phase">Which phase is running, so the context describes itself in a diagnostic.</param>
+public readonly record struct SystemContext(
+    World World,
+    GameTime Time,
+    JobScheduler? Jobs,
+    CommandBuffer Commands,
+    SystemPhase Phase = SystemPhase.Update
+);
 
 /// <summary>
 ///     One unit of per-frame work over a world.

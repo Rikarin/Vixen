@@ -38,4 +38,50 @@ entity, and a steady state allocates nothing (`ASteadyStateSceneAllocatesNothing
 shared components later would make the lower levels sweeps too without changing anything a caller
 sees.
 
+## The frame
+
+```csharp
+using var loop = new EngineLoop(jobs: scheduler);
+loop.Add(new MySystem());
+
+while (running) { loop.Frame(stopwatch.Elapsed(), timeScale); }
+```
+
+The loop owns no clock. `Frame` is *told* how much time passed, which is what makes a replay from an
+input log possible at all: the same sequence of deltas produces the same sequence of frames, with no
+reference to a wall clock anywhere.
+
+`FixedStepAccumulator` turns a variable frame delta into a whole number of simulation steps, and
+**counts in ticks rather than seconds**. `TimeSpan` is exact in ticks and approximate in `double`
+seconds; a hundred milliseconds against a sixtieth-of-a-second step divides to 5.999… in floating
+point and owes five steps instead of six. (`TimeSpan.FromSeconds(1d / 60d)` has its own version of
+this: it rounds to the nearest millisecond and hands back *seventeen*.)
+
+The catch-up clamp is the part that matters. A frame that took a second owes sixty steps; running
+all of them makes the next frame take a second too, which owes sixty more. Clamping discards the
+debt, and `DroppedSteps` says so out loud.
+
+## Behaviours
+
+```csharp
+sealed class PlayerController : Behavior {
+    protected override void Update() => Position += Transform.Forward * Speed * Time.DeltaSeconds;
+}
+
+loop.Behaviors.Add(entity, new PlayerController());
+```
+
+`Awake` → `OnEnable` → `Start`, with `Start` a frame behind `Awake` so that everything in a batch is
+constructed before anything looks up a sibling. Enabling, disabling and destroying are all queued
+and applied at the drain, so a behaviour cannot re-enter the loop that is walking it.
+
+**Behaviours are bucketed by concrete type** in contiguous `T[]`s, with the enabled ones in a prefix,
+so the update loop is monomorphic and stops at the boundary — a thousand disabled behaviours cost
+nothing.
+
+Doc 04 has a generator emit a dispatch method per behaviour type to get that. It is not needed:
+`BehaviorBucket<T>` is closed at the `Add<T>` call site where the concrete type is already known, and
+its loop is the same monomorphic walk over the same contiguous array. The generator is still owed for
+the `[Inspector]` metadata the editor needs, which genuinely cannot be had another way.
+
 Licensed under Apache-2.0.
