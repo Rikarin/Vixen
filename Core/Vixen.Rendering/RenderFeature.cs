@@ -77,6 +77,29 @@ public abstract class RootRenderFeature {
     /// </remarks>
     protected internal virtual void Prepare(RenderSystem system) { }
 
+    /// <summary>
+    ///     Records this feature's share of one stage's work into a command list.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The nodes arrive already ordered and already filtered to this feature, so what is left
+    ///         is the part only the feature knows: which pipeline, which descriptor sets, which draw
+    ///         call. That split is what lets the renderer own sorting without owning materials.
+    ///     </para>
+    ///     <para>
+    ///         Contiguous runs, not one call per node. A stage's list is sorted by a key whose high
+    ///         bits are the sort group, so nodes that share a pipeline are already adjacent — handing
+    ///         a feature the whole run lets it bind once and draw many, which is the entire point of
+    ///         having sorted by group in the first place. Handing it one node at a time would throw
+    ///         that away at the last step.
+    ///     </para>
+    /// </remarks>
+    protected internal virtual void Draw(
+        RenderSystem system,
+        RenderDrawContext context,
+        ReadOnlySpan<RenderNode> nodes
+    ) { }
+
     /// <summary>The sort group for one object, which the key puts above depth.</summary>
     /// <remarks>
     ///     Defaults to <see cref="RenderObject.SortGroup" />, so a feature that has nothing better to

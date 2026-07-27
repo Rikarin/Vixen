@@ -85,12 +85,34 @@ are whole words: every thread owns the words it writes, and no lock or atomic ap
 Three rejections come before the frustum test, each cheaper than it and each removing objects it
 would have accepted: dead slot, no stage in common, beyond the view's own distance.
 
+## Recording
+
+`RenderSystem.Record(view, stage, context)` walks the sorted list and hands each feature its own
+nodes — in **contiguous runs, not one node at a time**. The list is already ordered by a key whose
+high bits are the sort group, so nodes sharing a pipeline are adjacent; a run lets a feature bind
+once and draw many, which is the entire point of having sorted by group.
+
+Runs follow the **sort order** rather than gathering each feature's work together. Gathering would
+save a handover and reorder the stage — which for a transparent stage means reordering blended draws
+and changing the image.
+
+The render pass belongs to the caller, not to this. One pass may draw several stages, and the
+attachments belong to the render graph — a stage that opened its own pass could not be one of
+several in a subpass-fused mobile path. The Null backend refusing a draw outside a pass is what says
+so out loud.
+
+One `(view, stage)` at a time, because that is the unit a caller can put on its own thread: each gets
+a `RenderDrawContext` with its own command list, and they share nothing that is written.
+
 ## What is not here yet
 
-Recording, materials, lighting, shadows and the `GraphicsCompositor` asset. Recording needs the
-effect system, which needs `ParameterCollection` — see
-[Vixen.Shaders](../Vixen.Shaders/README.md). GPU-driven culling is a second implementation of
-`VisibilityGroup` behind the same interface, which is why that interface is bits rather than a list.
+Materials, lighting, shadows, the concrete features (mesh, transform, skinning, instancing) and the
+`GraphicsCompositor` asset. What a draw call *contains* is a feature's business — this owns which
+feature is handed which nodes in what order, which is the split that lets the renderer own sorting
+without owning materials.
+
+GPU-driven culling is a second implementation of `VisibilityGroup` behind the same interface, which
+is why that interface is bits rather than a list.
 
 ## Testing
 

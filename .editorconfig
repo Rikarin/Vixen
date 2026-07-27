@@ -334,3 +334,20 @@ dotnet_diagnostic.CA1051.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Rendering/RenderObject.cs]
 dotnet_diagnostic.CA1051.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Shaders/ParameterCollection.cs
+#
+# CA1711 (rename type so it does not end in 'Collection'). The rule reserves the
+# suffix for types implementing ICollection. This one holds parameters and is not
+# one: it is a packed byte buffer with an offset per key, and exposing it as a
+# collection of anything would mean giving out the boxed values the packing exists
+# to avoid.
+#
+# The name is also fixed by the specification rather than chosen here — docs/plan
+# 06 and 07 both call it ParameterCollection, following Stride, and a host reading
+# either would look for that name. Renaming it to satisfy a suffix convention
+# would make the code and the two documents that specify it disagree.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Shaders/ParameterCollection.cs]
+dotnet_diagnostic.CA1711.severity = none

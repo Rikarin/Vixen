@@ -71,9 +71,40 @@ Registering one name as two types, or as both a value and a permutation, throws 
 alternative is writing four bytes of the wrong interpretation into a correctly sized slot: a value
 that is wrong rather than absent, which is the harder kind to notice.
 
+## Parameters, effects and the cache
+
+`ParameterCollection` is what a material, a view or a draw holds: one packed byte buffer with an
+offset per key, rather than a dictionary of boxed values. The thing it is asked thousands of times a
+frame is "give me the bytes for these parameters", and a `Dictionary<key, object>` answers that with
+a boxing allocation and a pointer chase per parameter.
+
+**Values and permutations are kept apart**, because they are consumed at different times: a value is
+written into a buffer every frame it changes, while a permutation decides *which shader exists* and
+changing one is a recompile. Two version counters follow from that, and a material re-asserting its
+settings each frame does not look like a shader change.
+
+`EffectKey` is the cache key — a shader name plus the permutations **the shader actually branched
+on**. Raven's `UsedPermutationKeys` is what makes that possible, and it is the difference between a
+tractable cache and 2ⁿ entries where a handful are distinct. Values are sorted by name so the same
+settings in a different order are the same key; without that normal form the cache holds one entry
+per insertion order and hits almost never — a miss that shows up as a frame-time cliff rather than a
+wrong image.
+
+`EffectSystem` resolves a key to an `Effect`, asking each `IEffectProvider` in turn and remembering
+the answer. That interface is the seam that makes **"zero runtime shader compilation" structural
+rather than aspirational**: a shipping build supplies a provider backed by the baked bundle and never
+references the compiler, so it *cannot* compile a shader — not because a flag says so, but because
+the code was never linked in. It is also what makes the remote compiler a provider rather than a
+special case.
+
+A key nothing can supply is recorded rather than hidden, so doc 06's "no runtime compilation in
+shipping" can be a **test**: run a playthrough against the bundle alone and assert the miss list is
+empty.
+
 ## What is not here yet
 
-`ParameterCollection`, the effect system and the three-tier bytecode cache. They are the rest of
-Phase 5's `Vixen.Shaders` bullet in [docs/plan/14](../../docs/plan/14-roadmap.md) and they need a
-consumer — `Vixen.Rendering` — to be designed against. Keys and writers had one already: the
-generator.
+The on-disk bytecode cache and the build-time permutation pre-generator — both are `IEffectProvider`
+implementations, and both need the content build. `Effect` carries bytecode and layout rather than a
+pipeline, because a pipeline also depends on the vertex layout, the render pass and the blend state:
+one effect backs many pipelines, and keying pipelines by effect alone is a cache that returns an
+object drawn with the wrong blend mode.

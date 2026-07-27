@@ -173,6 +173,61 @@ public sealed class RenderSystem : IDisposable {
         return nodes.TryGetValue((view.Index, stage.Index), out var list) ? list : [];
     }
 
+    /// <summary>
+    ///     Records one view's stage into a command list, handing each feature its own nodes in runs.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         One (view, stage) at a time, because that is the unit a caller can put on a thread of
+    ///         its own: each gets a <see cref="RenderDrawContext" /> with its own command list and
+    ///         they share nothing that is written. The render graph decides which of those recordings
+    ///         become one pass; this only produces the commands.
+    ///     </para>
+    ///     <para>
+    ///         <strong>Features get contiguous runs, not individual nodes.</strong> The list is
+    ///         already sorted by a key whose high bits are the sort group, so nodes sharing a
+    ///         pipeline are adjacent — a run lets a feature bind once and draw many. Splitting at
+    ///         every feature change rather than grouping by feature first is deliberate: the sort
+    ///         order is what the stage promised, and reordering it here to gather a feature's work
+    ///         would undo the depth ordering a transparent stage depends on.
+    ///     </para>
+    /// </remarks>
+    public void Record(RenderView view, RenderStage stage, RenderDrawContext context) {
+        ArgumentNullException.ThrowIfNull(view);
+        ArgumentNullException.ThrowIfNull(stage);
+        ArgumentNullException.ThrowIfNull(context);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (!nodes.TryGetValue((view.Index, stage.Index), out var list) || list.Count == 0) {
+            return;
+        }
+
+        context.View = view;
+        context.Stage = stage;
+
+        var span = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list);
+        var objects = Objects.All;
+        var start = 0;
+
+        while (start < span.Length) {
+            var featureIndex = objects[span[start].Object.Index].FeatureIndex;
+
+            var end = start + 1;
+            while (end < span.Length && objects[span[end].Object.Index].FeatureIndex == featureIndex) {
+                end++;
+            }
+
+            if (featureIndex >= 0 && featureIndex < features.Count) {
+                features[featureIndex].Draw(this, context, span[start..end]);
+            }
+
+            start = end;
+        }
+
+        context.View = null;
+        context.Stage = null;
+    }
+
     void Collect(RenderView view, RenderStage stage) {
         if (!nodes.TryGetValue((view.Index, stage.Index), out var list)) {
             // Kept across frames: the lists are the same size every frame in a steady scene, so

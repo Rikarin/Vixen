@@ -283,7 +283,7 @@ material/shader system usable at all.
 
 - A material + a render stage + a set of feature flags (skinning on/off, instancing, shadow-receiving,
   light count bucket, fog, MSAA sample count, colour space) defines a **permutation key**.
-- `EffectSystem` maps key → compiled `Effect` (pipeline + reflection), with three tiers of cache:
+- `EffectSystem` maps key → compiled `Effect`, with three tiers of cache:
   1. In-memory dictionary (frame-to-frame).
   2. On-disk bytecode cache keyed by `(RavenSourceHash, PermutationKey, Backend)`.
   3. Build-time pre-generation: the content build enumerates permutations reachable from the project's
@@ -295,6 +295,31 @@ material/shader system usable at all.
   Stride's `EffectCompilerServer` pattern): the device requests a permutation over TCP, the dev
   machine compiles and returns it, the device caches it. This is what makes on-device shader iteration
   tolerable and it is worth building early.
+
+### ✅ Status: the key, the cache and the seam are built
+
+`EffectKey`, `Effect` and `EffectSystem` are in `Core/Vixen.Shaders`, with `ParameterCollection`
+beside them. Three things the implementation settled:
+
+- **`IEffectProvider` is what makes "zero runtime shader compilation" structural.** A tier is a
+  provider, asked in order; a shipping build supplies only the one backed by the baked bundle and
+  never references the compiler, so it *cannot* compile a shader — not because a flag forbids it, but
+  because the code was never linked in. The remote compiler becomes a provider rather than a special
+  case, and so does the on-disk cache.
+- **A miss is recorded rather than hidden.** `EffectSystem.Misses` exists so the "no runtime
+  compilation in shipping" claim in the table below can be a *test*: run a playthrough against the
+  bundle alone and assert the list is empty. Half of that assertion was already specified here; this
+  is the other half.
+- **`Effect` holds bytecode and layout, not a pipeline.** A pipeline also depends on the vertex
+  layout, the render pass and the blend and depth state, none of which a shader knows — so one effect
+  backs many pipelines, and keying pipelines by effect alone is a cache that hands back an object
+  drawn with the wrong blend mode.
+
+`ParameterCollection` keeps values and permutations apart rather than distinguishing by key type at
+every use, which is what makes "what is this frame's effect key" a field rather than a filter. Only
+the permutations Raven reports as `UsedPermutationKeys` reach the key — the difference between a
+tractable cache and 2ⁿ entries where a handful are distinct — and the values are sorted by name, so
+the same settings in a different order are the same key rather than a cache that never hits.
 
 ## Testing
 

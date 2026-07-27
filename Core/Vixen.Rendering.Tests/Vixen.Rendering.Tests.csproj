@@ -21,5 +21,13 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Rendering\Vixen.Rendering.csproj" />
+
+        <!--
+          The Null backend, for the recording tests. It is what the repository built for exactly
+          this: a real ICommandList implementation that remembers what it was told, so a test can
+          assert on the draw calls a feature produced rather than on a stub of its own.
+          Vixen.Graphics.RenderGraph.Tests does the same.
+        -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
     </ItemGroup>
 </Project>
