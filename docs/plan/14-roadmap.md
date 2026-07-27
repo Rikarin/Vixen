@@ -137,27 +137,26 @@ plumbing that everything else stands on.
   corrected. **Owed, and visibly missing rather than approximated:** file pickers (SDL 2 has none),
   clipboard images and custom formats, thread affinity, thermal state — all four belong to
   `Vixen.Platform.Windows`/`.Linux`/`.MacOS`, which [02](02-repository-layout.md) already reserves.
-- 🟡 `Vixen.Platform.Native` — **the runtime half is built; acquisition is not.** RID chain computed
+- ✅ `Vixen.Platform.Native` — **both halves are built.** RID chain computed
   rather than looked up (a NativeAOT binary has no `runtimeconfig.json` to read one from), the
   `runtimes/<rid>/native/` layout searched before the operating system is asked, the versioned soname
   tried as well as the development symlink, and a `DllImportResolver` that answers before the default
   rules. 12 tests, all of them pure functions from a name to a list of candidates — a rule about
   Windows that can only be checked on Windows is a rule that is checked once a release.
 
-  **What it fixes and what it does not, verified rather than assumed.** A registered resolver means
-  the binding library's probing is never reached at run time, which is the functional half of R11's
-  desktop mitigation. It does **not** silence the six IL3000/IL3002 diagnostics: rooting
-  `Vixen.Graphics.Vulkan` with this in place still reports six, because ILC's analysis is static and
-  code unreachable *in practice* is still reachable *in the graph*. Suppressing them is a separate
-  decision that only becomes defensible once this is in force, and is deliberately not taken in the
-  same commit as the thing that would justify it.
+  **The resolver is in force**, wired into `Vixen.Graphics.Vulkan`, which no longer calls
+  `Vk.GetApi()` at all — and that turned out to be the whole of R11's desktop half. The six
+  IL3000/IL3002 came from the default context `GetApi` builds, so removing the call removed them from
+  the graph rather than merely from the execution path: rooting the backend now reports **zero**, and
+  **no suppression was taken**. R11 predicted a suppression would be needed regardless and is
+  corrected; the prediction was checked by putting the call back and watching all six return.
 
-  **Owed:** the acquisition half — pinned versions, checksummed URLs, SHA-256 verification, a licence
-  manifest, restored by a Nuke target and never committed ([10](10-platforms.md) § Native binaries,
-  R10) — which belongs in the `build/Build.Native.cs` that [02](02-repository-layout.md) already
-  reserves. And nothing registers the resolver yet: `Vixen.Graphics.Vulkan` and
-  `Vixen.Platform.Desktop` keep their own loading, which works because neither is published ahead of
-  time today. Wiring them up belongs with the acquisition that puts the binaries where this looks.
+  **Acquisition, the half that was owed, is built.** `build/native-dependencies.json` pins each
+  dependency and `nuke RestoreNativeDeps` fetches it: SHA-256 verified, only the named entries
+  extracted, licence text copied out of the archive it was verified from, and nothing committed
+  ([10](10-platforms.md) § Native binaries, R10). Its four failure modes are tested rather than
+  described — see R10. **Owed:** it holds one dependency, MoltenVK for `ios-arm64`. The other five in
+  R10's list are entries to add, and adding one is what will say whether the schema generalises.
 - Windows/Linux/macOS specialisations.
 - ✅ `Vixen.App` host (`VixenApp.Run<TGame>()`) and the build-variant matrix — the boot sequence, the
   `Game` hooks, the frame loop, the `--vixen-*` argument contract, the headless fallback and frame
@@ -607,24 +606,76 @@ the codebase is large enough for it to be expensive to fix.
   build` for every developer and CI leg that is not a Mac with Xcode. The cost is that `CheckFormat`
   does not see its two files.
 
-  ⚠ **Adding `Vixen.Graphics.Vulkan` breaks it, in two different ways that were initially conflated —
-  see R11, which is corrected.** On the desktop, Silk.NET's `DefaultPathResolver` cannot work under
-  AOT, and the fix is `Vixen.Platform.Native`'s `DllImportResolver`. On iOS the resolver is beside the
-  point: everything links statically, so `DllImport`s become symbol references and `clang++` fails
-  with twelve undefined `vk*` symbols because **MoltenVK is not being linked in**. A resolver cannot
-  help there — there is no resolution step to intercept. The first write-up of this named one cause
-  and one fix; designing against it would have produced something that worked on a laptop and failed
-  on the device, which is the exact failure this phase exists to prevent.
+  ✅ **`Vixen.Graphics.Vulkan` is now in both probes' rooted sets, and both gates are green.** It used
+  to break them in two different ways — see R11, which records both and the traps in each. In short:
+  the desktop's six IL3000/IL3002 came from `Vk.GetApi()` and went away when the call did, with no
+  suppression; and on iOS the same change made the link error vanish *without fixing anything*, which
+  had to be caught by asking `nm` whether MoltenVK was actually in the binary rather than by trusting
+  the green tick. MoltenVK is now linked, force-loaded and — separately, and just as necessary — has
+  its 431 entry points exported, read out of the archive at build time by
+  `Vixen.Platform.Native/build/MoltenVK.targets`.
+
+  **Not the same as working on a phone**, and worth not overstating: what is proven is that the
+  symbols are defined and exported in the shipped 11.5 MB binary and that the runtime path asks for
+  them through `NativeLibrary.GetMainProgramHandle()`. Running it needs `Vixen.Platform.iOS`.
 
   **Owed:** each gate publishes for one RID, so covering three desktop operating systems means one CI
   leg each; Android is not gated yet, and should be gated on its *default* runtime rather than on
   NativeAOT, which `warning XA1040` calls experimental and not suitable for production — the plan only
   ever committed to NativeAOT for iOS.
-- **`Vixen.Platform.Android`** + Vulkan/GLES on device; lifecycle, `AAssetManager`, touch input.
-- **`Vixen.Platform.iOS`** + MoltenVK static; **NativeAOT publish in CI on every PR from here on**.
+- 🟡 **`Vixen.Platform.iOS`** — built, and not yet run. UIKit behind `IPlatform`: a `CAMetalLayer`-backed
+  view for MoltenVK to present to (a `UIView` cannot be given one after the fact, which is why the view
+  is a type rather than a configured `UIView`), the lifecycle translated into `MobileLifecycle`, and a
+  `CADisplayLink` where a desktop has a `while` loop — `UIApplicationMain` never returns, so there is
+  nowhere to put one, which is the first time doc 17's "every step of the boot path is public" pays
+  for itself. Multi-touch, the soft keyboard with its rectangle read from the system notification
+  rather than guessed, `UIPasteboard` text, `UIAlertController`, battery and thermal state.
+
+  **Refused rather than approximated**, each with the reason in the README: file dialogs (iOS has a
+  document picker returning a security-scoped URL, not a path), clipboard images, gamepads, and
+  hardware keyboard and trackpad.
+- 🟡 **`Vixen.Platform.Android`** — built, and not yet run. A `SurfaceView` giving Vulkan an
+  `ANativeWindow` through `ANativeWindow_fromSurface`, the activity lifecycle, the `Choreographer`
+  driving frames, multi-touch, `AAssetManager` behind an `IFileProvider`, clipboard, soft keyboard,
+  battery and thermal.
+
+  **The ordering on the way down is the design**, and doc 10 said why in advance: the surface is
+  destroyed under a running renderer, and `surfaceDestroyed` may not return until nothing is using it.
+  `OnPause` removes the frame callback first, `OnStop` raises `Suspending` while the window is still
+  valid, and only then does the surface go — so no handshake is needed and no frame is ever in flight
+  across the teardown. `IWindow.Surface` reports `CanPresent` false in between, which is a state an
+  application spends real time in rather than an error.
+
+  **Owed:** the GLES fallback and the device-capability deny-list doc 10 asks for, key translation
+  (`Key` is a physical position by contract and Android's keycodes are a mix of positions and labels,
+  so the table is the easy part), safe-area insets, and sensors.
+
+  > **Neither can be in `Vixen.slnx`, and that costs something worth naming.** A `net10.0-ios` or
+  > `net10.0-android` project cannot be *evaluated* without its workload — not built, evaluated — so
+  > either one in the solution breaks `dotnet build` outright for a developer or a CI leg without it,
+  > and iOS additionally needs macOS and Xcode. `nuke CompileMobile` builds them instead, skipping the
+  > iOS half off macOS rather than failing. The cost is that neither is seen by `Test`, `CheckFormat`,
+  > `CheckArchitecture` or `Pack`.
+  >
+  > **Which is why the testable half is not in them.** The finger bookkeeping (`TouchTracker`) and the
+  > lifecycle state machine (`MobileLifecycle`) are in `Vixen.Platform`, where the solution does see
+  > them, with 19 tests. That is not a workaround: both are genuinely shared — UIKit identifies a touch
+  > by an object address and Android by a renumbering pointer index, and neither is a number an
+  > application should see — and the transitions worth testing are the ones nobody exercises by hand,
+  > like a repeated suspend that must not raise twice or a memory warning at an unchanged level that
+  > must.
+- **NativeAOT publish in CI on every PR from here on** — the gate exists (`nuke CheckAotIos`); the CI
+  leg does not.
 - `Samples/07-AddressablesRemote`.
 
-**Exit:** `Samples/01` runs on a physical Android device and a physical iPhone. iOS NativeAOT publish
+**Exit:** `Samples/01` runs on a physical Android device and a physical iPhone. 🟡 **It runs on the
+iOS Simulator and the Android emulator** — same game class, one head each, and on iOS a screenshot of
+the triangle. Physical devices are what is left: an iPhone needs a provisioning profile, which is an
+Apple account rather than a build setting, and no Android device is attached.
+
+Running it is what found the bug the AOT gate could not — a delegate-to-function-pointer thunk that
+iOS will not JIT; see R11. That is the phase's whole thesis arriving on schedule, just later in the
+phase than the gate suggested. iOS NativeAOT publish
 with **zero** trim/AOT warnings. Content build determinism gate green across three OSes. Remote content
 update fetches only changed bundles (asserted by byte count). Incremental import of one texture < 1 s
 in a 10 k-asset fixture project.

@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0-android</TargetFramework>
+        <RootNamespace>Vixen.Platform.Android</RootNamespace>
+        <AssemblyName>Vixen.Platform.Android</AssemblyName>
+
+        <!--
+            API 26, per doc 10: the level at which Vulkan 1.0 is guaranteed. 1.1 is present on the
+            overwhelming majority of API 28+ devices, which is what the backend actually wants, but
+            the floor is where the GLES fallback has to remain honest.
+        -->
+        <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+
+        <!--
+            For ANativeWindow_fromSurface: [LibraryImport] generates unsafe marshalling code even when
+            the signature is nothing but pointers. It is the only native call in this assembly.
+        -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+        <Description>
+            Android through the activity lifecycle: a SurfaceView giving Vulkan an ANativeWindow, the
+            Choreographer driving the frame loop, assets inside the APK reached through the virtual
+            file system, and multi-touch.
+        </Description>
+        <PackageTags>android;vulkan;platform;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.IO\Vixen.Core.IO.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Platform\Vixen.Platform.csproj" />
+    </ItemGroup>
+
+</Project>

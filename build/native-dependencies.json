@@ -1,0 +1,77 @@
+// Vixen — the pinned native dependencies, and where they come from.
+//
+// Spec: docs/plan/10-platforms.md § Native binaries, and R10 in docs/plan/15.
+//
+// Every native binary the engine ships is listed here and nowhere else. None of them is committed:
+// `nuke RestoreNativeDeps` downloads each archive, refuses it unless its SHA-256 matches the value
+// below, extracts only the named files, and writes a licence manifest from the licence text inside
+// the archive rather than from a URL that can change under us. A dependency update is therefore an
+// edit to this file and a review of one diff.
+//
+// JSON with comments, deliberately: a pinned version is a decision, and a decision that cannot carry
+// its reason beside it gets changed by someone who does not know what it was for. The reader is
+// configured to skip comments and allow trailing commas.
+//
+// `sha256` is over the archive exactly as downloaded. To pin a new version: change the URL, run the
+// target, and it will fail with the hash it actually got — put that in. Do not copy a hash from a
+// release page you have not fetched.
+{
+  "dependencies": [
+    {
+      "id": "moltenvk",
+      "name": "MoltenVK",
+      "version": "1.4.1",
+      "homepage": "https://github.com/KhronosGroup/MoltenVK",
+      "licence": "Apache-2.0",
+      "licenceFile": "MoltenVK/LICENSE",
+
+      // Why 1.4.1 and not 1.4.2, which exists: 1.4.2 was published three days before this was
+      // pinned, and the whole value of pinning is that moving is a decision somebody makes rather
+      // than a thing that happens. 1.4.1 has been out since 2025-11-30 and postdates Xcode 26.
+      "notes": "Vulkan over Metal. Only the static library is used, and only for iOS — see the artifact note.",
+
+      "artifacts": [
+        {
+          // iOS links everything statically, so Silk.NET's DllImports become direct symbol
+          // references that something has to satisfy at link time. This is that something: 431
+          // exported vk* symbols, including the twelve the link was failing on. See R11.
+          //
+          // Device only. The tar ships no simulator slice, and the gate targets ios-arm64, which is
+          // the RID doc 10 makes NativeAOT-only and therefore the one the exit criterion is about.
+          "rid": "ios-arm64",
+          "url": "https://github.com/KhronosGroup/MoltenVK/releases/download/v1.4.1/MoltenVK-ios.tar",
+          "sha256": "54336b90212c390ed5935c96460aed3bf651ad7d3c0f0e956586ce18e9c0b701",
+          "size": 31771648,
+          "files": [
+            {
+              "from": "MoltenVK/MoltenVK/static/MoltenVK.xcframework/ios-arm64/libMoltenVK.a",
+              "to": "libMoltenVK.a"
+            }
+          ]
+        },
+        {
+          // The simulator, which doc 10's CI matrix wants for a per-PR smoke test and which is the
+          // only way to run an iOS build without a provisioning profile and a physical device.
+          //
+          // `optional`, and that is about size rather than importance: the simulator slice is only
+          // published in MoltenVK-all.tar, which is 173 MB against the device tar's 31 MB. Restoring
+          // it on every clone to serve a target most builds do not use is the wrong default, so it
+          // is fetched by `nuke RestoreNativeDeps --all-native-deps` and by the targets that need it.
+          "rid": "iossimulator-arm64",
+          "optional": true,
+          "url": "https://github.com/KhronosGroup/MoltenVK/releases/download/v1.4.1/MoltenVK-all.tar",
+          "sha256": "2c498bf8c98b88ba1e84c1f153403d4c1a8490c122d9e2a3df238b25d4e10557",
+          "size": 173033984,
+          "files": [
+            {
+              // Fat: arm64 for an Apple-silicon Mac and x86_64 for an Intel one, in one archive
+              // member. The linker takes the slice it needs.
+              "from": "MoltenVK/MoltenVK/static/MoltenVK.xcframework/ios-arm64_x86_64-simulator/libMoltenVK.a",
+              "to": "libMoltenVK.a"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

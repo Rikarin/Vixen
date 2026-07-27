@@ -6,6 +6,7 @@ using Nuke.Common;
 using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
 using Nuke.Common.Tools.DotNet;
+using Serilog;
 using static Nuke.Common.Tools.DotNet.DotNetTasks;
 
 /// <summary>
@@ -206,11 +207,73 @@ partial class Build : NukeBuild {
     Target CheckAotIos => definition => definition
         .Description("Fails if the runtime assemblies cannot be published for iOS ahead of time")
         .Requires(() => RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+
+        // The probe links MoltenVK, which is pinned and checksummed rather than committed. Depending
+        // on the restore rather than assuming it is what lets a fresh clone run this target.
+        .DependsOn(RestoreNativeDeps)
         .Executes(() =>
             DotNetPublish(settings => settings
                 .SetProject(RootDirectory / "Tools" / "Vixen.AotProbe.iOS" / "Vixen.AotProbe.iOS.csproj")
                 .SetConfiguration(Configuration.Release)
             )
+        );
+
+    /// <summary>
+    ///     Builds the two mobile platform assemblies, which the solution cannot contain.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>Vixen.Platform.iOS</c> and <c>Vixen.Platform.Android</c> target
+    ///         <c>net10.0-ios</c> and <c>net10.0-android</c>, and a project with either target cannot
+    ///         be <em>evaluated</em> without its workload — not built, evaluated, so its presence in
+    ///         <c>Vixen.slnx</c> would break <c>dotnet build</c> outright for a developer or a CI leg
+    ///         that lacks it. iOS additionally requires macOS and Xcode. So they are outside the
+    ///         solution, exactly as <c>Tools/Vixen.AotProbe.iOS</c> is and for the same reason.
+    ///     </para>
+    ///     <para>
+    ///         <b>The cost is real and is worth stating.</b> Neither assembly is seen by
+    ///         <see cref="Test" />, <see cref="CheckFormat" />, <see cref="CheckArchitecture" /> or
+    ///         <see cref="Pack" />. That is why the parts of them that can be tested off a device —
+    ///         the touch bookkeeping and the lifecycle state machine — live in
+    ///         <c>Vixen.Platform</c> instead, where the solution does see them.
+    ///     </para>
+    ///     <para>
+    ///         Android builds anywhere the workload is installed; the iOS half is skipped elsewhere
+    ///         rather than failing, because a Linux CI leg not building an iOS assembly is the
+    ///         expected outcome and not a broken build.
+    ///     </para>
+    /// </remarks>
+    Target CompileMobile => definition => definition
+        .Description("Builds the iOS and Android platform assemblies, which cannot live in the solution")
+        .Executes(() => {
+                DotNetBuild(settings => settings
+                    .SetProjectFile(RootDirectory / "Platform" / "Vixen.Platform.Android" / "Vixen.Platform.Android.csproj")
+                    .SetConfiguration(Configuration)
+                );
+
+                DotNetBuild(settings => settings
+                    .SetProjectFile(RootDirectory / "Samples" / "01-HelloTriangle.Android" / "HelloTriangle.Android.csproj")
+                    .SetConfiguration(Configuration)
+                );
+
+                if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
+                    Log.Information("Skipping Vixen.Platform.iOS: it needs macOS and Xcode.");
+                    return;
+                }
+
+                DotNetBuild(settings => settings
+                    .SetProjectFile(RootDirectory / "Platform" / "Vixen.Platform.iOS" / "Vixen.Platform.iOS.csproj")
+                    .SetConfiguration(Configuration)
+                );
+
+                // The sample heads too, because a platform assembly that compiles and an application
+                // that runs are different claims — and the second is the one the phase's exit
+                // criterion makes.
+                DotNetBuild(settings => settings
+                    .SetProjectFile(RootDirectory / "Samples" / "01-HelloTriangle.iOS" / "HelloTriangle.iOS.csproj")
+                    .SetConfiguration(Configuration)
+                );
+            }
         );
 
     Target Pack => definition => definition

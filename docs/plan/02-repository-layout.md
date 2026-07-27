@@ -187,7 +187,9 @@ Platform/
 ├── Vixen.Platform.Linux/               # Wayland/X11 quirks, XDG paths, portal dialogs
 ├── Vixen.Platform.MacOS/               # net10.0 + ObjC interop: NSWindow chrome, sandbox paths, MoltenVK load
 ├── Vixen.Platform.Android/             # net10.0-android: Activity lifecycle, JNI, AAssetManager, IME
+│                                       #   NOT in Vixen.slnx — needs the android workload to evaluate
 ├── Vixen.Platform.iOS/                 # net10.0-ios: UIViewController, CAMetalLayer for MoltenVK, IME
+│                                       #   NOT in Vixen.slnx — needs macOS, Xcode and the ios workload
 ├── Vixen.Platform.Web/                 # net10.0 + Sdk.WebAssembly: JSImport/JSExport, canvas, WebGL2 surface
 │
 ├── Vixen.Graphics.Vulkan/              # primary

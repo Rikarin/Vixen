@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>Hello Triangle</string>
+    <key>CFBundleDisplayName</key>
+    <string>Hello Triangle</string>
+    <key>CFBundleIdentifier</key>
+    <string>dev.vixen.samples.hellotriangle</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>MinimumOSVersion</key>
+    <string>15.0</string>
+
+    <!--
+      Required. Without a launch screen iOS runs the application in a compatibility box sized for an
+      older device: a black letterbox, a wrong UIScreen.Bounds, and a swapchain built for a resolution
+      the display does not have. An empty storyboard-less declaration is the modern form and is enough
+      to opt out of it.
+    -->
+    <key>UILaunchScreen</key>
+    <dict/>
+
+    <!--
+      Not UIRequiredDeviceCapabilities=metal. That key would be right for a shipping game and is wrong
+      here: the simulator does not advertise it, and this sample is the thing that runs there.
+    -->
+    <key>UIRequiredDeviceCapabilities</key>
+    <array>
+        <string>arm64</string>
+    </array>
+
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+
+    <!-- The view controller hides it; declaring it here as well stops the bar appearing during
+         launch, before any controller exists. -->
+    <key>UIStatusBarHidden</key>
+    <true/>
+    <key>UIViewControllerBasedStatusBarAppearance</key>
+    <false/>
+</dict>
+</plist>

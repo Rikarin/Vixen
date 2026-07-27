@@ -23,6 +23,17 @@ namespace Vixen.Platform.Headless;
 ///         the window manager may refuse, which is why code that must know listens for the event on
 ///         both.
 ///     </para>
+///     <para>
+///         <b>Where it is not lenient, and why that matters.</b> Every member but
+///         <see cref="IsClosed" /> throws once the window is closed, exactly as
+///         <see cref="IWindow" /> says and exactly as the desktop window does.
+///         <see cref="IsVisible" />, <see cref="IsFocused" /> and <see cref="IsMinimised" /> used to
+///         answer <see langword="false" /> instead. That looked harmless — a closed window is
+///         plainly not focused — but this is the stand-in every test uses, so being kinder than the
+///         real thing means the suite proves a property the shipped platforms do not have. It cost
+///         a crash on the way out of the Hello Triangle sample, which the suite reproduced the
+///         moment this was tightened and could not have caught before.
+///     </para>
 /// </remarks>
 public sealed class HeadlessWindow : IWindow {
     readonly PlatformEventBuffer events;
@@ -33,6 +44,9 @@ public sealed class HeadlessWindow : IWindow {
     float dpiScale;
     string title;
     WindowMode mode;
+    bool visible;
+    bool focused;
+    bool minimised;
 
     internal HeadlessWindow(uint id, in WindowOptions options, PlatformEventBuffer events) {
         Id = id;
@@ -44,7 +58,7 @@ public sealed class HeadlessWindow : IWindow {
         mode = options.Mode;
         dpiScale = 1f;
         IsResizable = options.IsResizable;
-        IsVisible = options.IsVisible;
+        visible = options.IsVisible;
         surface = new(this);
     }
 
@@ -131,13 +145,35 @@ public sealed class HeadlessWindow : IWindow {
     public bool IsResizable { get; set; }
 
     /// <inheritdoc />
-    public bool IsVisible { get; private set; }
+    /// <remarks>
+    ///     Throws once the window is closed, like every other member and unlike the auto-property
+    ///     this used to be. See the type's remarks: reporting <see langword="false" /> instead was a
+    ///     leniency no real platform had, and it hid a live crash from the entire test suite.
+    /// </remarks>
+    public bool IsVisible {
+        get {
+            ThrowIfClosed();
+            return visible;
+        }
+    }
 
     /// <inheritdoc />
-    public bool IsFocused { get; private set; }
+    /// <remarks>Throws once the window is closed. See <see cref="IsVisible" />.</remarks>
+    public bool IsFocused {
+        get {
+            ThrowIfClosed();
+            return focused;
+        }
+    }
 
     /// <inheritdoc />
-    public bool IsMinimised { get; private set; }
+    /// <remarks>Throws once the window is closed. See <see cref="IsVisible" />.</remarks>
+    public bool IsMinimised {
+        get {
+            ThrowIfClosed();
+            return minimised;
+        }
+    }
 
     /// <inheritdoc />
     public bool IsClosed { get; private set; }
@@ -181,11 +217,11 @@ public sealed class HeadlessWindow : IWindow {
     public void Show() {
         ThrowIfClosed();
 
-        if (IsVisible) {
+        if (visible) {
             return;
         }
 
-        IsVisible = true;
+        visible = true;
         events.Post(PlatformEvent.Window(PlatformEventKind.WindowShown, Id, Now));
     }
 
@@ -193,11 +229,11 @@ public sealed class HeadlessWindow : IWindow {
     public void Hide() {
         ThrowIfClosed();
 
-        if (!IsVisible) {
+        if (!visible) {
             return;
         }
 
-        IsVisible = false;
+        visible = false;
         events.Post(PlatformEvent.Window(PlatformEventKind.WindowHidden, Id, Now));
     }
 
@@ -243,11 +279,11 @@ public sealed class HeadlessWindow : IWindow {
     public void SetFocused(bool focused) {
         ThrowIfClosed();
 
-        if (focused == IsFocused) {
+        if (focused == this.focused) {
             return;
         }
 
-        IsFocused = focused;
+        this.focused = focused;
 
         events.Post(
             PlatformEvent.Window(
@@ -263,11 +299,11 @@ public sealed class HeadlessWindow : IWindow {
     public void SetMinimised(bool minimised) {
         ThrowIfClosed();
 
-        if (minimised == IsMinimised) {
+        if (minimised == this.minimised) {
             return;
         }
 
-        IsMinimised = minimised;
+        this.minimised = minimised;
 
         events.Post(
             PlatformEvent.Window(
@@ -315,8 +351,6 @@ public sealed class HeadlessWindow : IWindow {
         }
 
         IsClosed = true;
-        IsVisible = false;
-        IsFocused = false;
     }
 
     void ThrowIfClosed() =>

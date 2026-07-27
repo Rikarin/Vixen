@@ -240,10 +240,22 @@ stated so nobody builds lockstep netcode on a false assumption.
 MoltenVK, Jolt, HarfBuzz, SPIRV-Cross, astcenc, Recast — six native dependencies × ten RIDs, each with
 its own release cadence, licence, and build requirements.
 
-**Mitigation:** `Vixen.Platform.Native` owns all of it: pinned versions, checksummed download URLs,
-SHA-256 verification, a generated third-party licence manifest, and one Nuke target
-(`RestoreNativeDeps`). Binaries are never committed. A dependency update is a single reviewed PR touching
-one manifest.
+**Mitigation — ✅ built.** `build/native-dependencies.json` is the manifest and `nuke RestoreNativeDeps`
+is the target: pinned versions, checksummed download URLs, SHA-256 verification, and a third-party
+licence manifest generated from the licence text *inside the verified archive* rather than from a URL
+that can change. Binaries are never committed — they land under `artifacts/`, which git already
+ignores, so that is a property of the layout rather than a rule to remember. A dependency update is an
+edit to one file.
+
+Four behaviours were checked rather than assumed: a second run uses the cache, a tampered cache entry
+is re-fetched rather than trusted, a wrong pin is refused with expected-and-actual and leaves no
+partial file behind, and an entry path that has drifted from the release's layout fails the target
+instead of silently extracting nothing.
+
+**One dependency is in it so far** — MoltenVK for `ios-arm64`, which is what R11 needed. Jolt,
+HarfBuzz, SPIRV-Cross, astcenc and Recast are entries to add, and adding one is the exercise that will
+say whether the schema generalises; the `.zip` and `.tar.gz` paths exist and are so far untested by a
+real dependency.
 
 ### R11 — Vulkan through Silk.NET does not survive ahead-of-time compilation *(likelihood: certain · impact: high)* — **found, not predicted**
 
@@ -269,15 +281,22 @@ IL3002  Microsoft.Extensions.DependencyModel…      'DependencyContext.LoadDefa
 
 Silk.NET finds a native library by asking where its managed assembly is on disk and by reading the
 dependency manifest. Under NativeAOT there is neither. Not pedantic warnings — the loader describing
-its own failure mode. **Mitigation, now half-built:** `Vixen.Platform.Native` maps a RID to a binary
-and registers a `DllImportResolver`, so the engine resolves its own natives and Silk's probing is
-never reached at run time.
+its own failure mode.
 
-⚠ **That fixes the behaviour and not the diagnostics, which was verified rather than assumed.**
-Rooting `Vixen.Graphics.Vulkan` with the resolver in place still reports the same six: ILC's analysis
-is static, so code unreachable *in practice* is still reachable *in the graph*. Clearing the gate
-therefore needs a deliberate suppression on top — defensible only once the resolver is actually in
-force and the binaries are actually shipped, which is why it has not been taken yet.
+✅ **Resolved, and by removing the call rather than by suppressing the warning.** All six came from
+`Vk.GetApi()`, which builds Silk.NET's default context and drags `DefaultPathResolver` in with it.
+`VulkanLoader` no longer calls it: it resolves the library itself through `Vixen.Platform.Native` and
+constructs `Vk` over a `LamdaNativeContext`, so every entry point is a function pointer it looked up.
+Rooting `Vixen.Graphics.Vulkan` in `nuke CheckAot` now reports **zero**.
+
+⚠ **This paragraph used to predict the opposite, and the prediction was wrong.** It said a suppression
+would be needed regardless, on the correct general principle that ILC's analysis is static and code
+unreachable *in practice* stays reachable *in the graph*. That holds only while something still calls
+the code. Nothing does now, so `DefaultPathResolver` left the graph as well. Measured both ways:
+putting `Vk.GetApi()` back brings all six straight back, which is what makes this a cause and not a
+coincidence. **No suppression was taken, and none is needed** — worth keeping visible, because a
+justified suppression and a genuinely unreachable path look identical in a green build and are not the
+same thing at all.
 
 **On iOS, the loader is beside the point and the link fails instead.** The same six appear (as
 warnings or errors depending only on our own warnings-as-errors setting, not on the platform), but
@@ -296,14 +315,82 @@ This is the "MoltenVK static" line in [14](14-roadmap.md)'s Phase 3 turning out 
 rather than a note: a `DllImportResolver` cannot help here, because there is no resolution step to
 intercept.
 
+✅ **Resolved — and the interesting part is that fixing the desktop half made the link error vanish on
+its own, which was a trap.** Dropping `Vk.GetApi()` removed the last direct reference to `vk*`, so
+`clang++` stopped complaining and `nuke CheckAotIos` went green with MoltenVK nowhere in the binary.
+A gate that had been loudly right became quietly wrong: the link no longer failed, and an application
+calling Vulkan on a device would have failed at `vkCreateInstance` instead — a runtime failure on
+hardware in place of a build failure on a laptop, which is strictly worse. Caught by asking the
+binary (`nm` reported zero defined `vk` symbols) rather than by believing the green tick.
+
+The real fix is three things, and each of them fails silently on its own:
+
+1. **Link the archive.** `Vixen.Platform.Native/build/MoltenVK.targets` adds it as a `NativeReference`.
+   Not ILC's `LinkerArg` — the iOS workload assembles its own `clang++` command in `_LinkNativeExecutable`
+   and never reads `LinkerArg`, so flags put there are applied to nothing. Found by reading the actual
+   invocation.
+2. **Force it in.** A static archive contributes only what something references, and after (1) nothing
+   references `vk*`. Without `ForceLoad` the archive is accepted and nothing is taken out of it.
+3. **Export the symbols.** The iOS SDK links with `-exported_symbols_list` and then strips, so a
+   symbol that is present but not exported is invisible to `dlsym` — and `dlsym` on the main program
+   is the only way to reach a statically linked MoltenVK. All 431 entry points are read out of the
+   archive with `nm` at build time and declared as `ReferenceNativeSymbol`, rather than written down,
+   because a hand-kept list would be wrong on the first version bump and silent about it.
+
+`VulkanLoader` closes it at run time: where the platform links statically it asks
+`NativeLibrary.GetMainProgramHandle()` and probes for `vkGetInstanceProcAddr`, which is the one
+function every Vulkan implementation must export and therefore the one that proves both (2) and (3)
+happened.
+
+**Still unproven, and stated plainly:** none of this has run on a device. What is verified is that the
+symbols are defined and exported in the shipped binary (431 of them, and the binary grew from 7.9 MB
+to 11.5 MB), that the gate is not vacuous, and that the runtime path asks for them the only way it
+could. Whether MoltenVK then works on an iPhone is what `Vixen.Platform.iOS` and the phase's real exit
+criterion are for.
+
 **Why the distinction matters.** The first write-up of this risk named one cause and one fix. There are
 two causes and two fixes, and the iOS one — ship MoltenVK as a static library and give the linker its
 symbols — is a build-integration problem in `Vixen.Platform.iOS`, not a trimming problem. Designing
 `Vixen.Platform.Native` as though a resolver solved both would have produced something that worked on a
 laptop and failed on the device, which is the exact failure mode this phase exists to prevent.
 
-**Re-testing either is one edit:** add `Vixen.Graphics.Vulkan` back to the reference and root lists of
-`Tools/Vixen.AotProbe` (desktop) or `Tools/Vixen.AotProbe.iOS` (iOS).
+`Vixen.Graphics.Vulkan` is now in the reference and root lists of **both** probes, so neither half can
+regress without a gate going red.
+
+### ✅ It runs — and running found what compiling did not
+
+`Samples/01` draws its triangle on the **iOS Simulator** and on the **Android emulator**, through
+MoltenVK and through the device's own `libvulkan.so` respectively. On iOS that is a screenshot of the
+triangle; on Android it is a Vulkan device, a swapchain built from the `ANativeWindow`, and gralloc
+buffers imported by SurfaceFlinger at 1080×2400 RGBA8888 — the emulator's `screencap` does not capture
+a hardware-composed `SurfaceView`, so the picture itself is unconfirmed there.
+
+**The first run on iOS died, and `nuke CheckAotIos` had been green the whole time.**
+
+```
+ExecutionEngineException: Attempting to JIT compile method '(wrapper native-to-managed)
+  Vixen.Graphics.Vulkan.VulkanInstance:Report (…)' while running in aot-only mode
+```
+
+`VulkanInstance` handed the validation layers a callback as a **delegate**, and converting a delegate
+to a function pointer needs a native-to-managed thunk that .NET builds by emitting code at run time.
+iOS forbids that. The fix is `[UnmanagedCallersOnly]`, which makes the compiler emit a real entry
+point — and which removes the lifetime problem the `static readonly` delegate field existed to solve,
+because there is no longer an object to keep alive.
+
+⚠ **Why the gate missed it, which matters more than the bug.** ILC analyses the call graph, and
+nothing in the graph says `Marshal.GetFunctionPointerForDelegate` will need a thunk it cannot
+generate. The probe also never *executes* a static constructor. **A gate that compiles is not a gate
+that runs**, and this is the first hard evidence of the distance between them — an argument for the
+simulator and emulator legs doc 10's CI matrix already asks for, on every PR, rather than only a
+publish check.
+
+**The lasting lesson is not about Vulkan.** Both halves of this risk were, at one point, green for a
+reason that had nothing to do with being fixed: the desktop diagnostics would have been suppressed
+rather than removed, and the iOS link stopped failing because its references disappeared rather than
+because its dependency arrived. In both cases the check that settled it was asking the artefact —
+`nm` on the binary, and putting the offending call back to see the warnings return — rather than
+reading the build's summary line.
 
 ---
 

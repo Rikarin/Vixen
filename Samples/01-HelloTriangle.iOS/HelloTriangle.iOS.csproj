@@ -1,0 +1,70 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0-ios</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Vixen.Samples.HelloTriangle</RootNamespace>
+        <AssemblyName>HelloTriangle.iOS</AssemblyName>
+        <IsPackable>false</IsPackable>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+
+        <ApplicationId>dev.vixen.samples.hellotriangle</ApplicationId>
+        <ApplicationTitle>Hello Triangle</ApplicationTitle>
+        <ApplicationVersion>1</ApplicationVersion>
+        <ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
+        <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+
+        <!--
+            NativeAOT, because doc 10 makes iOS AOT-only and because this is the first application
+            that proves the gate was measuring something real: `nuke CheckAotIos` publishes a probe
+            with every assembly rooted, and this publishes a program somebody can install.
+        -->
+        <PublishAot Condition="'$(Configuration)' == 'Release'">true</PublishAot>
+
+        <!--
+            Signing is off for a device build and left alone for the Simulator, and the asymmetry is
+            not a preference. Installing on a device needs a provisioning profile, which is an Apple
+            account rather than a build setting, so a device build here stops at "it compiles and
+            links". The Simulator needs no profile — but on Apple silicon it does need an *ad-hoc*
+            signature, and turning signing off entirely gets the process killed at launch with
+            OS_REASON_CODESIGNING and no other explanation. The SDK signs it correctly, including the
+            nested runtime dylibs, when simply not told otherwise.
+        -->
+        <EnableCodeSigning Condition="!$(RuntimeIdentifier.StartsWith('iossimulator'))">false</EnableCodeSigning>
+        <CodesignKey Condition="!$(RuntimeIdentifier.StartsWith('iossimulator'))"></CodesignKey>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Tools\Vixen.App\Vixen.App.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.iOS\Vixen.Platform.iOS.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
+    </ItemGroup>
+
+    <!--
+      The game is linked, not referenced. It is a class in an executable rather than a library,
+      because making it a library for the sake of three heads would say that a game is normally a
+      library — and it is not; doc 17's whole model is that a game is an ordinary executable. Linking
+      the source is what a platform head has always done, and it keeps the desktop sample the thing
+      somebody reads first.
+    -->
+    <ItemGroup>
+        <Compile Include="..\01-HelloTriangle\TriangleGame.cs" Link="TriangleGame.cs" />
+        <Compile Include="..\01-HelloTriangle\SampleLog.cs" Link="SampleLog.cs" />
+        <Compile Include="..\01-HelloTriangle\ConsoleLog.cs" Link="ConsoleLog.cs" />
+        <EmbeddedResource Include="..\01-HelloTriangle\Shaders\*.spv" />
+    </ItemGroup>
+
+
+    <!--
+      Imported by the *application*, not by Vixen.Platform.iOS, and that is not a detail. MSBuild
+      imports are not transitive through a ProjectReference, and a library links nothing anyway —
+      linker flags belong to whoever runs the linker. Putting it in the platform assembly looked
+      right, built cleanly, and produced an app with no MoltenVK in it.
+
+      Last in the file, where RuntimeIdentifier and IntermediateOutputPath have been set.
+    -->
+    <Import Project="..\..\Platform\Vixen.Platform.Native\build\MoltenVK.targets" />
+
+</Project>

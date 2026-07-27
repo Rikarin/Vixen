@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0-ios</TargetFramework>
+        <RootNamespace>Vixen.Platform.Ios</RootNamespace>
+        <AssemblyName>Vixen.Platform.iOS</AssemblyName>
+
+        <!--
+            iOS 15, per doc 10. It is also MoltenVK's own floor, so lowering it would ship a Vulkan
+            backend to devices that cannot run one.
+        -->
+        <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+
+        <Description>
+            iOS through UIKit: a CAMetalLayer-backed view for MoltenVK to present to, the application
+            lifecycle as UIApplicationDelegate reports it, a CADisplayLink driving the frame loop, and
+            multi-touch.
+        </Description>
+        <PackageTags>ios;uikit;metal;moltenvk;platform;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!--
+            IsTrimmable is inherited from the Runtime profile and is the point on this platform: iOS
+            is NativeAOT-only, so anything here that defeats the trimmer defeats the whole target.
+        -->
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.IO\Vixen.Core.IO.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Platform\Vixen.Platform.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Platform.iOS.Tests" />
+    </ItemGroup>
+
+</Project>
