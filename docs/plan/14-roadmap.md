@@ -1248,19 +1248,42 @@ sub-piece has its own gate.
   decision — a run is shaped with the text around it, so its glyphs are not a function of the run
   alone, and a run-keyed cache would either be unsound or need the context in the key. Reuse between
   paragraphs sharing a word is given up on purpose.
-- ⚠ **MSDF has an unanswered question underneath it: HarfBuzzSharp exposes no glyph outlines.** The
-  assembly has `TryGetGlyphExtents`, which is a bounding box, and no draw, paint or outline surface
-  at all. Distance-field generation needs contours, so something else has to produce them.
+- ✅ **The glyph-outline question is answered, and the managed route stands** —
+  [spikes/text-glyph-outlines](spikes/text-glyph-outlines/RESULT.md), sequencing rule 3 for the
+  fifth time. MSDF had an unanswered question underneath it: HarfBuzzSharp exposes no outlines at
+  all — `TryGetGlyphExtents` is a bounding box and there is no draw, paint or outline surface — so
+  distance-field generation had nothing to generate from.
 
-  **Decided direction, to be spiked before the atlas is planned** (sequencing rule 3, as with ExCSS
-  and HarfBuzz): a **managed `glyf`/`CFF` outline parser**, fed by `Face.ReferenceTable`, which
-  HarfBuzzSharp *does* expose. The alternatives are FreeType — a second native dependency, and one
-  whose WebAssembly story would have to be re-run from scratch — or SkiaSharp, which is heavy and
-  duplicates HarfBuzz. The managed route adds no native dependency, keeps the WASM path exactly as
-  the HarfBuzz spike left it, and reuses the binary-format parsing this repository already does for
-  KTX2. What it costs is a real parser for two outline formats, which is why it is a spike and not
-  an assumption.
-- Owed: MSDF atlas with LRU eviction, font fallback, rich-text runs, variable-font axes,
+  A managed `glyf`/`CFF` parser over `Face.ReferenceTable` reads them, in ~600 lines for both
+  formats, with no new native dependency and the WebAssembly path exactly as the HarfBuzz spike left
+  it. **242 fonts, 259,298 glyphs, every font read without an exception: 99.999 % of `glyf` glyphs
+  and 99.777 % of `CFF` ones agree with HarfBuzz's own extents** — a separate implementation of the
+  same tables, which is the only oracle available at that scale.
+
+  ⚠ **HarfBuzz reports *positioned* extents and an outline is not positioned.** For `glyf` it shifts
+  the glyph so `xMin` lands on the left side bearing; where a font's stored `xMin` disagrees with its
+  own `lsb` — common, and universal in italics — the extents come back translated. That correction is
+  the difference between reading 95.3 % and 99.999 %, **and the atlas will need the same shift when
+  it places a glyph**, so it is a fact about the pipeline rather than about the test.
+
+  ⚠ **For `glyf`, HarfBuzz returns the box the font stores rather than one it computes**, so the
+  comparison checks point decoding and not curve evaluation — and where a font's stored box is wrong,
+  disagreeing is correct. All three remaining `glyf` misses are that, verified by hand: glyph 274 of
+  Arial, Arial Bold and Times New Roman claims an `xMax` its own two components do not reach.
+
+  Two bugs, and both are the kind that reads correctly on the page. `r.Position += r.U16()` skips
+  from where the *length* started, because a compound assignment reads its target first — 8.6 %
+  agreement before, 95.3 % after, one line. And a Type 2 width test inverted for stem operators,
+  which miscounts stems, so `hintmask` skips the wrong number of bytes and the rest of the charstring
+  is read as garbage — a wrong shape rather than an error, and only in fonts hinted heavily enough to
+  have a `hintmask` at all.
+
+  Not built, and **not owed**: point-matched composites and `seac` — no glyph in 242 fonts used
+  either. Owed with the variable-font axes: `gvar` deltas, so a variable font currently parses at its
+  default instance.
+- Owed: the outline parser itself (spiked above, not yet a project), then the MSDF atlas with LRU
+  eviction — **that pair is now the head of Phase 4's critical path**, because nothing renders text
+  until it exists. Also font fallback, rich-text runs, variable-font axes,
   `TextEditor` model with IME and caret affinity.
 - Gate: ✅ UAX conformance data green. ✅ shaping conformance green against an external oracle,
   with the quarantine pinned in both directions.
