@@ -35,6 +35,7 @@ rather than a subsystem that quietly finds nothing on iOS.
 | `TypeTraits` | `DataContract`, `Component`, `EditorVisible`, `Abstract` — flags, because a type is usually several. |
 | `MemberPresentation` | Category, tooltip, range, display name — what an inspector needs. |
 | `TypeRegistry` | Everything registered, queryable by type, by name, by trait, and by base type. |
+| `CollectionFactory` | How to make a `T[]`, `List<T>` or `Dictionary<string,V>` whose element type is only known at run time. |
 
 ## The decisions
 
@@ -45,6 +46,14 @@ arbitrary members on a platform where `System.Reflection`'s member access has be
 **They pass values as `object`, which boxes a struct.** Deliberate, and it is why this is not a
 frame-loop API: it is for tooling, inspection and boot-time discovery, where one allocation per
 property read is invisible. Frame code uses the generated serializer or touches the field directly.
+
+**Collections are constructed by generated lambdas, not by `Array.CreateInstance`.** That method, and
+`MakeGenericType`, and `Activator.CreateInstance(Type)`, are all `RequiresDynamicCode` — a data binder
+built on them works on a desktop and throws on a phone, and this repository compiles `IL3050` as an
+error. So the generator emits `static count => new TargetOverride[count]` for every collection type
+reachable from a described member and registers it in `CollectionFactory`. Same principle as the rest
+of the assembly: what a generator saw in the source is what exists at run time. A list *interface* is
+registered backed by an array, which satisfies it with no copy.
 
 **An `init` setter is reached through `[UnsafeAccessor]`.** `{ get; init; }` is the shape doc 08 uses
 for every importer's settings record, and a deserializer reading a `.meta` file has no object

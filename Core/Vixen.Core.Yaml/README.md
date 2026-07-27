@@ -56,6 +56,40 @@ build where a reflective deserializer finds no members at all.
 The emitter is Vixen's own. The dialect is narrower than anything YamlDotNet's emitter can be
 configured into, and byte fidelity is not something to approximate.
 
+## Binding to types
+
+```csharp
+var meta = YamlSerializer.Parse<AssetMeta>(File.ReadAllText("hero.png.meta"));
+var importer = (TextureImportSettings)meta.Importer!;   // chosen by the !TextureImporter tag
+```
+
+A member is found through a `TypeDescriptor`, read and written through the lambdas the reflection
+generator emitted, and a `!TextureImporter` tag is resolved by asking `TypeRegistry` what claims that
+name. Nothing calls `PropertyInfo.GetValue` or walks an assembly.
+
+Keys are camelCase on write and matched case-insensitively on read, because these files are
+hand-edited and someone who typed `MaxSize` meant `maxSize`. An unknown key is **ignored** — a
+project opened in an older editor after someone added a setting must still load — and reported
+through `OnUnknownKey`, because dropping it silently is the other failure.
+
+### The AOT constraint, and where it went
+
+`Array.CreateInstance(elementType, n)`, `MakeGenericType` and `Activator.CreateInstance(Type)` are
+all `RequiresDynamicCode`. A binder built on them works on a desktop and throws on a phone, and this
+repository compiles `IL3050` as an error, so the build refused them outright — which is what
+[docs/plan/14](../../docs/plan/14-roadmap.md) means by scheduling Phase 3 early.
+
+The answer is the one the rest of the engine gives: a generator saw the type in the source, so a
+generator writes the constructor. Every collection type reachable from a described member is
+registered in `CollectionFactory` by the reflection generator — `static count => new
+TargetOverride[count]` — and the binder asks for one rather than building a type. A list *interface*
+is backed by an array, which satisfies it with no copy.
+
+**`ImmutableArray<T>` is refused by name**, with the reason in the message: constructing one for a
+`T` known only at run time needs `MakeGenericMethod`. Declare the member `T[]`; in an init-only
+record it is just as immutable. Doc 08's worked example uses `ImmutableArray<T>` and is wrong about
+this.
+
 ## What is not in the dialect
 
 **Anchors and aliases.** An asset reference is a `vx:` scalar, which answers the same question

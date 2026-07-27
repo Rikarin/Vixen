@@ -178,6 +178,9 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
                 continue;
             }
 
+            var factories = ImmutableArray.CreateBuilder<string>();
+            CollectFactories(memberType, factories, 0);
+
             members.Add(
                 Describe(
                     member,
@@ -185,9 +188,80 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
                     order++,
                     canRead,
                     canWrite,
-                    isInitOnly
+                    isInitOnly,
+                    factories.ToImmutable()
                 )
             );
+        }
+    }
+
+    /// <summary>
+    ///     Writes out the constructor for every collection type reachable from a member's declared
+    ///     type, so that a data binder never has to build one at run time.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>Array.CreateInstance(elementType, n)</c>, <c>MakeGenericType</c> and
+    ///         <c>Activator.CreateInstance(Type)</c> are all <c>RequiresDynamicCode</c>: a binder
+    ///         built on them works on a desktop and throws on a phone. Here the element type is a
+    ///         symbol the generator is holding, so the constructor is ordinary C# — bound at compile
+    ///         time, and correct after trimming.
+    ///     </para>
+    ///     <para>
+    ///         A list interface is registered backed by an array, which satisfies it with no copy.
+    ///         Recursion is bounded because a member type nested four collections deep is a data
+    ///         model problem rather than something to support.
+    ///     </para>
+    /// </remarks>
+    static void CollectFactories(ITypeSymbol type, ImmutableArray<string>.Builder into, int depth) {
+        if (depth > 3) {
+            return;
+        }
+
+        if (type is IArrayTypeSymbol array) {
+            var element = array.ElementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            into.Add($"typeof({element}[]), static count => new {element}[count]");
+            CollectFactories(array.ElementType, into, depth + 1);
+            return;
+        }
+
+        if (type is not INamedTypeSymbol { IsGenericType: true } named) {
+            return;
+        }
+
+        var self = named.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var definition = named.ConstructedFrom.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var arguments = named.TypeArguments;
+
+        switch (definition) {
+            case "global::System.Collections.Generic.List<T>":
+                into.Add($"typeof({self}), static count => new {self}(count)");
+                CollectFactories(arguments[0], into, depth + 1);
+                return;
+
+            case "global::System.Collections.Generic.IList<T>":
+            case "global::System.Collections.Generic.ICollection<T>":
+            case "global::System.Collections.Generic.IEnumerable<T>":
+            case "global::System.Collections.Generic.IReadOnlyList<T>":
+            case "global::System.Collections.Generic.IReadOnlyCollection<T>": {
+                var element = arguments[0].ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                into.Add($"typeof({self}), static count => new {element}[count]");
+                CollectFactories(arguments[0], into, depth + 1);
+                return;
+            }
+
+            case "global::System.Collections.Generic.Dictionary<TKey, TValue>":
+            case "global::System.Collections.Generic.IDictionary<TKey, TValue>":
+            case "global::System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>": {
+                var key = arguments[0].ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                var value = arguments[1].ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                into.Add(
+                    $"typeof({self}), static count => new global::System.Collections.Generic.Dictionary<{key}, {value}>(count)"
+                );
+
+                CollectFactories(arguments[1], into, depth + 1);
+                return;
+            }
         }
     }
 
@@ -197,7 +271,8 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
         int order,
         bool canRead,
         bool canWrite,
-        bool isInitOnly
+        bool isInitOnly,
+        ImmutableArray<string> collectionFactories
     ) {
         string? category = null;
         string? displayName = null;
@@ -269,7 +344,8 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
             step,
             logarithmic,
             editorVisible,
-            editorReadOnly
+            editorReadOnly,
+            collectionFactories
         );
     }
 
@@ -373,6 +449,18 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
 
         foreach (var model in valid) {
             source.AppendLine($"            global::Vixen.Core.Reflection.TypeRegistry.Register(Describe_{model.SafeName}());");
+        }
+
+        // Distinct, because two members of two types routinely declare the same List<T>, and
+        // ordered, because a generator whose output moves for no reason makes every build a diff.
+        var factories = valid
+            .SelectMany(model => model.Members)
+            .SelectMany(member => member.CollectionFactories)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(entry => entry, StringComparer.Ordinal);
+
+        foreach (var factory in factories) {
+            source.AppendLine($"            global::Vixen.Core.Reflection.CollectionFactory.Register({factory});");
         }
 
         source.AppendLine("        }");

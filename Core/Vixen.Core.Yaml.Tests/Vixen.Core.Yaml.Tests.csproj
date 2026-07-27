@@ -21,6 +21,18 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+
+        <!--
+          Analyzers do not flow transitively through a ProjectReference, so every project in this
+          repository that declares [DataContract] types names the generators itself. Consumers of the
+          NuGet packages get them automatically.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <!--
