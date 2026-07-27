@@ -203,7 +203,7 @@ Platform/
 │
 ├── Vixen.Audio.Backend.OpenAL/
 ├── Vixen.Audio.Backend.WebAudio/
-└── Vixen.Platform.Native/              # native binary acquisition, RID mapping, runtimes/ layout
+└── Vixen.Platform.Native/              # ✅ RID mapping, runtimes/ layout, DllImportResolver (acquisition owed)
 ```
 
 Backend projects live under `Platform/` rather than `Core/` because they are *platform

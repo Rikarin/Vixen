@@ -269,9 +269,15 @@ IL3002  Microsoft.Extensions.DependencyModel…      'DependencyContext.LoadDefa
 
 Silk.NET finds a native library by asking where its managed assembly is on disk and by reading the
 dependency manifest. Under NativeAOT there is neither. Not pedantic warnings — the loader describing
-its own failure mode. **Mitigation:** `Vixen.Platform.Native`, listed in Phase 1 and unbuilt, mapping a
-RID to a binary and registering a `DllImportResolver` so the engine resolves its own natives and
-Silk's probing is never the thing that has to work.
+its own failure mode. **Mitigation, now half-built:** `Vixen.Platform.Native` maps a RID to a binary
+and registers a `DllImportResolver`, so the engine resolves its own natives and Silk's probing is
+never reached at run time.
+
+⚠ **That fixes the behaviour and not the diagnostics, which was verified rather than assumed.**
+Rooting `Vixen.Graphics.Vulkan` with the resolver in place still reports the same six: ILC's analysis
+is static, so code unreachable *in practice* is still reachable *in the graph*. Clearing the gate
+therefore needs a deliberate suppression on top — defensible only once the resolver is actually in
+force and the binaries are actually shipped, which is why it has not been taken yet.
 
 **On iOS, the loader is beside the point and the link fails instead.** The same six appear (as
 warnings or errors depending only on our own warnings-as-errors setting, not on the platform), but

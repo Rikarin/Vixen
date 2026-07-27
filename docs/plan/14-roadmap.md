@@ -137,9 +137,27 @@ plumbing that everything else stands on.
   corrected. **Owed, and visibly missing rather than approximated:** file pickers (SDL 2 has none),
   clipboard images and custom formats, thread affinity, thermal state — all four belong to
   `Vixen.Platform.Windows`/`.Linux`/`.MacOS`, which [02](02-repository-layout.md) already reserves.
-- `Vixen.Platform.Native` — RID→binary mapping and checksummed acquisition. Now load-bearing rather
-  than tidy: `Silk.NET.SDL` ships no native binary, so CI installs `libSDL2` from a package manager
-  and Windows has nothing to install it with.
+- 🟡 `Vixen.Platform.Native` — **the runtime half is built; acquisition is not.** RID chain computed
+  rather than looked up (a NativeAOT binary has no `runtimeconfig.json` to read one from), the
+  `runtimes/<rid>/native/` layout searched before the operating system is asked, the versioned soname
+  tried as well as the development symlink, and a `DllImportResolver` that answers before the default
+  rules. 12 tests, all of them pure functions from a name to a list of candidates — a rule about
+  Windows that can only be checked on Windows is a rule that is checked once a release.
+
+  **What it fixes and what it does not, verified rather than assumed.** A registered resolver means
+  the binding library's probing is never reached at run time, which is the functional half of R11's
+  desktop mitigation. It does **not** silence the six IL3000/IL3002 diagnostics: rooting
+  `Vixen.Graphics.Vulkan` with this in place still reports six, because ILC's analysis is static and
+  code unreachable *in practice* is still reachable *in the graph*. Suppressing them is a separate
+  decision that only becomes defensible once this is in force, and is deliberately not taken in the
+  same commit as the thing that would justify it.
+
+  **Owed:** the acquisition half — pinned versions, checksummed URLs, SHA-256 verification, a licence
+  manifest, restored by a Nuke target and never committed ([10](10-platforms.md) § Native binaries,
+  R10) — which belongs in the `build/Build.Native.cs` that [02](02-repository-layout.md) already
+  reserves. And nothing registers the resolver yet: `Vixen.Graphics.Vulkan` and
+  `Vixen.Platform.Desktop` keep their own loading, which works because neither is published ahead of
+  time today. Wiring them up belongs with the acquisition that puts the binaries where this looks.
 - Windows/Linux/macOS specialisations.
 - ✅ `Vixen.App` host (`VixenApp.Run<TGame>()`) and the build-variant matrix — the boot sequence, the
   `Game` hooks, the frame loop, the `--vixen-*` argument contract, the headless fallback and frame
