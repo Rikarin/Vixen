@@ -183,6 +183,69 @@ public partial class UiElement {
     /// <summary>Whether the focus is on it.</summary>
     public bool IsFocused => ReferenceEquals(Document.Focused, this);
 
+    /// <summary>The text it draws, if any.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         An element with text measures itself from it, which is what
+    ///         <see cref="OnTextChanged" /> arranges: the layout tree gets a measure function and
+    ///         this element as its context, so flexbox asks the text how big it is rather than being
+    ///         told.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Text belongs to an element rather than being a node of its own</b>, which is the
+    ///         departure from the DOM. A text node buys mixed content — <c>hello &lt;b&gt;there&lt;/b&gt;</c>
+    ///         as three children of one paragraph — and costs a node, a style and a layout box for
+    ///         every word. Rich text is a run list inside one element when it arrives, and it is owed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An element with text cannot have children</b>, and the layout tree is what says
+    ///         so: a node that measures itself and also has children would have its size decided
+    ///         twice, by two rules that do not have to agree, so setting either on an element that
+    ///         has the other throws. That is a real constraint rather than an oversight — mixed
+    ///         content is exactly the thing the run list above is for — and it is worth knowing that
+    ///         a text element is a leaf, full stop.
+    ///     </para>
+    /// </remarks>
+    [UiProperty(Changed = nameof(OnTextChanged))]
+    public partial string? Text { get; set; }
+
+    /// <summary>Its text shaped at its font size, or <c>null</c> if it has none to shape.</summary>
+    /// <remarks>
+    ///     Goes through the document's shaping cache, so the measure pass and the draw pass shape
+    ///     once between them rather than once each — and so do ten thousand list rows saying the same
+    ///     word. The cache is keyed on the font and the string and not on the size, because shaping
+    ///     is size-independent.
+    /// </remarks>
+    public TextRun? Run() {
+        if (string.IsNullOrEmpty(Text)) {
+            return null;
+        }
+
+        var font = Document.Fonts.Resolve(Document.FontFamilyOf(Style));
+        return font is null ? null : new TextRun(font, Document.Shaping.Shape(font, Text), FontSize);
+    }
+
+    void OnTextChanged(string? previous, string? current) {
+        // ⚠ The measure function is attached and detached rather than left in place answering zero.
+        // The layout algorithm asks a node with one whether it is a leaf and refuses to lay out its
+        // children — so an element that once had text and now has none would silently stop laying
+        // out everything inside it.
+        if (string.IsNullOrEmpty(previous) != string.IsNullOrEmpty(current)) {
+            Document.Layout.SetContext(LayoutNode, string.IsNullOrEmpty(current) ? null : this);
+            Document.Layout.SetMeasureFunction(LayoutNode, string.IsNullOrEmpty(current) ? null : TextRun.Measure);
+        } else if (!string.IsNullOrEmpty(current)) {
+            // Attaching or detaching the measure function already dirties the node, so the only case
+            // left is one string becoming another — and the layout tree refuses a hand-dirtied node
+            // that does not measure itself, on the grounds that nothing else about it can have
+            // changed without a style or a child changing. ⚠ Which makes the emptiness test
+            // load-bearing rather than tidy: null and "" are both "no text", so setting one to the
+            // other reaches here with no measure function attached and throws.
+            Document.Layout.MarkDirty(LayoutNode);
+        }
+
+        Document.Invalidate();
+    }
+
     /// <summary>Raised after any generated UI property changes.</summary>
     /// <remarks>
     ///     ⚠ Overriding this is how a subclass reacts to a property it did not declare — the

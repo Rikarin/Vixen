@@ -3,6 +3,7 @@
 
 using Vixen.Ui.Layout;
 using Vixen.Ui.Styling;
+using Vixen.Ui.Text;
 
 namespace Vixen.Ui;
 
@@ -34,6 +35,7 @@ public sealed partial class UiDocument : IDisposable {
     readonly List<float> appliedFontSizes = [];
     readonly DrawListBuilder drawings;
     readonly int pointerEvents;
+    readonly int fontFamily;
     readonly int overflow;
     readonly int none;
     readonly int visible;
@@ -51,6 +53,7 @@ public sealed partial class UiDocument : IDisposable {
         Viewport = LengthContext.ForViewport(width, height, rootFontSize);
 
         pointerEvents = Styles.Properties.Intern("pointer-events");
+        fontFamily = Styles.Properties.Intern("font-family");
         overflow = Styles.Properties.Intern("overflow");
         none = Styles.Values.Intern("none");
         visible = Styles.Values.Intern("visible");
@@ -285,8 +288,22 @@ public sealed partial class UiDocument : IDisposable {
     /// <summary>Stops sending every pointer event to one element.</summary>
     public void ReleasePointer() => Captured = null;
 
+    /// <summary>The faces a <c>font-family</c> declaration can name.</summary>
+    public FontRegistry Fonts { get; } = new();
+
+    /// <summary>The shaping every element's text goes through.</summary>
+    /// <remarks>
+    ///     Shared across the document because it is keyed on the font and the string and not on the
+    ///     element — ten thousand list rows saying the same word shape once between them, and the
+    ///     measure pass and the draw pass shape once between them too.
+    /// </remarks>
+    public ShapingCache Shaping { get; } = new();
+
     internal bool PointerEventsNone(ComputedStyle style) =>
         style.TryGet(pointerEvents, out var value) && value == none;
+
+    internal string? FontFamilyOf(ComputedStyle style) =>
+        style.TryGet(fontFamily, out var value) ? Styles.Values.NameOf(value) : null;
 
     UiElement? HitTest(UiElement element, float x, float y) {
         var inside = Contains(element, x, y);

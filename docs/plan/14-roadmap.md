@@ -1350,9 +1350,48 @@ sub-piece has its own gate.
   has a count of zero, so the answer is one either way — by arithmetic rather than by the guard. Kept
   because "there has not been a tap yet" is not "there was a tap at the origin at time zero", and
   now labelled as unobservable.
-- Owed in `Vixen.Ui`: access keys, batching, path rendering, text runs, gradients, per-corner
-  elliptical radii, pinch and rotate, virtualisation primitive, multi-window, DPI, and element
-  removal.
+- ✅ **Text runs.** `font-family` names a face in a `FontRegistry`, the string is shaped through the
+  document's cache, the layout tree asks the shaping how big it is through a measure function, and
+  the draw list gets a `Text` command naming a range of one glyph buffer. Four things built
+  separately in 4a–4c, finally joined.
+
+  **Fonts are registered rather than discovered**: a game ships its fonts, and an interface laid out
+  by whatever the operating system happened to have installed lays out differently on every machine.
+  ⚠ That registry is **not font fallback** — the list is tried until a *registered* family is found,
+  not per character until one with a glyph is found — and weight and style matching is not there
+  either. Both owed and said rather than half-implemented.
+
+  ⚠ **The frame diff has to cover the side buffer.** A command names a *range* of the glyph array, so
+  two frames whose text changed from one word to another of the same length hold byte-identical
+  commands and entirely different glyphs; comparing commands alone, the label changes and the version
+  does not.
+
+  ⚠ **Two findings from the layout tree, both of which it was right about.** A node that measures
+  itself may not also have children — its size would be decided twice by two rules that need not
+  agree — so **an element with text is a leaf, full stop**, and the note claiming it would draw both
+  was wrong before a test reached it. And a node may not be hand-dirtied unless it measures itself,
+  which makes the null-or-empty test in the change callback load-bearing rather than tidy: `null` and
+  `""` are both "no text", so setting one to the other reaches the dirty call with no measure
+  function attached and throws.
+
+  ⚠ **A laid-out width is a measured width snapped to the pixel grid**, so text measurement and
+  element size differ by a fraction, and a test written against the exact measurement fails in a way
+  that looks like a scaling bug.
+
+  Verified by sabotage: drawing the run from the top rather than the baseline fails 1, ignoring the
+  padding fails 1, diffing the commands without the glyph buffer fails 1, and shaping outside the
+  cache fails 2.
+
+  ⚠ **Two sabotages failed to fail, and both were answered with better tests.** Deleting the y
+  negation broke nothing, because **every Latin glyph in the test font sits on the baseline at a zero
+  offset** — the assertion was vacuous, and it is now written in Tai Tham, where a vowel sign hangs
+  below the letter and the sign of the offset decides which side. And leaving the measure function
+  attached when the text goes broke nothing, because a measure function over no text answers zero and
+  looks exactly like not having one; the consequence is that the node stays a *leaf*, so the test now
+  gives the ex-label a child and checks that it is laid out.
+- Owed in `Vixen.Ui`: access keys, batching, path rendering, line wrapping, rich-text runs,
+  font fallback and weight matching, gradients, per-corner elliptical radii, pinch and rotate,
+  virtualisation primitive, multi-window, DPI, and element removal.
 - `Vixen.Ui.Markup`: VXML lexer/parser on `Vixen.Core.Syntax`, binder, emitter, `#line` mapping.
 - `Vixen.Ui.HotReload`: three reload channels, keyed reconciliation, `[HotReloadState]`.
 - UI render feature integrated into the renderer.

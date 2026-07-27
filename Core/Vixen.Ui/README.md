@@ -24,8 +24,9 @@ top.
 | `UiDocument.Focus`, `MoveFocus` | Focus, focus scopes, and HTML's tab order. |
 | `UiDocument.FindInDirection` | Arrow navigation over the layout, by the beam model. |
 | `GestureRecognizer` | Taps with a count, long presses and drags, from timestamped pointer events. |
+| `FontRegistry`, `TextRun` | `font-family` → a face, shaping through a cache, measurement into layout, glyphs into the draw list. |
 | Access keys | ⏳ |
-| Batching, path rendering, text runs | ⏳ |
+| Batching, path rendering | ⏳ |
 
 ## Focus
 
@@ -103,6 +104,44 @@ because capture redirects raw events and this remembers a target already decided
 
 ⚠ **One pointer at a time.** Two fingers produce two independent taps or drags, which is right, but
 nothing combines them — pinch and rotate are owed rather than approximated.
+
+## Text
+
+`font-family` names a face in the `FontRegistry`, the string is shaped through the document's cache,
+the layout tree asks the shaping how big it is, and the draw list gets a `Text` command naming a
+range of one glyph buffer. Four things that were built separately, joined.
+
+**Registered rather than discovered.** Nothing walks the machine's font directories: a game ships its
+fonts, and an interface laid out by whatever the operating system happened to have installed lays out
+differently on every machine it runs on.
+
+⚠ **The registry is not font *fallback*.** The list in a declaration is tried until a *registered*
+family is found; it is not tried per character until one with a glyph is found. A registered font
+missing the code point draws `.notdef`. Weight and style matching is not there either — a name is a
+face. Both owed, and said rather than half-implemented.
+
+⚠ **An element with text cannot have children**, and the layout tree is what says so: a node that
+measures itself and also has children has its size decided twice, by two rules that do not have to
+agree. So a text element is a leaf, full stop, and mixed content is what the owed run list is for.
+
+⚠ **The frame diff has to cover the side buffer.** A command names a *range* of the glyph array, so
+two frames whose text changed from one word to another of the same length hold byte-identical
+commands and completely different glyphs. Comparing commands alone, the label changes and the version
+does not.
+
+**The y is negated on the way in.** Shaping puts y positive upwards, because that is how a font's
+design grid is drawn; the draw list is in document space. Invisible on Latin — every glyph sits on
+the baseline at a zero offset — and it flips every mark in Arabic, Devanagari and Tai Tham to the
+wrong side of its letter. The test that guards it is written in Tai Tham for exactly that reason; in
+Latin it passed with the negation deleted.
+
+⚠ **One line.** Nothing breaks a paragraph, so a string wider than its element overflows rather than
+wrapping, and the measure function ignores the width it is offered. `Vixen.Ui.Text` already has the
+UAX#14 line breaker this needs.
+
+A glyph's position is relative to the start of its run and the command carries where that is, so two
+labels saying the same thing in different places hold identical glyph runs — which is what will let
+the batcher notice.
 
 ## The draw list
 

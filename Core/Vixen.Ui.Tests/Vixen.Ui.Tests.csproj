@@ -20,6 +20,17 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!--
+            One of the Consortium's test fonts, linked rather than copied. Text that reaches a draw
+            list has to be shaped by a real font — a stub with invented metrics would agree with
+            whatever this assembly did to it — and there is no reason for a second copy of a file
+            Vixen.Ui.Text.Tests already commits. Fonts/README.md over there says whose it is.
+        -->
+        <EmbeddedResource Include="..\Vixen.Ui.Text.Tests\Fonts\TestShapeLana.ttf"
+                          LogicalName="Vixen.Ui.Tests.Fonts.TestShapeLana.ttf" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\Vixen.Ui\Vixen.Ui.csproj" />
 
         <!-- Analyzers do not flow transitively, so the sample elements below need it named here. -->

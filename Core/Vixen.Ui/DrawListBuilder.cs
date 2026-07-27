@@ -22,10 +22,12 @@ namespace Vixen.Ui;
 ///     </para>
 /// </remarks>
 public sealed class DrawListBuilder {
+    readonly List<PositionedGlyph> placed = [];
     readonly StyleValueParser parser;
     readonly int backgroundColor;
     readonly int borderColor;
     readonly int borderRadius;
+    readonly int textColor;
     readonly int overflow;
     readonly int visible;
 
@@ -48,6 +50,7 @@ public sealed class DrawListBuilder {
         // corner in the document silently disappears.
         borderColor = properties.Intern("border-top-color");
         borderRadius = properties.Intern("border-top-left-radius");
+        textColor = properties.Intern("color");
         overflow = properties.Intern("overflow");
         this.visible = values.Intern("visible");
     }
@@ -92,6 +95,10 @@ public sealed class DrawListBuilder {
             into.Add(new DrawCommand(DrawCommandKind.Border, x, y, width, height, stroke, radius, thickness));
         }
 
+        // Between the border and the children, which is where CSS puts an element's own content:
+        // a child overlaps its parent's text, and its parent's text overlaps its parent's border.
+        EmitText(document, element, into);
+
         var clips = element.Style.TryGet(overflow, out var value) && value != visible;
         if (clips) {
             into.Add(new DrawCommand(DrawCommandKind.ClipPush, x, y, width, height, default, radius, 0f));
@@ -108,6 +115,63 @@ public sealed class DrawListBuilder {
         if (clips) {
             into.Add(new DrawCommand(DrawCommandKind.ClipPop, x, y, width, height, default, radius, 0f));
         }
+    }
+
+    /// <summary>Emits an element's text, if it has any and there is a font for it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Positioned against the <b>content box</b> — inside the border and the padding — rather
+    ///         than against the element's edge, because that is what those two properties mean. Read
+    ///         from the layout results rather than from the style, so a percentage padding is the
+    ///         number flexbox resolved rather than a percentage this would have to resolve again.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The y is the baseline, not the top.</b> Glyph origins sit on the baseline, so the
+    ///         run's origin is the content box's top plus the font's ascender. Putting the top there
+    ///         instead draws every line one ascender too low, which for a single line looks like a
+    ///         padding mistake and for two lines looks like nothing at all.
+    ///     </para>
+    /// </remarks>
+    void EmitText(UiDocument document, UiElement element, DrawList into) {
+        if (element.Run() is not { } run) {
+            return;
+        }
+
+        var left = element.AbsoluteLeft
+            + document.Layout.GetComputedBorder(element.LayoutNode, Edge.Left)
+            + document.Layout.GetComputedPadding(element.LayoutNode, Edge.Left);
+
+        var top = element.AbsoluteTop
+            + document.Layout.GetComputedBorder(element.LayoutNode, Edge.Top)
+            + document.Layout.GetComputedPadding(element.LayoutNode, Edge.Top);
+
+        placed.Clear();
+        run.Place(placed);
+
+        if (placed.Count == 0) {
+            return;
+        }
+
+        // The glyphs are placed relative to the start of the line and the command carries where that
+        // is, rather than each glyph carrying an absolute position. Two identical labels in different
+        // places then hold identical glyph runs, which is what will let the batcher notice.
+        into.Add(
+            new DrawCommand(
+                DrawCommandKind.Text,
+                left,
+                top + run.Baseline,
+                run.Width,
+                run.Height,
+                Color(element, textColor) ?? Color4.Black,
+                0f,
+                0f
+            ) {
+                Offset = into.AddGlyphs(placed),
+                Length = placed.Count,
+                Font = into.AddFont(run.Font),
+                FontSize = run.Size
+            }
+        );
     }
 
     Color4? Color(UiElement element, int property) {
