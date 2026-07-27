@@ -74,9 +74,40 @@ last-one-wins means an artist's file being imported as the wrong kind of thing d
 order.
 
 `RawImporter` is the fallback and copies a file verbatim, so "this format has no importer yet" is a
-shrug rather than a blocker. `FolderImporter` produces nothing — a folder is an asset because that is
-where an addressable group is inherited from and where a GUID has to live so renaming a directory
-does not orphan everything under it.
+shrug rather than a blocker. It is what [doc 14](../../docs/plan/14-roadmap.md) calls
+`DefaultImporter`; there is one of it under the name doc 08 uses, rather than two under both.
+`FolderImporter` produces nothing — a folder is an asset because that is where an addressable group
+is inherited from and where a GUID has to live so renaming a directory does not orphan everything
+under it.
+
+## `NativeFormatImporter`, whose job is the graph and not the conversion
+
+`.vxmat`, `.vxscene`, `.vxprefab`, `.vxgroup`, `.vxanim`, `.vxvfx`. There is nothing to convert —
+these files are already in the engine's own format, which is the point of doc 08's YAML dialect. What
+is *not* already known is what each one **points at**, and that is what makes a material re-import
+when the texture it names is replaced.
+
+So it walks the node tree and declares every `vx:` scalar it finds. **A walk and not a regular
+expression over the text**, because a GUID inside a comment or a quoted description is not a
+reference — and a dependency on one would never change and never break anything, which is exactly the
+kind of wrongness that is never found.
+
+**A scalar beginning `vx:` that does not parse fails the import.** Whoever typed the prefix meant a
+reference; the alternatives are failing here with the file and the text named, or shipping an asset
+whose pointer resolves to nothing on a player's machine. Anything without the prefix is left alone,
+because a string field holding arbitrary text is ordinary.
+
+**An empty document is a warning, not an error.** The reader turns an empty file into an empty mapping
+deliberately, so a truncated `.meta` re-imports rather than stopping the editor from opening — which
+means an asset caught mid-save arrives here looking exactly like a valid one with no fields set.
+Failing the build would punish an author who is still typing; silence would let a material that was
+never saved ship as one.
+
+**What it writes is the document, and that is a deliberate stopping point.** Doc 08 splits import from
+compile: import produces editor-domain objects and the *compiler* turns them into the runtime chunks a
+player loads — a `MaterialAsset` with named parameters and asset references becomes a `Material` with
+a resolved pipeline and `ObjectId`s. That compiler does not exist yet. Emitting a half-resolved binary
+here would move its decisions inside the importer, where the artefact cache key cannot see them.
 
 ## The pipeline, and the key's chicken and egg
 

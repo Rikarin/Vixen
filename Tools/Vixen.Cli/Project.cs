@@ -115,14 +115,22 @@ public sealed class Project {
 
     /// <summary>Which importers this build of the tool has.</summary>
     /// <remarks>
-    ///     Told, never discovered. An assembly scan would read metadata a trimmed publish has already
-    ///     deleted, and would make "which importers imported this project" a question with different
-    ///     answers in the editor and here. This list is the answer, and it is short because Phase 3
-    ///     has one real importer in it.
+    ///     <para>
+    ///         Told, never discovered. An assembly scan would read metadata a trimmed publish has
+    ///         already deleted, and would make "which importers imported this project" a question with
+    ///         different answers in the editor and here. This list is the answer, and it is the same
+    ///         list the out-of-process worker uses — a worker with a different set would produce
+    ///         different artefacts for the same file.
+    ///     </para>
+    ///     <para>
+    ///         <c>RawImporter</c> is the fallback and is what doc 14 calls <c>DefaultImporter</c>:
+    ///         whatever nothing else claimed still gets a GUID, an address and a byte blob.
+    ///     </para>
     /// </remarks>
     public static ImporterRegistry Importers() =>
         new ImporterRegistry()
             .Add(new TextureImporter())
+            .Add(new NativeFormatImporter())
             .Add(new FolderImporter())
             .AddFallback(new RawImporter());
 
