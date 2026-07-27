@@ -157,6 +157,62 @@ public sealed class VixenApplicationTests : IDisposable {
     }
 
     /// <summary>
+    ///     And that frame simulates and draws nothing, because by the time it would there is nowhere
+    ///     to draw: the window was disposed inside this same frame's <c>PumpEvents</c>, and on macOS
+    ///     disposing one destroys the Metal view whose layer the swapchain's surface was made from.
+    ///     Rendering afterwards presents to freed memory — which does not reliably fault, and so
+    ///     would be found much later and somewhere else.
+    /// </summary>
+    [Fact]
+    public void TheFrameThatClosesTheLastWindowSimulatesAndDrawsNothing() {
+        var platform = NewPlatform();
+        var game = new RecordingGame();
+        using var application = Build(game, platform);
+        application.Initialise();
+
+        ((HeadlessWindow)application.Services.Window!).RequestClose();
+        application.RunFrame();
+
+        Assert.True(application.IsStopping);
+        Assert.Equal(["configure", "initialise"], game.Calls);
+    }
+
+    /// <summary>
+    ///     It does still drain, though, and the order is the point rather than an accident: work an
+    ///     event handler posted on the way out — saving settings, releasing a lock — is exactly the
+    ///     work that has no later frame to run on.
+    /// </summary>
+    [Fact]
+    public void WorkPostedOnTheWayOutStillRuns() {
+        var platform = NewPlatform();
+        var ran = false;
+        using var application = Build(new RecordingGame(), platform);
+        application.Initialise();
+
+        ((HeadlessWindow)application.Services.Window!).RequestClose();
+        application.Services.MainThread.Post(() => ran = true);
+        application.RunFrame();
+
+        Assert.True(application.IsStopping);
+        Assert.True(ran);
+    }
+
+    /// <summary>
+    ///     And nothing is lost at the other end. A game that stops itself from <c>OnUpdate</c> still
+    ///     gets that frame's <c>OnRender</c> — the check is asked before the update, not after — so
+    ///     "stopping frames draw nothing" costs no frame that was going to be drawn.
+    /// </summary>
+    [Fact]
+    public void AGameThatStopsItselfMidFrameStillFinishesThatFrame() {
+        var game = new StoppingGame(frames: 5);
+        var application = Build(game);
+
+        Assert.Equal(0, application.Run());
+        Assert.Equal(5, game.Frames);
+        Assert.Equal(5, game.Renders);
+    }
+
+    /// <summary>
     ///     Which is what makes "save before quitting?" possible: an application that handles the
     ///     close request keeps its window and stays running.
     /// </summary>
@@ -341,10 +397,14 @@ public sealed class VixenApplicationTests : IDisposable {
     sealed class StoppingGame(int frames) : Game {
         public int Frames { get; private set; }
 
+        public int Renders { get; private set; }
+
         protected internal override void OnUpdate(GameTime time) {
             if (++Frames >= frames) {
                 Services.Platform.Lifecycle.RequestQuit();
             }
         }
+
+        protected internal override void OnRender(GameTime time) => Renders++;
     }
 }

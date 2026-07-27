@@ -150,11 +150,27 @@ public sealed class VixenApplication : IDisposable {
         lastTimestamp = Stopwatch.GetTimestamp();
     }
 
-    /// <summary>Runs exactly one frame: events, main-thread work, update, render, pacing.</summary>
+    /// <summary>Runs one frame: events, main-thread work, and — unless the frame's own events ended
+    /// the application — update, render, pacing.</summary>
     /// <remarks>
-    ///     The whole loop body, exposed. An editor's play mode drives this from its own frame, and a
-    ///     test drives it a fixed number of times — neither needs a second implementation of the
-    ///     order these things happen in.
+    ///     <para>
+    ///         The whole loop body, exposed. An editor's play mode drives this from its own frame,
+    ///         and a test drives it a fixed number of times — neither needs a second implementation
+    ///         of the order these things happen in.
+    ///     </para>
+    ///     <para>
+    ///         <b>A stopping frame simulates and draws nothing.</b> Events are pumped and posted work
+    ///         is drained, because both may be the application's last chance to act, and then the
+    ///         frame ends. What it would otherwise render, nobody would see; worse, it may no longer
+    ///         have anywhere to render it. See the note on the check itself.
+    ///     </para>
+    ///     <para>
+    ///         This does not shorten a run by a frame. <see cref="IsStopping" /> is asked before
+    ///         <see cref="Advance" />, so the frame that reaches <c>--vixen-frames N</c> is the one
+    ///         that advances the count <em>to</em> N and it renders in full; the loop notices
+    ///         afterwards. Likewise a game that calls <see cref="Stop" /> from its own
+    ///         <c>OnUpdate</c> still gets that frame's <c>OnRender</c>.
+    ///     </para>
     /// </remarks>
     public void RunFrame() {
         ObjectDisposedException.ThrowIf(disposed, this);
@@ -166,7 +182,20 @@ public sealed class VixenApplication : IDisposable {
         PumpEvents();
 
         // After events, so that anything an event handler posted runs this frame rather than next.
+        // Before the bail below, too: work posted on the way out is exactly the work that would
+        // otherwise be dropped.
         Services.MainThread.Drain();
+
+        // Closing the last window disposes it inside PumpEvents — and on macOS disposing a window
+        // destroys the Metal view whose layer a swapchain's surface was created from. A game that
+        // then acquires and presents in the same frame is presenting to freed memory. It does not
+        // reliably fault, which is the worst way for a bug like that to behave.
+        //
+        // Asked here rather than folded into the loop condition in Run, because the danger is
+        // specific to *this* frame: the window died between its first line and this one.
+        if (IsStopping) {
+            return;
+        }
 
         Advance();
         game.OnUpdate(time);

@@ -63,6 +63,14 @@ public sealed class AppServices {
 
     /// <summary>The window the host opened, or <see langword="null" /> if the application wanted
     /// none.</summary>
+    /// <remarks>
+    ///     Fixed at boot, and therefore a handle that can go stale: it is whichever window
+    ///     <see cref="AppConfig.Window" /> asked for, not "the current one". That is exact for the
+    ///     ordinary case, where the application ends when this closes. An application that set
+    ///     <see cref="AppConfig.ExitWhenAllWindowsClose" /> to <see langword="false" /> — a tray
+    ///     application, something that reopens on demand — has taken window management on itself, and
+    ///     this still names the closed original. Ask <see cref="IPlatform.Windows" /> instead.
+    /// </remarks>
     public IWindow? Window { get; }
 
     /// <summary>The job system.</summary>
