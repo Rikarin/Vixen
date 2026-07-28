@@ -181,6 +181,7 @@
     <Project Path="Benchmarks/Vixen.Benchmarks.Math/Vixen.Benchmarks.Math.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Jobs/Vixen.Benchmarks.Jobs.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Ecs/Vixen.Benchmarks.Ecs.csproj" />
+    <Project Path="Benchmarks/Vixen.Benchmarks.Animation/Vixen.Benchmarks.Animation.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Ui/Vixen.Benchmarks.Ui.csproj" />
   </Folder>
 

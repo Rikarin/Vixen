@@ -103,6 +103,23 @@ motion a non-zero weight everywhere, so a backward walk would always be slightly
 forward run; a Delaunay triangulation gives exact weights and needs a triangulation, which is a build
 step and a degenerate-case problem and something to rebuild whenever an artist drags a motion.
 
+**Retargeting transfers the animation, not the pose.** For every mapped joint, the source's
+model-space rotation is measured against its own bind pose — that difference is what the animation
+does, with the rig's resting shape divided out — and the same difference is applied to the target's
+bind pose. A clip authored on an A-pose rig therefore plays on a T-pose one. The cheap alternative
+works in local space, needs no chain, and would let a clip be retargeted channel by channel with its
+keys intact; it is also wrong whenever the two bind poses differ by a rotation anywhere up the chain,
+which is the only case worth retargeting for. See `Retargeting/SkeletonRetarget`.
+
+**Keys are found by an index, not a cursor.** Each long track carries a table of one entry per key
+mapping a uniform slice of the clip's duration to the key at or before it, so a lookup is a multiply,
+an array read and about one comparison whatever the track's length. A cursor — the usual answer —
+cannot live on the clip, which is shared by every instance playing it, and on the player it is a hint
+per track per clip per instance over a set of clips that moves as a blend parameter does. The index is
+the same win with no state, which also makes it correct for a seek and safe to sample from several
+threads. Four bytes a key, and tracks of eight keys or fewer skip it and binary-search. What it buys
+is measured below, and the headline is that seeking costs what playing forwards costs.
+
 ## ECS and the renderer
 
 `AnimationSystem` runs in `SystemPhase.Animation` — which the ECS defines as "after logic has decided
@@ -120,12 +137,63 @@ runner.Add(new AnimationSystem());
 runner.Add(new SkinningSystem { Renderer = renderSystem, Feature = skinningFeature });
 ```
 
+`AnimationSystem` gathers its animators on this thread, evaluates them across the `JobScheduler`, and
+publishes root motion back on this thread. The split is what makes it safe: an animator is reached
+through a managed component and touches nothing outside itself, so the middle phase can run anywhere
+as long as it cannot see an `Entity` — and it cannot. Below four animators, or with no scheduler,
+it runs inline; scheduling three characters costs more than animating them.
+
 `SkinningRenderFeature` owns the buffer, the upload and the push constant, and its own documentation
 says explicitly that whoever fills the palettes is the animation system, because there is no callback
 of the renderer's between "animation finished" and "the first palette is written". `SkinningSystem` is
 the system it means. What goes in is `inverseBindPose * jointModelSpace`, in **model space** — the
 object's own transform is pushed separately and applied after skinning, which is also what lets a
 hundred instances of the same animation share a palette.
+
+## Retargeting
+
+A clip is baked against one skeleton and may only be sampled onto that one. `SkeletonRetarget` is how
+it reaches another:
+
+```csharp
+var map = RetargetMap.Between(mixamoRig, ourRig)
+    .ByName("mixamorig:")                 // most joints agree once the prefix is gone
+    .Map("mixamorig:Spine2", "Chest")     // the three that do not
+    .SetMode("Hips", RetargetMode.RotationAndTranslation)
+    .Build();
+
+var walk = new SkeletonRetarget(map).Bake(mixamoWalk);   // an ordinary clip on ourRig
+```
+
+Check `map.MappedJointCount` after a `ByName`: three of sixty is two rigs that do not share a naming
+convention, and it is the number that says so before anybody watches the result.
+
+**Baking, rather than retargeting every frame.** The output is an ordinary `AnimationClip` on the
+target skeleton, so blend trees, masks, layers and the state machine all work on it without knowing,
+and the per-frame cost is zero. `SkeletonRetarget.Apply` is the same transfer for a pose, which is
+what a live capture or a procedural source needs.
+
+Resampling is the one lossy step and it is unavoidable: the transfer composes the whole chain, so a
+target joint's curve depends on its ancestors' and no per-channel operation could carry the source's
+keys across. Bake at a higher rate for anything with a snap in it, then run the compressor over the
+result to take back what the uniform grid wasted.
+
+## Compression
+
+Two independent halves, in two places, because only one of them can live in the asset.
+
+**Key reduction** — `AnimationCurveCompressor`, a build-time pass over `AnimationClipData` (doc 08's
+model compiler is where it belongs). An exporter emits a key per frame per channel whether or not
+anything changed; this keeps a key only where dropping it would move the sampled curve further than
+the caller accepts. It fits against the anchor rather than against the neighbours, which is what stops
+error accumulating over a long span — the version that checks only the key being dropped lets a
+hundred individually-fine keys drift a long way from where they started.
+
+**Packed rotations** — `PackedQuaternion`, the runtime clip's storage. Smallest-three in sixty-two
+bits: eight bytes instead of sixteen, for an angular error under 3 × 10⁻⁶ radians. This one cannot be
+in the asset, because `AnimationClipData` is the contract a content build writes and the object
+database stores — changing its storage is a re-import of every animation ever built. A runtime clip is
+baked at load, so its storage is nobody's contract.
 
 ## Still to come
 
@@ -136,28 +204,63 @@ round-trip, and that is a design in its own right rather than something to bolt 
 here is shaped to prevent it: every runtime type is a plain object graph with no runtime-only state
 except playback position.
 
-**Retargeting.** A clip is baked against one skeleton and may only be played on that one. Playing a
-clip authored on one rig on another needs a bone mapping and a proportion-corrected pose, and neither
-exists yet. `AnimationClip.UnresolvedChannels` is what a retargeting mistake currently looks like.
+**Position and scale quantisation.** Rotations are packed; positions and scales are still full
+`Vector3`. Doing them well needs a per-track range so the sixteen bits are spent where the track
+actually goes, which is analysis the model compiler is better placed to do than the loader — and
+rotation tracks are the ones that dominate a skeletal clip anyway.
 
-**Key cursors.** Keys are found by binary search. The usual optimisation is a per-track hint remembering
-where the last sample landed, which cannot live on the clip — that is shared — and living on the player
-means one hint per track per clip per instance, with a blend tree's active set changing as its parameter
-moves. Not worth it against a thirty-key track; worth revisiting for clips with hundreds of keys per
-track, which is what an uncompressed facial rig looks like.
-
-**Curve compression.** Every key is a full `Vector3` or `Quaternion` at full precision. Doc 08's model
-compiler is where quantisation and key reduction belong, and this assembly is shaped to receive them:
-sampling reads spans of times and values, and nothing above `AnimationClip.Sample` knows how they are
-stored.
-
-**Parallel evaluation.** `AnimationSystem` runs its animators inline. Each one is independent and this
-is exactly the shape of work `JobScheduler` exists for, but a parallel version has to answer for the
-managed component store's threading first. The loop is written so that becoming parallel is a change
-to that one file.
+**Retargeting proportions beyond a scalar.** `TranslationScale` is one number derived from the two
+rigs' pelvis heights. A character with long legs and a short torso wants a per-chain ratio, and one
+whose arms reach for a fixed prop wants IK on top of the retarget rather than a scale at all.
 
 **Ping-pong events and root motion.** A backwards pass would have to fire events in reverse order and
 produce root motion that undoes itself. `AnimationClip.Advance` bounces the time correctly and reports
 no loops for `WrapMode.PingPong`, which means events fire only within the current segment.
+
+## Numbers
+
+`Benchmarks/Vixen.Benchmarks.Animation`, run on a ten-core M1 Max with BenchmarkDotNet's short job.
+Sixty-four joints, a key a frame at thirty hertz. Short-job variance is wide, so read the shape and
+not the third digit.
+
+```bash
+dotnet run -c Release --project Benchmarks/Vixen.Benchmarks.Animation
+```
+
+**Sampling — one `Sample` over the whole skeleton, playing forwards against seeking at random:**
+
+| Keys per track | Sequential | Random seek |
+|---|---|---|
+| 30 | 10.7 µs | 9.1 µs |
+| 300 | 11.3 µs | 14.2 µs |
+| 900 | 12.4 µs | 9.4 µs |
+
+The point is not the absolute figure, it is that **the two columns are the same** and that thirty
+times the keys costs about fifteen percent more. A seek is what a transition offset, a blend-tree
+threshold crossing and an editor scrub all do, and it is precisely where a cursor is at its worst —
+it has nothing useful remembered and pays a search on top of the work. The residual growth with key
+count is the working set getting larger, not the lookup getting slower.
+
+**Crowd — `AnimationSystem` over N characters, inline against the job scheduler:**
+
+| Characters | Inline | Scheduled |
+|---|---|---|
+| 16 | 193 µs | 519 µs |
+| 128 | 2.30 ms | 0.31 ms |
+| 1024 | 12.7 ms | 8.3 ms |
+
+Sixteen characters is **slower** scheduled — waking workers for a few hundred microseconds of work
+costs more than the work — which is where `ParallelThreshold` comes from. It is set to 32, above the
+loss and below the win, and it is a number to re-measure on a machine that is not this one.
+
+**Key reduction — a one-second walk on a sixty-four-joint rig, 3 968 keys in:**
+
+| Tolerances | Keys kept | |
+|---|---|---|
+| `Default` (0.1 mm, 0.06°) | 750 | 18.9 % |
+| `Aggressive` (1 mm, 0.5°) | 369 | 9.3 % |
+
+Five times smaller at tolerances chosen to be invisible, ten at tolerances worth a screenshot before
+shipping — before the packed rotations, which halve what is left of the rotation tracks.
 
 Licensed under Apache-2.0.
