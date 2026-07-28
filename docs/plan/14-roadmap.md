@@ -2490,22 +2490,24 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
   per differenced value, most of a megabyte a tick — where the names are constants. Together: **4 588
   KB a tick down to 24 KB, and 464 Gen0 collections down to 4.**
 
-  **What is still failing.** Bandwidth, at 286 kbit/s a client against a 128 budget, and that one is
-  a design gap rather than tuning: a record is re-sent every tick until acknowledged, so a four-tick
-  round trip sends every change four times. **Retransmission backoff — not re-sending a record whose
-  previous send could still be in flight — is not built.**
+  ✅ **Retransmission backoff**, which was the bandwidth failure and the biggest single item: a
+  record used to go out every tick until acknowledged, so a four-tick round trip sent every change
+  four times. It now waits a round trip *plus one* — **286 → 80 kbit/s a client**, ten million
+  records down to three. The plus-one matters: an acknowledgement becomes useful when it is folded
+  in, not when it arrives, so four ticks measured 137 and five measured 80.
 
-  It has been prototyped and measured rather than estimated: suppressing a re-send of the same value
-  within a round trip *plus one* took the soak from **286 to 80 kbit/s a client** — 3.6×, and ten
-  million records down to three. The plus-one matters and is the part that is easy to lose: an
-  acknowledgement becomes useful when it is folded in, not when it arrives, so a delay of exactly the
-  round trip gives a fifth of the saving back. **The prototype is not in the tree**, because it
-  stopped `Samples/08` converging under packet loss — a client stuck *permanently* on an old value,
-  not slowly, since nine hundred settle ticks did not clear it. Suppression interacts with the
-  acknowledged baseline in a way that is not yet understood, and 3.6× is not worth a desync. The
-  number is real; the mechanism needs its own sitting. Worst-tick, at
-  83 ms against a 33 ms tick, is a collection pause rather than the pipeline: the mean is 3.9 ms and
-  there were four Gen0 collections in the run. Allocation is 24 KB a tick against a 4 KB budget.
+  **It broke convergence on the first attempt, and the reason is the interesting part.** Cumulative
+  acknowledgement — folding every pending tick up to the one acked — was sound only *because* every
+  snapshot repeated everything unacknowledged, so acking a later one proved the earlier. Backoff
+  removes the repeating, and folding an unacked tick then claims a connection holds a value that was
+  in a packet it never received; it is never sent again, because the baseline says they have it. A
+  value stuck for ever rather than for a while, which is how it presented. `Acknowledge` folds only
+  the tick it was given now, and older pending ticks are given up on rather than believed.
+
+  **Still failing:** allocation at 31 KB a tick against a 4 KB budget, and worst-tick at 63 ms against
+  a 33 ms tick. That second one is a collection pause and the metric is partly at fault — asserting on
+  the worst tick of a run containing a full GC measures the collector, not the pipeline, whose mean is
+  2.4 ms. It wants a percentile beside it.
 
   The remaining criteria are untouched: **packet-reader fuzzing** and **bit-exact serialization across
   the three desktop OSes**.

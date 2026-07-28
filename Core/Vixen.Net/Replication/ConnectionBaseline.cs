@@ -29,6 +29,10 @@ public sealed class ConnectionBaseline {
     public const int MaxPendingTicks = 64;
 
     readonly Dictionary<BaselineKey, Sent> acknowledged = [];
+
+    // The most recent send of each value, which is what says whether re-sending it now would be
+    // repeating something already on its way.
+    readonly Dictionary<BaselineKey, Sent> inFlight = [];
     readonly Dictionary<uint, List<Sent>> pendingByTick = [];
     readonly List<uint> pendingOrder = [];
     readonly List<BaselineKey> forgetting = [];
@@ -85,6 +89,34 @@ public sealed class ConnectionBaseline {
         return false;
     }
 
+    /// <summary>
+    ///     Whether this exact value has gone out recently enough that it could still be in flight.
+    /// </summary>
+    /// <param name="key">Which entity's which component.</param>
+    /// <param name="hash">The hash of the value now.</param>
+    /// <param name="now">The tick being written.</param>
+    /// <param name="within">How many ticks a send is assumed to still be travelling for.</param>
+    /// <returns>Whether sending it again would be repeating something already on its way.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Without this a record is re-sent every tick until it is acknowledged</b>, so a
+    ///         four-tick round trip sends every change four times — measured as most of a connection's
+    ///         bandwidth. An acknowledgement cannot arrive before the round trip is over, so the ticks
+    ///         in between are spent repeating something nobody could have answered yet.
+    ///     </para>
+    ///     <para>
+    ///         <b>Only the same value is suppressed.</b> The hash is part of the question, so a value
+    ///         that changed again goes out at once; the delay applies to repeating oneself, never to
+    ///         saying something new. What it costs is that a genuinely lost record waits this long
+    ///         rather than going again next tick, which is the trade every retransmission timer makes.
+    ///     </para>
+    /// </remarks>
+    public bool WasSentRecently(in BaselineKey key, uint hash, Tick now, int within) =>
+        within > 0
+        && inFlight.TryGetValue(key, out var sent)
+        && sent.Hash == hash
+        && now.Subtract(sent.SentAt) < within;
+
     /// <summary>Records that a value went out in a snapshot.</summary>
     /// <param name="tick">The tick of the snapshot.</param>
     /// <param name="key">Which entity's which component.</param>
@@ -99,7 +131,9 @@ public sealed class ConnectionBaseline {
             Trim();
         }
 
-        sent.Add(new(key, hash, capturedAt));
+        var record = new Sent(key, hash, capturedAt, tick);
+        sent.Add(record);
+        inFlight[key] = record;
     }
 
     /// <summary>Takes an acknowledgement, folding everything up to it into the baseline.</summary>
@@ -114,22 +148,26 @@ public sealed class ConnectionBaseline {
         AcknowledgedTick = tick;
         HasAcknowledged = true;
 
-        // Oldest first, because a value sent at two of the ticks being folded should end up in the
-        // baseline as the newer of the two. Folding newest-first would leave the older one there,
-        // and the baseline would then claim the connection holds a value it has already replaced —
-        // which costs a redundant re-send if records are whole, and is a silent desync if the next
-        // one is a difference measured from it.
-        foreach (var pending in pendingOrder) {
-            if (new Tick(pending).IsAfter(tick)) {
-                continue;
-            }
-
-            foreach (var sent in pendingByTick[pending]) {
+        // Only this tick's records, never everything up to it — and that is the pairing with
+        // WasSentRecently that took a broken commit to find. Folding cumulatively was sound only
+        // because every snapshot carried everything unacknowledged, so a later one always repeated
+        // an earlier one and acking the later proved the earlier. Backoff stops the repeating, and
+        // the moment it does, folding an unacked tick claims the connection holds a value that was
+        // in a packet it never received — which is never sent again, because the baseline says they
+        // have it. A value stuck for ever rather than for a while, which is exactly how it looked.
+        if (pendingByTick.TryGetValue(tick.Value, out var arrived)) {
+            foreach (var sent in arrived) {
                 acknowledged[sent.Key] = sent;
             }
+
+            Recycle(tick.Value);
+            pendingOrder.Remove(tick.Value);
         }
 
-        // Newest first, so removing does not move the entries still to be looked at.
+        // Everything older is given up on rather than believed. It was sent, it was not acknowledged,
+        // and the connection has since acknowledged something newer — so whatever was in it either
+        // arrived and was superseded, or did not arrive at all. Either way the value's own hash
+        // decides whether it goes again, which is the check that was always there.
         for (var i = pendingOrder.Count - 1; i >= 0; i--) {
             if (new Tick(pendingOrder[i]).IsAfter(tick)) {
                 continue;
@@ -162,6 +200,10 @@ public sealed class ConnectionBaseline {
             acknowledged.Remove(key);
         }
 
+        foreach (var key in inFlight.Keys.Where(entry => entry.Entity == id).ToList()) {
+            inFlight.Remove(key);
+        }
+
         foreach (var sent in pendingByTick.Values) {
             sent.RemoveAll(entry => entry.Key.Entity == id);
         }
@@ -170,6 +212,7 @@ public sealed class ConnectionBaseline {
     /// <summary>Forgets everything, for a connection that is starting again.</summary>
     public void Clear() {
         acknowledged.Clear();
+        inFlight.Clear();
 
         foreach (var sent in pendingByTick.Values) {
             spare.Push(sent);
@@ -196,7 +239,7 @@ public sealed class ConnectionBaseline {
         }
     }
 
-    readonly record struct Sent(BaselineKey Key, uint Hash, Tick CapturedAt);
+    readonly record struct Sent(BaselineKey Key, uint Hash, Tick CapturedAt, Tick SentAt);
 }
 
 /// <summary>Which entity's which component.</summary>

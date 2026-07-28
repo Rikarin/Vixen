@@ -78,6 +78,10 @@ public sealed class ReplicationTests : IDisposable {
 
     [Fact]
     public void WithoutAnAcknowledgement_TheStateIsSentAgain() {
+        // The rule under test is the baseline's — unacknowledged means send again — not the timer's.
+        // How long the server waits first is ResendDelayTicks, and it has a test of its own.
+        sender.ResendDelayTicks = 0;
+
         var entity = Spawn(1, 2, 3, health: 50);
         sender.Capture(server);
 
@@ -285,6 +289,7 @@ public sealed class ReplicationTests : IDisposable {
 
     [Fact]
     public void ATruncatedSnapshotIsRefusedRatherThanHalfBelieved() {
+        sender.ResendDelayTicks = 0;
         Spawn(1, 2, 3, health: 50);
         sender.Capture(server);
 

@@ -56,22 +56,25 @@ That is a 190× reduction, and none of it would have been found by reading the c
 | Budget | State |
 |---|---|
 | memory | ok — the heap settles and stops growing |
-| allocation | **24 KB a tick against 4 KB** |
-| tick time | **worst 83 ms against a 33 ms tick** |
-| bandwidth | **286 kbit/s a client against 128** |
+| bandwidth | ok — 80 kbit/s a client against 128 |
+| allocation | **31 KB a tick against 4 KB** |
+| tick time | **worst 63 ms against a 33 ms tick** |
 
-**Bandwidth is a design gap, not a tuning problem.** A record is re-sent every tick until it is
-acknowledged, so with a four-tick round trip each change goes out four times. The server should not
-re-send a record whose previous send could still be in flight — that is retransmission backoff, it is
-what TCP does, and it is not built.
+**Bandwidth is fixed, and it was the biggest item.** A record used to be re-sent every tick until it
+was acknowledged, so a four-tick round trip sent every change four times. It now waits a round trip
+*plus one* before repeating itself — 286 → **80 kbit/s a client**, ten million records down to three.
 
-It has been *prototyped*, which is how the size of the prize is known rather than guessed:
-suppressing a re-send of the same value within a round trip plus one took this run from **286 to 80
-kbit/s a client**, a 3.6× saving, and ten million records to three. It is not in the tree, because
-the same prototype stopped `Samples/08` converging under packet loss — a client stuck permanently on
-an old value rather than slowly, since nine hundred settle ticks did not clear it. Something about
-suppression interacts with the acknowledged baseline in a way that is not yet understood, and a 3.6×
-saving is not worth a desync. The measurement stands; the mechanism needs its own sitting.
+The plus-one is the part that is easy to lose: an acknowledgement becomes useful when it is folded
+in, not when it arrives, and that is the tick after the snapshot which had already been written. Four
+ticks measured 137 kbit/s; five measured 80.
+
+**It broke convergence the first time, and the reason is worth keeping.** Cumulative acknowledgement
+— folding every pending tick up to the one acknowledged — was only sound *because* every snapshot
+repeated everything unacknowledged, so acking a later one proved the earlier. Backoff removes the
+repeating, and the moment it does, folding an unacked tick claims a connection holds a value that was
+in a packet it never received. It is then never sent again, because the baseline says they have it: a
+value stuck for ever rather than for a while, which is exactly how it looked. `Acknowledge` folds
+only the tick it was given now.
 
 **Worst-tick is a garbage-collection pause**, not the pipeline: the mean is 3.9 ms against a 33 ms
 tick, and there were four Gen0 collections in the whole run. It is real — an 83 ms stall on a game

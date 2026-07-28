@@ -211,6 +211,47 @@ public sealed class DeltaTests : IDisposable {
         Assert.Equal(222u, hash);
     }
 
+    /// <summary>An unacknowledged value is not repeated until it could have been answered.</summary>
+    /// <remarks>
+    ///     Without this a record goes out every tick until it is acknowledged, so a four-tick round
+    ///     trip sends every change four times — which the soak measured as most of a connection's
+    ///     bandwidth. The value's hash is part of the question, so this only ever suppresses repeating
+    ///     oneself; a value that changed again goes out at once, which the second half asserts.
+    /// </remarks>
+    [Fact]
+    public void AValueAlreadyOnItsWay_IsNotSentAgainUntilItCouldHaveBeenAnswered() {
+        sender.ResendDelayTicks = 3;
+
+        var entity = Spawn();
+        Move(entity, 1f);
+
+        Assert.True(Replicate(acknowledge: false), "the first send did not happen");
+
+        var afterFirst = sender.SuppressedRecordCount;
+
+        // Nothing changed and nothing was acknowledged: repeating it would be telling them something
+        // that is still travelling.
+        Assert.False(Replicate(acknowledge: false));
+        Assert.False(Replicate(acknowledge: false));
+        Assert.True(sender.SuppressedRecordCount > afterFirst, "nothing was suppressed");
+
+        // Past the delay, an unacknowledged value is assumed lost and goes again.
+        Assert.True(Replicate(acknowledge: false), "it was never re-sent");
+    }
+
+    [Fact]
+    public void AValueThatChangedAgain_IsSentAtOnceDespiteTheDelay() {
+        sender.ResendDelayTicks = 100;
+
+        var entity = Spawn();
+        Move(entity, 1f);
+        Assert.True(Replicate(acknowledge: false));
+
+        // A different value is not a repetition, so the timer has nothing to say about it.
+        Move(entity, 2f);
+        Assert.True(Replicate(acknowledge: false), "a changed value waited on the resend timer");
+    }
+
     static bool TryRoundTrip(
         WireLane[] lanes,
         byte[] previous,

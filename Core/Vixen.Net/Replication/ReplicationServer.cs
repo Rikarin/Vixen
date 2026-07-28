@@ -78,6 +78,26 @@ public sealed class ReplicationServer {
     /// <summary>How much each snapshot may cost.</summary>
     public BandwidthBudget Budget { get; set; } = new();
 
+    /// <summary>How long a record is assumed to be travelling before it is worth sending again.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A round trip <b>plus one</b>, and the plus-one is the part that is easy to lose. An
+    ///         acknowledgement becomes useful when it is folded in, not when it arrives, and that is
+    ///         the tick after the snapshot which had already been written. A delay of exactly the
+    ///         round trip therefore re-sends everything one last time and gives a fifth of the saving
+    ///         back. Measured on the soak: four ticks gave 137 kbit/s a client, five gave 80.
+    ///     </para>
+    ///     <para>
+    ///         <b>Owed: this should be the connection's measured round trip.</b> The session keeps a
+    ///         <c>RoundTripEstimator</c> per player and this class does not see it, so one figure
+    ///         stands in for all of them.
+    ///     </para>
+    /// </remarks>
+    public int ResendDelayTicks { get; set; } = 5;
+
+    /// <summary>Records not sent because the same value was already on its way.</summary>
+    public long SuppressedRecordCount { get; private set; }
+
     /// <summary>Where the bandwidth went, or null to not ask.</summary>
     /// <remarks>
     ///     Attached rather than owned, so a report can span the server and the RPC router and come out
@@ -423,6 +443,12 @@ public sealed class ReplicationServer {
                 var newest = ring.Newest;
 
                 if (connection.Baseline.IsCurrent(key, newest.Hash)) {
+                    continue;
+                }
+
+                if (connection.Baseline.WasSentRecently(key, newest.Hash, tick, ResendDelayTicks)) {
+                    SuppressedRecordCount++;
+
                     continue;
                 }
 
