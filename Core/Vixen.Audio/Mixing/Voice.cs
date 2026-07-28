@@ -110,6 +110,23 @@ sealed class Voice {
     /// <summary>How hard it is to take this voice's slot. Higher survives.</summary>
     public int Priority;
 
+    /// <summary>The device frame at which it should begin. Zero is "as soon as it is seen".</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Absolute, and that is the whole point.</b> A delay counted from when the game thread
+    ///         asked would be wrong by however much of a block went by between the ask and the audio
+    ///         thread noticing — ten milliseconds at a 480-frame buffer, which is a flam on a musical
+    ///         transition and the difference between two sounds and one. An absolute frame is a
+    ///         position the audio thread can measure itself against, so the start lands on the sample
+    ///         it was asked for however the two threads interleave.
+    ///     </para>
+    ///     <para>
+    ///         A frame already gone by starts the voice at the top of the block it is noticed in,
+    ///         which is the best that can be done and is counted as a late start.
+    ///     </para>
+    /// </remarks>
+    public long StartFrame;
+
     /// <summary>Whether it should keep playing without being heard.</summary>
     /// <remarks>
     ///     <para>
@@ -293,8 +310,9 @@ sealed class Voice {
     /// <param name="destination">The bus's interleaved accumulator.</param>
     /// <param name="frameCount">How many frames.</param>
     /// <param name="listeners">Where the ears are, for a spatialised voice.</param>
+    /// <param name="blockStart">The device frame this block begins at, for a scheduled start.</param>
     /// <returns>Whether the voice is still alive. False means it has run out and should be collected.</returns>
-    public bool Render(Span<float> destination, int frameCount, in AudioListenerSet listeners) {
+    public bool Render(Span<float> destination, int frameCount, in AudioListenerSet listeners, long blockStart) {
         var state = (VoiceState)Volatile.Read(ref State);
 
         if (state is VoiceState.Paused) {
@@ -303,6 +321,21 @@ sealed class Voice {
 
         if (ended || state is not (VoiceState.Playing or VoiceState.Stopping)) {
             return !ended;
+        }
+
+        var waiting = StartFrame - blockStart;
+
+        if (waiting > 0) {
+            if (waiting >= frameCount) {
+                // Its moment is not in this block at all. Alive but silent, and not yet advancing —
+                // a scheduled sound has not begun, so it cannot have ended.
+                return true;
+            }
+
+            // Its moment is part way through. Everything before it belongs to whatever else is on
+            // this bus, so the voice is handed the tail of the block and told it is that long.
+            destination = destination[((int)waiting * outputChannels)..];
+            frameCount -= (int)waiting;
         }
 
         var ratio = ComputeTargetGains(listeners, state);
@@ -409,6 +442,7 @@ sealed class Voice {
         IsSpatial = false;
         OwnsSource = false;
         Virtual = false;
+        StartFrame = 0;
         spatial = new SpatialSettings();
         published.Write(spatial);
         LastSpatial = new SpatialResult(0f, 1f, 1f, 1f);

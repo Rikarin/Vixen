@@ -636,6 +636,15 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     /// <summary>Drops everything waiting on one event.</summary>
     internal void CancelDeferred(AudioEvent sound) => deferred.Cancel(sound);
 
+    /// <summary>How many frames the device has rendered since the engine was built.</summary>
+    /// <remarks>
+    ///     <b>The one clock in the subsystem that cannot drift.</b> Written by the audio thread as it
+    ///     renders, so it counts samples that were actually produced rather than wall-clock time that
+    ///     may or may not correspond to them. Everything musical is scheduled against it —
+    ///     <see cref="PlaybackSettings.StartFrame" /> is a position on this line.
+    /// </remarks>
+    public long RenderedFrames => Interlocked.Read(ref renderedFrames);
+
     /// <summary>How many voices may be heard at once, or zero if every voice is real.</summary>
     public int AudibleVoices => audibleVoices;
 
@@ -927,7 +936,10 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
 
         try {
             publishedListener.TryRead(ref rendered);
-            Mixer.Render(destination, frameCount, rendered);
+
+            // Read before the add below, so it is the frame this block *starts* at — which is what a
+            // scheduled voice measures itself against.
+            Mixer.Render(destination, frameCount, rendered, Interlocked.Read(ref renderedFrames));
         } catch (Exception exception) when (exception is not OutOfMemoryException) {
             // An exception escaping onto a driver's callback thread is not recoverable — OpenAL and
             // WebAudio both call this from native code that has no idea what a managed exception is,
@@ -1021,6 +1033,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         voice.Pitch = settings.Pitch;
         voice.Pan = settings.Pan;
         voice.Priority = settings.Priority;
+        voice.StartFrame = settings.StartFrame;
         voice.IsSpatial = settings.IsSpatial;
         voice.PublishSpatial(settings.Spatial);
 

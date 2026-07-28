@@ -2032,8 +2032,10 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   landed with it: `IAudioCaptureDevice` on both backends, which is what voice chat in Phase 9 reads
   from, and an event can play a caller's provider so a talking player is an event like anything else.
   `MixControl` names every knob in the mix, which is the runtime half of live update — the transport
-  is the editor's. Still owed: interactive music, a loudness meter, a sinc resampler, and an Ogg/Opus
-  decoder behind `IAudioStreamDecoder`.
+  is the editor's. Interactive music landed too: a sample-accurate scheduled start, a transport over
+  the device's own clock, and segments whose transitions land on a bar line. Still owed: sustain
+  points and stingers, a loudness meter, a sinc resampler, and an Ogg/Opus decoder behind
+  `IAudioStreamDecoder`.
 - `Vixen.Animation`: skeletal playback, blend trees (1D/2D), layers + masks, state machine, IK (two-bone,
   look-at, foot placement), root motion, events, GPU skinning integration.
 - `Vixen.Editor.AnimationGraph`.

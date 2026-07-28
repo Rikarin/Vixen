@@ -159,8 +159,9 @@ public sealed class AudioMixer {
     /// </param>
     /// <param name="frameCount">How many frames. No more than <see cref="MaxFrames" />.</param>
     /// <param name="listeners">Where the ears are.</param>
+    /// <param name="blockStart">The device frame this block begins at, for scheduled starts.</param>
     /// <remarks>Runs on the audio thread. Takes no lock and allocates nothing.</remarks>
-    public void Render(Span<float> destination, int frameCount, in AudioListenerSet listeners) {
+    public void Render(Span<float> destination, int frameCount, in AudioListenerSet listeners, long blockStart = 0) {
         var channels = format.Channels;
         var samples = frameCount * channels;
 
@@ -188,7 +189,7 @@ public sealed class AudioMixer {
             active++;
             var bus = lookup[(uint)voice.Bus < (uint)lookup.Length ? voice.Bus : 0];
 
-            if (!voice.Render(bus.Buffer[..samples], frameCount, listeners)) {
+            if (!voice.Render(bus.Buffer[..samples], frameCount, listeners, blockStart)) {
                 // The one moment nothing is reading this voice's render state, and therefore the only
                 // safe place to hand its slot to a sound that stole it.
                 if (voice.TryTakePending(out var paused)) {

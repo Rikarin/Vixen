@@ -78,6 +78,8 @@ that owns its mixer pays.
 | `AudioEventLayer` | another event played alongside this one, a moment later |
 | `SpeakerLayout` | where the speakers are, for quad, 5.1 and 7.1 |
 | `MixControl` | every knob in the mix, by name — the runtime half of live update |
+| `MusicPlayer` | segments, loops and transitions that land on a bar line |
+| `MusicTransport` | where the music is, in samples the device actually produced |
 
 ## Inserts, sends, and the order it all runs in
 
@@ -656,6 +658,60 @@ nothing to say to the renderer, so doing it after submission overlaps it with th
 use. Velocity is worked out from how far the entity moved unless `AutoVelocity` is turned off — the
 alternative is every gameplay system that moves something also remembering to tell the audio.
 
+## Interactive music
+
+```csharp
+var music = MusicBuilder.Build(engine, asset, out var problems);
+
+music.TransitionTo("Combat", MusicQuantize.Bar);   // lands on the next bar line
+music.BeatPassed += beat => { … };
+
+music.Update();   // once a frame, on the game thread
+```
+
+**The problem is timing, not sequencing.** Playing one piece of music after another is a queue and
+needs nothing. The hard part is that gameplay decides to change the music at an arbitrary instant and
+music cannot change at an arbitrary instant — a cut that lands off the beat is heard as a mistake by
+people who could not name what a beat is. Everything here separates "a fight started" from "the music
+changes at the top of the next bar".
+
+**There is one clock and the hardware owns it.** `MusicTransport` is a window onto
+`AudioEngine.RenderedFrames`, which counts samples that were actually produced. A stopwatch or a
+frame accumulator would drift against them, and a bar line computed from a drifting clock is a bar
+line in the wrong place.
+
+**Everything is derived in frames, not seconds.** A bar at 128 in four is 90 000 frames at 48 kHz
+exactly; held in seconds it is 1.8749999, and that error compounds every bar until a four-minute
+track has drifted off the loop it was supposed to sit on. Integers of frames do not drift.
+
+**The join is sample-accurate because `PlaybackSettings.StartFrame` exists.** A voice can be told to
+begin at an absolute device frame, and the audio thread knows which frame its block starts at — so a
+start half way through a block happens half way through that block. Without it a transition would be
+wrong by up to a buffer, which is a flam and is the difference between one piece of music and two
+recordings of one.
+
+**The incoming voice is started the instant the transition is asked for**, with a start frame in the
+future, and waits there. Nothing between the request and the boundary — a long frame, a level load, a
+breakpoint — can make it late. It costs one voice for the length of the wait.
+
+**The outgoing one is faded, not cut.** Forty milliseconds by default: long enough that no join
+clicks, short enough that nobody hears two pieces of music at once. The join that matters musically
+is where the *new* material begins, and that one is exact. `CrossfadeSeconds = 0` gives a hard cut,
+which is right when the segments were composed to butt together.
+
+**Looping is the provider's.** A looping segment is one voice with `Loop` set, so the wrap is seamless
+by construction — restarting the clip each time round puts a block boundary at every loop point,
+which is the seam every naive music system has.
+
+**Transitions can be declared rather than called.** A `MusicTransition` with a parameter name and a
+range is checked each frame, so "at intensity above 0.7, go to Combat at the next bar" is an asset
+edit. The alternative is a switch statement in whichever system happened to notice the fight start.
+
+**Beat, bar and marker callbacks are late by up to a frame**, unavoidably — they are raised from
+`Update` on the game thread, which is the only thread a game may do anything on. Fine for a light or
+a camera shake; not what a *musical* change is scheduled with. A frame that ran long raises every
+beat it skipped rather than quietly losing nineteen of them.
+
 ## Live update, minus the wire
 
 ```csharp
@@ -727,9 +783,13 @@ multiply on the few hundred frames that are actually playing.
 
 ## Still to come
 
-**Interactive music.** A timeline with loop regions, transition regions, quantisation — "switch at
-the next bar" — sustain points, and beat and marker callbacks so gameplay can fire on the downbeat.
-The largest single thing FMOD has that this does not, and a phase rather than an afternoon.
+**Sustain points and stingers.** A transport that stops at a marked point until gameplay releases it,
+and one-shot musical hits fired over the top of whatever is playing and quantised to it. Both are
+small on top of what is here; neither is built.
+
+**A tempo map.** One tempo per segment, so a piece that changes speed part way through has to be two
+segments. Which is how most game music is written anyway, and is why this is a note rather than a
+gap.
 
 **A loudness meter.** EBU R128 / LUFS, which is what console certification measures against.
 

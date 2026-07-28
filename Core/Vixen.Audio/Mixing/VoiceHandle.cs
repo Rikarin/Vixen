@@ -116,4 +116,21 @@ public readonly record struct PlaybackSettings() {
     ///     </para>
     /// </remarks>
     public int Priority { get; init; }
+
+    /// <summary>The device frame at which it should begin. Zero is "as soon as the mixer sees it".</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A position on <c>AudioEngine.RenderedFrames</c>, which is the only clock here that
+    ///         counts samples actually produced. Scheduling against it is sample-accurate: the audio
+    ///         thread knows which frame its block begins at, so a start half way through a block
+    ///         happens half way through that block.
+    ///     </para>
+    ///     <para>
+    ///         <b>What it is for is music.</b> Two segments joined on a bar line have to join on the
+    ///         sample, not on the frame the game thread happened to notice — the difference is a flam,
+    ///         and a flam is the difference between one piece of music and two recordings of one.
+    ///         Everything else in the mixer starts when it is asked to and is right to.
+    ///     </para>
+    /// </remarks>
+    public long StartFrame { get; init; }
 }
