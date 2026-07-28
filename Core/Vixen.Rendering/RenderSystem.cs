@@ -297,6 +297,18 @@ public sealed class RenderSystem : IDisposable {
         }
 
         disposed = true;
+
+        // A feature may own device resources — a material feature holds a uniform buffer per variant
+        // — and nothing else is in a position to release them: the host handed the feature over and
+        // this is what has held it since. Sub-features too, which are the ones that usually do.
+        foreach (var feature in features) {
+            foreach (var subFeature in feature.SubFeatures) {
+                (subFeature as IDisposable)?.Dispose();
+            }
+
+            (feature as IDisposable)?.Dispose();
+        }
+
         Visibility.Dispose();
         Objects.Dispose();
         nodes.Clear();

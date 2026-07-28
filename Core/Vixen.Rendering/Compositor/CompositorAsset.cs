@@ -340,8 +340,9 @@ public enum SamplerPreset {
 ///         instead.
 ///     </para>
 ///     <para>
-///         The index remains for a shader whose provider reports no plan, which is every provider
-///         until the content build does.
+///         The index remains for a shader whose provider reports no plan — a test fake, a host
+///         supplying effects of its own. The shipped ones do report it: a baked <c>EffectData</c>
+///         carries the binding plan and <c>EffectLoader</c> puts it on the effect.
 ///     </para>
 /// </remarks>
 [DataContract("Binding")]
