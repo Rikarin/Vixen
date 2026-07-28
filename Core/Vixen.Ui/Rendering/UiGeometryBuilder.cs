@@ -35,6 +35,9 @@ public sealed class UiGeometryBuilder {
     readonly List<uint> indices = [];
     readonly List<UiDraw> draws = [];
     readonly List<Rectangle> clips = [];
+    readonly List<Vector2> points = [];
+    readonly List<Contour> contours = [];
+    readonly List<Vector2> triangles = [];
 
     /// <summary>How many glyphs were dropped because the atlas could not hold them.</summary>
     /// <remarks>
@@ -43,6 +46,28 @@ public sealed class UiGeometryBuilder {
     ///     symptom is a word with a hole in it.
     /// </remarks>
     public int DroppedGlyphs { get; private set; }
+
+    /// <summary>How far a flattened curve may sit from the curve it replaces, in document pixels.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Document pixels, which are device pixels only at scale one.</b> A surface drawn at
+    ///     twice the scale wants half of this, or its curves are visibly faceted — the flattening
+    ///     error is in the geometry and the projection magnifies it along with everything else.
+    ///     Settable rather than derived, because the builder is handed a viewport and not a scale,
+    ///     and inventing one would be guessing.
+    /// </remarks>
+    public float Tolerance { get; set; } = 0.2f;
+
+    /// <summary>How a stroke turns a corner.</summary>
+    /// <remarks>
+    ///     ⚠ <b>On the builder rather than on the command, and that is owed rather than intended.</b>
+    ///     A join is a property of the stroke somebody asked for, so it belongs beside the thickness
+    ///     on <see cref="DrawCommand" />; it is here because the command does not carry one yet, and
+    ///     one setting for the whole frame is at least visible. The default is CSS's and SVG's.
+    /// </remarks>
+    public LineJoin Join { get; set; } = LineJoin.Miter;
+
+    /// <summary>How a stroke ends. Owed on the command for the same reason as <see cref="Join" />.</summary>
+    public LineCap Cap { get; set; } = LineCap.Butt;
 
     /// <summary>Builds the geometry for a frame.</summary>
     /// <param name="list">The frame's draw list, already batched.</param>
@@ -82,10 +107,12 @@ public sealed class UiGeometryBuilder {
                         Text(list, command, glyphs);
                         break;
 
+                    case DrawCommandKind.Path:
+                    case DrawCommandKind.PathStroke:
+                        Path(list, command);
+                        break;
+
                     default:
-                        // Paths are owed: filling one needs a tessellator, and stroking one needs
-                        // that plus a join and cap model. Skipped rather than approximated, and
-                        // skipped visibly — a batch with no indices produces no draw.
                         break;
                 }
             }
@@ -202,6 +229,48 @@ public sealed class UiGeometryBuilder {
                 command.Color,
                 new Vector4(entry.ScreenPixelRange * size, 0, 0, 0)
             );
+        }
+    }
+
+    /// <summary>A path, filled or stroked, as loose triangles.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The only kind that is real geometry rather than a quad the shader resolves.</b> A box
+    ///     and a glyph are both a distance function evaluated per pixel, so they cost four vertices
+    ///     whatever their shape; an arbitrary path has no such function, so it is tessellated — which
+    ///     is also why it is the only kind that arrives at the rasteriser without an antialiased edge.
+    /// </remarks>
+    void Path(DrawList list, DrawCommand command) {
+        points.Clear();
+        contours.Clear();
+        triangles.Clear();
+
+        PathFlattener.Flatten(list.Segments, command.Offset, command.Length, Tolerance, points, contours);
+
+        if (contours.Count == 0) {
+            return;
+        }
+
+        if (command.Kind == DrawCommandKind.Path) {
+            PathTessellator.Fill(points, contours, command.FillRule, triangles);
+        } else {
+            PathTessellator.Stroke(points, contours, command.Thickness, Join, Cap, Tolerance, triangles);
+        }
+
+        for (var i = 0; i + 2 < triangles.Count; i += 3) {
+            var start = (uint)vertices.Count;
+
+            // ⚠ No vertex is shared, and there is nothing to share. The fill decomposes into
+            // trapezoids that meet only along band boundaries, where the two sides have different x;
+            // the stroke overlaps rather than seams. An index buffer over this is the identity, and
+            // building one would cost a hash per vertex to discover that.
+            for (var corner = 0; corner < 3; corner++) {
+                var point = triangles[i + corner];
+
+                // Nothing else in the vertex is read: a path has no distance field to sample and no
+                // shape to evaluate, which is what makes it a different pipeline from the other two.
+                vertices.Add(new UiVertex(point, Vector2.Zero, command.Color, Vector4.Zero));
+                indices.Add(start + (uint)corner);
+            }
         }
     }
 

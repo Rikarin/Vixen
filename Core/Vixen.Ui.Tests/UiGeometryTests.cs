@@ -312,10 +312,138 @@ public class UiGeometryTests {
         Assert.Equal(geometry.Indices.Count, next);
     }
 
+    // -------------------------------------------------------------- Paths
+
+    /// <summary>
+    ///     ⚠ A path is the one kind that becomes real geometry. A box and a glyph are a distance
+    ///     function the shader evaluates, so they cost four vertices whatever their shape; a path has
+    ///     no such function, so it is tessellated — and the vertex count follows the shape rather
+    ///     than being one per primitive.
+    /// </summary>
+    [Fact]
+    public void A_filled_path_becomes_triangles_rather_than_a_quad() {
+        var geometry = Build(list => Fill(list, Circle(), Color4.Red));
+
+        var draw = Assert.Single(geometry.Draws);
+        Assert.Equal(BatchKind.PathFill, draw.Kind);
+
+        // Loose triangles: three vertices and three indices each, and a great many more than four.
+        Assert.Equal(0, geometry.Indices.Count % 3);
+        Assert.Equal(geometry.Vertices.Count, geometry.Indices.Count);
+        Assert.True(geometry.Vertices.Count > 40, $"only {geometry.Vertices.Count} vertices");
+
+        Assert.All(geometry.Vertices, vertex => Assert.Equal(Color4.Red, vertex.Color));
+    }
+
+    /// <summary>
+    ///     ⚠ Nothing else in a path's vertex is read, and it has to be zero rather than stale. The box
+    ///     shader reads <c>Shape</c> as a half-size and a radius; left over from whatever quad was
+    ///     emitted last, a path drawn by the wrong pipeline would be a rounded rectangle somewhere
+    ///     else rather than nothing at all — which is a much harder thing to see.
+    /// </summary>
+    [Fact]
+    public void A_path_vertex_carries_no_shape_and_no_texture() {
+        var geometry = Build(list => {
+                list.Add(Rect(0, 0, 80, 40, radius: 12));
+                Fill(list, Circle(), Color4.Red);
+            }
+        );
+
+        var path = geometry.Vertices.Skip(4).ToList();
+
+        Assert.NotEmpty(path);
+        Assert.All(path, vertex => Assert.Equal(Vector2.Zero, vertex.Texture));
+        Assert.All(path, vertex => Assert.Equal(Vector4.Zero, vertex.Shape));
+    }
+
+    [Fact]
+    public void A_stroked_path_is_its_own_batch_and_its_own_geometry() {
+        var geometry = Build(list => {
+                Fill(list, Circle(), Color4.Red);
+                Stroke(list, Circle(), Color4.White, thickness: 4);
+            }
+        );
+
+        Assert.Equal(2, geometry.Draws.Count);
+        Assert.Equal(BatchKind.PathFill, geometry.Draws[0].Kind);
+        Assert.Equal(BatchKind.PathStroke, geometry.Draws[1].Kind);
+        Assert.True(geometry.Draws[1].Count > 0);
+    }
+
+    /// <summary>
+    ///     ⚠ The fill rule is part of the batch key, so two paths that differ only in it are two
+    ///     draws — and they have to be, because they are not the same shape.
+    /// </summary>
+    [Fact]
+    public void The_fill_rule_reaches_the_tessellator() {
+        var nonZero = Build(list => Fill(list, Ring(), Color4.Red));
+        var evenOdd = Build(list => Fill(list, Ring(), Color4.Red, PathFillRule.EvenOdd));
+
+        Assert.True(
+            nonZero.Vertices.Count != evenOdd.Vertices.Count,
+            "the two fill rules produced identical geometry for a ring"
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ A tighter tolerance is a finer curve, and it is the builder's to set: the geometry is in
+    ///     document pixels, and how many device pixels one of those is depends on a surface scale the
+    ///     builder is never handed.
+    /// </summary>
+    [Fact]
+    public void The_tolerance_decides_how_finely_a_curve_is_flattened() {
+        var coarse = BuildWith(builder => builder.Tolerance = 4f, list => Fill(list, Circle(), Color4.Red));
+        var fine = BuildWith(builder => builder.Tolerance = 0.02f, list => Fill(list, Circle(), Color4.Red));
+
+        Assert.True(fine.Vertices.Count > coarse.Vertices.Count * 2);
+    }
+
+    [Fact]
+    public void A_path_that_encloses_nothing_produces_no_draw() {
+        var line = new PathBuilder().MoveTo(new Vector2(10, 10)).LineTo(new Vector2(90, 90));
+
+        Assert.Empty(Build(list => Fill(list, line, Color4.Red)).Draws);
+    }
+
+    [Fact]
+    public void A_path_is_clipped_like_everything_else() {
+        var geometry = Build(list => {
+                list.Add(ClipPush(0, 0, 50, 50));
+                Fill(list, Circle(), Color4.Red);
+            }
+        );
+
+        Assert.Equal(new Rectangle(0, 0, 50, 50), Assert.Single(geometry.Draws).Clip);
+    }
+
     // ------------------------------------------------------------ Helpers
 
     const float RunX = 200;
     const float RunY = 100;
+
+    static PathBuilder Circle() => new PathBuilder().AddEllipse(new Rectangle(20, 20, 100, 100));
+
+    static PathBuilder Ring() =>
+        new PathBuilder()
+            .AddEllipse(new Rectangle(20, 20, 100, 100))
+            .AddEllipse(new Rectangle(45, 45, 50, 50));
+
+    static void Fill(DrawList list, PathBuilder path, Color4 color, PathFillRule rule = PathFillRule.NonZero) =>
+        list.Add(
+            new DrawCommand(DrawCommandKind.Path, 0, 0, 0, 0, color, 0, 0) {
+                Offset = list.AddPath(path),
+                Length = path.Count,
+                FillRule = rule
+            }
+        );
+
+    static void Stroke(DrawList list, PathBuilder path, Color4 color, float thickness) =>
+        list.Add(
+            new DrawCommand(DrawCommandKind.PathStroke, 0, 0, 0, 0, color, 0, thickness) {
+                Offset = list.AddPath(path),
+                Length = path.Count
+            }
+        );
 
     static DrawCommand Rect(float x, float y, float width, float height, float radius = 0) =>
         new(DrawCommandKind.Rectangle, x, y, width, height, Color4.White, radius, 0);
@@ -328,13 +456,18 @@ public class UiGeometryTests {
 
     static DrawCommand ClipPop() => new(DrawCommandKind.ClipPop, 0, 0, 0, 0, default, 0, 0);
 
-    static UiGeometry Build(Action<DrawList> paint) {
+    static UiGeometry Build(Action<DrawList> paint) => BuildWith(null, paint);
+
+    static UiGeometry BuildWith(Action<UiGeometryBuilder>? configure, Action<DrawList> paint) {
         var list = new DrawList();
         list.BeginFrame();
         paint(list);
         list.EndFrame();
 
-        return new UiGeometryBuilder().Build(list, Cache(), Viewport);
+        var builder = new UiGeometryBuilder();
+        configure?.Invoke(builder);
+
+        return builder.Build(list, Cache(), Viewport);
     }
 
     static (UiGeometry Geometry, UiGeometryBuilder Builder) BuildText(
