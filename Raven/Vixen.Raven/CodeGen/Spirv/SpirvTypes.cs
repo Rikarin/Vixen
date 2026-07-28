@@ -124,7 +124,16 @@ sealed class SpirvTypes {
         );
 
         structs[(structType, layout)] = id;
-        module.AddName(id, structType.Name);
+
+        // ⚠ The layout is part of the name, and it has to be. One Raven struct in both a uniform
+        // block and a storage buffer becomes *two* SPIR-V types here — that is what the key of this
+        // cache says — and naming them both `PunctualLight` is a collision for anything downstream
+        // that keys on the debug name. A translator to a language with one namespace of struct
+        // definitions, which is every one of them, then emits a single definition and gives it to
+        // both: on Metal, the uniform block's `float3` (sixteen bytes) silently displaced the storage
+        // buffer's tight one, so every member after the first `float3` was read four bytes late.
+        // Nothing in the SPIR-V was wrong, which is why it took a picture to find.
+        module.AddName(id, layout is { } named ? $"{structType.Name}.{named}" : structType.Name);
 
         for (var i = 0; i < structType.Fields.Count; i++) {
             module.AddMemberName(id, i, structType.Fields[i].Name);

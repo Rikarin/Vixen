@@ -206,7 +206,20 @@ with clustered light lookup → transparent pass → post FX.
   is now the single place the two conventions meet, on both sides, and a test holds the fragment's
   own cluster against the box the culler built for it. The pass is also **dispatched on a device** and
   its buffer read back, against that same oracle over all 3456 clusters — reverting the handedness
-  fails it with `expected [0], got []`. Falls back to tiled (2D) on GLES and to
+  fails it with `expected [0], got []`. The **other half** — a fragment reading the list the culler
+  filled — is a picture: `ClusteredShadingDeviceTests` renders one composed Forward+ frame, culler
+  node and shading pass, and asserts a quad lit red by the light two units in front of it while the
+  corner stays the clear colour. It took two engine bugs to make it green, and neither was reachable
+  any other way. A composed parameter's qualified name depended on the order the lowerer merged
+  types, so `CompositeSurface.MetalRoughnessSurface.baseColor` came out as
+  `MetalRoughnessSurface.baseColor` for a single-pass compilation and every material value uploaded
+  as zero; the merge is depth-first now, contributor before consumer. And one Raven struct used in
+  both a uniform block and a storage buffer became two correctly-decorated SPIR-V types with the
+  *same* `OpName`, which a translator with one namespace for struct definitions collapses into one —
+  on Metal the uniform block's padded `float3` won, so the fragment stage read a light four bytes
+  late while the compute stage that filled it read it correctly. The layout is part of the name now.
+  Both failures are silent by construction: valid SPIR-V, no validation error, a black frame.
+  Falls back to tiled (2D) on GLES and to
   per-object light lists (Stride's `ForwardLightingRenderFeature` approach, max N lights per draw) on
   WebGL2 where compute is absent.
 - **Why default:** MSAA works, transparency works, material variety is unconstrained, memory

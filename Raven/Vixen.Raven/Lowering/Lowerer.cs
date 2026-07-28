@@ -304,41 +304,55 @@ public sealed partial class Lowerer {
     ///     </para>
     /// </remarks>
     void MergeComposedInterfaces(IReadOnlyList<NamedTypeSymbol> types) {
+        HashSet<NamedTypeSymbol> merged = [];
+
         foreach (var type in types) {
-            if (type.TypeKind != TypeKind.Shader || !shaders.TryGetValue(type, out var shader)) {
-                continue;
-            }
-
-            foreach (var contributor in ComposedShaders(type)) {
-                if (!shaders.TryGetValue(contributor, out var source)) {
-                    continue;
-                }
-
-                MergeInterface(shader, source);
-            }
+            MergeComposed(type, merged);
         }
     }
 
     /// <summary>
-    ///     Every shader reachable through this shader's <c>compose</c> slots, transitively.
+    ///     Merges one shader's composed contributors into it, and theirs into them first.
     /// </summary>
     /// <remarks>
-    ///     Transitive because a feature may compose one of its own: a layered material's coat
-    ///     feature filling a slot with a BRDF. The visited set also covers the same implementation
-    ///     bound to two slots, which must contribute its bindings once.
+    ///     <para>
+    ///         ⚠ <strong>Depth first, and that is the whole of it.</strong> A contribution is
+    ///         qualified one level — <see cref="MergeInterface" /> prefixes the source shader's name —
+    ///         so the full path a host binds through, <c>CompositeSurface.MetalRoughnessSurface.baseColor</c>,
+    ///         exists only if the chain was given the surface's parameter <em>before</em> the pass was
+    ///         given the chain's. Merging the transitive closure straight into the pass instead names
+    ///         the same parameter <c>MetalRoughnessSurface.baseColor</c>, and which of the two came
+    ///         out depended on the order the module happened to declare its types in.
+    ///     </para>
+    ///     <para>
+    ///         That is not a cosmetic difference. The engine predicts these names without a compiler
+    ///         — <c>MaterialCompilationContext</c> builds the path from the composition — and a name
+    ///         it predicts that no member matches is dropped in silence, so every value a composed
+    ///         material sets reaches the GPU as zero. A whole-library compilation and a
+    ///         single-pass one disagreed about the name, which is why the checked-in reflection
+    ///         looked right while a frame rendered black.
+    ///     </para>
+    ///     <para>
+    ///         Marked before recursing, so a compose cycle terminates rather than overflowing. Only
+    ///         the shader's <em>own</em> slots are walked here: whatever they reach transitively is
+    ///         already in the contributor by the time it is merged.
+    ///     </para>
     /// </remarks>
-    static IEnumerable<NamedTypeSymbol> ComposedShaders(NamedTypeSymbol type) {
-        HashSet<NamedTypeSymbol> visited = [];
-        Queue<NamedTypeSymbol> pending = new([type]);
+    void MergeComposed(NamedTypeSymbol type, HashSet<NamedTypeSymbol> merged) {
+        if (type.TypeKind != TypeKind.Shader || !merged.Add(type)) {
+            return;
+        }
 
-        while (pending.Count > 0) {
-            foreach (var member in pending.Dequeue().GetMembers()) {
-                if (member is FieldSymbol { IsCompose: true, ComposedType: { } bound }
-                    && bound.TypeKind == TypeKind.Shader
-                    && visited.Add(bound)) {
-                    pending.Enqueue(bound);
-                    yield return bound;
-                }
+        foreach (var member in type.GetMembers()) {
+            if (member is not FieldSymbol { IsCompose: true, ComposedType: { } bound }
+                || bound.TypeKind != TypeKind.Shader) {
+                continue;
+            }
+
+            MergeComposed(bound, merged);
+
+            if (shaders.TryGetValue(type, out var shader) && shaders.TryGetValue(bound, out var source)) {
+                MergeInterface(shader, source);
             }
         }
     }
