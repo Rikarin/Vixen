@@ -183,18 +183,35 @@ public sealed class StyleUpdater {
             live = Math.Max(live, to + 1);
         }
 
+        // ⚠ Clamped to what has actually been resolved, because a compaction can happen before the
+        // first pass does. `styles` is grown by `ResolveAll` and `Update` and by nothing else, so a
+        // document that removed a subtree and compacted before it ever resolved has a full remap and
+        // an empty array — and the clear below then ran with a negative length and threw. Slots past
+        // the end hold no style to move and none to forget.
+        live = Math.Min(live, styles.Length);
+
         // The tail is cleared rather than left. A stale style past the end would be returned by
         // `StyleOf` for a slot the tree has not handed out yet, which reads as an element that was
         // styled before it existed.
         Array.Clear(styles, live, styles.Length - live);
     }
 
+    /// <remarks>
+    ///     ⚠ <b>The inline block is part of a resolve and was missing here for two phases.</b>
+    ///     <c>StyleEngine.ResolveAll</c> passes <c>Tree.InlineAt</c> and this did not, so every
+    ///     declaration written on an element — a splitter at 37 %, a virtualised row at y = 880 000 —
+    ///     was silently dropped by the incremental path. Nothing caught it because nothing called the
+    ///     incremental path: inline styles arrived in Phase 4e, this class arrived in 4b, and the only
+    ///     code between them was its own tests. <b>Dead code does not stay correct</b>, which is a
+    ///     better argument for wiring it up than the frame cost was.
+    /// </remarks>
     ComputedStyle Resolve(int index) {
         var parent = engine.Tree.ParentOf(index);
         return engine.Resolver.Resolve(
             engine.Tree,
             new StyleNodeId(index),
-            parent < 0 ? null : styles[parent] ?? ComputedStyle.Empty
+            parent < 0 ? null : styles[parent] ?? ComputedStyle.Empty,
+            engine.Tree.InlineAt(index)
         );
     }
 

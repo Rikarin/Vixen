@@ -147,7 +147,7 @@ public partial class UiElement {
             return false;
         }
 
-        Document.Invalidate();
+        Document.InvalidateClass(StyleNode, className);
         return true;
     }
 
@@ -159,7 +159,7 @@ public partial class UiElement {
             return false;
         }
 
-        Document.Invalidate();
+        Document.InvalidateClass(StyleNode, className);
         return true;
     }
 
@@ -177,7 +177,7 @@ public partial class UiElement {
             }
 
             Document.Styles.Tree.SetState(StyleNode, value);
-            Document.Invalidate();
+            Document.InvalidateState(StyleNode);
         }
     }
 
@@ -391,14 +391,22 @@ public partial class UiElement {
     public partial float OffsetY { get; set; }
 
     /// <remarks>
-    ///     ⚠ <b>Invalidates the document rather than only the positions.</b> There is no cheaper
-    ///     pass to ask for — <see cref="UiDocument.Update" /> is what recomputes absolute positions —
-    ///     and it costs a walk that changes nothing: no element's computed style has changed, so the
-    ///     reference comparison skips every one of them, and no layout node is dirty, so flexbox
-    ///     returns without measuring. A scroll is therefore two walks of the tree and no work, which
-    ///     is the point.
+    ///     <para>
+    ///         ⚠ <b>Asks for a pass without asking for a restyle</b>, because an offset cannot change
+    ///         what any selector matches. <see cref="UiDocument.Update" /> is what recomputes absolute
+    ///         positions, so a pass is what has to be asked for; the cascade has nothing to do in it,
+    ///         and no layout node is dirty either, so flexbox returns without measuring. A scroll is
+    ///         two walks of the tree and no work.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That last sentence was here before and was not true.</b> It described
+    ///         <c>Apply</c>, whose reference comparison does skip every element — while the pass above
+    ///         it re-cascaded the document, because a plain <c>Invalidate</c> was the only way to ask
+    ///         for anything. Measured on a themed document of 8 001 elements, that was 9.5 ms and
+    ///         8.9 MB per frame of a scroll. See <c>UiDocument.InvalidatePositions</c>.
+    ///     </para>
     /// </remarks>
-    void OnOffsetChanged(float previous, float current) => Document.Invalidate();
+    void OnOffsetChanged(float previous, float current) => Document.InvalidatePositions();
 
     /// <summary>Its left edge in document space, after the last layout pass.</summary>
     public float AbsoluteLeft { get; internal set; }

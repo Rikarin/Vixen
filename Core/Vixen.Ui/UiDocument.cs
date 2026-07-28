@@ -52,6 +52,7 @@ public sealed partial class UiDocument : IDisposable {
     /// <param name="rootFontSize">The font size <c>rem</c> measures against.</param>
     public UiDocument(float width, float height, float rootFontSize = LengthContext.InitialFontSize) {
         Styles = new StyleEngine();
+        Restyler = new StyleUpdater(Styles);
         Layout = new LayoutTree();
         Builder = new LayoutStyleBuilder(Styles.Properties, Styles.Values, Styles.Names);
         drawings = new DrawListBuilder(Styles.Properties, Styles.Values, Styles.Names);
@@ -71,6 +72,16 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>The cascade.</summary>
     public StyleEngine Styles { get; }
+
+    /// <summary>What holds every element's computed style and keeps it that way.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <c>StyleEngine.ResolveAll</c>, which is what this used to be and is why a hover
+    ///     cost a full cascade.</b> The engine resolves the document; the updater resolves what a
+    ///     change could have reached and stops descending where the answer did not move. Both produce
+    ///     the same styles — that is the property <c>IncrementalDocumentTests</c> gates — and only one
+    ///     of them is affordable sixty times a second.
+    /// </remarks>
+    public StyleUpdater Restyler { get; }
 
     /// <summary>The flexbox engine.</summary>
     public LayoutTree Layout { get; }
@@ -144,8 +155,19 @@ public sealed partial class UiDocument : IDisposable {
         Forget();
     }
 
-    /// <summary>Marks the document as needing a fresh pass.</summary>
-    public void Invalidate() => dirty = true;
+    /// <summary>Marks the document as needing a fresh pass over every element.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The conservative door, and every caller that is not a class or a state change comes
+    ///     through it.</b> A new element, a removal, a move, an inline style and a stylesheet all land
+    ///     here and all cost a cold pass. That is correct — <see cref="StyleUpdater" /> narrows a
+    ///     change to <i>an existing element's</i> names or state and cannot express any of them — and
+    ///     it is the reason this stays public and unnarrowed: an outside caller that has changed
+    ///     something the document cannot see must get the pass that assumes the worst.
+    /// </remarks>
+    public void Invalidate() {
+        dirty = true;
+        ForgetChanges();
+    }
 
     /// <summary>Marks every element as needing its layout style rebuilt.</summary>
     void Forget() {
@@ -370,6 +392,22 @@ public sealed partial class UiDocument : IDisposable {
         var remap = new int[tree.Count];
         tree.Compact(remap);
         Remap(Root, remap);
+
+        // The updater's styles are indexed by slot, so a compaction it was not told about would leave
+        // every element wearing the style of whatever used to be several slots along.
+        //
+        // ⚠ **Insurance, and labelled as insurance because a sabotage deleting it failed to fail.**
+        // The line below forces the next pass to be cold, and a cold pass writes every entry of that
+        // array — so the remapped values are overwritten before anything can read one. It is kept
+        // because `StyleUpdater.Compact` is part of the updater's own contract rather than a
+        // courtesy, and because the redundancy is a property of *these two lines being adjacent*: a
+        // compaction that one day preserves the incremental pass makes the remap load-bearing again,
+        // and finding that out by way of a wrong interface would be finding it out the hard way.
+        Restyler.Compact(remap);
+
+        // ⚠ This one is not insurance. A recorded change names a slot, compaction moves every slot,
+        // and a change replayed afterwards would restyle whatever has since landed on that index.
+        ForgetChanges();
         StyleCompactions++;
 
         return true;
@@ -399,6 +437,7 @@ public sealed partial class UiDocument : IDisposable {
 
         dirty = false;
         StylesApplied = 0;
+        StylesResolved = 0;
 
         // ⚠ Before anything reads a slot, and only when the tombstones outnumber the elements. Here
         // rather than in `Remove`, because compaction is O(elements) and removing a thousand-row list
@@ -410,8 +449,8 @@ public sealed partial class UiDocument : IDisposable {
             CompactStyles();
         }
 
-        var computed = Styles.ResolveAll();
-        Apply(computed, Root, Viewport.RootFontSize);
+        StylesResolved = Restyle();
+        Apply(Root, Viewport.RootFontSize);
 
         Layout.CalculateLayout(Root.LayoutNode, Viewport.ViewportWidth, Viewport.ViewportHeight, Direction.Ltr);
         Accumulate(Root, 0f, 0f);
@@ -435,8 +474,8 @@ public sealed partial class UiDocument : IDisposable {
     ///         in three parallel lists.
     ///     </para>
     /// </remarks>
-    void Apply(ComputedStyle[] computed, UiElement element, float parentFontSize) {
-        var style = computed[element.StyleNode.Index];
+    void Apply(UiElement element, float parentFontSize) {
+        var style = Restyler.StyleOf(element.StyleNode);
 
         element.Style = style;
         element.FontSize = Builder.ResolveFontSize(style, parentFontSize, Viewport);
@@ -457,7 +496,7 @@ public sealed partial class UiDocument : IDisposable {
         }
 
         foreach (var child in element.Children) {
-            Apply(computed, child, element.FontSize);
+            Apply(child, element.FontSize);
         }
     }
 
