@@ -139,6 +139,43 @@ public readonly struct DrawContext {
             )
         );
 
+    /// <summary>Draws a texture over a rectangle.</summary>
+    /// <param name="rectangle">Where.</param>
+    /// <param name="image">The renderer's name for the texture. Zero draws nothing.</param>
+    /// <param name="tint">What to multiply it by. White leaves it alone.</param>
+    /// <param name="source">Which part of the texture, in UVs. The whole of it by default.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The image is a number this assembly cannot interpret</b>, exactly as
+    ///         <c>Viewport.RenderTarget</c> is — a texture view belongs to <c>Vixen.Graphics</c> and
+    ///         <c>Vixen.Ui</c> does not reference it. The renderer registers a number for a texture it
+    ///         owns; everything between here and there passes it along.
+    ///     </para>
+    ///     <para>
+    ///         The tint goes through the element's own opacity like every other colour, so an image
+    ///         inside a fading panel fades with it rather than staying solid until the panel vanishes.
+    ///     </para>
+    /// </remarks>
+    public void DrawImage(Rectangle rectangle, ulong image, Color4 tint = default, Rectangle source = default) =>
+        List.Add(
+            new DrawCommand(
+                DrawCommandKind.Image,
+                rectangle.X,
+                rectangle.Y,
+                rectangle.Width,
+                rectangle.Height,
+                DrawListBuilder.Fade(tint == default ? Color4.White : tint, alpha),
+                0f,
+                0f
+            ) {
+                Image = image,
+
+                // `default` is an empty rectangle and not the whole texture, so the caller who wrote
+                // nothing gets the whole of it rather than a zero-area sample of its top-left texel.
+                Source = source == default ? new Rectangle(0f, 0f, 1f, 1f) : source
+            }
+        );
+
     /// <summary>Fills a rectangle with per-corner radii, a gradient, or both.</summary>
     /// <param name="rectangle">Where.</param>
     /// <param name="color">Its colour — the near end of the gradient, if it has one.</param>

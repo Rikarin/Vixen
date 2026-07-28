@@ -713,6 +713,163 @@ public sealed class UiImageTests {
         return loaded;
     }
 
+
+    /// <summary>A texture drawn into the interface, tinted, flipped, and next to a box.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The image pipeline is the fourth to share one vertex layout and one pipeline layout,
+    ///         and the failure it exists to catch is the same one <see cref="Interface" /> catches for
+    ///         the other three — except worse, because an image binds a descriptor set of <i>its
+    ///         own</i>. A set bound for an image that survives into the text after it draws the
+    ///         picture where the letters should be; one that does not get bound at all draws the font
+    ///         atlas where the picture should be. Both need two kinds in one frame to show.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The source rectangle is flipped, which is not decoration.</b> A scene renders
+    ///         with y up and an interface draws with y down, so a viewport's target sampled as it
+    ///         stands is upside down — and a fixture that drew a symmetric texture could not tell.
+    ///         The texture below is deliberately not symmetric.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Images() {
+        if (!TryOpen(out var fixture, out _)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var colour = owned.ColourTarget("ui");
+
+        // Four texels: red, green / blue, white. Asymmetric in both axes, so a flip or a transpose
+        // is visible rather than a picture that looks the same either way.
+        var sampled = owned.Sampled(
+            "ui image",
+            2,
+            [
+                255, 0, 0, 255, 0, 255, 0, 255,
+                0, 0, 255, 255, 255, 255, 255, 255
+            ]
+        );
+
+        var list = new DrawList();
+        list.BeginFrame();
+
+        // A box first, so the image's set has something before it to disturb.
+        list.Add(new(DrawCommandKind.Rectangle, 8, 8, 40, 40, new Color4(0.2f, 0.2f, 0.25f, 1f), 6, 0));
+
+        // Upright, whole texture, untinted.
+        list.Add(
+            new DrawCommand(DrawCommandKind.Image, 56, 8, 64, 48, Color4.White, 0, 0) { Image = Texture }
+        );
+
+        // Flipped vertically, the way a viewport's render target is drawn, and half faded.
+        list.Add(
+            new DrawCommand(DrawCommandKind.Image, 56, 64, 64, 48, new Color4(1f, 1f, 1f, 0.5f), 0, 0) {
+                Image = Texture,
+                Source = new Rectangle(0f, 1f, 1f, -1f)
+            }
+        );
+
+        // A box after it, so a set left bound by the image would show.
+        list.Add(new(DrawCommandKind.Rectangle, 8, 64, 40, 48, new Color4(0.9f, 0.6f, 0.1f, 1f), 4, 0));
+
+        list.EndFrame();
+
+        var cache = new GlyphFieldCache(new GlyphAtlas(256, 256));
+        var geometry = new UiGeometryBuilder().Build(list, cache, Viewport);
+
+        var renderer = new UiRenderer(
+            owned.Device,
+            new(
+                owned.Shader("ui.vert.spv", ShaderStage.Vertex),
+                owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
+            ) {
+                Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment)
+            },
+            new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
+        );
+
+        owned.Owns(renderer.Dispose);
+        renderer.RegisterImage(Texture, sampled.View);
+
+        owned.Graph.AddPass("ui", pass => {
+            pass.ColourAttachment(colour, LoadAction.Clear, new(0.08f, 0.09f, 0.11f, 1f));
+            pass.SideEffect();
+            pass.Execute(graph => renderer.Record(graph.CommandList, geometry, new(Side, Side)));
+        });
+
+        var image = owned.Render(
+            colour,
+            commands => {
+                renderer.Upload(commands, geometry, cache.Atlas);
+
+                commands.Barrier(
+                    new([], [new(sampled.Texture, ResourceState.Undefined, ResourceState.CopyDestination)])
+                );
+
+                commands.CopyBufferToTexture(sampled.Staging, 0, new(sampled.Texture), new(2, 2, 1));
+
+                commands.Barrier(
+                    new([], [new(sampled.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+                );
+            }
+        );
+
+        // Three draws from four commands: box, then *both* images as one, then box. The two images
+        // are adjacent and name one texture, so they merge — which is the batching working, and the
+        // reason the texture is part of the batch key rather than something bound per command.
+        Assert.Equal(geometry.Draws.Count, renderer.Draws);
+        Assert.Equal(3, geometry.Draws.Count);
+
+        AssertTheImageIsUpright(image);
+        AssertTheFlippedImageIsFlipped(image);
+        AssertTheBoxAfterTheImageIsNotTheTexture(image);
+
+        GoldenImage.Verify("ui-images", image, Tolerance.Edges);
+    }
+
+    /// <summary>The number the draw list carries and the renderer registers.</summary>
+    /// <remarks>Any non-zero number: what it means is between the host and the renderer.</remarks>
+    const ulong Texture = 7;
+
+    /// <summary>The upright image has red at its top-left and blue at its bottom-left.</summary>
+    static void AssertTheImageIsUpright(in Bitmap image) {
+        Assert.True(
+            Red(image, 64, 16) > Blue(image, 64, 16),
+            "the top-left of the upright image is not reddish"
+        );
+
+        Assert.True(
+            Blue(image, 64, 48) > Red(image, 64, 48),
+            "the bottom-left of the upright image is not blueish"
+        );
+    }
+
+    /// <summary>The flipped one has them the other way round, which is the whole assertion.</summary>
+    static void AssertTheFlippedImageIsFlipped(in Bitmap image) {
+        Assert.True(
+            Blue(image, 64, 72) > Red(image, 64, 72),
+            "the top-left of the flipped image is not blueish, so the source rectangle was ignored"
+        );
+
+        Assert.True(
+            Red(image, 64, 104) > Blue(image, 64, 104),
+            "the bottom-left of the flipped image is not reddish"
+        );
+    }
+
+    /// <summary>The box drawn after the image is the box's colour and not a texel.</summary>
+    static void AssertTheBoxAfterTheImageIsNotTheTexture(in Bitmap image) {
+        // Orange: red high, green middling, blue low. A texel would be one of four saturated colours,
+        // and the atlas would be nearly black.
+        Assert.True(
+            Red(image, 28, 88) > 150 && Green(image, 28, 88) is > 60 and < 200 && Blue(image, 28, 88) < 100,
+            "the box drawn after the image is not its own colour, so a binding leaked across the draw"
+        );
+    }
+
     /// <summary>Opens a device, or skips — unless the environment promised one.</summary>
     static bool TryOpen(out Fixture? fixture, out string? reason) {
         if (Fixture.TryOpen(out fixture, out reason)) {

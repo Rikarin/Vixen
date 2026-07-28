@@ -243,8 +243,10 @@ Said out loud rather than left to be discovered:
 - **No undo, anywhere.** An undo stack inside a text control can only undo typing, and every
   application that has one wants it to cover more. `CodeBuffer.Changed`, `NodeGraph.Changed`,
   `AnimationCurve.Changed` and `Gradient.Changed` are the seams such a stack subscribes to.
-- **`Viewport` draws a placeholder.** The draw list has no texture command, so a renderer
-  composites over the interface until it does. Same gap as `Image`.
+- ~~**`Viewport` draws a placeholder.**~~ It draws `RenderTarget` through the draw list's image
+  command, and falls back to the placeholder colour only when nothing has been rendered into it yet.
+  `FlipVertically` is on by default, because a scene renders with y up and an interface draws with y
+  down.
 - **`CodeEditor` does not wrap and has no caret blink.** Nothing in the framework wraps a line —
   `TextRun` says so — and blinking needs a host tick, which `Tooltip` and `ToastHost` also want.
 - **`OkLch.ToSrgb` clamps per channel**, which shifts the hue rather than reducing the chroma. Real

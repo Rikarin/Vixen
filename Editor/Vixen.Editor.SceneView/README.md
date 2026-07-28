@@ -231,8 +231,8 @@ keymap over commands, not to a second binding system inside the viewport. `Vixen
 the shape — gizmo modes, snapping, focus and the numpad views are all commands there, so they appear
 in the palette and can be rebound.
 
-**The pixels.** A viewport draws a placeholder colour because `UiDocument`'s draw list has no texture
-command. Everything here is driven and correct without one; see `Vixen.Editor.App`'s README for what
-unblocks it.
+**The pixels.** The draw list can carry a texture now and `Viewport` draws one, so what is left is a
+host that renders a scene into a target and registers it — a `RenderSystem` and a `GraphicsCompositor`
+in `Vixen.Editor.App`, which is the next thing rather than a missing capability.
 
 Licensed under Apache-2.0.

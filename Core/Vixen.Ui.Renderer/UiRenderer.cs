@@ -28,7 +28,16 @@ public readonly record struct UiShaders(
     ShaderHandle Box,
     ShaderHandle Text,
     ShaderHandle Solid
-);
+) {
+    /// <summary>The stage that samples a texture: an image, a video frame, a viewport.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An init property rather than a fifth positional parameter</b>, so that a host which
+    ///     draws no images keeps the four-argument constructor it already had. Left unset, image
+    ///     commands are skipped and everything else draws — which is the honest behaviour for a
+    ///     renderer that was not given the shader for them.
+    /// </remarks>
+    public ShaderHandle Image { get; init; }
+}
 
 /// <summary>Draws a frame of interface geometry.</summary>
 /// <remarks>
@@ -84,6 +93,14 @@ public sealed class UiRenderer : IDisposable {
     TextureHandle atlasTexture;
     TextureViewHandle atlasView;
     DescriptorSetHandle[] atlasDescriptors = [];
+
+    // ⚠ One set per registered texture, not one per draw. A descriptor set is allocated from a pool
+    // and updated on the device; doing either inside the record loop would put an allocation and a
+    // driver call on every frame that shows an image. Registration is the host saying "this texture
+    // will be drawn", which is a thing that happens when a viewport is resized, not per frame.
+    readonly Dictionary<ulong, (DescriptorSetHandle Set, TextureViewHandle View)> imageDescriptors = [];
+
+    readonly PipelineHandle imagePipeline;
     BufferHandle atlasStaging;
     int atlasWidth;
     int atlasHeight;
@@ -158,6 +175,13 @@ public sealed class UiRenderer : IDisposable {
         boxPipeline = Pipeline(shaders.Box, output, "ui box");
         textPipeline = Pipeline(shaders.Text, output, "ui text");
         solidPipeline = Pipeline(shaders.Solid, output, "ui solid");
+
+        // Only when there is a stage for it. A host that draws no images does not pay for a pipeline,
+        // and one that hands over no image shader gets image draws skipped rather than a throw at
+        // construction — see UiShaders.Image.
+        if (shaders.Image.IsValid) {
+            imagePipeline = Pipeline(shaders.Image, output, "ui image");
+        }
     }
 
     /// <summary>How many draws the last <see cref="Record" /> submitted.</summary>
@@ -270,24 +294,49 @@ public sealed class UiRenderer : IDisposable {
         commands.BindIndexBuffer(indices, IndexFormat.UInt32, (long) slot * indexCapacity);
 
         var bound = default(PipelineHandle);
-        var shared = false;
+        var boundSet = default(DescriptorSetHandle);
+        var pushed = false;
 
         foreach (var draw in geometry.Draws) {
             var pipeline = PipelineFor(draw.Kind);
+
+            if (!pipeline.IsValid) {
+                // An image with no image shader. Skipped rather than drawn with another pipeline,
+                // which would put the font atlas in the hole and read as a rendering fault.
+                continue;
+            }
 
             if (pipeline != bound) {
                 commands.BindPipeline(pipeline);
                 bound = pipeline;
             }
 
-            if (!shared) {
-                // ⚠ After the first pipeline and then never again. Both of these are written through
-                // the bound pipeline's layout, so there is nothing to write them through until one is
-                // bound — and because all three pipelines share one layout, a later pipeline change
-                // cannot disturb either of them.
+            if (!pushed) {
+                // ⚠ After the first pipeline and then never again. It is written through the bound
+                // pipeline's layout, so there is nothing to write it through until one is bound — and
+                // because every pipeline shares one layout, a later pipeline change cannot disturb it.
                 commands.PushConstants(ShaderStage.Vertex, 0, MemoryMarshal.AsBytes(projection));
-                commands.BindDescriptorSet(DescriptorSetSlot.PerFrame, atlasDescriptors[slot]);
-                shared = true;
+                pushed = true;
+            }
+
+            // ⚠ Per draw rather than once, now that a draw can carry its own texture. The set is the
+            // atlas for everything except an image, so a frame with no images binds exactly once —
+            // the comparison is what keeps the old behaviour rather than a flag that used to.
+            var registered = draw.Kind == BatchKind.Image
+                ? imageDescriptors.TryGetValue(draw.Image, out var found) ? found.Set : default
+                : atlasDescriptors[slot];
+
+            if (!registered.IsValid) {
+                // An image nobody registered. Drawing it would sample the atlas through the image
+                // shader, which is a rectangle of scrambled glyphs where the picture should be.
+                continue;
+            }
+
+            var set = registered;
+
+            if (set != boundSet) {
+                commands.BindDescriptorSet(DescriptorSetSlot.PerFrame, set);
+                boundSet = set;
             }
 
             var scissor = Scissor(draw.Clip, surface, scale);
@@ -307,8 +356,83 @@ public sealed class UiRenderer : IDisposable {
         }
     }
 
+    /// <summary>Names a texture, so a draw list can ask for it.</summary>
+    /// <param name="image">The number the draw commands will carry. Must not be zero.</param>
+    /// <param name="view">The texture to draw. Owned by the caller.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The other half of the bargain <c>DrawCommand.Image</c> makes.</b> <c>Vixen.Ui</c>
+    ///         describes what to draw and cannot name a texture view; this is where a number becomes
+    ///         one. What the number <i>is</i> is the host's business — a viewport uses its render
+    ///         target's handle, an image control an asset's — and nothing checks it beyond being
+    ///         non-zero, because zero is what every non-image command carries.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The texture is not owned.</b> A registered view that the host destroys leaves a
+    ///         descriptor set pointing at freed memory, and the first frame that draws it is
+    ///         undefined behaviour rather than an error. Unregister before destroying, which for a
+    ///         viewport means on resize — the same moment the target is recreated.
+    ///     </para>
+    ///     <para>
+    ///         Registering a number twice replaces what it points at, which is what a viewport that
+    ///         was resized wants: the number stays the same and the texture behind it does not.
+    ///     </para>
+    /// </remarks>
+    public void RegisterImage(ulong image, TextureViewHandle view) {
+        ArgumentOutOfRangeException.ThrowIfZero(image);
+
+        if (!imageDescriptors.TryGetValue(image, out var entry)) {
+            entry = (device.CreateDescriptorSet(atlasLayout, "ui image"), view);
+        }
+
+        imageDescriptors[image] = (entry.Set, view);
+        var set = entry.Set;
+
+        // ⚠ Binding 2 is written even though the image shader never reads it. The layout is shared
+        // with the box pipeline — see the pipeline layout's own remarks for why all of them are one —
+        // and a set that leaves a declared binding unwritten is a validation error on the frame it is
+        // bound, not on the frame it was made.
+        device.UpdateDescriptorSet(
+            set,
+            boxes.IsValid
+                ? [
+                    DescriptorWrite.Texture(0, view),
+                    DescriptorWrite.SamplerAt(1, sampler),
+                    DescriptorWrite.Storage(2, boxes, 0, boxCapacity)
+                ]
+                : [DescriptorWrite.Texture(0, view), DescriptorWrite.SamplerAt(1, sampler)]
+        );
+    }
+
+    /// <summary>Forgets a texture.</summary>
+    /// <param name="image">The number it was registered under.</param>
+    /// <returns>Whether it was registered.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Call it before destroying the texture, not after.</b> A draw list built before this
+    ///     may still name the number; an unregistered number is skipped, which is a hole in the
+    ///     interface, and a registered one whose texture is gone is undefined behaviour.
+    /// </remarks>
+    public bool UnregisterImage(ulong image) {
+        if (!imageDescriptors.Remove(image, out var entry)) {
+            return false;
+        }
+
+        device.Destroy(entry.Set);
+        return true;
+    }
+
     /// <inheritdoc />
     public void Dispose() {
+        foreach (var entry in imageDescriptors.Values) {
+            device.Destroy(entry.Set);
+        }
+
+        imageDescriptors.Clear();
+
+        if (imagePipeline.IsValid) {
+            device.Destroy(imagePipeline);
+        }
+
         device.Destroy(boxPipeline);
         device.Destroy(textPipeline);
         device.Destroy(solidPipeline);
@@ -334,6 +458,7 @@ public sealed class UiRenderer : IDisposable {
     PipelineHandle PipelineFor(BatchKind kind) =>
         kind switch {
             BatchKind.Text => textPipeline,
+            BatchKind.Image => imagePipeline,
             BatchKind.PathFill or BatchKind.PathStroke => solidPipeline,
             _ => boxPipeline
         };
@@ -428,6 +553,13 @@ public sealed class UiRenderer : IDisposable {
                     [DescriptorWrite.Storage(2, boxes, (long) index * boxCapacity, boxCapacity)]
                 );
             }
+        }
+
+        // ⚠ The image sets hold a write to the same buffer and go stale with it. They never read it —
+        // the image shader has no boxes — but the layout declares the binding, so a set still
+        // pointing at a destroyed buffer is a validation error on the frame it is bound.
+        foreach (var entry in imageDescriptors.Values) {
+            device.UpdateDescriptorSet(entry.Set, [DescriptorWrite.Storage(2, boxes, 0, boxCapacity)]);
         }
     }
 

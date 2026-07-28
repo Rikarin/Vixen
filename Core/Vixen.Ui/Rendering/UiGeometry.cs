@@ -42,7 +42,15 @@ public readonly record struct UiVertex(Vector2 Position, Vector2 Texture, Color4
 ///     and pops; a renderer sets a scissor. Resolving the stack here means the renderer never holds
 ///     one — and never has to be told that a batch it skipped had left a clip behind.
 /// </remarks>
-public readonly record struct UiDraw(BatchKind Kind, int First, int Count, int Font, Rectangle Clip);
+public readonly record struct UiDraw(BatchKind Kind, int First, int Count, int Font, Rectangle Clip) {
+    /// <summary>Which texture, for <see cref="BatchKind.Image" />. Zero and unread otherwise.</summary>
+    /// <remarks>
+    ///     Carried through from the batch, because a texture is a descriptor set the renderer binds
+    ///     and the renderer sees only this list. Opaque here for the reason it is opaque on the
+    ///     command: naming a texture view would mean this assembly referenced the graphics layer.
+    /// </remarks>
+    public ulong Image { get; init; }
+}
 
 /// <summary>A frame's worth of interface geometry.</summary>
 /// <param name="Vertices">Every vertex, in painting order.</param>
