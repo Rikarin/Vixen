@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.SceneView</RootNamespace>
+        <Description>
+            The editor's viewport: an orbit/fly camera with bookmarks and axis views, transform gizmos
+            with local/world/parent/screen spaces and snapping, a picking stage that reads object ids
+            back off the GPU, an adaptive grid, debug view modes as compositor swaps, and play-in-editor
+            in both the in-process and out-of-process topologies.
+        </Description>
+        <PackageTags>editor;viewport;gizmo;picking;camera;play-mode;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- A gizmo drag is an IEditorCommand and the selection is the project's. -->
+        <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
+
+        <!--
+            The Viewport control, which says where and how big in render pixels and reports the input
+            inside it in the coordinates a camera controller wants — and deliberately knows nothing
+            about what is drawn in it. This assembly is the other half of that bargain.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
+
+        <!--
+            RenderView, RenderStage and the compositor. A debug view mode is a different compositor
+            tree rather than a different build of the renderer, which is the payoff doc 06 predicted
+            for making the compositor data.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
+
+        <!--
+            The scene is an ECS world and a transform hierarchy, and play-in-editor's in-process
+            topology is a snapshot of one. Vixen.Ecs arrives with it.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Engine\Vixen.Engine.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.SceneView.Tests" />
+    </ItemGroup>
+
+</Project>

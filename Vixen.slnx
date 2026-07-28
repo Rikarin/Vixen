@@ -197,6 +197,14 @@
     Vixen.Editor.NodeGraph is the framework the shader and VFX graphs are both built on,
     and references neither of those two: a graph is a document and a compiler, so the
     whole of it is testable with no shell either.
+
+    Vixen.Editor.Inspector and Vixen.Editor.SceneView are the two panels that are more
+    than chrome, and both reference Vixen.Editor.Core because both produce IEditorCommands
+    — "every edit produces a command" is only true by construction if the thing building
+    the editors knows about the stack. Neither references Vixen.Editor.Ui: an inspector is
+    a control and a viewport is arithmetic over an interface, so both are testable against
+    a bare UiDocument with no shell, and joining them to the docking workspace is
+    Vixen.Editor.App's job as it is for everything else.
   -->
   <Folder Name="/Editor/">
     <Project Path="Editor/Vixen.Editor.Core/Vixen.Editor.Core.csproj" />
@@ -210,6 +218,11 @@
     <Project Path="Editor/Vixen.Editor.ShaderGraph.Tests/Vixen.Editor.ShaderGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.VfxGraph/Vixen.Editor.VfxGraph.csproj" />
     <Project Path="Editor/Vixen.Editor.VfxGraph.Tests/Vixen.Editor.VfxGraph.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Inspector/Vixen.Editor.Inspector.csproj" />
+    <Project Path="Editor/Vixen.Editor.Inspector.Generator/Vixen.Editor.Inspector.Generator.csproj" />
+    <Project Path="Editor/Vixen.Editor.Inspector.Tests/Vixen.Editor.Inspector.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.SceneView/Vixen.Editor.SceneView.csproj" />
+    <Project Path="Editor/Vixen.Editor.SceneView.Tests/Vixen.Editor.SceneView.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Ui/Vixen.Editor.Ui.csproj" />
     <Project Path="Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.App/Vixen.Editor.App.csproj" />

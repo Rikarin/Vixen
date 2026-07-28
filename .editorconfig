@@ -601,3 +601,19 @@ dotnet_diagnostic.CA1051.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Ui.Controls/Selects.cs]
 dotnet_diagnostic.CA1716.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Editor/Vixen.Editor.Inspector.Tests/Fixtures.cs
+#
+# CA1051 (do not declare visible instance fields). These types exist to exercise
+# every shape the inspector's generator has to handle, and a public mutable field
+# is the shape doc 11's own example uses — `[Inspector] public float Roughness =
+# 0.2f;`. A field is also the only member kind that can be reached by `ref`, which
+# is the accessor the generator emits and the reason a struct member is editable
+# in place; a fixture without one would leave that path untested.
+#
+# The same argument the [DataContract] fixtures make, and scoped the same way: to
+# the one file whose job is to be every shape at once.
+# ─────────────────────────────────────────────────────────────────────────────
+[Editor/Vixen.Editor.Inspector.Tests/Fixtures.cs]
+dotnet_diagnostic.CA1051.severity = none
