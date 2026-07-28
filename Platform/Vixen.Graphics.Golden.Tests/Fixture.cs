@@ -193,9 +193,10 @@ sealed class Fixture : IDisposable {
     /// </remarks>
     public (TextureHandle Texture, TextureViewHandle View, TextureDescription Description) Owned(
         string name,
-        TextureUsage usage
+        TextureUsage usage,
+        PixelFormat format = PixelFormat.Rgba8UNorm
     ) {
-        var description = new TextureDescription(PixelFormat.Rgba8UNorm, Side, Side, usage, Name: name);
+        var description = new TextureDescription(format, Side, Side, usage, Name: name);
         var texture = device.CreateTexture(description);
         var view = device.CreateTextureView(texture);
 
