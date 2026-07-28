@@ -32,7 +32,7 @@ namespace Vixen.Ui.Rendering;
 /// </remarks>
 public sealed class UiGeometryBuilder {
     readonly List<UiVertex> vertices = [];
-    readonly List<ushort> indices = [];
+    readonly List<uint> indices = [];
     readonly List<UiDraw> draws = [];
     readonly List<Rectangle> clips = [];
 
@@ -216,15 +216,7 @@ public sealed class UiGeometryBuilder {
         Color4 color,
         Vector4 shape
     ) {
-        // ⚠ Nothing is emitted past what a ushort index can reach. A frame with more than sixteen
-        // thousand quads in it is a real possibility for a dense editor, and the failure of running
-        // over is silent and looks like geometry from the top of the frame appearing in the middle
-        // of it. Widening the index is the fix and it is owed; refusing is what is honest until then.
-        if (vertices.Count + 4 > ushort.MaxValue) {
-            return;
-        }
-
-        var start = (ushort)vertices.Count;
+        var start = (uint)vertices.Count;
 
         vertices.Add(new UiVertex(new Vector2(left, top), textureMin, color, shape));
         vertices.Add(new UiVertex(new Vector2(right, top), new Vector2(textureMax.X, textureMin.Y), color, shape));
@@ -232,10 +224,10 @@ public sealed class UiGeometryBuilder {
         vertices.Add(new UiVertex(new Vector2(left, bottom), new Vector2(textureMin.X, textureMax.Y), color, shape));
 
         indices.Add(start);
-        indices.Add((ushort)(start + 1));
-        indices.Add((ushort)(start + 2));
+        indices.Add(start + 1);
+        indices.Add(start + 2);
         indices.Add(start);
-        indices.Add((ushort)(start + 2));
-        indices.Add((ushort)(start + 3));
+        indices.Add(start + 2);
+        indices.Add(start + 3);
     }
 }

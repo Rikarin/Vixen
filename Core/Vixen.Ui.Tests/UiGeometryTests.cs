@@ -257,11 +257,41 @@ public class UiGeometryTests {
     public void Every_index_names_a_vertex_that_exists() {
         var (geometry, _) = BuildText("abc", before: list => list.Add(Rect(0, 0, 10, 10)));
 
-        Assert.All(geometry.Indices, index => Assert.InRange(index, 0, geometry.Vertices.Count - 1));
+        Assert.All(geometry.Indices, index => Assert.InRange(index, 0u, (uint)(geometry.Vertices.Count - 1)));
 
         // Two triangles per quad, and nothing left over.
         Assert.Equal(0, geometry.Indices.Count % 6);
         Assert.Equal(geometry.Vertices.Count / 4 * 6, geometry.Indices.Count);
+    }
+
+    /// <summary>
+    ///     ⚠ Past what a 16-bit index reaches, and nothing is dropped and nothing wraps.
+    /// </summary>
+    /// <remarks>
+    ///     This is the whole of what widening the index bought, so it is what the test asserts: at
+    ///     20 000 quads — 80 000 vertices, comfortably past 65 535 — every quad is still there, and
+    ///     the last one's indices name the last four vertices rather than four near the beginning.
+    ///     Under a <c>ushort</c> the builder refused, and the count assertion is what catches that;
+    ///     under a <c>ushort</c> that did not refuse, the last-quad assertion is what catches the
+    ///     wrap, which draws the top of the frame in the middle of it.
+    /// </remarks>
+    [Fact]
+    public void A_frame_past_sixteen_bits_of_vertices_keeps_all_of_them() {
+        const int Quads = 20_000;
+
+        var geometry = Build(list => {
+                for (var i = 0; i < Quads; i++) {
+                    list.Add(Rect(i % 200 * 4, i / 200 * 4, 3, 3));
+                }
+            }
+        );
+
+        Assert.Equal(Quads * 4, geometry.Vertices.Count);
+        Assert.Equal(Quads * 6, geometry.Indices.Count);
+
+        var last = (uint)((Quads - 1) * 4);
+        Assert.Equal(last, geometry.Indices[^6]);
+        Assert.Equal(last + 3, geometry.Indices[^1]);
     }
 
     /// <summary>

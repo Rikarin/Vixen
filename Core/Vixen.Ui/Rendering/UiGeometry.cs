@@ -47,8 +47,17 @@ public readonly record struct UiDraw(BatchKind Kind, int First, int Count, int F
 /// <param name="Vertices">Every vertex, in painting order.</param>
 /// <param name="Indices">Triangles into <paramref name="Vertices" />.</param>
 /// <param name="Draws">What to draw, in painting order.</param>
+/// <remarks>
+///     ⚠ <b>Thirty-two-bit indices, and not because a frame is expected to need them.</b> Almost none
+///     do: sixteen bits reach 65 535 vertices, which is sixteen thousand quads, and a dense editor
+///     window is a few thousand. The reason is what happens to the one frame that does — an index
+///     that wraps draws geometry from the top of the frame in the middle of it, silently, and the
+///     picture is wrong rather than absent. Emitting the wider index costs two bytes per index on
+///     about an eighth of the frame's bytes, and buys never having to reason about the ceiling
+///     again.
+/// </remarks>
 public readonly record struct UiGeometry(
     IReadOnlyList<UiVertex> Vertices,
-    IReadOnlyList<ushort> Indices,
+    IReadOnlyList<uint> Indices,
     IReadOnlyList<UiDraw> Draws
 );
