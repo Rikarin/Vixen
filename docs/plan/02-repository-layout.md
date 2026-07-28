@@ -114,7 +114,8 @@ Core/
 │
 ├── Vixen.Engine/                       # game loop, scenes, entities-as-facade, prefabs, Behavior
 ├── Vixen.Engine.Tests/
-├── Vixen.Input/                        # action-map input system
+├── Vixen.Input/                        # ✅ devices, actions, .vxinput, rebinding — doc 11 § Input
+├── Vixen.Input.Generators/             # ── source generator: .vxinput → typed accessors ──
 ├── Vixen.Input.Tests/
 ├── Vixen.Audio/                        # ✅ AudioClip only — the backend and mixer are Phase 6
 ├── Vixen.Audio.Tests/

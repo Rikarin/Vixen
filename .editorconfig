@@ -296,6 +296,20 @@ dotnet_diagnostic.CA1051.severity = none
 dotnet_diagnostic.CS1591.severity = none
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Input/Controls/InputKey.cs
+#
+# CS1591, for the same reason and about the same table. `InputKey` is the Core
+# layer's copy of the USB HID key positions, value for value — Vixen.Input cannot
+# reference Vixen.Platform (CheckArchitecture forbids Core → Platform) and
+# Vixen.Ui, which consumes it, must stay usable with no platform backend at all.
+# InputKeyTests asserts member by member that the two agree, which is what makes
+# the duplication safe; documenting each of a hundred and twenty positions twice
+# is what would make it unreadable.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Input/Controls/InputKey.cs]
+dotnet_diagnostic.CS1591.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
 # ECS component declarations
 #
 # CA1051 (do not declare visible instance fields). A component *is* a public

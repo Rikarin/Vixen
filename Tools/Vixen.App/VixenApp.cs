@@ -6,6 +6,8 @@ using Vixen.Core.Diagnostics;
 using Vixen.Core.IO;
 using Vixen.Core.Threading;
 using Vixen.Engine.Frames;
+using Vixen.Engine.Input;
+using Vixen.Input;
 using Vixen.Platform;
 
 namespace Vixen.App;
@@ -121,6 +123,18 @@ public sealed class AppBuilder {
             ? new EngineLoop(jobs: jobs, fixedStep: config.FixedStep is { } step ? new(step) : null)
             : null;
 
+        // A pad plugged in before the process started produced no GamepadConnected for anyone to
+        // hear, so an input layer built only from the event stream would see a controller that does
+        // nothing until it is unplugged and plugged back in.
+        var input = new InputService();
+        input.Devices.SyncGamepads(host.Input);
+
+        // With an engine, input is read in SystemPhase.Input — the phase that exists for it, and the
+        // reason SystemPhase names its stages rather than deriving them. Without one, the host reads
+        // it itself before OnUpdate; either way it happens exactly once a frame and before anything
+        // that reacts to it.
+        engine?.Add(new InputUpdateSystem(input));
+
         var services = new AppServices(
             host,
             window,
@@ -131,7 +145,8 @@ public sealed class AppBuilder {
             loggerFactory,
             config,
             content,
-            engine
+            engine,
+            input
         );
 
         foreach (var configure in configurations) {

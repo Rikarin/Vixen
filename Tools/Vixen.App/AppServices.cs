@@ -8,6 +8,7 @@ using Vixen.Core.Diagnostics;
 using Vixen.Core.IO;
 using Vixen.Core.Threading;
 using Vixen.Engine.Frames;
+using Vixen.Input;
 using Vixen.Platform;
 
 namespace Vixen.App;
@@ -37,7 +38,8 @@ public sealed class AppServices {
         ILoggerFactory loggerFactory,
         AppConfig config,
         ContentMount content,
-        EngineLoop? engine
+        EngineLoop? engine,
+        InputService input
     ) {
         Platform = platform;
         Window = window;
@@ -49,6 +51,7 @@ public sealed class AppServices {
         Config = config;
         Content = content;
         Engine = engine;
+        Input = input;
 
         Registry = new();
         Registry.Add(platform);
@@ -58,6 +61,7 @@ public sealed class AppServices {
         Registry.Add(logs);
         Registry.Add(loggerFactory);
         Registry.Add(config);
+        Registry.Add(input);
 
         if (window is not null) {
             Registry.Add(window);
@@ -131,6 +135,16 @@ public sealed class AppServices {
     ///     about to render, and reading it before it has been stepped renders last frame's positions.
     /// </remarks>
     public EngineLoop? Engine { get; }
+
+    /// <summary>The devices, and every action asset being read from them.</summary>
+    /// <remarks>
+    ///     Always present, even with no window and no engine: the device set is platform-agnostic and
+    ///     a headless host replaying a recorded input log needs it exactly as much as a game does.
+    ///     The host submits the frame's platform events to <see cref="InputService.Devices" /> as it
+    ///     drains them, and whatever a game loads with <c>InputActions.Load</c> is registered here to
+    ///     be read once a frame.
+    /// </remarks>
+    public InputService Input { get; }
 
     /// <summary>The same set, for code that resolves generically.</summary>
     public ServiceRegistry Registry { get; }

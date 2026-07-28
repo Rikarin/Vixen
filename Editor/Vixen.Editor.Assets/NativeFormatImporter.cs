@@ -47,7 +47,7 @@ public sealed record NativeFormatImportSettings : IImportSettings {
 ///         is written down in the README as owed.
 ///     </para>
 /// </remarks>
-[Importer(".vxmat", ".vxscene", ".vxprefab", ".vxgroup", ".vxanim", ".vxvfx", ".vxasset")]
+[Importer(".vxmat", ".vxscene", ".vxprefab", ".vxgroup", ".vxanim", ".vxvfx", ".vxinput", ".vxasset")]
 public sealed class NativeFormatImporter : AssetImporter<NativeFormatImportSettings> {
     /// <inheritdoc />
     public override int Version => 1;
@@ -188,6 +188,11 @@ public sealed class NativeFormatImporter : AssetImporter<NativeFormatImportSetti
         ".vxgroup" => "AddressableGroup",
         ".vxanim" => "AnimationClip",
         ".vxvfx" => "VisualEffect",
+
+        // A .vxinput is engine data in the same YAML dialect as the rest, so it needs no importer of
+        // its own — what it needs is to be *in* this list, so that the reference scan runs over it and
+        // an addressable label on an action asset resolves like any other.
+        ".vxinput" => "InputActions",
         _ => "Asset"
     };
 
