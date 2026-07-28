@@ -637,8 +637,9 @@ Two ways to avoid guessing, for two kinds of caller. Code that can reference gen
 `BloomKeys.SourceBinding`. Everything else — a compositor document, a shader loaded from a bundle at
 run time — sets `ResourceBinding.Name` to the shader's own name for the resource and the index comes
 off `Effect.Bindings`, which is the binding plan the reflection always had and the runtime never
-carried. An explicit index remains as the fallback, because a provider that reports no plan is the
-ordinary case until the content build does.
+carried. An explicit index remains as the fallback, for a provider that reports no plan — a test
+fake, a host supplying effects of its own. The shipped ones do report it: a baked `EffectData` carries
+the plan and `EffectLoader` puts it on the effect.
 
 Samplers are describable too: `SamplerDescription` is twelve fields and no device, so it survives
 being written in a document where a handle cannot, and it resolves through the shared `SamplerCache`.
@@ -853,9 +854,11 @@ not Delaunay.
 
 **Materials are values, not resources.** Every feature's parameters go into the constant buffer; a
 feature that samples a texture needs a descriptor, and which binding index it lands on is the compiled
-shader's decision — the same authoring gap the compositor's nodes have, and closed by the same thing:
-reflecting the binding plan onto `Effect`. Until then a textured material sets values and a host
-builds the descriptor set.
+shader's decision. That was the same authoring gap the compositor's nodes had, and the thing that
+closed theirs — the binding plan on `Effect` — is now here and unused by this half: nothing in
+`MaterialRenderFeature` writes a set from named textures, so a textured material still sets values and
+a host fills in `Material.Descriptors`. The blocker moved from "the plan is not carried" to "the
+material feature does not read it", which is a smaller job than it was.
 
 Transmission has a surface feature's worth of channels and no shading model, deliberately: refraction
 needs either the scene colour or an environment sample, both of which belong to the pass rather than
@@ -875,10 +878,12 @@ there rather than here because this assembly does not reference the content syst
 which is why the claim stayed open so long. Nothing was missing; nothing had put the two halves in
 one room.
 
-A node's bindings are set in code, not in the compositor document. A binding index is a shader's
-decision and a sampler is a device handle, and the asset model can express neither — so a compositor
-loaded from disk declares its dependencies correctly and binds nothing until a host fills in
-`Descriptors`. Reflecting the binding plan onto `Effect` is what closes it.
+A node's bindings **are** authorable, and this section used to say the opposite — see
+[Authored](#authored) above, which is where the current answer lives. A binding names what the shader
+calls the resource and the index comes off `Effect.Bindings`; a sampler names a preset the frame's
+`SamplerCache` turns into a description. What a document still cannot carry is the four things only a
+running renderer has — a device, a module cache, a descriptor allocator, a sampler cache — and
+`CompositorBuilder` is what supplies those.
 
 The generated keys cover the shaders the engine names — `PostFx/Bloom` and `PostFx/Tonemap` — and
 nothing else. The list grows when a node starts binding a shader, not in anticipation, because every
