@@ -2126,9 +2126,40 @@ sub-piece has its own gate.
   fails 1, an unbound directive fails 2, a duplicate that replaces fails 1, a fixed header order
   fails 1, and a keyword length wrong by one fails 6.
 
-  Still owed: incremental reparse (the `Blender` exists, but VXML's unit of reuse is not obvious — an
-  element's green node is reusable only if nothing about its *enclosing* content changed) and `bind:`
-  update events. The `IIncrementalGenerator` wrapper is built — see `Vixen.Ui.Markup.Generators`
+  ✅ **Incremental reparse**, which was the other owed item and the one recorded as an open *design*
+  question rather than as missing code. ⚠ **VXML's unit of reuse is a content node whose subtree
+  reported nothing**, and the reasoning that settles it is the point: the worry written down was that
+  an element is reusable only if nothing about its *enclosing* content changed, because an unclosed
+  tag above it changes what it is. That is true of where the node ends up and false of the node
+  itself — `<panel/>` parses to the same green node whether it is a child or a sibling, and the
+  enclosing parse decides which either way. The parser's one piece of enclosing state is the list of
+  elements currently open, **every branch that reads it reports a diagnostic**, so a clean subtree
+  never consulted it. The same rule settles a second problem for free: a reused subtree's diagnostics
+  are not re-reported, and one that had none has none to lose.
+
+  The file is always re-*lexed*; only the parse reuses. That is what keeps a reused node correct when
+  an edit above it disturbs the lexer's mode stack.
+
+  ⚠ **And it found a latent bug in the shared parser.** An incremental reuse is the only place a
+  parser resumes at a position computed from a *text offset* rather than one it had already been at,
+  and the token starting exactly where a reused node ends is very often the whitespace before the
+  next real one. `ResetTo` left `RawPosition` on trivia, which breaks the invariant every `Kind` and
+  `At` rests on — the symptom was an element whose close tag vanished the moment its last child was
+  reused. `SyntaxParser.ResumeAt` is the fix, and Raven's member reuse had the same shape and had
+  been recovering by accident, because its caller skips newlines immediately afterwards.
+
+  Gated by a full reparse as the oracle over two thousand random edits, plus a run of chained edits —
+  the shape a keystroke actually arrives in, and the one where a position shifted by the wrong delta
+  accumulates instead of showing up once. `SyntaxTree.ReusedNodes` says reuse happened, because equal
+  trees only prove it was allowed to.
+
+  Verified by sabotage: eight, five landing. ⚠ **Three did not**, and all three are the same finding:
+  the `Blender`'s one-character margin, the token-boundary re-check and the edge case of a diagnostic
+  ending exactly where a node starts are each unreachable because the others already cover them — an
+  edit that merges with a reused node's first token moves that token's start, so the lookup by full
+  start simply misses. Insurance, labelled as insurance.
+
+  Still owed: `bind:` update events. The `IIncrementalGenerator` wrapper is built — see `Vixen.Ui.Markup.Generators`
   below, which also records the two bugs in *this* project that only a generator could find.
 - ✅ **`Vixen.Ui.HotReload` — three reload channels, and what each one is allowed to lose.**
 

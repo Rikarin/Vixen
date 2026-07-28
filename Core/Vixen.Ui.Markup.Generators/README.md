@@ -138,8 +138,6 @@ contract — and is now labelled as insurance rather than as a covered claim.
 
 ## Owed
 
-Incremental reparse, so a keystroke reuses the previous tree rather than re-lexing the file; the
-`Blender` exists and VXML's unit of reuse is the open question. And a `vixen` CLI path for the same
-compile, for a build that wants the generated C# on disk.
+A `vixen` CLI path for the same compile, for a build that wants the generated C# on disk.
 
 Licensed under Apache-2.0.
