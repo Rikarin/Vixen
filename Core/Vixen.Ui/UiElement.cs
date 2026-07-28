@@ -276,7 +276,7 @@ public partial class UiElement {
             return null;
         }
 
-        var font = Document.Fonts.Resolve(Document.FontFamilyOf(Style));
+        var font = Document.Fonts.Resolve(Document.FontFamilyOf(Style), Document.FontQueryOf(Style));
         return font is null ? null : new TextRun(font, Document.Shaping.Shape(font, Text), FontSize);
     }
 

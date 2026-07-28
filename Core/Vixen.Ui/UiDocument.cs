@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Vixen.Ui.Layout;
 using Vixen.Ui.Styling;
 using Vixen.Ui.Text;
@@ -33,6 +34,9 @@ public sealed partial class UiDocument : IDisposable {
     readonly DrawListBuilder drawings;
     readonly int pointerEvents;
     readonly int fontFamily;
+    readonly int fontWeight;
+    readonly int fontStyle;
+    readonly int fontStretch;
     readonly int overflow;
     /// <summary>How many tombstoned slots it takes before compacting is worth the walk.</summary>
     /// <remarks>
@@ -75,6 +79,9 @@ public sealed partial class UiDocument : IDisposable {
         pointerEvents = Styles.Properties.Intern("pointer-events");
         color = Styles.Properties.Intern("color");
         fontFamily = Styles.Properties.Intern("font-family");
+        fontWeight = Styles.Properties.Intern("font-weight");
+        fontStyle = Styles.Properties.Intern("font-style");
+        fontStretch = Styles.Properties.Intern("font-stretch");
         overflow = Styles.Properties.Intern("overflow");
         none = Styles.Values.Intern("none");
         visible = Styles.Values.Intern("visible");
@@ -780,6 +787,64 @@ public sealed partial class UiDocument : IDisposable {
 
     internal string? FontFamilyOf(ComputedStyle style) =>
         style.TryGet(fontFamily, out var value) ? Styles.Values.NameOf(value) : null;
+
+    /// <summary>What <c>font-weight</c>, <c>font-style</c> and <c>font-stretch</c> asked for.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>bold</c> and <c>normal</c> are keywords and <c>700</c> is a number, and the
+    ///         cascade hands both over as interned names.</b> So this reads the name and parses it,
+    ///         rather than asking for a number and getting nothing whenever an author wrote the
+    ///         keyword — which is how almost everybody writes it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>bolder</c> and <c>lighter</c> are not supported and are read as <c>normal</c>.</b>
+    ///         They are relative to the <i>parent's computed</i> weight, so they need the same
+    ///         computed-value stage <see cref="ComputedText" /> is — one more inherited value carried
+    ///         down resolved. Recorded rather than approximated, because approximating them means
+    ///         picking a weight nobody asked for.
+    ///     </para>
+    /// </remarks>
+    internal FontQuery FontQueryOf(ComputedStyle style) {
+        var weight = 400;
+        var slant = FontStyle.Normal;
+        var stretch = FontStretch.Normal;
+
+        if (style.TryGet(fontWeight, out var weightValue)) {
+            var text = Styles.Values.NameOf(weightValue);
+
+            weight = text switch {
+                "bold" => 700,
+                "normal" => 400,
+                _ => int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+                    ? Math.Clamp(parsed, 1, 1000)
+                    : 400
+            };
+        }
+
+        if (style.TryGet(fontStyle, out var slantValue)) {
+            slant = Styles.Values.NameOf(slantValue) switch {
+                "italic" => FontStyle.Italic,
+                "oblique" => FontStyle.Oblique,
+                _ => FontStyle.Normal
+            };
+        }
+
+        if (style.TryGet(fontStretch, out var stretchValue)) {
+            stretch = Styles.Values.NameOf(stretchValue) switch {
+                "ultra-condensed" => FontStretch.UltraCondensed,
+                "extra-condensed" => FontStretch.ExtraCondensed,
+                "condensed" => FontStretch.Condensed,
+                "semi-condensed" => FontStretch.SemiCondensed,
+                "semi-expanded" => FontStretch.SemiExpanded,
+                "expanded" => FontStretch.Expanded,
+                "extra-expanded" => FontStretch.ExtraExpanded,
+                "ultra-expanded" => FontStretch.UltraExpanded,
+                _ => FontStretch.Normal
+            };
+        }
+
+        return new FontQuery(weight, slant, stretch);
+    }
 
     UiElement? HitTest(UiElement element, float x, float y) {
         var inside = Contains(element, x, y);

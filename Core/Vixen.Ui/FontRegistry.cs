@@ -15,8 +15,8 @@ namespace Vixen.Ui;
 ///         enumerator; the runtime should not have one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Family names are matched exactly and case-insensitively, and nothing else about a
-///         family is understood.</b> CSS's <c>font-family</c> chooses between faces of one family by
+///         <b>Family names are matched exactly and case-insensitively; within a family the face is
+///         chosen by CSS Fonts 4 § 5.2 — stretch, then style, then weight. See FontMatching.</b> CSS's <c>font-family</c> chooses between faces of one family by
 ///         <c>font-weight</c>, <c>font-style</c> and <c>font-stretch</c>, and the matching algorithm
 ///         for that is a page of the specification. Here a name is a face. Registering
 ///         <c>"Inter Bold"</c> and asking for it works; registering <c>"Inter"</c> and asking for
@@ -32,7 +32,7 @@ namespace Vixen.Ui;
 ///     </para>
 /// </remarks>
 public sealed class FontRegistry {
-    readonly Dictionary<string, FontFace> families = new(StringComparer.OrdinalIgnoreCase);
+    readonly Dictionary<string, List<FontEntry>> families = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The face used when a declaration names nothing that is registered.</summary>
     /// <remarks>
@@ -48,12 +48,52 @@ public sealed class FontRegistry {
     /// <summary>Registers a face under a family name.</summary>
     /// <param name="family">The name a stylesheet will use.</param>
     /// <param name="font">The face.</param>
-    /// <remarks>The first face registered also becomes <see cref="Default" />.</remarks>
-    public void Register(string family, FontFace font) {
+    /// <param name="weight">Its weight, 100–900.</param>
+    /// <param name="style">Whether it is upright, italic or oblique.</param>
+    /// <param name="stretch">Its width.</param>
+    /// <remarks>
+    ///     <para>
+    ///         The first face registered also becomes <see cref="Default" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A family is several faces rather than one, which is the whole of this change.</b>
+    ///         Registering four faces under <c>"Inter"</c> and asking for <c>font-weight: bold</c>
+    ///         gets the bold one; the previous version kept one face per name, so the only way to
+    ///         reach a bold was to register it under a different family name and write that name in
+    ///         the stylesheet — which is not what <c>font-weight</c> means and made a theme that used
+    ///         it silently wrong.
+    ///     </para>
+    ///     <para>
+    ///         Re-registering the same (family, weight, style, stretch) replaces the face, so a font
+    ///         swapped at run time does not leave the old one in the running.
+    ///     </para>
+    /// </remarks>
+    public void Register(
+        string family,
+        FontFace font,
+        int weight = 400,
+        FontStyle style = FontStyle.Normal,
+        FontStretch stretch = FontStretch.Normal
+    ) {
         ArgumentException.ThrowIfNullOrWhiteSpace(family);
         ArgumentNullException.ThrowIfNull(font);
+        ArgumentOutOfRangeException.ThrowIfLessThan(weight, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(weight, 1000);
 
-        families[family] = font;
+        if (!families.TryGetValue(family, out var faces)) {
+            faces = [];
+            families[family] = faces;
+        }
+
+        var entry = new FontEntry(font, weight, style, stretch);
+        var existing = faces.FindIndex(f => f.Weight == weight && f.Style == style && f.Stretch == stretch);
+
+        if (existing >= 0) {
+            faces[existing] = entry;
+        } else {
+            faces.Add(entry);
+        }
+
         Default ??= font;
     }
 
@@ -62,8 +102,21 @@ public sealed class FontRegistry {
     ///     The declaration's value — a comma-separated list, most wanted first, with quotes allowed
     ///     around a name that needs them.
     /// </param>
-    /// <returns>The first registered family in the list, or <see cref="Default" />.</returns>
-    public FontFace? Resolve(string? declaration) {
+    /// <param name="query">What weight, style and width the cascade asked for.</param>
+    /// <returns>The best face of the first registered family in the list, or <see cref="Default" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The list is walked family by family and the query is applied <i>within</i> a family,
+    ///     never across them.</b> CSS is explicit: the first family with any face at all wins, and the
+    ///     weight is then matched among that family's faces. Preferring an exact weight in a later
+    ///     family over an approximate one in the first would let <c>font-family: Inter, Arial</c> with
+    ///     <c>font-weight: 300</c> come back in Arial — a different typeface, chosen because it had a
+    ///     light and Inter did not.
+    /// </remarks>
+    public FontFace? Resolve(string? declaration, FontQuery query = default) {
+        if (query == default) {
+            query = FontQuery.Default;
+        }
+
         if (string.IsNullOrWhiteSpace(declaration)) {
             return Default;
         }
@@ -74,8 +127,8 @@ public sealed class FontRegistry {
             // whichever way the stylesheet happened to be written.
             var name = declaration.AsSpan(range).Trim().Trim("\"'");
 
-            if (!name.IsEmpty && families.TryGetValue(name.ToString(), out var font)) {
-                return font;
+            if (!name.IsEmpty && families.TryGetValue(name.ToString(), out var faces)) {
+                return FontMatching.Best(faces, query) ?? Default;
             }
         }
 
