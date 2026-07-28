@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 
 namespace Vixen.Navigation.Baking;
@@ -40,6 +41,7 @@ public static class NavMeshBaker {
     /// <param name="bounds">The volume to voxelise.</param>
     /// <param name="settings">How finely, and for what agent.</param>
     /// <param name="volumes">Authored areas to stamp onto the surface — water, road, whatever costs.</param>
+    /// <param name="connections">Authored ways off the surface — ladders, jumps, drops.</param>
     /// <returns>The tile, or <see langword="null" /> if nothing in the volume is walkable.</returns>
     /// <remarks>
     ///     The result belongs at tile (0, 0) of a mesh built with <see cref="NavMeshParams.Single" />.
@@ -51,11 +53,12 @@ public static class NavMeshBaker {
         ReadOnlySpan<int> indices,
         BoundingBox bounds,
         NavMeshBuildSettings settings,
-        ReadOnlySpan<NavAreaVolume> volumes = default
+        ReadOnlySpan<NavAreaVolume> volumes = default,
+        ReadOnlySpan<NavOffMeshConnectionData> connections = default
     ) {
         settings.Validate();
 
-        return BakeTile(vertices, indices, bounds, settings, volumes, 0, 0, 0);
+        return BakeTile(vertices, indices, bounds, settings, volumes, connections, 0, 0, 0);
     }
 
     /// <summary>Bakes one tile covering the geometry's own bounds.</summary>
@@ -63,14 +66,16 @@ public static class NavMeshBaker {
     /// <param name="indices">Three indices per triangle.</param>
     /// <param name="settings">How finely, and for what agent.</param>
     /// <param name="volumes">Authored areas to stamp onto the surface.</param>
+    /// <param name="connections">Authored ways off the surface — ladders, jumps.</param>
     /// <returns>The tile, or <see langword="null" /> if nothing is walkable.</returns>
     public static NavMeshTileData? Bake(
         ReadOnlySpan<Vector3> vertices,
         ReadOnlySpan<int> indices,
         NavMeshBuildSettings settings,
-        ReadOnlySpan<NavAreaVolume> volumes = default
+        ReadOnlySpan<NavAreaVolume> volumes = default,
+        ReadOnlySpan<NavOffMeshConnectionData> connections = default
     ) =>
-        Bake(vertices, indices, Volume(vertices, settings), settings, volumes);
+        Bake(vertices, indices, Volume(vertices, settings), settings, volumes, connections);
 
     /// <summary>Bakes a grid of tiles.</summary>
     /// <param name="vertices">The geometry's vertices, in world space.</param>
@@ -79,6 +84,10 @@ public static class NavMeshBaker {
     /// <param name="settings">How finely, and for what agent.</param>
     /// <param name="tileSize">How wide a tile is, in voxels. Recast's usual answer is 32 to 128.</param>
     /// <param name="volumes">Authored areas to stamp onto the surface. Applied to every tile they reach.</param>
+    /// <param name="connections">
+    ///     Authored ways off the surface. Each goes to the tile its start falls in, so that unloading a
+    ///     tile takes its connections with it.
+    /// </param>
     /// <returns>The tiles and the grid they belong on.</returns>
     /// <remarks>
     ///     <para>
@@ -101,7 +110,8 @@ public static class NavMeshBaker {
         BoundingBox bounds,
         NavMeshBuildSettings settings,
         int tileSize = 64,
-        ReadOnlySpan<NavAreaVolume> volumes = default
+        ReadOnlySpan<NavAreaVolume> volumes = default,
+        ReadOnlySpan<NavOffMeshConnectionData> connections = default
     ) {
         settings.Validate();
         ArgumentOutOfRangeException.ThrowIfLessThan(tileSize, 8);
@@ -124,7 +134,20 @@ public static class NavMeshBaker {
 
                 var volume = new BoundingBox(minimum, new(minimum.X + extent, bounds.Maximum.Y, minimum.Z + extent));
 
-                if (BakeTile(vertices, indices, volume, settings, volumes, x, z, border) is { } tile) {
+                // A connection belongs to the tile its start falls in, so that unloading a tile takes
+                // its connections with it rather than leaving them attached to nothing.
+                var owned = new List<NavOffMeshConnectionData>();
+
+                foreach (var connection in connections) {
+                    var column = (int)MathF.Floor((connection.Start.X - bounds.Minimum.X) / extent);
+                    var row = (int)MathF.Floor((connection.Start.Z - bounds.Minimum.Z) / extent);
+
+                    if (column == x && row == z) {
+                        owned.Add(connection);
+                    }
+                }
+
+                if (BakeTile(vertices, indices, volume, settings, volumes, CollectionsMarshal.AsSpan(owned), x, z, border) is { } tile) {
                     tiles.Add(tile);
                 }
             }
@@ -154,6 +177,7 @@ public static class NavMeshBaker {
         BoundingBox bounds,
         NavMeshBuildSettings settings,
         ReadOnlySpan<NavAreaVolume> volumes,
+        ReadOnlySpan<NavOffMeshConnectionData> connections,
         int tileX,
         int tileZ,
         int border
@@ -198,7 +222,7 @@ public static class NavMeshBaker {
         var contours = ContourSet.Build(compact, settings.MaxSimplificationError, settings.MaxEdgeLength / settings.CellSize);
         var mesh = PolyMesh.Build(contours, settings.MaxVerticesPerPoly);
 
-        return mesh.PolyCount == 0 ? null : ToTile(mesh, volume, settings, tileX, tileZ);
+        return mesh.PolyCount == 0 ? null : ToTile(mesh, volume, settings, connections, tileX, tileZ);
     }
 
     /// <summary>Marks the margin unwalkable, now that erosion has had the use of it.</summary>
@@ -229,7 +253,14 @@ public static class NavMeshBaker {
         }
     }
 
-    static NavMeshTileData ToTile(PolyMesh mesh, BoundingBox volume, NavMeshBuildSettings settings, int tileX, int tileZ) {
+    static NavMeshTileData ToTile(
+        PolyMesh mesh,
+        BoundingBox volume,
+        NavMeshBuildSettings settings,
+        ReadOnlySpan<NavOffMeshConnectionData> connections,
+        int tileX,
+        int tileZ
+    ) {
         var vertices = new Vector3[mesh.VertexCount];
 
         for (var index = 0; index < vertices.Length; index++) {
@@ -261,6 +292,8 @@ public static class NavMeshBaker {
             }
         }
 
-        return new(tileX, tileZ, vertices, polys, [.. polyVertices], [.. polyNeighbours]);
+        return new(tileX, tileZ, vertices, polys, [.. polyVertices], [.. polyNeighbours]) {
+            OffMeshConnections = connections.ToArray()
+        };
     }
 }

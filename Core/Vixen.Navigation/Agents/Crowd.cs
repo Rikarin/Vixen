@@ -85,14 +85,27 @@ public enum CrowdTargetState {
 /// <param name="Poly">The polygon it is standing on.</param>
 /// <param name="Target">Where it was told to go.</param>
 /// <param name="State">How that is going.</param>
+/// <param name="OffMesh">
+///     What it is in the middle of, if it is crossing an off-mesh connection. This is what a game
+///     watches to play a ladder or a jump: it appears the frame the agent leaves the ground and stops
+///     the frame it lands.
+/// </param>
 public readonly record struct CrowdAgentState(
     Vector3 Position,
     Vector3 Velocity,
     Vector3 DesiredVelocity,
     NavPolyRef Poly,
     Vector3 Target,
-    CrowdTargetState State
+    CrowdTargetState State,
+    CrowdOffMeshTraversal? OffMesh = null
 );
+
+/// <summary>An agent part-way across an off-mesh connection.</summary>
+/// <param name="UserId">Whatever the connection was authored with — which animation to play.</param>
+/// <param name="Start">Where it left the surface.</param>
+/// <param name="End">Where it will land.</param>
+/// <param name="Progress">How far along it is, from 0 to 1.</param>
+public readonly record struct CrowdOffMeshTraversal(uint UserId, Vector3 Start, Vector3 End, float Progress);
 
 /// <summary>
 ///     Agents that follow paths across a <see cref="NavMesh" /> and stay out of each other's way.
@@ -246,6 +259,7 @@ public sealed class Crowd {
 
         agent.State = CrowdTargetState.None;
         agent.Target = agent.Position;
+        agent.OffMeshTotal = 0f;
         agent.Corridor.Reset(agent.Poly, agent.Position);
 
         return true;
@@ -271,6 +285,48 @@ public sealed class Crowd {
         return true;
     }
 
+    /// <summary>Every live agent, for a caller that wants to walk them — a debug view, a save.</summary>
+    /// <remarks>
+    ///     A struct enumerator rather than an iterator method, so that walking the crowd does not
+    ///     allocate. The order is the order agents were added, with removed slots skipped.
+    /// </remarks>
+    public AgentEnumerator Agents => new(this);
+
+    /// <summary>Reads an agent's parameters back.</summary>
+    /// <param name="handle">The agent.</param>
+    /// <param name="parameters">What it is and how it moves.</param>
+    /// <returns><see langword="false" /> if the handle names no live agent.</returns>
+    public bool TryGetParams(CrowdAgentHandle handle, out CrowdAgentParams parameters) {
+        if (!TryGet(handle, out var agent)) {
+            parameters = default;
+
+            return false;
+        }
+
+        parameters = agent.Params;
+
+        return true;
+    }
+
+    /// <summary>Changes an agent's parameters.</summary>
+    /// <param name="handle">The agent.</param>
+    /// <param name="parameters">What it is and how it moves.</param>
+    /// <returns><see langword="false" /> if the handle names no live agent.</returns>
+    /// <remarks>
+    ///     The radius is not rebaked into anything, so widening an agent past what the mesh was baked
+    ///     for does not make it collide with walls — it makes it clip through corners, because the
+    ///     mesh's promise is about the radius the bake was given.
+    /// </remarks>
+    public bool SetParams(CrowdAgentHandle handle, CrowdAgentParams parameters) {
+        if (!TryGet(handle, out var agent)) {
+            return false;
+        }
+
+        agent.Params = parameters;
+
+        return true;
+    }
+
     /// <summary>Reads an agent back.</summary>
     /// <param name="handle">The agent.</param>
     /// <param name="state">Where it is and what it is doing.</param>
@@ -282,7 +338,22 @@ public sealed class Crowd {
             return false;
         }
 
-        state = new(agent.Position, agent.Velocity, agent.DesiredVelocity, agent.Poly, agent.Target, agent.State);
+        state = new(
+            agent.Position,
+            agent.Velocity,
+            agent.DesiredVelocity,
+            agent.Poly,
+            agent.Target,
+            agent.State,
+            agent.OffMeshTotal > 0f
+                ? new CrowdOffMeshTraversal(
+                    agent.OffMeshUserId,
+                    agent.OffMeshStart,
+                    agent.OffMeshEnd,
+                    1f - (agent.OffMeshRemaining / agent.OffMeshTotal)
+                )
+                : null
+        );
 
         return true;
     }
@@ -303,6 +374,7 @@ public sealed class Crowd {
         agent.Position = point;
         agent.Poly = poly;
         agent.Velocity = Vector3.Zero;
+        agent.OffMeshTotal = 0f;
         agent.Corridor.Reset(poly, point);
 
         if (agent.State is CrowdTargetState.Following or CrowdTargetState.Arrived) {
@@ -321,8 +393,72 @@ public sealed class Crowd {
 
         Plan();
         Populate();
+        Traverse(deltaTime);
         Steer(deltaTime);
         Move(deltaTime);
+    }
+
+    /// <summary>Carries the agents that are on a connection across it, and starts the ones that arrive.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A connection is crossed over time rather than stepped over instantly, and the time is
+    ///         the whole point: it is what a ladder animation plays during, and an agent that vanished
+    ///         from the bottom of a ladder and appeared at the top would need the game to fake it back.
+    ///     </para>
+    ///     <para>
+    ///         An agent in transit is skipped by steering, avoidance and separation. It is not on the
+    ///         surface — nothing can be in its way, and there is nothing for it to be talked out of.
+    ///     </para>
+    /// </remarks>
+    void Traverse(float deltaTime) {
+        foreach (var slot in active) {
+            var agent = agents[slot];
+
+            if (agent.OffMeshTotal > 0f) {
+                agent.OffMeshRemaining -= deltaTime;
+
+                if (agent.OffMeshRemaining > 0f) {
+                    var progress = 1f - (agent.OffMeshRemaining / agent.OffMeshTotal);
+                    var moved = Vector3.Lerp(agent.OffMeshStart, agent.OffMeshEnd, progress);
+
+                    agent.Velocity = (moved - agent.Position) / deltaTime;
+                    agent.Position = moved;
+
+                    continue;
+                }
+
+                agent.Position = agent.OffMeshEnd;
+                agent.Poly = agent.Corridor.FirstPoly;
+                agent.Velocity = Vector3.Zero;
+                agent.OffMeshTotal = 0f;
+                agent.OffMeshRemaining = 0f;
+
+                continue;
+            }
+
+            if (agent.State != CrowdTargetState.Following) {
+                continue;
+            }
+
+            var reach = MathF.Max(agent.Params.Radius, 0.25f);
+
+            if (!agent.Corridor.TryUseOffMeshConnection(Mesh, reach, out var connection, out var entry, out var exit)) {
+                continue;
+            }
+
+            Mesh.TryGetOffMeshConnection(connection, out var authored);
+
+            agent.OffMeshStart = entry;
+            agent.OffMeshEnd = exit;
+            agent.OffMeshUserId = authored.UserId;
+
+            // Long enough to walk it at the agent's own speed, so a two-metre drop is quick and a
+            // twenty-metre zip line is not. Never zero: a connection with coincident ends would
+            // otherwise divide by it.
+            agent.OffMeshTotal = MathF.Max(Vector3.Distance(entry, exit) / MathF.Max(agent.Params.MaxSpeed, 0.01f), 0.05f);
+            agent.OffMeshRemaining = agent.OffMeshTotal;
+            agent.Position = entry;
+        }
     }
 
     /// <summary>Gives a path to everybody who asked for one.</summary>
@@ -330,7 +466,10 @@ public sealed class Crowd {
         foreach (var slot in active) {
             var agent = agents[slot];
 
-            if (agent.State != CrowdTargetState.Requested) {
+            // An agent on a connection has a corridor that already starts at the far end. Replanning
+            // from a position half-way up a ladder would search from the polygon it is about to land
+            // on, which is right — but the plan would then be thrown away when it lands anyway.
+            if (agent.State != CrowdTargetState.Requested || agent.OffMeshTotal > 0f) {
                 continue;
             }
 
@@ -362,7 +501,11 @@ public sealed class Crowd {
         grid.Clear();
 
         foreach (var slot in active) {
-            grid.Add(slot, agents[slot].Position);
+            // Agents crossing a connection are not on the surface, so they are not in anybody's way
+            // and nobody has to steer around them.
+            if (agents[slot].OffMeshTotal <= 0f) {
+                grid.Add(slot, agents[slot].Position);
+            }
         }
     }
 
@@ -374,6 +517,11 @@ public sealed class Crowd {
 
         foreach (var slot in active) {
             var agent = agents[slot];
+
+            // Mid-connection: Traverse owns this agent's position this frame.
+            if (agent.OffMeshTotal > 0f) {
+                continue;
+            }
 
             if (agent.State is not CrowdTargetState.Following) {
                 agent.DesiredVelocity = Vector3.Zero;
@@ -442,13 +590,15 @@ public sealed class Crowd {
             agent.Wanted = agent.Position + (agent.Velocity * deltaTime);
         }
 
+        // Everything below is about the surface, and an agent on a connection is not on it.
+
         // Overlap recovery, iterated a few times so that an agent squeezed between two others is
         // pushed by both rather than by whichever was considered last.
         for (var iteration = 0; iteration < SeparationIterations; iteration++) {
             foreach (var slot in active) {
                 var agent = agents[slot];
 
-                if (agent.Params.SeparationWeight <= 0f) {
+                if (agent.Params.SeparationWeight <= 0f || agent.OffMeshTotal > 0f) {
                     continue;
                 }
 
@@ -487,6 +637,10 @@ public sealed class Crowd {
 
         foreach (var slot in active) {
             var agent = agents[slot];
+
+            if (agent.OffMeshTotal > 0f) {
+                continue;
+            }
 
             if (!agent.Corridor.MovePosition(agent.Wanted, Query, Filter) && agent.State == CrowdTargetState.Following) {
                 // The agent is somewhere its corridor does not go through. It has still moved, and it
@@ -551,6 +705,39 @@ public sealed class Crowd {
         return true;
     }
 
+    /// <summary>Walks a crowd's live agents without allocating.</summary>
+    public struct AgentEnumerator {
+        readonly Crowd crowd;
+        int position;
+
+        internal AgentEnumerator(Crowd crowd) {
+            this.crowd = crowd;
+            position = -1;
+            Current = CrowdAgentHandle.Null;
+        }
+
+        /// <summary>The agent the enumerator is on.</summary>
+        public CrowdAgentHandle Current { get; private set; }
+
+        /// <summary>So that this can be used in a <c>foreach</c>.</summary>
+        /// <returns>Itself.</returns>
+        public AgentEnumerator GetEnumerator() => this;
+
+        /// <summary>Moves to the next agent.</summary>
+        /// <returns><see langword="false" /> when there are none left.</returns>
+        public bool MoveNext() {
+            while (++position < crowd.active.Count) {
+                if (crowd.TryGetHandle(crowd.active[position], out var handle)) {
+                    Current = handle;
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
     /// <summary>One agent's state. A class, because the crowd hands the same instance around.</summary>
     sealed class Agent(int maxPathLength) {
         public PathCorridor Corridor { get; } = new(maxPathLength);
@@ -574,5 +761,15 @@ public sealed class Crowd {
         public NavPolyRef Poly { get; set; }
 
         public CrowdTargetState State { get; set; }
+
+        public float OffMeshRemaining { get; set; }
+
+        public float OffMeshTotal { get; set; }
+
+        public Vector3 OffMeshStart { get; set; }
+
+        public Vector3 OffMeshEnd { get; set; }
+
+        public uint OffMeshUserId { get; set; }
     }
 }

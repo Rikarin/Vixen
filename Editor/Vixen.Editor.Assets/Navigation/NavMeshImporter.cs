@@ -49,6 +49,11 @@ namespace Vixen.Editor.Assets.Navigation;
 ///       - area: 9
 ///         min: [8, -1, 0]
 ///         max: [12, 3, 20]
+///     links:
+///       - start: [9, 0, 5]
+///         end: [17, 0, 5]
+///         radius: 2
+///         userId: 42
 ///     </code>
 /// </example>
 [Importer(".vxnavmesh")]
@@ -129,7 +134,7 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
             return context.Finish();
         }
 
-        if (!TryReadAreas(root, context, out var volumes)) {
+        if (!TryReadAreas(root, context, out var volumes) || !TryReadLinks(root, context, out var links)) {
             return context.Finish();
         }
 
@@ -146,8 +151,8 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
         var bounds = NavMeshBaker.Volume(vertices, build);
 
         var asset = settings.TileSize > 0
-            ? NavMeshAsset.FromBake(NavMeshBaker.BakeTiles(vertices, indices, bounds, build, settings.TileSize, volumes))
-            : Single(NavMeshBaker.Bake(vertices, indices, bounds, build, volumes));
+            ? NavMeshAsset.FromBake(NavMeshBaker.BakeTiles(vertices, indices, bounds, build, settings.TileSize, volumes, links))
+            : Single(NavMeshBaker.Bake(vertices, indices, bounds, build, volumes, links));
 
         if (asset.Tiles.Length == 0) {
             // Not an error: an author who has just set the agent radius too wide for a corridor wants
@@ -275,6 +280,67 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
 
         return true;
     }
+
+    /// <summary>Reads the authored ways off the surface — the ladders and the jumps.</summary>
+    static bool TryReadLinks(YamlMapping root, ImportContext context, out NavOffMeshConnectionData[] links) {
+        links = [];
+
+        if (root["links"] is not YamlSequence sequence) {
+            return true;
+        }
+
+        var read = new List<NavOffMeshConnectionData>();
+
+        foreach (var node in sequence) {
+            if (node is not YamlMapping entry) {
+                context.Report(ImportSeverity.Error, "An entry under `links` is not a mapping.");
+
+                return false;
+            }
+
+            if (!TryReadVector(entry, "start", context, out var start) || !TryReadVector(entry, "end", context, out var end)) {
+                return false;
+            }
+
+            var radius = Read(entry, "radius", 1f);
+
+            if (radius <= 0f) {
+                context.Report(ImportSeverity.Error, $"A link has a radius of {radius}, which cannot reach any ground.");
+
+                return false;
+            }
+
+            var area = NavArea.Walkable;
+
+            if (entry["area"] is not null && !TryReadByte(entry, "area", context, out area)) {
+                return false;
+            }
+
+            read.Add(new() {
+                Start = start,
+                End = end,
+                Radius = radius,
+                // Two-way unless the author says otherwise: a ladder is climbed in both directions,
+                // and a one-way link that was meant to be two-way is a bug nobody sees until an agent
+                // walks the long way round.
+                Bidirectional = entry["bidirectional"] is not YamlScalar bidirectional
+                    || !bool.TryParse(bidirectional.Value, out var oneWay)
+                    || oneWay,
+                Area = area,
+                Flags = NavPolyFlags.Walk | NavPolyFlags.Jump,
+                UserId = (uint)Read(entry, "userId", 0f)
+            });
+        }
+
+        links = [.. read];
+
+        return true;
+    }
+
+    static float Read(YamlMapping entry, string key, float fallback) =>
+        entry[key] is YamlScalar scalar && float.TryParse(scalar.Value, CultureInfo.InvariantCulture, out var value)
+            ? value
+            : fallback;
 
     static bool TryReadByte(YamlMapping entry, string key, ImportContext context, out byte value) {
         value = 0;

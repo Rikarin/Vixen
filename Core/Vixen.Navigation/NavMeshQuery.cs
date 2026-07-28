@@ -123,7 +123,11 @@ public sealed class NavMeshQuery {
                     continue;
                 }
 
-                for (var index = 0; index < tile.PolyCount; index++) {
+                // Surface only: an agent stands on ground, never on a connection. A ladder whose
+                // endpoint happened to be the nearest thing to a spawn point would put the agent on a
+                // polygon with no interior, where every question about where it is standing is
+                // meaningless.
+                for (var index = 0; index < tile.SurfacePolyCount; index++) {
                     var candidate = NavMesh.Reference(tile, index);
 
                     if (!tile.PolyBounds[index].Intersects(box)) {
@@ -519,8 +523,13 @@ public sealed class NavMeshQuery {
 
             var count = Mesh.GetPolyVertices(current, vertices);
 
-            if (count == 0) {
-                break;
+            // A connection has two vertices and no interior, so there is nothing to clip a segment
+            // against and nothing a line of sight can cross. A raycast that reached one stops there,
+            // which is the honest answer: you cannot see across a ladder.
+            if (count < 3) {
+                hit = new(true, travelled, startPosition + (direction * travelled), Vector3.Zero, current);
+
+                return true;
             }
 
             var poly = vertices[..count];
@@ -542,7 +551,9 @@ public sealed class NavMeshQuery {
             var next = NavPolyRef.Null;
 
             foreach (var neighbour in Mesh.Neighbours(current)) {
-                if (neighbour.Edge != exitEdge) {
+                // Off-mesh links are not crossings: an agent uses one deliberately, and a raycast
+                // walking into one would report a line of sight that goes up a ladder.
+                if (neighbour.IsOffMesh || neighbour.Edge != exitEdge) {
                     continue;
                 }
 
@@ -666,6 +677,12 @@ public sealed class NavMeshQuery {
     }
 
     static Vector3 ClosestPointOnPoly(ReadOnlySpan<Vector3> poly, Vector3 position) {
+        // A connection is a segment, and the closest point on it is the closest point on that segment
+        // — the containment test below would answer nonsense for a polygon with no interior.
+        if (poly.Length == 2) {
+            return NavGeometry.ClosestPointOnSegment2D(position, poly[0], poly[1], out _);
+        }
+
         if (NavGeometry.ContainsPoint2D(position, poly) && NavGeometry.TryGetHeight(position, poly, out var height)) {
             return new(position.X, height, position.Z);
         }

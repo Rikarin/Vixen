@@ -130,6 +130,60 @@ public sealed class PathCorridor {
         return false;
     }
 
+    /// <summary>
+    ///     Steps onto the off-mesh connection the corridor is about to use, if the agent has arrived at
+    ///     its near end.
+    /// </summary>
+    /// <param name="mesh">The mesh the corridor is on.</param>
+    /// <param name="reach">How close to the entry point counts as being there.</param>
+    /// <param name="connection">The connection being used.</param>
+    /// <param name="entry">Where it starts.</param>
+    /// <param name="exit">Where it ends.</param>
+    /// <returns><see langword="false" /> if the next step is not a connection, or the agent is not there yet.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The corridor is trimmed past the connection immediately, so what the caller holds
+    ///         afterwards is a corridor that starts at the far end. Where the <i>agent</i> is in the
+    ///         meantime is the caller's business — <see cref="Crowd" /> walks it across over time, and
+    ///         a game that wants a ladder animation is what that time is for.
+    ///     </para>
+    ///     <para>
+    ///         The position is set to the exit rather than left at the entry, because everything else
+    ///         here — the string pull, the next move — is relative to a position that is on the
+    ///         corridor's first polygon, and the entry is not on it any more.
+    ///     </para>
+    /// </remarks>
+    public bool TryUseOffMeshConnection(NavMesh mesh, float reach, out NavPolyRef connection, out Vector3 entry, out Vector3 exit) {
+        ArgumentNullException.ThrowIfNull(mesh);
+
+        connection = NavPolyRef.Null;
+        entry = default;
+        exit = default;
+
+        if (count < 3 || !mesh.IsOffMeshConnection(path[1])) {
+            return false;
+        }
+
+        if (!mesh.GetPortalPoints(path[0], path[1], out var start, out _) ||
+            !mesh.GetPortalPoints(path[1], path[2], out var end, out _)) {
+            return false;
+        }
+
+        if (NavGeometry.Distance2D(Position, start) > reach) {
+            return false;
+        }
+
+        connection = path[1];
+        entry = start;
+        exit = end;
+
+        Array.Copy(path, 2, path, 0, count - 2);
+        count -= 2;
+        Position = end;
+
+        return true;
+    }
+
     /// <summary>Cuts the corridor short wherever the agent can already see past it.</summary>
     /// <param name="query">The query to cast with.</param>
     /// <param name="filter">Which polygons may be crossed.</param>

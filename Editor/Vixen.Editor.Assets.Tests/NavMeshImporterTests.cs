@@ -83,6 +83,73 @@ public sealed class NavMeshImporterTests {
     }
 
     [Fact]
+    public async Task LinksInTheDocumentConnectWhatTheGeometryDoesNot() {
+        // Two floors with a four-metre gap, and a link across it.
+        const string Split = """
+            o West
+            v 0 0 0
+            v 0 0 10
+            v 10 0 10
+            v 10 0 0
+            f 1 2 3
+            f 1 3 4
+            o East
+            v 14 0 0
+            v 14 0 10
+            v 24 0 10
+            v 24 0 0
+            f 5 6 7
+            f 5 7 8
+            """;
+
+        const string Document = """
+            geometry: floor.obj
+            links:
+              - start: [9, 0, 5]
+                end: [15, 0, 5]
+                radius: 2
+                userId: 7
+            """;
+
+        var (_, result) = await Import(Document, Split);
+
+        Assert.True(result.Succeeded);
+
+        var asset = Serializer.Read<NavMeshAsset>(Assert.Single(result.Artifacts).Content.Span)!;
+        var connection = Assert.Single(asset.Tiles[0].OffMeshConnections);
+
+        Assert.Equal(7u, connection.UserId);
+        Assert.True(connection.Bidirectional);
+
+        var mesh = asset.ToNavMesh();
+        var query = new NavMeshQuery(mesh);
+
+        query.FindNearestPoly(new(3, 0, 5), Extents, NavQueryFilter.Default, out var start, out var startPoint);
+        query.FindNearestPoly(new(21, 0, 5), Extents, NavQueryFilter.Default, out var end, out var endPoint);
+
+        Span<NavPolyRef> corridor = stackalloc NavPolyRef[256];
+
+        Assert.Equal(
+            NavPathStatus.Complete,
+            query.FindPath(start, end, startPoint, endPoint, NavQueryFilter.Default, corridor, out _)
+        );
+    }
+
+    [Fact]
+    public async Task ALinkWithNoStartIsAnError() {
+        const string Document = """
+            geometry: floor.obj
+            links:
+              - end: [15, 0, 5]
+            """;
+
+        var (_, result) = await Import(Document, Floor(20f));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Severity == ImportSeverity.Error);
+    }
+
+    [Fact]
     public async Task TileSizeProducesATiledMesh() {
         var settings = new NavMeshImportSettings { TileSize = 32 };
         var (_, result) = await Import("geometry: floor.obj\n", Floor(40f), settings);

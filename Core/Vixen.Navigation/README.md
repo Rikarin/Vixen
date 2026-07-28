@@ -28,6 +28,7 @@ baking as a build step, agents, avoidance"*.
 | `Agents/LocalAvoidance` | Sampled reciprocal velocity obstacles. |
 | `Agents/Crowd` | Agents, targets, steering, avoidance, separation, and the move that keeps them on the mesh. |
 | `Ecs/` | `NavigationAgent`, `NavigationDestination`, `NavigationState` and the system that joins them to a crowd. |
+| `Diagnostics/NavMeshDebugDraw` | The mesh, a corridor, a path and a crowd, as lines into `DebugDraw`. |
 
 Baking is a build step: `Editor/Vixen.Editor.Assets/Navigation/NavMeshImporter` takes a `.vxnavmesh`
 naming a collision mesh, bakes it, and writes the `NavMeshAsset` as the artefact — with the geometry
@@ -113,6 +114,23 @@ zero samples and zero weights returns the desired velocity unchanged, which look
 avoidance that has decided there is nothing to avoid. It cost an afternoon; the shape here cannot
 reproduce it.
 
+## A connection is a polygon with two vertices
+
+Ladders, jumps and drops are authored as `NavOffMeshConnectionData` on the tile, and the loaded tile
+turns each into a polygon of its own: two vertices, no interior, a link at each end. Everything that
+walks the mesh — A\*, the funnel, the corridor — then has one kind of thing to reason about, and only
+the three places that treat a polygon as an *area* have to know the difference: nearest-polygon skips
+them, a raycast stops at them, and the closest point on one is the closest point on a segment.
+
+**The funnel needs no special case at all**, which is the part worth pointing at. A connection's
+portal is a single point rather than a segment, so the wedge collapses there and the algorithm emits a
+corner — which is exactly right: an agent has to arrive at the foot of the ladder before it climbs.
+
+**Crossing takes time.** `Crowd` walks an agent across over `distance / maxSpeed` seconds, during
+which it is out of the proximity grid, out of avoidance and out of separation, and
+`CrowdAgentState.OffMesh` carries the authored `UserId` and the progress — which is what a game plays
+a climb animation from. An agent that teleported would leave the game to fake the time back.
+
 ## Nothing in the frame loop allocates, and that is measured
 
 `NavigationAllocationTests` runs each per-frame path until whatever it grows has stopped growing, then
@@ -144,8 +162,10 @@ where the cost of a crowd actually is.
 - **The detail mesh.** Heights come from the polygon corners, so the surface is flat within a polygon
   and a floor sits up to one cell height above where it really is. On rolling terrain that is visible;
   the fix is Recast's height-detail pass, which is a bake stage of its own.
-- **Off-mesh connections.** Ladders, jump links and doors-as-teleports have no representation. The
-  flag word is there and `NavPolyFlags.Jump` is reserved for it.
+- **Connections that reach further than one tile.** A connection is held by the tile its start falls
+  in, and the far end is looked for in the tile that end falls in — so a jump across three tiles
+  attaches at the near end and dangles at the far one, because the rebuild that would notice only
+  visits the four neighbours.
 - **Dynamic obstacles.** A crate dropped on the floor means rebaking its tile. There is no tile cache
   and no obstacle carving. Closing a route with `NavMesh.SetPolyFlags` is the cheap half and works
   today.

@@ -2042,10 +2042,17 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   One thing failed that gate and was fixed: the proximity grid allocated a bucket per newly-visited
   cell, which is a drip that never stops for a crowd that keeps walking somewhere new.
 
+  **Off-mesh connections are in**, as polygons with two vertices: authored on the tile, linked to the
+  ground at each end when it loads, searched by A\*, turned at by the funnel — whose portal is a
+  single point there, so no special case was needed — and crossed by a crowd agent over time, with the
+  authored id and the progress on `CrowdAgentState` so a game can play the climb. The mesh, a
+  corridor, a path and a crowd can also be drawn now, which is how a bad bake stops being something
+  you infer from a failing path.
+
   **Owed:** watershed partitioning (regions are monotone sweeps today), the height-detail pass (a
-  floor sits up to one cell height high), off-mesh connections, dynamic obstacles, sliced asynchronous
-  pathfinding, and baking from a *scene* rather than from a named collision mesh — which waits on the
-  scene compiler doc 08 splits out.
+  floor sits up to one cell height high), dynamic obstacles, sliced asynchronous pathfinding, and
+  baking from a *scene* rather than from a named collision mesh — which waits on the scene compiler
+  doc 08 splits out.
 - `Samples/05-PlatformerGame` — physics, input, animation, audio, VFX end to end on all platforms where
   it is in scope.
 

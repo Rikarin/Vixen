@@ -27,6 +27,44 @@ public struct NavMeshPolyData {
     public NavPolyFlags Flags;
 }
 
+/// <summary>A way from one point of the mesh to another that is not a walk.</summary>
+/// <remarks>
+///     <para>
+///         A ladder, a jump down a ledge, a zip line, a door that teleports. What they have in common
+///         is that the two ends are not adjacent on the surface and no amount of baking will make them
+///         so — the connection is authored, and the bake's job is only to work out which polygon each
+///         end lands on.
+///     </para>
+///     <para>
+///         <see cref="UserId" /> is the game's, and is the point of the whole feature: a connection is
+///         useless unless something can recognise it and play the right animation, and the navmesh has
+///         no opinion about what a jump looks like.
+///     </para>
+/// </remarks>
+[DataContract("NavOffMeshConnection")]
+public struct NavOffMeshConnectionData {
+    /// <summary>Where it starts, in world space.</summary>
+    public Vector3 Start;
+
+    /// <summary>Where it ends.</summary>
+    public Vector3 End;
+
+    /// <summary>How far from an end the mesh is searched for the polygon to attach it to.</summary>
+    public float Radius;
+
+    /// <summary>Whether it can be used in both directions, or only from start to end.</summary>
+    public bool Bidirectional;
+
+    /// <summary>Its area id, so that using one can be made expensive.</summary>
+    public byte Area;
+
+    /// <summary>What it may be used for, so that a jump can be refused to an agent that cannot jump.</summary>
+    public NavPolyFlags Flags;
+
+    /// <summary>Whatever the game wants back when an agent uses it.</summary>
+    public uint UserId;
+}
+
 /// <summary>
 ///     A baked tile: the polygons, their vertices, and which of them touch each other. No links to
 ///     any other tile, and nothing that depends on where it is loaded.
@@ -108,6 +146,15 @@ public sealed class NavMeshTileData {
 
     /// <summary>Interior adjacency, parallel to <see cref="PolyVertices" />. -1 where there is none.</summary>
     public int[] PolyNeighbours { get; init; } = [];
+
+    /// <summary>The authored ways off the surface that start in this tile.</summary>
+    /// <remarks>
+    ///     Held by the tile whose grid cell contains the connection's <i>start</i>, so that unloading
+    ///     a tile takes its connections with it. The far end may be in another tile, and is resolved
+    ///     when the tile is added — which is also when a connection whose far end is not loaded
+    ///     quietly becomes a one-ended stub that nothing can use.
+    /// </remarks>
+    public NavOffMeshConnectionData[] OffMeshConnections { get; init; } = [];
 
     /// <summary>What the tile's geometry spans.</summary>
     /// <remarks>
