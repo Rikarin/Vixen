@@ -58,4 +58,25 @@ public static class EventRouter {
             route[i].Invoke(args, RoutingStrategy.Bubble);
         }
     }
+
+    /// <summary>Delivers an event to one element and nowhere else.</summary>
+    /// <typeparam name="T">The event type.</typeparam>
+    /// <param name="target">The element.</param>
+    /// <param name="args">The event.</param>
+    /// <remarks>
+    ///     ⚠ <b>Only <see cref="RoutingStrategy.Direct" /> handlers run</b>, which is the difference
+    ///     from <see cref="Raise" /> at the target — that invokes the bubble handlers too, because a
+    ///     handler written on the element itself means the element. This does not, and the events
+    ///     that use it are the ones where bubbling is wrong rather than merely unwanted: a pointer
+    ///     entering an element is raised once <i>per element</i> that it entered, so a bubbling
+    ///     version would tell the same ancestor several times about one movement.
+    /// </remarks>
+    public static void Direct<T>(UiElement target, T args) where T : UiEvent {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(args);
+
+        args.Source ??= target;
+        args.Phase = RoutingPhase.Target;
+        target.Invoke(args, RoutingStrategy.Direct);
+    }
 }

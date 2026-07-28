@@ -29,6 +29,11 @@ top.
 | `DrawBatcher` | Contiguous, order-preserving, maximal runs a renderer can submit as one. |
 | `UiDocument.Move` | Reordering a sibling in all three stores, so `:nth-child` moves with it. |
 | `Component`, `BuildContext` | What a compiled `.vxml` calls: elements, effects, branches, keyed lists, events, slots. |
+| `KeyEvent`, `TextInputEvent` | Keys routed from the focus outwards; typed text as its own event. Tab is the document's default, after the route. |
+| `UiDocument.Track` | `:hover` and `:active` on the ancestor chain, `Entered`/`Exited` per element crossed, `:focus-visible` from how the focus arrived. |
+| `WheelEvent` | Hit-tested and bubbling, so nested scrolling chains on `Handled` rather than on a rule. |
+| `UiElement.OnCreated`, `TagName` | The constructor a control cannot have, and the element name a type answers to. |
+| `UiElement.OffsetX/Y` | A translation applied after layout — scrolling, popups and drag previews, at the cost of a walk. |
 | Access keys | ⏳ |
 
 ## Focus

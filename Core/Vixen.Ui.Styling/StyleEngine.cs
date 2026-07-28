@@ -185,6 +185,18 @@ public sealed class StyleEngine {
     ///     Elements are created parents-first, so ascending index already is that order.
     /// </remarks>
     public ComputedStyle[] ResolveAll() {
+        // ⚠ **The sharing cache lives for one pass, and this is the pass.** Its key says what an
+        // element *is* — parent, tag, id, classes, own state, inline style — and deliberately says
+        // nothing about its ancestors beyond which one it hangs off. So an entry cached before a
+        // parent gained `:hover` or `:checked` is stale, and serving it means `.card:hover .button`
+        // and `checkbox:checked box` resolve to what they were before the state changed.
+        //
+        // `StyleUpdater` has always called this and this method never did, which is why the bug is
+        // invisible from every test that goes through the updater and from every test that changes
+        // an element's *own* state — that one is in the key, so the key changes and the entry misses.
+        // It takes a rule whose subject is a descendant of the element that changed.
+        Resolver.BeginPass();
+
         var styles = new ComputedStyle[Tree.Count];
 
         for (var i = 0; i < Tree.Count; i++) {
