@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.ShaderCompilerService\Vixen.ShaderCompilerService.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          The dependent-permutation fixture, borrowed from the compiler's own tests rather than
+          copied. It is the one shipped fixture that compiles all the way to SPIR-V, which is what a
+          device on the other end of this socket would be asking for.
+        -->
+        <None Include="..\Vixen.ShaderCompiler.Tests\Fixtures\Nested.rvn"
+              Link="Fixtures\Nested.rvn"
+              CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+</Project>

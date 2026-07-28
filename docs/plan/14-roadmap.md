@@ -2297,9 +2297,16 @@ scroll/focus/selection. A `DockingHost` layout round-trips through serialisation
 
 - `Vixen.Shaders`: ✅ **typed parameter/permutation keys and the constant-buffer writers**, with
   `Vixen.Shaders.Generators` emitting both from Raven's reflection — see
-  [07 § Generated C# bindings](07-raven-shader-pipeline.md#generated-c-bindings). Still open: the
-  effect system, the three cache tiers, build-time permutation pre-generation and
-  `Tools/Vixen.ShaderCompilerService`, all of which need `Vixen.Rendering` to design against.
+  [07 § Generated C# bindings](07-raven-shader-pipeline.md#generated-c-bindings). ✅ **the effect
+  system and all three cache tiers**: `EffectStore` over a baked bundle, `EffectDiskCache`
+  read-through and write-back over a directory, and `RemoteEffectSource` over a socket — each an
+  `IEffectSource` producing an `EffectData`, which is the device-independent form of a variant that
+  reading needs no compiler for. ✅ **build-time pre-generation** in `Tools/Vixen.ShaderCompiler`,
+  where `PermutationClosure` finds a shader's variants by compiling until the read-key set stops
+  growing, and `EffectBundleBuilder` bakes them. ✅ **`Tools/Vixen.ShaderCompilerService`** — a device
+  asks for a permutation over TCP, this machine compiles it, and both ends cache. The exit
+  criterion below is asserted in `Vixen.ShaderCompiler.Tests`: a run records what it asked for, the
+  build bakes exactly that, and a second run over the bundle alone misses nothing.
 - `Raven/Library`: ✅ the full shader library from [07](07-raven-shader-pipeline.md) — Core, Shading,
   Geometry, Material, Pipeline, PostFx, Ui, Vfx — every shader reaching both backends under `glslc`
   and `spirv-val`.
@@ -2368,9 +2375,17 @@ scroll/focus/selection. A `DockingHost` layout round-trips through serialisation
   C# does not, and both became one identifier. Renamed in the shader, where the distinction is worth
   saying out loud anyway.
 
+  Bloom and tonemap moved into it as well, and that is what forced the extension seam:
+  `CompositorBuilder` switches on an asset's type to build a node, which it cannot do for a type
+  defined downstream of it. `ISceneRendererFactory` is the answer — whoever defines a node kind
+  supplies the factory that builds it — and it is what makes a game's own effect a node kind on the
+  same terms as a shipped one. Tonemap also gained the 3D grading table its shader has always taken
+  and nothing bound.
+
   ⚠ Still to come: SMAA, MSAA resolve, the full GTAO horizon integral, screen-space reflections,
-  depth of field, motion blur, and colour grading as an asset — each needs a shader that does not
-  exist yet rather than a pass over one that does. `AutoExposure.rvn` is also still unwired: it is two
+  depth of field, motion blur, and the grading table as an *asset* — an importer that reads a `.cube`
+  and hands over a texture. Each of the rest needs a shader that does not exist yet rather than a pass
+  over one that does. `AutoExposure.rvn` is also still unwired: it is two
   compute passes over a histogram and a buffer that survives the frame, so it wants the compute node
   rather than the full-screen one.
 - `Vixen.Graphics.Direct3D12` — **not built** (Q4: postponed past 1.0). Stub project only. The abstraction
@@ -2473,8 +2488,17 @@ nowhere in the dependency graph.
   zero of seed zero drew zero for ever — which an offset before mixing removes. 34 tests, and a frame
   of a running effect allocates nothing.
 
-  **Owed here:** the GPU emitter, the renderers and `ParticleRenderFeature`, sorting, custom
-  attributes, and the force-field/curl-noise/collision/sub-emitter/trail updaters this document names.
+  **Particles are drawn.** `ParticleRenderFeature` sits beside `MeshRenderFeature` and is the first
+  feature whose geometry does not exist until the frame asks for it: `Prepare` expands each particle
+  into a camera-facing quad and appends it to one vertex buffer every effect in the frame shares, and
+  `Draw` binds that buffer once and reaches each run through the draw call's vertex offset. The
+  dependency runs Rendering → Vfx and not the other way, so the expansion is a unit test rather than a
+  screenshot. Two limits are deliberate and written down: the expansion is on the CPU, and it happens
+  once for one view — so particles do not belong in a shadow stage until the GPU path removes that
+  rather than working around it.
+
+  **Owed here:** the GPU emitter, mesh/ribbon/light renderers, custom attributes, and the
+  force-field/curl-noise/collision/sub-emitter/trail updaters this document names.
 - `Vixen.Editor.VfxGraph`: node library + dual-target compilation + live preview.
 - Particle render feature integrated.
 

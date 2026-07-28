@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Core.IO;
+using Vixen.Core.Serialization;
 using Vixen.Editor.Assets;
 
 namespace Vixen.AssetCompiler;

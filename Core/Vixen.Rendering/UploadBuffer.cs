@@ -43,7 +43,13 @@ namespace Vixen.Rendering;
 ///         push-constant base, a <c>firstInstance</c> — has to know the ring exists.
 ///     </para>
 /// </remarks>
-public sealed class UploadBuffer<T>(string name) : IDisposable where T : unmanaged {
+/// <param name="name">A debug name for the buffer.</param>
+/// <param name="usage">
+///     What the buffer is for. Storage by default, which is what skinning, instancing and the light
+///     list want; <see cref="BufferUsage.Vertex" /> is what per-frame geometry wants, and the ring,
+///     the staging and the one-write-per-frame are the same problem either way.
+/// </param>
+public sealed class UploadBuffer<T>(string name, BufferUsage usage = BufferUsage.Storage) : IDisposable where T : unmanaged {
     T[] staging = [];
     int count;
     int capacity;
@@ -172,7 +178,7 @@ public sealed class UploadBuffer<T>(string name) : IDisposable where T : unmanag
         Stride = (bytes + alignment - 1) / alignment * alignment;
 
         buffer = Device.CreateBuffer(
-            new(Stride * slots, BufferUsage.Storage, MemoryAccess.HostUpload, name)
+            new(Stride * slots, usage, MemoryAccess.HostUpload, name)
         );
     }
 
