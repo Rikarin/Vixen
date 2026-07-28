@@ -31,7 +31,18 @@ never a different buffer — one upload however many kinds of thing it draws.
 
 - **Box** — a rounded rectangle or a border, as a signed distance evaluated per pixel. Exact at any
   radius, four vertices whatever the shape, and the border is the *difference of two coverages* so
-  the two share one antialiased outer edge and cannot disagree about where it is.
+  the two share one antialiased outer edge and cannot disagree about where it is. Four **elliptical**
+  corners, each with its own pair of radii, and a two-stop linear gradient.
+
+  ⚠ Those parameters live in a **storage buffer, one record per box**, and the vertex carries the
+  index. Fourteen floats on the vertex would take it from forty-eight bytes to a hundred and four,
+  and every glyph in the frame would carry fields no shader reads on them; per box it is eighty bytes
+  against the sixty-four its four vertices already spend, and the vertex layout does not move at all.
+
+  ⚠ The exact distance to an ellipse has no closed form. The corner quadrant is scaled into a circle
+  and the distance scaled back by the *smaller* semi-axis — exact on the axes, within a fraction of a
+  pixel between them, which is all a one-pixel antialiasing band can tell apart. Scaling back by the
+  larger axis leaves the edge soft on the flat side of a wide corner.
 - **Text** — a multi-channel distance field, reconstructed by the median of three channels. That is
   the whole trick and it is why the atlas must never be sampled as sRGB: the values are distances,
   not light.

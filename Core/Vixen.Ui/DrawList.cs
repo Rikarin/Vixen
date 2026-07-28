@@ -96,6 +96,17 @@ public readonly record struct DrawCommand(
     /// </remarks>
     public float FontSize { get; init; }
 
+    /// <summary>
+    ///     Whether this box has a <see cref="BoxStyle" /> in <see cref="DrawList.Boxes" />, and where.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ A box's side buffer holds at most one entry, so <see cref="Length" /> is zero or one —
+    ///     which is the same <c>Offset</c>/<c>Length</c> pair a glyph run and a path use, meaning the
+    ///     same thing, rather than a third convention for the one kind that needs a single record.
+    ///     Zero means a plain box: a flat colour and the uniform <see cref="Radius" />.
+    /// </remarks>
+    public bool HasStyle => Length > 0;
+
     /// <summary>How a filled path decides what is inside it.</summary>
     /// <remarks>Only meaningful for <see cref="DrawCommandKind.Path" />.</remarks>
     public PathFillRule FillRule { get; init; }
@@ -144,6 +155,8 @@ public sealed class DrawList {
     readonly List<PositionedGlyph> previousGlyphs = [];
     readonly List<PathSegment> segments = [];
     readonly List<PathSegment> previousSegments = [];
+    readonly List<BoxStyle> boxes = [];
+    readonly List<BoxStyle> previousBoxes = [];
     readonly List<FontFace> fonts = [];
     readonly List<DrawBatch> batches = [];
 
@@ -159,6 +172,13 @@ public sealed class DrawList {
 
     /// <summary>Every step of every path, back to back.</summary>
     public IReadOnlyList<PathSegment> Segments => segments;
+
+    /// <summary>The styles of the boxes that needed one.</summary>
+    /// <remarks>
+    ///     Only the boxes that are more than a colour, a size and one radius are in here, which in a
+    ///     real interface is a small minority of them.
+    /// </remarks>
+    public IReadOnlyList<BoxStyle> Boxes => boxes;
 
     /// <summary>The faces the text commands refer to, in the order they were first used.</summary>
     public IReadOnlyList<FontFace> Fonts => fonts;
@@ -198,6 +218,10 @@ public sealed class DrawList {
         previousSegments.AddRange(segments);
         segments.Clear();
 
+        previousBoxes.Clear();
+        previousBoxes.AddRange(boxes);
+        boxes.Clear();
+
         // The fonts are not kept for comparison, because a command referring to a different face
         // refers to it by a different index and the commands are compared. Rebuilt each frame so
         // that a face nothing draws with any more is not held alive by the list that stopped using
@@ -219,6 +243,14 @@ public sealed class DrawList {
         glyphs.AddRange(run);
 
         return offset;
+    }
+
+    /// <summary>Puts a box's style in the side buffer.</summary>
+    /// <param name="style">The style.</param>
+    /// <returns>Where it went, for the command that refers to it.</returns>
+    public int AddBox(BoxStyle style) {
+        boxes.Add(style);
+        return boxes.Count - 1;
     }
 
     /// <summary>Puts a path in the side buffer.</summary>
@@ -280,7 +312,8 @@ public sealed class DrawList {
     bool Differs() {
         if (commands.Count != previous.Count
             || glyphs.Count != previousGlyphs.Count
-            || segments.Count != previousSegments.Count) {
+            || segments.Count != previousSegments.Count
+            || boxes.Count != previousBoxes.Count) {
             return true;
         }
 
@@ -305,6 +338,15 @@ public sealed class DrawList {
         // emits the same command over the same range every frame and moves only the points.
         for (var i = 0; i < segments.Count; i++) {
             if (segments[i] != previousSegments[i]) {
+                return true;
+            }
+        }
+
+        // And once more for the box styles. A button whose gradient is being animated emits the same
+        // command over the same range every frame and moves only the end colour — so a diff that read
+        // the commands alone would report the frame unchanged and keep drawing the old gradient.
+        for (var i = 0; i < boxes.Count; i++) {
+            if (boxes[i] != previousBoxes[i]) {
                 return true;
             }
         }

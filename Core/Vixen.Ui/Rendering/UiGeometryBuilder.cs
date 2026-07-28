@@ -34,6 +34,7 @@ public sealed class UiGeometryBuilder {
     readonly List<UiVertex> vertices = [];
     readonly List<uint> indices = [];
     readonly List<UiDraw> draws = [];
+    readonly List<UiShape> shapes = [];
     readonly List<Rectangle> clips = [];
     readonly List<Vector2> points = [];
     readonly List<Contour> contours = [];
@@ -80,6 +81,7 @@ public sealed class UiGeometryBuilder {
         vertices.Clear();
         indices.Clear();
         draws.Clear();
+        shapes.Clear();
         clips.Clear();
         DroppedGlyphs = 0;
 
@@ -91,6 +93,7 @@ public sealed class UiGeometryBuilder {
                 continue;
             }
 
+
             var first = indices.Count;
 
             for (var i = 0; i < batch.Count; i++) {
@@ -99,7 +102,7 @@ public sealed class UiGeometryBuilder {
                 switch (command.Kind) {
                     case DrawCommandKind.Rectangle:
                     case DrawCommandKind.Border:
-                        Box(command);
+                        Box(list, command);
                         break;
 
                     case DrawCommandKind.Text:
@@ -121,7 +124,7 @@ public sealed class UiGeometryBuilder {
             }
         }
 
-        return new UiGeometry(vertices, indices, draws);
+        return new UiGeometry(vertices, indices, draws, shapes);
     }
 
     /// <summary>Applies a clip push or pop, keeping the stack here so the renderer has none.</summary>
@@ -152,13 +155,30 @@ public sealed class UiGeometryBuilder {
     }
 
     /// <summary>A rectangle or a border, as one quad the shader resolves.</summary>
-    void Box(DrawCommand command) {
+    /// <remarks>
+    ///     ⚠ <b>The parameters go in a record and the vertex carries its index.</b> Four elliptical
+    ///     corners and a gradient are fourteen floats; on the vertex they would take it from
+    ///     forty-eight bytes to a hundred and four, and every glyph in the frame would carry fields
+    ///     no shader reads on them. Per box it is eighty bytes against the sixty-four its four
+    ///     vertices already spend, and the layout does not move.
+    /// </remarks>
+    void Box(DrawList list, DrawCommand command) {
         if (command.Width <= 0 || command.Height <= 0) {
             return;
         }
 
         var half = new Vector2(command.Width / 2, command.Height / 2);
-        var shape = new Vector4(half.X, half.Y, command.Radius, command.Thickness);
+
+        // A plain box's uniform radius is written out as four equal corners rather than kept as a
+        // separate path through the shader. One shape of parameters means one branch fewer per pixel
+        // and one fewer thing that can disagree with itself.
+        var style = command.HasStyle && (uint) command.Offset < (uint) list.Boxes.Count
+            ? list.Boxes[command.Offset]
+            : BoxStyle.Rounded(CornerRadii.Uniform(command.Radius));
+
+        shapes.Add(
+            new UiShape(half, command.Thickness, style.Corners, style.GradientEnd, style.GradientAxis)
+        );
 
         // The texture coordinate is the offset from the centre, which is what a signed distance to a
         // rounded box is written in terms of — so the shader needs no uniform per box.
@@ -170,7 +190,7 @@ public sealed class UiGeometryBuilder {
             new Vector2(-half.X, -half.Y),
             new Vector2(half.X, half.Y),
             command.Color,
-            shape
+            new Vector4(shapes.Count - 1, 0, 0, 0)
         );
     }
 

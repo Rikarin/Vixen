@@ -119,4 +119,52 @@ public readonly struct DrawContext {
                 0f
             )
         );
+
+    /// <summary>Fills a rectangle with per-corner radii, a gradient, or both.</summary>
+    /// <param name="rectangle">Where.</param>
+    /// <param name="color">Its colour — the near end of the gradient, if it has one.</param>
+    /// <param name="style">The corners and the gradient.</param>
+    /// <remarks>
+    ///     A separate overload rather than an optional parameter on the common one, because this is
+    ///     the path that costs a side-buffer entry and the other is not. A caller that wants one
+    ///     radius should not be paying for a record it filled with zeroes.
+    /// </remarks>
+    public void FillRectangle(Rectangle rectangle, Color4 color, BoxStyle style) =>
+        List.Add(
+            new DrawCommand(
+                DrawCommandKind.Rectangle,
+                rectangle.X,
+                rectangle.Y,
+                rectangle.Width,
+                rectangle.Height,
+                color,
+                0f,
+                0f
+            ) {
+                Offset = List.AddBox(style),
+                Length = 1
+            }
+        );
+
+    /// <summary>Draws a border inside a rectangle's edges, with per-corner radii.</summary>
+    /// <param name="rectangle">Where.</param>
+    /// <param name="color">What colour.</param>
+    /// <param name="thickness">How wide the band is, drawn inwards from the edge.</param>
+    /// <param name="style">The corners. A gradient on a border runs along the same axis as a fill's.</param>
+    public void StrokeRectangle(Rectangle rectangle, Color4 color, float thickness, BoxStyle style = default) =>
+        List.Add(
+            new DrawCommand(
+                DrawCommandKind.Border,
+                rectangle.X,
+                rectangle.Y,
+                rectangle.Width,
+                rectangle.Height,
+                color,
+                0f,
+                thickness
+            ) {
+                Offset = List.AddBox(style),
+                Length = 1
+            }
+        );
 }

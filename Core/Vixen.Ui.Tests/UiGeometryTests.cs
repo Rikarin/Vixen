@@ -37,9 +37,9 @@ public class UiGeometryTests {
     }
 
     /// <summary>
-    ///     ⚠ A rounded corner is a signed distance the shader evaluates, so the radius rides on the
-    ///     vertex rather than turning into geometry. Tessellating one costs vertices in proportion to
-    ///     the radius and is still faceted.
+    ///     ⚠ A rounded corner is a signed distance the shader evaluates, so the radius reaches it as a
+    ///     parameter rather than turning into geometry. Tessellating one costs vertices in proportion
+    ///     to the radius and is still faceted.
     /// </summary>
     [Fact]
     public void A_corner_radius_reaches_the_shader_rather_than_becoming_geometry() {
@@ -47,11 +47,11 @@ public class UiGeometryTests {
 
         Assert.Equal(4, geometry.Vertices.Count);
 
-        var shape = geometry.Vertices[0].Shape;
-        Assert.Equal(40, shape.X, 3);      // half width
-        Assert.Equal(20, shape.Y, 3);      // half height
-        Assert.Equal(12, shape.Z, 3);      // radius
-        Assert.Equal(0, shape.W, 3);       // a fill, not a border
+        var shape = Assert.Single(geometry.Shapes);
+        Assert.Equal(40, shape.Size.X, 3);      // half width
+        Assert.Equal(20, shape.Size.Y, 3);      // half height
+        Assert.Equal(0, shape.Size.Z, 3);       // a fill, not a border
+        Assert.Equal(new Vector4(12, 12, 12, 12), shape.RadiiX);
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public class UiGeometryTests {
         var geometry = Build(list => list.Add(Border(0, 0, 80, 40, thickness: 3)));
 
         Assert.Equal(BatchKind.Geometry, Assert.Single(geometry.Draws).Kind);
-        Assert.Equal(3, geometry.Vertices[0].Shape.W, 3);
+        Assert.Equal(3, Assert.Single(geometry.Shapes).Size.Z, 3);
     }
 
     /// <summary>
@@ -312,6 +312,116 @@ public class UiGeometryTests {
         Assert.Equal(geometry.Indices.Count, next);
     }
 
+    // -------------------------------------------------------------- Shapes
+
+    /// <summary>
+    ///     ⚠ A box's parameters go in a record and the vertex carries its index. Four elliptical
+    ///     corners and a gradient are fourteen floats; on the vertex they would take it from
+    ///     forty-eight bytes to a hundred and four, and every glyph in the frame would carry fields
+    ///     no shader reads on them.
+    /// </summary>
+    [Fact]
+    public void A_box_gets_one_record_and_its_vertices_carry_the_index() {
+        var geometry = Build(list => {
+                list.Add(Rect(0, 0, 80, 40, radius: 12));
+                list.Add(Rect(100, 0, 60, 30));
+            }
+        );
+
+        Assert.Equal(2, geometry.Shapes.Count);
+
+        // All four corners of a quad name the same record, and the second box names the second.
+        Assert.All(geometry.Vertices.Take(4), vertex => Assert.Equal(0f, vertex.Shape.X));
+        Assert.All(geometry.Vertices.Skip(4), vertex => Assert.Equal(1f, vertex.Shape.X));
+
+        Assert.Equal(new Vector4(40, 20, 0, 0), geometry.Shapes[0].Size);
+        Assert.Equal(new Vector4(30, 15, 0, 0), geometry.Shapes[1].Size);
+    }
+
+    /// <summary>
+    ///     ⚠ A plain box's uniform radius is written out as four equal corners rather than kept as a
+    ///     second path through the shader. One shape of parameters means one branch fewer per pixel
+    ///     and one fewer thing that can disagree with itself.
+    /// </summary>
+    [Fact]
+    public void A_uniform_radius_becomes_four_equal_corners() {
+        var shape = Assert.Single(Build(list => list.Add(Rect(0, 0, 80, 40, radius: 12))).Shapes);
+
+        Assert.Equal(new Vector4(12, 12, 12, 12), shape.RadiiX);
+        Assert.Equal(new Vector4(12, 12, 12, 12), shape.RadiiY);
+    }
+
+    /// <summary>
+    ///     ⚠ Clockwise from the top left, and elliptical. Anticlockwise, or starting elsewhere, still
+    ///     draws a plausible rounded rectangle with the wrong corner rounded — which is a mistake that
+    ///     survives a review, so the order is asserted rather than assumed.
+    /// </summary>
+    [Fact]
+    public void The_corners_reach_the_record_clockwise_from_the_top_left() {
+        var corners = new CornerRadii(
+            new Vector2(1, 2),
+            new Vector2(3, 4),
+            new Vector2(5, 6),
+            new Vector2(7, 8)
+        );
+
+        var shape = Assert.Single(Build(list => Styled(list, corners)).Shapes);
+
+        Assert.Equal(new Vector4(1, 3, 5, 7), shape.RadiiX);
+        Assert.Equal(new Vector4(2, 4, 6, 8), shape.RadiiY);
+    }
+
+    /// <summary>
+    ///     ⚠ A zero axis is the sentinel for "no gradient". A gradient along no direction is not one
+    ///     anybody can mean, so the value is free — and a separate flag would be a second thing to
+    ///     keep in step and a state, flag set and axis zero, that has no meaning.
+    /// </summary>
+    [Fact]
+    public void A_gradient_is_flagged_by_its_axis_and_nothing_else() {
+        var flat = Assert.Single(Build(list => Styled(list, CornerRadii.Uniform(4))).Shapes);
+        Assert.Equal(0f, flat.Size.W);
+
+        var graded = Assert.Single(
+            Build(list => Styled(list, CornerRadii.Uniform(4), BoxStyle.Vertical(Color4.Red).GradientEnd, new Vector2(0, 1)))
+                .Shapes
+        );
+
+        Assert.Equal(1f, graded.Size.W);
+        Assert.Equal(new Vector4(0, 1, 0, 0), graded.Axis);
+        Assert.Equal(new Vector4(Color4.Red.R, Color4.Red.G, Color4.Red.B, Color4.Red.A), graded.End);
+    }
+
+    [Fact]
+    public void Text_and_paths_add_no_records() {
+        var (text, _) = BuildText("ab");
+        Assert.Empty(text.Shapes);
+
+        Assert.Empty(Build(list => Fill(list, Circle(), Color4.Red)).Shapes);
+    }
+
+    /// <summary>
+    ///     ⚠ The frame diff has to read the box side buffer too. A button whose gradient is being
+    ///     animated emits the same command over the same range every frame and moves only the end
+    ///     colour, so a diff that read the commands alone would report the frame unchanged and keep
+    ///     drawing the old gradient.
+    /// </summary>
+    [Fact]
+    public void A_gradient_that_changes_changes_the_frame() {
+        var list = new DrawList();
+
+        list.BeginFrame();
+        Styled(list, CornerRadii.Uniform(4), Color4.Red, new Vector2(0, 1));
+        Assert.True(list.EndFrame());
+
+        list.BeginFrame();
+        Styled(list, CornerRadii.Uniform(4), Color4.Red, new Vector2(0, 1));
+        Assert.False(list.EndFrame());
+
+        list.BeginFrame();
+        Styled(list, CornerRadii.Uniform(4), Color4.Blue, new Vector2(0, 1));
+        Assert.True(list.EndFrame());
+    }
+
     // -------------------------------------------------------------- Paths
 
     /// <summary>
@@ -500,6 +610,14 @@ public class UiGeometryTests {
 
     const float RunX = 200;
     const float RunY = 100;
+
+    static void Styled(DrawList list, CornerRadii corners, Color4 end = default, Vector2 axis = default) =>
+        list.Add(
+            new DrawCommand(DrawCommandKind.Rectangle, 0, 0, 80, 40, Color4.White, 0, 0) {
+                Offset = list.AddBox(new BoxStyle(corners, end, axis)),
+                Length = 1
+            }
+        );
 
     static PathBuilder Circle() => new PathBuilder().AddEllipse(new Rectangle(20, 20, 100, 100));
 

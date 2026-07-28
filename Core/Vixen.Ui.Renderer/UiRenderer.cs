@@ -66,8 +66,10 @@ public sealed class UiRenderer : IDisposable {
 
     BufferHandle vertices;
     BufferHandle indices;
+    BufferHandle boxes;
     int vertexCapacity;
     int indexCapacity;
+    int boxCapacity;
 
     TextureHandle atlasTexture;
     TextureViewHandle atlasView;
@@ -100,7 +102,12 @@ public sealed class UiRenderer : IDisposable {
                 DescriptorSetSlot.PerFrame,
                 [
                     new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment),
-                    new(1, DescriptorKind.Sampler, ShaderStage.Fragment)
+                    new(1, DescriptorKind.Sampler, ShaderStage.Fragment),
+
+                    // ⚠ In the same set as the atlas rather than one of its own, for the reason the
+                    // layouts are shared at all: a set the box pipeline has and the text pipeline
+                    // does not is a set a pipeline change disturbs.
+                    new(2, DescriptorKind.StorageBuffer, ShaderStage.Fragment)
                 ],
                 "ui atlas"
             )
@@ -246,6 +253,10 @@ public sealed class UiRenderer : IDisposable {
             device.Destroy(indices);
         }
 
+        if (boxes.IsValid) {
+            device.Destroy(boxes);
+        }
+
         DestroyAtlas();
     }
 
@@ -292,6 +303,27 @@ public sealed class UiRenderer : IDisposable {
 
         Grow(ref vertices, ref vertexCapacity, geometry.Vertices.Count * 48, BufferUsage.Vertex, "ui vertices");
         Grow(ref indices, ref indexCapacity, geometry.Indices.Count * 4, BufferUsage.Index, "ui indices");
+
+        // ⚠ At least one record, even in a frame with no boxes in it. A storage buffer with no
+        // allocation behind it is a descriptor pointing at nothing, and a frame of pure text would
+        // bind it and never read it — which is undefined rather than harmless, and would be
+        // undefined only on the frames where nothing looked wrong.
+        var boxBytes = Math.Max(geometry.Shapes.Count, 1) * 80;
+        var rebound = !boxes.IsValid || boxCapacity < boxBytes;
+        Grow(ref boxes, ref boxCapacity, boxBytes, BufferUsage.Storage, "ui boxes");
+
+        if (rebound && atlasDescriptors.IsValid) {
+            // ⚠ Growing the buffer replaced it, so the descriptor set points at a buffer that no
+            // longer exists. Rewriting the set is the whole of the fix and forgetting it is a frame
+            // that draws every box with whatever memory the allocator handed out next.
+            device.UpdateDescriptorSet(atlasDescriptors, [DescriptorWrite.Storage(2, boxes)]);
+        }
+
+        if (geometry.Shapes.Count > 0) {
+            var shapeBytes = new UiShape[geometry.Shapes.Count];
+            geometry.Shapes.CopyToArray(shapeBytes);
+            device.Write(boxes, 0, MemoryMarshal.AsBytes<UiShape>(shapeBytes));
+        }
 
         // Copied through arrays because the geometry is exposed as `IReadOnlyList`, which is what
         // lets the builder hand out its own buffers without a defensive copy per frame. A `List<T>`
@@ -375,10 +407,16 @@ public sealed class UiRenderer : IDisposable {
 
         atlasDescriptors = device.CreateDescriptorSet(atlasLayout, "ui atlas");
 
-        device.UpdateDescriptorSet(
-            atlasDescriptors,
-            [DescriptorWrite.Texture(0, atlasView), DescriptorWrite.SamplerAt(1, sampler)]
-        );
+        var writes = new List<DescriptorWrite> {
+            DescriptorWrite.Texture(0, atlasView),
+            DescriptorWrite.SamplerAt(1, sampler)
+        };
+
+        if (boxes.IsValid) {
+            writes.Add(DescriptorWrite.Storage(2, boxes));
+        }
+
+        device.UpdateDescriptorSet(atlasDescriptors, [.. writes]);
 
         // A version no atlas has, so the first frame always uploads — including a frame that draws no
         // text at all, which still has to leave the texture in a state the shader can read.

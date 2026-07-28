@@ -1549,6 +1549,32 @@ sub-piece has its own gate.
   guard is kept and labelled as insurance against the cluster reconciliation going away, which is
   what makes it unreachable.
 
+- ✅ **Gradients and per-corner elliptical radii.** Four corners with a pair of radii each, and a
+  two-stop linear gradient along an axis in the box's own space.
+
+  ⚠ **A storage buffer, one record per box, and the vertex carries the index.** Fourteen more floats
+  on the vertex would take it from forty-eight bytes to a hundred and four, and every glyph and path
+  triangle in the frame would carry fields no shader reads on them; per box it is eighty bytes
+  against the sixty-four its four vertices already spend, and the vertex layout does not move. The
+  draw list keeps the authored form in a side buffer beside the glyphs and the path segments, for the
+  same reason it keeps those there — and the frame diff reads it, or a button whose gradient is being
+  animated emits identical commands every frame and keeps drawing the old colours.
+
+  ⚠ **The exact distance to an ellipse has no closed form.** The corner quadrant is scaled into a
+  circle and the distance scaled back by the *smaller* semi-axis: exact on the axes and within a
+  fraction of a pixel between them, which is all a one-pixel antialiasing band can tell apart.
+  ⚠ And `q` is the offset from the ellipse's *centre*, so `q <= 0` on an axis means the boundary
+  there is a straight edge — measuring from the centre where the edge is straight eats the whole flat
+  part of the side, which is what the first version did.
+
+  Verified by sabotage: fourteen, thirteen landing. ⚠ **One is unreachable**: the `flat` qualifier on
+  the shape index insures against an index a float stops holding exactly — past sixteen million boxes
+  — and interpolating a value equal at all three corners is exact, so no fixture can see it. Labelled
+  as insurance. ⚠ **And one needed a new fixture**: a frame with more boxes than the last one replaces
+  the buffer the descriptor set names, and a suite that uploaded once never grew it — so deleting the
+  rewrite broke nothing, because the descriptor had been written by the atlas path on the way past
+  and was correct by accident.
+
 - Owed: font fallback, rich-text runs, variable-font axes, `TextEditor` model with IME and caret
   affinity. On the rendering side: reconciling the per-vertex box parameters here with
   `Raven/Library/Ui`'s per-uniform ones when Raven takes over shader compilation.

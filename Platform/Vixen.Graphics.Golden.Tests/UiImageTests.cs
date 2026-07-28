@@ -87,6 +87,7 @@ public sealed class UiImageTests {
         Assert.Equal(1, renderer.AtlasUploads);
 
         AssertTheBoxIsRounded(image);
+        AssertTheBoxIsGraded(image);
         AssertTheBorderIsHollow(image);
         AssertTheTextIsThere(image);
 
@@ -177,7 +178,102 @@ public sealed class UiImageTests {
         GoldenImage.Verify("ui-clipped", image, Tolerance.Edges);
     }
 
+    /// <summary>
+    ///     ⚠ A frame with more boxes than the last one replaces the buffer they live in, and the
+    ///     descriptor set still points at the old one until it is rewritten.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Two uploads into one renderer, which is what makes the regrow reachable at all.</b>
+    ///     A fixture that uploads once allocates the buffer and never grows it, so deleting the
+    ///     rewrite broke nothing — the descriptor was written by the atlas path on the way past and
+    ///     was correct by accident. The second upload is the whole test: it frees the buffer the set
+    ///     names and puts a larger one somewhere else.
+    /// </remarks>
+    [Fact]
+    public void Regrown() {
+        if (!TryOpen(out var fixture, out _)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var colour = owned.ColourTarget("ui-regrown");
+
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var small = Grid(cache, 2);
+        var large = Grid(cache, 10);
+
+        var renderer = new UiRenderer(
+            owned.Device,
+            new(
+                owned.Shader("ui.vert.spv", ShaderStage.Vertex),
+                owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
+            ),
+            new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
+        );
+
+        owned.Owns(renderer.Dispose);
+
+        owned.Graph.AddPass("ui-regrown", pass => {
+            pass.ColourAttachment(colour, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+            pass.SideEffect();
+            pass.Execute(context => renderer.Record(context.CommandList, large, new(Side, Side)));
+        });
+
+        var image = owned.Render(
+            colour,
+            commands => {
+                renderer.Upload(commands, small, cache.Atlas);
+                renderer.Upload(commands, large, cache.Atlas);
+            }
+        );
+
+        Assert.Equal(100, large.Shapes.Count);
+
+        // Every cell of the grid is filled, including the ninety-six the first upload had no room
+        // for. A stale descriptor reads another allocation's bytes as half-sizes, and the boxes past
+        // the fourth come out the wrong size or not at all.
+        for (var row = 0; row < 10; row++) {
+            for (var column = 0; column < 10; column++) {
+                var x = (column * 12) + 9;
+                var y = (row * 12) + 9;
+
+                Assert.True(Green(image, x, y) > 150, $"the box at ({column}, {row}) is missing");
+            }
+        }
+
+        GoldenImage.Verify("ui-regrown", image, Tolerance.Edges);
+    }
+
     // --------------------------------------------------------------- Content
+
+    /// <summary>A square grid of small rounded boxes, for a frame whose box count is the point.</summary>
+    static UiGeometry Grid(GlyphFieldCache cache, int side) {
+        var list = new DrawList();
+        list.BeginFrame();
+
+        for (var row = 0; row < side; row++) {
+            for (var column = 0; column < side; column++) {
+                list.Add(
+                    new(
+                        DrawCommandKind.Rectangle,
+                        (column * 12) + 5,
+                        (row * 12) + 5,
+                        8,
+                        8,
+                        new Color4(0.2f, 0.85f, 0.4f, 1f),
+                        2,
+                        0
+                    )
+                );
+            }
+        }
+
+        list.EndFrame();
+
+        return new UiGeometryBuilder().Build(list, cache, Viewport);
+    }
 
     /// <summary>Builds the frame both the geometry and the picture are about.</summary>
     static UiGeometry Paint(GlyphFieldCache cache) {
@@ -185,8 +281,21 @@ public sealed class UiImageTests {
         var list = new DrawList();
         list.BeginFrame();
 
-        // A filled box with a radius large enough that the corners are unmistakable.
-        list.Add(new(DrawCommandKind.Rectangle, 8, 8, 54, 40, new Color4(0.25f, 0.55f, 0.95f, 1f), 14, 0));
+        // ⚠ A filled box with a *different radius on every corner*, and an elliptical one at the top
+        // left — 20 across by 8 down. A shader that read one radius, or read the four in the wrong
+        // order, still draws a rounded rectangle; only a box whose corners disagree says which.
+        list.Add(
+            new DrawCommand(DrawCommandKind.Rectangle, 8, 8, 54, 40, new Color4(0.25f, 0.55f, 0.95f, 1f), 0, 0) {
+                Offset = list.AddBox(
+                    new BoxStyle(
+                        new CornerRadii(new Vector2(20, 8), new Vector2(2, 2), Vector2.Zero, new Vector2(16, 16)),
+                        new Color4(0.1f, 0.15f, 0.5f, 1f),
+                        new Vector2(0, 1)
+                    )
+                ),
+                Length = 1
+            }
+        );
 
         // A border, whose middle has to stay background.
         list.Add(new(DrawCommandKind.Border, 70, 8, 50, 40, new Color4(0.95f, 0.45f, 0.2f, 1f), 10, 4));
@@ -252,9 +361,36 @@ public sealed class UiImageTests {
     ///     distance field can get exactly backwards while still drawing a rectangle.
     /// </summary>
     static void AssertTheBoxIsRounded(in Bitmap image) {
-        Assert.True(Blue(image, 35, 28) > 200, "the box did not fill");
-        Assert.True(Blue(image, 9, 9) < 60, "the rounded corner was filled in");
+        Assert.True(Blue(image, 35, 28) > 120, "the box did not fill");
         Assert.True(Blue(image, 35, 4) < 60, "the box drew outside its own quad");
+
+        // ⚠ Every corner separately, because that is the only thing that says the four radii arrived
+        // in the right order. The box runs from (8, 8) to (62, 48); its top left is cut 20 across by
+        // 8 down, its top right barely at all, its bottom right square, its bottom left by 16.
+        Assert.True(Blue(image, 10, 9) < 60, "the top-left corner was not cut");
+        Assert.True(Blue(image, 60, 9) > 100, "the top-right corner was cut when it is nearly square");
+        Assert.True(Blue(image, 60, 46) > 100, "the bottom-right corner was cut when it is square");
+        Assert.True(Blue(image, 10, 46) < 60, "the bottom-left corner was not cut");
+
+        // ...and elliptical rather than circular. The cut is 20 across and 8 down, so it stops much
+        // sooner going down than going along: (18, 10) is inside this corner and would be outside a
+        // circular 20px one. A shader that read only `radiiX` draws exactly that circle.
+        Assert.True(Blue(image, 18, 10) > 100, "the top-left corner was cut as a circle rather than an ellipse");
+    }
+
+    /// <summary>
+    ///     ⚠ The gradient runs down the box, so the top is the command's colour and the bottom is the
+    ///     style's. A shader that ignored the axis, or normalised it against the wrong extent, still
+    ///     draws a blue box.
+    /// </summary>
+    static void AssertTheBoxIsGraded(in Bitmap image) {
+        var top = Blue(image, 35, 12);
+        var middle = Blue(image, 35, 28);
+        var bottom = Blue(image, 35, 44);
+
+        Assert.True(top > middle, $"the gradient did not darken downwards ({top} then {middle})");
+        Assert.True(middle > bottom, $"the gradient stopped part way ({middle} then {bottom})");
+        Assert.True(top - bottom > 40, $"the gradient is barely there ({top} to {bottom})");
     }
 
     /// <summary>

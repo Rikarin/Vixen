@@ -12,8 +12,9 @@ namespace Vixen.Ui.Rendering;
 /// </param>
 /// <param name="Color">Its colour, in linear space.</param>
 /// <param name="Shape">
-///     What the shader needs to evaluate the primitive: half-width, half-height, corner radius and
-///     border thickness for a box; the screen-pixel range and nothing else for a glyph.
+///     What the shader needs beyond the position: for a box, the index of its record in
+///     <see cref="UiGeometry.Shapes" />; for a glyph, the screen-pixel range; for a path triangle,
+///     how much of the pixel the shape covers there. Only the first lane is ever read.
 /// </param>
 /// <remarks>
 ///     <para>
@@ -47,6 +48,7 @@ public readonly record struct UiDraw(BatchKind Kind, int First, int Count, int F
 /// <param name="Vertices">Every vertex, in painting order.</param>
 /// <param name="Indices">Triangles into <paramref name="Vertices" />.</param>
 /// <param name="Draws">What to draw, in painting order.</param>
+/// <param name="Shapes">One record per box, indexed by its vertices' <c>Shape.X</c>.</param>
 /// <remarks>
 ///     ⚠ <b>Thirty-two-bit indices, and not because a frame is expected to need them.</b> Almost none
 ///     do: sixteen bits reach 65 535 vertices, which is sixteen thousand quads, and a dense editor
@@ -59,5 +61,6 @@ public readonly record struct UiDraw(BatchKind Kind, int First, int Count, int F
 public readonly record struct UiGeometry(
     IReadOnlyList<UiVertex> Vertices,
     IReadOnlyList<uint> Indices,
-    IReadOnlyList<UiDraw> Draws
+    IReadOnlyList<UiDraw> Draws,
+    IReadOnlyList<UiShape> Shapes
 );
