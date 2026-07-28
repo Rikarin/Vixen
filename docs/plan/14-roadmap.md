@@ -1383,8 +1383,25 @@ sub-piece has its own gate.
   placement beside a region the atlas no longer holds passes every assertion about the placement
   while sampling whatever has since been packed at the origin.
 
-- Owed: the UI render feature that draws from the atlas. Also font fallback, rich-text runs,
-  variable-font axes,
+- ✅ **The geometry a renderer submits** — `UiGeometryBuilder`, the CPU half of the UI render
+  feature. A draw list in, vertices out, and a pure function of the list so all of it is checked
+  without a device.
+
+  Boxes are one quad each with the corner radius evaluated in the shader; clips are **resolved**
+  into a scissor rectangle per draw rather than replayed as commands, and a nested one intersects.
+
+  ⚠ **A glyph's position is an offset along its run, not a place on the surface** — the command
+  carries where the line starts, which is what lets two identical labels in different places hold
+  identical glyph runs and therefore what lets the batcher and the frame diff notice. Found while
+  writing the tests: the first fixture put its run at the origin, where the two are the same thing.
+
+  Verified by sabotage: reading glyph offsets as absolute fails 1, a quad ignoring the font size
+  fails 1, an unflipped baseline fails 1, a threshold range that does not scale fails 1, a nested
+  clip that replaces fails 1, a clip never popped fails 1, a box not parameterised from its centre
+  fails 1, emitting empty draws fails 3, a silent dropped glyph fails 1. All nine land.
+
+- Owed: the GPU half — shaders, pipelines and a golden image — plus path tessellation and a wider
+  vertex index. Also font fallback, rich-text runs, variable-font axes,
   `TextEditor` model with IME and caret affinity.
 - Gate: ✅ UAX conformance data green. ✅ shaping conformance green against an external oracle,
   with the quarantine pinned in both directions.
