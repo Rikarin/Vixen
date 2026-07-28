@@ -1,0 +1,62 @@
+package Vixen.Shaders.Pipeline
+
+import Vixen.Shaders.Core
+
+// The depth pyramid `Culling.rvn` tests against: one level per dispatch, each the conservative
+// minimum of the level above it.
+//
+// **Minimum, and that is the whole correctness argument.** Depth is reversed here — `Matrix4x4`'s
+// projection puts the near plane at 1 and the far plane at 0 — so the *smallest* value in a tile is
+// the *furthest* surface drawn in it. An object is occluded only when its nearest point is behind
+// every pixel of the tile, so the number a tile has to carry is the furthest one: reducing by
+// anything else culls objects that were visible, which is a hole in the world rather than a slow
+// frame.
+//
+// **Every tap is clamped, and the block is 3×3 rather than 2×2.** A mip chain halves by *flooring*,
+// so an odd level leaves a trailing row and column that a 2×2 block never reads — and a missed
+// occluder raises the tile's minimum, which is the direction that culls something visible. Reading a
+// texel that belongs to the neighbouring tile only ever lowers the minimum, so the extra ring is free
+// in correctness terms and costs five taps. That is the trade every conservative Hi-Z makes.
+//
+// **A dispatch per level rather than one dispatch with a loop**, because a level cannot be read until
+// the whole of the level above it is written, and a workgroup can only wait for itself. The barrier
+// between them is `HiZPyramid`'s to record.
+
+shader HiZReduce {
+    /// The level being read: the depth buffer for the first dispatch, the previous level after that.
+    ///
+    /// Bound as a view of one level, so the `Load` below asks for level 0 whichever level that is.
+    var source: Texture2D
+
+    /// The level being written — half the source's size in each dimension, rounded down.
+    ///
+    /// `r32f` because the value is one channel and a depth pyramid is read far more often than it is
+    /// written: at a 1920×1080 source the whole chain is under 4 MB.
+    [Format("r32f")] var target: RWTexture2D<float4>
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        // The dispatch is rounded up to whole groups, so the tail invocations have no texel. Storing
+        // outside a storage image is undefined in both targets.
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val parent = source.GetDimensions(0)
+        var furthest = 1f
+
+        for (dy in 0 .. 2) {
+            for (dx in 0 .. 2) {
+                val x = min(coord.x * 2 + dx, parent.x - 1)
+                val y = min(coord.y * 2 + dy, parent.y - 1)
+
+                furthest = min(furthest, source.Load(int3(x, y, 0)).x)
+            }
+        }
+
+        target.Store(coord, float4(furthest, 0f, 0f, 0f))
+    }
+}

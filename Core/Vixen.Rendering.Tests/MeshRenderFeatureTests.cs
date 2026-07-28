@@ -38,8 +38,46 @@ public class MeshRenderFeatureTests : IDisposable {
             ]
         };
 
-    sealed class AlwaysCompiles : IEffectProvider {
-        public Effect? TryGet(EffectKey key) => Compiled(key);
+    /// <summary>
+    ///     Answers with a graphics variant for everything a mesh draws with, and a compute one for
+    ///     the pass that writes indirect arguments.
+    /// </summary>
+    /// <remarks>
+    ///     The second is only reached by <see cref="A_mesh_draws_indirectly_when_the_device_decides" />
+    ///     and it has to carry bindings and a layout, because <see cref="GpuDrawArguments" /> builds
+    ///     its descriptor set out of them.
+    /// </remarks>
+    sealed class AlwaysCompiles(NullDevice device) : IEffectProvider {
+        readonly DescriptorSetLayoutHandle layout = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerMaterial,
+                [
+                    new(0, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+                    new(1, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+                    new(2, DescriptorKind.StorageBuffer, ShaderStage.Compute)
+                ],
+                GpuCulling.ArgumentsShaderName
+            )
+        );
+
+        public Effect? TryGet(EffectKey key) =>
+            key.ShaderName == GpuCulling.ArgumentsShaderName ? Arguments(key) : Compiled(key);
+
+        Effect Arguments(EffectKey key) {
+            var layouts = new DescriptorSetLayoutHandle[(int)DescriptorSetSlot.PerMaterial + 1];
+            layouts[(int)DescriptorSetSlot.PerMaterial] = layout;
+
+            return new() {
+                Key = key,
+                SetLayouts = [.. layouts],
+                Stages = [new(ShaderStage.Compute, [1, 2, 3, 4], "main")],
+                Bindings = [
+                    new("templates", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.StorageBuffer),
+                    new("visibility", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageBuffer),
+                    new("commands", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.StorageBuffer)
+                ]
+            };
+        }
     }
 
     sealed class Harness : IDisposable {
@@ -71,7 +109,7 @@ public class MeshRenderFeatureTests : IDisposable {
         meshes.Add(materials);
         system.AddFeature(meshes);
 
-        effects.AddProvider(new AlwaysCompiles());
+        effects.AddProvider(new AlwaysCompiles(device));
 
         var view = Matrix4x4.LookAt(Vector3.Zero, new(0f, 0f, 1f), new(0f, 1f, 0f));
         var projection = Matrix4x4.PerspectiveFieldOfView(MathF.PI / 3f, 1f, 0.1f, 1000f);
@@ -179,6 +217,74 @@ public class MeshRenderFeatureTests : IDisposable {
 
         Assert.Single(device.Recorder.OfKind(RecordedCommandKind.BindVertexBuffer));
         Assert.Single(device.Recorder.OfKind(RecordedCommandKind.BindIndexBuffer));
+    }
+
+    /// <summary>
+    ///     With arguments on the device, the draw reads its counts from there instead of carrying
+    ///     them.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The end of the GPU-driven path: the host records a draw for every object it could
+    ///         see, and the instance count of everything culling rejected has already been zeroed in
+    ///         the buffer the command reads. Nothing about the binding changes — the pipeline, the
+    ///         material set and the vertex buffer are still the host's — which is exactly why this
+    ///         fits an engine whose materials are not bindless yet.
+    ///     </para>
+    ///     <para>
+    ///         The offset is the object's own slot, because the argument pass compacts nothing:
+    ///         Raven has no atomics to claim a slot with.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_mesh_draws_indirectly_when_the_device_decides() {
+        using var h = Build();
+        var id = AddMesh(h, 10f, new Material("Lit"), indices: 36);
+
+        using var arguments = new GpuDrawArguments(device) { Effects = effects, Pipelines = new(device) };
+
+        h.Meshes.Arguments = arguments;
+        h.Meshes.FillArguments(h.System, arguments.Fill(h.System.Objects.Count));
+
+        var bits = device.CreateBuffer(new(64, BufferUsage.Storage, MemoryAccess.DeviceLocal, "Bits"));
+
+        using (var list = device.BeginCommandList(QueueKind.Compute)) {
+            Assert.True(arguments.Update(list, bits, 1, h.System.Objects.Count));
+
+            list.Finish();
+            device.ComputeQueue.Submit([list]);
+        }
+
+        Record(h);
+
+        var draw = Assert.Single(device.Recorder!.OfKind(RecordedCommandKind.DrawIndexedIndirect));
+
+        Assert.Equal(arguments.OffsetOf(h.Camera.Index, id), draw.B);
+        Assert.Equal(1, draw.C);
+        Assert.Equal(GpuDrawArguments.Stride, draw.D);
+        Assert.Empty(device.Recorder.OfKind(RecordedCommandKind.DrawIndexed));
+    }
+
+    /// <summary>
+    ///     An argument buffer that has not been written is not drawn from.
+    /// </summary>
+    /// <remarks>
+    ///     A draw reading arguments nobody wrote is a draw of whatever the allocator left in that
+    ///     memory — a hang on some drivers, geometry through the world on others. So the direct draw
+    ///     is what a frame before the first argument pass gets.
+    /// </remarks>
+    [Fact]
+    public void An_unwritten_argument_buffer_is_not_drawn_from() {
+        using var h = Build();
+        AddMesh(h, 10f, new Material("Lit"), indices: 36);
+
+        using var arguments = new GpuDrawArguments(device);
+        h.Meshes.Arguments = arguments;
+
+        Record(h);
+
+        Assert.Single(device.Recorder!.OfKind(RecordedCommandKind.DrawIndexed));
+        Assert.Empty(device.Recorder.OfKind(RecordedCommandKind.DrawIndexedIndirect));
     }
 
     /// <summary>A mesh with no index buffer draws non-indexed rather than not at all.</summary>

@@ -1,0 +1,86 @@
+package Vixen.Shaders.Pipeline
+
+import Vixen.Shaders.Core
+
+// The pass that turns `Culling.rvn`'s bits into draw calls, so the answer never has to come back to
+// the host at all.
+//
+// **It zeroes instance counts; it does not compact.** The usual GPU-driven formulation appends the
+// survivors to a list and draws that list, which needs an atomic counter to claim slots with — and
+// Raven has no atomics, the same constraint that shapes `ClusterCulling` and `ParticleUpdate`. So the
+// argument buffer keeps *one record per object slot*, at that slot's own index, and a culled object
+// gets `instanceCount = 0`. Every API defines a draw of zero instances as a draw that fetches nothing
+// and rasterises nothing; the command is still submitted, which is the price, and it is a few bytes of
+// front-end work rather than a vertex fetch.
+//
+// **A record per object per view.** The bits are per view, so the arguments are too — a shadow cascade
+// and the camera disagree about what is visible, and one argument buffer between them would be
+// whichever view was dispatched last.
+//
+// **The template is what the host would have drawn.** Index count, instance count, first index, vertex
+// offset, first instance: exactly the five numbers `DrawIndexed` takes, resolved on the host during
+// `Prepare` — instancing has already decided its batch size and its `firstInstance` by then. This pass
+// copies them and edits one field. Deriving them here instead would mean teaching a shader what a
+// mesh, a skeleton and an instancing feature are.
+
+/// One indexed draw, in the layout every API's indirect buffer expects.
+///
+/// The field order is the argument order of `vkCmdDrawIndexedIndirect` and of D3D12's
+/// `DrawIndexedInstanced`, and it is not ours to choose: the GPU's command processor reads these bytes
+/// directly. Twenty bytes, which is `ICommandList.DrawIndexedIndirect`'s default stride.
+struct DrawCommand {
+    var indexCount: uint
+    var instanceCount: uint
+    var firstIndex: uint
+    var vertexOffset: uint
+    var firstInstance: uint
+}
+
+shader DrawArguments {
+    /// What each object would be drawn with if it were visible, indexed by object slot.
+    var templates: Buffer<DrawCommand>
+
+    /// `Culling.rvn`'s output, unchanged: `wordCount` words per view, view-major.
+    var visibility: Buffer<uint>
+
+    /// One record per object per view, view-major — what the draw calls read.
+    var commands: RWBuffer<DrawCommand>
+
+    /// One invocation per object per view: `x` is the object, `y` is the view.
+    ///
+    /// Per object rather than per word, because the output is a record per object and a record is
+    /// twenty bytes — an invocation per word would serialise thirty-two of them behind one thread for
+    /// no sharing it could remove.
+    ///
+    /// **There are no uniforms here, and that is deliberate.** The two numbers this needs — how many
+    /// objects there are, and how many visibility words a view occupies — are the same two the host
+    /// sized the bindings with, so asking the binding is asking the one source rather than a copy of
+    /// it that a frame can forget to update. `Culling.rvn` puts its counts in the view record for the
+    /// same reason.
+    [ComputeShader(64)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val index = int(id.x)
+        val view = int(id.y)
+        val objectCount = templates.Length
+
+        if (index >= objectCount) {
+            return
+        }
+
+        // The same rounding the host packs the bitset with: thirty-two objects to a word, and the
+        // tail object still gets one.
+        val wordCount = (objectCount + 31) / 32
+        val word = visibility[view * wordCount + index / 32]
+        val visible = (word & (1u << (index % 32))) != 0u
+
+        var command = templates[index]
+
+        // Zeroed rather than skipped: the record is read whether or not this pass touched it, so
+        // leaving last frame's alone would draw what last frame could see.
+        if (!visible) {
+            command.instanceCount = 0u
+        }
+
+        commands[view * objectCount + index] = command
+    }
+}
