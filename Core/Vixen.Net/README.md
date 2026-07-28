@@ -400,3 +400,22 @@ The other executable claim is [`Vixen.Net.Fuzz`](../Vixen.Net.Fuzz): nine target
 path a peer can reach, nine million cases on every build, holding each of them to three promises —
 nothing throws, nothing amplifies, nothing is retained. It found four defects on its first run,
 including one packet that crashed a client and one that made it keep a player record per packet.
+
+And `Vixen.Net.Tests/Wire` is the third: the encoders run against **committed bytes**, one hex line
+per named case. Two peers that encode the same value differently do not disagree, they desync — a
+difference is measured against a capture the receiver also holds, so one machine rounding a quantized
+level one step differently corrupts every difference after it, silently, for the rest of the match.
+The gate is the CI matrix rather than a job of its own: `ci.yml` already runs the tests on Linux,
+Windows and macOS — three operating systems and two architectures — so asserting against committed
+bytes *is* bit-exactness across all three.
+
+What makes it hold is worth knowing, because it is what a red build would mean has stopped being
+true: every arithmetic step on the wire path is IEEE-754 and correctly rounded. `QuantizeRange` works
+in `double` with nothing but `+ - * /`; the two normalisations the rotation codec leans on are
+`1f / MathF.Sqrt(x)`. No transcendental, no fused multiply-add — C# never contracts one — and no
+reciprocal estimate. `UPDATE_GOLDEN=1` regenerates the listings, and the diff is the review.
+
+It pins a game's own components too, not only the engine's — including the registry index each type
+gets, which is a function of the type *name*, because types are ordered by hashed id so that two
+builds agree without agreeing on start-up order. **Renaming a replicated component is a wire break**,
+and this is where that shows up.

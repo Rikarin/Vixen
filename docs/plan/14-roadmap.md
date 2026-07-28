@@ -3185,9 +3185,49 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
   printed, and the allocation budget is what keeps it honest, being its cause.
 
 - ✅ **Packet-reader fuzzing is clean**, and is a gate rather than a nightly — see the security pass
-  above for the harness and for the four defects its first run found. The one criterion left is
-  **bit-exact serialization across the three desktop OSes**, which is a golden corpus and a CI job on
-  three runners.
+  above for the harness and for the four defects its first run found.
+
+- ✅ **Bit-exact serialization across the three desktop OSes.** `Vixen.Net.Tests/Wire` runs every
+  encoder on the wire path against **committed bytes**, one hex line per named case — packet
+  primitives, bit fields, seven quantize ranges, the rotation codec, and four ticks of a whole
+  snapshot including the differences.
+
+  **The gate is the CI matrix rather than a job of its own**, and that is the useful observation:
+  `ci.yml` already runs the tests on `ubuntu-latest`, `windows-latest` and `macos-14` — three
+  operating systems and two architectures, the macOS runner being arm64 — so a suite that asserts
+  against committed bytes *is* bit-exactness across all three, by construction. A dedicated job would
+  be the same assertion a fourth time. The matrix now carries a comment saying so, because dropping a
+  leg would silently drop the gate and the failure it would have caught is a desync rather than a
+  build error.
+
+  **Text with a line per case, not a hash over the corpus.** A hash carries one bit — something moved
+  — and what you then need is which encoder and which input, on a machine you may not have. A
+  mismatch here prints `encode/signed16/zero` and the two values.
+
+  **Every input is stated rather than computed**, including the bit patterns: negative zero, both
+  denormal extremes, a NaN with a non-canonical payload, and one ULP either side of six level
+  boundaries per range. A corpus generated with `MathF.Cos` would be testing the platform's libm,
+  which *is* allowed to differ and never reaches a packet.
+
+  **Why it passes, which is what a red build would mean has stopped being true:** every arithmetic
+  step on the wire path is IEEE-754 and correctly rounded. `QuantizeRange` does its work in `double`
+  with nothing but `+ - * /`; the two normalisations the rotation codec leans on are
+  `1f / MathF.Sqrt(x)`, two correctly-rounded operations. No transcendental, no fused multiply-add —
+  C# never contracts one — and no reciprocal estimate anywhere in it. So this is a regression gate:
+  its value is the day somebody reaches for `ReciprocalSqrtEstimate`.
+
+  It also pins a **game's own components** rather than only the engine's: two `[Replicated]` structs,
+  their record headers, and the registry index each one gets. That last is worth having somewhere it
+  will be noticed — types are ordered by hashed id rather than by registration order, deliberately, so
+  two builds agree without agreeing on start-up order, which means **renaming a replicated component
+  is a wire break**.
+
+  **Owed:** the generated encoders end to end. Their *source* is pinned by
+  `Vixen.Net.Generators.Tests` and every arithmetic primitive they emit is pinned here, so what is
+  uncovered is the composition rather than either half — closing it means referencing the generator
+  from this test project, which is a small piece of work with a real ordering constraint behind it.
+  And the same treatment for content determinism, which doc 12 wants on the same three legs and which
+  has no corpus at all.
 
 > **Client-side prediction is explicitly *not* in this phase** — see [16](16-networking.md). PurrNet does
 > not have it either. The tick loop and snapshot APIs are shaped to accept it later (+2 EM), and the

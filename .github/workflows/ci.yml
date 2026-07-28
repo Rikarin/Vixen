@@ -29,6 +29,12 @@ jobs:
       # informative result there is, and cancelling hides which ones were fine.
       fail-fast: false
       matrix:
+        # These three legs are not only "does it build everywhere". They are the bit-exactness gate
+        # docs/plan/16 § Testing asks for: Core/Vixen.Net.Tests/Wire asserts the wire format against
+        # committed bytes, so running it on three operating systems and two architectures — macos-14
+        # is arm64 — *is* the assertion that two peers encode a value identically. Dropping a leg
+        # silently drops that, and the failure it would have caught is a desync rather than a build
+        # error. Same argument for content determinism, which wants the same three.
         os: [ubuntu-latest, windows-latest, macos-14]
 
     steps:
