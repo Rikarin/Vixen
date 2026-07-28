@@ -72,6 +72,31 @@ static class TestRigs {
         return new() { Name = name, Joints = built };
     }
 
+    /// <summary>
+    ///     Builds skeleton data whose bind pose has orientation as well as offset — the rig shape
+    ///     that tells an A-pose from a T-pose, and the only one that exercises retargeting's
+    ///     model-space transfer.
+    /// </summary>
+    public static SkeletonData BuildPosed(
+        string name,
+        params (string Name, int Parent, Vector3 Offset, Quaternion Rotation)[] joints
+    ) {
+        var model = new Matrix4x4[joints.Length];
+        var built = new SkeletonJoint[joints.Length];
+
+        for (var index = 0; index < joints.Length; index++) {
+            var (jointName, parent, offset, rotation) = joints[index];
+            var local = Matrix4x4.Compose(Vector3.One, rotation, offset);
+
+            model[index] = parent < 0 ? local : local * model[parent];
+
+            Matrix4x4.Invert(model[index], out var inverse);
+            built[index] = new() { Name = jointName, Parent = parent, InverseBindPose = inverse };
+        }
+
+        return new() { Name = name, Joints = built };
+    }
+
     /// <summary>A clip that moves one joint's translation linearly between two keys.</summary>
     public static AnimationClipData Translate(
         string name,

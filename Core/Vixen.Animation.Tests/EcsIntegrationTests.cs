@@ -4,7 +4,9 @@
 using Vixen.Animation.Ecs;
 using Vixen.Animation.Motions;
 using Vixen.Animation.StateMachine;
+using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Core.Threading;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Xunit;
@@ -122,6 +124,91 @@ public class EcsIntegrationTests {
 
         TestRigs.Near(new(0f, 0f, -2f), fast.Pose[0].Translation);
         TestRigs.Near(new(0f, 0f, -1f), slow.Pose[0].Translation);
+    }
+
+    [Fact]
+    public void Run_AcrossTheScheduler_GivesTheSameAnswerAsInline() {
+        using var serial = new World(nameof(Run_AcrossTheScheduler_GivesTheSameAnswerAsInline) + "Serial");
+        using var parallel = new World(nameof(Run_AcrossTheScheduler_GivesTheSameAnswerAsInline) + "Parallel");
+        using var jobs = new JobScheduler(4);
+
+        const int Characters = 64;
+        var inline = new Animator[Characters];
+        var scheduled = new Animator[Characters];
+
+        for (var index = 0; index < Characters; index++) {
+            inline[index] = Walking(RootMotionMode.Apply);
+            scheduled[index] = Walking(RootMotionMode.Apply);
+
+            // Different speeds, so the work per animator differs and the batches are uneven — which
+            // is the case a work-stealing scheduler is allowed to reorder and must not change.
+            inline[index].Speed = 0.5f + (index * 0.01f);
+            scheduled[index].Speed = inline[index].Speed;
+
+            serial.Create(new AnimatorComponent { Value = inline[index] }, LocalTransform.Identity);
+            parallel.Create(new AnimatorComponent { Value = scheduled[index] }, LocalTransform.Identity);
+        }
+
+        var system = new AnimationSystem();
+
+        for (var frame = 0; frame < 8; frame++) {
+            system.Run(serial, 0.05f);
+            system.Run(parallel, 0.05f, jobs);
+        }
+
+        Assert.Equal(Characters, system.LastEvaluatedCount);
+
+        for (var index = 0; index < Characters; index++) {
+            TestRigs.Near(
+                inline[index].Pose[1].Translation,
+                scheduled[index].Pose[1].Translation,
+                $"animator {index}"
+            );
+
+            TestRigs.Near(
+                inline[index].LastRootMotion.Translation,
+                scheduled[index].LastRootMotion.Translation,
+                $"animator {index}"
+            );
+        }
+    }
+
+    [Fact]
+    public void Run_AcrossTheScheduler_StillMovesEveryTransform() {
+        using var world = new World(nameof(Run_AcrossTheScheduler_StillMovesEveryTransform));
+        using var jobs = new JobScheduler(4);
+
+        // Above AnimationSystem.ParallelThreshold, or this would quietly test the inline path.
+        var entities = new Entity[AnimationSystem.ParallelThreshold * 2];
+
+        for (var index = 0; index < entities.Length; index++) {
+            entities[index] = world.Create(
+                new AnimatorComponent { Value = Walking(RootMotionMode.Apply) },
+                LocalTransform.Identity
+            );
+        }
+
+        new AnimationSystem().Run(world, 0.25f, jobs);
+
+        foreach (var entity in entities) {
+            TestRigs.Near(new(0f, 0f, -1f), world.Read<LocalTransform>(entity).Position);
+        }
+    }
+
+    [Fact]
+    public void Run_EntitiesDestroyedBetweenFrames_AreNotEvaluatedAgain() {
+        using var world = new World(nameof(Run_EntitiesDestroyedBetweenFrames_AreNotEvaluatedAgain));
+
+        var entity = world.Create(new AnimatorComponent { Value = Walking(RootMotionMode.Disabled) });
+        var system = new AnimationSystem();
+
+        system.Run(world, 0.1f);
+        Assert.Equal(1, system.LastEvaluatedCount);
+
+        world.Destroy(entity);
+        system.Run(world, 0.1f);
+
+        Assert.Equal(0, system.LastEvaluatedCount);
     }
 
     [Fact]

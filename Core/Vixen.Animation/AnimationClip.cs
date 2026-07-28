@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Rendering;
 
@@ -37,24 +38,45 @@ public enum WrapMode {
 ///         and keeps nothing.
 ///     </para>
 ///     <para>
-///         <b>Keys are found by binary search, and not by a cursor.</b> The usual optimisation is to
-///         remember where the last sample landed, which is O(1) for forward playback. It cannot live
-///         on the clip, which is shared; living on the player means one hint per track per clip per
-///         instance, and a blend tree's set of active clips changes as its parameter moves — so the
-///         bookkeeping is per-frame allocation or a cache with an eviction policy, to save five
-///         comparisons per track. Measured against a thirty-key track it is not worth what it costs
-///         to hold. It is worth revisiting for a clip with hundreds of keys per track, and the
-///         README says so.
+///         <b>Keys are found in constant time, through an index and not a cursor.</b> The usual
+///         optimisation is a cursor — remember where the last sample landed and step forward from
+///         there — and it cannot live here, because a clip is shared by every instance playing it;
+///         living on the player means a hint per track per clip per instance, over a set of clips
+///         that changes as a blend tree's parameter moves. The index is the same win without the
+///         state: each long track carries a table of one entry per key, mapping a uniform slice of
+///         the clip's duration to the key at or before it, so a lookup is one multiply, one array
+///         read and — because there is on average one key per slice — about one comparison. It is
+///         O(1) rather than the cursor's amortised O(1), it is correct for a random seek as well as
+///         for forward playback, and being immutable it is safe to sample from several threads at
+///         once. It costs four bytes a key against the twelve to sixteen the key itself takes, and
+///         short tracks (eight keys or fewer) skip it and binary-search instead. Measured, a random
+///         seek costs what a forward step costs and thirty times the keys costs fifteen percent more
+///         — see <c>Benchmarks/Vixen.Benchmarks.Animation</c>, where the residual growth is the
+///         working set rather than the search.
+///     </para>
+///     <para>
+///         <b>Rotations are packed into eight bytes.</b> See <see cref="PackedQuaternion" /> — half
+///         the memory and half the cache traffic on the tracks that dominate a skeletal clip, for an
+///         angular error five orders of magnitude below what blending them in <c>float</c> preserves.
 ///     </para>
 /// </remarks>
 public sealed class AnimationClip {
+    /// <summary>Tracks at or below this many keys are searched rather than indexed.</summary>
+    /// <remarks>
+    ///     Eight keys is at most three comparisons, which is the cost of the index's own array read
+    ///     plus its advance. Below that the table is memory spent to save nothing — and an exporter
+    ///     that emitted two keys for a joint that barely moves produces a great many such tracks.
+    /// </remarks>
+    const int IndexThreshold = 8;
+
     readonly Track[] tracks;
     readonly float[] positionTimes;
     readonly Vector3[] positions;
     readonly float[] rotationTimes;
-    readonly Quaternion[] rotations;
+    readonly PackedQuaternion[] rotations;
     readonly float[] scaleTimes;
     readonly Vector3[] scales;
+    readonly int[] buckets;
     readonly AnimationEvent[] events;
 
     AnimationClip(
@@ -65,9 +87,10 @@ public sealed class AnimationClip {
         float[] positionTimes,
         Vector3[] positions,
         float[] rotationTimes,
-        Quaternion[] rotations,
+        PackedQuaternion[] rotations,
         float[] scaleTimes,
         Vector3[] scales,
+        int[] buckets,
         AnimationEvent[] events,
         int rootJoint,
         int unresolvedChannels
@@ -84,6 +107,7 @@ public sealed class AnimationClip {
         this.rotations = rotations;
         this.scaleTimes = scaleTimes;
         this.scales = scales;
+        this.buckets = buckets;
         this.events = events;
     }
 
@@ -134,27 +158,15 @@ public sealed class AnimationClip {
             ref var bone = ref destination[track.Joint];
 
             if (track.PositionCount > 0) {
-                bone.Translation = SampleVector(
-                    positionTimes.AsSpan(track.PositionStart, track.PositionCount),
-                    positions.AsSpan(track.PositionStart, track.PositionCount),
-                    t
-                );
+                bone.Translation = SamplePosition(track, t);
             }
 
             if (track.RotationCount > 0) {
-                bone.Rotation = SampleRotation(
-                    rotationTimes.AsSpan(track.RotationStart, track.RotationCount),
-                    rotations.AsSpan(track.RotationStart, track.RotationCount),
-                    t
-                );
+                bone.Rotation = SampleRotation(track, t);
             }
 
             if (track.ScaleCount > 0) {
-                bone.Scale = SampleVector(
-                    scaleTimes.AsSpan(track.ScaleStart, track.ScaleCount),
-                    scales.AsSpan(track.ScaleStart, track.ScaleCount),
-                    t
-                );
+                bone.Scale = SampleScale(track, t);
             }
         }
     }
@@ -176,19 +188,11 @@ public sealed class AnimationClip {
             }
 
             if (track.PositionCount > 0) {
-                bone.Translation = SampleVector(
-                    positionTimes.AsSpan(track.PositionStart, track.PositionCount),
-                    positions.AsSpan(track.PositionStart, track.PositionCount),
-                    t
-                );
+                bone.Translation = SamplePosition(track, t);
             }
 
             if (track.RotationCount > 0) {
-                bone.Rotation = SampleRotation(
-                    rotationTimes.AsSpan(track.RotationStart, track.RotationCount),
-                    rotations.AsSpan(track.RotationStart, track.RotationCount),
-                    t
-                );
+                bone.Rotation = SampleRotation(track, t);
             }
 
             break;
@@ -366,7 +370,7 @@ public sealed class AnimationClip {
         var positionTimes = new List<float>();
         var positions = new List<Vector3>();
         var rotationTimes = new List<float>();
-        var rotations = new List<Quaternion>();
+        var rotations = new List<PackedQuaternion>();
         var scaleTimes = new List<float>();
         var scales = new List<Vector3>();
         var unresolved = 0;
@@ -388,20 +392,26 @@ public sealed class AnimationClip {
                 continue;
             }
 
+            // The bucket tables cannot be built here: they are cut into slices of the clip's
+            // duration, and an exporter that left the duration at zero means the duration is not
+            // known until every channel has been walked. They are filled in below.
             var track = new Track(
                 joint,
                 positionTimes.Count,
                 positionCount,
+                -1,
                 rotationTimes.Count,
                 rotationCount,
+                -1,
                 scaleTimes.Count,
-                scaleCount
+                scaleCount,
+                -1
             );
 
             positionTimes.AddRange(channel.PositionTimes.AsSpan(0, positionCount));
             positions.AddRange(channel.Positions.AsSpan(0, positionCount));
             rotationTimes.AddRange(channel.RotationTimes.AsSpan(0, rotationCount));
-            rotations.AddRange(channel.Rotations.AsSpan(0, rotationCount));
+            rotations.AddRange(PackedQuaternion.Pack(channel.Rotations.AsSpan(0, rotationCount)));
             scaleTimes.AddRange(channel.ScaleTimes.AsSpan(0, scaleCount));
             scales.AddRange(channel.Scales.AsSpan(0, scaleCount));
 
@@ -418,18 +428,43 @@ public sealed class AnimationClip {
         // the last key is the only defensible answer. A genuinely zero-length clip stays one frame
         // long rather than becoming a division by zero in every caller that normalises time.
         var duration = data.Duration > 0f ? data.Duration : longest;
+        duration = duration > 0f ? duration : 1f / 60f;
+
+        var index = new List<int>();
+        var times = CollectionsMarshal.AsSpan(positionTimes);
+        var rotationKeys = CollectionsMarshal.AsSpan(rotationTimes);
+        var scaleKeys = CollectionsMarshal.AsSpan(scaleTimes);
+
+        for (var track = 0; track < built.Count; track++) {
+            var current = built[track];
+
+            built[track] = current with {
+                PositionIndex = BuildIndex(
+                    index,
+                    times.Slice(current.PositionStart, current.PositionCount),
+                    duration
+                ),
+                RotationIndex = BuildIndex(
+                    index,
+                    rotationKeys.Slice(current.RotationStart, current.RotationCount),
+                    duration
+                ),
+                ScaleIndex = BuildIndex(index, scaleKeys.Slice(current.ScaleStart, current.ScaleCount), duration)
+            };
+        }
 
         return new(
             data.Name,
-            duration > 0f ? duration : 1f / 60f,
+            duration,
             skeleton,
-            built.ToArray(),
-            positionTimes.ToArray(),
-            positions.ToArray(),
-            rotationTimes.ToArray(),
-            rotations.ToArray(),
-            scaleTimes.ToArray(),
-            scales.ToArray(),
+            [.. built],
+            [.. positionTimes],
+            [.. positions],
+            [.. rotationTimes],
+            [.. rotations],
+            [.. scaleTimes],
+            [.. scales],
+            [.. index],
             authored,
             ResolveRootJoint(skeleton, rootJoint),
             unresolved
@@ -454,21 +489,43 @@ public sealed class AnimationClip {
 
     static float Last(float[] times, int count) => count > 0 ? times[count - 1] : 0f;
 
-    static Vector3 SampleVector(ReadOnlySpan<float> times, ReadOnlySpan<Vector3> values, float time) {
-        var index = FindKey(times, time, out var t);
+    Vector3 SamplePosition(in Track track, float time) {
+        var times = positionTimes.AsSpan(track.PositionStart, track.PositionCount);
+        var values = positions.AsSpan(track.PositionStart, track.PositionCount);
+        var index = FindKey(times, Index(track.PositionIndex, track.PositionCount), time, out var t);
+
         return index + 1 < values.Length ? Vector3.Lerp(values[index], values[index + 1], t) : values[index];
     }
 
-    static Quaternion SampleRotation(ReadOnlySpan<float> times, ReadOnlySpan<Quaternion> values, float time) {
-        var index = FindKey(times, time, out var t);
+    Vector3 SampleScale(in Track track, float time) {
+        var times = scaleTimes.AsSpan(track.ScaleStart, track.ScaleCount);
+        var values = scales.AsSpan(track.ScaleStart, track.ScaleCount);
+        var index = FindKey(times, Index(track.ScaleIndex, track.ScaleCount), time, out var t);
 
-        return index + 1 < values.Length
-            ? Quaternion.Nlerp(values[index], values[index + 1], t)
-            : values[index];
+        return index + 1 < values.Length ? Vector3.Lerp(values[index], values[index + 1], t) : values[index];
     }
 
+    Quaternion SampleRotation(in Track track, float time) {
+        var times = rotationTimes.AsSpan(track.RotationStart, track.RotationCount);
+        var values = rotations.AsSpan(track.RotationStart, track.RotationCount);
+        var index = FindKey(times, Index(track.RotationIndex, track.RotationCount), time, out var t);
+
+        return index + 1 < values.Length
+            ? Quaternion.Nlerp(values[index].Unpack(), values[index + 1].Unpack(), t)
+            : values[index].Unpack();
+    }
+
+    ReadOnlySpan<int> Index(int start, int count) => start < 0 ? [] : buckets.AsSpan(start, count);
+
     /// <summary>The key at or before a time, and how far past it the time is.</summary>
-    static int FindKey(ReadOnlySpan<float> times, float time, out float fraction) {
+    /// <param name="times">The track's key times.</param>
+    /// <param name="index">
+    ///     The track's bucket table, one entry per key over the clip's duration, or empty for a track
+    ///     short enough to search.
+    /// </param>
+    /// <param name="time">The sample time, already clamped into the clip.</param>
+    /// <param name="fraction">How far from the key found to the next one, in <c>[0, 1)</c>.</param>
+    int FindKey(ReadOnlySpan<float> times, ReadOnlySpan<int> index, float time, out float fraction) {
         fraction = 0f;
 
         if (times.Length <= 1 || time <= times[0]) {
@@ -479,6 +536,30 @@ public sealed class AnimationClip {
             return times.Length - 1;
         }
 
+        var low = index.IsEmpty ? Search(times, time) : Lookup(times, index, time);
+        var span = times[low + 1] - times[low];
+        fraction = span > 0f ? (time - times[low]) / span : 0f;
+
+        return low;
+    }
+
+    /// <summary>The indexed lookup: one multiply, one read, and an advance that is usually nothing.</summary>
+    int Lookup(ReadOnlySpan<float> times, ReadOnlySpan<int> index, float time) {
+        var slice = MathUtil.Clamp((int)(time / Duration * index.Length), 0, index.Length - 1);
+        var key = index[slice];
+
+        // The entry is the key at or before the slice's *start*, and the sample is at or after it, so
+        // walking forward is the only correction that can be needed. One step on average, because
+        // there is one slice per key.
+        while (key + 1 < times.Length && times[key + 1] <= time) {
+            key++;
+        }
+
+        return key;
+    }
+
+    /// <summary>The fallback for tracks too short to be worth indexing.</summary>
+    static int Search(ReadOnlySpan<float> times, float time) {
         // The largest index whose time is not past the sample. `low` ends one past it, because the
         // loop only moves `low` when the midpoint is still behind.
         var low = 0;
@@ -494,19 +575,47 @@ public sealed class AnimationClip {
             }
         }
 
-        var span = times[low + 1] - times[low];
-        fraction = span > 0f ? (time - times[low]) / span : 0f;
-
         return low;
+    }
+
+    /// <summary>
+    ///     Builds one track's bucket table: for each of <c>count</c> uniform slices of the clip, the
+    ///     last key at or before the slice's start.
+    /// </summary>
+    /// <returns>Where the table starts in the shared array, or −1 for a track that is not indexed.</returns>
+    static int BuildIndex(List<int> destination, ReadOnlySpan<float> times, float duration) {
+        if (times.Length <= IndexThreshold || duration <= 0f) {
+            return -1;
+        }
+
+        var start = destination.Count;
+        var key = 0;
+
+        // The key pointer only moves forward, so building the whole table is one pass over the keys
+        // rather than a search per slice.
+        for (var slice = 0; slice < times.Length; slice++) {
+            var at = slice / (float)times.Length * duration;
+
+            while (key + 1 < times.Length && times[key + 1] <= at) {
+                key++;
+            }
+
+            destination.Add(key);
+        }
+
+        return start;
     }
 
     readonly record struct Track(
         int Joint,
         int PositionStart,
         int PositionCount,
+        int PositionIndex,
         int RotationStart,
         int RotationCount,
+        int RotationIndex,
         int ScaleStart,
-        int ScaleCount
+        int ScaleCount,
+        int ScaleIndex
     );
 }
