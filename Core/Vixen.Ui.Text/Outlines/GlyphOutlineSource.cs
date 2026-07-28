@@ -62,7 +62,12 @@ internal sealed class GlyphOutlineSource {
             var loca = table("loca");
 
             if (head.Length >= 52 && maxp.Length >= 6 && loca.Length > 0) {
-                return new GlyphOutlineSource(new GlyfOutlines(head, maxp, loca, glyfTable), null, hmtx, longMetrics);
+                return new GlyphOutlineSource(
+                    new GlyfOutlines(head, maxp, loca, glyfTable, GlyphVariations.Create(table("gvar"))),
+                    null,
+                    hmtx,
+                    longMetrics
+                );
             }
         }
 
@@ -74,9 +79,18 @@ internal sealed class GlyphOutlineSource {
 
     /// <summary>The glyph's contours, positioned the way the shaper's numbers assume.</summary>
     /// <param name="glyph">The glyph id.</param>
+    /// <param name="variation">Where along the font's axes to read, or null for the stored font.</param>
     /// <returns>The outline, or an empty one for a glyph that draws nothing.</returns>
-    public GlyphOutline Read(int glyph) {
+    /// <remarks>
+    ///     ⚠ <b>The shift is the default instance's, even at a varied one.</b> Correcting it at an
+    ///     instance means reading <c>HVAR</c>, which nothing here does; the two disagree only for a
+    ///     font whose stored <c>xMin</c> already disagrees with its left side bearing, and then only
+    ///     by however much the instance varies that bearing.
+    /// </remarks>
+    public GlyphOutline Read(int glyph, FontVariation? variation = null) {
         if (cff is not null) {
+            // CFF2 is what varies a charstring, and this reads CFF. A caller asking for an instance
+            // of a font that cannot have one gets the font, rather than a silent empty glyph.
             return cff.Read(glyph);
         }
 
@@ -84,7 +98,7 @@ internal sealed class GlyphOutlineSource {
             return GlyphOutline.Empty;
         }
 
-        var outline = glyf.Read(glyph);
+        var outline = glyf.Read(glyph, variation);
         var shift = Shift(glyph);
         return shift == 0 ? outline : Translate(outline, shift);
     }

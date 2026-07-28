@@ -1279,8 +1279,7 @@ sub-piece has its own gate.
   have a `hintmask` at all.
 
   Not built, and **not owed**: point-matched composites and `seac` — no glyph in 242 fonts used
-  either. Owed with the variable-font axes: `gvar` deltas, so a variable font currently parses at its
-  default instance.
+  either. `gvar` deltas are built; see the variable-font entry below.
 - ✅ **The outline reader is built** — `FontFace.GetOutline`, over `glyf`/`loca` and `CFF ` Type 2
   charstrings, positioned to agree with the extents everything else in the assembly comes from. The
   spike's parser, made AOT- and trim-clean and gated in CI.
@@ -1303,6 +1302,46 @@ sub-piece has its own gate.
   offset travels through is never exercised. Both were gated by the spike's 259,298 glyphs, whose
   fonts belong to the operating system. Named here rather than papered over with a test that cannot
   reach what it claims.
+
+- ✅ **Variable fonts: `fvar`, `avar` and `gvar`, judged by a second external oracle.** A font is
+  read at an instance rather than at its defaults — `FontFace.Variation` normalises user-space axis
+  values through `fvar` and warps them through `avar`, `GlyphVariations` applies `gvar`'s tuples with
+  packed point numbers, packed deltas, intermediate regions, shared tuples, phantom points, composite
+  component offsets, and inferred deltas for the points a tuple does not name.
+
+  **The gate is the Consortium's own variable-font cases, and it is a stronger oracle than the
+  shaping one.** The shaping suite has to argue for itself because HarfBuzz does the shaping; nothing
+  shapes a `gvar` delta, so all 100 of `GVAR-1…9` and `AVAR-1` are read, varied and interpolated by
+  code in this repository and compared against contours written by hand from the specification.
+  `Tools/Vixen.TextRenderingTestGen` grew a second pass to port them; the fonts went from fourteen to
+  twenty-two.
+
+  ⚠ **The suite found two bugs on its first run, and neither is visible from the code.** A tag is
+  four bytes, so Zycon's axes are `M1␣␣` and every caller — CSS, a test case file, a person — writes
+  `M1`; matching only the padded form left all six axes at their defaults, which on screen is
+  indistinguishable from a font with no variation data, and it cost **32 cases**. And the rule for
+  interpolating an untouched point is not the obvious one: two references at the same coordinate
+  pulling different ways infer **nothing**, where taking either of them is the natural mistake.
+  `GVAR-9` exists for exactly that and makes the two deltas 100 and 99, so the wrong answer is wrong
+  by one part in a hundred. It cost **12 more**.
+
+  Verified by sabotage, and the sabotage is kept as a test rather than run once: reading the same
+  hundred cases at each font's default instance fails **82** of them. The 18 that survive are the
+  cases whose axis value *is* the default, and the suite walks each axis end to end, so there are a
+  handful by construction.
+
+  ⚠ **The tolerance is a unit and a half and most of it is the harness's.** The expectations are
+  FreeType's 26.6 coordinates divided by 64 with C's truncating division, so a 2048-unit font's
+  expectation is already up to a whole unit low before anything of Vixen's runs; the remaining half
+  covers this reader working in `float` where FreeType works in 16.16. Verb sequences are compared
+  exactly, so a wrong contour count or a missing curve fails whatever the tolerance.
+
+  Shaping honours the instance too, which closes a gap the previous pass left: `ShapingCache` already
+  keyed on the axis position while `TextShaper` ignored it — a cache correct about a distinction
+  nothing downstream made. Not built: `CVAR` (it varies hinting control values, so its expectations
+  differ from the unhinted outline and need an interpreter — 6 cases, excluded with the reason
+  recorded in the generator), `CFF2` charstring variation, and `HVAR` read directly rather than
+  through HarfBuzz.
 
 - ✅ **The rasteriser, and the oracle it exists to be.** `GlyphRasterizer` fills an outline by
   scanline and non-zero winding; sequencing rule 4 put it before the distance field it judges.
@@ -1575,11 +1614,12 @@ sub-piece has its own gate.
   rewrite broke nothing, because the descriptor had been written by the atlas path on the way past
   and was correct by accident.
 
-- Owed: font fallback, rich-text runs, variable-font axes, `TextEditor` model with IME and caret
-  affinity. On the rendering side: reconciling the per-vertex box parameters here with
-  `Raven/Library/Ui`'s per-uniform ones when Raven takes over shader compilation.
+- Owed: per-character font fallback, rich-text runs, `TextEditor` model with IME and caret affinity.
+  On the rendering side: reconciling the per-vertex box parameters here with `Raven/Library/Ui`'s
+  per-uniform ones when Raven takes over shader compilation.
 - Gate: ✅ UAX conformance data green. ✅ shaping conformance green against an external oracle,
-  with the quarantine pinned in both directions.
+  with the quarantine pinned in both directions. ✅ variable-font conformance green against the
+  Consortium's outline cases, with the sabotage kept as a test beside it.
 
 **4d — Element tree, markup, rendering (1.5 EM)**
 - ✅ **The styling↔layout bridge**, which was 4d's first owed item and is what `Vixen.Ui` now

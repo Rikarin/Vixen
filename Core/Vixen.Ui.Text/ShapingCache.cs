@@ -87,7 +87,7 @@ public sealed class ShapingCache {
         }
 
         Misses++;
-        var shaped = TextShaper.Shape(font, text, direction);
+        var shaped = TextShaper.Shape(font, text, direction, key.Variation);
 
         // Evict before inserting, so the cache never holds capacity + 1 even momentarily.
         if (entries.Count >= capacity) {

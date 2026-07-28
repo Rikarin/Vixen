@@ -45,12 +45,33 @@ static class Program {
     ///         (166 cases) is Apple's AAT layout, a font technology rather than a shaping question;
     ///         <c>CFF</c>, <c>GLYF</c> and <c>SFNT</c> test outline and container parsing, which is
     ///         a rasteriser's job and not this project's yet; and every case carrying an
-    ///         <c>ft:var</c> attribute needs variable-font axis setting, which Vixen does not do yet
-    ///         and which would be a claim rather than a test. The run prints how many it dropped for
-    ///         each reason, so neither number can quietly grow.
+    ///         <c>ft:var</c> attribute is a variable-font case, which goes to the second suite below
+    ///         when its outlines can be checked and is dropped when they cannot. The run prints how
+    ///         many it dropped for each reason, so neither number can quietly grow.
     ///     </para>
     /// </remarks>
     static readonly string[] Groups = ["CMAP", "GPOS", "GSUB", "KERN", "SHARAN", "SHBALI", "SHKNDA", "SHLANA"];
+
+    /// <summary>The variable-font groups, which are an outline suite rather than a shaping one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>These cases carry the drawn contours, not just glyph positions.</b> Every one of them
+    ///         renders a single string at one point along a font's axes and writes out the path an
+    ///         engine that applied <c>gvar</c> correctly produces — which makes them a real oracle for
+    ///         delta application, written from the tables rather than recorded from an implementation.
+    ///         The shaping suite reads the <c>&lt;use&gt;</c> elements and throws the
+    ///         <c>&lt;symbol&gt;</c>s away; this one is the other half.
+    ///     </para>
+    ///     <para>
+    ///         Left out, and for reasons rather than by omission: <c>CVAR</c> varies the hinting
+    ///         control values, so its expectations differ from the unhinted outline and cannot be
+    ///         checked without an interpreter; <c>CFF2</c> varies charstrings, which is a different
+    ///         table from <c>glyf</c>; <c>HVAR</c> varies advances rather than contours, and this
+    ///         suite compares no advances; and <c>GPOS-5</c> is a shaping case that happens to set an
+    ///         axis, whose expectation is positions.
+    ///     </para>
+    /// </remarks>
+    static readonly string[] VariationGroups = ["AVAR", "GVAR"];
 
     const string FontTest = "{https://github.com/OpenType/fonttest}";
     const string XLink = "{http://www.w3.org/1999/xlink}";
@@ -78,6 +99,7 @@ static class Program {
         Directory.CreateDirectory(fontDirectory);
 
         var cases = new List<Case>();
+        var variable = new List<VariationCase>();
         var skippedVariable = 0;
         var skippedGroups = 0;
 
@@ -97,14 +119,22 @@ static class Program {
                     continue;
                 }
 
-                if (!Groups.Contains(id[..id.IndexOf('-', StringComparison.Ordinal)], StringComparer.Ordinal)) {
-                    skippedGroups++;
+                var group = id[..id.IndexOf('-', StringComparison.Ordinal)];
+
+                // A variable-font case is a different suite, not a harder version of this one: its
+                // expectation is a contour rather than a position.
+                if ((string?)element.Attribute(FontTest + "var") is { } axes) {
+                    if (VariationGroups.Contains(group, StringComparer.Ordinal)) {
+                        variable.Add(new VariationCase(id, font, axes, render, ReadOutlines(element)));
+                    } else {
+                        skippedVariable++;
+                    }
+
                     continue;
                 }
 
-                // A variable-font case is a different feature, not a harder version of this one.
-                if (element.Attribute(FontTest + "var") is not null) {
-                    skippedVariable++;
+                if (!Groups.Contains(group, StringComparer.Ordinal)) {
+                    skippedGroups++;
                     continue;
                 }
 
@@ -113,8 +143,14 @@ static class Program {
         }
 
         cases.Sort(static (left, right) => CompareIds(left.Id, right.Id));
+        variable.Sort(static (left, right) => CompareIds(left.Id, right.Id));
 
-        var fonts = cases.Select(entry => entry.Font).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToList();
+        var fonts = cases.Select(entry => entry.Font)
+            .Concat(variable.Select(entry => entry.Font))
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
         var bytes = 0L;
 
         foreach (var font in fonts) {
@@ -124,9 +160,10 @@ static class Program {
         }
 
         WriteData(Path.Combine(tests, "ShapingConformance.data"), cases);
+        WriteVariationData(Path.Combine(tests, "VariationConformance.data"), variable);
 
-        Console.WriteLine($"{cases.Count} cases, {fonts.Count} fonts ({bytes / 1024} KiB)");
-        Console.WriteLine($"skipped: {skippedGroups} out-of-scope, {skippedVariable} variable-font");
+        Console.WriteLine($"{cases.Count} shaping cases, {variable.Count} variation cases, {fonts.Count} fonts ({bytes / 1024} KiB)");
+        Console.WriteLine($"skipped: {skippedGroups} out-of-scope, {skippedVariable} variable-font without an outline oracle");
         return 0;
     }
 
@@ -135,6 +172,14 @@ static class Program {
 
     /// <summary>A drawn glyph, by name, at a position in the suite's 1000-unit em.</summary>
     sealed record Glyph(string Name, double X, double Y);
+
+    /// <summary>One variable-font case: a font at a set of axis values, and the contours it draws.</summary>
+    /// <param name="Id">The Consortium's case id.</param>
+    /// <param name="Font">The font file.</param>
+    /// <param name="Axes">The axis settings verbatim — <c>wght:300</c>, or <c>M1:-1.0;T1:0.0</c>.</param>
+    /// <param name="Text">What is rendered.</param>
+    /// <param name="Outlines">One SVG path per drawn glyph, in the order the engine produced them.</param>
+    sealed record VariationCase(string Id, string Font, string Axes, string Text, List<string> Outlines);
 
     /// <summary>Reads the drawn glyphs out of a case's expected SVG.</summary>
     /// <remarks>
@@ -178,6 +223,50 @@ static class Program {
         }
 
         return glyphs;
+    }
+
+    /// <summary>Reads the drawn contours out of a case's expected SVG, one per drawn glyph.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The same <c>&lt;use&gt;</c> elements the shaping port reads, resolved to the
+    ///         <c>&lt;symbol&gt;</c>s they name rather than to their positions. A glyph drawn twice
+    ///         appears twice: the list is per drawn glyph so that it lines up index for index with
+    ///         what a shaper produces, and a suite that de-duplicated it would have to re-derive that
+    ///         mapping to compare anything.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The path is in <b>FreeType's scaled output space</b>, not in the font's design units:
+    ///         the harness renders at a 1000-pixel size and then prints each coordinate as an integer
+    ///         division of the 26.6 value by 64. For a 1000-unit font that is the identity and the
+    ///         numbers are design units exactly; for a 2048-unit one it is a scale by 1000/2048 and a
+    ///         truncation, which is why the suite that reads this needs a tolerance at all.
+    ///     </para>
+    /// </remarks>
+    static List<string> ReadOutlines(XElement element) {
+        var symbols = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var symbol in element.Descendants().Where(static node => node.Name.LocalName == "symbol")) {
+            var id = (string?)symbol.Attribute("id");
+            var path = symbol.Descendants().FirstOrDefault(static node => node.Name.LocalName == "path");
+
+            if (id is not null && path is not null) {
+                symbols[id] = ((string?)path.Attribute("d") ?? "").Trim();
+            }
+        }
+
+        var outlines = new List<string>();
+
+        foreach (var use in element.Descendants().Where(static node => node.Name.LocalName == "use")) {
+            var href = (string?)use.Attribute(XLink + "href") ?? (string?)use.Attribute("href");
+
+            if (href is not null && href.StartsWith('#')) {
+                // A glyph the case draws but gives no symbol for draws nothing, and an empty path is
+                // the honest expectation for it rather than a dropped entry that shortens the list.
+                outlines.Add(symbols.TryGetValue(href[1..], out var path) ? path : "");
+            }
+        }
+
+        return outlines;
     }
 
     static double Coordinate(XElement element, string name) =>
@@ -253,6 +342,49 @@ static class Program {
             }
 
             builder.Append('\n');
+        }
+
+        File.WriteAllText(path, builder.ToString());
+        Console.WriteLine($"{Path.GetFileName(path)}: {cases.Count} cases");
+    }
+
+    /// <summary>Writes the variable-font suite: axis settings in, contours out.</summary>
+    /// <remarks>
+    ///     One line per case and one path per drawn glyph, tab separated the same way the shaping
+    ///     file is. The paths are long — a CJK glyph is two kilobytes of them — and they are kept
+    ///     verbatim rather than re-encoded, so that a line of this file can be pasted into an SVG and
+    ///     looked at when a case fails.
+    /// </remarks>
+    static void WriteVariationData(string path, List<VariationCase> cases) {
+        var builder = new StringBuilder();
+
+        builder.Append("# Generated by Tools/Vixen.TextRenderingTestGen from unicode-org/text-rendering-tests.\n");
+        builder.Append("# Do not edit — re-run the generator.\n");
+        builder.Append("#\n");
+        builder.Append("# The Consortium's variable-font cases. Each renders one string at one point along a\n");
+        builder.Append("# font's axes and gives the contours a conforming engine draws, which makes this an\n");
+        builder.Append("# oracle for 'gvar' and 'avar' delta application rather than a recording of one.\n");
+        builder.Append("#\n");
+        builder.Append("# id<TAB>font<TAB>axis:value;axis:value<TAB>text as code points<TAB>path|path\n");
+        builder.Append("# Axis values are in user units, before normalisation and before 'avar'.\n");
+        builder.Append("# Paths are FreeType's output at a 1000-pixel size, each coordinate the 26.6 value\n");
+        builder.Append("# divided by 64 and truncated: design units exactly for a 1000-unit font, scaled by\n");
+        builder.Append("# 1000/2048 and truncated for a 2048-unit one.\n");
+
+        foreach (var entry in cases) {
+            builder.Append(entry.Id).Append('\t').Append(entry.Font).Append('\t').Append(entry.Axes).Append('\t');
+
+            var first = true;
+            foreach (var rune in entry.Text.EnumerateRunes()) {
+                if (!first) {
+                    builder.Append(' ');
+                }
+
+                builder.Append(CultureInfo.InvariantCulture, $"{rune.Value:X4}");
+                first = false;
+            }
+
+            builder.Append('\t').AppendJoin('|', entry.Outlines).Append('\n');
         }
 
         File.WriteAllText(path, builder.ToString());
