@@ -36,6 +36,51 @@ public class UiGeometryTests {
         Assert.Equal(new Vector2(110, 60), geometry.Vertices[2].Position);
     }
 
+    [Fact]
+    public void A_shadows_quad_is_grown_so_the_blur_lands_inside_it() {
+        // ⚠ Twice the blur, not once. The coverage reaches zero a blur radius out from the boundary,
+        // but the falloff is centred on it — so the visible tail runs a blur *beyond* where the edge
+        // itself sits. One blur of margin leaves a faint straight line where the quad ends, which
+        // reads as a crease in the shadow rather than as a geometry mistake.
+        var geometry = Build(list => list.Add(Shadow(100, 100, 80, 40, blur: 6)));
+
+        Assert.Equal(4, geometry.Vertices.Count);
+        Assert.Equal(new Vector2(88, 88), geometry.Vertices[0].Position);
+        Assert.Equal(new Vector2(192, 152), geometry.Vertices[2].Position);
+
+        // The texture coordinate is the offset from the centre, and it has to grow with the quad or
+        // the distance field would be evaluated for a box the shader thinks is bigger than it is.
+        Assert.Equal(new Vector2(-52, -32), geometry.Vertices[0].Texture);
+    }
+
+    [Fact]
+    public void A_shadow_carries_its_blur_and_no_border() {
+        var geometry = Build(list => list.Add(Shadow(0, 0, 80, 40, blur: 6, radius: 4)));
+        var shape = Assert.Single(geometry.Shapes);
+
+        // Half size is the *box's*, not the grown quad's — the shadow is the same shape as the thing
+        // that cast it, drawn on a larger canvas.
+        Assert.Equal(40f, shape.Size.X, 3);
+        Assert.Equal(20f, shape.Size.Y, 3);
+
+        // Thickness zero, or the border band would hollow the shadow out into a soft outline.
+        Assert.Equal(0f, shape.Size.Z, 3);
+        Assert.Equal(6f, shape.Axis.Z, 3);
+    }
+
+    [Fact]
+    public void A_shadow_batches_with_the_boxes_around_it() {
+        // Same pipeline, same distance field, a blur instead of a border — so a card's shadow and
+        // its background are one draw rather than three.
+        var geometry = Build(list => {
+            list.Add(Shadow(0, 0, 80, 40, blur: 4));
+            list.Add(Rect(0, 0, 80, 40));
+        });
+
+        Assert.Single(geometry.Draws);
+        Assert.Equal(BatchKind.Geometry, geometry.Draws[0].Kind);
+    }
+
     /// <summary>
     ///     ⚠ A rounded corner is a signed distance the shader evaluates, so the radius reaches it as a
     ///     parameter rather than turning into geometry. Tessellating one costs vertices in proportion
@@ -666,6 +711,9 @@ public class UiGeometryTests {
 
     static DrawCommand Border(float x, float y, float width, float height, float thickness, float radius = 0) =>
         new(DrawCommandKind.Border, x, y, width, height, Color4.White, radius, thickness);
+
+    static DrawCommand Shadow(float x, float y, float width, float height, float blur, float radius = 0) =>
+        new(DrawCommandKind.Shadow, x, y, width, height, Color4.White, radius, blur);
 
     static DrawCommand ClipPush(float x, float y, float width, float height) =>
         new(DrawCommandKind.ClipPush, x, y, width, height, default, 0, 0);

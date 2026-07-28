@@ -18,7 +18,7 @@ struct Shape {
     vec4 size;     // half width, half height, border thickness, whether there is a gradient
     vec4 radiiX;   // clockwise from the top left
     vec4 radiiY;
-    vec4 axis;     // which way the gradient runs, in the box's own space
+    vec4 axis;     // gradient direction in the box's own space, then a shadow's blur radius
     vec4 endColour;
 };
 
@@ -82,13 +82,29 @@ float coverage_of(float distance, float width) {
     return clamp(0.5 - (distance / width), 0.0, 1.0);
 }
 
+// A shadow's coverage: the same distance, faded over the blur radius instead of over a pixel.
+//
+// ⚠ `smoothstep` rather than a linear ramp, and it matters. A linear falloff has a corner in it at
+// both ends, and a corner in the alpha of a large soft shadow is visible as a ring — the eye finds
+// the second derivative of a gradient far more readily than the first. The cubic is not a Gaussian
+// either, but it is C1 at both ends, which is the property that makes it look like light.
+float shadow_coverage(float distance, float blur) {
+    return 1.0 - smoothstep(-blur, blur, distance);
+}
+
 void main() {
     Shape shape = shapeBuffer.shapes[varying_index];
 
     vec2 half_size = shape.size.xy;
     float distance = box_distance(varying_texcoord, half_size, corner_radius(shape, varying_texcoord));
     float width = max(fwidth(distance), 1e-4);
-    float coverage = coverage_of(distance, width);
+    float blur = shape.axis.z;
+
+    // A blurred box is a shadow, and its edge is the blur rather than a pixel. Branching here rather
+    // than in a second shader because everything above this line — the corner selection, the
+    // elliptical distance — is the same work, and a shadow that disagreed with its own box about
+    // where the boundary is would sit visibly off it.
+    float coverage = blur > 0.0 ? shadow_coverage(distance, blur) : coverage_of(distance, width);
 
     float thickness = shape.size.z;
 

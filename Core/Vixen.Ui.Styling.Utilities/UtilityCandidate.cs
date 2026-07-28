@@ -10,6 +10,10 @@ namespace Vixen.Ui.Styling.Utilities;
 /// <param name="Variants">The <c>hover:</c>, <c>md:</c>, <c>[&amp;&gt;*]:</c> prefixes, in order.</param>
 /// <param name="Name">The utility name — <c>p</c>, <c>bg</c>, <c>flex</c>.</param>
 /// <param name="Value">Its value — <c>4</c>, <c>accent</c>, <c>[37px]</c> — or empty.</param>
+/// <param name="Negative">
+///     Whether it was written with a leading <c>-</c>. A property of the <i>value</i> rather than of
+///     the family, because <c>-mt-4</c> sets exactly what <c>mt-4</c> sets and differs only in sign.
+/// </param>
 /// <param name="Arbitrary">The contents of <c>[…]</c>, when the value is one.</param>
 /// <param name="Opacity">The <c>/50</c> suffix read as an opacity, or null.</param>
 /// <param name="SlashSuffix">
@@ -24,6 +28,7 @@ public readonly record struct UtilityCandidate(
     IReadOnlyList<string> Variants,
     string Name,
     string Value,
+    bool Negative,
     string? Arbitrary,
     float? Opacity,
     string? SlashSuffix,
@@ -81,6 +86,18 @@ public static class UtilityParser {
 
         if (text.IsEmpty) {
             return false;
+        }
+
+        // `-mt-4` is `mt-4` with the sign flipped. Stripped here rather than registered as a family
+        // of its own, because every negatable family would otherwise need a second entry differing
+        // from the first only in sign — and the sign is a property of the value, not of the family.
+        var negative = text[0] == '-';
+        if (negative) {
+            text = text[1..];
+
+            if (text.IsEmpty) {
+                return false;
+            }
         }
 
         var important = text[^1] == '!';
@@ -141,6 +158,7 @@ public static class UtilityParser {
             variants,
             name,
             value,
+            negative,
             arbitrary,
             opacity,
             slashSuffix,

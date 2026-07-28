@@ -105,6 +105,10 @@ public sealed class UiGeometryBuilder {
                         Box(list, command);
                         break;
 
+                    case DrawCommandKind.Shadow:
+                        Shadow(list, command);
+                        break;
+
                     case DrawCommandKind.Text:
                         Text(list, command, glyphs);
                         break;
@@ -189,6 +193,50 @@ public sealed class UiGeometryBuilder {
             command.Y + command.Height,
             new Vector2(-half.X, -half.Y),
             new Vector2(half.X, half.Y),
+            command.Color,
+            new Vector4(shapes.Count - 1, 0, 0, 0)
+        );
+    }
+
+    /// <summary>A blurred box, as one quad grown far enough for the blur to land inside it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The same distance field and the same shader as <see cref="Box" />: a shadow is a box
+    ///         whose one-pixel edge has been widened to the blur radius. What differs is the
+    ///         <i>quad</i> — a soft edge reaches outwards, and drawing it on the box's own quad would
+    ///         cut the blur off square at the boundary, which reads as a shadow with a crease in it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Grown by twice the blur rather than once. The distance at which coverage reaches
+    ///         zero is the blur radius, but the field is evaluated from the box's edge and the
+    ///         falloff is symmetric about it, so the visible tail runs a blur *beyond* the point the
+    ///         edge itself has moved to. One blur of margin leaves a faint straight line where the
+    ///         quad ends.
+    ///     </para>
+    /// </remarks>
+    void Shadow(DrawList list, DrawCommand command) {
+        if (command.Width <= 0 || command.Height <= 0) {
+            return;
+        }
+
+        var half = new Vector2(command.Width / 2, command.Height / 2);
+        var blur = MathF.Max(command.Thickness, 0f);
+        var margin = blur * 2f;
+
+        var style = command.HasStyle && (uint) command.Offset < (uint) list.Boxes.Count
+            ? list.Boxes[command.Offset]
+            : BoxStyle.Rounded(CornerRadii.Uniform(command.Radius));
+
+        // Thickness zero: a shadow is a fill, and a border's band would hollow it out.
+        shapes.Add(new UiShape(half, 0f, style.Corners, style.GradientEnd, style.GradientAxis, blur));
+
+        Quad(
+            command.X - margin,
+            command.Y - margin,
+            command.X + command.Width + margin,
+            command.Y + command.Height + margin,
+            new Vector2(-half.X - margin, -half.Y - margin),
+            new Vector2(half.X + margin, half.Y + margin),
             command.Color,
             new Vector4(shapes.Count - 1, 0, 0, 0)
         );

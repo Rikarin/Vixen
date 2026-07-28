@@ -25,6 +25,10 @@ namespace Vixen.Ui;
 /// </remarks>
 public partial class UiElement {
     readonly List<UiElement> children = [];
+    List<UiElement>? ordered;
+    bool orderDirty = true;
+    int zIndex;
+    int paintKey;
     List<HandlerRegistration>? handlers;
     UiDocument? document;
 
@@ -93,6 +97,117 @@ public partial class UiElement {
 
     /// <summary>Its children, in document order.</summary>
     public IReadOnlyList<UiElement> Children => children;
+
+    /// <summary>Its <c>line-height</c> in pixels, or <see cref="float.NaN" /> for the font's own.</summary>
+    /// <remarks>
+    ///     Computed each style pass and inherited in that form, the same way <see cref="FontSize" />
+    ///     is and for the same reason: the property takes relative units, so a child inheriting the
+    ///     text <c>1.5em</c> would resolve it against its own font size rather than the ancestor's.
+    ///     NaN rather than zero for "whatever the font recommends", because zero is a line height
+    ///     somebody might mean.
+    /// </remarks>
+    public float LineHeight { get; internal set; } = float.NaN;
+
+    /// <summary>Its <c>letter-spacing</c> in pixels.</summary>
+    /// <remarks>Computed and inherited like <see cref="LineHeight" />. Zero when nothing said.</remarks>
+    public float LetterSpacing { get; internal set; }
+
+    /// <summary>Where it sits among its siblings when they overlap.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Resolved from <c>z-index</c> each style pass. Zero when nothing said, and <c>auto</c>
+    ///         reads as zero too — this engine has no stacking context for <c>auto</c> to defer to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It orders siblings, and only siblings.</b> CSS lets a positioned descendant with
+    ///         a z-index paint above an element that is not its parent's sibling — the behaviour a
+    ///         dropdown escaping its row relies on — and that needs stacking contexts, which needs
+    ///         the whole of CSS 2.1 Appendix E. Here a high z-index lifts a child above its brothers
+    ///         and no further, so an overlay that must cover the whole window belongs to a container
+    ///         near the root rather than to the row that opened it. Said plainly because the two
+    ///         models agree until the moment they matter.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Unlike CSS, this applies to <i>every</i> element rather than only positioned ones.
+    ///         The restriction exists in CSS because a static element establishes no stacking context
+    ///         for the index to be measured in; sibling ordering needs no such thing, and requiring
+    ///         <c>position: relative</c> before <c>z-10</c> did anything would be a rule with no
+    ///         reason behind it here.
+    ///     </para>
+    /// </remarks>
+    public int ZIndex {
+        get => zIndex;
+
+        internal set {
+            if (zIndex == value) {
+                return;
+            }
+
+            zIndex = value;
+            Parent?.InvalidateOrder();
+        }
+    }
+
+    /// <summary>Its children in the order they are painted, back to front.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one place paint order is decided</b>, read forwards by the draw list and
+    ///         backwards by hit testing. The two have to agree — an element drawn on top must be the
+    ///         one a click lands on — and the cheapest way to guarantee that is for neither of them
+    ///         to have its own opinion.
+    ///     </para>
+    ///     <para>
+    ///         Document order costs nothing: with no z-index anywhere among the children this is the
+    ///         children list itself, not a copy of it. The sorted list is built only when some child
+    ///         has an index, and then cached until the children or one of their indices change.
+    ///     </para>
+    /// </remarks>
+    internal IReadOnlyList<UiElement> PaintOrder {
+        get {
+            if (!orderDirty) {
+                return ordered ?? (IReadOnlyList<UiElement>) children;
+            }
+
+            orderDirty = false;
+
+            if (!AnyChildIsLifted()) {
+                ordered = null;
+                return children;
+            }
+
+            ordered ??= [];
+            ordered.Clear();
+            ordered.AddRange(children);
+
+            // Stamped rather than looked up, because the tie-break has to be the child's document
+            // position and finding that with IndexOf inside the comparison turns an n log n sort
+            // into an n² log n one.
+            for (var i = 0; i < children.Count; i++) {
+                children[i].paintKey = i;
+            }
+
+            // Stable by construction: equal indices keep document order, which is what makes
+            // `z-10` on one child leave every other child exactly where it was.
+            ordered.Sort(static (left, right) =>
+                left.zIndex != right.zIndex
+                    ? left.zIndex.CompareTo(right.zIndex)
+                    : left.paintKey.CompareTo(right.paintKey));
+
+            return ordered;
+        }
+    }
+
+    bool AnyChildIsLifted() {
+        foreach (var child in children) {
+            if (child.zIndex != 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    internal void InvalidateOrder() => orderDirty = true;
 
     /// <summary>What the cascade decided. Interned, so two alike elements share one object.</summary>
     public ComputedStyle Style { get; internal set; }
@@ -257,8 +372,15 @@ public partial class UiElement {
             return null;
         }
 
-        var font = Document.Fonts.Resolve(Document.FontFamilyOf(Style));
-        return font is null ? null : new TextRun(font, Document.Shaping.Shape(font, Text), FontSize);
+        var font = Document.Fonts.Resolve(
+            Document.FontFamilyOf(Style),
+            Document.FontWeightOf(Style),
+            Document.FontStyleOf(Style)
+        );
+
+        return font is null
+            ? null
+            : new TextRun(font, Document.Shaping.Shape(font, Text), FontSize, LetterSpacing, LineHeight);
     }
 
     void OnTextChanged(string? previous, string? current) {
@@ -523,11 +645,26 @@ public partial class UiElement {
     /// <summary>The font size that went with it.</summary>
     internal float AppliedFontSize { get; set; } = float.NaN;
 
-    internal void Attach(UiElement child) => children.Add(child);
+    /// <summary>The line height that went with it.</summary>
+    internal float AppliedLineHeight { get; set; } = float.NaN;
 
-    internal void Insert(UiElement child, int index) => children.Insert(index, child);
+    /// <summary>The letter spacing that went with it.</summary>
+    internal float AppliedLetterSpacing { get; set; } = float.NaN;
 
-    internal void Detach(UiElement child) => children.Remove(child);
+    internal void Attach(UiElement child) {
+        children.Add(child);
+        orderDirty = true;
+    }
+
+    internal void Insert(UiElement child, int index) {
+        children.Insert(index, child);
+        orderDirty = true;
+    }
+
+    internal void Detach(UiElement child) {
+        children.Remove(child);
+        orderDirty = true;
+    }
 
     /// <summary>Points this element at its new parent.</summary>
     /// <remarks>
@@ -541,6 +678,7 @@ public partial class UiElement {
     internal void MoveChild(UiElement child, int index) {
         children.Remove(child);
         children.Insert(index, child);
+        orderDirty = true;
     }
 
     /// <summary>Where this element sits among its siblings, or -1 if it has no parent.</summary>

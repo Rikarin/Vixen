@@ -85,6 +85,15 @@ public static class Variants {
             return true;
         }
 
+        if (variant is "ltr" or "rtl") {
+            // The same shape as `dark:` under the class strategy — an ancestor declares it and the
+            // utility applies below. An *attribute* rather than a class because `direction` is a CSS
+            // property here, so there is nothing else in the tree for a selector to match on; the
+            // consequence is that an element cannot select on its own direction, only an ancestor's.
+            effect = new VariantEffect(string.Empty, $"[dir={variant}] ", null);
+            return true;
+        }
+
         if (variant.StartsWith("group-", StringComparison.Ordinal)
             && States.TryGetValue(variant["group-".Length..], out var groupState)) {
             effect = new VariantEffect(string.Empty, $".group{groupState} ", null);
