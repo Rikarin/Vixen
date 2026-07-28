@@ -233,6 +233,19 @@ public sealed class NavMeshTile {
             maximum = Vector3.Max(maximum, vertex);
         }
 
+        // The detail dips below the corners and rises above them — that is what it is for — so a
+        // bound taken from the corners alone would exclude the polygon from a search box that its
+        // actual ground reaches into.
+        if (poly < SurfacePolyCount && Data.Detail.Length != 0) {
+            ref var detail = ref Data.Detail[poly];
+
+            for (var added = 0; added < detail.VertexCount; added++) {
+                var vertex = Data.DetailVertices[detail.FirstVertex + added];
+                minimum = Vector3.Min(minimum, vertex);
+                maximum = Vector3.Max(maximum, vertex);
+            }
+        }
+
         return new(minimum, maximum);
     }
 }
@@ -483,6 +496,52 @@ public sealed class NavMesh {
 
         return poly.VertexCount;
     }
+
+    /// <summary>The height of the sampled ground over a point, if the bake sampled any.</summary>
+    /// <param name="reference">The polygon.</param>
+    /// <param name="position">The point, whose own height is ignored.</param>
+    /// <param name="height">The ground height at it.</param>
+    /// <returns>
+    ///     <see langword="false" /> if there is no detail for this polygon, or the point is not over
+    ///     one of its triangles — in which case the polygon's own plane is the answer and the caller
+    ///     already has it.
+    /// </returns>
+    public bool TryGetDetailHeight(NavPolyRef reference, Vector3 position, out float height) {
+        height = 0f;
+
+        if (!TryGetPoly(reference, out var tile, out var index) || index >= tile.SurfacePolyCount) {
+            return false;
+        }
+
+        var data = tile.Data;
+
+        if (data.Detail.Length == 0) {
+            return false;
+        }
+
+        ref var poly = ref tile.Polys[index];
+        ref var detail = ref data.Detail[index];
+
+        for (var triangle = 0; triangle < detail.TriangleCount; triangle++) {
+            var slot = (detail.FirstTriangle + triangle) * 3;
+
+            var a = DetailVertex(tile, in poly, in detail, data.DetailTriangles[slot]);
+            var b = DetailVertex(tile, in poly, in detail, data.DetailTriangles[slot + 1]);
+            var c = DetailVertex(tile, in poly, in detail, data.DetailTriangles[slot + 2]);
+
+            if (NavGeometry.TryGetTriangleHeight(position, a, b, c, out height)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Resolves one index of a detail triangle: below the vertex count it names a corner.</summary>
+    static Vector3 DetailVertex(NavMeshTile tile, ref readonly NavPoly poly, ref readonly NavMeshDetailData detail, int index) =>
+        index < poly.VertexCount
+            ? tile.Vertices[tile.PolyVertices[poly.FirstVertex + index]]
+            : tile.Data.DetailVertices[detail.FirstVertex + index - poly.VertexCount];
 
     /// <summary>A polygon's area id and flags.</summary>
     /// <param name="reference">The polygon.</param>

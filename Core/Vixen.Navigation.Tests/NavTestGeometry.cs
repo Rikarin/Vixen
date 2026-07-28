@@ -48,6 +48,34 @@ internal sealed class NavTestGeometry {
         return this;
     }
 
+    /// <summary>Ground that is not flat: a grid of quads whose height comes from a function.</summary>
+    /// <remarks>
+    ///     For the tests that are about how closely the navmesh follows the ground rather than about
+    ///     where its edges are. A flat floor cannot tell a detail mesh from no detail mesh, because a
+    ///     polygon over a flat floor is already exactly right.
+    /// </remarks>
+    public NavTestGeometry Terrain(float minX, float minZ, float maxX, float maxZ, int cells, Func<float, float, float> height) {
+        for (var row = 0; row < cells; row++) {
+            for (var column = 0; column < cells; column++) {
+                var x0 = minX + ((maxX - minX) * column / cells);
+                var x1 = minX + ((maxX - minX) * (column + 1) / cells);
+                var z0 = minZ + ((maxZ - minZ) * row / cells);
+                var z1 = minZ + ((maxZ - minZ) * (row + 1) / cells);
+
+                var first = vertices.Count;
+
+                vertices.Add(new(x0, height(x0, z0), z0));
+                vertices.Add(new(x0, height(x0, z1), z1));
+                vertices.Add(new(x1, height(x1, z1), z1));
+                vertices.Add(new(x1, height(x1, z0), z0));
+
+                indices.AddRange([first, first + 1, first + 2, first, first + 2, first + 3]);
+            }
+        }
+
+        return this;
+    }
+
     /// <summary>A vertical quad. Which way it faces does not matter: nothing stands on a wall.</summary>
     public NavTestGeometry Wall(Vector3 from, Vector3 to) {
         var first = vertices.Count;

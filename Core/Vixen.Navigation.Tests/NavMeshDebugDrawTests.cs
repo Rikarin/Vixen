@@ -47,6 +47,29 @@ public sealed class NavMeshDebugDrawTests {
     }
 
     [Fact]
+    public void TheDetailSurfaceDrawsOneTriangleAtATime() {
+        var geometry = new NavTestGeometry()
+            .Terrain(0, 0, 24, 24, 48, static (x, z) => 1.5f * MathF.Sin(x / 6f) * MathF.Sin(z / 6f));
+
+        var mesh = new NavMesh(NavMeshParams.Single);
+        mesh.AddTile(NavMeshBaker.Bake(geometry.Vertices, geometry.Indices, Settings)!);
+
+        var draw = new DebugDraw();
+        NavMeshDebugDraw.DrawDetail(draw, mesh, Color4.Green);
+
+        var triangles = 0;
+
+        foreach (var tile in mesh.Tiles) {
+            foreach (var detail in tile.Data.Detail) {
+                triangles += detail.TriangleCount;
+            }
+        }
+
+        Assert.True(triangles > 0, "A hill baked no detail triangles to draw.");
+        Assert.Equal(triangles * 3, draw.Count);
+    }
+
+    [Fact]
     public void ADisabledDrawIsNotWrittenTo() {
         var draw = new DebugDraw { Enabled = false };
 

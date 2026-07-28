@@ -2071,9 +2071,18 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   round obstacle watershed is 19 % fewer polygons and 32 % fewer nodes expanded per search. It is the
   default because levels are not grids; `Monotone` stays for a tile being rebaked per frame.
 
-  **Owed:** the height-detail pass (a floor sits up to one cell height high), dynamic obstacles,
-  moving the sliced search onto a job, and baking from a *scene* rather than from a named collision
-  mesh — which waits on the scene compiler doc 08 splits out.
+  **The height detail pass is in.** Each polygon gets its own triangulation of the ground sampled
+  back out of the heightfield, so the surface follows a hill instead of lidding it: mean height error
+  on a 24 m hill goes from 0.76 m to 0.15 m and the worst from 1.41 m to 0.31 m, for a bake 56 %
+  longer — and for nothing at all on flat ground, where the sampling adds no vertices. The greedy
+  split alone was not enough and the measurement is what said so: splitting a triangle keeps all
+  three of its edges, so a fan over a large polygon stays exact at its samples and a metre out between
+  them. Lawson's flip after each insertion fixed it and halved the vertices needed. The constant
+  one-cell-height offset is *not* fixed — that is the voxelisation, not the polygon — and a test
+  asserts it so it stays a decision.
+
+  **Owed:** dynamic obstacles, moving the sliced search onto a job, and baking from a *scene* rather
+  than from a named collision mesh — which waits on the scene compiler doc 08 splits out.
 - `Samples/05-PlatformerGame` — physics, input, animation, audio, VFX end to end on all platforms where
   it is in scope.
 

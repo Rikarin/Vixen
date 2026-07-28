@@ -226,7 +226,19 @@ public static class NavMeshBaker {
         var contours = ContourSet.Build(compact, settings.MaxSimplificationError, settings.MaxEdgeLength / settings.CellSize);
         var mesh = PolyMesh.Build(contours, settings.MaxVerticesPerPoly);
 
-        return mesh.PolyCount == 0 ? null : ToTile(mesh, volume, settings, connections, tileX, tileZ);
+        if (mesh.PolyCount == 0) {
+            return null;
+        }
+
+        var detail = PolyMeshDetail.Build(
+            mesh,
+            compact,
+            settings.DetailSampleDistance / settings.CellSize,
+            settings.DetailSampleMaxError / settings.CellHeight,
+            settings.WalkableHeightInCells
+        );
+
+        return ToTile(mesh, detail, volume, settings, connections, tileX, tileZ);
     }
 
     /// <summary>Marks the margin unwalkable, now that erosion has had the use of it.</summary>
@@ -259,6 +271,7 @@ public static class NavMeshBaker {
 
     static NavMeshTileData ToTile(
         PolyMesh mesh,
+        PolyMeshDetail detail,
         BoundingBox volume,
         NavMeshBuildSettings settings,
         ReadOnlySpan<NavOffMeshConnectionData> connections,
@@ -273,6 +286,29 @@ public static class NavMeshBaker {
                 volume.Minimum.Y + (mesh.Vertices[(index * 3) + 1] * settings.CellHeight),
                 volume.Minimum.Z + (mesh.Vertices[(index * 3) + 2] * settings.CellSize)
             );
+        }
+
+        var detailVertices = new Vector3[detail.Vertices.Count];
+
+        for (var index = 0; index < detailVertices.Length; index++) {
+            detailVertices[index] = new(
+                volume.Minimum.X + (detail.Vertices[index].X * settings.CellSize),
+                volume.Minimum.Y + (detail.Vertices[index].Y * settings.CellHeight),
+                volume.Minimum.Z + (detail.Vertices[index].Z * settings.CellSize)
+            );
+        }
+
+        var details = new NavMeshDetailData[detail.Polys.Count];
+
+        for (var index = 0; index < details.Length; index++) {
+            var entry = detail.Polys[index];
+
+            details[index] = new() {
+                FirstVertex = entry.FirstVertex,
+                VertexCount = entry.VertexCount,
+                FirstTriangle = entry.FirstTriangle,
+                TriangleCount = entry.TriangleCount
+            };
         }
 
         var polys = new NavMeshPolyData[mesh.PolyCount];
@@ -297,7 +333,10 @@ public static class NavMeshBaker {
         }
 
         return new(tileX, tileZ, vertices, polys, [.. polyVertices], [.. polyNeighbours]) {
-            OffMeshConnections = connections.ToArray()
+            OffMeshConnections = connections.ToArray(),
+            Detail = details,
+            DetailVertices = detailVertices,
+            DetailTriangles = [.. detail.Triangles]
         };
     }
 }

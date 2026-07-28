@@ -21,6 +21,7 @@ baking as a build step, agents, avoidance"*.
 | `Baking/ContourSet` | Region outlines traced from the voxel grid and simplified within an error tolerance. |
 | `Baking/ContourHoles` | Bridges a region's holes into its outer outline, so a region that grew round a pillar is still a simple polygon. |
 | `Baking/PolyMesh` | Ear-clipping triangulation, convex merge to six-vertex polygons, adjacency by edge matching. |
+| `Baking/PolyMeshDetail` | The ground under each polygon, sampled back off the heightfield and triangulated. |
 | `Baking/NavAreaVolume` | Boxes and convex prisms that stamp an area — water, road, mud — before the surface is partitioned. |
 | `Baking/NavMeshBaker` | The pipeline in order, single-tile and tiled, with the tile margin that makes tiles connect. |
 | `NavMesh`, `NavMeshTileData` | Tiles that can be added and removed while agents stand on them; salted references; links across tile borders. |
@@ -210,6 +211,57 @@ case against it is bake time on geometry that is. It is the default because leve
 grids — and `Monotone` is one initialiser away for a tile being rebaked per frame, where the bake time
 is the number that matters and the shapes cannot go far wrong at that size.
 
+## The ground under a polygon, and the flip that made it work
+
+A navmesh polygon is flat, and it is flat at the height of its corners — which the contour tracer took
+as the *highest* of the four spans meeting there, because a corner at the lowest of them would sink
+below the floor it belongs to. Over a hill that means the polygon is a lid: it cuts the humps off and
+bridges the dips. `PolyMeshDetail` samples the ground back out of the compact heightfield and gives
+each polygon its own small triangulation to answer height queries from. Nothing about connectivity
+changes — the detail triangles are never searched, never linked and never crossed.
+
+**Sampling the right surface needs no search.** A column can hold several walkable spans, and picking
+the wrong one would put a polygon's interior on a different storey from its corners. The rule is: take
+the span nearest the polygon's own plane, and refuse anything further than an agent's height from it.
+That window is *exact* rather than generous — the low-ceiling filter has already removed every span
+without an agent's headroom above it, so two walkable spans in one column are at least an agent's
+height apart and a window that size can contain only one. Recast floods out from the polygon's region
+instead, which also survives a polygon whose plane is a poor guess; this relies on the corners being on
+the surface they describe, which is what the bake guarantees.
+
+**The greedy split alone did not work, and the measurement is what said so.** Starting from a fan over
+the convex polygon and splitting whichever triangle contains the worst sample is correct, converges,
+and produced a surface that was exact at every point it sampled and a metre out halfway between two of
+them. The reason is that a 1-to-3 split keeps all three of the original triangle's edges, so a fan over
+a large polygon keeps its enormous spokes for ever — and the error concentrated exactly along the
+diagonals. Lawson's flip after each insertion fixes it: an edge is illegal when the far vertex of one
+of its triangles is inside the other's circumcircle, and sweeping until none is gives the Delaunay
+triangulation of the points. It also **halved the vertices needed** — 51 down to 26 on the polygon in
+question — because a well-shaped triangle is worth more than two badly-shaped ones.
+
+The in-circle determinant is computed in `double`. It is a difference of fourth powers of coordinates
+in the hundreds, and in `float` the sign for a nearly-cocircular quad is noise — a sign that flickers
+is two triangles flipping each other until the sweep limit.
+
+**What it is worth**, on a 24 m hill of amplitude 1.5 m at the default 0.3 m cell size:
+
+| | Mean height error | Worst | Bake | Detail stored |
+|---|---|---|---|---|
+| No detail | 0.764 m | 1.410 m | 5.2 ms | — |
+| Sampled every 1.8 m | **0.152 m** | **0.305 m** | 8.1 ms | 1.4 kB |
+
+Five times closer for a bake 56 % longer. On a flat floor and on a constant ramp it costs **nothing**:
+the sampling finds no deviation, adds no vertices, and the timings are identical — which is why
+`DetailSampleDistance = 0` is worth setting for a level built out of floors rather than left as a
+default that pays for itself everywhere.
+
+**A flat floor is still reported one cell height above itself**, and that is not something this pass
+can fix. A span is the voxel the surface passes through and its walkable height is the top of that
+voxel — biased upwards deliberately, because a surface reported *below* the true floor puts an agent
+inside it. The detail pass reads those same spans, so it removes the height error that varies over
+uneven ground and leaves the constant exactly where it was. A test asserts the constant, so that it
+stays a decision rather than becoming a bug somebody fixes by accident.
+
 ## A connection is a polygon with two vertices
 
 Ladders, jumps and drops are authored as `NavOffMeshConnectionData` on the tile, and the loaded tile
@@ -249,9 +301,9 @@ where the cost of a crowd actually is.
 - **Off-mesh links between areas an authored volume creates.** A volume stamps a *cost*; it cannot
   make ground walkable that the bake found unwalkable, and it cannot connect two surfaces that do not
   touch.
-- **The detail mesh.** Heights come from the polygon corners, so the surface is flat within a polygon
-  and a floor sits up to one cell height above where it really is. On rolling terrain that is visible;
-  the fix is Recast's height-detail pass, which is a bake stage of its own.
+- **A sub-voxel surface height.** The detail mesh removes the height error that varies; the constant
+  one that remains is described in the section above, and removing it means storing where inside its
+  voxel a span's surface actually is.
 - **Connections that reach further than one tile.** A connection is held by the tile its start falls
   in, and the far end is looked for in the tile that end falls in — so a jump across three tiles
   attaches at the near end and dangles at the far one, because the rebuild that would notice only

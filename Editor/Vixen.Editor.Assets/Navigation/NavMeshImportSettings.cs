@@ -64,6 +64,18 @@ public sealed record NavMeshImportSettings : IImportSettings {
     /// <summary>The longest wall edge to leave unsplit, in world units.</summary>
     public float MaxEdgeLength { get; init; } = 12f;
 
+    /// <summary>How far apart to sample the ground inside a polygon, in world units.</summary>
+    /// <remarks>
+    ///     Zero switches the height detail off, which is the right answer for a level of flat floors:
+    ///     a polygon over a flat floor is already exactly right, and the sampling finds nothing to
+    ///     add. On a hill it is the difference between the surface following the ground and cutting
+    ///     across it.
+    /// </remarks>
+    public float DetailSampleDistance { get; init; } = 1.8f;
+
+    /// <summary>How far the flat polygon may be from the ground before a vertex is added, in world units.</summary>
+    public float DetailSampleMaxError { get; init; } = 0.2f;
+
     /// <summary>
     ///     How wide a tile is, in voxels, or zero for one tile covering everything.
     /// </summary>
@@ -87,6 +99,8 @@ public sealed record NavMeshImportSettings : IImportSettings {
         MergeRegionArea = MergeRegionArea,
         Partitioning = Partitioning,
         MaxSimplificationError = MaxSimplificationError,
-        MaxEdgeLength = MaxEdgeLength
+        MaxEdgeLength = MaxEdgeLength,
+        DetailSampleDistance = DetailSampleDistance,
+        DetailSampleMaxError = DetailSampleMaxError
     };
 }

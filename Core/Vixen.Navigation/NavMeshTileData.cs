@@ -27,6 +27,35 @@ public struct NavMeshPolyData {
     public NavPolyFlags Flags;
 }
 
+/// <summary>Where one polygon's height detail is, in the tile's detail arrays.</summary>
+/// <remarks>
+///     <para>
+///         The triangles index the polygon's own vertices and the detail vertices at once: an index
+///         below the polygon's vertex count names one of its corners, and anything at or above it
+///         names <see cref="NavMeshTileData.DetailVertices" /> offset by <see cref="FirstVertex" />.
+///     </para>
+///     <para>
+///         The corners are not repeated because a repeated corner is a corner that can disagree with
+///         itself. Two polygons meeting along an edge take its endpoints from the same place, so their
+///         detail surfaces meet there exactly; a detail mesh with its own copies would meet there only
+///         as accurately as the copies were made.
+///     </para>
+/// </remarks>
+[DataContract("NavMeshDetail")]
+public struct NavMeshDetailData {
+    /// <summary>Where this polygon's added vertices start in <see cref="NavMeshTileData.DetailVertices" />.</summary>
+    public int FirstVertex;
+
+    /// <summary>How many it added, over and above its own corners.</summary>
+    public int VertexCount;
+
+    /// <summary>Where its triangles start in <see cref="NavMeshTileData.DetailTriangles" />, in triangles.</summary>
+    public int FirstTriangle;
+
+    /// <summary>How many it has.</summary>
+    public int TriangleCount;
+}
+
 /// <summary>A way from one point of the mesh to another that is not a walk.</summary>
 /// <remarks>
 ///     <para>
@@ -147,6 +176,19 @@ public sealed class NavMeshTileData {
     /// <summary>Interior adjacency, parallel to <see cref="PolyVertices" />. -1 where there is none.</summary>
     public int[] PolyNeighbours { get; init; } = [];
 
+    /// <summary>One entry per polygon, or empty if the bake did not sample the ground.</summary>
+    /// <remarks>
+    ///     Empty is a complete answer rather than a missing one: a polygon with no detail is exactly
+    ///     its own plane, which is what a flat floor is, and the query falls back to that.
+    /// </remarks>
+    public NavMeshDetailData[] Detail { get; init; } = [];
+
+    /// <summary>The vertices the detail added, in world space. The polygons' own are not repeated here.</summary>
+    public Vector3[] DetailVertices { get; init; } = [];
+
+    /// <summary>Three indices per detail triangle, resolved through <see cref="NavMeshDetailData" />.</summary>
+    public int[] DetailTriangles { get; init; } = [];
+
     /// <summary>The authored ways off the surface that start in this tile.</summary>
     /// <remarks>
     ///     Held by the tile whose grid cell contains the connection's <i>start</i>, so that unloading
@@ -180,6 +222,12 @@ public sealed class NavMeshTileData {
         if (PolyNeighbours.Length != PolyVertices.Length) {
             throw new ArgumentException(
                 $"There are {PolyVertices.Length} polygon vertices and {PolyNeighbours.Length} neighbours; an edge starts at every vertex, so they are the same length."
+            );
+        }
+
+        if (Detail.Length != 0 && Detail.Length != Polys.Length) {
+            throw new ArgumentException(
+                $"There are {Polys.Length} polygons and {Detail.Length} detail entries. Detail is per polygon, so it is either absent or one each."
             );
         }
     }

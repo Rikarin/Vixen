@@ -124,6 +124,30 @@ public readonly record struct NavMeshBuildSettings {
     /// <summary>How many vertices a polygon may have, up to <see cref="NavMesh.MaxVerticesPerPoly" />.</summary>
     public int MaxVerticesPerPoly { get; init; } = 6;
 
+    /// <summary>How far apart to sample the ground inside a polygon, in world units. Zero builds no detail.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A polygon is flat and sits at the height of its corners, which are biased upwards; the
+    ///         detail mesh is what puts the surface back on the ground in between. Six cells is
+    ///         Recast's default and is the right shape of number: sampling finer than the voxels the
+    ///         heights came from measures the same voxel repeatedly.
+    ///     </para>
+    ///     <para>
+    ///         Zero switches it off, and is the right answer for a level made of flat floors — every
+    ///         polygon there is already exactly its own plane, so the detail mesh is vertices and
+    ///         triangles describing nothing.
+    ///     </para>
+    /// </remarks>
+    public float DetailSampleDistance { get; init; } = 1.8f;
+
+    /// <summary>How far the flat polygon may be from the ground before a vertex is added, in world units.</summary>
+    /// <remarks>
+    ///     One cell height is Recast's default, and it is the floor of what is worth asking for: the
+    ///     heights being sampled are themselves quantised to the cell height, so a tolerance below one
+    ///     is a request to chase rounding.
+    /// </remarks>
+    public float DetailSampleMaxError { get; init; } = 0.2f;
+
     /// <summary>The area id given to every triangle the slope test accepted.</summary>
     public byte WalkableArea { get; init; } = NavArea.Walkable;
 
@@ -153,6 +177,8 @@ public readonly record struct NavMeshBuildSettings {
         Require(MaxSimplificationError >= 0, "MaxSimplificationError cannot be negative.");
         Require(MaxEdgeLength >= 0, "MaxEdgeLength cannot be negative.");
         Require(MaxVerticesPerPoly is >= 3 and <= NavMesh.MaxVerticesPerPoly, $"MaxVerticesPerPoly has to be between 3 and {NavMesh.MaxVerticesPerPoly}.");
+        Require(DetailSampleDistance >= 0, "DetailSampleDistance cannot be negative.");
+        Require(DetailSampleMaxError >= 0, "DetailSampleMaxError cannot be negative.");
         Require(WalkableArea != NavArea.Null, "WalkableArea cannot be the null area, which is what unwalkable means.");
     }
 

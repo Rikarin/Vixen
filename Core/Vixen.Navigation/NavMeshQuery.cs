@@ -216,6 +216,13 @@ public sealed class NavMeshQuery {
             return false;
         }
 
+        // The sampled ground first, and the polygon's own plane only where there is none. The plane
+        // is what the detail exists to correct — it runs through corners the contour tracer took as
+        // the highest of the four spans meeting there, so it sits above the floor rather than on it.
+        if (Mesh.TryGetDetailHeight(reference, position, out height)) {
+            return true;
+        }
+
         return NavGeometry.TryGetHeight(position, vertices[..count], out height);
     }
 

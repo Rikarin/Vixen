@@ -137,6 +137,61 @@ public static class NavMeshDebugDraw {
         }
     }
 
+    /// <summary>Draws the sampled ground under every polygon, as its triangles.</summary>
+    /// <param name="draw">Where the lines go.</param>
+    /// <param name="mesh">The mesh.</param>
+    /// <param name="colour">What colour to draw it.</param>
+    /// <param name="lift">How far above the surface to draw.</param>
+    /// <param name="seconds">How long the lines last. Zero is one frame.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="draw" /> or <paramref name="mesh" /> is null.</exception>
+    /// <remarks>
+    ///     Separate from <see cref="DrawMesh" /> rather than folded into it, because the two answer
+    ///     different questions. The polygons are what a path is made of; the detail is where the
+    ///     ground is, and it is the thing to look at when an agent is walking a hand's breadth above
+    ///     the floor or sinking into a hill. Drawn against a flat polygon it is also the clearest
+    ///     picture of what the pass bought.
+    /// </remarks>
+    public static void DrawDetail(DebugDraw draw, NavMesh mesh, Color4 colour, float lift = 0.05f, float seconds = 0f) {
+        ArgumentNullException.ThrowIfNull(draw);
+        ArgumentNullException.ThrowIfNull(mesh);
+
+        if (!draw.Enabled) {
+            return;
+        }
+
+        var offset = new Vector3(0f, lift, 0f);
+        Span<Vector3> corners = stackalloc Vector3[NavMesh.MaxVerticesPerPoly];
+
+        foreach (var tile in mesh.Tiles) {
+            var data = tile.Data;
+
+            if (data.Detail.Length == 0) {
+                continue;
+            }
+
+            for (var index = 0; index < tile.SurfacePolyCount; index++) {
+                var reference = NavMesh.ReferenceOf(tile, index);
+                var count = mesh.GetPolyVertices(reference, corners);
+                var detail = data.Detail[index];
+
+                for (var triangle = 0; triangle < detail.TriangleCount; triangle++) {
+                    var slot = (detail.FirstTriangle + triangle) * 3;
+
+                    var a = Vertex(data, corners, detail, count, data.DetailTriangles[slot]) + offset;
+                    var b = Vertex(data, corners, detail, count, data.DetailTriangles[slot + 1]) + offset;
+                    var c = Vertex(data, corners, detail, count, data.DetailTriangles[slot + 2]) + offset;
+
+                    draw.Line(a, b, colour, seconds);
+                    draw.Line(b, c, colour, seconds);
+                    draw.Line(c, a, colour, seconds);
+                }
+            }
+        }
+    }
+
+    static Vector3 Vertex(NavMeshTileData data, ReadOnlySpan<Vector3> corners, NavMeshDetailData detail, int count, int index) =>
+        index < count ? corners[index] : data.DetailVertices[detail.FirstVertex + index - count];
+
     /// <summary>Draws the polygons of a corridor, as their outlines.</summary>
     /// <param name="draw">Where the lines go.</param>
     /// <param name="mesh">The mesh the corridor is on.</param>
