@@ -56,9 +56,27 @@ public sealed class TransformRenderFeature : SubRenderFeature, IDrawSubFeature {
         // The struct's bytes directly. Sequential layout with sixteen floats in M11..M44 order is
         // what the shader reads, so there is nothing to serialise — see the class remarks.
         context.CommandList.PushConstants(
-            Stages,
+            StagesFor(context),
             Offset,
             MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref world, 1))
         );
+    }
+
+    /// <summary>
+    ///     The stages to push to: the shader's own, when it says, and <see cref="Stages" /> otherwise.
+    /// </summary>
+    /// <remarks>
+    ///     A push has to name every stage of every range it overlaps, so pushing to the vertex stage
+    ///     alone against a range the shader declared for vertex and fragment is refused — and a host
+    ///     cannot know which without asking the shader. <c>ForwardPlus</c> declares both.
+    /// </remarks>
+    ShaderStage StagesFor(RenderDrawContext context) {
+        foreach (var range in context.Effect?.PushConstants ?? []) {
+            if (Offset >= range.Offset && Offset < range.Offset + range.Size) {
+                return range.Stages;
+            }
+        }
+
+        return Stages;
     }
 }

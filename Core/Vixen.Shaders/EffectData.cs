@@ -162,6 +162,32 @@ public sealed record EffectPushConstantData(
     int Size = 0
 );
 
+/// <summary>
+///     One vertex attribute the shader reads, and the location it reads it at.
+/// </summary>
+/// <param name="Name">The parameter's name in the shader's vertex entry point.</param>
+/// <param name="Location">Which attribute location it is bound to.</param>
+/// <param name="Kind">Its type, which decides the format a buffer has to supply.</param>
+/// <remarks>
+///     <para>
+///         Carried because the locations are <em>not</em> what a host would guess. A shader's
+///         <c>stream</c> variables take locations first, so <c>ForwardPlus</c>'s four vertex inputs
+///         start at five — and a pipeline built against zero-based attributes is refused outright,
+///         which is the one merciful failure in this family.
+///     </para>
+///     <para>
+///         The <em>layout</em> is still the mesh's: a stride, an offset and which buffer each
+///         attribute comes out of are facts about how vertices were packed, and no shader knows them.
+///         What the shader knows is which name it wants at which location, which is this.
+///     </para>
+/// </remarks>
+[DataContract("EffectVertexInputData")]
+public sealed record EffectVertexInputData(
+    string Name = "",
+    int Location = 0,
+    ShaderValueKind Kind = ShaderValueKind.Unknown
+);
+
 /// <summary>Where one value sits in the constant buffer, and what type it is.</summary>
 /// <param name="Name">The dotted name the shader's reflection gave it.</param>
 /// <param name="Kind">Its CLR type, for interning the key.</param>
@@ -234,6 +260,9 @@ public sealed record EffectData {
 
     /// <summary>The push-constant ranges its pipeline layout has to declare.</summary>
     public EffectPushConstantData[] PushConstants { get; init; } = [];
+
+    /// <summary>The vertex attributes its vertex stage reads, with the locations it reads them at.</summary>
+    public EffectVertexInputData[] VertexInputs { get; init; } = [];
 
     /// <summary>The key that selects this variant.</summary>
     /// <remarks>

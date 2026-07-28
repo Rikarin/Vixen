@@ -96,6 +96,17 @@ public class ClusteredShadingDeviceTests {
         Assert.Equal(64, pushed.Size);
         Assert.Equal(0, pushed.Offset);
         Assert.True(pushed.Stages.HasFlag(ShaderStage.Vertex));
+
+        // And the attribute locations, which are not zero-based and are not guessable: a shader's
+        // `stream` variables take locations before its vertex inputs do, so these four start at five.
+        // A pipeline described against 0 to 3 is refused outright — which is the one merciful failure
+        // in this family, the other two being silent.
+        Assert.Equal(
+            [("position", 5), ("normal", 6), ("tangent", 7), ("texcoord", 8)],
+            data.VertexInputs.Select(input => (input.Name, input.Location)).ToArray()
+        );
+
+        Assert.Equal(ShaderValueKind.Float4, data.VertexInputs.Single(input => input.Name == "tangent").Kind);
     }
 
     /// <summary>The material whose composition the pass is compiled against.</summary>

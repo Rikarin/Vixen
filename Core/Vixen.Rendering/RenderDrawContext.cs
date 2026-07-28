@@ -69,6 +69,17 @@ public sealed class RenderDrawContext(ICommandList commandList, EffectSystem eff
     /// </remarks>
     public SceneConstants? SceneConstants { get; set; }
 
+    /// <summary>
+    ///     The variant currently being drawn with, for a sub-feature that has to agree with it.
+    /// </summary>
+    /// <remarks>
+    ///     Set by <see cref="Features.MeshRenderFeature" /> around the sub-features it calls, because
+    ///     it is what resolved the variant and they are what contribute to the draw. A push constant
+    ///     is the case it exists for: the stages a range covers are the <em>shader's</em>, and a
+    ///     feature that pushed to the ones it guessed is refused by the validation layers.
+    /// </remarks>
+    public Effect? Effect { get; set; }
+
     /// <summary>The formats of the pass currently open.</summary>
     /// <remarks>
     ///     Set by whatever opened the pass — <see cref="Compositor.RenderPassRenderer" /> in a
