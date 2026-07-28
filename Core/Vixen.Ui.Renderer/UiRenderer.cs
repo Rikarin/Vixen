@@ -94,6 +94,21 @@ public sealed class UiRenderer : IDisposable {
     TextureViewHandle atlasView;
     DescriptorSetHandle[] atlasDescriptors = [];
 
+    /// <summary>Which frames' sets still point at a box buffer that has been replaced.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A flag per frame rather than rewriting every set the moment the buffer grows</b>, and
+    ///     the difference is a validation error. Growing replaces the buffer, which invalidates the
+    ///     storage binding in all <see cref="slots" /> sets at once — but the other frames' sets are
+    ///     the ones frames still running on the device are reading through, and a descriptor set may
+    ///     not be updated while a submitted command buffer references it. Writing them all here is the
+    ///     obvious fix for the stale pointer and it swaps one hazard for another:
+    ///     <c>VUID-vkUpdateDescriptorSets-None-03047</c>, which is undefined behaviour on a driver
+    ///     that does not report it. So the write is deferred to the frame that owns the set, where
+    ///     <see cref="slot" />'s own invariant — the region moved on to is one the device has finished
+    ///     with — already says nobody is reading it.
+    /// </remarks>
+    readonly bool[] staleBoxes;
+
     // ⚠ One set per registered texture, not one per draw. A descriptor set is allocated from a pool
     // and updated on the device; doing either inside the record loop would put an allocation and a
     // driver call on every frame that shows an image. Registration is the host saying "this texture
@@ -101,6 +116,19 @@ public sealed class UiRenderer : IDisposable {
     readonly Dictionary<ulong, (DescriptorSetHandle Set, TextureViewHandle View)> imageDescriptors = [];
 
     readonly PipelineHandle imagePipeline;
+
+    /// <summary>What an image set's storage binding points at, and it is never the box buffer.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A buffer of its own precisely so that it never has to be rewritten.</b> An image set
+    ///     is one per texture and not one per frame — the same set is bound by every frame in flight —
+    ///     so there is no moment at which it is safe to update, and pointing its storage binding at
+    ///     the box buffer would demand exactly that every time the box buffer grew. The image shader
+    ///     never reads the binding; the layout only declares it, so what it points at has to exist and
+    ///     nothing more. One allocation that outlives every frame satisfies that and closes the
+    ///     question.
+    /// </remarks>
+    BufferHandle imageBoxes;
+
     BufferHandle atlasStaging;
     int atlasWidth;
     int atlasHeight;
@@ -131,6 +159,7 @@ public sealed class UiRenderer : IDisposable {
         // offset — and a panel on the other side of the window flickers while the list under the
         // pointer looks perfectly still.
         slots = Math.Max(1, device.FramesInFlight);
+        staleBoxes = new bool[slots];
 
         atlasLayout = device.CreateDescriptorSetLayout(
             new(
@@ -388,19 +417,25 @@ public sealed class UiRenderer : IDisposable {
         imageDescriptors[image] = (entry.Set, view);
         var set = entry.Set;
 
+        if (!imageBoxes.IsValid) {
+            // One shape's worth, because the size is what a storage binding needs and nothing reads
+            // past it. See the field for why it is not the box buffer.
+            imageBoxes = device.CreateBuffer(
+                new(80, BufferUsage.Storage, MemoryAccess.HostUpload, "ui image boxes")
+            );
+        }
+
         // ⚠ Binding 2 is written even though the image shader never reads it. The layout is shared
         // with the box pipeline — see the pipeline layout's own remarks for why all of them are one —
         // and a set that leaves a declared binding unwritten is a validation error on the frame it is
         // bound, not on the frame it was made.
         device.UpdateDescriptorSet(
             set,
-            boxes.IsValid
-                ? [
-                    DescriptorWrite.Texture(0, view),
-                    DescriptorWrite.SamplerAt(1, sampler),
-                    DescriptorWrite.Storage(2, boxes, 0, boxCapacity)
-                ]
-                : [DescriptorWrite.Texture(0, view), DescriptorWrite.SamplerAt(1, sampler)]
+            [
+                DescriptorWrite.Texture(0, view),
+                DescriptorWrite.SamplerAt(1, sampler),
+                DescriptorWrite.Storage(2, imageBoxes, 0, 80)
+            ]
         );
     }
 
@@ -450,6 +485,10 @@ public sealed class UiRenderer : IDisposable {
 
         if (boxes.IsValid) {
             device.Destroy(boxes);
+        }
+
+        if (imageBoxes.IsValid) {
+            device.Destroy(imageBoxes);
         }
 
         DestroyAtlas();
@@ -515,11 +554,16 @@ public sealed class UiRenderer : IDisposable {
         var boxBytes = Math.Max(geometry.Shapes.Count, 1) * 80;
 
         if (Grow(ref boxes, ref boxCapacity, boxBytes, BufferUsage.Storage, "ui boxes")) {
-            // ⚠ Growing the buffer replaced it, so every descriptor set points at a buffer that no
-            // longer exists. Rewriting them is the whole of the fix and forgetting it is a frame
+            // ⚠ Growing the buffer replaced it, so every frame's descriptor set points at a buffer
+            // that no longer exists. Noting it is the whole of the fix and forgetting it is a frame
             // that draws every box with whatever memory the allocator handed out next.
-            BindBoxes();
+            Array.Fill(staleBoxes, true);
         }
+
+        // This frame's set, and only this frame's — see `staleBoxes` for why the other frames' sets
+        // are left stale. Before anything binds it and after the region it points into is settled, so
+        // a frame never binds a set pointing at a destroyed buffer.
+        RebindBoxes(slot);
 
         if (geometry.Shapes.Count > 0) {
             var shapeBytes = new UiShape[geometry.Shapes.Count];
@@ -540,27 +584,32 @@ public sealed class UiRenderer : IDisposable {
         device.Write(indices, (long) slot * indexCapacity, MemoryMarshal.AsBytes<uint>(indexBytes));
     }
 
-    /// <summary>Points every frame's descriptor set at that frame's region of the box buffer.</summary>
-    void BindBoxes() {
-        if (!boxes.IsValid) {
+    /// <summary>Points one frame's descriptor set at that frame's region of the box buffer.</summary>
+    /// <param name="index">The frame, which must be the one about to draw.</param>
+    /// <remarks>
+    ///     ⚠ <b>The caller has to be the frame that owns the set.</b> This is a device-side write to a
+    ///     set nothing may be reading, and the only thing that establishes that is <see cref="slot" />
+    ///     having come round to a region the device has finished with. Calling it for a frame other
+    ///     than the current one is the error this whole arrangement exists to avoid.
+    /// </remarks>
+    void RebindBoxes(int index) {
+        if (!staleBoxes[index] || !boxes.IsValid || index >= atlasDescriptors.Length) {
             return;
         }
 
-        for (var index = 0; index < atlasDescriptors.Length; index++) {
-            if (atlasDescriptors[index].IsValid) {
-                device.UpdateDescriptorSet(
-                    atlasDescriptors[index],
-                    [DescriptorWrite.Storage(2, boxes, (long) index * boxCapacity, boxCapacity)]
-                );
-            }
+        if (!atlasDescriptors[index].IsValid) {
+            // No atlas yet, so no set to write. Left stale, which is what makes `CreateAtlas` write
+            // the binding when it makes the set — a frame that binds a set with a declared binding
+            // never written is a validation error, and leaving the flag up is what prevents it.
+            return;
         }
 
-        // ⚠ The image sets hold a write to the same buffer and go stale with it. They never read it —
-        // the image shader has no boxes — but the layout declares the binding, so a set still
-        // pointing at a destroyed buffer is a validation error on the frame it is bound.
-        foreach (var entry in imageDescriptors.Values) {
-            device.UpdateDescriptorSet(entry.Set, [DescriptorWrite.Storage(2, boxes, 0, boxCapacity)]);
-        }
+        device.UpdateDescriptorSet(
+            atlasDescriptors[index],
+            [DescriptorWrite.Storage(2, boxes, (long) index * boxCapacity, boxCapacity)]
+        );
+
+        staleBoxes[index] = false;
     }
 
     void UploadAtlas(ICommandList commands, GlyphAtlas atlas) {
@@ -639,13 +688,24 @@ public sealed class UiRenderer : IDisposable {
         for (var index = 0; index < slots; index++) {
             atlasDescriptors[index] = device.CreateDescriptorSet(atlasLayout, "ui atlas " + index.ToString(CultureInfo.InvariantCulture));
 
+            // ⚠ Every set written here and not only the current frame's, which is the one place that
+            // is safe: these sets were allocated a line ago, so no submitted frame can be reading one.
+            // Once they are in the ring the rule is the opposite — see `staleBoxes`.
             device.UpdateDescriptorSet(
                 atlasDescriptors[index],
-                [DescriptorWrite.Texture(0, atlasView), DescriptorWrite.SamplerAt(1, sampler)]
+                boxes.IsValid
+                    ? [
+                        DescriptorWrite.Texture(0, atlasView),
+                        DescriptorWrite.SamplerAt(1, sampler),
+                        DescriptorWrite.Storage(2, boxes, (long) index * boxCapacity, boxCapacity)
+                    ]
+                    : [DescriptorWrite.Texture(0, atlasView), DescriptorWrite.SamplerAt(1, sampler)]
             );
-        }
 
-        BindBoxes();
+            // Left stale when there is no box buffer to point at yet, so the first frame that makes
+            // one writes the binding before it binds the set.
+            staleBoxes[index] = !boxes.IsValid;
+        }
 
         // A version no atlas has, so the first frame always uploads — including a frame that draws no
         // text at all, which still has to leave the texture in a state the shader can read.
