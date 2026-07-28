@@ -48,7 +48,7 @@ partial class Build {
         .Description("Fails on a layer violation, a banned IL-rewriting package, or editor-only code in a runtime assembly")
         .Executes(() => {
                 var projects = RootDirectory
-                    .GlobFiles("Core/**/*.csproj", "Platform/**/*.csproj", "Editor/**/*.csproj", "Raven/**/*.csproj", "Tools/**/*.csproj")
+                    .GlobFiles("Core/**/*.csproj", "Platform/**/*.csproj", "Editor/**/*.csproj", "Raven/**/*.csproj", "Tools/**/*.csproj", "Samples/**/*.csproj")
                     .Where(path => !path.ToString().Contains("/bin/", StringComparison.Ordinal))
                     .Where(path => !path.ToString().Contains("/obj/", StringComparison.Ordinal))
                     .ToList();
@@ -107,6 +107,20 @@ partial class Build {
                         // framework, and this reference is cheap to add and expensive to unwind.
                         if (name.StartsWith("Vixen.Ui", StringComparison.Ordinal) && reference == "Vixen.Engine") {
                             violations.Add($"{name} references Vixen.Engine. See docs/plan/00 § Layer discipline.");
+                        }
+
+                        // The same boundary, from the other side. docs/plan/02 § Samples describes
+                        // 02-HelloUi as "Vixen.Ui only, no engine — proves the UI/Engine boundary",
+                        // and doc 15 makes it what proves the framework standalone before the editor
+                        // is allowed to depend on it. A sample that reached for Vixen.App would prove
+                        // nothing — Vixen.App references Vixen.Engine — and it is exactly the change
+                        // somebody makes to save writing a frame loop. Asserted here so that saving
+                        // it fails the build rather than quietly deleting the demonstration.
+                        if (name == "HelloUi" && reference is "Vixen.Engine" or "Vixen.App") {
+                            violations.Add(
+                                $"{name} references {reference}, and it exists to demonstrate that it does not have to. "
+                                + "See docs/plan/02 § Samples."
+                            );
                         }
                     }
                 }

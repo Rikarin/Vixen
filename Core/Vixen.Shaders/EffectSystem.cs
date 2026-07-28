@@ -54,6 +54,8 @@ public sealed class EffectSystem {
     readonly List<IEffectProvider> providers = [];
     readonly ConcurrentDictionary<EffectKey, byte> misses = new();
     readonly ConcurrentDictionary<EffectKey, byte> requests = new();
+    readonly ConcurrentDictionary<EffectKey, byte> queued = new();
+    readonly ConcurrentQueue<EffectKey> pending = new();
 
     /// <summary>How many distinct effects are in memory.</summary>
     public int Count => resolved.Count;
@@ -88,6 +90,34 @@ public sealed class EffectSystem {
     /// <summary>How many distinct keys have been asked for.</summary>
     public int RequestCount => requests.Count;
 
+    /// <summary>
+    ///     What to draw with while a variant is being produced, or null to wait for it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Setting this is what turns resolution asynchronous, and doc 06 asks for it in one
+    ///         sentence: "development builds compile on demand, asynchronously, rendering with a
+    ///         placeholder material for the frames until ready — never a hitch, never a stall." A
+    ///         compile is hundreds of milliseconds and it happens the first time a material is seen,
+    ///         which is exactly when a player is walking into a new room.
+    ///     </para>
+    ///     <para>
+    ///         <strong>It is never put in the cache.</strong> The dictionary holds what a key
+    ///         resolved to, and a placeholder is what it resolved to <em>for now</em> — caching it
+    ///         would make the temporary answer permanent, which is a magenta object that never
+    ///         becomes anything and no error anywhere.
+    ///     </para>
+    ///     <para>
+    ///         Null is the shipping arrangement, and leaves <see cref="Resolve" /> exactly as it was:
+    ///         ask each provider, cache the answer, record a miss. A shipping build has nothing that
+    ///         could compile later, so there is nothing for a placeholder to be a placeholder for.
+    ///     </para>
+    /// </remarks>
+    public Effect? Placeholder { get; set; }
+
+    /// <summary>How many keys are waiting to be produced.</summary>
+    public int PendingCount => pending.Count;
+
     /// <summary>Adds a provider. Providers are asked in the order they were added.</summary>
     /// <remarks>
     ///     Order is the tiering: the fastest source first, the one that can produce anything last.
@@ -119,6 +149,56 @@ public sealed class EffectSystem {
             return cached;
         }
 
+        // Asked for once and then waited for, rather than asked for again every frame. The queue is
+        // what makes the answer arrive later; asking the providers here as well would be the stall
+        // the placeholder exists to avoid.
+        if (Placeholder is { } waiting) {
+            if (queued.TryAdd(key, 0)) {
+                pending.Enqueue(key);
+            }
+
+            return waiting;
+        }
+
+        return Produce(key);
+    }
+
+    /// <summary>
+    ///     Produces some of what is waiting, and answers how many arrived.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Called by the host, off the render thread — a job, a worker, whatever the game already
+    ///         has. This class owns no thread of its own on purpose: a compile is somebody's CPU time
+    ///         and how much of it to spend, on which thread, against what else is running, is a
+    ///         scheduling decision the engine's job system is for and an effect cache is not.
+    ///     </para>
+    ///     <para>
+    ///         It also makes the whole arrangement testable without a clock. A test pumps and asserts;
+    ///         nothing is waited on, nothing is flaky.
+    ///     </para>
+    /// </remarks>
+    /// <param name="limit">At most how many to produce, so a caller can bound its frame.</param>
+    /// <returns>How many effects were produced and put in memory.</returns>
+    public int Pump(int limit = int.MaxValue) {
+        ArgumentOutOfRangeException.ThrowIfNegative(limit);
+
+        var produced = 0;
+
+        while (produced < limit && pending.TryDequeue(out var key)) {
+            // Left in `queued` whatever happens. A key nothing can supply is a miss, and asking again
+            // next frame would be a compilation per frame for as long as the object is on screen —
+            // which is the stall, arriving by a different route.
+            if (Produce(key) is not null) {
+                produced++;
+            }
+        }
+
+        return produced;
+    }
+
+    /// <summary>Asks each provider in turn, and remembers what came back.</summary>
+    Effect? Produce(EffectKey key) {
         foreach (var provider in providers) {
             if (provider.TryGet(key) is not { } produced) {
                 continue;
@@ -150,6 +230,12 @@ public sealed class EffectSystem {
     public void Invalidate() {
         resolved.Clear();
         misses.Clear();
+
+        // And what was waiting, because it was waiting for the old source. Whatever still needs a
+        // variant asks again on its next frame and gets back in the queue — which is also what makes
+        // a reload draw placeholders rather than stale shaders while it recompiles.
+        queued.Clear();
+        pending.Clear();
     }
 
     /// <summary>Forgets what has been asked for, without forgetting anything resolved.</summary>
@@ -162,5 +248,8 @@ public sealed class EffectSystem {
     public void ClearRequests() => requests.Clear();
 
     /// <summary>Forgets one effect, for a reload that knows what changed.</summary>
-    public bool Invalidate(EffectKey key) => resolved.TryRemove(key, out _);
+    public bool Invalidate(EffectKey key) {
+        queued.TryRemove(key, out _);
+        return resolved.TryRemove(key, out _);
+    }
 }

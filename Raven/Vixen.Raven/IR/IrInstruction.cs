@@ -72,6 +72,78 @@ public sealed class IrArrayLengthInstruction(IrValue result, IrPlace place) : Ir
     public override IEnumerable<IrValue> Operands => IrLoadInstruction.IndicesOf(Place);
 }
 
+/// <summary>What an atomic read-modify-write does to the value it finds.</summary>
+/// <remarks>
+///     Signedness is not here, because the place's type carries it: SPIR-V splits <c>Min</c> and
+///     <c>Max</c> into signed and unsigned opcodes and GLSL does not, so the split belongs to the
+///     backend that needs it rather than to an IR both read.
+/// </remarks>
+public enum IrAtomicOp {
+    /// <summary>Adds, and answers with what was there.</summary>
+    Add,
+
+    /// <summary>Keeps the smaller.</summary>
+    Min,
+
+    /// <summary>Keeps the larger.</summary>
+    Max,
+
+    /// <summary>Bitwise and.</summary>
+    And,
+
+    /// <summary>Bitwise or.</summary>
+    Or,
+
+    /// <summary>Bitwise exclusive or.</summary>
+    Xor,
+
+    /// <summary>Replaces unconditionally.</summary>
+    Exchange,
+
+    /// <summary>Replaces only if what is there equals the comparand.</summary>
+    CompareExchange
+}
+
+/// <summary>
+///     An indivisible read-modify-write of one scalar in a writable resource.
+/// </summary>
+/// <remarks>
+///     <para>
+///         <b>Takes a place, for the same reason <see cref="IrArrayLengthInstruction" /> does and a
+///         stronger one.</b> The whole content of "atomic" is that the read and the write are the
+///         same operation on the same storage; a value loaded out and handed to an intrinsic is a
+///         copy, and no instruction on a copy can be atomic. Both targets say so in their operands —
+///         GLSL's <c>atomicAdd</c> takes an l-value and SPIR-V's <c>OpAtomicIAdd</c> takes a pointer.
+///     </para>
+///     <para>
+///         <b>The old value is the result, always.</b> That is what makes an atomic add an allocator:
+///         every invocation that adds one gets a different answer back, and those answers are exactly
+///         the indices <c>0..n</c>. An operation that returned nothing would be a counter nobody could
+///         use.
+///     </para>
+///     <para>
+///         Scalar integers only. GLSL 4.5 has no atomic on a float without an extension and none on a
+///         vector at all, so a wider set here would be a promise one target could not keep.
+///     </para>
+/// </remarks>
+public sealed class IrAtomicInstruction(IrValue result, IrAtomicOp op, IrPlace place, IrValue value, IrValue? comparand = null)
+    : IrInstruction {
+    public override IrValue Result { get; } = result;
+    public IrAtomicOp Op { get; } = op;
+    public IrPlace Place { get; } = place;
+
+    /// <summary>What is added, combined or written.</summary>
+    public IrValue Value { get; } = value;
+
+    /// <summary>What the storage has to equal for <see cref="IrAtomicOp.CompareExchange" /> to write.</summary>
+    public IrValue? Comparand { get; } = comparand;
+
+    public override IEnumerable<IrValue> Operands =>
+        Comparand is { } compared
+            ? [Value, compared, .. IrLoadInstruction.IndicesOf(Place)]
+            : [Value, .. IrLoadInstruction.IndicesOf(Place)];
+}
+
 /// <summary>Writes a value into the storage a place designates.</summary>
 public sealed class IrStoreInstruction(IrPlace place, IrValue value) : IrInstruction {
     public IrPlace Place { get; } = place;

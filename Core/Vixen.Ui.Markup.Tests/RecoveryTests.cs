@@ -100,6 +100,39 @@ public class RecoveryTests {
         Assert.True(tree.GetDocument().DescendantNodes().OfType<InterpolationSyntax>().Single().Expression.IsMissing);
     }
 
+    /// <summary>
+    ///     ⚠ <b>An <c>@(</c> the file never closes used to eat the rest of it.</b> The scan ran to
+    ///     the end looking for the <c>)</c>, failed, and the characters it had walked over were
+    ///     never emitted — <c>@(abc</c> parsed to a tree that reproduced as <c>@</c>. The scan is
+    ///     speculative now: when it fails the window goes back, and everything after the <c>@</c>
+    ///     lexes as the ordinary content it stopped being.
+    /// </summary>
+    [Theory]
+    [InlineData("@(")]
+    [InlineData("@(abc")]
+    [InlineData("@(f(a)")]
+    [InlineData("@component A\n<div>@(count</div>")]
+    public void An_interpolation_whose_parenthesis_is_never_closed_keeps_the_rest_of_the_file(string source) {
+        var tree = Vxml.Parse(source);
+
+        Assert.Equal(source, tree.GetDocument().ToFullString());
+        Assert.Contains("VXML1005", Vxml.Ids(tree));
+    }
+
+    /// <summary>
+    ///     And the file keeps its shape, not merely its characters: the close tag after the
+    ///     unbalanced <c>(</c> is still a close tag, which is the whole point of not swallowing it.
+    /// </summary>
+    [Fact]
+    public void The_markup_after_an_unclosed_parenthesis_is_still_markup() {
+        var tree = Vxml.Parse("@component A\n<div>@(count</div>");
+        var div = tree.GetDocument().DescendantNodes().OfType<ElementSyntax>().Single();
+
+        Assert.Equal("div", div.EndTag!.Name.Text);
+        Assert.True(div.Content.Items().OfType<InterpolationSyntax>().Single().Expression.IsMissing);
+        Assert.Equal("(count", ((TextSyntax)div.Content.Items()[1]).TextToken.Text);
+    }
+
     [Fact]
     public void An_unbalanced_code_block_is_reported_and_still_yields_a_body() {
         var tree = Vxml.Parse("@component A\n@code { var x = 1;");

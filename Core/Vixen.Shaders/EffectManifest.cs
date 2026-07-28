@@ -14,13 +14,13 @@ namespace Vixen.Shaders;
 /// </remarks>
 public sealed record EffectRequest {
     /// <summary>The shader.</summary>
-    public string Shader { get; init; } = string.Empty;
+    public string Shader { get; set; } = string.Empty;
 
     /// <summary>Its permutation values, by name. Absent means the declared default.</summary>
-    public SortedDictionary<string, string> Permutations { get; init; } = new(StringComparer.Ordinal);
+    public SortedDictionary<string, string> Permutations { get; set; } = new(StringComparer.Ordinal);
 
     /// <summary>What fills its <c>compose</c> slots, by slot.</summary>
-    public SortedDictionary<string, string> Composition { get; init; } = new(StringComparer.Ordinal);
+    public SortedDictionary<string, string> Composition { get; set; } = new(StringComparer.Ordinal);
 
     /// <summary>The key this names.</summary>
     public EffectKey ToKey() => EffectKey.Of(Shader, Permutations, ShaderComposition.Of(Composition));
@@ -61,7 +61,14 @@ public sealed record EffectRequest {
 /// </remarks>
 public sealed record EffectManifest {
     /// <summary>What to produce.</summary>
-    public EffectRequest[] Effects { get; init; } = [];
+    /// <remarks>
+    ///     Settable rather than <c>init</c>, and every property on <see cref="EffectRequest" /> with
+    ///     it. The JSON source generator constructs a type whose properties are init-only through an
+    ///     object initializer, which assigns <em>every</em> property — so a field the author left out
+    ///     comes back null rather than keeping its initialiser. A hand-written manifest leaves fields
+    ///     out constantly; most variants have no composition at all.
+    /// </remarks>
+    public EffectRequest[] Effects { get; set; } = [];
 
     /// <summary>The manifest for a set of keys, deduplicated and ordered so two runs match.</summary>
     /// <remarks>

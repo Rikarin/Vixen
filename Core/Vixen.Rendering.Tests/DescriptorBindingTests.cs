@@ -416,8 +416,8 @@ public class DescriptorBindingTests : IDisposable {
     ///     A name the effect does not know falls back to the index that was written down.
     /// </summary>
     /// <remarks>
-    ///     Because a provider that reports no plan is the ordinary case until the content build does
-    ///     — and a renderer that stopped binding anything the moment reflection was absent would be
+    ///     Because a provider may report no plan — a test fake, a host supplying effects of its own —
+    ///     and a renderer that stopped binding anything the moment reflection was absent would be
     ///     worse than one that took the host at its word.
     /// </remarks>
     [Fact]

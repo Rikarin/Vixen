@@ -37,6 +37,9 @@ public static class DiagnosticCode {
     /// <summary>The content builder found something.</summary>
     public const string Pack = "VX2002";
 
+    /// <summary>The shader bundle build found something.</summary>
+    public const string Shaders = "VX2003";
+
     /// <summary>The tool could not run at all.</summary>
     public const string Usage = "VX9001";
 }

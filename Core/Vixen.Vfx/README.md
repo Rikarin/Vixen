@@ -183,9 +183,13 @@ inherited from a base shader arrived read-only. `spirv-val` accepted the contrad
 backend bug and was one line in the binding merge. Both tools run, for that reason.
 
 **What is still the CPU's:** deciding how many particles to spawn and where, and reaping the dead.
-Spawning is bookkeeping rather than arithmetic and there is one right place for it. Reaping is not a
-choice — the alive set is a prefix maintained by swap-removal, and compacting it on the GPU needs an
-atomic counter, which Raven does not have.
+Spawning is bookkeeping rather than arithmetic and there is one right place for it. Reaping is a
+choice again now that Raven has `atomicAdd` — the GPU form is every survivor taking the next slot from
+a shared counter, and the value the atomic hands back is the slot — but it changes the *order* the
+survivors end up in, where the CPU's swap-removal changes it differently. Neither order is promised
+and a particle's randomness follows its identifier rather than its slot, so both are correct; it is
+written down because "the two backends disagree about slot order" is a thing somebody will otherwise
+find in a diff and take for a bug.
 
 ## Geometry stops where the graphics stack starts
 

@@ -219,6 +219,27 @@ public static class IrVerifier {
                     RequireSame(store.Place.Type, store.Value.Type, "store");
                     break;
 
+                case IrAtomicInstruction atomic:
+                    VerifyPlace(atomic.Place);
+
+                    // Scalar integers only. Both targets stop there — a float atomic needs an
+                    // extension in GLSL and a capability in SPIR-V, and neither has one on a vector
+                    // at all — so anything wider reaching a backend would have no instruction.
+                    if (atomic.Place.Type is not IrScalarType { Kind: IrTypeKind.Int or IrTypeKind.UInt }) {
+                        Report($"{atomic.Result} is an atomic on {atomic.Place.Type.Name}, which is not a scalar integer");
+                    }
+
+                    RequireSame(atomic.Place.Type, atomic.Value.Type, $"atomic '{atomic.Op}' operand");
+                    RequireSame(atomic.Place.Type, atomic.Result.Type, $"atomic '{atomic.Op}' result");
+
+                    if (atomic.Comparand is { } comparand) {
+                        RequireSame(atomic.Place.Type, comparand.Type, "atomic comparand");
+                    } else if (atomic.Op == IrAtomicOp.CompareExchange) {
+                        Report($"{atomic.Result} is a compare-exchange with nothing to compare against");
+                    }
+
+                    break;
+
                 case IrArrayLengthInstruction length:
                     VerifyPlace(length.Place);
 
