@@ -81,8 +81,9 @@ answered every question would turn one unshipped dependency into a total failure
 **Acquisition is built, and holds one dependency.** `build/native-dependencies.json` and
 `nuke RestoreNativeDeps` do the pinning, the SHA-256 verification, the extraction and the licence
 manifest ([doc 10](../../docs/plan/10-platforms.md) § Native binaries, R10). MoltenVK for `ios-arm64`
-is in it. Jolt, HarfBuzz, SPIRV-Cross, astcenc and Recast are not, and the `.zip` and `.tar.gz` paths
-have not yet met a real dependency.
+is in it. Jolt, HarfBuzz, SPIRV-Cross and astcenc are not, and the `.zip` and `.tar.gz` paths have not
+yet met a real dependency. Recast has left the list entirely — `Vixen.Navigation` is managed code, and
+[its README](../../Core/Vixen.Navigation/README.md) says why.
 
 **Both call sites are wired up.** `Vixen.Graphics.Vulkan` and `Vixen.Platform.Desktop` load through
 this project and construct their Silk.NET API over the handle, so neither `Vk.GetApi()` nor

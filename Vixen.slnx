@@ -90,6 +90,8 @@
     <Project Path="Core/Vixen.Input.Tests/Vixen.Input.Tests.csproj" />
     <Project Path="Core/Vixen.Physics/Vixen.Physics.csproj" />
     <Project Path="Core/Vixen.Physics.Tests/Vixen.Physics.Tests.csproj" />
+    <Project Path="Core/Vixen.Navigation/Vixen.Navigation.csproj" />
+    <Project Path="Core/Vixen.Navigation.Tests/Vixen.Navigation.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering/Vixen.Rendering.csproj" />
     <Project Path="Core/Vixen.Rendering.Tests/Vixen.Rendering.Tests.csproj" />
     <Project Path="Core/Vixen.Animation/Vixen.Animation.csproj" />
@@ -189,6 +191,7 @@
     <Project Path="Benchmarks/Vixen.Benchmarks.Ecs/Vixen.Benchmarks.Ecs.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Animation/Vixen.Benchmarks.Animation.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Ui/Vixen.Benchmarks.Ui.csproj" />
+    <Project Path="Benchmarks/Vixen.Benchmarks.Navigation/Vixen.Benchmarks.Navigation.csproj" />
   </Folder>
 
   <!--

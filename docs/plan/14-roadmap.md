@@ -2464,7 +2464,113 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
 - `Vixen.Editor.AnimationGraph`.
 - `Vixen.Input`: full device set + the Unity-style action system, `.vxinput` asset, generated accessors,
   runtime rebinding, action-map editor, input debug panel.
-- `Vixen.Navigation`: Recast/Detour binding, navmesh baking as a build step, agents, avoidance.
+- ✅ `Vixen.Navigation` — bake, query, agents and avoidance, **as Vixen's own managed code rather
+  than a Recast/Detour binding**. The voxel pipeline (rasterise → filter → erode → regions →
+  contours → convex polygons), a tiled mesh whose tiles can be added and removed under live paths,
+  `NavMeshQuery` (nearest polygon, A\*, funnel, surface raycast, move-along-surface), and a `Crowd`
+  with path corridors, sampled reciprocal velocity obstacles and an ECS bridge. 40 tests.
+
+  **Why the binding was not built:** Recast/Detour publishes no binaries and has no C API, so a
+  binding is a C shim plus a build per RID plus an entry in `build/native-dependencies.json`, none of
+  which exists — and iOS is NativeAOT-only while WebAssembly has no dynamic loading at all. The
+  algorithms are re-derived and credited; no code is copied. `Core/Vixen.Navigation/README.md` records
+  the trade and what it costs.
+
+  **Baking is a build step.** `NavMeshImporter` claims `.vxnavmesh`, which names a collision mesh and
+  carries its bake parameters in its `.meta` — so the per-target overrides bake a coarser mesh for a
+  phone, and the geometry is a declared dependency, which is what makes re-exporting it re-bake. What
+  comes out is a serialised `NavMeshAsset`, and two bakes of one level are byte-identical.
+
+  **Zero steady-state allocation is measured, not claimed.** Search, string-pull, raycast,
+  move-along-surface and a sixteen-agent crowd each allocate **0 bytes** over a thousand frames after
+  warm-up (`NavigationAllocationTests`), with `Benchmarks/Vixen.Benchmarks.Navigation` for the times.
+  One thing failed that gate and was fixed: the proximity grid allocated a bucket per newly-visited
+  cell, which is a drip that never stops for a crowd that keeps walking somewhere new.
+
+  **Off-mesh connections are in**, as polygons with two vertices: authored on the tile, linked to the
+  ground at each end when it loads, searched by A\*, turned at by the funnel — whose portal is a
+  single point there, so no special case was needed — and crossed by a crowd agent over time, with the
+  authored id and the progress on `CrowdAgentState` so a game can play the climb. The mesh, a
+  corridor, a path and a crowd can also be drawn now, which is how a bad bake stops being something
+  you infer from a failing path.
+
+  **Region merge-and-filter is in**, which is the half of watershed partitioning that the monotone
+  sweep also wants: small regions absorbed into the smallest neighbour that will take them, unreachable
+  groups dropped as groups. It is hole-safe because a merge is refused when two regions touch along
+  more than one stretch of boundary. At Recast's default threshold it changes nothing here — monotone
+  regions are long rather than small — and at a high one it is 23 % fewer polygons for an identical
+  path, which is recorded in the README as a number rather than a hope.
+
+  **Pathfinding is sliced and queued.** A search across an eighty-metre level is 13 µs, so 256 agents
+  retargeting in one update is 3.5 ms in one frame — more than the whole crowd. `NavPathQueue` runs
+  searches a slice at a time against a shared budget and agents keep walking their old corridor while
+  they wait. There is one A\*: `FindPath` is the sliced search run to completion, and a test asserts
+  the two produce the same corridor polygon for polygon.
+
+  **Watershed partitioning is in**, and with it the hole merging that makes it safe: a region that
+  grows round a pillar is traced as two outlines, and the second is bridged into the first with a
+  zero-width slit rather than handed to the polygoniser as a solid slab over the obstacle. The ear
+  clipper needed a fallback pass for that slit, because a polygon that touches itself has no strict
+  ear anywhere near it. **It is not uniformly better and the README says so with a table**: on an
+  axis-aligned level the row sweep produces 25 % fewer polygons and bakes in half the time, and on a
+  round obstacle watershed is 19 % fewer polygons and 32 % fewer nodes expanded per search. It is the
+  default because levels are not grids; `Monotone` stays for a tile being rebaked per frame.
+
+  **The height detail pass is in.** Each polygon gets its own triangulation of the ground sampled
+  back out of the heightfield, so the surface follows a hill instead of lidding it: mean height error
+  on a 24 m hill goes from 0.76 m to 0.15 m and the worst from 1.41 m to 0.31 m, for a bake 56 %
+  longer — and for nothing at all on flat ground, where the sampling adds no vertices. The greedy
+  split alone was not enough and the measurement is what said so: splitting a triangle keeps all
+  three of its edges, so a fan over a large polygon stays exact at its samples and a metre out between
+  them. Lawson's flip after each insertion fixed it and halved the vertices needed. The constant
+  one-cell-height offset is *not* fixed — that is the voxelisation, not the polygon — and a test
+  asserts it so it stays a decision.
+
+  **Dynamic obstacles are in**, as `NavTileCache`: the voxelised level kept resident so that dropping
+  a crate rebuilds the tiles under it rather than the level. The cut is between the half of the bake
+  that turns triangles into a surface and the half that decides the surface's shape, because an
+  obstacle only changes the second. Carving happens *before* erosion and cost-stamping after, which is
+  the difference between a shape claim and a cost claim. Measured on an eighty-metre level: 0.75 ms to
+  rebuild a tile against 1.54 ms to bake one, four tiles dirtied by a crate, 2.2 MB resident — which
+  the cache reports itself, because the memory is the whole cost of the design.
+
+  **The searches run on jobs.** `NavPathQueue.Scheduler` puts each slice on `Vixen.Core.Threading`;
+  null, the default, runs them inline. The queries were separate objects with separate node pools from
+  the start and only read the mesh, so there is nothing to lock. **Both paths run the same rounds and
+  give the same answers in the same updates** — a test runs two queues side by side for sixty-four
+  updates and asserts request-for-request agreement — and scheduling a slice allocates nothing.
+  Measured at under 1.8× on nine workers, and the reason is written down rather than hidden: a round
+  is a barrier, so it costs its longest search. Free-running queries would recover the rest and would
+  cost the property that makes a scheduler an implementation detail.
+
+  **A navmesh bakes from a list of placed pieces**, not just one merged collision export: `geometry`
+  in a `.vxnavmesh` takes a `source`, `position`, `rotation` and `scale` per entry, each declared as a
+  dependency of its own. That is the half of "bake a scene" that does not need a scene. The other half
+  does, and is genuinely blocked: there is no `[DataContract]` scene or prefab asset in the repo at
+  all — `SceneManager` builds scenes procedurally, `Prefab` captures a live `World` with nothing to
+  serialise, and `NativeFormatImporter` claims `.vxscene` only to scan it for dependencies and copy it
+  through. Doc 08's `SceneCompiler` carries no "Built" marker. When it exists, this importer fills the
+  same list of placements from it and nothing else changes.
+
+  **The two endpoint lookups a retarget did not need are gone.** Planning used to begin by searching
+  for the polygon the agent was standing on — which is its corridor's first polygon and has been kept
+  current by every move — and for the polygon its destination is on, once per plan attempt rather than
+  once per destination. The first is now read, the second is resolved when the destination is set, and
+  `SetTarget(handle, poly, point)` lets a caller that already has the answer skip it altogether. Both
+  remembered references are validated before use — the reference has to still resolve *and* the filter
+  has to still accept it — so a rebuilt tile or a closed door falls back to a search. Writing it down
+  found a real bug: `AddAgent` and `ClearTarget` set the target without its polygon, so a recycled
+  agent slot inherited the previous occupant's destination.
+
+  **A connection now reaches as far as it was authored to.** Relinking visited four neighbours, which
+  is exactly how far a border edge reaches and nowhere near how far a zip line does — so a jump across
+  four tiles attached at the near end and dangled at the far one. Three tiles have a stake in a long
+  connection and all three are revisited on a load or unload; building a tile's links asks every tile
+  that declares connections, because a tile cannot know which faraway one declared a jump into it.
+  Three tests fail on the old code and pass on the new one, including the streaming order where the
+  far end arrives last.
+
+  **Owed:** reading placements from a compiled scene, once doc 08's scene compiler exists.
 - `Samples/05-PlatformerGame` — physics, input, animation, audio, VFX end to end on all platforms where
   it is in scope.
 

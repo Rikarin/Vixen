@@ -126,7 +126,7 @@ Core/
 ├── Vixen.Animation.Tests/
 ├── Vixen.Vfx/                          # particles + node-graph VFX runtime
 ├── Vixen.Vfx.Tests/
-├── Vixen.Navigation/                   # navmesh (Recast/Detour binding)
+├── Vixen.Navigation/                   # ✅ navmesh: bake, query, crowd — managed, no native dep
 ├── Vixen.Navigation.Tests/
 ├── Vixen.Net/                          # session, tick, channels, replication, rules — see 16
 ├── Vixen.Net.Generators/               # ── source generator: RPC senders, serializers, delta ──

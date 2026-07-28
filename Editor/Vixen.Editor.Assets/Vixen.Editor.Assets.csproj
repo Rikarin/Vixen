@@ -58,6 +58,10 @@
         <!-- And the model importer produces a ModelData, its meshes, its skeleton and its clips. -->
         <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
 
+        <!-- The navmesh importer runs the bake, which is a runtime assembly's: the artefact it writes
+             is what a player deserialises, so both halves have to be the same NavMeshAsset. -->
+        <ProjectReference Include="..\..\Core\Vixen.Navigation\Vixen.Navigation.csproj" />
+
         <!-- The content build emits a catalog, which is a runtime type: the builder and the loader
              have to be talking about the same one. -->
         <ProjectReference Include="..\..\Core\Vixen.Assets\Vixen.Assets.csproj" />

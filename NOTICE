@@ -51,6 +51,7 @@ The following projects were studied during design. No code is copied from them;
 where an algorithm is re-derived, the origin is credited at the call site and the
 upstream licence is recorded here.
 
+  Recast / Detour       zlib          https://github.com/recastnavigation/recastnavigation
   Stride                MIT           https://github.com/stride3d/stride
   Arch                  Apache-2.0    https://github.com/genaray/Arch
   Yoga                  MIT           https://github.com/facebook/yoga
