@@ -20,9 +20,15 @@ import Vixen.Shaders.Material
 //        lights, where a dispatch and a 450 KB buffer cost more than iterating all of them.
 //   on   the cluster list, read from the buffer the culling pass wrote.
 //
-// It is a permutation rather than a branch because the two need different *bindings*: off, the
-// clustered variant's buffers and its `positionVS` stream fold away entirely, and the host binds
-// nothing for them. A runtime branch would keep both descriptor sets alive in every variant.
+// It is a permutation rather than a branch because the two need different *code*: off, the clustered
+// variant's `positionVS` stream folds away entirely, and with it the interpolator every fragment
+// would otherwise pay for. A runtime branch would keep both loops in every variant.
+//
+// ⚠ It does **not** fold the bindings. A binding is in the plan because it is declared, not because
+// a variant reads it, so a shader compiled with clustering on still declares the per-object light
+// list and one with `UseImageBasedLighting` off still declares the environment cube — and a host
+// still has to bind them, because a set is written wholly or not at all. Eliminating bindings no
+// variant reads is a compiler feature Raven does not have; this comment claimed it did.
 
 shader ForwardPlus {
     /// The material's surface features, chosen per material.
@@ -36,8 +42,9 @@ shader ForwardPlus {
     /// them together would be one shader per pair.
     compose val shading: IShadingModel
 
-    /// Whether to add image-based ambient. Off gives a pure punctual-lit look, and folds every IBL
-    /// binding and its arithmetic out of the variant entirely.
+    /// Whether to add image-based ambient. Off gives a pure punctual-lit look, and folds the IBL
+    /// arithmetic out of the variant — though not its bindings, which are declared rather than
+    /// discovered. See the note at the top of the file.
     [Permutation] val UseImageBasedLighting: bool = true
 
     /// Whether to sample a shadow map for the directional light.
@@ -188,9 +195,12 @@ shader ForwardPlus {
 
     /// Whether local reflection probes stand in for the environment where they apply.
     ///
-    /// A permutation rather than a weight of zero, because it is the *bindings* that differ: with it
-    /// off, the probe cubes, their sampler and their volumes fold away entirely and a host binds
-    /// nothing for them. A scene with no probes should not carry cubes it never samples.
+    /// A permutation rather than a weight of zero, because the *work* differs: with it off there is
+    /// no parallax correction, no second cube sample and no blend, which is most of the ambient term.
+    ///
+    /// ⚠ The cubes are still declared, and a host still binds them — see the note at the top of the
+    /// file. A scene with no probes carries four cube descriptors it never samples, which is the cost
+    /// this comment used to claim the permutation avoided.
     [Permutation] val UseReflectionProbe: bool = false
 
     /// How many probes a frame may have bound at once.
