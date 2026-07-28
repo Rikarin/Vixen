@@ -4,6 +4,7 @@
 using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
+using Vixen.Graphics.Vulkan;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
@@ -874,8 +875,8 @@ public sealed class CompositorImageTests {
         ///     stays bound while pipelines change only if their layouts agree up to that slot, which
         ///     is the entire premise of the four-set convention.
         /// </remarks>
-        public static DescriptorSetLayoutHandle ViewLayout(IGraphicsDevice device, Fixture fixture) {
-            if (shared.TryGetValue(device, out var existing)) {
+        public static DescriptorSetLayoutHandle ViewLayout(VulkanDevice device, Fixture fixture) {
+            if (Shared.TryGetValue(device, out var existing)) {
                 return existing;
             }
 
@@ -887,17 +888,17 @@ public sealed class CompositorImageTests {
                 )
             );
 
-            shared[device] = created;
+            Shared[device] = created;
 
             fixture.Owns(() => {
-                shared.Remove(device);
+                Shared.Remove(device);
                 device.Destroy(created);
             });
 
             return created;
         }
 
-        static readonly Dictionary<IGraphicsDevice, DescriptorSetLayoutHandle> shared = [];
+        static readonly Dictionary<VulkanDevice, DescriptorSetLayoutHandle> Shared = [];
 
         static ImmutableArray<byte> Read(string name) =>
             [.. File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Shaders", name))];
