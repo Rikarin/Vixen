@@ -10,6 +10,8 @@ using Vixen.Engine.Transforms;
 using Vixen.Net.Engine;
 using Vixen.Net.Motion;
 using Vixen.Net.Replication;
+using Vixen.Net.Rules;
+using Vixen.Net.Sessions;
 using PhysicsAngularVelocity = global::Vixen.Physics.Ecs.AngularVelocity;
 using PhysicsLinearVelocity = global::Vixen.Physics.Ecs.LinearVelocity;
 using PhysicsTeleport = global::Vixen.Physics.Ecs.PhysicsTeleport;
@@ -51,6 +53,28 @@ public sealed class NetworkRigidBodyCaptureSystem : SystemBase, IDeclaredAccess 
     readonly QueryDescription teleported = new QueryDescription().WithAll<NetworkRigidBody, PhysicsTeleport>();
 
     readonly List<Entity> arriving = [];
+
+    /// <summary>Who decides what, and who this peer is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Authority is a <c>NetworkRules</c> audience rather than a flag on the body</b>, and
+    ///         that is the whole reason this takes a registry. PurrNet spells the same idea as a
+    ///         per-component <c>Owner Auth</c> toggle; doc 16 calls the rules registry PurrNet's best
+    ///         idea precisely because it makes "who may do this to that object" one question with one
+    ///         answer. A second boolean beside it would be a second policy that can disagree with the
+    ///         first — and the day they disagree, one of them is silently ignored.
+    ///     </para>
+    ///     <para>
+    ///         Null means server-authoritative, which is the default <c>NetworkRules</c> already
+    ///         states. A dedicated server passes <see cref="PlayerId.None" /> as its own id and is
+    ///         never refused, because the server is not a player and a rule that could stop it would
+    ///         be a rule about nothing.
+    ///     </para>
+    /// </remarks>
+    public NetworkRulesRegistry? Rules { get; set; }
+
+    /// <summary>Which player this peer is, or <see cref="PlayerId.None" /> for a server.</summary>
+    public PlayerId Local { get; set; } = PlayerId.None;
 
     /// <inheritdoc />
     public SystemAccess Access { get; } = SystemAccess.Declare()
@@ -101,8 +125,15 @@ public sealed class NetworkRigidBodyCaptureSystem : SystemBase, IDeclaredAccess 
             var linear = chunk.ReadValues<PhysicsLinearVelocity>();
             var angular = chunk.ReadValues<PhysicsAngularVelocity>();
             var bodies = chunk.Values<NetworkRigidBody>();
+            var ids = chunk.ReadValues<NetworkId>();
 
             for (var index = 0; index < chunk.Count; index++) {
+                // Only what this peer decides. A client publishing a body the server simulates would
+                // be a client overwriting the authority with its own drifting copy.
+                if (!IsAuthority(ids[index])) {
+                    continue;
+                }
+
                 var linearVelocity = linear[index].Value;
                 var angularVelocity = angular[index].Value;
 
@@ -120,11 +151,25 @@ public sealed class NetworkRigidBodyCaptureSystem : SystemBase, IDeclaredAccess 
                 if (resting) {
                     RestingCount++;
                 }
-            }
 
-            PublishedCount += chunk.Count;
+                PublishedCount++;
+            }
         }
     }
+
+    /// <summary>Whether this peer is the one that decides where a body is.</summary>
+    /// <param name="id">The object.</param>
+    /// <returns>Whether it is.</returns>
+    /// <remarks>
+    ///     With no registry the answer is the default <c>NetworkRules</c> states — server-authoritative
+    ///     — which is a statement about the <i>object</i>. Whether this peer is that authority still
+    ///     depends on whether this peer is the server, so it goes through the same predicate rather
+    ///     than answering yes to everybody.
+    /// </remarks>
+    public bool IsAuthority(NetworkId id) =>
+        Rules is { } rules
+            ? rules.MayWrite(id, Local)
+            : NetworkRules.Allows(RuleAudience.ServerOnly, Local, isOwner: false);
 }
 
 /// <summary>Pulls a body that is not ours toward where the authority says it is.</summary>
@@ -156,15 +201,22 @@ public sealed class NetworkRigidBodyCaptureSystem : SystemBase, IDeclaredAccess 
 [UpdateBefore(typeof(PhysicsWritebackSystem))]
 public sealed class NetworkRigidBodyCorrectionSystem : SystemBase, IDeclaredAccess {
     readonly QueryDescription corrected = new QueryDescription()
-        .WithAll<NetworkRigidBody, NetworkRigidBodyCorrection, NetworkTransform, LocalTransform>();
+        .WithAll<NetworkRigidBody, NetworkRigidBodyCorrection, NetworkTransform, LocalTransform, NetworkId>();
 
     readonly List<Entity> snapping = [];
+
+    /// <summary>Who decides what, and who this peer is. See the capture system's remarks.</summary>
+    public NetworkRulesRegistry? Rules { get; set; }
+
+    /// <summary>Which player this peer is, or <see cref="PlayerId.None" /> for a server.</summary>
+    public PlayerId Local { get; set; } = PlayerId.None;
 
     /// <inheritdoc />
     public SystemAccess Access { get; } = SystemAccess.Declare()
         .Read<NetworkRigidBody>()
         .Read<NetworkRigidBodyCorrection>()
         .Read<NetworkTransform>()
+        .Read<NetworkId>()
         .Write<LocalTransform>()
         .Write<PhysicsLinearVelocity>()
         .Write<PhysicsAngularVelocity>()
@@ -207,8 +259,17 @@ public sealed class NetworkRigidBodyCorrectionSystem : SystemBase, IDeclaredAcce
             var target = chunk.ReadValues<NetworkTransform>();
             var locals = chunk.Values<LocalTransform>();
             var entities = chunk.Entities;
+            var ids = chunk.ReadValues<NetworkId>();
 
             for (var index = 0; index < chunk.Count; index++) {
+                // The exact complement of the capture system's test. A peer either decides where a
+                // body is or is corrected toward whoever does, and asking one question means the two
+                // can never both be true — which would be the authority correcting itself toward its
+                // own last packet, and is the shape of a body that slowly drifts to a halt.
+                if (IsAuthority(ids[index])) {
+                    continue;
+                }
+
                 var offset = target[index].Position - locals[index].Position;
                 var distance = offset.Length();
 
@@ -259,6 +320,14 @@ public sealed class NetworkRigidBodyCorrectionSystem : SystemBase, IDeclaredAcce
             SnappedCount++;
         }
     }
+
+    /// <summary>Whether this peer is the one that decides where a body is.</summary>
+    /// <param name="id">The object.</param>
+    /// <returns>Whether it is.</returns>
+    public bool IsAuthority(NetworkId id) =>
+        Rules is { } rules
+            ? rules.MayWrite(id, Local)
+            : NetworkRules.Allows(RuleAudience.ServerOnly, Local, isOwner: false);
 
     /// <summary>The angular velocity that would rotate <paramref name="from" /> onto <paramref name="to" />.</summary>
     /// <remarks>

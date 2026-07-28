@@ -3131,9 +3131,16 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   teleports instead, because a spring strong enough to fix a respawn is one that would fling
   everything else across the level.
 
-  **Owed:** per-axis enable and parent-relative replication on `NetworkTransform`. Owner-authority as
-  a `NetworkRules` audience rather than the server-authoritative default — the rules registry is the
-  right place and already asks the right question.
+  ✅ **Authority is a `NetworkRules` audience**, not a flag on the body. `NetworkRules.Write` was
+  declared from the start with the note "nothing calls it yet, because replication is one-way and a
+  client has no path to write — when it has, this is the question it asks rather than a second
+  policy". This is that, and it turned out to be exactly right: the capture and correction systems
+  ask the one question and take opposite branches, so `rules.Set(crate, NetworkRules.OwnerAuthoritative)`
+  moves both at once and they can never both act on one body. A per-component toggle beside the
+  registry — which is how PurrNet spells it — would be a second policy that can disagree with the
+  first, and the day they disagree one of them is silently ignored.
+
+  **Owed:** per-axis enable and parent-relative replication on `NetworkTransform`.
 - ✅ **Lag compensation** — `Vixen.Net.Physics`, unblocked the moment Phase 8's physics landed and
   built against it. A ring of pose history per tracked body, and a rewind scope that moves those
   bodies to where a shooter saw them, lets one query run, and puts them back.

@@ -8,6 +8,9 @@ using Vixen.Engine.Transforms;
 using Vixen.Net.Messaging;
 using Vixen.Net.Motion;
 using Vixen.Net.Replication;
+using Vixen.Net.Rpc;
+using Vixen.Net.Rules;
+using Vixen.Net.Sessions;
 using Xunit;
 using PhysicsAngularVelocity = global::Vixen.Physics.Ecs.AngularVelocity;
 using PhysicsLinearVelocity = global::Vixen.Physics.Ecs.LinearVelocity;
@@ -17,6 +20,9 @@ namespace Vixen.Net.Physics.Tests;
 /// <summary>Networked rigid bodies: what goes on the wire, and how a remote one is steered.</summary>
 public sealed class NetworkRigidBodyTests {
     const float Step = 1f / 30f;
+
+    /// <summary>A peer that is not the authority — which is what a corrected body is corrected on.</summary>
+    static readonly PlayerId Receiving = new(4);
 
     /// <summary>A body at rest says so once and then costs its unchanged bits.</summary>
     /// <remarks>
@@ -114,7 +120,7 @@ public sealed class NetworkRigidBodyTests {
     [Fact]
     public void ABodyBehindIsSteeredToTheAuthorityWithoutOvershooting() {
         using var world = new World("rigid-correct");
-        var correction = new NetworkRigidBodyCorrectionSystem();
+        var correction = new NetworkRigidBodyCorrectionSystem { Local = Receiving };
 
         var entity = Corrected(
             world,
@@ -148,7 +154,7 @@ public sealed class NetworkRigidBodyTests {
     [Fact]
     public void ABodyBeyondTheSnapDistanceIsTeleported() {
         using var world = new World("rigid-snap");
-        var correction = new NetworkRigidBodyCorrectionSystem();
+        var correction = new NetworkRigidBodyCorrectionSystem { Local = Receiving };
 
         var entity = Corrected(
             world,
@@ -178,7 +184,7 @@ public sealed class NetworkRigidBodyTests {
     [Fact]
     public void ABodyInTheRightPlaceKeepsTheVelocityItWasSent() {
         using var world = new World("rigid-agreeing");
-        var correction = new NetworkRigidBodyCorrectionSystem();
+        var correction = new NetworkRigidBodyCorrectionSystem { Local = Receiving };
 
         var entity = Corrected(
             world,
@@ -201,7 +207,7 @@ public sealed class NetworkRigidBodyTests {
     [Fact]
     public void ARotationIsCorrectedTheShortWayRound() {
         using var world = new World("rigid-rotation");
-        var correction = new NetworkRigidBodyCorrectionSystem();
+        var correction = new NetworkRigidBodyCorrectionSystem { Local = Receiving };
 
         var almost = Quaternion.FromAxisAngle(Vector3.UnitY, 3.0f);
         var target = Quaternion.FromAxisAngle(Vector3.UnitY, -3.0f);
@@ -220,6 +226,67 @@ public sealed class NetworkRigidBodyTests {
         var angular = world.Read<PhysicsAngularVelocity>(entity).Value.Length();
 
         Assert.True(angular < 5f, $"Corrected the long way round: {angular} rad/s.");
+    }
+
+    /// <summary>Authority is the rules registry's answer, not a flag on the component.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The two systems ask one question and take opposite branches on it, so they can never
+    ///         both act on the same body — which would be the authority correcting itself toward its
+    ///         own last packet, and is the shape of a body that slowly drifts to a halt.
+    ///     </para>
+    ///     <para>
+    ///         Server-authoritative is the default <c>NetworkRules</c> already states, so a game that
+    ///         says nothing gets it; <c>OwnerAuthoritative</c> moves both branches at once because
+    ///         there is only one policy to move.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void OwnerAuthorityComesFromTheRulesRatherThanAFlag() {
+        using var world = new World("rigid-authority");
+
+        var ownership = new NetworkOwnership();
+        var rules = new NetworkRulesRegistry(ownership);
+        var mine = new PlayerId(4);
+
+        ownership.SetOwner(new(1), mine);
+        rules.Set(new(1), NetworkRules.OwnerAuthoritative);
+
+        var capture = new NetworkRigidBodyCaptureSystem { Rules = rules, Local = mine };
+        var correction = new NetworkRigidBodyCorrectionSystem { Rules = rules, Local = mine };
+
+        // The owner decides, so it publishes and is not corrected.
+        Assert.True(capture.IsAuthority(new(1)));
+        Assert.True(correction.IsAuthority(new(1)));
+
+        // Somebody else's client does the opposite, on the same rule.
+        var theirs = new NetworkRigidBodyCaptureSystem { Rules = rules, Local = new(5) };
+        Assert.False(theirs.IsAuthority(new(1)));
+
+        // And an object nobody claimed is the server's, which is what the default says.
+        Assert.False(capture.IsAuthority(new(2)));
+    }
+
+    /// <summary>A peer that is not the authority publishes nothing.</summary>
+    [Fact]
+    public void APeerThatDoesNotDecide_PublishesNothing() {
+        using var world = new World("rigid-not-authority");
+
+        var ownership = new NetworkOwnership();
+        var rules = new NetworkRulesRegistry(ownership);
+        var capture = new NetworkRigidBodyCaptureSystem { Rules = rules, Local = new(4) };
+
+        // Server-authoritative by default, and this peer is a client.
+        world.Create(
+            new NetworkId(1),
+            default(NetworkRigidBody),
+            new PhysicsLinearVelocity { Value = new(5f, 0f, 0f) },
+            new PhysicsAngularVelocity()
+        );
+
+        capture.Publish(world);
+
+        Assert.Equal(0, capture.PublishedCount);
     }
 
     /// <summary>A body set up the way a receiving peer has one.</summary>
