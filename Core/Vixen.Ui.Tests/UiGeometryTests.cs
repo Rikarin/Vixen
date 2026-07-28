@@ -256,6 +256,123 @@ public class UiGeometryTests {
         Assert.Equal(1, builder.DroppedGlyphs);
     }
 
+    // ------------------------------------------------------- Resolving before emitting
+
+    /// <summary>
+    ///     ⚠ <b>Packing a glyph and reading a region out of the atlas cannot be interleaved.</b>
+    ///     Adding one can repack the whole texture, and a repack changes <i>every</i> region — so a
+    ///     glyph added partway through a run silently moves the glyphs whose quads are already
+    ///     written, and what draws is the right letters read out of the wrong places. This is that
+    ///     shape: an atlas too small to hold the run comfortably, so the packer is working while the
+    ///     run is being emitted.
+    /// </summary>
+    /// <remarks>
+    ///     The numbers are pinned rather than incidental. Sabotaged by removing the resolve pass,
+    ///     this configuration and twelve others in the same sweep come out with quads pointing at
+    ///     where their glyphs used to be.
+    /// </remarks>
+    [Fact]
+    public void A_run_drawn_while_the_atlas_is_packing_still_points_at_where_its_glyphs_ended_up() {
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64), resolution: 32);
+        var run = Drawable(6);
+
+        var (geometry, _) = BuildGlyphs(run, cache);
+
+        AssertCoordinatesAgree(geometry, cache, run);
+    }
+
+    /// <summary>
+    ///     The contract the flag makes, over a sweep rather than one case: <b>a frame that did not
+    ///     repack while it was being emitted has texture coordinates that can be believed.</b>
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The converse is not claimed and is not true.</b> A frame needing more distinct
+    ///     glyphs at once than the atlas holds evicts, during resolving, what it is about to draw —
+    ///     so emission puts them back and can repack while doing it. That is what
+    ///     <c>AtlasChanged</c> is for, and it is why this asserts nothing about the frames it flags.
+    /// </remarks>
+    [Theory]
+    [InlineData(48, 12)]
+    [InlineData(64, 20)]
+    [InlineData(96, 32)]
+    [InlineData(128, 32)]
+    [InlineData(192, 32)]
+    public void A_frame_the_atlas_did_not_change_under_has_coordinates_that_agree_with_the_atlas(int side, int resolution) {
+        foreach (var count in new[] { 2, 4, 6, 8, 10, 12 }) {
+            var cache = new GlyphFieldCache(new GlyphAtlas(side, side), resolution);
+            var run = Drawable(count);
+
+            var (geometry, builder) = BuildGlyphs(run, cache);
+
+            if (builder.AtlasChanged) {
+                continue;
+            }
+
+            AssertCoordinatesAgree(geometry, cache, run);
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ <b>An atlas with room does not repack at all</b>, which is what makes the flag a
+    ///     report of a misconfiguration rather than a thing an ordinary frame trips over. A sabotage
+    ///     that raised it unconditionally would be caught here rather than by the sweep above, which
+    ///     skips the frames it flags and would pass with everything flagged.
+    /// </summary>
+    [Fact]
+    public void A_frame_the_atlas_has_room_for_does_not_change_it() {
+        var cache = new GlyphFieldCache(new GlyphAtlas(512, 512));
+        var (_, builder) = BuildGlyphs(Drawable(12), cache);
+
+        Assert.False(builder.AtlasChanged);
+        Assert.Equal(0, cache.Atlas.Evictions);
+        Assert.Equal(12, cache.Atlas.Count);
+    }
+
+    /// <summary>Every text quad reads the region the atlas holds for its glyph now.</summary>
+    static void AssertCoordinatesAgree(UiGeometry geometry, GlyphFieldCache cache, List<ushort> run) {
+        var font = Font();
+        var vertex = 0;
+
+        foreach (var glyph in run) {
+            Assert.True(cache.TryGet(font, 0, glyph, out var entry), $"glyph {glyph} is not in the atlas");
+            Assert.True(vertex < geometry.Vertices.Count, $"no quad was emitted for glyph {glyph}");
+
+            // The top-left corner is enough: all four are derived from the one region.
+            Assert.Equal((float) entry.Region.X / cache.Atlas.Width, geometry.Vertices[vertex].Texture.X, 5);
+            Assert.Equal((float) entry.Region.Y / cache.Atlas.Height, geometry.Vertices[vertex].Texture.Y, 5);
+
+            vertex += 4;
+        }
+    }
+
+    /// <summary>The first <paramref name="wanted" /> glyphs of the test font that draw something.</summary>
+    /// <remarks>
+    ///     ⚠ Glyph ids rather than characters, because what these tests need is a known number of
+    ///     <i>distinct fields</i> in the atlas — and a string is not that: the test font maps several
+    ///     of the obvious letters to nothing, so "abcdef" is however many glyphs it happens to have.
+    /// </remarks>
+    static List<ushort> Drawable(int wanted) {
+        var font = Font();
+        var found = new List<ushort>();
+
+        for (ushort glyph = 1; glyph < font.GlyphCount && found.Count < wanted; glyph++) {
+            var outline = font.GetOutline(glyph);
+
+            if (outline.IsEmpty) {
+                continue;
+            }
+
+            var bounds = outline.Bounds();
+
+            if (bounds.Width > 0 && bounds.Height > 0) {
+                found.Add(glyph);
+            }
+        }
+
+        Assert.Equal(wanted, found.Count);
+        return found;
+    }
+
     /// <summary>
     ///     ⚠ <b>A glyph's position is an offset along its run, not a place on the surface.</b> The
     ///     command carries where the line starts, so two identical labels in different places hold
@@ -773,6 +890,39 @@ public class UiGeometryTests {
 
         var builder = new UiGeometryBuilder();
         return (builder.Build(list, cache ?? Cache(), Viewport), builder);
+    }
+
+    /// <summary>One run of glyph ids, for a test that needs a known number of distinct fields.</summary>
+    static (UiGeometry Geometry, UiGeometryBuilder Builder) BuildGlyphs(
+        List<ushort> run,
+        GlyphFieldCache cache,
+        float size = 24
+    ) {
+        var font = Font();
+        var list = new DrawList();
+        list.BeginFrame();
+
+        var glyphs = new List<PositionedGlyph>();
+        var pen = 0f;
+
+        foreach (var glyph in run) {
+            glyphs.Add(new PositionedGlyph(glyph, pen, 0));
+            pen += size;
+        }
+
+        list.Add(
+            new DrawCommand(DrawCommandKind.Text, RunX, RunY, pen, size, Color4.White, 0, 0) {
+                Offset = list.AddGlyphs(glyphs),
+                Length = glyphs.Count,
+                Font = list.AddFont(font),
+                FontSize = size
+            }
+        );
+
+        list.EndFrame();
+
+        var builder = new UiGeometryBuilder();
+        return (builder.Build(list, cache, Viewport), builder);
     }
 
     static GlyphFieldCache Cache() => new(new GlyphAtlas(512, 512));
