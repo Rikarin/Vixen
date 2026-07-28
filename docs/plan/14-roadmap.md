@@ -2189,8 +2189,23 @@ sub-piece has its own gate.
   puts `white-space: nowrap` on a field's text so a long value scrolls sideways. Owed with the
   editor: a caret that can move between lines, and caret affinity — an index on a wrap belongs to
   two lines and this returns the earlier one.
+- ✅ **`VirtualizingPanel`**, the primitive doc 09 asks for and the first control built on
+  `UiDocument.LayoutFinished` rather than on somebody remembering to call `Refresh`. A count, a row
+  height, a factory and a binder; a hundred thousand items is a hundred thousand of the caller's own
+  objects and about a dozen elements. The pool only ever grows and surplus rows are *parked* with a
+  class the theme hides, because shrinking it would allocate on the next scroll — which is the cost
+  the whole arrangement exists to avoid.
+
+  ⚠ Fixed row heights only. Knowing where row 40 000 is without measuring the 39 999 above it is what
+  makes virtualisation arithmetic instead of a walk; variable heights need a running-sum index
+  maintained as things resize, and that is a different control rather than a flag on this one.
+
+  Verified by sabotage, nine of nine landing. ⚠ **Two needed cases the suite did not have**: asking
+  `RowOf` for an item inside the pool and outside the data is the only way to tell a bounds check
+  from a parked check, and "already visible does not move" cannot be tested by calling
+  `ScrollIntoView` twice, because centring answers the same both times.
 - Owed in `Vixen.Ui`: style-slot compaction, gradients, per-corner elliptical radii, pinch and
-  rotate, virtualisation primitive, multi-window and DPI.
+  rotate, multi-window and DPI.
 - `Vixen.Ui.Markup`: ✅ **VXML — lexer, parser, binder, emitter and `#line` mapping.** A `.vxml`
   becomes a green/red tree over `Vixen.Core.Syntax`, then a `BoundComponent`, then a C# partial
   class. Second grammar on the shared tree, which is the first evidence that the Phase 0 extraction
@@ -2471,7 +2486,7 @@ sub-piece has its own gate.
 
   ⚠ **Still owed, and said plainly rather than left to be found:** `Image` reserves space and draws
   nothing, because the draw list has no texture command; `TextArea` is a taller `TextBox`, because
-  `VirtualizingPanel` is not here, so `ScrollView` keeps everything in the tree. Two of the five on this list are now closed: an overlay no longer outlives the control
+  all three of the items on this list are now closed. Two of the five on this list are now closed: an overlay no longer outlives the control
   that made it (`UiElement.OnRemoved`), and `Tooltip` and `ToastHost` are on `UiDocument.Ticked`
   rather than waiting for an application to remember to call them.
 - ✅ **`Vixen.Ui.Controls.Advanced` — the first three, and the two framework primitives they needed.**

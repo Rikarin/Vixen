@@ -92,5 +92,9 @@ Said out loud rather than left to be discovered:
 - ~~**An overlay outlives the control that made it.**~~ `UiElement.OnRemoved` exists and `Overlay`,
   `Menu`, `MenuBar` and `SelectBase` use it. A select's list is still a root child — painting order
   forces that — but removing the select now takes it, and the two capture handlers with it.
-- **`VirtualizingPanel` is not here.** `ScrollView` keeps everything in the tree. Doc 09 makes
-  virtualisation a first-class primitive and it is owed.
+- ~~**`VirtualizingPanel` is not here.**~~ It is, and it is the primitive doc 09 asks for: a count, a
+  row height, a factory and a binder. A hundred thousand items is a hundred thousand of the caller's
+  own objects and about a dozen elements. ⚠ Fixed row heights only — virtualisation has to know where
+  row 40 000 is without measuring the 39 999 above it, and variable heights need a running-sum index
+  that is a different control. Nothing has to call `Realise`: it runs on `UiDocument.LayoutFinished`,
+  which is the only place that knows how tall the viewport ended up.
