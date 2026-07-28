@@ -2117,6 +2117,14 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   found a real bug: `AddAgent` and `ClearTarget` set the target without its polygon, so a recycled
   agent slot inherited the previous occupant's destination.
 
+  **A connection now reaches as far as it was authored to.** Relinking visited four neighbours, which
+  is exactly how far a border edge reaches and nowhere near how far a zip line does — so a jump across
+  four tiles attached at the near end and dangled at the far one. Three tiles have a stake in a long
+  connection and all three are revisited on a load or unload; building a tile's links asks every tile
+  that declares connections, because a tile cannot know which faraway one declared a jump into it.
+  Three tests fail on the old code and pass on the new one, including the streaming order where the
+  far end arrives last.
+
   **Owed:** reading placements from a compiled scene, once doc 08's scene compiler exists.
 - `Samples/05-PlatformerGame` — physics, input, animation, audio, VFX end to end on all platforms where
   it is in scope.

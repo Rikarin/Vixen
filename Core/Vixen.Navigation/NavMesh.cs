@@ -289,6 +289,18 @@ public sealed class NavMesh {
     readonly Dictionary<long, int> slotsByCoordinate = [];
     readonly List<int> freeSlots = [];
     readonly List<NavLink> linkScratch = [];
+
+    /// <summary>The loaded tiles that declare off-mesh connections.</summary>
+    /// <remarks>
+    ///     Kept apart from <see cref="tiles" /> because a connection reaches as far as it was authored
+    ///     to and the tile it lands in has no way of knowing about it. Every relink walks this list
+    ///     rather than the whole mesh, and on a level where nothing is authored it is empty and the
+    ///     walk costs nothing.
+    /// </remarks>
+    readonly List<NavMeshTile> connectionOwners = [];
+
+    /// <summary>The tiles a relink has decided it has to visit. Reused, because a load is not a frame.</summary>
+    readonly List<NavMeshTile> relinkScratch = [];
     uint nextSalt = 1;
 
     /// <summary>Creates an empty mesh.</summary>
@@ -384,15 +396,12 @@ public sealed class NavMesh {
         slotsByCoordinate[Key(data.X, data.Z)] = slot;
         TileCount++;
 
-        RebuildLinks(tile);
-
-        foreach (var (offsetX, offsetZ) in SideOffsets) {
-            var neighbour = TileAt(data.X + offsetX, data.Z + offsetZ);
-
-            if (neighbour is not null) {
-                RebuildLinks(neighbour);
-            }
+        if (data.OffMeshConnections.Length > 0) {
+            connectionOwners.Add(tile);
         }
+
+        RebuildLinks(tile);
+        RelinkAround(data.X, data.Z, tile);
 
         return tile;
     }
@@ -411,20 +420,76 @@ public sealed class NavMesh {
             return false;
         }
 
+        var removed = tiles[slot];
+
         tiles[slot] = null;
         slotsByCoordinate.Remove(Key(x, z));
         freeSlots.Add(slot);
         TileCount--;
 
-        foreach (var (offsetX, offsetZ) in SideOffsets) {
-            var neighbour = TileAt(x + offsetX, z + offsetZ);
+        // Out of the list before anything relinks, so that a rebuild cannot read connections declared
+        // by a tile that is no longer loaded.
+        if (removed is not null) {
+            connectionOwners.Remove(removed);
+        }
 
-            if (neighbour is not null) {
-                RebuildLinks(neighbour);
+        RelinkAround(x, z, null);
+
+        return true;
+    }
+
+    /// <summary>Rebuilds every tile whose links could depend on what is at a grid position.</summary>
+    /// <param name="x">The column that changed.</param>
+    /// <param name="z">The row.</param>
+    /// <param name="rebuilt">A tile the caller has already relinked, or null.</param>
+    /// <remarks>
+    ///     <para>
+    ///         The four sides, because that is how far a border edge reaches — and then however far the
+    ///         authored connections reach, which is not bounded by anything. A jump from one end of a
+    ///         level to the other has three tiles with a stake in it: the one that declared it, and the
+    ///         one under each of its ends. Visiting only the sides is what used to leave such a jump
+    ///         attached at the near end and dangling at the far one.
+    ///     </para>
+    ///     <para>
+    ///         Both ends are collected for a connection with <i>either</i> end here, because the two
+    ///         are linked to each other: ground that has just appeared under one end gives the other
+    ///         end somewhere to arrive, and the tile that declared the connection owns the links
+    ///         between them.
+    ///     </para>
+    /// </remarks>
+    void RelinkAround(int x, int z, NavMeshTile? rebuilt) {
+        relinkScratch.Clear();
+
+        foreach (var (offsetX, offsetZ) in SideOffsets) {
+            Schedule(TileAt(x + offsetX, z + offsetZ), rebuilt);
+        }
+
+        foreach (var owner in connectionOwners) {
+            foreach (var connection in owner.Data.OffMeshConnections) {
+                var (startX, startZ) = TileCoordinates(connection.Start);
+                var (endX, endZ) = TileCoordinates(connection.End);
+
+                if ((startX != x || startZ != z) && (endX != x || endZ != z)) {
+                    continue;
+                }
+
+                Schedule(owner, rebuilt);
+                Schedule(TileAt(startX, startZ), rebuilt);
+                Schedule(TileAt(endX, endZ), rebuilt);
             }
         }
 
-        return true;
+        foreach (var tile in relinkScratch) {
+            RebuildLinks(tile);
+        }
+
+        relinkScratch.Clear();
+    }
+
+    void Schedule(NavMeshTile? tile, NavMeshTile? rebuilt) {
+        if (tile is not null && !ReferenceEquals(tile, rebuilt) && !relinkScratch.Contains(tile)) {
+            relinkScratch.Add(tile);
+        }
     }
 
     /// <summary>Resolves a reference.</summary>
@@ -768,12 +833,13 @@ public sealed class NavMesh {
             }
         }
 
-        ConnectOffMesh(tile, tile);
-
-        foreach (var (offsetX, offsetZ) in SideOffsets) {
-            if (TileAt(tile.Data.X + offsetX, tile.Data.Z + offsetZ) is { } neighbour) {
-                ConnectOffMesh(tile, neighbour);
-            }
+        // Every tile that declares a connection, not just the ones next door. A connection reaches as
+        // far as it was authored to, and the tile its far end lands in has no way of knowing which
+        // tile declared it — so the question is asked from the other side. ConnectOffMesh keeps only
+        // the links whose owning polygon is in this tile, so asking a tile that turns out to have
+        // nothing to do with it costs the walk and nothing else.
+        foreach (var owner in connectionOwners) {
+            ConnectOffMesh(tile, owner);
         }
 
         tile.SetLinks([.. linkScratch]);
@@ -792,11 +858,13 @@ public sealed class NavMesh {
     ///         links whose owning polygon is in <paramref name="tile" />.
     ///     </para>
     ///     <para>
-    ///         <b>A connection reaching further than one tile is not linked at its far end.</b> The
-    ///         search for ground looks in the tile the endpoint falls in, and the rebuild that would
-    ///         notice it only visits the four neighbours — so a jump across three tiles attaches at the
-    ///         near end and dangles at the far one. That is a documented limit rather than a silent
-    ///         one: <see cref="NavMeshTileData.OffMeshConnections" /> says where a connection lives.
+    ///         <b>A connection reaches as far as it was authored to.</b> Nothing here bounds it to the
+    ///         tile next door: <see cref="RebuildLinks" /> asks every tile that declares connections,
+    ///         and <see cref="RelinkAround" /> revisits the declaring tile and both endpoints' tiles
+    ///         whenever either end's ground loads or unloads. What keeps that cheap is that this is
+    ///         guarded from the other side — only links whose owning polygon is in
+    ///         <paramref name="tile" /> are added, so asking a tile with no stake in a connection costs
+    ///         the walk and nothing else.
     ///     </para>
     /// </remarks>
     void ConnectOffMesh(NavMeshTile tile, NavMeshTile owner) {

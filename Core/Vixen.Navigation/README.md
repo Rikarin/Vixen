@@ -390,6 +390,19 @@ them, a raycast stops at them, and the closest point on one is the closest point
 portal is a single point rather than a segment, so the wedge collapses there and the algorithm emits a
 corner — which is exactly right: an agent has to arrive at the foot of the ladder before it climbs.
 
+**A connection reaches as far as it was authored to.** A border edge reaches exactly one tile, so
+relinking a tile visits its four neighbours; a zip line across half a level does not, and visiting
+four neighbours used to leave one attached at the near end and dangling at the far one. Three tiles
+have a stake in a long connection — the one that declared it and the one under each end — so a tile
+load or unload revisits all three, and building a tile's links asks *every* tile that declares
+connections rather than the ones next door. The mesh keeps a list of those, so a level that authors
+none walks an empty list.
+
+The direction of the question is what makes it cheap: a tile cannot know which faraway tile declared
+a jump into it, so the declaring tiles are asked instead, and the answer is filtered by whether the
+link's owning polygon is in the tile being built. Asking a tile with no stake in a connection costs
+the walk and nothing else.
+
 **Crossing takes time.** `Crowd` walks an agent across over `distance / maxSpeed` seconds, during
 which it is out of the proximity grid, out of avoidance and out of separation, and
 `CrowdAgentState.OffMesh` carries the authored `UserId` and the progress — which is what a game plays
@@ -420,10 +433,9 @@ where the cost of a crowd actually is.
 - **A sub-voxel surface height.** The detail mesh removes the height error that varies; the constant
   one that remains is described in the section above, and removing it means storing where inside its
   voxel a span's surface actually is.
-- **Connections that reach further than one tile.** A connection is held by the tile its start falls
-  in, and the far end is looked for in the tile that end falls in — so a jump across three tiles
-  attaches at the near end and dangles at the far one, because the rebuild that would notice only
-  visits the four neighbours.
+- **Off-mesh connections between two meshes.** A connection joins two places on one navmesh. Two
+  agent sizes are two meshes and nothing joins them, which is right — they are different graphs — but
+  it does mean a lift shared between them is authored twice.
 - **Compressed tile-cache layers.** `NavTileCache` keeps its voxels uncompressed — 2.2 MB for an
   eighty-metre level. Recast compresses; that is worth adding when a project has measured that it
   needs it, and inventing the requirement first would be picking a compressor for nobody.
