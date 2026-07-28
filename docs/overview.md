@@ -325,9 +325,12 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Editor network panel | ⬜ | — | Everything it would show is already public in `BandwidthLedger` / `SnapshotInspector` |
 | Editor UI automation harness | ✅ | Core/Vixen.Ui.Testing | Golden **screenshots** for editor layouts not started |
 | `PublishEditor`, signing, notarisation, `.dmg`/AppImage/MSI | ⬜ | — | |
-| `Vixen.Editor.NodeGraph` — model, generated registry, compiler, port typing | ✅ | Editor/Vixen.Editor.NodeGraph | ~1 750 lines. No UI, and none needed to check it |
-| `NodeGraphView` (pan/zoom/marquee/wires/minimap/search-to-create) | ⬜ | — | Was ⛔ on the shell; **unblocked now**. `NodeCanvas` in `Controls.Advanced` is the substrate |
-| Sub-graphs; undo commands; Raven-span → node diagnostics mapping | ⬜ | — | The last needs the emitter to record spans |
+| `Vixen.Editor.NodeGraph` — model, generated registry, compiler, port typing | ✅ | Editor/Vixen.Editor.NodeGraph | No UI, and none needed to check it |
+| `NodeGraphView` (pan/zoom/marquee/wires/minimap/search-to-create) | ✅ | Editor/Vixen.Editor.NodeGraph | Over `NodeCanvas`. A one-way projection, rebuilt per structural change; drags write positions in place |
+| Sub-graphs; undo commands; auto-layout; drag-from-port; previews | ✅ | Editor/Vixen.Editor.NodeGraph | Sub-graphs are **inlined**, not called. Previews are a colour swatch — see the row below |
+| Rendered preview thumbnails on nodes | ⛔ | — | Needs a draw-list texture command, same as `Viewport` |
+| Selectable wires; in-place sticky-note editing; inlined-node → source-node map | ⬜ | — | The last is what lets a diagnostic inside a sub-graph name a node the author can select |
+| Raven-span → node diagnostics mapping | ⬜ | — | Needs the emitter to record spans as it writes |
 | `Vixen.Editor.ShaderGraph` — node library, `DynamicVector` typing, Raven emission | ✅ | Editor/Vixen.Editor.ShaderGraph | Unlit, Sprite, PBR masters |
 | Procedural nodes, custom-code node, Post + UI masters, preview thumbnails | ⬜ | — | |
 | `Vixen.Editor.VfxGraph` — node library + dual-target compilation | ✅ | Editor/Vixen.Editor.VfxGraph | One method produces both the CPU graph and the compute shader |
@@ -566,7 +569,7 @@ No unmet dependency. Twenty-three independent tracks.
 | W0-16 | ECS entity-handle **reservation** | Undoable entity create/destroy in the scene view |
 | W0-17 | Bindless material binding plan | Two-phase occlusion + compacted draws · per-object reflection probes · material texture features |
 | W0-18 | Light-probe exact predicates (robust Bowyer–Watson) | Tetrahedral light-probe interpolation |
-| W0-19 | `NodeGraphView` (pan/zoom/wires/minimap/search-to-create) | Shader-graph and VFX-graph authoring UI |
+| ~~W0-19~~ | ~~`NodeGraphView` (pan/zoom/wires/minimap/search-to-create)~~ | Built. Shader-graph and VFX-graph authoring is now a matter of nodes, not of a canvas |
 | W0-20 | Non-scene asset editors: texture, model, material, shader, UI, addressable groups, compositor | Phase 6's exit criterion, minus the scene half |
 | W0-21 | Relay **scope decision** (host one? in-box or addon?) | The `Relay` transport + transport fallback |
 | W0-22 | `Vixen.Raven.Transpile` (SPIRV-Cross) | HLSL/MSL/WGSL targets + the cross-compilation test pass |
@@ -593,8 +596,8 @@ No unmet dependency. Twenty-three independent tracks.
 | ASTC/ETC2 output + full-quality BC7 | W0-15 | Then `ktx validate` + reference-decoder verification |
 | Undoable entity create/destroy; undoable reparenting | W0-16 | |
 | Two-phase occlusion + compacted draws; per-object reflection probes | W0-17 | |
-| Shader-graph procedural/custom-code nodes, Post + UI masters, previews | W0-19 | |
-| VFX-graph operator nodes, remaining opcode blocks, live preview | W0-19 + W1(VFX GPU) | |
+| Shader-graph procedural/custom-code nodes, Post + UI masters, previews | — | Unblocked: `NodeGraphView` is in. A *rendered* preview still wants the draw-list texture command |
+| VFX-graph operator nodes, remaining opcode blocks, live preview | W1(VFX GPU) | The view half is in; the live preview is the runtime's |
 | `Relay` transport + transport fallback | W0-21 | |
 | Cross-compilation test pass (ESSL/HLSL/MSL/WGSL) | W0-22 | |
 | `Vixen.Editor.Profiler` · `.Debugger` · editor console | W0-11 | Plus the GPU/memory tracks in `Core.Diagnostics` |
@@ -719,7 +722,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 78 | `Vixen.Editor.Inspector` | Nested-object drawer; curve multi-edit; asset-picker browser | Feature | — |
 | 79 | `Vixen.Editor.SceneView` | Undoable entity create/destroy and reparent | Feature | #15 (handle reservation) |
 | 80 | `Vixen.Editor.App` | Plugin loading; file dialog | Feature | `Vixen.Editor.Plugin`, **K3** |
-| 81 | `Vixen.Editor.NodeGraph` | `NodeGraphView`; sub-graphs; undo commands; Raven-span diagnostics | Feature | — (shell now exists) |
+| 81 | `Vixen.Editor.NodeGraph` | Selectable wires; sticky-note editing; inlined-node → source-node map; Raven-span diagnostics | Feature | Emitter span recording, for the last |
 | 82 | `Vixen.Editor.ShaderGraph` | Procedural + custom-code nodes; Post/UI masters; previews; diagnostic mapping | Feature | Emitter span recording |
 | 83 | `Vixen.Editor.VfxGraph` | Operator nodes; remaining opcode blocks; sub-emitters/trails; live preview | Feature | — |
 | 84 | Editor | Asset editors; `Vixen.Editor.Profiler`/`.Debugger`/`.Plugin`/`.AnimationGraph`; golden screenshots; `PublishEditor` | Feature | Various |
