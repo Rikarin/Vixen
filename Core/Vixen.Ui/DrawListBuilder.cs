@@ -30,6 +30,9 @@ public sealed class DrawListBuilder {
     readonly int textColor;
     readonly int overflow;
     readonly int visible;
+    readonly int visibility;
+    readonly int hidden;
+    readonly int opacity;
 
     /// <summary>Creates a builder over a style engine's name tables.</summary>
     /// <param name="properties">The table property names are interned in.</param>
@@ -53,6 +56,10 @@ public sealed class DrawListBuilder {
         textColor = properties.Intern("color");
         overflow = properties.Intern("overflow");
         this.visible = values.Intern("visible");
+
+        visibility = properties.Intern("visibility");
+        this.hidden = values.Intern("hidden");
+        opacity = properties.Intern("opacity");
     }
 
     /// <summary>Walks a document and fills a draw list.</summary>
@@ -64,11 +71,29 @@ public sealed class DrawListBuilder {
         ArgumentNullException.ThrowIfNull(into);
 
         into.BeginFrame();
-        Emit(document, document.Root, into);
+        Emit(document, document.Root, into, 1f);
         return into.EndFrame();
     }
 
-    void Emit(UiDocument document, UiElement element, DrawList into) {
+    /// <summary>Emits one element and its subtree.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="element">The element.</param>
+    /// <param name="into">The list being filled.</param>
+    /// <param name="inherited">
+    ///     The <c>opacity</c> of everything above this element, multiplied together.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>Opacity is carried down as a multiplier rather than composited as a group, and the
+    ///     difference is visible.</b> CSS renders a translucent element's subtree into its own
+    ///     surface and then blends that surface once, so two overlapping children of a half-opaque
+    ///     panel do <i>not</i> show through each other. Multiplying each element's alpha instead
+    ///     makes them show through, and the two answers agree exactly whenever the subtree does not
+    ///     overlap itself — which is most interfaces, and all of the ones a fade-in is applied to.
+    ///     The correct version needs an offscreen target per translucent subtree, which is a
+    ///     compositor decision rather than a draw list's, so it is <b>owed</b>. Said here because a
+    ///     half-right opacity reads as a bug in the renderer rather than a gap in the model.
+    /// </remarks>
+    void Emit(UiDocument document, UiElement element, DrawList into, float inherited) {
         var width = element.Width;
         var height = element.Height;
 
@@ -79,26 +104,45 @@ public sealed class DrawListBuilder {
             return;
         }
 
+        var alpha = inherited * Opacity(element);
+
+        // ⚠ Fully transparent is skipped outright rather than emitted with a zero alpha, and the
+        // subtree with it — `opacity: 0` is not inherited, but it multiplies, so nothing below can
+        // bring it back. A frame full of invisible commands costs a batch and a draw each and is
+        // indistinguishable in the picture from having emitted nothing.
+        if (alpha <= 0f) {
+            return;
+        }
+
         var x = element.AbsoluteLeft;
         var y = element.AbsoluteTop;
         var radius = Length(element, borderRadius);
 
-        if (Color(element, backgroundColor) is { } fill) {
-            into.Add(new DrawCommand(DrawCommandKind.Rectangle, x, y, width, height, fill, radius, 0f));
-        }
+        // ⚠ `visibility: hidden` hides the element and *not* its subtree, which is what separates it
+        // from `display: none`. It is an inherited property, so a child is hidden by having
+        // inherited the value rather than by being skipped here — and a child that declares
+        // `visibility: visible` reappears inside a hidden parent, which is the whole reason CSS has
+        // two properties for this.
+        var shown = !element.Style.TryGet(visibility, out var mode) || mode != hidden;
 
-        // The border is drawn after the background and before the children, which is the order CSS
-        // paints them in — a child overlapping the edge covers the border, and a background never
-        // covers its own.
-        var thickness = document.Layout.GetComputedBorder(element.LayoutNode, Edge.Top);
-        if (thickness > 0f && Color(element, borderColor) is { } stroke) {
-            into.Add(new DrawCommand(DrawCommandKind.Border, x, y, width, height, stroke, radius, thickness));
-        }
+        if (shown) {
+            if (Color(element, backgroundColor) is { } fill) {
+                into.Add(new DrawCommand(DrawCommandKind.Rectangle, x, y, width, height, Fade(fill, alpha), radius, 0f));
+            }
 
-        // Between the border and the children, which is where CSS puts an element's own content:
-        // a child overlaps its parent's text, and its parent's text overlaps its parent's border.
-        EmitText(document, element, into);
-        element.OnDraw(new DrawContext(element, into));
+            // The border is drawn after the background and before the children, which is the order
+            // CSS paints them in — a child overlapping the edge covers the border, and a background
+            // never covers its own.
+            var thickness = document.Layout.GetComputedBorder(element.LayoutNode, Edge.Top);
+            if (thickness > 0f && Color(element, borderColor) is { } stroke) {
+                into.Add(new DrawCommand(DrawCommandKind.Border, x, y, width, height, Fade(stroke, alpha), radius, thickness));
+            }
+
+            // Between the border and the children, which is where CSS puts an element's own content:
+            // a child overlaps its parent's text, and its parent's text overlaps its parent's border.
+            EmitText(document, element, into, alpha);
+            element.OnDraw(new DrawContext(element, into));
+        }
 
         var clips = element.Style.TryGet(overflow, out var value) && value != visible;
         if (clips) {
@@ -106,7 +150,7 @@ public sealed class DrawListBuilder {
         }
 
         foreach (var child in element.Children) {
-            Emit(document, child, into);
+            Emit(document, child, into, alpha);
         }
 
         // ⚠ Popped only if it was pushed, and popped after the children rather than at the end of
@@ -133,7 +177,7 @@ public sealed class DrawListBuilder {
     ///         padding mistake and for two lines looks like nothing at all.
     ///     </para>
     /// </remarks>
-    void EmitText(UiDocument document, UiElement element, DrawList into) {
+    void EmitText(UiDocument document, UiElement element, DrawList into, float alpha) {
         if (element.Run() is not { } run) {
             return;
         }
@@ -163,7 +207,7 @@ public sealed class DrawListBuilder {
                 top + run.Baseline,
                 run.Width,
                 run.Height,
-                Color(element, textColor) ?? Color4.Black,
+                Fade(Color(element, textColor) ?? Color4.Black, alpha),
                 0f,
                 0f
             ) {
@@ -174,6 +218,26 @@ public sealed class DrawListBuilder {
             }
         );
     }
+
+    /// <summary>An element's own <c>opacity</c>, before anything above it is multiplied in.</summary>
+    /// <remarks>
+    ///     One when nothing said, and clamped — CSS clamps to 0–1 rather than treating <c>1.5</c> as
+    ///     an error, and a value outside the range that silently drew nothing would be a stylesheet
+    ///     bug nobody could find. Not inherited, which is why it has to be threaded through
+    ///     <see cref="Emit" /> rather than read off the computed style of each element alone.
+    /// </remarks>
+    float Opacity(UiElement element) {
+        if (!element.Style.TryGet(opacity, out var id)) {
+            return 1f;
+        }
+
+        var value = parser.Parse(id);
+        return value.Kind == StyleValueKind.Number ? Math.Clamp(value.Number, 0f, 1f) : 1f;
+    }
+
+    /// <summary>A colour with the accumulated opacity multiplied into its alpha.</summary>
+    static Color4 Fade(Color4 colour, float alpha) =>
+        alpha >= 1f ? colour : new Color4(colour.R, colour.G, colour.B, colour.A * alpha);
 
     Color4? Color(UiElement element, int property) {
         if (!element.Style.TryGet(property, out var id)) {

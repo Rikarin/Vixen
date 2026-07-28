@@ -11,6 +11,7 @@ using Vixen.Rendering.Features;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
+using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;

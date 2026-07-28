@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+
+        <!-- The PNG codec's round-trip is a property over every size and every byte, not an example. -->
+        <PackageReference Include="CsCheck" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            One of the Consortium's test fonts, linked rather than copied — the same one
+            Vixen.Ui.Tests uses, for the same reason. Text that reaches a draw list has to be shaped
+            by a real font, and the software rasteriser's glyph path cannot be judged against a stub
+            with invented metrics.
+        -->
+        <EmbeddedResource Include="..\Vixen.Ui.Text.Tests\Fonts\TestShapeLana.ttf"
+                          LogicalName="Vixen.Ui.Testing.Tests.Fonts.TestShapeLana.ttf" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The reference pictures, beside the binary. They are read from the output directory and
+            written back to the source tree when VIXEN_UPDATE_SCREENSHOTS accepts a change, which is
+            what stops an accepted picture evaporating on the next clean build.
+        -->
+        <None Include="__screenshots__\**" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
+    </ItemGroup>
+</Project>
