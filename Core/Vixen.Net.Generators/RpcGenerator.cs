@@ -114,7 +114,7 @@ public sealed class RpcGenerator : IIncrementalGenerator {
     static readonly DiagnosticDescriptor QuantizeNotFloat = new(
         "VXNET2007",
         "[Quantize] is on an argument that is not a float",
-        "'{0}' is a {1}. [Quantize] declares the range of a float; an integer already knows what it is worth.",
+        "'{0}' is a {1}. [Quantize] declares the range of a float or a Vector3; an integer already knows what it is worth, and a rotation has no range to declare.",
         "Vixen.Net",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true
@@ -267,14 +267,14 @@ public sealed class RpcGenerator : IIncrementalGenerator {
         var quantize = FindQuantize(parameter);
         var typeName = parameter.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
 
-        if (quantize is not null && parameter.Type.SpecialType != SpecialType.System_Single) {
+        if (quantize is not null && !WireCodec.AcceptsQuantize(parameter.Type)) {
             diagnostics.Add(Report(QuantizeNotFloat, parameter.Locations, parameter.Name, typeName));
 
             return null;
         }
 
         if (quantize is { } range && range.Bits is >= 1 and <= 32 && range.Max > range.Min) {
-            return new(parameter.Name, WireKind.QuantizedSingle, range.Min, range.Max, range.Bits);
+            return new(parameter.Name, WireCodec.KindOf(parameter.Type, quantized: true), range.Min, range.Max, range.Bits);
         }
 
         var kind = WireCodec.KindOf(parameter.Type);
@@ -386,7 +386,7 @@ public sealed class RpcGenerator : IIncrementalGenerator {
 
         foreach (var handler in handlers) {
             foreach (var argument in handler.Arguments) {
-                if (argument.Kind == WireKind.QuantizedSingle) {
+                if (argument.Kind is WireKind.QuantizedSingle or WireKind.QuantizedVector3) {
                     source.AppendLine(
                         $"    static readonly global::Vixen.Net.Messaging.QuantizeRange {RangeName(handler, argument)} = "
                         + $"new({WireCodec.Literal(argument.Min)}, {WireCodec.Literal(argument.Max)}, {argument.Bits});"
@@ -496,14 +496,10 @@ public sealed class RpcGenerator : IIncrementalGenerator {
     }
 
     static string Read(HandlerModel handler, in WireValue argument, string local) =>
-        argument.Kind == WireKind.QuantizedSingle
-            ? $"reader.TryReadQuantized({RangeName(handler, argument)}, out var {local})"
-            : WireCodec.Read(in argument, local);
+        WireCodec.Read(in argument, local).Replace(argument.RangeName, RangeName(handler, argument));
 
     static string Write(HandlerModel handler, in WireValue argument) =>
-        argument.Kind == WireKind.QuantizedSingle
-            ? $"writer.WriteQuantized({argument.Name}, {RangeName(handler, argument)});"
-            : WireCodec.Write(in argument, argument.Name);
+        WireCodec.Write(in argument, argument.Name).Replace(argument.RangeName, RangeName(handler, argument));
 
     static string EmitRegistration(ImmutableArray<string> types) {
         var source = new StringBuilder();
@@ -535,6 +531,8 @@ public sealed class RpcGenerator : IIncrementalGenerator {
 
     static string ParameterType(in WireValue value) =>
         value.Kind switch {
+            WireKind.Vector3 or WireKind.QuantizedVector3 => $"global::{WireCodec.Vector3Type}",
+            WireKind.Rotation => $"global::{WireCodec.QuaternionType}",
             WireKind.Boolean => "bool",
             WireKind.Byte => "byte",
             WireKind.SByte => "sbyte",

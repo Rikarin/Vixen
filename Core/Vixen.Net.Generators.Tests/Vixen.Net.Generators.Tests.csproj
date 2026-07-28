@@ -35,5 +35,6 @@
         <!-- The runtime the generated code calls. -->
         <ProjectReference Include="..\Vixen.Net\Vixen.Net.csproj" />
         <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
     </ItemGroup>
 </Project>

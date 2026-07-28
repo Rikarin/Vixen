@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Net;
 using Vixen.Net.Messaging;
@@ -34,6 +35,17 @@ public struct GeneratedTransform {
 
     /// <summary>A flag, which costs one bit.</summary>
     public bool Grounded;
+}
+
+/// <summary>A pose: a quantized position, and a rotation sent smallest-three.</summary>
+[Replicated(Priority = 20)]
+public struct GeneratedPose {
+    /// <summary>Where it is, to three centimetres over two kilometres.</summary>
+    [Quantize(-1000f, 1000f, 16)]
+    public Vector3 Position;
+
+    /// <summary>Which way it faces. No range to declare — a unit quaternion already has one.</summary>
+    public Quaternion Rotation;
 }
 
 /// <summary>A replicated component with default settings, to check the defaults are the defaults.</summary>

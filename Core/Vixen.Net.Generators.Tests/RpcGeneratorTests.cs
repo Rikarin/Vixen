@@ -303,6 +303,7 @@ public sealed class RpcGeneratorTests {
         var diagnostics = GeneratorHarness.CompileWithGeneratedCode(
             $$"""
             {{Preamble}}
+            using Vixen.Core.Mathematics;
 
             public sealed partial class Everything : IRpcObject {
                 public NetworkId NetworkId => default;
@@ -313,6 +314,9 @@ public sealed class RpcGeneratorTests {
 
                 [ClientRpc(Target = RpcTarget.Owner, Channel = Channel.Sequenced)]
                 void Floats(float exact, [Quantize(-1f, 1f, 12)] float packed) { }
+
+                [ClientRpc]
+                void Pose([Quantize(-100f, 100f, 14)] Vector3 at, Quaternion facing) { }
 
                 [ServerRpc]
                 void WithContext(in RpcContext context, int value) { }

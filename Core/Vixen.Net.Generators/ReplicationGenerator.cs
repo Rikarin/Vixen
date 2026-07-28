@@ -66,7 +66,7 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
     static readonly DiagnosticDescriptor QuantizeNotFloat = new(
         "VXNET1002",
         "[Quantize] is on something that is not a float",
-        "'{0}' is a {1}. [Quantize] declares the range of a float; an integer already knows what it is worth.",
+        "'{0}' is a {1}. [Quantize] declares the range of a float or a Vector3; an integer already knows what it is worth, and a rotation has no range to declare.",
         "Vixen.Net",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true
@@ -193,7 +193,7 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
         var quantize = FindQuantize(field);
         var typeName = field.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
 
-        if (quantize is not null && field.Type.SpecialType != SpecialType.System_Single) {
+        if (quantize is not null && !WireCodec.AcceptsQuantize(field.Type)) {
             diagnostics.Add(Report(QuantizeNotFloat, field.Locations, field.Name, typeName));
 
             return null;
@@ -215,7 +215,7 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
                 return null;
             }
 
-            return new(field.Name, WireKind.QuantizedSingle, range.Min, range.Max, range.Bits);
+            return new(field.Name, WireCodec.KindOf(field.Type, quantized: true), range.Min, range.Max, range.Bits);
         }
 
         var kind = WireCodec.KindOf(field.Type);

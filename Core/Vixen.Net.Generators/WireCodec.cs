@@ -17,7 +17,10 @@ enum WireKind {
     Int32,
     UInt32,
     Single,
-    QuantizedSingle
+    QuantizedSingle,
+    Vector3,
+    QuantizedVector3,
+    Rotation
 }
 
 /// <summary>One value to encode: a component's field, or an RPC's argument.</summary>
@@ -35,11 +38,20 @@ readonly record struct WireValue(string Name, WireKind Kind, float Min, float Ma
 ///     disagree. A type added here is a type both understand.
 /// </remarks>
 static class WireCodec {
+    /// <summary>The mathematics types the wire knows about, by name.</summary>
+    public const string Vector3Type = "Vixen.Core.Mathematics.Vector3";
+
+    /// <summary>The rotation type, which is sent smallest-three.</summary>
+    public const string QuaternionType = "Vixen.Core.Mathematics.Quaternion";
+
+    const string Codec = "global::Vixen.Net.Messaging.MathCodec";
+
     /// <summary>Reads what a symbol's type means on the wire.</summary>
     /// <param name="type">The type.</param>
+    /// <param name="quantized">Whether the declaration carried a <c>[Quantize]</c>.</param>
     /// <returns>Its kind, or <see cref="WireKind.Unsupported" />.</returns>
-    public static WireKind KindOf(ITypeSymbol type) =>
-        type.SpecialType switch {
+    public static WireKind KindOf(ITypeSymbol type, bool quantized = false) {
+        var kind = type.SpecialType switch {
             SpecialType.System_Boolean => WireKind.Boolean,
             SpecialType.System_Byte => WireKind.Byte,
             SpecialType.System_SByte => WireKind.SByte,
@@ -47,9 +59,30 @@ static class WireCodec {
             SpecialType.System_UInt16 => WireKind.UInt16,
             SpecialType.System_Int32 => WireKind.Int32,
             SpecialType.System_UInt32 => WireKind.UInt32,
-            SpecialType.System_Single => WireKind.Single,
+            SpecialType.System_Single => quantized ? WireKind.QuantizedSingle : WireKind.Single,
             _ => WireKind.Unsupported
         };
+
+        if (kind != WireKind.Unsupported) {
+            return kind;
+        }
+
+        return type.ToDisplayString() switch {
+            Vector3Type => quantized ? WireKind.QuantizedVector3 : WireKind.Vector3,
+
+            // A rotation has no range to declare: a unit quaternion's three sent components are in
+            // [-1/√2, 1/√2] because they have to be, so only the width would be a choice and it is
+            // not one worth an attribute yet.
+            QuaternionType => quantized ? WireKind.Unsupported : WireKind.Rotation,
+            _ => WireKind.Unsupported
+        };
+    }
+
+    /// <summary>Whether a type is one <c>[Quantize]</c> means anything for.</summary>
+    /// <param name="type">The type.</param>
+    /// <returns>Whether a range can be declared for it.</returns>
+    public static bool AcceptsQuantize(ITypeSymbol type) =>
+        type.SpecialType == SpecialType.System_Single || type.ToDisplayString() == Vector3Type;
 
     /// <summary>The statement that writes a value.</summary>
     /// <param name="value">The value.</param>
@@ -58,6 +91,12 @@ static class WireCodec {
     public static string Write(in WireValue value, string expression) =>
         value.Kind switch {
             WireKind.QuantizedSingle => $"writer.WriteQuantized({expression}, {value.RangeName});",
+            // Called statically rather than as extension methods: generated code qualifies
+            // everything, and an extension call cannot be qualified at the receiver — it would
+            // depend on a `using` that the file has no other reason to carry.
+            WireKind.QuantizedVector3 => $"{Codec}.WriteVector3(ref writer, {expression}, {value.RangeName});",
+            WireKind.Vector3 => $"{Codec}.WriteVector3(ref writer, {expression});",
+            WireKind.Rotation => $"{Codec}.WriteRotation(ref writer, {expression});",
             WireKind.Single => $"writer.WriteSingle({expression});",
             WireKind.Boolean => $"writer.WriteBool({expression});",
             WireKind.Byte => $"writer.Write({expression}, 8);",
@@ -75,6 +114,9 @@ static class WireCodec {
     public static string Read(in WireValue value, string local) =>
         value.Kind switch {
             WireKind.QuantizedSingle => $"reader.TryReadQuantized({value.RangeName}, out var {local})",
+            WireKind.QuantizedVector3 => $"{Codec}.TryReadVector3(ref reader, {value.RangeName}, out var {local})",
+            WireKind.Vector3 => $"{Codec}.TryReadVector3(ref reader, out var {local})",
+            WireKind.Rotation => $"{Codec}.TryReadRotation(ref reader, out var {local})",
             WireKind.Single => $"reader.TryReadSingle(out var {local})",
             WireKind.Boolean => $"reader.TryReadBool(out var {local})",
             WireKind.Byte or WireKind.SByte => $"reader.TryRead(8, out var {local})",
@@ -100,7 +142,7 @@ static class WireCodec {
     /// <param name="value">The value.</param>
     /// <returns>The field declaration, or an empty string.</returns>
     public static string RangeField(in WireValue value) =>
-        value.Kind != WireKind.QuantizedSingle
+        value.Kind is not (WireKind.QuantizedSingle or WireKind.QuantizedVector3)
             ? string.Empty
             : $"    static readonly global::Vixen.Net.Messaging.QuantizeRange {value.RangeName} = "
             + $"new({Literal(value.Min)}, {Literal(value.Max)}, {value.Bits});";

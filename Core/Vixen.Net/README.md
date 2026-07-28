@@ -232,6 +232,44 @@ Ids are hashes of the declaring type and the signature, so adding a method does 
 others; the wire carries the position in a manifest ordered by those hashes, and `ManifestHash` is the
 one number two peers compare in the handshake.
 
+## Motion
+
+A client draws the world **behind** the server, at `TickManager.InterpolationTick`, far enough back
+that the snapshots bracketing the moment being drawn have already arrived. `SnapshotBuffer` is that
+delay, and the delay is what buys the interpolation something to interpolate between.
+
+```csharp
+buffer.Add(new TransformSample(tick, position, rotation));
+if (buffer.TrySample(clock.InterpolationTick, clock.Alpha, out var at)) { … }
+```
+
+Four behaviours, each with a counter:
+
+- **Interpolate** between the two samples bracketing the target — the ordinary case.
+- **Extrapolate** past the newest, from the velocity of the last two, **clamped**: a player who
+  stopped a second ago should not still be crossing the map on everybody else's screen.
+- **Snap** when two consecutive samples are further apart than a walk — a respawn is not a very fast
+  run through everything in between.
+- **Hold** when there is nothing to work with, rather than guessing.
+
+Rotation is held rather than extrapolated. A position that overshoots comes back with the next
+snapshot and reads as momentum; a rotation that overshoots reads as a stumble.
+
+**Owner-side smoothing** is the other half, and a different problem: the owner *simulates* their
+object rather than interpolating it, which is why a local player feels responsive. When the server
+corrects them, the simulation takes it immediately — so the next physics step and everything the
+server will judge run from the right place — and `OwnerSmoothing` hands the camera the error as an
+offset that decays over a few frames. What the player sees glides; what the game computes is already
+right.
+
+`NetworkTransform` is the component that travels: a quantized position, a rotation packed
+smallest-three, and a teleport counter. 88 bits, against the 224 the two values occupy in memory.
+
+**Smallest-three** is worth stating because it is exact rather than approximate: a unit quaternion's
+largest component can always be recovered from the other three, and those three are in ±1/√2 *because
+they have to be*. Two bits say which one was dropped, and the sender flips the whole quaternion so
+the dropped one is positive — `q` and `-q` being the same rotation is what removes the sign bit.
+
 ## What goes over a session
 
 The session carries opaque bytes. Three things want to put bytes there — replication, remote calls,

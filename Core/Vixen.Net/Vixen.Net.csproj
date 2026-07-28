@@ -25,6 +25,7 @@
             one way.
         -->
         <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
         <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
     </ItemGroup>
 

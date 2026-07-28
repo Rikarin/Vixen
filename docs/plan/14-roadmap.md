@@ -2196,7 +2196,34 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   a deliberate ergonomics choice rather than a placeholder, so a prototype works before anyone has
   thought about it. **Owed:** scene scope, explicit overrides, the distance grid and `NetworkLOD`,
   which are resolvers to write against a seam that now exists.
-- Motion: snapshot interpolation, clamped extrapolation, `NetworkTransform`, owner-side smoothing.
+- ✅ **Motion: interpolation, clamped extrapolation, `NetworkTransform`, owner-side smoothing.**
+  26 further tests; 275 across the networking projects in total.
+
+  `SnapshotBuffer` is the delay that makes motion smooth: a client draws at
+  `TickManager.InterpolationTick`, behind the server by enough that the two snapshots bracketing the
+  moment have already arrived. Four behaviours, each counted — interpolate between two samples,
+  extrapolate past the newest from the velocity of the last two and **clamp** it, snap rather than
+  slide when two samples are further apart than a walk, and hold when there is nothing to go on.
+  Rotation is held rather than extrapolated: a position that overshoots reads as momentum, a rotation
+  that overshoots reads as a stumble.
+
+  Owner-side smoothing is the other half and a different problem. The owner simulates rather than
+  interpolates — that is what makes a local player feel responsive — so when the server corrects them
+  the **simulation** takes it at once, and only the **camera** is given the error as an offset that
+  decays. What the player sees glides; what the server will judge is already right. Past a snap
+  distance nothing is hidden, because dragging a camera across a rubber-band is worse than arriving.
+
+  `NetworkTransform` costs 88 bits against the 224 its two values occupy in memory, and the rotation
+  half of that is exact rather than approximate: a unit quaternion's largest component is recoverable
+  from the other three, and those three are in ±1/√2 *because they have to be*. Two bits name the
+  dropped one, and flipping the quaternion — `q` and `-q` being the same rotation — is what removes
+  the sign bit. Both generators learned `Vector3` and `Quaternion` at the same time, so a user's own
+  `[Replicated]` component and a user's own RPC argument get the same encoding rather than a
+  second one.
+
+  **Owed:** per-axis enable and parent-relative replication on `NetworkTransform`, and the system
+  that copies between it and the engine's transform hierarchy — which is where `Vixen.Engine` and
+  `Vixen.Net` will first have to meet.
 - Lag compensation: transform/collider history ring + rewound Jolt shape casts. **Deferred within the
   phase.** It is the one item here that cannot start: it rewinds colliders, and `Vixen.Physics` is
   Phase 8 and not built. The tick history it needs is keyed by `Tick`, which now exists, so the ring

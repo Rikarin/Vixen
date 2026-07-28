@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Microsoft.CodeAnalysis;
+using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Net.Generated;
 using Vixen.Net.Messaging;
@@ -27,7 +28,7 @@ public sealed class ReplicationGeneratorTests {
         // part of building it.
         ReplicatedComponents.RegisterAll(registry);
 
-        Assert.Equal(2, registry.Count);
+        Assert.Equal(3, registry.Count);
         Assert.NotEqual(0u, registry.ManifestHash);
         Assert.NotEqual(-1, registry.IndexOf(ReplicationRegistry.HashTypeName(typeof(GeneratedTransform).FullName!)));
     }
@@ -105,6 +106,58 @@ public sealed class ReplicationGeneratorTests {
         // 16 + 16 + 32 + 32 + 8 + 1 = 105 bits, which is fourteen bytes. Two unquantized floats
         // instead of the two quantized ones would be seventeen.
         Assert.Equal(14, bits.Length);
+    }
+
+    [Fact]
+    public void AVectorAndARotationAreSentTheWayTheDocsSayTheyAre() {
+        using var world = new World();
+
+        var sent = new GeneratedPose {
+            Position = new(12.5f, -400f, 3f),
+            Rotation = Quaternion.FromAxisAngle(Vector3.UnitY, 1.1f)
+        };
+
+        var entity = world.Create(sent);
+        var replicator = Find(typeof(GeneratedPose));
+        var bits = Encode(replicator, world, entity);
+
+        // 48 bits of quantized position and 32 of smallest-three rotation, against the 224 the two
+        // occupy in memory.
+        Assert.Equal(10, bits.Length);
+
+        using var client = new World();
+        var mirrored = client.Create();
+        var reader = new BitReader(bits);
+
+        Assert.True(replicator.Apply(client, mirrored, ref reader));
+
+        ref readonly var got = ref client.Read<GeneratedPose>(mirrored);
+        var range = new QuantizeRange(-1000f, 1000f, 16);
+
+        Assert.InRange(got.Position.X, sent.Position.X - range.MaxError, sent.Position.X + range.MaxError);
+        Assert.InRange(got.Position.Y, sent.Position.Y - range.MaxError, sent.Position.Y + range.MaxError);
+        Assert.Equal(sent.Rotation.Y, got.Rotation.Y, 2);
+        Assert.Equal(sent.Rotation.W, got.Rotation.W, 2);
+    }
+
+    [Fact]
+    public void AQuantizeOnARotation_IsAnError() {
+        var (diagnostics, _) = GeneratorHarness.Run(
+            $$"""
+            {{Preamble}}
+            using Vixen.Core.Mathematics;
+
+            [Replicated]
+            public struct Wrong {
+                [Quantize(0f, 1f, 8)]
+                public Quaternion Rotation;
+            }
+            """
+        );
+
+        // A unit quaternion's sent components are in [-1/√2, 1/√2] because they have to be, so there
+        // is no range to declare and only the width would be a choice.
+        Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "VXNET1002");
     }
 
     [Fact]
