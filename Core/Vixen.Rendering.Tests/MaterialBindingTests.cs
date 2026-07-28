@@ -392,6 +392,121 @@ public sealed class MaterialBindingTests : IDisposable {
         Assert.NotEqual(before, h.Materials.DescriptorsOf(h.System, id));
     }
 
+    // --- One block per set --------------------------------------------------
+
+    /// <summary>
+    ///     A pass with a block in every set gives each filler the right one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="Effect.ConstantBufferSize" /> names one block, which is all a shader that
+    ///         marks none of its bindings has. A pass that says which set each binding is in has up to
+    ///         four, and the thing filling set 0's buffer must not be handed set 2's size and set 2's
+    ///         member offsets — that writes the right values into the wrong buffer, which is a frame
+    ///         lit by whatever those bytes happened to mean.
+    ///     </para>
+    ///     <para>
+    ///         Asserted on <see cref="Effect.BlockOf" /> directly, because the two callers that use it
+    ///         — the material feature and <see cref="SceneConstants" /> — would each pass over a wrong
+    ///         answer without noticing, and the shapes they write are what a driver sees rather than
+    ///         what a test does.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Each_set_gets_its_own_block() {
+        var effect = new Effect {
+            Key = EffectKey.Of("Layered"),
+            Stages = [],
+            ConstantBufferSize = 544,
+            Bindings = [
+                new("frame", DescriptorSetSlot.PerFrame, 0, DescriptorKind.UniformBuffer) { Size = 544 },
+                new("material", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.UniformBuffer) { Size = 32 }
+            ],
+            Parameters = [
+                new(ParameterKeys.New<float>("Layered.ambient"), 0, 4) { Set = DescriptorSetSlot.PerFrame },
+                new(ParameterKeys.New<float>("Layered.tint"), 16, 4) { Set = DescriptorSetSlot.PerMaterial }
+            ]
+        };
+
+        var frame = effect.BlockOf(DescriptorSetSlot.PerFrame);
+        var material = effect.BlockOf(DescriptorSetSlot.PerMaterial);
+
+        Assert.Equal(544, frame.Size);
+        Assert.Equal("Layered.ambient", Assert.Single(frame.Members).Key.Name);
+
+        Assert.Equal(32, material.Size);
+        Assert.Equal("Layered.tint", Assert.Single(material.Members).Key.Name);
+
+        // A set with no block at all says so, rather than answering with somebody else's.
+        Assert.False(effect.BlockOf(DescriptorSetSlot.PerDraw).Exists);
+    }
+
+    /// <summary>The frame's set is written from the shader's own names, once.</summary>
+    /// <remarks>
+    ///     What <see cref="SceneConstants" /> is: set 0's counterpart to <c>ViewConstants</c>. Unlike
+    ///     set 1 it holds resources as well as a block, which is why it takes its shape from the
+    ///     effect rather than from a host's configuration — set 1 is a contract between shaders and
+    ///     set 0 belongs to whichever pass is drawing.
+    /// </remarks>
+    [Fact]
+    public void The_frames_set_is_written_from_the_shaders_names() {
+        using var device2 = new NullDevice(new() { Record = true });
+        using var frameAllocator = new DescriptorAllocator(device2);
+
+        var frameLayout = device2.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerFrame,
+                [
+                    new(0, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+                    new(1, DescriptorKind.SampledTexture, ShaderStage.Fragment)
+                ],
+                "Scene"
+            )
+        );
+
+        var effect = new Effect {
+            Key = EffectKey.Of("Scene"),
+            Stages = [],
+            SetLayouts = [frameLayout, default, default, default],
+            ConstantBufferSize = 16,
+            Bindings = [
+                new("constants", DescriptorSetSlot.PerFrame, 0, DescriptorKind.UniformBuffer) { Size = 16 },
+                new("environment", DescriptorSetSlot.PerFrame, 1, DescriptorKind.SampledTexture)
+            ],
+            Parameters = [new(ParameterKeys.New<float>("Scene.ambient"), 0, 4) { Set = DescriptorSetSlot.PerFrame }]
+        };
+
+        using var scene = new SceneConstants(device2) { Descriptors = frameAllocator };
+
+        var list = device2.BeginCommandList();
+
+        // Nothing set yet: the environment has no texture, so the set is short of a binding and
+        // nothing is bound — rather than a set with a hole in it.
+        frameAllocator.BeginFrame();
+
+        Assert.False(scene.Bind(list, effect));
+        Assert.False(scene.IsComplete);
+
+        scene.Parameters.Set(ParameterKeys.New<float>("Scene.ambient"), 2f);
+        scene.Parameters.Set(
+            ParameterKeys.New<TextureViewHandle>("Scene.environment"),
+            device2.CreateTextureView(
+                device2.CreateTexture(
+                    new() {
+                        Width = 4, Height = 4, Depth = 1, MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
+                        Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.Sampled
+                    }
+                )
+            )
+        );
+
+        Assert.True(scene.Bind(list, effect));
+        Assert.True(scene.IsComplete);
+        Assert.Equal(1, scene.WriteCount);
+
+        list.Finish();
+    }
+
     // --- Declining ----------------------------------------------------------
 
     /// <summary>

@@ -662,6 +662,31 @@ structures on a sixteen-byte boundary, so the count and the two probe fields fil
 four offsets against the checked-in reflection, so the shader and the feature cannot drift apart again
 without a test saying so.
 
+### One block per set, and who fills each
+
+Marking the sets meant `Effect.ConstantBufferSize` stopped being enough: it names *one* block, which is
+all a shader that marks nothing has, and this pass now has four. `Effect.BlockOf(slot)` is the same
+question asked per set — a caller handed the wrong pair writes the right values into the wrong buffer,
+which is a frame lit by whatever those bytes meant.
+
+| Set | Filled by |
+|---|---|
+| 0 | `SceneConstants` — the environment, the probes, the shadow atlas, the sun |
+| 1 | `ViewConstants` — the block every shader shares |
+| 2 | `MaterialRenderFeature` |
+| 3 | `ForwardLightingRenderFeature` |
+
+`SceneConstants` is set 0's counterpart to `ViewConstants`, and it differs in one way that follows from
+what the two sets are. Set 1 is a **contract between shaders**, so its layout is configured once and
+holds a block only — a texture there would make two shaders' set 1 incompatible and the shared set
+unbindable. Set 0 belongs to whichever pass is drawing, so it takes its shape from that pass's own
+binding plan and can hold resources: a host sets `ForwardPlusKeys.Environment` and `EffectSetWriter`
+finds where `environment` goes.
+
+`EffectSetWriter` is that lookup, shared by both fillers, because the rule is one rule: a caller names
+a resource and `Effect.Bindings` says where it goes. Every binding or none, for the reason a material's
+set is all-or-nothing.
+
 The shader half — `Library/Pipeline/ClusterCulling.rvn` binning lights into a froxel grid, and
 `ForwardPlus.rvn`'s `UseClusteredLights` permutation swapping its uniform-array loop for the cluster
 list — has existed for a while. What was missing was the CPU side, and what was *blocking* it was the
