@@ -182,8 +182,7 @@ dotnet_diagnostic.IL3050.severity = error
 dotnet_diagnostic.CA1852.severity = none
 dotnet_diagnostic.CA1859.severity = none
 
-# ==============================================================================
-# Rules disabled by name under AnalysisLevel=latest-all.
+# =======================================================================# Rules disabled by name under AnalysisLevel=latest-all.
 # Each needs a reason. Prefer fixing code over adding to this list.
 # ==============================================================================
 
@@ -428,6 +427,21 @@ dotnet_diagnostic.CA1051.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Ui.Markup/Binding/BoundNodes.cs]
 dotnet_diagnostic.CA1711.severity = none
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Net.Transport.WebSocket/SystemWebSocketFactory.cs
+#
+# CA5350 (do not use weak cryptographic algorithms). The SHA-1 here is not a
+# security decision and cannot be changed: RFC 6455 § 4.2.2 defines the opening
+# handshake as base64(SHA1(key + "258EAFA5-…")), and a browser that gets any
+# other answer refuses the upgrade. It authenticates nothing and protects
+# nothing — its purpose is to prove the server understood the WebSocket
+# handshake rather than being an HTTP cache that echoed a header. Confidentiality
+# on this transport is `wss`, which is TLS underneath and a separate decision.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Net.Transport.WebSocket/SystemWebSocketFactory.cs]
+dotnet_diagnostic.CA5350.severity = none
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Editor/Vixen.Editor.Core/CommandStack.cs

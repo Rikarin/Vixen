@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Net.Telemetry</RootNamespace>
+        <Description>
+            The export half of Vixen's networking metrics: an OpenTelemetry meter provider wired to
+            Vixen.Net's instruments, an OTLP exporter, and the resource attributes that tell one
+            server in a fleet from another. Separate from Vixen.Net on purpose — the instrumentation
+            there depends on nothing, and a game that never runs a dedicated server should not carry
+            an exporter.
+        </Description>
+        <PackageTags>opentelemetry;otlp;metrics;observability;dedicated-server;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Net\Vixen.Net.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="OpenTelemetry" />
+        <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+        <PackageReference Include="OpenTelemetry.Exporter.Console" />
+        <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
+    </ItemGroup>
+
+</Project>

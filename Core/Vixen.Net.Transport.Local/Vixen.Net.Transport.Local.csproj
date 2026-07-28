@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Net.Transport.Local</RootNamespace>
+        <Description>
+            The in-process transport: server and clients in one process, over a queue rather than a
+            socket. Powers host mode, offline play, and every test of every layer above it.
+        </Description>
+        <PackageTags>networking;multiplayer;transport;testing;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Net\Vixen.Net.csproj" />
+    </ItemGroup>
+
+</Project>

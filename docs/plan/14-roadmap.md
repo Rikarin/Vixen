@@ -2629,35 +2629,623 @@ interest management, and lag compensation. Full design in [16](16-networking.md)
 Sequenced here because it depends on the ECS change-version machinery (Phase 2), deterministic prefab
 and content IDs (Phase 3), and physics for lag compensation (Phase 8).
 
-- `Vixen.Net.Transport.Local` **first** — in-process transport, so every later piece is unit-testable
-  without sockets. Then `Udp` (reliable + unreliable + fragmentation), `WebSocket`, `Relay`, `Composite`,
-  and the `NetworkSimulation` decorator (latency/jitter/loss injection, on by default in dev builds).
-- Session layer: Server/Client/Host/Offline topologies, players, authentication hook, reconnect tokens.
-- `TickManager`: fixed tick shared with the ECS `FixedUpdate` phase, clock sync, RTT/jitter estimation.
-- Identity and spawning: `NetworkId`, prefab ids derived from asset GUIDs, build-time-baked ids for
-  scene-placed objects, ownership with transfer.
-- **`NetworkRules`** policy assets (`.vxnetrules`) — spawn/despawn/call/observe/write permissions.
-- `Vixen.Net.Generators`: RPC senders (the `Rpc.Method(...)` accessor pattern — see
-  [16](16-networking.md) on why we do not weave IL), manifest with stable hashed ids, serializers, delta
-  serializers, quantizers, networked-type registry.
-- Replication: per-connection baselines + acks, delta encoding over the ECS `.WithChanged(sinceTick)`
-  query, bit packing, `[Quantize]`, `SyncVar<T>`/`SyncList<T>`/`NetworkModule`, bandwidth budget with
-  priority shedding.
-- Interest management: scene scope, explicit overrides, distance grid, `NetworkLOD` rate falloff.
-- Motion: snapshot interpolation, clamped extrapolation, `NetworkTransform`, owner-side smoothing.
-- Lag compensation: transform/collider history ring + rewound Jolt shape casts.
-- Security pass: packet validation, rate limits, closed-set deserialization, protocol/content hash
-  handshake. Fuzzing corpus over the packet reader.
+- ✅ **The transport layer: the contract, the in-process transport, and the simulation decorator.**
+  85 tests. `Vixen.Net` holds the vocabulary — the four `Channel`s with their guarantees asked rather
+  than remembered (`IsReliable`/`IsOrdered`/`MayDrop`/`MayDuplicate`, so the reliability layer and the
+  delta encoder derive behaviour from one place instead of each writing a `switch`), `ConnectionId`,
+  `DisconnectReason`, and `ITransport`/`ITransportEvents`.
+
+  Three decisions in that contract are load-bearing and were made here rather than discovered later.
+  **One object holds both halves**, so a listen server is one transport with a loopback in it rather
+  than a second code path through every layer above. **Nothing is delivered outside `Poll`** — no
+  callback on a socket thread — which is what lets replication be ordinary code at a known point in
+  the schedule. And **time is a parameter, not a reading**: `Poll(elapsed, events)` is *told* how much
+  time passed, so a test observing a 200 ms round trip does it in a loop rather than in 200 ms.
+
+  `Vixen.Net.Transport.Local` is a perfect wire on purpose — nothing lost, reordered or duplicated, so
+  all four channels are honoured for free — and imperfection belongs entirely to `NetworkSimulation`,
+  which wraps any transport and injects latency, jitter, loss and duplication, with reordering falling
+  out of jitter. It **respects the channel it is injecting into** (a `Reliable` payload is delayed but
+  never dropped or overtaken; a `Sequenced` one may be dropped but not reordered), so the layer above
+  is exercised against its contract rather than against a violation of it, and it **replays**: the
+  seed is a required constructor argument, delays are spent against the virtual clock `Poll` advances,
+  and the draws happen in a fixed order per send.
+
+  The contract is executable rather than described — `TransportConformance` is an abstract suite of
+  everything `ITransport` promises, run against the local transport *and* against the simulation
+  wrapped around it in a `Perfect` profile, where the decorator has to be invisible. Every later
+  transport inherits the same suite.
+
+  **Owed:** `WebSocket`, `Relay`, `Composite`. And switching the simulation on by default in dev
+  builds, which is a session-layer wiring decision. (`Udp` landed later in the phase — see below.)
+
+- ✅ **`Vixen.Net.Transport.Udp`.** 37 tests. The four channels built out of a medium that promises
+  none of them: sequence numbers and acknowledgements and retransmission for the reliable pair, a
+  receiver that holds what arrived early for the ordered one, deduplication for all of them, and
+  anything older than what has already been delivered discarded for the sequenced one. Fragmentation
+  and reassembly up to the 64 KiB the contract promises, keep-alives, and timeouts.
+
+  **The conformance suite is what says it worked**, which is what it was written for: this transport
+  passes exactly the tests the in-process one passes, so the session, replication and RPC layers do
+  not care which they are on. It caught the first bug on the first run — an inbound disconnect was
+  reported as `Kicked` whatever its reason byte said, which would have made "the server shut down"
+  indistinguishable from "the server closed me", and those are the two cases a game reconnects
+  differently for.
+
+  **The socket is behind a seam**, and everything subtle is above it: sequencing and reassembly are
+  tested over an in-memory bus where a datagram arrives when the receiver polls and "the third packet
+  is lost" is a fact rather than a probability. One real-socket test asserts the adapter binds, sends
+  and receives — and it earned its place immediately by failing on macOS, where the Windows-only
+  `SIO_UDP_CONNRESET` control code throws `PlatformNotSupportedException` rather than the
+  `SocketException` that was being caught.
+
+  **A message's fragments occupy consecutive sequences**, which is the decision the rest rests on:
+  the set a fragment belongs to is derivable from its own index, so there is no reassembly table, no
+  separate timeout, and an incomplete set falls out of the window on its own. Ordering falls out too
+  — a message is delivered when its *last* fragment is reached, which is where it would have been if
+  it had never been split.
+
+  **Connecting takes a challenge**, and this one is a hole a test found. The random-junk test showed
+  that a single forged datagram could allocate a connection: 200 random datagrams produced a
+  connection, because one of them started with the byte that means "connect". A server that allocates
+  state for an unverified datagram can be filled by an attacker who never receives a reply, so the
+  server now answers with a cookie derived from the address it claims to be at and a secret of its
+  own, allocates nothing, and waits for the cookie to come back from that address. The request is
+  padded larger than the answer so the exchange cannot be turned into an amplifier either. A cookie,
+  not cryptography — [16](16-networking.md) is explicit that this plan does not claim a bespoke
+  crypto layer.
+
+  **Owed:** adaptive congestion control — there is a cap on unacknowledged datagrams, which bounds
+  memory, and a window that responds to loss is a different thing. Acknowledgements riding on
+  outgoing messages rather than their own datagram. Path MTU discovery. DTLS.
+- ✅ **The tick, the packet codec, and the session.** 68 further tests; 153 across the networking
+  projects in total.
+
+  `Tick` is a wrap-safe `uint`, and its comparisons are signed distances rather than `<`. It
+  deliberately has **no comparison operators and no `IComparable`**: modular comparison is not a
+  total order — with three ticks far enough apart, A is after B, B is after C and C is after A — so a
+  type that looked sortable would eventually be sorted, and that is a bug that reproduces once every
+  two years of uptime. `TickManager` turns frame deltas into whole ticks and, on a client,
+  **corrects by drifting rather than jumping**: an error of a few ticks scales the tick *length* by
+  up to 10 % until it is worked off, so nothing keyed by tick moves under anyone. Past a second of
+  error it snaps and counts the snap, because a 10 % correction would take minutes. RTT and jitter
+  come from the RFC 6298 estimator — the weights are TCP's, which is a deliberate refusal to invent a
+  constant by eye — and the client's lead and the interpolation delay are both sized from the
+  *variance*, not the mean.
+
+  `PacketWriter`/`PacketReader` are `ref struct`s over caller-owned spans, little-endian everywhere so
+  the bit-exactness gate has something to assert. **The reader never throws**: every read returns a
+  `bool`, the first failure is sticky, no read allocates on a length the packet supplied, and every
+  blob and string takes a cap from the caller. That is the security posture of § Security as code
+  rather than as a paragraph, and there is a ten-thousand-packet random-bytes test on every build
+  ahead of the real `SharpFuzz` corpus. The writer's mirror: overflow sets a flag and `TryFinish`
+  refuses to hand over a truncated packet, because shedding a packet is the right answer to a
+  bandwidth spike and unwinding the stack is not.
+
+  `NetworkSession` owns the handshake, the clock and the player list, and nothing else. **Nothing is
+  dispatched before the handshake completes** — protocol version, content hash, then the
+  authenticator — so every layer above may assume its peer agreed on all three. **A `PlayerId` is not
+  a `ConnectionId`**: a dropped player keeps their id and their slot for the reconnect window and
+  resumes with a server-issued token, freshly minted on every connect. The authenticator is
+  **asked repeatedly rather than awaited** (it may answer `Pending`, with a timeout), which keeps the
+  session single-threaded; `Task<bool>` would have made every layer it touches thread-safe for an
+  event that happens twice a minute. And **host mode is not a special case**: `StartHost` starts both
+  halves of one transport and its own client half does the same handshake through the loopback, with
+  `StartOffline` mechanically identical to it — single player is a one-player multiplayer game, so
+  there is no offline path to rot.
+
+  One defect worth recording, found by a test that expected one exception and got another: a record's
+  generated `ToString` calls every property, so `TickRate.Duration` throwing on a default-constructed
+  rate meant the `ArgumentOutOfRangeException` complaining about that rate could not render its own
+  message. A property that can throw does not belong in a generated `ToString`; the type writes its
+  own.
+
+  **Owed:** the session sends and receives opaque payloads and does not yet know what is in them —
+  that is replication and RPC. Bandwidth budgeting and priority shedding have the writer's overflow
+  flag to build on and are not built.
+- ✅ **Remote calls, and the generator half that writes them.** 45 further tests; 249 across the
+  networking projects in total.
+
+  The handler keeps its name and the sender gets its own, reached through a generated nested `Rpc`
+  accessor: `Rpc.TakeDamage(dmg)`. That is the design [16](16-networking.md) argued for against the
+  reference implementation's IL weaving, built as specified — and the argument holds up in use.
+  Transparent RPC hides latency and bandwidth at the call site; one line of ceremony buys a call site
+  that says what it costs.
+
+  **Nothing a packet says about who sent it is believed.** The sender is what the session says it is,
+  and it is what ownership and the rate limit are checked against. A handler that wants to know who
+  called it takes an `in RpcContext` first parameter that the router fills in — a handler taking the
+  caller's id as an ordinary argument would be asking the caller who they are, which is the shape of
+  the bug this prevents. Six checks run before anything is invoked, each of them a counter: manifest,
+  direction, registered object, ownership, rate limit, and arguments that decode and leave nothing
+  behind. The rate limit is a token bucket that exists by default rather than one somebody remembers
+  to switch on, because an RPC is the one thing a client can make a server do work for.
+
+  Ownership arrives with it — `NetworkOwnership`, with transfer as an event and `TransferAll` sending
+  a departed player's objects back to the server rather than to nobody. Ids are hashes of the
+  declaring type and the signature, so adding a method does not renumber the others, and the wire
+  carries the position in a hash-ordered manifest with `ManifestHash` as the handshake's check.
+
+  One gap closed on the way: the session's payload space was undivided, so replication snapshots,
+  calls and the game's own messages would have arrived indistinguishable. `PayloadKind` is one byte
+  at the front, and `SessionRpcTransport` is a class of its own rather than the session implementing
+  `IRpcTransport`, because wiring the two together without the marker would have been a connection
+  that looked right and mixed three streams into one.
+
+  **Owed:** awaitable calls returning `ValueTask<T>`, which are designed for and refused with a
+  diagnostic that says so. (`NetworkRules` landed with the next slice.)
+- Identity and spawning: `NetworkId` ✅ and ownership with transfer ✅. **Owed:** prefab ids derived
+  from asset GUIDs, and build-time-baked ids for scene-placed objects — both of which are the
+  deterministic content build's to hand over, and neither of which has a caller until spawning exists.
+- ✅ **`NetworkRules`** — the policy, as a declaration rather than a `switch`. 12 further tests; 287
+  across the networking projects in total.
+
+  [16](16-networking.md) calls this the reference implementation's best idea and says to centre the
+  design on it, and the reason holds up: a co-operative game and a competitive shooter want different
+  answers to every question in it, and without this they get them by being different engines.
+
+  The composition rule is the part worth stating. **Rules never grant a client more than the code
+  asked for** — where a rule and an attribute both have an opinion, the stricter wins. So
+  `CallServerRpc` defaults to `Everyone`, which means "the rules add nothing" rather than "anybody may
+  call anything": safety out of the box comes from `[ServerRpc]` requiring ownership unless a method
+  says otherwise, and the rule is the knob that *tightens* that. A policy file quietly widening what a
+  method declared about itself is precisely the failure this design exists to prevent, and it is now
+  impossible rather than merely discouraged.
+
+  `CallServerRpc` is enforced by the router before dispatch, `ChangeOwner` by
+  `RpcRouter.TryTransferOwnership`, and `OnOwnerDisconnect` when a player leaves — with the transfer
+  done and a `Destroy` handed back as a decision, because destroying an entity is not the policy's to
+  do. `Spawn`, `Despawn` and `Write` are declared and answered through the same registry and have no
+  enforcement point yet, because nothing can spawn a networked object from a client or write
+  replicated state from one; when those arrive they ask this question rather than inventing a second
+  policy. The distinction is in the type's own documentation rather than left to be discovered.
+
+  **Owed:** the `.vxnetrules` asset itself — the importer, the serialised form and the per-prefab
+  reference, which are the asset pipeline's half. `NetworkRulesRegistry` is what it loads into.
+- ✅ **Replication, and the generator that writes its serializers.** 51 further tests; 204 across the
+  networking projects in total.
+
+  Bit packing first, because everything above it is built on it: `BitWriter`/`BitReader` over
+  caller-owned spans, and `QuantizeRange`, which is the `[Quantize]` declaration as a value. A
+  position to three centimetres over a two-kilometre range is sixteen bits rather than
+  thirty-two, and — the actual point — the precision is *declared at the field* rather than being
+  whatever `float` happens to be, with `MaxError` saying what was given up.
+
+  Replication itself rests on four decisions. **Capture once, copy many**: reading, quantizing and
+  packing a component happens once a tick, and a connection's snapshot is a copy of those bits, so
+  fifty players cost fifty memcpys and one encode. **Two filters, cheap then exact**: the ECS's
+  per-chunk change versions say which chunks are worth looking at — the structural payoff
+  [16](16-networking.md) claims for having built an ECS with them — and a hash of the encoded value
+  says which entities within them actually differ. **Acknowledged, not sent**: nothing enters a
+  connection's baseline until an ack for its tick returns, so on loss the next snapshot is computed
+  against the older baseline and the client gets the *current* value rather than a retransmission of
+  a stale one. **The budget sheds rather than truncating**: records go out in priority order and the
+  writer is rewound if one would go over, so a snapshot is always a whole number of complete records
+  and a shed takes the same path out as a loss.
+
+  Two things the first working version got wrong, both worth recording. The wire carried the 32-bit
+  type hash per record, which is five bytes as a variable-length integer on every record of every
+  tick — the size assertion on a one-field update is what gave it away. It now carries a position in
+  a manifest ordered by hash, with the hash kept as the stable identity and `ManifestHash` as the one
+  number two peers compare. And the capture's change-version comparison is off by one if the world's
+  version advances between a write and the capture that should see it: the update is simply never
+  sent, and nothing reports an error. The ordering rule is now stated on `Capture` and asserted.
+
+  `Vixen.Net.Generators` emits the `IComponentReplicator` for each `[Replicated]` struct and the
+  closed-set registration for the assembly. It has to be generated rather than reflected — iOS is
+  NativeAOT and reflecting over a struct's fields is what trimming removes — and rather than woven,
+  which ADR-002 bans. The claim that it emits what a careful person would have written is a test:
+  the test project declares a component, hand-writes its replicator, and asserts the two produce
+  **the same bits**. Four diagnostics (`VXNET1001`–`1004`), an error emitting nothing for that
+  component, and an assertion against Roslyn's own recorded reasons that an unrelated edit re-runs
+  nothing.
+
+  ✅ **Field-level delta**, which [16](16-networking.md) lists as PurrNet's `DeltaModule` and marks
+  "take", and which the generator was specified to emit. It does not emit any: differencing is a
+  transform between bit streams, so the generator emits only the **wire layout** — each field's width
+  and whether arithmetic on it means anything — and one runtime `DeltaCodec` serves every component.
+  One implementation, one property test over random layouts and random bits, and a hand-written
+  replicator opts in with a one-line `Lanes` property. A record carries one bit per field saying
+  whether it changed and a two-bit selector choosing how wide the difference is.
+
+  **Both ends keep a short history, and that is the part that took two goes to get right.** The first
+  version differenced against the *previous capture*, which is exact only for a peer whose
+  acknowledgement has already come back — so it worked perfectly on localhost and did nothing at
+  60 ms, where the acknowledged baseline is four captures old. The second differences against
+  whichever capture the connection acknowledged, names it on the wire, and the receiver applies it to
+  that one rather than to whatever it is currently holding. That distinction is the whole correctness
+  argument: a client may have applied values it has not managed to acknowledge, so "what you have"
+  and "what I last heard you had" are different, and only one of them is safe to measure from.
+  Encoding stays once-per-distinct-baseline rather than once-per-connection, so the property the
+  design is built around survives.
+
+  Measured on `Samples/08`, eight players at 30 Hz: **19.2 → 9.7 kbit/s a client clean, 21.9 → 14.5
+  at 20 % loss and 60 ms, 23.2 → 16.2 at 40 % and 120 ms.** 95 %, 82 % and 73 % of records went as
+  differences.
+
+  **Two real bugs, both pre-existing and both invisible until deltas made them matter.**
+  `ConnectionBaseline.Acknowledge` folded pending ticks newest-first, so an older tick's value
+  overwrote a newer one and the baseline claimed a connection held something it had already replaced
+  — a redundant re-send when records are whole, a corrupted value when one is a difference measured
+  from it. And `ReplicationClient` applied snapshots that arrived out of order or twice, letting an
+  older one overwrite a newer and never be corrected. Both now have regression tests; the second is
+  also why a duplicated snapshot is now counted rather than re-applied.
+
+  ✅ **`SyncVar<T>`/`SyncList<T>`/`NetworkModule`** — the behaviour-facing authoring style, in a new
+  package `Vixen.Net.Engine`. It is a package of its own because `Vixen.Net` and `Vixen.Engine` are
+  siblings and neither may reference the other: networking is optional and nothing below the engine
+  may depend on it, so a type that sees both a `Behavior` and a `NetworkId` lives above both. That is
+  the seam the `NetworkTransform` bridge has been owed since Phase 9 began, now built.
+
+  **A `SyncVar` gets the delta packer for nothing, which is the claim this design was chosen to
+  make.** A field declares its lanes, a module's lanes are its fields' lanes end to end, and a lane
+  layout is exactly what `DeltaCodec` needs — so `SyncStateReplicator<T>` is an ordinary
+  `IComponentReplicator` and behaviour state joins the pipeline where a `[Replicated]` struct does.
+  Delta encoding, per-connection baselines, priority shedding and per-field attribution, none of it
+  implemented twice. `NetworkModule` is the primitive and `SyncVar` is a field in one, per doc
+  [16](16-networking.md)'s instruction to build the built-ins out of the primitive users get.
+
+  **`SyncList` deliberately does not use it.** The packer rests on a fixed lane layout, so a
+  variable-length list fails the runtime check and falls back to whole records — correct, useless —
+  and lane-by-lane differencing is actively wrong for a list, since a front insert shifts every
+  element and would difference as "all of it changed". It replicates as an operation log instead:
+  append, insert, remove, replace, clear, travelling reliably and in order, which is what makes
+  per-connection differencing unnecessary. A late joiner gets it whole once. That is doc 16's
+  "reliable-eventual semantics" taken literally.
+
+  Two bugs the tests caught: a nested module's fields were prefixed with their path twice
+  (`Player.Player.Vitals.Health`), and a list removal reported a default item to its `Changed`
+  handler rather than the one it removed.
+
+  **Owed:** the system that marks dirty modules once a frame — `MarkChanged()` is called by hand
+  today and wants the engine's scheduler. `SyncList` ops are built and tested but not yet carried by
+  `ReplicationServer`, which needs a variable-length record kind beside the fixed-lane one — a
+  wire-format addition rather than a design question. And the `NetworkTransform` ↔ transform-hierarchy
+  system, which now has a package to live in. `DeltaPackerAnalysis`'s other half — the tooling that says which field is costing
+  the bandwidth — which is the same work as the diagnostics item below. And packaging the generator
+  into the `Vixen.Net` package the way `Vixen.Ui` carries its own; today a project takes it through a
+  `ProjectReference`.
+- Interest management: ✅ the resolver seam and the default. `IInterestResolver` is what decides which
+  entities a player is told about, and `ReplicateEverythingResolver` is what a new project gets —
+  a deliberate ergonomics choice rather than a placeholder, so a prototype works before anyone has
+  thought about it. **Owed:** scene scope, explicit overrides, the distance grid and `NetworkLOD`,
+  which are resolvers to write against a seam that now exists.
+- ✅ **Motion: interpolation, clamped extrapolation, `NetworkTransform`, owner-side smoothing.**
+  26 further tests; 275 across the networking projects in total.
+
+  `SnapshotBuffer` is the delay that makes motion smooth: a client draws at
+  `TickManager.InterpolationTick`, behind the server by enough that the two snapshots bracketing the
+  moment have already arrived. Four behaviours, each counted — interpolate between two samples,
+  extrapolate past the newest from the velocity of the last two and **clamp** it, snap rather than
+  slide when two samples are further apart than a walk, and hold when there is nothing to go on.
+  Rotation is held rather than extrapolated: a position that overshoots reads as momentum, a rotation
+  that overshoots reads as a stumble.
+
+  Owner-side smoothing is the other half and a different problem. The owner simulates rather than
+  interpolates — that is what makes a local player feel responsive — so when the server corrects them
+  the **simulation** takes it at once, and only the **camera** is given the error as an offset that
+  decays. What the player sees glides; what the server will judge is already right. Past a snap
+  distance nothing is hidden, because dragging a camera across a rubber-band is worse than arriving.
+
+  `NetworkTransform` costs 88 bits against the 224 its two values occupy in memory, and the rotation
+  half of that is exact rather than approximate: a unit quaternion's largest component is recoverable
+  from the other three, and those three are in ±1/√2 *because they have to be*. Two bits name the
+  dropped one, and flipping the quaternion — `q` and `-q` being the same rotation — is what removes
+  the sign bit. Both generators learned `Vector3` and `Quaternion` at the same time, so a user's own
+  `[Replicated]` component and a user's own RPC argument get the same encoding rather than a
+  second one.
+
+  **Owed:** per-axis enable and parent-relative replication on `NetworkTransform`, and the system
+  that copies between it and the engine's transform hierarchy — which is where `Vixen.Engine` and
+  `Vixen.Net` will first have to meet.
+- Lag compensation: transform/collider history ring + rewound Jolt shape casts. **Deferred within the
+  phase.** It is the one item here that cannot start: it rewinds colliders, and `Vixen.Physics` is
+  Phase 8 and not built. The tick history it needs is keyed by `Tick`, which now exists, so the ring
+  is the work and the query is Jolt's — the sequencing note at the top of this phase stands.
+- ✅ **Security pass: packet validation, rate limits, closed-set deserialization, protocol/content hash
+  handshake, and the fuzzing corpus over the packet reader.** `Vixen.Net.Fuzz` — nine targets, three
+  oracles, nine million cases on every build in nine seconds.
+
+  **The list of targets is the claim.** "The packet reader is fuzzed" is a much smaller statement than
+  it sounds: the reader is the bottom of the stack, and above it sit a handshake that reads four fields
+  from a connection that is nobody yet, a router that dispatches on a pair of indices, an applier that
+  creates and destroys entities, and a list that takes an index off the wire and then mutates itself
+  with it. All of them are reachable by anybody who can send a packet, so all of them are targets:
+  `PacketReader`, `BitReader`, both halves of `NetworkSession`, `ReplicationClient`,
+  `SnapshotInspector`, `DeltaCodec`, `RpcRouter`, `SyncList`.
+
+  **Three oracles, because "it did not crash" is not the property.** Nothing throws — the never-throws
+  contract, measured. Nothing amplifies — allocation against an allowance proportional to the input,
+  summed over a window rather than per case, because a list that doubles pays for the next thousand
+  appends in one and because `GC.GetAllocatedBytesForCurrentThread` settles up a thread's allocation
+  context at a collection, so a case containing a Gen0 reads kilobytes high through no fault of its
+  own. And **nothing is retained**, which an allocation budget cannot ask: a packet costing a hundred
+  bytes is proportionate and passes every ratio, and a hundred bytes never given back is a server that
+  dies on the second day.
+
+  **Seeded from the real encoders and mutated AFL-style**, because uniform random bytes are a bad
+  fuzzer for a codec — a snapshot opens with a 32-bit tick a client compares against the last one it
+  applied, so random input is refused at the first field about four billion times out of four billion.
+  Novel *behaviour* is kept, which is a signature rather than edge coverage and is called that.
+  Bounded by **case count rather than by the clock**: a time-bounded run executes a different number of
+  cases on a loaded runner than on a laptop, and a green build then proves nothing in particular.
+
+  **It found four defects on the first run**, all in code that had tests and review:
+
+  - `PacketReader` **threw** on a length above `int.MaxValue`. Two mistakes deep, which is why it took
+    a fuzzer: a blob's length is a `uint` and its cap an `int`, so the comparison is unsigned and a
+    *negative* cap is a cap above every length there is; the length then reaches the bounds check as
+    `(int)length`, which is negative, sails past `count > Remaining`, and throws out of `Span.Slice`.
+    Fixed at the one choke point where bytes are taken.
+  - `TickManager` **threw `OverflowException` on one tick value in four billion**. A tick error is a
+    modular distance and takes every value an `int` holds, including `int.MinValue` — the one value
+    `Math.Abs` throws on — and the tick arrives straight off the wire in a `Pong` and a
+    `ConnectAccepted`. One packet, one crash, on the frame's own thread.
+  - A client **kept a player record per `ConnectAccepted`** — fifty kilobytes from a thirty-two byte
+    packet. Now ignored, the mirror of the rule the server half already kept for a second handshake on
+    a live connection.
+  - A client **kept its player record after the connection was lost**, so every reconnect left one
+    behind. The older of the two and not hostile at all.
+
+  Each is pinned by a named test beside the code it broke rather than only by a corpus file, because
+  two of them need a *sequence* and a corpus entry is one input.
+
+  **The nightly exists too** — `.github/workflows/nightly.yml` runs the same harness with ten minutes
+  a target rather than a second, roughly six hundred times as many cases, and uploads the bytes of
+  anything it finds rather than only the message.
+
+  **Owed:** `SharpFuzz` with real instrumentation ([12](12-build-ci-and-testing.md) § Test
+  infrastructure) — the targets are already `(ReadOnlySpan<byte>) -> outcome`, so the wrapper is a few
+  lines, and libFuzzer would find in an hour what this finds in a week. Worth having alongside rather
+  than instead: what is here runs on every build, which an instrumented fuzzer never will. Targets for the transports themselves — `Udp` reassembles fragments and
+  tracks acknowledgement windows from bytes off the wire and `WebSocket` parses RFC 6455 frames, both
+  of them *below* the handshake and therefore more exposed than anything in the list above.
+  Structure-aware mutation, so the mutator knows a snapshot from a handshake.
+- Transports: ✅ `Local`, ✅ `NetworkSimulation`, ✅ `Udp`, ✅ **`WebSocket`**, ✅ **`Composite`**.
+  **Owed: `Relay`** — see below.
+
+  `WebSocket` is the shortest of the three real transports and that is the fact worth recording: the
+  medium is already reliable, ordered and message-framed, so there is no reliability layer, no
+  sequence numbers, no fragmentation and no reassembly — roughly 300 lines against the UDP
+  transport's 700. What it costs is honest and written down: the four channels collapse to one, so an
+  unreliable snapshot waits behind a retransmission of a stale one over the single TCP stream. A
+  browser has no alternative; a desktop client that could use UDP should.
+
+  The seam is `IWebSocketChannel`, tested over an in-memory pair, with `SystemWebSocketFactory` doing
+  the real thing over a `TcpListener` plus thirty lines of RFC 6455 upgrade — deliberately not
+  `HttpListener`. **The one real bug was in the async-to-polled adaptation**: the send loop drained a
+  `BlockingCollection`, and a blocking enumeration inside an `async` method with no `await` before it
+  runs on the *caller's* thread — so starting the send loop from the accept path blocked the accept
+  path, and a fully handshaked connection was never handed over. Nothing threw. The real-socket test
+  is what caught it, which is the second time that one test has earned its place.
+
+  `Composite` is what lets one server take both. Its whole difficulty is that each inner transport
+  numbers connections from one, so two of them collide within a second — and every layer above keys
+  players, ownership and replication baselines by that number without checking. It renumbers and maps
+  both ways. The conformance suite runs against a composite wrapping a single transport, because
+  everything the contract promises has to survive the wrapping.
+
+  **Owed: `Relay`.** It is the one transport that is not a matter of writing a client — doc 16 asks
+  for "rendezvous + relay client", and a relay client with no relay server to talk to is untestable
+  and unshippable. Building the server too is a decision about scope (do we host one? is it in-box or
+  an addon, like Steam/EOS?) rather than a piece of work waiting to be done, and it wants an answer
+  before code. Transport *fallback* — start several, keep whichever answers — belongs with it, which
+  is why the composite's client half is deliberately a single choice rather than a race.
 - **Server variant end to end** ([17](17-app-heads-and-shipping.md)): headless host on the `Null`
-  backend, server content profile (no textures/audio/shader permutations), container image, metrics
+  backend, server content profile (no textures/audio/shader permutations), container image, ✅ metrics
   endpoint. Plus **out-of-process play mode** in the editor, which is what makes multiplayer testable.
-- Diagnostics: bandwidth attribution per object/type/RPC, packet inspector, editor network panel.
-- `Samples/08-Multiplayer` — server-authoritative, 8 players, movement + shooting with lag comp.
+
+  **Partly already true, and the remainder is not networking's.** `BuildVariant.Server`,
+  `IsHeadless()`, `Vixen.Platform.Headless` and `Vixen.Graphics.Null` all exist and the host already
+  picks the headless platform for the server variant — the boot path is done. What is left divides
+  into three, none of it blocked on Phase 9:
+
+  - ✅ **The metrics endpoint**, over **OpenTelemetry**, and split across two packages for a reason
+    worth stating: `System.Diagnostics.Metrics` is not a third option alongside OpenTelemetry and
+    Prometheus — it *is* OpenTelemetry's metrics API in .NET, because the BCL types are the
+    specification's API surface and the SDK is only needed to export. So the instrumentation is
+    `NetworkMetrics` in `Vixen.Net` and **depends on nothing**; a server that already has a pipeline
+    reads every number by adding `"Vixen.Net"` to its meter list. `Vixen.Net.Telemetry` is the export
+    half, kept separate so a game that never runs a dedicated server does not link a protobuf
+    serializer to play offline.
+
+    **It pushes over OTLP rather than being scraped**, and that is a decision rather than a default.
+    A match server is one of a fleet, started and stopped per match, on a port an orchestrator chose,
+    often behind NAT, and frequently shorter-lived than a scrape interval — everything Prometheus's
+    pull model is good at depends on the target being findable and long-lived, and a match server is
+    neither. OTLP to a collector inverts that, and choosing it does not choose the backend; it
+    declines to.
+
+    **The one call a game makes is `Sample()`, once a tick, and that is the design.** Observable
+    instruments are called back on the collector's thread, and the session, the replication server
+    and the router are all single-threaded frame code — a callback that walked `Session.Players`
+    would eventually walk it while somebody was joining, which is an exception on a background thread
+    in a process whose whole job is to stay up. The frame publishes a reading; the callbacks read it.
+
+    Three smaller decisions, recorded because they are the ones that get made wrong: the **tick is a
+    histogram**, since the question is how often one goes over budget and a mean cannot be asked
+    that; **refusals are a tag rather than seven instruments**, since refusals are normal traffic and
+    the number anybody looks at is which one is climbing; and **nothing is differenced here**, so a
+    missed scrape loses resolution rather than data and a rate can still be re-aggregated across
+    three servers.
+
+    **Owed:** traces — a span per handshake is the half of OpenTelemetry not wired, and the handshake
+    is the one with enough steps to deserve one. Bridging `Vixen.Core.Diagnostics`' ring buffer to
+    OTLP logs. A committed Grafana dashboard, which belongs with whatever ships the container image.
+    And the client half — `ReplicationClient`'s rejected and stale snapshot counts are the numbers
+    that say a player is having a bad time, and a client is not scraped, so it wants a different
+    route out than this one.
+  - **The server content profile and the container image** are the asset pipeline's and CI's,
+    [08](08-asset-pipeline-and-addressables.md) and [12](12-build-ci-and-testing.md).
+  - **Out-of-process play mode is genuinely blocked**, and not by networking. It needs an editor
+    play-mode host to launch processes from and the remote inspector to attach to them;
+    `Editor/` is `Vixen.Editor.Assets` and `Vixen.Editor.Core` today, with neither. `Samples/08` is
+    the interim answer and a good one — it runs eight clients and a server in one process, and
+    `--mode server`/`--mode client` runs them in as many as you like from a shell.
+- ✅ **Diagnostics** — bandwidth attribution and the packet inspector. `BandwidthLedger` answers
+  "what is eating my thirty kilobits" four ways: per component type, per **field**, per RPC, and per
+  connection, with per-object behind a flag because its table grows with the world rather than with
+  the number of declared types. Attached rather than owned, so one ledger covers the replication
+  server and the RPC router and comes out as a single report; off it is a null check, on it is a
+  dictionary increment per record. The same argument `Vixen.Core.Diagnostics`' profiler makes for
+  itself: a profiler you have to enable is one that is off when the surprise happens.
+
+  **The per-field breakdown costs nothing and is the one worth having.** It is measured inside the
+  delta encoder, which is already walking the lanes, so each field's cost is a subtraction — this is
+  the other half of `DeltaPackerAnalysis` that doc [16](16-networking.md) names. Run over
+  `Samples/08` it immediately says that the Y axis of every position and one component of every
+  rotation cost exactly their one "unchanged" bit, which is the report noticing that the arena is
+  flat and that `NetworkTransform` is carrying a dimension this game does not use.
+
+  `SnapshotInspector` takes a snapshot apart — which object, which component, whole or a difference,
+  which baseline, how many bits — and **applies none of it**, which is what makes it usable on a
+  recorded capture, on a snapshot the client refused, and on a live connection. A packet inspector is
+  that call plus somewhere to put the answer.
+
+  **Owed:** the editor network panel — connections, replicated objects, ownership, interest sets, a
+  live RPC log. It is the only part of this item not built and it is not blocked on networking:
+  `Editor/` is `Vixen.Editor.Assets` and `Vixen.Editor.Core` today, with no panel host to hang one
+  off. Everything a panel would show is already in these two types. Also owed: RTT/jitter/loss graphs
+  over time, which want a ring of samples rather than the running totals kept here.
+- ✅ **`Samples/08-Multiplayer`** — server-authoritative, 8 players, movement and shooting. Lag comp
+  is the one thing it does not have, and it is the one thing it *measures the absence of*.
+
+  Every layer meets here, which is the only place any of them can be shown to join up: session
+  handshake, tick clock, delta replication, generated replicators, generated RPC senders, ownership,
+  interest seam, snapshot interpolation, and both transports. Three modes — everybody in one process
+  over `Local`, or `--mode server` / `--mode client` over real UDP. Nothing above the transport
+  changes between them, which is what `TransportConformance` was written to make true.
+
+  **It exits non-zero when the clients disagree with the server**, and the check is not "the positions
+  look close": the same entity set, every position within twice the position quantizer's half-level
+  (3.1 cm — the error a position is *supposed* to have), and health, score and deaths exact. It
+  checks after a settle phase, because while fighters are moving a client is meant to disagree by its
+  interpolation delay; what must not survive the quiet is a disagreement nothing corrects. Green at
+  0 %, 20 % and 40 % injected loss with latency to match, which is the phase's exit criterion run
+  three ways.
+
+  Two measurements worth having. **Eight fighters at 30 Hz cost under 10 kbit/s a client** — with
+  `ReplicateEverything`, so that is the number before interest management rather than after it. And
+  **bandwidth goes up under packet loss, not down**: a lost acknowledgement means the next snapshot
+  carries the same records again, and a connection far enough behind stops being sent differences at
+  all. 41 B a snapshot clean against 79 B at 40 % loss. (Both figures are after field-level delta
+  landed; the run that first produced them read 82 B and 110 B.)
+
+  **The hit rate falls from 49 % to 35 % between a clean run and one at 60 ms, and that is the
+  missing lag compensation.** The bot aims at where it last saw its target — half a round trip old —
+  and the server resolves the shot against where that target is when the call lands. Fourteen points of
+  hit rate is what the deferred item would give back, `Arena.Resolve` is the one method that would
+  change, and the sample prints the size of the hole rather than describing it.
+
+  Three things the sample had to get right that are stated nowhere else. The order inside a tick:
+  joins are queued out of the session's event and applied *after* `AdvanceVersion`, because a player
+  spawned from the event handler lands on the far side of the capture's comparison and is invisible
+  until the next thing about them changes. Components split by change frequency rather than by
+  meaning: `Combatant` (set once) apart from `Vitals` (set on every hit), because a delta is
+  per-component and pairing them re-sends the owner id forever. And no write-backs of unchanged
+  values, because marking a chunk changed for a value that did not change turns a change-version
+  filter back into a full state sync.
+
+  **Owed:** the acknowledgement is the *sample's* message rather than the engine's — one opcode and a
+  tick, sent `Sequenced` — because `ReplicationServer.Acknowledge` has no transport of its own. That
+  is defensible (the game already has a message channel) but every game will write the same six
+  lines, so it belongs behind a `ReplicationChannel` helper. Also owed: an interest resolver behind a
+  flag, and the system that copies between `NetworkTransform` and the engine's transform hierarchy —
+  which is still where `Vixen.Engine` and `Vixen.Net` will first have to meet.
 
 **Exit:** `Samples/08` playable server↔client across a real network and under 20 % injected packet loss.
 N-client in-process replication convergence tests green. Bit-exact serialization across all three desktop
 OSes (same gate as content determinism). Packet-reader fuzzing clean. 100-connection / 5 000-entity soak
 holds its bandwidth, CPU, and allocation budgets for 30 minutes.
+
+> **✅ All five are met.** What remains in the phase is not an exit criterion and is listed below with
+> the reason each one is where it is: **lag compensation** cannot start until Phase 8's physics exists,
+> the **relay transport** wants a scope decision before code, and **out-of-process play mode** is
+> blocked on editor infrastructure rather than on networking.
+
+- ✅ **The soak harness** — `Samples/09-NetworkSoak`, which measures the criterion above and exits
+  non-zero when a budget is missed. It currently misses three, and that is recorded rather than tuned
+  away.
+
+  **It found three allocation bugs, all in code written earlier in this phase and none of them
+  visible at eight entities.** The delta memo allocated an object per value per tick, because it was
+  a dictionary keyed by (value, baseline) that `Capture` cleared — it is one slot on the capture ring
+  now, which is right for the reason the table was wrong: connections cluster on the same baseline.
+  `ConnectionBaseline` allocated a list per tick per connection, three thousand a second at a hundred
+  connections; pooled. And `BandwidthLedger` composed `"Type.Field"` on every record — eight strings
+  per differenced value, most of a megabyte a tick — where the names are constants. Together: **4 588
+  KB a tick down to 24 KB, and 464 Gen0 collections down to 4.**
+
+  ✅ **Retransmission backoff**, which was the bandwidth failure and the biggest single item: a
+  record used to go out every tick until acknowledged, so a four-tick round trip sent every change
+  four times. It now waits a round trip *plus one* — **286 → 80 kbit/s a client**, ten million
+  records down to three. The plus-one matters: an acknowledgement becomes useful when it is folded
+  in, not when it arrives, so four ticks measured 137 and five measured 80.
+
+  **It broke convergence on the first attempt, and the reason is the interesting part.** Cumulative
+  acknowledgement — folding every pending tick up to the one acked — was sound only *because* every
+  snapshot repeated everything unacknowledged, so acking a later one proved the earlier. Backoff
+  removes the repeating, and folding an unacked tick then claims a connection holds a value that was
+  in a packet it never received; it is never sent again, because the baseline says they have it. A
+  value stuck for ever rather than for a while, which is how it presented. `Acknowledge` folds only
+  the tick it was given now, and older pending ticks are given up on rather than believed.
+
+  ✅ **The criterion is met.** Thirty minutes — 54 000 ticks — at five thousand entities and a
+  hundred connections: **75.2 kbit/s a client, a p99 tick of 2.4 ms against a 33 ms budget, 347 bytes
+  a tick, and three Gen0 collections in the half hour.** Seventeen megabytes allocated in total,
+  nearly all of it warm-up; the shorter runs reported 10 KB and 31 KB a tick only because they
+  amortise that over hundreds of ticks instead of tens of thousands. 270 million records, all but
+  45 000 of them differences.
+
+  The tick budget is asserted on the p99 rather than the worst, which is a correction to the harness:
+  over a run containing a full collection the worst tick *is* that collection, so asserting on it
+  measures the collector and calls the pipeline broken however fast it is. The pause is still
+  printed, and the allocation budget is what keeps it honest, being its cause.
+
+- ✅ **Packet-reader fuzzing is clean**, and is a gate rather than a nightly — see the security pass
+  above for the harness and for the four defects its first run found.
+
+- ✅ **Bit-exact serialization across the three desktop OSes.** `Vixen.Net.Tests/Wire` runs every
+  encoder on the wire path against **committed bytes**, one hex line per named case — packet
+  primitives, bit fields, seven quantize ranges, the rotation codec, and four ticks of a whole
+  snapshot including the differences.
+
+  **The gate is the CI matrix rather than a job of its own**, and that is the useful observation:
+  `ci.yml` already runs the tests on `ubuntu-latest`, `windows-latest` and `macos-14` — three
+  operating systems and two architectures, the macOS runner being arm64 — so a suite that asserts
+  against committed bytes *is* bit-exactness across all three, by construction. A dedicated job would
+  be the same assertion a fourth time. The matrix now carries a comment saying so, because dropping a
+  leg would silently drop the gate and the failure it would have caught is a desync rather than a
+  build error.
+
+  **Text with a line per case, not a hash over the corpus.** A hash carries one bit — something moved
+  — and what you then need is which encoder and which input, on a machine you may not have. A
+  mismatch here prints `encode/signed16/zero` and the two values.
+
+  **Every input is stated rather than computed**, including the bit patterns: negative zero, both
+  denormal extremes, a NaN with a non-canonical payload, and one ULP either side of six level
+  boundaries per range. A corpus generated with `MathF.Cos` would be testing the platform's libm,
+  which *is* allowed to differ and never reaches a packet.
+
+  **Why it passes, which is what a red build would mean has stopped being true:** every arithmetic
+  step on the wire path is IEEE-754 and correctly rounded. `QuantizeRange` does its work in `double`
+  with nothing but `+ - * /`; the two normalisations the rotation codec leans on are
+  `1f / MathF.Sqrt(x)`, two correctly-rounded operations. No transcendental, no fused multiply-add —
+  C# never contracts one — and no reciprocal estimate anywhere in it. So this is a regression gate:
+  its value is the day somebody reaches for `ReciprocalSqrtEstimate`.
+
+  It also pins a **game's own components** rather than only the engine's: two `[Replicated]` structs,
+  their record headers, and the registry index each one gets. That last is worth having somewhere it
+  will be noticed — types are ordered by hashed id rather than by registration order, deliberately, so
+  two builds agree without agreeing on start-up order, which means **renaming a replicated component
+  is a wire break**.
+
+  **Owed:** the generated encoders end to end. Their *source* is pinned by
+  `Vixen.Net.Generators.Tests` and every arithmetic primitive they emit is pinned here, so what is
+  uncovered is the composition rather than either half — closing it means referencing the generator
+  from this test project, which is a small piece of work with a real ordering constraint behind it.
+  And the same treatment for content determinism, which doc 12 wants on the same three legs and which
+  has no corpus at all.
 
 > **Client-side prediction is explicitly *not* in this phase** — see [16](16-networking.md). PurrNet does
 > not have it either. The tick loop and snapshot APIs are shaped to accept it later (+2 EM), and the

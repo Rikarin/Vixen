@@ -1,0 +1,83 @@
+name: Nightly
+
+# The gate on every build runs the fuzzer for nine seconds, which is a very effective regression test
+# and is not a thorough fuzz. This is the thorough one: the same harness, the same seeds, the same
+# deterministic generator, given ten minutes a target instead of a second — roughly six hundred times
+# as many cases, which is where the shapes a short run never reaches live.
+#
+# docs/plan/12 § Test infrastructure asks for fuzzers "run nightly with a persistent corpus". The
+# persistent corpus is Core/Vixen.Net.Fuzz.Tests/Corpus, committed and replayed before every run; what
+# this job adds is the time. See Core/Vixen.Net.Fuzz/README.md for what is fuzzed and what is owed —
+# in particular that this is a behaviour signature rather than instrumented coverage, and that
+# SharpFuzz over libFuzzer belongs here when it exists.
+
+on:
+  schedule:
+    # 03:00 UTC, which is nobody's working day in the timezones this is developed in. Cron on a
+    # default branch only, which is what GitHub does with schedules regardless.
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      seconds:
+        description: 'Seconds per fuzz target'
+        required: false
+        default: '600'
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+jobs:
+  fuzz:
+    name: fuzz
+    runs-on: ubuntu-latest
+    # Nine targets at ten minutes each, plus the build. The cap is not the budget — it is the
+    # backstop for a decoder that has been made to loop for ever, which is itself a finding and
+    # presents as a job that never ends.
+    timeout-minutes: 150
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-fuzz-${{ hashFiles('**/Directory.Packages.props', 'global.json') }}
+          restore-keys: nuget-fuzz-
+
+      - name: Fuzz
+        run: dotnet test Core/Vixen.Net.Fuzz.Tests -c Release
+        shell: bash
+        env:
+          VIXEN_FUZZ_SECONDS: ${{ github.event.inputs.seconds || '600' }}
+
+      # The bytes, not just the message. A finding whose input only exists in an assertion string is
+      # one somebody has to retype; the fix for each of these is to move the file into
+      # Core/Vixen.Net.Fuzz.Tests/Corpus and commit it, and it is a test from then on.
+      - name: Upload findings
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-findings
+          path: artifacts/fuzz-findings/
+          if-no-files-found: warn
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-results
+          path: Core/Vixen.Net.Fuzz.Tests/TestResults/
+          if-no-files-found: ignore
