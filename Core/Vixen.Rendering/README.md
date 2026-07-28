@@ -565,6 +565,17 @@ throws nothing, and no screenshot answers it, so it is asserted.
 The up-chain is one shorter than the down-chain, which is not an off-by-one — the smallest level is
 already its own upsample source, so there is nothing to add into it.
 
+**The first downsample is a mode of its own**, and that is what the Karis average is for. Weighting
+each tap by `1 / (1 + luma)` before summing makes the 13-tap kernel an average biased towards its
+darker taps, so a specular highlight sitting in one texel is pulled towards its neighbours instead of
+dragging the whole kernel up — which is what stops it flickering as it moves between texels, the most
+visible temporal artefact a bloom chain has. It belongs to that pass and no other: the prefilter takes
+a single tap, where the weight is a darkening rather than an average, and every level below the first
+has already been averaged, so applying it again would cost brightness and buy nothing. Nothing else in
+the shader distinguishes the first downsample from the rest of the chain, hence a fourth `Mode` value
+rather than a `FirstDownsample` flag — the chain asks for four variants either way, and the flag would
+be a key every pass carries in order to say nothing.
+
 ## What is not here yet
 
 Blend shapes and area lights. Punctual shadows are not cached — only the directional cascades are,
@@ -597,14 +608,6 @@ node that does not compile, with no hint as to why.
 
 Bloom has no lens flare and no light streak, and the tonemap pass has no grading LUT as an asset —
 the shader takes one, nothing loads one.
-
-**`Bloom.rvn`'s Karis average never runs.** Its `Tap()` applies the weight only when `Mode == 0`, and
-mode 0 is the prefilter, which samples directly and never calls `Tap()`. So the weighting is
-unreachable — and it is not decoration: Karis-averaging the taps of the first downsample is what stops
-a specular highlight flickering as it moves between texels, which is the single most visible temporal
-artefact a bloom chain has. Fixing it is a shader-design decision rather than a patch, because the
-weight belongs to the *first* downsample and nothing in the shader distinguishes that from the rest of
-the chain.
 
 GPU-driven culling is a second implementation of `VisibilityGroup` behind the same interface, which
 is why that interface is bits rather than a list.

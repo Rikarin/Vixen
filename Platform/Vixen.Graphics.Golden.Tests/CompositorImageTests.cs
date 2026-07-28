@@ -621,17 +621,23 @@ public sealed class CompositorImageTests {
     }
 
     /// <summary>
-    ///     The bloom chain's three variants and the copy that reads its result.
+    ///     The bloom chain's four variants and the copy that reads its result.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         Three effects for one shader name, chosen by the <c>Bloom.Mode</c> permutation in the
+    ///         Four effects for one shader name, chosen by the <c>Bloom.Mode</c> permutation in the
     ///         key — which is what an effect provider backed by a bundle does, and the reason
     ///         <see cref="BloomRenderer" /> varies a permutation rather than a uniform.
     ///     </para>
     ///     <para>
+    ///         <strong>Two of the four are the same filter.</strong> Modes 1 and 2 differ only in
+    ///         whether the taps are Karis-weighted, which is why the fixture's two down variants are
+    ///         one <c>Downsample()</c> compiled twice with and without <c>BLOOM_KARIS</c> rather than
+    ///         two copies of the kernel.
+    ///     </para>
+    ///     <para>
     ///         <strong>Each variant's set layout holds only what that variant reads.</strong> The
-    ///         upsample declares <c>previous</c> and the other two do not, so a set written for a
+    ///         upsample declares <c>previous</c> and the other three do not, so a set written for a
     ///         downsample has no binding left uninitialised — which a validation layer is entitled to
     ///         object to whether or not the shader touches it.
     ///     </para>
@@ -642,6 +648,7 @@ public sealed class CompositorImageTests {
     /// </remarks>
     sealed class Chain : IEffectProvider {
         readonly Effect prefilter;
+        readonly Effect firstDownsample;
         readonly Effect downsample;
         readonly Effect upsample;
         readonly Effect copy;
@@ -711,6 +718,7 @@ public sealed class CompositorImageTests {
             ];
 
             prefilter = Variant("bloom-prefilter.frag.spv", sampled, sampledLayout, parameters);
+            firstDownsample = Variant("bloom-down-first.frag.spv", sampled, sampledLayout, parameters);
             downsample = Variant("bloom-down.frag.spv", sampled, sampledLayout, parameters);
             upsample = Variant("bloom-up.frag.spv", combining, combiningLayout, parameters);
 
@@ -755,7 +763,8 @@ public sealed class CompositorImageTests {
 
             return mode switch {
                 "0" => prefilter,
-                "2" => upsample,
+                "1" => firstDownsample,
+                "3" => upsample,
                 _ => downsample
             };
         }
