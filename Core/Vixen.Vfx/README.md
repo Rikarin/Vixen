@@ -36,7 +36,7 @@ system.Step(deltaTime);
 | `VfxNoise` | Value noise over a lattice, and the curl of three — the field turbulence samples. |
 | `VfxSystem` | One running instance: its particles, its clock, its seed, its spawner state. |
 | `VfxRenderer` | How particles are drawn — alignment, sorting — and which attributes that reads. |
-| `VfxGeometryBuilder` | Particles into camera-facing quads, and the draw order. |
+| `VfxGeometryBuilder` | Particles into quads, instance transforms or ribbon strips, and the draw order. |
 | `VfxShaderEmitter` | The same compiled graph as a Raven compute shader: the GPU backend's front half. |
 
 ## The compiled graph is data, and that is the whole design
@@ -277,6 +277,32 @@ what happens when a streak is seen end-on.
 them is the same for every particle in every effect ever — so it is a buffer built once by whoever
 draws, not two repeated vertices per particle forever.
 
+**Three renderers, and only one of them needs particles to know about each other.** A billboard is a
+quad. A mesh is an instance transform — three `float4` rows, because the fourth row of an affine
+transform is always the same and uploading it is sixteen bytes an instance to say so. A **ribbon** is
+the odd one: it joins particles into a strip, so it has to know which strip a particle belongs to and
+where in it.
+
+That was the thing the storage had no place for, and it is a custom attribute — the first real
+consumer of them. Ordering *within* a strip is age, which is a built-in the runtime already keeps, so
+a ribbon needs exactly one declared attribute and not two. Drawing one is therefore what makes a graph
+allocate age, the same way a velocity-aligned billboard is what makes it allocate velocity.
+
+**A ribbon's indices are rebuilt every frame and a quad's are not.** Two triangles a quad never depend
+on anything but the count; a strip's depend on where each ribbon *ends*, and a ribbon ends wherever a
+particle died. So there is no pattern to build once, and the index buffer joins the vertex one in
+being per-frame.
+
+**A ribbon of one particle draws nothing.** A strip needs two points to have a direction, so a single
+particle contributes its two vertices and no triangles — which is what makes a trail appear as its
+second particle is born rather than as a degenerate sliver. And two strips are never joined: the
+triangle spanning the gap between two trails is a bright sheet across the scene, and it has a test.
+
+**One alignment convention across both kinds.** A velocity-aligned mesh points its local **+Y** along
+the velocity, which is the axis a velocity-aligned billboard stretches along. One convention is worth
+more than each being locally reasonable: a model authored for a streak works for an instanced spark,
+and a model built the other way up is a rotation in the asset rather than a flag here.
+
 **Aligned billboards turn to face the particle-to-camera vector, not the camera's forward.** Under
 perspective those differ by more than a little at the edges of the view, and using forward makes a wide
 effect visibly lean. When the fixed axis points straight at the camera the cross product vanishes and
@@ -347,9 +373,9 @@ is two small arrays of spawner bookkeeping.
   device, and so does Phase 7's exit criterion — the test that the two paths agree. Until there is one,
   what is claimed is that the translation compiles and is well typed, which is a weaker statement than
   the roadmap's and the true one.
-- **Mesh, ribbon and light renderers.** Only billboards so far. A mesh renderer is an instance
-  transform per particle rather than a quad; a ribbon needs particles linked into strips, which is the
-  one that needs something the storage does not have yet.
+- **The light renderer.** Billboards, meshes and ribbons are here; a particle that *is* a light is the
+  one left, and it is not a geometry problem — it is a per-frame contribution to the light list, which
+  belongs to `ForwardLightingRenderFeature` rather than to a geometry builder.
 - **A second view of the same effect.** `ParticleRenderFeature` expands once, against one view, so a
   reflection or a shadow pass draws quads facing the wrong camera. Expanding per view is the
   workaround; the GPU path is the fix, which is why the workaround is not in.

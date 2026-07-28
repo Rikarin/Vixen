@@ -153,6 +153,21 @@ It shares `UploadBuffer` with skinning and instancing — the ring per frame in 
 single write — which needed one change to serve it: the buffer's usage became a parameter instead of
 always being `Storage`.
 
+**Three kinds of draw, and the binding is keyed on which.** A billboard binds the shared vertex buffer
+and the static quad index pattern; a **ribbon** binds the same vertices and a *per-frame* index buffer,
+because a strip's triangles depend on where each ribbon ends and a ribbon ends wherever a particle
+died; a **mesh** binds the mesh's own buffers at slot 0, this feature's instance stream at slot 1, and
+draws the mesh once instanced by however many particles are alive. A frame of nothing but billboards
+still binds once — only a frame that mixes kinds pays to switch.
+
+A mesh particle goes through the *mesh's* vertex layout rather than the particle one, because its
+vertices are the mesh's and only the instance stream is this feature's. Sharing the billboard layout
+would put a mesh's normals through a shader expecting a texture coordinate.
+
+The bug that cost the most here was an early-out: `Draw` returned when the shared vertex buffer was
+invalid, which is true of every frame that draws nothing but instanced meshes. A whole renderer that
+silently drew nothing, from a guard that had been exactly right when there was one kind of draw.
+
 `MaterialRenderFeature` is where the shader half of the engine meets the renderer half: preparation
 turns a material's `ParameterCollection` into an `EffectKey`, resolves it, and remembers the answer
 per object — so by recording time "which shader" is an array lookup. It resolves **per material, not

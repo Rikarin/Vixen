@@ -19,6 +19,26 @@ namespace Vixen.Vfx;
 [StructLayout(LayoutKind.Sequential)]
 public readonly record struct ParticleVertex(Vector3 Position, Vector2 Texture, Vector4 Colour);
 
+/// <summary>One particle's worth of per-instance data, for a mesh renderer.</summary>
+/// <param name="Row0">The first row of the world matrix: the x axis, scaled, and the x translation.</param>
+/// <param name="Row1">The second.</param>
+/// <param name="Row2">The third.</param>
+/// <param name="Colour">The particle's colour.</param>
+/// <remarks>
+///     <para>
+///         <b>Three rows, not four.</b> The fourth row of an affine transform is always (0, 0, 0, 1)
+///         and uploading it is sixteen bytes an instance to say so. Three <c>float4</c>s is what every
+///         instanced renderer uses and what the vertex shader reassembles.
+///     </para>
+///     <para>
+///         Rows rather than columns because that is the packing that puts the translation in the
+///         <c>w</c> lanes, where one <c>dot</c> per axis reconstructs a transformed position. The
+///         convention has to be written down somewhere and this is the somewhere.
+///     </para>
+/// </remarks>
+[StructLayout(LayoutKind.Sequential)]
+public readonly record struct ParticleInstance(Vector4 Row0, Vector4 Row1, Vector4 Row2, Vector4 Colour);
+
 /// <summary>Where the camera is and how it is turned, as the expansion needs it.</summary>
 /// <param name="Position">Where the camera is, for depth sorting.</param>
 /// <param name="Right">Its right vector, normalised.</param>
@@ -67,6 +87,7 @@ public readonly record struct VfxCamera(Vector3 Position, Vector3 Right, Vector3
 /// </remarks>
 public sealed class VfxGeometryBuilder {
     float[] keys = [];
+    ulong[] strands = [];
     int[] order = [];
 
     /// <summary>How many vertices one particle needs.</summary>
@@ -74,6 +95,12 @@ public sealed class VfxGeometryBuilder {
 
     /// <summary>How many indices one particle needs.</summary>
     public const int IndicesPerParticle = 6;
+
+    /// <summary>How many vertices one particle of a ribbon needs: one each side of the strip.</summary>
+    public const int VerticesPerRibbonParticle = 2;
+
+    /// <summary>How many indices one length of ribbon needs — two triangles between two particles.</summary>
+    public const int IndicesPerRibbonSegment = 6;
 
     /// <summary>The order the last <see cref="Build" /> drew the particles in.</summary>
     /// <remarks>
@@ -128,14 +155,7 @@ public sealed class VfxGeometryBuilder {
     public int Build(VfxSystem system, in VfxCamera camera, Span<ParticleVertex> vertices) {
         ArgumentNullException.ThrowIfNull(system);
 
-        if (system.Graph.Renderer is not { } renderer) {
-            throw new InvalidOperationException(
-                "The graph declares no renderer, so it has no size and no colour to draw with. A graph that is "
-                + "drawn has to say so when it is compiled, because that is what makes it allocate the attributes "
-                + "drawing reads."
-            );
-        }
-
+        var renderer = Renderer(system);
         var particles = system.Particles;
         var count = Math.Min(particles.Count, vertices.Length / VerticesPerParticle);
 
@@ -179,6 +199,282 @@ public sealed class VfxGeometryBuilder {
 
         return count;
     }
+
+    /// <summary>Expands a system's live particles into per-instance transforms.</summary>
+    /// <param name="system">The system.</param>
+    /// <param name="camera">Where the camera is, for the sort and for a camera-facing orientation.</param>
+    /// <param name="instances">Where to write. A shorter span writes as many particles as fit.</param>
+    /// <returns>How many instances were written.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="system" /> is null.</exception>
+    /// <exception cref="InvalidOperationException">The graph declared no renderer.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The mesh's local +Y is the axis that gets aligned</b>, which is the same axis a
+    ///         velocity-aligned billboard stretches along. One convention across both renderers is
+    ///         worth more than each being locally reasonable, and a shard model built the other way up
+    ///         is a rotation in the asset rather than a flag here.
+    ///     </para>
+    ///     <para>
+    ///         Scale is uniform and comes from <see cref="VfxAttribute.Size" />, so a mesh particle
+    ///         means the same thing a billboard one does. Non-uniform scale would need three lanes and
+    ///         a custom attribute, which is now a thing an author can declare.
+    ///     </para>
+    /// </remarks>
+    public int BuildInstances(VfxSystem system, in VfxCamera camera, Span<ParticleInstance> instances) {
+        ArgumentNullException.ThrowIfNull(system);
+
+        var renderer = Renderer(system);
+        var particles = system.Particles;
+        var count = Math.Min(particles.Count, instances.Length);
+
+        LastCount = count;
+
+        if (count == 0) {
+            return 0;
+        }
+
+        Sort(particles, renderer, in camera, count);
+
+        var positions = particles.Position;
+        var sizes = particles.Size;
+        var colours = particles.Colour;
+        var hasRotation = particles.Has(VfxAttribute.Rotation);
+        var rotations = hasRotation ? particles.Rotation : default;
+        var hasVelocity = particles.Has(VfxAttribute.Velocity);
+        var velocities = hasVelocity ? particles.Velocity : default;
+
+        for (var slot = 0; slot < count; slot++) {
+            var index = order[slot];
+            var centre = positions[index];
+            var scale = sizes[index];
+
+            var up = renderer.Alignment switch {
+                VfxBillboardAlignment.Velocity when hasVelocity && velocities[index].LengthSquared() > 1e-12f =>
+                    Vector3.Normalize(velocities[index]),
+                VfxBillboardAlignment.FixedAxis when renderer.Axis.LengthSquared() > 1e-12f =>
+                    Vector3.Normalize(renderer.Axis),
+                _ => Vector3.UnitY
+            };
+
+            var right = Across(up, in camera, centre);
+            var forward = Vector3.Cross(right, up);
+
+            if (hasRotation) {
+                (right, forward) = Roll(right, forward, rotations[index]);
+            }
+
+            right *= scale;
+            var scaledUp = up * scale;
+            forward *= scale;
+
+            instances[slot] = new(
+                new(right.X, scaledUp.X, forward.X, centre.X),
+                new(right.Y, scaledUp.Y, forward.Y, centre.Y),
+                new(right.Z, scaledUp.Z, forward.Z, centre.Z),
+                colours[index]
+            );
+        }
+
+        return count;
+    }
+
+    /// <summary>Joins the particles of each ribbon into a strip.</summary>
+    /// <param name="system">The system.</param>
+    /// <param name="camera">Where the camera is, for which way each length of ribbon faces.</param>
+    /// <param name="vertices">
+    ///     Where to write. Needs <see cref="VerticesPerRibbonParticle" /> per particle.
+    /// </param>
+    /// <param name="indices">Where the triangles go. Zero-based, so a caller offsets them if it must.</param>
+    /// <param name="indexCount">How many indices were written.</param>
+    /// <returns>How many particles were covered.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="system" /> is null.</exception>
+    /// <exception cref="InvalidOperationException">The graph declared no renderer, or no ribbon slot.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The indices are built every frame and the vertex ones are not</b>, which is the whole
+    ///         difference between this and a billboard. A quad's two triangles never depend on anything
+    ///         but the count; a strip's depend on where each ribbon ends, and a ribbon ends wherever a
+    ///         particle died. So there is no pattern to build once.
+    ///     </para>
+    ///     <para>
+    ///         <b>A ribbon of one particle draws nothing.</b> A strip needs two points to have a
+    ///         direction, and a single particle has no tangent — so it contributes its vertices and no
+    ///         triangles, which is what makes a trail appear as its second particle is born rather than
+    ///         as a degenerate sliver.
+    ///     </para>
+    /// </remarks>
+    public int BuildRibbons(
+        VfxSystem system,
+        in VfxCamera camera,
+        Span<ParticleVertex> vertices,
+        Span<uint> indices,
+        out int indexCount
+    ) {
+        ArgumentNullException.ThrowIfNull(system);
+
+        var renderer = Renderer(system);
+        var particles = system.Particles;
+
+        if ((uint)renderer.RibbonSlot >= (uint)particles.CustomCount) {
+            throw new InvalidOperationException(
+                $"The ribbon renderer names custom attribute slot {renderer.RibbonSlot}, and the graph declares "
+                + $"{particles.CustomCount}. A ribbon has to say which attribute holds its strip."
+            );
+        }
+
+        indexCount = 0;
+
+        var count = Math.Min(particles.Count, vertices.Length / VerticesPerRibbonParticle);
+
+        LastCount = count;
+
+        if (count == 0) {
+            return 0;
+        }
+
+        Strand(particles, renderer, count);
+
+        var positions = particles.Position;
+        var sizes = particles.Size;
+        var colours = particles.Colour;
+        var strips = particles.Custom(renderer.RibbonSlot);
+        var lanes = particles.Lanes(renderer.RibbonSlot);
+
+        var start = 0;
+
+        while (start < count) {
+            var end = start + 1;
+
+            while (end < count && strips[order[end] * lanes] == strips[order[start] * lanes]) {
+                end++;
+            }
+
+            Strip(positions, sizes, colours, in camera, vertices, indices, start, end, ref indexCount);
+            start = end;
+        }
+
+        return count;
+    }
+
+    /// <summary>One ribbon, from its oldest particle to its newest.</summary>
+    void Strip(
+        ReadOnlySpan<Vector3> positions,
+        ReadOnlySpan<float> sizes,
+        ReadOnlySpan<Vector4> colours,
+        in VfxCamera camera,
+        Span<ParticleVertex> vertices,
+        Span<uint> indices,
+        int start,
+        int end,
+        ref int indexCount
+    ) {
+        var length = end - start;
+
+        for (var offset = 0; offset < length; offset++) {
+            var index = order[start + offset];
+            var centre = positions[index];
+
+            // The tangent is towards the next particle, and the last one borrows the previous
+            // length's — a ribbon's end has no next point, and reusing the direction it arrived by is
+            // what keeps the final segment from twisting. A ribbon of one has neither, and takes the
+            // fallback below rather than reaching for a neighbour it does not have.
+            var tangent = length == 1
+                ? Vector3.Zero
+                : offset + 1 < length
+                    ? positions[order[start + offset + 1]] - centre
+                    : centre - positions[order[start + offset - 1]];
+
+            var along = tangent.LengthSquared() > 1e-12f ? Vector3.Normalize(tangent) : Vector3.UnitY;
+            var side = Across(along, in camera, centre) * (sizes[index] * 0.5f);
+
+            var colour = colours[index];
+
+            // u runs along the ribbon so a texture stretches from end to end, which is what a trail
+            // wants; a single-particle ribbon has no length to run over and takes zero.
+            var u = length > 1 ? (float)offset / (length - 1) : 0f;
+            var corner = (start + offset) * VerticesPerRibbonParticle;
+
+            vertices[corner] = new(centre - side, new(u, 0f), colour);
+            vertices[corner + 1] = new(centre + side, new(u, 1f), colour);
+        }
+
+        for (var offset = 0; offset + 1 < length; offset++) {
+            if (indexCount + IndicesPerRibbonSegment > indices.Length) {
+                return;
+            }
+
+            var here = (uint)((start + offset) * VerticesPerRibbonParticle);
+            var next = here + VerticesPerRibbonParticle;
+
+            indices[indexCount++] = here;
+            indices[indexCount++] = next;
+            indices[indexCount++] = next + 1;
+            indices[indexCount++] = here;
+            indices[indexCount++] = next + 1;
+            indices[indexCount++] = here + 1;
+        }
+    }
+
+    /// <summary>Orders the particles by ribbon, and within a ribbon by age, oldest first.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         One sort, on a composite key, rather than two passes — <c>Array.Sort</c> is an introsort
+    ///         and is not stable, so sorting by age and then by strip would shuffle the ages back.
+    ///     </para>
+    ///     <para>
+    ///         The key packs the strip above the age in a <c>ulong</c>, through the standard
+    ///         float-to-sortable-integer flip. That is exact for every float including negatives and
+    ///         needs no comparison delegate, which is the difference between allocating nothing per
+    ///         frame and allocating a closure.
+    ///     </para>
+    /// </remarks>
+    void Strand(ParticleBuffer particles, VfxRenderer renderer, int count) {
+        if (order.Length < count) {
+            order = new int[particles.Capacity];
+            keys = new float[particles.Capacity];
+        }
+
+        if (strands.Length < count) {
+            strands = new ulong[particles.Capacity];
+        }
+
+        var strips = particles.Custom(renderer.RibbonSlot);
+        var lanes = particles.Lanes(renderer.RibbonSlot);
+        var ages = particles.Has(VfxAttribute.Age) ? particles.Age : default;
+        var hasAge = particles.Has(VfxAttribute.Age);
+
+        for (var index = 0; index < count; index++) {
+            order[index] = index;
+
+            // Descending age within a strip: the oldest particle is the tail the ribbon runs from.
+            var age = hasAge ? -ages[index] : 0f;
+
+            strands[index] = ((ulong)Sortable(strips[index * lanes]) << 32) | Sortable(age);
+        }
+
+        Array.Sort(strands, order, 0, count);
+    }
+
+    /// <summary>A float as an unsigned integer whose order is the float's.</summary>
+    /// <remarks>
+    ///     The standard flip: a non-negative float's bits already compare correctly as an integer once
+    ///     the sign bit is set, and a negative one's compare backwards, so they are inverted. Exact
+    ///     for every finite value, which is what lets a sort key be an integer and a sort be a plain
+    ///     <c>Array.Sort</c>.
+    /// </remarks>
+    static uint Sortable(float value) {
+        var bits = (uint)BitConverter.SingleToInt32Bits(value);
+
+        return (bits & 0x80000000u) != 0 ? ~bits : bits | 0x80000000u;
+    }
+
+    /// <summary>The renderer a system draws with, or an explanation of why it cannot be drawn.</summary>
+    static VfxRenderer Renderer(VfxSystem system) =>
+        system.Graph.Renderer ?? throw new InvalidOperationException(
+            "The graph declares no renderer, so it has no size and no colour to draw with. A graph that is "
+            + "drawn has to say so when it is compiled, because that is what makes it allocate the attributes "
+            + "drawing reads."
+        );
 
     /// <summary>The half-extent vectors of one particle's quad.</summary>
     /// <remarks>
