@@ -7,26 +7,30 @@ Spec: [docs/plan/16-networking.md](../../docs/plan/16-networking.md).
 
 ## What is here so far
 
-Everything from the wire up to the policy, plus interest management and client-side prediction. What
-is left of the phase is in the roadmap and in each package's Owed section.
+Everything from the wire up to the policy, plus interest management and client-side prediction.
 
 ```
 Vixen.Net              Channel · ConnectionId · DisconnectReason · Tick
 Vixen.Net.Transport    ITransport · ITransportEvents · NetworkSimulation
 Vixen.Net.Messaging    PacketWriter · PacketReader · BitWriter · BitReader · QuantizeRange · MathCodec
+                       BroadcastRouter
 Vixen.Net.Time         TickRate · TickManager · RoundTripEstimator
 Vixen.Net.Sessions     NetworkSession · NetworkPlayer · PlayerId · ISessionAuthenticator
 Vixen.Net.Replication  NetworkId · [Replicated] · [Quantize] · ReplicationServer/Client
+                       NetworkSpawn · InterestChain · InterestGrid · IReplicationRate
 Vixen.Net.Rpc          [ServerRpc] · [ClientRpc] · RpcRouter · NetworkOwnership · RpcManifest
 Vixen.Net.Rules        NetworkRules · NetworkRulesRegistry
 Vixen.Net.Motion       NetworkTransform · SnapshotBuffer · OwnerSmoothing
+Vixen.Net.Prediction   IPredictedInput · InputLog · InputBuffer · ClientPrediction
+                       PredictionHistory · TickLeadController · PredictionSmoother
 Vixen.Net.Diagnostics  BandwidthLedger · SnapshotInspector · NetworkMetrics
 ```
 
 Plus the transports — `Local` (in-process), `Udp`, `WebSocket`, and `Composite` (several at once,
 so one server takes both desktop and browser clients) — the build half (`Vixen.Net.Generators`), the
-export half of the metrics (`Vixen.Net.Telemetry`), lag compensation (`Vixen.Net.Physics`), and the
-fuzz harness (`Vixen.Net.Fuzz`), each in their own package with their own README.
+export half of the metrics (`Vixen.Net.Telemetry`), lag compensation (`Vixen.Net.Physics`), the
+plug-and-play components (`Vixen.Net.Engine`, `Vixen.Net.Animation`, `Vixen.Net.Audio`), and the fuzz
+harness (`Vixen.Net.Fuzz`), each in their own package with their own README and its own **Owed**.
 
 **[`Samples/08-Multiplayer`](../../Samples/08-Multiplayer) is all of it at once** — eight players,
 server-authoritative movement and shooting, over either transport, ending in a convergence check that
@@ -527,8 +531,9 @@ there against `Vixen.Net.Transport.Local` and against the simulation wrapped aro
 transport's test project inherits the same suite. A transport is substitutable or it is nothing, and
 the way to keep that true is to make the contract executable.
 
-The other executable claim is [`Vixen.Net.Fuzz`](../Vixen.Net.Fuzz): nine targets over every decode
-path a peer can reach, nine million cases on every build, holding each of them to three promises —
+The other executable claim is [`Vixen.Net.Fuzz`](../Vixen.Net.Fuzz): twelve targets over every decode
+path a peer can reach — down to the datagram and the HTTP upgrade, which are parsed before anything
+has authenticated — eleven million cases on every build, holding each of them to three promises —
 nothing throws, nothing amplifies, nothing is retained. It found four defects on its first run,
 including one packet that crashed a client and one that made it keep a player record per packet.
 
@@ -550,3 +555,34 @@ It pins a game's own components too, not only the engine's — including the reg
 gets, which is a function of the type *name*, because types are ordered by hashed id so that two
 builds agree without agreeing on start-up order. **Renaming a replicated component is a wire break**,
 and this is where that shows up.
+
+## Owed
+
+Where the other packages' `Owed` sections are about their own subject, these are the core's. Anything
+that belongs to a transport, to the generators, to lag compensation or to a plug-and-play component is
+in that package's README; the roadmap has the whole of Phase 9 in one place.
+
+- **Predicted spawns.** A client cannot predict an object into existence — a projectile it fired is
+  the case everybody hits first. It needs an id space a client may allocate in and a reconciliation
+  that matches its guess to the server's real spawn, which is the largest thing left in prediction.
+- **The predicted step is a delegate, not the scheduler.** `PredictedStep<T>` is a callback the game
+  supplies. What it should be is a re-entrant run of `SystemPhase.FixedUpdate`, so "what is simulated"
+  and "what is replayed" cannot drift apart — and that wants the scheduler to be re-entrant, which it
+  is not.
+- **`NetworkTransform` per-axis enable and parent-relative replication.** A door that only rotates
+  pays for a position; a crate on a moving ship replicates world coordinates that fight the ship's.
+  Both are on the component and neither is built.
+- **`ResendDelayTicks` should be the connection's measured round trip.** The session keeps a
+  `RoundTripEstimator` per player and `ReplicationServer` does not see it, so one figure stands in for
+  every connection. Measured on the soak: four ticks gave 137 kbit/s a client and five gave 80, which
+  is how much this is worth getting right per connection rather than once.
+- **A cost budget for rewinds.** The RPC rate limiter counts calls, and a lag-compensated hit claim
+  costs far more than an ordinary one. The limiter is the right place and it does not yet know that
+  some calls are dearer than others.
+- **Interest rules a game writes.** The chain takes any `IInterestRule`, and the team, room and
+  fog-of-war resolvers doc 16 names are deliberately not shipped — each is a game's own idea of who
+  may see what.
+- **Generated encoders in the bit-exactness corpus.** Their *source* is pinned by
+  `Vixen.Net.Generators.Tests` and every arithmetic primitive they emit is pinned by `Wire`, so what
+  is uncovered is the composition rather than either half. Closing it means referencing the generator
+  from that test project.

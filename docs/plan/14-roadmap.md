@@ -3421,8 +3421,8 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   resolvers, without which the scene one cannot be chained with the distance grid it is meant to
   precede.
 - ✅ **Security pass: packet validation, rate limits, closed-set deserialization, protocol/content hash
-  handshake, and the fuzzing corpus over the packet reader.** `Vixen.Net.Fuzz` — nine targets, three
-  oracles, nine million cases on every build in nine seconds.
+  handshake, and the fuzzing corpus over the packet reader.** `Vixen.Net.Fuzz` — twelve targets, three
+  oracles, eleven million cases on every build in about seven seconds.
 
   **The list of targets is the claim.** "The packet reader is fuzzed" is a much smaller statement than
   it sounds: the reader is the bottom of the stack, and above it sit a handshake that reads four fields
@@ -3760,6 +3760,14 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
   never-amplifies oracles rather than corpus guidance. The one real invariant it checks is that
   reading a request in chunks finds the same headers as reading it whole, which is the three-byte
   step-back being exactly right rather than approximately.
+
+  **And neither of them was in the gate.** The theory's rows were written out by hand, so three
+  targets — the input buffer, the transport and the upgrade — existed, were registered, passed the
+  test that checks the names match the constructors, and never ran. The rows are now generated from
+  the registry and a missing case budget fails a test of its own, so a target that exists is a target
+  the gate runs. Worth recording because the shape recurs: a list written twice is a list that
+  disagrees with itself, and the assertion that kept two of the three copies honest did not cover the
+  third.
 
   It also confirmed something worth knowing rather than assuming: **the connection table cannot be
   grown from outside**, because the handshake is stateless until the cookie comes back — the challenge

@@ -98,10 +98,16 @@ a rumour.
 
 ## Running it
 
-The gate runs on every build, in `Vixen.Net.Fuzz.Tests` — roughly nine million cases in nine seconds,
+The gate runs on every build, in `Vixen.Net.Fuzz.Tests` — eleven million cases in about seven seconds,
 bounded by **case count rather than by the clock**, because a run bounded by time executes a different
 number of cases on a loaded machine than on a laptop and a green build then proves nothing in
 particular.
+
+**The rows are generated from the registry, not written out.** Three targets were once written,
+registered and named, and were simply not among the theory's `[InlineData]` rows — so they existed,
+passed the test that checks the names match the constructors, and never ran. A target that exists is
+now a target the gate runs; forgetting to give it a case budget fails a test rather than making it
+disappear.
 
 For a longer run, give it seconds instead:
 
