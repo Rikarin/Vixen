@@ -3763,7 +3763,33 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
   [spikes/web-webgl2](spikes/web-webgl2/RESULT.md)).
 - `Samples/06-CanvasStress` — **P2, cuttable**: huge scrollable canvas, layers, tool overlays. Demoted
   from a phase gate because the editor is now the application-platform proof.
-- `Vixen.Video`, VR/XR via `Silk.NET.OpenXR` (stretch).
+- ✅ **`Vixen.Video`, and VR/XR via `Silk.NET.OpenXR`** — both landed early, and both are cleanly
+  separable exactly as the cut list says.
+
+  **Video ships the seam and one decoder, not a codec.** `MatroskaDemuxer` turns a WebM into packets
+  and `IVideoCodec` turns packets into pictures, and neither knows about the other — which is what
+  lets an MP4 reader arrive later and reuse every codec, and a VP9 codec arrive later and play out of
+  both containers. The one decoder that ships is `UncompressedVideoCodec`, which is to video exactly
+  what `PcmStreamDecoder` is to audio: the implementation that needs no codec, so a game with a
+  rendered logo sting carries none. A managed VP9 is thousands of hours and would not hit frame rate;
+  a native one is a binary per RID with no answer for the browser.
+
+  **Audio is the master clock**, the picture is chosen to match it, and late frames are dropped rather
+  than shown late. A video's sound is in the same segment as its picture and is read by the same
+  demuxer, presented as an ordinary `IAudioStreamDecoder` — so the mixer needs to know nothing about
+  video.
+
+  **XR is a core module with no runtime in it and a backend with the runtime in it.** `Vixen.Xr` has
+  the session state machine, the four-angle asymmetric projection in the engine's own reverse-Z
+  convention, the runtime-owned swapchain seam, the action model and the ECS rig; `Vixen.Xr.OpenXR`
+  binds Silk.NET.OpenXR to all of it. `NullXrBackend` simulates a headset well enough that the frame
+  loop, the stereo views, the focus rules and the tracking bridge are all tested on a machine with no
+  hardware — which matters more here than anywhere else in the engine, because a CI runner genuinely
+  cannot have a headset.
+
+  **Owed:** single-pass multiview. `XrSwapchainDescription.ArrayLayers` is the hook and the RHI half —
+  a `VK_KHR_multiview` pass and `gl_ViewIndex` — is `Vixen.Graphics`'s to add. Two passes work today
+  and cost what two passes cost.
 
 **Exit:** deferred and forward+ both pass the golden-image suite. `Samples/02` and `Samples/06` run in
 three browsers within the download-size budget. `Samples/06` holds 60 fps with a 4 K canvas and 20

@@ -147,6 +147,17 @@
       decision Core/Vixen.Audio/Mixing/AudioMixer.cs sets out, and it is what keeps
       the same game sounding the same on OpenAL and in a browser.
     -->
+    <!--
+      OpenXR, for VR and AR. Bindings only: unlike OpenAL, the loader is installed by whatever
+      runtime owns the headset — SteamVR, the Oculus software, Monado — and a copy shipped inside a
+      game would shadow the one that knows where the device is. A machine with no runtime has no
+      loader, which is why Vixen.Xr.OpenXR is written to survive it being absent.
+    -->
+    <PackageVersion Include="Silk.NET.OpenXR" Version="2.23.0" />
+
+    <!-- XR_KHR_vulkan_enable, which is how the runtime and the engine agree on a device to share. -->
+    <PackageVersion Include="Silk.NET.OpenXR.Extensions.KHR" Version="2.23.0" />
+
     <PackageVersion Include="Silk.NET.OpenAL" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.OpenAL.Extensions.Enumeration" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.OpenAL.Extensions.EXT" Version="2.23.0" />

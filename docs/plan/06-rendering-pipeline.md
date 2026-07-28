@@ -382,8 +382,8 @@ compute and a fullscreen-triangle variant so WebGL2 has a path.
 | Trails / ribbons | P2 |
 | Line/gizmo/debug renderer | P1 — editor dependency |
 | Text in 3D (MSDF) | P1 |
-| Video textures | P2 |
-| VR/XR stereo (multiview, OpenXR) | P2 — `Silk.NET.OpenXR` exists; single-pass multiview in the RHI |
+| Video textures | P2 — ✅ `Vixen.Video`: the planes reach the GPU as three `R8` textures with the coefficients a material converts them by |
+| VR/XR stereo (multiview, OpenXR) | P2 — ✅ `Vixen.Xr` + `Vixen.Xr.OpenXR`: session, per-eye asymmetric projections, runtime-owned swapchains, actions. Single-pass multiview is the one piece still owed, and it is the RHI's half |
 
 ## VFX pipeline
 

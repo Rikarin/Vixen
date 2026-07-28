@@ -47,7 +47,48 @@ public readonly record struct VulkanDeviceOptions() {
     ///     that only runs on hardware nobody has is a path that is already broken.
     /// </remarks>
     public bool PreferRenderPassObjects { get; init; }
+
+    /// <summary>Instance extensions that must be enabled, on top of whatever the backend needs.</summary>
+    /// <remarks>
+    ///     For interop with something that shares this device and dictates how it is created. An
+    ///     OpenXR runtime is the case that made this exist: it names the extensions the instance and
+    ///     the device must carry for the compositor to be able to read the images the game renders,
+    ///     and they cannot be enabled after the fact. See <c>Vixen.Xr.OpenXR</c>.
+    /// </remarks>
+    public IReadOnlyList<string> RequiredInstanceExtensions { get; init; } = [];
+
+    /// <summary>Device extensions that must be enabled, on top of whatever the backend needs.</summary>
+    public IReadOnlyList<string> RequiredDeviceExtensions { get; init; } = [];
+
+    /// <summary>
+    ///     The physical device to use, as a raw <c>VkPhysicalDevice</c>, or zero to choose one.
+    /// </summary>
+    /// <remarks>
+    ///     Also for interop, and not a preference. On a laptop with two GPUs the headset is wired to
+    ///     one of them, and an XR runtime names which — rendering on the other means every frame
+    ///     crosses the bus, when it works at all.
+    /// </remarks>
+    public nint PreferredPhysicalDevice { get; init; }
 }
+
+/// <summary>The raw Vulkan objects something sharing a device is handed.</summary>
+/// <param name="Instance">The <c>VkInstance</c>.</param>
+/// <param name="PhysicalDevice">The <c>VkPhysicalDevice</c>.</param>
+/// <param name="Device">The <c>VkDevice</c>.</param>
+/// <param name="GraphicsQueueFamily">Which family the graphics queue came from.</param>
+/// <param name="GraphicsQueueIndex">Which queue within that family.</param>
+/// <remarks>
+///     Raw <see langword="nint" />s rather than Silk.NET's wrappers, so that a consumer can take
+///     these without taking a dependency on Silk.NET.Vulkan — which is the whole point, since the
+///     consumer this exists for is an OpenXR binding that is not a Vulkan module.
+/// </remarks>
+public readonly record struct VulkanNativeHandles(
+    nint Instance,
+    nint PhysicalDevice,
+    nint Device,
+    uint GraphicsQueueFamily,
+    uint GraphicsQueueIndex
+);
 
 /// <summary>The Vulkan logical device: everything the RHI can do, done.</summary>
 /// <remarks>
@@ -207,6 +248,52 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
 
     internal VulkanAdapter Adapters => adapter;
 
+    /// <summary>The raw objects something sharing this device needs.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Exposed because interop is a real requirement and the alternative is worse. An OpenXR
+    ///         runtime renders into the same device the game does and has to be handed the instance,
+    ///         the physical device, the device and a queue — and the module that does the handing
+    ///         (<c>Vixen.Xr.OpenXR</c>) cannot reference Silk.NET.Vulkan's types without becoming a
+    ///         Vulkan module itself.
+    ///     </para>
+    ///     <para>
+    ///         <b>Nothing about these is owned by the caller.</b> They are borrowed for the lifetime
+    ///         of this device, and destroying any of them through them is undefined in the ordinary
+    ///         way.
+    ///     </para>
+    /// </remarks>
+    public VulkanNativeHandles NativeHandles => new(
+        instance.Handle.Handle,
+        adapter.Handle.Handle,
+        device.Handle,
+        graphics.Family,
+
+        // The backend takes queue 0 of each family it uses; see QueueFamilySelection.
+        0
+    );
+
+    /// <summary>Adopts an image this device did not create, as a texture handle.</summary>
+    /// <param name="image">The raw <c>VkImage</c>.</param>
+    /// <param name="description">What it is — the size, format and usage it was created with.</param>
+    /// <returns>A handle to it.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         For images an OpenXR runtime allocated: an XR swapchain's images belong to the
+    ///         compositor, possibly in memory it can reproject without a copy, and the RHI has to be
+    ///         told to adopt them rather than to create them. This is the same path a window's
+    ///         swapchain images take — <see cref="Destroy(TextureHandle)" /> releases the handle and
+    ///         leaves the image alone.
+    ///     </para>
+    ///     <para>
+    ///         <b>The description must match what the image was actually created with.</b> Nothing
+    ///         checks it, because nothing can: the image came from another API. A mismatch shows up
+    ///         as a view that cannot be created, or as a copy that reads the wrong extent.
+    ///     </para>
+    /// </remarks>
+    public TextureHandle ImportImage(nint image, in TextureDescription description) =>
+        AdoptSwapChainImage(new Image((ulong)image), in description);
+
     /// <summary>Whether rendering goes through <c>VK_KHR_dynamic_rendering</c> rather than a pass object.</summary>
     public bool UsesDynamicRendering =>
         !preferRenderPassObjects
@@ -257,7 +344,9 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         var instanceOptions = new VulkanInstanceOptions {
             ApplicationName = "Vixen",
             Logger = options.Logger,
-            RequiredExtensions = presenting ? VulkanSurface.RequiredExtensions(options.Surface.Kind) : []
+            RequiredExtensions = presenting
+                ? [.. VulkanSurface.RequiredExtensions(options.Surface.Kind), .. options.RequiredInstanceExtensions]
+                : [.. options.RequiredInstanceExtensions]
         };
 
         if (!VulkanInstance.TryCreate(instanceOptions, out var instance, out reason)) {
@@ -281,13 +370,28 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
 
             var adapters = VulkanAdapter.Enumerate(instance, surface, khrSurface);
 
-            if (!VulkanAdapter.TrySelect(adapters, presenting, out var adapter, out reason)) {
+            // A named physical device wins over scoring, because whatever named it knows something
+            // scoring cannot: which GPU the display is actually wired to.
+            var adapter = options.PreferredPhysicalDevice != 0
+                ? adapters.Find(candidate => (nint)candidate.Handle.Handle == options.PreferredPhysicalDevice)
+                : null;
+
+            if (adapter is null && options.PreferredPhysicalDevice != 0) {
+                DestroySurface(khrSurface, instance, surface);
+                instance.Dispose();
+                reason = $"The physical device 0x{options.PreferredPhysicalDevice:X} was asked for and this "
+                    + $"instance enumerated {adapters.Count} others, none of them it.";
+
+                return false;
+            }
+
+            if (adapter is null && !VulkanAdapter.TrySelect(adapters, presenting, out adapter, out reason)) {
                 DestroySurface(khrSurface, instance, surface);
                 instance.Dispose();
                 return false;
             }
 
-            if (!TryCreateLogicalDevice(instance, adapter, presenting, out var handle, out reason)) {
+            if (!TryCreateLogicalDevice(instance, adapter, presenting, options.RequiredDeviceExtensions, out var handle, out reason)) {
                 DestroySurface(khrSurface, instance, surface);
                 instance.Dispose();
                 return false;
@@ -623,6 +727,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         VulkanInstance instance,
         VulkanAdapter adapter,
         bool presenting,
+        IReadOnlyList<string> required,
         out Device device,
         [NotNullWhen(false)] out string? reason
     ) {
@@ -632,6 +737,15 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
 
         if (presenting) {
             extensions.Add(KhrSwapchain.ExtensionName);
+        }
+
+        // Whatever is sharing this device asked for these, and it asked before the device existed
+        // because that is the only moment they can be enabled. Duplicates are filtered rather than
+        // rejected: an interop layer naming VK_KHR_swapchain on a presenting device is reasonable.
+        foreach (var name in required) {
+            if (!extensions.Contains(name)) {
+                extensions.Add(name);
+            }
         }
 
         // Mandatory where offered, not optional: the specification says a device that advertises

@@ -143,8 +143,10 @@ Core/
 ├── Vixen.Net.Transport.WebSocket/      # + .Tests
 ├── Vixen.Net.Transport.Local/          # in-process: host mode, offline, and every test
 ├── Vixen.Net.Transport.Relay/          # + .Tests
-├── Vixen.Video/
+├── Vixen.Video/                        # ✅ WebM demux, codec seam, player, planes on the GPU
 ├── Vixen.Video.Tests/
+├── Vixen.Xr/                           # ✅ session, stereo views, actions, ECS — no runtime in it
+├── Vixen.Xr.Tests/
 │
 ├── Vixen.Ui/                           # element tree, properties, events, input routing, rendering
 ├── Vixen.Ui.Tests/
@@ -217,6 +219,9 @@ Platform/
 ├── Vixen.Audio.Backend.OpenAL.Tests/
 ├── Vixen.Audio.Backend.WebAudio/       # ✅ net10.0-browser — scheduled AudioBufferSourceNode queue
 │                                       #   NOT in Vixen.slnx — needs the wasm-tools workload
+│
+├── Vixen.Xr.OpenXR/                    # ✅ desktop + Android: OpenXR behind Vixen.Xr's seams.
+├── Vixen.Xr.OpenXR.Tests/              #   Bindings only — the loader belongs to the runtime
 └── Vixen.Platform.Native/              # ✅ RID mapping, runtimes/ layout, DllImportResolver (acquisition owed)
 ```
 

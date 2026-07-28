@@ -39,6 +39,8 @@ identifies its origin on sight.
 | 12 000 – 12 999 | `Vixen.Raven` — the compiler's own diagnostics are `RVNxxxx`, not these | reserved |
 | 13 000 – 13 999 | `Vixen.App` — the host and the app heads | **in use** |
 | 14 000 – 14 999 | `Samples/*` — the samples, which use the same generated call sites the engine does | **in use** |
+| 15 000 – 15 999 | `Vixen.Video` and its codecs | reserved |
+| 16 000 – 16 999 | `Vixen.Xr` and its backends | **in use** |
 
 ## Allocated ids
 
@@ -104,6 +106,23 @@ deadline.
     |---|---|---|---|
     | 2001 | Warning | `Effect {EffectName} permutation {Key} fell back after {Ms} ms` | 0.1.0 |
 -->
+
+### `Vixen.Xr` and its backends
+
+**Nothing here is logged per frame.** A session's whole life produces a handful of lines — it started,
+it changed state, the device went away — because the frame loop is paced by a compositor at ninety
+hertz and a log call in it is a dropped frame. The two warnings that can repeat (`16003`, `16005`) are
+runtime events that a healthy session does not produce at all.
+
+| Id | Level | Message | Since |
+|---|---|---|---|
+| 16001 | Information | `OpenXR on {Runtime}: {System}, {Views} view(s) at {Width}×{Height}, {Samples} sample(s).` | 0.1.0 |
+| 16002 | Information | `No OpenXR: {Reason}` — no loader, no device, or a runtime for another graphics API | 0.1.0 |
+| 16003 | Warning | `The OpenXR runtime dropped {Events} event(s)` — a frame took long enough for the runtime to give up on the application hearing about a state change | 0.1.0 |
+| 16004 | Information | `The OpenXR session moved to {State}.` | 0.1.0 |
+| 16005 | Warning | `The active interaction profile changed` — the user plugged in a different controller, or rebound something | 0.1.0 |
+| 16006 | Error | `The runtime reports the device is being lost.` — everything must be recreated | 0.1.0 |
+| 16007 | Warning | `The runtime offers no swapchain format this engine knows; {Format} was requested and {Chosen} was taken instead.` | 0.1.0 |
 
 ### 14 000 — Samples
 
