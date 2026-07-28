@@ -165,16 +165,18 @@ public class OverlayInteractionTests {
         ui.Frame();
 
         ui.Get("#help").Hover();
-        tooltip.Tick(ui.Now);
         ui.Frame();
 
         // ⚠ Not yet. A tooltip that appeared on the first frame of a hover would flash on every
         // pointer that crossed the control on its way somewhere else.
         ui.Get("#hint").ShouldNotBeVisible();
 
+        // ⚠ **Nothing calls `tooltip.Tick` here, and that is the point of the test.** An earlier
+        // version did, which meant it proved the delay arithmetic and said nothing about whether a
+        // real application would ever see a tooltip — the wiring was the missing half, and every
+        // host had to know to call it. The tooltip subscribes to `UiDocument.Ticked` now, and the
+        // harness's frame drives `UiDocument.Tick`.
         ui.Advance(TimeSpan.FromMilliseconds(500));
-        tooltip.Tick(ui.Now);
-        ui.Frame();
 
         ui.Get("#hint").ShouldBeVisible();
     }
@@ -229,13 +231,12 @@ public class OverlayInteractionTests {
 
         ui.Get("toast").ShouldExist();
 
-        // ⚠ Two ticks, and the first one is not a formality: a toast's clock starts on the first
-        // tick it sees rather than when it was created, because when it was created is a time
-        // nothing in the control knows. One tick after the duration would only start it.
-        host.Tick(ui.Now);
+        // ⚠ **No call to `host.Tick`.** An earlier version needed two of them — one to start the
+        // toast's clock, because the moment it was shown was a time the control could not ask for,
+        // and one to expire it. The host is on `UiDocument.Ticked` now and `Show` stamps
+        // `Document.Now`, so a toast shown just after a frame no longer outlives one shown just
+        // before it by a whole frame.
         ui.Advance(TimeSpan.FromMilliseconds(400));
-        host.Tick(ui.Now);
-        ui.Frame();
 
         // ⚠ The clock is the test's, so this takes microseconds and cannot be flaky. A toast suite
         // written against a real clock is a suite that sleeps for a second per case.

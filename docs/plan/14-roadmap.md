@@ -2417,9 +2417,10 @@ sub-piece has its own gate.
 
   ⚠ **Still owed, and said plainly rather than left to be found:** `Image` reserves space and draws
   nothing, because the draw list has no texture command; `TextArea` is a taller `TextBox`, because
-  nothing wraps a line yet; `Tooltip` and `Toast` need a host tick, for the reason
-  `GestureRecognizer.Tick` does; an overlay outlives the control that made it, because there is no
-  `OnRemoved` hook; and `VirtualizingPanel` is not here, so `ScrollView` keeps everything in the tree.
+  nothing wraps a line yet; and `VirtualizingPanel` is not here, so `ScrollView` keeps everything in
+  the tree. Two of the five on this list are now closed: an overlay no longer outlives the control
+  that made it (`UiElement.OnRemoved`), and `Tooltip` and `ToastHost` are on `UiDocument.Ticked`
+  rather than waiting for an application to remember to call them.
 - ✅ **`Vixen.Ui.Controls.Advanced` — the first three, and the two framework primitives they needed.**
   `DockingHost` keeps the arrangement (`DockLayout`: binary splits and tab groups) apart from the
   elements that show it, so what is on screen and what would be saved cannot drift; **a layout
