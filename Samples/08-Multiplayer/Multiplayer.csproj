@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Vixen.Samples.Multiplayer</RootNamespace>
+        <AssemblyName>Multiplayer</AssemblyName>
+        <IsPackable>false</IsPackable>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ecs\Vixen.Ecs.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Net\Vixen.Net.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Net.Transport.Local\Vixen.Net.Transport.Local.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Net.Transport.Udp\Vixen.Net.Transport.Udp.csproj" />
+
+        <!--
+            The generator, as an analyzer rather than a reference: the replicated components and the
+            remote calls are declared in this project, so their replicators and senders are emitted
+            while this project builds. Nothing here writes a Write/Apply pair by hand, which is the
+            claim the sample exists to make.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Net.Generators\Vixen.Net.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+</Project>

@@ -2295,7 +2295,50 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   backend, server content profile (no textures/audio/shader permutations), container image, metrics
   endpoint. Plus **out-of-process play mode** in the editor, which is what makes multiplayer testable.
 - Diagnostics: bandwidth attribution per object/type/RPC, packet inspector, editor network panel.
-- `Samples/08-Multiplayer` — server-authoritative, 8 players, movement + shooting with lag comp.
+- ✅ **`Samples/08-Multiplayer`** — server-authoritative, 8 players, movement and shooting. Lag comp
+  is the one thing it does not have, and it is the one thing it *measures the absence of*.
+
+  Every layer meets here, which is the only place any of them can be shown to join up: session
+  handshake, tick clock, delta replication, generated replicators, generated RPC senders, ownership,
+  interest seam, snapshot interpolation, and both transports. Three modes — everybody in one process
+  over `Local`, or `--mode server` / `--mode client` over real UDP. Nothing above the transport
+  changes between them, which is what `TransportConformance` was written to make true.
+
+  **It exits non-zero when the clients disagree with the server**, and the check is not "the positions
+  look close": the same entity set, every position within twice the position quantizer's half-level
+  (3.1 cm — the error a position is *supposed* to have), and health, score and deaths exact. It
+  checks after a settle phase, because while fighters are moving a client is meant to disagree by its
+  interpolation delay; what must not survive the quiet is a disagreement nothing corrects. Green at
+  0 %, 20 % and 40 % injected loss with latency to match, which is the phase's exit criterion run
+  three ways.
+
+  Two measurements worth having. **Eight fighters at 30 Hz cost under 20 kbit/s a client** — with
+  `ReplicateEverything`, so that is the number before interest management rather than after it. And
+  **bandwidth goes up under packet loss, not down**: a lost acknowledgement means the next snapshot
+  carries the same records again, 82 B clean against 110 B at 40 % loss. That is the delta mechanism
+  doing exactly what it is for, and this is the first time the cost of it has been a number.
+
+  **The hit rate falls from 49 % to 37 % between a clean run and one at 60 ms, and that is the
+  missing lag compensation.** The bot aims at where it last saw its target — half a round trip old —
+  and the server resolves the shot against where that target is when the call lands. Twelve points of
+  hit rate is what the deferred item would give back, `Arena.Resolve` is the one method that would
+  change, and the sample now prints the size of the hole rather than describing it.
+
+  Three things the sample had to get right that are stated nowhere else. The order inside a tick:
+  joins are queued out of the session's event and applied *after* `AdvanceVersion`, because a player
+  spawned from the event handler lands on the far side of the capture's comparison and is invisible
+  until the next thing about them changes. Components split by change frequency rather than by
+  meaning: `Combatant` (set once) apart from `Vitals` (set on every hit), because a delta is
+  per-component and pairing them re-sends the owner id forever. And no write-backs of unchanged
+  values, because marking a chunk changed for a value that did not change turns a change-version
+  filter back into a full state sync.
+
+  **Owed:** the acknowledgement is the *sample's* message rather than the engine's — one opcode and a
+  tick, sent `Sequenced` — because `ReplicationServer.Acknowledge` has no transport of its own. That
+  is defensible (the game already has a message channel) but every game will write the same six
+  lines, so it belongs behind a `ReplicationChannel` helper. Also owed: an interest resolver behind a
+  flag, and the system that copies between `NetworkTransform` and the engine's transform hierarchy —
+  which is still where `Vixen.Engine` and `Vixen.Net` will first have to meet.
 
 **Exit:** `Samples/08` playable server↔client across a real network and under 20 % injected packet loss.
 N-client in-process replication convergence tests green. Bit-exact serialization across all three desktop

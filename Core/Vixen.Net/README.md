@@ -7,17 +7,28 @@ Spec: [docs/plan/16-networking.md](../../docs/plan/16-networking.md).
 
 ## What is here so far
 
-Everything up to and including the session. Replication, interest management and the RPC generator
-land on top of these and are not built yet; see the roadmap for what is owed.
+Everything from the wire up to the policy. Lag compensation is the one item of the phase that is not
+built, and it is blocked on Phase 8 rather than owed by this package; see the roadmap.
 
 ```
 Vixen.Net              Channel · ConnectionId · DisconnectReason · Tick
 Vixen.Net.Transport    ITransport · ITransportEvents · NetworkSimulation
-Vixen.Net.Messaging    PacketWriter · PacketReader · BitWriter · BitReader · QuantizeRange
+Vixen.Net.Messaging    PacketWriter · PacketReader · BitWriter · BitReader · QuantizeRange · MathCodec
 Vixen.Net.Time         TickRate · TickManager · RoundTripEstimator
 Vixen.Net.Sessions     NetworkSession · NetworkPlayer · PlayerId · ISessionAuthenticator
 Vixen.Net.Replication  NetworkId · [Replicated] · [Quantize] · ReplicationServer/Client
+Vixen.Net.Rpc          [ServerRpc] · [ClientRpc] · RpcRouter · NetworkOwnership · RpcManifest
+Vixen.Net.Rules        NetworkRules · NetworkRulesRegistry
+Vixen.Net.Motion       NetworkTransform · SnapshotBuffer · OwnerSmoothing
 ```
+
+Plus the transports (`Vixen.Net.Transport.Local`, `Vixen.Net.Transport.Udp`) and the build half
+(`Vixen.Net.Generators`), each in their own package with their own README.
+
+**[`Samples/08-Multiplayer`](../../Samples/08-Multiplayer) is all of it at once** — eight players,
+server-authoritative movement and shooting, over either transport, ending in a convergence check that
+exits non-zero when a client disagrees with the server. It is the shortest route to seeing how these
+pieces are meant to be wired together.
 
 ## Three rules the transport contract is built on
 
