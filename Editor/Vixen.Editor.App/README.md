@@ -78,7 +78,7 @@ looking at a real model:
 
 | Panel | What it is |
 |---|---|
-| Hierarchy | a `TreeView` over the scene's entities; selecting drives the shared selection, and renaming a row is an undo entry |
+| Hierarchy | a `TreeView` over the scene's entities; selecting drives the shared selection, and renaming, creating and deleting are all undo entries |
 | Inspector | an `InspectorView` over the selection, recording every edit on the scene document's stack |
 | Scene | a `SceneViewport`: orbit, pan, zoom, the axis cross, gizmo modes and snapping, drawn into the panel — as lines, for the reason below |
 | Project | `ProjectBrowser`: the asset database as a tree, with a search box, over the real `Assets/` directory |
@@ -191,10 +191,9 @@ rebuilt; without it, closing and reopening the viewport puts the user back at th
   the `PublishAot` property says so already.
 - **No file dialog, so no "open project…".** A project comes from `--project` or is the scratch one;
   choosing one at run time needs a dialog, which is `Vixen.Platform`'s and not built.
-- **Creating and deleting entities is not offered.** An `Entity` is a slot and a version and the ECS
-  cannot reissue one, so a redo would hand back a different handle and every reference to the old one
-  would be stale. Handle reservation in `Vixen.Ecs` is what unblocks it; until then the scene is
-  seeded and edited rather than built.
+- **Reparenting is not undoable.** Dragging in the hierarchy is not wired up either; the primitive
+  undo was waiting on — `Hierarchy.SetParentAfter`, which puts a child back where it was rather than
+  at the head — now exists, so what is missing is the command.
 - **Clicking in the viewport does not select.** Picking needs the id target the missing texture
   command also blocks; the gizmo can be dragged, and what it drags comes from the hierarchy.
 - **It redraws every frame.** Redrawing only on change is the right end state and is not free — every

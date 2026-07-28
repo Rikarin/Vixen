@@ -208,7 +208,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Hot reload driven against a **running window** | ⬜ | — | Mechanism covered; never exercised end to end |
 | `Vixen.Ui.Controls` — 40-odd standard controls, `ControlTheme` as `UserAgent` origin | ✅ | Core/Vixen.Ui.Controls | 78 tests over a real theme and font |
 | `Vixen.Ui.Controls.Advanced` — Docking, TreeView, PropertyGrid, NodeCanvas, CodeEditor, DataGrid, Viewport, ColorPicker, CurveEditor, GradientEditor, Timeline | ✅ | Core/Vixen.Ui.Controls.Advanced | 253 tests |
-| `UiDocument` "layout finished" callback | ⬜ | — | ⛔ six advanced controls are one layout pass behind a resize; `Refresh()` is today's answer |
+| `UiDocument` "layout finished" callback | ✅ | Core/Vixen.Ui | All six controls on it. `Control.WhenResized` gates on the box changing; `Update` refuses a nested call, which is what lets a `Refresh` that runs its own pass be hung on the event |
 | Undo inside controls | ⬜ | — | The four `Changed` events are the seams a real stack subscribes to |
 | `Canvas2D` | ⬜ | — | Doc 09's P2, no editor consumer |
 | `OkLch.ToSrgb` real gamut mapping | ⬜ | — | Clamps per channel today, which shifts hue |
@@ -327,8 +327,8 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `PublishEditor`, signing, notarisation, `.dmg`/AppImage/MSI | ⬜ | — | |
 | `Vixen.Editor.NodeGraph` — model, generated registry, compiler, port typing | ✅ | Editor/Vixen.Editor.NodeGraph | No UI, and none needed to check it |
 | `NodeGraphView` (pan/zoom/marquee/wires/minimap/search-to-create) | ✅ | Editor/Vixen.Editor.NodeGraph | Over `NodeCanvas`. A one-way projection, rebuilt per structural change; drags write positions in place |
-| Sub-graphs; undo commands; auto-layout; drag-from-port; previews | ✅ | Editor/Vixen.Editor.NodeGraph | Sub-graphs are **inlined**, not called. Previews are a colour swatch — see the row below |
-| Rendered preview thumbnails on nodes | ⛔ | — | Needs a draw-list texture command, same as `Viewport` |
+| Sub-graphs; undo commands; auto-layout; drag-from-port; preview layer | ✅ | Editor/Vixen.Editor.NodeGraph | Sub-graphs are **inlined**, not called. The layer draws a colour *or* a render target |
+| A shader-graph renderer that *fills* a preview thumbnail | ⬜ | — | Unblocked. Compile one node's sub-expression, run it over a quad, keep the target alive across edits. `.ShaderGraph`'s, not the framework's |
 | Selectable wires; in-place sticky-note editing; inlined-node → source-node map | ⬜ | — | The last is what lets a diagnostic inside a sub-graph name a node the author can select |
 | Raven-span → node diagnostics mapping | ⬜ | — | Needs the emitter to record spans as it writes |
 | `Vixen.Editor.ShaderGraph` — node library, `DynamicVector` typing, Raven emission | ✅ | Editor/Vixen.Editor.ShaderGraph | Unlit, Sprite, PBR masters |
@@ -559,7 +559,7 @@ No unmet dependency. Twenty-three independent tracks.
 | ~~W0-6~~ | ~~`Tools/Vixen.ApiCheck` + first `PublicAPI.Shipped.txt`~~ | Built. The gate is in CI; what is left is the Phase 11 reading of what it baselined |
 | W0-7 | CI legs: Windows/Linux Vulkan, NativeAOT publish, run-a-sample, WebGPU-on-lavapipe | Content determinism across 3 OSes; `Samples/01` on Windows/Linux; the AOT gate becoming continuous |
 | W0-8 | `UiDocument.Update` → `StyleUpdater` (incremental cascade) | The largest UI perf item; nothing depends on it, everything benefits |
-| W0-9 | `UiDocument` "layout finished" callback | Resize lag in `ScrollView`, `TreeView`, `DataGrid`, `CodeEditor`, `NodeCanvas`, `Viewport` |
+| ~~W0-9~~ | ~~`UiDocument` "layout finished" callback~~ | Built. The resize lag in `ScrollView`, `TreeView`, `DataGrid`, `CodeEditor`, `NodeCanvas` and `Viewport` is closed |
 | W0-10 | Wire `LineWrapper` into `TextRun`/controls | `TextArea` · `CodeEditor` wrap · rich text |
 | W0-11 | `Vixen.Core.Diagnostics` sinks (ZLogger file, console, platform, remote, `EventSource`) + rate limiting | Editor console · remote inspector · `Vixen.Editor.Profiler`/`.Debugger` |
 | W0-12 | `Vixen.Editor.Plugin` (`AssemblyLoadContext`) | Editor extensibility; lets `Vixen.Editor.App` state its AOT position |
@@ -596,7 +596,7 @@ No unmet dependency. Twenty-three independent tracks.
 | ASTC/ETC2 output + full-quality BC7 | W0-15 | Then `ktx validate` + reference-decoder verification |
 | Undoable entity create/destroy; undoable reparenting | W0-16 | |
 | Two-phase occlusion + compacted draws; per-object reflection probes | W0-17 | |
-| Shader-graph procedural/custom-code nodes, Post + UI masters, previews | — | Unblocked: `NodeGraphView` is in. A *rendered* preview still wants the draw-list texture command |
+| Shader-graph procedural/custom-code nodes, Post + UI masters, previews | — | Unblocked: `NodeGraphView` is in and its preview layer already draws a render target |
 | VFX-graph operator nodes, remaining opcode blocks, live preview | W1(VFX GPU) | The view half is in; the live preview is the runtime's |
 | `Relay` transport + transport fallback | W0-21 | |
 | Cross-compilation test pass (ESSL/HLSL/MSL/WGSL) | W0-22 | |

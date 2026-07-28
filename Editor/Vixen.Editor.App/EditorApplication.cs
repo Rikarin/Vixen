@@ -492,6 +492,30 @@ sealed class EditorApplication : IDisposable {
     ///     <c>SceneViewport</c> has no bindings of its own.
     /// </remarks>
     void SceneCommands() {
+        // Enabled from the selection, so the menu item greys itself out with nothing here polling.
+        Shell.Commands.Add(
+            new EditorCommand(
+                "scene.create-entity",
+                new StringId("editor.command.create-entity", "Create Empty"),
+                CreateEntity
+            ) {
+                Category = EditorStrings.CategoryEdit
+            }
+        );
+
+        Shell.Commands.Add(
+            new EditorCommand(
+                "scene.delete-entity",
+                new StringId("editor.command.delete-entity", "Delete"),
+                () => scene.Delete(scene.Selection.ToList())
+            ) {
+                Category = EditorStrings.CategoryEdit,
+                Enablement = () => scene.Selection.Count > 0
+            }
+        );
+
+        Shell.Keys.SetDefault("scene.delete-entity", new KeyChord(InputKey.Delete, ModifierKeys.None));
+
         Mode("scene.translate", "Translate", GizmoMode.Translate, InputKey.W);
         Mode("scene.rotate", "Rotate", GizmoMode.Rotate, InputKey.E);
         Mode("scene.scale", "Scale", GizmoMode.Scale, InputKey.R);
@@ -675,6 +699,19 @@ sealed class EditorApplication : IDisposable {
     ///     tree, and telling somebody only that there are 340 assets would leave them to find that out
     ///     from <c>git status</c>.
     /// </remarks>
+    /// <summary>Creates an empty entity under the selection, and selects it.</summary>
+    /// <remarks>
+    ///     Under the first selected entity rather than at the root, which is what every editor does
+    ///     and what somebody who has just clicked a parent means. Selecting the new one is what makes
+    ///     the next thing they do — rename it, drag it — land on the thing they just made.
+    /// </remarks>
+    void CreateEntity() {
+        var parent = scene.Selection.Count > 0 ? scene.Selection[0] : Entity.Null;
+        var created = scene.Create("Entity", LocalTransform.Identity, parent);
+
+        scene.Selection.Set([created]);
+    }
+
     void RefreshAssets() {
         if (browser is not { } open) {
             return;

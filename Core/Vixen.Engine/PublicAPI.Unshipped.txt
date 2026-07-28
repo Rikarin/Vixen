@@ -327,7 +327,9 @@ static Vixen.Engine.Transforms.Hierarchy.DestroySubtree(Vixen.Ecs.World world, V
 static Vixen.Engine.Transforms.Hierarchy.DestroySubtree(Vixen.Ecs.World world, Vixen.Ecs.CommandBuffer commands, Vixen.Core.Entity root) -> void
 static Vixen.Engine.Transforms.Hierarchy.IsAncestorOf(Vixen.Ecs.World world, Vixen.Core.Entity ancestor, Vixen.Core.Entity entity) -> bool
 static Vixen.Engine.Transforms.Hierarchy.ParentOf(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> Vixen.Core.Entity
+static Vixen.Engine.Transforms.Hierarchy.PreviousSiblingOf(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> Vixen.Core.Entity
 static Vixen.Engine.Transforms.Hierarchy.SetParent(Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Core.Entity parent) -> void
+static Vixen.Engine.Transforms.Hierarchy.SetParentAfter(Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Core.Entity parent, Vixen.Core.Entity after) -> void
 static Vixen.Engine.Transforms.Hierarchy.SetParentKeepingWorldPosition(Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Core.Entity parent) -> void
 static Vixen.Engine.Transforms.LocalTransform.At(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Engine.Transforms.LocalTransform
 static Vixen.Engine.Transforms.LocalTransform.Identity.get -> Vixen.Engine.Transforms.LocalTransform

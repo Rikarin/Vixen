@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Vixen.Graphics;
 using Vixen.Shaders;
+using Vixen.Shaders.Generated;
 
 namespace Vixen.Rendering;
 
@@ -48,12 +49,21 @@ public struct DrawCommand {
 ///     </para>
 ///     <para>
 ///         <strong>It zeroes instance counts rather than compacting.</strong> The textbook form
-///         appends survivors to a list, which needs an atomic counter to claim slots with — and
-///         Raven has no atomics, the constraint that also shapes <see cref="ClusterGrid" /> and the
-///         particle kernels. So the buffer holds one record per object slot at that slot's own index
-///         and a culled object gets zero instances, which every API defines as a draw that fetches
-///         and rasterises nothing. The cost is a command submitted per object rather than per visible
-///         object; the saving is the whole round trip.
+///         appends survivors to a list and draws that list. Claiming a slot needs an atomic add,
+///         which Raven has — so what stands in the way is the <em>draw</em>, in two independent
+///         ways. A single command covers a compacted run only if its count comes from the device,
+///         and <see cref="ICommandList.DrawIndexedIndirect" /> takes <c>drawCount</c> as a host
+///         integer. And a single command covers several objects only if they share their bindings,
+///         which they do not: <see cref="Features.MeshRenderFeature" /> binds a vertex buffer, an
+///         index buffer and a material set per object, so a compacted list would be a list nothing
+///         could draw in one call.
+///     </para>
+///     <para>
+///         Bindless materials are what change the second of those, and are the prerequisite
+///         [docs/plan/14] records against compaction. Until then the buffer holds one record per
+///         object slot at that slot's own index and a culled object gets zero instances, which every
+///         API defines as a draw that fetches and rasterises nothing. The cost is a command submitted
+///         per object rather than per visible object; the saving is the whole round trip.
 ///     </para>
 ///     <para>
 ///         <strong>A record per object per view</strong>, because the bits are: a shadow cascade and
@@ -80,12 +90,29 @@ public sealed class GpuDrawArguments : IDisposable {
     BufferHandle commands;
     long capacity;
 
+    // Whether the templates in `packed` have reached the device since the last Fill. A two-phase
+    // frame dispatches twice over one set of templates, and uploading them again would advance the
+    // upload ring a second time in one frame — which halves the ring's depth in exactly the way the
+    // ring exists to prevent.
+    bool staged;
+    long templateOffset;
+
     // What the argument buffer was left in. The draw that reads it needs IndirectArgument, and the
     // dispatch that writes it needs ShaderWrite, so it changes twice a frame and never settles.
     ResourceState state = ResourceState.Undefined;
 
-    DescriptorSetHandle descriptors;
-    DescriptorSetSlot slot;
+    // One set per frame in flight, advanced with the frame. A set a submitted command buffer still
+    // references may not be written — VUID-vkUpdateDescriptorSets-None-03047 — and the no-readback
+    // path waits for nothing, so the set this frame rewrites has to be one an earlier frame used and
+    // the device has finished with. The same invariant DescriptorAllocator and UploadBuffer are
+    // built on, and the reason both of those exist rather than one set and one region.
+    DescriptorSetHandle[] descriptors = [];
+    int ring;
+
+    // From the reflection checked in beside the shader, not from a name looked up at run time —
+    // see GpuCulling.ShaderName for why the generated keys are the source of both.
+    const DescriptorSetSlot Slot = (DescriptorSetSlot)DrawArgumentsKeys.TemplatesSet;
+
     Effect? allocatedFor;
     bool disposed;
 
@@ -104,6 +131,19 @@ public sealed class GpuDrawArguments : IDisposable {
 
     /// <summary>Where the compute pipeline comes from. Null updates nothing.</summary>
     public ComputePipelineCache? Pipelines { get; set; }
+
+    /// <summary>
+    ///     How many times a frame <see cref="Update" /> is called, which is what the set ring has to
+    ///     be deep enough for.
+    /// </summary>
+    /// <remarks>
+    ///     One for an ordinary frame; two for a two-phase cull, whose second dispatch turns the late
+    ///     difference into the late draws. The same argument as
+    ///     <see cref="HiZPyramid.BuildsPerFrame" />: two updates in one frame are two rewrites of a
+    ///     set before a single submission, which sizing the ring to frames in flight alone does not
+    ///     cover.
+    /// </remarks>
+    public int DispatchesPerFrame { get; set; } = 1;
 
     /// <summary>The arguments a draw call reads. Invalid before the first update.</summary>
     public BufferHandle Commands => commands;
@@ -148,6 +188,7 @@ public sealed class GpuDrawArguments : IDisposable {
 
         var span = packed.AsSpan(0, objectCount);
         span.Clear();
+        staged = false;
 
         return span;
     }
@@ -187,53 +228,56 @@ public sealed class GpuDrawArguments : IDisposable {
 
         var pipeline = Pipelines.GetOrCreate(effect);
 
-        if (!pipeline.IsValid
-            || effect.BindingOf("templates") is not { } templateBinding
-            || effect.BindingOf("visibility") is not { } visibilityBinding
-            || effect.BindingOf("commands") is not { } commandBinding) {
+        if (!pipeline.IsValid || !TryAllocateSet(effect) || !EnsureCommands((long)viewCount * objectCount * Stride)) {
             return false;
         }
 
-        if (templateBinding.Set != visibilityBinding.Set || templateBinding.Set != commandBinding.Set) {
+        if (packed.Length < objectCount) {
             throw new InvalidOperationException(
-                $"'{GpuCulling.ArgumentsShaderName}' declares its three buffers across more than one "
-                + "descriptor set, and one dispatch binds one set."
+                $"Update was given {objectCount} objects and Fill was last given {packed.Length}. The "
+                + "templates are what this pass edits one field of, so a frame that dispatched without "
+                + "them would draw every object with whatever the previous frame left — call Fill "
+                + "first, and let the sources write into what it returns."
             );
-        }
-
-        if (!TryAllocateSet(effect, templateBinding.Set) || !EnsureCommands((long)viewCount * objectCount * Stride)) {
-            return false;
         }
 
         ObjectCount = objectCount;
         ViewCount = viewCount;
 
-        templates.Begin();
-        templates.Add(packed.AsSpan(0, objectCount));
-        templates.Upload();
+        // Once per Fill, not once per dispatch. The templates are what the host would have drawn and
+        // do not change between a frame's two phases — only the bits they are filtered by do.
+        if (!staged) {
+            templates.Begin();
+            templates.Add(packed.AsSpan(0, objectCount));
+            templates.Upload();
+
+            templateOffset = templates.Offset;
+            staged = true;
+        }
 
         writes[0] = DescriptorWrite.Storage(
-            templateBinding.Binding,
+            DrawArgumentsKeys.TemplatesBinding,
             templates.Buffer,
-            templates.Offset,
+            templateOffset,
             (long)objectCount * Unsafe.SizeOf<DrawCommand>()
         );
 
         // The exact word count, because the shader derives the stride between views from the object
         // count and would read the next view's words if this said "the rest of the buffer".
         writes[1] = DescriptorWrite.Storage(
-            visibilityBinding.Binding,
+            DrawArgumentsKeys.VisibilityBinding,
             visibility,
             0,
             GpuCulling.BufferSize(viewCount, GpuCulling.WordsFor(objectCount))
         );
 
-        writes[2] = DescriptorWrite.Storage(commandBinding.Binding, commands, 0, (long)viewCount * objectCount * Stride);
-        device.UpdateDescriptorSet(descriptors, writes);
+        writes[2] = DescriptorWrite.Storage(DrawArgumentsKeys.CommandsBinding, commands, 0, (long)viewCount * objectCount * Stride);
+        ring = descriptors.Length == 0 ? 0 : (ring + 1) % descriptors.Length;
+        device.UpdateDescriptorSet(descriptors[ring], writes);
 
         list.Barrier(new([new(commands, state, ResourceState.ShaderWrite)], []));
         list.BindPipeline(pipeline);
-        list.BindDescriptorSet(slot, descriptors);
+        list.BindDescriptorSet(Slot, descriptors[ring]);
 
         list.Dispatch(
             Math.Max(1, (objectCount + GpuCulling.WorkgroupSize - 1) / GpuCulling.WorkgroupSize),
@@ -247,24 +291,43 @@ public sealed class GpuDrawArguments : IDisposable {
         return true;
     }
 
-    bool TryAllocateSet(Effect effect, DescriptorSetSlot wanted) {
-        if (ReferenceEquals(allocatedFor, effect) && descriptors.IsValid) {
+    bool TryAllocateSet(Effect effect) {
+        var slots = Math.Max(1, device.FramesInFlight) * Math.Max(1, DispatchesPerFrame);
+
+        if (ReferenceEquals(allocatedFor, effect) && descriptors.Length == slots) {
             return true;
         }
 
-        if ((int)wanted >= effect.SetLayouts.Length || !effect.SetLayouts[(int)wanted].IsValid) {
+        if ((int)Slot >= effect.SetLayouts.Length || !effect.SetLayouts[(int)Slot].IsValid) {
             return false;
         }
 
-        if (descriptors.IsValid) {
-            device.Destroy(descriptors);
+        DestroySets();
+        descriptors = new DescriptorSetHandle[slots];
+
+        for (var index = 0; index < slots; index++) {
+            descriptors[index] = device.CreateDescriptorSet(effect.SetLayouts[(int)Slot], "DrawArguments");
+
+            if (!descriptors[index].IsValid) {
+                return false;
+            }
         }
 
-        descriptors = device.CreateDescriptorSet(effect.SetLayouts[(int)wanted], "DrawArguments");
-        slot = wanted;
+        ring = 0;
         allocatedFor = effect;
 
-        return descriptors.IsValid;
+        return true;
+    }
+
+    void DestroySets() {
+        foreach (var set in descriptors) {
+            if (set.IsValid) {
+                device.Destroy(set);
+            }
+        }
+
+        descriptors = [];
+        allocatedFor = null;
     }
 
     bool EnsureCommands(long bytes) {
@@ -303,10 +366,7 @@ public sealed class GpuDrawArguments : IDisposable {
         disposed = true;
         IsFilled = false;
 
-        if (descriptors.IsValid) {
-            device.Destroy(descriptors);
-            descriptors = default;
-        }
+        DestroySets();
 
         if (commands.IsValid) {
             device.Destroy(commands);

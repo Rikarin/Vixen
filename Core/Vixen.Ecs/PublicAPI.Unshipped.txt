@@ -370,6 +370,7 @@ Vixen.Ecs.World.AdvanceVersion() -> uint
 Vixen.Ecs.World.ArchetypeOf(System.ReadOnlySpan<Vixen.Core.ComponentTypeId> componentTypes) -> Vixen.Ecs.Archetype
 Vixen.Ecs.World.ArchetypeOf(Vixen.Core.Entity entity) -> Vixen.Ecs.Archetype
 Vixen.Ecs.World.Archetypes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ecs.Archetype>
+Vixen.Ecs.World.CanRecreate(Vixen.Core.Entity entity) -> bool
 Vixen.Ecs.World.Chunks(Vixen.Ecs.QueryDescription description, uint since = 0) -> Vixen.Ecs.ChunkSequence
 Vixen.Ecs.World.Clear() -> void
 Vixen.Ecs.World.CopyComponentsFrom(Vixen.Core.Entity target, Vixen.Ecs.World source, Vixen.Core.Entity sourceEntity) -> void
@@ -396,6 +397,7 @@ Vixen.Ecs.World.Remove<T>(Vixen.Core.Entity entity) -> void
 Vixen.Ecs.World.Set<T>(Vixen.Core.Entity entity, in T value) -> void
 Vixen.Ecs.World.StructuralVersion.get -> int
 Vixen.Ecs.World.TryGet<T>(Vixen.Core.Entity entity, out T? value) -> bool
+Vixen.Ecs.World.TryRecreate(Vixen.Core.Entity entity, Vixen.Ecs.Archetype archetype) -> bool
 Vixen.Ecs.World.Version.get -> uint
 Vixen.Ecs.World.World(string name = "World") -> void
 Vixen.Ecs.WorldDigest -> static class

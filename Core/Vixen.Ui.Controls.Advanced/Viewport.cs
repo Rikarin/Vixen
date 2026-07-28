@@ -258,17 +258,22 @@ public sealed partial class Viewport : Control {
         Gizmo = Part<ViewportGizmo>();
         Gizmo.Owner = this;
 
+        // The render target has to be recreated when the box changes, and a host that had to
+        // remember to ask was a host that forgot on the frame a splitter settled.
+        WhenResized(() => Refresh());
+
         AddHandler<PointerEvent>(static (element, args) => ((Viewport) element).Pointed(args));
         AddHandler<WheelEvent>(static (element, args) => ((Viewport) element).Wheeled(args));
     }
 
     /// <summary>Brings the render size up to date and raises <see cref="Resized" /> if it moved.</summary>
     /// <remarks>
-    ///     ⚠ <b>Called by the application, once a frame, after the layout pass.</b> Nothing in
-    ///     <c>UiDocument</c> announces that an element's box changed — the same gap
-    ///     <c>ScrollView.Refresh</c> and <c>TreeView.Refresh</c> exist for — so a viewport cannot
-    ///     find out that a splitter moved without being asked. It is cheap: two comparisons when
-    ///     nothing happened.
+    ///     <b>Called for you, from the layout pass that changed the box.</b>
+    ///     <c>Control.WhenResized</c> hangs this on <see cref="UiDocument.LayoutFinished" />, so a
+    ///     splitter that moves reaches <see cref="Resized" /> in the same frame and a host that
+    ///     forgot to ask is no longer a viewport rendering at the old size. It stays public and
+    ///     idempotent: a host that has just changed <see cref="RenderScale" /> and wants the target
+    ///     rebuilt now still has a way to say so, and it is two comparisons when nothing happened.
     /// </remarks>
     /// <returns>Whether the size changed.</returns>
     public bool Refresh() {

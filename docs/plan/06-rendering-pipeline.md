@@ -153,11 +153,22 @@ Vixen keeps all three, with these changes:
   nothing: `Compositor/GpuCullingRenderer` records the cull and `Library/Pipeline/DrawArguments.rvn`
   in the frame's own list — the only ordering an RHI with no fences can express — and
   `MeshRenderFeature` draws through `DrawIndexedIndirect` at each object's own slot. It zeroes
-  instance counts rather than compacting, because compaction needs an atomic counter Raven does not
-  have; the host's bitset then holds what *could* be seen, and the device removes the rest. With the
-  readback on, everything is as before: the bits are this frame's and the work list is exact.
-  Still open: the **two-phase** form of the occlusion test, which is what removes the frame of
-  staleness, and **compaction**, which only pays off once materials are bindless — see
+  instance counts rather than compacting; the host's bitset then holds what *could* be seen, and the
+  device removes the rest. With the readback on, everything is as before: the bits are this frame's
+  and the work list is exact.
+  ✅ **And in two phases**, which is what removes the frame of staleness one-phase occlusion culling
+  cannot avoid. The `Late` permutation of the same shader reads the visibility word before it writes
+  it and answers with the *difference* — visible against a pyramid rebuilt from the main pass's own
+  depth, and not already drawn — into the same buffer, so the late draws are the same draws reading
+  an argument buffer whose contents changed. A frame with no pyramid still dispatches it and gets an
+  empty difference, because skipping it would leave the main pass's bits for the late draws to find.
+  ✅ **And it is a compositor document**: `!GpuCulling` and `!HiZ` are node kinds with `readBack`,
+  `indirectDraws` and `phase` as their flags, and `CompositorBuilder` makes the assignments a file
+  cannot — the render system's visibility group, the arguments every drawing feature reads, and the
+  descriptor-ring depths that two nodes of a kind in one frame imply. The resources stay
+  host-supplied, so one document runs on a target with no compute and gets the CPU path.
+  Still open: **compaction**, blocked on an indirect draw whose count comes from the device *and* on
+  bindless materials, since each object binds its own vertex buffer and material set — see
   `Vixen.Rendering/README.md § Culling`.
 
 ## Frame structure

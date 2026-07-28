@@ -95,6 +95,30 @@ public sealed class CompositorBuilder(RenderSystem system) {
     public SamplerCache? Samplers { get; set; }
 
     /// <summary>
+    ///     What GPU culling runs on, when a document asks for it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Host-supplied for the reason <see cref="Descriptors" /> and <see cref="Samplers" />
+    ///         are: a visibility group holds device memory that outlives the frame, a pyramid holds a
+    ///         frame of depth, and neither is a thing a file can create. What the document decides is
+    ///         where the two passes go; what a host decides is whether the device has any business
+    ///         running them at all.
+    ///     </para>
+    ///     <para>
+    ///         Null builds the nodes anyway and they do nothing, which is what a target with no
+    ///         compute wants: one document, and the CPU path where the capability is missing.
+    ///     </para>
+    /// </remarks>
+    public GpuVisibilityGroup? Visibility { get; set; }
+
+    /// <summary>The depth pyramid the <c>HiZ</c> node builds and the culling pass tests against.</summary>
+    public HiZPyramid? Occluders { get; set; }
+
+    /// <summary>Where the indirect draw arguments go, for a document that asks for them.</summary>
+    public GpuDrawArguments? Arguments { get; set; }
+
+    /// <summary>
     ///     The per-view block this build created, if the document declared one.
     /// </summary>
     /// <remarks>
@@ -138,6 +162,11 @@ public sealed class CompositorBuilder(RenderSystem system) {
                 + "produce a frame missing a pass and say nothing about it."
             );
         }
+
+        // Counted per build, so rebuilding from a document that dropped a node does not leave a ring
+        // sized for the one that used to be there.
+        reductions = 0;
+        argumentPasses = 0;
 
         ViewBlock = asset.ViewBlock is { } block && Device is not null ? Block(block) : null;
 
@@ -201,6 +230,8 @@ public sealed class CompositorBuilder(RenderSystem system) {
             PunctualShadowAsset punctual => Punctual(punctual),
             FullScreenAsset post => FullScreen(post),
             ComputeAsset compute => Compute(compute),
+            HiZAsset pyramid => Reduce(pyramid),
+            GpuCullingAsset culling => Culling(culling),
             _ => Extension(declared)
         };
 
@@ -375,6 +406,79 @@ public sealed class CompositorBuilder(RenderSystem system) {
         }
 
         Bind(node.Descriptors, declared.Bindings);
+        return node;
+    }
+
+    // How many nodes of each kind this build has placed, which is how deep their descriptor rings
+    // have to be. A set may not be rewritten while a submitted command buffer references it, and two
+    // nodes of the same kind in one document are two rewrites before a single submission — which
+    // sizing a ring to frames in flight alone does not cover. Counted rather than inferred from
+    // whether a late culling node exists, because a document may reduce twice without one and would
+    // otherwise get a ring one deep for two builds.
+    int reductions;
+    int argumentPasses;
+
+    /// <summary>The depth reduction, over the pyramid the host supplied.</summary>
+    HiZRenderer Reduce(HiZAsset declared) {
+        reductions++;
+
+        if (Occluders is { } pyramid) {
+            pyramid.BuildsPerFrame = reductions;
+        }
+
+        return new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Depth = declared.Depth,
+            Pyramid = Occluders
+        };
+    }
+
+    /// <summary>
+    ///     The culling dispatch, and everything the document's answer implies about the frame.
+    /// </summary>
+    /// <remarks>
+    ///     The one node that reaches past its own pass, because what it decides is not a pass: the
+    ///     group is what <see cref="RenderSystem.Visibility" /> has to become for the frame to be
+    ///     culled on the device at all, and the arguments are what every feature that draws from them
+    ///     has to be given. Both are assignments a host would otherwise have to remember to make in
+    ///     the same breath as placing the node — and forgetting either is a frame that culls on the
+    ///     CPU, or draws everything, with nothing to say why.
+    /// </remarks>
+    GpuCullingRenderer Culling(GpuCullingAsset declared) {
+        var late = declared.Phase == CullPhase.Late;
+
+        var node = new GpuCullingRenderer {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Phase = declared.Phase,
+            Visibility = Visibility,
+            Arguments = declared.IndirectDraws ? Arguments : null
+        };
+
+        if (Visibility is { } group) {
+            // A late node's own readBack is not read. Declaring a late phase *is* declaring the
+            // in-frame path — the two dispatches have to straddle a set of draws, and the readback
+            // path submits and waits before any of them are recorded — so the node that asks for it
+            // says so, rather than a document being able to ask for two things that cannot both hold.
+            // Nodes are built in document order and a late node can only follow a main one, so this
+            // assignment is the later of the two.
+            group.ReadBack = !late && declared.ReadBack;
+            group.TwoPhase = late;
+            group.Occluders = Occluders;
+            system.Visibility = group;
+        }
+
+        if (node.Arguments is { } arguments) {
+            arguments.DispatchesPerFrame = ++argumentPasses;
+        }
+
+        foreach (var feature in system.Features) {
+            if (feature is IDrawArgumentSource source) {
+                source.Arguments = node.Arguments;
+            }
+        }
+
         return node;
     }
 

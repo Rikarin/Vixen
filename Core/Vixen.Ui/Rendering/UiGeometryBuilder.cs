@@ -48,6 +48,34 @@ public sealed class UiGeometryBuilder {
     /// </remarks>
     public int DroppedGlyphs { get; private set; }
 
+    /// <summary>Whether the atlas changed while this frame's quads were being emitted.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>True means some of the frame's glyph texture coordinates may be stale</b>, and it
+    ///         is the one text fault this builder can notice and cannot repair. A quad reads its
+    ///         region the moment it is written, so anything that moves a region afterwards leaves it
+    ///         pointing somewhere else — and there are two such things, not one. Compaction moves
+    ///         <i>every</i> region at once; eviction quietly hands one glyph's slot to the next
+    ///         glyph, which needs no repack at all and is the worse of the two, because what draws
+    ///         is a different letter rather than a blank.
+    ///     </para>
+    ///     <para>
+    ///         So this watches the atlas's <c>Revision</c> and not its <c>Version</c>: a version
+    ///         moves only for a repack, and would miss the eviction case entirely. Any addition at
+    ///         all during emission is the signal, and after the resolve pass an addition can only
+    ///         mean the frame wants more distinct glyphs at once than the atlas holds — resolving
+    ///         evicted what it had just put in. It over-reports in the one harmless case, an
+    ///         addition that neither evicted nor repacked, and that is the right way round.
+    ///     </para>
+    ///     <para>
+    ///         Reported rather than retried, because a retry has nothing to converge on: the second
+    ///         pass evicts the same way the first did. The answer is a bigger atlas or a lower field
+    ///         resolution, which is a decision for whoever built the cache — so this is the signal
+    ///         that says to make it, next to <see cref="DroppedGlyphs" /> and for the same reason.
+    ///     </para>
+    /// </remarks>
+    public bool AtlasChanged { get; private set; }
+
     /// <summary>How far a flattened curve may sit from the curve it replaces, in document pixels.</summary>
     /// <remarks>
     ///     ⚠ <b>Document pixels, which are device pixels only at scale one.</b> A surface drawn at
@@ -84,6 +112,22 @@ public sealed class UiGeometryBuilder {
         shapes.Clear();
         clips.Clear();
         DroppedGlyphs = 0;
+        AtlasChanged = false;
+
+        // ⚠ <b>Every glyph the frame needs goes into the atlas before a single quad reads a region
+        // out of it</b>, and the two have to be separate passes rather than one. Adding a glyph can
+        // repack the whole texture — see `GlyphAtlas.Compact` — and a repack changes every region,
+        // including the ones the quads emitted earlier in this same frame have already baked into
+        // their vertices. Interleaved, the fortieth glyph of a label can therefore silently move the
+        // first thirty-nine somewhere else, and what draws is the right letters read out of the
+        // wrong places. Resolving first means the only packing that can happen during emission is
+        // none, which is a stronger claim than doing it carefully.
+        Resolve(list, glyphs);
+
+        // ⚠ Read after the resolve pass and not before it. The atlas churning *during* resolving is
+        // the arrangement working — nothing has been emitted yet, so nothing is holding a coordinate
+        // — and only a change from here on invalidates what has already been written.
+        var settled = glyphs.Atlas.Revision;
 
         var clip = viewport;
 
@@ -136,7 +180,51 @@ public sealed class UiGeometryBuilder {
             }
         }
 
+        // ⚠ What the resolve pass could not prevent, said out loud. See `AtlasChanged`: a frame
+        // wanting more distinct glyphs at once than the atlas holds evicts during resolving what it
+        // is about to draw, so emission puts them back — and putting one back can take another one's
+        // slot. Nothing here can repair that; the quads are written. What it must not be is quiet.
+        AtlasChanged = glyphs.Atlas.Revision != settled;
+
         return new UiGeometry(vertices, indices, draws, shapes);
+    }
+
+    /// <summary>Puts every glyph the frame draws into the atlas, before any of it is read back.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The result is deliberately discarded.</b> This is not a lookup, it is the side effect
+    ///     of one: <c>TryGet</c> is what rasterises a glyph and packs it, and doing all of that here
+    ///     is what lets <see cref="Text" /> read regions out of an atlas nothing is still moving. See
+    ///     <see cref="Build" /> for why interleaving the two is the fault this exists to remove.
+    ///     <para>
+    ///         It also fixes the eviction order for the frame, which is a second thing worth having:
+    ///         the whole working set is warmed before anything can be evicted, so an atlas under
+    ///         pressure stops picking off the glyphs this very frame is about to draw.
+    ///     </para>
+    /// </remarks>
+    static void Resolve(DrawList list, GlyphFieldCache glyphs) {
+        foreach (var batch in list.Batches) {
+            if (batch.Kind == BatchKind.Clip) {
+                continue;
+            }
+
+            for (var i = 0; i < batch.Count; i++) {
+                var command = list.Commands[batch.First + i];
+
+                // The same two guards `Text` applies, and for the same reason: a command naming a
+                // font the list does not have is one to skip rather than to index with.
+                if (command.Kind != DrawCommandKind.Text
+                    || command.Font < 0
+                    || command.Font >= list.Fonts.Count) {
+                    continue;
+                }
+
+                var font = list.Fonts[command.Font];
+
+                for (var g = 0; g < command.Length; g++) {
+                    glyphs.TryGet(font, command.Font, list.Glyphs[command.Offset + g].GlyphId, out _);
+                }
+            }
+        }
     }
 
     /// <summary>Applies a clip push or pop, keeping the stack here so the renderer has none.</summary>

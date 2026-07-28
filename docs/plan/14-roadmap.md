@@ -2495,8 +2495,11 @@ sub-piece has its own gate.
   elements. The grid half asserts multi-object writes, the mixed-value states, the numeric
   conversion back to a member's own type, and reset-to-default.
 
-  ⚠ **Still owed:** rows and scroll ranges are one layout pass behind a *resize* — `Refresh()` is
-  today's answer and a "layout finished" callback on `UiDocument` is the real one; floating groups
+  ⚠ **Still owed:** ~~rows and scroll ranges are one layout pass behind a *resize*~~ — closed by
+  `UiDocument.LayoutFinished` and `Control.WhenResized`, and the enabling piece turned out to be a
+  re-entrancy guard on `Update`: three of these controls run a pass inside their own `Refresh`, so
+  hanging that `Refresh` on the callback recursed into the settle loop from underneath itself and
+  reset the budget meant to bound it; floating groups
   float within the document rather than in an OS window of their own, which is `Vixen.Platform`'s
   half; `StyleTree.AppendChild` is O(children) per append, which virtualisation keeps every control
   here clear of and a `DataGrid` may not be; and nested struct members are shown read-only, because
@@ -2605,11 +2608,24 @@ never been driven against a running window.
   `VisibilityGroup` culling in parallel on the job system and `GpuVisibilityGroup` dispatching
   `Library/Pipeline/Culling.rvn` against the frustum and against a `HiZPyramid` of last frame's
   depth, the second falling back to the first wherever it cannot run and able to skip the readback
-  entirely — `GpuDrawArguments` turns its bits into `DrawIndexedIndirect` arguments without them
-  leaving the device — `RenderView`/`RenderStage`, sort modes. Still open: the concrete features
-  (mesh, transform, skinning, instancing, material, lighting, shadow-caster), the two-phase form of
-  the occlusion test and compacted draws (which want bindless materials first), and
+  entirely — **in one phase or two**, the second `Culling` node testing everything the first rejected
+  against a pyramid rebuilt from the depth the first phase's own draws left, which is what removes
+  the frame of staleness that one-phase occlusion culling cannot avoid — `GpuDrawArguments` turns
+  its bits into `DrawIndexedIndirect` arguments without them leaving the device —
+  `RenderView`/`RenderStage`, sort modes. Still open: the concrete features (mesh, transform,
+  skinning, instancing, material, lighting, shadow-caster), compacted draws, and
   `GraphicsCompositor` as an asset.
+
+  **Compaction is blocked, and on two things rather than the one this used to say.** Claiming a slot
+  needs an atomic add, which Raven has had since the atomics landed — so the shader is not the
+  problem. A compacted run can only be drawn by one command if (a) the command's draw count comes
+  from the device, and `ICommandList.DrawIndexedIndirect` takes `drawCount` as a host integer, and
+  (b) every draw in the run shares its bindings, which they do not: `MeshRenderFeature` binds a
+  vertex buffer, an index buffer and a material set per object. **Bindless materials** are the deeper
+  of the two and the one to do first; an indirect-count draw is a small RHI addition
+  (`vkCmdDrawIndexedIndirectCount`, `ExecuteIndirect` with a count buffer, `glMultiDrawElements-
+  IndirectCount`) that buys nothing on its own. Until both, one record per object slot with a zeroed
+  instance count is the right shape, and it costs a submitted command rather than a vertex fetch.
 - Materials: ✅ **the composable feature tree** — `MaterialDescriptor` and `MaterialCompiler` over two
   `compose` slots on the pass, `surface` for what a point on the surface *is* and `shading` for what it
   does with light. Metallic-roughness and spec-gloss, normal map, emissive, occlusion, anisotropy,
@@ -2824,8 +2840,10 @@ the shipping projects; a `.rvn` edit reparsing incrementally; the differential o
   `Viewport` draws a real render target, which is what the editor's scene panel is; `CodeEditor` does
   not wrap and its caret does not blink, both for want of things the framework has not got yet;
   `OkLch.ToSrgb` clamps per
-  channel, which shifts the hue where real gamut mapping would walk the chroma down; and every one of
-  these controls is still one layout pass behind a resize, for the reason Phase 4e recorded.
+  channel, which shifts the hue where real gamut mapping would walk the chroma down; and ~~every one
+  of these controls is still one layout pass behind a resize~~ — all six are on
+  `UiDocument.LayoutFinished` now, five of them through `Control.WhenResized`, which gates on the box
+  having actually changed size because `CodeEditor.Refresh` walks every line in the buffer.
 - Asset editors: texture, model, material, scene, prefab, shader, UI, addressable groups, graphics
   compositor.
 - `Vixen.Editor.Profiler` + `.Debugger` (frame graph, frame debugger, memory view, remote inspector).
@@ -2842,8 +2860,11 @@ nowhere in the dependency graph.
 > **The one sentence, as built.** ✅ Opens a project — `EditorProject.Open`, with a `ProjectBrowser`
 > over the result. ✅ Imports assets and ✅ builds content — `ContentPipeline` on the shell's
 > background task manager, the same call the CLI makes, proved from the editor's own path by
-> `--run assets.build`. 🟡 Edits a scene — hierarchy, inspector, gizmos and a viewport, but no undo
-> for creating or destroying an entity, because the ECS cannot reissue a handle. ✅ Saves. ✅ Runs the
+> `--run assets.build`. ✅ Edits a scene — hierarchy, inspector, gizmos, a viewport, and creating,
+> deleting and renaming entities undoably, with the handle surviving a delete-and-undo
+> (`World.TryRecreate`) and the entity returning to its own place among its siblings
+> (`Hierarchy.SetParentAfter`). Reparenting is still not undoable, for want of a command rather than
+> a primitive. ✅ Saves. ✅ Runs the
 > game, in the sense of play-in-editor over a world snapshot. ✅ Entirely in `Vixen.Ui` — there is no
 > other toolkit anywhere in the dependency graph, and never was.
 >
@@ -2874,12 +2895,13 @@ nowhere in the dependency graph.
   behaviours are intercepted rather than configured — Delete, and the reroute gesture that picks a
   wire up off an input — and neither needed a change to `Vixen.Ui.Controls.Advanced`.
 
-  ⚠ **Previews are a colour swatch, not a rendered thumbnail**, because the draw list still has no
-  texture command — the same reason `Viewport` draws a placeholder. It is what can be drawn honestly
-  today and it is what a constant, a colour, a mask and a channel split all reduce to; when the draw
-  list grows a texture command it is one more case in `NodePreviewLayer`. Also owed: selectable wires,
-  editing a sticky note in place, and a source map from an inlined node back to the sub-graph node it
-  came out of, without which a diagnostic about one names an identity the author cannot select.
+  ⚠ **The preview layer draws a thumbnail and nothing renders one.** `NodePreview` carries a colour
+  or a render-target handle and `NodePreviewLayer` draws both, by the same image command and with the
+  same flip question as `Viewport`. What is missing is the *shader-graph* side — compile one node's
+  sub-expression, run it over a quad, keep the target alive across edits — which is `.ShaderGraph`'s
+  and is now unblocked. Also owed: selectable wires, editing a sticky note in place, and a source map
+  from an inlined node back to the sub-graph node it came out of, without which a diagnostic about one
+  names an identity the author cannot select.
 - `Vixen.Editor.ShaderGraph`: node library, `DynamicVector` port typing, Raven emission, show-generated-
   code, diagnostics mapped to ports, master nodes (PBR/unlit/sprite/UI/post).
 - 🟡 `Vixen.Vfx` runtime: SoA attribute storage, spawners/initializers/updaters/renderers, deterministic

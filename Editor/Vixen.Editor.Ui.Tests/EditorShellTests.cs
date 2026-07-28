@@ -120,6 +120,32 @@ public class EditorShellTests {
         Assert.Equal(InputKey.S, item.Shortcut?.Key);
     }
 
+    /// <summary>
+    ///     ⚠ <b>The chrome is a column and its order is its children's order</b>, so where the menu
+    ///     bar sits among them is where it is on the screen. Registering a command rebuilds the bar,
+    ///     and a rebuild that appended would put it after the workspace and the status bar — a menu
+    ///     bar along the bottom edge of the window, arriving on whichever frame the application
+    ///     registered its last command.
+    /// </summary>
+    [Fact]
+    public void The_menu_bar_stays_at_the_top_of_the_chrome_however_often_it_is_rebuilt() {
+        using var shell = Built();
+
+        var chrome = shell.MenuBar.Bar.Parent!;
+        Assert.Equal(0, shell.MenuBar.Bar.IndexInParent);
+
+        shell.Commands.Add("file.save", Title("Save"), () => { });
+        shell.Toolbar.Show("view.palette", null, "view.toggle-theme");
+        shell.Commands.Add("file.open-project", Title("Open Project"), () => { });
+
+        Assert.Equal(0, shell.MenuBar.Bar.IndexInParent);
+        Assert.Equal(1, shell.Toolbar.Strip.IndexInParent);
+
+        // And the two strips that were there before either of them is still behind both.
+        Assert.True(shell.StatusBar.IndexInParent > shell.Toolbar.Strip.IndexInParent);
+        Assert.Equal(shell.StatusBar.IndexInParent, chrome.Children.Count - 1);
+    }
+
     [Fact]
     public void The_status_bar_says_what_is_running_and_goes_quiet_when_nothing_is() {
         using var shell = Built();

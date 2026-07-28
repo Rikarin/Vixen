@@ -118,6 +118,7 @@ Vixen.Ui.Controls.Control.Size.get -> Vixen.Ui.Controls.ControlSize
 Vixen.Ui.Controls.Control.Size.set -> Vixen.Ui.Controls.ControlSize
 Vixen.Ui.Controls.Control.Variant.get -> Vixen.Ui.Controls.ControlVariant
 Vixen.Ui.Controls.Control.Variant.set -> Vixen.Ui.Controls.ControlVariant
+Vixen.Ui.Controls.Control.WhenResized(System.Action handler) -> void
 Vixen.Ui.Controls.ControlIcons -> static class
 Vixen.Ui.Controls.ControlSize -> enum : byte
 Vixen.Ui.Controls.ControlSize.ControlSize() -> void
@@ -636,6 +637,7 @@ override Vixen.Ui.Controls.ComboBox.OnRemoved() -> void
 override Vixen.Ui.Controls.ComboBox.TagName.get -> string
 override Vixen.Ui.Controls.ContextMenu.TagName.get -> string
 override Vixen.Ui.Controls.Control.OnCreated() -> void
+override Vixen.Ui.Controls.Control.OnRemoved() -> void
 override Vixen.Ui.Controls.Dialog.OnClosed(Vixen.Ui.Controls.CloseReason reason) -> void
 override Vixen.Ui.Controls.Dialog.OnCreated() -> void
 override Vixen.Ui.Controls.Dialog.OnOpened() -> void

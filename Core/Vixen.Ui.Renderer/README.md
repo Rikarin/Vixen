@@ -72,9 +72,18 @@ No staging copy. The usual advice is the opposite and it is about data the GPU r
 interface geometry is read once, by one draw, and thrown away. A staging copy would add a transfer
 and a barrier to save nothing.
 
-The atlas is the exception — it is a texture, it persists, and it is uploaded only when its version
-changes. `AtlasUploads` counts them, because "a frame drawing text it has drawn before uploads
-nothing" is a claim nobody can check otherwise.
+The atlas is the exception — it is a texture, it persists, and it is uploaded only when its
+**revision** changes. `AtlasUploads` counts them, because "a frame drawing text it has drawn before
+uploads nothing" is a claim nobody can check otherwise.
+
+⚠ **The revision and not the version, and the two are not interchangeable.** A version moves when the
+packing changes, which only compaction does; a glyph merely added leaves every existing region where
+it was, so it moves the revision and not the version. Gating the upload on the version uploads on the
+first frame and never again — and every glyph the interface meets after that samples whatever its
+region held in the GPU's copy before it was allocated. That is text with characters missing out of
+the middle of words, and another glyph's field in their place wherever the atlas reused a slot; it
+appears as the user opens menus and expands trees, which is why it reads as a fault in the controls
+rather than in the upload.
 
 ### Where the shaders come from
 

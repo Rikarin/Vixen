@@ -457,6 +457,7 @@ Vixen.Ui.Rendering.UiGeometry.UiGeometry(System.Collections.Generic.IReadOnlyLis
 Vixen.Ui.Rendering.UiGeometry.Vertices.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiVertex>
 Vixen.Ui.Rendering.UiGeometry.Vertices.init -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.UiVertex>
 Vixen.Ui.Rendering.UiGeometryBuilder -> sealed class
+Vixen.Ui.Rendering.UiGeometryBuilder.AtlasChanged.get -> bool
 Vixen.Ui.Rendering.UiGeometryBuilder.Build(Vixen.Ui.DrawList list, Vixen.Ui.Text.Rasterizing.GlyphFieldCache glyphs, Vixen.Core.Mathematics.Rectangle viewport) -> Vixen.Ui.Rendering.UiGeometry
 Vixen.Ui.Rendering.UiGeometryBuilder.DroppedGlyphs.get -> int
 Vixen.Ui.Rendering.UiGeometryBuilder.Fringe.get -> float

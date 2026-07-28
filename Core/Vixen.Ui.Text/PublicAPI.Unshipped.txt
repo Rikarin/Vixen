@@ -353,6 +353,7 @@ Vixen.Ui.Text.Rasterizing.GlyphAtlas.Height.get -> int
 Vixen.Ui.Text.Rasterizing.GlyphAtlas.Hits.get -> long
 Vixen.Ui.Text.Rasterizing.GlyphAtlas.Misses.get -> long
 Vixen.Ui.Text.Rasterizing.GlyphAtlas.Pixels.get -> float[]
+Vixen.Ui.Text.Rasterizing.GlyphAtlas.Revision.get -> int
 Vixen.Ui.Text.Rasterizing.GlyphAtlas.TryGet(Vixen.Ui.Text.Rasterizing.GlyphKey key, out Vixen.Ui.Text.Rasterizing.AtlasRegion region) -> bool
 Vixen.Ui.Text.Rasterizing.GlyphAtlas.Uploaded() -> void
 Vixen.Ui.Text.Rasterizing.GlyphAtlas.Version.get -> int

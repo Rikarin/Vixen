@@ -143,7 +143,7 @@ public sealed class UiRenderer : IDisposable {
     BufferHandle atlasStaging;
     int atlasWidth;
     int atlasHeight;
-    int atlasVersion = -1;
+    int atlasRevision = -1;
     ResourceState atlasState = ResourceState.Undefined;
 
     byte[] atlasBytes = [];
@@ -698,15 +698,24 @@ public sealed class UiRenderer : IDisposable {
             CreateAtlas(atlas);
         }
 
-        // ⚠ Version rather than the atlas's own dirty flag, because the flag belongs to whoever
+        // ⚠ <b>The revision and not the version</b>, and the difference is the whole of whether text
+        // that was not on screen when the window opened ever appears. A version moves when the
+        // packing changes, which only compaction does; a glyph merely added leaves every existing
+        // region where it was and so does not move it. Gating on the version therefore uploads the
+        // texture on the first frame and never again — every glyph met after that, which is every
+        // menu the user opens and every name in a tree they expand, samples whatever was at its
+        // coordinate before it was allocated: an empty texture reads as characters missing out of
+        // the middle of words, and a reused hole reads as another glyph in their place.
+        //
+        // A number rather than the atlas's own dirty flag, because the flag belongs to whoever
         // clears it and there may be more than one renderer over one atlas — two windows sharing a
-        // font cache is the ordinary case. A version each reader remembers for itself cannot be
+        // font cache is the ordinary case. A revision each reader remembers for itself cannot be
         // cleared out from under another one.
-        if (atlas.Version == atlasVersion) {
+        if (atlas.Revision == atlasRevision) {
             return;
         }
 
-        atlasVersion = atlas.Version;
+        atlasRevision = atlas.Revision;
 
         // Eight bits a channel, which is what every MSDF implementation ships: the field is a
         // distance in [0, 1] over a range of a few pixels, so a 256th of that range is far finer
@@ -789,7 +798,7 @@ public sealed class UiRenderer : IDisposable {
 
         // A version no atlas has, so the first frame always uploads — including a frame that draws no
         // text at all, which still has to leave the texture in a state the shader can read.
-        atlasVersion = -1;
+        atlasRevision = -1;
         atlasState = ResourceState.Undefined;
     }
 
