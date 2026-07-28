@@ -177,6 +177,21 @@ sealed class Voice {
     /// <summary>An authored high-pass cutoff in hertz, or zero for none.</summary>
     public float ParameterHighPassHz;
 
+    /// <summary>How much solid geometry is between this voice and the listener: 0 clear, 1 blocked.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Written by <see cref="AudioOcclusion" /> on the game thread and read by the parameter
+    ///         automation on the same thread, so unlike the fields around it this one never crosses.
+    ///         It lives here rather than beside the automation because it is a property of where the
+    ///         voice is, and because a stolen slot has to be able to drop it in one place.
+    ///     </para>
+    ///     <para>
+    ///         Nothing acts on it directly. <see cref="Vixen.Audio.Parameters.AudioBuiltinParameter.Occlusion" /> feeds it to
+    ///         an authored curve, which decides what being behind a wall sounds like.
+    ///     </para>
+    /// </remarks>
+    public float Occlusion;
+
     /// <summary>What the spatialiser last worked out, for the audio debug overlay.</summary>
     public SpatialResult LastSpatial = new(0f, 1f, 1f, 1f);
 
@@ -213,6 +228,22 @@ sealed class Voice {
 
     /// <summary>Where in the world it is, as the audio thread last managed to read it.</summary>
     public SpatialSettings Spatial => spatial;
+
+    /// <summary>What the game thread last published, read back on the game thread.</summary>
+    /// <remarks>
+    ///     <b>Not the same as <see cref="Spatial" />.</b> That one is the audio thread's copy, taken
+    ///     when it last rendered a block — so anything on the game thread reading it sees a position
+    ///     from before the most recent <c>Play</c>, or no position at all if nothing has been
+    ///     rendered yet. The occlusion pass runs on the game thread and needs the position the game
+    ///     thread just set, which is this.
+    /// </remarks>
+    public SpatialSettings PublishedSpatial {
+        get {
+            var result = spatial;
+            published.TryRead(ref result);
+            return result;
+        }
+    }
 
     /// <summary>How far through the source it is.</summary>
     public long Position => Source?.Position ?? 0;
@@ -495,6 +526,7 @@ sealed class Voice {
         ParameterPitch = 1f;
         ParameterLowPassHz = 0f;
         ParameterHighPassHz = 0f;
+        Occlusion = 0f;
         ClearFilters();
         IsSpatial = false;
         OwnsSource = false;

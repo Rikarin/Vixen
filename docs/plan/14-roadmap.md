@@ -2489,8 +2489,25 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   the device's own clock, segments whose transitions land on a bar line, sustain points, stingers and
   a tempo map. Also landed: a BS.1770 loudness meter, a polyphase sinc resampler with the cutoff
   banded to the pitch, and a loopback live-update listener over `MixControl`. `Vixen.Audio.Codecs`
-  carries Ogg Vorbis and Opus, both pure managed and both rooted in the AOT probe. Still owed:
-  true-peak and loudness-range metering, and ADPCM for effects.
+  carries Ogg Vorbis and Opus, both pure managed and both rooted in the AOT probe.
+
+  **Voice chat is joined up** now that Phase 9 has landed the transport it was waiting for: a packet
+  Opus encoder and decoder beside the stream ones, and a `VoiceSender`/`VoiceReceiver` pair carrying
+  gate-driven transmission, sequencing, a jitter buffer and concealment. Neither knows about a
+  network — `Channel.Sequenced` is four lines in a game. A packet carries a sequence *and* a
+  timestamp because nothing simpler can tell a deliberate pause from a burst of loss, and concealing
+  a pause invents speech into a silence the talker chose. Opus is also pinned to its managed
+  implementation: Concentus P/Invokes a system libopus when it finds one, and against Homebrew's the
+  encoder ignored its bitrate and emitted maximum-length packets.
+
+  **Occlusion and reverb zones** arrived with physics, and needed different things.
+  `IAudioOcclusionProvider` is a seam here and `Vixen.Audio.Physics` answers it with a Jolt raycast,
+  so a game with sound and no physics never links Jolt. Reverb zones need no physics at all — a
+  volume test is arithmetic — so they work in a game that links no native library. Both drive
+  authored curves rather than deciding anything themselves.
+
+  Still owed: true-peak and loudness-range metering, ADPCM for effects, per-voice sends, an HRTF
+  panner, a real-input FFT, oversampling for the distortion, and a phase-vocoder pitch shifter.
 - `Vixen.Animation`: skeletal playback, blend trees (1D/2D), layers + masks, state machine, IK (two-bone,
   look-at, foot placement), root motion, events, GPU skinning integration.
 - `Vixen.Editor.AnimationGraph`.

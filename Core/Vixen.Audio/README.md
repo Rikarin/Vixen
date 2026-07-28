@@ -869,6 +869,51 @@ The conversion to float happens per block in `ClipSampleProvider` rather than on
 converting at load would triple what a 16-bit clip costs for as long as it is resident, to save a
 multiply on the few hundred frames that are actually playing.
 
+## Occlusion and reverb zones
+
+**They arrived together and needed different things, which is the interesting part.** Occlusion is a
+raycast, so it needs something that owns geometry. A reverb zone is "is the listener inside this
+volume", which is a subtraction. Writing both against physics would have made reverb a feature only
+games with a physics engine could have, in exchange for nothing — so `AudioReverbZone` is arithmetic
+and works in a game that links no native library at all.
+
+**Occlusion is an interface here and an implementation elsewhere.** `IAudioOcclusionProvider` is the
+whole of what this assembly knows; `Vixen.Audio.Physics` answers it with a Jolt raycast for games
+that have physics. The alternative — referencing `Vixen.Physics` from here — would mean every game
+with sound linking a native physics library to play a footstep, and the browser target shipping it in
+order not to be able to call it.
+
+**Neither of them decides what anything sounds like.** Occlusion writes a number onto the voice and
+reverb zones write a number into a named parameter; turning "0.8 blocked" into a level and a cutoff
+is a curve in an asset, exactly as distance is. So a muffling that suited a stone corridor and not a
+canvas tent is an edit and not a build. What a curve against occlusion should mostly do is *dull*
+rather than *quieten*: a wall lets the low frequencies through, and a curve that only pulls the gain
+down sounds like the source moved away instead of like something got in the way.
+
+**The two hard parts of occlusion are not the raycast.** Asking every audible voice every frame is
+sixty-four casts a frame; and taking the answer at face value makes sound flicker, because a source
+near the edge of a doorway alternates between blocked and clear as either end shifts a few
+centimetres — which the ear notices far more than the occlusion itself. So `AudioOcclusion` rations
+the queries round-robin (`Budget`, eight a frame, refreshing a full pool about seven times a second)
+and seeks towards the answer over `SeekSeconds`. Both are pinned by sabotage: removing the smoothing
+fails `TheAnswerArrivesOverTimeRatherThanAtOnce`.
+
+**A stolen slot drops its occlusion, in both places it is held.** The voice, which the parameters
+read, and the tracker's target, which would otherwise seek it straight back. This is the third time
+this bug class has come up — automation, then the tracker — and it is the same bug each time: a
+footstep taking an occluded voice's slot being muffled by a wall it is not behind.
+
+**Zones do not blend where they overlap; the more specific one wins.** A cupboard inside a cathedral
+is inside both, and a blend of the two is a room that exists nowhere. Higher `Priority` takes it
+outright, still faded across its own `Blend` so stepping out is a walk rather than a jump. And every
+parameter a zone mentions is written every frame including to zero — a zone the listener has left has
+to actively release its parameter, or the cathedral follows them out into the field. Removing the
+last zone still runs one more pass for exactly that reason.
+
+**Reverb is the room you are standing in.** The listener decides, not the source: a gunshot fired
+outside a cathedral and heard from inside it gets the cathedral, because the reverberation happens
+around the ear.
+
 ## Still to come
 
 **True-peak metering.** The loudness meter reports sample peak. Certification wants true peak, which
@@ -880,9 +925,6 @@ been flattened. It needs the block history kept rather than summed, which is why
 **Per-voice sends.** Sends are per bus, so every source on a bus shares one send amount. For a room's
 reverb that is right; for a reverb amount that tracks how far into the room each emitter is, it is
 not.
-
-**Occlusion and reverb zones**, both of which want physics — the geometry between a source and the
-listener is a raycast, and there is nothing to cast against yet.
 
 **Oversampling for the distortion**, and a phase-vocoder pitch shifter — both now cheap to add, since
 the transform they want is in `Dsp/Fft`.

@@ -115,6 +115,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     readonly FadeState[] fades;
     readonly float[] silence;
     readonly VoiceParameters voiceParameters;
+    readonly AudioOcclusion occlusion;
     readonly DeferredSpawns deferred = new(128);
     MixControl? control;
     readonly int[] ranking;
@@ -154,6 +155,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         fades = new FadeState[voices.Length];
         silence = new float[device.BufferFrames * device.Format.Channels];
         voiceParameters = new VoiceParameters(voices.Length);
+        occlusion = new AudioOcclusion(voices.Length);
         ranking = new int[voices.Length];
         rankPriorities = new int[voices.Length];
         rankAudibility = new float[voices.Length];
@@ -328,6 +330,29 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
 
     /// <summary>Everywhere the game is listening from.</summary>
     public AudioListenerSet Listeners => listeners;
+
+    /// <summary>
+    ///     The occlusion pass: what answers whether there is a wall in the way, how often it is
+    ///     asked, and how quickly the answer takes effect.
+    /// </summary>
+    /// <remarks>
+    ///     <b>Its <c>Provider</c> is null until something sets one</b>, and until then every voice's
+    ///     occlusion is zero — nothing in the way. That is deliberate: this engine cannot cast a ray,
+    ///     because the only thing that can binds a native physics library and a game with sound is
+    ///     not required to have one. <c>Vixen.Audio.Physics</c> supplies a provider for games that
+    ///     do; anything implementing <see cref="IAudioOcclusionProvider" /> does for games that
+    ///     would rather answer it themselves.
+    /// </remarks>
+    public AudioOcclusion Occlusion => occlusion;
+
+    /// <summary>The reverb zones in the level, and what the listener is currently standing in.</summary>
+    /// <remarks>
+    ///     Unlike <see cref="Occlusion" /> this needs nothing from outside the engine: a zone is a
+    ///     volume test against the listener, which is arithmetic. It drives named parameters on
+    ///     <see cref="Parameters" />, so a level with zones and no parameter sheet does the sums and
+    ///     changes nothing.
+    /// </remarks>
+    public AudioReverbZones ReverbZones { get; } = new();
 
     /// <summary>How many pairs of ears there are. One, unless somebody asked for split-screen.</summary>
     public int ListenerCount => listeners.Count;
@@ -663,6 +688,20 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     /// </remarks>
     public float AudibilityOf(VoiceHandle handle) => TryResolve(handle, out var voice) ? voice.Audibility : 0f;
 
+    /// <summary>How occluded a sound currently is: 0 clear, 1 blocked.</summary>
+    /// <param name="handle">Which one.</param>
+    /// <returns>Where its occlusion has got to, which lags the raycast by <see cref="AudioOcclusion.SeekSeconds" />.</returns>
+    public float OcclusionOf(VoiceHandle handle) => TryResolve(handle, out var voice) ? voice.Occlusion : 0f;
+
+    /// <summary>The authored low-pass cutoff on a sound, in hertz, or zero for none.</summary>
+    /// <param name="handle">Which one.</param>
+    /// <remarks>
+    ///     What the parameter curves worked out, and not the air absorption — those are two filters
+    ///     for two reasons and only this one is anybody's decision.
+    /// </remarks>
+    public float LowPassOf(VoiceHandle handle) =>
+        TryResolve(handle, out var voice) ? voice.ParameterLowPassHz : 0f;
+
     /// <summary>Whether a sound is still going.</summary>
     /// <param name="handle">Which one.</param>
     /// <returns>Whether it is playing, paused or stopping.</returns>
@@ -727,6 +766,16 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     /// <remarks>Once a frame, on the game thread. See the note on the class about what happens if it is not.</remarks>
     public void Update(float deltaSeconds) {
         StepFades(deltaSeconds);
+
+        // Before the parameters, so a curve drawn against occlusion reads this frame's answer rather
+        // than last frame's — which for a door that just shut is the difference between the muffling
+        // arriving with it and arriving after it.
+        occlusion.Update(voices, listeners, deltaSeconds);
+
+        // Before Parameters.Step for the same reason, and against listener zero: with a split screen
+        // there is no single room the players are all in, and the first listener is the one whose
+        // speakers the mix is going to.
+        ReverbZones.Apply(listeners.Get(0).Position, Parameters);
 
         // Before the collection sweep below, so a voice that ended this frame is stepped one last
         // time and then dropped, rather than being dropped and then stepped against a slot somebody
@@ -986,7 +1035,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
             var claimed = voices[index];
             claimed.Source = source;
             claimed.OwnsSource = ownsSource;
-            Describe(claimed, settings);
+            Describe(claimed, index, settings);
 
             // Priming the interpolator reads the first two frames, which for a clip is a memory copy
             // and for a stream is a read from a ring the pump has already filled. It happens here, on
@@ -1016,7 +1065,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         stolen.PendingSource = source;
         stolen.PendingOwnsSource = ownsSource;
         stolen.PendingPaused = settings.StartPaused;
-        Describe(stolen, settings);
+        Describe(stolen, victim, settings);
 
         // Published last, and read first by the audio thread: everything above it is visible by the
         // time the flag is seen.
@@ -1025,7 +1074,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         return new VoiceHandle(victim, stolen.Generation);
     }
 
-    void Describe(Voice voice, in PlaybackSettings settings) {
+    void Describe(Voice voice, int index, in PlaybackSettings settings) {
         // Clamped rather than rejected: a bus index that no longer names a bus is a stale asset, and
         // routing it to the master is audible in a way that silently dropping the sound is not.
         voice.Bus = (uint)settings.Bus < (uint)Mixer.Buses.Count ? settings.Bus : 0;
@@ -1048,6 +1097,12 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         voice.ParameterPitch = 1f;
         voice.ParameterLowPassHz = 0f;
         voice.ParameterHighPassHz = 0f;
+
+        // And the same argument for occlusion, in both places it is held: the voice, which the
+        // parameters read, and the tracker's target, which would otherwise seek it straight back to
+        // however blocked the sound it replaced was.
+        voice.Occlusion = 0f;
+        occlusion.Clear(index);
     }
 
     /// <summary>Decides which of the playing voices are heard this frame, if not all of them are.</summary>
