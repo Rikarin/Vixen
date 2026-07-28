@@ -90,7 +90,7 @@ public sealed class FontRegistry {
 
     /// <summary>Bumped whenever anything registered here changes.</summary>
     /// <remarks>
-    ///     ⚠ <b>So that a cached line knows to be rebuilt.</b> <see cref="UiElement.Line" /> keeps the
+    ///     ⚠ <b>So that a cached line knows to be rebuilt.</b> <see cref="UiElement.Block()" /> keeps the
     ///     runs it last built and rebuilds them when its text or its font properties change — and
     ///     registering a face changes neither, while changing what the same declaration resolves to.
     ///     Without this, a font registered after the first frame is a font that never appears.

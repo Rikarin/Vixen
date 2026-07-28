@@ -25,7 +25,7 @@ top.
 | `UiDocument.FindInDirection` | Arrow navigation over the layout, by the beam model. |
 | `GestureRecognizer` | Taps with a count, long presses and drags from one pointer; pinch and rotation from two, as one `TransformEvent`. |
 | `visibility`, `opacity` | Honoured by the draw list: hidden elements are not painted but keep their space and their subtree; opacity multiplies down the tree. |
-| `FontRegistry`, `TextRun`, `TextLine` | `font-family` → a fallback chain, a face per character, shaping through a cache, measurement into layout, glyphs into the draw list. |
+| `FontRegistry`, `TextRun`, `TextLine`, `TextLayout` | `font-family` → a fallback chain, a face per character, shaping through a cache, measurement into layout, glyphs into the draw list. |
 | `PathBuilder`, `OnDraw` | Lines, curves, fills and strokes for the controls a stylesheet cannot describe. |
 | `DrawBatcher` | Contiguous, order-preserving, maximal runs a renderer can submit as one. |
 | `UiDocument.Move` | Reordering a sibling in all three stores, so `:nth-child` moves with it. |
@@ -143,6 +143,19 @@ range of one glyph buffer. Four things that were built separately, joined.
 **Registered rather than discovered.** Nothing walks the machine's font directories: a game ships its
 fonts, and an interface laid out by whatever the operating system happened to have installed lays out
 differently on every machine it runs on.
+
+**Three types, one for each thing a line of text is made of.** A `TextRun` is one face; a `TextLine`
+is the runs sharing a baseline; a `TextLayout` is the lines stacked down the page. Most text is one
+line of one run and costs no more than it did when that was the only shape available.
+
+**Wrapping happens here because the widths do.** A paragraph in two faces has no single design-unit
+scale, so `Vixen.Ui.Text`'s `LineWrapper` cannot measure it from a `ShapedText` — the per-character
+advances are assembled a run at a time in pixels and handed to the overload that takes them. Break
+opportunities are UAX#14's and are about the characters. `white-space: nowrap` and `overflow-wrap:
+anywhere` reach it from the cascade.
+
+⚠ **Each wrapped line is re-shaped on its own**, which is what a line break *is*: a ligature does not
+cross one and an Arabic word unjoins at one.
 
 **A declaration is a fallback chain, and a line is a list of runs.** `font-family: Inter, Noto Sans
 JP` means both faces in that order, and `FontRegistry.Cover` hands each grapheme cluster to the first

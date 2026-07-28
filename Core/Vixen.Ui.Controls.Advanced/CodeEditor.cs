@@ -450,7 +450,7 @@ public sealed partial class CodeEditor : Control {
         // will be one run, but asking for the run would be asking the element for something it no
         // longer has — `font-family` is a per-character chain and an element's text can be in
         // several faces at once.
-        if (Probe.Line() is { } line) {
+        if (Probe.Block()?.Lines[0] is { } line) {
             characterWidth = line.Width > 0f ? line.Width : characterWidth;
             lineHeight = line.Height > 0f ? line.Height : lineHeight;
         }

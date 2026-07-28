@@ -383,7 +383,7 @@ public partial class UiElement {
     [UiProperty(Changed = nameof(OnTextChanged))]
     public partial string? Text { get; set; }
 
-    /// <summary>Its text shaped at its font size, or <c>null</c> if it has none to shape.</summary>
+    /// <summary>Its text, shaped and wrapped to the width it is being laid out in.</summary>
     /// <remarks>
     ///     <para>
     ///         Goes through the document's shaping cache, so the measure pass and the draw pass shape
@@ -392,17 +392,22 @@ public partial class UiElement {
     ///         shaping is size-independent.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The line itself is cached too, and that is what makes per-character fallback
-    ///         affordable.</b> Deciding which face draws which cluster asks the font about every code
-    ///         point, which is a native call each — cheap once and ruinous twice a frame per element.
-    ///         The cache is invalidated by comparing everything the answer depends on, including
-    ///         <see cref="FontRegistry.Revision" />: registering a face changes what a declaration
-    ///         resolves to without changing anything on the element.
+    ///         ⚠ <b>The block itself is cached too, and that is what makes per-character fallback and
+    ///         wrapping affordable.</b> Deciding which face draws which cluster asks the font about
+    ///         every code point, which is a native call each — cheap once and ruinous twice a frame
+    ///         per element. The cache is invalidated by comparing everything the answer depends on,
+    ///         including the width and <see cref="FontRegistry.Revision" />: registering a face
+    ///         changes what a declaration resolves to without changing anything on the element.
     ///     </para>
     /// </remarks>
-    public TextLine? Line() {
+    public TextLayout? Block() => Block(WrapWidth);
+
+    /// <summary>Its text wrapped to a given width.</summary>
+    /// <param name="width">How wide a line may be, in pixels, or infinity not to wrap.</param>
+    /// <returns>The block, or null if it has no text or no font.</returns>
+    public TextLayout? Block(float width) {
         if (string.IsNullOrEmpty(Text)) {
-            line = null;
+            block = null;
             lineText = null;
             return null;
         }
@@ -411,20 +416,28 @@ public partial class UiElement {
         var weight = Document.FontWeightOf(Style);
         var slant = Document.FontStyleOf(Style);
         var revision = Document.Fonts.Revision;
+        var mode = Document.WrapModeOf(Style);
+
+        if (!Document.WrapsOf(Style)) {
+            width = float.PositiveInfinity;
+        }
 
         // Floats compared with Equals rather than ==, because `LineHeight` is NaN for "the font's own
         // recommendation" and NaN is not equal to itself — a line height nobody set would rebuild the
-        // line every single call.
-        if (line is not null
+        // block every single call. It is also why the width compares that way: infinity is ordinary
+        // here and NaN arrives from a layout pass that has not decided yet.
+        if (block is not null
             && ReferenceEquals(lineText, Text)
             && string.Equals(lineFamily, family, StringComparison.Ordinal)
             && lineWeight == weight
             && lineStyle == slant
             && lineRevision == revision
+            && lineMode == mode
+            && lineWidth.Equals(width)
             && lineSize.Equals(FontSize)
             && lineTracking.Equals(LetterSpacing)
             && lineLeading.Equals(LineHeight)) {
-            return line;
+            return block;
         }
 
         var chain = new List<FontFace>();
@@ -434,49 +447,156 @@ public partial class UiElement {
             return null;
         }
 
-        var spans = new List<FontSpan>();
-        FontRegistry.Cover(Text, chain, spans);
+        var lines = ImmutableArray.CreateBuilder<TextLine>();
+        var whole = Runs(Text, 0, chain);
 
-        var runs = ImmutableArray.CreateBuilder<TextRun>(spans.Count);
-
-        foreach (var span in spans) {
-            // ⚠ The whole string when there is one span, and a substring only when there is more than
-            // one. Not a micro-optimisation: `Text[0..Length]` is a fresh string every call, and the
-            // shaping cache keys on the string's contents, so it would hash and compare the whole
-            // label to find the entry it already had.
-            var text = spans.Count == 1 ? Text : Text.Substring(span.Start, span.Length);
-
-            runs.Add(
-                new TextRun(
-                    span.Font,
-                    Document.Shaping.Shape(span.Font, text),
-                    FontSize,
-                    LetterSpacing,
-                    LineHeight,
-                    span.Start
-                )
-            );
+        if ((float.IsPositiveInfinity(width) || whole.Width <= width) && !HasHardBreak(Text)) {
+            // ⚠ The unwrapped path is not an optimisation, it is the answer. A paragraph that fits
+            // needs no break opportunities computed and no line re-shaped, and this is every label in
+            // an interface.
+            //
+            // ⚠ **And it has to ask about hard breaks first**, which cost a failing test to notice. A
+            // newline is a break because the text says so and not because the text is too wide, so a
+            // fast path guarded on width alone draws "a\nb" on one line — with the newline shaped as
+            // whatever glyph the font has for it — however wide the box is.
+            lines.Add(whole);
+        } else {
+            Wrap(Text, whole, width, mode, chain, lines);
         }
 
-        line = new TextLine(runs.MoveToImmutable());
+        block = new TextLayout(lines.ToImmutable());
         lineText = Text;
         lineFamily = family;
         lineWeight = weight;
         lineStyle = slant;
         lineRevision = revision;
+        lineMode = mode;
+        lineWidth = width;
         lineSize = FontSize;
         lineTracking = LetterSpacing;
         lineLeading = LineHeight;
 
-        return line;
+        return block;
     }
 
-    TextLine? line;
+    /// <summary>The width this element wraps its text to, from the layout it was last given.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The content box of the <i>last</i> pass.</b> Drawing happens after layout, so this is
+    ///     the width the text ended up in — which is the right one to draw at and is not always the
+    ///     one the measure pass was offered. Where a parent stretched the element past what it asked
+    ///     for, the text re-wraps to fewer lines than the height reserved for it, and the difference
+    ///     shows as space at the bottom rather than as clipped text.
+    /// </remarks>
+    float WrapWidth {
+        get {
+            // ⚠ No `white-space` test here, and an earlier draft had one. `Block(float)` already
+            // refuses to wrap when the style says not to, and a second guard that agreed with it read
+            // as a rule while being insurance — sabotaging either one alone failed no test, which is
+            // exactly how a duplicated condition hides.
+            var content = Width
+                - Document.Layout.GetComputedBorder(LayoutNode, Edge.Left)
+                - Document.Layout.GetComputedBorder(LayoutNode, Edge.Right)
+                - Document.Layout.GetComputedPadding(LayoutNode, Edge.Left)
+                - Document.Layout.GetComputedPadding(LayoutNode, Edge.Right);
+
+            return content > 0f ? content : float.PositiveInfinity;
+        }
+    }
+
+    /// <summary>Whether the text carries a break that is not about how wide the box is.</summary>
+    /// <remarks>
+    ///     The characters UAX#14 gives class BK, CR, LF or NL. Scanned here rather than asked of
+    ///     <c>LineBreaker</c> because the question is "is there one at all", and the answer is no for
+    ///     every label in an interface — which is the case the fast path above exists for.
+    /// </remarks>
+    static bool HasHardBreak(string text) => text.AsSpan().IndexOfAny(HardBreaks) >= 0;
+
+    static readonly System.Buffers.SearchValues<char> HardBreaks =
+        System.Buffers.SearchValues.Create("\n\r\f\v\u0085\u2028\u2029");
+
+    /// <summary>Shapes one stretch of the text into the runs its faces need.</summary>
+    TextLine Runs(string text, int start, List<FontFace> chain, float width = float.NaN) {
+        var spans = new List<FontSpan>();
+        FontRegistry.Cover(text, chain, spans);
+
+        var runs = ImmutableArray.CreateBuilder<TextRun>(spans.Count);
+
+        foreach (var span in spans) {
+            // ⚠ The whole string when there is one span, and a substring only when there is more than
+            // one. Not a micro-optimisation: `text[0..Length]` is a fresh string every call, and the
+            // shaping cache keys on the string's contents, so it would hash and compare the whole
+            // label to find the entry it already had.
+            var piece = spans.Count == 1 ? text : text.Substring(span.Start, span.Length);
+
+            runs.Add(
+                new TextRun(
+                    span.Font,
+                    Document.Shaping.Shape(span.Font, piece),
+                    FontSize,
+                    LetterSpacing,
+                    LineHeight,
+                    start + span.Start
+                )
+            );
+        }
+
+        return new TextLine(runs.MoveToImmutable(), width);
+    }
+
+    /// <summary>Breaks the text into lines and shapes each of them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The advances are built in pixels across the runs, which is the whole reason wrapping
+    ///     lives here.</b> A line mixing a Latin face and a fallback has no single design-unit scale,
+    ///     so <c>LineWrapper</c>'s <c>ShapedText</c> overload cannot measure it — the per-character
+    ///     array is assembled a run at a time, each scaled by its own font, and handed to the overload
+    ///     that takes one.
+    /// </remarks>
+    void Wrap(
+        string text,
+        TextLine whole,
+        float width,
+        TextWrapMode mode,
+        List<FontFace> chain,
+        ImmutableArray<TextLine>.Builder into
+    ) {
+        var advances = new float[text.Length + 1];
+
+        foreach (var run in whole.Runs) {
+            var scale = run.Scale;
+            var measured = LineWrapper.Advances(run.Shaped);
+
+            for (var i = 0; i < measured.Length - 1 && run.Start + i < text.Length; i++) {
+                advances[run.Start + i] = measured[i] * scale;
+            }
+        }
+
+        var wrapped = new List<WrappedLine>();
+        LineWrapper.Wrap(text, advances, width, wrapped, mode);
+
+        foreach (var line in wrapped) {
+            // ⚠ Each line is shaped as its own string rather than sliced out of the paragraph's
+            // shaping. That is what a line break *is* — a ligature does not cross one and an Arabic
+            // word unjoins at one — and slicing would also need a run split in the middle of a
+            // cluster, which has no meaning.
+            // ⚠ The wrapper's own width, not the re-shaped line's. It excludes the whitespace at the
+            // line's end, which is drawn but must not be measured — and since the advances handed to
+            // it were in pixels, the number it gives back already is too.
+            into.Add(Runs(text.Substring(line.Start, line.Length), line.Start, chain, line.Advance));
+        }
+
+        if (into.Count == 0) {
+            into.Add(whole);
+        }
+    }
+
+    TextLayout? block;
     string? lineText;
     string? lineFamily;
     int lineWeight;
     FontStyle lineStyle;
     int lineRevision;
+    TextWrapMode lineMode;
+    float lineWidth;
     float lineSize;
     float lineTracking;
     float lineLeading;
@@ -488,7 +608,7 @@ public partial class UiElement {
         // out everything inside it.
         if (string.IsNullOrEmpty(previous) != string.IsNullOrEmpty(current)) {
             Document.Layout.SetContext(LayoutNode, string.IsNullOrEmpty(current) ? null : this);
-            Document.Layout.SetMeasureFunction(LayoutNode, string.IsNullOrEmpty(current) ? null : TextLine.Measure);
+            Document.Layout.SetMeasureFunction(LayoutNode, string.IsNullOrEmpty(current) ? null : TextLayout.Measure);
         } else if (!string.IsNullOrEmpty(current)) {
             // Attaching or detaching the measure function already dirties the node, so the only case
             // left is one string becoming another — and the layout tree refuses a hand-dirtied node

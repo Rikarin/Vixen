@@ -28,7 +28,17 @@ public sealed class TextLine {
 
     /// <summary>Builds a line from its runs.</summary>
     /// <param name="runs">The runs, in text order. At least one.</param>
-    public TextLine(ImmutableArray<TextRun> runs) {
+    /// <param name="width">
+    ///     What to report as the line's width, or <see cref="float.NaN" /> for the sum of the runs.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>The width is separable from the runs because of trailing whitespace.</b> A break
+    ///     opportunity falls *after* a space, so the space belongs to the line before it and is
+    ///     drawn there — but it must not count towards the width, or a line ending in a space wraps a
+    ///     word earlier than one that does not and a right-aligned paragraph comes out ragged with
+    ///     invisible characters. The wrapper already measured that width; this is where it arrives.
+    /// </remarks>
+    public TextLine(ImmutableArray<TextRun> runs, float width = float.NaN) {
         if (runs.IsDefaultOrEmpty) {
             throw new ArgumentException("a line has at least one run", nameof(runs));
         }
@@ -52,15 +62,29 @@ public sealed class TextLine {
             below = MathF.Max(below, runs[i].Height - runs[i].Baseline);
         }
 
-        Width = pen;
+        Width = float.IsNaN(width) ? pen : width;
         Baseline = above;
         Height = above + below;
+
+        Start = runs[0].Start;
+        Length = runs[^1].Start + runs[^1].Shaped.Text.Length - Start;
     }
+
+    /// <summary>Where this line's text begins in the element's, as a UTF-16 index.</summary>
+    public int Start { get; }
+
+    /// <summary>How many UTF-16 units it covers.</summary>
+    /// <remarks>
+    ///     ⚠ Measured from the last run's end rather than by adding the runs up, which is the same
+    ///     number and stays the same number if a run is ever allowed to cover a range the one before
+    ///     it did not end at — a rich-text span with something dropped between two of them.
+    /// </remarks>
+    public int Length { get; }
 
     /// <summary>The runs, in text order.</summary>
     public ImmutableArray<TextRun> Runs { get; }
 
-    /// <summary>How wide the whole line is, in pixels.</summary>
+    /// <summary>How wide the line is, in pixels, not counting whitespace at its end.</summary>
     public float Width { get; }
 
     /// <summary>How tall it is, in pixels.</summary>
@@ -125,18 +149,4 @@ public sealed class TextLine {
         return 0;
     }
 
-    /// <summary>Measures a leaf whose size is its text.</summary>
-    /// <param name="request">What the layout algorithm is asking.</param>
-    /// <returns>How big the line is.</returns>
-    /// <remarks>
-    ///     ⚠ <b>The available width is ignored</b>, which is exactly the single-line limitation
-    ///     wearing its working clothes: a wrapping implementation reads
-    ///     <see cref="MeasureRequest.AvailableWidth" /> and this one has nothing to do with it. The
-    ///     measure cache keys on the request, so an answer that ignores part of the question is still
-    ///     a pure function of it and the cache stays correct.
-    /// </remarks>
-    public static LayoutSize Measure(in MeasureRequest request) =>
-        request.Context is UiElement element && element.Line() is { } line
-            ? new LayoutSize(line.Width, line.Height)
-            : new LayoutSize(0f, 0f);
 }

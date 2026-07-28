@@ -2165,8 +2165,32 @@ sub-piece has its own gate.
 
   Not built: revealing the underlines while Alt is held, which needs a text decoration the draw list
   does not have.
-- Owed in `Vixen.Ui`: style-slot compaction, line wrapping, gradients, per-corner elliptical radii,
-  pinch and rotate, virtualisation primitive, multi-window and DPI.
+- ✅ **Line wrapping, and the element grows downwards.** `Vixen.Ui.Text` had the UAX#14 breaker and
+  the greedy filler for three phases and nothing called them: an element drew one line however long
+  its string was, and the measure function ignored the width it was offered. `TextLayout` is the
+  missing piece — the lines of one element's text, stacked, each a `TextLine` of `TextRun`s.
+
+  ⚠ **The wrapping lives in `Vixen.Ui` because the widths do.** A paragraph in two faces has no
+  single design-unit scale, so `LineWrapper`'s `ShapedText` overload cannot measure it — the
+  per-character advances are assembled a run at a time in pixels and handed to a new overload that
+  takes them. `white-space: nowrap` and `overflow-wrap: anywhere` reach it from the cascade, and each
+  wrapped line is re-shaped on its own, which is what a line break *is*.
+
+  Verified by sabotage, eight of eight landing. ⚠ **Four needed something changed first and each was
+  a real gap**: no test had a label without an explicit width, none had a paragraph whose lines were
+  in different faces and therefore different heights, none asserted where a centred line starts — and
+  `white-space` was tested in *two* places, so sabotaging either alone changed nothing. Two further
+  conditions turned out to decide nothing and were deleted rather than defended.
+
+  ⚠ **A failing test found a real bug**: the fast path for text that fits skipped mandatory breaks,
+  so a newline drew as a glyph in the middle of a line however wide the box.
+
+  `TextArea` wraps and `TextBox` does not, which is now the whole difference between them: the theme
+  puts `white-space: nowrap` on a field's text so a long value scrolls sideways. Owed with the
+  editor: a caret that can move between lines, and caret affinity — an index on a wrap belongs to
+  two lines and this returns the earlier one.
+- Owed in `Vixen.Ui`: style-slot compaction, gradients, per-corner elliptical radii, pinch and
+  rotate, virtualisation primitive, multi-window and DPI.
 - `Vixen.Ui.Markup`: ✅ **VXML — lexer, parser, binder, emitter and `#line` mapping.** A `.vxml`
   becomes a green/red tree over `Vixen.Core.Syntax`, then a `BoundComponent`, then a C# partial
   class. Second grammar on the shared tree, which is the first evidence that the Phase 0 extraction
@@ -2447,8 +2471,7 @@ sub-piece has its own gate.
 
   ⚠ **Still owed, and said plainly rather than left to be found:** `Image` reserves space and draws
   nothing, because the draw list has no texture command; `TextArea` is a taller `TextBox`, because
-  nothing wraps a line yet; and `VirtualizingPanel` is not here, so `ScrollView` keeps everything in
-  the tree. Two of the five on this list are now closed: an overlay no longer outlives the control
+  `VirtualizingPanel` is not here, so `ScrollView` keeps everything in the tree. Two of the five on this list are now closed: an overlay no longer outlives the control
   that made it (`UiElement.OnRemoved`), and `Tooltip` and `ToastHost` are on `UiDocument.Ticked`
   rather than waiting for an application to remember to call them.
 - ✅ **`Vixen.Ui.Controls.Advanced` — the first three, and the two framework primitives they needed.**

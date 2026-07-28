@@ -78,8 +78,11 @@ Said out loud rather than left to be discovered:
   Turning a `Source` name into a `Texture` number is the application's half: it loads the asset and
   calls `UiRenderer.RegisterImage`. An unset texture draws nothing, which is what an image whose
   asset has not arrived should do.
-- **`TextArea` is a taller `TextBox`.** Nothing in the framework wraps a line, so there is no second
-  line for Enter to start. The tag exists so the markup will not have to change when it does.
+- ~~**`TextArea` is a taller `TextBox`.**~~ The framework wraps a line now, and the theme is where
+  the difference lives: `field-text` is `white-space: nowrap` so a field's long value scrolls
+  sideways, and `textarea field-text` is `normal` so its text stays inside and the box grows
+  downwards. Still owed is the *editing* half — a caret that moves between lines, and Enter starting
+  one — which is the text editor's item.
 - ~~**Timed behaviour needs a host tick.**~~ `Tooltip` and `ToastHost` subscribe to
   `UiDocument.Ticked` and unsubscribe in `OnRemoved`, so a host that drives `UiDocument.Tick` gets
   the delay and the lifetime without knowing that either control exists. Nothing here is told what

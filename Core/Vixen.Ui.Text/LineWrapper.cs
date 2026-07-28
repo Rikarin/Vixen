@@ -24,7 +24,7 @@ public enum TextWrapMode : byte {
     Anywhere
 }
 
-/// <summary>One line of a wrapped paragraph.</summary>
+/// <summary>One line of a wrapped paragraph, as a range of the source.</summary>
 /// <param name="Start">Where it begins in the source text, as a UTF-16 index.</param>
 /// <param name="Length">How many characters it covers, including any trailing whitespace.</param>
 /// <param name="Advance">
@@ -38,7 +38,7 @@ public enum TextWrapMode : byte {
 ///     keeps a medial form on a letter that is now final. The only correct fix is to shape each line,
 ///     and the only thing a caller needs in order to do that is where the line starts and ends.
 /// </remarks>
-public readonly record struct TextLine(int Start, int Length, float Advance, bool Mandatory) {
+public readonly record struct WrappedLine(int Start, int Length, float Advance, bool Mandatory) {
     /// <summary>One past the line's last character.</summary>
     public int End => Start + Length;
 
@@ -78,21 +78,42 @@ public static class LineWrapper {
     public static void Wrap(
         ShapedText shaped,
         float maxAdvance,
-        List<TextLine> lines,
+        List<WrappedLine> lines,
         TextWrapMode mode = TextWrapMode.Word
     ) {
         ArgumentNullException.ThrowIfNull(shaped);
+        Wrap(shaped.Text, Advances(shaped), maxAdvance, lines, mode);
+    }
+
+    /// <summary>Wraps a paragraph whose widths the caller measured.</summary>
+    /// <param name="text">The paragraph.</param>
+    /// <param name="advances">One entry per UTF-16 index, as <see cref="Advances" /> builds them.</param>
+    /// <param name="maxAdvance">How wide a line may be, in whatever unit the advances are in.</param>
+    /// <param name="lines">Receives the lines, in order. Cleared first.</param>
+    /// <param name="mode">What to do with a word wider than the line.</param>
+    /// <remarks>
+    ///     ⚠ <b>For a paragraph that is not in one font.</b> The overload above measures a
+    ///     <see cref="ShapedText" />, which is one face by construction — so a line mixing a Latin
+    ///     face and a fallback has no single design-unit scale and cannot be measured that way at
+    ///     all. Its caller builds the advances in pixels instead, one run at a time, and hands them
+    ///     here. Nothing else about wrapping depends on the unit.
+    /// </remarks>
+    public static void Wrap(
+        string text,
+        ReadOnlySpan<float> advances,
+        float maxAdvance,
+        List<WrappedLine> lines,
+        TextWrapMode mode = TextWrapMode.Word
+    ) {
+        ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(lines);
 
         lines.Clear();
-
-        var text = shaped.Text;
 
         if (text.Length == 0) {
             return;
         }
 
-        var advances = Advances(shaped);
         var opportunities = new List<int>();
         LineBreaker.Collect(text, opportunities);
 
@@ -164,14 +185,16 @@ public static class LineWrapper {
     /// <param name="maxAdvance">How wide a line may be, in design units.</param>
     /// <param name="mode">What to do with a word wider than the line.</param>
     /// <returns>The lines, in order.</returns>
-    public static List<TextLine> Lines(ShapedText shaped, float maxAdvance, TextWrapMode mode = TextWrapMode.Word) {
-        var lines = new List<TextLine>();
+    public static List<WrappedLine> Lines(ShapedText shaped, float maxAdvance, TextWrapMode mode = TextWrapMode.Word) {
+        var lines = new List<WrappedLine>();
         Wrap(shaped, maxAdvance, lines, mode);
 
         return lines;
     }
 
     /// <summary>The advance of every character, indexed by its position in the source.</summary>
+    /// <param name="shaped">The shaped paragraph.</param>
+    /// <returns>One entry per UTF-16 index, plus one, in the font's design units.</returns>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Accumulated by cluster, not by walking the glyphs in order.</b> A right-to-left run
@@ -186,7 +209,7 @@ public static class LineWrapper {
     ///         begin inside it, which is the same set for either direction.
     ///     </para>
     /// </remarks>
-    static float[] Advances(ShapedText shaped) {
+    public static float[] Advances(ShapedText shaped) {
         var advances = new float[shaped.Text.Length + 1];
 
         foreach (var run in shaped.Runs) {
@@ -201,7 +224,7 @@ public static class LineWrapper {
     }
 
     /// <summary>One line, with its trailing whitespace measured out of it.</summary>
-    static TextLine Line(string text, float[] advances, int start, int end, bool mandatory) =>
+    static WrappedLine Line(string text, ReadOnlySpan<float> advances, int start, int end, bool mandatory) =>
         new(start, end - start, Width(text, advances, start, end), mandatory);
 
     /// <summary>How wide a range is, ignoring whitespace at its end.</summary>
@@ -212,7 +235,7 @@ public static class LineWrapper {
     ///     not, and a right-aligned paragraph would come out with a ragged right edge made of
     ///     invisible characters.
     /// </remarks>
-    static float Width(string text, float[] advances, int start, int end) {
+    static float Width(string text, ReadOnlySpan<float> advances, int start, int end) {
         var last = end;
 
         while (last > start && char.IsWhiteSpace(text[last - 1])) {
@@ -243,7 +266,7 @@ public static class LineWrapper {
     ///     reconciliation going away — the moment one grapheme cluster carries two advances, the
     ///     largest fitting UTF-16 index is a broken character.
     /// </remarks>
-    static int Squeeze(string text, float[] advances, int start, int end, float maxAdvance) {
+    static int Squeeze(string text, ReadOnlySpan<float> advances, int start, int end, float maxAdvance) {
         var boundaries = new List<int>();
         GraphemeBreaker.Collect(text.AsSpan(start, end - start), boundaries);
 

@@ -319,7 +319,14 @@ public static class ControlTheme {
 
         textarea { min-height: 72px; align-items: flex-start; }
 
-        field-text { flex-shrink: 0; }
+        /*
+         * A field's text does not wrap and a text area's does, which is the whole difference
+         * between them now that the framework can break a line at all. `flex-shrink: 0` is what
+         * lets the single-line one be wider than its box and scroll sideways; the text area gives
+         * that up in exchange for its text staying inside.
+         */
+        field-text { flex-shrink: 0; white-space: nowrap; }
+        textarea field-text { flex-shrink: 1; white-space: normal; }
         field-placeholder { position: absolute; left: 8px; color: var(--text-muted); display: none; }
         .empty field-placeholder { display: flex; }
 

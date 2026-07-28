@@ -209,10 +209,14 @@ public abstract partial class TextField : Control {
     protected override void OnDraw(DrawContext context) {
         base.OnDraw(context);
 
-        if (!IsFocused || text.Line() is not { } line) {
+        if (!IsFocused || text.Block() is not { } block) {
             return;
         }
 
+        // ⚠ The first line, and there is only ever one: the theme puts `white-space: nowrap` on a
+        // field's text so that a long value scrolls sideways rather than growing the field downwards.
+        // A caret that had to know which line it was on is `TextArea`'s problem and is owed.
+        var line = block.Lines[0];
         var origin = text.AbsoluteLeft;
         var top = text.AbsoluteTop;
         var height = line.Height;
@@ -280,10 +284,12 @@ public abstract partial class TextField : Control {
     ///     matters is the one the user is typing into a field that is already on screen.
     /// </remarks>
     void Reveal() {
-        if (text.Line() is not { } line) {
+        if (text.Block() is not { } block) {
             text.OffsetX = 0f;
             return;
         }
+
+        var line = block.Lines[0];
 
         var viewport = Width;
         if (viewport <= 0f) {
@@ -353,9 +359,11 @@ public abstract partial class TextField : Control {
 
     /// <summary>Which caret index a document-space x lands on.</summary>
     int IndexAt(float x) {
-        if (text.Line() is not { } line) {
+        if (text.Block() is not { } block) {
             return 0;
         }
+
+        var line = block.Lines[0];
 
         // Pixels all the way, which is what changed when a line became several runs: a mixed-font
         // line has no single design-unit scale to divide by, so the conversion belongs inside each
