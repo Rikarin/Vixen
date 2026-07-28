@@ -35,6 +35,8 @@ public sealed class RpcRouterTarget : IFuzzTarget {
     readonly CountingInvoker invoker = new();
     readonly PlayerId caller = new(1);
 
+    Counters before;
+
     /// <summary>Creates the target with one object registered and its caller owning it.</summary>
     public RpcRouterTarget() {
         manifest.Register(Methods);
@@ -89,24 +91,57 @@ public sealed class RpcRouterTarget : IFuzzTarget {
     }
 
     /// <inheritdoc />
-    public void Maintain() =>
+    public void Maintain() {
         // The bucket is drained by accepted calls and refilled by time, and a run does not pass any.
         router.Advance(TimeSpan.FromSeconds(1));
+        before = Read();
+    }
 
     /// <inheritdoc />
     public long Run(ReadOnlySpan<byte> input) {
         var ran = router.Receive(caller, input);
 
-        return (ran ? 1_000_003L : 0)
-            + (router.AcceptedCount * 7919L)
-            + (router.RefusedByManifestCount * 131L)
-            + (router.RefusedByDirectionCount * 127L)
-            + (router.RefusedByUnknownObjectCount * 113L)
-            + (router.RefusedByOwnershipCount * 109L)
-            + (router.RefusedByArgumentsCount * 107L)
-            + (router.RefusedByRateLimitCount * 103L)
-            + invoker.Signature;
+        // Which check refused this call, not how many the router has refused since it started.
+        // Folding the totals made every one of a million cases look novel, and a corpus that keeps
+        // everything is a corpus that guides nothing — see IFuzzTarget.Run.
+        var after = Read();
+        var signature = (ran ? 1_000_003L : 0)
+            + ((after.Accepted - before.Accepted) * 7919L)
+            + ((after.Manifest - before.Manifest) * 131L)
+            + ((after.Direction - before.Direction) * 127L)
+            + ((after.Object - before.Object) * 113L)
+            + ((after.Ownership - before.Ownership) * 109L)
+            + ((after.Arguments - before.Arguments) * 107L)
+            + ((after.RateLimit - before.RateLimit) * 103L)
+            + (after.Invoked - before.Invoked);
+
+        before = after;
+
+        return signature;
     }
+
+    Counters Read() =>
+        new(
+            router.AcceptedCount,
+            router.RefusedByManifestCount,
+            router.RefusedByDirectionCount,
+            router.RefusedByUnknownObjectCount,
+            router.RefusedByOwnershipCount,
+            router.RefusedByArgumentsCount,
+            router.RefusedByRateLimitCount,
+            invoker.Signature
+        );
+
+    readonly record struct Counters(
+        long Accepted,
+        long Manifest,
+        long Direction,
+        long Object,
+        long Ownership,
+        long Arguments,
+        long RateLimit,
+        long Invoked
+    );
 
     static byte[] Call(uint target, uint typeIndex, uint methodIndex, bool arguments) {
         var buffer = new byte[256];

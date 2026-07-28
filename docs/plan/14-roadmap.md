@@ -2981,6 +2981,16 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   a target rather than a second, roughly six hundred times as many cases, and uploads the bytes of
   anything it finds rather than only the message.
 
+  **And the harness had the same class of bug it was written to find.** A signature folded from a
+  decoder's *lifetime* counters strictly increases, so every case looks like a behaviour never seen
+  before — which is not excellent coverage, it is no guidance at all and a corpus that keeps
+  everything: `rpc` kept 1,027,530 inputs out of 1,027,508 cases, unbounded, in a test host that runs
+  alongside seventeen others. Signatures are per-case deltas now and both tables are capped; `rpc`
+  keeps 538 of 1,500,000 and the whole gate runs in five seconds rather than nine. It still finds what
+  it found before — with the `TickManager` fix reverted it caught the overflow again from a 45-entry
+  corpus. The ratio is printed on every run now, because that is the only place the health of the
+  guidance is visible and a green build hides it completely.
+
   **Owed:** `SharpFuzz` with real instrumentation ([12](12-build-ci-and-testing.md) § Test
   infrastructure) — the targets are already `(ReadOnlySpan<byte>) -> outcome`, so the wrapper is a few
   lines, and libFuzzer would find in an hour what this finds in a week. Worth having alongside rather

@@ -53,6 +53,7 @@ public sealed class HandshakeTarget : IFuzzTarget, IDisposable, ISessionMessageH
     long joined;
     long left;
     long messages;
+    Counters before;
 
     /// <summary>Creates the target, with a server already listening and one player already in.</summary>
     public HandshakeTarget() {
@@ -137,6 +138,10 @@ public sealed class HandshakeTarget : IFuzzTarget, IDisposable, ISessionMessageH
 
     /// <inheritdoc />
     public void Maintain() {
+        // Taken here rather than at the top of Run, so that the housekeeping below — which admits a
+        // player and sends its acceptance — is not counted as something the next input did.
+        before = Read();
+
         if (previous.IsValid) {
             // Last case's connection goes away, so the pending table and the player list are bounded
             // by one rather than by how long the run is.
@@ -168,13 +173,24 @@ public sealed class HandshakeTarget : IFuzzTarget, IDisposable, ISessionMessageH
         // connections, retiring players, answering pings — happens here.
         session.Update(TimeSpan.FromMilliseconds(16), this);
 
-        return (joined * 1_000_003L)
-            + (left * 7919L)
-            + (messages * 31L)
-            + (transport.Sent * 17L)
-            + (transport.Disconnects * 13L)
+        // What this input did, not what the run has done. Folding the lifetime totals would make
+        // the signature strictly increasing and every case novel — see IFuzzTarget.Run.
+        var after = Read();
+        var signature = ((after.Joined - before.Joined) * 1_000_003L)
+            + ((after.Left - before.Left) * 7919L)
+            + ((after.Messages - before.Messages) * 31L)
+            + ((after.Sent - before.Sent) * 17L)
+            + ((after.Disconnects - before.Disconnects) * 13L)
             + session.Players.Count;
+
+        before = after;
+
+        return signature;
     }
+
+    Counters Read() => new(joined, left, messages, transport.Sent, transport.Disconnects);
+
+    readonly record struct Counters(long Joined, long Left, long Messages, long Sent, long Disconnects);
 
     /// <inheritdoc />
     void ISessionMessageHandler.OnMessage(PlayerId from, Channel channel, ReadOnlySpan<byte> message) => messages++;
@@ -233,6 +249,7 @@ public sealed class SessionClientTarget : IFuzzTarget, IDisposable, ISessionMess
     long rejected;
     long disconnected;
     long messages;
+    Counters before;
 
     /// <summary>Creates the target, with a client half already trying to connect.</summary>
     public SessionClientTarget() {
@@ -299,6 +316,9 @@ public sealed class SessionClientTarget : IFuzzTarget, IDisposable, ISessionMess
         if (session.State == SessionState.Stopped) {
             session.StartClient();
         }
+
+        // After the restart, so a restart is not attributed to the next input.
+        before = Read();
     }
 
     /// <inheritdoc />
@@ -309,14 +329,25 @@ public sealed class SessionClientTarget : IFuzzTarget, IDisposable, ISessionMess
         transport.Deliver(TransportRole.Client, ConnectionId.None, Channel.Reliable, payload, length);
         session.Update(TimeSpan.FromMilliseconds(16), this);
 
-        return (connected * 1_000_003L)
-            + (rejected * 7919L)
-            + (disconnected * 131L)
-            + (messages * 31L)
-            + (transport.Sent * 17L)
+        // Deltas, and deliberately not the tick: it comes straight off the wire, so including it
+        // would make every accepted packet a behaviour never seen before.
+        var after = Read();
+        var signature = ((after.Connected - before.Connected) * 1_000_003L)
+            + ((after.Rejected - before.Rejected) * 7919L)
+            + ((after.Disconnected - before.Disconnected) * 131L)
+            + ((after.Messages - before.Messages) * 31L)
+            + ((after.Sent - before.Sent) * 17L)
             + (session.LocalPlayer is null ? 0 : 3L)
-            + session.Tick.Value;
+            + (int)session.State;
+
+        before = after;
+
+        return signature;
     }
+
+    Counters Read() => new(connected, rejected, disconnected, messages, transport.Sent);
+
+    readonly record struct Counters(long Connected, long Rejected, long Disconnected, long Messages, long Sent);
 
     /// <inheritdoc />
     void ISessionMessageHandler.OnMessage(PlayerId from, Channel channel, ReadOnlySpan<byte> message) => messages++;

@@ -24,8 +24,36 @@ namespace Vixen.Net.Fuzz;
 ///     </para>
 /// </remarks>
 public sealed class Corpus {
+    /// <summary>How many inputs are kept before new ones start replacing old ones.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A corpus is a working set, and an unbounded one is a memory leak wearing a
+    ///         hat.</b> Learnt the hard way: with a signature that could not saturate, one target
+    ///         kept a million inputs inside a second and the test host died under the memory
+    ///         pressure of a full-solution run — a failure with no failing test in it, because the
+    ///         process never got as far as writing its results.
+    ///     </para>
+    ///     <para>
+    ///         Four thousand is far more than the mutator can usefully draw from anyway: it picks
+    ///         one at random per case, so a corpus ten times the size is a corpus each of whose
+    ///         entries is visited a tenth as often.
+    ///     </para>
+    /// </remarks>
+    public const int MaxEntries = 4096;
+
+    /// <summary>How many distinct behaviours are remembered before novelty stops being tracked.</summary>
+    /// <remarks>
+    ///     The backstop for a signature that is finer-grained than the thing it is meant to
+    ///     summarise. Past this the target has demonstrated that nearly everything looks new to it,
+    ///     which means the guidance is worth nothing on that target — so it is switched off rather
+    ///     than paid for, and the run carries on mutating what it already has.
+    /// </remarks>
+    public const int MaxSignatures = 1 << 16;
+
     readonly List<byte[]> entries = [];
     readonly HashSet<long> signatures = [];
+    ulong offered;
+    int protectedCount;
 
     /// <summary>How many inputs are held.</summary>
     public int Count => entries.Count;
@@ -43,15 +71,44 @@ public sealed class Corpus {
     /// <exception cref="ArgumentNullException"><paramref name="input" /> is null.</exception>
     public bool Offer(byte[] input, long signature) {
         ArgumentNullException.ThrowIfNull(input);
+        offered++;
+
+        // Saturated. See MaxSignatures: the guidance has proved worthless on this target, so it is
+        // switched off rather than paid for, and neither table grows again.
+        if (signatures.Count >= MaxSignatures) {
+            return false;
+        }
 
         if (!signatures.Add(signature)) {
             return false;
         }
 
-        entries.Add(input);
+        if (entries.Count < MaxEntries) {
+            entries.Add(input);
+
+            return true;
+        }
+
+        // Replaced rather than refused. A corpus that stops accepting is a corpus frozen at whatever
+        // the first few thousand cases happened to be, which is the shapes reachable from the seeds
+        // in one or two mutations and nothing further out.
+        //
+        // Never over the protected entries, though. The seeds are the only well-formed inputs there
+        // are — everything else in here is a mutant — so letting them be evicted would, over a long
+        // enough run, leave a corpus made entirely of malformed packets and a fuzzer that had
+        // quietly stopped exercising any decoder past its first refusal.
+        var replaceable = entries.Count - protectedCount;
+        entries[protectedCount + (int)(offered % (ulong)replaceable)] = input;
 
         return true;
     }
+
+    /// <summary>Marks everything added so far as never to be evicted.</summary>
+    /// <remarks>
+    ///     Called once the seeds and the committed regressions are in. Both are inputs somebody
+    ///     chose, and neither is something the mutator could produce again by accident.
+    /// </remarks>
+    public void Protect() => protectedCount = Math.Min(entries.Count, MaxEntries - 1);
 
     /// <summary>Adds an input regardless of whether it is novel, for seeds and regressions.</summary>
     /// <param name="input">The input.</param>

@@ -97,6 +97,9 @@ public sealed class SnapshotTarget : IFuzzTarget, IDisposable {
     readonly ReplicationClient client;
 
     World world = new("fuzz-snapshot");
+    long rejectedBefore;
+    long staleBefore;
+    int entitiesBefore;
 
     /// <summary>Creates the target, with a registry holding the one hand-written replicator.</summary>
     public SnapshotTarget() {
@@ -159,17 +162,26 @@ public sealed class SnapshotTarget : IFuzzTarget, IDisposable {
         client.Clear();
         world.Dispose();
         world = new("fuzz-snapshot");
+        entitiesBefore = 0;
     }
 
     /// <inheritdoc />
     public long Run(ReadOnlySpan<byte> input) {
         var applied = client.TryApply(world, input);
 
-        return (applied ? 1_000_003L : 0)
-            + (client.RejectedSnapshotCount * 7919L)
-            + (client.StaleSnapshotCount * 131L)
-            + (client.EntityCount * 31L)
-            + client.AppliedTick.Value;
+        // Deltas, and deliberately not AppliedTick: it is four bytes taken straight off the wire,
+        // so a signature containing it makes every accepted snapshot novel and the corpus keeps
+        // every one of them. That is what this harness was doing before it was measured.
+        var signature = (applied ? 1_000_003L : 0)
+            + ((client.RejectedSnapshotCount - rejectedBefore) * 7919L)
+            + ((client.StaleSnapshotCount - staleBefore) * 131L)
+            + ((client.EntityCount - entitiesBefore) * 31L);
+
+        rejectedBefore = client.RejectedSnapshotCount;
+        staleBefore = client.StaleSnapshotCount;
+        entitiesBefore = client.EntityCount;
+
+        return signature;
     }
 
     /// <summary>Lets go of the world.</summary>
@@ -219,10 +231,12 @@ public sealed class SnapshotInspectorTarget : IFuzzTarget {
     public long Run(ReadOnlySpan<byte> input) {
         var contents = SnapshotInspector.Inspect(registry, input);
 
+        // No tick here either. What the inspector found is the shape of the packet — how many
+        // records, how many removals, and whether it read to the end — and the tick is a number the
+        // packet chose.
         return (contents.Complete ? 1_000_003L : 0)
             + (contents.Records.Count * 7919L)
-            + (contents.Removals.Count * 131L)
-            + contents.Tick.Value;
+            + (contents.Removals.Count * 131L);
     }
 }
 

@@ -225,6 +225,10 @@ public sealed class FuzzSession {
         // mutation of a seed produces except by accident.
         corpus.Add([]);
 
+        // Everything above was chosen by somebody. Past the corpus cap, mutants replace mutants and
+        // never these.
+        corpus.Protect();
+
         // Replayed before anything is generated, and *measured* while it is: a seed that throws is
         // a defect in the encoder's own output, and a committed regression that throws again is the
         // reason the file is in the tree.

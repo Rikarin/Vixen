@@ -29,7 +29,7 @@ namespace Vixen.Net.Fuzz.Tests;
 ///         build's time or prove nothing about the other.
 ///     </para>
 /// </remarks>
-public sealed class FuzzGateTests {
+public sealed class FuzzGateTests(ITestOutputHelper output) {
     /// <summary>Every target survives everything the mutator can make of its own seeds.</summary>
     /// <param name="name">Which decoder.</param>
     /// <param name="cases">How many inputs to push through it.</param>
@@ -53,6 +53,13 @@ public sealed class FuzzGateTests {
             var outcome = seconds is null ? session.Run(cases) : session.RunFor(seconds.Value);
 
             Keep(outcome);
+
+            // Printed on every run, not only on a failure, because the ratio of kept to cases is
+            // the health of the guidance and it is invisible from a green build. A target keeping
+            // most of what it runs has a signature that cannot saturate — every case looks new,
+            // nothing is being learnt, and the corpus is a list rather than a selection. That was
+            // true of four of these until it was measured.
+            output.WriteLine(outcome.ToString());
 
             Assert.True(
                 outcome.Clean,
