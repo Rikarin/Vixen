@@ -105,6 +105,23 @@ public sealed class RenderStage(string name, RenderSortMode sortMode = RenderSor
     /// </remarks>
     public string? ShaderName { get; set; }
 
+    /// <summary>Whether the overriding shader fills its <c>compose</c> slots from the material.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Only meaningful beside <see cref="ShaderName" />, and false by default because the
+    ///         passes that override one mostly do not compose: <c>DepthOnly</c> and
+    ///         <c>ShadowCaster</c> write depth and declare no slots, so handing them a material's
+    ///         features would split their cache once per distinct material for variants that compile
+    ///         to the same bytes.
+    ///     </para>
+    ///     <para>
+    ///         A G-buffer stage is the exception and the reason this exists: <c>GBufferPass</c> does
+    ///         declare <c>surface</c>, so its variant depends on the material's features exactly as
+    ///         the forward pass's does.
+    ///     </para>
+    /// </remarks>
+    public bool ShaderComposes { get; set; }
+
     /// <summary>The stage's index, assigned when it is added to a <see cref="RenderSystem" />.</summary>
     public int Index { get; internal set; } = -1;
 

@@ -45,6 +45,16 @@ public sealed class Effect {
     public int ConstantBufferSize { get; init; }
 
     /// <summary>The value parameters this variant actually has, for filling that block.</summary>
+    /// <remarks>
+    ///     <strong>One entry per value, which means one per array element.</strong> Raven's
+    ///     reflection describes an array member once — <c>layers[].baseColor</c>, with an offset and
+    ///     an array stride — because that is the shader's declaration. A parameter key holds one
+    ///     value, so a provider building this expands that into <c>layers[0].baseColor</c>,
+    ///     <c>layers[1].baseColor</c> and so on, each at <c>offset + index × stride</c>. Collapsing
+    ///     them back into one entry would make every element after the first unreachable through the
+    ///     parameter path, which is silent: a layered material would draw its first layer and nothing
+    ///     else.
+    /// </remarks>
     public ImmutableArray<EffectParameter> Parameters { get; init; } = [];
 
     /// <summary>Where each of its resources sits, by the shader's name for it.</summary>

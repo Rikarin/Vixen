@@ -2042,8 +2042,27 @@ scroll/focus/selection. A `DockingHost` layout round-trips through serialisation
   `RenderView`/`RenderStage`, sort modes. Still open: the concrete features (mesh, transform,
   skinning, instancing, material, lighting, shadow-caster), GPU culling, and `GraphicsCompositor` as
   an asset.
-- Materials: the composable feature tree, metallic-roughness + spec-gloss, all BSDF layers from
-  [06](06-rendering-pipeline.md), layering, cel shading.
+- Materials: ✅ **the composable feature tree** — `MaterialDescriptor` and `MaterialCompiler` over two
+  `compose` slots on the pass, `surface` for what a point on the surface *is* and `shading` for what it
+  does with light. Metallic-roughness and spec-gloss, normal map, emissive, occlusion, anisotropy,
+  clear coat (with its own normal), sheen and subsurface as features; standard, anisotropic,
+  clear-coat, sheen, subsurface, hair and cel as shading models; layering both ways — `BlendSurface`
+  for two different surfaces and `MaterialLayersSurface` for N layers of one workflow, which is the
+  case composition cannot express because a composed shader's parameters belong to its type. The
+  composition is part of the `EffectKey`, so two materials differing only in features are two variants.
+
+  Two things this deliberately does not have. **Transmission** has channels and no shading model:
+  refraction needs the scene colour or an environment sample, both of which belong to the pass rather
+  than the lobe. And **materials are values, not resources** — a feature that samples a texture needs
+  a binding index only the compiled shader knows, which is the same authoring gap the compositor's
+  nodes have and closes with the same fix.
+
+  Gate: every feature and every shading model composed into the shipped `ForwardPlus` and run through
+  `glslc` and `spirv-val`; the compiler's predicted parameter names held against the checked-in
+  reflection in both directions. Verified by sabotage: hard-coding the lobes back into the pass fails
+  all six shading-model tests, dropping the chain from the parameter path fails the reflection oracle,
+  taking the composition out of the effect key fails the variant test, and handing a depth prepass the
+  material's composition fails the one that says it must not.
 - Lighting: all light types, clustered binning, IBL (prefiltered + SH), light probes, reflection probes.
 - Shadows: CSM, cube, spot, atlas + static caching, PCF/PCSS.
 - `Vixen.Rendering.PostFx`: the P1 effect set including TAA, FXAA, SMAA, MSAA resolve, GTAO, SSR,
