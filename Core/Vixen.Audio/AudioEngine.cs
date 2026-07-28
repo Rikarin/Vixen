@@ -693,6 +693,37 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     /// <returns>Where its occlusion has got to, which lags the raycast by <see cref="AudioOcclusion.SeekSeconds" />.</returns>
     public float OcclusionOf(VoiceHandle handle) => TryResolve(handle, out var voice) ? voice.Occlusion : 0f;
 
+    /// <summary>Points a sound's own send at a bus, at a level.</summary>
+    /// <param name="handle">Which sound.</param>
+    /// <param name="bus">Which bus a copy of it goes to. Out of range turns the send off.</param>
+    /// <param name="level">How much, as a linear gain. Zero turns it off and costs nothing.</param>
+    /// <returns>Whether the sound was still there.</returns>
+    /// <remarks>
+    ///     <b>Meant to be called every frame.</b> Both fields are plain scalars the audio thread
+    ///     reads, on the same terms as gain — the worst outcome is a change landing one block late.
+    ///     That is what lets a reverb amount follow an emitter across a room without a queue, which
+    ///     is the thing a bus send could never do because everything on the bus shares its level.
+    /// </remarks>
+    public bool SetSend(VoiceHandle handle, int bus, float level) {
+        if (!TryResolve(handle, out var voice)) {
+            return false;
+        }
+
+        voice.SendBus = (uint)bus < (uint)Mixer.Buses.Count ? bus : -1;
+        voice.SendLevel = MathF.Max(level, 0f);
+        return true;
+    }
+
+    /// <summary>How much of a sound is going to its own send.</summary>
+    /// <param name="handle">Which sound.</param>
+    /// <returns>The level, or zero if it has no send or is gone.</returns>
+    public float SendLevelOf(VoiceHandle handle) =>
+        TryResolve(handle, out var voice) && voice.SendBus >= 0 ? voice.SendLevel : 0f;
+
+    /// <summary>Which bus a sound's own send reaches, or −1.</summary>
+    /// <param name="handle">Which sound.</param>
+    public int SendBusOf(VoiceHandle handle) => TryResolve(handle, out var voice) ? voice.SendBus : -1;
+
     /// <summary>The authored low-pass cutoff on a sound, in hertz, or zero for none.</summary>
     /// <param name="handle">Which one.</param>
     /// <remarks>
@@ -1078,6 +1109,12 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         // Clamped rather than rejected: a bus index that no longer names a bus is a stale asset, and
         // routing it to the master is audible in a way that silently dropping the sound is not.
         voice.Bus = (uint)settings.Bus < (uint)Mixer.Buses.Count ? settings.Bus : 0;
+
+        // A send naming a bus that no longer exists is dropped rather than clamped to the master:
+        // routing a stale reverb send to the master would be an audible mistake, where losing the
+        // send is only a missing effect.
+        voice.SendBus = (uint)settings.SendBus < (uint)Mixer.Buses.Count ? settings.SendBus : -1;
+        voice.SendLevel = MathF.Max(settings.SendLevel, 0f);
         voice.Gain = settings.Gain;
         voice.Pitch = settings.Pitch;
         voice.Pan = settings.Pan;

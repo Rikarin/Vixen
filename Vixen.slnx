@@ -235,6 +235,7 @@
   <Project Path="Samples/07-AddressablesRemote/AddressablesRemote.csproj" />
   <Project Path="Samples/08-Multiplayer/Multiplayer.csproj" />
   <Project Path="Samples/09-NetworkSoak/NetworkSoak.csproj" />
+    <Project Path="Samples/10-VoiceChat/VoiceChat.csproj" />
 
 
 </Solution>

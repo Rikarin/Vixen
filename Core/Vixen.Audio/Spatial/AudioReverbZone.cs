@@ -75,8 +75,19 @@ public sealed record AudioReverbZone {
     /// <summary>How much this zone applies at a point.</summary>
     /// <param name="listener">Where the ear is.</param>
     /// <returns>0 outside, <see cref="Strength" /> well inside, and a fade across <see cref="Blend" />.</returns>
-    public float Evaluate(in Vector3 listener) {
-        var depth = Shape is AudioZoneShape.Sphere ? SphereDepth(listener) : BoxDepth(listener);
+    public float Evaluate(in Vector3 listener) => Evaluate(listener, Position);
+
+    /// <summary>The same, centred somewhere other than <see cref="Position" />.</summary>
+    /// <param name="listener">Where the ear is.</param>
+    /// <param name="centre">Where the zone is.</param>
+    /// <remarks>
+    ///     What the ECS path uses. A zone placed in a level is an entity, and where an entity is
+    ///     belongs to its transform — the same rule <c>AudioSpatial</c> follows, and for the same
+    ///     reason: a thing moves because the thing moved. <see cref="Position" /> is then only for a
+    ///     zone added from code, which has no transform to read.
+    /// </remarks>
+    public float Evaluate(in Vector3 listener, in Vector3 centre) {
+        var depth = Shape is AudioZoneShape.Sphere ? SphereDepth(listener, centre) : BoxDepth(listener, centre);
 
         if (depth <= 0f) {
             return 0f;
@@ -86,16 +97,16 @@ public sealed record AudioReverbZone {
     }
 
     /// <summary>How far inside the sphere the point is. Negative outside.</summary>
-    float SphereDepth(in Vector3 listener) {
+    float SphereDepth(in Vector3 listener, in Vector3 centre) {
         // The radius is Extent.X: a sphere with three different extents is an ellipsoid, and calling
         // one a sphere would be the sort of thing somebody finds out from a bug report.
         var radius = Extent.X;
-        return radius - Vector3.Distance(listener, Position);
+        return radius - Vector3.Distance(listener, centre);
     }
 
     /// <summary>How far inside the box the point is, on its tightest axis. Negative outside.</summary>
-    float BoxDepth(in Vector3 listener) {
-        var offset = listener - Position;
+    float BoxDepth(in Vector3 listener, in Vector3 centre) {
+        var offset = listener - centre;
 
         // The nearest face governs, because a point one centimetre from a wall is one centimetre
         // inside the room however far it is from the far wall.

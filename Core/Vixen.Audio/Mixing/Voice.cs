@@ -94,6 +94,24 @@ sealed class Voice {
     /// <summary>Which bus it sums into.</summary>
     public int Bus;
 
+    /// <summary>An extra bus a copy of it also goes to, or −1 for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The thing a bus send cannot do.</b> A send on a bus is one amount for everything
+    ///         routed through it, which is right for a room's reverb and wrong for a reverb amount
+    ///         that tracks how far into the room each emitter is — every source on the bus would move
+    ///         together. This is the same edge drawn from one voice.
+    ///     </para>
+    ///     <para>
+    ///         Costs nothing when unused: the mixer only takes the scratch path for a voice that has
+    ///         one, so a game that never sets a per-voice send renders exactly as it did before.
+    ///     </para>
+    /// </remarks>
+    public int SendBus = -1;
+
+    /// <summary>How much of it goes to <see cref="SendBus" />, as a linear gain.</summary>
+    public float SendLevel;
+
     /// <summary>Its own gain, before the bus's.</summary>
     public float Gain = 1f;
 
@@ -527,6 +545,8 @@ sealed class Voice {
         ParameterLowPassHz = 0f;
         ParameterHighPassHz = 0f;
         Occlusion = 0f;
+        SendBus = -1;
+        SendLevel = 0f;
         ClearFilters();
         IsSpatial = false;
         OwnsSource = false;

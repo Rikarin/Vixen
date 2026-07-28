@@ -66,6 +66,17 @@ public readonly record struct PlaybackSettings() {
     /// <summary>Which bus to route into. Zero is the master.</summary>
     public int Bus { get; init; }
 
+    /// <summary>An extra bus a copy of this sound also goes to, or −1 for none.</summary>
+    /// <remarks>
+    ///     What a bus send cannot express: a send on a bus is one amount for everything routed
+    ///     through it, so every emitter in a room shares a reverb level. This is per sound, which is
+    ///     what lets one that is deeper into the room be wetter than one by the door.
+    /// </remarks>
+    public int SendBus { get; init; } = -1;
+
+    /// <summary>How much goes to <see cref="SendBus" />, as a linear gain.</summary>
+    public float SendLevel { get; init; }
+
     /// <summary>A linear gain. One is unaltered.</summary>
     public float Gain { get; init; } = 1f;
 

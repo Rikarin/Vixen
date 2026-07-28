@@ -914,6 +914,29 @@ last zone still runs one more pass for exactly that reason.
 outside a cathedral and heard from inside it gets the cathedral, because the reverberation happens
 around the ear.
 
+**A zone is placed, not written.** `AudioReverbZoneRef` makes it an entity, because a room belongs in
+a level and not in a method — and its position comes from `WorldTransform`, the same rule
+`AudioSpatial` follows. The description is shared and the placement is not: one `AudioZoneAsset`
+describes a *kind* of room and twenty entities carrying it are twenty different rooms, which is what
+makes "every cathedral is boomier now" one edit. The set is rebuilt from the world every frame rather
+than maintained, so an entity that has been destroyed simply stops being a zone — nothing to tear
+down and nothing to forget.
+
+## Per-voice sends
+
+**A send on a bus is one amount for everything routed through it.** For a room's reverb that is
+right. For a reverb amount that tracks how far into the room each *emitter* is, it is not — every
+source on the bus would move together. `PlaybackSettings.SendBus`/`SendLevel` and `SetSend` draw the
+same edge from one voice, and the level is a plain scalar meant to be written every frame, so a
+source's wetness can follow it across a room without a queue.
+
+It costs nothing when unused. A voice with a send renders into a scratch buffer so its contribution
+can be scaled twice — once into its bus and once into the aux — and a voice without one renders
+straight into the bus exactly as before.
+
+A send naming a bus that no longer exists is **dropped rather than clamped to the master**: losing an
+effect is a smaller mistake than a stale reverb send arriving at the output.
+
 ## Still to come
 
 **True-peak metering.** The loudness meter reports sample peak. Certification wants true peak, which
@@ -921,10 +944,6 @@ means oversampling by four to catch what the reconstruction filter does between 
 
 **Loudness range.** The third R128 number, and the one that says whether a mix has dynamics or has
 been flattened. It needs the block history kept rather than summed, which is why it is not here.
-
-**Per-voice sends.** Sends are per bus, so every source on a bus shares one send amount. For a room's
-reverb that is right; for a reverb amount that tracks how far into the room each emitter is, it is
-not.
 
 **Oversampling for the distortion**, and a phase-vocoder pitch shifter — both now cheap to add, since
 the transform they want is in `Dsp/Fft`.

@@ -28,35 +28,33 @@ namespace Vixen.Audio.Spatial;
 ///     </para>
 /// </remarks>
 public sealed class AudioReverbZones {
-    readonly List<AudioReverbZone> zones = [];
+    /// <summary>A zone and where it actually is, which is not always where it says it is.</summary>
+    readonly record struct Placed(AudioReverbZone Zone, Vector3 Position);
 
-    // The parameters any zone mentions, registered once when the zone is added rather than
-    // discovered every frame — so the per-frame pass is two walks over parallel lists and allocates
+    // Two lists, because they are owned differently. `added` is a game's own, and lives until it says
+    // otherwise. `synced` is rebuilt from the world every frame, because an entity that was destroyed
+    // has to stop being a zone without anybody having to remember to say so.
+    readonly List<Placed> added = [];
+    readonly List<Placed> synced = [];
+
+    // The parameters any zone has ever mentioned, registered when the zone is first seen rather than
+    // discovered every frame — so the per-frame pass is walks over parallel lists and allocates
     // nothing, which matters because it runs inside the frame loop.
     readonly Dictionary<string, int> slots = [];
     readonly List<string> names = [];
     readonly List<float> values = [];
     readonly List<int> winners = [];
 
-    /// <summary>How many zones there are.</summary>
-    public int Count => zones.Count;
+    /// <summary>How many zones there are, from both sources.</summary>
+    public int Count => added.Count + synced.Count;
 
-    /// <summary>One of them.</summary>
-    /// <param name="index">Which.</param>
-    public AudioReverbZone this[int index] => zones[index];
-
-    /// <summary>Adds a zone.</summary>
-    /// <param name="zone">It.</param>
+    /// <summary>Adds a zone that stays until it is removed.</summary>
+    /// <param name="zone">It. Its own <see cref="AudioReverbZone.Position" /> is where it is.</param>
     /// <exception cref="ArgumentNullException"><paramref name="zone" /> is null.</exception>
     public void Add(AudioReverbZone zone) {
         ArgumentNullException.ThrowIfNull(zone);
-        zones.Add(zone);
-
-        if (!string.IsNullOrEmpty(zone.Parameter) && slots.TryAdd(zone.Parameter, names.Count)) {
-            names.Add(zone.Parameter);
-            values.Add(0f);
-            winners.Add(int.MinValue);
-        }
+        Register(zone);
+        added.Add(new(zone, zone.Position));
     }
 
     /// <summary>Removes one.</summary>
@@ -67,15 +65,50 @@ public sealed class AudioReverbZones {
     ///     <see cref="Apply" /> — which is the point. Forgetting the name instead would leave the
     ///     parameter wherever the removed zone had last pushed it.
     /// </remarks>
-    public bool Remove(AudioReverbZone zone) => zones.Remove(zone);
+    public bool Remove(AudioReverbZone zone) {
+        var index = added.FindIndex(placed => placed.Zone == zone);
+
+        if (index < 0) {
+            return false;
+        }
+
+        added.RemoveAt(index);
+        return true;
+    }
+
+    /// <summary>Starts rebuilding the set that comes from the world.</summary>
+    /// <remarks>
+    ///     Clears only what was synced last frame, and none of the registered parameters: a zone
+    ///     entity that has been destroyed still has to release whatever it was driving, and a
+    ///     forgotten name cannot.
+    /// </remarks>
+    public void BeginSync() => synced.Clear();
+
+    /// <summary>Adds a zone for this frame, at a position its own does not decide.</summary>
+    /// <param name="zone">The shared description.</param>
+    /// <param name="position">Where the entity carrying it is.</param>
+    public void Sync(AudioReverbZone zone, in Vector3 position) {
+        ArgumentNullException.ThrowIfNull(zone);
+        Register(zone);
+        synced.Add(new(zone, position));
+    }
 
     /// <summary>Drops all of them, for a scene change.</summary>
     public void Clear() {
-        zones.Clear();
+        added.Clear();
+        synced.Clear();
         slots.Clear();
         names.Clear();
         values.Clear();
         winners.Clear();
+    }
+
+    void Register(AudioReverbZone zone) {
+        if (!string.IsNullOrEmpty(zone.Parameter) && slots.TryAdd(zone.Parameter, names.Count)) {
+            names.Add(zone.Parameter);
+            values.Add(0f);
+            winners.Add(int.MinValue);
+        }
     }
 
     /// <summary>Works out what the listener is standing in, and writes it to the parameters.</summary>
@@ -96,12 +129,26 @@ public sealed class AudioReverbZones {
             winners[i] = int.MinValue;
         }
 
-        foreach (var zone in zones) {
+        Consider(added, listener);
+        Consider(synced, listener);
+
+        if (parameters is null) {
+            return;
+        }
+
+        for (var i = 0; i < names.Count; i++) {
+            parameters.Set(names[i], values[i]);
+        }
+    }
+
+    /// <summary>Lets every zone in a list bid for its parameter, keeping the winner.</summary>
+    void Consider(List<Placed> zones, in Vector3 listener) {
+        foreach (var (zone, position) in zones) {
             if (string.IsNullOrEmpty(zone.Parameter) || !slots.TryGetValue(zone.Parameter, out var slot)) {
                 continue;
             }
 
-            var value = zone.Evaluate(listener);
+            var value = zone.Evaluate(listener, position);
 
             if (value <= 0f) {
                 continue;
@@ -113,14 +160,6 @@ public sealed class AudioReverbZones {
                 winners[slot] = zone.Priority;
                 values[slot] = value;
             }
-        }
-
-        if (parameters is null) {
-            return;
-        }
-
-        for (var i = 0; i < names.Count; i++) {
-            parameters.Set(names[i], values[i]);
         }
     }
 

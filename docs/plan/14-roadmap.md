@@ -2506,8 +2506,15 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   volume test is arithmetic — so they work in a game that links no native library. Both drive
   authored curves rather than deciding anything themselves.
 
-  Still owed: true-peak and loudness-range metering, ADPCM for effects, per-voice sends, an HRTF
-  panner, a real-input FFT, oversampling for the distortion, and a phase-vocoder pitch shifter.
+  Zones are entities: `AudioReverbZoneRef` places one in a level, `AudioZoneAsset` is the shared
+  description, and the set is rebuilt from the world every frame so a destroyed entity stops being a
+  room without anybody having to say so. **Per-voice sends** landed with them, which is the half a
+  bus send cannot do: one amount per bus means every emitter in a room is equally wet.
+  `Samples/10-VoiceChat` runs the whole voice path over real UDP sockets, which is the one thing the
+  codec tests deliberately cannot check — they drive a stand-in network on purpose.
+
+  Still owed: true-peak and loudness-range metering, ADPCM for effects, an HRTF panner, a real-input
+  FFT, oversampling for the distortion, and a phase-vocoder pitch shifter.
 - `Vixen.Animation`: skeletal playback, blend trees (1D/2D), layers + masks, state machine, IK (two-bone,
   look-at, foot placement), root motion, events, GPU skinning integration.
 - `Vixen.Editor.AnimationGraph`.
