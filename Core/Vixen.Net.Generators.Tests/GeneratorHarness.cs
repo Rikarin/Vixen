@@ -16,9 +16,17 @@ public static class GeneratorHarness {
     /// <summary>Compiles source and runs the generator over it.</summary>
     /// <param name="source">The C# to compile.</param>
     /// <returns>What the generator produced and complained about.</returns>
-    public static (ImmutableArray<Diagnostic> Diagnostics, ImmutableArray<string> Sources) Run(string source) {
-        var driver = Drive(Compile(source), out var run);
-        _ = driver;
+    public static (ImmutableArray<Diagnostic> Diagnostics, ImmutableArray<string> Sources) Run(string source) =>
+        Run(source, rpc: false);
+
+    /// <summary>Compiles source and runs the RPC generator over it.</summary>
+    /// <param name="source">The C# to compile.</param>
+    /// <returns>What the generator produced and complained about.</returns>
+    public static (ImmutableArray<Diagnostic> Diagnostics, ImmutableArray<string> Sources) RunRpc(string source) =>
+        Run(source, rpc: true);
+
+    static (ImmutableArray<Diagnostic> Diagnostics, ImmutableArray<string> Sources) Run(string source, bool rpc) {
+        Drive(Compile(source), rpc, out var run);
 
         var result = run.Results[0];
         var generated = ImmutableArray.CreateBuilder<string>();
@@ -33,11 +41,11 @@ public static class GeneratorHarness {
     /// <summary>Runs the generator, then runs it again over a compilation with one unrelated file added.</summary>
     /// <param name="source">The C# to compile.</param>
     /// <returns>The reasons the second run recorded for the per-component step.</returns>
-    public static ImmutableArray<IncrementalStepRunReason> ReasonsOnSecondRun(string source) {
+    public static ImmutableArray<IncrementalStepRunReason> ReasonsOnSecondRun(string source, bool rpc = false) {
         var compilation = Compile(source);
 
         GeneratorDriver driver = CSharpGeneratorDriver.Create(
-            [new ReplicationGenerator().AsSourceGenerator()],
+            [rpc ? new RpcGenerator().AsSourceGenerator() : new ReplicationGenerator().AsSourceGenerator()],
             driverOptions: new(IncrementalGeneratorOutputKind.None, trackIncrementalGeneratorSteps: true)
         );
 
@@ -49,7 +57,8 @@ public static class GeneratorHarness {
 
         driver = driver.RunGenerators(again);
 
-        var steps = driver.GetRunResult().Results[0].TrackedSteps[ReplicationGenerator.DescribeStep];
+        var tracked = rpc ? RpcGenerator.DescribeStep : ReplicationGenerator.DescribeStep;
+        var steps = driver.GetRunResult().Results[0].TrackedSteps[tracked];
         var reasons = ImmutableArray.CreateBuilder<IncrementalStepRunReason>();
 
         foreach (var step in steps) {
@@ -64,8 +73,8 @@ public static class GeneratorHarness {
     /// <summary>Compiles source together with what the generator made of it.</summary>
     /// <param name="source">The C# to compile.</param>
     /// <returns>Everything the compiler said about the result.</returns>
-    public static ImmutableArray<Diagnostic> CompileWithGeneratedCode(string source) {
-        var driver = Drive(Compile(source), out _);
+    public static ImmutableArray<Diagnostic> CompileWithGeneratedCode(string source, bool rpc = false) {
+        var driver = Drive(Compile(source), rpc, out _);
         driver.RunGeneratorsAndUpdateCompilation(Compile(source), out var updated, out _);
 
         return updated.GetDiagnostics();
@@ -79,8 +88,9 @@ public static class GeneratorHarness {
             new(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable)
         );
 
-    static GeneratorDriver Drive(CSharpCompilation compilation, out GeneratorDriverRunResult run) {
-        var driver = CSharpGeneratorDriver.Create(new ReplicationGenerator())
+    static GeneratorDriver Drive(CSharpCompilation compilation, bool rpc, out GeneratorDriverRunResult run) {
+        var driver = CSharpGeneratorDriver
+            .Create(rpc ? new RpcGenerator() : new ReplicationGenerator())
             .RunGenerators(compilation);
 
         run = driver.GetRunResult();

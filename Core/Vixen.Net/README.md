@@ -196,6 +196,59 @@ Components declare themselves, and `Vixen.Net.Generators` writes the code:
 struct Position { [Quantize(-1000f, 1000f, 16)] public float X, Y, Z; }
 ```
 
+## Remote calls
+
+The handler keeps its name; the sender gets its own, reached through a generated `Rpc` accessor:
+
+```csharp
+public sealed partial class Player : IRpcObject {
+    [ServerRpc(RequireOwnership = true, Channel = Channel.Reliable)]
+    void TakeDamage(int amount) => _health -= amount;
+
+    [ClientRpc(Target = RpcTarget.Observers)]
+    void PlayHitEffect(float at, [Quantize(0f, 1f, 8)] float intensity) { … }
+
+    void OnHit(int damage) => Rpc.TakeDamage(damage);   // ← obviously a packet
+}
+```
+
+The reference implementation rewrites IL so that one name means both "send this" and "run this".
+ADR-002 bans that and NativeAOT would not survive it — and the constraint pushed the design somewhere
+better, because transparent RPC hides latency and bandwidth at the call site. One line more ceremony,
+and the call site says what it costs.
+
+**Nothing a packet says about who sent it is believed.** The sender is what the session says it is —
+the connection the bytes arrived on — and it is what ownership and the rate limit are checked against.
+A handler that wants to know who called it takes an `in RpcContext` first parameter, which the router
+fills in; a handler that took the caller's id as an ordinary argument would be asking the caller who
+they are.
+
+Six checks before anything runs, each of which is a counter for the diagnostics panel: the indices
+must name a call in the manifest, the direction must be one this peer accepts, the object must be
+registered, ownership must hold if the call asks for it, the connection must be inside its rate limit,
+and the arguments must decode and leave nothing behind.
+
+Ids are hashes of the declaring type and the signature, so adding a method does not renumber the
+others; the wire carries the position in a manifest ordered by those hashes, and `ManifestHash` is the
+one number two peers compare in the handshake.
+
+## What goes over a session
+
+The session carries opaque bytes. Three things want to put bytes there — replication, remote calls,
+and the game's own messages — so one `PayloadKind` byte goes in front, and each keeps its own decoder:
+
+```csharp
+public void OnMessage(PlayerId from, Channel channel, ReadOnlySpan<byte> payload) {
+    if (!NetworkPayload.TryUnwrap(payload, out var kind, out var inner)) return;
+    if (kind == PayloadKind.Rpc) router.Receive(from, inner);
+    …
+}
+```
+
+`SessionRpcTransport` is the sending half of that. It is a class of its own rather than the session
+implementing `IRpcTransport` directly, because wiring the two together without the marker would be a
+connection that looked right and mixed three streams into one.
+
 ## Testing
 
 The contract's own tests are in `Vixen.Net.Tests`, and the interesting one is

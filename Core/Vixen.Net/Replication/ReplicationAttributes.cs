@@ -44,7 +44,7 @@ public sealed class ReplicatedAttribute : Attribute {
 /// <param name="min">The smallest value that will be sent exactly.</param>
 /// <param name="max">The largest.</param>
 /// <param name="bits">How many bits to spend, from 1 to 32.</param>
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Parameter)]
 public sealed class QuantizeAttribute(float min, float max, int bits) : Attribute {
     /// <summary>The smallest value that will be sent exactly.</summary>
     public float Min => min;

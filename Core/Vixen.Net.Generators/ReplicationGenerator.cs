@@ -149,7 +149,7 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
             )
         );
 
-        var fields = ImmutableArray.CreateBuilder<Field>();
+        var fields = ImmutableArray.CreateBuilder<WireValue>();
 
         foreach (var member in type.GetMembers()) {
             if (member is not IFieldSymbol field || field.IsStatic || field.IsConst || field.IsImplicitlyDeclared) {
@@ -189,7 +189,7 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
         );
     }
 
-    static Field? DescribeField(IFieldSymbol field, ImmutableArray<DiagnosticInfo>.Builder diagnostics) {
+    static WireValue? DescribeField(IFieldSymbol field, ImmutableArray<DiagnosticInfo>.Builder diagnostics) {
         var quantize = FindQuantize(field);
         var typeName = field.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat);
 
@@ -207,30 +207,20 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
                         field.Locations,
                         field.Name,
                         range.Bits.ToString(CultureInfo.InvariantCulture),
-                        Literal(range.Min),
-                        Literal(range.Max)
+                        WireCodec.Literal(range.Min),
+                        WireCodec.Literal(range.Max)
                     )
                 );
 
                 return null;
             }
 
-            return new(field.Name, FieldKind.QuantizedSingle, range.Min, range.Max, range.Bits);
+            return new(field.Name, WireKind.QuantizedSingle, range.Min, range.Max, range.Bits);
         }
 
-        var kind = field.Type.SpecialType switch {
-            SpecialType.System_Boolean => FieldKind.Boolean,
-            SpecialType.System_Byte => FieldKind.Byte,
-            SpecialType.System_SByte => FieldKind.SByte,
-            SpecialType.System_Int16 => FieldKind.Int16,
-            SpecialType.System_UInt16 => FieldKind.UInt16,
-            SpecialType.System_Int32 => FieldKind.Int32,
-            SpecialType.System_UInt32 => FieldKind.UInt32,
-            SpecialType.System_Single => FieldKind.Single,
-            _ => FieldKind.Unsupported
-        };
+        var kind = WireCodec.KindOf(field.Type);
 
-        if (kind == FieldKind.Unsupported) {
+        if (kind == WireKind.Unsupported) {
             diagnostics.Add(Report(UnsupportedField, field.Locations, field.Name, typeName));
 
             return null;
@@ -294,7 +284,7 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
         string fullName,
         string wireName,
         Settings settings,
-        ImmutableArray<Field> fields
+        ImmutableArray<WireValue> fields
     ) {
         var source = new StringBuilder();
 
@@ -309,11 +299,10 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
         source.AppendLine();
 
         foreach (var field in fields) {
-            if (field.Kind == FieldKind.QuantizedSingle) {
-                source.AppendLine(
-                    $"    static readonly global::Vixen.Net.Messaging.QuantizeRange {field.Name}Range = "
-                    + $"new({Literal(field.Min)}, {Literal(field.Max)}, {field.Bits});"
-                );
+            var range = WireCodec.RangeField(in field);
+
+            if (range.Length != 0) {
+                source.AppendLine(range);
             }
         }
 
@@ -347,7 +336,7 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
         source.AppendLine($"        ref readonly var value = ref world.Read<{fullName}>(entity);");
 
         foreach (var field in fields) {
-            source.AppendLine($"        {WriteCall(field)}");
+            source.AppendLine($"        {WireCodec.Write(in field, $"value.{field.Name}")}");
         }
 
         source.AppendLine("    }");
@@ -362,11 +351,11 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
 
         for (var i = 0; i < fields.Length; i++) {
             var field = fields[i];
-            source.AppendLine($"        if (!{ReadCall(field, i)}) {{");
+            source.AppendLine($"        if (!{WireCodec.Read(in field, $"read{i}")}) {{");
             source.AppendLine("            return false;");
             source.AppendLine("        }");
             source.AppendLine();
-            source.AppendLine($"        value.{field.Name} = {Convert(field, i)};");
+            source.AppendLine($"        value.{field.Name} = {WireCodec.Convert(in field, $"read{i}")};");
             source.AppendLine();
         }
 
@@ -412,44 +401,6 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
 
         return source.ToString();
     }
-
-    static string WriteCall(Field field) =>
-        field.Kind switch {
-            FieldKind.QuantizedSingle => $"writer.WriteQuantized(value.{field.Name}, {field.Name}Range);",
-            FieldKind.Single => $"writer.WriteSingle(value.{field.Name});",
-            FieldKind.Boolean => $"writer.WriteBool(value.{field.Name});",
-            FieldKind.Byte => $"writer.Write(value.{field.Name}, 8);",
-            FieldKind.SByte => $"writer.Write((uint)(byte)value.{field.Name}, 8);",
-            FieldKind.Int16 => $"writer.Write((uint)(ushort)value.{field.Name}, 16);",
-            FieldKind.UInt16 => $"writer.Write(value.{field.Name}, 16);",
-            FieldKind.Int32 => $"writer.WriteInt32(value.{field.Name});",
-            _ => $"writer.WriteUInt32(value.{field.Name});"
-        };
-
-    static string ReadCall(Field field, int index) =>
-        field.Kind switch {
-            FieldKind.QuantizedSingle => $"reader.TryReadQuantized({field.Name}Range, out var read{index})",
-            FieldKind.Single => $"reader.TryReadSingle(out var read{index})",
-            FieldKind.Boolean => $"reader.TryReadBool(out var read{index})",
-            FieldKind.Byte or FieldKind.SByte => $"reader.TryRead(8, out var read{index})",
-            FieldKind.Int16 or FieldKind.UInt16 => $"reader.TryRead(16, out var read{index})",
-            FieldKind.Int32 => $"reader.TryReadInt32(out var read{index})",
-            _ => $"reader.TryReadUInt32(out var read{index})"
-        };
-
-    static string Convert(Field field, int index) =>
-        field.Kind switch {
-            FieldKind.Byte => $"(byte)read{index}",
-            FieldKind.SByte => $"(sbyte)(byte)read{index}",
-            FieldKind.Int16 => $"(short)(ushort)read{index}",
-            FieldKind.UInt16 => $"(ushort)read{index}",
-            _ => $"read{index}"
-        };
-
-    static string Literal(float value) =>
-        value.ToString("R", CultureInfo.InvariantCulture) is var text && text.Contains('.') || text.Contains('E')
-            ? text + "f"
-            : text + "f";
 
     static DiagnosticInfo Report(
         DiagnosticDescriptor descriptor,
@@ -499,31 +450,7 @@ public sealed class ReplicationGenerator : IIncrementalGenerator {
     ///     compiler — and a test asserts the two agree, which is a cheaper guarantee than a shared
     ///     source file that both would have to compile.
     /// </remarks>
-    public static uint HashTypeName(string fullName) {
-        var hash = 2166136261u;
-
-        foreach (var character in fullName) {
-            hash ^= character;
-            hash *= 16777619u;
-        }
-
-        return hash == 0 ? 1u : hash;
-    }
-
-    enum FieldKind {
-        Unsupported,
-        Boolean,
-        Byte,
-        SByte,
-        Int16,
-        UInt16,
-        Int32,
-        UInt32,
-        Single,
-        QuantizedSingle
-    }
-
-    readonly record struct Field(string Name, FieldKind Kind, float Min, float Max, int Bits);
+    public static uint HashTypeName(string fullName) => WireCodec.Hash(fullName);
 
     readonly record struct Quantize(float Min, float Max, int Bits);
 

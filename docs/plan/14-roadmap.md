@@ -2111,8 +2111,42 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   **Owed:** the session sends and receives opaque payloads and does not yet know what is in them —
   that is replication and RPC. Bandwidth budgeting and priority shedding have the writer's overflow
   flag to build on and are not built.
-- Identity and spawning: `NetworkId`, prefab ids derived from asset GUIDs, build-time-baked ids for
-  scene-placed objects, ownership with transfer.
+- ✅ **Remote calls, and the generator half that writes them.** 45 further tests; 249 across the
+  networking projects in total.
+
+  The handler keeps its name and the sender gets its own, reached through a generated nested `Rpc`
+  accessor: `Rpc.TakeDamage(dmg)`. That is the design [16](16-networking.md) argued for against the
+  reference implementation's IL weaving, built as specified — and the argument holds up in use.
+  Transparent RPC hides latency and bandwidth at the call site; one line of ceremony buys a call site
+  that says what it costs.
+
+  **Nothing a packet says about who sent it is believed.** The sender is what the session says it is,
+  and it is what ownership and the rate limit are checked against. A handler that wants to know who
+  called it takes an `in RpcContext` first parameter that the router fills in — a handler taking the
+  caller's id as an ordinary argument would be asking the caller who they are, which is the shape of
+  the bug this prevents. Six checks run before anything is invoked, each of them a counter: manifest,
+  direction, registered object, ownership, rate limit, and arguments that decode and leave nothing
+  behind. The rate limit is a token bucket that exists by default rather than one somebody remembers
+  to switch on, because an RPC is the one thing a client can make a server do work for.
+
+  Ownership arrives with it — `NetworkOwnership`, with transfer as an event and `TransferAll` sending
+  a departed player's objects back to the server rather than to nobody. Ids are hashes of the
+  declaring type and the signature, so adding a method does not renumber the others, and the wire
+  carries the position in a hash-ordered manifest with `ManifestHash` as the handshake's check.
+
+  One gap closed on the way: the session's payload space was undivided, so replication snapshots,
+  calls and the game's own messages would have arrived indistinguishable. `PayloadKind` is one byte
+  at the front, and `SessionRpcTransport` is a class of its own rather than the session implementing
+  `IRpcTransport`, because wiring the two together without the marker would have been a connection
+  that looked right and mixed three streams into one.
+
+  **Owed:** `NetworkRules` as a policy asset — ownership answers "whose input does this obey", and
+  who may spawn, despawn, observe and write is still server-authoritative by construction rather than
+  by a reviewable decision. Awaitable calls returning `ValueTask<T>` are designed for and refused with
+  a diagnostic that says so.
+- Identity and spawning: `NetworkId` ✅ and ownership with transfer ✅. **Owed:** prefab ids derived
+  from asset GUIDs, and build-time-baked ids for scene-placed objects — both of which are the
+  deterministic content build's to hand over, and neither of which has a caller until spawning exists.
 - **`NetworkRules`** policy assets (`.vxnetrules`) — spawn/despawn/call/observe/write permissions.
 - ✅ **Replication, and the generator that writes its serializers.** 51 further tests; 204 across the
   networking projects in total.
@@ -2154,10 +2188,9 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
 
   **Owed:** field-level delta against a stored previous value — the delta granularity today is the
   component, which the change versions give exactly and cheaply. `SyncVar<T>`/`SyncList<T>`/
-  `NetworkModule`, which are the behaviour-facing authoring style over the same mechanism. RPC
-  senders and the manifest, which need an RPC runtime that does not exist yet. And packaging the
-  generator into the `Vixen.Net` package the way `Vixen.Ui` carries its own — today a project takes
-  it through a `ProjectReference`.
+  `NetworkModule`, which are the behaviour-facing authoring style over the same mechanism. And
+  packaging the generator into the `Vixen.Net` package the way `Vixen.Ui` carries its own — today a
+  project takes it through a `ProjectReference`.
 - Interest management: ✅ the resolver seam and the default. `IInterestResolver` is what decides which
   entities a player is told about, and `ReplicateEverythingResolver` is what a new project gets —
   a deliberate ergonomics choice rather than a placeholder, so a prototype works before anyone has

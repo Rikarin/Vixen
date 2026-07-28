@@ -24,7 +24,7 @@ field did not arrive.
 
 ## What it emits
 
-For every `[Replicated]` struct, an `IComponentReplicator`:
+Two things. For every `[Replicated]` struct, an `IComponentReplicator`:
 
 ```csharp
 [Replicated(Channel = Channel.Unreliable, Priority = 10)]
@@ -44,6 +44,23 @@ The claim that it "emits what a careful person would have written" is a test rat
 `Vixen.Net.Generators.Tests` declares a component, hand-writes the replicator for it, and asserts the
 two produce **the same bits** from the same values.
 
+And for every type declaring `[ServerRpc]`/`[ClientRpc]` handlers, a nested `Rpc` accessor with one
+sender per handler, the dispatch table behind `IRpcInvoker`, and the manifest entry:
+
+```csharp
+[ServerRpc(RequireOwnership = true)]
+void TakeDamage(int amount) => _health -= amount;
+```
+
+gets a `Rpc.TakeDamage(int)` beside it that encodes the arguments and hands them to the router. The
+table is sorted by hashed id at build time, so two builds number the calls the same without having to
+agree on declaration order — and a peer that has not been rebuilt fails the manifest hash at the
+handshake rather than routing an old index to a new handler.
+
+A handler may take an `in RpcContext` as its first parameter. It is not read from the wire; the router
+fills it in from the connection the bytes arrived on, which is the difference between knowing who
+called and asking them.
+
 ## Diagnostics
 
 | Code | Meaning |
@@ -52,6 +69,13 @@ two produce **the same bits** from the same values.
 | `VXNET1002` | `[Quantize]` is on a field that is not a `float`. |
 | `VXNET1003` | `[Quantize]` declares a width outside 1–32, or a range that does not go upwards. |
 | `VXNET1004` | A replicated component has no public fields, so every snapshot of it is empty. Warning. |
+| `VXNET2001` | A remote call takes an argument of a type that cannot be sent. |
+| `VXNET2002` | A type declaring remote calls is not `partial`. |
+| `VXNET2003` | A type declaring remote calls does not implement `IRpcObject`. |
+| `VXNET2004` | A remote call returns something. Awaitable calls are designed for and not built. |
+| `VXNET2005` | A handler is marked as both a `ServerRpc` and a `ClientRpc`. |
+| `VXNET2006` | A type declaring remote calls is nested, generic, or not a class. |
+| `VXNET2007` | `[Quantize]` is on an argument that is not a `float`. |
 
 An error emits nothing for that component. A page of errors inside generated code the author cannot
 see buries the one line that is actually wrong — the same rule the VXML generator follows, for the
@@ -67,9 +91,6 @@ because a generator that is incremental in name only looks exactly like one that
 
 ## Owed
 
-- **RPC senders and the manifest.** The `Rpc.Method(...)` accessor pattern, the dispatch table and the
-  hashed RPC ids need an RPC runtime — attributes, a dispatcher, ownership checks against
-  `NetworkRules` — which is not built yet. The replicator half is here because replication is.
 - **Packaging.** Today a project takes this generator through a `ProjectReference` with
   `OutputItemType="Analyzer"`. Travelling inside the `Vixen.Net` package, the way `Vixen.Ui` carries
   its generators through a `build/*.targets`, is the arrangement to copy and is not done.
