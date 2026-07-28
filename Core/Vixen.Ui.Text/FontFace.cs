@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 using HarfBuzzSharp;
 using Vixen.Ui.Text.Outlines;
@@ -41,6 +42,8 @@ public sealed class FontFace : IDisposable {
     readonly Face face;
     readonly Font font;
     GlyphOutlineSource? outlines;
+    ImmutableArray<FontAxis>? axes;
+    ImmutableArray<AxisSegmentMap>? maps;
     bool disposed;
 
     FontFace(Blob blob, Face face, Font font, string name) {
@@ -155,6 +158,7 @@ public sealed class FontFace : IDisposable {
 
     /// <summary>A glyph's contours, in design units.</summary>
     /// <param name="glyphId">The glyph.</param>
+    /// <param name="variation">Where along the font's axes, from <see cref="Variation" />, or null.</param>
     /// <returns>Its outline, or an empty one for a space or a glyph the font does not draw.</returns>
     /// <remarks>
     ///     <para>
@@ -167,11 +171,79 @@ public sealed class FontFace : IDisposable {
     ///         <c>xMin</c> disagrees with its left side bearing is rasterised shifted, and every
     ///         other number in this assembly comes from HarfBuzz.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A position built against another font is not detected and will read as garbage.</b>
+    ///         Coordinates are per axis by position, so handing a two-axis font a three-axis position
+    ///         reads the second font's second axis against the first's — <see cref="Variation" /> is
+    ///         what produces one that belongs to this face.
+    ///     </para>
     /// </remarks>
-    public GlyphOutline GetOutline(ushort glyphId) => Outlines.Read(glyphId);
+    public GlyphOutline GetOutline(ushort glyphId, FontVariation? variation = null) =>
+        Outlines.Read(glyphId, variation);
+
+    /// <summary>The axes this font can be instanced along, in its own order.</summary>
+    /// <remarks>Empty for a font that is not variable, which is most of them.</remarks>
+    public ImmutableArray<FontAxis> Axes => axes ??= VariationTables.ReadAxes(Table("fvar"));
+
+    /// <summary>Whether the font has axes at all.</summary>
+    public bool IsVariable => !Axes.IsEmpty;
+
+    /// <summary>Which instance the shaper is currently set to.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is state on the face, and it is the shaper's, not the outline reader's.</b>
+    ///     <see cref="GetOutline" /> takes its instance as an argument and reads nothing from here;
+    ///     everything that goes through HarfBuzz — advances, extents, the glyph a code point maps to
+    ///     — answers for whatever was set last. <see cref="TextShaper" /> sets it on every call for
+    ///     that reason.
+    /// </remarks>
+    public FontVariation Instance { get; private set; } = FontVariation.None;
+
+    /// <summary>Points the shaper at one instance of a variable font.</summary>
+    /// <param name="variation">Where along the axes, or null for the font's own defaults.</param>
+    /// <remarks>
+    ///     Normalised coordinates go straight across, because that is what HarfBuzz stores: the
+    ///     design-coordinate entry point would re-derive the normalisation and the <c>avar</c> warp
+    ///     inside the library, which is a second implementation of arithmetic this assembly has
+    ///     already done and would let the outline and the advance disagree about the same instance.
+    /// </remarks>
+    public void SetInstance(FontVariation? variation) {
+        var wanted = variation ?? FontVariation.None;
+
+        // A native call per paragraph is not free, and most documents never move an axis at all.
+        if (wanted.Equals(Instance)) {
+            return;
+        }
+
+        Instance = wanted;
+
+        Span<int> coordinates = wanted.Coordinates.Length <= 16
+            ? stackalloc int[wanted.Coordinates.Length]
+            : new int[wanted.Coordinates.Length];
+
+        for (var i = 0; i < wanted.Coordinates.Length; i++) {
+            // 2.14 fixed point, the same encoding the tables use. Rounded rather than truncated so
+            // that an axis at its own maximum arrives as 1.0 and not as one step below it.
+            coordinates[i] = (int)MathF.Round(wanted.Coordinates[i] * 16384f);
+        }
+
+        font.SetVariationCoordsNormalized(coordinates);
+    }
+
+    /// <summary>Turns a set of user-space axis values into a position this face can be read at.</summary>
+    /// <param name="values">By tag — <c>wght</c>, <c>wdth</c>. Axes it does not name keep their default.</param>
+    /// <returns>The position, or <see cref="FontVariation.None" /> for a font with no axes.</returns>
+    /// <remarks>
+    ///     Normalisation and the <c>avar</c> warp both happen here rather than per glyph, because the
+    ///     result is a cache key and a key that is recomputed is a key that can disagree with itself.
+    /// </remarks>
+    public FontVariation Variation(IReadOnlyDictionary<string, float> values) =>
+        FontVariation.Create(Axes, SegmentMaps, values);
 
     /// <summary>Built on first use: a face is loaded to shape with far more often than to draw from.</summary>
     GlyphOutlineSource Outlines => outlines ??= GlyphOutlineSource.Create(Table, UnitsPerEm);
+
+    ImmutableArray<AxisSegmentMap> SegmentMaps =>
+        maps ??= VariationTables.ReadSegmentMaps(Table("avar"), Axes.Length);
 
     byte[] Table(string tag) {
         using var table = face.ReferenceTable(new Tag(tag[0], tag[1], tag[2], tag[3]));

@@ -177,7 +177,17 @@ public sealed class FontVariation : IEquatable<FontVariation> {
 
         for (var i = 0; i < axes.Length; i++) {
             var axis = axes[i];
-            var coordinate = axis.Normalize(values.TryGetValue(axis.Tag, out var asked) ? asked : axis.Default);
+
+            // ⚠ Asked for twice, because a tag is four bytes and a shorter one is padded. Zycon's
+            // axes are `M1  ` and `T1  `; every caller — CSS, a test case file, a person — writes
+            // `M1`. Matching only the padded form leaves every axis of every font with a short tag
+            // at its default, which looks exactly like a font that has no variation data.
+            if (!values.TryGetValue(axis.Tag, out var asked)
+                && !values.TryGetValue(axis.Tag.TrimEnd(), out asked)) {
+                asked = axis.Default;
+            }
+
+            var coordinate = axis.Normalize(asked);
 
             if (!maps.IsDefaultOrEmpty && i < maps.Length) {
                 coordinate = maps[i].Apply(coordinate);

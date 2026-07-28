@@ -16,13 +16,22 @@ internal sealed class GlyfOutlines {
     /// <remarks>A font whose composites cycle would otherwise recurse until the stack ran out.</remarks>
     const int MaxDepth = 8;
 
+    /// <summary>The four points every glyph has past its own, holding the metrics a font can vary.</summary>
+    /// <remarks>
+    ///     They are allocated whether or not the font is variable, because <c>gvar</c> numbers points
+    ///     including them: see <see cref="GlyphVariations" />.
+    /// </remarks>
+    const int PhantomPoints = 4;
+
     readonly byte[] loca;
     readonly byte[] glyf;
+    readonly GlyphVariations? variations;
     readonly bool longLoca;
 
-    public GlyfOutlines(byte[] head, byte[] maxp, byte[] loca, byte[] glyf) {
+    public GlyfOutlines(byte[] head, byte[] maxp, byte[] loca, byte[] glyf, GlyphVariations? variations) {
         this.loca = loca;
         this.glyf = glyf;
+        this.variations = variations;
 
         longLoca = new SfntReader(head) { Position = 50 }.S16() != 0;
         GlyphCount = new SfntReader(maxp) { Position = 4 }.U16();
@@ -46,11 +55,18 @@ internal sealed class GlyfOutlines {
         return new GlyphBounds(minX, minY, maxX, maxY);
     }
 
-    public GlyphOutline Read(int glyph) {
+    /// <summary>Builds a glyph's contours, optionally at a variable instance.</summary>
+    /// <param name="glyph">The glyph.</param>
+    /// <param name="variation">Where along the font's axes, or null for the font as it is stored.</param>
+    public GlyphOutline Read(int glyph, FontVariation? variation = null) {
         var builder = new OutlineBuilder();
-        Append(builder, glyph, 1, 0, 0, 1, 0, 0, 0);
+        Append(builder, glyph, Varied(variation), 1, 0, 0, 1, 0, 0, 0);
         return builder.Build();
     }
+
+    /// <summary>The instance to read at, or null when reading it would be a no-op.</summary>
+    FontVariation? Varied(FontVariation? variation) =>
+        variations is not null && variation is { IsNone: false } ? variation : null;
 
     bool Range(int glyph, out int start, out int end) {
         start = end = 0;
@@ -76,7 +92,18 @@ internal sealed class GlyfOutlines {
         return reader.Has(2) ? reader.U16() * 2 : 0;
     }
 
-    void Append(OutlineBuilder builder, int glyph, float a, float b, float c, float d, float e, float f, int depth) {
+    void Append(
+        OutlineBuilder builder,
+        int glyph,
+        FontVariation? variation,
+        float a,
+        float b,
+        float c,
+        float d,
+        float e,
+        float f,
+        int depth
+    ) {
         if (depth > MaxDepth || !Range(glyph, out var start, out _)) {
             return;
         }
@@ -86,16 +113,21 @@ internal sealed class GlyfOutlines {
         reader.Position += 8;                              // the stored bounding box
 
         if (contours >= 0) {
-            Simple(builder, ref reader, contours, a, b, c, d, e, f);
+            Simple(builder, ref reader, glyph, variation, contours, a, b, c, d, e, f);
             return;
         }
 
-        Composite(builder, ref reader, a, b, c, d, e, f, depth);
+        Composite(builder, ref reader, glyph, variation, a, b, c, d, e, f, depth);
     }
+
+    /// <summary>One component of a composite, as the table stores it and before it is placed.</summary>
+    readonly record struct Component(int Glyph, float Dx, float Dy, float A, float B, float C, float D);
 
     void Composite(
         OutlineBuilder builder,
         ref SfntReader reader,
+        int glyph,
+        FontVariation? variation,
         float a,
         float b,
         float c,
@@ -104,6 +136,8 @@ internal sealed class GlyfOutlines {
         float f,
         int depth
     ) {
+        var components = new List<Component>();
+
         while (reader.Has(4)) {
             var flags = reader.U16();
             var component = reader.U16();
@@ -135,31 +169,70 @@ internal sealed class GlyfOutlines {
                 cd = reader.F2Dot14();
             }
 
+            components.Add(new Component(component, dx, dy, ca, cb, cc, cd));
+
+            if ((flags & 0x0020) == 0) {                   // MORE_COMPONENTS
+                break;
+            }
+        }
+
+        Vary(glyph, variation, components);
+
+        foreach (var component in components) {
             // ⚠ The offset is in the *parent's* space, so it is carried through the parent matrix
             // and not through the component's own. Scaling it by the component's transform is what
             // SCALED_COMPONENT_OFFSET asks for and is not the default; getting it the wrong way
             // round moves every accent on every scaled composite.
             Append(
                 builder,
-                component,
-                (ca * a) + (cb * c),
-                (ca * b) + (cb * d),
-                (cc * a) + (cd * c),
-                (cc * b) + (cd * d),
-                (dx * a) + (dy * c) + e,
-                (dx * b) + (dy * d) + f,
+                component.Glyph,
+                variation,
+                (component.A * a) + (component.B * c),
+                (component.A * b) + (component.B * d),
+                (component.C * a) + (component.D * c),
+                (component.C * b) + (component.D * d),
+                (component.Dx * a) + (component.Dy * c) + e,
+                (component.Dx * b) + (component.Dy * d) + f,
                 depth + 1
             );
-
-            if ((flags & 0x0020) == 0) {                   // MORE_COMPONENTS
-                return;
-            }
         }
     }
 
-    static void Simple(
+    /// <summary>Moves a composite's components, which is the only thing <c>gvar</c> can vary about one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A composite's points are its components' offsets, one point each.</b> Not the points
+    ///     of the glyphs it is made of — those vary on their own account when they are read, and
+    ///     applying the parent's deltas to them as well would double every delta on every accented
+    ///     letter in a variable font. There are no contours here, so nothing is interpolated: a
+    ///     component the table does not name simply does not move.
+    /// </remarks>
+    void Vary(int glyph, FontVariation? variation, List<Component> components) {
+        if (variations is null || variation is null || components.Count == 0) {
+            return;
+        }
+
+        var xs = new float[components.Count + PhantomPoints];
+        var ys = new float[components.Count + PhantomPoints];
+
+        for (var i = 0; i < components.Count; i++) {
+            xs[i] = components[i].Dx;
+            ys[i] = components[i].Dy;
+        }
+
+        if (!variations.Apply(glyph, variation, xs, ys, [])) {
+            return;
+        }
+
+        for (var i = 0; i < components.Count; i++) {
+            components[i] = components[i] with { Dx = xs[i], Dy = ys[i] };
+        }
+    }
+
+    void Simple(
         OutlineBuilder builder,
         ref SfntReader reader,
+        int glyph,
+        FontVariation? variation,
         int contours,
         float a,
         float b,
@@ -204,6 +277,10 @@ internal sealed class GlyfOutlines {
         var xs = Coordinates(ref reader, flags, points, 0x02, 0x10);
         var ys = Coordinates(ref reader, flags, points, 0x04, 0x20);
 
+        if (variation is not null) {
+            variations?.Apply(glyph, variation, xs, ys, ends);
+        }
+
         var first = 0;
         foreach (var last in ends) {
             if (last >= first && last < points) {
@@ -215,8 +292,13 @@ internal sealed class GlyfOutlines {
     }
 
     /// <summary>One coordinate axis, stored as deltas with three encodings chosen by two flag bits.</summary>
-    static int[] Coordinates(ref SfntReader reader, byte[] flags, int points, byte shortBit, byte sameBit) {
-        var values = new int[points];
+    /// <remarks>
+    ///     The array is four longer than the glyph has points, and the tail is left at zero: those
+    ///     are the phantom points, which carry no contour and exist so that a <c>gvar</c> point
+    ///     number that names one lands somewhere rather than out of range.
+    /// </remarks>
+    static float[] Coordinates(ref SfntReader reader, byte[] flags, int points, byte shortBit, byte sameBit) {
+        var values = new float[points + PhantomPoints];
         var value = 0;
 
         for (var i = 0; i < points; i++) {
@@ -242,8 +324,8 @@ internal sealed class GlyfOutlines {
     static void Contour(
         OutlineBuilder builder,
         byte[] flags,
-        int[] xs,
-        int[] ys,
+        float[] xs,
+        float[] ys,
         int first,
         int last,
         float a,
@@ -262,8 +344,8 @@ internal sealed class GlyfOutlines {
 
         (float X, float Y) At(int i) {
             var k = Wrap(i);
-            float px = xs[k];
-            float py = ys[k];
+            var px = xs[k];
+            var py = ys[k];
             return ((a * px) + (c * py) + e, (b * px) + (d * py) + f);
         }
 

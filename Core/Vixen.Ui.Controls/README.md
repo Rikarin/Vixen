@@ -77,11 +77,14 @@ Said out loud rather than left to be discovered:
 - **`Image` reserves space and draws nothing.** The draw list has no texture command yet.
 - **`TextArea` is a taller `TextBox`.** Nothing in the framework wraps a line, so there is no second
   line for Enter to start. The tag exists so the markup will not have to change when it does.
-- **Timed behaviour needs a host tick.** `Tooltip.Tick` and `ToastHost.Tick` exist for the same
-  reason `GestureRecognizer.Tick` does: nothing in this assembly is told what time it is except by an
-  input event, and those stop arriving exactly when a pointer comes to rest.
-- **An overlay outlives the control that made it.** A select's list is a root child, so removing the
-  select leaves the list behind. What is missing is an `OnRemoved` hook, which is a change to
-  `UiDocument` rather than to a control.
+- ~~**Timed behaviour needs a host tick.**~~ `Tooltip` and `ToastHost` subscribe to
+  `UiDocument.Ticked` and unsubscribe in `OnRemoved`, so a host that drives `UiDocument.Tick` gets
+  the delay and the lifetime without knowing that either control exists. Nothing here is told what
+  time it is except by an input event, and those stop arriving exactly when a pointer comes to rest —
+  which is the same reason `GestureRecognizer` is on that clock. Both `Tick` methods stay public for
+  a caller that wants to drive one directly.
+- ~~**An overlay outlives the control that made it.**~~ `UiElement.OnRemoved` exists and `Overlay`,
+  `Menu`, `MenuBar` and `SelectBase` use it. A select's list is still a root child — painting order
+  forces that — but removing the select now takes it, and the two capture handlers with it.
 - **`VirtualizingPanel` is not here.** `ScrollView` keeps everything in the tree. Doc 09 makes
   virtualisation a first-class primitive and it is owed.

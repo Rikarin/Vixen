@@ -137,6 +137,40 @@ public class StyleValueTests {
     }
 
     [Fact]
+    public void A_bare_zero_interpolates_with_a_length_and_takes_its_unit() {
+        var parser = Parser();
+
+        // ⚠ **CSS Values 4: a bare `0` is a valid length**, so `width: 0` and `width: 0px` are the
+        // same value. This is not pedantry — "grow from nothing" is the commonest animation there
+        // is, ExCSS serialises `0px` back out as `0`, and without this rule
+        // `from { width: 0 } to { width: 100px }` has no midpoint and swaps at the halfway mark.
+        // Which looks like an animation that does not run, not like a units rule.
+        var zero = parser.Parse("0");
+        var hundred = parser.Parse("100px");
+
+        Assert.True(StyleValue.CanInterpolate(zero, hundred));
+
+        var quarter = StyleValue.Lerp(zero, hundred, 0.25f);
+        Assert.Equal(25f, quarter.Number, Tolerance);
+
+        // And it comes back as a *length*, not as a number: the other end decides what the zero
+        // meant, which is the whole content of "zero belongs to every unit".
+        Assert.Equal(StyleValueKind.Length, quarter.Kind);
+        Assert.Equal(hundred.Unit, quarter.Unit);
+
+        // Both directions, and against a unit that is not pixels — a zero in `px` shrinking to a
+        // percentage is the same rule seen from the other side.
+        var half = StyleValue.Lerp(parser.Parse("0px"), parser.Parse("50%"), 0.5f);
+        Assert.Equal(25f, half.Number, Tolerance);
+        Assert.Equal(parser.Parse("50%").Unit, half.Unit);
+
+        // ⚠ And a zero is not a licence to interpolate with anything. `0` to a colour still swaps,
+        // because a zero that could become a colour would make every mismatched pair interpolable
+        // as soon as one end happened to be nothing.
+        Assert.False(StyleValue.CanInterpolate(zero, parser.Parse("rgb(0, 0, 0)")));
+    }
+
+    [Fact]
     public void Keywords_are_discrete_and_swap_at_the_halfway_mark() {
         var parser = Parser();
         var from = parser.Parse("auto");

@@ -36,6 +36,11 @@ readonly record struct RunningTransition(
     public bool IsFinished(float now) => now >= StartedAt + Delay + Duration;
 }
 
+/// <summary>One keyframe animation an element is running, and when it started.</summary>
+/// <param name="Spec">What it is.</param>
+/// <param name="StartedAt">The time in seconds at which its first iteration began.</param>
+readonly record struct RunningAnimation(AnimationSpec Spec, float StartedAt);
+
 /// <summary>Runs transitions, and hands the cascade the values they are currently at.</summary>
 /// <remarks>
 ///     <para>
@@ -64,7 +69,7 @@ public sealed class Animator {
     readonly List<(int Element, int Property)> finished = [];
     readonly List<TransitionSpec> specs = [];
     readonly List<AnimationSpec> animationSpecs = [];
-    readonly Dictionary<int, (AnimationSpec Spec, float StartedAt)> animations = [];
+    readonly Dictionary<int, List<RunningAnimation>> animations = [];
     readonly StyleValueParser parser;
     readonly TransitionParser transitions;
     readonly KeyframesTable keyframes;
@@ -118,8 +123,22 @@ public sealed class Animator {
     /// <summary>How many transitions are running.</summary>
     public int RunningCount => running.Count;
 
-    /// <summary>How many animations are running.</summary>
-    public int AnimationCount => animations.Count;
+    /// <summary>How many animations are running, over every element.</summary>
+    /// <remarks>An element with <c>animation-name: spin, pulse</c> contributes two.</remarks>
+    public int AnimationCount {
+        get {
+            var count = 0;
+
+            foreach (var entries in animations.Values) {
+                count += entries.Count;
+            }
+
+            return count;
+        }
+    }
+
+    /// <summary>How many elements have an animation on them.</summary>
+    public int AnimatedElementCount => animations.Count;
 
     /// <summary>Whether anything is running, and therefore whether a frame needs to restyle.</summary>
     public bool IsIdle => running.Count == 0 && animations.Count == 0;
@@ -188,10 +207,20 @@ public sealed class Animator {
 
     /// <summary>Starts or stops the element's keyframe animations.</summary>
     /// <remarks>
-    ///     An animation whose name and parameters are unchanged keeps its start time and therefore
-    ///     its place in the cycle. Restarting it whenever the style is re-resolved would make a
-    ///     spinner stutter every time anything else on the element changed — which, with invalidation
-    ///     working properly, is exactly when it would be least expected.
+    ///     <para>
+    ///         An animation whose name and parameters are unchanged keeps its start time and
+    ///         therefore its place in the cycle. Restarting it whenever the style is re-resolved would
+    ///         make a spinner stutter every time anything else on the element changed — which, with
+    ///         invalidation working properly, is exactly when it would be least expected.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Matched by position in the list, not by name.</b> <c>animation-name: spin,
+    ///         pulse</c> becoming <c>spin, flash</c> must leave the spinner where it is and start the
+    ///         flash from zero — matching by name would do that too, right up until a stylesheet
+    ///         reorders the list, where every animation would keep running and the two would have
+    ///         swapped which of them wins for a shared property. Position is the identity CSS gives
+    ///         these.
+    ///     </para>
     /// </remarks>
     void StartAnimations(StyleNodeId element, ComputedStyle style, float now) {
         if (!ReadAnimations(style)) {
@@ -199,16 +228,40 @@ public sealed class Animator {
             return;
         }
 
-        // One animation per element for now; `animation-name: a, b` is legal CSS and running several
-        // at once needs a per-element list rather than a slot. Recorded rather than silently
-        // truncated.
-        var spec = animationSpecs[0];
+        animations.TryGetValue(element.Index, out var current);
 
-        if (animations.TryGetValue(element.Index, out var current) && current.Spec == spec) {
+        // The overwhelmingly common frame: the same animations as last time. Rebuilding the list
+        // anyway would allocate once per animating element per restyle, which for a document with a
+        // spinner in it is every frame.
+        if (current is not null && Unchanged(current, animationSpecs)) {
             return;
         }
 
-        animations[element.Index] = (spec, now);
+        var updated = new List<RunningAnimation>(animationSpecs.Count);
+
+        for (var i = 0; i < animationSpecs.Count; i++) {
+            updated.Add(
+                current is not null && i < current.Count && current[i].Spec == animationSpecs[i]
+                    ? current[i]
+                    : new RunningAnimation(animationSpecs[i], now)
+            );
+        }
+
+        animations[element.Index] = updated;
+    }
+
+    static bool Unchanged(List<RunningAnimation> current, List<AnimationSpec> wanted) {
+        if (current.Count != wanted.Count) {
+            return false;
+        }
+
+        for (var i = 0; i < current.Count; i++) {
+            if (current[i].Spec != wanted[i]) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Discards everything that has arrived.</summary>
@@ -236,11 +289,35 @@ public sealed class Animator {
     /// <param name="now">The current time in seconds.</param>
     /// <param name="value">Receives the value.</param>
     /// <returns>Whether an animation is contributing one.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The last animation that has an opinion wins.</b> CSS Animations 1 §3: where two of an
+    ///     element's animations set the same property, the one closer to the end of
+    ///     <c>animation-name</c> decides it. Every one of them is still asked, because an animation
+    ///     that says nothing about this property must not stop an earlier one that does.
+    /// </remarks>
     public bool TryGetAnimated(StyleNodeId element, int property, float now, out StyleValue value) {
         value = StyleValue.Unknown;
 
-        if (!animations.TryGetValue(element.Index, out var entry)
-            || !entry.Spec.TryOffsetAt(now - entry.StartedAt, out var offset)
+        if (!animations.TryGetValue(element.Index, out var entries)) {
+            return false;
+        }
+
+        var found = false;
+
+        foreach (var entry in entries) {
+            if (TryGetAnimated(entry, property, now, out var candidate)) {
+                value = candidate;
+                found = true;
+            }
+        }
+
+        return found;
+    }
+
+    bool TryGetAnimated(RunningAnimation entry, int property, float now, out StyleValue value) {
+        value = StyleValue.Unknown;
+
+        if (!entry.Spec.TryOffsetAt(now - entry.StartedAt, out var offset)
             || !keyframes.TryGet(entry.Spec.Name, out var stops)
             || stops.Count == 0) {
             return false;
@@ -400,7 +477,7 @@ public sealed class Animator {
             running[(element, property)] = transition;
         }
 
-        var movedAnimations = new List<(int Element, (AnimationSpec Spec, float StartedAt) Value)>(animations.Count);
+        var movedAnimations = new List<(int Element, List<RunningAnimation> Value)>(animations.Count);
 
         foreach (var (element, entry) in animations) {
             var to = At(remap, element);
@@ -429,10 +506,26 @@ public sealed class Animator {
     /// <summary>Reads whichever form of <c>animation</c> the stylesheet produced.</summary>
     /// <returns>Whether the element animates anything.</returns>
     /// <remarks>
-    ///     ExCSS expands the <c>animation</c> shorthand into longhands and invents defaults for the
-    ///     parts that were left out, so unlike <c>transition</c> this can read the longhands — with
-    ///     the same caveat, which is that a <c>spring()</c> in the timing function would stop it
-    ///     doing so. The shorthand fallback is the same code path either way.
+    ///     <para>
+    ///         ExCSS expands the <c>animation</c> shorthand into longhands and invents defaults for
+    ///         the parts that were left out, so unlike <c>transition</c> this can read the longhands —
+    ///         with the same caveat, which is that a <c>spring()</c> in the timing function would stop
+    ///         it doing so. The shorthand fallback is the same code path either way.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every one of these properties is a list, and the lists are matched by position and
+    ///         then <i>cycled</i>.</b> <c>animation-name: spin, pulse</c> with
+    ///         <c>animation-duration: 1s</c> gives both a second, because the shorter list repeats;
+    ///         with <c>1s, 2s</c> they get one each. That is CSS Animations 1 §4.4, and it is the
+    ///         reason a naive reader that took the first value of each longhand gave the second
+    ///         animation the first one's timing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>animation-name</c> decides how many there are</b> — not the longest list. A
+    ///         stylesheet with one name and three durations has one animation; the extra durations are
+    ///         dropped, which is what the specification says and what stops a typo in a duration list
+    ///         from inventing animations with no keyframes.
+    ///     </para>
     /// </remarks>
     bool ReadAnimations(ComputedStyle style) {
         animationSpecs.Clear();
@@ -441,57 +534,100 @@ public sealed class Animator {
             return false;
         }
 
-        var name = values.NameOf(named);
-        if (name.Length == 0 || string.Equals(name, "none", StringComparison.OrdinalIgnoreCase)) {
+        var names = values.NameOf(named);
+        if (names.Length == 0) {
             return false;
         }
 
-        var duration = style.TryGet(animationDuration, out var d)
-            && TransitionParser.TryDuration(values.NameOf(d), out var seconds)
-                ? seconds
-                : 0f;
+        var durations = Longhand(style, animationDuration);
+        var delays = Longhand(style, animationDelay);
+        var timings = Longhand(style, animationTiming);
+        var counts = Longhand(style, animationIterations);
+        var directions = Longhand(style, animationDirection);
+        var fills = Longhand(style, animationFill);
 
-        var delay = style.TryGet(animationDelay, out var l)
-            && TransitionParser.TryDuration(values.NameOf(l), out var waited)
-                ? waited
-                : 0f;
+        var ranges = TransitionParser.TopLevelSplit(names.AsSpan(), ',');
 
-        var timing = style.TryGet(animationTiming, out var t)
-            && TransitionParser.TryTimingFunction(values.NameOf(t), out var parsed)
-                ? parsed
-                : TimingFunction.Ease;
+        for (var index = 0; index < ranges.Count; index++) {
+            // ⚠ Quotes stripped: a `@keyframes` name may be written as a string, and `"spin"` and
+            // `spin` name the same rule. The index still advances for a name this skips, because the
+            // other lists are positional and skipping one would shift every later animation's
+            // duration onto its neighbour.
+            var name = names.AsSpan(ranges[index]).Trim().Trim("\"'");
 
-        var iterations = 1f;
-        if (style.TryGet(animationIterations, out var i)) {
-            var text = values.NameOf(i);
-            iterations = string.Equals(text, "infinite", StringComparison.OrdinalIgnoreCase)
-                ? float.PositiveInfinity
-                : float.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var count)
-                    ? count
-                    : 1f;
+            if (name.IsEmpty || name.Equals("none", StringComparison.OrdinalIgnoreCase)) {
+                continue;
+            }
+
+            var duration = TransitionParser.TryDuration(Nth(durations, index), out var seconds) ? seconds : 0f;
+
+            // A zero-duration animation contributes nothing at any moment, so it is dropped here
+            // rather than kept as an entry that every frame asks and every frame declines.
+            if (duration <= 0f) {
+                continue;
+            }
+
+            animationSpecs.Add(
+                new AnimationSpec(
+                    name.ToString(),
+                    duration,
+                    TransitionParser.TryDuration(Nth(delays, index), out var waited) ? waited : 0f,
+                    TransitionParser.TryTimingFunction(Nth(timings, index), out var parsed)
+                        ? parsed
+                        : TimingFunction.Ease,
+                    Iterations(Nth(counts, index)),
+                    Direction(Nth(directions, index)),
+                    Fill(Nth(fills, index))
+                )
+            );
         }
 
-        var direction = style.TryGet(animationDirection, out var r)
-            ? values.NameOf(r).ToLowerInvariant() switch {
-                "reverse" => AnimationDirection.Reverse,
-                "alternate" => AnimationDirection.Alternate,
-                "alternate-reverse" => AnimationDirection.AlternateReverse,
-                _ => AnimationDirection.Normal
-            }
-            : AnimationDirection.Normal;
-
-        var fill = style.TryGet(animationFill, out var f)
-            ? values.NameOf(f).ToLowerInvariant() switch {
-                "forwards" => AnimationFill.Forwards,
-                "backwards" => AnimationFill.Backwards,
-                "both" => AnimationFill.Both,
-                _ => AnimationFill.None
-            }
-            : AnimationFill.None;
-
-        animationSpecs.Add(new AnimationSpec(name, duration, delay, timing, iterations, direction, fill));
-        return duration > 0f;
+        return animationSpecs.Count > 0;
     }
+
+    string Longhand(ComputedStyle style, int property) => style.TryGet(property, out var value) ? values.NameOf(value) : "";
+
+    /// <summary>The <paramref name="index" />th entry of a comma-separated longhand, cycling.</summary>
+    static string Nth(string text, int index) {
+        if (text.Length == 0) {
+            return "";
+        }
+
+        var ranges = TransitionParser.TopLevelSplit(text.AsSpan(), ',');
+
+        // ⚠ The modulo is the cycling rule, and it is why this cannot simply index. One duration for
+        // three animations means all three get it; two durations for three means the third gets the
+        // first one back again.
+        return ranges.Count == 0 ? "" : text.AsSpan(ranges[index % ranges.Count]).Trim().ToString();
+    }
+
+    static float Iterations(string text) =>
+        string.Equals(text, "infinite", StringComparison.OrdinalIgnoreCase)
+            ? float.PositiveInfinity
+            : float.TryParse(
+                text,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var count
+            )
+                ? count
+                : 1f;
+
+    static AnimationDirection Direction(string text) =>
+        text.ToLowerInvariant() switch {
+            "reverse" => AnimationDirection.Reverse,
+            "alternate" => AnimationDirection.Alternate,
+            "alternate-reverse" => AnimationDirection.AlternateReverse,
+            _ => AnimationDirection.Normal
+        };
+
+    static AnimationFill Fill(string text) =>
+        text.ToLowerInvariant() switch {
+            "forwards" => AnimationFill.Forwards,
+            "backwards" => AnimationFill.Backwards,
+            "both" => AnimationFill.Both,
+            _ => AnimationFill.None
+        };
 
     /// <summary>
     ///     How much of a transition's duration a re-targeted one should get.

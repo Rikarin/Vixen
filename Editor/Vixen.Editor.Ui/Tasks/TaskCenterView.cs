@@ -15,7 +15,12 @@ public sealed partial class TaskRow : Control {
     protected override bool AcceptsFocus => false;
 
     /// <summary>The title and the cancel button.</summary>
-    public UiElement Line { get; private set; } = null!;
+    /// <remarks>
+    ///     ⚠ Named <c>TitleRow</c> rather than <c>Line</c>: <see cref="UiElement.Line" /> is the
+    ///     element's own shaped text, and a property hiding it would make an inherited member
+    ///     unreachable from a derived class for no reason but a shared word.
+    /// </remarks>
+    public UiElement TitleRow { get; private set; } = null!;
 
     /// <summary>What it is called.</summary>
     public UiElement TitlePart { get; private set; } = null!;
@@ -36,10 +41,10 @@ public sealed partial class TaskRow : Control {
     protected override void OnCreated() {
         base.OnCreated();
 
-        Line = Part("task-line");
-        TitlePart = Line.Add<UiElement>("task-title");
+        TitleRow = Part("task-line");
+        TitlePart = TitleRow.Add<UiElement>("task-title");
 
-        CancelButton = Line.Add<IconButton>();
+        CancelButton = TitleRow.Add<IconButton>();
         CancelButton.LeadingIcon.Geometry = ControlIcons.Close;
         CancelButton.Variant = ControlVariant.Subtle;
         CancelButton.Size = ControlSize.Small;

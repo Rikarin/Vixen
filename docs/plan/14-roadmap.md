@@ -1056,8 +1056,21 @@ sub-piece has its own gate.
   so a true value sitting on a rounding boundary fails on 3e-7 of float noise. Tolerances, not digit
   counts.
 
-  **Owed:** several simultaneous animations per element (`animation-name: a, b` runs the first), and
-  transform decomposition, which waits on there being a transform property.
+  ✅ **Several animations per element**, since: `animation: spin 1s infinite, pulse 2s infinite` runs
+  both. Every one of those longhands is a *list*, matched by position against `animation-name` and
+  **cycled** where it is shorter — CSS Animations 1 §4.4 — so a reader that took the first duration
+  gave the second animation the first one's timing, which is a plausible wrong answer rather than a
+  missing feature. Where two animations set the same property the later one wins (§3), and the
+  running list is matched by *position* so that changing one name leaves the other where it was.
+
+  Verified by sabotage, seven of seven landing. ⚠ **Writing the tests found a defect underneath
+  them**: `from { width: 0 }` to `to { width: 100px }` had no midpoint and swapped at the halfway
+  mark, because a bare zero is a number and `100px` is a length. CSS Values 4 says a zero is a valid
+  length, ExCSS serialises `0px` back out as `0`, and "grow from nothing" is the commonest animation
+  there is — so `StyleValue.CanInterpolate` now lets a zero take the other end's unit. Removing that
+  one rule fails six of the animation tests.
+
+  **Owed:** transform decomposition, which waits on there being a transform property.
 - ✅ **`Vixen.Ui.Styling.Utilities` is built and its gate is green.** Token config, candidate
   scanner, utility grammar, variant system, arbitrary values, `@apply`, generated stylesheet.
   78 tests.
@@ -1279,8 +1292,7 @@ sub-piece has its own gate.
   have a `hintmask` at all.
 
   Not built, and **not owed**: point-matched composites and `seac` — no glyph in 242 fonts used
-  either. Owed with the variable-font axes: `gvar` deltas, so a variable font currently parses at its
-  default instance.
+  either. `gvar` deltas are built; see the variable-font entry below.
 - ✅ **The outline reader is built** — `FontFace.GetOutline`, over `glyf`/`loca` and `CFF ` Type 2
   charstrings, positioned to agree with the extents everything else in the assembly comes from. The
   spike's parser, made AOT- and trim-clean and gated in CI.
@@ -1303,6 +1315,46 @@ sub-piece has its own gate.
   offset travels through is never exercised. Both were gated by the spike's 259,298 glyphs, whose
   fonts belong to the operating system. Named here rather than papered over with a test that cannot
   reach what it claims.
+
+- ✅ **Variable fonts: `fvar`, `avar` and `gvar`, judged by a second external oracle.** A font is
+  read at an instance rather than at its defaults — `FontFace.Variation` normalises user-space axis
+  values through `fvar` and warps them through `avar`, `GlyphVariations` applies `gvar`'s tuples with
+  packed point numbers, packed deltas, intermediate regions, shared tuples, phantom points, composite
+  component offsets, and inferred deltas for the points a tuple does not name.
+
+  **The gate is the Consortium's own variable-font cases, and it is a stronger oracle than the
+  shaping one.** The shaping suite has to argue for itself because HarfBuzz does the shaping; nothing
+  shapes a `gvar` delta, so all 100 of `GVAR-1…9` and `AVAR-1` are read, varied and interpolated by
+  code in this repository and compared against contours written by hand from the specification.
+  `Tools/Vixen.TextRenderingTestGen` grew a second pass to port them; the fonts went from fourteen to
+  twenty-two.
+
+  ⚠ **The suite found two bugs on its first run, and neither is visible from the code.** A tag is
+  four bytes, so Zycon's axes are `M1␣␣` and every caller — CSS, a test case file, a person — writes
+  `M1`; matching only the padded form left all six axes at their defaults, which on screen is
+  indistinguishable from a font with no variation data, and it cost **32 cases**. And the rule for
+  interpolating an untouched point is not the obvious one: two references at the same coordinate
+  pulling different ways infer **nothing**, where taking either of them is the natural mistake.
+  `GVAR-9` exists for exactly that and makes the two deltas 100 and 99, so the wrong answer is wrong
+  by one part in a hundred. It cost **12 more**.
+
+  Verified by sabotage, and the sabotage is kept as a test rather than run once: reading the same
+  hundred cases at each font's default instance fails **82** of them. The 18 that survive are the
+  cases whose axis value *is* the default, and the suite walks each axis end to end, so there are a
+  handful by construction.
+
+  ⚠ **The tolerance is a unit and a half and most of it is the harness's.** The expectations are
+  FreeType's 26.6 coordinates divided by 64 with C's truncating division, so a 2048-unit font's
+  expectation is already up to a whole unit low before anything of Vixen's runs; the remaining half
+  covers this reader working in `float` where FreeType works in 16.16. Verb sequences are compared
+  exactly, so a wrong contour count or a missing curve fails whatever the tolerance.
+
+  Shaping honours the instance too, which closes a gap the previous pass left: `ShapingCache` already
+  keyed on the axis position while `TextShaper` ignored it — a cache correct about a distinction
+  nothing downstream made. Not built: `CVAR` (it varies hinting control values, so its expectations
+  differ from the unhinted outline and need an interpreter — 6 cases, excluded with the reason
+  recorded in the generator), `CFF2` charstring variation, and `HVAR` read directly rather than
+  through HarfBuzz.
 
 - ✅ **The rasteriser, and the oracle it exists to be.** `GlyphRasterizer` fills an outline by
   scanline and non-zero winding; sequencing rule 4 put it before the distance field it judges.
@@ -1575,11 +1627,12 @@ sub-piece has its own gate.
   rewrite broke nothing, because the descriptor had been written by the atlas path on the way past
   and was correct by accident.
 
-- Owed: font fallback, rich-text runs, variable-font axes, `TextEditor` model with IME and caret
-  affinity. On the rendering side: reconciling the per-vertex box parameters here with
-  `Raven/Library/Ui`'s per-uniform ones when Raven takes over shader compilation.
+- Owed: rich-text runs from markup, `TextEditor` model with IME and caret affinity.
+  On the rendering side: reconciling the per-vertex box parameters here with `Raven/Library/Ui`'s
+  per-uniform ones when Raven takes over shader compilation.
 - Gate: ✅ UAX conformance data green. ✅ shaping conformance green against an external oracle,
-  with the quarantine pinned in both directions.
+  with the quarantine pinned in both directions. ✅ variable-font conformance green against the
+  Consortium's outline cases, with the sabotage kept as a test beside it.
 
 **4d — Element tree, markup, rendering (1.5 EM)**
 - ✅ **The styling↔layout bridge**, which was 4d's first owed item and is what `Vixen.Ui` now
@@ -1830,9 +1883,9 @@ sub-piece has its own gate.
 
   **Fonts are registered rather than discovered**: a game ships its fonts, and an interface laid out
   by whatever the operating system happened to have installed lays out differently on every machine.
-  ⚠ That registry is **not font fallback** — the list is tried until a *registered* family is found,
-  not per character until one with a glyph is found — and weight and style matching is not there
-  either. Both owed and said rather than half-implemented.
+  ⚠ That registry was **not font fallback** — the list was tried until a *registered* family was
+  found, not per character until one with a glyph was found. Both that and weight matching are built
+  now; see the entry below.
 
   ⚠ **The frame diff has to cover the side buffer.** A command names a *range* of the glyph array, so
   two frames whose text changed from one word to another of the same length hold byte-identical
@@ -2058,9 +2111,62 @@ sub-piece has its own gate.
   Owed here: named slot projection, `scoped` actually scoping, a component stylesheet loaded once
   per type rather than per instance, and a longest-increasing-subsequence pass so a reorder moves a
   minimal set. The last is correctness-neutral — a move that changes nothing returns immediately.
-- Owed in `Vixen.Ui`: style-slot compaction, access keys, line wrapping, rich-text runs,
-  font fallback and weight matching, gradients, per-corner elliptical radii, pinch and rotate,
-  virtualisation primitive, multi-window and DPI.
+- ✅ **A line is a list of runs, and a character picks its own font.** `font-family: Inter, Noto Sans
+  JP` is a per-character chain rather than a first-registered-wins list: `FontRegistry.Chain` turns a
+  declaration into the faces to try and `Cover` hands each grapheme cluster to the first that draws
+  all of it. `TextRun` goes back to meaning one face and `TextLine` is the ordered runs of one
+  element's text, with the width, the shared baseline and the caret arithmetic on it.
+
+  ⚠ **Composition happens in pixels, and that is not an implementation detail.** A 1000-unit face and
+  a 2048-unit face measure an em differently, so two advances from different fonts cannot be added at
+  all — which is why `Vixen.Ui.Text`'s size-independent `ShapedText` stays single-font and the run
+  list lives in `Vixen.Ui`. A draw command names one font, so a mixed line is a command each, and
+  `TextField`'s caret moved into pixels for the same reason.
+
+  ⚠ **Per grapheme cluster, not per code point.** Splitting a base letter from its combining mark
+  puts the accent at a pen position derived from another font's em; one visible tofu is the better
+  failure. Adjacent clusters on the same face merge, because a span boundary is where kerning,
+  ligatures and Arabic joining all stop.
+
+  `Line()` caches, and that is what makes it affordable: deciding which face draws which character is
+  a native call per code point, and the measure and draw passes both want the answer. The key
+  includes `FontRegistry.Revision`, because registering a face changes what a declaration resolves to
+  without changing anything on the element.
+
+  Verified by sabotage against two fonts with deliberately disjoint coverage, nine of nine landing:
+  covering per code point fails 1, not merging fails 9, `Default` behind the fallbacks instead of in
+  front fails 3, dropping the revision from the cache fails 1, one command for a mixed line fails 1,
+  forgetting a run's pen fails 1, the tallest run's height instead of both sides fails 1, the last
+  covering face instead of the first fails 1, a surrogate pair read as two characters fails 1.
+
+  ⚠ **Two sabotages needed the tests changed before they could land, and both found a real hole.**
+  The surrogate one had no fixture: with only a Latin and a Kannada face, both readings send an
+  astral character to the head of the chain and agree, so Zycon was linked in to have a font that
+  draws one. And the `Default`-ordering test was written against "AB", where the fallback has no
+  Latin and coverage decides the answer whatever the order is — it needed a character *both* faces
+  have, which is the space.
+
+  Owed with it: the other end of rich text — the markup and the cascade that would say which stretch
+  is bold. The run list already carries a face, a size, a tracking and a leading per run.
+- ✅ **Access keys.** `UiElement.AccessKey` and Alt-and-a-letter, resolved within the innermost focus
+  scope — a dialog whose `_Save` could be answered by a toolbar button in the window behind it is not
+  modal. Two elements sharing a key *cycle* rather than the first re-firing, because a collision is
+  ordinary and one of the two being unreachable from the keyboard for ever is not. Disabled and
+  hidden elements are skipped, hidden by asking the layout so that a collapsed *ancestor* counts.
+
+  The document decides which element and raises `AccessKeyEvent` on it; what an access key does is
+  the control's business, and `ButtonBase` reports a *keyboard* activation rather than a code one.
+  `AccessKey.Parse` is the `_Save` marker convention, and it is opt-in: inferring a key from a label
+  would reinterpret every existing label that contains an underscore.
+
+  Verified by sabotage, eight of eight landing. ⚠ **A ninth failed to fail and the code was deleted
+  rather than defended**: a `if (target.Focusable)` around `Focus(target)` read as a rule and was
+  insurance, since `Focus` already refuses an element that cannot hold the focus.
+
+  Not built: revealing the underlines while Alt is held, which needs a text decoration the draw list
+  does not have.
+- Owed in `Vixen.Ui`: style-slot compaction, line wrapping, gradients, per-corner elliptical radii,
+  pinch and rotate, virtualisation primitive, multi-window and DPI.
 - `Vixen.Ui.Markup`: ✅ **VXML — lexer, parser, binder, emitter and `#line` mapping.** A `.vxml`
   becomes a green/red tree over `Vixen.Core.Syntax`, then a `BoundComponent`, then a C# partial
   class. Second grammar on the shared tree, which is the first evidence that the Phase 0 extraction
@@ -2341,9 +2447,10 @@ sub-piece has its own gate.
 
   ⚠ **Still owed, and said plainly rather than left to be found:** `Image` reserves space and draws
   nothing, because the draw list has no texture command; `TextArea` is a taller `TextBox`, because
-  nothing wraps a line yet; `Tooltip` and `Toast` need a host tick, for the reason
-  `GestureRecognizer.Tick` does; an overlay outlives the control that made it, because there is no
-  `OnRemoved` hook; and `VirtualizingPanel` is not here, so `ScrollView` keeps everything in the tree.
+  nothing wraps a line yet; and `VirtualizingPanel` is not here, so `ScrollView` keeps everything in
+  the tree. Two of the five on this list are now closed: an overlay no longer outlives the control
+  that made it (`UiElement.OnRemoved`), and `Tooltip` and `ToastHost` are on `UiDocument.Ticked`
+  rather than waiting for an application to remember to call them.
 - ✅ **`Vixen.Ui.Controls.Advanced` — the first three, and the two framework primitives they needed.**
   `DockingHost` keeps the arrangement (`DockLayout`: binary splits and tab groups) apart from the
   elements that show it, so what is on screen and what would be saved cannot drift; **a layout

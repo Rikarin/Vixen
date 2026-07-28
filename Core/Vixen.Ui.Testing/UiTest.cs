@@ -162,7 +162,12 @@ public sealed class UiTest : IDisposable {
     public void Frame() {
         Now += Options.FrameDelta;
         FrameCount++;
-        Document.Gestures.Tick(Now);
+
+        // ⚠ The document's tick, not the recogniser's. `UiDocument.Tick` drives the gestures *and*
+        // everything else that subscribed to a clock — a tooltip's delay, a toast's lifetime — so
+        // reaching past it into `Gestures` is how a harness ends up testing half the timed
+        // behaviour in the framework and calling the other half by hand in each test.
+        Document.Tick(Now);
         Ticked?.Invoke();
         Document.Update();
         Document.Draw();
