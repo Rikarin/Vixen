@@ -55,7 +55,8 @@ that owns its mixer pays.
 | `AudioSend` | a copy of a bus's signal into another, so one reverb serves a whole level |
 | `Voice` | one sound: a source, a rate conversion, a set of speaker gains |
 | `Spatializer` | distance, cone, doppler and panning, as arithmetic |
-| `IAudioEffect` | `BiquadFilterEffect` (seven shapes), `EqualizerEffect`, `ReverbEffect` (Freeverb), `DelayEffect`, `CompressorEffect`, `LimiterEffect` |
+| `IAudioEffect` | thirteen of them — see below |
+| `Dsp/Fft` | radix-2 transform, for the convolution reverb and the analyser |
 | `ISidechainEffect` | an effect that listens to one bus while processing another — how ducking is built |
 | `IAudioSampleProvider` | a clip, a stream, a live push source, or anything a caller can produce samples from |
 | `LiveSampleProvider` | frames pushed in as they arrive, for voice chat |
@@ -101,6 +102,51 @@ and `SetSidechain` refuse anything that would make a cycle, so the sort always s
 **A bus's gain is applied in place**, which is load-bearing rather than incidental: it used to be
 handed back for the parent sum to apply, which meant the buffer held a *pre*-fader signal — so a send
 reading it, or a compressor keying off it, would have ignored the fader entirely.
+
+## The effects
+
+| | |
+|---|---|
+| `BiquadFilterEffect` | seven shapes, RBJ cookbook coefficients |
+| `EqualizerEffect` | those biquads in series, as bands |
+| `ReverbEffect` | Freeverb — eight combs and four allpasses per channel |
+| `ConvolutionReverbEffect` | an actual room, from a recording of it |
+| `DelayEffect` | echo with damped feedback and ping-pong |
+| `ModulatedDelayEffect` | chorus, flanger and vibrato, which are one effect |
+| `PhaserEffect` | swept all-pass stages — notches that are *not* a harmonic comb |
+| `CompressorEffect` | feed-forward, soft knee, sidechain input |
+| `LimiterEffect` | look-ahead brickwall, on the master by default |
+| `DistortionEffect` | four waveshaping curves |
+| `BitCrusherEffect` | quantise and decimate, both sweepable |
+| `PitchShiftEffect` | pitch without length, which `Pitch` cannot do |
+| `SpectrumAnalyzerEffect` | passes through, publishes magnitudes |
+
+A few of these are worth a sentence about why they are the way they are.
+
+**Chorus, flanger and vibrato are one class.** A flanger is a 1–10 ms swept delay with feedback, a
+chorus is a 15–40 ms one with more depth and several taps, and a vibrato is either with the dry
+signal off. Three classes would be the same two hundred lines three times, with the interesting
+differences buried in the duplication instead of visible as the defaults they are. What makes them
+sound different is the delay length: below about 15 ms the copies interfere across the whole audible
+range and the ear hears one moving resonance; above it, it hears separate near-unison voices.
+
+**A phaser is not a flanger.** A flanger's notches are harmonics of one frequency, so it sounds
+pitched; a phaser's come from all-pass sections and land wherever they are put, unrelated to each
+other. That is the difference between a jet and a swirl.
+
+**The pitch shifter is time-domain**, two taps crossfaded with a raised cosine. It warbles on
+sustained tones and smears transients, and there is no grain length that avoids both. A phase
+vocoder sounds better and needs an FFT pair per hop, a window of latency, and transient handling; the
+transform is now here, so it is a real option and it is owed.
+
+**The distortion aliases.** Bending a waveform makes harmonics, and harmonics above Nyquist fold back
+as inharmonic tones. Oversampling by four is the fix; for a radio voice or an explosion nobody
+notices, and this is not the effect to put a lead guitar through yet.
+
+**The convolution reverb is the expensive one** — a second of stereo response is around a hundred
+complex multiply-accumulates of transform size per block. Put it on one aux bus and send to it. It
+also does not resample a response whose rate disagrees with the device: that is a room of the wrong
+size, `IsRateMatched` says so, and the fix belongs in the content build where it is paid for once.
 
 ## Fades
 
@@ -308,6 +354,14 @@ smear across five speakers is wrong in a way they will not.
 pitching up hard. The content build resamples clips to the rate they will be played at, so the common
 ratio is exactly one and the interpolator is bypassed by the arithmetic itself — but a pitched-up
 sound effect is audibly cheap.
+
+**Oversampling for the distortion**, and a phase-vocoder pitch shifter — both now cheap to add, since
+the transform they want is in `Dsp/Fft`.
+
+**A real-input FFT.** Audio is real, so half the transform's input is zeroes and half its output is
+the mirror of the rest. A real-input transform is twice as fast for the same answer, and it doubles
+the index arithmetic — which is where a transform goes quietly wrong, so it is not taken until there
+is a profile that asks for it.
 
 **Codecs.** `IAudioStreamDecoder` is the seam and `PcmStreamDecoder` is the implementation that needs
 none, so the streaming path works today at the cost of disk. Ogg or Opus is what makes a five-minute

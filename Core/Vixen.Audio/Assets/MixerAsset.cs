@@ -232,6 +232,197 @@ public sealed record LimiterEffectAsset : IAudioEffectAsset {
     };
 }
 
+/// <summary>A chorus, flanger or vibrato, as a file declares it.</summary>
+[DataContract("ModulatedDelayEffect")]
+public sealed record ModulatedDelayEffectAsset : IAudioEffectAsset {
+    /// <summary>Which of the three it is being.</summary>
+    public ModulatedDelayKind Kind { get; init; } = ModulatedDelayKind.Chorus;
+
+    /// <summary>The middle of the sweep, in seconds.</summary>
+    public float DelaySeconds { get; init; } = 0.022f;
+
+    /// <summary>How far either side of that it travels.</summary>
+    public float DepthSeconds { get; init; } = 0.004f;
+
+    /// <summary>How many times a second the oscillator goes round.</summary>
+    public float RateHz { get; init; } = 0.4f;
+
+    /// <summary>How much of the output feeds back in.</summary>
+    public float Feedback { get; init; }
+
+    /// <summary>How many taps to read the line at.</summary>
+    public int Voices { get; init; } = 1;
+
+    /// <summary>How far apart the channels are swept.</summary>
+    public float StereoSpread { get; init; } = 0.25f;
+
+    /// <summary>How much of the swept signal to add.</summary>
+    public float Wet { get; init; } = 0.5f;
+
+    /// <summary>How much of the untouched signal to keep.</summary>
+    public float Dry { get; init; } = 1f;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <inheritdoc />
+    public IAudioEffect Create() => new ModulatedDelayEffect {
+        Kind = Kind,
+        DelaySeconds = DelaySeconds,
+        DepthSeconds = DepthSeconds,
+        RateHz = RateHz,
+        Feedback = Feedback,
+        Voices = Voices,
+        StereoSpread = StereoSpread,
+        Wet = Wet,
+        Dry = Dry,
+        Enabled = Enabled
+    };
+}
+
+/// <summary>A phaser, as a file declares it.</summary>
+[DataContract("PhaserEffect")]
+public sealed record PhaserEffectAsset : IAudioEffectAsset {
+    /// <summary>How many all-pass sections, and therefore how many notches.</summary>
+    public int Stages { get; init; } = 4;
+
+    /// <summary>The bottom of the sweep, in hertz.</summary>
+    public float MinFrequency { get; init; } = 200f;
+
+    /// <summary>The top of the sweep, in hertz.</summary>
+    public float MaxFrequency { get; init; } = 2_000f;
+
+    /// <summary>How many times a second the sweep goes round.</summary>
+    public float RateHz { get; init; } = 0.3f;
+
+    /// <summary>How much of the output feeds back in.</summary>
+    public float Feedback { get; init; } = 0.5f;
+
+    /// <summary>How far apart the channels are swept.</summary>
+    public float StereoSpread { get; init; } = 0.25f;
+
+    /// <summary>How much of the phase-shifted signal to add.</summary>
+    public float Wet { get; init; } = 0.5f;
+
+    /// <summary>How much of the untouched signal to keep.</summary>
+    public float Dry { get; init; } = 0.5f;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <inheritdoc />
+    public IAudioEffect Create() => new PhaserEffect {
+        Stages = Stages,
+        MinFrequency = MinFrequency,
+        MaxFrequency = MaxFrequency,
+        RateHz = RateHz,
+        Feedback = Feedback,
+        StereoSpread = StereoSpread,
+        Wet = Wet,
+        Dry = Dry,
+        Enabled = Enabled
+    };
+}
+
+/// <summary>A distortion, as a file declares it.</summary>
+[DataContract("DistortionEffect")]
+public sealed record DistortionEffectAsset : IAudioEffectAsset {
+    /// <summary>Which curve.</summary>
+    public DistortionCurve Curve { get; init; } = DistortionCurve.SoftClip;
+
+    /// <summary>How hard the signal is pushed into it, in decibels.</summary>
+    public float DriveDb { get; init; } = 12f;
+
+    /// <summary>A gain applied after it, in decibels.</summary>
+    public float OutputDb { get; init; } = -6f;
+
+    /// <summary>How much of the bent signal to keep.</summary>
+    public float Mix { get; init; } = 1f;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <inheritdoc />
+    public IAudioEffect Create() => new DistortionEffect {
+        Curve = Curve,
+        DriveDb = DriveDb,
+        OutputDb = OutputDb,
+        Mix = Mix,
+        Enabled = Enabled
+    };
+}
+
+/// <summary>A bit crusher, as a file declares it.</summary>
+[DataContract("BitCrusherEffect")]
+public sealed record BitCrusherEffectAsset : IAudioEffectAsset {
+    /// <summary>How many bits of resolution to leave.</summary>
+    public float Bits { get; init; } = 8f;
+
+    /// <summary>How many output samples each input sample is held for.</summary>
+    public float Downsample { get; init; } = 1f;
+
+    /// <summary>How much of the ruined signal to keep.</summary>
+    public float Mix { get; init; } = 1f;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <inheritdoc />
+    public IAudioEffect Create() => new BitCrusherEffect {
+        Bits = Bits,
+        Downsample = Downsample,
+        Mix = Mix,
+        Enabled = Enabled
+    };
+}
+
+/// <summary>A pitch shifter, as a file declares it.</summary>
+[DataContract("PitchShiftEffect")]
+public sealed record PitchShiftEffectAsset : IAudioEffectAsset {
+    /// <summary>How far to shift, in semitones.</summary>
+    public float Semitones { get; init; }
+
+    /// <summary>How long each grain is.</summary>
+    public float GrainSeconds { get; init; } = 0.05f;
+
+    /// <summary>How much of the shifted signal to keep.</summary>
+    public float Mix { get; init; } = 1f;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <inheritdoc />
+    public IAudioEffect Create() => new PitchShiftEffect {
+        Semitones = Semitones,
+        GrainSeconds = GrainSeconds,
+        Mix = Mix,
+        Enabled = Enabled
+    };
+}
+
+/// <summary>A spectrum analyser, as a file declares it.</summary>
+/// <remarks>
+///     In the asset because a debug overlay is part of a mix's configuration too: a project that
+///     wants a meter on the music bus should be able to say so without a programmer.
+/// </remarks>
+[DataContract("SpectrumAnalyzerEffect")]
+public sealed record SpectrumAnalyzerEffectAsset : IAudioEffectAsset {
+    /// <summary>How many samples each picture is taken from. A power of two.</summary>
+    public int Size { get; init; } = 1_024;
+
+    /// <summary>How much of the previous picture each new one keeps.</summary>
+    public float Smoothing { get; init; } = 0.6f;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <inheritdoc />
+    public IAudioEffect Create() => new SpectrumAnalyzerEffect(Size) {
+        Smoothing = Smoothing,
+        Enabled = Enabled
+    };
+}
+
 /// <summary>A send, as a file declares it.</summary>
 [DataContract("MixerSend")]
 public sealed record MixerSendAsset {

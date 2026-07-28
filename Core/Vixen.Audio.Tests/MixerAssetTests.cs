@@ -108,7 +108,13 @@ public sealed class MixerAssetTests {
             new ReverbEffectAsset(),
             new DelayEffectAsset(),
             new CompressorEffectAsset(),
-            new LimiterEffectAsset()
+            new LimiterEffectAsset(),
+            new ModulatedDelayEffectAsset { Kind = ModulatedDelayKind.Flanger },
+            new PhaserEffectAsset(),
+            new DistortionEffectAsset { Curve = DistortionCurve.Foldback },
+            new BitCrusherEffectAsset { Bits = 4f },
+            new PitchShiftEffectAsset { Semitones = -5f },
+            new SpectrumAnalyzerEffectAsset { Size = 512 }
         };
 
         var built = assets.Select(asset => asset.Create()).ToArray();
@@ -120,6 +126,12 @@ public sealed class MixerAssetTests {
         Assert.IsType<DelayEffect>(built[3]);
         Assert.IsType<CompressorEffect>(built[4]);
         Assert.IsType<LimiterEffect>(built[5]);
+        Assert.Equal(ModulatedDelayKind.Flanger, Assert.IsType<ModulatedDelayEffect>(built[6]).Kind);
+        Assert.IsType<PhaserEffect>(built[7]);
+        Assert.Equal(DistortionCurve.Foldback, Assert.IsType<DistortionEffect>(built[8]).Curve);
+        Assert.Equal(4f, Assert.IsType<BitCrusherEffect>(built[9]).Bits);
+        Assert.Equal(-5f, Assert.IsType<PitchShiftEffect>(built[10]).Semitones);
+        Assert.Equal(512, Assert.IsType<SpectrumAnalyzerEffect>(built[11]).Size);
     }
 
     /// <summary>
