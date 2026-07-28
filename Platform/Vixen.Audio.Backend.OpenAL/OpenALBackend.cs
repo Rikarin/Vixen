@@ -5,8 +5,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Silk.NET.OpenAL;
 using Silk.NET.OpenAL.Extensions.Enumeration;
+using Silk.NET.OpenAL.Extensions.EXT;
 using Vixen.Audio.Devices;
-
 // Silk.NET has an AudioDeviceException of its own, thrown by its convenience wrappers. This file
 // throws ours, which is the one an IAudioBackend contract says callers may catch.
 using AudioDeviceException = Vixen.Audio.Devices.AudioDeviceException;
@@ -39,6 +39,8 @@ public sealed unsafe class OpenALBackend : IAudioBackend {
     readonly ILogger logger;
     readonly ALContext? alc;
     readonly AL? al;
+    Capture? captureApi;
+    bool captureChecked;
 
     /// <summary>A backend, loading the OpenAL library.</summary>
     /// <param name="logger">Where to report. Nothing is logged from the audio thread.</param>
@@ -144,6 +146,51 @@ public sealed unsafe class OpenALBackend : IAudioBackend {
             alc.DestroyContext(context);
             alc.CloseDevice(handle);
             throw;
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <c>ALC_EXT_CAPTURE</c> is an extension, and a driver that plays perfectly well may not have
+    ///     it — so this is a real question rather than a restatement of <see cref="IsAvailable" />.
+    /// </remarks>
+    public bool SupportsCapture => CaptureApi is not null;
+
+    /// <inheritdoc />
+    public IReadOnlyList<AudioDeviceInfo> EnumerateCaptureDevices() {
+        var devices = new List<AudioDeviceInfo>();
+
+        if (CaptureApi is not null) {
+            // One entry standing for whatever the default turns out to be. ALC_ENUMERATE_ALL names
+            // capture devices too, but under a different token on every implementation that has it,
+            // and a list that is wrong is worse than a list of one that is right.
+            devices.Add(new AudioDeviceInfo(string.Empty, "Default microphone", true, AudioFormat.Mono48k));
+        }
+
+        return devices;
+    }
+
+    /// <inheritdoc />
+    public IAudioCaptureDevice OpenCaptureDevice(in AudioCaptureOptions options) =>
+        CaptureApi is { } capture
+            ? OpenALCaptureDevice.Open(capture, options)
+            : throw new AudioDeviceException("This OpenAL build has no ALC_EXT_CAPTURE.");
+
+    /// <summary>The capture extension, built once from the context the loader kept.</summary>
+    /// <remarks>
+    ///     A constructor call rather than <c>TryGetExtension</c>, so nothing about it needs the
+    ///     trimmer's cooperation — the same reasoning that keeps <c>AL.GetApi()</c> out of
+    ///     <see cref="OpenALLoader" />.
+    /// </remarks>
+    Capture? CaptureApi {
+        get {
+            if (captureApi is not null || captureChecked) {
+                return captureApi;
+            }
+
+            captureChecked = true;
+            captureApi = OpenALLoader.Context is { } context ? new Capture(context) : null;
+            return captureApi;
         }
     }
 

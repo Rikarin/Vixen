@@ -28,6 +28,10 @@ public sealed class NullAudioBackend : IAudioBackend {
         new("null", "Vixen Null Audio Device", true, AudioFormat.Stereo48k)
     ];
 
+    static readonly AudioDeviceInfo[] CaptureDevices = [
+        new("null", "No microphone", true, AudioFormat.Mono48k)
+    ];
+
     /// <summary>Whether an opened device paces itself against a real clock.</summary>
     /// <remarks>
     ///     <b>Off by default.</b> A test wants to render exactly the frames it asks for, in the
@@ -53,6 +57,21 @@ public sealed class NullAudioBackend : IAudioBackend {
 
         return new NullAudioDevice(Devices[0], format, frames, Paced);
     }
+
+    /// <inheritdoc />
+    /// <inheritdoc />
+    /// <remarks>
+    ///     True, and the microphone hears whatever <c>NullAudioCaptureDevice.Push</c> is given. A
+    ///     server has no input and still has to run the code that reads one; a test has no input and
+    ///     still has to assert about what a reader got.
+    /// </remarks>
+    public bool SupportsCapture => true;
+
+    /// <inheritdoc />
+    public IReadOnlyList<AudioDeviceInfo> EnumerateCaptureDevices() => CaptureDevices;
+
+    /// <inheritdoc />
+    public IAudioCaptureDevice OpenCaptureDevice(in AudioCaptureOptions options) => new NullAudioCaptureDevice(options);
 
     /// <inheritdoc />
     public void Dispose() { }

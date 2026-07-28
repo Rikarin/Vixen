@@ -36,6 +36,43 @@ public enum AudioParameterTarget {
 /// <param name="Curve">How the parameter's range maps onto that target's unit.</param>
 public sealed record AudioAutomation(AudioParameterTarget Target, AudioCurve Curve);
 
+/// <summary>Something the engine already knows, offered as a parameter.</summary>
+/// <remarks>
+///     <para>
+///         <b>The point is that gameplay does not set these.</b> The spatialiser works all four out
+///         every block anyway; a parameter marked with one of them has its value written by the engine
+///         each frame, so a designer can draw a curve against distance without a programmer plumbing
+///         distance anywhere. Setting one by hand is refused rather than ignored.
+///     </para>
+///     <para>
+///         They are ordinary parameters otherwise — the range, the curves and the seek time all mean
+///         what they always did, and a sheet may mix built-in and gameplay-driven ones freely.
+///     </para>
+/// </remarks>
+public enum AudioBuiltinParameter {
+    /// <summary>Not one. The value is whatever gameplay last set.</summary>
+    None = 0,
+
+    /// <summary>How far the sound is from the listener, in world units.</summary>
+    /// <remarks>
+    ///     The one most curves want. A range of 0 to whatever the sound carries, and a low-pass
+    ///     closing across it, is a better distance filter than the air-absorption model because the
+    ///     shape is drawn rather than derived.
+    /// </remarks>
+    Distance = 1,
+
+    /// <summary>Which way round the listener it is, in degrees: 0 ahead, +90 right, ±180 behind.</summary>
+    /// <remarks>What a front-back filter is drawn against, which is the cheapest thing that sounds like an HRTF.</remarks>
+    Direction = 2,
+
+    /// <summary>How far above or below the listener it is, in degrees: +90 overhead, −90 underfoot.</summary>
+    Elevation = 3,
+
+    /// <summary>How fast the source is moving, in units a second.</summary>
+    /// <remarks>An engine that opens up as it accelerates, without the vehicle code knowing what a bus is.</remarks>
+    Speed = 4
+}
+
 /// <summary>A named value a sound reads, and what moving it does.</summary>
 /// <remarks>
 ///     <para>
@@ -71,6 +108,9 @@ public sealed record AudioParameterDefinition {
     ///     backwards for every change smaller than the whole range.
     /// </remarks>
     public float SeekSeconds { get; init; }
+
+    /// <summary>Something the engine works out, instead of something gameplay sets.</summary>
+    public AudioBuiltinParameter Builtin { get; init; }
 
     /// <summary>What moving it does.</summary>
     public AudioAutomation[] Automation { get; init; } = [];
@@ -144,8 +184,13 @@ public sealed class AudioParameterSheet {
             // backwards; both are content mistakes, and pinning the position to 0 is the reading that
             // leaves the sound at the start of its curve rather than at an arbitrary point on it.
             inverseRanges[i] = range > 0f ? 1f / range : 0f;
+            HasBuiltins |= parameter.Builtin is not AudioBuiltinParameter.None;
         }
     }
+
+    /// <summary>Whether any of its parameters is one the engine fills in.</summary>
+    /// <remarks>Checked once so that the per-frame pass can skip a sheet that has none.</remarks>
+    public bool HasBuiltins { get; }
 
     /// <summary>Finds a parameter by name.</summary>
     /// <param name="name">What gameplay calls it.</param>

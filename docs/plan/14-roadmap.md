@@ -2027,9 +2027,11 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   fourteen effects over an `Fft`, voice stealing and virtualisation, timed fades, a live push source
   for voice chat, the mixer and its snapshots as an asset, `AudioEvent` — variants, per-play variation
   and instance limits, so gameplay posts an event rather than naming a clip — parameters with
-  authored curves onto a sound or onto the mix, and up to four listeners for split-screen. Still
-  owed: built-in parameters, a loudness meter, surround panning, a sinc resampler, and an Ogg/Opus
-  decoder behind `IAudioStreamDecoder`.
+  authored curves onto a sound or onto the mix — four of them filled in by the engine — scatterers for
+  ambience, and up to four listeners for split-screen. Still
+  owed: a loudness meter, surround panning, a sinc resampler, interactive music, and an Ogg/Opus
+  decoder behind `IAudioStreamDecoder`. Capture landed with it — `IAudioCaptureDevice` on both
+  backends, which is what voice chat in Phase 9 reads from.
 - `Vixen.Animation`: skeletal playback, blend trees (1D/2D), layers + masks, state machine, IK (two-bone,
   look-at, foot placement), root motion, events, GPU skinning integration.
 - `Vixen.Editor.AnimationGraph`.

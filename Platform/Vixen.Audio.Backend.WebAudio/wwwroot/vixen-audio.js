@@ -203,3 +203,200 @@ export function close(handle) {
         contexts.delete(handle);
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Capture.
+//
+// getUserMedia is asynchronous and gated on a permission prompt, so captureStart
+// returns before anything is running and captureIsRunning is what says whether it
+// did. A caller that treats "no audio yet" as a failure will be wrong on exactly
+// the platform where the delay is longest.
+//
+// A ScriptProcessorNode and not an AudioWorklet, for the same reason the output
+// side schedules AudioBufferSourceNodes: a worklet runs on the audio thread and
+// cannot reach a single-threaded WebAssembly runtime, and the SharedArrayBuffer
+// route needs cross-origin isolation headers a game cannot assume its host sets.
+// ScriptProcessorNode is deprecated and works everywhere, which for now beats
+// correct and unavailable.
+
+const captures = new Map();
+let nextCapture = 1;
+
+/** Opens a capture slot. Returns a handle, or 0 if this browser has no WebAudio. */
+export function captureCreate(sampleRate, channels, bufferedFrames) {
+    const Constructor = globalThis.AudioContext || globalThis.webkitAudioContext;
+
+    if (!Constructor || !globalThis.navigator?.mediaDevices?.getUserMedia) {
+        return 0;
+    }
+
+    let context;
+
+    try {
+        context = new Constructor({ sampleRate });
+    } catch {
+        context = new Constructor();
+    }
+
+    const handle = nextCapture++;
+
+    captures.set(handle, {
+        context,
+        channels,
+        // Interleaved, like everything else that crosses this boundary.
+        ring: new Float32Array(bufferedFrames * channels),
+        read: 0,
+        written: 0,
+        overruns: 0,
+        running: false,
+        stream: null,
+        source: null,
+        processor: null
+    });
+
+    return handle;
+}
+
+export function captureSampleRate(handle) {
+    const state = captures.get(handle);
+    return state ? state.context.sampleRate : 0;
+}
+
+export function captureIsRunning(handle) {
+    const state = captures.get(handle);
+    return state ? state.running : false;
+}
+
+export function captureAvailable(handle) {
+    const state = captures.get(handle);
+    return state ? (state.written - state.read) / state.channels : 0;
+}
+
+export function captureOverruns(handle) {
+    const state = captures.get(handle);
+    return state ? state.overruns : 0;
+}
+
+export function captureStart(handle) {
+    const state = captures.get(handle);
+
+    if (!state || state.running || state.stream) {
+        return;
+    }
+
+    // Marked before the promise resolves so that a second call cannot open a second
+    // stream while the first is still being granted.
+    state.stream = true;
+
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(stream => {
+        if (!captures.has(handle)) {
+            stream.getTracks().forEach(track => track.stop());
+            return;
+        }
+
+        state.stream = stream;
+        state.source = state.context.createMediaStreamSource(stream);
+
+        // 2048 frames is about 43 ms at 48 kHz. Smaller buffers are permitted and are
+        // where a ScriptProcessor starts glitching on a busy main thread, which is the
+        // thread a WebAssembly game is already saturating.
+        state.processor = state.context.createScriptProcessor(2048, state.channels, state.channels);
+
+        state.processor.onaudioprocess = event => {
+            const input = event.inputBuffer;
+            const frames = input.length;
+            const capacity = state.ring.length;
+            const used = state.written - state.read;
+            const room = (capacity - used) / state.channels;
+            const taking = Math.min(frames, room);
+
+            if (taking < frames) {
+                state.overruns += frames - taking;
+            }
+
+            for (let frame = 0; frame < taking; frame++) {
+                for (let channel = 0; channel < state.channels; channel++) {
+                    const index = (state.written + (frame * state.channels) + channel) % capacity;
+                    state.ring[index] = input.getChannelData(channel)[frame];
+                }
+            }
+
+            state.written += taking * state.channels;
+        };
+
+        // Connected to the destination because a ScriptProcessorNode with no consumer is
+        // not pulled by some browsers. The processor writes nothing to its output buffer,
+        // so what reaches the speakers is silence — this is not monitoring.
+        state.source.connect(state.processor);
+        state.processor.connect(state.context.destination);
+        state.context.resume();
+        state.running = true;
+    }).catch(() => {
+        // Refused, or no microphone. Not running, and not an error anybody can act on
+        // from here — the caller sees captureIsRunning stay false.
+        state.stream = null;
+    });
+}
+
+/** Copies up to `frames` frames into the caller's view. Returns how many it wrote. */
+export function captureRead(handle, samples, frames) {
+    const state = captures.get(handle);
+
+    if (!state) {
+        return 0;
+    }
+
+    const capacity = state.ring.length;
+    const available = (state.written - state.read) / state.channels;
+    const taking = Math.min(frames, available);
+
+    if (taking <= 0) {
+        return 0;
+    }
+
+    const floats = new Float32Array(samples.buffer, samples.byteOffset, taking * state.channels);
+
+    for (let i = 0; i < taking * state.channels; i++) {
+        floats[i] = state.ring[(state.read + i) % capacity];
+    }
+
+    state.read += taking * state.channels;
+    return taking;
+}
+
+export function captureStop(handle) {
+    const state = captures.get(handle);
+
+    if (!state) {
+        return;
+    }
+
+    state.running = false;
+
+    if (state.processor) {
+        state.processor.onaudioprocess = null;
+        state.processor.disconnect();
+        state.processor = null;
+    }
+
+    if (state.source) {
+        state.source.disconnect();
+        state.source = null;
+    }
+
+    if (state.stream && state.stream !== true) {
+        state.stream.getTracks().forEach(track => track.stop());
+    }
+
+    state.stream = null;
+}
+
+export function captureClose(handle) {
+    captureStop(handle);
+    const state = captures.get(handle);
+
+    if (state) {
+        state.context.close();
+        captures.delete(handle);
+    }
+}

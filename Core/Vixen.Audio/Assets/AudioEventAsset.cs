@@ -153,3 +153,51 @@ public sealed record AudioEventAsset {
     /// </remarks>
     public AudioEventSpatialAsset? Spatial { get; init; }
 }
+
+/// <summary>A scatterer, as a file declares it.</summary>
+/// <remarks>
+///     It names the event it throws rather than containing one, because a bird call is usually also
+///     played deliberately — by a scripted moment, by a trigger volume — and two copies of it would
+///     be two instance budgets that do not know about each other.
+/// </remarks>
+[DataContract("AudioScatterer")]
+public sealed record AudioScattererAsset {
+    /// <summary>What it is called.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>Which event it throws, by name.</summary>
+    public string Event { get; init; } = string.Empty;
+
+    /// <summary>The shortest gap between two spawns, in seconds.</summary>
+    public float MinimumInterval { get; init; } = 1f;
+
+    /// <summary>The longest gap between two spawns, in seconds.</summary>
+    public float MaximumInterval { get; init; } = 4f;
+
+    /// <summary>How close to the origin a spawn may land.</summary>
+    public float MinimumDistance { get; init; } = 5f;
+
+    /// <summary>How far from the origin a spawn may land.</summary>
+    public float MaximumDistance { get; init; } = 30f;
+
+    /// <summary>How much of the vertical a spawn may use, from 0 for a flat ring to 1 for a whole sphere.</summary>
+    public float VerticalSpread { get; init; } = 0.25f;
+
+    /// <summary>Whether the origin follows the listener rather than staying where it was put.</summary>
+    public bool FollowListener { get; init; } = true;
+
+    /// <summary>Where its random sequence starts.</summary>
+    public uint Seed { get; init; }
+
+    /// <summary>The settings this describes.</summary>
+    /// <returns>The settings.</returns>
+    public AudioScattererSettings ToSettings() => new() {
+        MinimumInterval = MinimumInterval,
+        MaximumInterval = MaximumInterval,
+        MinimumDistance = MinimumDistance,
+        MaximumDistance = MaximumDistance,
+        VerticalSpread = VerticalSpread,
+        FollowListener = FollowListener,
+        Seed = Seed
+    };
+}

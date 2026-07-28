@@ -68,6 +68,13 @@ sealed class VoiceParameters {
             return false;
         }
 
+        // Refused rather than ignored. A built-in is overwritten by the engine every frame, so a
+        // caller setting one would see it revert and have nothing to go on; saying no here is the
+        // difference between a bug found in a minute and one found in an afternoon.
+        if (sheet[parameter].Builtin is not AudioBuiltinParameter.None) {
+            return false;
+        }
+
         var clamped = Math.Clamp(value, sheet[parameter].Minimum, sheet[parameter].Maximum);
         targets[(index * AudioParameterSheet.MaxParameters) + parameter] = clamped;
         return true;
@@ -108,11 +115,55 @@ sealed class VoiceParameters {
             var current = Slice(index);
             var target = Slice(targets, index);
 
+            if (sheet.HasBuiltins) {
+                Observe(sheet, voice, target);
+            }
+
             for (var i = 0; i < sheet.Count; i++) {
                 sheet.Seek(i, ref current[i], target[i], deltaSeconds);
             }
 
             Apply(voice, sheet.Evaluate(current));
+        }
+    }
+
+    /// <summary>Writes what the spatialiser already worked out into the built-in parameters' targets.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Targets and not values, so seeking still applies.</b> A distance parameter with a
+    ///         seek time is a filter that lags the geometry, which is occasionally what somebody
+    ///         wants; one with no seek time — the default — arrives immediately and behaves exactly as
+    ///         if the engine had written the value.
+    ///     </para>
+    ///     <para>
+    ///         Read from <c>Voice.LastSpatial</c>, which the audio thread wrote, on the game thread.
+    ///         The same documented race as <c>Voice.Audibility</c>: every term is a float, and a curve
+    ///         evaluated against last block's geometry is ten milliseconds stale.
+    ///     </para>
+    ///     <para>
+    ///         <b>A voice that is not spatial has no geometry</b>, so its built-ins sit at zero rather
+    ///         than at whatever the last spatial sound in that slot left behind. Distance zero is "on
+    ///         top of the listener", which is what a sound in the room is.
+    ///     </para>
+    /// </remarks>
+    static void Observe(AudioParameterSheet sheet, Voice voice, Span<float> targets) {
+        var spatial = voice.IsSpatial ? voice.LastSpatial : default;
+
+        for (var i = 0; i < sheet.Count; i++) {
+            var builtin = sheet[i].Builtin;
+
+            if (builtin is AudioBuiltinParameter.None) {
+                continue;
+            }
+
+            var value = builtin switch {
+                AudioBuiltinParameter.Distance => spatial.Distance,
+                AudioBuiltinParameter.Direction => spatial.Azimuth,
+                AudioBuiltinParameter.Elevation => spatial.Elevation,
+                _ => spatial.SourceSpeed
+            };
+
+            targets[i] = Math.Clamp(value, sheet[i].Minimum, sheet[i].Maximum);
         }
     }
 

@@ -17,17 +17,37 @@ namespace Vixen.Audio.Spatial;
 ///     all — which is both the default and the common case, and is a bypass rather than a filter set
 ///     wide open.
 /// </param>
+/// <param name="Azimuth">
+///     Which way round the listener the sound is, in degrees: 0 straight ahead, +90 to the right,
+///     ±180 behind.
+/// </param>
+/// <param name="Elevation">
+///     How far above or below the listener the sound is, in degrees: +90 overhead, −90 underfoot.
+/// </param>
+/// <param name="SourceSpeed">How fast the source is moving, in units a second, regardless of direction.</param>
 /// <remarks>
-///     The parts are returned separately rather than pre-multiplied because the audio debug overlay
-///     <c>docs/plan/13</c> asks for shows exactly this: a source that is inaudible is either too far
-///     away or pointing the wrong way, and a single combined number cannot say which.
+///     <para>
+///         The parts are returned separately rather than pre-multiplied because the audio debug
+///         overlay <c>docs/plan/13</c> asks for shows exactly this: a source that is inaudible is
+///         either too far away or pointing the wrong way, and a single combined number cannot say
+///         which.
+///     </para>
+///     <para>
+///         <b>The last three are here for the built-in parameters</b>, which are read from the game
+///         thread while the audio thread writes them. That is the same documented race as
+///         <c>Voice.Audibility</c>: every term is a float, so the worst case is a curve evaluated
+///         against last block's geometry, which at sixty frames a second is exactly as good.
+///     </para>
 /// </remarks>
 public readonly record struct SpatialResult(
     float Distance,
     float Attenuation,
     float ConeGain,
     float DopplerRatio,
-    float LowPassHz = 0f
+    float LowPassHz = 0f,
+    float Azimuth = 0f,
+    float Elevation = 0f,
+    float SourceSpeed = 0f
 );
 
 /// <summary>Turns a listener and a source into per-speaker gains and a pitch ratio.</summary>
@@ -85,9 +105,12 @@ public static class Spatializer {
 
         var cutoff = Absorption(source, distance);
 
+        var (azimuth, elevation) = Bearing(listener, toSource, distance);
+        var speed = source.Velocity.Length();
+
         if (outputChannels <= 1) {
             gains[0] = gain;
-            return new SpatialResult(distance, attenuation, cone, doppler, cutoff);
+            return new SpatialResult(distance, attenuation, cone, doppler, cutoff, azimuth, elevation, speed);
         }
 
         // Inside the reference distance the direction stops meaning anything — the listener is
@@ -104,7 +127,46 @@ public static class Spatializer {
         gains[0] = left * gain;
         gains[1] = right * gain;
 
-        return new SpatialResult(distance, attenuation, cone, doppler, cutoff);
+        return new SpatialResult(distance, attenuation, cone, doppler, cutoff, azimuth, elevation, speed);
+    }
+
+    /// <summary>Where a sound is, as two angles in the listener's own frame.</summary>
+    /// <param name="listener">Where the ears are.</param>
+    /// <param name="toSource">From the listener to the sound, unnormalised.</param>
+    /// <param name="distance">Its length, already computed.</param>
+    /// <returns>The azimuth and elevation, in degrees.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Degrees, and signed.</b> A parameter curve is drawn by a human against an axis with
+    ///         numbers on it, and −180..180 is the axis anybody would draw — 0 in the middle for
+    ///         straight ahead, the edges for behind. Radians would be correct and unreadable.
+    ///     </para>
+    ///     <para>
+    ///         Azimuth is taken in the horizontal plane of the listener's own basis, so a listener
+    ///         lying down still has a left and a right. Elevation is out of that plane, which is why
+    ///         the two are computed together rather than as two dot products.
+    ///     </para>
+    /// </remarks>
+    static (float Azimuth, float Elevation) Bearing(in AudioListener listener, Vector3 toSource, float distance) {
+        if (distance <= MathUtil.ZeroTolerance) {
+            // Inside the listener's own head. There is no direction, and any answer would swing
+            // wildly as they moved.
+            return (0f, 0f);
+        }
+
+        var forward = SafeNormalize(listener.Forward, Vector3.Forward);
+        var up = SafeNormalize(listener.Up, Vector3.Up);
+        var right = SafeNormalize(Vector3.Cross(forward, up), Vector3.Right);
+        var direction = toSource / distance;
+
+        var ahead = Vector3.Dot(direction, forward);
+        var side = Vector3.Dot(direction, right);
+        var above = Math.Clamp(Vector3.Dot(direction, up), -1f, 1f);
+
+        return (
+            MathF.Atan2(side, ahead) * (180f / MathF.PI),
+            MathF.Asin(above) * (180f / MathF.PI)
+        );
     }
 
     /// <summary>Places a sound for several listeners at once.</summary>

@@ -75,6 +75,9 @@ public sealed record AudioParameterAsset {
     /// <summary>How long it takes to cross its whole range. Zero arrives at once.</summary>
     public float SeekSeconds { get; init; }
 
+    /// <summary>Something the engine works out, instead of something gameplay sets.</summary>
+    public AudioBuiltinParameter Builtin { get; init; }
+
     /// <summary>What moving it does.</summary>
     public AudioAutomationAsset[] Automation { get; init; } = [];
 
@@ -93,6 +96,7 @@ public sealed record AudioParameterAsset {
             Maximum = Maximum,
             Default = Default,
             SeekSeconds = SeekSeconds,
+            Builtin = Builtin,
             Automation = automation
         };
     }

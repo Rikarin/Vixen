@@ -73,6 +73,8 @@ that owns its mixer pays.
 | `MixerParameters` | named values the *mix* reads, with curves onto buses, sends and effect knobs |
 | `AudioCurve` | how a parameter's 0..1 maps onto decibels, semitones or hertz |
 | `AudioListenerSet` | up to four pairs of ears, for split-screen |
+| `AudioScatterer` | throws an event about at intervals — most of what an ambience is |
+| `IAudioCaptureDevice` | a microphone. `CaptureSampleProvider` is one the mixer can play |
 
 ## Inserts, sends, and the order it all runs in
 
@@ -362,6 +364,12 @@ which two cutoffs combine.
 whole range in one frame, and a filter cutoff crossing two octaves in one frame is a click. What
 gameplay sets is a target; the value moves towards it at a rate.
 
+**Four of them are filled in by the engine.** A parameter marked `Distance`, `Direction`, `Elevation`
+or `Speed` reads what the spatialiser already worked out, so a designer draws a curve against
+distance without anybody plumbing distance anywhere. Setting one from gameplay is refused rather than
+ignored — it would be overwritten next frame, and a caller watching a value revert has nothing to go
+on.
+
 **Everything is evaluated on the game thread**, once a frame in `Update`, and what reaches the audio
 thread is four floats a voice was already reading. No curve, no name lookup and no allocation goes
 anywhere near a device callback.
@@ -380,6 +388,84 @@ than being silently ignored for the life of the project.
 **A snapshot is still the right answer for a named state.** `MixerSnapshots.TransitionTo("Underwater",
 0.4s)` is a destination arrived at; a parameter is a dial held at a position. "The underwater mix" is
 the first and "this much rain" is the second, and neither replaces the other.
+
+## The microphone
+
+```csharp
+using var microphone = backend.OpenCaptureDevice(new AudioCaptureOptions());
+microphone.Start();
+
+var frames = microphone.Read(buffer, 480);          // encode and send these
+engine.Play(new CaptureSampleProvider(microphone)); // or hear yourself
+```
+
+The input half, which until recently did not exist at all: `IAudioBackend` had `OpenDevice` and
+nothing else, so `LiveSampleProvider` was the push side of a mixer with nothing able to produce the
+frames it wanted.
+
+**Pull, like the output side, and for the opposite reason.** An output device pulls because the
+hardware asks; a capture device is pulled because the thing that wants the audio — an encoder, a
+recorder — is on the game thread and knows when it can take some. Between them sits a ring the
+platform fills, so a game thread that runs long loses nothing.
+
+**`Start` may return before anything is running, and cannot do otherwise.** A browser asks the user
+for permission and will not answer synchronously, so `IsRunning` is the thing to watch. It also has
+to be started from a user gesture — the button that turns voice chat on is the mechanism, not a
+nicety of the interface.
+
+**Mono at 48 kHz.** A microphone is one point in space, so a second channel is a duplicate; every
+voice codec worth using takes mono; and matching the output rate means nothing resamples on the way
+to the mixer.
+
+**OpenAL capture is a poll**, so there is a thread — `ALC_EXT_CAPTURE` has no callback, and the only
+way to know how much has arrived is to ask. Sixteen-bit, converted on the way in, because float
+capture is an extension far less widely present than on the playback side and a microphone is a
+16-bit converter in every consumer machine anyway.
+
+**The browser buffers in JavaScript**, because a `ScriptProcessorNode` callback cannot reach into a
+single-threaded WebAssembly runtime to append to a .NET ring — the same constraint that makes the
+output side a scheduled queue rather than a worklet.
+
+**`NullAudioCaptureDevice` takes a `Push`**, which is what makes it a test double rather than a stub:
+every claim about the capture path is a claim about buffering and hand-off, and none of it needs a
+driver to be true.
+
+## Scatterers
+
+```csharp
+var birds = new AudioScatterer(engine, birdCalls, new AudioScattererSettings {
+    MinimumInterval = 2f, MaximumInterval = 8f,
+    MinimumDistance = 8f, MaximumDistance = 40f
+});
+
+birds.Start();
+birds.Update(deltaSeconds);   // once a frame
+```
+
+A looping bed says "forest"; a bird call at an irregular interval from an irregular direction says
+"you are in a forest". The second is a timer, two random numbers and a `Play`, and it is worth more
+than almost anything else of its size.
+
+**It calls an event rather than being part of one.** Which of the five bird calls, at what pitch, how
+many may overlap and how far each carries are the event's job and already done. What is left is when
+and where.
+
+**A range of intervals, never a rate.** The ear finds a period of a second or two within about four
+repetitions and then cannot stop hearing it.
+
+**A hole in the middle.** The failure mode of every scatterer ever written is a bird landing on the
+listener's head, and the fix is `MinimumDistance` rather than a rule about direction.
+
+**Uniform in the volume, not along the radius.** Drawing the distance evenly puts far too many spawns
+near the middle, because the area at a radius grows with the radius — so it is the cube root of a
+uniform draw. Audibly, the wrong version is "everything is happening right next to me".
+
+**One spawn per call, however long the frame was.** A frame that took a second would otherwise
+release everything that should have happened during it at the same instant, and those spawns were
+meant to be spread over a second the player did not experience.
+
+`FollowListener` is the difference between ambience and a place: on, it cannot be walked away from;
+off, it must be.
 
 ## Virtual voices
 
@@ -535,11 +621,6 @@ converting at load would triple what a 16-bit clip costs for as long as it is re
 multiply on the few hundred frames that are actually playing.
 
 ## Still to come
-
-**Built-in parameters.** Distance, direction, elevation and speed as parameters a curve can be drawn
-against, without gameplay setting them. `Spatializer` already computes all four; what is missing is
-the plumbing that feeds them into a sheet each frame, which is why they are the obvious next thing
-rather than a project.
 
 **A loudness meter.** EBU R128 / LUFS, which is what console certification measures against.
 
