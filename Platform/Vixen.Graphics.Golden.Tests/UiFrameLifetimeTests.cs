@@ -149,6 +149,152 @@ public sealed class UiFrameLifetimeTests {
         }
     }
 
+    /// <summary>A number re-registered against a new texture on every frame, as a resize does.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a dragged splitter does to a viewport.</b> The pane changes size, the render
+    ///         target is recreated to match and the number the draw list carries is pointed at the new
+    ///         one — once a frame, for as long as the drag lasts, with frames still on the device.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two failures, and only one of them is something an observer can see.</b> Repointing
+    ///         one set shared by every frame in flight is
+    ///         <c>VUID-vkUpdateDescriptorSets-None-03047</c>, which the layers report. Handing back a
+    ///         set and taking a fresh one avoids that and leaks instead — the pools are created
+    ///         without <c>FreeDescriptorSetBit</c>, so nothing reclaims it — and about that the layers
+    ///         say nothing and the picture is perfect. Hence the second assertion:
+    ///         <see cref="UiRenderer.ImageSets" /> is the only place the leak is visible at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ReRegisteringAnImageNeitherLeaksNorTouchesAFrameInFlight() {
+        if (!TryOpen(out var fixture, out _)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        var renderer = new UiRenderer(
+            device,
+            new(
+                owned.Shader("ui.vert.spv", ShaderStage.Vertex),
+                owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
+            ) {
+                Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment)
+            },
+            new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
+        );
+
+        owned.Owns(renderer.Dispose);
+
+        var target = owned.Owned("ui resize", TextureUsage.ColourTarget | TextureUsage.CopySource);
+        var sampled = owned.Sampled("ui resize source", 2, [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255]);
+
+        // ⚠ A second view over the same texture, alternated with the first. What a resize changes is
+        // which view the number points at, and registering the *same* view twice would let a renderer
+        // that quietly ignored the second registration pass this.
+        var second = device.CreateTextureView(sampled.Texture);
+        owned.Owns(() => device.Destroy(second));
+
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var uploaded = false;
+
+        VulkanDiagnostics.Reset();
+
+        // Long enough that the ring comes round several times, so most of these registrations happen
+        // with a submitted frame holding the sets they touch.
+        for (var index = 0; index < 8; index++) {
+            Frame(index);
+        }
+
+        device.WaitIdle();
+
+        Assert.True(
+            VulkanDiagnostics.ErrorCount == 0,
+            "the layers reported an error while frames were in flight: "
+            + string.Join(Environment.NewLine, VulkanDiagnostics.Messages)
+        );
+
+        // One ring, allocated by the first registration, and nothing after it. Eight resizes taking
+        // eight rings is the leak; a single set for all of them is the hazard above.
+        Assert.True(
+            renderer.ImageSets == device.FramesInFlight,
+            $"one registration should allocate {device.FramesInFlight} sets and the other seven none, "
+            + $"and {renderer.ImageSets} were allocated in total"
+        );
+
+        // The image was actually drawn, rather than skipped for a number nothing had registered —
+        // which would make the count above true for the wrong reason.
+        Assert.True(renderer.Draws > 0);
+
+        void Frame(int index) {
+            var list = new DrawList();
+            list.BeginFrame();
+
+            list.Add(
+                new DrawCommand(DrawCommandKind.Image, 8, 8, 48, 48, Color4.White, 0, 0) { Image = 7 }
+            );
+
+            list.EndFrame();
+
+            var geometry = new UiGeometryBuilder().Build(list, cache, Viewport);
+
+            device.BeginFrame();
+
+            // Between frames, which is where a host does it: the pane's new size is known after the
+            // layout and before anything is recorded.
+            renderer.RegisterImage(7, index % 2 == 0 ? sampled.View : second);
+
+            var imported = owned.Graph.ImportTexture(
+                target.Texture,
+                target.View,
+                target.Description,
+                ResourceState.Undefined,
+                ResourceState.CopySource
+            );
+
+            using (var commands = device.BeginCommandList(QueueKind.Graphics, "ui")) {
+                renderer.Upload(commands, geometry, cache.Atlas);
+
+                if (!uploaded) {
+                    // Once. The texture is only here to be something a set can point at, and a second
+                    // copy into it would need a barrier out of ShaderRead for no gain.
+                    commands.Barrier(
+                        new([], [new(sampled.Texture, ResourceState.Undefined, ResourceState.CopyDestination)])
+                    );
+
+                    commands.CopyBufferToTexture(sampled.Staging, 0, new(sampled.Texture), new(2, 2, 1));
+
+                    commands.Barrier(
+                        new([], [new(sampled.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+                    );
+
+                    uploaded = true;
+                }
+
+                owned.Graph.AddPass("ui", pass => {
+                    pass.ColourAttachment(imported, LoadAction.Clear, new(0f, 0f, 0f, 1f));
+                    pass.SideEffect();
+
+                    pass.Execute(
+                        context => renderer.Record(context.CommandList, geometry, new(Side, Side))
+                    );
+                });
+
+                owned.Graph.Execute(commands);
+                owned.Graph.Reset();
+
+                commands.Finish();
+                device.GraphicsQueue.Submit([commands]);
+            }
+
+            device.EndFrame();
+        }
+    }
+
     /// <summary>A frame of that many rounded boxes, tiled across the surface.</summary>
     static UiGeometry Boxes(int count, GlyphFieldCache cache) {
         var list = new DrawList();

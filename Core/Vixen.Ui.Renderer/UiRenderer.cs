@@ -109,23 +109,34 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     readonly bool[] staleBoxes;
 
-    // ⚠ One set per registered texture, not one per draw. A descriptor set is allocated from a pool
+    /// <summary>A registered texture: one set per frame in flight, and which of them are stale.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A ring and not one set, for the same reason <see cref="staleBoxes" /> is a flag per
+    ///     frame.</b> Re-registering a number — which is what a viewport does every time it is resized
+    ///     — points the set at a new view, and one set shared by every frame in flight is one there is
+    ///     no safe moment to write: <c>VUID-vkUpdateDescriptorSets-None-03047</c>. A set per frame has
+    ///     one, and it is the moment <see cref="slot" /> comes round to it.
+    /// </remarks>
+    /// <param name="Sets">One per <see cref="slots" />, allocated once and never reallocated.</param>
+    /// <param name="View">What the sets are to point at, which the stale ones do not yet.</param>
+    /// <param name="Stale">Which frames' sets still point at the view this replaced.</param>
+    sealed record ImageEntry(DescriptorSetHandle[] Sets, TextureViewHandle View, bool[] Stale);
+
+    // ⚠ Allocated per registered texture, not per draw. A descriptor set is allocated from a pool
     // and updated on the device; doing either inside the record loop would put an allocation and a
     // driver call on every frame that shows an image. Registration is the host saying "this texture
     // will be drawn", which is a thing that happens when a viewport is resized, not per frame.
-    readonly Dictionary<ulong, (DescriptorSetHandle Set, TextureViewHandle View)> imageDescriptors = [];
+    readonly Dictionary<ulong, ImageEntry> imageDescriptors = [];
 
     readonly PipelineHandle imagePipeline;
 
     /// <summary>What an image set's storage binding points at, and it is never the box buffer.</summary>
     /// <remarks>
-    ///     ⚠ <b>A buffer of its own precisely so that it never has to be rewritten.</b> An image set
-    ///     is one per texture and not one per frame — the same set is bound by every frame in flight —
-    ///     so there is no moment at which it is safe to update, and pointing its storage binding at
-    ///     the box buffer would demand exactly that every time the box buffer grew. The image shader
-    ///     never reads the binding; the layout only declares it, so what it points at has to exist and
-    ///     nothing more. One allocation that outlives every frame satisfies that and closes the
-    ///     question.
+    ///     ⚠ <b>A buffer of its own precisely so that it never has to be rewritten.</b> The image
+    ///     shader never reads the binding; the layout only declares it, so what it points at has to
+    ///     exist and nothing more. Pointing it at the box buffer would mean rewriting every image set
+    ///     each time that buffer grew, for a binding nothing reads — one allocation that outlives
+    ///     every frame buys the question away.
     /// </remarks>
     BufferHandle imageBoxes;
 
@@ -219,6 +230,16 @@ public sealed class UiRenderer : IDisposable {
     ///     costs that cannot be measured is one nobody can check.
     /// </remarks>
     public int Draws { get; private set; }
+
+    /// <summary>How many descriptor sets registering images has ever allocated.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The only observer a leak here has.</b> A backend allocates these from pools created
+    ///     without <c>FreeDescriptorSetBit</c>, so a set handed back is memory nothing reclaims until
+    ///     the device goes away — and neither the picture nor the validation layers say a word about
+    ///     it. The claim worth checking is that re-registering a number allocates nothing, because a
+    ///     viewport does exactly that once a frame for as long as a splitter is being dragged.
+    /// </remarks>
+    public int ImageSets { get; private set; }
 
     /// <summary>How many times the atlas has been copied to the GPU.</summary>
     /// <remarks>
@@ -352,7 +373,7 @@ public sealed class UiRenderer : IDisposable {
             // atlas for everything except an image, so a frame with no images binds exactly once —
             // the comparison is what keeps the old behaviour rather than a flag that used to.
             var registered = draw.Kind == BatchKind.Image
-                ? imageDescriptors.TryGetValue(draw.Image, out var found) ? found.Set : default
+                ? imageDescriptors.TryGetValue(draw.Image, out var found) ? found.Sets[slot] : default
                 : atlasDescriptors[slot];
 
             if (!registered.IsValid) {
@@ -404,18 +425,15 @@ public sealed class UiRenderer : IDisposable {
     ///     </para>
     ///     <para>
     ///         Registering a number twice replaces what it points at, which is what a viewport that
-    ///         was resized wants: the number stays the same and the texture behind it does not.
+    ///         was resized wants: the number stays the same and the texture behind it does not. ⚠ It
+    ///         allocates nothing the second time — a viewport resized by a dragged splitter registers
+    ///         once a frame for as long as the drag lasts, and a set per registration is a leak the
+    ///         backend cannot reclaim, because its pools are created without
+    ///         <c>FreeDescriptorSetBit</c> on purpose. The sets are made once and rewritten.
     ///     </para>
     /// </remarks>
     public void RegisterImage(ulong image, TextureViewHandle view) {
         ArgumentOutOfRangeException.ThrowIfZero(image);
-
-        if (!imageDescriptors.TryGetValue(image, out var entry)) {
-            entry = (device.CreateDescriptorSet(atlasLayout, "ui image"), view);
-        }
-
-        imageDescriptors[image] = (entry.Set, view);
-        var set = entry.Set;
 
         if (!imageBoxes.IsValid) {
             // One shape's worth, because the size is what a storage binding needs and nothing reads
@@ -425,10 +443,64 @@ public sealed class UiRenderer : IDisposable {
             );
         }
 
-        // ⚠ Binding 2 is written even though the image shader never reads it. The layout is shared
-        // with the box pipeline — see the pipeline layout's own remarks for why all of them are one —
-        // and a set that leaves a declared binding unwritten is a validation error on the frame it is
-        // bound, not on the frame it was made.
+        if (imageDescriptors.TryGetValue(image, out var existing)) {
+            // ⚠ Marked and not one of them written, this one included. A host registers between
+            // frames, which is *before* `UploadGeometry` advances `slot` — so at this moment `slot`
+            // still names the frame that has just been submitted, and writing its set is the very
+            // hazard the ring exists to avoid. Every write happens after the advance, in
+            // `UploadGeometry`, which still runs before this frame records anything.
+            imageDescriptors[image] = existing with { View = view };
+            Array.Fill(existing.Stale, true);
+            return;
+        }
+
+        var sets = new DescriptorSetHandle[slots];
+
+        for (var index = 0; index < slots; index++) {
+            sets[index] = device.CreateDescriptorSet(
+                atlasLayout,
+                "ui image " + index.ToString(CultureInfo.InvariantCulture)
+            );
+
+            ImageSets++;
+        }
+
+        var entry = new ImageEntry(sets, view, new bool[slots]);
+        imageDescriptors[image] = entry;
+
+        // ⚠ All of them written here, which is the one place it is safe: they were allocated a line
+        // ago, so no submitted frame can be reading one. Once they are in the ring the rule is the
+        // opposite — the same distinction `CreateAtlas` draws.
+        for (var index = 0; index < slots; index++) {
+            Write(sets[index], view);
+        }
+    }
+
+    /// <summary>Points one frame's set at the texture the number now names.</summary>
+    /// <param name="entry">The registration.</param>
+    /// <param name="index">The frame, which must be the one about to draw.</param>
+    /// <remarks>
+    ///     ⚠ <b>The caller has to be the frame that owns the set</b>, for the reason
+    ///     <see cref="RebindBoxes" /> spells out: this is a device-side write to a set nothing may be
+    ///     reading, and <see cref="slot" /> having come round is the only thing that establishes it.
+    /// </remarks>
+    void RebindImage(ImageEntry entry, int index) {
+        if (!entry.Stale[index]) {
+            return;
+        }
+
+        Write(entry.Sets[index], entry.View);
+        entry.Stale[index] = false;
+    }
+
+    /// <summary>Writes the three bindings an image set declares.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Binding 2 is written even though the image shader never reads it.</b> The layout is
+    ///     shared with the box pipeline — see the pipeline layout's own remarks for why all of them
+    ///     are one — and a set that leaves a declared binding unwritten is a validation error on the
+    ///     frame it is bound, not on the frame it was made.
+    /// </remarks>
+    void Write(DescriptorSetHandle set, TextureViewHandle view) =>
         device.UpdateDescriptorSet(
             set,
             [
@@ -437,7 +509,6 @@ public sealed class UiRenderer : IDisposable {
                 DescriptorWrite.Storage(2, imageBoxes, 0, 80)
             ]
         );
-    }
 
     /// <summary>Forgets a texture.</summary>
     /// <param name="image">The number it was registered under.</param>
@@ -452,14 +523,17 @@ public sealed class UiRenderer : IDisposable {
             return false;
         }
 
-        device.Destroy(entry.Set);
+        foreach (var set in entry.Sets) {
+            device.Destroy(set);
+        }
+
         return true;
     }
 
     /// <inheritdoc />
     public void Dispose() {
-        foreach (var entry in imageDescriptors.Values) {
-            device.Destroy(entry.Set);
+        foreach (var set in imageDescriptors.Values.SelectMany(entry => entry.Sets)) {
+            device.Destroy(set);
         }
 
         imageDescriptors.Clear();
@@ -564,6 +638,12 @@ public sealed class UiRenderer : IDisposable {
         // are left stale. Before anything binds it and after the region it points into is settled, so
         // a frame never binds a set pointing at a destroyed buffer.
         RebindBoxes(slot);
+
+        // The same, for every number a host has re-registered since this frame last came round. A
+        // resized viewport marks all of them and this is where the marking is paid off.
+        foreach (var entry in imageDescriptors.Values) {
+            RebindImage(entry, slot);
+        }
 
         if (geometry.Shapes.Count > 0) {
             var shapeBytes = new UiShape[geometry.Shapes.Count];

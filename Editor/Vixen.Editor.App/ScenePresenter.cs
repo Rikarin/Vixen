@@ -103,10 +103,13 @@ sealed class ScenePresenter : IDisposable {
             return true;
         }
 
-        // ⚠ Unregistered before it is destroyed, and in that order. The reverse leaves a descriptor
-        // set holding a view that no longer exists, which is undefined behaviour on the next frame
-        // rather than an error on this one.
-        renderer.UnregisterImage(Image);
+        // ⚠ Released and re-registered, not unregistered and registered afresh. Unregistering
+        // destroys the number's descriptor sets, and this runs once a frame for as long as a splitter
+        // is being dragged — a set per resize is a leak the backend cannot reclaim, because its pools
+        // are deliberately created without `FreeDescriptorSetBit`. Re-registration keeps the sets and
+        // repoints them, and it is safe across the destroy below because both are deferred to the
+        // frame that owns them: the view outlives every frame in flight, and each frame's set is
+        // rewritten before that frame binds it.
         Release();
 
         size = wanted;

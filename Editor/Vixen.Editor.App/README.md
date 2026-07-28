@@ -80,7 +80,7 @@ looking at a real model:
 |---|---|
 | Hierarchy | a `TreeView` over the scene's entities; selecting drives the shared selection, and renaming a row is an undo entry |
 | Inspector | an `InspectorView` over the selection, recording every edit on the scene document's stack |
-| Scene | a `SceneViewport`: orbit, pan, zoom, the axis cross, gizmo modes and snapping — with nothing rendered in it yet, for the reason below |
+| Scene | a `SceneViewport`: orbit, pan, zoom, the axis cross, gizmo modes and snapping, drawn into the panel — as lines, for the reason below |
 | Project | still `TreeView` over three made-up folders; listing the asset database is the project browser's own job |
 | Console | still a line of text |
 
@@ -97,6 +97,13 @@ interface as an ordinary element that panels can be drawn over.
 gizmo. There is no material system wired to an editor viewport and no model importer feeding one, so
 there is nothing to draw as a mesh yet — and a grid, markers and a gizmo is what any editor shows for
 a scene of empties regardless. A mesh pass is a second `SceneRenderer` into the same target.
+
+⚠ **Resizing re-registers the number rather than surrendering it.** A dragged splitter resizes the
+pane once a frame, and `UnregisterImage` destroys the number's descriptor sets — which the Vulkan
+backend cannot reclaim, because its pools are deliberately created without `FreeDescriptorSetBit`. So
+a set per resize is a leak that neither the picture nor the validation layers ever mention.
+`UiRenderer` holds one set per frame in flight per registered number and repoints each when that
+frame comes round; `UiRenderer.ImageSets` is what makes the claim checkable.
 
 ⚠ **The interface's pass declares that it reads the scene's target**, and has to. The interface
 samples it through a descriptor set, which the render graph cannot see — it orders passes and places
