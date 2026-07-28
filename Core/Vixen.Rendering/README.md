@@ -1304,10 +1304,12 @@ tests read `Culling.rvn` and `HiZReduce.rvn` themselves — the same defence the
 and pointed at the two lines (the rounding slack, and the min-versus-max of the depth comparison)
 whose reversal is invisible everywhere else.
 
-**And one test asks a device**, in `Vixen.Graphics.Golden.Tests/ViewCullingDeviceTests`: the shader is
-compiled through the compiler the content build uses, the group culls five hundred randomised objects
-across two views on real hardware, and the bitset that comes back is compared against the CPU path
-object by object. It is worth more than its size, because it is the only test that can see three
+**And the device is asked about all three passes**, in
+`Vixen.Graphics.Golden.Tests/ViewCullingDeviceTests`: the shaders are compiled through the compiler
+the content build uses, and then the frustum cull is compared against the CPU path over five hundred
+randomised objects and two views, the pyramid is built from a texture the test filled and compared
+against a reduction written out again here, and the argument pass is run over the culler's own bits
+and read back record by record. It is worth more than its size, because it is the only test that can see three
 things a mirror structurally cannot — that `CullObject` really is thirty-two bytes and `CullView` two
 hundred and eight *on the other side of the binding*, that the descriptor plan is the shader's own
 rather than the one the host imagined, and that two 32-bit words reassemble into ours the way round we

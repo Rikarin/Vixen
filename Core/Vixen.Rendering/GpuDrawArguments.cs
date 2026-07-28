@@ -278,8 +278,16 @@ public sealed class GpuDrawArguments : IDisposable {
 
         capacity = Math.Max(bytes, capacity * 2);
 
+        // Copyable as well as drawable, for the same reason the visibility bits are: what the GPU
+        // decided is otherwise unobservable, and a decision nothing can read is a decision nothing
+        // can test.
         commands = device.CreateBuffer(
-            new(capacity, BufferUsage.Storage | BufferUsage.Indirect, MemoryAccess.DeviceLocal, "DrawArguments")
+            new(
+                capacity,
+                BufferUsage.Storage | BufferUsage.Indirect | BufferUsage.CopySource,
+                MemoryAccess.DeviceLocal,
+                "DrawArguments"
+            )
         );
 
         state = ResourceState.Undefined;

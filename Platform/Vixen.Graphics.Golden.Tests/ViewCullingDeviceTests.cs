@@ -178,6 +178,317 @@ public class ViewCullingDeviceTests {
     }
 
     /// <summary>
+    ///     Occlusion agrees with a pyramid reduced twice: once on the device, once here.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The half of the culler no unit test can reach. The pyramid is built by a compute
+    ///         dispatch from a texture this test filled, the cull samples it through a chain of mip
+    ///         views, and the answer comes back through the bitset — so a level sized wrongly, a view
+    ///         bound at the wrong mip, or a reduction that took the nearest depth instead of the
+    ///         furthest all land here and nowhere else.
+    ///     </para>
+    ///     <para>
+    ///         The oracle reduces the same texels on the CPU, by the rule the shader is supposed to
+    ///         follow rather than by asking it — a floored chain, a 3×3 clamped block, the minimum
+    ///         because depth is reversed. A reduction that takes the maximum agrees with this
+    ///         everywhere the input is flat, which is why the input is not: half the screen is a wall
+    ///         at the near plane and half is empty, so the tiles that straddle the join are the ones
+    ///         that tell the two apart.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void OcclusionAgreesWithAPyramidReducedOnTheCpu() {
+        if (!Fixture.TryOpen(out var fixture, out var reason)) {
+            Skip(reason);
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        const int Side = 64;
+
+        // Half a screen of wall pressed against the near plane, half of nothing. Under reverse-Z a
+        // surface at the near plane is 1 and an empty pixel is 0.
+        var texels = new float[Side * Side];
+
+        for (var y = 0; y < Side; y++) {
+            for (var x = 0; x < Side; x++) {
+                texels[(y * Side) + x] = x < Side / 2 ? 1f : 0f;
+            }
+        }
+
+        var depth = owned.Owned("depth", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.R32Float, Side, Side);
+        var staging = device.CreateBuffer(new(texels.Length * sizeof(float), BufferUsage.CopySource, MemoryAccess.HostUpload, "depth staging"));
+
+        owned.Owns(() => device.Destroy(staging));
+        device.Write(staging, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(texels.AsSpan()));
+
+        var effects = new EffectSystem();
+        effects.AddProvider(new Compiler(owned.Device));
+
+        var pipelines = new ComputePipelineCache(device);
+
+        using var store = new RenderObjectStore();
+        using var frustum = new VisibilityGroup();
+        using var pyramid = new HiZPyramid(device) { Effects = effects, Pipelines = pipelines };
+        using var actual = new GpuVisibilityGroup(device) { Effects = effects, Pipelines = pipelines, Occluders = pyramid };
+
+        // Spread across the frustum and across the join, at depths either side of anything the wall
+        // could hide, so both answers occur and the straddling cases are in there.
+        for (var i = 0; i < 60; i++) {
+            var angle = i * 0.37f;
+
+            store.Add(
+                new() {
+                    Bounds = new(new(MathF.Sin(angle) * 12f, MathF.Cos(angle) * 8f, 12f + (i % 6 * 9f)), 1.5f + (i % 4)),
+                    Stages = RenderStageMask.Of(0),
+                    IsAlive = true
+                }
+            );
+        }
+
+        RenderView[] views = [Camera("camera", RenderStageMask.Of(0))];
+
+        VulkanDiagnostics.Reset();
+        device.BeginFrame();
+
+        using (var list = device.BeginCommandList(QueueKind.Graphics, "pyramid")) {
+            list.Barrier(new([], [new(depth.Texture, ResourceState.Undefined, ResourceState.CopyDestination)]));
+            list.CopyBufferToTexture(staging, 0, new(depth.Texture), new(Side, Side, 1));
+            list.Barrier(new([], [new(depth.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)]));
+
+            Assert.True(pyramid.Build(list, depth.View, new(Side, Side)), "the pyramid did not build");
+
+            list.Finish();
+            device.GraphicsQueue.Submit([list]);
+        }
+
+        device.WaitIdle();
+
+        // The first cull has no matrix from the frame the pyramid was built in; the second does.
+        actual.Cull(store, views);
+        actual.Cull(store, views);
+        frustum.Cull(store, views);
+
+        device.EndFrame();
+        device.WaitIdle();
+        pipelines.Clear();
+
+        Assert.True(actual.CulledOnDevice, "the dispatch did not run");
+        Assert.True(actual.OcclusionTested, "the cull did not test against the pyramid");
+
+        if (VulkanDiagnostics.ErrorCount > 0) {
+            throw new InvalidOperationException(
+                "The dispatch produced validation errors, so its output means nothing: "
+                + string.Join(Environment.NewLine, VulkanDiagnostics.Messages)
+            );
+        }
+
+        var levels = Reduce(texels, new(Side, Side), pyramid.Levels);
+        var packed = GpuCulling.Pack(views[0], store.Count, GpuCulling.WordsFor(store.Count), views[0].ViewProjection, pyramid.Levels);
+        var mismatches = new List<string>();
+        var occluded = 0;
+
+        for (var i = 0; i < store.Count; i++) {
+            var id = new RenderObjectId(i);
+
+            var hidden = GpuCulling.IsOccluded(
+                GpuCulling.Pack(store[id]),
+                packed,
+                pyramid.Size,
+                (x, y, level) => levels[level][(y * GpuCulling.LevelSize(pyramid.Size, level).X) + x]
+            );
+
+            occluded += hidden ? 1 : 0;
+            var expected = frustum.IsVisible(0, id) && !hidden;
+
+            if (expected != actual.IsVisible(0, id)) {
+                mismatches.Add($"#{i}: expected {expected}, got {actual.IsVisible(0, id)} (frustum {frustum.IsVisible(0, id)}, occluded {hidden})");
+            }
+        }
+
+        Assert.Equal([], mismatches.Take(8).ToArray());
+
+        // And the wall hid something, or this agreed about a test that never ran.
+        Assert.True(occluded > 0, "nothing was occluded, so the pyramid decided nothing");
+        Assert.True(occluded < frustum.VisibleCount(0), "everything was occluded");
+    }
+
+    /// <summary>
+    ///     The depth pyramid, reduced the way <c>HiZReduce.rvn</c> is supposed to reduce it.
+    /// </summary>
+    /// <remarks>
+    ///     Level 0 is half the source, floored, and every level after it halves again; each texel is
+    ///     the minimum of a 3×3 block clamped to its parent, which is what makes an odd level's
+    ///     trailing row belong to somebody. Written out again rather than shared with anything: an
+    ///     oracle that called the host's own helper would agree with itself.
+    /// </remarks>
+    static float[][] Reduce(float[] source, Int2 size, int levels) {
+        var chain = new float[levels][];
+        var parent = source;
+        var parentSize = size;
+
+        for (var level = 0; level < levels; level++) {
+            var current = GpuCulling.LevelSize(new(Math.Max(1, size.X / 2), Math.Max(1, size.Y / 2)), level);
+            var texels = new float[current.X * current.Y];
+
+            for (var y = 0; y < current.Y; y++) {
+                for (var x = 0; x < current.X; x++) {
+                    var furthest = 1f;
+
+                    for (var dy = 0; dy < 3; dy++) {
+                        for (var dx = 0; dx < 3; dx++) {
+                            var sx = Math.Min((x * 2) + dx, parentSize.X - 1);
+                            var sy = Math.Min((y * 2) + dy, parentSize.Y - 1);
+
+                            furthest = MathF.Min(furthest, parent[(sy * parentSize.X) + sx]);
+                        }
+                    }
+
+                    texels[(y * current.X) + x] = furthest;
+                }
+            }
+
+            chain[level] = texels;
+            parent = texels;
+            parentSize = current;
+        }
+
+        return chain;
+    }
+
+    /// <summary>
+    ///     The argument pass keeps a visible object's draw and zeroes a culled one's.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The last third of the path, and the one whose output nothing on the host reads in a
+    ///         frame: the arguments go straight from a dispatch into a draw call's mouth. So this
+    ///         copies them back and looks. What it checks is that the pass edits exactly one field of
+    ///         exactly the records culling rejected — a shader that zeroed the wrong field would draw
+    ///         a mesh's indices as instances, and one that read the wrong bit would draw the wrong
+    ///         half of the scene.
+    ///     </para>
+    ///     <para>
+    ///         Over the culler's own bits rather than a pattern written by hand, because that is the
+    ///         pair a frame actually runs and because the two passes agreeing is the claim: one
+    ///         writes 32 objects to a word and the other reads one bit of it, and nothing else says
+    ///         they agree about which bit.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheArgumentPassZeroesWhatCullingRejected() {
+        if (!Fixture.TryOpen(out var fixture, out var reason)) {
+            Skip(reason);
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        var effects = new EffectSystem();
+        effects.AddProvider(new Compiler(device));
+
+        var pipelines = new ComputePipelineCache(device);
+
+        using var store = new RenderObjectStore();
+        using var visibility = new GpuVisibilityGroup(device) { Effects = effects, Pipelines = pipelines };
+        using var arguments = new GpuDrawArguments(device) { Effects = effects, Pipelines = pipelines };
+
+        // Half in front of the camera and half behind it, alternating, so the bits cross the 32-object
+        // word boundary in both directions.
+        for (var i = 0; i < 40; i++) {
+            store.Add(
+                new() {
+                    Bounds = new(new(0f, 0f, i % 2 == 0 ? 12f : -12f), 1f),
+                    Stages = RenderStageMask.Of(0),
+                    IsAlive = true
+                }
+            );
+        }
+
+        RenderView[] views = [Camera("camera", RenderStageMask.Of(0))];
+
+        VulkanDiagnostics.Reset();
+        device.BeginFrame();
+
+        visibility.Cull(store, views);
+
+        var templates = arguments.Fill(store.Count);
+
+        for (var i = 0; i < store.Count; i++) {
+            templates[i] = new() {
+                IndexCount = (uint)(3 * (i + 1)),
+                InstanceCount = (uint)(1 + (i % 3)),
+                FirstIndex = (uint)i,
+                VertexOffset = (uint)(2 * i),
+                FirstInstance = (uint)(7 * i)
+            };
+        }
+
+        var size = (long)store.Count * GpuDrawArguments.Stride;
+        var readback = device.CreateBuffer(new(size, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "arguments readback"));
+
+        owned.Owns(() => device.Destroy(readback));
+
+        using (var list = device.BeginCommandList(QueueKind.Compute, "arguments")) {
+            Assert.True(arguments.Update(list, visibility.Bits, views.Length, store.Count), "the argument pass did not run");
+
+            // From ShaderWrite rather than from the IndirectArgument the pass left it in, and the
+            // difference is not pedantry: a barrier names the access whose writes it publishes, and
+            // chaining one that only makes the dispatch visible to an *indirect read* leaves a copy
+            // reading whatever the buffer held before. That is a test that reports an empty argument
+            // buffer and a pass that was working the whole time.
+            list.Barrier(new([new(arguments.Commands, ResourceState.ShaderWrite, ResourceState.CopySource)], []));
+            list.CopyBuffer(arguments.Commands, 0, readback, 0, size);
+            list.Finish();
+
+            device.ComputeQueue.Submit([list]);
+        }
+
+        device.EndFrame();
+        device.WaitIdle();
+        pipelines.Clear();
+
+        if (VulkanDiagnostics.ErrorCount > 0) {
+            throw new InvalidOperationException(
+                "The dispatch produced validation errors, so its output means nothing: "
+                + string.Join(Environment.NewLine, VulkanDiagnostics.Messages)
+            );
+        }
+
+        var bytes = new byte[size];
+        device.Read(readback, 0, bytes);
+
+        var written = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, DrawCommand>(bytes);
+        var mismatches = new List<string>();
+        var drawn = 0;
+
+        for (var i = 0; i < store.Count; i++) {
+            var visible = visibility.IsVisible(0, new(i));
+            var expected = templates[i];
+
+            if (!visible) {
+                expected.InstanceCount = 0;
+            }
+
+            drawn += visible ? 1 : 0;
+
+            if (!expected.Equals(written[i])) {
+                mismatches.Add($"#{i}: expected {Show(expected)}, got {Show(written[i])}");
+            }
+        }
+
+        Assert.Equal([], mismatches.Take(8).ToArray());
+        Assert.Equal(20, drawn);
+    }
+
+    static string Show(in DrawCommand command) =>
+        $"({command.IndexCount}, {command.InstanceCount}, {command.FirstIndex}, {command.VertexOffset}, {command.FirstInstance})";
+
+    /// <summary>
     ///     Each of the three culling shaders compiles to a module a device will take.
     /// </summary>
     /// <remarks>
@@ -269,6 +580,42 @@ public class ViewCullingDeviceTests {
     /// <summary>The one variant there is, which is what a baked bundle looks like from here.</summary>
     sealed class Baked(Effect effect) : IEffectProvider {
         public Effect? TryGet(EffectKey key) => effect;
+    }
+
+    /// <summary>
+    ///     Compiles whatever is asked for, which is what a run with a shader-compiler service looks
+    ///     like from here.
+    /// </summary>
+    /// <remarks>
+    ///     The occlusion fixture needs three shaders and two variants of one of them, so a provider
+    ///     holding a single baked effect will not do — and compiling per key is also what proves the
+    ///     group asks for the key it means to.
+    /// </remarks>
+    sealed class Compiler(VulkanDevice device) : IEffectProvider {
+        readonly Dictionary<EffectKey, Effect> compiled = [];
+
+        public Effect? TryGet(EffectKey key) {
+            if (compiled.TryGetValue(key, out var existing)) {
+                return existing;
+            }
+
+            var library = Library();
+
+            string[] sources = [
+                .. Directory.GetFiles(Path.Combine(library, "Core"), "*.rvn"),
+                .. Directory.GetFiles(Path.Combine(library, "Geometry"), "*.rvn"),
+                Path.Combine(library, "Pipeline", $"{key.ShaderName}.rvn")
+            ];
+
+            var data = new RavenEffectCompiler(sources).TryGet(key);
+
+            if (data is null) {
+                return null;
+            }
+
+            compiled[key] = new EffectLoader(device).Load(data);
+            return compiled[key];
+        }
     }
 
     /// <summary>The shader library, found by walking up rather than by counting directories.</summary>
