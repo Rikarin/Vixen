@@ -1350,8 +1350,27 @@ sub-piece has its own gate.
   so a thresholded reconstruction moves 0.02 of a texel. What it should buy is a truer gradient for
   the shader's antialiasing, which nothing here reads yet.
 
-- Owed: the atlas — dynamic packing with LRU eviction, keyed by font, glyph and field size — then the
-  UI render feature that draws from it. Also font fallback, rich-text runs, variable-font axes,
+- ✅ **The atlas**, and with it **the whole of 4c's rasterisation line: outline → coverage → field →
+  texture.** `GlyphAtlas` shelf-packs the fields and evicts least-recently-used, keyed by font and
+  glyph and *not* by point size — a field is read at any scale, so a size in the key would miss on
+  every frame of a growing label.
+
+  ⚠ **Evict first, compact only when the space is there and the shape is wrong.** Compaction changes
+  every region and so moves the version, which throws away every texture coordinate in flight;
+  compacting whenever a full atlas is added to would do that every frame of a steady-state interface.
+  Entries go one at a time until either one fits or enough area has been freed that fragmentation
+  must be the reason it does not.
+
+  Verified by sabotage: a hit that does not refresh its entry fails 2, evicting the newest fails 2,
+  never reusing a freed slot fails 1, dropping the padding fails 1, a compaction that does not move
+  the version fails 1, and a hit that marks the texture dirty fails 1. ⚠ Writing a glyph at the wrong
+  row failed to fail until a test placed something below the first shelf — everything else lands on
+  row zero, where dropping the region's y is invisible. And **compaction's warmest-first order is
+  insurance**: a sabotage reversing it fails nothing, because compaction only runs on a set that
+  already fitted, and several attempts to build one that repacks worse than it packed all fitted.
+
+- Owed: the UI render feature that draws from the atlas. Also font fallback, rich-text runs,
+  variable-font axes,
   `TextEditor` model with IME and caret affinity.
 - Gate: ✅ UAX conformance data green. ✅ shaping conformance green against an external oracle,
   with the quarantine pinned in both directions.

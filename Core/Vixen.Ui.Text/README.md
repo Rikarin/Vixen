@@ -273,6 +273,42 @@ were built to reach it, and the answers differ in magnitude but never in sign, s
 reconstruction moves by 0.02 of a texel. What it should buy is a truer gradient for the shader's own
 antialiasing, and nothing here looks at a gradient yet.
 
+## The atlas
+
+`GlyphAtlas` holds the fields in one texture, packed as they are asked for and evicted
+least-recently-used when it fills. Dynamic rather than built ahead: CJK alone is tens of thousands
+of glyphs, and the set an interface actually uses is a few hundred.
+
+⚠ **The key carries no point size.** A distance field is read at any scale — the whole reason for
+one — so a key with the size in it would miss on every frame of a growing label and fill the atlas
+with the same glyph. Same property that keeps the shaping cache size-independent.
+
+**Shelf packing**, which wastes the difference between a row's height and each glyph's. A skyline
+packer wastes less and has to move entries to stay that way, and moving one invalidates a texture
+coordinate somebody is holding.
+
+⚠ **Eviction leaves a hole of one exact size**, so freed slots are kept per shelf and matched by
+width. What that cannot answer is a glyph wider than every hole while the atlas is nominally full,
+which is what `Compact` is for — it changes every region, so `Version` moves and a caller re-reads.
+
+⚠ **Evict first, compact only when the space is there and the shape is wrong.** Compacting first
+would be tidier and would bump the version on every addition to a full atlas, throwing away every
+texture coordinate in flight — for a steady-state interface that is every frame. So entries go one
+at a time until either one fits or enough area has been freed that fragmentation must be the reason
+it does not.
+
+Verified by sabotage: a hit that does not refresh its entry fails 2, evicting the newest instead of
+the coldest fails 2, never reusing a freed slot fails 1, dropping the padding fails 1, a compaction
+that does not move the version fails 1, a hit that marks the texture dirty fails 1, and writing a
+glyph at the wrong row fails 1 — that last only after a test placed something below the first shelf,
+since everything else lands on row zero where the bug is invisible.
+
+⚠ **One claim is insurance and is labelled as such.** Compaction replaces entries warmest first so
+that anything dropped would be the coldest, and a sabotage reversing that fails nothing: compaction
+only ever runs on a set that already fitted, so it is not clear it can lose one. Shelf packing is
+not monotone in the insertion order, which is why the guard is there — but several attempts to build
+a set that repacks worse than it packed all fitted.
+
 ## Why the tables are generated and committed
 
 CI has no copy of the Unicode Character Database, and fetching one at build time would make a build
