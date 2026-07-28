@@ -192,17 +192,33 @@ public class VfxShaderEmitterTests {
                 new(VfxOpcode.SetSize, new Vector4(0.1f, 0.5f, 0f, 0f)),
                 new(VfxOpcode.SetColour, new Vector4(0.2f, 0.4f, 0.8f, 1f)),
                 new(VfxOpcode.SetRotation, new Vector4(0f, 6.28f, 0f, 0f)),
-                new(VfxOpcode.SetAngularVelocity, new Vector4(-2f, 2f, 0f, 0f))
+                new(VfxOpcode.SetAngularVelocity, new Vector4(-2f, 2f, 0f, 0f)),
+                new(VfxOpcode.SetCustom, new Vector4(1.5f, 0f, 0f, 0f)),
+                new(VfxOpcode.RandomCustom, new Vector4(0f, 0f, 0f, 0f)) { B = new(1f, 1f, 1f, 0f), Slot = 1 },
+                new(VfxOpcode.SetCustom, new Vector4(0.1f, 0.2f, 0.3f, 0.4f)) { Slot = 2 }
             ],
             [
                 new(VfxOpcode.Gravity, new Vector4(0f, -9.81f, 0f, 0f)),
                 new(VfxOpcode.Drag, new Vector4(0.75f, 0f, 0f, 0f)),
+                new(VfxOpcode.Attract, new Vector4(0f, 3f, 0f, 8f)) { B = new(5f, 0f, 0f, 0f) },
+                new(VfxOpcode.Attract, new Vector4(2f, 0f, 0f, -4f)),
+                new(VfxOpcode.Vortex, new Vector4(0f, 0f, 0f, 6f)) { B = new(0f, 1f, 0f, 4f) },
+                new(VfxOpcode.Turbulence, new Vector4(0.4f, 0.4f, 0.4f, 3f)) { B = new(0.5f, 3f, 0f, 0f) },
                 new(VfxOpcode.Integrate),
+                new(VfxOpcode.CollidePlane, new Vector4(0f, 1f, 0f, -2f)) { B = new(0.6f, 0.2f, 0f, 0f) },
+                new(VfxOpcode.CollideSphere, new Vector4(0f, 0f, 0f, 1.5f)) { B = new(0.8f, 0.1f, 0f, 0f) },
                 new(VfxOpcode.Rotate),
                 new(VfxOpcode.SizeOverLife, new Vector4(0.5f, 0f, 0f, 0f)),
-                new(VfxOpcode.ColourOverLife, Vector4.One) { B = Vector4.Zero }
+                new(VfxOpcode.ColourOverLife, Vector4.One) { B = Vector4.Zero },
+                new(VfxOpcode.CustomOverLife, new Vector4(1f, 0f, 0f, 0f)) { B = Vector4.Zero },
+                new(VfxOpcode.CustomOverLife, new Vector4(0f, 0f, 0f, 0f)) { B = new(1f, 1f, 1f, 0f), Slot = 1 }
             ],
-            1024
+            1024,
+            customs: [
+                new("mass", VfxAttributeType.Float),
+                new("drift", VfxAttributeType.Float3),
+                new("stain", VfxAttributeType.Float4)
+            ]
         );
 
     /// <summary>
@@ -390,6 +406,98 @@ public class VfxShaderEmitterTests {
         );
 
         Clean(VfxShaderEmitter.Emit(graph, "Tiny").Source);
+    }
+
+    /// <summary>
+    ///     Two fields of one kind in one graph declare two sets of locals, not one twice.
+    /// </summary>
+    /// <remarks>
+    ///     A field needs a distance before it can use one, and a distance needs a name — so the name
+    ///     carries the operation's position. Without it the second attractor redeclares
+    ///     <c>distance</c> in the same scope, which the compiler catches; the reason it is a test is
+    ///     that the first draft numbered them from a counter that was never reset between calls to
+    ///     <c>Emit</c>, and that produces a shader that compiles and belongs to the wrong graph.
+    /// </remarks>
+    [Fact]
+    public void Two_fields_of_a_kind_do_not_collide() {
+        var graph = VfxCompiledGraph.Compile(
+            [VfxSpawner.Burst(4)],
+            [new(VfxOpcode.SetPosition, Vector4.Zero), new(VfxOpcode.SetVelocity, Vector4.Zero)],
+            [
+                new(VfxOpcode.Attract, new Vector4(0f, 0f, 0f, 1f)),
+                new(VfxOpcode.Attract, new Vector4(1f, 0f, 0f, 1f))
+            ],
+            32
+        );
+
+        var shader = VfxShaderEmitter.Emit(graph, "Twin");
+
+        Assert.Contains("distance0", shader.Source, StringComparison.Ordinal);
+        Assert.Contains("distance1", shader.Source, StringComparison.Ordinal);
+
+        Clean(shader.Source);
+
+        // And emitting the same graph again gives the same source. A counter carried between calls
+        // would number the second one's locals from where the first left off.
+        Assert.Equal(shader.Source, VfxShaderEmitter.Emit(graph, "Twin").Source);
+    }
+
+    /// <summary>
+    ///     The noise field's step is the one constant both sides must agree on, so it is emitted from
+    ///     the shared constant rather than written out again.
+    /// </summary>
+    /// <remarks>
+    ///     A curl is a derivative, and two derivatives taken over different steps are two different
+    ///     fields — close enough to look right in a screenshot and far enough apart to fail the
+    ///     agreement test the whole dual target exists for.
+    /// </remarks>
+    [Fact]
+    public void Curl_noise_takes_its_derivative_over_the_shared_step() {
+        var graph = VfxCompiledGraph.Compile(
+            [VfxSpawner.Burst(4)],
+            [new(VfxOpcode.SetPosition, Vector4.Zero), new(VfxOpcode.SetVelocity, Vector4.Zero)],
+            [new(VfxOpcode.Turbulence, new Vector4(1f, 1f, 1f, 2f)) { B = new(1f, 2f, 0f, 0f) }],
+            32
+        );
+
+        var shader = VfxShaderEmitter.Emit(graph, "Swirl");
+        var epsilon = VfxNoise.Epsilon.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+
+        Assert.Contains($"float3({epsilon}f, 0f, 0f)", shader.Source, StringComparison.Ordinal);
+        Assert.Contains($"/ {(2f * VfxNoise.Epsilon).ToString("R", System.Globalization.CultureInfo.InvariantCulture)}f", shader.Source, StringComparison.Ordinal);
+
+        // Two octaves' worth of loop, and the graph's salt rather than a counted one.
+        Assert.Contains($"{graph.Updaters[0].Salt}u, 2)", shader.Source, StringComparison.Ordinal);
+
+        Clean(shader.Source);
+    }
+
+    /// <summary>
+    ///     A graph with turbulence and nothing random still gets the hash, which the noise needs.
+    /// </summary>
+    /// <remarks>
+    ///     The hash used to be emitted from inside the random-draw helpers, so a graph whose only
+    ///     user of it was a noise field emitted a call to a function that was not there. It compiled
+    ///     nowhere, which is the good version of this mistake.
+    /// </remarks>
+    [Fact]
+    public void A_noise_field_gets_the_hash_without_anything_random() {
+        var graph = VfxCompiledGraph.Compile(
+            [VfxSpawner.Burst(4)],
+            [new(VfxOpcode.SetPosition, Vector4.Zero), new(VfxOpcode.SetVelocity, Vector4.Zero)],
+            [new(VfxOpcode.Turbulence, new Vector4(1f, 1f, 1f, 2f)) { B = new(0f, 1f, 0f, 0f) }],
+            32
+        );
+
+        var shader = VfxShaderEmitter.Emit(graph, "Wind");
+
+        Assert.Contains("func Hash(value: uint): uint", shader.Source, StringComparison.Ordinal);
+
+        // And not the per-particle draws, which nothing here uses — nor the identifier they read.
+        Assert.DoesNotContain("func Value(", shader.Source, StringComparison.Ordinal);
+        Assert.DoesNotContain(shader.Bindings, binding => binding.Attribute == VfxAttribute.Identifier);
+
+        Clean(shader.Source);
     }
 
     // --- What it refuses ---------------------------------------------------

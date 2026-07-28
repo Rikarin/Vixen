@@ -42,13 +42,17 @@ public sealed class ParticleBuffer : IDisposable {
     NativeArray<float> angularVelocity;
     NativeArray<uint> identifier;
 
+    readonly NativeArray<float>[] customs;
+    readonly int[] lanes;
+
     bool disposed;
 
     /// <summary>Allocates storage for a declared set of attributes.</summary>
     /// <param name="attributes">Which attributes the graph uses. <see cref="VfxAttribute.Identifier" /> is added.</param>
     /// <param name="capacity">The most particles that can be alive at once.</param>
+    /// <param name="declared">The graph's custom attributes, in slot order.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="capacity" /> is not positive.</exception>
-    public ParticleBuffer(VfxAttribute attributes, int capacity) {
+    public ParticleBuffer(VfxAttribute attributes, int capacity, ReadOnlySpan<VfxCustomAttribute> declared = default) {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
 
         // Always present, whatever the graph said. Every random value a particle is given is a
@@ -90,6 +94,17 @@ public sealed class ParticleBuffer : IDisposable {
         }
 
         identifier = NativeArray<uint>.Zeroed(capacity, name: "Vfx.Identifier");
+
+        // One array per declared slot, each a flat run of lanes. Flat rather than typed because the
+        // type is the graph's to know and the storage's job is to be a place — every sweep that
+        // touches one already knows how many lanes it is reading.
+        customs = new NativeArray<float>[declared.Length];
+        lanes = new int[declared.Length];
+
+        for (var slot = 0; slot < declared.Length; slot++) {
+            lanes[slot] = VfxAttributes.Lanes(declared[slot].Type);
+            customs[slot] = NativeArray<float>.Zeroed(capacity * lanes[slot], name: "Vfx." + declared[slot].Name);
+        }
     }
 
     /// <summary>Which attributes have storage.</summary>
@@ -143,6 +158,24 @@ public sealed class ParticleBuffer : IDisposable {
     /// <summary>Their identifiers.</summary>
     public Span<uint> Identifier => identifier.AsSpan();
 
+    /// <summary>How many custom attributes this buffer has storage for.</summary>
+    public int CustomCount => customs.Length;
+
+    /// <summary>How many floats one particle occupies in a custom slot.</summary>
+    /// <param name="slot">The slot.</param>
+    /// <returns>Its lane count.</returns>
+    public int Lanes(int slot) => lanes[slot];
+
+    /// <summary>One custom attribute's storage, as a flat run of lanes.</summary>
+    /// <param name="slot">The slot, as the graph assigned it.</param>
+    /// <returns>The storage. Particle <c>i</c>'s lane <c>l</c> is at <c>i * Lanes(slot) + l</c>.</returns>
+    /// <remarks>
+    ///     Flat rather than a span of vectors, because the lane count is a property of the graph and
+    ///     not of the type system here. A caller that knows its slot is a <c>Float3</c> can index it
+    ///     three at a time; one that does not can copy it without caring.
+    /// </remarks>
+    public Span<float> Custom(int slot) => customs[slot].AsSpan();
+
     /// <summary>Adds particles, and says where they landed.</summary>
     /// <param name="count">How many to add. More than <see cref="Free" /> adds what fits.</param>
     /// <param name="first">The index of the first one added.</param>
@@ -172,7 +205,7 @@ public sealed class ParticleBuffer : IDisposable {
     /// <param name="index">The particle to remove.</param>
     /// <remarks>
     ///     The caller is sweeping and must not advance past the index it just wrote to: whatever was
-    ///     moved into it has not been looked at yet. <see cref="Reap" /> is the version that gets that
+    ///     moved into it has not been looked at yet. <see cref="Reap()" /> is the version that gets that
     ///     right.
     /// </remarks>
     public void RemoveAt(int index) {
@@ -193,13 +226,30 @@ public sealed class ParticleBuffer : IDisposable {
     ///     survived — which is the whole subtlety of swap-removal and the reason it lives here rather
     ///     than in every caller.
     /// </remarks>
-    public int Reap() {
+    public int Reap() => Reap(default);
+
+    /// <summary>Removes every particle whose age has reached its lifetime, noting where they were.</summary>
+    /// <param name="graveyard">
+    ///     Filled with the position of each particle that died, in the order they were found. Pass an
+    ///     empty span — which is what <see cref="Reap()" /> does — to skip recording. A span shorter
+    ///     than the number that died keeps the first that fit.
+    /// </param>
+    /// <returns>How many died, whether or not they fitted in <paramref name="graveyard" />.</returns>
+    /// <remarks>
+    ///     The positions are recorded rather than the indices, because by the time anyone could look
+    ///     at an index the particle that had it is gone — swap-removal has already put a survivor
+    ///     there. A sub-emitter wants where the particle was, and that is the one thing the index
+    ///     would no longer answer.
+    /// </remarks>
+    public int Reap(Span<Vector3> graveyard) {
         if (!Has(VfxAttribute.Age) || !Has(VfxAttribute.Lifetime)) {
             return 0;
         }
 
         var ages = Age;
         var lifetimes = Lifetime;
+        var positions = Position;
+        var record = !graveyard.IsEmpty && Has(VfxAttribute.Position);
         var died = 0;
 
         for (var index = 0; index < Count;) {
@@ -207,6 +257,10 @@ public sealed class ParticleBuffer : IDisposable {
                 index++;
 
                 continue;
+            }
+
+            if (record && died < graveyard.Length) {
+                graveyard[died] = positions[index];
             }
 
             RemoveAt(index);
@@ -236,6 +290,10 @@ public sealed class ParticleBuffer : IDisposable {
         rotation.Dispose();
         angularVelocity.Dispose();
         identifier.Dispose();
+
+        foreach (var custom in customs) {
+            custom.Dispose();
+        }
     }
 
     void CopyParticle(int from, int to) {
@@ -272,5 +330,17 @@ public sealed class ParticleBuffer : IDisposable {
         }
 
         identifier[to] = identifier[from];
+
+        // A custom attribute travels with its particle for the same reason every built-in does: a
+        // swap-removal that left one behind would give the particle moved into the hole somebody
+        // else's value, and nothing about it would look wrong.
+        for (var slot = 0; slot < customs.Length; slot++) {
+            var values = customs[slot].AsSpan();
+            var width = lanes[slot];
+
+            for (var lane = 0; lane < width; lane++) {
+                values[(to * width) + lane] = values[(from * width) + lane];
+            }
+        }
     }
 }

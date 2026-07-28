@@ -174,6 +174,7 @@
     <Project Path="Platform/Vixen.Graphics.Golden.Tests/Vixen.Graphics.Golden.Tests.csproj" />
     <Project Path="Platform/Vixen.Graphics.Vulkan/Vixen.Graphics.Vulkan.csproj" />
     <Project Path="Platform/Vixen.Graphics.Vulkan.Tests/Vixen.Graphics.Vulkan.Tests.csproj" />
+    <Project Path="Platform/Vixen.Vfx.Gpu.Tests/Vixen.Vfx.Gpu.Tests.csproj" />
     <!--
       Vixen.Audio.Backend.WebAudio is deliberately absent, for the same reason
       Vixen.Platform.Android and Vixen.Platform.iOS are: it targets net10.0-browser,
@@ -191,12 +192,22 @@
     Vixen.Editor.Ui is the shell over Vixen.Ui — docking, commands, palette, theming —
     and deliberately does not reference Core, so the chrome is testable with no project
     on disk. Vixen.Editor.App is the head that joins them to a window and a device.
+    Vixen.Editor.NodeGraph is the framework the shader and VFX graphs are both built on,
+    and references neither of those two: a graph is a document and a compiler, so the
+    whole of it is testable with no shell either.
   -->
   <Folder Name="/Editor/">
     <Project Path="Editor/Vixen.Editor.Core/Vixen.Editor.Core.csproj" />
     <Project Path="Editor/Vixen.Editor.Core.Tests/Vixen.Editor.Core.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Assets/Vixen.Editor.Assets.csproj" />
     <Project Path="Editor/Vixen.Editor.Assets.Tests/Vixen.Editor.Assets.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.NodeGraph/Vixen.Editor.NodeGraph.csproj" />
+    <Project Path="Editor/Vixen.Editor.NodeGraph.Generator/Vixen.Editor.NodeGraph.Generator.csproj" />
+    <Project Path="Editor/Vixen.Editor.NodeGraph.Tests/Vixen.Editor.NodeGraph.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.ShaderGraph/Vixen.Editor.ShaderGraph.csproj" />
+    <Project Path="Editor/Vixen.Editor.ShaderGraph.Tests/Vixen.Editor.ShaderGraph.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.VfxGraph/Vixen.Editor.VfxGraph.csproj" />
+    <Project Path="Editor/Vixen.Editor.VfxGraph.Tests/Vixen.Editor.VfxGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Ui/Vixen.Editor.Ui.csproj" />
     <Project Path="Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.App/Vixen.Editor.App.csproj" />
@@ -238,6 +249,7 @@
     <Project Path="Benchmarks/Vixen.Benchmarks.Animation/Vixen.Benchmarks.Animation.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Ui/Vixen.Benchmarks.Ui.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Navigation/Vixen.Benchmarks.Navigation.csproj" />
+    <Project Path="Benchmarks/Vixen.Benchmarks.Vfx/Vixen.Benchmarks.Vfx.csproj" />
   </Folder>
 
   <!--

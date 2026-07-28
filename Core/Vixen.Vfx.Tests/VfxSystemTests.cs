@@ -304,4 +304,40 @@ public sealed class VfxSystemTests {
 
         void Frame() => system.Step(1f / 60f);
     }
+
+    /// <summary>And a frame with force fields in it, which is the most arithmetic per particle.</summary>
+    /// <remarks>
+    ///     Curl noise samples the field eighteen times per octave per particle and builds a vector
+    ///     for each. Every one of them is a struct on the stack, which is a thing that is true until
+    ///     somebody makes one of the helpers return a tuple or take a lambda — so it is pinned here
+    ///     rather than assumed from the shape of the code.
+    /// </remarks>
+    [Fact]
+    public void SteppingWithForceFieldsAllocatesNothing() {
+        var graph = VfxCompiledGraph.Compile(
+            [VfxSpawner.AtRate(240f)],
+            [
+                new(VfxOpcode.PositionInSphere, new Vector4(0f, 0f, 0f, 1f)),
+                new(VfxOpcode.SetVelocity, Vector4.Zero),
+                new(VfxOpcode.SetLifetime, new Vector4(2f, 3f, 0f, 0f))
+            ],
+            [
+                new(VfxOpcode.Attract, new Vector4(0f, 4f, 0f, 3f)) { B = new(6f, 0f, 0f, 0f) },
+                new(VfxOpcode.Vortex, new Vector4(0f, 0f, 0f, 2f)) { B = new(0f, 1f, 0f, 8f) },
+                new(VfxOpcode.Turbulence, new Vector4(0.3f, 0.3f, 0.3f, 4f)) { B = new(0.7f, 3f, 0f, 0f) },
+                new(VfxOpcode.Integrate)
+            ],
+            2048
+        );
+
+        using var system = new VfxSystem(graph);
+
+        var allocated = Measured.Bytes(Frame, warmUp: 120, passes: 300);
+
+        Assert.True(allocated == 0, $"Three hundred frames of a field-driven effect allocated {allocated} bytes.");
+
+        return;
+
+        void Frame() => system.Step(1f / 60f);
+    }
 }
