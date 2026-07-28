@@ -9,8 +9,8 @@ questions: which shader, which permutations, which textures on which bindings, a
 
 ## Why a project of its own
 
-The compositor can already express a post chain, and did: `FullScreenRenderer` and `BloomRenderer`
-live in `Vixen.Rendering`, which is where the machinery belongs. What did not exist was the *set* —
+The compositor can already express a post chain, and did: `FullScreenRenderer` lives in
+`Vixen.Rendering`, which is where the machinery belongs. What did not exist was the *set* —
 doc 06 lists fifteen effects and the library had shaders for eight of them that nothing in the engine
 called. A shader with no pass compiles, validates and shades nothing, which is the same failure the
 material system had with its BSDF layers.
@@ -31,9 +31,28 @@ should not link one.
 | `OutlineRenderer` | colour, depth, normals, mask | Depth and normal discontinuities. The editor's selection highlight and the stylised look that goes with cel shading |
 | `VignetteRenderer` | colour | Vignette, chromatic aberration and grain: three permutations in one pass, because they are one look and each is one or two taps |
 
-`BloomRenderer` and the tonemap pass stay in `Vixen.Rendering.Compositor`, where they were written.
-Moving them is a rename across the golden fixtures that bind them, and worth doing on its own rather
-than inside a change that adds seven effects.
+| `BloomRenderer` | colour | The dual-filter pyramid: nine textures and nine passes out of one line, all transient, so the whole chain vanishes when nothing reads the result |
+| `TonemapRenderer` | colour, grading table | What every frame ends with. The 3D LUT the shader has always taken finally has something that binds one |
+
+## A document can name any of them, including yours
+
+`CompositorBuilder` turns an authored document into a running compositor by switching on the asset's
+type — which it can only do for the kinds it defines. This project is downstream of it, so a case for
+`!Bloom` in that switch would be a cycle, and a document could only ever name node kinds the engine
+itself shipped.
+
+`ISceneRendererFactory` is the seam. Whoever defines a node kind supplies the factory that builds it:
+the asset carries the values, the factory carries what to make of them, and the builder carries the
+device, the module cache and the allocators that neither of the other two can. `PostEffectFactory` is
+this project's, and a host registers it once:
+
+```csharp
+builder.Factories.Add(new PostEffectFactory());
+```
+
+A game's own effect is a node kind on exactly the same terms — a `[DataContract]` record for the YAML
+tag and a factory — which is what makes "the frame is data" true past the boundary of this
+repository.
 
 ## The bindings are generated, not written down
 

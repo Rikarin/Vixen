@@ -738,7 +738,8 @@ The first effect that is more than one pass, and worth building early for that r
 nine textures whose lifetimes overlap in a strict pattern, each written by one pass and read by
 exactly one other, which is precisely the shape transient aliasing exists for.
 
-`BloomRenderer` builds the chain out of real `FullScreenRenderer`s and **keeps them between frames** —
+`BloomRenderer` — now in [`Vixen.Rendering.PostFx`](../Vixen.Rendering.PostFx/README.md) with the rest
+of the effect set — builds the chain out of real `FullScreenRenderer`s and **keeps them between frames** —
 each owns a pipeline cache and a uniform buffer, and rebuilding them every frame would recompile the
 same pipelines and reallocate the same buffers. What is rebuilt is only what depends on the frame's
 size.

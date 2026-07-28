@@ -304,8 +304,11 @@ would have made "a post effect is a node over a full-screen pass" a sentence onl
 write, and a game's own effect impossible. `BuildChild` and its two siblings are that seam, and
 deliberately the only thing that widens.
 
-`BloomRenderer` and the tonemap pass stay in `Vixen.Rendering.Compositor` where they were written;
-moving them is a rename across the golden fixtures that bind them, and worth doing on its own.
+Bloom and tonemap moved across too, which is what made the seam necessary rather than merely nice: a
+document naming `!Bloom` has to be built by something, and the builder that reads documents cannot
+reference the project the node now lives in. `ISceneRendererFactory` is that something — whoever
+defines a node kind supplies the factory that builds it, so a game's own effect is a node kind on the
+same terms as a shipped one.
 
 Every entry below is a `FullScreenRenderer` or a node built out of several. ✅ **The full-screen pass
 is the edge every one of them was waiting on**: everything else in the compositor draws *objects*, and
@@ -326,10 +329,10 @@ merely waste one.
 | Upscaling hook | P2 | a `IUpscaler` interface so FSR/XeSS/DLSS can be plugged; ship FSR1 (spatial, no licence friction) in-box |
 | SSAO / GTAO | ✅ (SSAO) | `AmbientOcclusionRenderer` over `Ssao.rvn`, at half resolution by default — occlusion from a hemisphere is low frequency almost everywhere, so the cost halves twice and only contact edges notice. The march steps in the *depth buffer's* texel grid rather than its own half-size target's, which is the one thing about running it at a fraction that can be silently wrong. Bent normals are a permutation the shader has and nothing yet consumes; the full GTAO horizon integral is still to come |
 | SSR (screen-space reflections) | P1 | Stride's `LocalReflections`; hierarchical depth trace |
-| Bloom + lens flare + light streak | ✅ (bloom) | `BloomRenderer`: Jimenez's 13-tap downsample and 9-tap tent upsample, one shader in three permuted modes. The pyramid is **declared**, so nine textures and nine passes vanish when nothing reads the result. Each pass steps in its *source's* texel grid — taking it from the target makes a bloom that is subtly too soft and that no screenshot answers. Lens flare and light streak still to come |
+| Bloom + lens flare + light streak | ✅ (bloom) | `BloomRenderer`, in `Vixen.Rendering.PostFx`: Jimenez's 13-tap downsample and 9-tap tent upsample, one shader in three permuted modes. The pyramid is **declared**, so nine textures and nine passes vanish when nothing reads the result. Each pass steps in its *source's* texel grid — taking it from the target makes a bloom that is subtly too soft and that no screenshot answers. Lens flare and light streak still to come |
 | Depth of field | P1 | bokeh, near/far, physical aperture params |
 | Motion blur | P2 | camera + per-object from motion vectors |
-| Tonemap + colour grading | P1 | `Tonemap.rvn` exists and `FullScreenRenderer` runs it; what is not wired is the grading LUT as an asset. ACES/AgX/Reinhard/Filmic, 3D LUT, curves, white balance, split toning |
+| Tonemap + colour grading | ✅ (the pass and the LUT) | `TonemapRenderer`, with the 3D grading table bound and `UseLut` folding the sample out of the variant when there is none. ACES, AgX, Reinhard and Uncharted curves, exposure, white point, contrast, saturation, white balance and split toning are the shader's; what is still missing is the table as an *asset* — something that imports a `.cube` and hands over a texture |
 | Auto-exposure | P1 | histogram-based luminance in compute, with adaptation curve |
 | Fog (linear/exp/height) | ✅ | `FogRenderer`. A post-process because fog depends on distance, which the depth buffer already holds for every pixel — putting it in every material would mean every material carrying its parameters and evaluating it whether it is on or not |
 | Vignette, chromatic aberration, film grain, dithering | ✅ (three of four) | `VignetteRenderer`: one pass, three permutations, because they are one look and each is one or two taps. Grain moves with a frame index — grain that does not is a texture stuck to the screen, which is worse than none. Dithering is not in it |
