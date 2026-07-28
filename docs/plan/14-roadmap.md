@@ -2393,7 +2393,46 @@ sub-piece has its own gate.
   half; `StyleTree.AppendChild` is O(children) per append, which virtualisation keeps every control
   here clear of and a `DataGrid` may not be; and nested struct members are shown read-only, because
   the descriptor's accessors box.
-- `Samples/02-HelloUi`.
+- ✅ **`Samples/02-HelloUi` — an editor shell on a window, with no engine underneath it.** A menu bar
+  over a `DockingHost` holding three panels: a `TreeView` of a thousand nodes, a gallery of the
+  standard set, and a `PropertyGrid` over a hand-written descriptor. It prints the docking
+  arrangement as YAML on exit, which is this phase's round-trip criterion demonstrated by the thing
+  it is about.
+
+  ⚠ **What it proves is an absence, so the absence is now asserted.** Doc 02 calls this sample
+  "Vixen.Ui only, no engine", and the convenient way to write it — `Vixen.App` — references
+  `Vixen.Engine`. So the host is a hundred lines of `Program.cs`, and `CheckArchitecture` now globs
+  `Samples/**` and fails the build if `HelloUi` reaches for either. Verified by sabotage: adding the
+  reference fails with the message that says why.
+
+  ⚠ **`UiInput` — fifty lines turning a `PlatformEvent` into the document's events — lives in the
+  sample, and that is where it has to live today.** `Vixen.Ui` is `Core/` and `Vixen.Platform` is
+  not, so the framework cannot depend on what produces its input; a `Vixen.Platform.Ui` assembly is
+  where it goes when the editor becomes the second consumer. Two things it found: the platform's
+  timestamps are `Stopwatch` ticks rather than milliseconds, and positions are physical pixels that
+  have to be divided by the DPI scale before a document that works in device-independent ones sees
+  them — the second reads as a hit-testing bug in the framework rather than a missing division in
+  the host.
+
+  **The frame budget, measured by the sample and by a benchmark.** `--frames N` reports the UI frame
+  — the two passes and the vertex build, not the present — with the first frame reported separately
+  because it is not one: it carries the JIT, the font load and the rasterisation of every glyph into
+  the MSDF atlas. On this machine, in Release: *287 elements, 192 commands, first frame 590 ms, then
+  over 270 frames mean 0.427 ms and worst 4.9 ms.* Doc 14's budget is 5 000 elements under 2 ms and
+  this shell is 287 — because the tree virtualises, which is what it is there to show — so the
+  number at the roadmap's scale is `Vixen.Benchmarks.Ui`'s new `DocumentBenchmarks`, which builds a
+  themed document of five thousand controls and measures a steady frame with `[MemoryDiagnoser]` on
+  it. That benchmark exists because `LayoutBenchmarks` measures the flexbox engine and three of the
+  four passes in the criterion are above it.
+
+  ⚠ **The font is borrowed from the operating system**, because the repository has no Latin UI face
+  to commit — the fourteen it does have are the Consortium's shaping fixtures. Finding none is not a
+  failure: every label measures zero and the controls draw their chrome regardless, which is worth
+  knowing about the framework as well as convenient in a sample.
+
+  ⚠ **Still owed on the exit criteria:** the browser run is Phase 10's — it needs `net10.0-browser`
+  and the wasm workload — and hot reload of `.vxml`/`.vcss` against a running window is untested from
+  this sample, though `Vixen.Ui.HotReload.Tests` covers the mechanism.
 
 **Exit:** `Samples/02` runs on Windows/Linux/macOS and in a browser. Yoga suite green. UI frame under
 2 ms with 5 000 elements and zero steady-state allocation. Hot reload of `.vxml`/`.vcss` preserves

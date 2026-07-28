@@ -27,6 +27,14 @@
     <ItemGroup>
         <ProjectReference Include="..\..\Core\Vixen.Ui.Layout\Vixen.Ui.Layout.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Ui.Reactive\Vixen.Ui.Reactive.csproj" />
+
+        <!--
+            The controls, for DocumentBenchmarks. Phase 4's exit criterion is a *frame* of a themed
+            interface rather than a layout pass, and three of that frame's four passes live above
+            Vixen.Ui.Layout — so measuring the number the roadmap names takes the assembly the
+            number is about.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Controls\Vixen.Ui.Controls.csproj" />
     </ItemGroup>
 
 </Project>

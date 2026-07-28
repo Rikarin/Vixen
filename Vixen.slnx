@@ -241,6 +241,7 @@
     <Project Path="Raven/Vixen.Raven.Cli/Vixen.Raven.Cli.csproj" />
   </Folder>
   <Project Path="Samples/01-HelloTriangle/HelloTriangle.csproj" />
+  <Project Path="Samples/02-HelloUi/HelloUi.csproj" />
   <Project Path="Samples/04-EcsStressTest/EcsStressTest.csproj" />
   <Project Path="Samples/07-AddressablesRemote/AddressablesRemote.csproj" />
   <Project Path="Samples/08-Multiplayer/Multiplayer.csproj" />
