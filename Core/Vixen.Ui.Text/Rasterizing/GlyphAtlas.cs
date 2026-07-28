@@ -7,12 +7,20 @@ namespace Vixen.Ui.Text.Rasterizing;
 /// <param name="Font">The face, by whatever identity the caller gives its fonts.</param>
 /// <param name="Glyph">The glyph id.</param>
 /// <param name="Size">Which field resolution, for a caller that keeps more than one.</param>
+/// <param name="Variation">Where along its axes a variable font was read, or null for a static face.</param>
 /// <remarks>
 ///     ⚠ <b>No point size.</b> A distance field is read at any scale, which is the whole reason for
 ///     one — the same property that keeps the shaping cache size-independent. A key carrying the
 ///     size would miss on every frame of a growing label and fill the atlas with the same glyph.
 /// </remarks>
-public readonly record struct GlyphKey(int Font, ushort Glyph, int Size);
+/// <remarks>
+///     ⚠ <b><c>Variation</c> is what stops one variable font's instances sharing a field.</b> The
+///     same font and the same glyph at two axis positions are two different outlines, so a key
+///     without it hands the second instance the first one's distance field — a bold that draws as a
+///     regular, from a cache that reports a hit. <c>Size</c> is the resolution the field was
+///     generated at rather than a point size; see <c>GlyphFieldCache</c>.
+/// </remarks>
+public readonly record struct GlyphKey(int Font, ushort Glyph, int Size, FontVariation? Variation = null);
 
 /// <summary>Where a glyph's field sits in the atlas texture, in pixels.</summary>
 /// <param name="X">Left edge.</param>

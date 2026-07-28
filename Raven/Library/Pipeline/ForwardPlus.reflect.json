@@ -1,79 +1,15 @@
 {
   "Sets": [
     {
-      "Set": 2,
+      "Set": 0,
       "Bindings": [
         {
           "Binding": 0,
-          "Name": "ForwardPlusPerMaterialUniforms",
+          "Name": "ForwardPlusPerFrameUniforms",
           "Type": "UniformBuffer",
           "Count": 1,
           "Stages": "Vertex, Pixel",
           "Members": [
-            {
-              "Name": "world",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 4,
-                "Columns": 4,
-                "IsMatrix": true,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 0,
-              "Size": 64,
-              "ArrayStride": 0,
-              "MatrixStride": 16,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "worldViewProjection",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 4,
-                "Columns": 4,
-                "IsMatrix": true,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 64,
-              "Size": 64,
-              "ArrayStride": 0,
-              "MatrixStride": 16,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "view",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 4,
-                "Columns": 4,
-                "IsMatrix": true,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 128,
-              "Size": 64,
-              "ArrayStride": 0,
-              "MatrixStride": 16,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "cameraPosition",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 3,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 192,
-              "Size": 12,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
             {
               "Name": "lightDirection",
               "Type": {
@@ -84,7 +20,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 208,
+              "Offset": 0,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -100,221 +36,11 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 224,
+              "Offset": 16,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
-            },
-            {
-              "Name": "lights",
-              "Type": {
-                "Scalar": "Struct",
-                "Rows": 1,
-                "Columns": 1,
-                "ArrayLength": 16,
-                "StructName": "PunctualLight",
-                "IsMatrix": false,
-                "IsArray": true,
-                "IsStruct": true
-              },
-              "Offset": 240,
-              "Size": 1280,
-              "ArrayStride": 80,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "lights[].position",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 3,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 240,
-              "Size": 12,
-              "ArrayStride": 80,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "lights[].kind",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 252,
-              "Size": 4,
-              "ArrayStride": 80,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "lights[].color",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 3,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 256,
-              "Size": 12,
-              "ArrayStride": 80,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "lights[].range",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 268,
-              "Size": 4,
-              "ArrayStride": 80,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "lights[].direction",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 3,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 272,
-              "Size": 12,
-              "ArrayStride": 80,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "lights[].cosInner",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 284,
-              "Size": 4,
-              "ArrayStride": 80,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "lights[].radius",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 288,
-              "Size": 4,
-              "ArrayStride": 80,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "lights[].cosOuter",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 292,
-              "Size": 4,
-              "ArrayStride": 80,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "lights[].padding",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 2,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 296,
-              "Size": 8,
-              "ArrayStride": 80,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "lights[].tangent",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 3,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 304,
-              "Size": 12,
-              "ArrayStride": 80,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "lights[].halfLength",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 316,
-              "Size": 4,
-              "ArrayStride": 80,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "lightCount",
-              "Type": {
-                "Scalar": "Int",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 1520,
-              "Size": 4,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": "0"
             },
             {
               "Name": "tanHalfFov",
@@ -326,7 +52,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1528,
+              "Offset": 32,
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -342,7 +68,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1536,
+              "Offset": 40,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -358,7 +84,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1540,
+              "Offset": 44,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -374,7 +100,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1552,
+              "Offset": 48,
               "Size": 64,
               "ArrayStride": 0,
               "MatrixStride": 16,
@@ -390,7 +116,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1616,
+              "Offset": 112,
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -406,7 +132,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1624,
+              "Offset": 120,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -422,7 +148,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1628,
+              "Offset": 124,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -438,7 +164,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1632,
+              "Offset": 128,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -454,46 +180,32 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1636,
+              "Offset": 132,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "1"
             },
             {
-              "Name": "probeMipCount",
+              "Name": "probeVolumes",
               "Type": {
-                "Scalar": "Float",
+                "Scalar": "Struct",
                 "Rows": 1,
                 "Columns": 1,
+                "ArrayLength": 4,
+                "StructName": "ReflectionProbeVolume",
                 "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
+                "IsArray": true,
+                "IsStruct": true
               },
-              "Offset": 1640,
-              "Size": 4,
-              "ArrayStride": 0,
+              "Offset": 144,
+              "Size": 256,
+              "ArrayStride": 64,
               "MatrixStride": 0,
-              "DefaultValue": "7"
+              "DefaultValue": ""
             },
             {
-              "Name": "probeWeight",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 1644,
-              "Size": 4,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": "0"
-            },
-            {
-              "Name": "probeBox",
+              "Name": "probeVolumes[].box",
               "Type": {
                 "Scalar": "Struct",
                 "Rows": 1,
@@ -503,14 +215,14 @@
                 "IsArray": false,
                 "IsStruct": true
               },
-              "Offset": 1648,
+              "Offset": 144,
               "Size": 48,
-              "ArrayStride": 0,
+              "ArrayStride": 64,
               "MatrixStride": 0,
               "DefaultValue": ""
             },
             {
-              "Name": "probeBox.minimum",
+              "Name": "probeVolumes[].box.minimum",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 3,
@@ -519,14 +231,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1648,
+              "Offset": 144,
               "Size": 12,
-              "ArrayStride": 0,
+              "ArrayStride": 64,
               "MatrixStride": 0,
               "DefaultValue": ""
             },
             {
-              "Name": "probeBox.maximum",
+              "Name": "probeVolumes[].box.maximum",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 3,
@@ -535,14 +247,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1664,
+              "Offset": 160,
               "Size": 12,
-              "ArrayStride": 0,
+              "ArrayStride": 64,
               "MatrixStride": 0,
               "DefaultValue": ""
             },
             {
-              "Name": "probeBox.center",
+              "Name": "probeVolumes[].box.center",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 3,
@@ -551,14 +263,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1680,
+              "Offset": 176,
               "Size": 12,
-              "ArrayStride": 0,
+              "ArrayStride": 64,
               "MatrixStride": 0,
               "DefaultValue": ""
             },
             {
-              "Name": "probeRadius",
+              "Name": "probeVolumes[].radius",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -567,11 +279,27 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1696,
+              "Offset": 192,
               "Size": 4,
-              "ArrayStride": 0,
+              "ArrayStride": 64,
               "MatrixStride": 0,
-              "DefaultValue": "0"
+              "DefaultValue": ""
+            },
+            {
+              "Name": "probeVolumes[].mipCount",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 196,
+              "Size": 4,
+              "ArrayStride": 64,
+              "MatrixStride": 0,
+              "DefaultValue": ""
             },
             {
               "Name": "environmentSh",
@@ -584,7 +312,7 @@
                 "IsArray": false,
                 "IsStruct": true
               },
-              "Offset": 1712,
+              "Offset": 400,
               "Size": 144,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -600,7 +328,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1712,
+              "Offset": 400,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -616,7 +344,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1728,
+              "Offset": 416,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -632,7 +360,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1744,
+              "Offset": 432,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -648,7 +376,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1760,
+              "Offset": 448,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -664,7 +392,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1776,
+              "Offset": 464,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -680,7 +408,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1792,
+              "Offset": 480,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -696,7 +424,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1808,
+              "Offset": 496,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -712,7 +440,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1824,
+              "Offset": 512,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -728,62 +456,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 1840,
+              "Offset": 528,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
-            },
-            {
-              "Name": "CompositeSurface.MetalRoughnessSurface.baseColor",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 3,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 1856,
-              "Size": 12,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "CompositeSurface.MetalRoughnessSurface.metalness",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 1868,
-              "Size": 4,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": "0"
-            },
-            {
-              "Name": "CompositeSurface.MetalRoughnessSurface.roughness",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 1872,
-              "Size": 4,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": "0.5"
             }
           ],
-          "Size": 1888,
+          "Size": 544,
           "IsWritable": false
         },
         {
@@ -808,9 +488,9 @@
         },
         {
           "Binding": 3,
-          "Name": "probe",
+          "Name": "probes",
           "Type": "SampledTexture",
-          "Count": 1,
+          "Count": 4,
           "Stages": "Vertex, Pixel",
           "Members": [],
           "Size": 0,
@@ -1112,6 +792,392 @@
           "IsWritable": false
         }
       ]
+    },
+    {
+      "Set": 1,
+      "Bindings": [
+        {
+          "Binding": 0,
+          "Name": "ForwardPlusPerViewUniforms",
+          "Type": "UniformBuffer",
+          "Count": 1,
+          "Stages": "Vertex, Pixel",
+          "Members": [
+            {
+              "Name": "viewProjection",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 4,
+                "IsMatrix": true,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 64,
+              "ArrayStride": 0,
+              "MatrixStride": 16,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "viewPosition",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 64,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "view",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 4,
+                "IsMatrix": true,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 80,
+              "Size": 64,
+              "ArrayStride": 0,
+              "MatrixStride": 16,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 144,
+          "IsWritable": false
+        }
+      ]
+    },
+    {
+      "Set": 2,
+      "Bindings": [
+        {
+          "Binding": 0,
+          "Name": "ForwardPlusPerMaterialUniforms",
+          "Type": "UniformBuffer",
+          "Count": 1,
+          "Stages": "Vertex, Pixel",
+          "Members": [
+            {
+              "Name": "CompositeSurface.MetalRoughnessSurface.baseColor",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "CompositeSurface.MetalRoughnessSurface.metalness",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 12,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0"
+            },
+            {
+              "Name": "CompositeSurface.MetalRoughnessSurface.roughness",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 16,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.5"
+            }
+          ],
+          "Size": 32,
+          "IsWritable": false
+        }
+      ]
+    },
+    {
+      "Set": 3,
+      "Bindings": [
+        {
+          "Binding": 0,
+          "Name": "ForwardPlusPerDrawUniforms",
+          "Type": "UniformBuffer",
+          "Count": 1,
+          "Stages": "Vertex, Pixel",
+          "Members": [
+            {
+              "Name": "lightCount",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0"
+            },
+            {
+              "Name": "probeIndex",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 4,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0"
+            },
+            {
+              "Name": "probeWeight",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 8,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0"
+            },
+            {
+              "Name": "lights",
+              "Type": {
+                "Scalar": "Struct",
+                "Rows": 1,
+                "Columns": 1,
+                "ArrayLength": 16,
+                "StructName": "PunctualLight",
+                "IsMatrix": false,
+                "IsArray": true,
+                "IsStruct": true
+              },
+              "Offset": 16,
+              "Size": 1280,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "lights[].position",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 16,
+              "Size": 12,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "lights[].kind",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 28,
+              "Size": 4,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "lights[].color",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 32,
+              "Size": 12,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "lights[].range",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 44,
+              "Size": 4,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "lights[].direction",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 48,
+              "Size": 12,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "lights[].cosInner",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 60,
+              "Size": 4,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "lights[].radius",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 64,
+              "Size": 4,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "lights[].cosOuter",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 68,
+              "Size": 4,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "lights[].padding",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 72,
+              "Size": 8,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "lights[].tangent",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 80,
+              "Size": 12,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "lights[].halfLength",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 92,
+              "Size": 4,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 1296,
+          "IsWritable": false
+        }
+      ]
     }
   ],
   "VertexInputs": [
@@ -1179,7 +1245,32 @@
       "Semantic": "SV_Target"
     }
   ],
-  "PushConstants": [],
+  "PushConstants": [
+    {
+      "Name": "ForwardPlusPushConstants",
+      "Offset": 0,
+      "Size": 64,
+      "Stages": "Vertex, Pixel",
+      "Members": [
+        {
+          "Name": "world",
+          "Type": {
+            "Scalar": "Float",
+            "Rows": 4,
+            "Columns": 4,
+            "IsMatrix": true,
+            "IsArray": false,
+            "IsStruct": false
+          },
+          "Offset": 0,
+          "Size": 64,
+          "ArrayStride": 0,
+          "MatrixStride": 16,
+          "DefaultValue": ""
+        }
+      ]
+    }
+  ],
   "SpecConstants": [],
   "Permutations": [
     {
@@ -1241,82 +1332,22 @@
         "IsStruct": false
       },
       "DefaultValue": "false"
-    }
-  ],
-  "ValueParameters": [],
-  "Parameters": [
-    {
-      "Name": "world",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 4,
-        "Columns": 4,
-        "IsMatrix": true,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 0,
-      "Size": 64,
-      "ArrayStride": 0,
-      "MatrixStride": 16,
-      "DefaultValue": ""
     },
     {
-      "Name": "worldViewProjection",
+      "Name": "ProbeCount",
       "Type": {
-        "Scalar": "Float",
-        "Rows": 4,
-        "Columns": 4,
-        "IsMatrix": true,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 64,
-      "Size": 64,
-      "ArrayStride": 0,
-      "MatrixStride": 16,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "view",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 4,
-        "Columns": 4,
-        "IsMatrix": true,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 128,
-      "Size": 64,
-      "ArrayStride": 0,
-      "MatrixStride": 16,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "cameraPosition",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 3,
+        "Scalar": "Int",
+        "Rows": 1,
         "Columns": 1,
         "IsMatrix": false,
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 192,
-      "Size": 12,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
+      "DefaultValue": "4"
+    }
+  ],
+  "ValueParameters": [],
+  "Parameters": [
     {
       "Name": "lightDirection",
       "Type": {
@@ -1327,9 +1358,9 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 208,
+      "Offset": 0,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1345,229 +1376,13 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 224,
+      "Offset": 16,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": ""
-    },
-    {
-      "Name": "lights[].position",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 3,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 240,
-      "Size": 12,
-      "ArrayStride": 80,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "lights[].kind",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 252,
-      "Size": 4,
-      "ArrayStride": 80,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "lights[].color",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 3,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 256,
-      "Size": 12,
-      "ArrayStride": 80,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "lights[].range",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 268,
-      "Size": 4,
-      "ArrayStride": 80,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "lights[].direction",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 3,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 272,
-      "Size": 12,
-      "ArrayStride": 80,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "lights[].cosInner",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 284,
-      "Size": 4,
-      "ArrayStride": 80,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "lights[].radius",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 288,
-      "Size": 4,
-      "ArrayStride": 80,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "lights[].cosOuter",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 292,
-      "Size": 4,
-      "ArrayStride": 80,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "lights[].padding",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 2,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 296,
-      "Size": 8,
-      "ArrayStride": 80,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "lights[].tangent",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 3,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 304,
-      "Size": 12,
-      "ArrayStride": 80,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "lights[].halfLength",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 316,
-      "Size": 4,
-      "ArrayStride": 80,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "lightCount",
-      "Type": {
-        "Scalar": "Int",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 1520,
-      "Size": 4,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": "0"
     },
     {
       "Name": "tanHalfFov",
@@ -1579,9 +1394,9 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1528,
+      "Offset": 32,
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1597,9 +1412,9 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1536,
+      "Offset": 40,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1615,9 +1430,9 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1540,
+      "Offset": 44,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1633,9 +1448,9 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1552,
+      "Offset": 48,
       "Size": 64,
       "ArrayStride": 0,
       "MatrixStride": 16,
@@ -1651,9 +1466,9 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1616,
+      "Offset": 112,
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1669,9 +1484,9 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1624,
+      "Offset": 120,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1687,9 +1502,9 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1628,
+      "Offset": 124,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1705,9 +1520,9 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1632,
+      "Offset": 128,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1723,52 +1538,16 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1636,
+      "Offset": 132,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": "1"
     },
     {
-      "Name": "probeMipCount",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 1640,
-      "Size": 4,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": "7"
-    },
-    {
-      "Name": "probeWeight",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 1644,
-      "Size": 4,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": "0"
-    },
-    {
-      "Name": "probeBox.minimum",
+      "Name": "probeVolumes[].box.minimum",
       "Type": {
         "Scalar": "Float",
         "Rows": 3,
@@ -1777,16 +1556,16 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1648,
+      "Offset": 144,
       "Size": 12,
-      "ArrayStride": 0,
+      "ArrayStride": 64,
       "MatrixStride": 0,
       "DefaultValue": ""
     },
     {
-      "Name": "probeBox.maximum",
+      "Name": "probeVolumes[].box.maximum",
       "Type": {
         "Scalar": "Float",
         "Rows": 3,
@@ -1795,16 +1574,16 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1664,
+      "Offset": 160,
       "Size": 12,
-      "ArrayStride": 0,
+      "ArrayStride": 64,
       "MatrixStride": 0,
       "DefaultValue": ""
     },
     {
-      "Name": "probeBox.center",
+      "Name": "probeVolumes[].box.center",
       "Type": {
         "Scalar": "Float",
         "Rows": 3,
@@ -1813,16 +1592,16 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1680,
+      "Offset": 176,
       "Size": 12,
-      "ArrayStride": 0,
+      "ArrayStride": 64,
       "MatrixStride": 0,
       "DefaultValue": ""
     },
     {
-      "Name": "probeRadius",
+      "Name": "probeVolumes[].radius",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -1831,13 +1610,31 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1696,
+      "Offset": 192,
       "Size": 4,
-      "ArrayStride": 0,
+      "ArrayStride": 64,
       "MatrixStride": 0,
-      "DefaultValue": "0"
+      "DefaultValue": ""
+    },
+    {
+      "Name": "probeVolumes[].mipCount",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 196,
+      "Size": 4,
+      "ArrayStride": 64,
+      "MatrixStride": 0,
+      "DefaultValue": ""
     },
     {
       "Name": "environmentSh.l00",
@@ -1849,9 +1646,9 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1712,
+      "Offset": 400,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1867,9 +1664,9 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1728,
+      "Offset": 416,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1885,9 +1682,9 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1744,
+      "Offset": 432,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1903,9 +1700,9 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1760,
+      "Offset": 448,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1921,9 +1718,9 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1776,
+      "Offset": 464,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1939,9 +1736,9 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1792,
+      "Offset": 480,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1957,9 +1754,9 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1808,
+      "Offset": 496,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1975,9 +1772,9 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1824,
+      "Offset": 512,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1993,67 +1790,13 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 0,
-      "Offset": 1840,
+      "Offset": 528,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": ""
-    },
-    {
-      "Name": "CompositeSurface.MetalRoughnessSurface.baseColor",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 3,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 1856,
-      "Size": 12,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "CompositeSurface.MetalRoughnessSurface.metalness",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 1868,
-      "Size": 4,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": "0"
-    },
-    {
-      "Name": "CompositeSurface.MetalRoughnessSurface.roughness",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 1872,
-      "Size": 4,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": "0.5"
     },
     {
       "Name": "lightBuffer.position",
@@ -2065,7 +1808,7 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 7,
       "Offset": 0,
       "Size": 12,
@@ -2083,7 +1826,7 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 7,
       "Offset": 12,
       "Size": 4,
@@ -2101,7 +1844,7 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 7,
       "Offset": 16,
       "Size": 12,
@@ -2119,7 +1862,7 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 7,
       "Offset": 28,
       "Size": 4,
@@ -2137,7 +1880,7 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 7,
       "Offset": 32,
       "Size": 12,
@@ -2155,7 +1898,7 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 7,
       "Offset": 44,
       "Size": 4,
@@ -2173,7 +1916,7 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 7,
       "Offset": 48,
       "Size": 4,
@@ -2191,7 +1934,7 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 7,
       "Offset": 52,
       "Size": 4,
@@ -2209,7 +1952,7 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 7,
       "Offset": 56,
       "Size": 8,
@@ -2227,7 +1970,7 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 7,
       "Offset": 64,
       "Size": 12,
@@ -2245,7 +1988,7 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 7,
       "Offset": 76,
       "Size": 4,
@@ -2263,7 +2006,7 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 8,
       "Offset": 0,
       "Size": 4,
@@ -2282,11 +2025,371 @@
         "IsArray": true,
         "IsStruct": false
       },
-      "Set": 2,
+      "Set": 0,
       "Binding": 8,
       "Offset": 4,
       "Size": 128,
       "ArrayStride": 4,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "viewProjection",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 4,
+        "IsMatrix": true,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 1,
+      "Binding": 0,
+      "Offset": 0,
+      "Size": 64,
+      "ArrayStride": 0,
+      "MatrixStride": 16,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "viewPosition",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 1,
+      "Binding": 0,
+      "Offset": 64,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "view",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 4,
+        "IsMatrix": true,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 1,
+      "Binding": 0,
+      "Offset": 80,
+      "Size": 64,
+      "ArrayStride": 0,
+      "MatrixStride": 16,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "CompositeSurface.MetalRoughnessSurface.baseColor",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 0,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "CompositeSurface.MetalRoughnessSurface.metalness",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 12,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
+    },
+    {
+      "Name": "CompositeSurface.MetalRoughnessSurface.roughness",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 16,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.5"
+    },
+    {
+      "Name": "lightCount",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 3,
+      "Binding": 0,
+      "Offset": 0,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
+    },
+    {
+      "Name": "probeIndex",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 3,
+      "Binding": 0,
+      "Offset": 4,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
+    },
+    {
+      "Name": "probeWeight",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 3,
+      "Binding": 0,
+      "Offset": 8,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
+    },
+    {
+      "Name": "lights[].position",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 3,
+      "Binding": 0,
+      "Offset": 16,
+      "Size": 12,
+      "ArrayStride": 80,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "lights[].kind",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 3,
+      "Binding": 0,
+      "Offset": 28,
+      "Size": 4,
+      "ArrayStride": 80,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "lights[].color",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 3,
+      "Binding": 0,
+      "Offset": 32,
+      "Size": 12,
+      "ArrayStride": 80,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "lights[].range",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 3,
+      "Binding": 0,
+      "Offset": 44,
+      "Size": 4,
+      "ArrayStride": 80,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "lights[].direction",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 3,
+      "Binding": 0,
+      "Offset": 48,
+      "Size": 12,
+      "ArrayStride": 80,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "lights[].cosInner",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 3,
+      "Binding": 0,
+      "Offset": 60,
+      "Size": 4,
+      "ArrayStride": 80,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "lights[].radius",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 3,
+      "Binding": 0,
+      "Offset": 64,
+      "Size": 4,
+      "ArrayStride": 80,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "lights[].cosOuter",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 3,
+      "Binding": 0,
+      "Offset": 68,
+      "Size": 4,
+      "ArrayStride": 80,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "lights[].padding",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 3,
+      "Binding": 0,
+      "Offset": 72,
+      "Size": 8,
+      "ArrayStride": 80,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "lights[].tangent",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 3,
+      "Binding": 0,
+      "Offset": 80,
+      "Size": 12,
+      "ArrayStride": 80,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "lights[].halfLength",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 3,
+      "Binding": 0,
+      "Offset": 92,
+      "Size": 4,
+      "ArrayStride": 80,
       "MatrixStride": 0,
       "DefaultValue": ""
     }
@@ -2296,6 +2399,7 @@
   ],
   "UsedPermutationKeys": [
     "MaxLights",
+    "ProbeCount",
     "UseClusteredLights",
     "UseImageBasedLighting",
     "UseReflectionProbe",

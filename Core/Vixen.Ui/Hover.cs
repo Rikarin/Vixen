@@ -36,6 +36,15 @@ public sealed class WheelEvent : UiEvent {
     /// <summary>Ditto, vertically.</summary>
     public float DeltaY { get; init; }
 
+    /// <summary>What was held on the keyboard at the time.</summary>
+    /// <remarks>
+    ///     Here for the same reason it is on <see cref="PointerEvent" />: a modified wheel is one
+    ///     thing rather than two. Ctrl-wheel means zoom in every map, canvas and timeline ever
+    ///     written, and a control that had to ask a keyboard what was held <i>now</i> would get the
+    ///     wrong answer for any event it dealt with a frame later.
+    /// </remarks>
+    public ModifierKeys Modifiers { get; init; }
+
     /// <summary>When, on the same clock as the rest.</summary>
     public TimeSpan Timestamp { get; init; }
 }

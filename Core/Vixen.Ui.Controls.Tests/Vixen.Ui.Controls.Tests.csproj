@@ -30,7 +30,25 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!--
+            The reference pictures, beside the binary. Read from the output directory and written
+            back to the source tree when VIXEN_UPDATE_SCREENSHOTS accepts a change, which is what
+            stops an accepted picture evaporating on the next clean build.
+        -->
+        <None Include="__screenshots__\**" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\Vixen.Ui.Controls\Vixen.Ui.Controls.csproj" />
+
+        <!--
+            The harness. `ControlFixture` predates it and still drives the tests written against it;
+            what this adds is the waiting, the selectors and the pictures — and, for a control that
+            draws itself rather than being made of elements, a picture is the only thing that can
+            check the drawing at all. A slider's thumb is not an element, so no assertion about the
+            element tree can say where it went.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
     </ItemGroup>
 
 </Project>

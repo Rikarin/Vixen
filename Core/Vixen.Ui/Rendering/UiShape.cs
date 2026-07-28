@@ -33,19 +33,28 @@ public readonly record struct UiShape {
     /// <param name="corners">The four corners' radii.</param>
     /// <param name="gradientEnd">The colour at the far end of the gradient.</param>
     /// <param name="gradientAxis">Which way the gradient runs. Zero for a flat fill.</param>
+    /// <param name="blur">
+    ///     How far a shadow's edge is spread, in pixels. Zero for everything that is not one.
+    /// </param>
     public UiShape(
         Vector2 half,
         float thickness,
         CornerRadii corners,
         Color4 gradientEnd,
-        Vector2 gradientAxis
+        Vector2 gradientAxis,
+        float blur = 0f
     ) {
         Size = new Vector4(half.X, half.Y, thickness, gradientAxis == Vector2.Zero ? 0f : 1f);
 
         RadiiX = new Vector4(corners.TopLeft.X, corners.TopRight.X, corners.BottomRight.X, corners.BottomLeft.X);
         RadiiY = new Vector4(corners.TopLeft.Y, corners.TopRight.Y, corners.BottomRight.Y, corners.BottomLeft.Y);
 
-        Axis = new Vector4(gradientAxis.X, gradientAxis.Y, 0f, 0f);
+        // ⚠ The blur goes in a lane that was padding, which is the reason it can be added at all
+        // without moving anything: the record's size and every existing offset stay exactly where
+        // the shader already reads them. Putting it in `Size` would have been tidier to read and
+        // would have shifted the gradient flag, which is a change the compiled shader has to agree
+        // with on pain of every box drawing with another box's parameters.
+        Axis = new Vector4(gradientAxis.X, gradientAxis.Y, blur, 0f);
         End = new Vector4(gradientEnd.R, gradientEnd.G, gradientEnd.B, gradientEnd.A);
     }
 
@@ -58,7 +67,7 @@ public readonly record struct UiShape {
     /// <summary>The four vertical radii, in the same order.</summary>
     public Vector4 RadiiY { get; }
 
-    /// <summary>Which way the gradient runs, in the box's own space. The last two lanes are padding.</summary>
+    /// <summary>Which way the gradient runs, then a shadow's blur radius, then padding.</summary>
     public Vector4 Axis { get; }
 
     /// <summary>The colour at the far end of the gradient.</summary>

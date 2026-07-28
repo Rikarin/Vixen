@@ -2424,6 +2424,34 @@ sub-piece has its own gate.
   themed document of five thousand controls and measures a steady frame with `[MemoryDiagnoser]` on
   it. That benchmark exists because `LayoutBenchmarks` measures the flexbox engine and three of the
   four passes in the criterion are above it.
+- ✅ **`DocumentBenchmarks` run, and the exit criterion is met with margin** — *"UI frame under 2 ms
+  with 5 000 elements and zero steady-state allocation"* is **8 001 elements at 0.230 ms, allocating
+  zero bytes**, and it still holds at 32 001 elements and 1.18 ms. Apple M1 Max, .NET 10.0.9. Until
+  this run the budget was the one number in the phase that was quoted and had never been measured.
+
+  ⚠ **And the run found that the incremental cascade is not wired up.** Toggling one class on one row
+  of that document costs **9.50 ms and 8.87 MB** — 41× the steady frame and 80 % of a cold frame that
+  resizes the viewport. `UiDocument.Update` calls `StyleEngine.ResolveAll`, which cascades every live
+  node; `StyleUpdater` and `StyleInvalidator` are **referenced only by their own project's tests**.
+  4b's invalidation gate — *"toggling `.selected` on one row of a 100×100 grid restyles exactly one
+  element"*, with an oracle and four sabotages behind it — is green against an object nothing in the
+  running framework calls.
+
+  ⚠ **`StylesApplied = 1` is why nothing caught it, and the two claims really are different.** 4d's
+  *"one changed class rebuilds one element"* is about what is rebuilt *downstream* of the cascade,
+  which interning makes a pointer comparison — it is true, it is tested, and it says nothing about
+  the cost of the pass that produced the answer. Measured: ~6 840 cascades per pass over 8 001 nodes,
+  and `ResolveAll` alone accounts for 8 642 120 of the frame's 8 866 280 bytes.
+
+  ⚠ **The sharing cache cannot cover for it, and that follows from 4b's own correction.** The key
+  holds the parent *element*, so it shares between identical siblings and nowhere else: a
+  grid is one parent and 10 000 cells, an inspector is 1 000 rows of four differing children, and the
+  hit rate here is 12 %. Sharing makes a *cold* pass cheap for grid-shaped documents; it does nothing
+  for an incremental pass on any shape. Both facts were already written down separately and neither
+  entry drew the line between them.
+
+  Owed, and the largest performance item left in the phase: `UiDocument.Update` taking the dirty set
+  to `StyleUpdater` instead of a flag to `ResolveAll`.
 
   ⚠ **The font is borrowed from the operating system**, because the repository has no Latin UI face
   to commit — the fourteen it does have are the Consortium's shaping fixtures. Finding none is not a
@@ -2434,9 +2462,13 @@ sub-piece has its own gate.
   and the wasm workload — and hot reload of `.vxml`/`.vcss` against a running window is untested from
   this sample, though `Vixen.Ui.HotReload.Tests` covers the mechanism.
 
-**Exit:** `Samples/02` runs on Windows/Linux/macOS and in a browser. Yoga suite green. UI frame under
-2 ms with 5 000 elements and zero steady-state allocation. Hot reload of `.vxml`/`.vcss` preserves
-scroll/focus/selection. A `DockingHost` layout round-trips through serialisation.
+**Exit:** ✅ Yoga suite green. ✅ UI frame under 2 ms with 5 000 elements and zero steady-state
+allocation — measured at 8 001 elements, 0.230 ms, 0 B. ✅ A `DockingHost` layout round-trips through
+serialisation. 🟡 `Samples/02` runs on macOS; it builds and its assemblies are tested on
+Windows/Linux in CI, but **no CI step runs either sample**, so the `--frames N` flag both sample
+READMEs describe as CI's proof is not wired to anything. The browser run is Phase 10's. 🟡 Hot reload
+of `.vxml`/`.vcss` preserving scroll/focus/selection is covered by `Vixen.Ui.HotReload.Tests` and has
+never been driven against a running window.
 
 ---
 
@@ -2597,8 +2629,61 @@ the shipping projects; a `.rvn` edit reparsing incrementally; the differential o
 - `Vixen.Editor.Inspector`: generated drawers, attribute set, custom drawers, multi-object editing.
 - `Vixen.Editor.SceneView`: viewport, gizmos, picking stage, selection outline, debug view modes,
   camera nav, drag-and-drop, play-in-editor with world snapshot.
-- `Vixen.Ui.Controls.Advanced`: `DataGrid`, `NodeCanvas`, `CodeEditor`, `ColorPicker`, `Timeline`,
-  `CurveEditor`, `GradientEditor`, `Viewport`.
+- ✅ **`Vixen.Ui.Controls.Advanced` — the remaining eight, and the one framework field they needed.**
+  `NodeCanvas` (infinite pan/zoom, bezier wires, marquee, snapping, groups, minimap), `CodeEditor`
+  (virtualised lines, pluggable highlighting, folding, diagnostics gutter, completion popup),
+  `DataGrid` (virtualised rows *and* columns, frozen columns, resize/reorder, stable sort, grouping,
+  inline edit, cell templates), `Viewport`, `ColorPicker` (HSV and OkLCh, alpha, palette, HDR,
+  eyedropper), `CurveEditor` (Hermite tangents, five modes, presets), `GradientEditor` (separate
+  colour and alpha stops, three interpolation spaces) and `Timeline` (tracks, keys, playhead, 1-2-5
+  ruler, frame snapping).
+
+  **Model apart from view, everywhere.** `NodeGraph`, `CodeBuffer`, `AnimationCurve` and `Gradient`
+  need no document, stylesheet or font, so a shader graph can be validated on a build server with no
+  interface at all — the same split `DockLayout` makes and for the same reason.
+
+  **What is not a box is drawn.** Wires, curves, keyframes, the colour field, the gradient bar, the
+  minimap and the axis gizmo are all `OnDraw`, because each is a position that is a multiplication
+  rather than a layout — and because ten thousand keyframes as elements is ten thousand style nodes
+  for a picture with no text in it. Colours still come out of the cascade through custom properties.
+
+  **Painting order is document order, used as a design tool.** A selection has to be under the text
+  and a caret over it, so `CodeEditor` puts three siblings either side of its lines; wires have to be
+  over the group boxes and under the nodes, so `NodeCanvas` puts a layer between them. No z-index
+  anywhere.
+
+  **One field was added to `Vixen.Ui`: `WheelEvent.Modifiers`.** Ctrl-wheel means zoom and
+  Shift-wheel means the other axis in every canvas, graph and timeline ever written, and a control
+  that had to ask a keyboard what was held *now* would get the wrong answer for any event it dealt
+  with a frame later — the argument `PointerEvent.Modifiers` already makes.
+
+  ⚠ **Two more silent flexbox traps, both measured.** This layout engine takes Yoga's `flex-shrink`
+  default of **zero**, not CSS's of one, so a control whose content is wider than its parent grows
+  straight out of the window: a `DataGrid` of two hundred columns made itself twenty-four thousand
+  pixels wide, which turned its own column virtualiser off without an error anywhere. `min-width` is
+  the same trap on the other axis. Both are now said out loud in the theme, beside the
+  `flex-basis: 0px` remark Phase 4e left there.
+
+  ⚠ **And one performance trap worth recording.** `UiDocument.LengthOf` parses the interned value on
+  every call, and `NodeCanvas.RectOf` reads three custom properties — so a canvas of ten thousand
+  nodes was doing thirty thousand parses per realise, and a minimap that walked every node twice made
+  it quadratic. One test took four minutes. The fix is a cache keyed on the `ComputedStyle`
+  *reference*, which is sound because the cascade interns them: the same object means the same
+  declarations. Four minutes to one second.
+
+  Gate: 253 tests (up from 82), including a ten-thousand-node canvas realising under thirty elements,
+  a fifty-thousand-line file realising under sixty, a two-hundred-column grid realising under twenty
+  cells per row, a frozen cell whose offset is asserted against the scroll position, a block comment
+  opened on line 0 recolouring line 4 000, a hue that survives a trip through black, and every
+  interaction driven as real `PointerEvent`s through `UiDocument.Dispatch` rather than by calling
+  handlers.
+
+  ⚠ **Still owed:** there is no undo anywhere — an undo stack inside a text control can only undo
+  typing, and the four `Changed` events are the seams a real one subscribes to; `Viewport` draws a
+  placeholder because the draw list has no texture command; `CodeEditor` does not wrap and its caret
+  does not blink, both for want of things the framework has not got yet; `OkLch.ToSrgb` clamps per
+  channel, which shifts the hue where real gamut mapping would walk the chroma down; and every one of
+  these controls is still one layout pass behind a resize, for the reason Phase 4e recorded.
 - Asset editors: texture, model, material, scene, prefab, shader, UI, addressable groups, graphics
   compositor.
 - `Vixen.Editor.Profiler` + `.Debugger` (frame graph, frame debugger, memory view, remote inspector).
@@ -2707,8 +2792,40 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   the device's own clock, segments whose transitions land on a bar line, sustain points, stingers and
   a tempo map. Also landed: a BS.1770 loudness meter, a polyphase sinc resampler with the cutoff
   banded to the pitch, and a loopback live-update listener over `MixControl`. `Vixen.Audio.Codecs`
-  carries Ogg Vorbis and Opus, both pure managed and both rooted in the AOT probe. Still owed:
-  true-peak and loudness-range metering, and ADPCM for effects.
+  carries Ogg Vorbis and Opus, both pure managed and both rooted in the AOT probe.
+
+  **Voice chat is joined up** now that Phase 9 has landed the transport it was waiting for: a packet
+  Opus encoder and decoder beside the stream ones, and a `VoiceSender`/`VoiceReceiver` pair carrying
+  gate-driven transmission, sequencing, a jitter buffer and concealment. Neither knows about a
+  network — `Channel.Sequenced` is four lines in a game. A packet carries a sequence *and* a
+  timestamp because nothing simpler can tell a deliberate pause from a burst of loss, and concealing
+  a pause invents speech into a silence the talker chose. Opus is also pinned to its managed
+  implementation: Concentus P/Invokes a system libopus when it finds one, and against Homebrew's the
+  encoder ignored its bitrate and emitted maximum-length packets.
+
+  **Occlusion and reverb zones** arrived with physics, and needed different things.
+  `IAudioOcclusionProvider` is a seam here and `Vixen.Audio.Physics` answers it with a Jolt raycast,
+  so a game with sound and no physics never links Jolt. Reverb zones need no physics at all — a
+  volume test is arithmetic — so they work in a game that links no native library. Both drive
+  authored curves rather than deciding anything themselves.
+
+  Zones are entities: `AudioReverbZoneRef` places one in a level, `AudioZoneAsset` is the shared
+  description, and the set is rebuilt from the world every frame so a destroyed entity stops being a
+  room without anybody having to say so. **Per-voice sends** landed with them, which is the half a
+  bus send cannot do: one amount per bus means every emitter in a room is equally wet.
+  `Samples/10-VoiceChat` runs the whole voice path over real UDP sockets, which is the one thing the
+  codec tests deliberately cannot check — they drive a stand-in network on purpose.
+
+  The last seven landed together: true-peak metering and loudness range on the meter, ADPCM beside
+  the PCM decoder, a structural HRTF panner behind `Spatializer`, a real-input FFT, oversampling on
+  the distortion, and a phase-vocoder shifter beside the time-domain one. Two of them are worth
+  writing down honestly: the HRTF is a structural model rather than measured impulse responses, so it
+  tells front from back without shipping content but is not as convincing as a good measured set; and
+  the phase vocoder does **not** beat the time-domain shifter on steady material — measured, the
+  crossfade was cleaner — it earns its window of latency on material that does not repeat.
+
+  Nothing structural is owed. What is left is content and platform work: measured HRTF sets for
+  anybody who wants better, and whatever a specific title's certification checklist asks for.
 - `Vixen.Animation`: skeletal playback, blend trees (1D/2D), layers + masks, state machine, IK (two-bone,
   look-at, foot placement), root motion, events, GPU skinning integration.
 - `Vixen.Editor.AnimationGraph`.

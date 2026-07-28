@@ -91,8 +91,18 @@ sealed class UiHost : IDisposable {
     ISwapChain? swapChain;
     UiRenderer? renderer;
 
+    /// <summary>The framebuffer size the swapchain was last built for.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What was asked for, not what came back.</b> The surface decides its own extent —
+    ///     <c>VkSurfaceCapabilities.currentExtent</c> overrides the request — so comparing against
+    ///     <c>swapChain.Size</c> would find a difference that rebuilding cannot remove, which is a
+    ///     rebuild every frame for ever.
+    /// </remarks>
+    Int2 built;
+
     bool running = true;
     bool lost;
+    bool resized;
 
     public UiHost(IPlatform platform, IWindow window) {
         this.platform = platform;
@@ -124,6 +134,19 @@ sealed class UiHost : IDisposable {
 
             if (!running) {
                 break;
+            }
+
+            // ⚠ Once per frame, however many resize events arrived. A window opened maximised on a
+            // 4K display produces a burst of them, and handling each one where it arrives means a
+            // `vkDeviceWaitIdle` and a full swapchain rebuild several times before a single frame is
+            // drawn — every rebuild handing the compositor images whose contents are undefined,
+            // which is what the flicker is. It also keeps the layout and the geometry in step: both
+            // are read from the same framebuffer size, once, before anything uses it.
+            if (resized) {
+                resized = false;
+
+                ui.Resize(window.FramebufferSize.X / Scale, window.FramebufferSize.Y / Scale);
+                Recreate();
             }
 
             ui.Tick(now, delta);
@@ -178,9 +201,9 @@ sealed class UiHost : IDisposable {
                     return;
 
                 case PlatformEventKind.WindowResized:
-                    ui.Resize(platformEvent.PixelSize.X / Scale, platformEvent.PixelSize.Y / Scale);
-                    Recreate();
-
+                    // Recorded rather than acted on: the window is the authority on its own size and
+                    // the frame reads it once, above.
+                    resized = true;
                     break;
 
                 case PlatformEventKind.Suspending:
@@ -232,21 +255,19 @@ sealed class UiHost : IDisposable {
 
         device!.BeginFrame();
 
-        var status = swapChain!.AcquireNextImage(out var view);
-
-        if (status is SwapChainStatus.OutOfDate) {
-            Recreate();
-            return;
-        }
-
-        if (status is SwapChainStatus.DeviceLost) {
-            lost = true;
+        if (!Acquire(out var view)) {
+            // ⚠ Ended even though nothing was drawn, and this is not tidiness. `BeginFrame` waits on
+            // this slot's fence and resets it; `EndFrame` is what submits the signal that makes the
+            // wait return. Leaving without it means the frame counter never advances, so the next
+            // frame waits on the same reset fence with no submission behind it — `vkWaitForFences`
+            // with no timeout, which is a hang rather than a dropped frame.
+            device.EndFrame();
             return;
         }
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "ui")) {
             var backbuffer = graph!.ImportTexture(
-                swapChain.CurrentTexture,
+                swapChain!.CurrentTexture,
                 view,
                 new(
                     swapChain.Format,
@@ -291,9 +312,47 @@ sealed class UiHost : IDisposable {
 
         device.EndFrame();
 
-        if (swapChain.Present() is SwapChainStatus.OutOfDate or SwapChainStatus.Suboptimal) {
-            Recreate();
+        switch (swapChain.Present()) {
+            case SwapChainStatus.OutOfDate:
+                Recreate(force: true);
+                break;
+
+            // ⚠ Suboptimal is a hint, and rebuilding on it unconditionally is the flicker. It means
+            // "this still presents correctly, but the surface would prefer other parameters" — and a
+            // compositor that keeps saying so, which a scaled 4K surface does, then gets a
+            // `vkDeviceWaitIdle` and a fresh set of undefined images every single frame. Honoured
+            // only when the window has actually changed size, which `Recreate` is what decides.
+            case SwapChainStatus.Suboptimal:
+                Recreate();
+                break;
+
+            default:
+                break;
         }
+    }
+
+    /// <summary>Takes the next image, rebuilding once if the swapchain has gone stale.</summary>
+    /// <returns>Whether there is an image to draw into.</returns>
+    /// <remarks>
+    ///     ⚠ <b>It retries rather than dropping the frame.</b> `OutOfDate` arrives on the first
+    ///     acquire after every resize, and returning here would present nothing that frame — the
+    ///     compositor shows whatever was there before, which during a maximise or a drag is the
+    ///     window visibly blinking.
+    /// </remarks>
+    bool Acquire(out TextureViewHandle view) {
+        var status = swapChain!.AcquireNextImage(out view);
+
+        if (status is SwapChainStatus.OutOfDate) {
+            Recreate(force: true);
+            status = swapChain.AcquireNextImage(out view);
+        }
+
+        if (status is SwapChainStatus.DeviceLost) {
+            lost = true;
+            return false;
+        }
+
+        return status is not SwapChainStatus.OutOfDate;
     }
 
     /// <summary>Builds everything GPU-shaped, once there is a surface to present to.</summary>
@@ -317,13 +376,8 @@ sealed class UiHost : IDisposable {
         pool = new TransientResourcePool(device);
         graph = new RenderGraph(device, pool);
 
-        swapChain = device.CreateSwapChain(
-            new(
-                window.Surface.Handle,
-                new Int2(window.FramebufferSize.X, window.FramebufferSize.Y),
-                PixelFormat.Bgra8UNormSrgb
-            )
-        );
+        built = new Int2(window.FramebufferSize.X, window.FramebufferSize.Y);
+        swapChain = device.CreateSwapChain(new(window.Surface.Handle, built, PixelFormat.Bgra8UNormSrgb));
 
         renderer = new UiRenderer(
             device,
@@ -376,13 +430,26 @@ sealed class UiHost : IDisposable {
         return count;
     }
 
-    void Recreate() {
+    /// <summary>Rebuilds the swapchain for the window's current size.</summary>
+    /// <param name="force">
+    ///     Whether to rebuild even at the same size. True only for <c>OutOfDate</c>, which is the
+    ///     one status that says the swapchain may no longer be used at all.
+    /// </param>
+    void Recreate(bool force = false) {
         if (device is null || swapChain is null) {
             return;
         }
 
+        var target = new Int2(window.FramebufferSize.X, window.FramebufferSize.Y);
+
+        if (!force && target == built) {
+            return;
+        }
+
         device.WaitIdle();
-        swapChain.Resize(new Int2(window.FramebufferSize.X, window.FramebufferSize.Y));
+        swapChain.Resize(target);
+
+        built = target;
     }
 
     void Release() {
@@ -398,6 +465,10 @@ sealed class UiHost : IDisposable {
         graph = null;
         pool = null;
         device = null;
+
+        // Or the swapchain the next EnsureDevice builds would be compared against the one this just
+        // destroyed, and a resume at the same size would skip the rebuild it needs.
+        built = default;
     }
 
     /// <summary>Reads an embedded SPIR-V module.</summary>

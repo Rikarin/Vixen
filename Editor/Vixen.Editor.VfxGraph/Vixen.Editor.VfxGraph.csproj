@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.VfxGraph</RootNamespace>
+        <Description>
+            The VFX graph: spawner, initializer, updater and output blocks over the reusable
+            node-graph framework, compiling to a VfxCompiledGraph the CPU simulation runs and — from
+            the same array of operations, by construction — the Raven compute shader a device runs.
+        </Description>
+        <PackageTags>editor;vfx;node-graph;particles;raven;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!-- A node's ports are its fields. See Vixen.Editor.ShaderGraph's csproj for the argument. -->
+        <NoWarn>$(NoWarn);CA1051</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
+
+        <!--
+          The runtime, because the artefact *is* a VfxCompiledGraph. There is no editor-side model of
+          an effect to keep in step with the runtime's one: the graph compiles straight to the thing
+          that runs, which is also what makes the GPU half one method call.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Vfx\Vixen.Vfx.csproj" />
+
+        <ProjectReference Include="..\Vixen.Editor.NodeGraph.Generator\Vixen.Editor.NodeGraph.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.VfxGraph.Tests" />
+    </ItemGroup>
+
+</Project>

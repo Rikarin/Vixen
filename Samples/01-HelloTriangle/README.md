@@ -33,6 +33,10 @@ dotnet run --project Samples/01-HelloTriangle -c Release -- --vixen-frames 120
 starts, presents and shuts down without a validation error or a hang — and with the validation layers
 installed, a validation error is a non-zero exit.
 
+⚠ **This is a recipe, not a description of the build.** `ci.yml` builds and tests on all three
+platforms and runs no sample, so nothing invokes the flag today. Wiring it in needs a headless
+display on the Linux runner, which is why it has not been.
+
 ## Shaders
 
 `Shaders/` holds the GLSL and the SPIR-V compiled from it. The RHI never parses shader source, and

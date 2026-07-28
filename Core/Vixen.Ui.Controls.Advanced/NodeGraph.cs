@@ -1,0 +1,409 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core.Mathematics;
+
+namespace Vixen.Ui.Controls.Advanced;
+
+/// <summary>Which way data flows through a port.</summary>
+public enum PortDirection : byte {
+    /// <summary>It consumes. A wire ends here.</summary>
+    Input,
+
+    /// <summary>It produces. A wire starts here.</summary>
+    Output
+}
+
+/// <summary>One socket on the side of a node.</summary>
+/// <remarks>
+///     ⚠ <b>A port knows where it is without being laid out.</b>
+///     <see cref="NodeCanvas.AnchorOf" /> works the position out from the node's rectangle and the
+///     port's index rather than from a port element's box, and that is load-bearing: the node at the
+///     far end of a wire is very often scrolled off the canvas and has no elements at all. A wire
+///     whose endpoint came from layout would be drawn to the origin whenever the thing it connects
+///     to was out of sight.
+/// </remarks>
+public sealed class GraphPort {
+    internal GraphPort(GraphNode node, string name, PortDirection direction, int index) {
+        Node = node;
+        Name = name;
+        Direction = direction;
+        Index = index;
+    }
+
+    /// <summary>The node it belongs to.</summary>
+    public GraphNode Node { get; }
+
+    /// <summary>What it is called.</summary>
+    public string Name { get; set; }
+
+    /// <summary>Which side it is on.</summary>
+    public PortDirection Direction { get; }
+
+    /// <summary>Where it comes among the ports on its own side.</summary>
+    public int Index { get; internal set; }
+
+    /// <summary>Whether more than one wire may end here.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An input takes one wire and an output takes many</b>, which is the asymmetry every
+    ///     data-flow graph has: a value can feed anything, and a slot that expected one value cannot
+    ///     be handed two. <see cref="NodeGraph.Connect" /> enforces it by replacing rather than
+    ///     refusing, because a user who drags a second wire into an occupied input means to change
+    ///     what feeds it.
+    /// </remarks>
+    public bool AllowsMany => Direction == PortDirection.Output;
+
+    /// <summary>Whatever the application wants to hang off it.</summary>
+    public object? Tag { get; set; }
+
+    /// <inheritdoc />
+    public override string ToString() => $"{Node.Title}.{Name}";
+}
+
+/// <summary>One box on the canvas.</summary>
+public sealed class GraphNode {
+    readonly List<GraphPort> inputs = [];
+    readonly List<GraphPort> outputs = [];
+
+    /// <summary>Creates a node.</summary>
+    /// <param name="title">What is written across the top of it.</param>
+    public GraphNode(string title = "") => Title = title;
+
+    /// <summary>What is written across the top of it.</summary>
+    public string Title { get; set; }
+
+    /// <summary>Its top-left corner, in graph space.</summary>
+    public Vector2 Position { get; set; }
+
+    /// <summary>How wide it is, in graph units.</summary>
+    public float Width { get; set; } = 140f;
+
+    /// <summary>Its ports, in order down the left side.</summary>
+    public IReadOnlyList<GraphPort> Inputs => inputs;
+
+    /// <summary>Its ports, in order down the right side.</summary>
+    public IReadOnlyList<GraphPort> Outputs => outputs;
+
+    /// <summary>The group it is in, if any.</summary>
+    public GraphGroup? Group { get; internal set; }
+
+    /// <summary>Whatever the application wants to hang off it.</summary>
+    public object? Tag { get; set; }
+
+    /// <summary>Adds a port on the left.</summary>
+    /// <param name="name">What it is called.</param>
+    /// <returns>The port.</returns>
+    public GraphPort AddInput(string name) {
+        var port = new GraphPort(this, name, PortDirection.Input, inputs.Count);
+        inputs.Add(port);
+
+        return port;
+    }
+
+    /// <summary>Adds a port on the right.</summary>
+    /// <param name="name">What it is called.</param>
+    /// <returns>The port.</returns>
+    public GraphPort AddOutput(string name) {
+        var port = new GraphPort(this, name, PortDirection.Output, outputs.Count);
+        outputs.Add(port);
+
+        return port;
+    }
+
+    /// <summary>How many ports the taller of its two sides has.</summary>
+    public int Rows => Math.Max(inputs.Count, outputs.Count);
+
+    /// <inheritdoc />
+    public override string ToString() => Title;
+}
+
+/// <summary>A connection from an output to an input.</summary>
+public sealed class GraphWire {
+    internal GraphWire(GraphPort from, GraphPort to) {
+        From = from;
+        To = to;
+    }
+
+    /// <summary>The output end.</summary>
+    public GraphPort From { get; }
+
+    /// <summary>The input end.</summary>
+    public GraphPort To { get; }
+
+    /// <inheritdoc />
+    public override string ToString() => $"{From} → {To}";
+}
+
+/// <summary>A titled rectangle that some nodes are inside.</summary>
+/// <remarks>
+///     Membership is a list rather than a hit test against the rectangle. A group whose contents
+///     were "whatever is inside it right now" would gain and lose members as nodes were dragged
+///     past, which makes "move this group" a gesture whose effect depends on what happened to be
+///     overlapping at the time.
+/// </remarks>
+public sealed class GraphGroup {
+    readonly List<GraphNode> nodes = [];
+
+    /// <summary>Creates a group.</summary>
+    /// <param name="title">Its label.</param>
+    public GraphGroup(string title = "") => Title = title;
+
+    /// <summary>Its label.</summary>
+    public string Title { get; set; }
+
+    /// <summary>What is in it.</summary>
+    public IReadOnlyList<GraphNode> Nodes => nodes;
+
+    /// <summary>How much room is left around the nodes inside it.</summary>
+    public float Padding { get; set; } = 16f;
+
+    /// <summary>How much room the title bar takes above them.</summary>
+    public float HeaderHeight { get; set; } = 20f;
+
+    /// <summary>Takes a node into the group, out of whatever group it was in.</summary>
+    /// <param name="node">The node.</param>
+    public void Add(GraphNode node) {
+        ArgumentNullException.ThrowIfNull(node);
+
+        node.Group?.nodes.Remove(node);
+        node.Group = this;
+
+        nodes.Add(node);
+    }
+
+    /// <summary>Takes a node out.</summary>
+    /// <param name="node">The node.</param>
+    /// <returns>Whether it was in.</returns>
+    public bool Remove(GraphNode node) {
+        ArgumentNullException.ThrowIfNull(node);
+
+        if (!nodes.Remove(node)) {
+            return false;
+        }
+
+        node.Group = null;
+        return true;
+    }
+}
+
+/// <summary>The nodes, the wires and the groups. No elements, no canvas, no view.</summary>
+/// <remarks>
+///     <para>
+///         <b>Kept apart from <see cref="NodeCanvas" /> on purpose</b>, for the reason
+///         <c>DockLayout</c> is kept apart from <c>DockingHost</c>: this is what a shader graph is
+///         saved as, compiled from and compared against, and a model that could only be read out of
+///         a live element tree would make every one of those depend on a document, a stylesheet and
+///         a font.
+///     </para>
+///     <para>
+///         ⚠ <b>It refuses a cycle.</b> A shader graph and a VFX graph are both evaluated by walking
+///         from the outputs back, and a cycle is not a graph with a mistake in it — it is a walk
+///         that does not terminate. Refusing at the moment of connection is the only place the user
+///         can be told which wire was the problem.
+///     </para>
+/// </remarks>
+public sealed class NodeGraph {
+    readonly List<GraphNode> nodes = [];
+    readonly List<GraphWire> wires = [];
+    readonly List<GraphGroup> groups = [];
+
+    /// <summary>The nodes, in the order they were added.</summary>
+    public IReadOnlyList<GraphNode> Nodes => nodes;
+
+    /// <summary>The wires.</summary>
+    public IReadOnlyList<GraphWire> Wires => wires;
+
+    /// <summary>The groups.</summary>
+    public IReadOnlyList<GraphGroup> Groups => groups;
+
+    /// <summary>Raised after anything structural changes — a node, a wire or a group.</summary>
+    public event Action<NodeGraph>? Changed;
+
+    /// <summary>Adds a node.</summary>
+    /// <param name="title">Its title.</param>
+    /// <param name="position">Where it goes, in graph space.</param>
+    /// <returns>The node.</returns>
+    public GraphNode AddNode(string title, Vector2 position = default) {
+        var node = new GraphNode(title) { Position = position };
+        nodes.Add(node);
+
+        Changed?.Invoke(this);
+        return node;
+    }
+
+    /// <summary>Adds a node that was made elsewhere.</summary>
+    /// <param name="node">The node.</param>
+    /// <returns>It.</returns>
+    public GraphNode AddNode(GraphNode node) {
+        ArgumentNullException.ThrowIfNull(node);
+
+        nodes.Add(node);
+        Changed?.Invoke(this);
+
+        return node;
+    }
+
+    /// <summary>Takes a node out, and every wire that touched it.</summary>
+    /// <param name="node">The node.</param>
+    /// <returns>Whether it was there.</returns>
+    public bool Remove(GraphNode node) {
+        ArgumentNullException.ThrowIfNull(node);
+
+        if (!nodes.Remove(node)) {
+            return false;
+        }
+
+        // ⚠ The wires go with it. A wire whose node is gone is a wire drawn from an anchor computed
+        // off a rectangle nobody owns — and it would still be there to be saved, so the graph would
+        // reload with a connection to a node that does not exist.
+        wires.RemoveAll(wire => ReferenceEquals(wire.From.Node, node) || ReferenceEquals(wire.To.Node, node));
+        node.Group?.Remove(node);
+
+        Changed?.Invoke(this);
+        return true;
+    }
+
+    /// <summary>Adds a group.</summary>
+    /// <param name="title">Its label.</param>
+    /// <param name="members">What goes in it.</param>
+    /// <returns>The group.</returns>
+    public GraphGroup AddGroup(string title, params ReadOnlySpan<GraphNode> members) {
+        var group = new GraphGroup(title);
+
+        foreach (var node in members) {
+            group.Add(node);
+        }
+
+        groups.Add(group);
+        Changed?.Invoke(this);
+
+        return group;
+    }
+
+    /// <summary>Takes a group out, leaving its nodes where they are.</summary>
+    /// <param name="group">The group.</param>
+    /// <returns>Whether it was there.</returns>
+    public bool Remove(GraphGroup group) {
+        ArgumentNullException.ThrowIfNull(group);
+
+        if (!groups.Remove(group)) {
+            return false;
+        }
+
+        foreach (var node in group.Nodes.ToArray()) {
+            group.Remove(node);
+        }
+
+        Changed?.Invoke(this);
+        return true;
+    }
+
+    /// <summary>Connects an output to an input.</summary>
+    /// <param name="from">The output end. The two may be given either way round.</param>
+    /// <param name="to">The input end.</param>
+    /// <returns>The wire, or <c>null</c> if the connection is not allowed.</returns>
+    /// <remarks>
+    ///     ⚠ <b>An occupied input is replaced rather than refused.</b> Dragging a second wire into a
+    ///     slot that already has one is how everybody rewires a graph, and a version that refused
+    ///     would make the gesture "delete the old wire, then drag the new one" — two steps for one
+    ///     intention, and the first of them has no obvious affordance.
+    /// </remarks>
+    public GraphWire? Connect(GraphPort from, GraphPort to) {
+        ArgumentNullException.ThrowIfNull(from);
+        ArgumentNullException.ThrowIfNull(to);
+
+        // Either way round, because a user drags from whichever end they happened to grab and a
+        // canvas that only accepted output-to-input would silently do nothing half the time.
+        if (from.Direction == PortDirection.Input && to.Direction == PortDirection.Output) {
+            (from, to) = (to, from);
+        }
+
+        if (from.Direction != PortDirection.Output || to.Direction != PortDirection.Input) {
+            return null;
+        }
+
+        if (ReferenceEquals(from.Node, to.Node) || WouldCycle(from.Node, to.Node)) {
+            return null;
+        }
+
+        if (Wire(to) is { } existing) {
+            wires.Remove(existing);
+        }
+
+        var wire = new GraphWire(from, to);
+        wires.Add(wire);
+
+        Changed?.Invoke(this);
+        return wire;
+    }
+
+    /// <summary>Removes a wire.</summary>
+    /// <param name="wire">The wire.</param>
+    /// <returns>Whether it was there.</returns>
+    public bool Disconnect(GraphWire wire) {
+        ArgumentNullException.ThrowIfNull(wire);
+
+        if (!wires.Remove(wire)) {
+            return false;
+        }
+
+        Changed?.Invoke(this);
+        return true;
+    }
+
+    /// <summary>The wire ending at an input, if it has one.</summary>
+    /// <param name="port">The port.</param>
+    /// <returns>The wire, or <c>null</c>.</returns>
+    public GraphWire? Wire(GraphPort port) {
+        ArgumentNullException.ThrowIfNull(port);
+
+        foreach (var wire in wires) {
+            if (ReferenceEquals(wire.To, port)) {
+                return wire;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Tells the canvas the model changed under it.</summary>
+    /// <remarks>
+    ///     For the caller who edited a node's title or moved one by hand. Everything on this type
+    ///     raises <see cref="Changed" /> for itself; a property on <see cref="GraphNode" /> cannot,
+    ///     because a node does not know which graph it is in.
+    /// </remarks>
+    public void Touch() => Changed?.Invoke(this);
+
+    /// <summary>Whether a wire from one node to another would close a loop.</summary>
+    /// <remarks>
+    ///     A walk forwards from the would-be destination: if the source is reachable from it, the new
+    ///     wire completes a circle. Depth-first with an explicit stack rather than recursion, because
+    ///     a chain of ten thousand nodes is a legal graph and a stack overflow is not a diagnostic.
+    /// </remarks>
+    bool WouldCycle(GraphNode from, GraphNode to) {
+        var seen = new HashSet<GraphNode>();
+        var pending = new Stack<GraphNode>();
+
+        pending.Push(to);
+
+        while (pending.Count > 0) {
+            var node = pending.Pop();
+
+            if (ReferenceEquals(node, from)) {
+                return true;
+            }
+
+            if (!seen.Add(node)) {
+                continue;
+            }
+
+            foreach (var wire in wires) {
+                if (ReferenceEquals(wire.From.Node, node)) {
+                    pending.Push(wire.To.Node);
+                }
+            }
+        }
+
+        return false;
+    }
+}

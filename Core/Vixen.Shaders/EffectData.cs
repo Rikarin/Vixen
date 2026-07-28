@@ -116,6 +116,10 @@ public sealed record EffectStageData(ShaderStage Stage = ShaderStage.None, byte[
 /// <param name="Kind">What it binds.</param>
 /// <param name="Stages">Which stages reference it.</param>
 /// <param name="Count">Array length; 1 for a single resource, 0 for unbounded.</param>
+/// <param name="Size">
+///     How many bytes a block binding is; 0 for a resource. Per binding rather than per effect
+///     because a shader that marks its sets has a block in each of them.
+/// </param>
 /// <remarks>
 ///     One record for two jobs: <see cref="Effect.Bindings" />, which answers "where does
 ///     <c>source</c> go", and the <see cref="DescriptorSetLayoutDescription" /> the device wants.
@@ -129,7 +133,8 @@ public sealed record EffectBindingData(
     uint Binding = 0,
     DescriptorKind Kind = DescriptorKind.UniformBuffer,
     ShaderStage Stages = ShaderStage.None,
-    int Count = 1
+    int Count = 1,
+    int Size = 0
 );
 
 /// <summary>Where one value sits in the constant buffer, and what type it is.</summary>
@@ -137,12 +142,14 @@ public sealed record EffectBindingData(
 /// <param name="Kind">Its CLR type, for interning the key.</param>
 /// <param name="Offset">Byte offset within the block.</param>
 /// <param name="Size">Bytes occupied.</param>
+/// <param name="Set">Which set's block that offset is into.</param>
 [DataContract("EffectParameterData")]
 public sealed record EffectParameterData(
     string Name = "",
     ShaderValueKind Kind = ShaderValueKind.Unknown,
     int Offset = 0,
-    int Size = 0
+    int Size = 0,
+    DescriptorSetSlot Set = DescriptorSetSlot.PerMaterial
 );
 
 /// <summary>

@@ -88,6 +88,24 @@ public interface IEditorCommand
   retrofitting is not needed. (Stride's `Stride.Core.Translation` exists precisely because this was
   retrofitted.)
 
+> **As built** (see [`Editor/Vixen.Editor.Ui/README.md`](../../Editor/Vixen.Editor.Ui/README.md) and
+> [`Editor/Vixen.Editor.App/README.md`](../../Editor/Vixen.Editor.App/README.md)). All of the above
+> is in, with three corrections and two gaps.
+>
+> The corrections. **`Vixen.Editor.Ui` does not reference `Vixen.Editor.Core`**, contrary to what the
+> tree above implies by ordering: a command is an id and a delegate and a panel is an id and a
+> factory, so the shell knows nothing about projects, documents or undo stacks — which is what makes
+> the whole of the editor's chrome testable against a bare `UiDocument`, and it is what doc 11's own
+> "headless editor host" line asks for. `Vixen.Editor.App` joins the two. **Undock to a separate OS
+> window is still half-built**: `DockFloat` is a group floating within the document, and promoting
+> one to a real window needs a second surface, swapchain and input queue from `Vixen.Platform`.
+> **`Strings.Resource` is not generated yet** — `EditorStrings` is hand-written in the shape the
+> generator will emit, so no call site changes when it lands, but an id used nowhere is not yet a
+> build error.
+>
+> The gaps are a keybinding editor (the model has conflict detection, per-command customisation and
+> reset; there is no UI over it) and plugin loading, which needs `Vixen.Editor.Plugin` to exist.
+
 ### `Vixen.Editor.Inspector`
 
 Attribute-driven, generated, not reflective:
@@ -185,6 +203,31 @@ public sealed partial class LerpNode : ShaderNode
 So a third-party plugin adds nodes by adding classes. `DynamicVector` (a port type resolved by
 connection, as Unity's shader graph does) is the interesting type-system requirement and belongs in the
 port model from the start.
+
+> **As built** (see [`Vixen.Editor.NodeGraph`](../../Editor/Vixen.Editor.NodeGraph/README.md),
+> [`.ShaderGraph`](../../Editor/Vixen.Editor.ShaderGraph/README.md) and
+> [`.VfxGraph`](../../Editor/Vixen.Editor.VfxGraph/README.md)). The model, the generated registry and
+> the compiler are in, and so are two of the three graphs — everything above the line marked
+> `NodeGraphView`. The example in this section compiles as written.
+>
+> Three notes on how it came out:
+>
+> - **`DynamicVector` resolution is "the widest connected input wins, and everything narrower is
+>   promoted".** A node with nothing connected is a `float`, and a scalar default splats to whatever
+>   the node turned out to be. A texture arriving at a dynamic port is a type error rather than
+>   something to widen.
+> - **A VFX graph's edges carry `Flow`, not values.** Its blocks are a chain, and the topological sort
+>   the framework already does is what turns the chain into the operation list. That needed one more
+>   port kind and nothing else, which is the return on having built one framework rather than three.
+> - **The VFX graph's dual target cost one method call.** `VfxCompiledGraph` was made an array of
+>   fixed-size operations for [06](06-rendering-pipeline.md)'s sake and `VfxShaderEmitter` was written
+>   against it, so a graph that produces the array produces the Raven too. There is no second lowering
+>   and no way for the two halves to have understood the graph differently.
+>
+> Not in: the view, sub-graphs, the animation graph, and mapping a *generated shader's* diagnostics
+> back to the node that emitted the line — every diagnostic the graph compilers raise names a node and
+> a port, but Raven's own complaints about the generated text are not yet mapped, which needs the
+> emitters to record spans as they write.
 
 ### `Vixen.Editor.Profiler` and `.Debugger`
 

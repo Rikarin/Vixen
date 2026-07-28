@@ -150,11 +150,39 @@ public sealed partial class Pagination : Control {
         PageChanged?.Invoke(this, CurrentPage);
     }
 
+    /// <summary>How many slots the row has: the ends, the window, and a gap either side.</summary>
+    /// <remarks>
+    ///     The number of page buttons, and it does not depend on which page is current — which is
+    ///     what <see cref="Pages" /> exists to guarantee. For the default window of one that is
+    ///     seven: <c>1 … 44 45 46 … 90</c>.
+    /// </remarks>
+    int Slots => (2 * Math.Max(0, Window)) + 5;
+
     /// <summary>Which page numbers to show, with -1 standing for a gap.</summary>
     /// <remarks>
-    ///     ⚠ <b>The first and last pages are always shown</b>, because they are the two anybody
-    ///     navigates to by name — "back to the start", "how many are there". A window that slid
-    ///     without pinning them makes the end of a long list reachable only by holding the arrow.
+    ///     <para>
+    ///         ⚠ <b>The first and last pages are always shown</b>, because they are the two anybody
+    ///         navigates to by name — "back to the start", "how many are there". A window that slid
+    ///         without pinning them makes the end of a long list reachable only by holding the
+    ///         arrow.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The row is the same width on every page, and the window is extended rather than
+    ///         truncated to keep it so.</b> Clamping the window against the ends instead — which is
+    ///         the obvious way to write this — gives a row that grows from four buttons to seven and
+    ///         back as the user pages through: <c>1 2 … 12</c>, <c>1 2 3 … 12</c>,
+    ///         <c>1 2 3 4 … 12</c>, <c>1 … 3 4 5 … 12</c>. Every number under the pointer moves on
+    ///         every click, so paging with the mouse means re-finding the button each time and
+    ///         clicking "next" lands on whatever slid underneath it. It is the same argument the
+    ///         arrows already make by staying disabled rather than disappearing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A gap never stands for one page.</b> An ellipsis is exactly as wide as the number
+    ///         it replaced, so hiding a single page behind one buys nothing and costs the user the
+    ///         page — <c>1 … 3 4 5 … 12</c> spends a slot concealing "2". The near-the-ends branches
+    ///         are what stop it: the window reaches the end rather than leaving one page behind a
+    ///         gap.
+    ///     </para>
     /// </remarks>
     List<int> Pages() {
         var pages = new List<int>();
@@ -163,26 +191,56 @@ public sealed partial class Pagination : Control {
             return pages;
         }
 
-        var from = Math.Max(1, CurrentPage - Window);
-        var to = Math.Min(PageCount - 2, CurrentPage + Window);
+        // Everything fits, so nothing is hidden. This is also the whole of the small-count case —
+        // three pages must not come out as `1 … 3`.
+        if (PageCount <= Slots) {
+            for (var page = 0; page < PageCount; page++) {
+                pages.Add(page);
+            }
 
-        pages.Add(0);
-
-        if (from > 1) {
-            pages.Add(-1);
+            return pages;
         }
 
-        for (var page = from; page <= to; page++) {
+        var window = Math.Max(0, Window);
+        var run = (2 * window) + 3;
+
+        // ⚠ The boundary is where the gap would start hiding fewer than two pages, which is
+        // `Window + 2` and not `2 * Window + 1`. The two coincide at the default window of one and
+        // diverge either side of it — with a window of zero the second lets `1 … 3 … 12` through,
+        // where the gap has swallowed page 2 alone.
+        if (CurrentPage <= window + 2) {
+            // Near the start: the window is pinned there and grows to the right, so the left-hand
+            // gap that would have hidden one or two pages does not exist at all.
+            for (var page = 0; page < run; page++) {
+                pages.Add(page);
+            }
+
+            pages.Add(-1);
+            pages.Add(PageCount - 1);
+
+            return pages;
+        }
+
+        if (CurrentPage >= PageCount - window - 3) {
+            pages.Add(0);
+            pages.Add(-1);
+
+            for (var page = PageCount - run; page < PageCount; page++) {
+                pages.Add(page);
+            }
+
+            return pages;
+        }
+
+        pages.Add(0);
+        pages.Add(-1);
+
+        for (var page = CurrentPage - window; page <= CurrentPage + window; page++) {
             pages.Add(page);
         }
 
-        if (to < PageCount - 2) {
-            pages.Add(-1);
-        }
-
-        if (PageCount > 1) {
-            pages.Add(PageCount - 1);
-        }
+        pages.Add(-1);
+        pages.Add(PageCount - 1);
 
         return pages;
     }

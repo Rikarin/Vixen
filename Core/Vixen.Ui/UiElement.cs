@@ -25,6 +25,10 @@ namespace Vixen.Ui;
 /// </remarks>
 public partial class UiElement {
     readonly List<UiElement> children = [];
+    List<UiElement>? ordered;
+    bool orderDirty = true;
+    int zIndex;
+    int paintKey;
     List<HandlerRegistration>? handlers;
     UiDocument? document;
 
@@ -94,6 +98,117 @@ public partial class UiElement {
     /// <summary>Its children, in document order.</summary>
     public IReadOnlyList<UiElement> Children => children;
 
+    /// <summary>Its <c>line-height</c> in pixels, or <see cref="float.NaN" /> for the font's own.</summary>
+    /// <remarks>
+    ///     Computed each style pass and inherited in that form, the same way <see cref="FontSize" />
+    ///     is and for the same reason: the property takes relative units, so a child inheriting the
+    ///     text <c>1.5em</c> would resolve it against its own font size rather than the ancestor's.
+    ///     NaN rather than zero for "whatever the font recommends", because zero is a line height
+    ///     somebody might mean.
+    /// </remarks>
+    public float LineHeight { get; internal set; } = float.NaN;
+
+    /// <summary>Its <c>letter-spacing</c> in pixels.</summary>
+    /// <remarks>Computed and inherited like <see cref="LineHeight" />. Zero when nothing said.</remarks>
+    public float LetterSpacing { get; internal set; }
+
+    /// <summary>Where it sits among its siblings when they overlap.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Resolved from <c>z-index</c> each style pass. Zero when nothing said, and <c>auto</c>
+    ///         reads as zero too — this engine has no stacking context for <c>auto</c> to defer to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It orders siblings, and only siblings.</b> CSS lets a positioned descendant with
+    ///         a z-index paint above an element that is not its parent's sibling — the behaviour a
+    ///         dropdown escaping its row relies on — and that needs stacking contexts, which needs
+    ///         the whole of CSS 2.1 Appendix E. Here a high z-index lifts a child above its brothers
+    ///         and no further, so an overlay that must cover the whole window belongs to a container
+    ///         near the root rather than to the row that opened it. Said plainly because the two
+    ///         models agree until the moment they matter.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Unlike CSS, this applies to <i>every</i> element rather than only positioned ones.
+    ///         The restriction exists in CSS because a static element establishes no stacking context
+    ///         for the index to be measured in; sibling ordering needs no such thing, and requiring
+    ///         <c>position: relative</c> before <c>z-10</c> did anything would be a rule with no
+    ///         reason behind it here.
+    ///     </para>
+    /// </remarks>
+    public int ZIndex {
+        get => zIndex;
+
+        internal set {
+            if (zIndex == value) {
+                return;
+            }
+
+            zIndex = value;
+            Parent?.InvalidateOrder();
+        }
+    }
+
+    /// <summary>Its children in the order they are painted, back to front.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one place paint order is decided</b>, read forwards by the draw list and
+    ///         backwards by hit testing. The two have to agree — an element drawn on top must be the
+    ///         one a click lands on — and the cheapest way to guarantee that is for neither of them
+    ///         to have its own opinion.
+    ///     </para>
+    ///     <para>
+    ///         Document order costs nothing: with no z-index anywhere among the children this is the
+    ///         children list itself, not a copy of it. The sorted list is built only when some child
+    ///         has an index, and then cached until the children or one of their indices change.
+    ///     </para>
+    /// </remarks>
+    internal IReadOnlyList<UiElement> PaintOrder {
+        get {
+            if (!orderDirty) {
+                return ordered ?? (IReadOnlyList<UiElement>) children;
+            }
+
+            orderDirty = false;
+
+            if (!AnyChildIsLifted()) {
+                ordered = null;
+                return children;
+            }
+
+            ordered ??= [];
+            ordered.Clear();
+            ordered.AddRange(children);
+
+            // Stamped rather than looked up, because the tie-break has to be the child's document
+            // position and finding that with IndexOf inside the comparison turns an n log n sort
+            // into an n² log n one.
+            for (var i = 0; i < children.Count; i++) {
+                children[i].paintKey = i;
+            }
+
+            // Stable by construction: equal indices keep document order, which is what makes
+            // `z-10` on one child leave every other child exactly where it was.
+            ordered.Sort(static (left, right) =>
+                left.zIndex != right.zIndex
+                    ? left.zIndex.CompareTo(right.zIndex)
+                    : left.paintKey.CompareTo(right.paintKey));
+
+            return ordered;
+        }
+    }
+
+    bool AnyChildIsLifted() {
+        foreach (var child in children) {
+            if (child.zIndex != 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    internal void InvalidateOrder() => orderDirty = true;
+
     /// <summary>What the cascade decided. Interned, so two alike elements share one object.</summary>
     public ComputedStyle Style { get; internal set; }
 
@@ -147,7 +262,7 @@ public partial class UiElement {
             return false;
         }
 
-        Document.Invalidate();
+        Document.InvalidateClass(StyleNode, className);
         return true;
     }
 
@@ -159,7 +274,7 @@ public partial class UiElement {
             return false;
         }
 
-        Document.Invalidate();
+        Document.InvalidateClass(StyleNode, className);
         return true;
     }
 
@@ -177,7 +292,7 @@ public partial class UiElement {
             }
 
             Document.Styles.Tree.SetState(StyleNode, value);
-            Document.Invalidate();
+            Document.InvalidateState(StyleNode);
         }
     }
 
@@ -257,8 +372,15 @@ public partial class UiElement {
             return null;
         }
 
-        var font = Document.Fonts.Resolve(Document.FontFamilyOf(Style));
-        return font is null ? null : new TextRun(font, Document.Shaping.Shape(font, Text), FontSize);
+        var font = Document.Fonts.Resolve(
+            Document.FontFamilyOf(Style),
+            Document.FontWeightOf(Style),
+            Document.FontStyleOf(Style)
+        );
+
+        return font is null
+            ? null
+            : new TextRun(font, Document.Shaping.Shape(font, Text), FontSize, LetterSpacing, LineHeight);
     }
 
     void OnTextChanged(string? previous, string? current) {
@@ -304,6 +426,38 @@ public partial class UiElement {
     ///     </para>
     /// </remarks>
     protected internal virtual void OnCreated() {
+    }
+
+    /// <summary>Called once, as the element leaves the document.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The other end of <see cref="OnCreated" />, and what an overlay needs to exist.</b> A
+    ///         menu, a select's popover, a dialog and a tooltip all parent their popup on the
+    ///         <i>root</i>, because painting order is document order and a popup inside the control
+    ///         that opened it is clipped by every <c>overflow: hidden</c> between the two. That is the
+    ///         right structure and it leaves the popup with no way to hear that its owner is gone: the
+    ///         two are not related, so removing a panel full of menus left their popups in the
+    ///         document for ever, still styled, still hit-testable, still drawn the moment anything
+    ///         opened them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Called top-down, before anything is detached, and that order is deliberate.</b> An
+    ///         override's whole job is to reach things — the popup it parented elsewhere, a
+    ///         subscription on an ancestor — and both are unreachable once the subtree is out of the
+    ///         document. The alternative, calling it after the stores are cleaned, hands every
+    ///         implementer an element that throws on almost every question.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An override may remove other elements and must not remove this one.</b> Removing
+    ///         a popup from inside this is the case it exists for and is safe: the popup is elsewhere
+    ///         in the tree. Removing an ancestor of the subtree already being removed is not, and is
+    ///         refused by <see cref="UiDocument.Remove" /> rather than left to corrupt the walk.
+    ///     </para>
+    ///     <para>
+    ///         An override must call its base.
+    ///     </para>
+    /// </remarks>
+    protected internal virtual void OnRemoved() {
     }
 
     /// <summary>Raised after any generated UI property changes.</summary>
@@ -391,14 +545,22 @@ public partial class UiElement {
     public partial float OffsetY { get; set; }
 
     /// <remarks>
-    ///     ⚠ <b>Invalidates the document rather than only the positions.</b> There is no cheaper
-    ///     pass to ask for — <see cref="UiDocument.Update" /> is what recomputes absolute positions —
-    ///     and it costs a walk that changes nothing: no element's computed style has changed, so the
-    ///     reference comparison skips every one of them, and no layout node is dirty, so flexbox
-    ///     returns without measuring. A scroll is therefore two walks of the tree and no work, which
-    ///     is the point.
+    ///     <para>
+    ///         ⚠ <b>Asks for a pass without asking for a restyle</b>, because an offset cannot change
+    ///         what any selector matches. <see cref="UiDocument.Update" /> is what recomputes absolute
+    ///         positions, so a pass is what has to be asked for; the cascade has nothing to do in it,
+    ///         and no layout node is dirty either, so flexbox returns without measuring. A scroll is
+    ///         two walks of the tree and no work.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That last sentence was here before and was not true.</b> It described
+    ///         <c>Apply</c>, whose reference comparison does skip every element — while the pass above
+    ///         it re-cascaded the document, because a plain <c>Invalidate</c> was the only way to ask
+    ///         for anything. Measured on a themed document of 8 001 elements, that was 9.5 ms and
+    ///         8.9 MB per frame of a scroll. See <c>UiDocument.InvalidatePositions</c>.
+    ///     </para>
     /// </remarks>
-    void OnOffsetChanged(float previous, float current) => Document.Invalidate();
+    void OnOffsetChanged(float previous, float current) => Document.InvalidatePositions();
 
     /// <summary>Its left edge in document space, after the last layout pass.</summary>
     public float AbsoluteLeft { get; internal set; }
@@ -503,6 +665,12 @@ public partial class UiElement {
     internal void Restyle(StyleNodeId styleNode) => StyleNode = styleNode;
 
     /// <summary>Takes this element and everything under it out of its document.</summary>
+    /// <remarks>
+    ///     ⚠ Removing twice throws, and that is the contract rather than an oversight — see
+    ///     <c>RemovalTests.Removing_the_same_element_twice_says_so</c>. A control whose
+    ///     <see cref="OnRemoved" /> tears down something it does not solely own asks
+    ///     <see cref="IsRemoved" /> first.
+    /// </remarks>
     public void Remove() => Document.Remove(this);
 
     /// <summary>What the last pass wrote through to the layout store.</summary>
@@ -515,11 +683,26 @@ public partial class UiElement {
     /// <summary>The font size that went with it.</summary>
     internal float AppliedFontSize { get; set; } = float.NaN;
 
-    internal void Attach(UiElement child) => children.Add(child);
+    /// <summary>The line height that went with it.</summary>
+    internal float AppliedLineHeight { get; set; } = float.NaN;
 
-    internal void Insert(UiElement child, int index) => children.Insert(index, child);
+    /// <summary>The letter spacing that went with it.</summary>
+    internal float AppliedLetterSpacing { get; set; } = float.NaN;
 
-    internal void Detach(UiElement child) => children.Remove(child);
+    internal void Attach(UiElement child) {
+        children.Add(child);
+        orderDirty = true;
+    }
+
+    internal void Insert(UiElement child, int index) {
+        children.Insert(index, child);
+        orderDirty = true;
+    }
+
+    internal void Detach(UiElement child) {
+        children.Remove(child);
+        orderDirty = true;
+    }
 
     /// <summary>Points this element at its new parent.</summary>
     /// <remarks>
@@ -533,6 +716,7 @@ public partial class UiElement {
     internal void MoveChild(UiElement child, int index) {
         children.Remove(child);
         children.Insert(index, child);
+        orderDirty = true;
     }
 
     /// <summary>Where this element sits among its siblings, or -1 if it has no parent.</summary>

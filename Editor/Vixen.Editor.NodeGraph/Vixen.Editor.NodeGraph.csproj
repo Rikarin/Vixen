@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.NodeGraph</RootNamespace>
+        <Description>
+            The node-graph framework the shader, VFX and animation graphs are all built on: the
+            document model with its ports, edges, groups and comments; the generated registry that
+            turns [Node]-attributed C# classes into a node library; and the compiler that walks a
+            graph in dependency order, resolves dynamically typed ports, and reports every
+            complaint against the node and port it came from.
+        </Description>
+        <PackageTags>editor;node-graph;shader-graph;vfx;source-generator;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+
+        <!-- The descriptors the generator writes are TypeDescriptors, so the assembly needs the type. -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+
+        <!--
+          The document types are [DataContract]s of this assembly's own, so it runs the descriptor
+          generator over itself — analyzers do not flow through a ProjectReference. Note what is
+          *not* here: Vixen.Core.Yaml. Which file format a graph is written in belongs to whoever
+          writes it, so anything that only wants to compile a graph links no parser.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
+          And the generator that reads [Node] classes. Same arrangement, and the reason a node
+          library is a folder of classes rather than a table somebody has to remember to update.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.NodeGraph.Generator\Vixen.Editor.NodeGraph.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.NodeGraph.Tests" />
+    </ItemGroup>
+
+</Project>

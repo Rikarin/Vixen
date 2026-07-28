@@ -24,9 +24,12 @@ namespace Vixen.Ui;
 ///     </para>
 /// </remarks>
 public readonly struct DrawContext {
-    internal DrawContext(UiElement element, DrawList list) {
+    readonly float alpha;
+
+    internal DrawContext(UiElement element, DrawList list, float alpha = 1f) {
         Element = element;
         List = list;
+        this.alpha = alpha;
     }
 
     /// <summary>The element being drawn.</summary>
@@ -40,10 +43,17 @@ public readonly struct DrawContext {
 
     /// <summary>The element's <c>color</c>, which is what a control draws itself in by default.</summary>
     /// <remarks>
-    ///     Here rather than left to the caller because <i>every</i> custom-drawn control needs it and
-    ///     the alternative is each of them interning a property name and parsing a value. A control
-    ///     that wants a second colour — a slider's track against its fill — reads it through
-    ///     <see cref="UiDocument.ColorOf" /> with an identifier it interned once.
+    ///     <para>
+    ///         Here rather than left to the caller because <i>every</i> custom-drawn control needs it
+    ///         and the alternative is each of them interning a property name and parsing a value. A
+    ///         control that wants a second colour — a slider's track against its fill — reads it
+    ///         through <see cref="UiDocument.ColorOf" /> with an identifier it interned once.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not faded by <c>opacity</c>.</b> Every method here fades what it is given on the
+    ///         way out, so a colour that arrived already faded would be faded twice — and a control
+    ///         is free to hand these methods a colour that never came from this property at all.
+    ///     </para>
     /// </remarks>
     public Color4 Foreground => Element.Document.ForegroundOf(Element);
 
@@ -59,7 +69,7 @@ public readonly struct DrawContext {
         }
 
         List.Add(
-            new DrawCommand(DrawCommandKind.Path, 0f, 0f, 0f, 0f, color, 0f, 0f) {
+            new DrawCommand(DrawCommandKind.Path, 0f, 0f, 0f, 0f, DrawListBuilder.Fade(color, alpha), 0f, 0f) {
                 Offset = List.AddPath(path),
                 Length = path.Count,
                 FillRule = rule
@@ -96,7 +106,7 @@ public readonly struct DrawContext {
         }
 
         List.Add(
-            new DrawCommand(DrawCommandKind.PathStroke, 0f, 0f, 0f, 0f, color, 0f, thickness) {
+            new DrawCommand(DrawCommandKind.PathStroke, 0f, 0f, 0f, 0f, DrawListBuilder.Fade(color, alpha), 0f, thickness) {
                 Offset = List.AddPath(path),
                 Length = path.Count,
                 Join = join,
@@ -123,7 +133,7 @@ public readonly struct DrawContext {
                 rectangle.Y,
                 rectangle.Width,
                 rectangle.Height,
-                color,
+                DrawListBuilder.Fade(color, alpha),
                 radius,
                 0f
             )
@@ -146,7 +156,7 @@ public readonly struct DrawContext {
                 rectangle.Y,
                 rectangle.Width,
                 rectangle.Height,
-                color,
+                DrawListBuilder.Fade(color, alpha),
                 0f,
                 0f
             ) {
@@ -168,7 +178,7 @@ public readonly struct DrawContext {
                 rectangle.Y,
                 rectangle.Width,
                 rectangle.Height,
-                color,
+                DrawListBuilder.Fade(color, alpha),
                 0f,
                 thickness
             ) {

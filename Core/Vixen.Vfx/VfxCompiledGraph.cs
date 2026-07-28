@@ -73,6 +73,7 @@ public sealed class VfxCompiledGraph {
         VfxOperation[] updaters,
         VfxRenderer? renderer,
         VfxAttribute attributes,
+        VfxCustomAttribute[] customs,
         int capacity
     ) {
         Spawners = spawners;
@@ -80,6 +81,7 @@ public sealed class VfxCompiledGraph {
         Updaters = updaters;
         Renderer = renderer;
         Attributes = attributes;
+        Customs = customs;
         Capacity = capacity;
     }
 
@@ -104,6 +106,32 @@ public sealed class VfxCompiledGraph {
     /// <summary>Every attribute the graph touches. Storage is allocated for exactly these.</summary>
     public VfxAttribute Attributes { get; }
 
+    /// <summary>The attributes the graph declared for itself, in slot order.</summary>
+    /// <remarks>
+    ///     Slot order <i>is</i> declaration order: an operation's <see cref="VfxOperation.Slot" /> is
+    ///     an index into this, and the emitted shader declares its buffers in the same sequence. That
+    ///     is what makes both backends agree without either of them looking a name up.
+    /// </remarks>
+    public VfxCustomAttribute[] Customs { get; }
+
+    /// <summary>The slot a name was given, or -1 if the graph does not declare it.</summary>
+    /// <param name="name">The attribute's name.</param>
+    /// <returns>Its slot.</returns>
+    /// <remarks>
+    ///     For a caller writing the graph and for a host binding its buffers. Nothing inside the
+    ///     simulation calls this: an operation carries the slot it was compiled with, because a name
+    ///     lookup per particle per frame is exactly the cost the slot exists to avoid.
+    /// </remarks>
+    public int SlotOf(string name) {
+        for (var slot = 0; slot < Customs.Length; slot++) {
+            if (string.Equals(Customs[slot].Name, name, StringComparison.Ordinal)) {
+                return slot;
+            }
+        }
+
+        return -1;
+    }
+
     /// <summary>The most particles that may be alive at once.</summary>
     public int Capacity { get; }
 
@@ -116,9 +144,16 @@ public sealed class VfxCompiledGraph {
     /// <param name="updaters">What happens to a live particle each step.</param>
     /// <param name="capacity">The most particles alive at once.</param>
     /// <param name="renderer">How it is drawn. Its reads join the derived attribute set.</param>
+    /// <param name="customs">
+    ///     The attributes the graph declares for itself. Slots are assigned in this order, and an
+    ///     operation's <see cref="VfxOperation.Slot" /> is an index into it.
+    /// </param>
     /// <returns>The compiled graph.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="capacity" /> is not positive.</exception>
-    /// <exception cref="ArgumentException">An updater reads an attribute nothing gives it.</exception>
+    /// <exception cref="ArgumentException">
+    ///     An updater reads an attribute nothing gives it, a custom attribute's name is not an
+    ///     identifier or is declared twice, or an operation names a slot the graph does not have.
+    /// </exception>
     /// <remarks>
     ///     Salts are assigned here, from each operation's position in the two lists, so an author never
     ///     writes one and two operations can never share one. An operation that arrives with a salt
@@ -129,10 +164,12 @@ public sealed class VfxCompiledGraph {
         ReadOnlySpan<VfxOperation> initializers,
         ReadOnlySpan<VfxOperation> updaters,
         int capacity,
-        VfxRenderer? renderer = null
+        VfxRenderer? renderer = null,
+        ReadOnlySpan<VfxCustomAttribute> customs = default
     ) {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
 
+        var declared = Declare(customs);
         var initialized = Salt(initializers, 1);
         var updated = Salt(updaters, 1 + (uint)initializers.Length);
 
@@ -171,14 +208,82 @@ public sealed class VfxCompiledGraph {
         // billboard is what makes a graph allocate velocity even when nothing in the simulation would
         // have. Drawing is a reader of the particle state and there is no reason it should be the one
         // kind of reader that has to be accounted for by hand.
+        foreach (var operation in initialized.Concat(updated)) {
+            if (VfxOpcodes.IsCustom(operation.Opcode) && (uint)operation.Slot >= (uint)declared.Length) {
+                throw new ArgumentException(
+                    $"`{operation.Opcode}` targets custom attribute slot {operation.Slot}, and the graph declares "
+                    + $"{declared.Length}. A slot is an index into the declaration list, so an operation cannot name "
+                    + "one that is not there.",
+                    nameof(customs)
+                );
+            }
+        }
+
         return new(
             spawners.ToArray(),
             initialized,
             updated,
             renderer,
             attributes | (renderer?.Reads ?? VfxAttribute.None) | VfxAttribute.Identifier,
+            declared,
             capacity
         );
+    }
+
+    /// <summary>Checks the custom declarations and fixes their slots.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The name has to be an identifier</b>, because it names a binding in the emitted
+    ///         shader and a host looks it up by that name in the reflection. A custom attribute called
+    ///         "particle size" would compile on the CPU and produce a shader that does not parse,
+    ///         which is a failure a long way from its cause.
+    ///     </para>
+    ///     <para>
+    ///         <b>And it has to be unique</b>, or <see cref="SlotOf" /> answers for one of two slots
+    ///         and the author cannot tell which.
+    ///     </para>
+    ///     <para>
+    ///         <b>Float lanes only.</b> A <see cref="VfxAttributeType.UInt" /> is refused: the one
+    ///         unsigned attribute here is the identifier and it belongs to the runtime, and a custom
+    ///         integer would need its own storage, its own interpolation rule — there is none — and its
+    ///         own buffer element type in the shader. That is a design rather than a lane count.
+    ///     </para>
+    /// </remarks>
+    static VfxCustomAttribute[] Declare(ReadOnlySpan<VfxCustomAttribute> customs) {
+        var declared = customs.ToArray();
+
+        for (var slot = 0; slot < declared.Length; slot++) {
+            var name = declared[slot].Name;
+
+            if (string.IsNullOrEmpty(name) || !(char.IsLetter(name[0]) || name[0] == '_')
+                || !name.All(character => char.IsLetterOrDigit(character) || character == '_')) {
+                throw new ArgumentException(
+                    $"`{name}` cannot name a custom attribute: it has to be an identifier, because it names a binding "
+                    + "in the emitted shader and a host binds by that name.",
+                    nameof(customs)
+                );
+            }
+
+            if (declared[slot].Type == VfxAttributeType.UInt) {
+                throw new ArgumentException(
+                    $"`{name}` cannot be a UInt. Custom attributes are float lanes: the one unsigned quantity here is "
+                    + "the identifier, and it belongs to the runtime.",
+                    nameof(customs)
+                );
+            }
+
+            for (var other = 0; other < slot; other++) {
+                if (string.Equals(declared[other].Name, name, StringComparison.Ordinal)) {
+                    throw new ArgumentException(
+                        $"`{name}` is declared twice, as slot {other} and slot {slot}. A name has to answer for one "
+                        + "slot or nothing can look it up.",
+                        nameof(customs)
+                    );
+                }
+            }
+        }
+
+        return declared;
     }
 
     /// <summary>Gives every operation without a salt one derived from where it sits.</summary>
@@ -191,7 +296,7 @@ public sealed class VfxCompiledGraph {
         const uint Stride = 4;
 
         for (var index = 0; index < salted.Length; index++) {
-            if (salted[index].Salt == 0 && VfxOpcodes.IsRandom(salted[index].Opcode)) {
+            if (salted[index].Salt == 0 && VfxOpcodes.NeedsSalt(salted[index].Opcode)) {
                 salted[index] = salted[index] with { Salt = first + ((uint)index * Stride) };
             }
         }

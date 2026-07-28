@@ -15,7 +15,11 @@ namespace Vixen.Vfx;
 ///     Whether a kernel stores into it. A buffer nothing writes is declared read-only, which is one
 ///     access decoration and lets a driver hoist a load out of a loop.
 /// </param>
-public readonly record struct VfxShaderBinding(string Name, VfxAttribute Attribute, int Stride, bool IsWritten);
+/// <param name="Slot">
+///     Which custom attribute this is, or -1 for a built-in. The graph assigned it, so a host that
+///     knows the graph knows which buffer it is binding without matching on the name.
+/// </param>
+public readonly record struct VfxShaderBinding(string Name, VfxAttribute Attribute, int Stride, bool IsWritten, int Slot = -1);
 
 /// <summary>A compiled graph as Raven source, plus what the host has to bind to run it.</summary>
 /// <remarks>
@@ -170,32 +174,55 @@ public static class VfxShaderEmitter {
     ///     exactly this and two copies of a hash function is two things to keep the same.
     /// </remarks>
     static void Common(StringBuilder text, string name, VfxCompiledGraph graph, VfxShaderBinding[] bindings) {
-        // No initializers on the uniforms. A SPIR-V uniform cannot carry one — the compiler says so
-        // as an info — and every one of these is set by whoever dispatches, so a default would be a
-        // value that never applies and a reader would have to work that out.
+        // The five scalars are push constants rather than uniforms, and that is what lets one command
+        // list hold both dispatches: a uniform buffer holds one value at a time, so an initialize and
+        // an update recorded together would have to be two buffers or two submissions. Twenty bytes
+        // is well inside the hundred and twenty-eight every Vulkan device guarantees. It also drops a
+        // descriptor: the set below holds nothing but the particle storage.
+        //
+        // The buffers are [PerFrame], which is set 0. An unmarked field would land in set 2, where the
+        // convention puts a material's parameters — and a pipeline layout numbers its sets by
+        // position, so binding at set 2 means declaring sets 0 and 1 as empty layouts that exist only
+        // to be counted past. The argument against defaulting to set 0 is that a shader would collide
+        // with the engine's camera and lighting buffers; nothing else is bound into this pipeline, so
+        // there is nothing here to collide with.
         text.AppendLine($"shader {name}Common {{")
             .AppendLine("    /// The step, in seconds. Zero for the initializer dispatch, which applies an")
             .AppendLine("    /// updater in the initializer list exactly as the CPU backend does.")
-            .AppendLine("    var deltaTime: float")
+            .AppendLine("    [PushConstant] var deltaTime: float")
             .AppendLine()
             .AppendLine("    /// The system instance's seed.")
-            .AppendLine("    var seed: uint")
+            .AppendLine("    [PushConstant] var seed: uint")
             .AppendLine()
             .AppendLine("    /// The first particle this dispatch touches. Zero for an update.")
-            .AppendLine("    var first: int")
+            .AppendLine("    [PushConstant] var first: int")
             .AppendLine()
             .AppendLine("    /// How many it touches.")
-            .AppendLine("    var particleCount: int");
+            .AppendLine("    [PushConstant] var particleCount: int")
+            .AppendLine()
+            .AppendLine("    /// How long the system has been running. Only a drifting field reads it.")
+            .AppendLine("    [PushConstant] var time: float");
 
         foreach (var binding in bindings) {
+            var element = binding.Slot < 0 ? Element(binding.Attribute) : Element(graph.Customs[binding.Slot].Type);
+
             text.AppendLine()
-                .AppendLine($"    var {binding.Name}: {(binding.IsWritten ? "RW" : "")}Buffer<{Element(binding.Attribute)}>");
+                .AppendLine($"    [PerFrame] var {binding.Name}: {(binding.IsWritten ? "RW" : "")}Buffer<{element}>");
         }
 
         var random = graph.Initializers.Any(operation => VfxOpcodes.IsRandom(operation.Opcode));
+        var noise = Touches(graph, VfxOpcode.Turbulence);
+
+        // The hash is what the two of them share, and either alone is a reason to emit it: a random
+        // initializer hashes the particle's identifier, and a noise field hashes a lattice corner.
+        // Emitting it from inside `Random` was a graph with turbulence and nothing random calling a
+        // function that was not there.
+        if (random || noise) {
+            Hash(text);
+        }
 
         if (random) {
-            Random(text);
+            Draws(text);
         }
 
         if (graph.Initializers.Any(operation => operation.Opcode is VfxOpcode.PositionInSphere or VfxOpcode.VelocityRandomDirection)) {
@@ -206,11 +233,141 @@ public static class VfxShaderEmitter {
             Cone(text);
         }
 
-        if (Touches(graph, VfxOpcode.SizeOverLife) || Touches(graph, VfxOpcode.ColourOverLife)) {
+        if (Touches(graph, VfxOpcode.SizeOverLife)
+            || Touches(graph, VfxOpcode.ColourOverLife)
+            || Touches(graph, VfxOpcode.CustomOverLife)) {
             Fraction(text);
         }
 
+        if (Touches(graph, VfxOpcode.Attract) || Touches(graph, VfxOpcode.Vortex)) {
+            Falloff(text);
+        }
+
+        if (Touches(graph, VfxOpcode.CollidePlane) || Touches(graph, VfxOpcode.CollideSphere)) {
+            Bounce(text);
+        }
+
+        if (Touches(graph, VfxOpcode.Turbulence)) {
+            Noise(text);
+        }
+
         text.AppendLine("}");
+    }
+
+    /// <summary>How much of a field's strength reaches a particle this far from it.</summary>
+    static void Falloff(StringBuilder text) {
+        text.AppendLine()
+            .AppendLine("    /// Squared, so the edge of the region eases rather than creases. A radius of")
+            .AppendLine("    /// zero or less reaches everywhere and does not fall off at all.")
+            .AppendLine("    func Falloff(distance: float, radius: float): float {")
+            .AppendLine("        if (radius <= 0f) {")
+            .AppendLine("            return 1f")
+            .AppendLine("        }")
+            .AppendLine()
+            .AppendLine("        val remaining = 1f - clamp(distance / radius, 0f, 1f)")
+            .AppendLine()
+            .AppendLine("        return remaining * remaining")
+            .AppendLine("    }");
+    }
+
+    /// <summary>A velocity reflected off a surface, transcribed from <see cref="VfxSimulation" />.</summary>
+    /// <remarks>
+    ///     Split into the part along the normal and the part across it, because that is what the two
+    ///     numbers mean — and only an approach is reflected, because a particle already leaving is one
+    ///     that was pushed out last step, and bouncing it again is what makes a collider buzz.
+    /// </remarks>
+    static void Bounce(StringBuilder text) {
+        text.AppendLine()
+            .AppendLine("    func Bounce(velocity: float3, normal: float3, bounce: float, friction: float): float3 {")
+            .AppendLine("        val approach = dot(velocity, normal)")
+            .AppendLine("        val along = velocity - normal * approach")
+            .AppendLine("        val away = approach < 0f ? -approach * clamp(bounce, 0f, 1f) : approach")
+            .AppendLine()
+            .AppendLine("        return along * (1f - clamp(friction, 0f, 1f)) + normal * away")
+            .AppendLine("    }");
+    }
+
+    /// <summary>Value noise over a lattice, and the curl of three of them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Transcribed from <see cref="VfxNoise" /> the same way the RNG is transcribed from
+    ///         <see cref="VfxRandom" />, and for the same reason: a shader cannot call into managed
+    ///         code, so the function that has to produce the same field twice is the function that
+    ///         exists twice. The lattice values come from the integer hash and agree exactly; the
+    ///         interpolation and the differences are float arithmetic and agree to the last bit or
+    ///         two.
+    ///     </para>
+    ///     <para>
+    ///         Value noise rather than gradient noise is what makes this transcribable at all — a
+    ///         Perlin gradient table would have to be uploaded, and an uploaded table is a way for the
+    ///         two sides to differ.
+    ///     </para>
+    /// </remarks>
+    static void Noise(StringBuilder text) {
+        text.AppendLine()
+            .AppendLine("    func Corner(x: int, y: int, z: int, field: uint): float {")
+            .AppendLine("        val mixed = Hash(Hash(Hash(uint(x)) ^ uint(y)) ^ uint(z))")
+            .AppendLine()
+            .AppendLine("        return float(Hash(Hash(mixed ^ field) ^ 0u) >> 8u) * (1f / 16777216f)")
+            .AppendLine("    }")
+            .AppendLine()
+            .AppendLine("    /// 3t^2 - 2t^3. The raw fraction leaves a crease at every cell boundary,")
+            .AppendLine("    /// which shows up in the motion long before it shows up in the noise.")
+            .AppendLine("    func Smooth(t: float): float => t * t * (3f - 2f * t)")
+            .AppendLine()
+            .AppendLine("    func Noise(point: float3, field: uint): float {")
+            .AppendLine("        val cell = int3(int(floor(point.x)), int(floor(point.y)), int(floor(point.z)))")
+            .AppendLine("        val fx = Smooth(point.x - float(cell.x))")
+            .AppendLine("        val fy = Smooth(point.y - float(cell.y))")
+            .AppendLine("        val fz = Smooth(point.z - float(cell.z))")
+            .AppendLine()
+            .AppendLine("        val x0y0 = Mix(Corner(cell.x, cell.y, cell.z, field), Corner(cell.x, cell.y, cell.z + 1, field), fz)")
+            .AppendLine("        val x0y1 = Mix(Corner(cell.x, cell.y + 1, cell.z, field), Corner(cell.x, cell.y + 1, cell.z + 1, field), fz)")
+            .AppendLine("        val x1y0 = Mix(Corner(cell.x + 1, cell.y, cell.z, field), Corner(cell.x + 1, cell.y, cell.z + 1, field), fz)")
+            .AppendLine("        val x1y1 = Mix(Corner(cell.x + 1, cell.y + 1, cell.z, field), Corner(cell.x + 1, cell.y + 1, cell.z + 1, field), fz)")
+            .AppendLine()
+            .AppendLine("        return Mix(Mix(x0y0, x0y1, fy), Mix(x1y0, x1y1, fy), fx)")
+            .AppendLine("    }")
+            .AppendLine()
+            .AppendLine("    /// a + (b - a) t, and not lerp: this is the arithmetic the CPU backend does.")
+            .AppendLine("    func Mix(a: float, b: float, t: float): float => a + (b - a) * t")
+            .AppendLine()
+            .AppendLine($"    func Slope(point: float3, field: uint, step: float3): float => (Noise(point + step, field) - Noise(point - step, field)) / {Float(2f * VfxNoise.Epsilon)}")
+            .AppendLine()
+            .AppendLine("    /// The curl of three noise fields, which has zero divergence identically — the")
+            .AppendLine("    /// property that makes it swirl rather than pile particles into its sinks.")
+            .AppendLine("    func Curl(point: float3, field: uint): float3 {")
+            .AppendLine($"        val ex = float3({Float(VfxNoise.Epsilon)}, 0f, 0f)")
+            .AppendLine($"        val ey = float3(0f, {Float(VfxNoise.Epsilon)}, 0f)")
+            .AppendLine($"        val ez = float3(0f, 0f, {Float(VfxNoise.Epsilon)})")
+            .AppendLine()
+            // One line, because a Raven statement ends where its line does — a wrapped argument list
+            // is a call followed by orphan expressions.
+            .AppendLine(
+                "        return float3(Slope(point, field + 2u, ey) - Slope(point, field + 1u, ez), "
+                + "Slope(point, field, ez) - Slope(point, field + 2u, ex), "
+                + "Slope(point, field + 1u, ex) - Slope(point, field, ey))"
+            )
+            .AppendLine("    }")
+            .AppendLine()
+            .AppendLine("    /// Octaves are what hide the lattice: one is visibly axis-aligned, three are not.")
+            .AppendLine("    func Turbulence(point: float3, field: uint, octaves: int): float3 {")
+            .AppendLine("        var total = float3(0f, 0f, 0f)")
+            .AppendLine("        var amplitude = 1f")
+            .AppendLine("        var frequency = 1f")
+            .AppendLine()
+            .AppendLine("        for (octave in 0 .. 3) {")
+            .AppendLine("            if (octave >= octaves) {")
+            .AppendLine("                break")
+            .AppendLine("            }")
+            .AppendLine()
+            .AppendLine("            total += Curl(point * frequency, field + uint(octave) * 3u) * amplitude")
+            .AppendLine("            amplitude *= 0.5f")
+            .AppendLine("            frequency *= 2f")
+            .AppendLine("        }")
+            .AppendLine()
+            .AppendLine("        return total")
+            .AppendLine("    }");
     }
 
     /// <summary>The hash, and the two things every random operation asks it for.</summary>
@@ -221,7 +378,7 @@ public static class VfxShaderEmitter {
     ///     that exists twice. Every step is a 32-bit multiply, xor or shift, all of which are defined
     ///     to the bit in SPIR-V, so "identical" here is a property rather than a hope.
     /// </remarks>
-    static void Random(StringBuilder text) {
+    static void Hash(StringBuilder text) {
         text.AppendLine()
             .AppendLine("    /// lowbias32, offset first because the mixer has a fixed point at zero.")
             .AppendLine("    func Hash(value: uint): uint {")
@@ -234,8 +391,12 @@ public static class VfxShaderEmitter {
             .AppendLine("        mixed = mixed ^ (mixed >> 16u)")
             .AppendLine()
             .AppendLine("        return mixed")
-            .AppendLine("    }")
-            .AppendLine()
+            .AppendLine("    }");
+    }
+
+    /// <summary>The two things every random operation asks the hash for.</summary>
+    static void Draws(StringBuilder text) {
+        text.AppendLine()
             .AppendLine("    /// One particle's one use of randomness: hashed in turn, never added together.")
             .AppendLine("    func Draw(particle: uint, salt: uint): uint => Hash(Hash(Hash(particle) ^ seed) ^ salt)")
             .AppendLine()
@@ -331,15 +492,16 @@ public static class VfxShaderEmitter {
                 .AppendLine("        val particle = identifier[slot]");
         }
 
-        foreach (var operation in graph.Initializers) {
+        for (var index = 0; index < graph.Initializers.Length; index++) {
+            var operation = graph.Initializers[index];
             text.AppendLine();
 
             if (VfxOpcodes.IsUpdater(operation.Opcode)) {
                 // An updater in the initializer list — "apply gravity once at birth" — which the CPU
                 // backend runs with a step of zero rather than refusing.
-                Apply(text, operation, "0f");
+                Apply(text, operation, "0f", index, graph);
             } else {
-                Initialize(text, operation);
+                Initialize(text, operation, graph);
             }
         }
 
@@ -359,14 +521,14 @@ public static class VfxShaderEmitter {
                 .AppendLine("        age[slot] = age[slot] + deltaTime");
         }
 
-        foreach (var operation in updaters) {
+        for (var index = 0; index < updaters.Length; index++) {
             text.AppendLine();
-            Apply(text, operation, "deltaTime");
+            Apply(text, updaters[index], "deltaTime", index, graph);
         }
     }
 
     /// <summary>One initializer, as the statement that writes its attribute.</summary>
-    static void Initialize(StringBuilder text, VfxOperation operation) {
+    static void Initialize(StringBuilder text, VfxOperation operation, VfxCompiledGraph graph) {
         var salt = operation.Salt;
 
         switch (operation.Opcode) {
@@ -463,6 +625,30 @@ public static class VfxShaderEmitter {
                 break;
             }
 
+            case VfxOpcode.SetCustom: {
+                var custom = graph.Customs[operation.Slot];
+
+                text.AppendLine($"        {custom.Name}[slot] = {Lanes(custom.Type, lane => Float(Lane(operation.A, lane)))}");
+
+                break;
+            }
+
+            case VfxOpcode.RandomCustom: {
+                var custom = graph.Customs[operation.Slot];
+
+                // A salt per lane, so a three-lane attribute is three unrelated draws rather than one
+                // value in three places. Four apart is the stride between operations, which is why
+                // four lanes is the widest an attribute can be.
+                text.AppendLine(
+                    $"        {custom.Name}[slot] = {Lanes(
+                        custom.Type,
+                        lane => $"Range(particle, {salt + (uint)lane}u, {Float(Lane(operation.A, lane))}, {Float(Lane(operation.B, lane))})"
+                    )}"
+                );
+
+                break;
+            }
+
             default: {
                 throw new ArgumentException($"`{operation.Opcode}` is neither an initializer nor an updater.", nameof(operation));
             }
@@ -477,7 +663,13 @@ public static class VfxShaderEmitter {
     ///     initializer one, which is the same distinction <see cref="VfxSimulation" /> draws by passing
     ///     a delta of zero.
     /// </param>
-    static void Apply(StringBuilder text, VfxOperation operation, string step) {
+    /// <param name="index">
+    ///     Where the operation sits in its list, which is what keeps two copies of one field from
+    ///     declaring the same local twice. A field needs a distance before it can use one, and a
+    ///     distance needs a name.
+    /// </param>
+    /// <param name="graph">The graph, for the custom attribute a slot names.</param>
+    static void Apply(StringBuilder text, VfxOperation operation, string step, int index, VfxCompiledGraph graph) {
         switch (operation.Opcode) {
             case VfxOpcode.Integrate: {
                 text.AppendLine($"        position[slot] = position[slot] + float4(velocity[slot].xyz * {step}, 0f)");
@@ -523,11 +715,144 @@ public static class VfxShaderEmitter {
                 break;
             }
 
+            case VfxOpcode.Attract: {
+                // The zero-distance guard is not optional: normalizing the offset of a particle
+                // sitting exactly on the centre is how an effect fills with NaNs, and one NaN in a
+                // position is a quad the rasteriser drops and a bounding box that swallows the scene.
+                text.AppendLine($"        val offset{index} = {Vector(operation.A)} - position[slot].xyz")
+                    .AppendLine($"        val distance{index} = length(offset{index})")
+                    .AppendLine()
+                    .AppendLine($"        if (distance{index} > 0f) {{")
+                    .AppendLine(
+                        $"            velocity[slot] = velocity[slot] + float4(offset{index} / distance{index} * "
+                        + $"{Float(operation.A.W)} * {step} * Falloff(distance{index}, {Float(operation.B.X)}), 0f)"
+                    )
+                    .AppendLine("        }");
+
+                break;
+            }
+
+            case VfxOpcode.Vortex: {
+                var axis = new Vector3(operation.B.X, operation.B.Y, operation.B.Z);
+
+                if (axis.LengthSquared() <= 0f) {
+                    throw new ArgumentException("A vortex about a zero axis has nothing to turn about.", nameof(operation));
+                }
+
+                // The component along the axis is taken out before the cross product, or the swirl
+                // weakens with height above the centre for no reason anybody chose.
+                text.AppendLine($"        val spin{index} = position[slot].xyz - {Vector(operation.A)}")
+                    .AppendLine($"        val axis{index} = {Vector(Vector3.Normalize(axis))}")
+                    .AppendLine($"        val radial{index} = spin{index} - axis{index} * dot(spin{index}, axis{index})")
+                    .AppendLine($"        val around{index} = length(radial{index})")
+                    .AppendLine()
+                    .AppendLine($"        if (around{index} > 0f) {{")
+                    .AppendLine(
+                        $"            velocity[slot] = velocity[slot] + float4(cross(axis{index}, radial{index} / around{index}) * "
+                        + $"{Float(operation.A.W)} * {step} * Falloff(around{index}, {Float(operation.B.W)}), 0f)"
+                    )
+                    .AppendLine("        }");
+
+                break;
+            }
+
+            case VfxOpcode.Turbulence: {
+                var octaves = Math.Clamp((int)operation.B.Y, 1, 4);
+                var drift = $"time * {Float(operation.B.X)}";
+
+                text.AppendLine(
+                    $"        velocity[slot] = velocity[slot] + float4(Turbulence(position[slot].xyz * {Vector(operation.A)} "
+                    + $"+ float3({drift}, {drift}, {drift}), {operation.Salt}u, {octaves}) * {Float(operation.A.W)} * {step}, 0f)"
+                );
+
+                break;
+            }
+
+            case VfxOpcode.CollidePlane: {
+                // One statement per line, and the intermediates named, because a Raven statement ends
+                // where its line does — the alternative is one expression nobody could read and the
+                // emitter could not wrap.
+                text.AppendLine($"        val normal{index} = {Vector(operation.A)}")
+                    .AppendLine($"        val depth{index} = dot(normal{index}, position[slot].xyz) - {Float(operation.A.W)}")
+                    .AppendLine()
+                    .AppendLine($"        if (depth{index} < 0f) {{")
+                    .AppendLine($"            position[slot] = float4(position[slot].xyz - normal{index} * depth{index}, 0f)")
+                    .AppendLine(
+                        $"            velocity[slot] = float4(Bounce(velocity[slot].xyz, normal{index}, "
+                        + $"{Float(operation.B.X)}, {Float(operation.B.Y)}), 0f)"
+                    )
+                    .AppendLine("        }");
+
+                break;
+            }
+
+            case VfxOpcode.CollideSphere: {
+                text.AppendLine($"        val offset{index} = position[slot].xyz - {Vector(operation.A)}")
+                    .AppendLine($"        val reach{index} = length(offset{index})")
+                    .AppendLine()
+                    .AppendLine($"        if (reach{index} < {Float(operation.A.W)}) {{")
+                    // The same arbitrary up as the CPU backend picks for a particle exactly at the
+                    // centre, and arbitrary in the same direction: the two have to agree even here.
+                    .AppendLine(
+                        $"            val outward{index} = reach{index} > 0f ? offset{index} / reach{index} : float3(0f, 1f, 0f)"
+                    )
+                    .AppendLine(
+                        $"            position[slot] = float4({Vector(operation.A)} + outward{index} * {Float(operation.A.W)}, 0f)"
+                    )
+                    .AppendLine(
+                        $"            velocity[slot] = float4(Bounce(velocity[slot].xyz, outward{index}, "
+                        + $"{Float(operation.B.X)}, {Float(operation.B.Y)}), 0f)"
+                    )
+                    .AppendLine("        }");
+
+                break;
+            }
+
+            case VfxOpcode.CustomOverLife: {
+                var custom = graph.Customs[operation.Slot];
+
+                text.AppendLine(
+                    $"        {custom.Name}[slot] = {Lanes(
+                        custom.Type,
+                        lane => $"lerp({Float(Lane(operation.A, lane))}, {Float(Lane(operation.B, lane))}, Fraction(age[slot], lifetime[slot]))"
+                    )}"
+                );
+
+                break;
+            }
+
             default: {
                 throw new ArgumentException($"`{operation.Opcode}` is not an updater.", nameof(operation));
             }
         }
     }
+
+    /// <summary>
+    ///     One custom attribute's value, spelled at whatever width the slot was declared with.
+    /// </summary>
+    /// <param name="type">The slot's type.</param>
+    /// <param name="lane">What to write for lane <c>n</c>.</param>
+    /// <returns>A scalar for a one-lane slot, and a <c>float4</c> otherwise.</returns>
+    /// <remarks>
+    ///     A three-lane attribute comes out as a <c>float4</c> with a zero in the fourth, because
+    ///     std430 gives it those bytes whatever it is called — the same reason position is a
+    ///     <c>float4</c>. The unused lane is written rather than left alone so that a buffer read back
+    ///     by a host holds a number rather than whatever the allocation happened to contain.
+    /// </remarks>
+    static string Lanes(VfxAttributeType type, Func<int, string> lane) =>
+        VfxAttributes.Lanes(type) switch {
+            1 => lane(0),
+            3 => $"float4({lane(0)}, {lane(1)}, {lane(2)}, 0f)",
+            _ => $"float4({lane(0)}, {lane(1)}, {lane(2)}, {lane(3)})"
+        };
+
+    /// <summary>One lane of a parameter block, by index rather than by name.</summary>
+    static float Lane(Vector4 value, int lane) => lane switch {
+        0 => value.X,
+        1 => value.Y,
+        2 => value.Z,
+        _ => value.W
+    };
 
     // --- Bindings ----------------------------------------------------------
 
@@ -562,6 +887,23 @@ public static class VfxShaderEmitter {
             bindings.Add(new(Name(attribute), attribute, Stride(attribute), (written & attribute) != 0));
         }
 
+        // Then the custom slots, in slot order, which is what makes the shader's binding sequence and
+        // the graph's declaration list the same list seen from two sides. Only the ones an operation
+        // touches: a declared attribute nothing writes is storage on the CPU and a descriptor here,
+        // and a descriptor bound for nothing is the thing this whole module keeps refusing to pay for.
+        for (var slot = 0; slot < graph.Customs.Length; slot++) {
+            var target = slot;
+
+            if (!graph.Initializers.Concat(updaters)
+                    .Any(operation => VfxOpcodes.IsCustom(operation.Opcode) && operation.Slot == target)) {
+                continue;
+            }
+
+            var custom = graph.Customs[slot];
+
+            bindings.Add(new(custom.Name, VfxAttribute.None, Stride(custom.Type), true, slot));
+        }
+
         return [.. bindings];
     }
 
@@ -574,13 +916,19 @@ public static class VfxShaderEmitter {
     ///     bytes the layout was going to spend anyway, and it spends them somewhere a later attribute
     ///     can use rather than in padding nothing can name.
     /// </remarks>
-    static int Stride(VfxAttribute attribute) => VfxAttributes.TypeOf(attribute) switch {
+    static int Stride(VfxAttribute attribute) => Stride(VfxAttributes.TypeOf(attribute));
+
+    /// <summary>The same question for a custom attribute, whose type is the graph's to say.</summary>
+    static int Stride(VfxAttributeType type) => type switch {
         VfxAttributeType.Float3 or VfxAttributeType.Float4 => 16,
         _ => 4
     };
 
     /// <summary>What an attribute is declared as in the shader.</summary>
-    static string Element(VfxAttribute attribute) => VfxAttributes.TypeOf(attribute) switch {
+    static string Element(VfxAttribute attribute) => Element(VfxAttributes.TypeOf(attribute));
+
+    /// <summary>The same question for a custom attribute.</summary>
+    static string Element(VfxAttributeType type) => type switch {
         VfxAttributeType.Float3 or VfxAttributeType.Float4 => "float4",
         VfxAttributeType.UInt => "uint",
         _ => "float"

@@ -65,6 +65,35 @@ public sealed class Effect {
     /// </remarks>
     public ImmutableArray<EffectBinding> Bindings { get; init; } = [];
 
+    /// <summary>One set's uniform block: where it goes, how big it is, and what is in it.</summary>
+    /// <remarks>
+    ///     What <see cref="ConstantBufferSize" /> and <see cref="Parameters" /> answer for a shader
+    ///     that declares one block, asked per set for one that declares four. A pass whose bindings
+    ///     name their sets has a block for the frame, one for the view, one for the material and one
+    ///     for the draw, and the thing filling any of them needs that one's size and that one's
+    ///     members — a caller handed the wrong pair writes the right values into the wrong buffer,
+    ///     which is a frame lit by whatever those bytes meant.
+    /// </remarks>
+    public EffectBlock BlockOf(DescriptorSetSlot slot) {
+        foreach (var binding in Bindings) {
+            if (binding.Set != slot || binding.Kind is not (DescriptorKind.UniformBuffer or DescriptorKind.DynamicUniformBuffer)) {
+                continue;
+            }
+
+            var members = ImmutableArray.CreateBuilder<EffectParameter>();
+
+            foreach (var parameter in Parameters) {
+                if (parameter.Set == slot) {
+                    members.Add(parameter);
+                }
+            }
+
+            return new(binding.Binding, binding.Size > 0 ? binding.Size : ConstantBufferSize, members.ToImmutable());
+        }
+
+        return default;
+    }
+
     /// <summary>Where a named resource sits, or null when this variant has no such name.</summary>
     /// <remarks>
     ///     Linear over a handful of entries rather than a dictionary: a shader has a few resources,
@@ -158,10 +187,55 @@ public readonly record struct EffectBinding(
     DescriptorSetSlot Set,
     uint Binding,
     DescriptorKind Kind
-);
+) {
+    /// <summary>How many bytes the block is, for a uniform or storage binding; 0 for a resource.</summary>
+    /// <remarks>
+    ///     Here rather than only on <see cref="Effect.ConstantBufferSize" /> because a shader has one
+    ///     block <em>per set</em>, and that one property can only name one of them. A pass that says
+    ///     which set each binding is in has up to four, and the thing filling set 0's block must not
+    ///     be given set 2's size.
+    /// </remarks>
+    public int Size { get; init; }
+
+    /// <summary>How many descriptors the binding holds; one for all but an array binding.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="EffectLoader" /> already needed it to build a layout — <c>probes:
+    ///         TextureCube[ProbeCount]</c> is one binding of four descriptors — and it stopped there,
+    ///         so the plan a host <em>fills</em> the set from described the array as a single
+    ///         resource. Filling one element and leaving three unwritten is a validation error on
+    ///         Vulkan and a sampled nothing elsewhere, which is the failure this makes visible.
+    ///     </para>
+    ///     <para>
+    ///         An array is filled element by element, under the name the element has:
+    ///         <c>probes[2]</c>, in the same spelling <c>probeVolumes[2].radius</c> already uses for
+    ///         the block beside it. The <em>bare</em> name stands for every element that names
+    ///         nothing of its own — which is what a frame with two probes and four slots needs, since
+    ///         a slot with no descriptor is not a slot the shader may skip.
+    ///     </para>
+    /// </remarks>
+    public int Count { get; init; } = 1;
+}
 
 /// <summary>Where one parameter lives in an effect's constant buffer.</summary>
 /// <param name="Key">The key a host sets it through.</param>
 /// <param name="Offset">Byte offset within the block.</param>
 /// <param name="Size">How many bytes it occupies.</param>
-public readonly record struct EffectParameter(ParameterKey Key, int Offset, int Size);
+public readonly record struct EffectParameter(ParameterKey Key, int Offset, int Size) {
+    /// <summary>Which set's block the offset is into.</summary>
+    /// <remarks>
+    ///     An offset means nothing without the buffer it is into, and a shader that declares its sets
+    ///     has a block in each. Defaulting to per-material keeps every existing caller — a shader that
+    ///     marks nothing puts everything in set 2, which is what unmarked has always meant.
+    /// </remarks>
+    public DescriptorSetSlot Set { get; init; } = DescriptorSetSlot.PerMaterial;
+}
+
+/// <summary>What a set's uniform block is, for the thing that fills it.</summary>
+/// <param name="Binding">Where the block goes in the set.</param>
+/// <param name="Size">How many bytes to allocate.</param>
+/// <param name="Members">The values in it, with offsets into it.</param>
+public readonly record struct EffectBlock(uint Binding, int Size, ImmutableArray<EffectParameter> Members) {
+    /// <summary>Whether there is a block at all.</summary>
+    public bool Exists => Size > 0;
+}

@@ -98,6 +98,16 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Ui.Tests" />
+
+        <!--
+            ⚠ A friend assembly that ships, which the one above is not. Vixen.Ui.Testing drives the
+            cascade's own SelectorMatcher over this tree, and matching needs the StyleNodeId an
+            element holds — internal, because an id addressing a slot is not something application
+            code should be able to get wrong. The alternative was to widen the public surface for a
+            consumer that is not the application, or to re-implement selector matching against Tag
+            and HasClass and quietly disagree with the stylesheets about what `:nth-child` means.
+        -->
+        <InternalsVisibleTo Include="Vixen.Ui.Testing" />
     </ItemGroup>
 
 </Project>

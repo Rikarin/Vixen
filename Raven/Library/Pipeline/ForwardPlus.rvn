@@ -54,83 +54,140 @@ shader ForwardPlus {
     /// once at compile time and filled to a different depth every draw.
     [Permutation] val MaxLights: int = 16
 
-    var world: mat4
-    var worldViewProjection: mat4
+    // --- Set 3: what varies per object ---------------------------------------
+    //
+    // Everything below used to be unmarked, which is set 2 — the material's. That was wrong in a way
+    // that showed up as nothing: `ForwardLightingRenderFeature` writes exactly this block and binds
+    // it at set 3, so the shader and the feature that fills it disagreed about which set it was in,
+    // and neither said so. A set marker per binding is what makes the four-set convention a thing
+    // the shader states rather than a thing a host remembers.
 
-    /// World to view, for placing a fragment in the cluster grid. Unused when clustering is off.
-    var view: mat4
+    /// Object to world, pushed rather than bound.
+    ///
+    /// A push constant because that is what `TransformRenderFeature` already does with it, and the
+    /// shader saying anything else would be the same silent disagreement this whole audit is about.
+    /// It also leaves the per-draw block with exactly one owner — the lighting feature — where a
+    /// block holding both a transform and a light list needs two features to agree on its layout.
+    ///
+    /// `worldViewProjection` is gone with it: it was world × the view's matrix, computed per object
+    /// on the CPU and uploaded per object, where the vertex stage can multiply two matrices it
+    /// already has. Sixty-four bytes less per object, and one less thing that can be a frame out of
+    /// date with the camera it was built from.
+    [PushConstant] var world: mat4
 
-    var cameraPosition: float3
+    // The scalars come first and the array last, which is not a style choice: std140 starts an array
+    // of structures on a sixteen-byte boundary whatever precedes it, so three scalars and four bytes
+    // of padding fill exactly the header `ForwardLightingRenderFeature.HeaderSize` already writes.
+    // Declaring the array first would put the count after 1280 bytes of lights, and the feature that
+    // fills this block writes it at zero.
 
-    /// The sun, kept separate from the list: it has no position to cull against, so it is in every
-    /// cluster and paying list traversal for it would be paying for nothing.
-    var lightDirection: float3
+    [PerDraw] var lightCount: int = 0
 
-    var lightColor: float3
+    /// Which of `probes` lights this object.
+    ///
+    /// Half of what per-object reflection probes cost, and they are numbers rather than bindings
+    /// because the cubes are one array bound for the frame. The alternative — a descriptor set per
+    /// probe, bound per draw — is a set per object in all but name, which is the cost the four-set
+    /// convention exists to refuse.
+    [PerDraw] var probeIndex: int = 0
+
+    /// How much of the probe shows through, against the environment behind it.
+    ///
+    /// What makes probes blend rather than pop: a surface deep inside a probe's volume takes it
+    /// whole, and one near the edge fades back to the sky over the probe's falloff distance. Per
+    /// object because that is what the falloff is a function of — where the object is.
+    [PerDraw] var probeWeight: float = 0f
 
     /// The host-filled light list. Read `lightCount` entries, not `MaxLights` — the rest is stale
     /// memory. Unused when clustering is on.
-    var lights: PunctualLight[MaxLights]
+    [PerDraw] var lights: PunctualLight[MaxLights]
 
-    var lightCount: int = 0
+    // --- Set 1: what varies per view -----------------------------------------
+    //
+    // The block every shader in the frame shares, and the reason it is stated here in the same terms
+    // `ViewConstants` writes it: a descriptor set survives a pipeline change only if the layouts
+    // agree up to that set, so what set 1 holds is a contract between shaders rather than any one
+    // shader's business. Only a block belongs here — a texture or a buffer would make two shaders'
+    // set 1 incompatible and the shared set unbindable.
+
+    /// World to clip for this view.
+    [PerView] var viewProjection: mat4
+
+    /// Where the view is, which every specular term measures against.
+    [PerView] var viewPosition: float3
+
+    /// World to view, for placing a fragment in the cluster grid. Unused when clustering is off.
+    [PerView] var view: mat4
+
+    // --- Set 0: the scene ----------------------------------------------------
+
+    /// The sun, kept separate from the list: it has no position to cull against, so it is in every
+    /// cluster and paying list traversal for it would be paying for nothing.
+    [PerFrame] var lightDirection: float3
+
+    [PerFrame] var lightColor: float3
 
     /// The scene's whole light list, which the clustered variant indexes into rather than copying.
     ///
     /// The same buffer `ClusterCulling` culled, bound to both passes. A cluster's entry is an *index*
     /// into it, so the light itself exists once however many clusters reach it — which is the reason
     /// the culler writes indices rather than lights.
-    var lightBuffer: Buffer<PunctualLight>
+    [PerFrame] var lightBuffer: Buffer<PunctualLight>
 
     /// One list per cluster, as `ClusterCulling` wrote it.
-    var clusters: Buffer<ClusterLights>
+    ///
+    /// Per *frame* rather than per view, and that is a real constraint rather than a shrug: the grid
+    /// is built in one camera's view space, so a second camera drawing the same frame would read the
+    /// first one's clusters. Set 1 cannot hold it — a buffer there would make two shaders' set 1
+    /// incompatible and the shared view set unbindable — so a split-screen frame needs a cluster
+    /// buffer per view and a set 0 per view to go with it. Written down because the shape that would
+    /// hide it is the one that binds without complaining.
+    [PerFrame] var clusters: Buffer<ClusterLights>
 
     /// The camera parameters that place a fragment in the grid. The same values the culling pass was
     /// given, because a fragment that computes its cluster differently reads someone else's lights.
-    var tanHalfFov: float2 = float2(1f, 0.5625f)
+    [PerFrame] var tanHalfFov: float2 = float2(1f, 0.5625f)
 
-    var nearPlane: float = 0.1f
-    var farPlane: float = 1000f
+    [PerFrame] var nearPlane: float = 0.1f
+    [PerFrame] var farPlane: float = 1000f
 
-    var lightViewProjection: mat4
-    var shadowMap: Texture2D
-    var shadowSampler: Sampler
-    var shadowTexelSize: float2 = float2(0.0009765625f, 0.0009765625f)
-    var shadowConstantBias: float = 0.0005f
-    var shadowSlopeBias: float = 0.002f
+    [PerFrame] var lightViewProjection: mat4
+    [PerFrame] var shadowMap: Texture2D
+    [PerFrame] var shadowSampler: Sampler
+    [PerFrame] var shadowTexelSize: float2 = float2(0.0009765625f, 0.0009765625f)
+    [PerFrame] var shadowConstantBias: float = 0.0005f
+    [PerFrame] var shadowSlopeBias: float = 0.002f
 
-    var environment: TextureCube
-    var environmentSampler: Sampler
-    var environmentMipCount: float = 7f
-    var ambientIntensity: float = 1f
+    [PerFrame] var environment: TextureCube
+    [PerFrame] var environmentSampler: Sampler
+    [PerFrame] var environmentMipCount: float = 7f
+    [PerFrame] var ambientIntensity: float = 1f
 
-    /// Whether a local reflection probe stands in for the environment where it applies.
+    /// Whether local reflection probes stand in for the environment where they apply.
     ///
     /// A permutation rather than a weight of zero, because it is the *bindings* that differ: with it
-    /// off, the probe's cube, its sampler and its bounds fold away entirely and a host binds nothing
-    /// for them. A scene with no probes should not carry a cube it never samples.
+    /// off, the probe cubes, their sampler and their volumes fold away entirely and a host binds
+    /// nothing for them. A scene with no probes should not carry cubes it never samples.
     [Permutation] val UseReflectionProbe: bool = false
 
-    /// A local capture of the surroundings, prefiltered exactly as the environment is.
-    var probe: TextureCube
-
-    var probeSampler: Sampler
-    var probeMipCount: float = 7f
-
-    /// How much of the probe shows through, against the environment behind it.
+    /// How many probes a frame may have bound at once.
     ///
-    /// What makes probes blend rather than pop: a surface deep inside a probe's volume takes it
-    /// whole, and one near the edge fades back to the sky over the probe's falloff distance.
-    var probeWeight: float = 0f
+    /// A permutation because it sizes a *binding*: the array's length is in the descriptor set
+    /// layout, so a project with four probes in view should not carry thirty-two descriptors. The
+    /// same argument as `MaxLights`, one set further out.
+    [Permutation] val ProbeCount: int = 4
 
-    /// The probe's bounds and the point it was captured from.
-    var probeBox: ProbeBox
-
-    /// The radius of a spherical probe, or zero for the box `probeBox` describes.
+    /// The probes' captures, prefiltered exactly as the environment is.
     ///
-    /// A branch rather than a permutation: it is the same binding either way, and the value is
-    /// uniform across every fragment of a draw — so it costs a coherent branch, where a permutation
-    /// would cost a second variant of the whole pass.
-    var probeRadius: float = 0f
+    /// One binding with a count rather than one binding per probe, which is what lets an object pick
+    /// its own with an index instead of a descriptor set. The index comes from the per-draw block and
+    /// is therefore uniform across a draw, so no descriptor-indexing extension is involved.
+    [PerFrame] var probes: TextureCube[ProbeCount]
+
+    [PerFrame] var probeSampler: Sampler
+
+    /// Where each probe is and how it is corrected, in the same order as `probes`.
+    [PerFrame] var probeVolumes: ReflectionProbeVolume[ProbeCount]
 
     /// The environment's diffuse irradiance, projected into nine coefficients per channel.
     ///
@@ -139,7 +196,7 @@ shader ForwardPlus {
     /// sampling the roughest mip of the reflection cube, which is a different integral: a mip is
     /// prefiltered against a GGX lobe and irradiance is the cosine lobe, so the ambient term was
     /// flatter than it should be everywhere and wrong at every silhouette.
-    var environmentSh: ShCoefficients
+    [PerFrame] var environmentSh: ShCoefficients
 
     stream var positionWS: float3
     stream var normalWS: float3
@@ -167,7 +224,8 @@ shader ForwardPlus {
             positionVS = Math.TransformPoint(view, positionWS)
         }
 
-        return Transform.ObjectToClip(worldViewProjection, position)
+        // Two matrices the stage already has, rather than their product uploaded per object.
+        return Transform.ObjectToClip(viewProjection, positionWS)
     }
 
     [PixelShader]
@@ -179,7 +237,7 @@ shader ForwardPlus {
         MaterialDefaults.Begin(d, normalWS, tangentWS)
         surface.Compute(d)
 
-        val v = Math.SafeNormalize(cameraPosition - positionWS)
+        val v = Math.SafeNormalize(viewPosition - positionWS)
         val n = Normals.FaceForward(Math.SafeNormalize(d.normalWS), v)
         val alpha = Brdf.Alpha(d.perceptualRoughness)
 
@@ -352,13 +410,19 @@ shader ForwardPlus {
     /// the reflection slides as the camera moves. Re-aiming the direction from the probe's centre
     /// toward where the ray actually meets the probe's volume is what makes it sit still.
     func Probe(perceptualRoughness: float, reflected: float3): float3 {
-        var corrected = Ibl.ParallaxCorrect(reflected, positionWS, probeBox)
+        // Clamped rather than trusted: the index arrives in a per-object block a host filled, and
+        // an out-of-range one reads a descriptor nobody wrote — a wrong reflection on one driver and
+        // a device loss on another.
+        val index = clamp(probeIndex, 0, ProbeCount - 1)
+        val volume = probeVolumes[index]
 
-        if (probeRadius > 0f) {
-            corrected = Ibl.ParallaxCorrectSphere(reflected, positionWS, probeBox.center, probeRadius)
+        var corrected = Ibl.ParallaxCorrect(reflected, positionWS, volume.box)
+
+        if (volume.radius > 0f) {
+            corrected = Ibl.ParallaxCorrectSphere(reflected, positionWS, volume.box.center, volume.radius)
         }
 
-        val lod = Ibl.SpecularLod(perceptualRoughness, probeMipCount)
-        return probe.SampleLevel(probeSampler, corrected, lod).rgb
+        val lod = Ibl.SpecularLod(perceptualRoughness, volume.mipCount)
+        return probes[index].SampleLevel(probeSampler, corrected, lod).rgb
     }
 }

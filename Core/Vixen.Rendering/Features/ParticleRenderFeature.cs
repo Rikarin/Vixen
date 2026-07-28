@@ -15,14 +15,30 @@ namespace Vixen.Rendering.Features;
 ///     every frame — so what is recorded is where the run is rather than what it is in.
 /// </remarks>
 public struct ParticleDraw {
-    /// <summary>The first vertex of this effect's run in the shared buffer.</summary>
+    /// <summary>
+    ///     The first vertex of this effect's run in the shared buffer, or its first instance for a
+    ///     mesh renderer.
+    /// </summary>
     public int FirstVertex;
 
     /// <summary>How many particles are in it.</summary>
     public int ParticleCount;
 
+    /// <summary>What the particles are drawn as, which decides which buffers the draw binds.</summary>
+    public VfxRendererKind Kind;
+
+    /// <summary>For a ribbon: how many indices its strips needed.</summary>
+    /// <remarks>
+    ///     Carried per effect because a ribbon's index count is not a function of its particle count —
+    ///     it depends on how those particles divide into strips, and a strip of one contributes none.
+    /// </remarks>
+    public int IndexCount;
+
+    /// <summary>For a ribbon: where its indices start in the frame's index buffer.</summary>
+    public int FirstIndex;
+
     /// <summary>Whether there is anything to draw.</summary>
-    public readonly bool IsDrawable => ParticleCount > 0;
+    public readonly bool IsDrawable => ParticleCount > 0 && (Kind != VfxRendererKind.Ribbon || IndexCount > 0);
 }
 
 /// <summary>
@@ -56,11 +72,16 @@ public struct ParticleDraw {
 public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
     readonly List<VfxSystem?> systems = [];
     readonly UploadBuffer<ParticleVertex> vertices = new("Particle vertices", BufferUsage.Vertex);
+    readonly UploadBuffer<ParticleInstance> instances = new("Particle instances", BufferUsage.Vertex);
+    readonly UploadBuffer<uint> strips = new("Ribbon indices", BufferUsage.Index);
     readonly VfxGeometryBuilder builder = new();
 
     ParticleVertex[] scratch = [];
+    ParticleInstance[] transforms = [];
+    uint[] segments = [];
     BufferHandle indices;
     int indexCapacity;
+    int quads;
     bool disposed;
 
     /// <inheritdoc />
@@ -71,6 +92,14 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
 
     /// <summary>Each object's index into <see cref="Systems" />, or -1 for none.</summary>
     public RenderDataKey<int> SystemIndices { get; private set; }
+
+    /// <summary>The mesh a <see cref="VfxRendererKind.Mesh" /> effect draws an instance of, per object.</summary>
+    /// <remarks>
+    ///     The same <see cref="MeshDraw" /> a mesh feature uses, and deliberately: a particle mesh is
+    ///     an ordinary mesh drawn many times, so it arrives as buffers and a range like any other. What
+    ///     the effect contributes is the per-instance data and the instance count.
+    /// </remarks>
+    public RenderDataKey<MeshDraw> Meshes { get; private set; }
 
     /// <summary>The effects this feature knows about.</summary>
     public IReadOnlyList<VfxSystem?> Systems => systems;
@@ -128,12 +157,27 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
         indicesData[id.Index] = slot;
     }
 
+    /// <summary>Says which mesh an instanced effect draws.</summary>
+    /// <param name="id">The object.</param>
+    /// <param name="mesh">Its mesh. <see cref="MeshDraw.InstanceCount" /> is ignored — the particles say.</param>
+    /// <exception cref="InvalidOperationException">The feature has not been added to a system yet.</exception>
+    public void SetMesh(RenderObjectId id, MeshDraw mesh) {
+        if (System is null) {
+            throw new InvalidOperationException("The feature has to be added to a RenderSystem before it can be given meshes.");
+        }
+
+        System.Objects.Data.Data(Meshes)[id.Index] = mesh;
+    }
+
     /// <inheritdoc />
     protected internal override void Initialize(RenderSystem system) {
         Draws = system.Objects.Data.Register<ParticleDraw>();
         SystemIndices = system.Objects.Data.Register<int>();
+        Meshes = system.Objects.Data.Register<MeshDraw>();
 
         vertices.Device = Device;
+        instances.Device = Device;
+        strips.Device = Device;
     }
 
     /// <inheritdoc />
@@ -145,6 +189,7 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
     /// </remarks>
     protected internal override void Prepare(RenderSystem system) {
         LastParticleCount = 0;
+        quads = 0;
 
         var draws = system.Objects.Data.Data(Draws);
         var indicesData = system.Objects.Data.Data(SystemIndices);
@@ -158,7 +203,12 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
         }
 
         vertices.Device ??= Device;
+        instances.Device ??= Device;
+        strips.Device ??= Device;
+
         vertices.Begin();
+        instances.Begin();
+        strips.Begin();
 
         for (var index = 0; index < system.Objects.Count; index++) {
             var id = new RenderObjectId(index);
@@ -173,33 +223,121 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
                 continue;
             }
 
-            var wanted = effect.Count * VfxGeometryBuilder.VerticesPerParticle;
+            var kind = effect.Graph.Renderer?.Kind ?? VfxRendererKind.Billboard;
 
-            if (scratch.Length < wanted) {
-                scratch = new ParticleVertex[Math.Max(wanted, scratch.Length * 2)];
-            }
-
-            var count = builder.Build(effect, camera, scratch.AsSpan(0, wanted));
-
-            if (count == 0) {
-                continue;
-            }
-
-            draws[index] = new() {
-                FirstVertex = vertices.Add(scratch.AsSpan(0, count * VfxGeometryBuilder.VerticesPerParticle)),
-                ParticleCount = count
+            draws[index] = kind switch {
+                VfxRendererKind.Mesh => Instanced(effect, camera),
+                VfxRendererKind.Ribbon => Ribbon(effect, camera),
+                _ => Quads(effect, camera)
             };
 
-            LastParticleCount += count;
+            LastParticleCount += draws[index].ParticleCount;
+
+            // Counted apart from the rest, because it is what sizes the shared quad index buffer.
+            // Sizing that from every particle would build a pattern for the mesh instances too — a
+            // frame of five thousand instanced rocks would allocate thirty thousand indices no
+            // billboard was ever going to use.
+            if (draws[index].Kind == VfxRendererKind.Billboard) {
+                quads += draws[index].ParticleCount;
+            }
         }
 
         vertices.Upload();
+        instances.Upload();
+        strips.Upload();
+
         EnsureIndices();
+    }
+
+    /// <summary>One effect's particles as camera-facing quads in the shared vertex buffer.</summary>
+    ParticleDraw Quads(VfxSystem effect, in VfxCamera camera) {
+        var wanted = effect.Count * VfxGeometryBuilder.VerticesPerParticle;
+
+        if (scratch.Length < wanted) {
+            scratch = new ParticleVertex[Math.Max(wanted, scratch.Length * 2)];
+        }
+
+        var count = builder.Build(effect, camera, scratch.AsSpan(0, wanted));
+
+        if (count == 0) {
+            return default;
+        }
+
+        return new() {
+            FirstVertex = vertices.Add(scratch.AsSpan(0, count * VfxGeometryBuilder.VerticesPerParticle)),
+            ParticleCount = count,
+            Kind = VfxRendererKind.Billboard
+        };
+    }
+
+    /// <summary>One effect's particles as strips, with the indices this frame needed.</summary>
+    /// <remarks>
+    ///     The indices go into an upload buffer rather than the shared static one, because a strip's
+    ///     triangles depend on where each ribbon ends and a ribbon ends wherever a particle died.
+    ///     They are also written <em>relative to the effect's own first vertex</em> and reached
+    ///     through the draw call's vertex offset, which is the same trick the quads use and the reason
+    ///     one buffer can hold every effect in the frame.
+    /// </remarks>
+    ParticleDraw Ribbon(VfxSystem effect, in VfxCamera camera) {
+        var wantedVertices = effect.Count * VfxGeometryBuilder.VerticesPerRibbonParticle;
+        var wantedIndices = effect.Count * VfxGeometryBuilder.IndicesPerRibbonSegment;
+
+        if (scratch.Length < wantedVertices) {
+            scratch = new ParticleVertex[Math.Max(wantedVertices, scratch.Length * 2)];
+        }
+
+        if (segments.Length < wantedIndices) {
+            segments = new uint[Math.Max(wantedIndices, segments.Length * 2)];
+        }
+
+        var count = builder.BuildRibbons(
+            effect,
+            camera,
+            scratch.AsSpan(0, wantedVertices),
+            segments.AsSpan(0, wantedIndices),
+            out var indexCount
+        );
+
+        if (count == 0 || indexCount == 0) {
+            return default;
+        }
+
+        return new() {
+            FirstVertex = vertices.Add(scratch.AsSpan(0, count * VfxGeometryBuilder.VerticesPerRibbonParticle)),
+            ParticleCount = count,
+            Kind = VfxRendererKind.Ribbon,
+            FirstIndex = strips.Add(segments.AsSpan(0, indexCount)),
+            IndexCount = indexCount
+        };
+    }
+
+    /// <summary>One effect's particles as instance transforms for a mesh.</summary>
+    ParticleDraw Instanced(VfxSystem effect, in VfxCamera camera) {
+        if (transforms.Length < effect.Count) {
+            transforms = new ParticleInstance[Math.Max(effect.Count, transforms.Length * 2)];
+        }
+
+        var count = builder.BuildInstances(effect, camera, transforms.AsSpan(0, effect.Count));
+
+        if (count == 0) {
+            return default;
+        }
+
+        // FirstVertex is the first *instance* here, and it is what the draw call's firstInstance
+        // takes — the same field doing the same job for a different kind of run.
+        return new() {
+            FirstVertex = instances.Add(transforms.AsSpan(0, count)),
+            ParticleCount = count,
+            Kind = VfxRendererKind.Mesh
+        };
     }
 
     /// <inheritdoc />
     protected internal override void Draw(RenderSystem system, RenderDrawContext context, ReadOnlySpan<RenderNode> nodes) {
-        if (Pipelines is null || Describer is null || context.Stage is null || !vertices.Buffer.IsValid) {
+        // Not `!vertices.Buffer.IsValid` here. That buffer holds quads and strips, and a frame of
+        // nothing but instanced meshes never puts a byte in it — so testing it up front was a whole
+        // renderer that silently drew nothing.
+        if (Pipelines is null || Describer is null || context.Stage is null) {
             return;
         }
 
@@ -208,10 +346,16 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
         var draws = system.Objects.Data.Data(Draws);
         var materials = SubFeatures.OfType<MaterialRenderFeature>().FirstOrDefault();
 
+        var meshes = system.Objects.Data.Data(Meshes);
         var boundPipeline = default(PipelineHandle);
         var boundDescriptors = default(DescriptorSetHandle);
-        var boundGeometry = false;
         var boundView = false;
+
+        // Which shape's buffers are currently bound, rather than a flag. Three kinds of draw need
+        // three sets of bindings, and the saving is still real: a frame of nothing but billboards
+        // binds once, exactly as before, and only a frame that mixes kinds pays to switch.
+        var bound = default(VfxRendererKind?);
+        var boundMesh = default(BufferHandle);
 
         foreach (var node in nodes) {
             var draw = draws[node.Object.Index];
@@ -224,10 +368,28 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
                 continue;
             }
 
-            var key = new PipelineKey(effect, stage.Index, VertexLayout, output);
+            var mesh = meshes[node.Object.Index];
+
+            // Each kind needs its own buffers to exist, and a frame may hold one kind and not
+            // another. A mesh effect with no mesh attached is the ordinary case rather than an error:
+            // the mesh arrives by a separate call, so a frame between the two has to be quiet.
+            var ready = draw.Kind switch {
+                VfxRendererKind.Mesh => mesh.IsDrawable && instances.Buffer.IsValid,
+                VfxRendererKind.Ribbon => vertices.Buffer.IsValid && strips.Buffer.IsValid,
+                _ => vertices.Buffer.IsValid && indices.IsValid
+            };
+
+            if (!ready) {
+                continue;
+            }
+
+            // A mesh particle goes through the mesh's own vertex layout, because its vertices are the
+            // mesh's and only the instance stream is this feature's. Sharing the billboard layout
+            // would put a mesh's normals through a shader expecting a texture coordinate.
+            var layout = draw.Kind == VfxRendererKind.Mesh ? mesh.VertexLayout : VertexLayout;
+            var key = new PipelineKey(effect, stage.Index, layout, output);
 
             if (!Pipelines.TryGet(key, out var pipeline)) {
-                var layout = VertexLayout;
                 pipeline = Pipelines.GetOrCreate(key, () => Describer.Describe(effect, stage, output, layout));
             }
 
@@ -245,22 +407,68 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
                 boundDescriptors = descriptors;
             }
 
-            // Once for every effect in the frame. Every one of them is a run of the same buffer at
-            // the same offset, and the run is reached through the draw's first vertex instead —
-            // which is what makes a hundred effects a hundred draws and not a hundred rebindings.
-            if (!boundGeometry) {
-                context.CommandList.BindVertexBuffer(0, vertices.Buffer, vertices.Offset);
-                context.CommandList.BindIndexBuffer(indices, IndexFormat.UInt32);
-                boundGeometry = true;
-            }
+            switch (draw.Kind) {
+                case VfxRendererKind.Mesh: {
+                    // The mesh's buffers change per effect and the instance stream does not, so the
+                    // mesh handle is what the rebinding is keyed on.
+                    if (bound != VfxRendererKind.Mesh || boundMesh != mesh.VertexBuffer) {
+                        context.CommandList.BindVertexBuffer(0, mesh.VertexBuffer, 0);
+                        context.CommandList.BindVertexBuffer(1, instances.Buffer, instances.Offset);
+                        context.CommandList.BindIndexBuffer(mesh.IndexBuffer, mesh.IndexFormat);
+                        boundMesh = mesh.VertexBuffer;
+                        bound = VfxRendererKind.Mesh;
+                    }
 
-            context.CommandList.DrawIndexed(
-                draw.ParticleCount * VfxGeometryBuilder.IndicesPerParticle,
-                1,
-                0,
-                draw.FirstVertex,
-                0
-            );
+                    // One draw for the whole effect: the mesh once, instanced by however many
+                    // particles are alive, reached through firstInstance.
+                    context.CommandList.DrawIndexed(
+                        mesh.Count,
+                        draw.ParticleCount,
+                        mesh.FirstIndex,
+                        mesh.VertexOffset,
+                        draw.FirstVertex
+                    );
+
+                    break;
+                }
+
+                case VfxRendererKind.Ribbon: {
+                    if (bound != VfxRendererKind.Ribbon) {
+                        context.CommandList.BindVertexBuffer(0, vertices.Buffer, vertices.Offset);
+                        context.CommandList.BindIndexBuffer(strips.Buffer, IndexFormat.UInt32);
+                        bound = VfxRendererKind.Ribbon;
+                    }
+
+                    // The indices are the effect's own, written from zero, so the run is reached the
+                    // same way a quad run is — through the vertex offset — and the index range picks
+                    // out which effect's triangles these are.
+                    context.CommandList.DrawIndexed(draw.IndexCount, 1, draw.FirstIndex, draw.FirstVertex, 0);
+
+                    break;
+                }
+
+                default: {
+                    // Once for every billboard effect in the frame. Every one of them is a run of the
+                    // same buffer at the same offset, and the run is reached through the draw's first
+                    // vertex instead — which is what makes a hundred effects a hundred draws and not
+                    // a hundred rebindings.
+                    if (bound != VfxRendererKind.Billboard) {
+                        context.CommandList.BindVertexBuffer(0, vertices.Buffer, vertices.Offset);
+                        context.CommandList.BindIndexBuffer(indices, IndexFormat.UInt32);
+                        bound = VfxRendererKind.Billboard;
+                    }
+
+                    context.CommandList.DrawIndexed(
+                        draw.ParticleCount * VfxGeometryBuilder.IndicesPerParticle,
+                        1,
+                        0,
+                        draw.FirstVertex,
+                        0
+                    );
+
+                    break;
+                }
+            }
         }
     }
 
@@ -273,6 +481,8 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
         disposed = true;
 
         vertices.Dispose();
+        instances.Dispose();
+        strips.Dispose();
 
         if (indices.IsValid) {
             Device?.Destroy(indices);
@@ -298,7 +508,7 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
     ///     frame because they are different every frame.
     /// </remarks>
     void EnsureIndices() {
-        if (Device is null || LastParticleCount <= indexCapacity) {
+        if (Device is null || quads <= indexCapacity) {
             return;
         }
 
@@ -306,7 +516,7 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
             Device.Destroy(indices);
         }
 
-        indexCapacity = Math.Max(LastParticleCount, Math.Max(indexCapacity * 2, 256));
+        indexCapacity = Math.Max(quads, Math.Max(indexCapacity * 2, 256));
 
         var pattern = new uint[indexCapacity * VfxGeometryBuilder.IndicesPerParticle];
         VfxGeometryBuilder.WriteQuadIndices(pattern, indexCapacity);

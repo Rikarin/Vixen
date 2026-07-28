@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Vixen.Ui.Layout;
 using Vixen.Ui.Styling;
 using Vixen.Ui.Text;
@@ -33,6 +34,14 @@ public sealed partial class UiDocument : IDisposable {
     readonly DrawListBuilder drawings;
     readonly int pointerEvents;
     readonly int fontFamily;
+    readonly int letterSpacing;
+    readonly int lineHeight;
+    readonly int zIndex;
+    readonly int fontWeight;
+    readonly int fontStyle;
+    readonly int bold;
+    readonly int italic;
+    readonly int oblique;
     readonly int overflow;
     /// <summary>How many tombstoned slots it takes before compacting is worth the walk.</summary>
     /// <remarks>
@@ -44,6 +53,18 @@ public sealed partial class UiDocument : IDisposable {
 
     readonly int none;
     readonly int visible;
+
+    /// <summary>The subtrees a <c>Remove</c> is part-way through announcing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Because <c>OnRemoved</c> is allowed to remove things and one of them would corrupt
+    ///     the walk.</b> Removing a popup from inside the hook is the whole point and is safe. Removing
+    ///     an <i>ancestor</i> of the subtree currently being announced is not: the outer call is
+    ///     holding an element it is about to detach, and the inner one would detach it first, leaving
+    ///     the outer one to take a node out of a parent it no longer has. Refused with a message
+    ///     rather than left to be found as a null reference three frames later.
+    /// </remarks>
+    readonly List<UiElement> removing = [];
+
     bool dirty = true;
 
     /// <summary>Creates a document over a surface of a given size.</summary>
@@ -52,6 +73,7 @@ public sealed partial class UiDocument : IDisposable {
     /// <param name="rootFontSize">The font size <c>rem</c> measures against.</param>
     public UiDocument(float width, float height, float rootFontSize = LengthContext.InitialFontSize) {
         Styles = new StyleEngine();
+        Restyler = new StyleUpdater(Styles);
         Layout = new LayoutTree();
         Builder = new LayoutStyleBuilder(Styles.Properties, Styles.Values, Styles.Names);
         drawings = new DrawListBuilder(Styles.Properties, Styles.Values, Styles.Names);
@@ -62,15 +84,34 @@ public sealed partial class UiDocument : IDisposable {
         pointerEvents = Styles.Properties.Intern("pointer-events");
         color = Styles.Properties.Intern("color");
         fontFamily = Styles.Properties.Intern("font-family");
+        letterSpacing = Styles.Properties.Intern("letter-spacing");
+        lineHeight = Styles.Properties.Intern("line-height");
+        zIndex = Styles.Properties.Intern("z-index");
+        fontWeight = Styles.Properties.Intern("font-weight");
+        fontStyle = Styles.Properties.Intern("font-style");
+        bold = Styles.Values.Intern("bold");
+        italic = Styles.Values.Intern("italic");
+        oblique = Styles.Values.Intern("oblique");
         overflow = Styles.Properties.Intern("overflow");
         none = Styles.Values.Intern("none");
         visible = Styles.Values.Intern("visible");
+        InternCursors();
 
         Root = Create("root", null, null, []);
     }
 
     /// <summary>The cascade.</summary>
     public StyleEngine Styles { get; }
+
+    /// <summary>What holds every element's computed style and keeps it that way.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <c>StyleEngine.ResolveAll</c>, which is what this used to be and is why a hover
+    ///     cost a full cascade.</b> The engine resolves the document; the updater resolves what a
+    ///     change could have reached and stops descending where the answer did not move. Both produce
+    ///     the same styles — that is the property <c>IncrementalDocumentTests</c> gates — and only one
+    ///     of them is affordable sixty times a second.
+    /// </remarks>
+    public StyleUpdater Restyler { get; }
 
     /// <summary>The flexbox engine.</summary>
     public LayoutTree Layout { get; }
@@ -144,8 +185,19 @@ public sealed partial class UiDocument : IDisposable {
         Forget();
     }
 
-    /// <summary>Marks the document as needing a fresh pass.</summary>
-    public void Invalidate() => dirty = true;
+    /// <summary>Marks the document as needing a fresh pass over every element.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The conservative door, and every caller that is not a class or a state change comes
+    ///     through it.</b> A new element, a removal, a move, an inline style and a stylesheet all land
+    ///     here and all cost a cold pass. That is correct — <see cref="StyleUpdater" /> narrows a
+    ///     change to <i>an existing element's</i> names or state and cannot express any of them — and
+    ///     it is the reason this stays public and unnarrowed: an outside caller that has changed
+    ///     something the document cannot see must get the pass that assumes the worst.
+    /// </remarks>
+    public void Invalidate() {
+        dirty = true;
+        ForgetChanges();
+    }
 
     /// <summary>Marks every element as needing its layout style rebuilt.</summary>
     void Forget() {
@@ -295,6 +347,32 @@ public sealed partial class UiDocument : IDisposable {
             throw new ArgumentException("that element belongs to another document.", nameof(element));
         }
 
+        // An `OnRemoved` that removes something already on its way out. Its own subtree is fine — it
+        // is about to go regardless — but an ancestor of one is not: see `removing`.
+        foreach (var pending in removing) {
+            for (var ancestor = pending; ancestor is not null; ancestor = ancestor.Parent) {
+                if (ReferenceEquals(ancestor, element)) {
+                    throw new InvalidOperationException(
+                        "OnRemoved cannot remove an ancestor of the element being removed — "
+                        + "the outer removal is holding it. Remove what the control owns elsewhere in "
+                        + "the tree instead."
+                    );
+                }
+            }
+        }
+
+        // ⚠ Before anything is detached, and before `Release`, because an override's whole purpose is
+        // to reach elsewhere in the document — a menu closing the popover it parented on the root —
+        // and a handler that runs after the subtree is out of the stores can ask almost nothing. It
+        // may remove other elements; `removing` is what stops it removing one of these.
+        removing.Add(element);
+
+        try {
+            Announce(element);
+        } finally {
+            removing.Remove(element);
+        }
+
         // Before anything is detached, because finding out whether the focus is inside the subtree
         // means walking up from the focus to a parent this is about to clear.
         Release(element);
@@ -326,6 +404,26 @@ public sealed partial class UiDocument : IDisposable {
 
         Gestures.Forget(element);
         ForgetHover(element);
+    }
+
+    /// <summary>Tells a subtree it is going, deepest last.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Parents before children, which is the opposite of a disposal order and is right
+    ///     here.</b> A control's <c>OnRemoved</c> tears down what it owns, and what it owns includes
+    ///     its own parts — so a panel that closes its menu wants to run before that menu's own hook,
+    ///     not after it has already been told. It mirrors <c>OnCreated</c>, which builds outward from
+    ///     the type that was asked for.
+    ///
+    ///     The list is snapshotted per level, because a handler may add or remove children of the
+    ///     element it is called on — a popover closing removes its own items — and iterating the live
+    ///     collection would then skip half of them.
+    /// </remarks>
+    static void Announce(UiElement element) {
+        element.OnRemoved();
+
+        foreach (var child in element.Children.ToArray()) {
+            Announce(child);
+        }
     }
 
     /// <summary>Marks a subtree as no longer part of any document.</summary>
@@ -370,6 +468,22 @@ public sealed partial class UiDocument : IDisposable {
         var remap = new int[tree.Count];
         tree.Compact(remap);
         Remap(Root, remap);
+
+        // The updater's styles are indexed by slot, so a compaction it was not told about would leave
+        // every element wearing the style of whatever used to be several slots along.
+        //
+        // ⚠ **Insurance, and labelled as insurance because a sabotage deleting it failed to fail.**
+        // The line below forces the next pass to be cold, and a cold pass writes every entry of that
+        // array — so the remapped values are overwritten before anything can read one. It is kept
+        // because `StyleUpdater.Compact` is part of the updater's own contract rather than a
+        // courtesy, and because the redundancy is a property of *these two lines being adjacent*: a
+        // compaction that one day preserves the incremental pass makes the remap load-bearing again,
+        // and finding that out by way of a wrong interface would be finding it out the hard way.
+        Restyler.Compact(remap);
+
+        // ⚠ This one is not insurance. A recorded change names a slot, compaction moves every slot,
+        // and a change replayed afterwards would restyle whatever has since landed on that index.
+        ForgetChanges();
         StyleCompactions++;
 
         return true;
@@ -399,6 +513,7 @@ public sealed partial class UiDocument : IDisposable {
 
         dirty = false;
         StylesApplied = 0;
+        StylesResolved = 0;
 
         // ⚠ Before anything reads a slot, and only when the tombstones outnumber the elements. Here
         // rather than in `Remove`, because compaction is O(elements) and removing a thousand-row list
@@ -410,13 +525,120 @@ public sealed partial class UiDocument : IDisposable {
             CompactStyles();
         }
 
-        var computed = Styles.ResolveAll();
-        Apply(computed, Root, Viewport.RootFontSize);
+        StylesResolved = Restyle();
+        Apply(Root, Viewport.RootFontSize, ComputedText.Initial);
 
         Layout.CalculateLayout(Root.LayoutNode, Viewport.ViewportWidth, Viewport.ViewportHeight, Direction.Ltr);
         Accumulate(Root, 0f, 0f);
+
+        Settle();
         return true;
     }
+
+    /// <summary>Raised when every box in the document is final for this frame.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a control needs and could not have.</b> A scroll bar's range is its content's
+    ///         height, a virtualiser's row count is its viewport's, and both are results of the layout
+    ///         rather than inputs to it — so a control that computed them in a property setter was
+    ///         computing them against the previous frame's boxes. <c>ScrollView.Refresh</c>,
+    ///         <c>TreeView.Refresh</c> and the sample's own resize handler all existed to paper over
+    ///         that, and all of them are a caller being asked to know when the framework had finished.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A handler may change the document, and doing so is normal rather than an abuse.</b>
+    ///         A virtualiser that has just learned its viewport is taller realises more rows, which is
+    ///         a structural change to the tree during a pass that has already run. So this re-enters:
+    ///         after the handlers, a document that was dirtied runs the whole pass again, and it keeps
+    ///         going until nothing more is asked for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Bounded, because the fixed point is not guaranteed to exist.</b> A handler that
+    ///         adds a row whenever it is called, or two that undo each other, would spin for ever — and
+    ///         "the interface hangs" is a worse failure than any interface it could produce. After
+    ///         <see cref="SettlePasses" /> attempts the loop stops and <see cref="Settled" /> reports
+    ///         false, which is a frame drawn one pass stale rather than a frame never drawn.
+    ///     </para>
+    /// </remarks>
+    public event Action<UiDocument>? LayoutFinished;
+
+    /// <summary>How many times a pass will re-run for handlers that changed something.</summary>
+    /// <remarks>
+    ///     Three, because the shapes that legitimately need more than one are two deep — a virtualiser
+    ///     inside a scroll view, where realising rows changes the content size, which changes the
+    ///     bar's range, which can change the viewport's width — and nothing sane is three.
+    /// </remarks>
+    public const int SettlePasses = 3;
+
+    /// <summary>Whether the last <see cref="Update" /> reached a fixed point.</summary>
+    /// <remarks>
+    ///     False means a handler was still asking for changes when the budget ran out, and the frame
+    ///     is one pass behind what it asked for. Exposed rather than logged because a control that
+    ///     does this is a bug in that control, and a number nobody can read is a bug nobody finds.
+    /// </remarks>
+    public bool Settled { get; private set; } = true;
+
+    /// <summary>How many extra passes the last <see cref="Update" /> ran for its handlers.</summary>
+    public int SettlingPasses { get; private set; }
+
+    void Settle() {
+        SettlingPasses = 0;
+        Settled = true;
+
+        if (LayoutFinished is null) {
+            return;
+        }
+
+        for (var pass = 0; pass <= SettlePasses; pass++) {
+            LayoutFinished.Invoke(this);
+
+            if (!dirty) {
+                return;
+            }
+
+            if (pass == SettlePasses) {
+                Settled = false;
+                return;
+            }
+
+            dirty = false;
+            SettlingPasses++;
+
+            StylesResolved += Restyle();
+            Apply(Root, Viewport.RootFontSize, ComputedText.Initial);
+            Layout.CalculateLayout(Root.LayoutNode, Viewport.ViewportWidth, Viewport.ViewportHeight, Direction.Ltr);
+            Accumulate(Root, 0f, 0f);
+        }
+    }
+
+    /// <summary>Lets time pass, for the things that happen because nothing happened.</summary>
+    /// <param name="now">The host's clock.</param>
+    /// <remarks>
+    ///     ⚠ <b>Time arrives from the host rather than from a clock read here</b>, which is the same
+    ///     decision <c>GestureRecognizer</c> made and for the same reasons: a framework that calls
+    ///     <c>DateTime.Now</c> cannot be tested without sleeping, cannot replay a recorded trace, and
+    ///     behaves differently when a breakpoint holds the frame.
+    ///
+    ///     A long press, a tooltip's delay and a toast's dismissal are all things that must happen
+    ///     when <i>no</i> input arrives, and nothing in an input stream can report the absence of
+    ///     input. This is the one call a host must make every frame whether anything happened or not.
+    /// </remarks>
+    public void Tick(TimeSpan now) {
+        Now = now;
+        Gestures.Tick(now);
+        Ticked?.Invoke(this, now);
+    }
+
+    /// <summary>The last time <see cref="Tick" /> was given.</summary>
+    public TimeSpan Now { get; private set; }
+
+    /// <summary>Raised on every <see cref="Tick" />.</summary>
+    /// <remarks>
+    ///     A control subscribes in <c>OnCreated</c> and unsubscribes in <c>OnRemoved</c> — which is
+    ///     the second thing that hook turned out to be for, and a reminder that it was the missing
+    ///     half of a pair rather than a convenience.
+    /// </remarks>
+    public event Action<UiDocument, TimeSpan>? Ticked;
 
     /// <summary>Writes each element's resolved style through to the layout store.</summary>
     /// <remarks>
@@ -435,11 +657,42 @@ public sealed partial class UiDocument : IDisposable {
     ///         in three parallel lists.
     ///     </para>
     /// </remarks>
-    void Apply(ComputedStyle[] computed, UiElement element, float parentFontSize) {
-        var style = computed[element.StyleNode.Index];
+    /// <summary>The text properties that are inherited computed rather than as written.</summary>
+    /// <param name="LineHeight">
+    ///     The ancestor's resolved line height in pixels, or NaN when it was unitless or unset.
+    /// </param>
+    /// <param name="LineHeightFactor">
+    ///     The multiple a unitless <c>line-height</c> named, or NaN. Kept apart from the pixels
+    ///     because the difference is the whole point of the unitless form: <c>1.5</c> inherits as the
+    ///     number and multiplies each descendant's own font size, where <c>1.5em</c> inherits as the
+    ///     length the ancestor resolved once.
+    /// </param>
+    /// <param name="LetterSpacing">The ancestor's resolved letter spacing in pixels.</param>
+    readonly record struct ComputedText(float LineHeight, float LineHeightFactor, float LetterSpacing) {
+        /// <summary>What the root starts with: the font's own line height and no tracking.</summary>
+        public static ComputedText Initial => new(float.NaN, float.NaN, 0f);
+    }
+
+    void Apply(UiElement element, float parentFontSize, ComputedText parentText) {
+        var style = Restyler.StyleOf(element.StyleNode);
 
         element.Style = style;
         element.FontSize = Builder.ResolveFontSize(style, parentFontSize, Viewport);
+
+        // ⚠ After the font size and before the children, because both of these resolve against *this*
+        // element's size and both are handed down in the form they came out as.
+        var text = ResolveText(style, element.FontSize, parentText);
+
+        element.LineHeight = float.IsNaN(text.LineHeightFactor)
+            ? text.LineHeight
+            : text.LineHeightFactor * element.FontSize;
+
+        element.LetterSpacing = text.LetterSpacing;
+
+        // Resolved here rather than read in the draw list, because hit testing needs the same answer
+        // and reaching it would mean parsing the same declaration twice per frame from two places
+        // that could disagree. The setter invalidates the parent's paint order when it changes.
+        element.ZIndex = ZIndexOf(style);
 
         // ⚠ Reference equality, which is the whole reason ComputedStyle is interned. Two elements
         // that resolved alike hold the same object, so this is one pointer comparison rather than a
@@ -448,6 +701,7 @@ public sealed partial class UiDocument : IDisposable {
         // The font size has to be part of the test as well as the style: an element whose own
         // declarations did not change still needs rebuilding if an ancestor's font size did, because
         // every `em` on it measures against a different number now.
+        //
         if (!ReferenceEquals(element.AppliedStyle, style) || !element.AppliedFontSize.Equals(element.FontSize)) {
             element.AppliedStyle = style;
             element.AppliedFontSize = element.FontSize;
@@ -456,9 +710,92 @@ public sealed partial class UiDocument : IDisposable {
             Layout.SetStyle(element.LayoutNode, Builder.Build(style, Viewport.WithFontSize(element.FontSize)));
         }
 
-        foreach (var child in element.Children) {
-            Apply(computed, child, element.FontSize);
+        // ⚠ Separately, because these change what the element *measures* rather than what its box is
+        // — and the layout tree finds out about a changed measurement only by being told. They are
+        // also inherited outside the cascade, so a label whose *parent* changed `line-height` has an
+        // unchanged ComputedStyle: the reference test above passes, `SetStyle` is never reached, and
+        // the label would keep measuring itself at the old height for the rest of its life.
+        //
+        // `.Equals` rather than `==`, because NaN is a legitimate value here and NaN == NaN is false.
+        if (!element.AppliedLineHeight.Equals(element.LineHeight)
+            || !element.AppliedLetterSpacing.Equals(element.LetterSpacing)) {
+            element.AppliedLineHeight = element.LineHeight;
+            element.AppliedLetterSpacing = element.LetterSpacing;
+
+            // Only a node that measures itself, which is what having text means — and what
+            // `MarkDirty` insists on, on the grounds that nothing else about a node can change
+            // without a style or a child changing and both of those already mark it. An element
+            // with no text has no measurement for these to have changed, only descendants that do.
+            if (!string.IsNullOrEmpty(element.Text)) {
+                Layout.MarkDirty(element.LayoutNode);
+            }
         }
+
+        foreach (var child in element.Children) {
+            Apply(child, element.FontSize, text);
+        }
+    }
+
+    /// <summary>Computes the text properties that are inherited resolved rather than as written.</summary>
+    /// <param name="style">The element's computed style.</param>
+    /// <param name="fontSize">Its own font size, which every relative unit here measures against.</param>
+    /// <param name="parent">What its parent came out with.</param>
+    /// <returns>What it comes out with, and what its children inherit.</returns>
+    /// <remarks>
+    ///     An element that declares nothing passes its parent's answer straight through, which is
+    ///     what makes this inheritance rather than a default — and passes the <i>factor</i> through
+    ///     as a factor, so a unitless <c>1.5</c> on a panel is one and a half times each descendant's
+    ///     own size rather than one and a half times the panel's.
+    /// </remarks>
+    ComputedText ResolveText(ComputedStyle style, float fontSize, ComputedText parent) {
+        var lineHeight = parent.LineHeight;
+        var factor = parent.LineHeightFactor;
+        var tracking = parent.LetterSpacing;
+
+        if (style.TryGet(this.lineHeight, out var declared)) {
+            var value = reader.Parse(declared);
+
+            switch (value.Kind) {
+                // Unitless, and the one that stays a number. `line-height: 1.5` is a ratio every
+                // descendant applies to itself.
+                case StyleValueKind.Number:
+                    lineHeight = float.NaN;
+                    factor = value.Number;
+                    break;
+
+                // ⚠ A percentage is *not* the unitless form. `150%` resolves against this element's
+                // font size once and inherits as that length, which is precisely the trap the
+                // unitless form exists to avoid. Handled apart from the other units because
+                // `LengthContext` deliberately refuses to resolve a percentage — there it means the
+                // containing block, which only layout knows. On `line-height` it means the font size,
+                // and that is known right here.
+                case StyleValueKind.Length when value.Unit == StyleUnit.Percent:
+                    lineHeight = value.Number / 100f * fontSize;
+                    factor = float.NaN;
+                    break;
+
+                case StyleValueKind.Length:
+                    lineHeight = value.Number * Viewport.WithFontSize(fontSize).PixelsPer(value.Unit);
+                    factor = float.NaN;
+                    break;
+
+                // `normal`, and anything else with no reading — the font's own recommendation.
+                default:
+                    lineHeight = float.NaN;
+                    factor = float.NaN;
+                    break;
+            }
+        }
+
+        if (style.TryGet(letterSpacing, out var spacing)) {
+            var value = reader.Parse(spacing);
+
+            tracking = value.Kind == StyleValueKind.Length
+                ? value.Number * Viewport.WithFontSize(fontSize).PixelsPer(value.Unit)
+                : 0f;
+        }
+
+        return new ComputedText(lineHeight, factor, tracking);
     }
 
     /// <summary>Rebuilds the draw list from the current layout and styles.</summary>
@@ -559,8 +896,51 @@ public sealed partial class UiDocument : IDisposable {
     internal bool PointerEventsNone(ComputedStyle style) =>
         style.TryGet(pointerEvents, out var value) && value == none;
 
+    /// <summary>An element's <c>z-index</c>, which is zero when it has none.</summary>
+    /// <remarks>
+    ///     <c>auto</c> is a keyword rather than a number and so reads as zero, which is right here:
+    ///     what <c>auto</c> means in CSS is "take the stacking context's own level", and sibling
+    ///     ordering has no stacking context to take a level from.
+    /// </remarks>
+    int ZIndexOf(ComputedStyle style) =>
+        style.TryGet(zIndex, out var id) && reader.Parse(id) is { Kind: StyleValueKind.Number } value
+            ? (int) value.Number
+            : 0;
+
     internal string? FontFamilyOf(ComputedStyle style) =>
         style.TryGet(fontFamily, out var value) ? Styles.Values.NameOf(value) : null;
+
+    /// <summary>An element's <c>font-weight</c> on CSS's 1–1000 scale.</summary>
+    /// <remarks>
+    ///     ⚠ <c>lighter</c> and <c>bolder</c> are <b>not</b> read, and fall through to regular. They
+    ///     are relative to the <i>parent's computed</i> weight, which this cascade does not have —
+    ///     it inherits specified values, so the parent's declaration might itself be <c>bolder</c>
+    ///     and the chain has no bottom. Owed with the computed-value stage, alongside
+    ///     <c>line-height</c>, and left out rather than approximated as "one step from 400", which
+    ///     would be right only for an element whose parent said nothing.
+    /// </remarks>
+    internal int FontWeightOf(ComputedStyle style) {
+        if (!style.TryGet(fontWeight, out var id)) {
+            return FontRegistry.RegularWeight;
+        }
+
+        var value = reader.Parse(id);
+
+        if (value.Kind == StyleValueKind.Number) {
+            return Math.Clamp((int) value.Number, 1, 1000);
+        }
+
+        return id == bold ? FontRegistry.BoldWeight : FontRegistry.RegularWeight;
+    }
+
+    /// <summary>An element's <c>font-style</c>.</summary>
+    internal FontStyle FontStyleOf(ComputedStyle style) {
+        if (!style.TryGet(fontStyle, out var id)) {
+            return FontStyle.Normal;
+        }
+
+        return id == italic ? FontStyle.Italic : id == oblique ? FontStyle.Oblique : FontStyle.Normal;
+    }
 
     UiElement? HitTest(UiElement element, float x, float y) {
         var inside = Contains(element, x, y);
@@ -574,8 +954,13 @@ public sealed partial class UiDocument : IDisposable {
             return null;
         }
 
-        for (var i = element.Children.Count - 1; i >= 0; i--) {
-            if (HitTest(element.Children[i], x, y) is { } hit) {
+        // Backwards through the *paint* order, so the element on top is the one a click lands on. In
+        // document order these are the same walk; with a `z-index` in play they are not, and a hit
+        // test that kept its own opinion would send the click to whatever the lifted child covers.
+        var order = element.PaintOrder;
+
+        for (var i = order.Count - 1; i >= 0; i--) {
+            if (HitTest(order[i], x, y) is { } hit) {
                 return hit;
             }
         }
