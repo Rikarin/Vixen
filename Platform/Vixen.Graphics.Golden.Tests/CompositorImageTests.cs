@@ -541,6 +541,318 @@ public sealed class CompositorImageTests {
     const float SparkX = -0.3f;
     const float SparkY = -0.2f;
 
+    /// <summary>
+    ///     A cascaded shadow map, sampled back onto a ground plane.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>What this proves and what it does not.</strong> The cascade <em>fit</em> —
+    ///         the sphere bound and the texel snapping — is arithmetic with no device in it and is
+    ///         already asserted directly. What no test could reach is everything between the fit and
+    ///         the sample: that the caster lands in the tile the atlas mapping addresses, that the
+    ///         clip-to-texture flip is the one the negative-height viewport applied, and that the
+    ///         reversed-depth comparison is the right way round. Each of those is a shadow in the
+    ///         wrong place or no shadow at all, and none of them is visible in a matrix.
+    ///     </para>
+    ///     <para>
+    ///         <strong>Two cascades, and the far one is sampled.</strong> With one cascade the tile
+    ///         scale is (1,1) and the offset (0,0), so an atlas mapping that did nothing would pass.
+    ///         Sampling the second tile is what makes the mapping load-bearing.
+    ///     </para>
+    ///     <para>
+    ///         The picture is a plan view: the receiver derives a world position on <c>y = 0</c> from
+    ///         its own UV, so there is no camera and the shadow's position can be predicted from the
+    ///         light direction and the caster's height alone — which
+    ///         <see cref="AssertShadow" /> does, independently of any matrix the renderer built.
+    ///     </para>
+    ///     <para>
+    ///         <strong>The caster's transform carries the cascade's view-projection</strong>, composed
+    ///         by the fixture between <c>Collect</c> and <c>Build</c>. That is not how an engine should
+    ///         do it — it is what has to be done while nothing binds per-view constants, which is a
+    ///         gap this fixture ran into rather than one it tests.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ShadowCascade() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        const int Tile = 256;
+        const int Cascades = 2;
+
+        var display = owned.Owned("display", TextureUsage.ColourTarget | TextureUsage.CopySource);
+
+        var atlas = owned.Owned(
+            "atlas",
+            TextureUsage.DepthStencilTarget | TextureUsage.Sampled,
+            PixelFormat.Depth32Float,
+            Tile * 2,
+            Tile
+        );
+
+        using var allocator = new DescriptorAllocator(device);
+        using var samplers = new SamplerCache(device);
+        using var system = new RenderSystem();
+
+        var casters = system.AddStage(new("ShadowCaster") {
+            ShaderName = "DepthOnly",
+            Rasterizer = RasterizerState.TwoSided
+        });
+
+        var describer = new EffectPipelineDescriber(device);
+
+        describer.VertexLayouts.Add([
+            new VertexBufferLayout(
+                Vertex.Stride,
+                [new(0, VertexFormat.Float32X3, 0), new(1, VertexFormat.Float32X4, 12)]
+            )
+        ]);
+
+        var effects = new EffectSystem();
+        effects.AddProvider(new Shadowed(owned));
+
+        var meshes = new MeshRenderFeature { Pipelines = new(device), Describer = describer };
+        var transforms = new TransformRenderFeature();
+        var materials = new MaterialRenderFeature { Effects = effects };
+
+        meshes.Add(transforms);
+        meshes.Add(materials);
+        system.AddFeature(meshes);
+
+        var vertices = owned.Buffer<Vertex>(Vertex.Spark.AsSpan(), BufferUsage.Vertex);
+        var indices = owned.Buffer<ushort>([0, 1, 2, 2, 1, 3], BufferUsage.Index);
+
+        // Bounded tightly and placed well down the frustum, and both of those are what make the atlas
+        // mapping load-bearing. A caster that survives every cascade's cull lands in every tile, so
+        // sampling the wrong one gives the same answer and the mapping is untested — which is what the
+        // first two versions of this fixture did, and both passed a deliberate sabotage. Cascade 0's
+        // sphere reaches about four units past the eye and its extrusion carries it a little further;
+        // twenty-five is clear of both, so tile 0 stays empty and sampling it finds nothing.
+        var caster = system.Objects.Add(
+            new() { Bounds = new(CasterCentre, 5f), Stages = casters.Mask, FeatureIndex = meshes.Index }
+        );
+
+        system.Objects.Data.Data(meshes.Draws)[caster.Index] = new() {
+            VertexBuffer = vertices,
+            IndexBuffer = indices,
+            IndexFormat = IndexFormat.UInt16,
+            Count = 6,
+            InstanceCount = 1
+        };
+
+        materials.Assign(system, caster, new Material("Mesh"));
+
+        var shadows = new ShadowMapRenderer {
+            Name = "Shadows",
+            CasterStage = casters,
+            Atlas = "ShadowAtlas",
+            CascadeCount = Cascades,
+            Resolution = Tile,
+            Eye = new(0f, 0f, 10f),
+            Forward = new(0f, 0f, -1f),
+            ShadowDistance = 40f,
+            LightDirection = Vector3.Normalize(Light)
+        };
+
+        using var receiver = new FullScreenRenderer {
+            Name = "Receive",
+            ShaderName = "ShadowReceive",
+            Modules = describer,
+            Device = device,
+            ConstantBinding = 0,
+            Descriptors = { Allocator = allocator }
+        };
+
+        receiver.ColourTargets.Add("Display");
+        receiver.Reads.Add("ShadowAtlas");
+
+        receiver.Descriptors.Bindings.Add(
+            new() { Binding = 1, Kind = DescriptorKind.SampledTexture, Resource = "ShadowAtlas" }
+        );
+
+        receiver.Descriptors.Bindings.Add(
+            new() { Binding = 3, Kind = DescriptorKind.Sampler, Sampler = samplers.PointClamp }
+        );
+
+        receiver.Parameters.Set(Ground, new Vector4(GroundMinX, GroundMinZ, GroundSize, GroundSize));
+
+        var compositor = new GraphicsCompositor(system) {
+            FrameSize = new(Fixture.Side, Fixture.Side),
+            Game = new SceneRendererSequence { Children = { shadows, receiver } }
+        };
+
+        compositor.Imports["ShadowAtlas"] = new(atlas.Texture, atlas.View, atlas.Description);
+
+        compositor.Imports["Display"] = new(
+            display.Texture,
+            display.View,
+            display.Description,
+            ResourceState.Undefined,
+            ResourceState.CopySource
+        );
+
+        // Collect fits the cascades, which is the first moment their matrices exist. Build runs it
+        // again — it is idempotent against unchanged inputs — so composing the caster's transform in
+        // between is the only way to get a view-projection to a shader while nothing binds per-view
+        // constants.
+        compositor.Collect();
+
+        var cascade = shadows.Cascades[1];
+        var (scale, offset) = ShadowCascades.AtlasTile(1, Cascades);
+
+        receiver.Parameters.Set(ShadowMatrix, cascade.ViewProjection);
+        receiver.Parameters.Set(Tile2, new Vector4(scale.X, scale.Y, offset.X, offset.Y));
+
+        system.Objects.Data.Data(transforms.World)[caster.Index] = CasterWorld * cascade.ViewProjection;
+
+        allocator.BeginFrame();
+        var frame = compositor.Build(owned.Graph, effects, device);
+        var image = owned.Render(frame.Texture("harness", "Display"));
+
+        AssertShadow(image);
+        GoldenImage.Verify("shadow-cascade", image, Tolerance.Edges);
+    }
+
+    /// <summary>
+    ///     The shadow lands where the light direction says it should.
+    /// </summary>
+    /// <remarks>
+    ///     Computed from the caster's height and the light alone, so it agrees with nothing the
+    ///     renderer produced. A point on the caster reaches the ground at <c>P + tL</c> where
+    ///     <c>P.y + t·L.y = 0</c>, which for a directional light is the whole of it.
+    /// </remarks>
+    static void AssertShadow(in Bitmap image) {
+        var light = Vector3.Normalize(Light);
+        var travel = -CasterCentre.Y / light.Y;
+        var centre = new Vector2(CasterCentre.X + (travel * light.X), CasterCentre.Z + (travel * light.Z));
+
+        // The whole rectangle, not just its middle. A shadow of the right size in the wrong place and
+        // one of the wrong size in the right place both pass a centre probe, and the second is what a
+        // mis-scaled cascade produces.
+        var minX = Column(centre.X - CasterHalf, image.Width);
+        var maxX = Column(centre.X + CasterHalf, image.Width);
+        var minY = Row(centre.Y - CasterHalf, image.Height);
+        var maxY = Row(centre.Y + CasterHalf, image.Height);
+
+        var left = image.Width;
+        var right = -1;
+        var top = image.Height;
+        var bottom = -1;
+
+        for (var y = 0; y < image.Height; y++) {
+            for (var x = 0; x < image.Width; x++) {
+                if (Luminance(image, x, y) >= 0.4) {
+                    continue;
+                }
+
+                left = Math.Min(left, x);
+                right = Math.Max(right, x);
+                top = Math.Min(top, y);
+                bottom = Math.Max(bottom, y);
+            }
+        }
+
+        Assert.True(right >= 0, "nothing is shadowed anywhere");
+
+        // Two texels of slack: the shadow map is a grid of its own, and its edge lands where its
+        // texels do rather than where the geometry does.
+        Assert.InRange(left, minX - 2, minX + 2);
+        Assert.InRange(right, maxX - 2, maxX + 2);
+        Assert.InRange(top, minY - 2, minY + 2);
+        Assert.InRange(bottom, maxY - 2, maxY + 2);
+
+        Assert.True(Luminance(image, 115, 13) > 0.8, "a corner the shadow cannot reach is dark");
+        Assert.True(Luminance(image, 13, 115) > 0.8, "a corner the shadow cannot reach is dark");
+    }
+
+    static int Column(float x, int width) => (int)MathF.Round((x - GroundMinX) / GroundSize * width);
+
+    static int Row(float z, int height) => (int)MathF.Round((z - GroundMinZ) / GroundSize * height);
+
+    /// <summary>Half the caster's side, in world units — <see cref="CasterWorld" />'s scale over two.</summary>
+    const float CasterHalf = 3f;
+
+    static readonly Vector3 Light = new(-0.4f, -1f, -0.3f);
+    static readonly Vector3 CasterCentre = new(0f, 3f, -25f);
+
+    /// <summary>Six units across at y = 3, which is <see cref="Vertex.Spark" /> scaled and lifted.</summary>
+    static Matrix4x4 CasterWorld => new(
+        new Vector4(6f, 0f, 0f, 0f),
+        new Vector4(0f, 0f, 6f, 0f),
+        new Vector4(0f, 1f, 0f, 0f),
+        new Vector4(CasterCentre.X, CasterCentre.Y, CasterCentre.Z, 1f)
+    );
+
+    const float GroundMinX = -10f;
+    const float GroundMinZ = -35f;
+    const float GroundSize = 20f;
+
+    static readonly ParameterKey<Matrix4x4> ShadowMatrix =
+        ParameterKeys.New<Matrix4x4>("ShadowReceive.shadowMatrix");
+
+    static readonly ParameterKey<Vector4> Tile2 = ParameterKeys.New<Vector4>("ShadowReceive.tile");
+    static readonly ParameterKey<Vector4> Ground = ParameterKeys.New<Vector4>("ShadowReceive.ground");
+
+    /// <summary>The depth-only caster and the plan-view receiver.</summary>
+    sealed class Shadowed : IEffectProvider {
+        readonly Effect caster;
+        readonly Effect receive;
+
+        public Shadowed(Fixture fixture) {
+            var device = fixture.Device;
+            var push = device.CreatePipelineLayout(new([], [new(ShaderStage.Vertex, 0, 64)], "caster"));
+            var empty = device.CreateDescriptorSetLayout(new(DescriptorSetSlot.PerFrame, [], "empty"));
+
+            var set = device.CreateDescriptorSetLayout(
+                new(
+                    DescriptorSetSlot.PerMaterial,
+                    [
+                        new(0, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+                        new(1, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+                        new(3, DescriptorKind.Sampler, ShaderStage.Fragment)
+                    ],
+                    "receive"
+                )
+            );
+
+            var layout = device.CreatePipelineLayout(new([empty, empty, set], null, "receive"));
+
+            fixture.Owns(() => {
+                device.Destroy(layout);
+                device.Destroy(set);
+                device.Destroy(empty);
+                device.Destroy(push);
+            });
+
+            caster = new() {
+                Key = EffectKey.Of("DepthOnly"),
+                Stages = [new(ShaderStage.Vertex, Read("prepass.vert.spv"), "main")],
+                Layout = push
+            };
+
+            receive = new() {
+                Key = EffectKey.Of("ShadowReceive"),
+                Stages = [
+                    new(ShaderStage.Vertex, Read("fullscreen.vert.spv"), "main"),
+                    new(ShaderStage.Fragment, Read("shadow-receive.frag.spv"), "main")
+                ],
+                SetLayouts = [default, default, set],
+                Layout = layout,
+                ConstantBufferSize = 96,
+                Parameters = [new(ShadowMatrix, 0, 64), new(Tile2, 64, 16), new(Ground, 80, 16)]
+            };
+        }
+
+        static ImmutableArray<byte> Read(string name) =>
+            [.. File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Shaders", name))];
+
+        public Effect? TryGet(EffectKey key) => key.ShaderName == "DepthOnly" ? caster : receive;
+    }
+
     /// <summary>Adds one quad to the scene, in both stages.</summary>
     static void Add(
         RenderSystem system,

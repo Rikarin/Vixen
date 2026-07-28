@@ -588,6 +588,13 @@ The shadow renderers still take a light direction and a camera from a host rathe
 scene, and nothing yet resolves a compositor by *address* — the binary form is proven, the
 `AssetManager` lookup around it is not wired up here.
 
+**Nothing binds per-view constants.** `TransformRenderFeature` pushes a world matrix and there is no
+path for a view-projection to reach a shader — so a shadow caster cannot be told which cascade it is
+being drawn for. The golden fixture works around it by composing the cascade's matrix into the
+object's world transform between `Collect` and `Build`, which is fine for one object in one view and
+is not a design. A per-view uniform block, allocated like the per-frame descriptor sets already are,
+is what closes it.
+
 A node's bindings are set in code, not in the compositor document. A binding index is a shader's
 decision and a sampler is a device handle, and the asset model can express neither — so a compositor
 loaded from disk declares its dependencies correctly and binds nothing until a host fills in
