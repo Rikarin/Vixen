@@ -176,7 +176,7 @@ public struct LightingConstants {
     public readonly void Write(System.Span<byte> buffer) {
         if (buffer.Length < Size) {
             throw new System.ArgumentException(
-                $"A Lighting constant buffer needs {Size} bytes; this one has {buffer.Length}.",
+                $"A LightingConstants block needs {Size} bytes; this one has {buffer.Length}.",
                 nameof(buffer)
             );
         }
