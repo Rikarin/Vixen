@@ -282,4 +282,49 @@ public class ButtonTests {
         Assert.True(button.HasIcon);
         Assert.Same(icon, button.Children[0]);
     }
+
+    [Fact]
+    public void An_access_key_presses_it_and_says_the_keyboard_did() {
+        using var fixture = new ControlFixture();
+
+        var button = fixture.Add<Button>();
+        button.Label = AccessKey.Parse("_Save", out var key);
+        button.AccessKey = key;
+
+        var devices = new List<ActivationDevice>();
+        button.AddHandler<ClickEvent>((_, args) => devices.Add(args.Device));
+
+        fixture.Update();
+        fixture.KeyDown(InputKey.S, ModifierKeys.Alt);
+
+        // ⚠ **A keyboard activation, not a code one.** It is one — somebody held Alt and pressed a
+        // letter — and `Activate()` with no argument reports `Code`, which is the wrong answer for a
+        // handler that logs how a command was reached or for a menu that closes on a keyboard press.
+        Assert.Equal([ActivationDevice.Keyboard], devices);
+        Assert.True(button.IsFocused);
+
+        // And the marker came out of the drawn label rather than being left in it.
+        Assert.Equal("Save", button.Label);
+    }
+
+    [Fact]
+    public void A_disabled_button_ignores_its_access_key() {
+        using var fixture = new ControlFixture();
+
+        var button = fixture.Add<Button>();
+        button.AccessKey = 'S';
+        button.Disabled = true;
+
+        var clicks = 0;
+        button.Clicked += _ => clicks++;
+
+        fixture.Update();
+        fixture.KeyDown(InputKey.S, ModifierKeys.Alt);
+
+        // Two independent reasons this must not fire — the document skips `:disabled` elements when
+        // it looks, and the button checks again when it hears — and both are worth having, because
+        // an access key that worked on a greyed-out control would be the one way past being
+        // disabled.
+        Assert.Equal(0, clicks);
+    }
 }

@@ -43,6 +43,24 @@ public abstract partial class ButtonBase : Control {
         AddHandler<KeyEvent>(static (element, args) => ((ButtonBase) element).Keyed(args));
         AddHandler<PointerEvent>(static (element, args) => ((ButtonBase) element).Pointed(args));
         AddHandler<FocusEvent>(static (element, args) => ((ButtonBase) element).Refocused(args));
+        AddHandler<AccessKeyEvent>(static (element, args) => ((ButtonBase) element).Accessed(args));
+    }
+
+    /// <summary>An access key naming this button presses it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Reported as a keyboard activation, not as code.</b> It is one — somebody held Alt and
+    ///     pressed a letter — and a handler that logs, or a menu that closes on a keyboard press but
+    ///     not on a programmatic one, has to be able to tell them apart. <see cref="Activate()" />
+    ///     without an argument means <see cref="ActivationDevice.Code" /> and would say the wrong
+    ///     thing here.
+    /// </remarks>
+    void Accessed(AccessKeyEvent args) {
+        if (Disabled) {
+            return;
+        }
+
+        Activate(ActivationDevice.Keyboard, 1, ModifierKeys.Alt);
+        args.Handled = true;
     }
 
     /// <summary>What it says.</summary>

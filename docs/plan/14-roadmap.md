@@ -2148,8 +2148,25 @@ sub-piece has its own gate.
 
   Owed with it: the other end of rich text — the markup and the cascade that would say which stretch
   is bold. The run list already carries a face, a size, a tracking and a leading per run.
-- Owed in `Vixen.Ui`: style-slot compaction, access keys, line wrapping, gradients, per-corner
-  elliptical radii, pinch and rotate, virtualisation primitive, multi-window and DPI.
+- ✅ **Access keys.** `UiElement.AccessKey` and Alt-and-a-letter, resolved within the innermost focus
+  scope — a dialog whose `_Save` could be answered by a toolbar button in the window behind it is not
+  modal. Two elements sharing a key *cycle* rather than the first re-firing, because a collision is
+  ordinary and one of the two being unreachable from the keyboard for ever is not. Disabled and
+  hidden elements are skipped, hidden by asking the layout so that a collapsed *ancestor* counts.
+
+  The document decides which element and raises `AccessKeyEvent` on it; what an access key does is
+  the control's business, and `ButtonBase` reports a *keyboard* activation rather than a code one.
+  `AccessKey.Parse` is the `_Save` marker convention, and it is opt-in: inferring a key from a label
+  would reinterpret every existing label that contains an underscore.
+
+  Verified by sabotage, eight of eight landing. ⚠ **A ninth failed to fail and the code was deleted
+  rather than defended**: a `if (target.Focusable)` around `Focus(target)` read as a rule and was
+  insurance, since `Focus` already refuses an element that cannot hold the focus.
+
+  Not built: revealing the underlines while Alt is held, which needs a text decoration the draw list
+  does not have.
+- Owed in `Vixen.Ui`: style-slot compaction, line wrapping, gradients, per-corner elliptical radii,
+  pinch and rotate, virtualisation primitive, multi-window and DPI.
 - `Vixen.Ui.Markup`: ✅ **VXML — lexer, parser, binder, emitter and `#line` mapping.** A `.vxml`
   becomes a green/red tree over `Vixen.Core.Syntax`, then a `BoundComponent`, then a C# partial
   class. Second grammar on the shared tree, which is the first evidence that the Phase 0 extraction

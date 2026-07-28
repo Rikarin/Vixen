@@ -159,6 +159,14 @@ public sealed partial class UiDocument {
         var target = Focused ?? Root;
         target.Raise(args);
 
+        // ⚠ After the route and only if nothing wanted it, exactly like Tab below. A menu that is
+        // open has its own idea of what Alt-S means and must be able to take it; a text field that
+        // handles Alt-Left for word movement must not lose it to an access key on a button called
+        // "_Left". The default is the fallback rather than the rule.
+        if (!args.Handled && TryAccessKey(args, out var access)) {
+            args.Handled = InvokeAccessKey(access);
+        }
+
         if (!args.Handled && args is { Action: KeyAction.Pressed, Key: InputKey.Tab }) {
             // Shift picks the direction and everything else disqualifies it. Ctrl-Tab is a document
             // switcher in every application that has documents, and consuming it here would mean a

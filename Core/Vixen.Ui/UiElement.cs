@@ -298,6 +298,23 @@ public partial class UiElement {
         }
     }
 
+    /// <summary>The character that reaches it with Alt held, or <c>'\0'</c> for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>'\0'</c> rather than a nullable, because "no access key" is what every element in
+    ///         the document has and a nullable would put a box around each of them. Compared
+    ///         case-insensitively — Alt-S reaches an element whose key is <c>s</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Set explicitly; nothing infers one from a label.</b> <see cref="AccessKey.Parse" />
+    ///         is the marker convention for a caller that wants <c>"_Save"</c> to mean both, and it
+    ///         is opt-in — inferring would reinterpret every existing label that happens to contain
+    ///         an underscore.
+    ///     </para>
+    /// </remarks>
+    [UiProperty]
+    public partial char AccessKey { get; set; }
+
     /// <summary>Whether the focus can rest on it.</summary>
     /// <remarks>
     ///     False by default, because most elements are boxes. A control sets it, and setting it is
