@@ -21,6 +21,22 @@
         <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
         <ProjectReference Include="..\Vixen.Graphics\Vixen.Graphics.csproj" />
+
+        <!--
+          A baked variant is content: EffectData rides the engine's own serializer into a chunk, so a
+          shipping build reads its shaders through the same bundle machinery as its meshes rather
+          than through a second format that would have to be versioned separately.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>

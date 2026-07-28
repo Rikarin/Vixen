@@ -37,8 +37,14 @@ shader Fog {
     var fogEnd: float = 200f
 
     /// Height at which density is at its authored value, and the rate it thins above that.
+    ///
+    /// The rate is `heightFalloffRate` rather than `heightFalloff` because the permutation above is
+    /// already called that, and the two differ only in case — which Raven allows and a host language
+    /// need not. The generated bindings turn both into one C# identifier, so the collision was a
+    /// generated file that did not compile. Renaming it here says the difference out loud as well:
+    /// the permutation is *whether* density thins with altitude, and this is *how fast*.
     var fogHeight: float = 0f
-    var heightFalloff: float = 0.05f
+    var heightFalloffRate: float = 0.05f
 
     var sunDirection: float3 = float3(0f, -1f, 0f)
     var sunColor: float3 = float3(1f, 0.9f, 0.7f)
@@ -102,7 +108,7 @@ shader Fog {
 
     /// Density relative to the fog plane, thinning exponentially with height.
     func HeightDensity(height: float): float {
-        return exp(-max(height - fogHeight, 0f) * heightFalloff)
+        return exp(-max(height - fogHeight, 0f) * heightFalloffRate)
     }
 
     /// The Henyey-Greenstein phase function, normalised to 0..1 for use as a blend weight.

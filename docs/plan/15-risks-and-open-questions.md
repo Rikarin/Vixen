@@ -240,6 +240,12 @@ stated so nobody builds lockstep netcode on a false assumption.
 MoltenVK, Jolt, HarfBuzz, SPIRV-Cross, astcenc, Recast — six native dependencies × ten RIDs, each with
 its own release cadence, licence, and build requirements.
 
+> **Five, now.** Recast came off this list in Phase 8: it publishes no binaries and has no C API, so
+> binding it meant writing a C shim and building it per RID before any navigation code could compile
+> at all. `Vixen.Navigation` is managed code instead — the algorithms re-derived, no code copied — and
+> the cheapest native dependency is the one not taken. `Core/Vixen.Navigation/README.md` records the
+> trade; doc 14's Phase 8 entry records what it costs.
+
 **Mitigation — ✅ built.** `build/native-dependencies.json` is the manifest and `nuke RestoreNativeDeps`
 is the target: pinned versions, checksummed download URLs, SHA-256 verification, and a third-party
 licence manifest generated from the licence text *inside the verified archive* rather than from a URL
@@ -253,8 +259,8 @@ partial file behind, and an entry path that has drifted from the release's layou
 instead of silently extracting nothing.
 
 **One dependency is in it so far** — MoltenVK for `ios-arm64`, which is what R11 needed. Jolt,
-HarfBuzz, SPIRV-Cross, astcenc and Recast are entries to add, and adding one is the exercise that will
-say whether the schema generalises; the `.zip` and `.tar.gz` paths exist and are so far untested by a
+HarfBuzz, SPIRV-Cross and astcenc are entries to add, and adding one is the exercise that will say
+whether the schema generalises; the `.zip` and `.tar.gz` paths exist and are so far untested by a
 real dependency.
 
 ### R11 — Vulkan through Silk.NET does not survive ahead-of-time compilation *(likelihood: certain · impact: high)* — **found, not predicted**

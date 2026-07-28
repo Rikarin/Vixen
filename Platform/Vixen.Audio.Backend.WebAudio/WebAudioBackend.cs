@@ -99,5 +99,32 @@ public sealed class WebAudioBackend : IAudioBackend {
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     Whether the browser exposes <c>getUserMedia</c> at all, which needs a secure context —
+    ///     https or localhost. It says nothing about permission: that is asked for when a device is
+    ///     started, and the answer arrives later.
+    /// </remarks>
+    public bool SupportsCapture => IsAvailable;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     One entry, standing for whatever the browser picks. Enumerating the real list needs
+    ///     <c>enumerateDevices</c>, which returns empty labels until permission has been granted once
+    ///     — so a device picker shown before the first prompt would be a list of blanks.
+    /// </remarks>
+    public IReadOnlyList<AudioDeviceInfo> EnumerateCaptureDevices() =>
+        IsAvailable ? CaptureDevices : [];
+
+    /// <inheritdoc />
+    public IAudioCaptureDevice OpenCaptureDevice(in AudioCaptureOptions options) =>
+        IsAvailable
+            ? WebAudioCaptureDevice.Open(options)
+            : throw new AudioDeviceException("The WebAudio module has not been imported.");
+
+    static readonly AudioDeviceInfo[] CaptureDevices = [
+        new(string.Empty, "Default microphone", true, AudioFormat.Mono48k)
+    ];
+
+    /// <inheritdoc />
     public void Dispose() { }
 }

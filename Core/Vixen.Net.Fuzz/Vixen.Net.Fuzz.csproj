@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Net.Fuzz</RootNamespace>
+
+        <!--
+            Test infrastructure, not a shipped library. It exists to be run against Vixen.Net's
+            decoders and it references nothing a game would want at runtime, so it stays out of the
+            packages even though it lives in Core alongside what it tests.
+        -->
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            Vixen.Net for the decoders themselves, and Vixen.Net.Engine for SyncList — which reads
+            an index off the wire and is therefore part of the same untrusted surface even though it
+            lives a layer up.
+        -->
+        <ProjectReference Include="..\Vixen.Net\Vixen.Net.csproj" />
+        <ProjectReference Include="..\Vixen.Net.Engine\Vixen.Net.Engine.csproj" />
+    </ItemGroup>
+
+</Project>

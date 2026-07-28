@@ -163,20 +163,27 @@ public sealed class AudioMixerTests {
         Assert.True(engine.IsPlaying(second));
     }
 
+    /// <summary>
+    ///     A request is only refused when every voice in the pool outranks it. Anything else is a
+    ///     steal — see <c>VoiceStealingTests</c>.
+    /// </summary>
     [Fact]
-    public void APoolWithNothingFreeDropsTheRequestAndSaysSo() {
+    public void APoolFullOfMoreImportantSoundsRefusesTheRequest() {
         var (engine, device) = AudioTestData.Engine(voices: 2);
         using var _ = engine;
 
-        engine.Play(AudioTestData.Constant(4_800, 1f));
-        engine.Play(AudioTestData.Constant(4_800, 1f));
-        var dropped = engine.Play(AudioTestData.Constant(4_800, 1f));
+        var settings = new PlaybackSettings { Gain = 1f, Pitch = 1f, Priority = 10 };
+        engine.Play(AudioTestData.Constant(4_800, 1f), settings);
+        engine.Play(AudioTestData.Constant(4_800, 1f), settings);
+
+        var dropped = engine.Play(AudioTestData.Constant(4_800, 1f), settings with { Priority = 0 });
 
         AudioTestData.Render(device, 16);
         engine.Update();
 
         Assert.False(dropped.IsValid);
         Assert.Equal(1, engine.Statistics.DroppedRequests);
+        Assert.Equal(0, engine.Statistics.StolenVoices);
         Assert.Equal(2, engine.Statistics.ActiveVoices);
     }
 
@@ -234,11 +241,19 @@ public sealed class AudioMixerTests {
         engine.Play(AudioTestData.Ramp(8, sampleRate: 24_000));
         var rendered = AudioTestData.Render(device, 16);
 
-        // Frame n of the output is source frame n/2, interpolated: 0, 0.5, 1, 1.5, …
+        // Every second output frame lands exactly on a source frame, so those are the source's own
+        // values however the resampling is done.
         Assert.Equal(0f, rendered[0], 1e-5f);
-        Assert.Equal(0.5f * AudioTestData.RampStep, rendered[1], 1e-5f);
         Assert.Equal(1f * AudioTestData.RampStep, rendered[2], 1e-5f);
+        Assert.Equal(2f * AudioTestData.RampStep, rendered[4], 1e-5f);
         Assert.Equal(3f * AudioTestData.RampStep, rendered[6], 1e-5f);
+
+        // The ones in between are not asserted exactly, and the reason is the point of the resampler:
+        // a straight line between two samples is what linear interpolation gives, and a band-limited
+        // reconstruction is not a straight line near the corner where a ramp starts out of silence.
+        // What can be said is that it lies between its neighbours.
+        Assert.InRange(rendered[1], 0f, 1f * AudioTestData.RampStep);
+        Assert.InRange(rendered[3], 1f * AudioTestData.RampStep, 2f * AudioTestData.RampStep);
     }
 
     [Fact]
@@ -246,12 +261,18 @@ public sealed class AudioMixerTests {
         var (engine, device) = AudioTestData.Engine(channels: 1);
         using var _ = engine;
 
-        engine.Play(AudioTestData.Ramp(64), new PlaybackSettings { Gain = 1f, Pitch = 2f });
-        var rendered = AudioTestData.Render(device, 8);
+        engine.Play(AudioTestData.Ramp(512), new PlaybackSettings { Gain = 1f, Pitch = 2f });
+        var rendered = AudioTestData.Render(device, 64);
 
-        Assert.Equal(0f, rendered[0], 1e-5f);
-        Assert.Equal(2f * AudioTestData.RampStep, rendered[1], 1e-5f);
-        Assert.Equal(4f * AudioTestData.RampStep, rendered[2], 1e-5f);
+        // Output frame n is source frame 2n, so the ramp comes out twice as steep. Sampled away from
+        // the start, because the anti-alias filter a pitched voice runs through has a transient there
+        // — a linear ramp passes it unchanged once it has something to look at either side.
+        Assert.Equal(64f * AudioTestData.RampStep, rendered[32], 1e-4f);
+        Assert.Equal(96f * AudioTestData.RampStep, rendered[48], 1e-4f);
+
+        // Twice as steep as the same clip at unity, which is the whole claim.
+        var step = rendered[48] - rendered[32];
+        Assert.Equal(32f * AudioTestData.RampStep, step, 1e-4f);
     }
 
     [Fact]

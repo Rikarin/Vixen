@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Navigation</RootNamespace>
+        <Description>
+            Navigation: a voxel bake that turns level geometry into a tiled convex-polygon navmesh,
+            a query layer with A*, funnel string-pulling and surface raycasts over it, and a crowd
+            of agents that follow paths and avoid each other. Managed end to end — no native
+            dependency, so it runs everywhere the engine does.
+        </Description>
+        <PackageTags>navigation;navmesh;pathfinding;recast;crowd;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Collections\Vixen.Core.Collections.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
+        <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
+        <ProjectReference Include="..\Vixen.Engine\Vixen.Engine.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            A baked tile is written by a content build and read by a player, so the tile types carry
+            [DataContract] and this emits their serializers at compile time. ADR-002: no reflection,
+            no IL weaving, and the generated C# is on disk and steppable.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Navigation.Tests" />
+    </ItemGroup>
+
+</Project>

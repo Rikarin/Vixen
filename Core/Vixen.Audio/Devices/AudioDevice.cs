@@ -144,6 +144,32 @@ public interface IAudioBackend : IDisposable {
     /// <returns>The device, stopped.</returns>
     /// <exception cref="AudioDeviceException">It could not be opened.</exception>
     IAudioDevice OpenDevice(in AudioDeviceOptions options);
+
+    /// <summary>Whether this backend can open a microphone as well as a speaker.</summary>
+    /// <remarks>
+    ///     <b>Separate from <see cref="IsAvailable" />, because they genuinely differ.</b> OpenAL's
+    ///     capture is an extension a driver may not implement, and a browser's is behind a permission
+    ///     the user may refuse — so a backend that plays perfectly well may still have no input. A
+    ///     game that needs a microphone asks this and says something useful rather than discovering
+    ///     it in an exception.
+    /// </remarks>
+    bool SupportsCapture => false;
+
+    /// <summary>Every microphone it can see, default first if it knows which one that is.</summary>
+    /// <returns>The devices. Empty if there are none.</returns>
+    IReadOnlyList<AudioDeviceInfo> EnumerateCaptureDevices() => [];
+
+    /// <summary>Opens one.</summary>
+    /// <param name="options">What to ask for.</param>
+    /// <returns>The device, stopped.</returns>
+    /// <remarks>
+    ///     A default implementation that refuses, so that adding capture to this interface did not
+    ///     break every backend that does not have it. A backend overriding this must also say so
+    ///     through <see cref="SupportsCapture" />.
+    /// </remarks>
+    /// <exception cref="AudioDeviceException">This backend has no capture, or it could not be opened.</exception>
+    IAudioCaptureDevice OpenCaptureDevice(in AudioCaptureOptions options) =>
+        throw new AudioDeviceException($"The {Name} backend cannot capture audio.");
 }
 
 /// <summary>A device would not open, or stopped being one.</summary>

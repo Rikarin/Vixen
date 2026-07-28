@@ -44,6 +44,26 @@
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
   </ItemGroup>
 
+  <!-- ===== Telemetry (docs/plan/14 § Phase 9, docs/plan/17 § Server variant) ===== -->
+  <ItemGroup Label="Telemetry">
+    <!--
+      The SDK and its exporters only, and only in Vixen.Net.Telemetry. The
+      *instrumentation* is in Vixen.Net and depends on nothing: System.Diagnostics.Metrics
+      is not a third option alongside OpenTelemetry and Prometheus, it is
+      OpenTelemetry's metrics API in .NET, and a server that already has a pipeline
+      reads Vixen.Net's meter by naming it. What is here is the export half, which a
+      game that never runs a dedicated server must not carry.
+    -->
+    <PackageVersion Include="OpenTelemetry" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.17.0" />
+    <!--
+      Process CPU, GC, thread pool and exception counts. A game server's own numbers
+      say nothing about why it went slow, and the answer is nearly always in these.
+    -->
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
+  </ItemGroup>
+
   <!-- ===== Content-addressed storage (docs/plan/03 § Serialization, docs/plan/08 § ObjectDatabase) ===== -->
   <ItemGroup Label="Serialization">
     <!--
@@ -142,6 +162,24 @@
       and has nothing to do with Silk.NET's.
     -->
     <PackageVersion Include="Silk.NET.OpenAL.Soft.Native" Version="1.23.1" />
+
+    <!--
+      The two codecs, both pure managed and both deliberately so. A native libvorbis
+      and libopus would decode faster and would mean shipping a binary per RID plus a
+      resolver like OpenALLoader's — and the browser target has no answer at all for
+      that. Managed decoders publish under NativeAOT, run in WebAssembly, and cost a
+      fraction of a per-cent of a core for a stereo stream, which for something the
+      streaming pump does on its own thread is not a number anybody will notice.
+
+      NVorbis is MIT; Concentus is BSD-3-Clause. Both are permissive and neither adds
+      a notice obligation beyond attribution.
+
+      They live in Core/Vixen.Audio.Codecs and not in Vixen.Audio, so a game with no
+      compressed audio links neither — which is the same reason IAudioStreamDecoder
+      is an interface in the first place.
+    -->
+    <PackageVersion Include="NVorbis" Version="0.10.5" />
+    <PackageVersion Include="Concentus" Version="2.2.2" />
   </ItemGroup>
 
   <!-- ===== Physics (docs/plan/01 § dependency register, docs/plan/14 § Phase 8) ===== -->

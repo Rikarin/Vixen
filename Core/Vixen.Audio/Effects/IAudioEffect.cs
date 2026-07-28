@@ -47,4 +47,78 @@ public interface IAudioEffect {
     ///     the next one.
     /// </remarks>
     void Reset();
+
+    /// <summary>Sets one of the effect's knobs by name, for automation.</summary>
+    /// <param name="name">The property's own name, matched exactly — <c>Wet</c>, <c>Frequency</c>.</param>
+    /// <param name="value">What to set it to.</param>
+    /// <returns>Whether the effect has such a property.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A switch each effect writes, and not reflection.</b> Looking a property up by name
+    ///         at run time is what <c>ADR-002</c> forbids and what does not survive trimming, so every
+    ///         effect that wants to be automatable declares which of its knobs are. The default is
+    ///         "none", so an effect that says nothing is simply not automatable rather than broken.
+    ///     </para>
+    ///     <para>
+    ///         <b>Case-sensitive, deliberately.</b> Matching loosely would mean lowering the name on
+    ///         every call — a string allocation per driven property per frame, in the frame loop. The
+    ///         cost of exactness is a typo, and a typo is caught where the automation is resolved
+    ///         rather than being silently ignored for the life of the project.
+    ///     </para>
+    ///     <para>
+    ///         Called from the game thread while <see cref="Process" /> may be running, which is the
+    ///         same documented race as writing the property directly.
+    ///     </para>
+    /// </remarks>
+    bool TrySetProperty(string name, float value) => false;
+
+    /// <summary>Reads one of the effect's knobs by name.</summary>
+    /// <param name="name">The property's own name, matched exactly.</param>
+    /// <param name="value">What it is worth.</param>
+    /// <returns>Whether the effect has such a property.</returns>
+    /// <remarks>
+    ///     The pair of <see cref="TrySetProperty" />, and needed for the same reason a fader can be
+    ///     read as well as moved: anything showing a mix — a live-update session, an overlay — has to
+    ///     start from what the values already are rather than from zero.
+    /// </remarks>
+    bool TryGetProperty(string name, out float value) {
+        value = 0f;
+        return false;
+    }
+
+    /// <summary>The knobs this effect will answer to, by name.</summary>
+    /// <remarks>
+    ///     <b>Declared beside the two accessors, deliberately.</b> The three have to agree, and the
+    ///     only thing that keeps hand-written switches in step is that they sit together where a
+    ///     change to one makes the others obviously wrong. A test walks this list through both
+    ///     accessors, so drift is a failure rather than a surprise.
+    /// </remarks>
+    IReadOnlyList<string> Properties => [];
+}
+
+/// <summary>An effect that listens to one signal while processing another.</summary>
+/// <remarks>
+///     <para>
+///         Ducking, and everything shaped like it. A compressor on the music bus keyed by the
+///         dialogue bus turns the music down whenever anybody speaks — which is the single most
+///         asked-for behaviour in game audio and cannot be expressed by an effect that can only see
+///         what it is processing.
+///     </para>
+///     <para>
+///         The key arrives as a span the bus owns, valid only for the call. An effect that wants
+///         history keeps an envelope, not the samples.
+///     </para>
+///     <para>
+///         <see cref="IAudioEffect.Process" /> is still implemented and is what runs when the bus
+///         has no <see cref="Vixen.Audio.Mixing.AudioBus.SidechainSource" />, so a keyed effect on
+///         an unkeyed bus behaves as an ordinary one rather than failing.
+///     </para>
+/// </remarks>
+public interface ISidechainEffect : IAudioEffect {
+    /// <summary>Processes a block against a key signal.</summary>
+    /// <param name="buffer">Interleaved, <c>frameCount × channels</c> floats. Processed in place.</param>
+    /// <param name="key">The signal to listen to. The same length and layout as the buffer.</param>
+    /// <param name="frameCount">How many frames.</param>
+    /// <param name="channels">How many channels are interleaved.</param>
+    void Process(Span<float> buffer, ReadOnlySpan<float> key, int frameCount, int channels);
 }

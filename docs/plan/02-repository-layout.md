@@ -119,14 +119,17 @@ Core/
 ├── Vixen.Input.Tests/
 ├── Vixen.Audio/                        # ✅ software mixer, buses, effects, 3D, streaming, ECS
 ├── Vixen.Audio.Tests/
+├── Vixen.Audio.Codecs/                 # ✅ Ogg Vorbis + Opus behind IAudioStreamDecoder, both managed
+├── Vixen.Audio.Codecs.Tests/
 ├── Vixen.Physics/                      # ✅ Jolt integration — bodies, shapes, constraints,
 │                                       #   characters, queries, triggers, layers, CCD, ECS bridge
 ├── Vixen.Physics.Tests/
 ├── Vixen.Animation/                    # ✅ skeletal, blend trees, layers, IK, state machine
 ├── Vixen.Animation.Tests/
-├── Vixen.Vfx/                          # particles + node-graph VFX runtime
+├── Vixen.Vfx/                          # 🟡 particles: SoA storage, compiled graph, CPU sim —
+│                                       #   renderers and the GPU path not yet
 ├── Vixen.Vfx.Tests/
-├── Vixen.Navigation/                   # navmesh (Recast/Detour binding)
+├── Vixen.Navigation/                   # ✅ navmesh: bake, query, crowd — managed, no native dep
 ├── Vixen.Navigation.Tests/
 ├── Vixen.Net/                          # session, tick, channels, replication, rules — see 16
 ├── Vixen.Net.Generators/               # ── source generator: RPC senders, serializers, delta ──

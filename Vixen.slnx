@@ -85,15 +85,23 @@
     <Project Path="Core/Vixen.Shaders.Tests/Vixen.Shaders.Tests.csproj" />
     <Project Path="Core/Vixen.Audio/Vixen.Audio.csproj" />
     <Project Path="Core/Vixen.Audio.Tests/Vixen.Audio.Tests.csproj" />
+    <Project Path="Core/Vixen.Audio.Codecs/Vixen.Audio.Codecs.csproj" />
+    <Project Path="Core/Vixen.Audio.Codecs.Tests/Vixen.Audio.Codecs.Tests.csproj" />
     <Project Path="Core/Vixen.Input/Vixen.Input.csproj" />
     <Project Path="Core/Vixen.Input.Generators/Vixen.Input.Generators.csproj" />
     <Project Path="Core/Vixen.Input.Tests/Vixen.Input.Tests.csproj" />
     <Project Path="Core/Vixen.Physics/Vixen.Physics.csproj" />
     <Project Path="Core/Vixen.Physics.Tests/Vixen.Physics.Tests.csproj" />
+    <Project Path="Core/Vixen.Navigation/Vixen.Navigation.csproj" />
+    <Project Path="Core/Vixen.Navigation.Tests/Vixen.Navigation.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering/Vixen.Rendering.csproj" />
     <Project Path="Core/Vixen.Rendering.Tests/Vixen.Rendering.Tests.csproj" />
+    <Project Path="Core/Vixen.Rendering.PostFx/Vixen.Rendering.PostFx.csproj" />
+    <Project Path="Core/Vixen.Rendering.PostFx.Tests/Vixen.Rendering.PostFx.Tests.csproj" />
     <Project Path="Core/Vixen.Animation/Vixen.Animation.csproj" />
     <Project Path="Core/Vixen.Animation.Tests/Vixen.Animation.Tests.csproj" />
+    <Project Path="Core/Vixen.Vfx/Vixen.Vfx.csproj" />
+    <Project Path="Core/Vixen.Vfx.Tests/Vixen.Vfx.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Reactive/Vixen.Ui.Reactive.csproj" />
     <Project Path="Core/Vixen.Ui.Reactive.Tests/Vixen.Ui.Reactive.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Layout/Vixen.Ui.Layout.csproj" />
@@ -118,6 +126,26 @@
     <Project Path="Core/Vixen.Ui.Renderer/Vixen.Ui.Renderer.csproj" />
     <Project Path="Core/Vixen.Ui.HotReload/Vixen.Ui.HotReload.csproj" />
     <Project Path="Core/Vixen.Ui.HotReload.Tests/Vixen.Ui.HotReload.Tests.csproj" />
+    <Project Path="Core/Vixen.Net/Vixen.Net.csproj" />
+    <Project Path="Core/Vixen.Net.Generators/Vixen.Net.Generators.csproj" />
+    <Project Path="Core/Vixen.Net.Generators.Tests/Vixen.Net.Generators.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Tests/Vixen.Net.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Transport.Local/Vixen.Net.Transport.Local.csproj" />
+    <Project Path="Core/Vixen.Net.Transport.Local.Tests/Vixen.Net.Transport.Local.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Transport.Udp/Vixen.Net.Transport.Udp.csproj" />
+    <Project Path="Core/Vixen.Net.Transport.Udp.Tests/Vixen.Net.Transport.Udp.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Transport.WebSocket/Vixen.Net.Transport.WebSocket.csproj" />
+    <Project Path="Core/Vixen.Net.Transport.WebSocket.Tests/Vixen.Net.Transport.WebSocket.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Transport.Composite/Vixen.Net.Transport.Composite.csproj" />
+    <Project Path="Core/Vixen.Net.Transport.Composite.Tests/Vixen.Net.Transport.Composite.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Engine/Vixen.Net.Engine.csproj" />
+    <Project Path="Core/Vixen.Net.Engine.Tests/Vixen.Net.Engine.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Physics/Vixen.Net.Physics.csproj" />
+    <Project Path="Core/Vixen.Net.Physics.Tests/Vixen.Net.Physics.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Telemetry/Vixen.Net.Telemetry.csproj" />
+    <Project Path="Core/Vixen.Net.Telemetry.Tests/Vixen.Net.Telemetry.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Fuzz/Vixen.Net.Fuzz.csproj" />
+    <Project Path="Core/Vixen.Net.Fuzz.Tests/Vixen.Net.Fuzz.Tests.csproj" />
   </Folder>
 
   <!--
@@ -178,6 +206,10 @@
     <Project Path="Tools/Vixen.ContentServer.Tests/Vixen.ContentServer.Tests.csproj" />
     <Project Path="Tools/Vixen.Sdk/Vixen.Sdk.csproj" />
     <Project Path="Tools/Vixen.Sdk.Tests/Vixen.Sdk.Tests.csproj" />
+    <Project Path="Tools/Vixen.ShaderCompiler/Vixen.ShaderCompiler.csproj" />
+    <Project Path="Tools/Vixen.ShaderCompiler.Tests/Vixen.ShaderCompiler.Tests.csproj" />
+    <Project Path="Tools/Vixen.ShaderCompilerService/Vixen.ShaderCompilerService.csproj" />
+    <Project Path="Tools/Vixen.ShaderCompilerService.Tests/Vixen.ShaderCompilerService.Tests.csproj" />
     <Project Path="Tools/Vixen.TextRenderingTestGen/Vixen.TextRenderingTestGen.csproj" />
     <Project Path="Tools/Vixen.UnicodeTableGen/Vixen.UnicodeTableGen.csproj" />
     <Project Path="Tools/Vixen.YogaTestGen/Vixen.YogaTestGen.csproj" />
@@ -193,6 +225,7 @@
     <Project Path="Benchmarks/Vixen.Benchmarks.Ecs/Vixen.Benchmarks.Ecs.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Animation/Vixen.Benchmarks.Animation.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Ui/Vixen.Benchmarks.Ui.csproj" />
+    <Project Path="Benchmarks/Vixen.Benchmarks.Navigation/Vixen.Benchmarks.Navigation.csproj" />
   </Folder>
 
   <!--
@@ -210,6 +243,8 @@
   <Project Path="Samples/01-HelloTriangle/HelloTriangle.csproj" />
   <Project Path="Samples/04-EcsStressTest/EcsStressTest.csproj" />
   <Project Path="Samples/07-AddressablesRemote/AddressablesRemote.csproj" />
+  <Project Path="Samples/08-Multiplayer/Multiplayer.csproj" />
+  <Project Path="Samples/09-NetworkSoak/NetworkSoak.csproj" />
 
 
 </Solution>

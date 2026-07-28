@@ -40,6 +40,17 @@ static class AudioTestData {
         return FromFloats(samples, sampleRate, channels);
     }
 
+    /// <summary>A sine at a frequency, for anything that is about what a filter did.</summary>
+    public static AudioClip Tone(float frequency, int frames, float amplitude = 1f, int sampleRate = 48_000) {
+        var samples = new float[frames];
+
+        for (var i = 0; i < frames; i++) {
+            samples[i] = amplitude * MathF.Sin(2f * MathF.PI * frequency * i / sampleRate);
+        }
+
+        return FromFloats(samples, sampleRate, 1);
+    }
+
     /// <summary>A clip that is one full-scale sample and then nothing.</summary>
     public static AudioClip Impulse(int frames, int sampleRate = 48_000, int channels = 1) {
         var samples = new float[frames * channels];
@@ -65,11 +76,18 @@ static class AudioTestData {
     }
 
     /// <summary>An engine on a device nobody hears, which a test renders by hand.</summary>
+    /// <remarks>
+    ///     <b>The master limiter is off unless a test asks for it.</b> It is on by default in a real
+    ///     engine, and it delays the signal by its look-ahead and pulls the gain down whenever the mix
+    ///     is loud — both correct, and both noise in a test whose subject is what a pan law or a
+    ///     resampler produced. A test about the limiter turns it back on.
+    /// </remarks>
     public static (AudioEngine Engine, NullAudioDevice Device) Engine(
         int channels = 2,
         int sampleRate = 48_000,
         int bufferFrames = 64,
-        int voices = 8
+        int voices = 8,
+        bool limiter = false
     ) {
         var backend = new NullAudioBackend();
 
@@ -80,7 +98,8 @@ static class AudioTestData {
 
         var engine = new AudioEngine(device, new AudioEngineOptions {
             VoiceCapacity = voices,
-            StreamOnOwnThread = false
+            StreamOnOwnThread = false,
+            MasterLimiter = limiter
         });
 
         return (engine, device);

@@ -128,6 +128,31 @@ all — putting one on every object would make them carry 64 bytes to say nothin
 A **skinned, instanced mesh** is the case an inheritance hierarchy needs a class for. Here it is two
 independent flags on one object, and neither feature knows the other exists.
 
+## The second one, which makes its own geometry
+
+`ParticleRenderFeature` draws the particles of a `Vixen.Vfx` system, and it is the first feature whose
+geometry does not exist until the frame asks for it. A mesh arrives as buffers and the feature binds
+them; an effect arrives as a few thousand positions that were different last frame, so `Prepare`
+expands each particle into a camera-facing quad, appends it to one vertex buffer shared by every effect
+in the frame, and records where the run is. `Draw` then binds that buffer **once** and reaches each
+effect's run through the draw call's vertex offset — a hundred effects are a hundred draws and one
+binding.
+
+The dependency runs one way: `Vixen.Rendering` references `Vixen.Vfx`, and `Vixen.Vfx` references no
+graphics at all. The expansion itself lives over there, in `VfxGeometryBuilder`, which is what lets
+"where are the four corners" be a unit test instead of a screenshot.
+
+**Two limits, both deliberate.** The expansion is on the CPU, where doc 06 eventually wants a compute
+shader and an indirect draw — this works everywhere, needs no compute, and is what the GPU path will be
+checked against. And it expands once, for one view, so an effect drawn into a second view gets quads
+facing the first one's camera; that is fine for a reflection and wrong for a shadow caster, so
+particles do not belong in a shadow stage until the GPU path removes the limitation rather than working
+around it.
+
+It shares `UploadBuffer` with skinning and instancing — the ring per frame in flight, the staging, the
+single write — which needed one change to serve it: the buffer's usage became a parameter instead of
+always being `Storage`.
+
 `MaterialRenderFeature` is where the shader half of the engine meets the renderer half: preparation
 turns a material's `ParameterCollection` into an `EffectKey`, resolves it, and remembers the answer
 per object — so by recording time "which shader" is an array lookup. It resolves **per material, not
@@ -245,6 +270,63 @@ without linking Raven at all. A rule written down twice is a rule that drifts, s
 `Raven/Library/Pipeline/ForwardPlus.reflect.json` is checked in — regenerated and compared on the
 compiler's side, and read back on this side by `MaterialReflectionTests`, which holds the prediction
 against it in both directions.
+
+## Image-based lighting
+
+The sky is a light, and `Lighting/` is what turns one into something a shader can evaluate. Karis's
+split-sum, with both halves produced on the CPU because a bake is a per-environment cost and closed
+forms can check it: `EnvironmentBaker` prefilters a cube per roughness by GGX importance sampling, and
+`SphericalHarmonics` projects it into nine coefficients per channel. What reaches a frame is a mip
+chain and twenty-seven floats.
+
+**The cube convention is not invented here.** `CubeMapping.Direction` unprojects
+`ShadowProjections.Cube` — the same matrix a point light renders its shadow cube with, already
+asserted to tile the sphere — so a probe and a shadow cannot disagree about which way `+Y` is. Its
+inverse is the major-axis rule, because a prefilter takes millions of samples and cannot afford six
+matrix multiplies each, and a test holds the two against each other over thousands of directions. It
+earned its place immediately: every face's horizontal axis was mirrored relative to the published D3D
+table, which the engine's look-at convention flips, and nothing else would have noticed — a mirrored
+environment is still an environment.
+
+Two defects came out of wiring it up, both of the kind that survive because they look like something
+else. **The pass sampled the reflection at mip zero whatever the roughness said**, so every surface
+mirrored the environment and `Ibl.SpecularLod` and `environmentMipCount` were dead code — a rough
+metal reflecting a sharp world reads as a material problem. And the diffuse term was fed a *radiance*
+sample where irradiance belongs, which is where a missing `1/π` was hiding: `Ibl.Diffuse` now applies
+the Lambert BRDF's own factor, so a white surface under a uniform white environment comes back exactly
+as bright as the environment. That one is stated in three places and tested in two, because the way it
+fails is a frame that is uniformly too bright, and the fix usually lands on the exposure.
+
+**Reflection probes** are the local version: a cube captured in a room, parallax-corrected against a
+box or a sphere so a floor reflects what is in front of it rather than what was above the probe, and
+faded against the sky over the probe's own blend distance. `ReflectionProbeSelector` decides which one
+applies — priority, then weight, then volume, so a cupboard inside a room wins inside the cupboard —
+and it decides it from positions alone, which is why it needs no device to test.
+
+⚠ A probe is applied per *group* rather than per object, and the reason is the binding plan again: a
+probe's cube is a texture, so per-object selection needs a descriptor set per probe bound per draw,
+and the per-draw set is currently owned whole by `ForwardLightingRenderFeature`. Sharing it between
+two features is a decision about the binding plan, not a detail of probes.
+
+## Area lights
+
+Five light kinds now share one eighty-byte record and one loop: directional, point, spot, tube and
+rectangle. Sharing matters more than it sounds — clustering, the per-object light list and the
+per-draw block all work on "a light", so two of the five being shapes cost no second path anywhere.
+The record grew by sixteen bytes rather than gaining a list of its own, and every area shape needs
+exactly two extents, so a rectangle's half-height is the field a sphere and a tube use for their
+radius.
+
+The shading is Karis's **representative point**: shade the point on the shape nearest the reflection
+ray, and widen the lobe by the angle the shape subtends. What that buys is a highlight in the right
+place and roughly the right size; what it does not buy is its shape — a tube seen edge-on should
+streak and gives a widened blob — and a large near light lights a surface as though all its energy
+came from one spot on it. Linearly transformed cosines are the upgrade doc 06 asks for, and they need
+a fitted table that comes from an offline optimisation this repository cannot run; nothing here is in
+their way.
+
+The cluster culler's reach now includes half a tube's length, for the reason its radius term already
+existed: a shaped light whose centre is out of range still reaches in from its end.
 
 ## Skinning and instancing, and three ways to reach per-draw data
 
@@ -681,7 +763,8 @@ The first effect that is more than one pass, and worth building early for that r
 nine textures whose lifetimes overlap in a strict pattern, each written by one pass and read by
 exactly one other, which is precisely the shape transient aliasing exists for.
 
-`BloomRenderer` builds the chain out of real `FullScreenRenderer`s and **keeps them between frames** —
+`BloomRenderer` — now in [`Vixen.Rendering.PostFx`](../Vixen.Rendering.PostFx/README.md) with the rest
+of the effect set — builds the chain out of real `FullScreenRenderer`s and **keeps them between frames** —
 each owns a pipeline cache and a uniform buffer, and rebuilding them every frame would recompile the
 same pipelines and reallocate the same buffers. What is rebuilt is only what depends on the frame's
 size.
@@ -780,8 +863,18 @@ is the caller's, and is what the ring above is for.
 
 ## What is not here yet
 
-Blend shapes and area lights. Punctual shadows are not cached — only the directional cascades are,
-and a spot light over static geometry has the same argument waiting for it.
+Blend shapes. Punctual shadows are not cached — only the directional cascades are, and a spot light
+over static geometry has the same argument waiting for it.
+
+**Light probes.** Doc 06 asks for spherical-harmonic probes interpolated tetrahedrally, and the SH
+half is here — projection, linear blending, evaluation, all tested — while the tetrahedralisation is
+not. Bowyer–Watson over probe positions is fifteen lines of idea and a wall of robustness: an
+enclosing tetrahedron sized generously makes every circumsphere swallow the domain, so four probes
+produce no cells at all; a grid of probes is *cospherical*, so a strict in-sphere test finds no cavity
+to re-triangulate; and with both of those fixed, a single near-degenerate cell still has a circumsphere
+large enough to eat the mesh on the next insertion. Doing it properly means exact predicates. It was
+written, found wrong by its own tests, and taken back out rather than shipped producing a mesh that is
+not Delaunay.
 
 **Materials are values, not resources.** Every feature's parameters go into the constant buffer; a
 feature that samples a texture needs a descriptor, and which binding index it lands on is the compiled

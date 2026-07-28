@@ -132,12 +132,36 @@ special case.
 
 A key nothing can supply is recorded rather than hidden, so doc 06's "no runtime compilation in
 shipping" can be a **test**: run a playthrough against the bundle alone and assert the miss list is
-empty.
+empty. `Requests` is the other half of that — every key a run asked for, hit or miss, which is what an
+`EffectManifest` is dumped from and what the build is then told to produce.
 
-## What is not here yet
+## The tiers below the dictionary
 
-The on-disk bytecode cache and the build-time permutation pre-generator — both are `IEffectProvider`
-implementations, and both need the content build. `Effect` carries bytecode and layout rather than a
-pipeline, because a pipeline also depends on the vertex layout, the render pass and the blend state:
-one effect backs many pipelines, and keying pipelines by effect alone is a cache that returns an
-object drawn with the wrong blend mode.
+`IEffectProvider` answers with an `Effect`, which is a thing on a device. `IEffectSource` answers with
+an **`EffectData`**, which is a thing on a disk or a wire — and that distinction is what lets the
+tiers compose: a disk cache that missed can ask the dev machine and *write down what came back*,
+which it could not do if the answer were already a set of device handles. Sources stack; one
+`EffectSourceProvider` at the top turns whatever the stack produced into an effect. A shipping
+build's stack is one deep.
+
+| | |
+|---|---|
+| `EffectStore` | Variants in memory, indexed by key. What an `EffectBundle` becomes when a shipping build loads it |
+| `EffectDiskCache` | Read-through, write-back over a directory, keyed by (key, target), with the source hash checked rather than named — a runtime asking for a variant does not know what the shader hashed to |
+| `RemoteEffectSource` | A dev machine on the other end of a socket. See `Tools/Vixen.ShaderCompilerService` |
+| `EffectLoader` | The one step that needs a device: descriptor set layouts and a pipeline layout, with the layouts shared between effects that describe the same set |
+
+`EffectData` exists because Raven's own `.rvnfx` cannot be read without the compiler:
+`CompiledEffectReader` lives in `Vixen.Raven`, so a runtime that read one would link the parser, the
+lowerer and both backends. Translating a `.rvnfx` into this happens once, on the build side, in
+`Tools/Vixen.ShaderCompiler` — the only project allowed to know both.
+
+The load-bearing agreement is the **parameter type**. A key is interned by name and carries a CLR
+type; `Vixen.Shaders.Generators` picks that type from Raven's reflection at build time, and
+`EffectLoader` picks it from a `ShaderValueKind` stored in a file. They agree or the interning table
+throws naming both — which is the good failure. The bad one would be two keys for one offset, and a
+value set through the generated one landing nowhere.
+
+`Effect` carries bytecode and layout rather than a pipeline, because a pipeline also depends on the
+vertex layout, the render pass and the blend state: one effect backs many pipelines, and keying
+pipelines by effect alone is a cache that returns an object drawn with the wrong blend mode.

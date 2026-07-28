@@ -1,0 +1,76 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Rendering.PostFx</RootNamespace>
+        <Description>
+            The post-process effect set: antialiasing, ambient occlusion, exposure, colour and the
+            stylised passes. Each is a compositor node over Library/PostFx's shaders.
+        </Description>
+        <PackageTags>post-processing;rendering;antialiasing;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Graphics\Vixen.Graphics.csproj" />
+        <ProjectReference Include="..\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
+        <ProjectReference Include="..\Vixen.Shaders\Vixen.Shaders.csproj" />
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+
+        <!--
+          The compositor, for the node every effect here is made of. An effect is one draw of three
+          vertices into one target reading a handful of others, which FullScreenRenderer already is —
+          so a pass in this project is a configuration of one, not a new kind of thing.
+        -->
+        <ProjectReference Include="..\Vixen.Rendering\Vixen.Rendering.csproj" />
+
+        <!--
+          The effect set's node kinds are [DataContract] records of this assembly's own — a document
+          names !Bloom and !Tonemap — so it runs the descriptor generator over itself for the editor's
+          YAML binder and the binary one for the chunk a content build bakes. The same arrangement
+          Vixen.Rendering uses for the compositor's own node kinds, and for the same reason: analyzers
+          do not flow through a ProjectReference, so a contract name generated over there is not
+          generated here.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
+          The shader binding generator, over the reflection checked in beside the library shaders, for
+          the reason Vixen.Rendering gives: a binding index is assigned by Raven from declaration
+          order within a set, so adding a texture above another in the .rvn renumbers it — and a pass
+          holding the old number gets a validation error at best and the wrong texture at worst.
+        -->
+        <ProjectReference Include="..\Vixen.Shaders.Generators\Vixen.Shaders.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <!--
+      The effect set's own shaders, named rather than globbed: Bloom and Tonemap belong to
+      Vixen.Rendering, whose compositor nodes bind them, and a type generated in both projects is a
+      type defined twice.
+    -->
+    <ItemGroup>
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\Fxaa.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\Sharpen.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\Vignette.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\Fog.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\Outline.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\Ssao.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\Taa.reflect.json" />
+    </ItemGroup>
+
+</Project>

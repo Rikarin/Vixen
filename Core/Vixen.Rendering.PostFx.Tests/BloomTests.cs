@@ -8,6 +8,7 @@ using Vixen.Graphics.Null;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
+using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 using Xunit;

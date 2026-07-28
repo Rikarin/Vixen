@@ -460,7 +460,7 @@ time; all compatible with shipping an Apache-2.0 engine):
 | NSubstitute, Shouldly | BSD-3-Clause | ✓ test-only |
 | MoltenVK, SPIRV-Cross, shaderc, astcenc | Apache-2.0 | ✓ |
 | Assimp | BSD-3-Clause | ✓ editor-only |
-| Recast/Detour | zlib | ✓ |
+| Recast/Detour | zlib | ✓ *reference material only — `Vixen.Navigation` re-derives the algorithms and links nothing* |
 | **SixLabors.ImageSharp 4.0.0** | **Six Labors Split License 1.0 — *not* Apache-2.0** | ⚠ see below |
 | *Reference material:* Yoga | MIT | algorithm + conformance suite (ADR-006) |
 | *Reference material:* `ru-ace/Flexbox` | BSD (legacy Yoga text) | ✓ retain notice if any code is derived |

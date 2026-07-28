@@ -79,6 +79,49 @@ public readonly struct EffectKey : IEquatable<EffectKey> {
     public EffectKey With(ShaderComposition composition) => new(ShaderName, Values, composition);
 
     /// <summary>
+    ///     The key for a shader from permutation values that are already text.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         What <see cref="From" /> is for a caller that has a
+    ///         <see cref="ParameterCollection" />, for the callers that do not have one and never
+    ///         will: a baked artefact read back off disk, a manifest a build step was handed, a
+    ///         request that arrived over a socket. All three have the values in exactly the normal
+    ///         form <see cref="From" /> would have produced, and re-deriving them through a
+    ///         collection would mean interning a key per name just to read its default back out.
+    ///     </para>
+    ///     <para>
+    ///         It cannot check that the names are permutations, and that is the trade: nothing here
+    ///         has the shader to ask. What it does guarantee is the normal form — sorted, deduplicated
+    ///         — so a key built here and a key built at draw time are the same key or they are
+    ///         genuinely different variants.
+    ///     </para>
+    /// </remarks>
+    /// <param name="shaderName">The shader.</param>
+    /// <param name="values">The permutation values. A name given twice takes the last value.</param>
+    /// <param name="composition">What fills the shader's <c>compose</c> slots.</param>
+    public static EffectKey Of(
+        string shaderName,
+        IEnumerable<KeyValuePair<string, string>> values,
+        ShaderComposition composition = default
+    ) {
+        ArgumentException.ThrowIfNullOrEmpty(shaderName);
+        ArgumentNullException.ThrowIfNull(values);
+
+        Dictionary<string, string> resolved = new(StringComparer.Ordinal);
+
+        foreach (var (name, value) in values) {
+            ArgumentException.ThrowIfNullOrEmpty(name);
+            resolved[name] = value ?? string.Empty;
+        }
+
+        var builder = ImmutableArray.CreateBuilder<KeyValuePair<string, string>>(resolved.Count);
+        builder.AddRange(resolved);
+        builder.Sort(static (left, right) => string.CompareOrdinal(left.Key, right.Key));
+        return new(shaderName, builder.ToImmutable(), composition);
+    }
+
+    /// <summary>
     ///     The key for a shader, taking from <paramref name="parameters" /> only the permutations
     ///     named in <paramref name="used" />.
     /// </summary>

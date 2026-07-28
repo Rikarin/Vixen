@@ -35,6 +35,13 @@
         <ProjectReference Include="..\Vixen.Shaders\Vixen.Shaders.csproj" />
 
         <!--
+            Rendering depends on Vfx and not the other way round, which is the direction doc 06
+            names: ParticleRenderFeature sits beside MeshRenderFeature here, and Vixen.Vfx
+            simulates without referencing a single graphics type.
+        -->
+        <ProjectReference Include="..\Vixen.Vfx\Vixen.Vfx.csproj" />
+
+        <!--
           The compositor asset's model types are [DataContract]s of this assembly's own, so it runs
           the descriptor generator over itself — the same arrangement Vixen.Core.Yaml uses for the
           .meta model, and for the same reason: analyzers do not flow through a ProjectReference.
@@ -73,8 +80,16 @@
                           ReferenceOutputAssembly="false" />
     </ItemGroup>
 
+    <!--
+      Named rather than globbed, and that is not tidiness: the generator emits a `…Keys` type per
+      file, so two projects globbing the same directory emit the same type twice and the second one
+      to be referenced wins with a warning. Each project takes the reflection for the shaders its own
+      nodes bind — these, and Vixen.Rendering.PostFx takes the effect set.
+    -->
     <ItemGroup>
-        <AdditionalFiles Include="..\..\Raven\Library\**\*.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\Pipeline\*.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\Bloom.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\Tonemap.reflect.json" />
     </ItemGroup>
 
     <ItemGroup>

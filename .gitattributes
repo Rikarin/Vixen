@@ -20,6 +20,10 @@
 # Golden/snapshot fixtures must never be normalised
 *.tree        text eol=lf -diff
 *.approved.*  text eol=lf -diff
+# The wire corpus is what "bit-exact" is asserted against, so a checkout that rewrote a byte of it
+# would make the gate assert something other than what was committed. LF like everything else, and
+# diffable, because reading the diff is the whole point of it being hex rather than a hash.
+*.txt         text eol=lf
 
 # Windows-only scripts
 *.cmd         text eol=crlf
@@ -27,6 +31,12 @@
 *.ps1         text eol=crlf
 
 # Binary
+# .bin first, because it is the one that would have gone wrong quietly: the fuzz corpus in
+# Core/Vixen.Net.Fuzz.Tests is packets that crashed a decoder, and `text=auto` classifies a file
+# without a NUL byte in it as text. A crasher that happened to contain CR LF would then be rewritten
+# on a Windows checkout into a different packet — one that no longer reproduces, in a directory whose
+# entire purpose is that these reproduce.
+*.bin  binary
 *.png  binary
 *.jpg  binary
 *.ktx2 binary

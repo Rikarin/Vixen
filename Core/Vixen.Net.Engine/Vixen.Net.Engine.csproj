@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Net.Engine</RootNamespace>
+        <Description>
+            Where Vixen.Net and Vixen.Engine meet: SyncVar, SyncList and NetworkModule, the
+            behaviour-facing authoring style over the same replication mechanism.
+        </Description>
+        <PackageTags>networking;multiplayer;syncvar;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <!--
+        The only package that references both, and the only direction that works. Networking is
+        optional and nothing below Vixen.Engine may depend on it (doc 16), so a type that has to see
+        a Behavior and a NetworkId lives above both rather than inside either.
+    -->
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Net\Vixen.Net.csproj" />
+        <ProjectReference Include="..\Vixen.Engine\Vixen.Engine.csproj" />
+    </ItemGroup>
+
+</Project>

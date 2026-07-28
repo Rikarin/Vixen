@@ -337,6 +337,7 @@ Importer set for 1.0:
 | `MarkupImporter` | vxml | parsed component + generated C# partial |
 | `StyleImporter` | vcss | parsed stylesheet + utility-class extraction |
 | `AssetImporter` | vxmat vxscene vxprefab vxgroup vxanim vxvfx … | Vixen-authored YAML assets |
+| `NavMeshImporter` | vxnavmesh | `NavMesh` — the bake, run at build time from the collision mesh the asset names |
 | `ScriptImporter` | cs | script metadata (execution order, default field values) |
 | `VideoImporter` | mp4 webm | `VideoClip` |
 | `FolderImporter` | folders | folder assets (group inheritance, addressable roots) |

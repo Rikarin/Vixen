@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Audio;
 using Vixen.Editor.Assets.Models;
+using Vixen.Editor.Assets.Navigation;
 using Vixen.Editor.Assets.Textures;
 
 namespace Vixen.Editor.Assets;
@@ -32,6 +33,7 @@ public static class BuiltInImporters {
             .Add(new TextureImporter())
             .Add(new ModelImporter())
             .Add(new AudioImporter())
+            .Add(new NavMeshImporter())
             .Add(new NativeFormatImporter())
             .Add(new FolderImporter())
             .AddFallback(new RawImporter());
