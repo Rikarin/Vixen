@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
@@ -155,19 +156,67 @@ public class ClusteredLightingTests : IDisposable {
 
     // --- The frame ----------------------------------------------------------
 
-    static Effect Compiled(EffectKey key) =>
-        new() {
-            Key = key,
-            Stages = key.ShaderName.Contains("Culling", StringComparison.Ordinal)
-                ? [new(ShaderStage.Compute, [1, 2, 3, 4], "main")]
-                : [
+    /// <summary>The camera the culler and the shading pass are both given.</summary>
+    static RenderCamera Camera => RenderCamera.Default with { Position = Vector3.Zero };
+
+    /// <summary>The culler's own block, laid out as <c>ClusterCulling.rvn</c> declares it.</summary>
+    /// <remarks>
+    ///     Only what a host writes: the camera's half-angle tangents and planes, its view matrix and
+    ///     the live light count. The buffers beside them are bindings rather than values.
+    /// </remarks>
+    static ImmutableArray<EffectParameter> CullingBlock => [
+        new(ParameterKeys.New<Vector2>("ClusterCulling.tanHalfFov"), 0, 8),
+        new(ParameterKeys.New<float>("ClusterCulling.nearPlane"), 8, 4),
+        new(ParameterKeys.New<float>("ClusterCulling.farPlane"), 12, 4),
+        new(ParameterKeys.New<Matrix4x4>("ClusterCulling.view"), 16, 64),
+        new(ParameterKeys.New<int>("ClusterCulling.lightCount"), 80, 4)
+    ];
+
+    static Effect Compiled(EffectKey key, DescriptorSetLayoutHandle culling = default) =>
+        key.ShaderName.Contains("Culling", StringComparison.Ordinal)
+            ? new() {
+                Key = key,
+                Stages = [new(ShaderStage.Compute, [1, 2, 3, 4], "main")],
+                SetLayouts = [default, default, culling, default],
+                ConstantBufferSize = 96,
+                Parameters = CullingBlock,
+                Bindings = [
+                    new("constants", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.UniformBuffer) { Size = 96 },
+                    new("lights", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageBuffer),
+                    new("clusters", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.StorageBuffer)
+                ]
+            }
+            : new() {
+                Key = key,
+                Stages = [
                     new(ShaderStage.Vertex, [1, 2, 3, 4], "main"),
                     new(ShaderStage.Fragment, [5, 6, 7, 8], "main")
                 ]
-        };
+            };
 
-    sealed class AlwaysCompiles : IEffectProvider {
-        public Effect? TryGet(EffectKey key) => Compiled(key);
+    /// <summary>
+    ///     Every variant, with a real layout for the culler's set.
+    /// </summary>
+    /// <remarks>
+    ///     The layout is not decoration: <see cref="ComputeRenderer" /> takes the set it writes from
+    ///     the resolved effect, because a set is only bindable to a pipeline whose layout it was
+    ///     allocated from. An effect with none binds nothing, and a fixture whose fake had none would
+    ///     assert that a pass which binds nothing binds nothing.
+    /// </remarks>
+    sealed class AlwaysCompiles(NullDevice device) : IEffectProvider {
+        readonly DescriptorSetLayoutHandle culling = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerMaterial,
+                [
+                    new(0, DescriptorKind.UniformBuffer, ShaderStage.Compute),
+                    new(1, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+                    new(2, DescriptorKind.StorageBuffer, ShaderStage.Compute)
+                ],
+                "ClusterCulling"
+            )
+        );
+
+        public Effect? TryGet(EffectKey key) => Compiled(key, culling);
     }
 
     sealed class Harness : IDisposable {
@@ -180,9 +229,12 @@ public class ClusteredLightingTests : IDisposable {
         public required MaterialRenderFeature Materials { get; init; }
         public required ForwardLightingRenderFeature Lighting { get; init; }
         public required ComputeRenderer Culling { get; init; }
+        public required DescriptorAllocator Allocator { get; init; }
         public required BufferHandle Vertices { get; init; }
 
         public void Dispose() {
+            Culling.Dispose();
+            Allocator.Dispose();
             Lighting.Dispose();
             Graph.DisposePool();
             System.Dispose();
@@ -195,6 +247,7 @@ public class ClusteredLightingTests : IDisposable {
     }
 
     Harness Build(bool clustered = true) {
+        var allocator = new DescriptorAllocator(device);
         var system = new RenderSystem();
         var opaque = system.AddStage(new("Opaque"));
 
@@ -209,7 +262,7 @@ public class ClusteredLightingTests : IDisposable {
         meshes.Add(materials);
         meshes.Add(lighting);
         system.AddFeature(meshes);
-        effects.AddProvider(new AlwaysCompiles());
+        effects.AddProvider(new AlwaysCompiles(device));
 
         materials.PermutationKeys["Lit"] = [lighting.PermutationKeys[0]];
 
@@ -230,6 +283,16 @@ public class ClusteredLightingTests : IDisposable {
 
         culling.BufferReads.Add("SceneLights");
         culling.BufferWrites.Add("Clusters");
+
+        // The culler's own uniforms, which had nowhere to go until `ComputeRenderer` grew a block:
+        // the camera both passes are given, and how many of the scene's lights are live.
+        culling.ConstantBinding = 0;
+        culling.Descriptors.Allocator = allocator;
+        culling.Descriptors.Bindings.Add(new() { Name = "lights", Resource = "SceneLights" });
+        culling.Descriptors.Bindings.Add(new() { Name = "clusters", Resource = "Clusters" });
+
+        ClusterGrid.Apply(culling.Parameters, Camera, "ClusterCulling");
+        culling.Parameters.Set(ParameterKeys.New<Matrix4x4>("ClusterCulling.view"), Camera.View);
 
         var shading = new RenderPassRenderer { Name = "Forward" };
         shading.ColourTargets.Add("SceneColour");
@@ -268,6 +331,7 @@ public class ClusteredLightingTests : IDisposable {
             Materials = materials,
             Lighting = lighting,
             Culling = culling,
+            Allocator = allocator,
             Vertices = device.CreateBuffer(new() { Size = 1024, Usage = BufferUsage.Vertex })
         };
     }
@@ -291,6 +355,7 @@ public class ClusteredLightingTests : IDisposable {
     void Frame(Harness h) {
         var list = device.BeginCommandList();
 
+        h.Allocator.BeginFrame();
         h.Graph.Reset();
         h.Compositor.Build(h.Graph, effects, device);
         h.Graph.Execute(list);
@@ -654,6 +719,95 @@ public class ClusteredLightingTests : IDisposable {
         point.X >= box.Minimum.X - slack && point.X <= box.Maximum.X + slack
         && point.Y >= box.Minimum.Y - slack && point.Y <= box.Maximum.Y + slack
         && point.Z >= box.Minimum.Z - slack && point.Z <= box.Maximum.Z + slack;
+
+    // --- The culler's own uniforms -------------------------------------------
+
+    /// <summary>
+    ///     A compute pass fills its own block, and binds it beside the resources it declared.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The half of a compute node that did not exist. It could declare the buffers and
+    ///         textures it read and wrote, and the <em>values</em> beside them had to go through
+    ///         <c>OnBind</c> — a host building a buffer, filling it and writing a descriptor by hand.
+    ///         <c>ClusterCulling.rvn</c> is the case that made it visible: the camera's half-angle
+    ///         tangents, its planes, its view matrix and a light count, none of which could be
+    ///         written, which meant <strong>the clustered path could not run in a composed frame at
+    ///         all</strong> while every test of it passed.
+    ///     </para>
+    ///     <para>
+    ///         Asserted on the bytes, because that is the only place a wrong offset shows: the block
+    ///         is filled from the effect's own plan, so a value written under the right name and
+    ///         placed at the wrong offset is a camera the culler reads as something else.
+    ///     </para>
+    ///     <para>
+    ///         <strong>That the block reaches the shader is not this test's claim.</strong> A recording
+    ///         backend takes whatever writes it is given and reports nothing about them, so a block
+    ///         filled correctly and never bound looks identical from here.
+    ///         <c>ClusterCullingDeviceTests</c> is where that is asserted, and it fails when the
+    ///         write is dropped.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_compute_pass_fills_its_own_block() {
+        using var h = Build();
+
+        // Something has to consume the cluster list, or the graph drops the pass that wrote it — and
+        // a dispatch that never ran binds nothing, which would pass half of this for the wrong reason.
+        Consume(h);
+
+        h.Culling.Parameters.Set(ParameterKeys.New<int>("ClusterCulling.lightCount"), 3);
+        Frame(h);
+
+        var block = h.Culling.Constants;
+
+        Assert.True(h.Culling.UploadCount > 0);
+        Assert.Equal(96, block.Length);
+
+        var tangents = MemoryMarshal.Read<Vector2>(block);
+        var vertical = MathF.Tan(Camera.FieldOfView * 0.5f);
+
+        Assert.Equal(vertical * Camera.AspectRatio, tangents.X, 4);
+        Assert.Equal(vertical, tangents.Y, 4);
+
+        Assert.Equal(Camera.NearPlane, MemoryMarshal.Read<float>(block[8..]), 4);
+        Assert.Equal(Camera.FarPlane, MemoryMarshal.Read<float>(block[12..]), 4);
+        Assert.Equal(Camera.View, MemoryMarshal.Read<Matrix4x4>(block[16..]));
+        Assert.Equal(3, MemoryMarshal.Read<int>(block[80..]));
+
+        // And a set went down for the pass to read it through.
+        var sets = device.Recorder!.OfKind(RecordedCommandKind.BindDescriptorSet)
+            .Count(command => command.A == (long)DescriptorSetSlot.PerMaterial);
+
+        Assert.True(sets > 0);
+    }
+
+    /// <summary>Declares that the shading pass reads what the culler wrote, so the cull survives.</summary>
+    static void Consume(Harness h) =>
+        ((RenderPassRenderer)((SceneRendererSequence)h.Compositor.Game!).Children[1]).BufferReads.Add("Clusters");
+
+    /// <summary>A block nobody changed is not uploaded again.</summary>
+    /// <remarks>
+    ///     What <see cref="ParameterCollection.Version" /> is for, at the one place it would be easy
+    ///     to lose: a camera that has not moved should cost a comparison per frame and not a write.
+    /// </remarks>
+    [Fact]
+    public void A_block_nobody_changed_is_not_uploaded_again() {
+        using var h = Build();
+        Consume(h);
+
+        Frame(h);
+        var first = h.Culling.UploadCount;
+
+        Frame(h);
+        Assert.Equal(first, h.Culling.UploadCount);
+
+        // And a value that did change is.
+        h.Culling.Parameters.Set(ParameterKeys.New<int>("ClusterCulling.lightCount"), 17);
+        Frame(h);
+
+        Assert.True(h.Culling.UploadCount > first);
+    }
 
     /// <summary>A compute node naming a buffer nothing bound is refused by name.</summary>
     [Fact]

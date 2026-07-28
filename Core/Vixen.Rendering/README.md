@@ -800,6 +800,15 @@ barrier after. Its effect resolves through the ordinary `EffectSystem`, so a com
 permuted, cached and baked like a graphics one, and a shipping build cannot compile one for the same
 structural reason it cannot compile a vertex shader.
 
+**A compute node fills its own uniform block**, through `ConstantBinding` and `Parameters`, at the
+offsets the effect's plan gives. That was missing until the culler was actually run: a node could
+declare the buffers and textures it read and wrote, and the *values* beside them — a camera, a count,
+a threshold — had to go through `OnBind`, which means a host building a buffer, filling it and writing
+a descriptor by hand. `ClusterCulling.rvn` takes four such values, so **the clustered path could not
+run in a composed frame at all** while every test of it passed. The block rides in the set
+`Descriptors` writes, which costs a compute pass nothing: one that binds no buffer and no storage
+image has nowhere to put its result.
+
 **The cluster buffer is declared, not imported**, and that is what makes the ordering test mean
 something: a cull whose result nothing reads is dropped along with its dispatch. The scene's light
 list is imported, because the host filled it before the frame began.

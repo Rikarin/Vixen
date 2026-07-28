@@ -57,14 +57,24 @@ public sealed class ComputeDispatch {
 ///         cannot compile one for the same structural reason it cannot compile a vertex shader.
 ///     </para>
 /// </remarks>
-public sealed class ComputeRenderer : SceneRenderer {
+public sealed class ComputeRenderer : SceneRenderer, IDisposable {
     readonly Dictionary<string, GraphBuffer> buffers = new(StringComparer.Ordinal);
     readonly Dictionary<string, GraphTexture> textures = new(StringComparer.Ordinal);
+
+    EffectConstants? constants;
 
     /// <summary>The compute shader to run.</summary>
     public required string ShaderName { get; init; }
 
-    /// <summary>The permutations selecting which variant of it.</summary>
+    /// <summary>
+    ///     The permutations selecting which variant of it, and the values its block is filled from.
+    /// </summary>
+    /// <remarks>
+    ///     Both, from one collection, which is what <see cref="ParameterCollection" /> is for and what
+    ///     <see cref="FullScreenRenderer" /> already did. A compute pass that had somewhere to put its
+    ///     permutations and nowhere to put its <em>values</em> is a pass whose uniforms a host has to
+    ///     bind through <see cref="OnBind" /> — see <see cref="ConstantBinding" />.
+    /// </remarks>
     public ParameterCollection Parameters { get; } = new();
 
     /// <summary>Which permutation keys the shader's variants are selected by.</summary>
@@ -109,6 +119,46 @@ public sealed class ComputeRenderer : SceneRenderer {
     ///     not compatible with.
     /// </remarks>
     public DescriptorBindings Descriptors { get; } = new() { Slot = DescriptorSetSlot.PerMaterial };
+
+    /// <summary>
+    ///     Which binding this shader's own uniform block occupies, or null for one with none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The half of a compute pass that had no way in. A node could declare the buffers and
+    ///         textures it read and wrote, and the values beside them — a camera, a count, a
+    ///         threshold — had to be bound through <see cref="OnBind" />, which means a host building
+    ///         a buffer, filling it, and writing a descriptor by hand. <c>ClusterCulling.rvn</c> is
+    ///         the case that made it visible: it takes the camera's half-angle tangents, its planes,
+    ///         its view matrix and a light count, and none of them could be written.
+    ///     </para>
+    ///     <para>
+    ///         Filled from <see cref="Parameters" /> at the offsets the effect's plan gives, at build
+    ///         time rather than in the pass body — writing a host-visible buffer inside a command list
+    ///         is a map and a copy between two dispatches.
+    ///     </para>
+    ///     <para>
+    ///         It rides in the set <see cref="Descriptors" /> writes, so that set has to be configured
+    ///         — an allocator, and at least one binding. That is not a limitation a compute pass can
+    ///         run into: one that binds no buffer and no storage image has nowhere to put its result,
+    ///         so it is a pass with no output rather than a pass this cannot serve.
+    ///     </para>
+    /// </remarks>
+    public uint? ConstantBinding { get; set; }
+
+    /// <summary>The block as it was last filled, for a test or an inspector.</summary>
+    /// <remarks>
+    ///     What the GPU was given, which is the only way to check that a value landed at the offset
+    ///     the shader's plan said — a device that took the bytes cannot be asked what they were.
+    /// </remarks>
+    public ReadOnlySpan<byte> Constants => constants is { } filled ? filled.Bytes : default;
+
+    /// <summary>How many times the block has actually gone to the GPU.</summary>
+    /// <remarks>
+    ///     For the test that a pass whose values did not change is not re-uploading them, which is
+    ///     the whole reason <see cref="ParameterCollection.Version" /> exists.
+    /// </remarks>
+    public int UploadCount => constants?.UploadCount ?? 0;
 
     /// <summary>What binds anything the declaration cannot express, before the dispatch.</summary>
     public Action<ComputeDispatch>? OnBind { get; init; }
@@ -162,6 +212,25 @@ public sealed class ComputeRenderer : SceneRenderer {
         }
 
         var bound = Descriptors.Resolve(ToString(), textures, buffers, effect, Samplers);
+
+        // Filled here rather than in the pass body: the values are the host's, and writing a
+        // host-visible buffer inside a command list is a map and a copy between two dispatches.
+        constants ??= frame.Device is { } device ? new(device, $"{this}.Constants") : null;
+        var hasConstants = ConstantBinding is not null && constants?.Update(effect, Parameters) == true;
+
+        // At the block's own offset, not at zero: the buffer holds one region per frame in flight, so
+        // changing a value does not overwrite what an unfinished frame is reading.
+        var extra = hasConstants
+            ? new[] {
+                DescriptorWrite.Uniform(
+                    ConstantBinding!.Value,
+                    constants!.Buffer,
+                    constants.Offset,
+                    constants.Size
+                )
+            }
+            : [];
+
         var bufferReads = BufferReads.Select(name => buffers[name]).ToArray();
         var bufferWrites = BufferWrites.Select(name => buffers[name]).ToArray();
         var textureReads = Reads.Select(name => textures[name]).ToArray();
@@ -192,12 +261,18 @@ public sealed class ComputeRenderer : SceneRenderer {
                 pass.Execute(
                     context => {
                         context.CommandList.BindPipeline(pipeline);
-                        bound?.Bind(context);
+                        bound?.Bind(context, extra);
                         OnBind?.Invoke(new(context, this) { Effect = effect });
                         context.CommandList.Dispatch(groups.X, groups.Y, groups.Z);
                     }
                 );
             }
         );
+    }
+
+    /// <inheritdoc />
+    public void Dispose() {
+        constants?.Dispose();
+        constants = null;
     }
 }
