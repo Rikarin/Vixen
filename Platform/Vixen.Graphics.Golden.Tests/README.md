@@ -65,4 +65,7 @@ A fixture is worth having when the mistakes it is looking for are **visible** â€
 picture, a black one, a blown-out one â€” and worth checking by breaking it on purpose before it is
 committed. `tonemapped-triangle` dims a gradient by an exposure the host wrote into a uniform block
 and rolls it off against a white point the host never set; setting that white point to zero moves
-17.6% of its pixels by up to 112/255. A fixture that cannot be made to fail is asserting nothing.
+17.6% of its pixels by up to 112/255. `depth-prepass` blends additively so that a fragment shaded
+twice is a different colour from one shaded once; relaxing its depth comparison to `Always` turns the
+overlap yellow and moves 17.2% by up to 204/255. A fixture that cannot be made to fail is asserting
+nothing.
