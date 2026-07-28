@@ -596,9 +596,16 @@ the ring is a property of the binding, not of the data.
 `EffectConstants` moves only when a value actually changed, so a post pass whose parameters are the
 same every frame keeps reading the region it already has and the ring costs nothing.
 
-What is still wrong: **growing a buffer destroys one an unfinished frame may be reading.** Growth
-happens at the high-water mark and then never again, so it is a warm-up hazard rather than a steady
-one — and fixing it needs a device-level retirement queue that does not exist.
+**Destroying is not the same problem, and it was already solved.** Growing one of these buffers hands
+the old handle back while the frame that used it may still be running — which is safe, because every
+`Destroy` on `IGraphicsDevice` is deferred by `FramesInFlight`. The contract is now stated on the
+interface rather than only in the Vulkan backend that implements it, and
+`ValidationCleanTests.DestroyingAResourceAFrameIsUsingProducesNoValidationMessages` asserts it against
+a driver.
+
+The two are easy to conflate and worth keeping apart: **the RHI defers handing a resource back, and
+nothing can defer overwriting one's contents.** The first is the backend's job and is done; the second
+is the caller's, and is what the ring above is for.
 
 ## What is not here yet
 
