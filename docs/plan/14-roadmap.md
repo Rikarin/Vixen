@@ -2344,7 +2344,55 @@ sub-piece has its own gate.
   nothing wraps a line yet; `Tooltip` and `Toast` need a host tick, for the reason
   `GestureRecognizer.Tick` does; an overlay outlives the control that made it, because there is no
   `OnRemoved` hook; and `VirtualizingPanel` is not here, so `ScrollView` keeps everything in the tree.
-- The `Advanced` set's first three: `DockingHost`, `TreeView`, `PropertyGrid`.
+- ✅ **`Vixen.Ui.Controls.Advanced` — the first three, and the two framework primitives they needed.**
+  `DockingHost` keeps the arrangement (`DockLayout`: binary splits and tab groups) apart from the
+  elements that show it, so what is on screen and what would be saved cannot drift; **a layout
+  round-trips through YAML**, which is this phase's stated exit criterion and is asserted as a fixed
+  point rather than field by field. `TreeView` is virtualised — a hundred thousand nodes is a
+  hundred thousand model objects and about thirty rows, rebound as it scrolls — with lazy children,
+  multi-select, rename in place and a three-zone drop indicator. `PropertyGrid` builds its editors
+  from `Vixen.Core.Reflection` descriptors, edits several objects at once, and says so where they
+  disagree rather than showing the first one's value as though it were the answer.
+
+  **Two things had to be added to `Vixen.Ui` first.** *Inline styles* — the styling engine has
+  resolved them since Phase 4a and nothing could set one, because `StyleTree` had no slot and
+  `ResolveAll` passed none. A splitter at 37% and a virtualised row at y = 880 000 are lengths no
+  stylesheet was given, and `InlineStyleStore.Replace` rewrites a block in place when the set of
+  properties has not changed, so a drag does not allocate per frame. And *reparenting*, which
+  `Move` deliberately refuses: a style slot's position is what three passes read as depth order, so
+  the subtree gets **fresh slots** under its new parent carrying its tags, classes, states,
+  attributes and inline block, while the elements — their handlers, their children, their layout
+  nodes, their focus — are untouched. A docked panel that was rebuilt instead of moved would pass
+  every structural test and lose whatever the user had typed into it.
+
+  ⚠ **Two flexbox traps, both silent, both found the hard way.** A flex item's base size is its
+  content, so a `ScrollView` meant to fill its parent needs `flex-basis: 0px` as well as a
+  grow — without it the viewport grows to the height of everything inside it, nothing overflows, the
+  scroll range is zero, and the virtualiser realises every row there is: the tree looks correct and
+  the process runs out of memory. And a minimum size is applied *before* the free space is shared
+  out, so a dock group with `min-width: 48px` gets 48 pixels plus its share of the remainder and a
+  splitter saved at 25% comes back at 28%; the ratio clamp guards without distorting, and the
+  minimum is zero.
+
+  **One more footgun, named rather than papered over.** `MemberPresentation` is a record *struct*
+  whose `IsEditorVisible` parameter defaults to `true` — which `default(MemberPresentation)` and
+  `new MemberPresentation()` both ignore, because a struct's parameterless constructor zeroes. A
+  hand-written descriptor that defaults the presentation is therefore invisible to the inspector,
+  silently. The generator writes every field and never trips over it; the remark now says so.
+
+  Gate: 56 tests. The docking half asserts the round trip, the stale-layout recovery, every drop
+  zone, the corner case where the nearest edge decides, a panel keeping its contents across a move,
+  and a splitter drag that changes the ratio without rebuilding anything. The tree half asserts that
+  a hundred-thousand-node tree realises under twenty rows and that scrolling rebinds the same
+  elements. The grid half asserts multi-object writes, the mixed-value states, the numeric
+  conversion back to a member's own type, and reset-to-default.
+
+  ⚠ **Still owed:** rows and scroll ranges are one layout pass behind a *resize* — `Refresh()` is
+  today's answer and a "layout finished" callback on `UiDocument` is the real one; floating groups
+  float within the document rather than in an OS window of their own, which is `Vixen.Platform`'s
+  half; `StyleTree.AppendChild` is O(children) per append, which virtualisation keeps every control
+  here clear of and a `DataGrid` may not be; and nested struct members are shown read-only, because
+  the descriptor's accessors box.
 - `Samples/02-HelloUi`.
 
 **Exit:** `Samples/02` runs on Windows/Linux/macOS and in a browser. Yoga suite green. UI frame under

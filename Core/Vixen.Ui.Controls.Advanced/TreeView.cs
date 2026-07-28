@@ -1,0 +1,719 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Globalization;
+using Vixen.Input;
+using Vixen.Ui.Styling;
+
+namespace Vixen.Ui.Controls.Advanced;
+
+/// <summary>Where a dropped node lands relative to the row it was dropped on.</summary>
+public enum DropPosition : byte {
+    /// <summary>As a child of it.</summary>
+    Into,
+
+    /// <summary>As its previous sibling.</summary>
+    Before,
+
+    /// <summary>As its next sibling.</summary>
+    After
+}
+
+/// <summary>One realised row of a <see cref="TreeView" />.</summary>
+/// <remarks>
+///     ⚠ <b>Rebound rather than rebuilt.</b> Scrolling a tree recycles these — the row that leaves
+///     the top is the row that appears at the bottom, with a different node in it — so a scroll
+///     costs a handful of property writes rather than a tear-down and a rebuild of everything on
+///     screen. It is also why the row holds its node rather than the other way round.
+/// </remarks>
+public sealed partial class TreeRow : Control {
+    /// <inheritdoc />
+    protected override string TagName => "tree-row";
+
+    /// <summary>Which node it is showing, or <c>null</c> if it is parked.</summary>
+    public TreeNode? Node { get; internal set; }
+
+    /// <summary>The chevron, hidden for a node that cannot have children.</summary>
+    public Icon Chevron { get; private set; } = null!;
+
+    /// <summary>The spacer that indents it by its depth.</summary>
+    public UiElement Indent { get; private set; } = null!;
+
+    /// <summary>The text.</summary>
+    public UiElement Label { get; private set; } = null!;
+
+    /// <summary>The field shown while the row is being renamed.</summary>
+    public TextBox? Editor { get; internal set; }
+
+    /// <inheritdoc />
+    protected override void OnCreated() {
+        base.OnCreated();
+
+        Indent = Part("tree-indent");
+        Chevron = Part<Icon>();
+        Label = Part("tree-label");
+
+        Chevron.Geometry = ControlIcons.ChevronRight;
+    }
+}
+
+/// <summary>A tree, of which only what is on screen exists as elements.</summary>
+/// <remarks>
+///     <para>
+///         <b>Virtualised, which is the point of it.</b> The nodes are model objects; the rows are a
+///         pool of elements the size of the viewport, rebound as the view scrolls. A million-node
+///         tree is a million <see cref="TreeNode" />s and about thirty <see cref="TreeRow" />s, which
+///         is the claim doc 09 makes about a <c>DataGrid</c> and the same mechanism.
+///     </para>
+///     <para>
+///         ⚠ <b>Rows are positioned absolutely, at a fixed height.</b> Virtualisation needs to know
+///         where row 40 000 is without having measured the 39 999 above it, and a fixed height is
+///         what makes that arithmetic instead of a walk. Variable-height rows need a running-sum
+///         index that is maintained as things expand; that is a different control and is owed.
+///     </para>
+///     <para>
+///         ⚠ <b>Nothing tells an element that its box changed</b>, so a tree that is resized without
+///         being scrolled realises against the previous size until something calls
+///         <see cref="Refresh" />. It is the same gap <c>ScrollView.Refresh</c> exists for, and it
+///         closes with a "layout finished" callback on <c>UiDocument</c> rather than with anything
+///         here.
+///     </para>
+/// </remarks>
+public sealed partial class TreeView : Control {
+    readonly List<TreeNode> visible = [];
+    readonly List<TreeRow> rows = [];
+    readonly HashSet<TreeNode> selection = [];
+
+    TreeNode? anchor;
+    TreeNode? dragging;
+    TreeNode? dropTarget;
+    DropPosition dropPosition;
+    int rowHeightId;
+    int indentId;
+    int first;
+
+    /// <summary>How many rows are realised above and below the viewport.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not zero.</b> A pool sized exactly to the viewport has to rebind on every pixel of
+    ///     scroll, and the row entering at the bottom is created in the same frame it is drawn — so
+    ///     the first frame of a flick shows a gap. Two rows of slack costs two elements.
+    /// </remarks>
+    public const int Overscan = 2;
+
+    /// <inheritdoc />
+    protected override string TagName => "tree-view";
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => true;
+
+    /// <summary>The invisible node everything hangs off.</summary>
+    /// <remarks>
+    ///     A real node rather than a list of roots, so that "move this to the top level" is the same
+    ///     operation as "move this into that folder" and the drag code has one case rather than two.
+    ///     It is never drawn.
+    /// </remarks>
+    public TreeNode Root { get; } = new();
+
+    /// <summary>The scroller the rows live in.</summary>
+    public ScrollView Scroller { get; private set; } = null!;
+
+    /// <summary>The line shown while a drag is over a row.</summary>
+    public UiElement DropIndicator { get; private set; } = null!;
+
+    /// <summary>How tall a row is, from <c>--row-height</c>.</summary>
+    public float RowHeight => Document.LengthOf(Style, rowHeightId) ?? 22f;
+
+    /// <summary>How far each level is indented, from <c>--indent</c>.</summary>
+    public float Indent => Document.LengthOf(Style, indentId) ?? 14f;
+
+    /// <summary>The nodes currently showing, in order, including the ones scrolled past.</summary>
+    public IReadOnlyList<TreeNode> Visible => visible;
+
+    /// <summary>The rows that exist as elements.</summary>
+    public IReadOnlyList<TreeRow> Rows => rows;
+
+    /// <summary>What is selected.</summary>
+    public IReadOnlyCollection<TreeNode> Selection => selection;
+
+    /// <summary>Whether more than one node may be selected at a time.</summary>
+    [UiProperty(Default = true)]
+    public partial bool MultiSelect { get; set; }
+
+    /// <summary>Whether nodes may be dragged into other nodes.</summary>
+    [UiProperty(Default = true)]
+    public partial bool AllowDrag { get; set; }
+
+    /// <summary>Raised when the selection changes.</summary>
+    public event Action<TreeView>? SelectionChanged;
+
+    /// <summary>Raised when a node is activated — double-clicked, or Enter pressed on it.</summary>
+    public event Action<TreeView, TreeNode>? Activated;
+
+    /// <summary>Raised after a rename is committed. Returning without setting the text refuses it.</summary>
+    public event Action<TreeView, TreeNode, string>? Renamed;
+
+    /// <summary>Raised after a drag has moved a node.</summary>
+    public event Action<TreeView, TreeNode>? Moved;
+
+    /// <inheritdoc />
+    protected override void OnCreated() {
+        base.OnCreated();
+
+        rowHeightId = Document.PropertyId("--row-height");
+        indentId = Document.PropertyId("--indent");
+
+        Scroller = Part<ScrollView>();
+        DropIndicator = Part("tree-drop-indicator");
+        DropIndicator.AddClass("hidden");
+
+        Scroller.Scrolled += _ => Realise();
+
+        AddHandler<KeyEvent>(static (element, args) => ((TreeView) element).Keyed(args));
+        AddHandler<PointerEvent>(static (element, args) => ((TreeView) element).Pointed(args));
+        AddHandler<TapEvent>(static (element, args) => ((TreeView) element).Tapped(args));
+        AddHandler<DragEvent>(static (element, args) => ((TreeView) element).Dragged(args));
+    }
+
+    /// <summary>Rebuilds the list of visible nodes and realises the rows for it.</summary>
+    /// <remarks>
+    ///     The one entry point after anything changes: an expansion, an added node, a resize. It is
+    ///     cheap for everything except the flatten, which is O(visible) — the nodes that are showing,
+    ///     not the nodes that exist.
+    /// </remarks>
+    public void Refresh() {
+        visible.Clear();
+        Flatten(Root);
+
+        Scroller.Content.SetStyle(
+            "height",
+            (visible.Count * RowHeight).ToString("0.##", CultureInfo.InvariantCulture) + "px"
+        );
+
+        // ⚠ A pass, right here, before anything reads a size. The content's height was just written
+        // as a declaration and a declaration is not a measurement — `ScrollView.Refresh` asks the
+        // content how tall it is, and without this it answers with the height it had before the
+        // node that was just added. The scroll range would then be one edit behind for ever.
+        Document.Update();
+
+        Scroller.Refresh();
+        Realise();
+    }
+
+    /// <summary>Opens or closes a node.</summary>
+    /// <param name="node">The node.</param>
+    /// <param name="expanded">Which.</param>
+    public void Expand(TreeNode node, bool expanded = true) {
+        ArgumentNullException.ThrowIfNull(node);
+
+        if (expanded) {
+            node.EnsurePopulated();
+        }
+
+        node.IsExpanded = expanded;
+        Refresh();
+    }
+
+    /// <summary>Opens every node between a node and the root, so that it is visible.</summary>
+    /// <param name="node">The node.</param>
+    public void Reveal(TreeNode node) {
+        ArgumentNullException.ThrowIfNull(node);
+
+        for (var walk = node.Parent; walk is not null; walk = walk.Parent) {
+            walk.EnsurePopulated();
+            walk.IsExpanded = true;
+        }
+
+        Refresh();
+
+        var index = visible.IndexOf(node);
+        if (index < 0) {
+            return;
+        }
+
+        // Against the scroller rather than through `ScrollIntoView`, because the row may not be
+        // realised yet — the whole point of virtualisation is that the thing being scrolled to does
+        // not exist until it is nearly on screen.
+        var top = index * RowHeight;
+
+        if (top < Scroller.ScrollTop) {
+            Scroller.ScrollTop = top;
+        } else if (top + RowHeight > Scroller.ScrollTop + Scroller.Height) {
+            Scroller.ScrollTop = top + RowHeight - Scroller.Height;
+        }
+
+        Realise();
+    }
+
+    /// <summary>Selects a node, or adds it to or removes it from the selection.</summary>
+    /// <param name="node">The node.</param>
+    /// <param name="modifiers">What was held: Control toggles, Shift extends.</param>
+    public void Select(TreeNode? node, ModifierKeys modifiers = ModifierKeys.None) {
+        if (node is null) {
+            selection.Clear();
+            Restate();
+
+            return;
+        }
+
+        if (MultiSelect && modifiers.HasFlag(ModifierKeys.Shift) && anchor is not null) {
+            var from = visible.IndexOf(anchor);
+            var to = visible.IndexOf(node);
+
+            if (from >= 0 && to >= 0) {
+                selection.Clear();
+
+                for (var i = Math.Min(from, to); i <= Math.Max(from, to); i++) {
+                    selection.Add(visible[i]);
+                }
+
+                Restate();
+                return;
+            }
+        }
+
+        if (MultiSelect && modifiers.HasFlag(ModifierKeys.Control)) {
+            if (!selection.Remove(node)) {
+                selection.Add(node);
+            }
+
+            // ⚠ The anchor follows a Ctrl-click. A Shift-click after one extends from the thing that
+            // was just touched, which is what every file manager does and what makes
+            // "Ctrl-click here, Shift-click there" select the range between them.
+            anchor = node;
+            Restate();
+
+            return;
+        }
+
+        selection.Clear();
+        selection.Add(node);
+        anchor = node;
+
+        Restate();
+    }
+
+    /// <summary>Puts a text box in a row so its node can be renamed.</summary>
+    /// <param name="node">The node.</param>
+    /// <remarks>
+    ///     ⚠ <b>The row has to be realised.</b> Renaming something scrolled off screen is not a
+    ///     gesture anybody makes with a pointer, and it is one that can arrive from code — so this
+    ///     reveals the node first, which realises its row, and only then edits it.
+    /// </remarks>
+    public void BeginRename(TreeNode node) {
+        ArgumentNullException.ThrowIfNull(node);
+
+        Reveal(node);
+
+        if (RowOf(node) is not { } row || row.Editor is not null) {
+            return;
+        }
+
+        var editor = row.Add<TextBox>();
+        editor.Value = node.Text;
+        editor.AddClass("tree-editor");
+
+        row.Editor = editor;
+        row.Label.AddClass("hidden");
+
+        Document.Focus(editor);
+        editor.SelectAll();
+
+        editor.Submitted += _ => CommitRename(row, true);
+        editor.AddHandler<KeyEvent>(
+            (_, args) => {
+                if (args is { Action: KeyAction.Pressed, Key: InputKey.Escape }) {
+                    CommitRename(row, false);
+                    args.Handled = true;
+                }
+            }
+        );
+    }
+
+    /// <summary>Moves a node next to or into another one.</summary>
+    /// <param name="node">What to move.</param>
+    /// <param name="target">What to move it relative to.</param>
+    /// <param name="position">Where.</param>
+    /// <returns>Whether the move was possible.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A node cannot be dropped inside itself.</b> It is a gesture users make by accident —
+    ///     drag a folder, hesitate, release over one of its own children — and the result is a cycle
+    ///     the tree cannot represent and the flatten cannot walk out of.
+    /// </remarks>
+    public bool MoveNode(TreeNode node, TreeNode target, DropPosition position) {
+        ArgumentNullException.ThrowIfNull(node);
+        ArgumentNullException.ThrowIfNull(target);
+
+        if (node.Contains(target) || ReferenceEquals(node, target)) {
+            return false;
+        }
+
+        if (position == DropPosition.Into) {
+            target.EnsurePopulated();
+            target.Add(node);
+            target.IsExpanded = true;
+        } else {
+            var parent = target.Parent ?? Root;
+            var index = parent.IndexOf(target);
+
+            // ⚠ Read *after* the node has been taken out of its old place when the two share a
+            // parent, or moving something down by one lands it back where it started: the index of
+            // the target shifts when a sibling before it is removed.
+            if (ReferenceEquals(node.Parent, parent) && parent.IndexOf(node) < index) {
+                index--;
+            }
+
+            parent.Add(node, position == DropPosition.Before ? index : index + 1);
+        }
+
+        Refresh();
+        Moved?.Invoke(this, node);
+
+        return true;
+    }
+
+    /// <summary>The realised row showing a node, if it has one.</summary>
+    /// <param name="node">The node.</param>
+    /// <returns>The row, or <c>null</c> if it is not on screen.</returns>
+    public TreeRow? RowOf(TreeNode node) {
+        foreach (var row in rows) {
+            if (ReferenceEquals(row.Node, node)) {
+                return row;
+            }
+        }
+
+        return null;
+    }
+
+    void Flatten(TreeNode node) {
+        foreach (var child in node.Children) {
+            visible.Add(child);
+
+            if (child.IsExpanded) {
+                Flatten(child);
+            }
+        }
+    }
+
+    /// <summary>Makes sure there is a row for every visible line of the viewport, and binds them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The pool only ever grows.</b> A tree that was once tall keeps the rows it needed;
+    ///     shrinking the pool would mean removing elements on a scroll, which is the allocation this
+    ///     whole arrangement exists to avoid. Surplus rows are parked with <c>display: none</c>.
+    /// </remarks>
+    void Realise() {
+        var height = Scroller.Height;
+        var rowHeight = RowHeight;
+
+        if (rowHeight <= 0f) {
+            return;
+        }
+
+        var capacity = Math.Min(visible.Count, (int) MathF.Ceiling(height / rowHeight) + (Overscan * 2) + 1);
+        first = Math.Clamp((int) MathF.Floor(Scroller.ScrollTop / rowHeight) - Overscan, 0, Math.Max(0, visible.Count - capacity));
+
+        while (rows.Count < capacity) {
+            rows.Add(Scroller.Content.Add<TreeRow>());
+        }
+
+        for (var i = 0; i < rows.Count; i++) {
+            var row = rows[i];
+            var index = first + i;
+
+            if (i >= capacity || index >= visible.Count) {
+                row.Node = null;
+                row.AddClass("parked");
+
+                continue;
+            }
+
+            row.RemoveClass("parked");
+            Bind(row, visible[index], index, rowHeight);
+        }
+    }
+
+    void Bind(TreeRow row, TreeNode node, int index, float rowHeight) {
+        row.Node = node;
+        row.Label.Text = node.Text;
+
+        row.SetStyle("top", (index * rowHeight).ToString("0.##", CultureInfo.InvariantCulture) + "px");
+        row.SetStyle("height", rowHeight.ToString("0.##", CultureInfo.InvariantCulture) + "px");
+        row.Indent.SetStyle(
+            "width",
+            (node.Depth * Indent).ToString("0.##", CultureInfo.InvariantCulture) + "px"
+        );
+
+        row.Chevron.Geometry = node.IsExpanded ? ControlIcons.ChevronDown : ControlIcons.ChevronRight;
+
+        if (node.HasChildren) {
+            row.RemoveClass("leaf");
+        } else {
+            row.AddClass("leaf");
+        }
+
+        if (selection.Contains(node)) {
+            row.State |= ElementState.Checked;
+        } else {
+            row.State &= ~ElementState.Checked;
+        }
+    }
+
+    void Restate() {
+        foreach (var row in rows) {
+            if (row.Node is { } node && selection.Contains(node)) {
+                row.State |= ElementState.Checked;
+            } else {
+                row.State &= ~ElementState.Checked;
+            }
+        }
+
+        SelectionChanged?.Invoke(this);
+    }
+
+    void CommitRename(TreeRow row, bool commit) {
+        if (row.Editor is not { } editor || row.Node is not { } node) {
+            return;
+        }
+
+        var text = editor.Value ?? string.Empty;
+
+        row.Editor = null;
+        row.Label.RemoveClass("hidden");
+
+        editor.Remove();
+        Document.Focus(this);
+
+        if (!commit || string.Equals(text, node.Text, StringComparison.Ordinal)) {
+            return;
+        }
+
+        // ⚠ The model is written before the handler runs, and the handler may write it again. That
+        // is deliberate: an application that validates a name — refusing a duplicate, say — puts the
+        // old one back, and one that does not gets the obvious behaviour for free.
+        node.Text = text;
+        Renamed?.Invoke(this, node, text);
+
+        Refresh();
+    }
+
+    /// <summary>The row an element is part of, if it is part of one.</summary>
+    static TreeRow? RowUnder(UiElement? element) {
+        for (var walk = element; walk is not null; walk = walk.Parent) {
+            if (walk is TreeRow row) {
+                return row;
+            }
+        }
+
+        return null;
+    }
+
+    TreeRow? RowAt(float x, float y) {
+        foreach (var row in rows) {
+            if (row.Node is null) {
+                continue;
+            }
+
+            var bounds = row.Bounds;
+
+            if (x >= bounds.X && x < bounds.X + bounds.Width && y >= bounds.Y && y < bounds.Y + bounds.Height) {
+                return row;
+            }
+        }
+
+        return null;
+    }
+
+    void Pointed(PointerEvent args) {
+        if (args is not { Action: PointerAction.Pressed, Button: PointerButton.Primary }) {
+            return;
+        }
+
+        Document.Focus(this);
+
+        if (RowAt(args.X, args.Y) is not { Node: { } node } row) {
+            return;
+        }
+
+        // The chevron takes the press and the row does not. Clicking a folder's arrow opens it
+        // without selecting it, which is what every file manager does.
+        if (node.HasChildren && args.X < row.Label.AbsoluteLeft) {
+            Expand(node, !node.IsExpanded);
+            args.Handled = true;
+
+            return;
+        }
+
+        Select(node, args.Modifiers);
+    }
+
+    void Tapped(TapEvent args) {
+        if (args.Count == 2 && RowAt(args.X, args.Y) is { Node: { } node }) {
+            Activated?.Invoke(this, node);
+            args.Handled = true;
+        }
+    }
+
+    void Keyed(KeyEvent args) {
+        if (args.Action != KeyAction.Pressed || visible.Count == 0) {
+            return;
+        }
+
+        var current = selection.Count > 0 ? visible.FindIndex(node => selection.Contains(node)) : -1;
+        var node = current >= 0 ? visible[current] : null;
+
+        switch (args.Key) {
+            case InputKey.Down:
+                Step(current + 1, args.Modifiers);
+                break;
+
+            case InputKey.Up:
+                Step(current <= 0 ? 0 : current - 1, args.Modifiers);
+                break;
+
+            case InputKey.Home:
+                Step(0, args.Modifiers);
+                break;
+
+            case InputKey.End:
+                Step(visible.Count - 1, args.Modifiers);
+                break;
+
+            case InputKey.Right when node is not null:
+                // Open it, or step into it if it is already open. One key that means "go deeper",
+                // which is what a keyboard user expects and what two keys would not give.
+                if (node.HasChildren && !node.IsExpanded) {
+                    Expand(node);
+                } else {
+                    Step(current + 1, ModifierKeys.None);
+                }
+
+                break;
+
+            case InputKey.Left when node is not null:
+                if (node.IsExpanded) {
+                    Expand(node, false);
+                } else if (node.Parent is { } parent && !ReferenceEquals(parent, Root)) {
+                    Select(parent);
+                    Reveal(parent);
+                }
+
+                break;
+
+            case InputKey.Enter or InputKey.KeypadEnter when node is not null:
+                Activated?.Invoke(this, node);
+                break;
+
+            case InputKey.F2 when node is not null:
+                BeginRename(node);
+                break;
+
+            case InputKey.A when args.Modifiers.HasFlag(ModifierKeys.Control) && MultiSelect:
+                selection.Clear();
+
+                foreach (var candidate in visible) {
+                    selection.Add(candidate);
+                }
+
+                Restate();
+                break;
+
+            default:
+                return;
+        }
+
+        args.Handled = true;
+    }
+
+    void Step(int index, ModifierKeys modifiers) {
+        if (visible.Count == 0) {
+            return;
+        }
+
+        var node = visible[Math.Clamp(index, 0, visible.Count - 1)];
+
+        Select(node, modifiers);
+        Reveal(node);
+    }
+
+    /// <summary>Drags a node onto another one, showing where it would land.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The top and bottom quarters of a row mean "beside", the middle half means "into".</b>
+    ///     Without the distinction there is no way to say "make this a sibling rather than a child",
+    ///     which is most of what reordering a hierarchy is — and the indicator is what makes the
+    ///     three zones visible rather than something the user discovers by getting it wrong.
+    /// </remarks>
+    void Dragged(DragEvent args) {
+        switch (args.Stage) {
+            // ⚠ The row is taken from the event's *source* rather than from where the pointer is.
+            // A drag does not begin until the pointer has passed the slop threshold, which is
+            // several rows away in a tree of twenty-pixel rows — so hit-testing here picks up
+            // whatever the pointer has arrived at and drags the wrong node.
+            case DragStage.Started when AllowDrag && RowUnder(args.Source) is { Node: { } node }:
+                dragging = node;
+                Track(args.X, args.Y);
+
+                break;
+
+            case DragStage.Moved when dragging is not null:
+                Track(args.X, args.Y);
+                break;
+
+            case DragStage.Completed when dragging is { } node:
+                if (dropTarget is { } target) {
+                    MoveNode(node, target, dropPosition);
+                }
+
+                Cancel();
+                break;
+
+            case DragStage.Cancelled:
+                Cancel();
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    void Track(float x, float y) {
+        dropTarget = null;
+
+        if (RowAt(x, y) is not { Node: { } node } row || dragging is not { } source || source.Contains(node)) {
+            DropIndicator.AddClass("hidden");
+            return;
+        }
+
+        var bounds = row.Bounds;
+        var fraction = bounds.Height <= 0f ? 0.5f : (y - bounds.Y) / bounds.Height;
+
+        dropPosition = fraction switch {
+            < 0.25f => DropPosition.Before,
+            > 0.75f => DropPosition.After,
+            _ => DropPosition.Into
+        };
+
+        dropTarget = node;
+
+        DropIndicator.RemoveClass("hidden");
+        DropIndicator.SetStyle("width", bounds.Width.ToString("0.##", CultureInfo.InvariantCulture) + "px");
+
+        var into = dropPosition == DropPosition.Into;
+
+        DropIndicator.SetStyle("height", into ? bounds.Height.ToString("0.##", CultureInfo.InvariantCulture) + "px" : "2px");
+
+        var top = dropPosition switch {
+            DropPosition.Before => bounds.Y,
+            DropPosition.After => bounds.Y + bounds.Height,
+            _ => bounds.Y
+        };
+
+        DropIndicator.OffsetX += bounds.X - DropIndicator.AbsoluteLeft;
+        DropIndicator.OffsetY += top - DropIndicator.AbsoluteTop;
+    }
+
+    void Cancel() {
+        dragging = null;
+        dropTarget = null;
+
+        DropIndicator.AddClass("hidden");
+    }
+}

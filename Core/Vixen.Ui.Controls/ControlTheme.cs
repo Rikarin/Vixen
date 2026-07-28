@@ -401,6 +401,12 @@ public static class ControlTheme {
         expander.open expander-content { display: flex; }
 
         /* ── Scrolling ──────────────────────────────────────────────────────── */
+        /* ⚠ A scroll view that is meant to *fill* its parent rather than be sized by hand needs
+           `flex-basis: 0px` on top of a `flex-grow` — see how the tree does it. A flex item's base
+           size is its content, and this one's content is deliberately unshrinkable, so the viewport
+           otherwise grows to the full height of what is inside it: nothing overflows, and the
+           scrollbar never appears. It is not set here because a scroll view given an explicit height
+           is just as common, and a zero basis would override that height. */
         scroll-view { flex-direction: column; overflow: hidden; position: relative; }
         scroll-content { flex-direction: column; flex-shrink: 0; align-self: flex-start; min-width: 100%; }
 

@@ -113,6 +113,8 @@
     <Project Path="Core/Vixen.Ui.Markup.Generators.Tests/Vixen.Ui.Markup.Generators.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Controls/Vixen.Ui.Controls.csproj" />
     <Project Path="Core/Vixen.Ui.Controls.Tests/Vixen.Ui.Controls.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Controls.Advanced/Vixen.Ui.Controls.Advanced.csproj" />
+    <Project Path="Core/Vixen.Ui.Controls.Advanced.Tests/Vixen.Ui.Controls.Advanced.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Renderer/Vixen.Ui.Renderer.csproj" />
     <Project Path="Core/Vixen.Ui.HotReload/Vixen.Ui.HotReload.csproj" />
     <Project Path="Core/Vixen.Ui.HotReload.Tests/Vixen.Ui.HotReload.Tests.csproj" />

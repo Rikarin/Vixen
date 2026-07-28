@@ -517,7 +517,18 @@ public partial class UiElement {
 
     internal void Attach(UiElement child) => children.Add(child);
 
+    internal void Insert(UiElement child, int index) => children.Insert(index, child);
+
     internal void Detach(UiElement child) => children.Remove(child);
+
+    /// <summary>Points this element at its new parent.</summary>
+    /// <remarks>
+    ///     ⚠ Only <c>UiDocument.Reparent</c> may call this, and only as part of moving all three
+    ///     stores at once. <see cref="Parent" /> is what the event router walks and what removal
+    ///     climbs; one changed on its own would give an element that is a child of one thing and
+    ///     claims to be a child of another.
+    /// </remarks>
+    internal void Adopt(UiElement parent) => Parent = parent;
 
     internal void MoveChild(UiElement child, int index) {
         children.Remove(child);

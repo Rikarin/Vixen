@@ -209,7 +209,12 @@ public sealed class StyleEngine {
             }
 
             var parent = Tree.ParentOf(i);
-            styles[i] = Resolver.Resolve(Tree, new StyleNodeId(i), parent < 0 ? null : styles[parent]);
+            styles[i] = Resolver.Resolve(
+                Tree,
+                new StyleNodeId(i),
+                parent < 0 ? null : styles[parent],
+                Tree.InlineAt(i)
+            );
         }
 
         return styles;

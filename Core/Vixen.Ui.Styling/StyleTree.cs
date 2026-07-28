@@ -39,6 +39,7 @@ public readonly record struct StyleNodeId(int Index) {
 /// </remarks>
 public sealed class StyleTree {
     const int NoParent = -1;
+    const int NoInline = -1;
 
     readonly NameTable names;
     readonly List<int> classArena = [];
@@ -52,6 +53,15 @@ public sealed class StyleTree {
     AttributeRange[] attributes = new AttributeRange[64];
     ElementLinks[] links = new ElementLinks[64];
     AncestorBloom[] blooms = new AncestorBloom[64];
+
+    /// <summary>Each element's inline block, or -1 for none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A raw index rather than an <see cref="InlineStyleId" />?</b>, so that "none" is a
+    ///     sentinel in the same array rather than a nullable struct per element. Ten thousand
+    ///     elements, nearly all of which have no inline style, would otherwise pay eight bytes each
+    ///     to say so.
+    /// </remarks>
+    int[] inlines = new int[64];
     bool[] alive = new bool[64];
     int count;
     int dead;
@@ -117,6 +127,7 @@ public sealed class StyleTree {
         identifiers[index] = id is null ? NameTable.None : names.Intern(id);
         states[index] = ElementState.None;
         attributes[index] = default;
+        inlines[index] = NoInline;
 
         var classStart = classArena.Count;
         foreach (var className in classNames) {
@@ -255,6 +266,7 @@ public sealed class StyleTree {
             identifiers[to] = identifiers[i];
             states[to] = states[i];
             blooms[to] = blooms[i];
+            inlines[to] = inlines[i];
             alive[to] = true;
 
             var classStart = newClasses.Count;
@@ -465,6 +477,34 @@ public sealed class StyleTree {
     /// <param name="state">The new state.</param>
     public void SetState(StyleNodeId element, ElementState state) => states[Validate(element)] = state;
 
+    /// <summary>Gives an element declarations of its own, or takes them away.</summary>
+    /// <param name="element">The element.</param>
+    /// <param name="style">The block, or <see langword="null" /> for none.</param>
+    /// <remarks>
+    ///     ⚠ <b>Which store the handle came from is not checked and cannot be.</b> An
+    ///     <see cref="InlineStyleId" /> is an index and this type does not own the store it indexes —
+    ///     <see cref="StyleEngine" /> does. A handle from another engine's store would resolve to
+    ///     whatever declarations happened to sit at that offset, silently. That is the same hazard
+    ///     <c>InlineStyleId</c>'s own remarks describe, one level up.
+    /// </remarks>
+    public void SetInlineStyle(StyleNodeId element, InlineStyleId? style) =>
+        inlines[Validate(element)] = style?.Index ?? NoInline;
+
+    /// <summary>An element's inline block, if it has one.</summary>
+    /// <param name="element">The element.</param>
+    /// <returns>The handle, or <see langword="null" />.</returns>
+    public InlineStyleId? GetInlineStyle(StyleNodeId element) => InlineAt(Validate(element));
+
+    /// <summary>An element's inline block by slot, for the resolve pass.</summary>
+    /// <param name="index">The slot.</param>
+    /// <returns>The handle, or <see langword="null" />.</returns>
+    /// <remarks>
+    ///     By slot rather than by <see cref="StyleNodeId" /> because <c>ResolveAll</c> walks slots,
+    ///     including the removed ones — the same reason <c>ParentOf</c> and <c>IsAliveAt</c> do.
+    /// </remarks>
+    public InlineStyleId? InlineAt(int index) =>
+        inlines[index] < 0 ? null : new InlineStyleId(inlines[index]);
+
     /// <summary>Adds a class to an element.</summary>
     /// <param name="element">The element.</param>
     /// <param name="className">The class.</param>
@@ -582,6 +622,27 @@ public sealed class StyleTree {
 
         for (var i = 0; i < range.Count; i++) {
             result[i] = names.NameOf(classArena[range.Start + i]);
+        }
+
+        return result;
+    }
+
+    /// <summary>An element's attributes, in the order they were set.</summary>
+    /// <param name="element">The element.</param>
+    /// <returns>The name/value pairs.</returns>
+    /// <remarks>
+    ///     Allocates, like <see cref="GetClassNames" /> and for the same callers — an inspector, a
+    ///     diagnostic, and the one that made it necessary: reparenting, which rebuilds an element's
+    ///     slot under a different parent and would otherwise silently drop everything the tree knows
+    ///     about it that nothing can read back.
+    /// </remarks>
+    public (string Name, string Value)[] GetAttributes(StyleNodeId element) {
+        var range = attributes[Validate(element)];
+        var result = new (string, string)[range.Count];
+
+        for (var i = 0; i < range.Count; i++) {
+            var entry = attributeArena[range.Start + i];
+            result[i] = (names.NameOf(entry.Name), names.NameOf(entry.Value));
         }
 
         return result;
@@ -776,6 +837,7 @@ public sealed class StyleTree {
         Array.Resize(ref attributes, next);
         Array.Resize(ref links, next);
         Array.Resize(ref blooms, next);
+        Array.Resize(ref inlines, next);
         Array.Resize(ref alive, next);
     }
 
