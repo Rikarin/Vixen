@@ -10,6 +10,7 @@ using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Shaders;
+using Vixen.Shaders.Generated;
 using Xunit;
 
 namespace Tests;
@@ -30,9 +31,12 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class PostProcessTests : IDisposable {
-    static readonly ParameterKey<float> Exposure = ParameterKeys.New("Tonemap.exposure", 1f);
-    static readonly ParameterKey<float> WhitePoint = ParameterKeys.New("Tonemap.whitePoint", 4f);
-    static readonly PermutationKey<int> Operator = ParameterKeys.NewPermutation(1, "Tonemap.Operator");
+    // The shader's own keys, generated from Library/PostFx/Tonemap.reflect.json. Naming them here
+    // rather than interning the strings is what makes this a test of the pass against the shader it
+    // actually runs: the offsets below are still the fixture's, but the keys are not.
+    static readonly ParameterKey<float> Exposure = TonemapKeys.Exposure;
+    static readonly ParameterKey<float> WhitePoint = TonemapKeys.WhitePoint;
+    static readonly PermutationKey<int> Operator = TonemapKeys.Operator;
 
     readonly NullDevice device = new(new() { Record = true, FramesInFlight = 2 });
     readonly EffectSystem effects = new();

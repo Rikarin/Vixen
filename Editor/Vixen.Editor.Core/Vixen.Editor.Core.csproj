@@ -4,10 +4,11 @@
         <TargetFramework>net10.0</TargetFramework>
         <RootNamespace>Vixen.Editor.Core</RootNamespace>
         <Description>
-            The editor's model of a project: the asset database, the GUID index it is built on, and
-            the reverse-reference index that answers "what would break if I deleted this".
+            The editor's model of a project: the command stack that everything it edits goes through,
+            the signal-backed document model over it, project settings assets, and the asset database
+            with the reverse-reference index that answers "what would break if I deleted this".
         </Description>
-        <PackageTags>editor;asset-database;asset-pipeline;game-engine;vixen</PackageTags>
+        <PackageTags>editor;undo;document-model;asset-database;asset-pipeline;game-engine;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 
@@ -22,6 +23,18 @@
     <ItemGroup>
         <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+
+        <!-- Settings assets are [DataContract] types read through the generated descriptors, and the
+             file a settings type lives in is named after its contract alias rather than its C# name. -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+
+        <!--
+          The document model is signal-backed: an EditorProperty is a Signal, so the inspector binds
+          to it and a gizmo writing it updates the inspector with nothing wired between them. This is
+          the reactive graph used outside the UI framework, which is the point of having built it as
+          a layer of its own rather than inside Vixen.Ui.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Reactive\Vixen.Ui.Reactive.csproj" />
     </ItemGroup>
 
     <ItemGroup>

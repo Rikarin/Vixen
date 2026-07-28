@@ -25,6 +25,14 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
+
+        <!--
+          The renderer, so a fixture can drive a compositor rather than only a command list. Every
+          claim above this line is about the backend; the ones that need this are about the layer
+          engine code actually uses — and those had been asserted entirely against a recording
+          backend that agrees with whatever it is told.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
     </ItemGroup>
 
     <ItemGroup>
