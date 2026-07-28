@@ -98,9 +98,7 @@ sealed class UiHost : IDisposable {
         this.platform = platform;
         this.window = window;
 
-        var scale = window.DpiScale <= 0f ? 1f : window.DpiScale;
-
-        ui = new Shell(window.FramebufferSize.X / scale, window.FramebufferSize.Y / scale);
+        ui = new Shell(window.FramebufferSize.X / Scale, window.FramebufferSize.Y / Scale);
         Fonts.Install(ui.Document);
     }
 
@@ -172,8 +170,6 @@ sealed class UiHost : IDisposable {
     }
 
     void Pump() {
-        var scale = window.DpiScale <= 0f ? 1f : window.DpiScale;
-
         foreach (var platformEvent in platform.PumpEvents()) {
             switch (platformEvent.Kind) {
                 case PlatformEventKind.Quit:
@@ -182,7 +178,7 @@ sealed class UiHost : IDisposable {
                     return;
 
                 case PlatformEventKind.WindowResized:
-                    ui.Resize(platformEvent.PixelSize.X / scale, platformEvent.PixelSize.Y / scale);
+                    ui.Resize(platformEvent.PixelSize.X / Scale, platformEvent.PixelSize.Y / Scale);
                     Recreate();
 
                     break;
@@ -192,7 +188,7 @@ sealed class UiHost : IDisposable {
                     break;
 
                 default:
-                    UiInput.Dispatch(ui.Document, platformEvent, scale);
+                    UiInput.Dispatch(ui.Document, platformEvent);
                     break;
             }
         }
@@ -204,15 +200,20 @@ sealed class UiHost : IDisposable {
     ///     Vulkan — everything above the RHI still executes, which is what makes <c>--frames</c> a
     ///     smoke test of the framework rather than only of the backend.
     /// </remarks>
-    UiGeometry Build() {
-        var scale = window.DpiScale <= 0f ? 1f : window.DpiScale;
+    UiGeometry Build() => geometry.Build(ui.Document.Drawing, glyphs, Surface());
 
-        return geometry.Build(
-            ui.Document.Drawing,
-            glyphs,
-            new Rectangle(0f, 0f, window.FramebufferSize.X / scale, window.FramebufferSize.Y / scale)
-        );
-    }
+    /// <summary>How many physical pixels one device-independent one is, never zero.</summary>
+    float Scale => window.DpiScale <= 0f ? 1f : window.DpiScale;
+
+    /// <summary>The window's client area in the units the document is laid out in.</summary>
+    /// <remarks>
+    ///     ⚠ Derived from <c>FramebufferSize</c> rather than read from <c>ClientSize</c>, because the
+    ///     framebuffer is what the swapchain is sized to and the two can disagree by a pixel of
+    ///     platform rounding. Deriving keeps the geometry, the projection and the scissor consistent
+    ///     with each other even when they are all slightly wrong about the window.
+    /// </remarks>
+    Rectangle Surface() =>
+        new(0f, 0f, window.FramebufferSize.X / Scale, window.FramebufferSize.Y / Scale);
 
     /// <summary>Puts a frame of geometry on the screen.</summary>
     /// <remarks>
@@ -222,6 +223,9 @@ sealed class UiHost : IDisposable {
     ///     the compiler cannot prove it does not.
     /// </remarks>
     void Present(UiGeometry frame) {
+        var scale = Scale;
+        var surface = Surface();
+
         if (lost || !EnsureDevice()) {
             return;
         }
@@ -263,11 +267,17 @@ sealed class UiHost : IDisposable {
             graph.AddPass("ui", pass => {
                 pass.ColourAttachment(backbuffer, LoadAction.Clear, new Color4(0.06f, 0.07f, 0.09f, 1f));
                 pass.SideEffect();
+                // ⚠ The *logical* surface and the DPI scale, not the swapchain's size. The
+                // geometry is in device-independent units — the document is 1280×800 on a display
+                // whose framebuffer is 2560×1600 — and the projection has to map those units, while
+                // the scissor has to come out in framebuffer pixels. Passing the framebuffer for
+                // both draws the whole interface into the top-left quarter of the window.
                 pass.Execute(
                     context => renderer.Record(
                         context.CommandList,
                         frame,
-                        new Int2(swapChain.Size.X, swapChain.Size.Y)
+                        new Int2((int) MathF.Round(surface.Width), (int) MathF.Round(surface.Height)),
+                        scale
                     )
                 );
             });
