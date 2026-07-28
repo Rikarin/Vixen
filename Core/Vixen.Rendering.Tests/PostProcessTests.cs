@@ -172,6 +172,36 @@ public class PostProcessTests : IDisposable {
         Assert.Equal(2, constants.UploadCount);
     }
 
+    /// <summary>
+    ///     A changed block goes to a different region, so an unfinished frame keeps what it had.
+    /// </summary>
+    /// <remarks>
+    ///     Rewriting the same bytes is a race nothing reports: a uniform read half from one frame's
+    ///     values and half from the next is a value that was never set anywhere. The block moves only
+    ///     when it changes, which is what keeps the ring free in the common case of a post pass whose
+    ///     parameters are the same every frame.
+    /// </remarks>
+    [Fact]
+    public void A_changed_block_moves_to_another_region() {
+        using var constants = new EffectConstants(device);
+        var parameters = new ParameterCollection();
+        var effect = Compiled(EffectKey.From("Tonemap", parameters, []));
+
+        parameters.Set(Exposure, 1f);
+        constants.Update(effect, parameters);
+        var first = constants.Offset;
+
+        // Unchanged: the same region, because nothing was rewritten.
+        constants.Update(effect, parameters);
+        Assert.Equal(first, constants.Offset);
+
+        parameters.Set(Exposure, 2f);
+        constants.Update(effect, parameters);
+
+        Assert.NotEqual(first, constants.Offset);
+        Assert.Equal(0, constants.Offset % constants.Alignment);
+    }
+
     // --- The pass -----------------------------------------------------------
 
     /// <summary>

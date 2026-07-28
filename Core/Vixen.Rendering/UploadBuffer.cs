@@ -32,11 +32,23 @@ namespace Vixen.Rendering;
 ///         defragmenter in the frame path to save writing a few thousand matrices a host already had
 ///         to compute.
 ///     </para>
+///     <para>
+///         <strong>One region per frame in flight, and the caller binds at
+///         <see cref="Offset" />.</strong> Writing the same bytes every frame is a race the API cannot
+///         report: <c>Write</c> on a host-visible buffer is a memcpy into memory the GPU may still be
+///         reading for a frame that has not finished, and the symptom is a skeleton or an instance
+///         list that is briefly a blend of two frames. The ring is the same one
+///         <see cref="Graphics.DescriptorAllocator" /> uses and for the same reason, and it is offsets
+///         rather than shifted indices so that nothing downstream — a shader indexing from zero, a
+///         push-constant base, a <c>firstInstance</c> — has to know the ring exists.
+///     </para>
 /// </remarks>
 public sealed class UploadBuffer<T>(string name) : IDisposable where T : unmanaged {
     T[] staging = [];
     int count;
     int capacity;
+    int slot;
+    int slots = 1;
     BufferHandle buffer;
     bool disposed;
 
@@ -49,14 +61,51 @@ public sealed class UploadBuffer<T>(string name) : IDisposable where T : unmanag
     /// <summary>How many records this frame holds.</summary>
     public int Count => count;
 
-    /// <summary>How many the buffer has room for.</summary>
+    /// <summary>How many the buffer has room for, per frame in flight.</summary>
     public int Capacity => capacity;
+
+    /// <summary>
+    ///     Where this frame's region starts, in bytes. Bind the buffer at this offset.
+    /// </summary>
+    /// <remarks>
+    ///     A descriptor bound at zero reads the region some other frame is writing. The offset is
+    ///     aligned to <see cref="Alignment" />, which is what a buffer binding's offset has to be.
+    /// </remarks>
+    public long Offset => (long)slot * Stride;
+
+    /// <summary>How many bytes one frame's region occupies, including its alignment padding.</summary>
+    public long Stride { get; private set; }
+
+    /// <summary>How many frames the ring is deep.</summary>
+    public int Slots => slots;
+
+    /// <summary>
+    ///     What a buffer binding's offset must be a multiple of.
+    /// </summary>
+    /// <remarks>
+    ///     Two hundred and fifty-six, which is the largest <c>minStorageBufferOffsetAlignment</c> any
+    ///     target reports — the same number and the same argument as
+    ///     <see cref="Features.ForwardLightingRenderFeature.OffsetAlignment" />. Querying the device
+    ///     would save memory that a handful of frames' padding does not cost.
+    /// </remarks>
+    public int Alignment { get; set; } = 256;
 
     /// <summary>What has been written this frame, for a test or an inspector.</summary>
     public ReadOnlySpan<T> Items => staging.AsSpan(0, count);
 
-    /// <summary>Forgets last frame's contents.</summary>
-    public void Begin() => count = 0;
+    /// <summary>Starts a frame: moves to the next region and forgets the last one's contents.</summary>
+    /// <remarks>
+    ///     The region this moves on to is the one used <see cref="Slots" /> frames ago, which the
+    ///     device has finished with — the same invariant, and the same reason, as
+    ///     <see cref="Graphics.DescriptorAllocator.BeginFrame" />.
+    /// </remarks>
+    public void Begin() {
+        // Against the ring the buffer actually has, not the device's current answer: the two differ
+        // until EnsureBuffer has built one, and advancing past the end of the buffer would write
+        // where there is nothing.
+        slot = (slot + 1) % slots;
+        count = 0;
+    }
 
     /// <summary>Appends a run and returns the index of its first matrix.</summary>
     public int Add(ReadOnlySpan<T> items) {
@@ -88,7 +137,7 @@ public sealed class UploadBuffer<T>(string name) : IDisposable where T : unmanag
         }
 
         EnsureBuffer();
-        Device.Write(buffer, 0, MemoryMarshal.AsBytes(staging.AsSpan(0, count)));
+        Device.Write(buffer, Offset, MemoryMarshal.AsBytes(staging.AsSpan(0, count)));
     }
 
     void Reserve(int required) {
@@ -100,23 +149,30 @@ public sealed class UploadBuffer<T>(string name) : IDisposable where T : unmanag
     }
 
     void EnsureBuffer() {
-        if (Device is null || staging.Length <= capacity && buffer.IsValid) {
+        var wanted = Device is null ? slots : Math.Max(1, Device.FramesInFlight);
+
+        if (Device is null || (staging.Length <= capacity && buffer.IsValid && slots == wanted)) {
             return;
         }
 
+        // Destroyed rather than retired, and that is the one thing this still gets wrong: growing
+        // frees a buffer an unfinished frame may be reading. It happens at the high-water mark and
+        // then never again, so it is a hazard during warm-up rather than in a steady frame — and
+        // fixing it needs a device-level retirement queue that does not exist yet.
         if (buffer.IsValid) {
             Device.Destroy(buffer);
         }
 
         capacity = staging.Length;
+        slots = wanted;
+        slot = Math.Min(slot, slots - 1);
+
+        var bytes = (long)capacity * Unsafe.SizeOf<T>();
+        var alignment = Math.Max(1, Alignment);
+        Stride = (bytes + alignment - 1) / alignment * alignment;
 
         buffer = Device.CreateBuffer(
-            new(
-                (long)capacity * Unsafe.SizeOf<T>(),
-                BufferUsage.Storage,
-                MemoryAccess.HostUpload,
-                name
-            )
+            new(Stride * slots, BufferUsage.Storage, MemoryAccess.HostUpload, name)
         );
     }
 

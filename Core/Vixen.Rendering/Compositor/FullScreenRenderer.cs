@@ -167,8 +167,17 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
         var sampled = Reads.Select(name => textures[name]).ToArray();
         var consumed = BufferReads.Select(name => buffers[name]).ToArray();
 
+        // At the block's own offset, not at zero: the buffer holds one region per frame in flight so
+        // that changing a value does not overwrite what an unfinished frame is reading.
         var extra = hasConstants
-            ? new[] { DescriptorWrite.Uniform(ConstantBinding!.Value, constants.Buffer, 0, constants.Size) }
+            ? new[] {
+                DescriptorWrite.Uniform(
+                    ConstantBinding!.Value,
+                    constants.Buffer,
+                    constants.Offset,
+                    constants.Size
+                )
+            }
             : [];
 
         frame.Graph.AddPass(

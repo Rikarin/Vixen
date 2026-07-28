@@ -576,6 +576,30 @@ the shader distinguishes the first downsample from the rest of the chain, hence 
 rather than a `FirstDownsample` flag — the chain asks for four variants either way, and the flag would
 be a key every pass carries in order to say nothing.
 
+## Writing to memory a frame is still reading
+
+The hazard that keeps reappearing, and the one no API reports. `Write` on a host-visible buffer is a
+memcpy into memory the GPU may still be reading for a frame that has not finished. Nothing validates
+it, nothing logs it, and the symptom is data that is briefly a blend of two frames — under load, on
+somebody else's machine.
+
+Three things had it. `ForwardLightingRenderFeature` rewrote one persistent descriptor set; that was
+fixed by moving it onto `DescriptorAllocator`. `UploadBuffer<T>` — which skinning, instancing and the
+scene light list all share — wrote every frame's records at offset zero. And `EffectConstants` wrote
+every changed block over the last one.
+
+All three now use the same shape: **one region per frame in flight, and the caller binds at an
+offset**. Offsets rather than shifted indices, deliberately, so that a push-constant base, a
+`firstInstance` and a shader indexing from zero all keep working without knowing the ring is there —
+the ring is a property of the binding, not of the data.
+
+`EffectConstants` moves only when a value actually changed, so a post pass whose parameters are the
+same every frame keeps reading the region it already has and the ring costs nothing.
+
+What is still wrong: **growing a buffer destroys one an unfinished frame may be reading.** Growth
+happens at the high-water mark and then never again, so it is a warm-up hazard rather than a steady
+one — and fixing it needs a device-level retirement queue that does not exist.
+
 ## What is not here yet
 
 Blend shapes and area lights. Punctual shadows are not cached — only the directional cascades are,
