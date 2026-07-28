@@ -169,7 +169,7 @@ internal sealed class PolyMeshDetail {
         }
 
         ref var cell = ref field.Cells[x + (z * field.Width)];
-        var best = (float)walkableHeight;
+        var best = (float)walkableHeight * HeightfieldSpan.DropScale;
         var found = false;
 
         for (var index = cell.Index; index < cell.Index + cell.Count; index++) {
@@ -177,11 +177,14 @@ internal sealed class PolyMeshDetail {
                 continue;
             }
 
-            var difference = MathF.Abs(field.Spans[index].Y - expected);
+            // Both in sixteenths of a voxel: the polygon's plane arrives that way because its corners
+            // did, and the span reports its surface the same way.
+            var surface = field.Spans[index].Surface;
+            var difference = MathF.Abs(surface - expected);
 
             if (difference < best) {
                 best = difference;
-                height = field.Spans[index].Y;
+                height = surface;
                 found = true;
             }
         }

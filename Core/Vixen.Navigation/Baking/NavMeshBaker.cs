@@ -303,7 +303,7 @@ public static class NavMeshBaker {
             mesh,
             compact,
             settings.DetailSampleDistance / settings.CellSize,
-            settings.DetailSampleMaxError / settings.CellHeight,
+            settings.DetailSampleMaxError / settings.CellHeight * HeightfieldSpan.DropScale,
             settings.WalkableHeightInCells
         );
 
@@ -349,10 +349,15 @@ public static class NavMeshBaker {
     ) {
         var vertices = new Vector3[mesh.VertexCount];
 
+        // Heights arrive in sixteenths of a voxel and everything else in whole cells, because the
+        // vertical axis is the only one a sub-voxel answer is worth having on: it is the one an agent
+        // is placed along, and the one the voxelisation rounds by a whole cell.
+        var heightScale = settings.CellHeight / HeightfieldSpan.DropScale;
+
         for (var index = 0; index < vertices.Length; index++) {
             vertices[index] = new(
                 volume.Minimum.X + (mesh.Vertices[index * 3] * settings.CellSize),
-                volume.Minimum.Y + (mesh.Vertices[(index * 3) + 1] * settings.CellHeight),
+                volume.Minimum.Y + (mesh.Vertices[(index * 3) + 1] * heightScale),
                 volume.Minimum.Z + (mesh.Vertices[(index * 3) + 2] * settings.CellSize)
             );
         }
@@ -362,7 +367,7 @@ public static class NavMeshBaker {
         for (var index = 0; index < detailVertices.Length; index++) {
             detailVertices[index] = new(
                 volume.Minimum.X + (detail.Vertices[index].X * settings.CellSize),
-                volume.Minimum.Y + (detail.Vertices[index].Y * settings.CellHeight),
+                volume.Minimum.Y + (detail.Vertices[index].Y * heightScale),
                 volume.Minimum.Z + (detail.Vertices[index].Z * settings.CellSize)
             );
         }

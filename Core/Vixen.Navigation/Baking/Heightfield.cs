@@ -13,11 +13,38 @@ internal struct HeightfieldSpan {
     /// <summary>The voxel it ends at.</summary>
     public ushort Max;
 
+    /// <summary>
+    ///     How far below <see cref="Max" /> the real surface is, in sixteenths of a voxel.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Alongside <see cref="Max" /> rather than instead of it</b>, and that is the whole
+    ///         design. Every decision the bake makes about whether a surface is a step, a ledge or a
+    ///         wall is integer arithmetic on <see cref="Max" />, tuned against a voxel grid and tested
+    ///         against one. Making those decisions fractional would be a rewrite of the filters for a
+    ///         question they are not being asked. This is the residue: where in that voxel the
+    ///         triangle actually was, carried past them and used only at the end, where a height is
+    ///         reported rather than compared.
+    ///     </para>
+    ///     <para>
+    ///         Sixteenths, because the value it corrects is one whole voxel and the cell height is
+    ///         already the finest thing in the bake — a sixteenth of it is a centimetre at the default
+    ///         settings, which is below what anything downstream can act on.
+    ///     </para>
+    /// </remarks>
+    public byte Drop;
+
     /// <summary>The area its top surface carries, or <see cref="NavArea.Null" /> if nothing can stand there.</summary>
     public byte Area;
 
     /// <summary>The next span up the same column, or -1.</summary>
     public int Next;
+
+    /// <summary>How many parts of a voxel <see cref="Drop" /> counts in.</summary>
+    public const int DropScale = 16;
+
+    /// <summary>The span's surface height, in <see cref="DropScale" />ths of a voxel.</summary>
+    public readonly int Surface => (Max * DropScale) - Drop;
 }
 
 /// <summary>
@@ -124,9 +151,13 @@ internal sealed class Heightfield {
     ///     Merging is what makes the field independent of how the geometry was tessellated: a floor
     ///     built from two triangles and the same floor built from two hundred produce the same spans.
     /// </remarks>
-    public void AddSpan(int x, int z, ushort min, ushort max, byte area, int mergeThreshold) {
+    /// <param name="drop">
+    ///     How far below <paramref name="max" /> the real surface is, in
+    ///     <see cref="HeightfieldSpan.DropScale" />ths of a voxel.
+    /// </param>
+    public void AddSpan(int x, int z, ushort min, ushort max, byte area, int mergeThreshold, byte drop = 0) {
         var column = x + (z * Width);
-        var added = new HeightfieldSpan { Min = min, Max = max, Area = area, Next = -1 };
+        var added = new HeightfieldSpan { Min = min, Max = max, Area = area, Drop = drop, Next = -1 };
 
         var previous = -1;
         var current = columns[column];
@@ -146,6 +177,14 @@ internal sealed class Heightfield {
             }
 
             added.Min = Math.Min(added.Min, span.Min);
+
+            // The higher of the two surfaces wins the drop as well as the top, and a tie takes the
+            // smaller drop — which is the higher surface again. Decided before Max is overwritten,
+            // because afterwards there is no way to tell which of the two it came from.
+            if (span.Max > added.Max || (span.Max == added.Max && span.Drop < added.Drop)) {
+                added.Drop = span.Drop;
+            }
+
             added.Max = Math.Max(added.Max, span.Max);
 
             // The area of the merged span is the area of whichever surface is on top. Two surfaces
@@ -329,7 +368,16 @@ internal sealed class Heightfield {
                 var spanMin = (ushort)Math.Clamp((int)MathF.Floor(low * inverseCellHeight), 0, MaxHeight - 1);
                 var spanMax = (ushort)Math.Clamp((int)MathF.Ceiling(high * inverseCellHeight), spanMin + 1, MaxHeight);
 
-                AddSpan(x, z, spanMin, spanMax, area, mergeThreshold);
+                // Where in that top voxel the triangle actually was. A flat floor rounds up to the
+                // voxel above it and then drops a whole voxel back down to itself, which is the one
+                // cell of height every navmesh over a flat floor used to be reported at.
+                var drop = (byte)Math.Clamp(
+                    (int)MathF.Round((spanMax - (high * inverseCellHeight)) * HeightfieldSpan.DropScale),
+                    0,
+                    HeightfieldSpan.DropScale
+                );
+
+                AddSpan(x, z, spanMin, spanMax, area, mergeThreshold, drop);
             }
         }
     }

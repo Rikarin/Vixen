@@ -143,26 +143,26 @@ public sealed class DetailMeshTests {
         Assert.NotEmpty(tile.DetailTriangles);
     }
 
-    [Fact]
-    public void AFlatFloorIsStillReportedOneCellHeightAboveItself() {
+    [Theory]
+    [InlineData(0f)]
+    [InlineData(1.8f)]
+    public void AFlatFloorIsReportedWhereItIs(float sampleDistance) {
         var geometry = new NavTestGeometry().Floor(0, 0, 20, 20);
         var mesh = new NavMesh(NavMeshParams.Single);
-        var settings = Settings(1.8f);
 
-        mesh.AddTile(NavMeshBaker.Bake(geometry.Vertices, geometry.Indices, settings)!);
+        mesh.AddTile(NavMeshBaker.Bake(geometry.Vertices, geometry.Indices, Settings(sampleDistance))!);
 
         var query = new NavMeshQuery(mesh);
 
         Assert.True(query.FindNearestPoly(new(10, 0, 10), Extents, NavQueryFilter.Default, out var poly, out _));
         Assert.True(query.GetPolyHeight(poly, new(10, 0, 10), out var height));
 
-        // Written down deliberately, because it looks like a bug and is not one the detail mesh can
-        // fix. A span is the voxel the surface passes through, and its walkable height is the top of
-        // that voxel — biased upwards on purpose, since a surface reported below the true floor would
-        // place an agent inside it. The detail pass samples those same spans, so it removes the
-        // *variation* over uneven ground and leaves this constant exactly where it was. Removing it
-        // needs a sub-voxel surface height on the span, which is a rasteriser change.
-        Assert.Equal(settings.CellHeight, height, 0.01f);
+        // This used to read one whole cell height high, and used to be asserted that way with an
+        // explanation. The span still records the voxel the surface passes through — every filter in
+        // the bake depends on that being an integer — but it now also records where in that voxel the
+        // triangle was, and the contour tracer reports the two together. With detail sampling and
+        // without: nothing about this answer comes from the detail mesh.
+        Assert.Equal(0f, height, 0.02f);
     }
 
     [Fact]

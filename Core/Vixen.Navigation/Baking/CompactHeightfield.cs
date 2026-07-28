@@ -19,6 +19,20 @@ internal struct CompactSpan {
     /// <summary>The voxel the surface is at.</summary>
     public ushort Y;
 
+    /// <summary>
+    ///     How far below <see cref="Y" /> the surface really is, in
+    ///     <see cref="HeightfieldSpan.DropScale" />ths of a voxel.
+    /// </summary>
+    /// <remarks>
+    ///     Carried through untouched. Nothing between here and the contour tracer reads it: erosion,
+    ///     partitioning and the region merge are all questions about which cells are which, and a
+    ///     sixteenth of a voxel is not an answer to any of them.
+    /// </remarks>
+    public byte Drop;
+
+    /// <summary>The surface height, in <see cref="HeightfieldSpan.DropScale" />ths of a voxel.</summary>
+    public readonly int Surface => (Y * HeightfieldSpan.DropScale) - Drop;
+
     /// <summary>Which region it was partitioned into, or zero.</summary>
     public ushort Region;
 
@@ -178,6 +192,7 @@ internal sealed class CompactHeightfield {
 
                     compact.Spans[next] = new() {
                         Y = span.Max,
+                        Drop = span.Drop,
                         Height = (byte)Math.Clamp(top - span.Max, 0, byte.MaxValue),
                         Connections = 0xffffffff
                     };
