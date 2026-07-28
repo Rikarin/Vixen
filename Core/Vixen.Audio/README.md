@@ -55,7 +55,7 @@ that owns its mixer pays.
 | `AudioSend` | a copy of a bus's signal into another, so one reverb serves a whole level |
 | `Voice` | one sound: a source, a rate conversion, a set of speaker gains |
 | `Spatializer` | distance, cone, doppler and panning, as arithmetic |
-| `IAudioEffect` | `BiquadFilterEffect` (seven shapes), `ReverbEffect` (Freeverb), `CompressorEffect`, `LimiterEffect` |
+| `IAudioEffect` | `BiquadFilterEffect` (seven shapes), `EqualizerEffect`, `ReverbEffect` (Freeverb), `DelayEffect`, `CompressorEffect`, `LimiterEffect` |
 | `ISidechainEffect` | an effect that listens to one bus while processing another — how ducking is built |
 | `IAudioSampleProvider` | a clip, a stream, a live push source, or anything a caller can produce samples from |
 | `LiveSampleProvider` | frames pushed in as they arrive, for voice chat |
@@ -63,6 +63,8 @@ that owns its mixer pays.
 | `AudioStreamPump` | the one thread that keeps every streaming voice fed |
 | `IAudioBackend` | what a platform implements. `NullAudioBackend` is here; OpenAL and WebAudio are under `Platform/` |
 | `Ecs/AudioSystem` | makes the mixer agree with the world, once a frame |
+| `MixerAsset` / `MixerBuilder` | the whole mixer as a serialisable record graph |
+| `MixerSnapshots` | named mix states, blended to over a duration |
 
 ## Inserts, sends, and the order it all runs in
 
@@ -100,6 +102,37 @@ and `SetSidechain` refuse anything that would make a cycle, so the sort always s
 handed back for the parent sum to apply, which meant the buffer held a *pre*-fader signal — so a send
 reading it, or a compressor keying off it, would have ignored the fader entirely.
 
+## Fades
+
+`AudioEngine.FadeTo`, `FadeOutAndStop` and `AudioBus.FadeTo` move a gain over time. `Stop` on its own
+fades over one block — enough not to click, and nothing like a musical fade-out.
+
+**Decibels by default.** Loudness is roughly logarithmic, so a linear fade-out sounds like nothing
+happening followed by the sound falling off a cliff at the end. `AudioFadeCurve.Linear` is there for
+cross-fades between takes of the same material, where the sum is what matters.
+
+**Stepped on game time, in `Update(deltaSeconds)`.** A fade under a paused game stops and a fade
+under slow motion slows down. `Update()` with no argument measures a wall clock instead, which is
+the wrong answer for anything with a pause menu — the ECS integration passes the frame delta.
+
+Sixty steps a second, each smoothed across an audio block by the ramp the voice already applies, is
+indistinguishable from a per-sample envelope and keeps the audio thread free of anything needing a
+clock.
+
+## Distance dulls the sound
+
+`SpatialSettings.AirAbsorption` puts a low-pass on a positioned voice that closes as it gets further
+away — the reason a distant gunshot is a thump and a near one is a crack. One biquad per voice, and
+only for the voices far enough away to need one.
+
+The cutoff sweeps **logarithmically** from 20 kHz at the reference distance to
+`AirAbsorptionCutoff` at the maximum: pitch is logarithmic and a filter sweep has to be too, or it
+does not sound like moving away, it sounds like a switch. The `Spatializer` computes it, so it is
+arithmetic a test can assert on rather than something only ears can check.
+
+**Off by default**, because it compounds with the content — a clip recorded at distance, or authored
+dull on purpose, would get dulled twice.
+
 ## When the pool is full
 
 A `Play` that finds every voice busy **steals** the lowest-priority, quietest one. Priority is the
@@ -130,6 +163,32 @@ packet would be rebuilt, with its bus and its spatialisation, several times a se
 underwater" is two buses — one with a low-pass and a send to the underwater reverb, one without — and
 each player's voice is routed to whichever matches where they are. That is one bus per *environment*
 rather than per player, and it is both cheaper and how a mixer is meant to be used.
+
+## The mixer as an asset
+
+```csharp
+var problems = engine.LoadMixer(asset);       // buses, effects, sends, sidechains
+engine.Snapshots?.TransitionTo("Underwater", TimeSpan.FromSeconds(0.4));
+```
+
+`MixerAsset` is a serialisable record graph — buses with gains in decibels, sends, sidechains and
+effects. Effect polymorphism is an interface with a `[DataContract]` name per implementation, so the
+contract name is the YAML tag and nothing keeps a registration table in sync; `Vixen.Rendering`'s
+compositor asset is the same arrangement. `IAudioEffectAsset.Create` is a method rather than a lookup
+table, because constructing an effect from a name is reflection, and ADR-002 forbids that in runtime
+code.
+
+**No file format here.** The editor writes YAML, the content build bakes a chunk, and a shipping
+runtime reads the chunk with no parser linked in.
+
+**A snapshot names only the buses it changes**, so "the player is underwater" is a two-line thing
+rather than a copy of the whole mixer that goes stale the moment a bus is added. Transitions blend in
+decibels and start from wherever things are — so interrupting one halfway does not jump, and a fader
+moved by hand since the last transition is respected.
+
+**Unknown names are diagnostics, not exceptions.** A mixer asset is content: a level whose ambience
+bus lost its reverb send should still be playable while somebody works out why. `LoadMixer` returns
+the problems.
 
 ## The master
 
@@ -238,11 +297,8 @@ multiply on the few hundred frames that are actually playing.
 reverb that is right; for a reverb amount that tracks how far into the room each emitter is, it is
 not.
 
-**A mixer asset with snapshots.** Buses are built in code. Snapshot transitions — combat, underwater,
-paused — are what a sound designer actually works in.
-
-**Occlusion and reverb zones**, both of which want physics, and a per-voice distance low-pass for air
-absorption, which does not.
+**Occlusion and reverb zones**, both of which want physics — the geometry between a source and the
+listener is a raycast, and there is nothing to cast against yet.
 
 **A surround panner.** Beyond two channels a sound is placed in the first two and the rest are
 silent. Silence in the surrounds is wrong in a way somebody will notice and describe; a quiet, wrong

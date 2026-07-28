@@ -12,6 +12,11 @@ namespace Vixen.Audio.Spatial;
 /// <param name="DopplerRatio">
 ///     What to multiply the playback rate by. Above one is approaching, below one is receding.
 /// </param>
+/// <param name="LowPassHz">
+///     Where distance has put the air-absorption low-pass, in hertz, or <c>0</c> for no filtering at
+///     all — which is both the default and the common case, and is a bypass rather than a filter set
+///     wide open.
+/// </param>
 /// <remarks>
 ///     The parts are returned separately rather than pre-multiplied because the audio debug overlay
 ///     <c>docs/plan/13</c> asks for shows exactly this: a source that is inaudible is either too far
@@ -21,7 +26,8 @@ public readonly record struct SpatialResult(
     float Distance,
     float Attenuation,
     float ConeGain,
-    float DopplerRatio
+    float DopplerRatio,
+    float LowPassHz = 0f
 );
 
 /// <summary>Turns a listener and a source into per-speaker gains and a pitch ratio.</summary>
@@ -77,9 +83,11 @@ public static class Spatializer {
         var doppler = Doppler(listener, source, toSource, distance);
         var gain = attenuation * cone * listener.Gain;
 
+        var cutoff = Absorption(source, distance);
+
         if (outputChannels <= 1) {
             gains[0] = gain;
-            return new SpatialResult(distance, attenuation, cone, doppler);
+            return new SpatialResult(distance, attenuation, cone, doppler, cutoff);
         }
 
         // Inside the reference distance the direction stops meaning anything — the listener is
@@ -96,7 +104,41 @@ public static class Spatializer {
         gains[0] = left * gain;
         gains[1] = right * gain;
 
-        return new SpatialResult(distance, attenuation, cone, doppler);
+        return new SpatialResult(distance, attenuation, cone, doppler, cutoff);
+    }
+
+    /// <summary>Where distance has put the low-pass, in hertz, or zero for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Interpolated logarithmically, from 20 kHz at the reference distance down to
+    ///         <see cref="SpatialSettings.AirAbsorptionCutoff" /> at the maximum. Linearly would spend
+    ///         almost the whole journey in the top octave, where nothing is, and then collapse through
+    ///         everything audible in the last few metres — pitch is logarithmic and a filter sweep has
+    ///         to be too, or it does not sound like moving away, it sounds like a switch.
+    ///     </para>
+    ///     <para>
+    ///         Real air absorption also depends on humidity and temperature and is frequency-dependent
+    ///         in a way one biquad cannot express. This is the cheap approximation every game uses; the
+    ///         accurate model belongs in an offline tool, not in a voice.
+    ///     </para>
+    /// </remarks>
+    static float Absorption(in SpatialSettings source, float distance) {
+        var strength = Math.Clamp(source.AirAbsorption, 0f, 1f);
+
+        if (strength <= 0f) {
+            return 0f;
+        }
+
+        var min = Math.Max(source.MinDistance, MathUtil.ZeroTolerance);
+        var max = Math.Max(source.MaxDistance, min + MathUtil.ZeroTolerance);
+        var travelled = Math.Clamp((distance - min) / (max - min), 0f, 1f) * strength;
+
+        if (travelled <= 0f) {
+            return 0f;
+        }
+
+        var target = Math.Clamp(source.AirAbsorptionCutoff, 20f, 20_000f);
+        return MathF.Exp(MathUtil.Lerp(MathF.Log(20_000f), MathF.Log(target), travelled));
     }
 
     /// <summary>Where a direction sits from left to right, as seen by a listener.</summary>

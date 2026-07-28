@@ -85,7 +85,10 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
         UpdateListener(world, deltaSeconds);
         UpdatePositioned(world, deltaSeconds);
         UpdateAmbient(world);
-        engine.Update();
+
+        // The frame's delta and not a wall clock: a fade that kept running under a pause menu, or
+        // ignored slow motion, is a bug somebody spends an afternoon on.
+        engine.Update(deltaSeconds);
     }
 
     void UpdateListener(World world, float deltaSeconds) {

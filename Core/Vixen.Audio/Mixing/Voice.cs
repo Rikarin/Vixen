@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Audio.Effects;
 using Vixen.Audio.Sources;
 using Vixen.Audio.Spatial;
 
@@ -51,6 +52,11 @@ sealed class Voice {
     bool ended;
     bool downmix;
     bool ramped;
+
+    BiquadCoefficients absorption = BiquadCoefficients.Identity;
+    float absorptionZ1;
+    float absorptionZ2;
+    float absorptionHz;
 
     /// <summary>Which use of this slot the handle must name to reach it.</summary>
     public int Generation;
@@ -206,6 +212,10 @@ sealed class Voice {
         sourceEnded = false;
         ended = false;
         ramped = false;
+        absorption = BiquadCoefficients.Identity;
+        absorptionZ1 = 0f;
+        absorptionZ2 = 0f;
+        absorptionHz = 0f;
         Array.Clear(currentGains);
         Array.Clear(previous);
         Array.Clear(next);
@@ -268,6 +278,17 @@ sealed class Voice {
                 }
 
                 summed /= sourceChannels;
+
+                // Air absorption, and the one place a voice filters anything. It sits here rather
+                // than on the mono sum's way out because it is a property of the path from the source
+                // to the ears, so it belongs before the sound is spread across the speakers — filter
+                // after panning and the two channels get two independent filters chasing one distance.
+                if (absorptionHz > 0f) {
+                    var filtered = (absorption.B0 * summed) + absorptionZ1;
+                    absorptionZ1 = (absorption.B1 * summed) - (absorption.A1 * filtered) + absorptionZ2;
+                    absorptionZ2 = (absorption.B2 * summed) - (absorption.A2 * filtered);
+                    summed = filtered;
+                }
 
                 for (var channel = 0; channel < channels; channel++) {
                     destination[offset + channel] += summed * Ramp(channel, t);
@@ -335,6 +356,7 @@ sealed class Voice {
             var result = Spatializer.Evaluate(listener, spatial, channels, targetGains);
             LastSpatial = result;
             ratio *= result.DopplerRatio;
+            SetAbsorption(result.LowPassHz);
 
             for (var channel = 0; channel < channels; channel++) {
                 targetGains[channel] *= Gain;
@@ -380,6 +402,34 @@ sealed class Voice {
         }
 
         return Math.Clamp(ratio, MinRatio, MaxRatio);
+    }
+
+    /// <summary>Retunes the air-absorption filter, if distance has moved it far enough to matter.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Redesigned per block and not per sample: a biquad costs a handful of transcendentals to
+    ///         design and five multiplies to run, and a listener cannot move far enough in ten
+    ///         milliseconds for the difference to be audible.
+    ///     </para>
+    ///     <para>
+    ///         The two per cent threshold is what stops a source drifting by a centimetre a frame from
+    ///         redesigning the filter sixty times a second for a cutoff nobody could hear move. The
+    ///         state is deliberately <em>not</em> cleared on a retune — the filter's memory is the
+    ///         signal that was passing through it, and throwing it away is a click.
+    ///     </para>
+    /// </remarks>
+    void SetAbsorption(float hertz) {
+        if (hertz <= 0f) {
+            absorptionHz = 0f;
+            return;
+        }
+
+        if (absorptionHz > 0f && MathF.Abs(hertz - absorptionHz) < absorptionHz * 0.02f) {
+            return;
+        }
+
+        absorptionHz = hertz;
+        absorption = BiquadCoefficients.Design(BiquadFilterKind.LowPass, outputRate, hertz);
     }
 
     bool Advance() {

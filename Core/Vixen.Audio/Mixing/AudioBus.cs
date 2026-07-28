@@ -37,6 +37,7 @@ public sealed class AudioBus {
     IAudioEffect[] effects = NoEffects;
     AudioSend[] sends = NoSends;
     AudioMixer? owner;
+    FadeState fade;
     float[] buffer = [];
     AudioFormat format;
     int maxFrames;
@@ -84,6 +85,43 @@ public sealed class AudioBus {
     /// </summary>
     /// <remarks>What the mixer-levels part of the audio debug overlay reads. Anything above 1 is clipping.</remarks>
     public float PeakLevel => peak;
+
+    /// <summary>Takes this bus's gain somewhere else over time.</summary>
+    /// <param name="gain">Where it is going.</param>
+    /// <param name="duration">How long to take. Zero or less arrives at once.</param>
+    /// <param name="curve">Which way. Decibels by default, because that is what sounds like a fade.</param>
+    /// <remarks>
+    ///     <para>
+    ///         What a cutscene, a pause menu and a level transition all want, and the thing everybody
+    ///         writes by hand against <see cref="Gain" /> otherwise — badly, because doing it linearly
+    ///         is the obvious way and the wrong one.
+    ///     </para>
+    ///     <para>
+    ///         Stepped by <c>AudioEngine.Update</c>, so it runs on game time: it stops when the game
+    ///         is paused and slows down in slow motion. A second call replaces the fade in progress
+    ///         from wherever it had got to, so fading out and changing your mind does not jump.
+    ///     </para>
+    /// </remarks>
+    public void FadeTo(float gain, TimeSpan duration, AudioFadeCurve curve = AudioFadeCurve.Decibel) {
+        fade = new FadeState {
+            Active = true,
+            From = Gain,
+            To = gain,
+            Duration = (float)duration.TotalSeconds,
+            Curve = curve
+        };
+
+        if (fade.Duration <= 0f) {
+            Gain = gain;
+            fade.Active = false;
+        }
+    }
+
+    /// <summary>Whether a fade is running on this bus.</summary>
+    public bool IsFading => fade.Active;
+
+    /// <summary>Stops a fade where it is, leaving the gain at whatever it had reached.</summary>
+    public void CancelFade() => fade.Active = false;
 
     /// <summary>Adds an effect to the end of the chain.</summary>
     /// <param name="effect">The effect. Prepared here, so it is ready before the next block.</param>
@@ -238,6 +276,18 @@ public sealed class AudioBus {
     public IReadOnlyList<AudioSend> Sends => sends;
 
     internal Span<float> Buffer => buffer;
+
+    internal void StepFade(float deltaSeconds) {
+        if (!fade.Active) {
+            return;
+        }
+
+        if (fade.Step(deltaSeconds, out var gain)) {
+            fade.Active = false;
+        }
+
+        Gain = gain;
+    }
 
     internal void Attach(AudioMixer mixer) => owner = mixer;
 

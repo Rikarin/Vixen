@@ -40,6 +40,17 @@ static class AudioTestData {
         return FromFloats(samples, sampleRate, channels);
     }
 
+    /// <summary>A sine at a frequency, for anything that is about what a filter did.</summary>
+    public static AudioClip Tone(float frequency, int frames, float amplitude = 1f, int sampleRate = 48_000) {
+        var samples = new float[frames];
+
+        for (var i = 0; i < frames; i++) {
+            samples[i] = amplitude * MathF.Sin(2f * MathF.PI * frequency * i / sampleRate);
+        }
+
+        return FromFloats(samples, sampleRate, 1);
+    }
+
     /// <summary>A clip that is one full-scale sample and then nothing.</summary>
     public static AudioClip Impulse(int frames, int sampleRate = 48_000, int channels = 1) {
         var samples = new float[frames * channels];

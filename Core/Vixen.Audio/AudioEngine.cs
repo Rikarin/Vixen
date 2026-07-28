@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Vixen.Audio.Assets;
 using Vixen.Audio.Devices;
 using Vixen.Audio.Diagnostics;
 using Vixen.Audio.Effects;
@@ -78,7 +79,7 @@ public readonly record struct AudioEngineOptions() {
 ///         for every moving emitter in the scene.
 ///     </para>
 ///     <para>
-///         <b><see cref="Update" /> must be called once a frame.</b> It is where a finished voice
+///         <b><see cref="Update()" /> must be called once a frame.</b> It is where a finished voice
 ///         goes back to the pool, where a stream is handed back to the pump, and where the counters
 ///         the audio thread wrote become statistics and log lines. An engine that is never updated
 ///         plays its first sixty-four sounds and then goes quiet.
@@ -87,7 +88,10 @@ public readonly record struct AudioEngineOptions() {
 public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     readonly ILogger logger;
     readonly Voice[] voices;
+    readonly FadeState[] fades;
     readonly float[] silence;
+    readonly Stopwatch clock = Stopwatch.StartNew();
+    TimeSpan lastUpdate;
 
     Published<AudioListener> publishedListener;
     AudioListener listener = AudioListener.Default;
@@ -116,6 +120,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         this.logger = logger ?? NullLogger.Instance;
         Mixer = new AudioMixer(options.VoiceCapacity);
         voices = Mixer.Voices;
+        fades = new FadeState[voices.Length];
         silence = new float[device.BufferFrames * device.Format.Channels];
 
         Streams = new AudioStreamPump();
@@ -200,6 +205,32 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     /// <summary>The bus everything reaches.</summary>
     public AudioBus Master => Mixer.Master;
 
+    /// <summary>The named mix states from the last <see cref="LoadMixer" />, or <see langword="null" />.</summary>
+    public MixerSnapshots? Snapshots { get; private set; }
+
+    /// <summary>Builds a mixer asset's buses, effects, sends and sidechains onto this engine.</summary>
+    /// <param name="asset">What to build.</param>
+    /// <returns>Everything that did not resolve, in the order it was found. Empty is the good case.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The front door for the authoring layer: a sound designer edits the asset, and gameplay
+    ///         code says <c>engine.Snapshots?.TransitionTo("Underwater", …)</c> without ever naming a
+    ///         bus. That indirection is the whole point — a mix that lives in an asset can be changed
+    ///         without a programmer, and one that lives in C# cannot.
+    ///     </para>
+    ///     <para>
+    ///         Problems are returned rather than thrown, because a mixer asset is content: a level
+    ///         whose ambience bus lost its reverb send should still be playable while somebody works
+    ///         out why.
+    ///     </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="asset" /> is null.</exception>
+    public IReadOnlyList<string> LoadMixer(MixerAsset asset) {
+        var result = MixerBuilder.Build(Mixer, asset);
+        Snapshots = result.Snapshots;
+        return result.Problems;
+    }
+
     /// <summary>The limiter on the master, if <see cref="AudioEngineOptions.MasterLimiter" /> asked for one.</summary>
     /// <remarks>
     ///     Exposed so its ceiling can be changed and its gain reduction read — the second being the
@@ -214,7 +245,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     /// <summary>Where the ears are, as last set.</summary>
     public AudioListener Listener => listener;
 
-    /// <summary>What the subsystem was doing as of the last <see cref="Update" />.</summary>
+    /// <summary>What the subsystem was doing as of the last <see cref="Update()" />.</summary>
     public AudioStatistics Statistics { get; private set; }
 
     /// <summary>Moves the listener.</summary>
@@ -329,6 +360,15 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         }
     }
 
+    /// <summary>What a sound's gain currently is.</summary>
+    /// <param name="handle">Which one.</param>
+    /// <returns>Its gain, or zero if the handle is stale.</returns>
+    /// <remarks>
+    ///     Worth having because a fade moves it: a caller that set 1.0 and started a fade-out cannot
+    ///     otherwise find out where the fade has got to, and an audio overlay wants to show it.
+    /// </remarks>
+    public float GainOf(VoiceHandle handle) => TryResolve(handle, out var voice) ? voice.Gain : 0f;
+
     /// <summary>Changes a sound's playback rate.</summary>
     /// <param name="handle">Which one.</param>
     /// <param name="pitch">The new multiplier.</param>
@@ -369,9 +409,64 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     public bool IsPlaying(VoiceHandle handle) =>
         StateOf(handle) is VoiceState.Playing or VoiceState.Paused or VoiceState.Stopping;
 
-    /// <summary>Collects finished voices and gathers the frame's numbers.</summary>
-    /// <remarks>Once a frame, on the game thread. See the note on the class about what happens if it is not.</remarks>
+    /// <summary>Takes a sound's gain somewhere else over time.</summary>
+    /// <param name="handle">Which sound. A stale handle does nothing.</param>
+    /// <param name="gain">Where its gain is going.</param>
+    /// <param name="duration">How long to take. Zero or less arrives at once.</param>
+    /// <param name="curve">Which way. Decibels by default.</param>
+    /// <remarks>
+    ///     Stepped by <see cref="Update(float)" /> on game time, so a fade under a paused game stops
+    ///     and a fade under slow motion slows down. A second call replaces the one in progress from
+    ///     wherever it had got to.
+    /// </remarks>
+    public void FadeTo(
+        VoiceHandle handle,
+        float gain,
+        TimeSpan duration,
+        AudioFadeCurve curve = AudioFadeCurve.Decibel
+    ) => StartFade(handle, gain, duration, curve, stopAtEnd: false);
+
+    /// <summary>Fades a sound out and stops it when it gets there.</summary>
+    /// <param name="handle">Which sound.</param>
+    /// <param name="duration">How long to take.</param>
+    /// <param name="curve">Which way.</param>
+    /// <remarks>
+    ///     The other half of every music system. <see cref="Stop" /> alone fades over one block —
+    ///     enough not to click, and nothing like a musical fade-out.
+    /// </remarks>
+    public void FadeOutAndStop(
+        VoiceHandle handle,
+        TimeSpan duration,
+        AudioFadeCurve curve = AudioFadeCurve.Decibel
+    ) => StartFade(handle, 0f, duration, curve, stopAtEnd: true);
+
+    /// <summary>Whether a fade is running on a sound.</summary>
+    /// <param name="handle">Which sound.</param>
+    /// <returns>Whether it is fading.</returns>
+    public bool IsFading(VoiceHandle handle) =>
+        (uint)handle.Index < (uint)fades.Length
+        && fades[handle.Index].Active
+        && fades[handle.Index].Generation == handle.Generation;
+
+    /// <summary>Collects finished voices, steps the fades, and gathers the frame's numbers.</summary>
+    /// <remarks>
+    ///     Measures the time since the previous call. A game that already has a frame delta should
+    ///     pass it to <see cref="Update(float)" /> instead — a wall clock does not stop when the game
+    ///     is paused, and a fade that kept running under a pause menu is a bug somebody will spend an
+    ///     afternoon on.
+    /// </remarks>
     public void Update() {
+        var now = clock.Elapsed;
+        var delta = now - lastUpdate;
+        lastUpdate = now;
+        Update((float)delta.TotalSeconds);
+    }
+
+    /// <summary>Collects finished voices, steps the fades, and gathers the frame's numbers.</summary>
+    /// <param name="deltaSeconds">How much game time has passed since the last call.</param>
+    /// <remarks>Once a frame, on the game thread. See the note on the class about what happens if it is not.</remarks>
+    public void Update(float deltaSeconds) {
+        StepFades(deltaSeconds);
         var streamUnderruns = 0L;
 
         foreach (var voice in voices) {
@@ -425,6 +520,75 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
 
         if (Interlocked.Exchange(ref renderFailure, null) is { } failure) {
             AudioLog.RenderFailed(logger, failure);
+        }
+    }
+
+    void StartFade(VoiceHandle handle, float gain, TimeSpan duration, AudioFadeCurve curve, bool stopAtEnd) {
+        if (!TryResolve(handle, out var voice)) {
+            return;
+        }
+
+        var seconds = (float)duration.TotalSeconds;
+
+        if (seconds <= 0f) {
+            voice.Gain = gain;
+            fades[handle.Index].Active = false;
+
+            if (stopAtEnd) {
+                Stop(handle);
+            }
+
+            return;
+        }
+
+        fades[handle.Index] = new FadeState {
+            Active = true,
+            Generation = handle.Generation,
+            From = voice.Gain,
+            To = gain,
+            Duration = seconds,
+            Curve = curve,
+            StopAtEnd = stopAtEnd
+        };
+    }
+
+    void StepFades(float deltaSeconds) {
+        // Snapshots first: a transition cancels any manual fade on the buses it names, so stepping
+        // it before them keeps a fade started this frame from being applied and then overwritten.
+        Snapshots?.Step(deltaSeconds);
+
+        foreach (var bus in Mixer.Buses) {
+            bus.StepFade(deltaSeconds);
+        }
+
+        for (var i = 0; i < fades.Length; i++) {
+            ref var fade = ref fades[i];
+
+            if (!fade.Active) {
+                continue;
+            }
+
+            var voice = voices[i];
+
+            // The slot moved on — the sound finished, or was stolen — so the fade is about something
+            // that is no longer there. Left running it would drive the gain of whatever took the slot.
+            if (voice.Generation != fade.Generation) {
+                fade.Active = false;
+                continue;
+            }
+
+            var finished = fade.Step(deltaSeconds, out var gain);
+            voice.Gain = gain;
+
+            if (!finished) {
+                continue;
+            }
+
+            fade.Active = false;
+
+            if (fade.StopAtEnd) {
+                Stop(new VoiceHandle(i, fade.Generation));
+            }
         }
     }
 
