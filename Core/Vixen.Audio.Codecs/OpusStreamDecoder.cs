@@ -85,6 +85,7 @@ public sealed class OpusStreamDecoder : IAudioStreamDecoder {
                 throw new InvalidDataException("The stream has no OpusTags packet after its header.");
             }
 
+            OpusRuntime.Ensure();
             decoder = OpusCodecFactory.CreateDecoder(DecodeRate, channels);
             decoded = new float[MaxPacketFrames * channels];
             CanSeek = ogg.CanSeek;

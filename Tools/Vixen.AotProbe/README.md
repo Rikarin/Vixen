@@ -32,7 +32,13 @@ resulting binary runs.
 
 `Vixen.Audio.Codecs` is in the list for a reason worth stating: NVorbis and Concentus are third-party
 decoders, and rooting them here is what makes "both are pure managed and survive trimming" a checked
-fact rather than a claim on a NuGet page.
+fact rather than a claim on a NuGet page. Concentus would otherwise P/Invoke a system libopus when it
+finds one; the assembly pins it to managed at construction, and rooting it here is what keeps that
+true under trimming.
+
+`Vixen.Audio.Physics` is here for the opposite reason. It is the assembly that *does* bind Jolt on
+audio's behalf, and its whole justification is that `Vixen.Audio` therefore does not — so a probe
+that publishes both separately is what keeps that separation honest as the two grow.
 
 **The three Silk.NET-based backends are in the list only because none of them calls `GetApi()`.**
 That call builds Silk.NET's default context, which finds a native library by asking where its own

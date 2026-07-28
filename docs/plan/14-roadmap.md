@@ -2707,8 +2707,40 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   the device's own clock, segments whose transitions land on a bar line, sustain points, stingers and
   a tempo map. Also landed: a BS.1770 loudness meter, a polyphase sinc resampler with the cutoff
   banded to the pitch, and a loopback live-update listener over `MixControl`. `Vixen.Audio.Codecs`
-  carries Ogg Vorbis and Opus, both pure managed and both rooted in the AOT probe. Still owed:
-  true-peak and loudness-range metering, and ADPCM for effects.
+  carries Ogg Vorbis and Opus, both pure managed and both rooted in the AOT probe.
+
+  **Voice chat is joined up** now that Phase 9 has landed the transport it was waiting for: a packet
+  Opus encoder and decoder beside the stream ones, and a `VoiceSender`/`VoiceReceiver` pair carrying
+  gate-driven transmission, sequencing, a jitter buffer and concealment. Neither knows about a
+  network — `Channel.Sequenced` is four lines in a game. A packet carries a sequence *and* a
+  timestamp because nothing simpler can tell a deliberate pause from a burst of loss, and concealing
+  a pause invents speech into a silence the talker chose. Opus is also pinned to its managed
+  implementation: Concentus P/Invokes a system libopus when it finds one, and against Homebrew's the
+  encoder ignored its bitrate and emitted maximum-length packets.
+
+  **Occlusion and reverb zones** arrived with physics, and needed different things.
+  `IAudioOcclusionProvider` is a seam here and `Vixen.Audio.Physics` answers it with a Jolt raycast,
+  so a game with sound and no physics never links Jolt. Reverb zones need no physics at all — a
+  volume test is arithmetic — so they work in a game that links no native library. Both drive
+  authored curves rather than deciding anything themselves.
+
+  Zones are entities: `AudioReverbZoneRef` places one in a level, `AudioZoneAsset` is the shared
+  description, and the set is rebuilt from the world every frame so a destroyed entity stops being a
+  room without anybody having to say so. **Per-voice sends** landed with them, which is the half a
+  bus send cannot do: one amount per bus means every emitter in a room is equally wet.
+  `Samples/10-VoiceChat` runs the whole voice path over real UDP sockets, which is the one thing the
+  codec tests deliberately cannot check — they drive a stand-in network on purpose.
+
+  The last seven landed together: true-peak metering and loudness range on the meter, ADPCM beside
+  the PCM decoder, a structural HRTF panner behind `Spatializer`, a real-input FFT, oversampling on
+  the distortion, and a phase-vocoder shifter beside the time-domain one. Two of them are worth
+  writing down honestly: the HRTF is a structural model rather than measured impulse responses, so it
+  tells front from back without shipping content but is not as convincing as a good measured set; and
+  the phase vocoder does **not** beat the time-domain shifter on steady material — measured, the
+  crossfade was cleaner — it earns its window of latency on material that does not repeat.
+
+  Nothing structural is owed. What is left is content and platform work: measured HRTF sets for
+  anybody who wants better, and whatever a specific title's certification checklist asks for.
 - `Vixen.Animation`: skeletal playback, blend trees (1D/2D), layers + masks, state machine, IK (two-bone,
   look-at, foot placement), root motion, events, GPU skinning integration.
 - `Vixen.Editor.AnimationGraph`.

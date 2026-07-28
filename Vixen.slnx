@@ -87,6 +87,8 @@
     <Project Path="Core/Vixen.Audio.Tests/Vixen.Audio.Tests.csproj" />
     <Project Path="Core/Vixen.Audio.Codecs/Vixen.Audio.Codecs.csproj" />
     <Project Path="Core/Vixen.Audio.Codecs.Tests/Vixen.Audio.Codecs.Tests.csproj" />
+    <Project Path="Core/Vixen.Audio.Physics/Vixen.Audio.Physics.csproj" />
+    <Project Path="Core/Vixen.Audio.Physics.Tests/Vixen.Audio.Physics.Tests.csproj" />
     <Project Path="Core/Vixen.Input/Vixen.Input.csproj" />
     <Project Path="Core/Vixen.Input.Generators/Vixen.Input.Generators.csproj" />
     <Project Path="Core/Vixen.Input.Tests/Vixen.Input.Tests.csproj" />
@@ -256,6 +258,7 @@
   <Project Path="Samples/07-AddressablesRemote/AddressablesRemote.csproj" />
   <Project Path="Samples/08-Multiplayer/Multiplayer.csproj" />
   <Project Path="Samples/09-NetworkSoak/NetworkSoak.csproj" />
+    <Project Path="Samples/10-VoiceChat/VoiceChat.csproj" />
 
 
 </Solution>

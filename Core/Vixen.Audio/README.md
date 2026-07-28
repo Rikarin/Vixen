@@ -83,6 +83,12 @@ that owns its mixer pays.
 | `MusicTempoMap` | how frames, beats and bars relate across a tempo change |
 | `MixControlServer` | the loopback wire an editor drives the mix down |
 | `Dsp/SincTable` | the polyphase filter a pitched voice is resampled through |
+| `Dsp/RealFft` | the same transform for real input: half the work, identical answer |
+| `Dsp/TruePeakMeter` | the peak of the waveform a converter draws, which is not the peak of the samples |
+| `Dsp/Oversampler` | runs a nonlinearity at four times the rate so its harmonics have room |
+| `HrtfPanner` | front, back, above and below — the directions panning has no way to express |
+| `PitchVocoderEffect` | pitch shifting in the frequency domain, for material that does not repeat |
+| `Adpcm` / `AdpcmStreamDecoder` | four to one on short sounds, seekable to the sample |
 
 ## Inserts, sends, and the order it all runs in
 
@@ -869,34 +875,144 @@ The conversion to float happens per block in `ClipSampleProvider` rather than on
 converting at load would triple what a 16-bit clip costs for as long as it is resident, to save a
 multiply on the few hundred frames that are actually playing.
 
+## Occlusion and reverb zones
+
+**They arrived together and needed different things, which is the interesting part.** Occlusion is a
+raycast, so it needs something that owns geometry. A reverb zone is "is the listener inside this
+volume", which is a subtraction. Writing both against physics would have made reverb a feature only
+games with a physics engine could have, in exchange for nothing — so `AudioReverbZone` is arithmetic
+and works in a game that links no native library at all.
+
+**Occlusion is an interface here and an implementation elsewhere.** `IAudioOcclusionProvider` is the
+whole of what this assembly knows; `Vixen.Audio.Physics` answers it with a Jolt raycast for games
+that have physics. The alternative — referencing `Vixen.Physics` from here — would mean every game
+with sound linking a native physics library to play a footstep, and the browser target shipping it in
+order not to be able to call it.
+
+**Neither of them decides what anything sounds like.** Occlusion writes a number onto the voice and
+reverb zones write a number into a named parameter; turning "0.8 blocked" into a level and a cutoff
+is a curve in an asset, exactly as distance is. So a muffling that suited a stone corridor and not a
+canvas tent is an edit and not a build. What a curve against occlusion should mostly do is *dull*
+rather than *quieten*: a wall lets the low frequencies through, and a curve that only pulls the gain
+down sounds like the source moved away instead of like something got in the way.
+
+**The two hard parts of occlusion are not the raycast.** Asking every audible voice every frame is
+sixty-four casts a frame; and taking the answer at face value makes sound flicker, because a source
+near the edge of a doorway alternates between blocked and clear as either end shifts a few
+centimetres — which the ear notices far more than the occlusion itself. So `AudioOcclusion` rations
+the queries round-robin (`Budget`, eight a frame, refreshing a full pool about seven times a second)
+and seeks towards the answer over `SeekSeconds`. Both are pinned by sabotage: removing the smoothing
+fails `TheAnswerArrivesOverTimeRatherThanAtOnce`.
+
+**A stolen slot drops its occlusion, in both places it is held.** The voice, which the parameters
+read, and the tracker's target, which would otherwise seek it straight back. This is the third time
+this bug class has come up — automation, then the tracker — and it is the same bug each time: a
+footstep taking an occluded voice's slot being muffled by a wall it is not behind.
+
+**Zones do not blend where they overlap; the more specific one wins.** A cupboard inside a cathedral
+is inside both, and a blend of the two is a room that exists nowhere. Higher `Priority` takes it
+outright, still faded across its own `Blend` so stepping out is a walk rather than a jump. And every
+parameter a zone mentions is written every frame including to zero — a zone the listener has left has
+to actively release its parameter, or the cathedral follows them out into the field. Removing the
+last zone still runs one more pass for exactly that reason.
+
+**Reverb is the room you are standing in.** The listener decides, not the source: a gunshot fired
+outside a cathedral and heard from inside it gets the cathedral, because the reverberation happens
+around the ear.
+
+**A zone is placed, not written.** `AudioReverbZoneRef` makes it an entity, because a room belongs in
+a level and not in a method — and its position comes from `WorldTransform`, the same rule
+`AudioSpatial` follows. The description is shared and the placement is not: one `AudioZoneAsset`
+describes a *kind* of room and twenty entities carrying it are twenty different rooms, which is what
+makes "every cathedral is boomier now" one edit. The set is rebuilt from the world every frame rather
+than maintained, so an entity that has been destroyed simply stops being a zone — nothing to tear
+down and nothing to forget.
+
+## Per-voice sends
+
+**A send on a bus is one amount for everything routed through it.** For a room's reverb that is
+right. For a reverb amount that tracks how far into the room each *emitter* is, it is not — every
+source on the bus would move together. `PlaybackSettings.SendBus`/`SendLevel` and `SetSend` draw the
+same edge from one voice, and the level is a plain scalar meant to be written every frame, so a
+source's wetness can follow it across a room without a queue.
+
+It costs nothing when unused. A voice with a send renders into a scratch buffer so its contribution
+can be scaled twice — once into its bus and once into the aux — and a voice without one renders
+straight into the bus exactly as before.
+
+A send naming a bus that no longer exists is **dropped rather than clamped to the master**: losing an
+effect is a smaller mistake than a stale reverb send arriving at the output.
+
+## The last seven
+
+**True-peak metering.** Sample peak is the largest number in the buffer; true peak is the largest
+point of the curve a converter draws *through* those numbers, and it is never lower. A mix reading
+−1.0 dBFS can be at −0.3 dBTP. Certification measures the second, and so does an Opus encoder's
+reconstruction. Four times oversampled, filter derived rather than tabled — BS.1770 prints
+coefficients for 48 kHz and a meter using them at 44.1 would interpolate in the wrong place.
+`MeasureTruePeak` is most of what the meter costs and can be turned off without touching a LUFS
+reading.
+
+**Loudness range.** The third R128 number, and the one that says whether a mix breathes or has been
+squashed into a two-decibel band. Kept as a histogram rather than a list, so an hour of play costs
+the same 750 buckets as a minute. Its gates are not the integrated measurement's — 20 LU rather than
+10, applied to short-term readings rather than momentary ones, because a range is a property of how
+programme moves over seconds.
+
+**ADPCM.** Four bits a sample, decoded with an add and two lookups. It solves a different problem
+from Vorbis and Opus: they give ten to one and cost real time per voice plus decoder state plus a
+priming delay, which is right for a five-minute track and wrong for a footstep. **Vorbis and Opus for
+few long things; ADPCM for many short ones.** It lives here rather than in `Vixen.Audio.Codecs`
+because it needs no package — the codec is a table and twenty lines — and seeking is a division
+rather than a bisection, which is what a sound starting at an unpredictable moment needs.
+
+**An HRTF panner.** Amplitude panning has a left and a right; a sound behind you produces the same
+two numbers as one in front. This models the three mechanisms behind a measured HRTF — the path
+length difference to the two ears, the shadow the head casts, and what the pinna does — rather than
+shipping megabytes of measured impulse responses. It is **not** as convincing as a good measured set;
+it is convincing enough to tell front from back, which panning cannot do at all, and it costs no
+content. Headphones only, off by default, stereo devices only.
+
+The head shadow is a *filter* and not a gain, and that direction is the whole model: a head is
+transparent to a wavelength much longer than it is and opaque to a short one. Getting the two ends
+the wrong way round — which the first version did — produces something that shadows the bass and
+passes the treble, and reads on a meter as the far ear being louder.
+
+**A phase-vocoder pitch shifter,** and an honest note about it. The received wisdom is that the
+time-domain shifter warbles on sustained tones and that a phase vocoder fixes it. Measured against a
+held sawtooth, that is false: the crossfade put **0.00%** of its energy off the harmonic grid where
+the vocoder put **1.45%**. A two-tap shifter reading a *stationary periodic* signal is very nearly
+exact, because both taps sit on the same repeating waveform. Where it does fall down is material that
+does not repeat — speech, vibrato, a note bending — and that is a judgement about sound rather than a
+number, so it is written here rather than asserted in a test. Use `PitchShiftEffect` for steady
+material and anything needing zero latency; use `PitchVocoderEffect` for voices and music.
+
+**Oversampling for the distortion.** Harmonics above Nyquist fold back as inharmonic tones that move
+the *wrong way* when the input pitch changes, which is what aliased distortion sounds like. Four
+times up, shape, filter, back down: measured at 62 dB of suppression.
+
+It took three attempts and each failure was instructive. A gain of four, because the usual polyphase
+upsampler stuffs zeros and needs that correction and this one interpolates directly and does not —
+caught only after the round-trip test was given an upper bound as well as a lower one. Then the real
+one: the polyphase coefficients were paired with the history walked oldest-first where the
+decomposition wants newest-first, which mirrors every phase. A mirrored phase is still a
+plausible-looking low-pass, so nothing failed outright — image rejection just got *worse* as taps were
+added, and sweeping the tap count and seeing the wrong slope is what found it. And finally the test
+itself was measuring a hard-clipped square wave, whose harmonic series never ends, so no finite
+oversampling could have helped; that is physics rather than a bug, and testing against it proves
+nothing.
+
+**A real-input FFT.** Audio is real, so a complex transform is handed N zeroes it multiplies anyway
+and returns N bins of which half are a mirror. `RealFft` packs N real samples into an N/2 complex
+transform: half the butterflies, half the memory, identical answer. It is checked against the complex
+transform bin for bin rather than against hand-worked expectations, because the failure mode is a
+spectrum that is subtly wrong — and a magnitude-only test would pass on a packing that has mangled
+every phase.
+
 ## Still to come
 
-**True-peak metering.** The loudness meter reports sample peak. Certification wants true peak, which
-means oversampling by four to catch what the reconstruction filter does between samples.
-
-**Loudness range.** The third R128 number, and the one that says whether a mix has dynamics or has
-been flattened. It needs the block history kept rather than summed, which is why it is not here.
-
-**Per-voice sends.** Sends are per bus, so every source on a bus shares one send amount. For a room's
-reverb that is right; for a reverb amount that tracks how far into the room each emitter is, it is
-not.
-
-**Occlusion and reverb zones**, both of which want physics — the geometry between a source and the
-listener is a raycast, and there is nothing to cast against yet.
-
-**Oversampling for the distortion**, and a phase-vocoder pitch shifter — both now cheap to add, since
-the transform they want is in `Dsp/Fft`.
-
-**A real-input FFT.** Audio is real, so half the transform's input is zeroes and half its output is
-the mirror of the rest. A real-input transform is twice as fast for the same answer, and it doubles
-the index arithmetic — which is where a transform goes quietly wrong, so it is not taken until there
-is a profile that asks for it.
-
-**ADPCM**, which [doc 08](../../docs/plan/08-asset-pipeline-and-addressables.md) lists for effects.
-
-**An HRTF panner.** The panning is amplitude panning, which has a left and a right and no front and
-back — something behind you sounds like something in front of you. An HRTF is a pair of convolutions
-per voice with a filter set that has to be shipped, and it is only correct on headphones. It plugs in
-behind the same `Spatializer.Evaluate` call.
+Nothing structural. What is left is content and platform work rather than engine work: measured HRTF
+filter sets for anybody who wants better than the structural model, and whatever a specific title's
+certification checklist turns out to ask for.
 
 Licensed under Apache-2.0.

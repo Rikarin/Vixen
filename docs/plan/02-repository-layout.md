@@ -124,6 +124,8 @@ Core/
 ├── Vixen.Audio.Tests/
 ├── Vixen.Audio.Codecs/                 # ✅ Ogg Vorbis + Opus behind IAudioStreamDecoder, both managed
 ├── Vixen.Audio.Codecs.Tests/
+├── Vixen.Audio.Physics/                # ✅ occlusion raycasts, so Vixen.Audio need not bind Jolt
+├── Vixen.Audio.Physics.Tests/
 ├── Vixen.Physics/                      # ✅ Jolt integration — bodies, shapes, constraints,
 │                                       #   characters, queries, triggers, layers, CCD, ECS bridge
 ├── Vixen.Physics.Tests/
