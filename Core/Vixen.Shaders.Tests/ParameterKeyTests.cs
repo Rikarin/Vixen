@@ -27,7 +27,8 @@ public class ParameterKeyTests {
     }
 
     /// <summary>
-    ///     The first registration decides the default, and a later one does not silently replace it.
+    ///     The first registration to declare a default owns it, and a later one does not silently
+    ///     replace it.
     /// </summary>
     /// <remarks>
     ///     Two shaders declaring the same key with different defaults is a question with no good
@@ -39,6 +40,60 @@ public class ParameterKeyTests {
         Assert.Equal(3f, ParameterKeys.New("Test.Default.Value", 3f).DefaultValue);
         Assert.Equal(3f, ParameterKeys.New("Test.Default.Value", 9f).DefaultValue);
     }
+
+    /// <summary>
+    ///     A registration with no default to offer leaves room for the one that has it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The two callers for one name are the generated binding, which read <c>var exposure:
+    ///         float = 1f</c> out of Raven's reflection, and <c>EffectLoader</c>, which interns every
+    ///         parameter a compiled effect reflects from an <c>EffectParameterData</c> that carries
+    ///         no initialiser. Which of them runs first is a load-order accident — effects load from
+    ///         data, and a bindings class is not initialised until something first touches it.
+    ///     </para>
+    ///     <para>
+    ///         So "no default" must not register as "the default is zero". If it did, an effect that
+    ///         loaded first would leave every declared default in that shader as zero, and the
+    ///         symptom would be the black frame the whole chain exists to prevent.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_registration_with_no_default_leaves_room_for_the_one_that_has_it() {
+        var joined = ParameterKeys.New<float>("Test.Undeclared.Exposure");
+
+        Assert.False(joined.HasDeclaredDefault);
+        Assert.Equal(0f, joined.DefaultValue);
+
+        // Nothing to write rather than a zero that looks authored: the buffer writer clears the
+        // block before it fills one, so an empty span and four zero bytes come to the same thing.
+        Assert.True(joined.DefaultBytes.IsEmpty);
+
+        var declared = ParameterKeys.New("Test.Undeclared.Exposure", 1f);
+
+        // The same object — interning is by name — now carrying the default it was always meant to,
+        // which is what makes this reach a holder that took the key before the declaration existed.
+        Assert.Same(joined, declared);
+        Assert.True(joined.HasDeclaredDefault);
+        Assert.Equal(1f, joined.DefaultValue);
+        Assert.Equal(1f, MemoryMarshal.Read<float>(joined.DefaultBytes));
+    }
+
+    /// <summary>And in the other order: silence does not erase a default already declared.</summary>
+    [Fact]
+    public void A_registration_with_no_default_does_not_erase_one() {
+        var declared = ParameterKeys.New("Test.Undeclared.Ambient", 2.5f);
+        var joined = ParameterKeys.New<float>("Test.Undeclared.Ambient");
+
+        Assert.Same(declared, joined);
+        Assert.True(joined.HasDeclaredDefault);
+        Assert.Equal(2.5f, joined.DefaultValue);
+    }
+
+    /// <summary>A permutation key always has its default, because the API will not let it not.</summary>
+    [Fact]
+    public void A_permutation_key_always_carries_a_declared_default() =>
+        Assert.True(ParameterKeys.NewPermutation(true, "Test.Undeclared.Flag").HasDeclaredDefault);
 
     /// <summary>
     ///     A name that means two types is refused, because the alternative is a silent bad write.
@@ -109,9 +164,13 @@ public class ParameterKeyTests {
     }
 
     /// <summary>A key whose type no buffer could hold has no bytes rather than wrong ones.</summary>
+    /// <remarks>
+    ///     Both declare a default, so what is being asserted is the blit guard rather than the
+    ///     emptiness an undeclared key would have given for free.
+    /// </remarks>
     [Fact]
     public void A_key_that_names_a_resource_has_no_bytes() {
-        Assert.True(ParameterKeys.New<string>("Test.Bytes.Texture").DefaultBytes.IsEmpty);
+        Assert.True(ParameterKeys.New("Test.Bytes.Texture", "albedo").DefaultBytes.IsEmpty);
         Assert.True(ParameterKeys.NewPermutation(true, "Test.Bytes.Flag").DefaultBytes.IsEmpty);
     }
 }
