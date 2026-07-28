@@ -188,12 +188,18 @@
   <!--
     Editor — docs/plan/02 § Editor/. Vixen.Editor.Core is the project model everything
     else in the editor is built on: the asset database and the two indexes over it.
+    Vixen.Editor.Ui is the shell over Vixen.Ui — docking, commands, palette, theming —
+    and deliberately does not reference Core, so the chrome is testable with no project
+    on disk. Vixen.Editor.App is the head that joins them to a window and a device.
   -->
   <Folder Name="/Editor/">
     <Project Path="Editor/Vixen.Editor.Core/Vixen.Editor.Core.csproj" />
     <Project Path="Editor/Vixen.Editor.Core.Tests/Vixen.Editor.Core.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Assets/Vixen.Editor.Assets.csproj" />
     <Project Path="Editor/Vixen.Editor.Assets.Tests/Vixen.Editor.Assets.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Ui/Vixen.Editor.Ui.csproj" />
+    <Project Path="Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.App/Vixen.Editor.App.csproj" />
   </Folder>
 
   <!--

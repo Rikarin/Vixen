@@ -1,0 +1,210 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Input;
+using Vixen.Ui;
+using Vixen.Ui.Controls;
+using Xunit;
+
+namespace Vixen.Editor.Ui.Tests;
+
+/// <summary>Menus and toolbars as views over the registry.</summary>
+public class MenuTests : IDisposable {
+    readonly UiDocument document = new(1280f, 800f);
+    readonly CommandRegistry commands = new();
+    readonly KeyMap keys = new();
+    readonly List<MenuPresenter> presenters = [];
+
+    public MenuTests() => ControlTheme.Install(document);
+
+    public void Dispose() {
+        // ⚠ Every presenter, and this is not tidiness. A presenter is subscribed to the static
+        // `Strings.Changed`, so one left alive rebuilds a menu bar into this disposed document the
+        // next time any other test switches language — a failure in a test that has nothing to do
+        // with menus.
+        foreach (var presenter in presenters) {
+            presenter.Dispose();
+        }
+
+        document.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    static StringId Title(string text) => new("test." + text, text);
+
+    MenuPresenter Present(MenuModel model) {
+        var presenter = new MenuPresenter(document.Root, model, commands, keys);
+        presenters.Add(presenter);
+
+        return presenter;
+    }
+
+    [Fact]
+    public void A_menu_shows_what_the_registry_calls_a_command_and_what_the_keymap_binds_it_to() {
+        commands.Add("file.save", Title("Save"), () => { });
+        keys.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
+
+        var model = new MenuModel();
+        model.AddMenu(Title("File")).Add("file.save");
+
+        var presenter = Present(model);
+        var menu = presenter.Bar.Items[0].Menu;
+
+        var item = Assert.Single(menu.Items);
+        Assert.Equal("Save", item.Label);
+        Assert.Equal(InputKey.S, item.Shortcut?.Key);
+        Assert.Equal(ModifierKeys.Control, item.Shortcut?.Modifiers);
+    }
+
+    [Fact]
+    public void A_command_registered_afterwards_appears_without_anybody_rebuilding() {
+        var model = new MenuModel();
+        model.AddMenu(Title("File")).Add("file.save");
+
+        var presenter = Present(model);
+        Assert.Empty(presenter.Bar.Items[0].Menu.Items);
+
+        commands.Add("file.save", Title("Save"), () => { });
+
+        // This is the whole claim: an action added once appears everywhere it belongs.
+        Assert.Single(presenter.Bar.Items[0].Menu.Items);
+    }
+
+    [Fact]
+    public void An_id_nothing_registered_is_skipped_and_takes_its_separator_with_it() {
+        commands.Add("file.save", Title("Save"), () => { });
+
+        var model = new MenuModel();
+        model.AddMenu(Title("File"))
+            .Add("plugin.gone")
+            .AddSeparator()
+            .Add("file.save")
+            .AddSeparator()
+            .Add("plugin.also-gone");
+
+        var presenter = Present(model);
+        var menu = presenter.Bar.Items[0].Menu;
+
+        Assert.Single(menu.Items);
+
+        // A rule at the top, two in a row in the middle and one hanging off the bottom is what a
+        // menu built from a model that has lost entries otherwise looks like.
+        Assert.DoesNotContain(menu.Children, child => child is Separator);
+    }
+
+    [Fact]
+    public void Opening_a_menu_asks_every_line_whether_it_can_run() {
+        var enabled = false;
+        commands.Add(new EditorCommand("edit.undo", Title("Undo"), () => { }) { Enablement = () => enabled });
+
+        var model = new MenuModel();
+        model.AddMenu(Title("Edit")).Add("edit.undo");
+
+        var presenter = Present(model);
+        var menu = presenter.Bar.Items[0].Menu;
+
+        menu.Open();
+        Assert.True(menu.Items[0].Disabled);
+
+        menu.Close();
+        enabled = true;
+        menu.Open();
+
+        // Asked as it opens, so it cannot be stale — there is no event for "the selection changed
+        // in a way that makes Undo meaningful".
+        Assert.False(menu.Items[0].Disabled);
+    }
+
+    [Fact]
+    public void Choosing_a_line_runs_its_command() {
+        var ran = 0;
+        commands.Add("file.save", Title("Save"), () => ran++);
+
+        var model = new MenuModel();
+        model.AddMenu(Title("File")).Add("file.save");
+
+        var presenter = Present(model);
+        presenter.Bar.Items[0].Menu.Items[0].Raise(new ClickEvent { Device = ActivationDevice.Pointer });
+
+        Assert.Equal(1, ran);
+    }
+
+    [Fact]
+    public void A_dynamic_group_is_asked_every_time_the_menu_is_built() {
+        var panels = new List<string>();
+
+        var model = new MenuModel();
+        model.AddMenu(Title("View")).AddDynamic(() => panels);
+
+        var presenter = Present(model);
+        Assert.Empty(presenter.Bar.Items[0].Menu.Items);
+
+        commands.Add("view.panel.console", Title("Console"), () => { });
+        panels.Add("view.panel.console");
+        presenter.Rebuild();
+
+        Assert.Single(presenter.Bar.Items[0].Menu.Items);
+    }
+
+    [Fact]
+    public void A_rebuild_leaves_no_orphaned_menu_behind() {
+        commands.Add("file.save", Title("Save"), () => { });
+
+        var model = new MenuModel();
+        model.AddMenu(Title("File")).Add("file.save");
+
+        var presenter = Present(model);
+        var before = document.Root.Children.Count;
+
+        presenter.Rebuild();
+        presenter.Rebuild();
+
+        // A menu is a child of the root rather than of the bar, so a presenter that edited the bar
+        // in place would leak one overlay per rebuild — invisible, and still listening for pointer
+        // events.
+        Assert.Equal(before, document.Root.Children.Count);
+    }
+
+    [Fact]
+    public void A_toolbar_button_follows_its_commands_enablement() {
+        var enabled = true;
+        commands.Add(new EditorCommand("file.save", Title("Save"), () => { }) { Enablement = () => enabled });
+
+        var toolbar = new ToolbarPresenter(document.Root, commands, keys);
+        toolbar.Show("file.save");
+
+        var button = Assert.IsType<Button>(toolbar.Strip.Children[0]);
+        Assert.False(button.Disabled);
+
+        enabled = false;
+        toolbar.Refresh();
+
+        Assert.True(button.Disabled);
+    }
+
+    [Fact]
+    public void A_toolbar_click_runs_the_command() {
+        var ran = 0;
+        commands.Add("file.save", Title("Save"), () => ran++);
+
+        var toolbar = new ToolbarPresenter(document.Root, commands, keys);
+        toolbar.Show("file.save");
+
+        toolbar.Strip.Children[0].Raise(new ClickEvent { Device = ActivationDevice.Pointer });
+        Assert.Equal(1, ran);
+    }
+
+    [Fact]
+    public void A_context_menu_is_built_from_ids_the_same_way() {
+        var ran = 0;
+        commands.Add("edit.copy", Title("Copy"), () => ran++);
+        commands.Add("edit.paste", Title("Paste"), () => { });
+
+        var menu = MenuPresenter.Context(document, commands, keys, "edit.copy", null, "edit.paste", "plugin.gone");
+
+        Assert.Equal(2, menu.Items.Count);
+
+        menu.Items[0].Raise(new ClickEvent { Device = ActivationDevice.Pointer });
+        Assert.Equal(1, ran);
+    }
+}
