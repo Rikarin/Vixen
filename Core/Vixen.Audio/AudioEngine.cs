@@ -8,6 +8,7 @@ using Vixen.Audio.Assets;
 using Vixen.Audio.Devices;
 using Vixen.Audio.Diagnostics;
 using Vixen.Audio.Effects;
+using Vixen.Audio.Events;
 using Vixen.Audio.Mixing;
 using Vixen.Audio.Sources;
 using Vixen.Audio.Spatial;
@@ -231,6 +232,19 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         return result.Problems;
     }
 
+    /// <summary>Resolves an event asset against this engine, ready to be played.</summary>
+    /// <param name="asset">What to build.</param>
+    /// <param name="problems">Everything that did not resolve. Empty is the good case.</param>
+    /// <returns>The event.</returns>
+    /// <remarks>
+    ///     The other half of the authoring layer, and the one gameplay touches: a mixer asset decides
+    ///     what a bus does, and an event asset decides what a sound is. Both are content, so both
+    ///     report their problems rather than throwing them.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="asset" /> is null.</exception>
+    public AudioEvent LoadEvent(AudioEventAsset asset, out IReadOnlyList<string> problems) =>
+        AudioEventBuilder.Build(this, asset, out problems);
+
     /// <summary>The limiter on the master, if <see cref="AudioEngineOptions.MasterLimiter" /> asked for one.</summary>
     /// <remarks>
     ///     Exposed so its ceiling can be changed and its gain reduction read — the second being the
@@ -378,6 +392,16 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         }
     }
 
+    /// <summary>What a sound's playback rate currently is.</summary>
+    /// <param name="handle">Which one.</param>
+    /// <returns>Its multiplier, or zero if the handle is stale.</returns>
+    /// <remarks>
+    ///     The pair of <see cref="GainOf" />, and wanted for the same reason: an event's variation
+    ///     decides a play's pitch, so the only way to find out what a sound is actually running at is
+    ///     to ask.
+    /// </remarks>
+    public float PitchOf(VoiceHandle handle) => TryResolve(handle, out var voice) ? voice.Pitch : 0f;
+
     /// <summary>Moves a non-spatial sound between the speakers.</summary>
     /// <param name="handle">Which one.</param>
     /// <param name="pan">−1 left, 0 centre, +1 right.</param>
@@ -402,6 +426,21 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     /// <returns>Its state, or <see cref="VoiceState.Free" /> if the handle is stale.</returns>
     public VoiceState StateOf(VoiceHandle handle) =>
         TryResolve(handle, out var voice) ? (VoiceState)Volatile.Read(ref voice.State) : VoiceState.Free;
+
+    /// <summary>How many voices can sound at once.</summary>
+    /// <remarks>Fixed at construction from <see cref="AudioEngineOptions.VoiceCapacity" />; the pool never grows.</remarks>
+    public int VoiceCapacity => voices.Length;
+
+    /// <summary>How easy a sound is to hear, counting its gain and how far away it is.</summary>
+    /// <param name="handle">Which one.</param>
+    /// <returns>Its audibility, or zero if the handle is stale.</returns>
+    /// <remarks>
+    ///     The number <see cref="TrySteal" /> ranks by, exposed because anything else deciding what to
+    ///     cut — an event at its instance limit, an overlay listing what is audible — wants to rank by
+    ///     the same one. Not a level in decibels and not comparable across sounds of different
+    ///     loudness: it is what the mixer knows before it has rendered a block.
+    /// </remarks>
+    public float AudibilityOf(VoiceHandle handle) => TryResolve(handle, out var voice) ? voice.Audibility : 0f;
 
     /// <summary>Whether a sound is still going.</summary>
     /// <param name="handle">Which one.</param>

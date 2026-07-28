@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Audio.Events;
 using Vixen.Audio.Mixing;
 using Vixen.Audio.Spatial;
 using Vixen.Core.Mathematics;
@@ -69,11 +70,32 @@ public struct AudioSource {
     /// </remarks>
     public VoiceHandle Voice;
 
+    /// <summary>What the sound that started decided its own gain was. Owned by the system.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         One for a plain clip. For an <see cref="AudioEventRef" /> it is the event's level, the
+    ///         chosen variant's correction and that play's randomisation, multiplied together — so
+    ///         the per-frame push can send <see cref="Gain" /> times this and scale what the event
+    ///         chose instead of overwriting it.
+    ///     </para>
+    ///     <para>
+    ///         Without it, an event's two decibels of level variation would last exactly one frame,
+    ///         and every copy of a sound would snap to the same level the moment the system pushed
+    ///         its gain. Which is the sort of bug that is heard long before it is found.
+    ///     </para>
+    /// </remarks>
+    public float VoiceGainScale;
+
+    /// <summary>What the sound that started decided its own pitch ratio was. Owned by the system.</summary>
+    public float VoicePitchScale;
+
     /// <summary>Full volume, unaltered pitch, centred, on the master bus, stopped.</summary>
     public static AudioSource Default => new() {
         Playback = AudioPlayback.Stopped,
         Gain = 1f,
         Pitch = 1f,
+        VoiceGainScale = 1f,
+        VoicePitchScale = 1f,
         Voice = VoiceHandle.None
     };
 
@@ -91,6 +113,32 @@ public struct AudioSource {
 public struct AudioClipRef {
     /// <summary>The clip. A source with none plays nothing and is not an error.</summary>
     public AudioClip? Clip;
+}
+
+/// <summary>Which event an <see cref="AudioSource" /> plays, instead of a bare clip.</summary>
+/// <remarks>
+///     <para>
+///         <b>It replaces <see cref="AudioClipRef" /> rather than joining it.</b> An entity carrying
+///         both would be a question with no good answer, so the event wins and the clip is ignored —
+///         and the queries are written so that only one of the two ever fires for an entity.
+///     </para>
+///     <para>
+///         <b>The event decides more than the clip did.</b> Which take, at what level and pitch,
+///         on which bus, how far it carries and how many copies may sound at once are all the
+///         event's; <see cref="AudioSource.Bus" /> and <see cref="AudioSource.Loop" /> are not read.
+///         <see cref="AudioSource.Gain" /> and <see cref="AudioSource.Pitch" /> still are, as trims
+///         multiplied into what the event chose — so an emitter can be faded without knowing what it
+///         is playing.
+///     </para>
+///     <para>
+///         <b>An <see cref="AudioSpatial" /> beside it supplies the position and nothing else.</b>
+///         Where a sound is belongs to the entity; how it attenuates belongs to the event, which is
+///         the split that lets a designer change a rolloff without opening a scene.
+///     </para>
+/// </remarks>
+public struct AudioEventRef {
+    /// <summary>The event. A source with none plays nothing and is not an error.</summary>
+    public AudioEvent? Event;
 }
 
 /// <summary>Makes an <see cref="AudioSource" /> a thing in the world rather than a sound in the room.</summary>

@@ -2023,8 +2023,12 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   raycasts/overlaps, triggers, layers, CCD, ECS integration with a fixed-step sync, debug rendering.
 - ✅ `Vixen.Audio`: OpenAL backend + WebAudio backend, 3D spatialisation, mixer buses, effects (reverb,
   filter), streaming, ECS integration. Vixen mixes in software and the backends are sinks — see
-  `Core/Vixen.Audio/README.md` for why, and for what is still owed (surround panning, a sinc
-  resampler, voice stealing, and an Ogg/Opus decoder behind `IAudioStreamDecoder`).
+  `Core/Vixen.Audio/README.md` for why. Beyond what this line asked for: sends and sidechains,
+  thirteen effects over an `Fft`, voice stealing, timed fades, a live push source for voice chat, the
+  mixer and its snapshots as an asset, and `AudioEvent` — variants, per-play variation and instance
+  limits, so gameplay posts an event rather than naming a clip. Still owed: event parameters, voice
+  virtualisation, a noise gate, surround panning, a sinc resampler, multiple listeners, and an
+  Ogg/Opus decoder behind `IAudioStreamDecoder`.
 - `Vixen.Animation`: skeletal playback, blend trees (1D/2D), layers + masks, state machine, IK (two-bone,
   look-at, foot placement), root motion, events, GPU skinning integration.
 - `Vixen.Editor.AnimationGraph`.

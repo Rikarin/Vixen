@@ -66,6 +66,9 @@ that owns its mixer pays.
 | `Ecs/AudioSystem` | makes the mixer agree with the world, once a frame |
 | `MixerAsset` / `MixerBuilder` | the whole mixer as a serialisable record graph |
 | `MixerSnapshots` | named mix states, blended to over a duration |
+| `AudioEvent` | a sound as a designer describes it: variants, variation, instance limits |
+| `VariantSelector` | which take plays next, and why it is not the one that just played |
+| `AudioEventAsset` | the same, as a file — the unit gameplay should actually be playing |
 
 ## Inserts, sends, and the order it all runs in
 
@@ -225,7 +228,7 @@ table, because constructing an effect from a name is reflection, and ADR-002 for
 code.
 
 **No file format here.** The editor writes YAML, the content build bakes a chunk, and a shipping
-runtime reads the chunk with no parser linked in.
+runtime reads the chunk with no parser linked in. The same is true of `AudioEventAsset` below.
 
 **A snapshot names only the buses it changes**, so "the player is underwater" is a two-line thing
 rather than a copy of the whole mixer that goes stale the moment a bus is added. Transitions blend in
@@ -235,6 +238,77 @@ moved by hand since the last transition is respected.
 **Unknown names are diagnostics, not exceptions.** A mixer asset is content: a level whose ambience
 bus lost its reverb send should still be playable while somebody works out why. `LoadMixer` returns
 the problems.
+
+## Events, and why gameplay should not play a clip
+
+```csharp
+var footsteps = engine.LoadEvent(asset, out var problems);
+
+footsteps.Play(feet);        // and that is the whole of what gameplay knows
+```
+
+`engine.Play(clip, settings)` requires the caller to have already decided which of the five takes, at
+what level and pitch, on which bus, how far it carries, how many copies may sound at once and which
+one gives way when they do. Every one of those is a decision a sound designer will want back, usually
+late and usually all at once — and every one of them is in C# where they cannot reach it.
+
+An `AudioEvent` owns all of it. It plays through the ordinary front door: every path ends in
+`AudioEngine.Play` with a `PlaybackSettings` it computed, so there is no second way into the mixer
+and nothing here the mixer knows about. It is an authoring idea, and the mixer stays a thing that
+renders voices.
+
+**Variation is the cheapest quality there is.** A repeated footstep is heard as a bug within about
+two steps. `VariantSelector` picks between takes, `GainVarianceDb` and `PitchVarianceSemitones` move
+each play a little, and together they are a few dozen lines standing between "has audio" and "sounds
+finished".
+
+**Shuffle is the default and not plain random.** A bag plays every variant once before any plays
+twice, so a run cannot happen and the rare take is actually heard. Five variants drawn ten times at
+random will produce a back-to-back pair about nine times in ten. The one place a bag can still repeat
+is its boundary — the last of one round and the first of the next are independent — so a fresh bag
+that opens with the sound that just played swaps it away.
+
+`Random` and `RandomNoRepeat` honour weights, which a bag cannot: a bag visits every entry once a
+round, so "one usual sound and three rare ones" has to be a distribution rather than an order.
+`Sequential` is for a sequence that means something — a three-part reload.
+
+**`MaxInstances` is the limit that actually gets hit.** `PlaybackSettings.Priority` decides who loses
+when the whole engine runs out of voices; this decides how much of the engine one event is allowed to
+be, which is what stops forty simultaneous impacts being forty voices and a wall of level. `Oldest`
+is the default because the oldest copy is furthest through its decay. `Newest` sounds strange until
+the event is a held note, and then the copy a minute in is the one being listened to. `Quietest`
+ranks by the same audibility a steal does, so distance counts and not just the fader. `None` refuses,
+which is right when the sound's beginning is the point.
+
+**The room check happens before the draw.** A refused play must not advance the shuffle bag, or a
+busy event quietly skips variants and the guarantee that every one is heard is not one.
+
+**Seeded, so a run is reproducible.** Which is what makes a test of variation possible at all —
+otherwise every assertion about which take came out is a coin toss.
+
+**Nothing is allocated by a play.** Variants, weights, the bag and the instance table are sized once
+at construction. A footstep is the frame loop, and doc 00 forbids garbage there.
+
+### From an entity
+
+```csharp
+world.Add(entity, AudioSource.Playing);
+world.Add(entity, new AudioEventRef { Event = footsteps });
+world.Add(entity, AudioSpatial.Default);      // supplies the position, and nothing else
+```
+
+`AudioEventRef` replaces `AudioClipRef` rather than joining it; an entity carrying both is a question
+with one good answer, and `WithNone` makes that an archetype fact rather than a branch that runs
+twice and starts two sounds.
+
+**An `AudioSpatial` beside an event supplies where and how fast, and none of the rest.** Its own
+rolloff and cone are not read: where a sound is belongs to the entity, how it attenuates belongs to
+the sound. That split is what lets a designer change a rolloff without opening a scene.
+
+**`AudioSource.Gain` and `Pitch` become trims**, multiplied into what the event chose, and
+`AudioSource` carries `VoiceGainScale` and `VoicePitchScale` so the per-frame push can scale rather
+than replace. Without them an event's two decibels of level variation would last exactly one frame
+and every copy would snap to the same level — audible long before it is found.
 
 ## The master
 
@@ -338,6 +412,29 @@ converting at load would triple what a 16-bit clip costs for as long as it is re
 multiply on the few hundred frames that are actually playing.
 
 ## Still to come
+
+**Event parameters.** An event is a fixed description; the next thing wanted is a continuous value
+that drives it — "as `wetness` goes 0 to 1, this filter sweeps 20 kHz to 800 Hz and this send goes to
+0.6" — authored as a curve rather than written in C#. That is the mechanism a per-player underwater
+voice should eventually be expressed through, instead of one bus per environment. Snapshots are the
+global, named, discrete version of the same idea and are already here; the per-instance continuous
+one is not. Once it exists, distance, direction, elevation and speed come nearly free as built-in
+parameters, because `Spatializer` already computes all four.
+
+**Virtualisation.** A voice displaced by the pool is stopped. The better behaviour, and what
+middleware does, is to keep its playhead advancing while it renders nothing, so it comes back at the
+right position when it is audible again. Walk away from a three-minute looping ambience and back, and
+stealing either restarts it or loses it. A virtual voice is one whose render advances the read cursor
+and writes silence, so this is cheap — it is a missing behaviour rather than a missing algorithm.
+
+**A noise gate.** `CompressorEffect` clamps its ratio at one, so there is no expander below the
+threshold. For open-mic voice chat that is not a nicety: it is what stops thirty seconds of keyboard
+clatter and room tone from every idle player. The same gain computer, with an upward-bending segment
+below the threshold and a hold time.
+
+**A loudness meter.** EBU R128 / LUFS, which is what console certification measures against.
+
+**Multiple listeners.** There is one. Split-screen wants up to about four, weighted or nearest.
 
 **Per-voice sends.** Sends are per bus, so every source on a bus shares one send amount. For a room's
 reverb that is right; for a reverb amount that tracks how far into the room each emitter is, it is
