@@ -223,6 +223,21 @@ public sealed partial class ScrollView : Control {
         AddHandler<WheelEvent>(static (element, args) => ((ScrollView) element).Wheeled(args));
         AddHandler<KeyEvent>(static (element, args) => ((ScrollView) element).Keyed(args));
         AddHandler<FocusEvent>(static (element, args) => ((ScrollView) element).Refocused(args));
+
+        settle = _ => Refresh();
+        Document.LayoutFinished += settle;
+    }
+
+    Action<UiDocument>? settle;
+
+    /// <inheritdoc />
+    protected override void OnRemoved() {
+        if (settle is not null) {
+            Document.LayoutFinished -= settle;
+            settle = null;
+        }
+
+        base.OnRemoved();
     }
 
     /// <summary>Scrolls until an element inside is visible.</summary>
@@ -257,11 +272,16 @@ public sealed partial class ScrollView : Control {
 
     /// <summary>Brings the bars up to date with the content's size.</summary>
     /// <remarks>
-    ///     ⚠ <b>Called on every scroll and on nothing else, which means a content size that changed
-    ///     without a scroll is one frame stale.</b> There is no "the layout finished" callback to
-    ///     hang this on; adding one is the right fix and is a change to <c>UiDocument</c> rather than
-    ///     to a control. In the meantime the bars are also refreshed by <see cref="Refresh" />, which
-    ///     a caller that has just filled the content can call.
+    ///     <para>
+    ///         <b>Hung on <see cref="UiDocument.LayoutFinished" />, which is where it belongs.</b> A
+    ///         scroll bar's range is a fact about the content's laid-out height — a result of the
+    ///         pass, not an input to it — so a version that ran on scrolls alone was one frame stale
+    ///         for every content that changed without one, which is most of them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ It stays public. A caller that has just filled the content and wants to read the
+    ///         range before the next pass still has a way to ask, and it is idempotent.
+    ///     </para>
     /// </remarks>
     public void Refresh() {
         VerticalBar.ViewportSize = Height;
