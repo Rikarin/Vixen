@@ -304,4 +304,135 @@ public class ShadowMapRendererTests : IDisposable {
 
         Assert.Empty(device.Recorder!.OfKind(RecordedCommandKind.BeginRenderPass));
     }
+
+    // --- Taken from the scene rather than copied ----------------------------
+
+    /// <summary>
+    ///     A view carrying a camera supplies the fit, and the node's own scalars are ignored.
+    /// </summary>
+    /// <remarks>
+    ///     The scalars were seven copies of something the frame already knew. A host that set both
+    ///     could set them differently, and a cascade fitted to a field of view the camera no longer
+    ///     has puts the shadow distance somewhere the setting does not say — which shows up as
+    ///     shadows fading in at the wrong distance and gets attributed to the shadow distance.
+    /// </remarks>
+    [Fact]
+    public void A_views_camera_supplies_the_fit() {
+        var camera = new RenderView("camera") {
+            Camera = RenderCamera.Default with { Position = new(0f, 0f, 50f) }
+        };
+
+        var node = new ShadowMapRenderer {
+            CasterStage = new("Caster"),
+            Atlas = "Atlas",
+            CascadeCount = 1,
+            Camera = camera,
+
+            // Deliberately somewhere else. The camera wins, so these change nothing.
+            Eye = new(1000f, 1000f, 1000f),
+            Forward = new(1f, 0f, 0f)
+        };
+
+        var fitted = Fit(node);
+        var loose = Fit(
+            new ShadowMapRenderer {
+                CasterStage = new("Caster"),
+                Atlas = "Atlas",
+                CascadeCount = 1,
+                Eye = new(0f, 0f, 50f)
+            }
+        );
+
+        Assert.Equal(loose.Centre, fitted.Centre, Close);
+        Assert.True(MathF.Abs(fitted.Centre.X) < 1f, $"the node's own eye leaked in: {fitted.Centre}");
+    }
+
+    /// <summary>The scene's sun casts the shadows, when there is one to ask.</summary>
+    /// <remarks>
+    ///     A host copying the sun's direction onto the shadow node every frame is a host that will one
+    ///     day forget, leaving a level lit from one direction and shadowed from another. An interface
+    ///     rather than a reference to the lighting feature, so a scripted or cinematic sun supplies it
+    ///     and nothing else changes.
+    /// </remarks>
+    [Fact]
+    public void The_scenes_sun_casts_the_shadows() {
+        var sun = new Sunlight(RenderLight.Directional(new(1f, -1f, 0f), new(1f)));
+
+        var node = new ShadowMapRenderer {
+            CasterStage = new("Caster"),
+            Atlas = "Atlas",
+            CascadeCount = 1,
+            Sun = sun,
+            LightDirection = new(0f, -1f, 0f)
+        };
+
+        var withSun = Fit(node);
+        var without = Fit(
+            new ShadowMapRenderer {
+                CasterStage = new("Caster"),
+                Atlas = "Atlas",
+                CascadeCount = 1,
+                LightDirection = new(0f, -1f, 0f)
+            }
+        );
+
+        // The same slice, so the same sphere — and a different light, so a different projection.
+        Assert.Equal(without.Centre, withSun.Centre, Close);
+        Assert.NotEqual(without.ViewProjection, withSun.ViewProjection);
+    }
+
+    /// <summary>A source with no sun leaves the written-down direction in charge.</summary>
+    [Fact]
+    public void A_scene_with_no_sun_falls_back_to_the_direction() {
+        var node = new ShadowMapRenderer {
+            CasterStage = new("Caster"),
+            Atlas = "Atlas",
+            CascadeCount = 1,
+            Sun = new Sunlight(null),
+            LightDirection = new(0f, -1f, 0f)
+        };
+
+        var without = Fit(
+            new ShadowMapRenderer {
+                CasterStage = new("Caster"),
+                Atlas = "Atlas",
+                CascadeCount = 1,
+                LightDirection = new(0f, -1f, 0f)
+            }
+        );
+
+        Assert.Equal(without.ViewProjection, Fit(node).ViewProjection);
+    }
+
+    /// <summary>A camera and a view that describe one volume, because setting one sets the other.</summary>
+    [Fact]
+    public void Setting_a_views_camera_sets_its_matrix_and_position() {
+        var view = new RenderView("camera");
+        var camera = RenderCamera.Default with { Position = new(3f, 4f, 5f) };
+
+        view.Camera = camera;
+
+        Assert.Equal(camera.Position, view.Position);
+        Assert.Equal(camera.ViewProjection, view.ViewProjection);
+        Assert.Equal(new BoundingFrustum(camera.ViewProjection), view.Frustum);
+    }
+
+    /// <summary>Two centres are the same when they agree to a millimetre.</summary>
+    static readonly Func<Vector3, Vector3, bool> Close = (a, b) => (a - b).Length() < 0.001f;
+
+    /// <summary>Runs the collect phase far enough to get the cascades out.</summary>
+    static ShadowCascade Fit(ShadowMapRenderer node) {
+        using var system = new RenderSystem();
+        var compositor = new GraphicsCompositor(system) { Game = node };
+
+        system.AddStage(node.CasterStage);
+        compositor.Collect();
+
+        return node.Cascades[0];
+    }
+
+    /// <summary>A sun somebody decided on, which is all a shadow renderer needs to know.</summary>
+    sealed class Sunlight(RenderLight? sun) : ISunSource {
+        public RenderLight? Sun { get; } = sun;
+    }
 }

@@ -64,7 +64,8 @@ static class ReflectionReader {
                     Offset = parameter["Offset"].AsInt(),
                     Size = parameter["Size"].AsInt(),
                     ArrayStride = parameter["ArrayStride"].AsInt(),
-                    MatrixStride = parameter["MatrixStride"].AsInt()
+                    MatrixStride = parameter["MatrixStride"].AsInt(),
+                    DefaultValue = parameter["DefaultValue"].AsString(string.Empty)
                 }
             );
         }

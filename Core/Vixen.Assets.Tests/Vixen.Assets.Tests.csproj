@@ -21,6 +21,14 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Assets\Vixen.Assets.csproj" />
+
+        <!--
+          The renderer, for the one test that a compositor is content: written into a bundle, loaded
+          by address, and built into a running frame. The claim spans both halves, so it can only be
+          asserted where both are present — and doc 06's "the frame is data the user edits" is a claim
+          about the asset system as much as about the renderer.
+        -->
+        <ProjectReference Include="..\Vixen.Rendering\Vixen.Rendering.csproj" />
         <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />

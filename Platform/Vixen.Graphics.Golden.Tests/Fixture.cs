@@ -115,7 +115,16 @@ sealed class Fixture : IDisposable {
 
     /// <summary>Runs the declared graph and reads the colour target back.</summary>
     /// <param name="colour">The imported target holding the picture.</param>
-    public Bitmap Render(GraphTexture colour) {
+    /// <param name="before">
+    ///     Work to record before the graph runs, for a fixture with a resource of its own to upload.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <paramref name="before" /> exists because a copy into a texture cannot be recorded inside
+    ///     a render pass, and everything a graph pass executes is inside one. A fixture that owns a
+    ///     texture the graph does not know about — a glyph atlas, a lookup table — has nowhere else to
+    ///     put the transfer.
+    /// </remarks>
+    public Bitmap Render(GraphTexture colour, Action<ICommandList>? before = null) {
         const int Bytes = Side * Side * 4;
 
         var readback = device.CreateBuffer(
@@ -126,6 +135,7 @@ sealed class Fixture : IDisposable {
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "fixture")) {
+            before?.Invoke(commands);
             Graph.Execute(commands);
 
             // The graph has already transitioned the target to CopySource, because that is the exit
@@ -174,14 +184,31 @@ sealed class Fixture : IDisposable {
     ///     </para>
     /// </remarks>
     public GraphTexture ColourTarget(string name) {
-        var description = new TextureDescription(
-            PixelFormat.Rgba8UNorm,
-            Side,
-            Side,
-            TextureUsage.ColourTarget | TextureUsage.CopySource,
-            Name: name
+        var owned = Owned(name, TextureUsage.ColourTarget | TextureUsage.CopySource);
+        return Graph.ImportTexture(
+            owned.Texture,
+            owned.View,
+            owned.Description,
+            ResourceState.Undefined,
+            ResourceState.CopySource
         );
+    }
 
+    /// <summary>A texture and its view, owned by the fixture, for a caller that imports it itself.</summary>
+    /// <remarks>
+    ///     What <see cref="ColourTarget" /> is built on, exposed for the fixtures that cannot use it:
+    ///     a compositor imports its own targets by name, so a harness that had already imported them
+    ///     would hand the graph two virtual resources over one texture and get a barrier between a
+    ///     pass and itself.
+    /// </remarks>
+    public (TextureHandle Texture, TextureViewHandle View, TextureDescription Description) Owned(
+        string name,
+        TextureUsage usage,
+        PixelFormat format = PixelFormat.Rgba8UNorm,
+        int width = Side,
+        int height = Side
+    ) {
+        var description = new TextureDescription(format, width, height, usage, Name: name);
         var texture = device.CreateTexture(description);
         var view = device.CreateTextureView(texture);
 
@@ -190,8 +217,11 @@ sealed class Fixture : IDisposable {
             device.Destroy(texture);
         });
 
-        return Graph.ImportTexture(texture, view, description, ResourceState.Undefined, ResourceState.CopySource);
+        return (texture, view, description);
     }
+
+    /// <summary>Registers something for the fixture to dispose.</summary>
+    public void Owns(Action dispose) => cleanup.Add(dispose);
 
     /// <summary>A depth target the graph will provide.</summary>
     public GraphTexture DepthTarget(string name) =>

@@ -25,6 +25,33 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
+
+        <!--
+          The renderer, so a fixture can drive a compositor rather than only a command list. Every
+          claim above this line is about the backend; the ones that need this are about the layer
+          engine code actually uses — and those had been asserted entirely against a recording
+          backend that agrees with whatever it is told.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
+
+        <!--
+            The user interface's GPU half. Its geometry is already checked without a device, and what
+            a picture adds is the only thing that check cannot reach: whether the shaders agree with
+            it. A distance field evaluated with the wrong sign, a projection that flips y, an atlas
+            sampled as sRGB — every one of those passes every unit test in `Vixen.Ui`.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Renderer\Vixen.Ui.Renderer.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            One of the Consortium's test fonts, linked rather than copied — the same file
+            `Vixen.Ui.Tests` uses, for the same reason: text in a picture has to be shaped and
+            rasterised by a real font, and a stub with invented metrics would agree with whatever this
+            assembly did to it. Fonts/README.md in `Vixen.Ui.Text.Tests` says whose it is.
+        -->
+        <EmbeddedResource Include="..\..\Core\Vixen.Ui.Text.Tests\Fonts\TestShapeLana.ttf"
+                          LogicalName="Vixen.Graphics.Golden.Tests.TestShapeLana.ttf" />
     </ItemGroup>
 
     <ItemGroup>

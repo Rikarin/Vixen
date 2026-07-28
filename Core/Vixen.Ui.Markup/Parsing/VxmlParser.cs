@@ -41,13 +41,31 @@ sealed class VxmlParser : SyntaxParser {
     readonly HashSet<int> skipped = [];
 
     /// <summary>Names of the elements currently being parsed, outermost first.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The only enclosing state a content node's parse depends on, and every branch that
+    ///     reads it reports a diagnostic.</b> That is what makes incremental reuse sound here: a
+    ///     subtree that parsed without complaint never consulted this list, so it parses the same
+    ///     wherever it sits. See <see cref="TryReuseContent" />.
+    /// </remarks>
     readonly List<string> openElements = [];
 
-    VxmlParser(IReadOnlyList<LexedToken> tokens, DiagnosticBag diagnostics, SourceText text, string filePath)
+    readonly Blender? blender;
+
+    /// <summary>How many green nodes this parse took from the previous tree.</summary>
+    int reused;
+
+    VxmlParser(
+        IReadOnlyList<LexedToken> tokens,
+        DiagnosticBag diagnostics,
+        SourceText text,
+        string filePath,
+        Blender? blender
+    )
         : base(tokens) {
         this.diagnostics = diagnostics;
         this.text = text;
         this.filePath = filePath;
+        this.blender = blender;
     }
 
     /// <summary>Parses a token list into a document.</summary>
@@ -55,14 +73,45 @@ sealed class VxmlParser : SyntaxParser {
     /// <param name="diagnostics">Where parse errors are reported.</param>
     /// <param name="text">The source, for turning offsets into line positions.</param>
     /// <param name="filePath">The path diagnostics name.</param>
+    /// <param name="blender">Green nodes the previous tree can lend, or null for a fresh parse.</param>
     /// <returns>The document node. Never null, however broken the input.</returns>
     public static DocumentSyntax Parse(
         IReadOnlyList<LexedToken> tokens,
         DiagnosticBag diagnostics,
         SourceText text,
-        string filePath
+        string filePath,
+        Blender? blender = null
     ) =>
-        new VxmlParser(tokens, diagnostics, text, filePath).ParseDocument();
+        Parse(tokens, diagnostics, text, filePath, blender, out _);
+
+    /// <summary>Parses a token list into a document, saying how much of the old one it kept.</summary>
+    /// <param name="tokens">The lexer's output.</param>
+    /// <param name="diagnostics">Where parse errors are reported.</param>
+    /// <param name="text">The source, for turning offsets into line positions.</param>
+    /// <param name="filePath">The path diagnostics name.</param>
+    /// <param name="blender">Green nodes the previous tree can lend, or null for a fresh parse.</param>
+    /// <param name="reused">How many nodes came from the previous tree.</param>
+    /// <returns>The document node.</returns>
+    /// <remarks>
+    ///     ⚠ The count is exposed for the reason every other counter in this repository is: "a
+    ///     keystroke reparses one element and shifts the rest" is a claim, and a claim about work
+    ///     avoided that cannot be measured is one nobody can check. Equal trees prove reuse is
+    ///     <i>safe</i>; only this says it happened.
+    /// </remarks>
+    public static DocumentSyntax Parse(
+        IReadOnlyList<LexedToken> tokens,
+        DiagnosticBag diagnostics,
+        SourceText text,
+        string filePath,
+        Blender? blender,
+        out int reused
+    ) {
+        var parser = new VxmlParser(tokens, diagnostics, text, filePath, blender);
+        var document = parser.ParseDocument();
+        reused = parser.reused;
+
+        return document;
+    }
 
     // ================================================================== Tokens
 
@@ -186,8 +235,24 @@ sealed class VxmlParser : SyntaxParser {
     DocumentSyntax ParseDocument() {
         var component = At(VxmlTokenKind.ComponentKeyword) ? ParseComponentDirective() : null;
 
+        NamespaceDirectiveSyntax? @namespace = null;
         List<SyntaxNode?> usings = [];
-        while (At(VxmlTokenKind.UsingKeyword)) {
+
+        // ⚠ `@namespace` and `@using` interleave freely, because there is no reason for them not to
+        // and a header order nobody can remember is a diagnostic nobody wants. A *second*
+        // `@namespace` stops the loop rather than replacing the first, so it falls through to the
+        // content parser and gets the same "unexpected" diagnostic every other stray directive does —
+        // and, like them, survives in the tree as trivia.
+        while (At(VxmlTokenKind.UsingKeyword) || At(VxmlTokenKind.NamespaceKeyword)) {
+            if (At(VxmlTokenKind.NamespaceKeyword)) {
+                if (@namespace is not null) {
+                    break;
+                }
+
+                @namespace = ParseNamespaceDirective();
+                continue;
+            }
+
             usings.Add(ParseUsingDirective());
         }
 
@@ -206,6 +271,7 @@ sealed class VxmlParser : SyntaxParser {
 
         return SyntaxFactory.Document(
             component,
+            @namespace,
             new(SyntaxList.List([.. usings])),
             new(SyntaxList.List([.. content])),
             TokenAt(RawPosition, SyntaxKind.EndOfFileToken)
@@ -222,6 +288,12 @@ sealed class VxmlParser : SyntaxParser {
         var keyword = Take(SyntaxKind.UsingKeyword);
         var name = Expect(VxmlTokenKind.Name, SyntaxKind.NameToken);
         return SyntaxFactory.UsingDirective(keyword, name);
+    }
+
+    NamespaceDirectiveSyntax ParseNamespaceDirective() {
+        var keyword = Take(SyntaxKind.NamespaceKeyword);
+        var name = Expect(VxmlTokenKind.Name, SyntaxKind.NameToken);
+        return SyntaxFactory.NamespaceDirective(keyword, name);
     }
 
     // ================================================================== Content
@@ -246,7 +318,7 @@ sealed class VxmlParser : SyntaxParser {
     void ParseContentInto(List<SyntaxNode?> items) {
         while (!AtContentEnd()) {
             var before = RawPosition;
-            var node = ParseContentNode();
+            var node = TryReuseContent() ?? ParseContentNode();
 
             if (node is null || RawPosition == before) {
                 return;
@@ -268,6 +340,91 @@ sealed class VxmlParser : SyntaxParser {
             VxmlTokenKind.OpenBrace => SyntaxFactory.Text(Take(SyntaxKind.TextToken)),
             _ => null
         };
+
+    /// <summary>
+    ///     Incremental reparse: at a content boundary, take the previous tree's green node when the
+    ///     blender has one whose new position and width line up exactly with the token stream.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>VXML's unit of reuse is a content node whose subtree reported nothing</b>, and
+    ///         working out that it could be one is most of this. The worry written down when the
+    ///         `Blender` was first shared was that an element is reusable only if nothing about its
+    ///         <i>enclosing</i> content changed, because an unclosed tag above it changes what it is.
+    ///         That is true of where the node ends up and false of the node itself: <c>&lt;panel/&gt;</c>
+    ///         parses to the same green node whether it is a child or a sibling, and the enclosing
+    ///         parse — which decides which — re-runs either way.
+    ///     </para>
+    ///     <para>
+    ///         What genuinely could differ is <see cref="openElements" />, the one piece of enclosing
+    ///         state a content node's parse reads. Every branch that reads it reports a diagnostic,
+    ///         so a subtree that parsed cleanly never consulted it. Restricting candidates to
+    ///         diagnostic-free subtrees therefore makes reuse sound — and it settles a second problem
+    ///         at the same time, because a reused subtree's diagnostics are not re-reported and a
+    ///         subtree that had none has none to lose.
+    ///     </para>
+    ///     <para>
+    ///         Any mismatch falls through to a normal parse, so reuse can only ever skip work rather
+    ///         than change the tree. That the two are equal is pinned by test.
+    ///     </para>
+    /// </remarks>
+    MarkupSyntax? TryReuseContent() {
+        if (blender is null) {
+            return null;
+        }
+
+        // The candidate's full span starts at its leading trivia, so the lookup position is where
+        // the pending trivia run begins.
+        var firstTrivia = RawPosition;
+
+        while (firstTrivia > 0 && IsTriviaLike(firstTrivia - 1)) {
+            firstTrivia--;
+        }
+
+        var fullStart = Tokens[firstTrivia].Position;
+
+        if (blender.TryReuse(fullStart) is not { } green) {
+            return null;
+        }
+
+        // ⚠ And the width has to land on a token boundary of the *new* stream. A candidate whose
+        // text is untouched can still end in the middle of a token that an edit next door made
+        // longer, and splicing it in there would produce a tree that no longer reproduces the file.
+        if (RawIndexAt(fullStart + green.FullWidth) is not { } next) {
+            return null;
+        }
+
+        // ⚠ `ResumeAt`, not `ResetTo`. The token starting exactly where the reused node ends is very
+        // often the whitespace before the next real one, and a parser sitting on trivia cannot see
+        // the token it is looking at — the close tag of the element whose last child was reused
+        // simply vanishes.
+        ResumeAt(next);
+        reused++;
+
+        return green.CreateRed(null, 0) as MarkupSyntax;
+    }
+
+    /// <summary>The raw index of the token starting exactly at a position, or null.</summary>
+    int? RawIndexAt(int position) {
+        int low = 0, high = Tokens.Count - 1;
+
+        while (low <= high) {
+            var middle = (low + high) / 2;
+            var start = Tokens[middle].Position;
+
+            if (start == position) {
+                return middle;
+            }
+
+            if (start < position) {
+                low = middle + 1;
+            } else {
+                high = middle - 1;
+            }
+        }
+
+        return null;
+    }
 
     bool AtStyleTag() =>
         (VxmlTokenKind)Peek(1).RawKind == VxmlTokenKind.Name

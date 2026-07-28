@@ -83,10 +83,23 @@ public sealed class EffectPipelineDescriber(IGraphicsDevice device) : IPipelineD
 
     /// <summary>The device module for one of an effect's stages, created once.</summary>
     /// <remarks>
-    ///     Cached because an effect drawn into three passes is three pipelines and one pair of
-    ///     modules. Creating them per pipeline would hand the driver the same SPIR-V three times and
-    ///     make every pipeline in the frame pay for the parse.
+    ///     <para>
+    ///         Cached because an effect drawn into three passes is three pipelines and one pair of
+    ///         modules. Creating them per pipeline would hand the driver the same SPIR-V three times
+    ///         and make every pipeline in the frame pay for the parse.
+    ///     </para>
+    ///     <para>
+    ///         Public because not everything that needs a module needs
+    ///         <see cref="Describe" />. A full-screen pass has no stage and no vertex layout, so it
+    ///         assembles its own description — but it should share this cache rather than hand the
+    ///         driver the same bytecode again.
+    ///     </para>
     /// </remarks>
+    public ShaderHandle ModuleOf(Effect effect, ShaderStage stage) {
+        ArgumentNullException.ThrowIfNull(effect);
+        return Module(effect, stage);
+    }
+
     ShaderHandle Module(Effect effect, ShaderStage stage) {
         if (modules.TryGetValue((effect, stage), out var existing)) {
             return existing;

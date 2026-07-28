@@ -172,12 +172,7 @@ of a string.
 ## What is owed
 
 - **Incremental reparse.** The shared `Blender` exists and Raven uses it, but node reuse needs a
-  unit of reuse. Raven offers member declarations; VXML's is not obvious, because an element's green
-  node is reusable only if nothing about its *enclosing* content changed — an unclosed tag anywhere
-  above it changes what it is.
-- **`bind:` update events** (`bind:value:oninput`) and **`@namespace`**. Until the directive
-  exists, a component's namespace is decided by the generator from the project's root namespace and
-  the file's folders.
+- **`bind:` update events** (`bind:value:oninput`).
 
 ⚠ **Two bugs in this project were found by compiling it into a source generator rather than by any
 test here.** `VXML1002` and `VXML1003` read their span off a node still under construction — a node

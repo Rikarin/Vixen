@@ -100,7 +100,7 @@ public class LibraryTreeTests {
         var compilation = Compilation.Create(
             "Library",
             PermutationValues.Empty,
-            ComposeBindings.Create([new("surface", "MetalRoughnessSurface")]),
+            LibraryComposition.With(),
             trees
         );
 
@@ -424,7 +424,7 @@ public class LibraryTreeTests {
     /// <summary>
     ///     Lowers the whole tree with a default material bound, verifying the IR.
     /// </summary>
-    static IrModule LowerTree(PermutationValues? permutations = null) {
+    static IrModule LowerTree(PermutationValues? permutations = null, params (string Slot, string Shader)[] composition) {
         var trees = Files()
             .Select(file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
             .ToArray();
@@ -432,7 +432,7 @@ public class LibraryTreeTests {
         var compilation = Compilation.Create(
             "Library",
             permutations ?? PermutationValues.Empty,
-            ComposeBindings.Create([new("surface", "MetalRoughnessSurface")]),
+            LibraryComposition.With(composition),
             trees
         );
 
@@ -488,6 +488,11 @@ public class LibraryTreeTests {
     [InlineData("NormalMapSurface")]
     [InlineData("EmissiveSurface")]
     [InlineData("OcclusionSurface")]
+    [InlineData("AnisotropySurface")]
+    [InlineData("ClearCoatSurface")]
+    [InlineData("ClearCoatNormalMapSurface")]
+    [InlineData("SheenSurface")]
+    [InlineData("SubsurfaceSurface")]
     public void EveryMaterialFeatureComposesAndReachesBothBackends(string feature) {
         var module = LowerMaterial(feature);
 
@@ -516,6 +521,332 @@ public class LibraryTreeTests {
         }
     }
 
+    /// <summary>
+    ///     Every shading model composes into the shipped forward pass and reaches both backends.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The other half of what <c>compose</c> is for, and the half the library was missing: it
+    ///         had <c>ClearCoat.rvn</c>, <c>Sheen.rvn</c>, <c>Hair.rvn</c> and <c>Subsurface.rvn</c>,
+    ///         and no shader called any of them. A BSDF nothing evaluates compiles perfectly and
+    ///         shades nothing, which is the failure this asserts against — per model, because each
+    ///         reaches a different corner of the library and one that lowers says nothing about the
+    ///         next.
+    ///     </para>
+    ///     <para>
+    ///         Two claims beyond compiling, and it takes both. That the model's <c>Shade</c> reached
+    ///         the emitted unit at all — a pass that stopped calling through the slot would prune it,
+    ///         and nothing else about the shader would look wrong. And that the result differs from
+    ///         the standard model — which on its own is satisfied by a model that contributed only its
+    ///         uniforms, as a sabotage of the call site proved: two of these passed with the lobes
+    ///         hard-coded back into the pass, because <c>SubsurfaceShading</c> and <c>CelShading</c>
+    ///         have parameters and those arrived either way.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("AnisotropicShading")]
+    [InlineData("ClearCoatShading")]
+    [InlineData("SheenShading")]
+    [InlineData("SubsurfaceShading")]
+    [InlineData("HairShading")]
+    [InlineData("CelShading")]
+    public void EveryShadingModelComposesIntoTheForwardPassAndReachesBothBackends(string model) {
+        var standard = ForwardPlusSource(LowerTree(composition: [("shading", "StandardShading")]));
+        var module = LowerTree(composition: [("shading", model)]);
+        var source = ForwardPlusSource(module);
+
+        Assert.NotEqual(standard, source);
+        Assert.Contains("Shade", source, StringComparison.Ordinal);
+
+        foreach (var target in (string[])["glsl", "spirv"]) {
+            var bag = new DiagnosticBag();
+            var generated = TargetBackends.Create(target)!.Generate(module, bag);
+
+            var errors = bag.ToArray().Where(d => d.IsError).ToArray();
+            Assert.True(
+                errors.Length == 0,
+                $"{model} does not reach {target}:\n" + string.Join("\n", errors.Select(d => d.ToString()))
+            );
+
+            var pass = generated.Where(unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal)).ToArray();
+            Assert.NotEmpty(pass);
+
+            if (target == "spirv") {
+                Assert.All(pass, SpirvTestBase.Validate);
+            } else {
+                AssertGlslCompiles(pass);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     A shading model's own parameters reach the pass, qualified by the model that declares them.
+    /// </summary>
+    /// <remarks>
+    ///     A model is a shader with storage, not a free function, and this is the difference: a wrap
+    ///     width belongs to the lighting model rather than to a point on the surface, so it is a
+    ///     uniform on <c>SubsurfaceShading</c> and it has to arrive in the pass's block for a host to
+    ///     be able to set it.
+    /// </remarks>
+    [Theory]
+    [InlineData("SubsurfaceShading", "SubsurfaceShading.wrap")]
+    [InlineData("CelShading", "CelShading.steps")]
+    public void AShadingModelsParametersReachThePass(string model, string parameter) {
+        var pass = FindShader(LowerTree(composition: [("shading", model)]), "ForwardPlus");
+
+        Assert.Contains(pass.Bindings, binding => binding.Name == parameter);
+    }
+
+    /// <summary>
+    ///     A material with several features composes through <c>CompositeSurface</c>, and each
+    ///     feature's parameters arrive under its own name.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         What a real material is: a workflow, a normal map and emission are three features and
+    ///         one slot, so the chain is what stands between "the library has features" and "a
+    ///         material can have more than one of them".
+    ///     </para>
+    ///     <para>
+    ///         The names are the contract the engine's <c>MaterialCompiler</c> predicts without a
+    ///         compiler in the process, so this pins them: a parameter is qualified by the path of
+    ///         types it was reached through, and the chain is part of that path.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void SeveralFeaturesComposeThroughTheChainUnderTheirOwnNames() {
+        var module = LowerTree(
+            composition: [
+                ("surface", "CompositeSurface"),
+                ("first", "MetalRoughnessSurface"),
+                ("second", "NormalMapSurface"),
+                ("third", "EmissiveSurface")
+            ]
+        );
+
+        var names = FindShader(module, "ForwardPlus").Bindings.Select(binding => binding.Name).ToArray();
+
+        Assert.Contains("CompositeSurface.MetalRoughnessSurface.baseColor", names);
+        Assert.Contains("CompositeSurface.NormalMapSurface.normalTS", names);
+        Assert.Contains("CompositeSurface.EmissiveSurface.emissiveColor", names);
+
+        // The slots the material did not use contributed nothing — which is what makes one chain
+        // able to stand in for every length.
+        Assert.DoesNotContain(names, name => name.Contains("IdentitySurface", StringComparison.Ordinal));
+
+        foreach (var target in (string[])["glsl", "spirv"]) {
+            var bag = new DiagnosticBag();
+            var generated = TargetBackends.Create(target)!.Generate(module, bag);
+
+            Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+
+            var pass = generated.Where(unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal)).ToArray();
+
+            if (target == "spirv") {
+                Assert.All(pass, SpirvTestBase.Validate);
+            } else {
+                AssertGlslCompiles(pass);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     A layered material composes into the pass, and its layer count is a compile-time size.
+    /// </summary>
+    /// <remarks>
+    ///     Layering by array rather than by composition is what gives a layer parameters of its own:
+    ///     two composed copies of one feature would share its storage, so a two-layer terrain would
+    ///     have one base colour. The permutation is what keeps that from costing anything — a
+    ///     two-layer material's block holds two layers, not the maximum anyone might use.
+    /// </remarks>
+    [Theory]
+    [InlineData(2)]
+    [InlineData(4)]
+    public void ALayeredMaterialSizesItsLayersByPermutation(int count) {
+        var module = LowerTree(
+            PermutationValues.Parse([$"LayerCount={count}"]),
+            composition: [("surface", "MaterialLayersSurface")]
+        );
+
+        var pass = FindShader(module, "ForwardPlus");
+        var names = pass.Bindings.Select(binding => binding.Name).ToArray();
+
+        Assert.Contains(names, name => name.Contains("MaterialLayersSurface.layers", StringComparison.Ordinal));
+
+        foreach (var target in (string[])["glsl", "spirv"]) {
+            var bag = new DiagnosticBag();
+            var generated = TargetBackends.Create(target)!.Generate(module, bag);
+
+            Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+
+            var units = generated.Where(unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal)).ToArray();
+
+            if (target == "spirv") {
+                Assert.All(units, SpirvTestBase.Validate);
+            } else {
+                AssertGlslCompiles(units);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Two different surfaces blend into one material, and both reach the pass.
+    /// </summary>
+    /// <remarks>
+    ///     The heterogeneous half of layering, and the reason the two layers here are deliberately
+    ///     different features: composition binds a shader per <em>type</em>, so a blend of two
+    ///     metal-roughness layers would be one set of parameters read twice. This asserts the case
+    ///     that works; <c>MaterialCompilerTests</c> asserts the engine refuses the one that does not.
+    /// </remarks>
+    [Fact]
+    public void ABlendOfTwoDifferentSurfacesReachesBothBackends() {
+        var module = LowerTree(
+            composition: [
+                ("surface", "BlendSurface"),
+                ("under", "MetalRoughnessSurface"),
+                ("over", "SpecularGlossinessSurface")
+            ]
+        );
+
+        var names = FindShader(module, "ForwardPlus").Bindings.Select(binding => binding.Name).ToArray();
+
+        Assert.Contains("BlendSurface.MetalRoughnessSurface.baseColor", names);
+        Assert.Contains("BlendSurface.SpecularGlossinessSurface.specularColor", names);
+        Assert.Contains("BlendSurface.blend", names);
+
+        foreach (var target in (string[])["glsl", "spirv"]) {
+            var bag = new DiagnosticBag();
+            var generated = TargetBackends.Create(target)!.Generate(module, bag);
+
+            Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+
+            var units = generated.Where(unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal)).ToArray();
+
+            if (target == "spirv") {
+                Assert.All(units, SpirvTestBase.Validate);
+            } else {
+                AssertGlslCompiles(units);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     A composition of the shape the engine's material compiler emits compiles.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Every other test here binds slots the convenient way — bare, so one binding covers
+    ///         every shader that declares that name. <c>MaterialCompiler</c> does not: it qualifies
+    ///         every slot inside the material by the shader that declares it, leaves only the pass's
+    ///         own two bare so that one composition serves the forward and G-buffer passes alike, and
+    ///         fills the slots the material does not use with <c>IdentitySurface</c> rather than
+    ///         leaving them to a fallback.
+    ///     </para>
+    ///     <para>
+    ///         That shape is the thing neither project can check on its own — the engine has no
+    ///         compiler and this has no engine — so it is written out here exactly as the compiler
+    ///         produces it, for a material with three features. If the shape stops compiling, this is
+    ///         where it says so.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheCompositionShapeTheEngineEmitsCompiles() {
+        var module = LowerTree(
+            composition: [
+                ("surface", "CompositeSurface"),
+                ("shading", "StandardShading"),
+                ("CompositeSurface.first", "MetalRoughnessSurface"),
+                ("CompositeSurface.second", "NormalMapSurface"),
+                ("CompositeSurface.third", "ClearCoatSurface"),
+                ("CompositeSurface.fourth", "IdentitySurface"),
+                ("CompositeSurface.fifth", "IdentitySurface"),
+                ("CompositeSurface.sixth", "IdentitySurface"),
+                ("CompositeSurface.seventh", "IdentitySurface"),
+                ("CompositeSurface.eighth", "IdentitySurface"),
+                ("BlendSurface.under", "IdentitySurface"),
+                ("BlendSurface.over", "IdentitySurface")
+            ]
+        );
+
+        var names = FindShader(module, "ForwardPlus").Bindings.Select(binding => binding.Name).ToArray();
+
+        Assert.Contains("CompositeSurface.MetalRoughnessSurface.baseColor", names);
+        Assert.Contains("CompositeSurface.NormalMapSurface.normalTS", names);
+        Assert.Contains("CompositeSurface.ClearCoatSurface.clearCoat", names);
+
+        foreach (var target in (string[])["glsl", "spirv"]) {
+            var bag = new DiagnosticBag();
+            var generated = TargetBackends.Create(target)!.Generate(module, bag);
+
+            Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+
+            var pass = generated.Where(unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal)).ToArray();
+
+            if (target == "spirv") {
+                Assert.All(pass, SpirvTestBase.Validate);
+            } else {
+                AssertGlslCompiles(pass);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     The library declares exactly these <c>compose</c> slots, and no others.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         An inventory rather than a behaviour, and it earns its place because something outside
+    ///         this repository's compiler depends on it: <c>MaterialCompiler</c> in
+    ///         <c>Vixen.Rendering</c> writes a binding for every slot the library declares, because
+    ///         Raven rejects a compilation with an unfilled one wherever it is declared. It cannot
+    ///         discover them — it has no compiler in the process — so it holds a list, and a list is
+    ///         a thing that goes stale.
+    ///     </para>
+    ///     <para>
+    ///         So a slot added to the library fails here, next to the shader that added it, with the
+    ///         name of the file that has to be updated. Without it the failure arrives as
+    ///         <c>RVN2073</c> in whatever first tries to compile a material, which says the slot is
+    ///         unbound and nothing about who was supposed to bind it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheLibraryDeclaresExactlyTheSlotsTheEngineBinds() {
+        var declared = Files()
+            .SelectMany(file => File.ReadAllLines(file))
+            .Select(line => line.Trim())
+            .Where(line => line.StartsWith("compose val ", StringComparison.Ordinal))
+            .Select(line => line["compose val ".Length..].Split(':')[0].Trim())
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(slot => slot, StringComparer.Ordinal)
+            .ToArray();
+
+        // Slot names only: which shader declares which is the engine's business, and qualifying them
+        // here would make this fail every time a shader is renamed for reasons nothing depends on.
+        string[] expected = [
+            "eighth", "fifth", "first", "fourth", "over", "second", "seventh",
+            "shading", "sixth", "surface", "third", "under"
+        ];
+
+        Assert.Equal(
+            expected,
+            declared
+        );
+    }
+
+    /// <summary>The pixel stage of the shipped forward pass, as GLSL.</summary>
+    static string ForwardPlusSource(IrModule module) {
+        var bag = new DiagnosticBag();
+        var generated = TargetBackends.Create("glsl")!.Generate(module, bag);
+
+        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+
+        return Assert.Single(
+                generated,
+                unit => unit.Name.StartsWith("ForwardPlus", StringComparison.Ordinal) && unit.Stage == ShaderStage.Pixel
+            )
+            .Code;
+    }
+
     static IrModule LowerMaterial(string feature) {
         var trees = Files()
             .Select(file => SyntaxTree.ParseText(File.ReadAllText(file), path: Path.GetFileName(file)))
@@ -525,7 +856,7 @@ public class LibraryTreeTests {
         var compilation = Compilation.Create(
             "Material",
             PermutationValues.Empty,
-            ComposeBindings.Create([new("surface", feature)]),
+            LibraryComposition.With(("surface", feature)),
             trees
         );
 

@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.1</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <RootNamespace>Vixen.Input.Generators</RootNamespace>
+
+        <IsShipping>false</IsShipping>
+        <ExcludeFromSourceBuild>false</ExcludeFromSourceBuild>
+        <LangVersion>latest</LangVersion>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- Consumed by Microsoft.CodeAnalysis.Analyzers (RS2008 release tracking). -->
+        <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+        <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+    </ItemGroup>
+
+    <!--
+        ==============================================================================================
+        The .vxinput front end, compiled into this assembly rather than referenced from it.
+
+        Same reasoning as Vixen.Ui.Markup.Generators, and the same conclusion. A generator runs inside
+        the compiler and targets netstandard2.1; Vixen.Input targets net10.0 and a net10.0 assembly
+        cannot be referenced from here, and an analyzer's ProjectReference dependencies do not travel
+        to the analyzer path — `OutputItemType="Analyzer"` contributes exactly one DLL.
+
+        What makes source linking cheap here rather than merely tolerable is that Assets/ was written
+        for it: it touches no file system, no environment and no console, so RS1035 has nothing to
+        say, and it depends on nothing but the BCL, so there is no second assembly to place.
+
+        The alternative is two readers of one format that must agree — which fails as a binding that
+        compiles into an accessor the runtime then declines to resolve, months later, on someone
+        else's machine.
+
+        The cost is that these files compile twice, under two language surfaces. Compat/Netstandard.cs
+        is where the second surface is made to hold, and the glob picks up a file added to Assets/.
+        ==============================================================================================
+    -->
+    <ItemGroup>
+        <Compile Include="..\Vixen.Input\Assets\**\*.cs" LinkBase="Linked\Vixen.Input" />
+    </ItemGroup>
+
+</Project>

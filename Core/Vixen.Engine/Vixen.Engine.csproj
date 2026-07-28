@@ -23,6 +23,14 @@
         <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
         <ProjectReference Include="..\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
         <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
+
+        <!--
+            The action system, so that the SystemPhase.Input pass has something to run. The reference
+            points this way rather than the other because Vixen.Ui also consumes Vixen.Input and must
+            not acquire an ECS world by doing so (docs/plan/02 § "Why Vixen.Ui does not depend on
+            Vixen.Engine") — which is why InputUpdateSystem lives here and not there.
+        -->
+        <ProjectReference Include="..\Vixen.Input\Vixen.Input.csproj" />
     </ItemGroup>
 
     <ItemGroup>

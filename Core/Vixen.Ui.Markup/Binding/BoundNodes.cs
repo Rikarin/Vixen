@@ -158,6 +158,9 @@ public sealed record BoundSwitch(BoundExpression Subject, ImmutableArray<BoundCa
 
 /// <summary>A whole <c>.vxml</c>, resolved.</summary>
 /// <param name="Name">The class the emitter writes a partial for.</param>
+/// <param name="Namespace">
+///     The namespace the file asked for, or null to take whatever the caller offers.
+/// </param>
 /// <param name="Usings">Namespaces to import, in source order.</param>
 /// <param name="Code">Every <c>@code</c> body, in source order. Multiple blocks concatenate.</param>
 /// <param name="Content">The markup.</param>
@@ -165,6 +168,7 @@ public sealed record BoundSwitch(BoundExpression Subject, ImmutableArray<BoundCa
 /// <param name="CssIsScoped">Whether that style block carried <c>scoped</c>.</param>
 public sealed record BoundComponent(
     string Name,
+    string? Namespace,
     ImmutableArray<string> Usings,
     ImmutableArray<BoundExpression> Code,
     ImmutableArray<BoundNode> Content,

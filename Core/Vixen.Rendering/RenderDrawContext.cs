@@ -40,6 +40,24 @@ public sealed class RenderDrawContext(ICommandList commandList, EffectSystem eff
     /// <summary>The stage being recorded.</summary>
     public RenderStage? Stage { get; internal set; }
 
+    /// <summary>
+    ///     The per-view block for <see cref="View" />, for a feature to bind after its first pipeline.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Handed over rather than bound by whoever set it, and the reason is the RHI's shape:
+    ///         <see cref="ICommandList.BindDescriptorSet" /> takes no pipeline layout and infers one
+    ///         from the pipeline that is bound, so binding a set before the first pipeline is
+    ///         undefined — which the Vulkan backend refuses outright rather than letting through.
+    ///     </para>
+    ///     <para>
+    ///         So the compositor node says <em>what</em> and a feature says <em>when</em>. Once per
+    ///         run is enough: the four-set convention makes every pipeline in a frame layout-
+    ///         compatible up to set 1, which is what lets a set survive a pipeline change at all.
+    ///     </para>
+    /// </remarks>
+    public ViewConstants? ViewConstants { get; set; }
+
     /// <summary>The formats of the pass currently open.</summary>
     /// <remarks>
     ///     Set by whatever opened the pass — <see cref="Compositor.RenderPassRenderer" /> in a

@@ -523,4 +523,299 @@ public class CompositorAssetTests : IDisposable {
 
         Assert.Equal(3, h.System.Stages.Count);
     }
+
+    // --- Post-processing, authored ------------------------------------------
+
+    /// <summary>
+    ///     A post chain written in a document, with no C# building any of it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         What doc 06's "the frame is data the user edits, not code" had never been true of. Two
+    ///         things used to make it impossible and both are gone: a binding index is the shader's
+    ///         decision, so a binding names what the shader calls it instead; and a sampler is a device
+    ///         handle, so a document names a preset and the frame's cache resolves it.
+    ///     </para>
+    ///     <para>
+    ///         The chain here is the shape a real frame ends with — a bloom pyramid and a tonemap that
+    ///         reads it — declared in twenty lines that mention no index, no handle and no pass count.
+    ///     </para>
+    /// </remarks>
+    const string PostChain = """
+        version: 2
+        resources:
+          - name: SceneColour
+            format: Rgba16Float
+            usage: ColourTarget, Sampled
+        stages:
+          - name: Opaque
+        game: !Sequence
+          name: Frame
+          children:
+            - !RenderPass
+              name: Main
+              colourTargets: [SceneColour]
+              children:
+                - !SingleStage
+                  name: OpaqueDraw
+                  view: Camera
+                  stage: Opaque
+            - !Bloom
+              name: Bloom
+              source: SceneColour
+              output: BloomResult
+              levels: 3
+              threshold: 0.4
+            - !FullScreen
+              name: Tonemap
+              shader: Tonemap
+              colourTargets: [Display]
+              reads: [BloomResult]
+              constantBinding: 2
+              bindings:
+                - name: source
+                  resource: BloomResult
+                - kind: Sampler
+                  binding: 1
+                  sampler: LinearClamp
+        """;
+
+    [Fact]
+    public void A_document_can_author_a_post_chain() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(PostChain);
+        using var h = Build();
+
+        var sequence = Assert.IsType<SequenceAsset>(asset.Game);
+
+        var bloom = Assert.IsType<BloomAsset>(sequence.Children[1]);
+        Assert.Equal("SceneColour", bloom.Source);
+        Assert.Equal(3, bloom.Levels);
+        Assert.Equal(0.4f, bloom.Threshold);
+
+        var tonemap = Assert.IsType<FullScreenAsset>(sequence.Children[2]);
+        Assert.Equal("Tonemap", tonemap.Shader);
+        Assert.Equal(2u, tonemap.ConstantBinding);
+
+        // The texture binding names what the shader calls it and carries no index at all; the sampler
+        // names a preset rather than a handle.
+        Assert.Equal("source", tonemap.Bindings[0].Name);
+        Assert.Equal("BloomResult", tonemap.Bindings[0].Resource);
+        Assert.Equal(SamplerPreset.LinearClamp, tonemap.Bindings[1].Sampler);
+    }
+
+    /// <summary>The builder turns those into nodes, wired to the caches the host gave it.</summary>
+    /// <remarks>
+    ///     The division the whole asset model rests on: the document says what, and a running renderer
+    ///     supplies the four things a file cannot carry — a device, a module cache, a descriptor
+    ///     allocator and a sampler cache.
+    /// </remarks>
+    [Fact]
+    public void The_builder_wires_authored_post_nodes_to_the_hosts_caches() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(PostChain);
+        using var h = Build();
+        using var allocator = new DescriptorAllocator(device);
+        using var samplers = new SamplerCache(device);
+
+        h.Builder.Device = device;
+        h.Builder.Modules = new(device);
+        h.Builder.Descriptors = allocator;
+        h.Builder.Samplers = samplers;
+
+        var compositor = h.Builder.Build(asset);
+        var sequence = Assert.IsType<SceneRendererSequence>(compositor.Game);
+
+        var bloom = Assert.IsType<BloomRenderer>(sequence.Children[1]);
+        Assert.Equal(3, bloom.Levels);
+        Assert.Same(samplers, bloom.Samplers);
+        Assert.Same(allocator, bloom.Descriptors);
+
+        var tonemap = Assert.IsType<FullScreenRenderer>(sequence.Children[2]);
+        Assert.Equal(2u, tonemap.ConstantBinding);
+        Assert.Same(allocator, tonemap.Descriptors.Allocator);
+        Assert.Equal(2, tonemap.Descriptors.Bindings.Count);
+
+        // The preset became a description, which is what the frame's cache resolves.
+        Assert.Equal(SamplerDescription.LinearClamp, tonemap.Descriptors.Bindings[1].Sampled);
+    }
+
+    /// <summary>A document with post nodes survives the baked binary form too.</summary>
+    [Fact]
+    public void The_baked_form_carries_the_post_chain() {
+        var original = YamlSerializer.Parse<GraphicsCompositorAsset>(PostChain);
+        var reread = Serializer.Read<GraphicsCompositorAsset>(Serializer.ToBytes(original));
+        var sequence = Assert.IsType<SequenceAsset>(reread.Game);
+
+        Assert.Equal(3, Assert.IsType<BloomAsset>(sequence.Children[1]).Levels);
+
+        var tonemap = Assert.IsType<FullScreenAsset>(sequence.Children[2]);
+
+        Assert.Equal("source", tonemap.Bindings[0].Name);
+        Assert.Equal(SamplerPreset.LinearClamp, tonemap.Bindings[1].Sampler);
+    }
+
+    // --- The per-view block, authored ---------------------------------------
+
+    /// <summary>
+    ///     The one part of the four-set convention a document has a reason to describe.
+    /// </summary>
+    /// <remarks>
+    ///     Sets 2 and 3 belong to a material and a draw and follow from the shaders. Set 1 is a
+    ///     contract <em>between</em> shaders — a descriptor set survives a pipeline change only if the
+    ///     layouts agree up to it — so the frame is the only thing that can state it, and until now
+    ///     the only thing that could was a host writing C#.
+    /// </remarks>
+    const string WithViewBlock = """
+        version: 2
+        viewBlock:
+          binding: 0
+          stages: Vertex
+        resources:
+          - name: SceneColour
+            format: Rgba16Float
+            usage: ColourTarget, Sampled
+        stages:
+          - name: Opaque
+        game: !RenderPass
+          name: Main
+          colourTargets: [SceneColour]
+          children:
+            - !SingleStage
+              name: OpaqueDraw
+              view: Camera
+              stage: Opaque
+        """;
+
+    [Fact]
+    public void A_document_can_declare_the_per_view_block() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(WithViewBlock);
+        using var h = Build();
+        using var allocator = new DescriptorAllocator(device);
+
+        h.Builder.Device = device;
+        h.Builder.Descriptors = allocator;
+
+        var compositor = h.Builder.Build(asset);
+
+        using var block = h.Builder.ViewBlock;
+
+        Assert.NotNull(block);
+        Assert.True(block.IsConfigured);
+        Assert.Equal(DescriptorSetSlot.PerView, block.Slot);
+
+        // Declared with no members, so the standard block: the view-projection and the view position.
+        Assert.Equal(2, block.Members.Count);
+        Assert.Equal(ViewConstants.ViewProjection, block.Members[0].Key);
+
+        // And every node that draws a view was handed it.
+        var pass = Assert.IsType<RenderPassRenderer>(compositor.Game);
+        Assert.Same(block, Assert.IsType<SingleStageRenderer>(pass.Children[0]).Constants);
+    }
+
+    /// <summary>A frame that declares no block builds nodes that bind none.</summary>
+    /// <remarks>
+    ///     Which keeps the block optional rather than mandatory: a project whose shaders read no
+    ///     camera should not have to declare one to draw.
+    /// </remarks>
+    [Fact]
+    public void A_frame_with_no_view_block_binds_none() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
+        using var h = Build();
+
+        h.Builder.Device = device;
+        h.Builder.Build(asset);
+
+        Assert.Null(h.Builder.ViewBlock);
+    }
+
+    /// <summary>A member naming a parameter nothing declares is refused.</summary>
+    /// <remarks>
+    ///     The alternative is a value that silently never arrives — a document and a shader that
+    ///     disagree about what is in the block, which produces a frame drawn with whatever the block
+    ///     happened to contain.
+    /// </remarks>
+    [Fact]
+    public void A_view_member_naming_an_unknown_parameter_is_refused() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(
+            """
+            version: 2
+            viewBlock:
+              members:
+                - name: Nothing.Declares.This
+                  offset: 0
+                  size: 4
+            stages:
+              - name: Opaque
+            game: !SingleStage
+              name: Draw
+              view: Camera
+              stage: Opaque
+            """
+        );
+
+        using var h = Build();
+        h.Builder.Device = device;
+
+        var thrown = Assert.Throws<CompositorBindingException>(() => h.Builder.Build(asset));
+
+        Assert.Equal("parameter", thrown.Kind);
+        Assert.Equal("Nothing.Declares.This", thrown.Name);
+    }
+
+    /// <summary>
+    ///     A compute dispatch, authored — the last node kind that was code-only.
+    /// </summary>
+    /// <remarks>
+    ///     Its value over a hand-written dispatch is the two lists it declares: a pass that says it
+    ///     writes a buffer, beside one that says it reads it, is a pass the graph orders first and puts
+    ///     a barrier after. A document can now say so, which is what makes a Forward+ preset a file
+    ///     rather than a build.
+    /// </remarks>
+    [Fact]
+    public void A_document_can_author_a_compute_dispatch() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(
+            """
+            version: 2
+            buffers:
+              - name: Clusters
+                size: 4096
+            stages:
+              - name: Opaque
+            game: !Sequence
+              name: Frame
+              children:
+                - !Compute
+                  name: ClusterCull
+                  shader: ClusterCulling
+                  bufferReads: [SceneLights]
+                  bufferWrites: [Clusters]
+                  groupsX: 4
+                  groupsY: 3
+                  groupsZ: 6
+                  bindings:
+                    - name: lights
+                      resource: SceneLights
+                    - name: clusters
+                      resource: Clusters
+            """
+        );
+
+        using var h = Build();
+        using var allocator = new DescriptorAllocator(device);
+
+        h.Builder.Device = device;
+        h.Builder.Descriptors = allocator;
+
+        var compositor = h.Builder.Build(asset);
+        var sequence = Assert.IsType<SceneRendererSequence>(compositor.Game);
+        var cull = Assert.IsType<ComputeRenderer>(sequence.Children[0]);
+
+        Assert.Equal("ClusterCulling", cull.ShaderName);
+        Assert.Equal(new Int3(4, 3, 6), cull.Groups);
+        Assert.Equal(["SceneLights"], cull.BufferReads);
+        Assert.Equal(["Clusters"], cull.BufferWrites);
+
+        // Named, not numbered — the shader's plan is what says where they go.
+        Assert.Equal("lights", cull.Descriptors.Bindings[0].Name);
+        Assert.Same(allocator, cull.Descriptors.Allocator);
+    }
 }

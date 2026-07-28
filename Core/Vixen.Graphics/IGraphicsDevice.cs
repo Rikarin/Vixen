@@ -245,8 +245,31 @@ public interface IGraphicsDevice : IDisposable {
     /// <param name="description">What to create.</param>
     ISwapChain CreateSwapChain(in SwapChainDescription description);
 
-    /// <summary>Returns a buffer.</summary>
+    /// <summary>
+    ///     Returns a buffer.
+    /// </summary>
     /// <param name="handle">The buffer.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Every <c>Destroy</c> on this interface is deferred, and a backend that frees
+    ///         immediately is wrong.</strong> Destroying an object a submitted command buffer still
+    ///         references is undefined behaviour, and the window in which it is unsafe is exactly
+    ///         <see cref="FramesInFlight" /> frames wide — which the caller has no way of knowing and
+    ///         should not have to. So the handle becomes invalid to the caller here and the object is
+    ///         freed once no frame that could reference it is still running.
+    ///     </para>
+    ///     <para>
+    ///         That is why a renderer may recreate a buffer mid-frame without waiting: the old handle
+    ///         is safe to hand back even while the frame that used it is on the GPU. What is
+    ///         <em>not</em> safe, and what no backend can defer for you, is overwriting the
+    ///         <em>contents</em> of a resource a running frame is reading — see
+    ///         <see cref="DescriptorAllocator" /> for the shape of the answer to that.
+    ///     </para>
+    ///     <para>
+    ///         A backend with no GPU satisfies this trivially, because no frame it runs can reference
+    ///         anything.
+    ///     </para>
+    /// </remarks>
     void Destroy(BufferHandle handle);
 
     /// <summary>Returns a texture.</summary>

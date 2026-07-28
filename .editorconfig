@@ -182,8 +182,7 @@ dotnet_diagnostic.IL3050.severity = error
 dotnet_diagnostic.CA1852.severity = none
 dotnet_diagnostic.CA1859.severity = none
 
-# ==============================================================================
-# Rules disabled by name under AnalysisLevel=latest-all.
+# =======================================================================# Rules disabled by name under AnalysisLevel=latest-all.
 # Each needs a reason. Prefer fixing code over adding to this list.
 # ==============================================================================
 
@@ -296,6 +295,20 @@ dotnet_diagnostic.CA1051.severity = none
 dotnet_diagnostic.CS1591.severity = none
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Input/Controls/InputKey.cs
+#
+# CS1591, for the same reason and about the same table. `InputKey` is the Core
+# layer's copy of the USB HID key positions, value for value — Vixen.Input cannot
+# reference Vixen.Platform (CheckArchitecture forbids Core → Platform) and
+# Vixen.Ui, which consumes it, must stay usable with no platform backend at all.
+# InputKeyTests asserts member by member that the two agree, which is what makes
+# the duplication safe; documenting each of a hundred and twenty positions twice
+# is what would make it unreadable.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Input/Controls/InputKey.cs]
+dotnet_diagnostic.CS1591.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
 # ECS component declarations
 #
 # CA1051 (do not declare visible instance fields). A component *is* a public
@@ -367,6 +380,20 @@ dotnet_diagnostic.CA1711.severity = none
 dotnet_diagnostic.CA1051.severity = none
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Animation/BoneTransform.cs
+#
+# CA1051 (do not declare visible instance fields). A `BoneTransform` is one
+# element of a pose array, and every blend in the module writes it in place
+# through a `Span<BoneTransform>` — `bones[i].Rotation = …`. A property returning
+# a copy would compile and silently drop the write, which is the same trap
+# RenderObject.cs and the ECS components are exempted for. It is also the element
+# of the array a hundred of which are read per character per frame, so the
+# indirection is not free either.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Animation/BoneTransform.cs]
+dotnet_diagnostic.CA1051.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Core/Vixen.Rendering/Lights.cs
 #
 # CA1051 (do not declare visible instance fields). Two structs, exempted for two
@@ -415,3 +442,109 @@ dotnet_diagnostic.CA1711.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Net.Transport.WebSocket/SystemWebSocketFactory.cs]
 dotnet_diagnostic.CA5350.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Editor/Vixen.Editor.Core/CommandStack.cs
+#
+# CA1711 (identifiers should not have incorrect suffix). The rule reserves
+# `…Stack` for types deriving from System.Collections.Stack, a non-generic .NET
+# 1.0 type nothing should derive from. `CommandStack` is the undo history, and
+# "command stack" is the term docs/plan/11 uses for it and the term every editor
+# uses for it — Photoshop, Blender, Visual Studio. It is also literally a stack
+# in the sense that matters: entries are pushed, undone from the top, and moved
+# to a second stack. Naming it `CommandHistory` to satisfy the rule would rename
+# the concept the whole document model is built around.
+# ─────────────────────────────────────────────────────────────────────────────
+[Editor/Vixen.Editor.Core/CommandStack.cs]
+dotnet_diagnostic.CA1711.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Editor/Vixen.Editor.Core/IEditorCommand.cs
+#
+# CA1716 (identifiers should not match keywords). `Do` is a Visual Basic keyword,
+# and the rule's concern is a VB consumer implementing the interface. Vixen has
+# no VB surface and will not grow one; against that, `Do`/`Undo` is the pair
+# docs/plan/11 specifies and the pair that reads correctly at every call site —
+# `command.Do(context)` beside `command.Undo(context)`. The alternatives break
+# the symmetry (`Apply`/`Undo`) or collide with the stack's own vocabulary
+# (`Execute`, which is what CommandStack.Execute does *to* a command).
+# ─────────────────────────────────────────────────────────────────────────────
+[Editor/Vixen.Editor.Core/IEditorCommand.cs]
+dotnet_diagnostic.CA1716.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Audio/Devices/AudioDevice.cs
+#
+# CA1716 (identifier conflicts with a reserved language keyword). `Stop` is a
+# statement in Visual Basic, so the rule wants `IAudioDevice.Stop()` renamed.
+# `Start`/`Stop` is what every audio API in existence calls this pair — OpenAL's
+# source play/stop, WebAudio's `AudioBufferSourceNode.start`/`stop`, WASAPI's
+# `IAudioClient::Start`/`Stop` — and a backend author implementing this interface
+# is coming straight from one of them. Renaming it to `Halt` or `Cease` to spare
+# a VB consumer an escaped identifier would cost every reader of the contract
+# more than it saves the consumer, and there is no VB in this repository.
+#
+# Scoped to the file that declares the interface. A stray `Stop` on some other
+# virtual member elsewhere is still reported.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Audio/Devices/AudioDevice.cs]
+dotnet_diagnostic.CA1716.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Rendering/Lighting/SphericalHarmonics.cs
+#
+# CA1051 (do not declare visible instance fields). `ShCoefficients` is the CPU
+# side of a struct the GPU reads: Raven/Library/Shading/Ibl.rvn declares the same
+# nine `float3`s in the same order, and the nine names are the parameter names a
+# host writes them under. It is also accumulated in place — `Accumulate` takes it
+# by `ref` and adds a texel's contribution to each band — which is the same
+# `lights[i].Intensity = …` trap Lights.cs is exempted for, one level down.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Rendering/Lighting/SphericalHarmonics.cs]
+dotnet_diagnostic.CA1051.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Navigation/NavMeshTileData.cs
+#
+# CA1051 (do not declare visible instance fields). `NavMeshPolyData` is one
+# element of the array a baked tile is, and the same reasoning as
+# Vixen.Rendering/RenderObject.cs applies from both ends: the pathfinder reads it
+# through a `ref` into that array once per polygon it expands, and the baker fills
+# it field by field while building — `polys[i].Area = …` through a property would
+# write to a copy and the write would be lost.
+#
+# It is also the on-disk shape. A tile is a bake artefact, and a layout that a
+# reader can blit is worth more here than a property that could later validate
+# something nothing is in a position to validate.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Navigation/NavMeshTileData.cs]
+dotnet_diagnostic.CA1051.severity = none
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Navigation/NavQueryFilter.cs
+#
+# CA1711 (identifiers should not have incorrect suffix). The rule reserves the
+# `Flags` suffix. `NavPolyFlags` is a `[Flags]` enum whose members are exactly
+# what everyone who has ever configured a navmesh filter calls the polygon flags —
+# the word is the domain's, and the filter beside it has `IncludeFlags` and
+# `ExcludeFlags` for the same reason. Renaming the type would leave the two
+# properties reading as flags of a thing that is not called flags.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Navigation/NavQueryFilter.cs]
+dotnet_diagnostic.CA1711.severity = none
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Navigation/Agents/NavPathQueue.cs
+#
+# CA1711 (identifiers should not have incorrect suffix). The rule reserves the
+# `Queue` suffix for types implementing IEnumerable. This one is a queue of
+# *requests* in the ordinary sense of the word — submit, wait, collect — and is
+# deliberately not enumerable: what it holds are slots with generations, and
+# handing them out as a sequence would invite iteration over results whose
+# lifetime is "until somebody takes them". Detour calls the same thing a path
+# queue, which is what anybody looking for it will search for.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Navigation/Agents/NavPathQueue.cs]
+dotnet_diagnostic.CA1711.severity = none

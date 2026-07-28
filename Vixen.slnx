@@ -85,8 +85,19 @@
     <Project Path="Core/Vixen.Shaders.Tests/Vixen.Shaders.Tests.csproj" />
     <Project Path="Core/Vixen.Audio/Vixen.Audio.csproj" />
     <Project Path="Core/Vixen.Audio.Tests/Vixen.Audio.Tests.csproj" />
+    <Project Path="Core/Vixen.Input/Vixen.Input.csproj" />
+    <Project Path="Core/Vixen.Input.Generators/Vixen.Input.Generators.csproj" />
+    <Project Path="Core/Vixen.Input.Tests/Vixen.Input.Tests.csproj" />
+    <Project Path="Core/Vixen.Physics/Vixen.Physics.csproj" />
+    <Project Path="Core/Vixen.Physics.Tests/Vixen.Physics.Tests.csproj" />
+    <Project Path="Core/Vixen.Navigation/Vixen.Navigation.csproj" />
+    <Project Path="Core/Vixen.Navigation.Tests/Vixen.Navigation.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering/Vixen.Rendering.csproj" />
     <Project Path="Core/Vixen.Rendering.Tests/Vixen.Rendering.Tests.csproj" />
+    <Project Path="Core/Vixen.Rendering.PostFx/Vixen.Rendering.PostFx.csproj" />
+    <Project Path="Core/Vixen.Rendering.PostFx.Tests/Vixen.Rendering.PostFx.Tests.csproj" />
+    <Project Path="Core/Vixen.Animation/Vixen.Animation.csproj" />
+    <Project Path="Core/Vixen.Animation.Tests/Vixen.Animation.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Reactive/Vixen.Ui.Reactive.csproj" />
     <Project Path="Core/Vixen.Ui.Reactive.Tests/Vixen.Ui.Reactive.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Layout/Vixen.Ui.Layout.csproj" />
@@ -104,6 +115,7 @@
     <Project Path="Core/Vixen.Ui.Markup.Tests/Vixen.Ui.Markup.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Markup.Generators/Vixen.Ui.Markup.Generators.csproj" />
     <Project Path="Core/Vixen.Ui.Markup.Generators.Tests/Vixen.Ui.Markup.Generators.Tests.csproj" />
+    <Project Path="Core/Vixen.Ui.Renderer/Vixen.Ui.Renderer.csproj" />
     <Project Path="Core/Vixen.Ui.HotReload/Vixen.Ui.HotReload.csproj" />
     <Project Path="Core/Vixen.Ui.HotReload.Tests/Vixen.Ui.HotReload.Tests.csproj" />
     <Project Path="Core/Vixen.Net/Vixen.Net.csproj" />
@@ -146,6 +158,15 @@
     <Project Path="Platform/Vixen.Graphics.Golden.Tests/Vixen.Graphics.Golden.Tests.csproj" />
     <Project Path="Platform/Vixen.Graphics.Vulkan/Vixen.Graphics.Vulkan.csproj" />
     <Project Path="Platform/Vixen.Graphics.Vulkan.Tests/Vixen.Graphics.Vulkan.Tests.csproj" />
+    <!--
+      Vixen.Audio.Backend.WebAudio is deliberately absent, for the same reason
+      Vixen.Platform.Android and Vixen.Platform.iOS are: it targets net10.0-browser,
+      which needs the wasm-tools workload even to evaluate, and a solution that will
+      not restore on a machine without it is a solution nobody can open. It is built
+      by the web app head — Phase 10 — and by anyone who has the workload.
+    -->
+    <Project Path="Platform/Vixen.Audio.Backend.OpenAL/Vixen.Audio.Backend.OpenAL.csproj" />
+    <Project Path="Platform/Vixen.Audio.Backend.OpenAL.Tests/Vixen.Audio.Backend.OpenAL.Tests.csproj" />
   </Folder>
 
   <!--
@@ -188,7 +209,9 @@
     <Project Path="Benchmarks/Vixen.Benchmarks.Math/Vixen.Benchmarks.Math.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Jobs/Vixen.Benchmarks.Jobs.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Ecs/Vixen.Benchmarks.Ecs.csproj" />
+    <Project Path="Benchmarks/Vixen.Benchmarks.Animation/Vixen.Benchmarks.Animation.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Ui/Vixen.Benchmarks.Ui.csproj" />
+    <Project Path="Benchmarks/Vixen.Benchmarks.Navigation/Vixen.Benchmarks.Navigation.csproj" />
   </Folder>
 
   <!--

@@ -55,6 +55,34 @@
         <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+          And the shader binding generator, over the reflection checked in beside the library
+          shaders. What it buys is that a compositor node names BloomKeys.SourceBinding rather than
+          writing down a number it cannot see: a binding index is assigned by Raven from declaration
+          order within a set, so adding a texture above another in the .rvn renumbers it — and a host
+          holding the old number gets a validation error at best and the wrong texture at worst.
+
+          The reflection is checked in rather than compiled here. The alternative is this project
+          depending on the compiler being built first, in a repository where the compiler is the
+          larger of the two; Vixen.Raven.Tests regenerates and compares them instead, so they cannot
+          drift from the shaders without a test saying so.
+        -->
+        <ProjectReference Include="..\Vixen.Shaders.Generators\Vixen.Shaders.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <!--
+      Named rather than globbed, and that is not tidiness: the generator emits a `…Keys` type per
+      file, so two projects globbing the same directory emit the same type twice and the second one
+      to be referenced wins with a warning. Each project takes the reflection for the shaders its own
+      nodes bind — these, and Vixen.Rendering.PostFx takes the effect set.
+    -->
+    <ItemGroup>
+        <AdditionalFiles Include="..\..\Raven\Library\Pipeline\*.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\Bloom.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\Tonemap.reflect.json" />
     </ItemGroup>
 
     <ItemGroup>

@@ -6,6 +6,13 @@ This is the level of testing every other kind is a proxy for. A command-stream a
 backend emitted the calls somebody intended; only a picture proves those calls draw what they were
 meant to.
 
+Two kinds of fixture. `GoldenImageTests` renders from a command list and is about the **backend**: a
+clear, a triangle, an indexed quad, blending, reversed depth. `CompositorImageTests` renders from a
+`GraphicsCompositor` and is about the **renderer** — the layer engine code actually uses, and one
+that had been asserted entirely against a recording backend, which will happily record a descriptor
+set bound to the wrong index and a uniform written at the wrong offset and report that the calls were
+made.
+
 ```bash
 ./build.sh GoldenImages --configuration Release
 ```
@@ -51,3 +58,28 @@ artefact in a corner, which is exactly the failure this suite exists to catch.
 These references were generated on MoltenVK and are verified against lavapipe on every push. The
 tolerances are what that cross-driver agreement actually needs, not what one machine happens to
 produce.
+
+## Writing one
+
+A fixture is worth having when the mistakes it is looking for are **visible** — an upside-down
+picture, a black one, a blown-out one — and worth checking by breaking it on purpose before it is
+committed. `tonemapped-triangle` dims a gradient by an exposure the host wrote into a uniform block
+and rolls it off against a white point the host never set; setting that white point to zero moves
+17.6% of its pixels by up to 112/255. `depth-prepass` blends additively so that a fragment shaded
+twice is a different colour from one shaded once; relaxing its depth comparison to `Always` turns the
+overlap yellow and moves 17.2% by up to 204/255. A fixture that cannot be made to fail is asserting
+nothing.
+
+`shadow-cascade` is the one that took three attempts to become load-bearing. Its first two versions
+passed a deliberate sabotage — sampling the wrong atlas tile — because the caster was bounded loosely
+enough to survive every cascade's cull and therefore landed in every tile, so both tiles held the same
+thing and the mapping was untested. It fails that sabotage now, with "nothing is shadowed anywhere".
+**Sabotage the claim the fixture is supposed to make, not merely some claim**: a fixture that fails
+when you break something unrelated tells you very little.
+
+Where the arithmetic is beyond hand-checking — `bloom` is nine passes of bilinear taps — the fixture
+asserts the **properties** a correct result has before it trusts the picture: the glow is centred on
+its source, symmetric about that centre, and reaches well past it. Otherwise committing the first
+reference is committing whatever came out first. Those assertions earn their place: setting the
+chain's intensity to zero fails on "the glow does not reach past the source" rather than on a pixel
+count.

@@ -6,9 +6,9 @@ using Vixen.Core.Mathematics;
 
 namespace Vixen.Rendering;
 
-/// <summary>The three kinds of light a punctual record can be.</summary>
+/// <summary>The five kinds of light one record can be.</summary>
 /// <remarks>
-///     The same three <c>LightKind</c> in <c>Raven/Library/Shading/Lighting.rvn</c>, and the values
+///     The same five <c>LightKind</c> in <c>Raven/Library/Shading/Lighting.rvn</c>, and the values
 ///     must agree: the shader compares the record's <c>kind</c> against its own constants, so a
 ///     renumbering here that is not made there turns every spot light into a point light and nothing
 ///     reports it.
@@ -21,7 +21,13 @@ public enum LightKind {
     Point = 1,
 
     /// <summary>A position and a cone.</summary>
-    Spot = 2
+    Spot = 2,
+
+    /// <summary>A capsule: a segment with a radius. A fluorescent tube, a strip light.</summary>
+    Tube = 3,
+
+    /// <summary>A one-sided rectangle. A softbox, a window, a screen.</summary>
+    Rect = 4
 }
 
 /// <summary>
@@ -69,6 +75,21 @@ public struct RenderLight {
     /// <summary>The outer cone half-angle in radians, outside which a spot contributes nothing.</summary>
     public float OuterAngle;
 
+    /// <summary>A shaped light's own axis: along a tube, or across a rectangle's width.</summary>
+    /// <remarks>
+    ///     Normalised on the way to the GPU rather than here, because an author setting an axis
+    ///     component at a time would otherwise have to renormalise after each one.
+    /// </remarks>
+    public Vector3 Tangent;
+
+    /// <summary>Half a tube's length, or half a rectangle's width. Zero for a punctual light.</summary>
+    /// <remarks>
+    ///     A rectangle's half-<em>height</em> is <see cref="Radius" />: every area shape here needs
+    ///     exactly two extents, and reusing the field a sphere and a tube already have for their
+    ///     radius is what keeps one record able to describe all five kinds.
+    /// </remarks>
+    public float HalfLength;
+
     /// <summary>A directional light, which needs no position and no range.</summary>
     public static RenderLight Directional(Vector3 direction, Color3 colour, float intensity = 1f) =>
         new() {
@@ -109,10 +130,76 @@ public struct RenderLight {
             Intensity = intensity
         };
 
+    /// <summary>A tube light: a segment of a given radius, lit along its whole length.</summary>
+    /// <param name="position">The middle of the tube.</param>
+    /// <param name="axis">Which way it runs. Normalised on the way to the GPU.</param>
+    /// <param name="halfLength">Half its length, so the ends are at position ± axis × this.</param>
+    /// <param name="radius">How thick it is.</param>
+    /// <param name="range">Where its contribution reaches zero, measured from its surface.</param>
+    /// <param name="colour">Its colour.</param>
+    /// <param name="intensity">What that colour is multiplied by.</param>
+    public static RenderLight Tube(
+        Vector3 position,
+        Vector3 axis,
+        float halfLength,
+        float radius,
+        float range,
+        Color3 colour,
+        float intensity = 1f
+    ) =>
+        new() {
+            Kind = LightKind.Tube,
+            Position = position,
+            Tangent = axis,
+            HalfLength = halfLength,
+            Radius = radius,
+            Range = range,
+            Colour = colour,
+            Intensity = intensity
+        };
+
+    /// <summary>A rectangular panel, emitting from one face.</summary>
+    /// <param name="position">The middle of the panel.</param>
+    /// <param name="normal">The face it emits from.</param>
+    /// <param name="axis">Its width axis. Made perpendicular to the normal on the way to the GPU.</param>
+    /// <param name="halfWidth">Half its width, along the axis.</param>
+    /// <param name="halfHeight">Half its height, across the axis.</param>
+    /// <param name="range">Where its contribution reaches zero.</param>
+    /// <param name="colour">Its colour.</param>
+    /// <param name="intensity">What that colour is multiplied by.</param>
+    public static RenderLight Rect(
+        Vector3 position,
+        Vector3 normal,
+        Vector3 axis,
+        float halfWidth,
+        float halfHeight,
+        float range,
+        Color3 colour,
+        float intensity = 1f
+    ) =>
+        new() {
+            Kind = LightKind.Rect,
+            Position = position,
+            Direction = Vector3.Normalize(normal),
+            Tangent = axis,
+            HalfLength = halfWidth,
+            Radius = halfHeight,
+            Range = range,
+            Colour = colour,
+            Intensity = intensity
+        };
+
     /// <summary>The radiance this light emits — colour times intensity.</summary>
     public readonly Vector3 Radiance => new(Colour.R * Intensity, Colour.G * Intensity, Colour.B * Intensity);
 
     /// <summary>This light in the layout the shader reads.</summary>
+    /// <remarks>
+    ///     The tangent is orthogonalised against the direction here rather than trusted, because a
+    ///     rectangle's two axes and its normal have to be an orthonormal basis for the closest-point
+    ///     search to mean anything — and an author who typed an axis that is a little off would
+    ///     otherwise get a panel that is subtly sheared, which is not a thing anyone would think to
+    ///     look for.
+    /// </remarks>
     public readonly PunctualLightData ToGpu() =>
         new() {
             Position = Position,
@@ -122,8 +209,34 @@ public struct RenderLight {
             Direction = Direction,
             CosInner = MathF.Cos(InnerAngle),
             Radius = Radius,
-            CosOuter = MathF.Cos(OuterAngle)
+            CosOuter = MathF.Cos(OuterAngle),
+            Tangent = Axis(),
+            HalfLength = HalfLength
         };
+
+    /// <summary>The shaped axis, unit length and square to the direction where that matters.</summary>
+    readonly Vector3 Axis() {
+        if (Tangent.LengthSquared() < 1e-12f) {
+            return Vector3.Zero;
+        }
+
+        var axis = Vector3.Normalize(Tangent);
+
+        // Only a rectangle has a normal for its axis to be square to. A tube's axis *is* its
+        // direction, and projecting it against the unused `Direction` field would zero it.
+        if (Kind != LightKind.Rect) {
+            return axis;
+        }
+
+        var squared = axis - (Direction * Vector3.Dot(axis, Direction));
+        return squared.LengthSquared() < 1e-12f ? Orthogonal(Direction) : Vector3.Normalize(squared);
+    }
+
+    /// <summary>Any unit vector square to <paramref name="normal" />, for an axis that was parallel to it.</summary>
+    static Vector3 Orthogonal(Vector3 normal) {
+        var candidate = MathF.Abs(normal.Z) < 0.999f ? Vector3.UnitZ : Vector3.UnitX;
+        return Vector3.Normalize(Vector3.Cross(candidate, normal));
+    }
 }
 
 /// <summary>
@@ -131,10 +244,10 @@ public struct RenderLight {
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Sixty-four bytes with no padding anywhere, and that is the whole reason the field order is
+///         Eighty bytes with no padding anywhere, and that is the whole reason the field order is
 ///         what it is: each <c>float3</c> is followed by a <c>float</c>, so every member lands on its
 ///         natural std140 sixteen-byte boundary. Reordered so that two vectors are adjacent, the same
-///         eight values cost ninety-six bytes and every offset moves.
+///         values cost far more and every offset moves.
 ///     </para>
 ///     <para>
 ///         <strong>Because it matches, an upload is a blit.</strong> Writing this array to a buffer is
@@ -177,10 +290,16 @@ public struct PunctualLightData {
 
     /// <summary>Two floats of tail padding the shader declares and never reads.</summary>
     /// <remarks>
-    ///     Declared rather than left to the compiler, so that <c>sizeof</c> is sixty-four on every
-    ///     runtime rather than sixty-four on the ones that happen to round up.
+    ///     Declared rather than left to the compiler, so that <c>sizeof</c> is the same on every
+    ///     runtime rather than on the ones that happen to round up.
     /// </remarks>
     public Vector2 Padding;
+
+    /// <summary>A shaped light's axis: along a tube, or across a rectangle's width.</summary>
+    public Vector3 Tangent;
+
+    /// <summary>Half a tube's length, or half a rectangle's width.</summary>
+    public float HalfLength;
 }
 
 /// <summary>Which slice of the light buffer holds one object's list.</summary>
@@ -192,3 +311,14 @@ public struct PunctualLightData {
 ///     lighting one unused slot.
 /// </remarks>
 public readonly record struct LightAssignment(int Offset, int Count);
+
+/// <summary>Something that knows which light is the scene's sun.</summary>
+/// <remarks>
+///     An interface rather than a reference to the lighting feature, because a shadow renderer needs
+///     one fact and should not depend on the machinery that happens to produce it — a scene with a
+///     scripted sun, or a cinematic overriding one, supplies this and nothing else changes.
+/// </remarks>
+public interface ISunSource {
+    /// <summary>The directional light casting the scene's shadows, or null when there is none.</summary>
+    RenderLight? Sun { get; }
+}

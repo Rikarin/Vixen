@@ -23,13 +23,18 @@ one path through it*.
 The difference is visible in the output. Rooted, the binary is about 8 MB; the same probe relying on
 reachability from `Main` produced 1.3 MB. Nothing was trimmed away unexamined, which is the point.
 
-## What it covers, and the two it cannot
+## What it covers, and the one rule every binding-library backend follows
 
-Every `Core/` assembly, plus `Vixen.Platform`, `Vixen.Platform.Headless` and `Vixen.Graphics.Null`.
-All of them publish with **zero** trim or AOT warnings, and the resulting binary runs.
+Every `Core/` assembly, plus `Vixen.Platform`, `Vixen.Platform.Native`, `Vixen.Platform.Headless`,
+`Vixen.Platform.Desktop`, `Vixen.Graphics.Null`, `Vixen.Graphics.Vulkan` and
+`Vixen.Audio.Backend.OpenAL`. All of them publish with **zero** trim or AOT warnings, and the
+resulting binary runs.
 
-**`Vixen.Platform.Desktop` and `Vixen.Graphics.Vulkan` are not in the list, and not because of
-anything in them.** Rooting either produces six errors, every one inside a dependency:
+**The three Silk.NET-based backends are in the list only because none of them calls `GetApi()`.**
+That call builds Silk.NET's default context, which finds a native library by asking where its own
+managed assembly is on disk (`Assembly.Location`) and by reading the dependency manifest
+(`DependencyContext.Default`). A NativeAOT application has neither, and rooting an assembly that
+reaches it produces six errors, every one inside a dependency:
 
 ```
 IL3000  Silk.NET.Core.Loader.DefaultPathResolver…  'Assembly.Location' always returns an empty string
@@ -40,23 +45,19 @@ IL3002  Silk.NET.Core.Loader.DefaultPathResolver…  'DependencyContext.Default'
 IL3002  Microsoft.Extensions.DependencyModel…      'DependencyContext.LoadDefault' …
 ```
 
-Silk.NET finds its native libraries by asking where the managed assembly is on disk and by reading
-the dependency manifest. Under NativeAOT there is no managed assembly on disk and no dependency
-manifest, so `DefaultPathResolver` cannot work — these are not pedantic warnings, they are the
-loader telling the truth about itself.
+These are not pedantic warnings; they are the loader telling the truth about itself.
 
-The fix is the one Phase 1 already listed and has not built: `Vixen.Platform.Native`, mapping a RID to
-a binary and registering a `DllImportResolver`, so the engine resolves its own natives and Silk's
-probing is never the thing that has to work. That entry has gone from tidiness to load-bearing.
+So each backend loads its own library through `Vixen.Platform.Native` — which maps a RID to a
+binary, knows the `runtimes/<rid>/native/` layout, and registers a `DllImportResolver` — and then
+constructs the Silk.NET API object from a `LamdaNativeContext` over the handle. `VulkanLoader` and
+`OpenALLoader` are the same thirty lines twice, and both of their file comments record that putting
+the `GetApi()` call back brings all six diagnostics straight back. **A new Silk.NET backend that
+calls `GetApi()` will fail this gate, and that is the intended outcome.**
 
 **On iOS the failure is a different one, and a resolver does not fix it** — see
 `../Vixen.AotProbe.iOS`. Everything links statically there, so Silk.NET's `DllImport`s become symbol
 references and the link fails on twelve undefined `vk*` symbols because MoltenVK is not linked in.
 Two causes, two fixes; R11 in [doc 15](../../docs/plan/15-risks-and-open-questions.md) carries both.
-
-Re-testing either finding is adding the projects back to the relevant probe's `ProjectReference` and
-`TrimmerRootAssembly` lists. When the dependency, the resolver or the iOS linking changes, that is the
-check.
 
 ## The iOS sibling
 

@@ -54,8 +54,16 @@ struct Ibl {
     }
 
     /// The diffuse contribution of an environment given its irradiance.
+    ///
+    /// **The `1/π` is the Lambert BRDF's, and it belongs here rather than at the call site.**
+    /// `IrradianceSh9` returns irradiance — the cosine-weighted integral of incoming radiance, in the
+    /// same units as `E = π L` for a uniform environment of radiance `L`. A Lambertian surface
+    /// reflects `albedo/π` of that, so a white surface under a uniform white environment comes back
+    /// exactly as bright as the environment. Dropping the division makes every ambient-lit surface
+    /// π times too bright, which reads as a badly exposed frame rather than as a missing constant —
+    /// and the fix then usually lands on the exposure, where it is wrong for every other light.
     static func Diffuse(irradiance: float3, diffuseColor: float3, occlusion: float): float3 {
-        return irradiance * diffuseColor * saturate(occlusion)
+        return irradiance * diffuseColor * Const.InvPi * saturate(occlusion)
     }
 
     // --- Spherical harmonics ---------------------------------------------
@@ -102,6 +110,27 @@ struct Ibl {
         val distance = Math.MinComponent(furthest)
         val intersection = position + reflected * distance
         return Math.SafeNormalize(intersection - box.center)
+    }
+
+    /// The same correction against a sphere of influence rather than a box.
+    ///
+    /// Which shape to use is a property of the room, not a preference: a corridor or a rectangular
+    /// hall is a box, and anything organic — a cave, a clearing — is a sphere, where a box's corners
+    /// would place reflections on geometry that is not there. The arithmetic is the positive root of
+    /// the ray-sphere intersection, which always exists because the surface being shaded is inside
+    /// the sphere; a surface outside it is not this probe's business and the caller weighted it to
+    /// zero.
+    static func ParallaxCorrectSphere(reflected: float3, position: float3, center: float3, radius: float): float3 {
+        val toCenter = center - position
+        val along = dot(toCenter, reflected)
+
+        // The half-chord from the closest approach to the sphere's surface. Clamped at zero for the
+        // case the caller should already have excluded, so it degrades to an uncorrected reflection
+        // rather than to a square root of a negative number.
+        val half = sqrt(max(radius * radius - (dot(toCenter, toCenter) - along * along), 0f))
+
+        val intersection = position + reflected * (along + half)
+        return Math.SafeNormalize(intersection - center)
     }
 }
 

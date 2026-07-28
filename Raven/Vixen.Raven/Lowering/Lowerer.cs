@@ -379,7 +379,8 @@ public sealed partial class Lowerer {
                     // host binding by name should see what the source says. The two differ because
                     // a composed feature's parameter belongs to the feature, and an inherited field
                     // belongs to the type that inherited it.
-                    qualify ? $"{source.Name}.{binding.Name}" : binding.Name
+                    qualify ? $"{source.Name}.{binding.Name}" : binding.Name,
+                    defaultValue: binding.DefaultValue
                 )
             );
         }
@@ -617,7 +618,11 @@ public sealed partial class Lowerer {
                     slot,
                     field.SemanticName,
                     field.ResourceSet,
-                    writable: field.Type.IsWritableResource
+                    writable: field.Type.IsWritableResource,
+                    // The author's initialiser, kept for the host rather than for the GPU: a uniform
+                    // block arrives already filled, so `= 1f` is a statement about what to put there
+                    // when nobody said otherwise. See IrBinding.DefaultValue.
+                    defaultValue: field.DeclaredValue
                 )
             );
         }

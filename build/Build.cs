@@ -276,6 +276,37 @@ partial class Build : NukeBuild {
             }
         );
 
+    /// <summary>
+    ///     Builds the browser-targeted assemblies, which the solution cannot contain either.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>Vixen.Audio.Backend.WebAudio</c> targets <c>net10.0-browser</c>, and — exactly as
+    ///         with the two mobile targets above — a project with that target cannot be
+    ///         <em>evaluated</em> without the <c>wasm-tools</c> workload. Its presence in
+    ///         <c>Vixen.slnx</c> would break <c>dotnet build</c> for anyone who has not installed it.
+    ///     </para>
+    ///     <para>
+    ///         The cost is the same one <see cref="CompileMobile" /> names: the assembly is not seen
+    ///         by <see cref="Test" />, <see cref="CheckFormat" /> or <see cref="Pack" />. That is why
+    ///         everything about audio that can be asserted without a browser — which is all of the
+    ///         mixing, the spatialisation and the effects — lives in <c>Vixen.Audio</c>, where the
+    ///         solution does see it. What is left here is the twenty lines that talk to an
+    ///         <c>AudioContext</c>.
+    ///     </para>
+    /// </remarks>
+    Target CompileWeb => definition => definition
+        .Description("Builds the browser assemblies, which cannot live in the solution")
+        .Executes(() =>
+            DotNetBuild(settings => settings
+                .SetProjectFile(
+                    RootDirectory / "Platform" / "Vixen.Audio.Backend.WebAudio"
+                    / "Vixen.Audio.Backend.WebAudio.csproj"
+                )
+                .SetConfiguration(Configuration)
+            )
+        );
+
     Target Pack => definition => definition
         .Description("Produces the NuGet packages")
         .DependsOn(Test)

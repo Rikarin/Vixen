@@ -55,7 +55,17 @@ public static class ReflectionBuilder {
                 .. shader.ValueParameters.Select(p => new ValueParameterInfo(p.Name, ShaderDataType.From(p.Type)))
             ],
             RequiredCapabilities = [.. IrCapabilities.Of(shader)],
-            UsedPermutationKeys = [.. (usedPermutationKeys ?? []).Order(StringComparer.Ordinal)],
+
+            // Narrowed to what *this* shader declares. The list handed in is the compilation's, and a
+            // compilation is more than one shader — so a key another shader branched on would
+            // otherwise be reported as having affected this output, which is what the field says it
+            // means and is what an effect cache key hashes. Describing a whole library at once made
+            // that visible: a two-permutation post effect reported forty.
+            UsedPermutationKeys = [
+                .. (usedPermutationKeys ?? [])
+                    .Where(key => shader.Permutations.Any(p => string.Equals(p.Name, key, StringComparison.Ordinal)))
+                    .Order(StringComparer.Ordinal)
+            ],
             Stages = stages
         };
     }
@@ -142,7 +152,15 @@ public static class ReflectionBuilder {
         var members = ImmutableArray.CreateBuilder<MemberInfo>();
 
         for (var i = 0; i < uniforms.Length; i++) {
+            var top = members.Count;
             Flatten(uniforms[i].Name, uniforms[i].Type, offsets[i], LayoutRule.Std140, members);
+
+            // The declared default belongs to the member the author wrote, which is the first entry
+            // Flatten adds — its leaves are fields of a struct type and their defaults, if any,
+            // belong to that struct rather than to this block.
+            if (uniforms[i].DefaultValue is { } declared) {
+                members[top] = members[top] with { DefaultValue = Format(declared) };
+            }
         }
 
         return new BindingInfo(
@@ -391,7 +409,8 @@ public static class ReflectionBuilder {
                             member.Offset,
                             member.Size,
                             member.ArrayStride,
-                            member.MatrixStride
+                            member.MatrixStride,
+                            member.DefaultValue
                         )
                     );
                 }

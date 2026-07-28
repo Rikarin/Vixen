@@ -84,6 +84,23 @@ public sealed class Material(string shaderName) {
     /// <summary>The values and permutations set on it.</summary>
     public ParameterCollection Parameters { get; } = new();
 
+    /// <summary>Which implementation fills each of the shader's <c>compose</c> slots.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The material's features, as the compiler resolved them: a metal-roughness surface
+    ///         under a clear coat is a composition, not a set of values. Empty for a material whose
+    ///         shader declares no slots, which is every post-process effect and the depth-only pass.
+    ///     </para>
+    ///     <para>
+    ///         Set once rather than settable, because it selects which shader exists. A material that
+    ///         changed its features after an object had resolved a variant would keep drawing with
+    ///         the shader compiled for the old ones — where a value written into the parameter
+    ///         collection takes effect on the next frame. Changing a material's features means
+    ///         building another material, which is also what the editor's undo stack wants.
+    ///     </para>
+    /// </remarks>
+    public ShaderComposition Composition { get; init; }
+
     /// <summary>The descriptor set holding this material's resources.</summary>
     /// <remarks>
     ///     Built by whatever owns the material's textures rather than here. A material that has none

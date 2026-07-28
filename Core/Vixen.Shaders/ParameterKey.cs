@@ -3,6 +3,8 @@
 
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Vixen.Shaders;
 
@@ -52,6 +54,19 @@ public abstract class ParameterKey : IEquatable<ParameterKey> {
     /// <summary>Whether this key selects a shader variant rather than carrying a value into one.</summary>
     public abstract bool IsPermutation { get; }
 
+    /// <summary>
+    ///     The key's default, as the bytes a constant buffer wants.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="ParameterCollection.Get{T}(ParameterKey{T})" /> already promises that one which never
+    ///     mentions a key yields the value the shader author declared. This is the same promise for
+    ///     the code that copies rather than reads: a buffer writer filling only the keys somebody set
+    ///     would give <c>var exposure: float = 1f</c> the value zero, which is a black frame produced
+    ///     by a parameter nobody touched. Empty for a key whose type is not blittable, since there is
+    ///     nothing a buffer could be filled with.
+    /// </remarks>
+    public abstract ReadOnlySpan<byte> DefaultBytes { get; }
+
     /// <inheritdoc />
     public bool Equals(ParameterKey? other) => ReferenceEquals(this, other);
 
@@ -68,13 +83,38 @@ public abstract class ParameterKey : IEquatable<ParameterKey> {
 /// <summary>A parameter whose value is written into a constant buffer or bound as a resource.</summary>
 /// <typeparam name="T">The value's CLR type.</typeparam>
 public sealed class ParameterKey<T> : ParameterKey {
-    internal ParameterKey(string name, T defaultValue) : base(name, typeof(T)) => DefaultValue = defaultValue;
+    readonly byte[] defaultBytes;
+
+    internal ParameterKey(string name, T defaultValue) : base(name, typeof(T)) {
+        DefaultValue = defaultValue;
+        defaultBytes = Blit(defaultValue);
+    }
 
     /// <summary>The value used when nothing has set one.</summary>
     public T DefaultValue { get; }
 
     /// <inheritdoc />
     public override bool IsPermutation => false;
+
+    /// <inheritdoc />
+    public override ReadOnlySpan<byte> DefaultBytes => defaultBytes;
+
+    /// <summary>The default's bytes, once, or nothing for a type a buffer cannot hold.</summary>
+    /// <remarks>
+    ///     <typeparamref name="T" /> is unconstrained here — a key may name a texture or a sampler,
+    ///     which have no bytes — so the check is at runtime. <see cref="Unsafe.As{TFrom,TTo}(ref TFrom)" />
+    ///     rather than <c>MemoryMarshal.AsBytes</c> because the latter wants the constraint the type
+    ///     parameter cannot carry, and the guard above it is what makes the reinterpretation sound.
+    /// </remarks>
+    static byte[] Blit(T value) {
+        if (RuntimeHelpers.IsReferenceOrContainsReferences<T>()) {
+            return [];
+        }
+
+        return MemoryMarshal
+            .CreateReadOnlySpan(ref Unsafe.As<T, byte>(ref value), Unsafe.SizeOf<T>())
+            .ToArray();
+    }
 }
 
 /// <summary>
@@ -96,6 +136,10 @@ public sealed class PermutationKey<T> : ParameterKey {
 
     /// <inheritdoc />
     public override bool IsPermutation => true;
+
+    /// <inheritdoc />
+    /// <remarks>Always empty: a permutation decides which shader exists, and no buffer holds one.</remarks>
+    public override ReadOnlySpan<byte> DefaultBytes => default;
 }
 
 /// <summary>Creates and interns parameter keys.</summary>

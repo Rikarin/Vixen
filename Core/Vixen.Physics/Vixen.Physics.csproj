@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Physics</RootNamespace>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Description>
+            Rigid-body physics on Jolt: bodies, shapes, constraints, a character controller, scene
+            queries and triggers, plus the ECS bridge that steps it once per fixed step and hands the
+            renderer an interpolated transform.
+        </Description>
+        <PackageTags>physics;jolt;rigidbody;collision;character-controller;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="JoltPhysicsSharp" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Collections\Vixen.Core.Collections.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Diagnostics\Vixen.Core.Diagnostics.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
+        <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
+        <ProjectReference Include="..\Vixen.Engine\Vixen.Engine.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          Named here because analyzers do not flow through a ProjectReference, and the serializer for
+          a component has to be generated in the assembly that declares it. Same reasoning as
+          Vixen.Audio, at more length there.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Physics.Tests" />
+    </ItemGroup>
+
+</Project>

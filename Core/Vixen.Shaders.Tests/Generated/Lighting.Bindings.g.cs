@@ -31,19 +31,63 @@ public static class LightingKeys {
         MaxLights,
     ];
 
-    // --- Resource keys: what the descriptor set is filled from.
+    // --- Resource keys: what the descriptor set is filled from, and where each one goes.
 
     /// <summary>set 2, binding 1.</summary>
     public static readonly ParameterKey<global::Vixen.Graphics.TextureViewHandle> Albedo = ParameterKeys.New<global::Vixen.Graphics.TextureViewHandle>("Lighting.albedo");
 
+    /// <summary>Which descriptor set holds <c>albedo</c>.</summary>
+    public const int AlbedoSet = 2;
+
+    /// <summary>Which binding within set 2 <c>albedo</c> occupies.</summary>
+    public const uint AlbedoBinding = 1;
+
     /// <summary>set 2, binding 2.</summary>
     public static readonly ParameterKey<global::Vixen.Graphics.SamplerHandle> Linear = ParameterKeys.New<global::Vixen.Graphics.SamplerHandle>("Lighting.linear");
+
+    /// <summary>Which descriptor set holds <c>linear</c>.</summary>
+    public const int LinearSet = 2;
+
+    /// <summary>Which binding within set 2 <c>linear</c> occupies.</summary>
+    public const uint LinearBinding = 2;
 
     /// <summary>set 2, binding 3.</summary>
     public static readonly ParameterKey<global::Vixen.Graphics.BufferHandle> Overflow = ParameterKeys.New<global::Vixen.Graphics.BufferHandle>("Lighting.overflow");
 
+    /// <summary>Which descriptor set holds <c>overflow</c>.</summary>
+    public const int OverflowSet = 2;
+
+    /// <summary>Which binding within set 2 <c>overflow</c> occupies.</summary>
+    public const uint OverflowBinding = 3;
+
+    // --- Value keys: what a name-driven caller fills the block through.
+
+    /// <summary><c>worldViewProjection</c> at byte 0.</summary>
+    public static readonly ParameterKey<global::Vixen.Core.Mathematics.Matrix4x4> WorldViewProjection = ParameterKeys.New<global::Vixen.Core.Mathematics.Matrix4x4>("Lighting.worldViewProjection");
+
+    /// <summary><c>normalMatrix</c> at byte 64.</summary>
+    public static readonly ParameterKey<global::Vixen.Core.Mathematics.Matrix3x3> NormalMatrix = ParameterKeys.New<global::Vixen.Core.Mathematics.Matrix3x3>("Lighting.normalMatrix");
+
+    /// <summary><c>ambient</c> at byte 112.</summary>
+    public static readonly ParameterKey<global::Vixen.Core.Mathematics.Vector3> Ambient = ParameterKeys.New<global::Vixen.Core.Mathematics.Vector3>("Lighting.ambient");
+
+    /// <summary><c>exposure</c> at byte 124, declared <c>1</c>.</summary>
+    public static readonly ParameterKey<float> Exposure = ParameterKeys.New<float>("Lighting.exposure", 1f);
+
+    /// <summary><c>lightCount</c> at byte 128, declared <c>2</c>.</summary>
+    public static readonly ParameterKey<int> LightCount = ParameterKeys.New<int>("Lighting.lightCount", 2);
+
+    /// <summary><c>enabled</c> at byte 132, declared <c>true</c>.</summary>
+    public static readonly ParameterKey<bool> Enabled = ParameterKeys.New<bool>("Lighting.enabled", true);
+
     /// <summary>The uniform block's size in bytes — what to allocate.</summary>
     public const int ConstantBufferSize = 336;
+
+    /// <summary>Which descriptor set holds <c>the uniform block</c>.</summary>
+    public const int ConstantBufferSet = 2;
+
+    /// <summary>Which binding within set 2 <c>the uniform block</c> occupies.</summary>
+    public const uint ConstantBufferBinding = 0;
 }
 
 /// <summary>

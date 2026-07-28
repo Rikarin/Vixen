@@ -57,6 +57,51 @@ public abstract class SceneRenderer {
     /// <summary>Records this node's work into a pass somebody else opened.</summary>
     protected internal virtual void Record(GraphicsCompositor compositor, RenderDrawContext context) { }
 
+    /// <summary>Runs a child node's phase, for a node built out of other nodes.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Composition is how most of this tree is written — a bloom chain is nine full-screen
+    ///         passes, a post effect is one — and the three phase methods are <c>protected internal</c>
+    ///         because the compositor drives them and nothing else should. Those two facts collide the
+    ///         moment a composite node lives in another assembly: <c>internal</c> does not reach it,
+    ///         and <c>protected</c> does not let an instance call another instance's.
+    ///     </para>
+    ///     <para>
+    ///         So this is the seam, and it is deliberately the *only* thing that widens: a subclass
+    ///         anywhere can drive a child it owns, and nothing outside the hierarchy gains the ability
+    ///         to build a node the compositor did not ask for. Without it, "a post effect is a node
+    ///         over a full-screen pass" would be a sentence only <c>Vixen.Rendering</c> could write —
+    ///         and a game's own effect could not be one at all.
+    ///     </para>
+    /// </remarks>
+    protected static void BuildChild(SceneRenderer child, GraphicsCompositor compositor, CompositorFrame frame) {
+        ArgumentNullException.ThrowIfNull(child);
+
+        if (child.Enabled) {
+            child.Build(compositor, frame);
+        }
+    }
+
+    /// <summary>Runs a child node's collect phase.</summary>
+    /// <remarks>See <see cref="BuildChild" /> — the same seam, for the phase that declares views.</remarks>
+    protected static void CollectChild(SceneRenderer child, GraphicsCompositor compositor) {
+        ArgumentNullException.ThrowIfNull(child);
+
+        if (child.Enabled) {
+            child.Collect(compositor);
+        }
+    }
+
+    /// <summary>Runs a child node's record phase.</summary>
+    /// <remarks>See <see cref="BuildChild" /> — the same seam, for the phase that draws.</remarks>
+    protected static void RecordChild(SceneRenderer child, GraphicsCompositor compositor, RenderDrawContext context) {
+        ArgumentNullException.ThrowIfNull(child);
+
+        if (child.Enabled) {
+            child.Record(compositor, context);
+        }
+    }
+
     /// <inheritdoc />
     public override string ToString() => string.IsNullOrEmpty(Name) ? GetType().Name : Name;
 }

@@ -69,6 +69,7 @@ public sealed class MeshRenderFeature : RootRenderFeature {
 
         var boundPipeline = default(PipelineHandle);
         var boundDescriptors = default(DescriptorSetHandle);
+        var boundView = false;
 
         foreach (var node in nodes) {
             var draw = draws[node.Object.Index];
@@ -79,7 +80,7 @@ public sealed class MeshRenderFeature : RootRenderFeature {
             // No material feature, or no effect resolved for this object: there is nothing to draw
             // it with. Skipped rather than drawn with whatever was bound last, which would put one
             // object's shader on another's geometry — an image that is wrong rather than absent.
-            if (materials?.EffectOf(system, node.Object) is not { } effect) {
+            if (materials?.EffectOf(system, node.Object, stage) is not { } effect) {
                 continue;
             }
 
@@ -97,7 +98,20 @@ public sealed class MeshRenderFeature : RootRenderFeature {
                 boundPipeline = pipeline;
             }
 
-            if (materials.DescriptorsOf(system, node.Object) is { IsValid: true } descriptors
+            // After the pipeline and only once. A descriptor set is bound against the layout of
+            // whatever pipeline is current, so this cannot happen before the first one — and it does
+            // not need to happen again, because every pipeline in a frame is layout-compatible up to
+            // set 1 and a bound set survives a change that does not disturb it.
+            if (!boundView && context.ViewConstants is { } view && context.View is { } from) {
+                boundView = view.Bind(context.CommandList, from);
+            }
+
+            // Only when the resolved effect actually has a per-material set. A stage that overrode
+            // the shader — a depth prepass, a shadow caster — is drawing something that reads no
+            // material at all, and binding a set its pipeline layout does not declare is a validation
+            // error rather than a harmless extra call.
+            if (HasMaterialSet(effect)
+                && materials.DescriptorsOf(system, node.Object) is { IsValid: true } descriptors
                 && descriptors != boundDescriptors) {
                 context.CommandList.BindDescriptorSet(DescriptorSetSlot.PerMaterial, descriptors);
                 boundDescriptors = descriptors;
@@ -130,10 +144,23 @@ public sealed class MeshRenderFeature : RootRenderFeature {
 
     /// <inheritdoc />
     protected internal override uint SortGroupOf(RenderSystem system, RenderObjectId id, RenderStage stage) =>
-        MaterialsOf(system)?.SortGroupOf(system, id) ?? system.Objects[id].SortGroup;
+        MaterialsOf(system)?.SortGroupOf(system, id, stage) ?? system.Objects[id].SortGroup;
 
     MaterialRenderFeature? MaterialsOf(RenderSystem system) =>
         SubFeatures.OfType<MaterialRenderFeature>().FirstOrDefault();
+
+    /// <summary>Whether an effect declares a per-material set for the material's to be bound to.</summary>
+    /// <remarks>
+    ///     An effect with no layouts at all — which is what a test fixture and an early bring-up
+    ///     produce — is treated as having one, so the material path is not silently switched off by
+    ///     reflection that has not been wired up yet. What this rejects is an effect that reported its
+    ///     layouts and did not include this one.
+    /// </remarks>
+    static bool HasMaterialSet(Effect effect) {
+        const int slot = (int)DescriptorSetSlot.PerMaterial;
+        return effect.SetLayouts.Length == 0
+            || (effect.SetLayouts.Length > slot && effect.SetLayouts[slot].IsValid);
+    }
 }
 
 /// <summary>A sub-feature that contributes commands to each draw.</summary>

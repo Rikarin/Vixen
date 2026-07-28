@@ -32,6 +32,14 @@ backend-owned table. No finalisers, no `IDisposable` per GPU object, no garbage 
 engine and the driver — and a stale handle is caught by its generation rather than being a
 use-after-free.
 
+**`Destroy` is deferred, and that is a contract rather than an implementation detail.** Freeing an
+object a submitted command buffer still references is undefined behaviour, and the unsafe window is
+exactly `FramesInFlight` frames wide — which a caller has no way of knowing. So a handle becomes
+invalid to the caller immediately and the object is freed once no frame that could reference it is
+running. That is what lets a renderer recreate a buffer mid-frame without waiting. It does *not*
+extend to overwriting a live resource's **contents**, which no backend can defer for anybody; that is
+what the ring in `DescriptorAllocator` — and the ones in the renderer's upload buffers — are for.
+
 **Barriers are stated, not inferred.** `ResourceState` is specified against Vulkan's
 `synchronization2` rather than the older stage-pair model, deliberately: D3D12's Enhanced Barriers
 map onto it directly, so a D3D12 backend added later is additive rather than a re-specification

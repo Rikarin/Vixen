@@ -883,7 +883,11 @@ sealed class RavenParser : SyntaxParser {
             return null;
         }
 
-        ResetTo(next.Value);
+        // ⚠ `ResumeAt`, not `ResetTo`: the token starting where a reused member ends is the newline
+        // after it, which is trivia. This grammar happens to recover — the caller skips newlines
+        // immediately — so nothing here was ever wrong; VXML's does not, which is where the
+        // difference between the two was found.
+        ResumeAt(next.Value);
         return green.CreateRed(null, 0) as MemberDeclarationSyntax;
     }
 

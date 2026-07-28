@@ -27,7 +27,7 @@ IFileSystemHost    platform paths (app/data/cache/temp), sandbox rules, permissi
 IClipboard         text, image, custom formats
 INativeDialogs     open/save/folder pickers, message boxes — must be native, users notice
 ILifecycle         suspend/resume/low-memory/focus-lost/orientation/back-button
-IInputSource       raw device enumeration and events (feeds Vixen.Input)
+IInputSource       raw device enumeration and events (feeds Vixen.Input — via the host, see 11)
 ITextInput         IME composition, on-screen keyboard, candidate window positioning
 IHaptics           rumble, taptic
 IPowerInfo         battery, thermal state, power mode — mobile quality scaling depends on this

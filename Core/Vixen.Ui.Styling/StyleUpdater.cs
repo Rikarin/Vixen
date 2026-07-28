@@ -158,6 +158,37 @@ public sealed class StyleUpdater {
         return LastPassResolved;
     }
 
+    /// <summary>Moves the resolved styles to follow a compacted tree.</summary>
+    /// <param name="remap">The mapping <see cref="StyleTree.Compact" /> produced.</param>
+    /// <remarks>
+    ///     ⚠ <b>Called after the tree is compacted and before anything reads a style.</b> These are
+    ///     indexed by slot, so a compaction nothing told them about leaves every element wearing the
+    ///     style of whatever used to be several slots along — an interface that is entirely wrong and
+    ///     entirely plausible, since every style in it is a style some element really has.
+    /// </remarks>
+    public void Compact(ReadOnlySpan<int> remap) {
+        // Forward, because a slot only ever moves down. Writing `to` cannot clobber a source not yet
+        // read, which is what lets this happen in place.
+        for (var i = 0; i < remap.Length && i < styles.Length; i++) {
+            var to = remap[i];
+
+            if (to >= 0) {
+                styles[to] = styles[i];
+            }
+        }
+
+        var live = 0;
+
+        foreach (var to in remap) {
+            live = Math.Max(live, to + 1);
+        }
+
+        // The tail is cleared rather than left. A stale style past the end would be returned by
+        // `StyleOf` for a slot the tree has not handed out yet, which reads as an element that was
+        // styled before it existed.
+        Array.Clear(styles, live, styles.Length - live);
+    }
+
     ComputedStyle Resolve(int index) {
         var parent = engine.Tree.ParentOf(index);
         return engine.Resolver.Resolve(

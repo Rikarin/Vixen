@@ -88,6 +88,14 @@ public sealed class RenderPassRenderer : SceneRenderer {
     /// </remarks>
     public DescriptorBindings Descriptors { get; } = new() { Slot = DescriptorSetSlot.PerView };
 
+    /// <summary>Where a described sampler comes from, for a binding that names one by value.</summary>
+    /// <remarks>
+    ///     Shared rather than owned, because a sampler is pure state and a device caps how many exist
+    ///     — a chain of post passes each making its own reaches that cap on drivers that allow four
+    ///     thousand.
+    /// </remarks>
+    public SamplerCache? Samplers { get; set; }
+
     /// <summary>What draws into this pass.</summary>
     public IList<SceneRenderer> Children { get; } = [];
 
@@ -118,7 +126,7 @@ public sealed class RenderPassRenderer : SceneRenderer {
         var output = new RenderOutput(formats, depthFormat, SampleCount);
         var textures = Reads.ToDictionary(read => read, read => frame.Texture(ToString(), read), StringComparer.Ordinal);
         var buffers = BufferReads.ToDictionary(read => read, read => frame.Buffer(ToString(), read), StringComparer.Ordinal);
-        var bound = Descriptors.Resolve(ToString(), textures, buffers);
+        var bound = Descriptors.Resolve(ToString(), textures, buffers, samplers: Samplers);
         var sampled = Reads.Select(read => textures[read]).ToArray();
         var consumed = BufferReads.Select(read => buffers[read]).ToArray();
 

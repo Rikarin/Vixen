@@ -449,6 +449,47 @@ and get no such vetting, it still passed: the value has to be one that *parses* 
 because an unparseable one is already filtered a step earlier. A bare `5` is the case that reaches
 the code being tested.
 
+## The geometry a renderer submits
+
+`UiGeometryBuilder` is the last step that is still the interface's own: a draw list in, vertices
+out. Everything below it is a pipeline, a buffer and a scissor. Being a pure function of a draw list
+is what lets all of it be checked without a device.
+
+**Boxes are one quad each, not a tessellated outline.** A rounded rectangle and its border are both
+a signed distance the shader evaluates per pixel, so a corner is exact at any radius and costs four
+vertices — where tessellating one costs vertices in proportion to the radius and is still faceted.
+That is also why the two share a batch kind: one shader draws both, and the thickness decides
+whether the inside is filled. The texture coordinate is the offset from the box's own centre, which
+is the space a signed distance to a rounded box is written in, so the shader needs no uniform per
+box.
+
+⚠ **Clips are resolved here rather than replayed.** A draw list pushes and pops; a renderer sets a
+scissor. Carrying the resolved rectangle on each draw means the renderer holds no stack and cannot
+be caught out by a batch it skipped having left one behind. A nested push **intersects** rather than
+replaces — setting the scissor outright would let a child draw outside the panel containing it.
+
+⚠ **A glyph's position is an offset along its run, not a place on the surface.** The command carries
+where the line starts, which is what lets two identical labels in different places hold identical
+glyph runs — and therefore what lets the batcher and the frame diff notice they are the same.
+Reading the offset as absolute puts every label wherever the first one was; found while writing the
+tests, because the first fixture had its run at the origin, where the two are the same thing.
+
+⚠ **The placement is in ems and the pen is in pixels**, so the font size multiplies one and not the
+other — and the threshold range with it, or text blurs as it grows and aliases as it shrinks. A
+font's y runs up from the baseline and a surface's runs down, so a glyph's top edge is a subtraction.
+
+Verified by sabotage: reading glyph offsets as absolute fails 1, a quad that ignores the font size
+fails 1, an unflipped baseline fails 1, a threshold range that does not scale fails 1, a nested clip
+that replaces fails 1, a clip that is never popped fails 1, a box not parameterised from its centre
+fails 1, emitting empty draws fails 3, and a dropped glyph that is silent fails 1.
+
+**Owed:** paths. Filling one needs a tessellator and stroking one needs that plus a join and cap
+model, so they are skipped rather than approximated — and skipped visibly, since a batch with no
+indices produces no draw. Also owed: a wider index, because nothing is emitted past what a `ushort`
+can reach and a dense editor frame could pass sixteen thousand quads. Refusing is what is honest
+until then; running over is silent and looks like geometry from the top of the frame appearing in
+the middle of it.
+
 Licensed under Apache-2.0.
 
 ## Composition

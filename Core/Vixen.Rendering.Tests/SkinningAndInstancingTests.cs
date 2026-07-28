@@ -418,4 +418,97 @@ public class SkinningAndInstancingTests : IDisposable {
 
     static Matrix4x4[] Transforms(int count) =>
         Enumerable.Range(0, count).Select(i => Matrix4x4.FromTranslation(new(0f, i, 0f))).ToArray();
+
+    // --- The ring under the buffers -----------------------------------------
+
+    /// <summary>
+    ///     A frame's records go somewhere the frames still in flight are not reading.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The hazard these buffers had from the day they were written. <c>Write</c> on a
+    ///         host-visible buffer is a memcpy into memory the GPU may still be reading for a frame
+    ///         that has not finished, and no API reports it — the symptom is a skeleton or an instance
+    ///         list that is briefly a blend of two frames, under load, on somebody else's machine.
+    ///     </para>
+    ///     <para>
+    ///         So the buffer holds one region per frame in flight and the offset moves. Offsets rather
+    ///         than shifted indices, so that a push-constant base, a <c>firstInstance</c> and a shader
+    ///         indexing from zero all keep working without knowing the ring is there.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Consecutive_frames_write_to_different_regions() {
+        using var device = new NullDevice(new() { FramesInFlight = 3 });
+        using var upload = new UploadBuffer<Matrix4x4>("Test") { Device = device };
+
+        var seen = new List<long>();
+
+        for (var frame = 0; frame < 3; frame++) {
+            upload.Begin();
+            upload.Add([Matrix4x4.Identity]);
+            upload.Upload();
+            seen.Add(upload.Offset);
+        }
+
+        Assert.Equal(3, seen.Distinct().Count());
+        Assert.All(seen, offset => Assert.Equal(0, offset % upload.Alignment));
+    }
+
+    /// <summary>Once the ring has come round, the regions repeat rather than growing.</summary>
+    [Fact]
+    public void The_ring_comes_round_rather_than_growing() {
+        using var device = new NullDevice(new() { FramesInFlight = 2 });
+        using var upload = new UploadBuffer<Matrix4x4>("Test") { Device = device };
+
+        var seen = new List<long>();
+
+        for (var frame = 0; frame < 8; frame++) {
+            upload.Begin();
+            upload.Add([Matrix4x4.Identity]);
+            upload.Upload();
+            seen.Add(upload.Offset);
+        }
+
+        Assert.Equal(2, seen.Distinct().Count());
+        Assert.Equal(seen[0], seen[2]);
+        Assert.Equal(seen[1], seen[3]);
+    }
+
+    /// <summary>The indices a feature hands a shader are still relative to the frame's own region.</summary>
+    /// <remarks>
+    ///     What makes the ring invisible downstream. A skinned object's first bone is the index its
+    ///     push constant carries, and it counts from the start of <em>this frame's</em> palettes —
+    ///     which is why the buffer is bound at <see cref="UploadBuffer{T}.Offset" /> rather than at
+    ///     zero, and why nothing in a shader changed.
+    /// </remarks>
+    [Fact]
+    public void Indices_stay_relative_to_the_frames_own_region() {
+        using var device = new NullDevice(new() { FramesInFlight = 3 });
+        using var upload = new UploadBuffer<Matrix4x4>("Test") { Device = device };
+
+        for (var frame = 0; frame < 5; frame++) {
+            upload.Begin();
+
+            Assert.Equal(0, upload.Add([Matrix4x4.Identity, Matrix4x4.Identity]));
+            Assert.Equal(2, upload.Add([Matrix4x4.Identity]));
+
+            upload.Upload();
+        }
+    }
+
+    /// <summary>A device with one frame in flight has one region, and the offset never moves.</summary>
+    [Fact]
+    public void One_frame_in_flight_needs_no_ring() {
+        using var device = new NullDevice(new() { FramesInFlight = 1 });
+        using var upload = new UploadBuffer<Matrix4x4>("Test") { Device = device };
+
+        for (var frame = 0; frame < 4; frame++) {
+            upload.Begin();
+            upload.Add([Matrix4x4.Identity]);
+            upload.Upload();
+
+            Assert.Equal(0, upload.Offset);
+        }
+    }
 }

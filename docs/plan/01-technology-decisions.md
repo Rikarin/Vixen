@@ -30,7 +30,7 @@ Versions verified against `api.nuget.org` at plan time. These go verbatim into
 | `JoltPhysicsSharp` | 2.22.0 | `Vixen.Physics` | As specified. Modern, actively maintained, deterministic-capable, native binaries for all six targets. |
 | ~~`SixLabors.ImageSharp`~~ → `StbImageSharp` | 2.30.15 | **`Vixen.Editor.Assets` only** | **Changed when it was built.** ImageSharp 4.0.0 *fails the build* without a purchased licence key — an error out of its own targets file, not a warning. An Apache-2.0 engine cannot require a contributor to buy a key to compile the editor, and pinning to the 3.1.x line to dodge it means sitting on a branch that gets no further security fixes. Took mitigation 2 below: StbImageSharp is public domain and reads PNG/JPEG/BMP/TGA/PSD/GIF **and Radiance HDR**, which is more of doc 08's table than ImageSharp reached. Still editor-only, behind `IImageDecoder`. **Owed:** `.exr`, `.tif`, `.webp`, `.dds` — doc 01 names Pfim (MIT) for the last of those. |
 | `ExCSS` | 4.3.2 | `Vixen.Ui.Styling` | As specified, and **verified** — see [the spike](spikes/vcss-excss/RESULT.md). The selector tree is fully typed and reachable, specificity is computed, `var()` and unknown properties survive verbatim. **It does not parse `@layer`**, which arrives as an `UnknownRule` carrying its text; Vixen reads the prelude and re-parses the body. |
-| `HarfBuzzSharp` | 14.2.1.1 | `Vixen.Ui.Text` | Text shaping. Non-negotiable for correct Arabic/Indic/emoji/ligatures. |
+| `HarfBuzzSharp` | 14.2.1.1 | `Vixen.Ui.Text` | Text shaping. Non-negotiable for correct Arabic/Indic/emoji/ligatures, and **verified** — see [the spike](spikes/text-harfbuzz/RESULT.md). ⚠ **It exposes no glyph outlines** — `TryGetGlyphExtents` is a bounding box and there is no draw, paint or outline surface — so the MSDF atlas reads them itself, from the raw tables `Face.ReferenceTable` hands out. [That parser is spiked](spikes/text-glyph-outlines/RESULT.md) rather than assumed: neither FreeType nor SkiaSharp is taken as a second native dependency. |
 | `K4os.Compression.LZ4` | 1.3.8 | `Vixen.Core.Serialization` | Bundle chunk compression, fast path (Stride uses LZ4 for the same reason). |
 | `ZstdSharp.Port` | 0.8.8 | `Vixen.Core.Serialization` | Bundle compression, size path for downloadable content. Pure managed → works on WASM. |
 | `System.IO.Hashing` | 10.0.10 | `Vixen.Core` | XxHash128 for content IDs and cache keys. |
@@ -460,7 +460,7 @@ time; all compatible with shipping an Apache-2.0 engine):
 | NSubstitute, Shouldly | BSD-3-Clause | ✓ test-only |
 | MoltenVK, SPIRV-Cross, shaderc, astcenc | Apache-2.0 | ✓ |
 | Assimp | BSD-3-Clause | ✓ editor-only |
-| Recast/Detour | zlib | ✓ |
+| Recast/Detour | zlib | ✓ *reference material only — `Vixen.Navigation` re-derives the algorithms and links nothing* |
 | **SixLabors.ImageSharp 4.0.0** | **Six Labors Split License 1.0 — *not* Apache-2.0** | ⚠ see below |
 | *Reference material:* Yoga | MIT | algorithm + conformance suite (ADR-006) |
 | *Reference material:* `ru-ace/Flexbox` | BSD (legacy Yoga text) | ✓ retain notice if any code is derived |

@@ -133,7 +133,7 @@ public sealed class PunctualShadowRenderer : SceneRenderer {
                 }
 
                 var view = views[slot];
-                view.Frustum = new(projection);
+                view.ViewProjection = projection;
                 view.Position = light.Position;
                 view.MaximumDistance = 0f;
 

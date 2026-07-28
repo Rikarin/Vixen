@@ -4,6 +4,7 @@
 using System.Text;
 using Vixen.Core.Syntax;
 using Vixen.Core.Syntax.Diagnostics;
+using Vixen.Core.Syntax.Parsing;
 using Vixen.Core.Syntax.Text;
 using Vixen.Ui.Markup.Parsing;
 
@@ -29,6 +30,14 @@ public sealed class SyntaxTree : ISyntaxTree {
     /// <summary>Lexer and parser diagnostics (empty for a clean parse).</summary>
     public IReadOnlyList<Diagnostic> Diagnostics => diagnostics;
 
+    /// <summary>How many nodes this parse took from the tree it was reparsed from.</summary>
+    /// <remarks>
+    ///     Zero for a fresh parse. Exposed because "a keystroke reparses one element and shifts the
+    ///     rest" is a claim, and equal trees only prove reuse is <i>safe</i> — this is what says it
+    ///     happened at all.
+    /// </remarks>
+    public int ReusedNodes { get; private set; }
+
     /// <summary>The document node.</summary>
     /// <returns>The root.</returns>
     public SyntaxNode GetRoot() => root!;
@@ -50,7 +59,10 @@ public sealed class SyntaxTree : ISyntaxTree {
     /// <param name="path">The path diagnostics name.</param>
     /// <param name="encoding">The encoding it was read with, if known.</param>
     /// <returns>A tree. Always — a file that does not parse still produces one, with diagnostics.</returns>
-    public static SyntaxTree ParseText(string text, string? path = "", Encoding? encoding = default) {
+    public static SyntaxTree ParseText(string text, string? path = "", Encoding? encoding = default) =>
+        ParseText(text, path, encoding, blender: null);
+
+    static SyntaxTree ParseText(string text, string? path, Encoding? encoding, Blender? blender) {
         ArgumentNullException.ThrowIfNull(text);
 
         var sourceText = SourceText.From(text);
@@ -62,9 +74,10 @@ public sealed class SyntaxTree : ISyntaxTree {
         };
 
         var tokens = VxmlLexer.Lex(text, bag, sourceText, filePath);
-        tree.root = VxmlParser.Parse(tokens, bag, sourceText, filePath);
+        tree.root = VxmlParser.Parse(tokens, bag, sourceText, filePath, blender, out var reused);
         tree.root.SyntaxTree = tree;
         tree.diagnostics = bag.ToArray();
+        tree.ReusedNodes = reused;
 
         return tree;
     }
@@ -73,14 +86,81 @@ public sealed class SyntaxTree : ISyntaxTree {
     /// <param name="newText">The file as it now reads.</param>
     /// <returns>A tree over <paramref name="newText" />.</returns>
     /// <remarks>
-    ///     ⚠ <b>This reparses the whole file.</b> The shared <c>Blender</c> exists and Raven uses
-    ///     it, but node reuse needs a unit of reuse — Raven offers member declarations — and VXML's
-    ///     is not obvious: an element's green node is reusable only if nothing about its
-    ///     <i>enclosing</i> content changed, because an unclosed tag anywhere above it changes what
-    ///     it is. Reuse is owed, and until it lands this is honest rather than fast.
+    ///     <para>
+    ///         Content nodes whose text a change did not touch are taken from this tree's green
+    ///         nodes rather than reparsed — editing one attribute reparses that element and shifts
+    ///         the rest. The file is always re-<i>lexed</i>, which is what makes the token stream
+    ///         under a reused node correct however the lexer's mode stack was disturbed above it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only subtrees that reported nothing are offered.</b> The parser's one piece of
+    ///         enclosing state is the list of elements currently open, and every branch that reads it
+    ///         reports a diagnostic — so a subtree that parsed cleanly never consulted it and parses
+    ///         the same wherever it sits. It also has no diagnostics to lose, which matters because a
+    ///         reused subtree's are not re-reported.
+    ///     </para>
+    ///     <para>
+    ///         The change ranges answer exactly only for the immediate predecessor text; anything
+    ///         else conservatively reports the whole document and parses fresh.
+    ///     </para>
     /// </remarks>
     public SyntaxTree WithChangedText(SourceText newText) {
         ArgumentNullException.ThrowIfNull(newText);
-        return ParseText(newText.ToString(), FilePath, Encoding);
+
+        if (Text is not { } oldText || root is null) {
+            return ParseText(newText.ToString(), FilePath, Encoding);
+        }
+
+        var changes = newText.GetChangeRanges(oldText);
+
+        if (changes.Count == 0) {
+            return this;
+        }
+
+        var blender = new Blender(Candidates(root, diagnostics), changes);
+        return ParseText(newText.ToString(), FilePath, Encoding, blender);
+    }
+
+    /// <summary>
+    ///     The nodes offered for reuse: every content node, at every nesting level, whose own
+    ///     subtree reported nothing.
+    /// </summary>
+    /// <remarks>
+    ///     An element that is itself clean is offered whole; one that is not still offers the clean
+    ///     children inside it, which is what keeps a typo in one attribute from reparsing the file.
+    /// </remarks>
+    static IEnumerable<SyntaxNode> Candidates(SyntaxNode node, IReadOnlyList<Diagnostic> reported) {
+        foreach (var child in node.ChildNodesAndTokens()) {
+            if (child is not SyntaxNode inner || child is SyntaxToken) {
+                continue;
+            }
+
+            if (inner is MarkupSyntax && Clean(inner, reported)) {
+                yield return inner;
+                continue;
+            }
+
+            foreach (var nested in Candidates(inner, reported)) {
+                yield return nested;
+            }
+        }
+    }
+
+    /// <summary>Whether nothing was reported anywhere inside a node's full span.</summary>
+    static bool Clean(SyntaxNode node, IReadOnlyList<Diagnostic> reported) {
+        var start = node.Position;
+        var end = start + node.Green.FullWidth;
+
+        foreach (var diagnostic in reported) {
+            var span = diagnostic.Location.SourceSpan;
+
+            // A zero-width diagnostic — a missing token — still counts as inside, which is why this
+            // is an overlap test rather than a containment one.
+            if (span.Start < end && start <= span.End) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

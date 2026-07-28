@@ -32,6 +32,14 @@
                 <summary>The <c>@component</c> header. Absent only in a file the binder rejects.</summary>
             </PropertyComment>
         </Field>
+        <Field Name="Namespace" Type="NamespaceDirectiveSyntax" Optional="true">
+            <PropertyComment>
+                <summary>
+                    The <c>@namespace</c> header, if the file names one. Absent means the project's
+                    root namespace is used instead.
+                </summary>
+            </PropertyComment>
+        </Field>
         <Field Name="Usings" Type="SyntaxList&lt;UsingDirectiveSyntax&gt;">
             <PropertyComment>
                 <summary>The <c>@using</c> headers, in source order.</summary>
@@ -79,6 +87,30 @@
         </Field>
         <TypeComment>
             <summary><c>@using Vixen.Ui.Controls</c> — copied verbatim into the generated file.</summary>
+        </TypeComment>
+    </Node>
+
+    <Node Name="NamespaceDirectiveSyntax" Base="VxmlSyntaxNode">
+        <Kind Name="NamespaceDirective"/>
+        <Field Name="NamespaceKeyword" Type="SyntaxToken">
+            <Kind Name="NamespaceKeyword"/>
+        </Field>
+        <Field Name="Name" Type="SyntaxToken">
+            <Kind Name="NameToken"/>
+            <PropertyComment>
+                <summary>A dotted namespace, carried whole as one token.</summary>
+            </PropertyComment>
+        </Field>
+        <TypeComment>
+            <summary>
+                <c>@namespace Game.Screens</c> — where the generated class goes.
+            </summary>
+            <remarks>
+                ⚠ <b>The file wins over the project.</b> A generator that has a root namespace to
+                offer supplies it as a default, and this overrides it — which is the point: a
+                component in a folder whose name is not what its namespace should be has no other way
+                to say so, and renaming the folder is not a fix a library can rely on.
+            </remarks>
         </TypeComment>
     </Node>
 

@@ -40,6 +40,11 @@
           boundary is about Vixen.Ui and CheckArchitecture still enforces it.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Engine\Vixen.Engine.csproj" />
+
+        <!-- The action system. Named here rather than taken transitively through Vixen.Engine,
+             because PlatformInput is what joins it to Vixen.Platform and that seam is this
+             assembly's own — see PlatformInput.cs. -->
+        <ProjectReference Include="..\..\Core\Vixen.Input\Vixen.Input.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Platform\Vixen.Platform.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />

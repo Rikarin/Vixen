@@ -61,20 +61,21 @@ public sealed class ComponentEmitter {
     /// <param name="component">What to emit.</param>
     /// <param name="filePath">The <c>.vxml</c> path <c>#line</c> directives point at.</param>
     /// <param name="namespace">
-    ///     The namespace to declare the class in, or null for the global one.
+    ///     The namespace to declare the class in when the file does not name one, or null for the
+    ///     global one.
     /// </param>
     /// <returns>The generated file's text.</returns>
     /// <remarks>
-    ///     ⚠ <b>The namespace comes from the caller, not from the markup.</b> A <c>.vxml</c> has no
-    ///     <c>@namespace</c> directive yet, and the caller that matters — the source generator —
-    ///     knows the answer anyway: the project's root namespace plus the file's own folders, which
-    ///     is the convention a C# file in the same directory already follows. An explicit directive
-    ///     is still owed, for the file that wants to disagree with its folder.
+    ///     ⚠ <b>The file wins over the caller.</b> The caller that matters — the source generator —
+    ///     offers the project's root namespace plus the file's own folders, which is the convention a
+    ///     C# file in the same directory already follows and is right nearly always. It is not right
+    ///     for a component whose folder is not what its namespace should be, and renaming the folder
+    ///     is not a fix a library can rely on, so <c>@namespace</c> overrides it.
     /// </remarks>
     public static string Emit(BoundComponent component, string filePath, string? @namespace = null) {
         ArgumentNullException.ThrowIfNull(component);
 
-        var emitter = new ComponentEmitter(component, filePath ?? string.Empty, @namespace);
+        var emitter = new ComponentEmitter(component, filePath ?? string.Empty, component.Namespace ?? @namespace);
         emitter.EmitFile();
         return emitter.builder.ToString();
     }

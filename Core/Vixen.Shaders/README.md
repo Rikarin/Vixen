@@ -71,7 +71,26 @@ Registering one name as two types, or as both a value and a permutation, throws 
 alternative is writing four bytes of the wrong interpretation into a correctly sized slot: a value
 that is wrong rather than absent, which is the harder kind to notice.
 
+A key also carries its default **as bytes**, not only as a typed value. `ParameterCollection.Get<T>`
+has always promised that a collection which never mentions a key yields what the shader author
+declared; `DefaultBytes` is the same promise for the code that copies rather than reads. A buffer
+writer filling only the keys somebody set gives `var exposure: float = 1f` the value zero, which is a
+black frame produced by a parameter nobody touched.
+
+That default is real all the way down. A uniform's initialiser never runs anywhere — the block
+arrives already filled — so `= 1f` was only ever a statement about what a *host* should put there,
+and until Raven carried it, lowering dropped it on the floor. It now reaches `ParameterInfo`, the
+generator spells it as a literal, and the key holds its bytes. Break any link in that chain and the
+symptom is a black frame that nothing reports.
+
 ## Parameters, effects and the cache
+
+**Two ways to fill one uniform block, because two callers want different things.** Code that knows
+the shader at compile time gets a `…Constants` struct: assign fields, call `Write(Span<byte>)`, no
+lookups. Code that knows it only by *name* — a material read from an asset, a post-process node
+configured by a compositor document — has no generated type to assign to, and gets a `ParameterKey`
+per value in the block to set through a collection. Before those existed, the name-driven path
+interned its keys from strings, which works and gives up every guarantee interning exists for.
 
 `ParameterCollection` is what a material, a view or a draw holds: one packed byte buffer with an
 offset per key, rather than a dictionary of boxed values. The thing it is asked thousands of times a
@@ -83,12 +102,26 @@ written into a buffer every frame it changes, while a permutation decides *which
 changing one is a recompile. Two version counters follow from that, and a material re-asserting its
 settings each frame does not look like a shader change.
 
+Neither counter moves when a key is set to what it already holds. That is what makes a version mean
+"something changed" rather than "something was assigned" — and it is load-bearing for anything that
+reconfigures itself every frame, such as a post-process chain, which would otherwise re-upload a
+constant buffer in which nothing had moved.
+
 `EffectKey` is the cache key — a shader name plus the permutations **the shader actually branched
 on**. Raven's `UsedPermutationKeys` is what makes that possible, and it is the difference between a
 tractable cache and 2ⁿ entries where a handful are distinct. Values are sorted by name so the same
 settings in a different order are the same key; without that normal form the cache holds one entry
 per insertion order and hits almost never — a miss that shows up as a frame-time cliff rather than a
 wrong image.
+
+A key carries a third thing, and it is not a permutation: the **`ShaderComposition`** — which shader
+fills each of the pass's `compose` slots. A permutation decides which branch of one shader survives; a
+composition decides which shaders the compilation contains at all, so two materials with the same name
+and the same permutations but different features are different code. A key blind to that returns the
+first one compiled for both, which is a metal-roughness object drawn with a specular-glossiness shader
+and nothing logged anywhere. Same normal form as the values, and empty for the shaders that declare no
+slots — every post effect and the depth-only pass — so their keys and their cache filenames are exactly
+what they were before compositions existed.
 
 `EffectSystem` resolves a key to an `Effect`, asking each `IEffectProvider` in turn and remembering
 the answer. That interface is the seam that makes **"zero runtime shader compilation" structural

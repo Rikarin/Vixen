@@ -80,9 +80,19 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
     readonly Dictionary<Material, int> indices = [];
     readonly Dictionary<EffectKey, uint> groups = new();
     readonly List<Variant> variants = [];
-    readonly Dictionary<(int Material, uint Flags), int> variantIndices = [];
+    readonly Dictionary<(int Material, uint Flags, string Shader), int> variantIndices = [];
     readonly List<IPermutationSubFeature> contributors = [];
     readonly ParameterCollection scratch = new();
+
+    /// <summary>Variant × stage → the variant that stage's shader override resolved to, or 0.</summary>
+    /// <remarks>
+    ///     A flat array rather than a dictionary because it is read once per draw. Variants are tens
+    ///     and stages are at most sixty-four, so the whole table is a few kilobytes — where a
+    ///     dictionary probe in the draw loop would be the one lookup added to every object in the
+    ///     frame for the benefit of the two stages that override anything.
+    /// </remarks>
+    int[] overrides = [];
+    int stageCount;
 
     /// <inheritdoc />
     public override string Name => "Material";
@@ -187,6 +197,14 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
         var variantIndex = system.Objects.Data.Data(VariantIndex);
         var objects = system.Objects.All;
 
+        // The table is indexed by stage count, so a stage added after the first frame moves every
+        // entry in it. Dropping it is cheap and the alternative is an override read at the wrong
+        // slot — which draws one stage's shader in another's pass.
+        if (stageCount != system.Stages.Count) {
+            stageCount = system.Stages.Count;
+            overrides = [];
+        }
+
         for (var index = 0; index < objects.Length; index++) {
             ref readonly var candidate = ref objects[index];
 
@@ -205,14 +223,32 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
                 continue;
             }
 
-            variantIndex[index] = VariantOf(system, new(index), material);
+            var id = new RenderObjectId(index);
+            var resolved = VariantOf(system, id, material, materials[material].ShaderName, composes: true);
+            variantIndex[index] = resolved;
+
+            // Resolved here, in preparation, for the same reason the base variant is: a stage
+            // override resolves through the effect system and resolving can compile. Only the stages
+            // this object actually appears in, so a prepass costs nothing for an object that is not
+            // in one.
+            foreach (var stage in candidate.Stages.Indices()) {
+                if (stage < stageCount && system.Stages[stage] is { ShaderName: { Length: > 0 } shader } overriding) {
+                    Override(system, id, material, resolved, stage, shader, overriding.ShaderComposes);
+                }
+            }
         }
     }
 
-    /// <summary>The effect an object resolved to, or null when it has none.</summary>
-    public Effect? EffectOf(RenderSystem system, RenderObjectId id) {
+    /// <summary>The effect an object resolved to for a stage, or null when it has none.</summary>
+    /// <param name="system">The render system.</param>
+    /// <param name="id">The object.</param>
+    /// <param name="stage">
+    ///     The stage drawing it. A stage with a <see cref="RenderStage.ShaderName" /> gets the variant
+    ///     that override resolved to; null and every other stage get the material's own.
+    /// </param>
+    public Effect? EffectOf(RenderSystem system, RenderObjectId id, RenderStage? stage = null) {
         ArgumentNullException.ThrowIfNull(system);
-        return VariantAt(system, id).Effect;
+        return variants[IndexFor(system, id, stage)].Effect;
     }
 
     /// <summary>The descriptor set an object's material binds, invalid when it has none.</summary>
@@ -229,20 +265,36 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
     ///     visible object per stage, and building an <see cref="EffectKey" /> there would put string
     ///     work inside the frame's hottest loop.
     /// </remarks>
-    public uint SortGroupOf(RenderSystem system, RenderObjectId id) {
+    /// <remarks>
+    ///     Takes the stage because a stage that overrides the shader also changes what groups
+    ///     together — and in a prepass every object resolves to the same override, so they all share a
+    ///     group and the sort collapses to pure front-to-back, which is exactly what a prepass wants.
+    /// </remarks>
+    public uint SortGroupOf(RenderSystem system, RenderObjectId id, RenderStage? stage = null) {
         ArgumentNullException.ThrowIfNull(system);
-        return VariantAt(system, id).Group;
+        return variants[IndexFor(system, id, stage)].Group;
     }
 
-    Variant VariantAt(RenderSystem system, RenderObjectId id) {
+    /// <summary>Which entry in <see cref="variants" /> an object uses in a stage.</summary>
+    int IndexFor(RenderSystem system, RenderObjectId id, RenderStage? stage) {
         var index = system.Objects.Data.Data(VariantIndex)[id.Index];
-        return index > 0 && index < variants.Count ? variants[index] : variants[0];
+
+        if (index <= 0 || index >= variants.Count) {
+            return 0;
+        }
+
+        if (stage is not { ShaderName.Length: > 0 } || stage.Index < 0 || stage.Index >= stageCount) {
+            return index;
+        }
+
+        var slot = (index * stageCount) + stage.Index;
+        return slot < overrides.Length && overrides[slot] > 0 ? overrides[slot] : index;
     }
 
-    int VariantOf(RenderSystem system, RenderObjectId id, int material) {
+    int VariantOf(RenderSystem system, RenderObjectId id, int material, string shaderName, bool composes) {
         var flags = FlagsOf(system, id);
 
-        if (variantIndices.TryGetValue((material, flags), out var existing)) {
+        if (variantIndices.TryGetValue((material, flags, shaderName), out var existing)) {
             return existing;
         }
 
@@ -255,7 +307,11 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
         scratch.Apply(source.Parameters);
         Contribute(system, id);
 
-        var key = EffectKey.From(source.ShaderName, scratch, KeysFor(source.ShaderName));
+        // The material's own shader was authored against its features, so it always takes them. A
+        // stage override is a different shader and says for itself — see RenderStage.ShaderComposes,
+        // which is what keeps a depth prepass to one variant rather than one per material.
+        var composition = composes ? source.Composition : ShaderComposition.Empty;
+        var key = EffectKey.From(shaderName, scratch, KeysFor(shaderName), composition);
 
         if (!groups.TryGetValue(key, out var group)) {
             // Dense and assigned in first-seen order. The value means nothing on its own — only that
@@ -267,8 +323,37 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
 
         var index = variants.Count;
         variants.Add(new(Effects!.Resolve(key), group));
-        variantIndices[(material, flags)] = index;
+        variantIndices[(material, flags, shaderName)] = index;
         return index;
+    }
+
+    /// <summary>Resolves and records what one variant becomes in a stage that overrides the shader.</summary>
+    void Override(
+        RenderSystem system,
+        RenderObjectId id,
+        int material,
+        int variant,
+        int stage,
+        string shader,
+        bool composes
+    ) {
+        var slot = (variant * stageCount) + stage;
+
+        if (slot < overrides.Length && overrides[slot] > 0) {
+            return;
+        }
+
+        var resolved = VariantOf(system, id, material, shader, composes);
+
+        // Sized after resolving rather than before: VariantOf may have added the override itself, and
+        // the table has to be long enough for whichever of the two indices is larger.
+        var required = variants.Count * stageCount;
+
+        if (overrides.Length < required) {
+            Array.Resize(ref overrides, required);
+        }
+
+        overrides[slot] = resolved;
     }
 
     void Contribute(RenderSystem system, RenderObjectId id) {

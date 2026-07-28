@@ -24,6 +24,9 @@ static class TestFonts {
     /// <summary>The face whose contextual alternate needs a space to be in the buffer.</summary>
     public const string ContextualLatin = "TestGSUBOne.otf";
 
+    /// <summary>A CFF face that actually draws a curve — two of the synthetic ones are rectangles.</summary>
+    public const string Cff = "TestCMAP14.otf";
+
     /// <summary>Loads one of the embedded fonts.</summary>
     /// <param name="name">Its file name.</param>
     /// <returns>The face. Owned by this class; do not dispose it.</returns>

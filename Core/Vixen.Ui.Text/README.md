@@ -170,6 +170,172 @@ tie in the other direction. Telling them apart needs a caret **affinity** carrie
 which is an editor's concern and is owed with `TextEditor`. Asserting the round trip everywhere would
 have meant deleting the mixed case or inventing a rule to make it pass; both would have buried this.
 
+## Glyph outlines, which HarfBuzz does not have
+
+`FontFace.GetOutline` returns a glyph's contours in design units. It exists because
+**HarfBuzzSharp exposes no outline API at all** — `TryGetGlyphExtents` is a bounding box, and there
+is no `Draw`, `Outline`, `Path` or `Paint` type in the pinned assembly — so an MSDF atlas has
+nothing to build a distance field from. Vixen reads the raw `glyf`/`loca` and `CFF ` tables that
+`Face.ReferenceTable` will hand over. Spiked before it was built on:
+[`docs/plan/spikes/text-glyph-outlines/RESULT.md`](../../docs/plan/spikes/text-glyph-outlines/RESULT.md).
+
+**Curves stay curves**, for the reason `PathBuilder` gives in `Vixen.Ui`: how finely to flatten
+depends on a device scale nothing here knows, and a distance field wants the curve itself. ⚠ **Both
+quadratic and cubic segments appear and neither is converted** — TrueType draws in quadratics, CFF
+in cubics. Promoting a quadratic to a cubic is exact and would double the control points a distance
+function solves against; the other direction is an approximation. A consumer handles both verbs.
+
+⚠ **The outline is positioned, and the font's own coordinates are not.** HarfBuzz reports a `glyf`
+glyph's extents shifted so its `xMin` lands on the left side bearing, and where a font's stored
+`xMin` disagrees with its `lsb` — common, and universal in italics — the two spaces differ by that
+much. Every other number in this assembly comes from HarfBuzz, so the outline is put in HarfBuzz's
+space rather than the other way round. A glyph drawn straight from the table sits `lsb − xMin` units
+off, on exactly the fonts nobody tests with.
+
+### What the gate can and cannot see
+
+The gate is HarfBuzz's own extents over every glyph of all fourteen embedded fonts — a separate
+implementation of the same tables, which at 2,066 glyphs is the only oracle available. The spike ran
+the same comparison over 242 system fonts and 259,298 glyphs: 99.999 % on `glyf`, 99.777 % on `CFF`.
+
+⚠ **A bounds oracle cannot see a path, and two sabotages proved it.** The rules that turn TrueType's
+points into a path — an implied on-curve point midway between two off-curve ones, and a contour that
+begins off-curve — move points that already lie inside the hull of their neighbours. Break either and
+the shape changes while the bounding box does not, so every comparison stays green. Golden paths for
+three glyphs close that, and finding the right three meant counting which branch each of the 2,066
+took: all the Kannada contours start on-curve, so the first golden caught only one of the two rules.
+
+⚠ **And the CFF interpreter is barely gated here at all** — counted, not guessed: the embedded corpus
+contains **zero stem operators and zero hintmasks**, so the width-parity rule that decides how many
+bytes a `hintmask` skips is never executed, and inverting it passes every test in this project. That
+rule's real gate was the spike's 17,934 CFF glyphs, whose fonts belong to the operating system and
+cannot be committed. The flex operators are unreached for the same reason.
+
+**Not implemented, and not owed**: point-matched composites and `seac`. No glyph in 242 fonts used
+either. **Owed**: `gvar` deltas, so a variable font currently reads at its default instance.
+
+## Rasterising, and the distance field
+
+`GlyphRasterizer` fills an outline into coverage by scanline and non-zero winding.
+`DistanceField` turns one into the multi-channel signed distance field doc 09 asks for. Both take a
+scale and an origin, which is where **the decision to keep curves as curves is finally spent**: the
+flattener's tolerance comes from the caller's pixel size, the thing nobody knew until here.
+
+### The oracles, and where each one stops
+
+**The rasteriser is judged by Green's theorem.** ∮(x dy − y dx)/2 gives the exact area a path
+encloses straight from its control points; the integrand for a Bézier is a polynomial, so four-point
+Gauss–Legendre evaluates it to the last bit. It shares no code and no reasoning with the scanline
+fill — it never asks where an edge crosses a row.
+
+⚠ **It is compared per contour, not per glyph.** Green's theorem measures *algebraic* area, so a
+region two contours both cover counts twice; a non-zero fill measures *covered* area, so it counts
+once. They part company exactly where contours overlap, which is not exotic — `TestShapeLana` builds
+letters from stacked strokes, and 22 % of one glyph's algebraic area is covered more than once. Per
+contour the multiplicity disappears and the check is exact again.
+
+**The field is judged by the rasteriser**: threshold the median, compare pixel by pixel against the
+same outline filled, ignore the boundary where a binary answer and an antialiased one differ by
+design. Every glyph of every embedded font.
+
+⚠ **And the corner claim needs a third oracle, because the first two cannot see it.** A field is read
+by interpolating it, and interpolation is where a single channel loses a corner. So: store a square,
+reconstruct it, and find where the isoline crosses — against the closed-form signed distance to a
+rectangle, sampled and interpolated identically, which is what one channel would have held. Two
+earlier versions of that test measured nothing. Counting misclassified pixels hides the effect, since
+a plain field's corner error is a fraction of a texel and any band wide enough to ignore boundary
+noise swallows it. And **the corner's diagonal is the one direction where the three channels are
+symmetric and none of them can help** — measured there, the median *is* a plain field, exactly. What
+the channels buy is that the edges stay straight up to the corner.
+
+### Three findings, all from sabotages that failed to fail
+
+⚠ **A corner is a property of the outline, not of the flattening.** Twice over: a curve cut into
+twenty chords has nineteen joins that each turn a few degrees, and even at a genuine segment boundary
+two neighbouring chords differ by about a step's worth of curvature. Either one makes a circle come
+out striped. Corners are found from the outline's own tangents.
+
+⚠ **Each channel carries its own sign, and that is the mechanism rather than a detail.** Taking one
+sign from the fill and applying it to all three leaves the values differing only in magnitude, so
+their median can never disagree with a single channel about which side of the shape a point is on —
+which is the whole of what the median is for. The first version did exactly that and reconstructed a
+square's corner no better than a plain field. The fill still settles the *overall* answer, because a
+sign from an edge's orientation is wrong wherever two contours overlap.
+
+⚠ **A run's colour must differ from its neighbour's, and the last run wraps.** Cycling the three
+combinations in order gives four corners the sequence RG, GB, BR, RG — so one join has both sides the
+same, and it is a corner. The test only scanned the other three until a sabotage passed.
+
+### What is not gated
+
+⚠ **The pseudo-distance is insurance.** Clamping to the segment instead fails nothing: two shapes
+were built to reach it, and the answers differ in magnitude but never in sign, so a thresholded
+reconstruction moves by 0.02 of a texel. What it should buy is a truer gradient for the shader's own
+antialiasing, and nothing here looks at a gradient yet.
+
+## The atlas
+
+`GlyphAtlas` holds the fields in one texture, packed as they are asked for and evicted
+least-recently-used when it fills. Dynamic rather than built ahead: CJK alone is tens of thousands
+of glyphs, and the set an interface actually uses is a few hundred.
+
+⚠ **The key carries no point size.** A distance field is read at any scale — the whole reason for
+one — so a key with the size in it would miss on every frame of a growing label and fill the atlas
+with the same glyph. Same property that keeps the shaping cache size-independent.
+
+**Shelf packing**, which wastes the difference between a row's height and each glyph's. A skyline
+packer wastes less and has to move entries to stay that way, and moving one invalidates a texture
+coordinate somebody is holding.
+
+⚠ **Eviction leaves a hole of one exact size**, so freed slots are kept per shelf and matched by
+width. What that cannot answer is a glyph wider than every hole while the atlas is nominally full,
+which is what `Compact` is for — it changes every region, so `Version` moves and a caller re-reads.
+
+⚠ **Evict first, compact only when the space is there and the shape is wrong.** Compacting first
+would be tidier and would bump the version on every addition to a full atlas, throwing away every
+texture coordinate in flight — for a steady-state interface that is every frame. So entries go one
+at a time until either one fits or enough area has been freed that fragmentation must be the reason
+it does not.
+
+Verified by sabotage: a hit that does not refresh its entry fails 2, evicting the newest instead of
+the coldest fails 2, never reusing a freed slot fails 1, dropping the padding fails 1, a compaction
+that does not move the version fails 1, a hit that marks the texture dirty fails 1, and writing a
+glyph at the wrong row fails 1 — that last only after a test placed something below the first shelf,
+since everything else lands on row zero where the bug is invisible.
+
+⚠ **One claim is insurance and is labelled as such.** Compaction replaces entries warmest first so
+that anything dropped would be the coldest, and a sabotage reversing that fails nothing: compaction
+only ever runs on a set that already fitted, so it is not clear it can lose one. Shelf packing is
+not monotone in the insertion order, which is why the guard is there — but several attempts to build
+a set that repacks worse than it packed all fitted.
+
+### One question, from a renderer's side
+
+`GlyphFieldCache` is the join: ask where a glyph is, get an atlas region and the quad to draw it in,
+and never learn that outlines, fields or packing exist. A miss reads the outline, encodes the field
+and packs it; everything after is a lookup.
+
+⚠ **The placement is in ems.** The atlas is size-independent on purpose, so its metadata has to be
+too — a placement in pixels is right for one font size and wrong for the next, and the mistake stays
+invisible until somebody draws the same word twice at two sizes. The same goes for the range a
+shader thresholds against, which scales with the size and would otherwise blur as text grew and
+alias as it shrank.
+
+⚠ **A placement outlives its pixels.** Eviction takes the entry; where the glyph sits relative to
+the pen came from the font and cannot have changed, so it is remembered separately and a re-request
+only re-encodes.
+
+⚠ **The quad covers the padded cell, not the silhouette.** A glyph drawn with an outline or a glow
+reads past its own edge, and a cell cropped to the glyph has nothing there to read.
+
+Verified by sabotage: a placement in pixels fails 1, a quad cropped to the glyph fails 1, an
+unpadded field fails 2, dropping the font from the key fails 1, and a screen-pixel range that
+ignores the resolution fails 1. ⚠ Two more needed the tests sharpened first — remembering that a
+glyph draws nothing is not observable through the atlas, since an empty glyph never reaches it, so
+the reads are counted; and reporting a remembered placement beside a region the atlas no longer
+holds passes every assertion about the placement while sampling whatever has since been packed at
+the origin.
+
 ## Why the tables are generated and committed
 
 CI has no copy of the Unicode Character Database, and fetching one at build time would make a build
