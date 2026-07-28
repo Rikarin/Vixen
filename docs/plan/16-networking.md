@@ -68,8 +68,25 @@ Vixen is unusually well placed to add it later:
   ([11](11-editor.md)).
 - Snapshot + input log + resimulate *is* rollback. The primitives arrive for other reasons.
 
-So client-side prediction is **P2, explicitly designed for, not implemented** — the tick loop and
-snapshot APIs are shaped to accept it without restructuring. Estimated +2 EM when wanted.
+So client-side prediction was **P2, explicitly designed for, not implemented** — the tick loop and
+snapshot APIs shaped to accept it without restructuring, at an estimated +2 EM when wanted.
+
+> **Started July 2026, at the point it was wanted.** The argument above still stands and is the reason
+> this is being built in stated halves rather than declared done: a game that predicts movement but not
+> the interactions movement causes feels *less* consistent than one that predicts nothing, so what is
+> and is not predicted has to be legible rather than assumed.
+>
+> **Built: the input pipeline** (`Vixen.Net/Prediction`). `IPredictedInput<T>` with a
+> `static abstract` codec, `InputLog<T>` on the client — redundant sends, acknowledgement-driven
+> trimming, and the same log a rollback replays from — and `InputBuffer<T>` on the server: a jitter
+> buffer whose depth, starvation, lateness and duplicate counts are the control signal a client steers
+> its tick lead by. Starvation repeats the last input rather than zeroing it, because zeroing turns a
+> dropped packet into a guaranteed correction. It is fuzzed alongside the RPC router, being the second
+> parser a client controls.
+>
+> **Still owed: rollback and resimulation itself** — the per-entity state history, the comparison
+> against arriving snapshots, and the replay. That is the next slice, and until it lands nothing in
+> the engine predicts anything.
 
 ## The IL-weaving problem, and a better answer
 

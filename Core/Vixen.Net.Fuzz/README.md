@@ -25,6 +25,7 @@ anybody who can send a packet, so every one of those is a target.
 | `delta` | `DeltaCodec.TryDecode` | writes into a buffer from widths a packet chose |
 | `rpc` | `RpcRouter.Receive` | the one thing a client can make a server do work for |
 | `synclist` | `SyncList.Apply` | the only index that arrives from the network |
+| `input` | `InputBuffer.TryReceive` | the other thing a client can make a server do work for, every tick |
 
 ## The three oracles
 

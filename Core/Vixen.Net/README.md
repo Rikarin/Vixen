@@ -236,6 +236,32 @@ Despawning needed nothing new at all: leaving the interest set already means "dr
 destruction and walking over the horizon are the same mechanism. The half that has to see a `Prefab`
 lives in `Vixen.Net.Engine`.
 
+## Predicted input
+
+The half of client-side prediction that has to exist first: a client's inputs reaching the server
+*before* the tick they are for. `IPredictedInput<T>` is a game-defined struct with a `static abstract`
+codec — the same shape `IBroadcast<T>` uses, and for the same reason: both ends get the same encoding
+at compile time and nothing reflects at run time.
+
+**Every packet carries the last several ticks.** A lost input is not a lost update that the next
+packet supersedes — it is a tick the server simulates differently from the client that predicted it,
+and nothing afterwards repairs the divergence. So `InputLog<T>` sends a short run rather than one
+input, which costs a few bytes and removes the failure entirely for any loss shorter than the
+redundancy. There is a test that drops three consecutive packets and asserts the server lost nothing,
+and one that sets the redundancy to two and asserts that it *does* lose something — because a
+constant is only meaningful if exceeding it does what the number says.
+
+**The log is trimmed by acknowledgement, not by age**, because it is two things at once: what goes on
+the wire, and what a rollback replays. Trimming by age would throw away exactly the inputs a slow
+acknowledgement still needs.
+
+`InputBuffer<T>` is the server's jitter buffer, and its counters are a control signal rather than
+diagnostics. `Depth` against `TargetDepth` is what the server reports back so a client can adjust how
+far ahead it runs — starving means "run further ahead", growing means "you are paying input latency
+you do not need to". A starved tick **repeats the last input rather than zeroing it**: a player
+holding forward would otherwise stop dead for one tick on the server while their own client predicted
+them still moving, which turns a dropped packet into a guaranteed correction.
+
 ## Remote calls
 
 The handler keeps its name; the sender gets its own, reached through a generated `Rpc` accessor:
