@@ -66,3 +66,28 @@ and a connection that had completed its handshake was never handed over. Nothing
   for it — one more `IWebSocketFactory` — and Phase 10 is where `Vixen.Platform.Web` lands.
 - **Permessage-deflate.** Snapshots are already bit-packed, so the win is small and the CPU is not
   free; worth measuring before assuming.
+
+## The upgrade is the only part of this we parse
+
+The framing is `WebSocket.CreateFromStream` — the runtime's, and deliberately not ours. What is left
+is RFC 6455's opening handshake: find the blank line, find `Sec-WebSocket-Key` in what came before it,
+answer with base64(SHA-1(key + GUID)). Thirty lines, over bytes from a stranger, reached by opening a
+socket and before anything has authenticated — which makes it the most exposed code in the package.
+
+It is a **static function over a span** for that reason: something shaped like this can be fuzzed, and
+a loop reading from a `NetworkStream` cannot. Making it one turned up two defects that had no test
+because they had no seam.
+
+- **It rebuilt the whole request on every read.** Decoding and splitting the accumulated buffer each
+  time bytes arrived meant a client dribbling one byte at a time cost the server about eight megabytes
+  of garbage for four kilobytes sent — free for the sender, times however many sockets they open. The
+  scan now steps forward from where the last read finished, less three bytes, because the terminator
+  can straddle a boundary.
+- **It had no timeout.** A client that connected and said nothing held a descriptor and a pending task
+  until the listener stopped. There is now a five-second deadline per upgrade and a ceiling of 64 in
+  flight, so the worst a stranger gets is 64 sockets for five seconds rather than as many as they can
+  open for as long as the process runs.
+
+The key is **not validated**, which is correct rather than lax: RFC 6455 has the value echoed through
+SHA-1 for the *client* to check, so a nonsense key earns a nonsense accept and the client refuses it.
+Rejecting here would be this server answering a question the protocol gives to the other end.

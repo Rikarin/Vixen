@@ -27,6 +27,7 @@ anybody who can send a packet, so every one of those is a target.
 | `synclist` | `SyncList.Apply` | the only index that arrives from the network |
 | `input` | `InputBuffer.TryReceive` | the other thing a client can make a server do work for, every tick |
 | `udp` | `UdpTransport.Poll` | the code an attacker reaches *first* — below the handshake, on a public port |
+| `upgrade` | `WebSocketUpgrade` | HTTP headers from a stranger, parsed before anything authenticates |
 
 ## The three oracles
 
@@ -116,7 +117,15 @@ because a finding whose bytes only exist in an assertion message is one somebody
 ## What it found
 
 Four defects on the first run, all in code that had tests and review and none of which either had
-caught.
+caught — and two more later, both found by building a target rather than by running one.
+
+- **The WebSocket upgrade rebuilt its whole request on every read.** It decoded and split the entire
+  accumulated buffer each time bytes arrived, so a client dribbling one byte at a time made the server
+  build four thousand strings of up to four kilobytes — about eight megabytes of garbage for four
+  kilobytes sent, at no cost to the sender, times however many sockets they cared to open. It had no
+  test because it had no seam; giving it one to fuzz is what surfaced it.
+- **And it had no timeout.** A client that opened a socket and said nothing held a descriptor and a
+  pending task until the listener stopped. Slowloris, in a package with a conformance suite.
 
 - **`PacketReader` threw on a length above `int.MaxValue`.** Two mistakes deep, which is why it took a
   fuzzer: a blob's length is a `uint` and its cap is an `int`, so the comparison is unsigned and a
@@ -159,11 +168,6 @@ without it.
   find in an hour what this finds in a week. The targets are already the right shape for it — each is
   `(ReadOnlySpan<byte>) -> outcome` — so the wrapper is a few lines. Worth having *alongside* rather
   than instead: this one runs on every build, which an instrumented one never will.
-- **The WebSocket upgrade.** `Udp` now has a target; the other transport does not. Its *framing* is
-  `WebSocket.CreateFromStream`, which is the BCL's and deliberately not ours — but the RFC 6455
-  **upgrade** is thirty lines of header parsing we wrote, and it runs before any authentication. It
-  reads from a `NetworkStream` rather than from a span, so giving it a target means giving it a seam
-  first.
 - **Structure-aware mutation.** The mutator does not know a snapshot from a handshake. A mutator that
   understood the record format could keep the tick and break the payload, rather than spending most of
   its budget on inputs the first field refuses.

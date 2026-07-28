@@ -27,6 +27,7 @@
           a public port.
         -->
         <ProjectReference Include="..\Vixen.Net.Transport.Udp\Vixen.Net.Transport.Udp.csproj" />
+        <ProjectReference Include="..\Vixen.Net.Transport.WebSocket\Vixen.Net.Transport.WebSocket.csproj" />
     </ItemGroup>
 
 </Project>

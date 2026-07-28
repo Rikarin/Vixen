@@ -4,6 +4,7 @@
 using System.Net;
 using Vixen.Net.Transport;
 using Vixen.Net.Transport.Udp;
+using Vixen.Net.Transport.WebSocket;
 
 namespace Vixen.Net.Fuzz.Targets;
 
@@ -336,4 +337,139 @@ public sealed class UdpTransportTarget : IFuzzTarget, IDisposable {
             Bytes += payload.Length;
         }
     }
+}
+
+/// <summary>The WebSocket upgrade, which runs before anything has authenticated.</summary>
+/// <remarks>
+///     <para>
+///         <b>The only part of that transport we parse.</b> The framing above it is
+///         <c>WebSocket.CreateFromStream</c> — the runtime's, and deliberately not ours — so what is
+///         left is the RFC 6455 opening handshake: find the blank line, find a header in what came
+///         before it, take its value. Thirty lines, over bytes from a stranger, reached by opening a
+///         socket.
+///     </para>
+///     <para>
+///         <b>It became fuzzable by being made a function.</b> It used to be a loop inside an
+///         <c>async</c> method reading from a <c>NetworkStream</c>, which cannot be handed a span —
+///         and the shape change fixed a real defect on the way past, because the loop decoded and
+///         split the entire accumulated buffer on every read.
+///     </para>
+/// </remarks>
+public sealed class WebSocketUpgradeTarget : IFuzzTarget {
+    /// <inheritdoc />
+    public string Name => "upgrade";
+
+    /// <inheritdoc />
+    public string What => "WebSocketUpgrade: an HTTP request from an unauthenticated stranger";
+
+    /// <summary>How many bytes an input may cause to be allocated.</summary>
+    /// <param name="inputLength">How big the input was.</param>
+    /// <returns>The allowance.</returns>
+    /// <remarks>
+    ///     <b>The tightest allowance in the harness, deliberately.</b> Scanning allocates nothing at
+    ///     all; a request with a key allocates that key and the response it earns. Anything
+    ///     proportional to the request rather than to the key is the bug this replaced — eight
+    ///     megabytes for four kilobytes sent — so the per-byte term is small enough to catch its
+    ///     return.
+    /// </remarks>
+    public long AllowanceFor(int inputLength) => 2048 + (4L * inputLength);
+
+    /// <inheritdoc />
+    public void Seed(ICollection<byte[]> corpus) {
+        ArgumentNullException.ThrowIfNull(corpus);
+
+        // What a browser sends, which is the shape everything else is a mutation of.
+        Add(corpus, "GET / HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+            + "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n");
+
+        // The case differences a proxy is entitled to produce, and the header on its own.
+        Add(corpus, "GET / HTTP/1.1\r\nsec-websocket-key: abc\r\n\r\n");
+        Add(corpus, "SEC-WEBSOCKET-KEY: abc\r\n\r\n");
+
+        // Headers that end without one, which is the refusal path.
+        Add(corpus, "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
+        Add(corpus, "\r\n\r\n");
+
+        // A key with nothing after it, whitespace either side, and one that is only whitespace —
+        // the three ways "take the rest of the line and trim it" goes wrong.
+        Add(corpus, "Sec-WebSocket-Key:\r\n\r\n");
+        Add(corpus, "Sec-WebSocket-Key:    \t  \r\n\r\n");
+        Add(corpus, "Sec-WebSocket-Key: " + new string('k', 3000) + "\r\n\r\n");
+
+        // A terminator that straddles a read boundary is what the incremental scan exists for, and a
+        // request with no terminator at all is what the length bound exists for.
+        Add(corpus, "Sec-WebSocket-Key: abc\r\n\r");
+        Add(corpus, new string('A', WebSocketUpgrade.MaxRequestBytes));
+
+        // Lines with no terminator, an empty request, and bytes that are not text at all.
+        Add(corpus, "Sec-WebSocket-Key");
+        corpus.Add([]);
+        corpus.Add([0, 0, 0, 0]);
+        corpus.Add([0xFF, 0xFE, 0x0D, 0x0A, 0x0D, 0x0A]);
+    }
+
+    /// <summary>Requests where reading in chunks disagreed with reading in one.</summary>
+    /// <remarks>
+    ///     <b>The property worth fuzzing, rather than the one worth unit-testing.</b> The scan steps
+    ///     back three bytes on each read so a terminator straddling a boundary is still found, and
+    ///     three is exactly right — two would miss <c>\r\n\r</c>|<c>\n</c>. Getting it wrong makes a
+    ///     request parse differently depending on how a TCP stack chose to split it, which is not
+    ///     something a test reproduces and not something a user can report.
+    /// </remarks>
+    public long SplitDisagreementCount { get; private set; }
+
+    /// <inheritdoc />
+    public long Run(ReadOnlySpan<byte> input) {
+        var complete = WebSocketUpgrade.IsComplete(input, 0, out var length);
+        var key = string.Empty;
+        var accepted = false;
+
+        if (complete && WebSocketUpgrade.TryReadKey(input[..length], out key)) {
+            // The response too, because a key is a string this server puts into one — a value that
+            // decoded is not the same claim as a value that survived being answered.
+            accepted = WebSocketUpgrade.Accept(key).Length > 0;
+        }
+
+        if (Chunked(input, out var chunkedLength) != complete || (complete && chunkedLength != length)) {
+            SplitDisagreementCount++;
+        }
+
+        // Categorical, not continuous. The first version folded the header length straight in, which
+        // gave nearly every case a number nothing had produced before — 65,536 behaviours in five
+        // million cases, which is the signature set saturating and the guidance switching itself off.
+        // This is a small state machine and its behaviour space really is small; a signature that
+        // says otherwise is describing the input rather than what the code did with it.
+        var where = !complete ? 0 : length == input.Length ? 1 : 2;
+        var size = key.Length == 0 ? 0 : key.Length < 32 ? 1 : 2;
+
+        return (complete ? 1_000_003L : 0)
+            + (accepted ? 7919L : 0)
+            + (SplitDisagreementCount > 0 ? 131L : 0)
+            + (where * 17L)
+            + size;
+    }
+
+    /// <summary>Reads the request the way the listener does, a chunk at a time.</summary>
+    static bool Chunked(ReadOnlySpan<byte> input, out int length) {
+        length = 0;
+
+        // A split derived from the input, so a case reproduces whole and different requests are torn
+        // in different places.
+        var chunk = 1 + (input.Length % 7);
+        var read = 0;
+
+        while (read < input.Length) {
+            var from = Math.Max(0, read - 3);
+            read = Math.Min(input.Length, read + chunk);
+
+            if (WebSocketUpgrade.IsComplete(input[..read], from, out length)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    static void Add(ICollection<byte[]> corpus, string request) =>
+        corpus.Add(System.Text.Encoding.ASCII.GetBytes(request));
 }

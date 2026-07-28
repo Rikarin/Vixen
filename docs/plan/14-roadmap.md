@@ -3714,6 +3714,25 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
   connect properly, then send rubbish. An authenticated client is still an untrusted one. Two million
   cases went from 2 behaviours to 1,191; twenty million reach 2,390, clean.
 
+  ✅ **And the WebSocket upgrade, as the twelfth** — the only part of that transport we parse, since
+  the framing is `WebSocket.CreateFromStream` and deliberately not ours. Making it fuzzable meant
+  making it a function over a span rather than a loop reading a `NetworkStream`, and **that shape
+  change found two defects that had no test because they had no seam**: it decoded and split the whole
+  accumulated request on every read, so a client dribbling one byte at a time cost the server about
+  eight megabytes of garbage for four kilobytes sent, free to the sender and times however many
+  sockets they open; and there was no timeout at all, so a client that connected and said nothing held
+  a descriptor until the listener stopped. Slowloris, in a package with a conformance suite. Both
+  fixed, with a five-second deadline per upgrade and a ceiling of 64 in flight.
+
+  **That target's first signature saturated at 65,536 behaviours**, which is the same lesson from the
+  other end: it folded the header length straight in, so nearly every case looked novel and the
+  guidance switched itself off. A signature has to describe what the code *did*, not what it was
+  given. Made categorical it reports 7 behaviours over five million cases — which is the honest
+  picture of a small state machine, and the value of the target is the never-throws and
+  never-amplifies oracles rather than corpus guidance. The one real invariant it checks is that
+  reading a request in chunks finds the same headers as reading it whole, which is the three-byte
+  step-back being exactly right rather than approximately.
+
   It also confirmed something worth knowing rather than assuming: **the connection table cannot be
   grown from outside**, because the handshake is stateless until the cookie comes back — the challenge
   is a hash of a per-process secret, the source address and the client's salt, so a connect request is
