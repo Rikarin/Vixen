@@ -87,6 +87,8 @@
     <Project Path="Core/Vixen.Audio.Tests/Vixen.Audio.Tests.csproj" />
     <Project Path="Core/Vixen.Audio.Codecs/Vixen.Audio.Codecs.csproj" />
     <Project Path="Core/Vixen.Audio.Codecs.Tests/Vixen.Audio.Codecs.Tests.csproj" />
+    <Project Path="Core/Vixen.Audio.Physics/Vixen.Audio.Physics.csproj" />
+    <Project Path="Core/Vixen.Audio.Physics.Tests/Vixen.Audio.Physics.Tests.csproj" />
     <Project Path="Core/Vixen.Input/Vixen.Input.csproj" />
     <Project Path="Core/Vixen.Input.Generators/Vixen.Input.Generators.csproj" />
     <Project Path="Core/Vixen.Input.Tests/Vixen.Input.Tests.csproj" />
@@ -140,6 +142,8 @@
     <Project Path="Core/Vixen.Net.Transport.Composite.Tests/Vixen.Net.Transport.Composite.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Engine/Vixen.Net.Engine.csproj" />
     <Project Path="Core/Vixen.Net.Engine.Tests/Vixen.Net.Engine.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Animation/Vixen.Net.Animation.csproj" />
+    <Project Path="Core/Vixen.Net.Animation.Tests/Vixen.Net.Animation.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Physics/Vixen.Net.Physics.csproj" />
     <Project Path="Core/Vixen.Net.Physics.Tests/Vixen.Net.Physics.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Telemetry/Vixen.Net.Telemetry.csproj" />
@@ -240,12 +244,21 @@
     <Project Path="Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj" />
     <Project Path="Raven/Vixen.Raven.Cli/Vixen.Raven.Cli.csproj" />
   </Folder>
+  <!--
+    Testing — test-only source shared across test assemblies, linked into them rather than built
+    into one. Vixen.Testing.props says why; docs/plan/02 § "Testing/" says where it sits.
+  -->
+  <Folder Name="/Testing/">
+    <File Path="Testing/Vixen.Testing.props" />
+    <File Path="Testing/Measured.cs" />
+  </Folder>
   <Project Path="Samples/01-HelloTriangle/HelloTriangle.csproj" />
   <Project Path="Samples/02-HelloUi/HelloUi.csproj" />
   <Project Path="Samples/04-EcsStressTest/EcsStressTest.csproj" />
   <Project Path="Samples/07-AddressablesRemote/AddressablesRemote.csproj" />
   <Project Path="Samples/08-Multiplayer/Multiplayer.csproj" />
   <Project Path="Samples/09-NetworkSoak/NetworkSoak.csproj" />
+    <Project Path="Samples/10-VoiceChat/VoiceChat.csproj" />
 
 
 </Solution>

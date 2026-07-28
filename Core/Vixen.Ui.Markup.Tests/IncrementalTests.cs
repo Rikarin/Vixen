@@ -119,15 +119,73 @@ public class IncrementalTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>Untouched characters are not unchanged tokens.</b> The edit here leaves every
+    ///     character of <c>&lt;panel&gt;</c> and everything under it exactly where it was, and still
+    ///     none of it may be reused: the <c>&lt;/</c> in the middle of the <c>@using</c> name opens
+    ///     a tag the file never closes, so the lexer reads the rest of the document in tag mode and
+    ///     <c>&lt;panel class="root"&gt;</c> stops being a start tag at all.
+    /// </summary>
+    /// <remarks>
+    ///     The property below found this by chance on one seed out of thousands, which is exactly
+    ///     the argument for writing it down as a case of its own. The blender used to decide reuse
+    ///     from spans alone — untouched text, one character of margin, ends on a token boundary —
+    ///     and all three were true here while the tokens underneath were completely different.
+    /// </remarks>
+    [Fact]
+    public void An_edit_that_changes_how_the_text_below_it_lexes_reuses_none_of_it() {
+        var at = Source.IndexOf("System", StringComparison.Ordinal);
+        var edited = Source[..at] + "c</}} @" + Source[(at + 2)..];
+
+        var after = Edit(Vxml.Parse(Source), at, 2, "c</}} @");
+
+        Assert.Equal(edited, after.GetDocument().ToFullString());
+        Assert.Equal(Vxml.Dump(Vxml.Parse(edited).GetDocument()), Vxml.Dump(after.GetDocument()));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A node whose own span no diagnostic touches can still be a node that went wrong.</b>
+    ///     The <c>&lt;style</c> here never closes its tag: the <c>"</c> opens an attribute value that
+    ///     swallows the rest of the file, so the parser reports the missing <c>&gt;</c> at end of
+    ///     file — nowhere near the handful of characters the node ended up covering. An edit at the
+    ///     top of the file then shifts it into place, and a "nothing was reported here" test that
+    ///     looks only at spans says it is fine to reuse.
+    /// </summary>
+    [Fact]
+    public void A_node_whose_diagnostic_landed_elsewhere_is_not_reused() {
+        const string Broken = """
+            @component Counter
+            <panel>
+                <label text="one" />
+                <style"
+            </panel>
+            """;
+
+        var before = Vxml.Parse(Broken);
+        var at = Broken.IndexOf("Counter", StringComparison.Ordinal);
+        var edited = Broken[..at] + "C" + Broken[(at + 7)..];
+
+        var after = Edit(before, at, 7, "C");
+
+        Assert.Equal(edited, after.GetDocument().ToFullString());
+        Assert.Equal(Vxml.Dump(Vxml.Parse(edited).GetDocument()), Vxml.Dump(after.GetDocument()));
+    }
+
+    /// <summary>
     ///     The property that holds whatever the edit: an incremental reparse and a full one produce
     ///     the same tree, character for character and node for node.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The alphabet is the test.</b> Every character it cannot type is a lexer path this
+    ///     never reaches, and the property is only as strong as the shapes it can spell — an
+    ///     unbalanced <c>@(</c> dropped the rest of the file for as long as <c>(</c> was missing
+    ///     from this string. Anything the grammar treats specially belongs here.
+    /// </remarks>
     [Fact]
     public void An_incremental_reparse_equals_a_full_one() {
         var generator =
             from at in Gen.Int[0, Source.Length]
             from removed in Gen.Int[0, 12]
-            from inserted in Gen.String[Gen.Char["<>/ \nabc=\"@{}"], 0, 10]
+            from inserted in Gen.String[Gen.Char["<>/ \nabc=\"@{}()[]!.:"], 0, 10]
             select (at, removed, inserted);
 
         generator.Sample(

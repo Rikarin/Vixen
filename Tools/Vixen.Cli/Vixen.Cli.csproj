@@ -45,6 +45,11 @@
         <!-- The out-of-process import mode runs importers in worker processes. This reference is
              what puts the worker assembly beside this one, which is where CompilerPool looks. -->
         <ProjectReference Include="..\Vixen.AssetCompiler\Vixen.AssetCompiler.csproj" />
+
+        <!-- The shader bundle a shipping build loads instead of compiling. This is a build-time
+             library and it brings Raven with it, which is exactly right here and exactly wrong in
+             anything that ships — see Tools/Vixen.ShaderCompiler's README. -->
+        <ProjectReference Include="..\Vixen.ShaderCompiler\Vixen.ShaderCompiler.csproj" />
     </ItemGroup>
 
     <ItemGroup>

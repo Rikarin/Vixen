@@ -148,6 +148,28 @@ public class ReadmeExampleTests {
         Assert.All(CodeGenTestBase.GenerateClean(source, "spirv"), SpirvTestBase.Validate);
     }
 
+    /// <summary>And the compaction example, which is the one the atomics exist for.</summary>
+    /// <remarks>
+    ///     Worth its own test rather than folded into the compute one: it is the README's claim that
+    ///     the value an atomic returns is a usable slot index, and that claim is only true if the
+    ///     call reached the block member rather than a copy of it. The emitted GLSL says which.
+    /// </remarks>
+    [Fact]
+    public void The_readme_atomic_example_compacts_through_the_counter_itself() {
+        var source = "package Vixen.Shaders\n\n" + ReadExample("### Atomics");
+
+        var tree = SyntaxTree.ParseText(source, path: "README.rvn");
+        Assert.Empty(tree.Diagnostics);
+
+        var compilation = Compilation.Create("Readme", tree);
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var glsl = Assert.Single(CodeGenTestBase.GenerateClean(source));
+        Assert.Contains("atomicAdd(counter[0], 1u)", glsl.Code, StringComparison.Ordinal);
+
+        Assert.All(CodeGenTestBase.GenerateClean(source, "spirv"), SpirvTestBase.Validate);
+    }
+
     static string ReadExample(string heading = "## Language Example") {
         var readme = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "README.md"));
 

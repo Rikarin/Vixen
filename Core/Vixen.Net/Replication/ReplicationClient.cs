@@ -56,6 +56,26 @@ public sealed class ReplicationClient {
     /// <returns>Whether it does.</returns>
     public bool TryGetEntity(NetworkId id, out Entity entity) => entities.TryGetValue(id.Value, out entity);
 
+    /// <summary>Says which local entity an id names.</summary>
+    /// <param name="id">The id.</param>
+    /// <param name="entity">The entity.</param>
+    /// <remarks>
+    ///     <para>
+    ///         For the things that create networked entities outside a snapshot — spawning an instance
+    ///         from a prefab, adopting the objects a scene was built with. Those know the mapping
+    ///         before any record arrives, and without this the first record would make a second,
+    ///         parallel entity for the same id.
+    ///     </para>
+    ///     <para>
+    ///         <b>Rebinding an id is allowed and is the point.</b> A snapshot whose spawn record was
+    ///         delayed makes a bare stand-in for the id; the instance that replaces it is a different
+    ///         entity, and saying so here is what redirects everything afterwards onto it. What must
+    ///         <i>not</i> happen is the two entities both surviving, which is the caller's business:
+    ///         whatever it replaced, it destroys.
+    ///     </para>
+    /// </remarks>
+    public void Bind(NetworkId id, Entity entity) => entities[id.Value] = entity;
+
     /// <summary>Applies a snapshot.</summary>
     /// <param name="world">The client's world.</param>
     /// <param name="snapshot">The bytes as they arrived.</param>

@@ -738,6 +738,12 @@ public sealed partial class Lowerer {
     }
 
     IrValue? LowerIntrinsic(BoundInvocationExpression invocation, MethodSymbol method, IrType type) {
+        // An atomic's first argument is the storage rather than a value in it, which is the whole
+        // content of the word: a loaded copy is a copy, and nothing done to one is indivisible.
+        if (Intrinsics.IsAtomic(method.Name)) {
+            return LowerAtomic(invocation, method, type);
+        }
+
         // A member intrinsic (`texture.Sample(…)`) takes its receiver first, and
         // the receiver is evaluated before the arguments.
         var receiver = method.ContainingSymbol is not null && invocation.Receiver is { } value
@@ -768,6 +774,49 @@ public sealed partial class Lowerer {
 
         return Emit(result => new IrIntrinsicInstruction(result, intrinsic, arguments), type);
     }
+
+    /// <summary>
+    ///     Lowers an atomic: the first argument becomes a place, the rest are ordinary values.
+    /// </summary>
+    /// <remarks>
+    ///     The binder has already refused a first argument that is not writable storage
+    ///     (<c>RVN2130</c>), so a failure here means <c>TryGetPlace</c> and <c>IsInOutPlace</c> have
+    ///     come to disagree — which is worth a diagnostic rather than a silently non-atomic add.
+    /// </remarks>
+    IrValue? LowerAtomic(BoundInvocationExpression invocation, MethodSymbol method, IrType type) {
+        if (MapAtomic(method.Name) is not { } op) {
+            ReportUnsupported(invocation, $"The intrinsic '{method.Name}'");
+
+            return Constant(type, null);
+        }
+
+        if (invocation.Arguments.Count == 0 || TryGetPlace(invocation.Arguments[0]) is not { } place) {
+            ReportUnsupported(invocation, $"'{method.Name}' on something with no storage");
+
+            return Constant(type, null);
+        }
+
+        // Comparand first as the author writes it, matching GLSL's atomicCompSwap; SPIR-V's operand
+        // order is the other way round and its emitter turns them over.
+        var values = invocation.Arguments.Skip(1).Select(LowerExpression).ToArray();
+
+        return op == IrAtomicOp.CompareExchange
+            ? Emit(result => new IrAtomicInstruction(result, op, place, values[1], values[0]), type)
+            : Emit(result => new IrAtomicInstruction(result, op, place, values[0]), type);
+    }
+
+    static IrAtomicOp? MapAtomic(string name) =>
+        name switch {
+            "atomicAdd" => IrAtomicOp.Add,
+            "atomicMin" => IrAtomicOp.Min,
+            "atomicMax" => IrAtomicOp.Max,
+            "atomicAnd" => IrAtomicOp.And,
+            "atomicOr" => IrAtomicOp.Or,
+            "atomicXor" => IrAtomicOp.Xor,
+            "atomicExchange" => IrAtomicOp.Exchange,
+            "atomicCompareExchange" => IrAtomicOp.CompareExchange,
+            _ => null
+        };
 
     /// <summary>
     ///     The opcode an intrinsic's name means.

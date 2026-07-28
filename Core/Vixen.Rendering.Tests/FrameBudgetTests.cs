@@ -4,6 +4,7 @@
 using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
 using Vixen.Rendering;
+using Vixen.Testing;
 using Xunit;
 
 namespace Tests;
@@ -80,16 +81,7 @@ public class FrameBudgetTests {
         Assert.NotEmpty(system.Nodes(camera, opaque));
         Assert.NotEmpty(system.Nodes(camera, blended));
 
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-
-        var before = GC.GetAllocatedBytesForCurrentThread();
-
-        for (var i = 0; i < 16; i++) {
-            system.Draw();
-        }
-
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var allocated = Measured.Bytes(system.Draw, warmUp: 0, passes: 16);
 
         Assert.True(
             allocated == 0,

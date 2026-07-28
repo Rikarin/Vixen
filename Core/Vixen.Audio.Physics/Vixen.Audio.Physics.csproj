@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Audio.Physics</RootNamespace>
+        <Description>
+            Answers Vixen.Audio's occlusion question with a Jolt raycast. A separate assembly on
+            purpose: a game with sound and no physics must not link a native physics library to play
+            a footstep.
+        </Description>
+        <PackageTags>audio;physics;occlusion;spatial;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Audio\Vixen.Audio.csproj" />
+        <ProjectReference Include="..\Vixen.Physics\Vixen.Physics.csproj" />
+    </ItemGroup>
+
+</Project>

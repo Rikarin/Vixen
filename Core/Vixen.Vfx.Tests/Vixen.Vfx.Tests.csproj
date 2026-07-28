@@ -21,5 +21,14 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Vfx\Vixen.Vfx.csproj" />
+
+        <!-- The emitter writes Raven source, so the only test worth writing is one that compiles
+             it. The runtime itself does not reference the compiler and must not: Raven is a
+             tooling assembly with reflection and LINQ, and a shipped game compiles no shaders. -->
+        <ProjectReference Include="..\..\Raven\Vixen.Raven\Vixen.Raven.csproj" />
     </ItemGroup>
+
+    <!-- Measured, the guarded allocation measurement. See Testing/Vixen.Testing.props. -->
+    <Import Project="..\..\Testing\Vixen.Testing.props" />
+
 </Project>

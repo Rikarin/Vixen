@@ -39,6 +39,23 @@ public sealed class RpcMethod {
     /// <summary>How it is sent.</summary>
     public Channel Channel { get; }
 
+    /// <summary>Whether the caller awaits an answer.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         An awaitable call is <b>sent reliably whatever its channel says</b>, and so is its
+    ///         reply. A dropped fire-and-forget call is a lost update that the next one supersedes;
+    ///         a dropped awaitable one is a caller waiting for an answer that will never come, and
+    ///         the only thing standing between that and a leak is the timeout. Paying for
+    ///         reliability is cheaper than explaining the alternative.
+    ///     </para>
+    ///     <para>
+    ///         Also why an awaitable call is not a good idea on a hot path: it costs a round trip by
+    ///         definition. It is for "may I buy this", "what is in the chest", "am I allowed to
+    ///         start" — questions with an answer, asked rarely.
+    ///     </para>
+    /// </remarks>
+    public bool ExpectsReply { get; }
+
     /// <summary>Who a server-to-client call goes to.</summary>
     public RpcTarget Target { get; }
 
@@ -55,14 +72,20 @@ public sealed class RpcMethod {
     /// <param name="requireOwnership">Whether the caller has to own the object.</param>
     /// <param name="channel">How it is sent.</param>
     /// <param name="target">Who a server-to-client call goes to.</param>
+    /// <param name="expectsReply">
+    ///     Whether the caller awaits an answer. An awaitable call carries a correlation id and is
+    ///     sent reliably whatever its declared channel says — see <see cref="ExpectsReply" />.
+    /// </param>
     public RpcMethod(
         string declaringType,
         string signature,
         RpcKind kind,
         bool requireOwnership,
         Channel channel,
-        RpcTarget target
+        RpcTarget target,
+        bool expectsReply = false
     ) {
+        ExpectsReply = expectsReply;
         DeclaringType = declaringType;
         Signature = signature;
         Kind = kind;

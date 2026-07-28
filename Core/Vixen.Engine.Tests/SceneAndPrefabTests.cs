@@ -202,6 +202,80 @@ public sealed class SceneAndPrefabTests {
         Assert.Same(world.Read<Nameplate>(root), world.Read<Nameplate>(instance));
     }
 
+    /// <summary>An instance can say which entity each of its nodes became.</summary>
+    /// <remarks>
+    ///     The order is the contract, not an incidental. Networked spawning numbers an instance's
+    ///     entities from one reserved id in exactly this order, so a caller that has the span has the
+    ///     mapping without a table having been sent.
+    /// </remarks>
+    [Fact]
+    public void AnInstanceCanReportWhichEntityEachNodeBecame() {
+        using var world = new World();
+        var root = Hierarchy.CreateTransform(world, LocalTransform.At(new(1, 0, 0)));
+        var child = Hierarchy.CreateTransform(world, LocalTransform.At(new(0, 2, 0)));
+        Hierarchy.SetParent(world, child, root);
+
+        using var prefab = Prefab.CaptureFrom(world, root);
+
+        var created = new Entity[prefab.EntityCount];
+        var instance = prefab.Instantiate(world, created);
+
+        Assert.Equal(instance, created[0]);
+        Assert.Equal(new Vector3(0, 2, 0), world.Read<LocalTransform>(created[1]).Position);
+        Assert.Throws<ArgumentException>(() => prefab.Instantiate(world, new Entity[1]));
+    }
+
+    /// <summary>What a node carries in the template is a question that can be asked once.</summary>
+    [Fact]
+    public void ATemplateNodeCanBeAskedWhatItCarries() {
+        using var world = new World();
+        var root = Hierarchy.CreateTransform(world, LocalTransform.Identity);
+        var child = Hierarchy.CreateTransform(world, LocalTransform.Identity);
+        world.Add(root, new Camera());
+        Hierarchy.SetParent(world, child, root);
+
+        using var prefab = Prefab.CaptureFrom(world, root);
+
+        Assert.True(prefab.NodeHas<Camera>(0));
+        Assert.False(prefab.NodeHas<Camera>(1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => prefab.NodeHas<Camera>(2));
+    }
+
+    /// <summary>An instance built over a stand-in keeps what the stand-in already knew.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         For a receiver that had to make an entity before it knew what the entity was. The
+    ///         stand-in's values are current and the prefab's are what an artist saved, so the
+    ///         stand-in wins wherever the two overlap — and the prefab fills in everything else,
+    ///         including the whole subtree the stand-in never had.
+    ///     </para>
+    ///     <para>
+    ///         Its handle does not survive, which is stated here because a caller holding one is
+    ///         holding a dead entity and the failure would otherwise turn up somewhere else.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AnInstanceBuiltOverAStandInKeepsWhatTheStandInHad() {
+        using var world = new World();
+        var root = Hierarchy.CreateTransform(world, LocalTransform.At(new(1, 0, 0)));
+        var child = Hierarchy.CreateTransform(world, LocalTransform.At(new(0, 2, 0)));
+        world.Add(root, new Nameplate { Text = "template" });
+        Hierarchy.SetParent(world, child, root);
+
+        using var prefab = Prefab.CaptureFrom(world, root);
+
+        var standIn = world.Create(LocalTransform.At(new(50, 0, 0)));
+        var instance = prefab.InstantiateOnto(world, standIn, []);
+
+        Assert.NotEqual(standIn, instance);
+        Assert.False(world.IsAlive(standIn));
+
+        // The stand-in's position, the template's nameplate, and the template's child.
+        Assert.Equal(new Vector3(50, 0, 0), world.Read<LocalTransform>(instance).Position);
+        Assert.Equal("template", world.Read<Nameplate>(instance).Text);
+        Assert.Single(Children(world, instance));
+    }
+
     // ---------------------------------------------------------------- cameras
 
     [Fact]

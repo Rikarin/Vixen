@@ -383,14 +383,12 @@ sealed class VxmlParser : SyntaxParser {
 
         var fullStart = Tokens[firstTrivia].Position;
 
-        if (blender.TryReuse(fullStart) is not { } green) {
-            return null;
-        }
-
-        // ⚠ And the width has to land on a token boundary of the *new* stream. A candidate whose
-        // text is untouched can still end in the middle of a token that an edit next door made
-        // longer, and splicing it in there would produce a tree that no longer reproduces the file.
-        if (RawIndexAt(fullStart + green.FullWidth) is not { } next) {
+        // ⚠ The blender is handed the new token stream, not just the position. A candidate whose
+        // characters no change touched can still lex differently — this file's mode stack means an
+        // unbalanced `</` two lines above turns `<panel class="root">` from a start tag into stray
+        // characters inside a tag nobody closed — and splicing the old element in over that stream
+        // is a tree that no full reparse would ever produce.
+        if (blender.TryReuse(fullStart, Tokens, out var next) is not { } green) {
             return null;
         }
 
@@ -402,28 +400,6 @@ sealed class VxmlParser : SyntaxParser {
         reused++;
 
         return green.CreateRed(null, 0) as MarkupSyntax;
-    }
-
-    /// <summary>The raw index of the token starting exactly at a position, or null.</summary>
-    int? RawIndexAt(int position) {
-        int low = 0, high = Tokens.Count - 1;
-
-        while (low <= high) {
-            var middle = (low + high) / 2;
-            var start = Tokens[middle].Position;
-
-            if (start == position) {
-                return middle;
-            }
-
-            if (start < position) {
-                low = middle + 1;
-            } else {
-                high = middle - 1;
-            }
-        }
-
-        return null;
     }
 
     bool AtStyleTag() =>

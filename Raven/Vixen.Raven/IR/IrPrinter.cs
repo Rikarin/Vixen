@@ -209,6 +209,9 @@ public static class IrPrinter {
             IrLoadInstruction load => $"load {load.Place}",
             IrStoreInstruction store => $"store {store.Place}, {store.Value}",
             IrArrayLengthInstruction length => $"length {length.Place}",
+            IrAtomicInstruction atomic =>
+                $"atomic.{Lower(atomic.Op)} {atomic.Place}, {atomic.Value}"
+                + (atomic.Comparand is { } comparand ? $", {comparand}" : string.Empty),
             IrUnaryInstruction unary => $"{Lower(unary.Op)} {unary.Operand}",
             IrBinaryInstruction binary => $"{Lower(binary.Op)} {binary.Left}, {binary.Right}",
             IrConvertInstruction convert => $"convert.{Lower(convert.ConversionKind)} {convert.Operand}",

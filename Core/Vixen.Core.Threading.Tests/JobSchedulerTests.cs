@@ -3,6 +3,7 @@
 
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Core.Threading.Tests;
@@ -453,25 +454,28 @@ public class JobSchedulerTests {
         scheduler.Complete(scheduler.Schedule(in warmup));
 
         // The second one-time cost is only reachable by doing the thing being measured, so the
-        // warm-up is the measurement, run twice and read the second time.
-        var allocated = 0L;
+        // warm-up is the measurement, run twice and read the second time — which is exactly one
+        // warm-up pass and one measured one.
         var rounds = 0;
+        var allocated = Measured.Bytes(Chain, warmUp: 1, passes: 1);
 
-        for (var round = 0; round < 2; round++) {
+        // Counted rather than predicted: a non-zero reading is measured again, so the chain may have
+        // run more than the two passes asked for.
+        Assert.Equal((64 * rounds) + 1, counter.Value);
+        Assert.Equal(0, allocated);
+
+        return;
+
+        void Chain() {
             var handle = default(JobHandle);
-            var before = GC.GetAllocatedBytesForCurrentThread();
 
             for (var index = 0; index < 64; index++) {
                 handle = scheduler.Schedule(in warmup, handle);
             }
 
-            allocated = GC.GetAllocatedBytesForCurrentThread() - before;
             scheduler.Complete(handle);
             rounds++;
         }
-
-        Assert.Equal(64 * rounds + 1, counter.Value);
-        Assert.Equal(0, allocated);
     }
 
     /// <summary>

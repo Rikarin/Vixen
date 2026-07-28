@@ -14,6 +14,16 @@ public sealed class SyntaxTree : ISyntaxTree {
     SyntaxNode? root;
     Diagnostic[] diagnostics = [];
 
+    /// <summary>The token stream this tree was parsed from.</summary>
+    /// <remarks>
+    ///     Kept for the next incremental reparse, which has to know how the previous text
+    ///     <i>lexed</i> rather than merely what it said: untouched characters are not unchanged
+    ///     tokens, and a candidate for reuse is only sound when the new stream reads them the old
+    ///     way. The list is the one the lexer already built, so this is a reference held rather than
+    ///     work done.
+    /// </remarks>
+    IReadOnlyList<LexedToken> tokens = [];
+
     public Encoding? Encoding { get; private init; }
     public string FilePath { get; private init; } = string.Empty;
     public int Length { get; private init; }
@@ -70,7 +80,7 @@ public sealed class SyntaxTree : ISyntaxTree {
             return this;
         }
 
-        var blender = new Blender(MemberCandidates(root), changes);
+        var blender = new Blender(MemberCandidates(root), changes, tokens);
         return ParseText(newText.ToString(), Options, FilePath, Encoding, blender);
     }
 
@@ -124,8 +134,9 @@ public sealed class SyntaxTree : ISyntaxTree {
         // The hand-written front end (docs/plan/18). Recovery is explicit — missing
         // tokens are zero-width, skipped source travels as trivia — so even an
         // erroneous parse yields a tree that reproduces the file byte-for-byte.
-        var tokens = RavenLexer.Lex(text, bag, sourceText, filePath);
-        syntaxTree.root = RavenParser.Parse(tokens, bag, sourceText, filePath, blender);
+        var lexed = RavenLexer.Lex(text, bag, sourceText, filePath);
+        syntaxTree.tokens = lexed;
+        syntaxTree.root = RavenParser.Parse(lexed, bag, sourceText, filePath, blender);
         syntaxTree.root.SyntaxTree = syntaxTree;
 
         syntaxTree.diagnostics = bag.ToArray();

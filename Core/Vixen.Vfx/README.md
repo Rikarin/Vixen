@@ -35,6 +35,7 @@ system.Step(deltaTime);
 | `VfxSystem` | One running instance: its particles, its clock, its seed, its spawner state. |
 | `VfxRenderer` | How particles are drawn — alignment, sorting — and which attributes that reads. |
 | `VfxGeometryBuilder` | Particles into camera-facing quads, and the draw order. |
+| `VfxShaderEmitter` | The same compiled graph as a Raven compute shader: the GPU backend's front half. |
 
 ## The compiled graph is data, and that is the whole design
 
@@ -118,6 +119,78 @@ Uniform *by volume* and *by solid angle* where that matters: a position in a sph
 of its radius fraction, or two thirds of the particles pile into the outer third and it reads as a
 shell; a direction samples `z` uniformly rather than the polar angle, or a burst pinches at the poles.
 
+## The other target
+
+`VfxShaderEmitter.Emit(graph)` turns the same compiled graph into Raven source: a shader holding the
+buffers and the helpers, and one compute entry point per pass.
+
+```csharp
+var shader = VfxShaderEmitter.Emit(graph, "Fountain");
+
+File.WriteAllText("Fountain.rvn", shader.Source);   // then: raven compile --target spirv
+```
+
+**It is a translation, not a second implementation**, and that is the whole return on the compiled
+graph's shape. Which attributes exist, what each operation reads and writes, and which salt it draws
+on were all decided once in `Compile`; what is left here is spelling. The emitter is a `switch` that
+writes a line of source per operation, and adding an opcode means adding a case to it and a case to
+the CPU sweep — never a design.
+
+**The order is inverted, and it is the one real difference.** `VfxSimulation` sweeps per operation
+across every particle. A dispatch has no inner loop to keep an opcode out of: one invocation owns one
+particle and runs the whole graph on it, so every intermediate stays in registers and the buffer is
+touched once at each end. Sweeping per operation on the GPU would be one dispatch per operation with a
+round trip through memory between each — the same arithmetic at several times the bandwidth. Both
+orders are correct because no operation reads another particle, which is a property worth having said
+out loud.
+
+**The graph is unrolled, not interpreted.** The operation array could have been uploaded and stepped
+through by one shader with a `switch` in it, which would need one shader for every graph rather than
+one per graph. It would also put a branch on every instruction in the hot path of the processor that
+least likes them. The graph is known when the effect compiles, so it is spelled out.
+
+**A `float3` attribute is a `float4` in the buffer.** std430 aligns a `vec3` to sixteen bytes, so an
+array of them has a stride of sixteen whatever it is declared as — and a host that uploaded a packed
+`Vector3[]` would read every particle after the first from the wrong offset. Declaring `float4` costs
+the bytes the layout was going to spend anyway and spends them somewhere a later attribute can use,
+rather than in padding nothing can name. `Bindings` reports the stride so the host never has to work
+this out twice.
+
+**It binds what the kernels touch, not what the graph stores.** An attribute only the renderer reads
+is a descriptor these kernels would bind and never look at, and the identifier buffer is read-only
+because nothing writes it — one access decoration, and the difference between a driver that may hoist
+a load out of a loop and one that may not.
+
+**What agrees exactly and what agrees closely.** The hash is integer arithmetic throughout and is
+exact on both sides; that is what `VfxRandom` is for, and it is the part that has to be exact, because
+a random value differing by one bit puts a particle somewhere else entirely. Downstream of it is
+ordinary floating point, and three things there are close rather than identical: the transcendentals
+(a sine, a cube root, an exponential are each accurate to a fraction of an ulp without the two
+libraries having to choose the same fraction); an interpolation, since `float.Lerp` is a *fused*
+`a(1-t) + bt` and whether a target contracts its `mix` the same way is the implementation's to decide;
+and anything the shader compiler is free to reassociate. Where the CPU does the arithmetic itself the
+emitter spells the same arithmetic — `Range` is `a + (b - a) * t` on both sides, not a `lerp` — so the
+gap is only where a library call is on one side of the line. **The agreement test is therefore exact on
+the hash and a tolerance on positions**, which is the honest form of that claim and not a weakening of
+it: a tolerance on a value fed by an exact hash is a real check, and a tolerance on a value fed by a
+different random draw would not be.
+
+The tests compile every emitted shader with the real compiler and hand both targets to their reference
+tools, because a generated shader that reads perfectly can still be a module no driver would load.
+That is not hypothetical: it is how a lowering bug was found in Raven itself, where a `RWBuffer`
+inherited from a base shader arrived read-only. `spirv-val` accepted the contradiction and
+`glslangValidator` did not, so the effect ran on Vulkan and would not build for GL — which reads as a
+backend bug and was one line in the binding merge. Both tools run, for that reason.
+
+**What is still the CPU's:** deciding how many particles to spawn and where, and reaping the dead.
+Spawning is bookkeeping rather than arithmetic and there is one right place for it. Reaping is a
+choice again now that Raven has `atomicAdd` — the GPU form is every survivor taking the next slot from
+a shared counter, and the value the atomic hands back is the slot — but it changes the *order* the
+survivors end up in, where the CPU's swap-removal changes it differently. Neither order is promised
+and a particle's randomness follows its identifier rather than its slot, so both are correct; it is
+written down because "the two backends disagree about slot order" is a thing somebody will otherwise
+find in a diff and take for a bug.
+
 ## Geometry stops where the graphics stack starts
 
 `VfxGeometryBuilder` turns particles into quads and nothing more. What happens to those vertices — the
@@ -196,9 +269,11 @@ is two small arrays of spawner bookkeeping.
 
 ## What is not here yet
 
-- **The GPU backend.** The compiled graph is the shape a Raven compute shader would be emitted from,
-  and the RNG is built for it, but nothing emits one. This is the half of the dual target that has been
-  designed for rather than written, and Phase 7's exit criterion is the test that the two agree.
+- **The GPU backend's back half.** `VfxShaderEmitter` writes the shader and the reference tools accept
+  it; nothing has yet uploaded a particle buffer, dispatched it, or read the result back. That needs a
+  device, and so does Phase 7's exit criterion — the test that the two paths agree. Until there is one,
+  what is claimed is that the translation compiles and is well typed, which is a weaker statement than
+  the roadmap's and the true one.
 - **Mesh, ribbon and light renderers.** Only billboards so far. A mesh renderer is an instance
   transform per particle rather than a quad; a ribbon needs particles linked into strips, which is the
   one that needs something the storage does not have yet.

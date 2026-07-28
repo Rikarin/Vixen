@@ -91,6 +91,24 @@ a `BodyHandle` lives above both — the same argument [`Vixen.Net.Engine`](../Vi
 Concretely: a game with networking and no physics must not link Jolt to send a packet, and a game with
 physics and no networking must not carry a tick history it never captures.
 
+## Authority is a rule, not a flag
+
+Which peer decides where a body is comes from `NetworkRules.Write` — the same registry that already
+answers who may spawn, despawn, call and hand over an object. PurrNet spells this as a per-component
+`Owner Auth` toggle; doc 16 calls the rules registry PurrNet's best idea precisely because it makes
+"who may do this to that object" one question with one answer, and a boolean beside it would be a
+second policy that can disagree with the first.
+
+```csharp
+rules.Set(crate, NetworkRules.OwnerAuthoritative);   // the holder simulates it
+```
+
+The capture and correction systems ask the same question and take opposite branches, so they can
+never both act on one body — which would be the authority correcting itself toward its own last
+packet, and is the shape of a body that slowly drifts to a halt. With no registry the answer is the
+default `NetworkRules` already states, server-authoritative; note that this is a statement about the
+*object*, so whether **this peer** is that authority still depends on whether it is the server.
+
 ## Owed
 
 - **The hit-claim message itself.** This validates a claim; nothing yet defines one. A `[ServerRpc]`

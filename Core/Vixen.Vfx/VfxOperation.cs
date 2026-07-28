@@ -144,6 +144,24 @@ public static class VfxOpcodes {
         _ => VfxAttribute.None
     };
 
+    /// <summary>Whether an opcode advances a particle by a step, rather than giving it a value.</summary>
+    /// <param name="opcode">The opcode.</param>
+    /// <returns><see langword="true" /> if it does.</returns>
+    /// <remarks>
+    ///     The two lists are not sorted by this and are not meant to be: an updater in the initializer
+    ///     list is "apply gravity once at birth", which is legitimate, and an initializer in the updater
+    ///     list is "reset the colour every step", which is also legitimate. What the distinction decides
+    ///     is what a step <i>means</i> — an updater run with a step of zero does nothing, so it is
+    ///     harmless in the initializer pass, whereas an initializer run every step would overwrite
+    ///     whatever the updaters had computed. So the update pass skips them, on both backends.
+    /// </remarks>
+    public static bool IsUpdater(VfxOpcode opcode) => opcode is VfxOpcode.Integrate
+        or VfxOpcode.Gravity
+        or VfxOpcode.Drag
+        or VfxOpcode.Rotate
+        or VfxOpcode.SizeOverLife
+        or VfxOpcode.ColourOverLife;
+
     /// <summary>Whether an opcode draws on randomness, and so needs a salt of its own.</summary>
     /// <param name="opcode">The opcode.</param>
     /// <returns><see langword="true" /> if it does.</returns>

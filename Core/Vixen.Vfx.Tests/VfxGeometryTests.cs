@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Testing;
 using Vixen.Vfx;
 using Xunit;
 
@@ -327,21 +328,16 @@ public sealed class VfxGeometryTests {
 
         // Warmed so the sort's key and order arrays have been grown to capacity, which they are once
         // and not per frame.
-        for (var frame = 0; frame < 180; frame++) {
-            system.Step(1f / 60f);
-            builder.Build(system, Camera, vertices);
-        }
-
-        var before = GC.GetAllocatedBytesForCurrentThread();
-
-        for (var frame = 0; frame < 180; frame++) {
-            system.Step(1f / 60f);
-            builder.Build(system, Camera, vertices);
-        }
-
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var allocated = Measured.Bytes(Frame, warmUp: 180, passes: 180);
 
         Assert.True(allocated == 0, $"Expanding and sorting a thousand particles for 180 frames allocated {allocated} bytes.");
+
+        return;
+
+        void Frame() {
+            system.Step(1f / 60f);
+            builder.Build(system, Camera, vertices);
+        }
     }
 
     static readonly IEqualityComparer<Vector3> Close = new Tolerance();

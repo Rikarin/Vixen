@@ -94,6 +94,24 @@ sealed class Voice {
     /// <summary>Which bus it sums into.</summary>
     public int Bus;
 
+    /// <summary>An extra bus a copy of it also goes to, or −1 for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The thing a bus send cannot do.</b> A send on a bus is one amount for everything
+    ///         routed through it, which is right for a room's reverb and wrong for a reverb amount
+    ///         that tracks how far into the room each emitter is — every source on the bus would move
+    ///         together. This is the same edge drawn from one voice.
+    ///     </para>
+    ///     <para>
+    ///         Costs nothing when unused: the mixer only takes the scratch path for a voice that has
+    ///         one, so a game that never sets a per-voice send renders exactly as it did before.
+    ///     </para>
+    /// </remarks>
+    public int SendBus = -1;
+
+    /// <summary>How much of it goes to <see cref="SendBus" />, as a linear gain.</summary>
+    public float SendLevel;
+
     /// <summary>Its own gain, before the bus's.</summary>
     public float Gain = 1f;
 
@@ -177,6 +195,28 @@ sealed class Voice {
     /// <summary>An authored high-pass cutoff in hertz, or zero for none.</summary>
     public float ParameterHighPassHz;
 
+    /// <summary>The head model this voice is panned through, or null for amplitude panning.</summary>
+    /// <remarks>
+    ///     Owned by the mixer and handed out per voice, because the filters carry state per sound and
+    ///     two sources sharing one would smear into each other.
+    /// </remarks>
+    public HrtfPanner? Hrtf;
+
+    /// <summary>How much solid geometry is between this voice and the listener: 0 clear, 1 blocked.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Written by <see cref="AudioOcclusion" /> on the game thread and read by the parameter
+    ///         automation on the same thread, so unlike the fields around it this one never crosses.
+    ///         It lives here rather than beside the automation because it is a property of where the
+    ///         voice is, and because a stolen slot has to be able to drop it in one place.
+    ///     </para>
+    ///     <para>
+    ///         Nothing acts on it directly. <see cref="Vixen.Audio.Parameters.AudioBuiltinParameter.Occlusion" /> feeds it to
+    ///         an authored curve, which decides what being behind a wall sounds like.
+    ///     </para>
+    /// </remarks>
+    public float Occlusion;
+
     /// <summary>What the spatialiser last worked out, for the audio debug overlay.</summary>
     public SpatialResult LastSpatial = new(0f, 1f, 1f, 1f);
 
@@ -213,6 +253,22 @@ sealed class Voice {
 
     /// <summary>Where in the world it is, as the audio thread last managed to read it.</summary>
     public SpatialSettings Spatial => spatial;
+
+    /// <summary>What the game thread last published, read back on the game thread.</summary>
+    /// <remarks>
+    ///     <b>Not the same as <see cref="Spatial" />.</b> That one is the audio thread's copy, taken
+    ///     when it last rendered a block — so anything on the game thread reading it sees a position
+    ///     from before the most recent <c>Play</c>, or no position at all if nothing has been
+    ///     rendered yet. The occlusion pass runs on the game thread and needs the position the game
+    ///     thread just set, which is this.
+    /// </remarks>
+    public SpatialSettings PublishedSpatial {
+        get {
+            var result = spatial;
+            published.TryRead(ref result);
+            return result;
+        }
+    }
 
     /// <summary>How far through the source it is.</summary>
     public long Position => Source?.Position ?? 0;
@@ -457,8 +513,18 @@ sealed class Voice {
                     summed = filtered;
                 }
 
-                for (var channel = 0; channel < channels; channel++) {
-                    destination[offset + channel] += summed * Ramp(channel, t);
+                if (Hrtf is not null && IsSpatial && channels == 2) {
+                    // The one place a sound stops being a level per speaker and becomes two filtered
+                    // copies of itself. It happens after the mono sum and after absorption, because
+                    // both of those are properties of the path and the head model is what happens at
+                    // the end of it.
+                    Hrtf.Process(summed, LastSpatial.Azimuth, LastSpatial.Elevation, out var ear, out var other);
+                    destination[offset] += ear * Ramp(0, t);
+                    destination[offset + 1] += other * Ramp(1, t);
+                } else {
+                    for (var channel = 0; channel < channels; channel++) {
+                        destination[offset + channel] += summed * Ramp(channel, t);
+                    }
                 }
             } else {
                 for (var channel = 0; channel < channels; channel++) {
@@ -495,6 +561,9 @@ sealed class Voice {
         ParameterPitch = 1f;
         ParameterLowPassHz = 0f;
         ParameterHighPassHz = 0f;
+        Occlusion = 0f;
+        SendBus = -1;
+        SendLevel = 0f;
         ClearFilters();
         IsSpatial = false;
         OwnsSource = false;
@@ -503,6 +572,7 @@ sealed class Voice {
         spatial = new SpatialSettings();
         published.Write(spatial);
         LastSpatial = new SpatialResult(0f, 1f, 1f, 1f);
+        Hrtf?.Reset();
         Array.Clear(currentGains);
         Array.Clear(targetGains);
     }
@@ -629,6 +699,22 @@ sealed class Voice {
 
             for (var channel = 0; channel < channels; channel++) {
                 targetGains[channel] *= gain;
+            }
+
+            // An HRTF supplies the direction itself, so the panner's speaker gains would be applied
+            // twice. What is kept is the *level* — distance, cone and listener gain, which the head
+            // model knows nothing about — spread equally, so the ramping and the attenuation still
+            // work and only the placement changes hands.
+            if (Hrtf is not null && channels == 2) {
+                var level = 0f;
+
+                for (var channel = 0; channel < channels; channel++) {
+                    level += targetGains[channel] * targetGains[channel];
+                }
+
+                level = MathF.Sqrt(level);
+                targetGains[0] = level;
+                targetGains[1] = level;
             }
         } else if (downmix) {
             // A mono source spread across speakers: constant power, so crossing the centre does not

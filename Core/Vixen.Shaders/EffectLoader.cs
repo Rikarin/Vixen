@@ -159,10 +159,22 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     ///     The interned key for one parameter, or null for a type the engine cannot hold.
     /// </summary>
     /// <remarks>
-    ///     Null rather than a key of some fallback type. A parameter the generator also skipped has
-    ///     no C# spelling, so there is no call site that could set it — and inventing a
-    ///     <c>ParameterKey&lt;byte[]&gt;</c> for it would put a name in the interning table that the
-    ///     next assembly to generate bindings would collide with.
+    ///     <para>
+    ///         Null rather than a key of some fallback type. A parameter the generator also skipped has
+    ///         no C# spelling, so there is no call site that could set it — and inventing a
+    ///         <c>ParameterKey&lt;byte[]&gt;</c> for it would put a name in the interning table that the
+    ///         next assembly to generate bindings would collide with.
+    ///     </para>
+    ///     <para>
+    ///         And no default, through the overload that declares none:
+    ///         <see cref="EffectParameterData" /> is a name, a kind, an offset and a size, because
+    ///         that is what a uniform block looks like from the outside. The initialiser
+    ///         <c>var exposure: float = 1f</c> is in the shader's source and reaches the generated
+    ///         binding instead. Passing zero here would claim it as this shader's declared default and
+    ///         beat the binding to the intern table whenever an effect loads first — which, effects
+    ///         being data-driven, is a load-order accident rather than a decision. See
+    ///         <see cref="ParameterKeys.New{T}(string)" />.
+    ///     </para>
     /// </remarks>
     static ParameterKey? KeyOf(EffectParameterData parameter) =>
         parameter.Kind switch {
