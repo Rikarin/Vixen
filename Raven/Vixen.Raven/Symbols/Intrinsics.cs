@@ -94,6 +94,7 @@ public static class Intrinsics {
 
         AddMatrixIntrinsics(methods);
         AddBitCastIntrinsics(methods);
+        AddAtomicIntrinsics(methods);
 
         ByName = methods
             .GroupBy(m => m.Name, StringComparer.Ordinal)
@@ -176,6 +177,54 @@ public static class Intrinsics {
             }
         }
     }
+
+    /// <summary>
+    ///     The atomics: an indivisible read-modify-write of one integer in a writable resource.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Named as GLSL names them, because that is what both this language's readers and its
+    ///         nearer target already say. They are free functions rather than members of
+    ///         <c>RWBuffer</c> so that the target can be any place inside one — <c>counts[i]</c>, but
+    ///         also <c>cells[i].population</c> — which a member taking an index could not reach.
+    ///     </para>
+    ///     <para>
+    ///         <b>The first parameter is shared storage, not a value</b>, and that is the one thing
+    ///         about them that is not ordinary. Nothing in the signature can say so — Raven has
+    ///         <c>inout</c>, but <c>inout</c> is copy-in/copy-out by definition and a copy cannot be
+    ///         atomic — so the requirement is checked after overload resolution
+    ///         (<c>RVN2130</c>) and honoured in lowering, which takes the argument's place instead of
+    ///         its value.
+    ///     </para>
+    ///     <para>
+    ///         <b>Scalar <c>int</c> and <c>uint</c> only.</b> GLSL 4.5 core has no atomic on a float
+    ///         and none on a vector, so anything wider would be a signature one backend could not
+    ///         emit. The result is always the value found there before the operation, which is what
+    ///         makes an atomic add an index allocator rather than a counter nobody can read.
+    ///     </para>
+    /// </remarks>
+    static void AddAtomicIntrinsics(List<MethodSymbol> methods) {
+        string[] binary = ["atomicAdd", "atomicMin", "atomicMax", "atomicAnd", "atomicOr", "atomicXor", "atomicExchange"];
+
+        foreach (var type in new[] { BuiltInTypes.Int, BuiltInTypes.UInt }) {
+            foreach (var name in binary) {
+                methods.Add(Method(name, type, ("target", type), ("value", type)));
+            }
+
+            // Comparand before value, as GLSL's atomicCompSwap orders them. SPIR-V's operands are the
+            // other way round, which the emitter deals with rather than the author.
+            methods.Add(Method("atomicCompareExchange", type, ("target", type), ("comparand", type), ("value", type)));
+        }
+    }
+
+    /// <summary>Whether a name is one of the atomics, whose first argument is storage.</summary>
+    /// <remarks>
+    ///     Asked by the binder, which has to refuse a non-place, and by the lowerer, which has to take
+    ///     the place rather than the value. One list, so the two cannot come to disagree about which
+    ///     calls are special.
+    /// </remarks>
+    public static bool IsAtomic(string name) =>
+        name.StartsWith("atomic", StringComparison.Ordinal) && IsIntrinsic(name);
 
     static PrimitiveTypeSymbol? FindMatrix(int rows, int columns) =>
         Matrices.FirstOrDefault(m => m.Rows == rows && m.Columns == columns);

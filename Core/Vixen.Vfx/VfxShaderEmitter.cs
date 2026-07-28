@@ -352,7 +352,8 @@ public static class VfxShaderEmitter {
     /// <summary>The update kernel's body: every live particle, one step.</summary>
     static void Updater(StringBuilder text, VfxCompiledGraph graph, VfxOperation[] updaters) {
         // Ageing first and reaping last, so a particle is updated on the step it dies and not after
-        // it. Reaping is the CPU's, because Raven has no atomic to compact with.
+        // it. Reaping stays the CPU's for now: the GPU form is an atomic append, which Raven can
+        // express since `atomicAdd` landed, but it needs the dispatch that does not exist yet.
         if (Has(graph, VfxAttribute.Age)) {
             text.AppendLine()
                 .AppendLine("        age[slot] = age[slot] + deltaTime");

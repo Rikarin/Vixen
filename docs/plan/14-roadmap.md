@@ -2625,10 +2625,16 @@ nowhere in the dependency graph.
   backend bug and was one argument in the binding merge. Fixed, with a regression test on both sides;
   the Vfx tests run *both* reference tools for exactly this reason.
 
+  Writing the emitter also settled what the language was missing for the *rest* of the GPU path, and
+  it turned out to be one thing: **atomics**. Compacting the alive set is every survivor taking the
+  next slot from a shared counter, and the value an atomic hands back is the slot. Raven now has the
+  eight of them on `int` and `uint` — see [07](07-raven-shader-pipeline.md) § Atomics for why the
+  first argument had to be a place and why `inout` could not be it.
+
   **Owed here:** the dispatch itself — nothing has yet uploaded a buffer or read one back, which is
-  what the exit criterion's agreement test needs a device for. Spawning and reaping stay on the CPU:
-  the first is bookkeeping, and the second needs an atomic counter the language does not have. Then
-  mesh/ribbon/light renderers, custom attributes, and the force-field/curl-noise/collision/
+  what the exit criterion's agreement test needs a device for. Spawning stays on the CPU because it is
+  bookkeeping; reaping stays there until the dispatch exists, not because the language cannot say it.
+  Then mesh/ribbon/light renderers, custom attributes, and the force-field/curl-noise/collision/
   sub-emitter/trail updaters this document names.
 - `Vixen.Editor.VfxGraph`: node library + dual-target compilation + live preview.
 - Particle render feature integrated.
