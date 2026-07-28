@@ -385,6 +385,177 @@ public class EffectCacheTests {
         Assert.NotNull(system.Resolve(Variant(shadows: true).ToKey()));
     }
 
+    // --- Compiling without stalling -----------------------------------------
+
+    /// <summary>
+    ///     A variant nobody has yet draws something, and the frame does not wait.
+    /// </summary>
+    /// <remarks>
+    ///     Doc 06 in one sentence: "development builds compile on demand, asynchronously, rendering
+    ///     with a placeholder material for the frames until ready — never a hitch, never a stall." A
+    ///     compile is hundreds of milliseconds and it happens the first time a material is seen,
+    ///     which is exactly when somebody is walking into a new room.
+    /// </remarks>
+    [Fact]
+    public void A_variant_being_compiled_draws_a_placeholder() {
+        using var device = new NullDevice();
+        var loader = new EffectLoader(device);
+
+        var store = new EffectStore();
+        store.Add(Variant());
+
+        var system = new EffectSystem();
+        system.AddProvider(new EffectSourceProvider(store, loader));
+        system.Placeholder = loader.Load(Variant("Placeholder")).AsPlaceholder();
+
+        var key = Variant().ToKey();
+        var first = system.Resolve(key);
+
+        Assert.NotNull(first);
+        Assert.True(first.IsPlaceholder);
+        Assert.Equal(1, system.PendingCount);
+
+        // Nothing was produced by asking, which is the point: the provider was not touched on the
+        // frame that asked.
+        Assert.Equal(0, system.Count);
+
+        Assert.Equal(1, system.Pump());
+
+        var second = system.Resolve(key);
+
+        Assert.NotNull(second);
+        Assert.False(second.IsPlaceholder);
+        Assert.Equal(key, second.Key);
+    }
+
+    /// <summary>
+    ///     The placeholder is never what a key resolved to.
+    /// </summary>
+    /// <remarks>
+    ///     The failure this prevents is silent and permanent: a cache holding the temporary answer
+    ///     means the compile finishes, the real variant is produced, and the object stays magenta
+    ///     forever with nothing logged.
+    /// </remarks>
+    [Fact]
+    public void A_placeholder_is_never_cached() {
+        using var device = new NullDevice();
+        var loader = new EffectLoader(device);
+
+        var store = new EffectStore();
+        store.Add(Variant());
+
+        var system = new EffectSystem();
+        system.AddProvider(new EffectSourceProvider(store, loader));
+        system.Placeholder = loader.Load(Variant("Placeholder")).AsPlaceholder();
+
+        system.Resolve(Variant().ToKey());
+
+        Assert.Equal(0, system.Count);
+
+        system.Pump();
+
+        // One entry, and it is the real one.
+        Assert.Equal(1, system.Count);
+        Assert.False(system.Resolve(Variant().ToKey())!.IsPlaceholder);
+    }
+
+    /// <summary>A variant asked for every frame is queued once.</summary>
+    /// <remarks>
+    ///     A thousand objects of one material ask on the same frame, and every frame until it
+    ///     arrives. A queue that took them all would compile the same shader a thousand times, which
+    ///     is the stall this arrangement exists to avoid, arriving by a different route.
+    /// </remarks>
+    [Fact]
+    public void A_variant_asked_for_every_frame_is_queued_once() {
+        using var device = new NullDevice();
+        var loader = new EffectLoader(device);
+
+        var store = new EffectStore();
+        store.Add(Variant());
+
+        var counted = new Counted(Variant());
+        var system = new EffectSystem();
+        system.AddProvider(new EffectSourceProvider(counted, loader));
+        system.Placeholder = loader.Load(Variant("Placeholder")).AsPlaceholder();
+
+        for (var frame = 0; frame < 10; frame++) {
+            system.Resolve(Variant().ToKey());
+        }
+
+        Assert.Equal(1, system.PendingCount);
+        Assert.Equal(1, system.Pump());
+        Assert.Equal(1, counted.Calls);
+    }
+
+    /// <summary>
+    ///     A key nothing can supply is a miss once, not a compilation per frame.
+    /// </summary>
+    /// <remarks>
+    ///     It keeps drawing the placeholder, which is right — the object is visible and unmistakably
+    ///     unfinished — and it stops asking, which is what keeps a bad key from costing a compile
+    ///     every frame for as long as it is on screen.
+    /// </remarks>
+    [Fact]
+    public void A_variant_nothing_can_supply_is_asked_for_once() {
+        using var device = new NullDevice();
+        var loader = new EffectLoader(device);
+
+        var counted = new Counted(null);
+        var system = new EffectSystem();
+        system.AddProvider(new EffectSourceProvider(counted, loader));
+        system.Placeholder = loader.Load(Variant("Placeholder")).AsPlaceholder();
+
+        Assert.True(system.Resolve(Variant().ToKey())!.IsPlaceholder);
+        Assert.Equal(0, system.Pump());
+        Assert.Equal(Variant().ToKey(), Assert.Single(system.Misses));
+
+        system.Resolve(Variant().ToKey());
+
+        Assert.Equal(0, system.PendingCount);
+        Assert.Equal(1, counted.Calls);
+    }
+
+    /// <summary>A caller may bound how much compiling one frame pays for.</summary>
+    [Fact]
+    public void A_pump_produces_at_most_what_it_was_asked_for() {
+        using var device = new NullDevice();
+        var loader = new EffectLoader(device);
+
+        var store = new EffectStore();
+        store.Add(Variant(shadows: true));
+        store.Add(Variant(shadows: false));
+
+        var system = new EffectSystem();
+        system.AddProvider(new EffectSourceProvider(store, loader));
+        system.Placeholder = loader.Load(Variant("Placeholder")).AsPlaceholder();
+
+        system.Resolve(Variant(shadows: true).ToKey());
+        system.Resolve(Variant(shadows: false).ToKey());
+
+        Assert.Equal(1, system.Pump(1));
+        Assert.Equal(1, system.PendingCount);
+        Assert.Equal(1, system.Pump(1));
+        Assert.Equal(0, system.PendingCount);
+    }
+
+    /// <summary>With no placeholder, resolution is what it always was.</summary>
+    /// <remarks>
+    ///     The shipping arrangement. There is nothing that could compile later, so there is nothing
+    ///     for a placeholder to be a placeholder for — and a miss has to be a miss on the frame it
+    ///     happens rather than a queue nobody pumps.
+    /// </remarks>
+    [Fact]
+    public void Without_a_placeholder_a_miss_is_immediate() {
+        using var device = new NullDevice();
+
+        var system = new EffectSystem();
+        system.AddProvider(new EffectSourceProvider(new EffectStore(), new(device)));
+
+        Assert.Null(system.Resolve(Variant().ToKey()));
+        Assert.Equal(0, system.PendingCount);
+        Assert.Single(system.Misses);
+    }
+
     // --- The manifest -------------------------------------------------------
 
     /// <summary>What a run asked for is what a build is told to make.</summary>
@@ -400,6 +571,28 @@ public class EffectCacheTests {
 
         Assert.Equal(keys.Order(Comparer<EffectKey>.Create(static (left, right) => string.CompareOrdinal(left.ToString(), right.ToString()))), manifest.ToKeys());
         Assert.Equal("MetalRoughnessSurface", manifest.Effects.Single(request => request.Shader == "ForwardPlus").Composition["surface"]);
+    }
+
+    /// <summary>
+    ///     A manifest somebody wrote by hand, leaving out everything that did not apply.
+    /// </summary>
+    /// <remarks>
+    ///     The ordinary shape of the file: most variants have no composition, and plenty have no
+    ///     permutations either. It is worth its own test because the JSON source generator builds a
+    ///     type whose properties are init-only through an object initializer — which assigns every
+    ///     property, so an omitted field arrives as null rather than as its initialiser, and the
+    ///     first thing to touch it throws somewhere that says nothing about a manifest.
+    /// </remarks>
+    [Fact]
+    public void A_manifest_may_leave_out_what_does_not_apply() {
+        var manifest = EffectManifest.Parse(
+            """{ "Effects": [ { "Shader": "Tonemap" }, { "Shader": "Lighting", "Permutations": { "Lighting.UseShadows": "true" } } ] }"""
+        );
+
+        Assert.Equal(
+            ["Lighting[Lighting.UseShadows=true]", "Tonemap"],
+            manifest.ToKeys().Select(key => key.ToString()).Order(StringComparer.Ordinal)
+        );
     }
 
     /// <summary>The same set of keys in a different order is the same manifest.</summary>

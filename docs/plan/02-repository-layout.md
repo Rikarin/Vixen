@@ -31,6 +31,9 @@ Vixen/
 ├── Tools/                         # ── CLI, workers, SDK, templates ──
 ├── Samples/
 ├── Benchmarks/
+├── Testing/                       # test-only source shared across test assemblies — linked, not a project
+│   ├── Vixen.Testing.props        # the Compile items, and why this is linked rather than referenced
+│   └── Measured.cs                # allocation measurement with the collector kept out of it
 ├── references/                    # git submodules / vendored read-only reference code — NOT built
 │   ├── stride/                    # symlink or submodule → /Users/jiu/Projects/stride
 │   ├── arch/                      # github.com/genaray/Arch          (ADR-004)
@@ -126,8 +129,8 @@ Core/
 ├── Vixen.Physics.Tests/
 ├── Vixen.Animation/                    # ✅ skeletal, blend trees, layers, IK, state machine
 ├── Vixen.Animation.Tests/
-├── Vixen.Vfx/                          # 🟡 particles: SoA storage, compiled graph, CPU sim —
-│                                       #   renderers and the GPU path not yet
+├── Vixen.Vfx/                          # 🟡 particles: SoA storage, compiled graph, CPU sim,
+│                                       #   billboards, compute emitter — no dispatch yet
 ├── Vixen.Vfx.Tests/
 ├── Vixen.Navigation/                   # ✅ navmesh: bake, query, crowd — managed, no native dep
 ├── Vixen.Navigation.Tests/
@@ -356,6 +359,32 @@ exercises is the one thing the editor does not: a multi-megapixel scrollable pai
 compositing, tool overlays, and marching-ants selection. Those specific stress requirements are now
 listed against the editor's own gates in [11](11-editor.md) where they overlap, and this sample covers
 the remainder if and when it is built.
+
+## `Testing/`
+
+Test-only source that more than one test assembly needs. It is **linked into** the projects that use
+it — `Testing/Vixen.Testing.props` carries the `Compile` items and each consumer imports it — rather
+than being a project they reference.
+
+```
+Testing/
+├── Vixen.Testing.props           # the Compile items, imported by each consuming .Tests project
+└── Measured.cs                   # allocation measurement with the collector kept out of it
+```
+
+Linked rather than referenced because the alternative is worse in three ways. A library under
+`Core/` inherits the runtime profile below — packable, AOT-compatible, trimmable, documentation
+file — and all four are wrong for test-only code, so it would need a fourth profile or a name that
+lies about what it is. A referenced assembly would also have to make its types `public` and would
+flow xunit into every consumer transitively, where a linked file stays `internal` and adds nothing
+to any test output. And the repository already links source across project boundaries where an
+assembly boundary is the wrong shape — `Vixen.Input.Generators` and `Vixen.Ui.Markup.Generators`
+both do it.
+
+Top level rather than under `Core/` because every folder there is one library plus its sibling test
+project, and this is neither. It is where the shared test infrastructure of
+[12](12-build-ci-and-testing.md) § "Test infrastructure worth building early" — `TestApp`,
+`RecordingBackend`, `GoldenFile`, `FixtureProject` — belongs when it is written.
 
 ## Shared MSBuild
 

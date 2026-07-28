@@ -23,4 +23,7 @@
         <ProjectReference Include="..\Vixen.Ui.Layout\Vixen.Ui.Layout.csproj" />
     </ItemGroup>
 
+    <!-- Measured, the guarded allocation measurement. See Testing/Vixen.Testing.props. -->
+    <Import Project="..\..\Testing\Vixen.Testing.props" />
+
 </Project>

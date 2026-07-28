@@ -171,11 +171,36 @@ public sealed class UiPropertyGenerator : IIncrementalGenerator {
         }
 
         return constant.Type?.SpecialType switch {
-            SpecialType.System_Single => ((float) value).ToString("R", CultureInfo.InvariantCulture) + "f",
-            SpecialType.System_Double => ((double) value).ToString("R", CultureInfo.InvariantCulture) + "d",
+            // ⚠ The float is formatted as a float rather than widened. "R" on the double a float
+            // widens to gives 0.10000000149011612 for 0.1f — which compiles, and is a different
+            // number from the one that was written.
+            SpecialType.System_Single => Special((float) value, "float")
+                ?? ((float) value).ToString("R", CultureInfo.InvariantCulture) + "f",
+            SpecialType.System_Double => Special((double) value, "double")
+                ?? ((double) value).ToString("R", CultureInfo.InvariantCulture) + "d",
             SpecialType.System_Decimal => ((decimal) value).ToString(CultureInfo.InvariantCulture) + "m",
             _ => SymbolDisplay.FormatPrimitive(value, quoteStrings: true, useHexadecimalNumbers: false)
         };
+    }
+
+    /// <summary>Writes a floating-point default, including the three values that are not numbers.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Infinity and NaN have no literal form in C#</b>, so the round-trip format that is
+    ///     right for every other value produces <c>Infinityd</c> — which is not a compile error in
+    ///     the generator, where nothing runs, but is one in every project that declares a property
+    ///     with an unbounded default. A numeric range is exactly where somebody writes one, so this
+    ///     is the first place the gap shows.
+    /// </remarks>
+    static string? Special(double value, string type) {
+        if (double.IsNaN(value)) {
+            return type + ".NaN";
+        }
+
+        if (double.IsPositiveInfinity(value)) {
+            return type + ".PositiveInfinity";
+        }
+
+        return double.IsNegativeInfinity(value) ? type + ".NegativeInfinity" : null;
     }
 
     static bool IsPartialType(INamedTypeSymbol type) {

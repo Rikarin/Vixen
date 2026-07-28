@@ -267,6 +267,20 @@ of the `EffectKey` — two materials differing only in features are two variants
 only permutations could not express. Details, including the one constraint the whole shape is built
 around, are in [Vixen.Rendering's README](../../Core/Vixen.Rendering/README.md#materials).
 
+✅ **And a material binds its own resources**, which was the last thing a host had to do by hand. A
+material knows it has a texture called `albedo`; which binding index that is belongs to the compiled
+shader, so until the binding plan reached the runtime somebody had to write the number down and hand
+over a finished descriptor set. `MaterialRenderFeature` now writes it: the uniform block through
+`EffectConstants`, every texture, sampler and storage buffer looked up in `Effect.Bindings` by the
+shader's own name for it. The same fix that made a compositor node's bindings authorable, applied to
+the other half of the same gap.
+
+Per variant rather than per material, because a permutation can fold a texture out of the shader and a
+set written for the variant that has it does not fit the layout of the one that does not — which is
+also what keeps a depth prepass binding nothing. Every binding or none, because a set short of an entry
+is a validation error on one backend and a sampled black texture on another. Through the frame
+allocator, because a value that changes must not be rewritten under a frame still reading it.
+
 | Layer | Options |
 |---|---|
 | Diffuse | Lambert, Oren–Nayar, Burley (Disney), energy-conserving variants |
@@ -386,6 +400,28 @@ Renderers → billboard (camera/velocity/fixed-axis aligned), mesh, ribbon, ligh
 
 **Authoring** is `Vixen.Editor.VfxGraph` — see [11](11-editor.md).
 
+### 🟡 Status: both targets are emitted; only one of them runs
+
+`Vixen.Vfx` has the storage, the compiled graph, the CPU simulation, billboard geometry and
+`ParticleRenderFeature`. `VfxShaderEmitter` closes the other half of the dual target on paper: the same
+compiled graph becomes a Raven compute shader, and the tests compile it and hand both targets to
+`glslangValidator` and `spirv-val`. What is not built is the dispatch — nothing uploads a particle
+buffer, runs the kernel or reads it back — so the exit criterion's CPU/GPU agreement test is waiting on
+a device rather than on the translation.
+
+Three things settled while writing it, recorded because they are the reasons rather than the results:
+
+- **The sweep order inverts between the targets, and that is fine.** The CPU runs one operation across
+  every particle to keep the opcode dispatch out of the inner loop; a compute invocation runs the whole
+  graph on one particle, because it has no inner loop and every intermediate can stay in a register.
+  Both are correct because no operation reads another particle — which is worth stating, since it is the
+  property that makes the dual target cheap.
+- **The graph is unrolled into the shader, not uploaded and interpreted.** One shader per graph rather
+  than one shader for every graph, and no branch on the hot path of the processor that likes them least.
+- **Spawning and reaping stay on the CPU.** Spawning is bookkeeping with one right home. Reaping is not
+  a choice: the alive set is a prefix maintained by swap-removal, and compacting it on the GPU needs an
+  atomic counter, which Raven has no syntax for yet.
+
 ## Effect permutations
 
 The problem Stride solves with `EffectSystem` + `.sdfx` mixins, and the thing that makes a
@@ -482,6 +518,33 @@ model a script switches to on level three. `EffectSystem.Requests` records every
 for — before the in-memory tier, so a key resolved once and cached is still in the list — and that is
 an `EffectManifest`: JSON, because it is a build input people read, review in a diff and merge when
 two branches each add a material. Play, dump, build, and the next run compiles nothing.
+
+`vixen content build` is where that lands: `ProjectSettings/Shaders.effects.json` in, `shaders.effects`
+beside the catalog out, with `--shader-target` picking the backend. No manifest is not a failure — a
+project runs against a compiler in development, and the build says how to make one rather than
+refusing to finish.
+
+#### Compiling without stalling
+
+The other half of the development story, and the half that decides whether anyone leaves the
+compiler in the loop: `EffectSystem.Placeholder`. Setting it makes a miss return immediately with
+something to draw and queue the real compile; `Pump()` produces them, called by the host off the
+render thread and bounded by a count if a frame should only pay for so much. The system owns no
+thread of its own, because how much CPU to spend compiling and against what else is a scheduling
+decision the job system exists for — and a pump is testable without a clock.
+
+**The placeholder is never cached, and that is the whole subtlety.** The dictionary holds what a key
+resolved to; a placeholder is what it resolved to *for now*. Caching it makes the temporary answer
+permanent, which is a magenta object that never becomes anything with nothing logged anywhere. The
+matching half is that whatever *kept* the answer has to know it was provisional —
+`MaterialRenderFeature` resolves a variant once and keeps it, and the real effect arrives some frames
+later with nothing to announce it. `Effect.IsPlaceholder` is what it checks, and it re-resolves
+exactly the variants still holding one.
+
+`Raven/Library/Pipeline/Placeholder.rvn` is the shipped one: a screen-space magenta checker importing
+nothing and binding one matrix. Screen space rather than UV space because it has to draw for a mesh
+with no texture coordinates — the geometry most likely to be missing its shader — and one uniform
+because it stands in for *any* shader, so its bindings must be ones every draw can already satisfy.
 
 ## Testing
 

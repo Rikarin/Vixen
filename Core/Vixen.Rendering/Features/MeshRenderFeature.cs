@@ -111,7 +111,7 @@ public sealed class MeshRenderFeature : RootRenderFeature {
             // material at all, and binding a set its pipeline layout does not declare is a validation
             // error rather than a harmless extra call.
             if (HasMaterialSet(effect)
-                && materials.DescriptorsOf(system, node.Object) is { IsValid: true } descriptors
+                && materials.DescriptorsOf(system, node.Object, stage) is { IsValid: true } descriptors
                 && descriptors != boundDescriptors) {
                 context.CommandList.BindDescriptorSet(DescriptorSetSlot.PerMaterial, descriptors);
                 boundDescriptors = descriptors;

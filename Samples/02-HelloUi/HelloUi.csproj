@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Samples.HelloUi</RootNamespace>
+        <AssemblyName>HelloUi</AssemblyName>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ **No Vixen.App and no Vixen.Engine, and that absence is the sample.**
+            docs/plan/02 § Samples calls this one "Vixen.Ui only, no engine — proves the UI/Engine
+            boundary", and a reference to the host would quietly undo it: Vixen.App references
+            Vixen.Engine, so taking the convenient way in would drag a scene, an ECS world and a game
+            loop into an application that is a user interface. Everything Vixen.App would have done —
+            the window, the device, the frame loop — is Program.cs, and it is ninety lines.
+
+            `CheckArchitecture` asserts the absence, so this cannot be undone by accident.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Renderer\Vixen.Ui.Renderer.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            SPIR-V, committed, for the reason Samples/01 gives and one more: `UiRenderer`'s own
+            remarks say the modules are "supplied rather than compiled here" because turning shader
+            source into modules belongs to Raven — which already carries Ui/Msdf.rvn and
+            Ui/RoundedRect.rvn for exactly this. Until that path is wired, a caller hands over
+            whatever it has. These four are the same GLSL the golden-image fixture drives the
+            renderer with, so the sample and the reference pictures cannot disagree about what the
+            shaders do.
+
+            Regenerating: `glslc Shaders/ui.vert -o Shaders/ui.vert.spv`, and likewise for the three
+            fragment stages.
+        -->
+        <EmbeddedResource Include="Shaders\*.spv" />
+    </ItemGroup>
+
+</Project>

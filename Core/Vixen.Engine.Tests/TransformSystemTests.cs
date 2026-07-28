@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Engine.Tests;
@@ -193,8 +194,13 @@ public sealed class TransformSystemTests {
             }
         }
 
-        // Warm up: the buckets grow to the depth this scene needs, and every chunk is visited once.
-        for (var frame = 0; frame < 8; frame++) {
+        // Warmed up until the buckets have grown to the depth this scene needs and every chunk has
+        // been visited once, then measured over five hundred more.
+        Assert.Equal(0, Measured.Bytes(Frame, warmUp: 8, passes: 500));
+
+        return;
+
+        void Frame() {
             world.AdvanceVersion();
 
             foreach (var root in roots) {
@@ -203,20 +209,6 @@ public sealed class TransformSystemTests {
 
             system.Resolve(world);
         }
-
-        var before = GC.GetAllocatedBytesForCurrentThread();
-
-        for (var frame = 0; frame < 500; frame++) {
-            world.AdvanceVersion();
-
-            foreach (var root in roots) {
-                world.Get<LocalTransform>(root).Position += Vector3.UnitX;
-            }
-
-            system.Resolve(world);
-        }
-
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
     }
 
     static Vector3 Round(Vector3 value) =>

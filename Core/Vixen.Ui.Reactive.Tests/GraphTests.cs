@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using CsCheck;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Ui.Reactive.Tests;
@@ -129,21 +130,17 @@ public class GraphTests {
 
         using var effect = new Effect(() => total += doubled.Value, scheduler);
 
-        for (var i = 0; i < 100; i++) {
-            source.Value = i;
-            scheduler.Flush();
-        }
+        var next = 0;
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 100; i < 1_100; i++) {
-            source.Value = i;
-            scheduler.Flush();
-        }
-
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-
-        Assert.Equal(0, allocated);
+        Assert.Equal(0, Measured.Bytes(Frame, warmUp: 100, passes: 1_000));
         Assert.True(total > 0);
+
+        return;
+
+        void Frame() {
+            source.Value = next++;
+            scheduler.Flush();
+        }
     }
 
     [Fact]
@@ -157,19 +154,15 @@ public class GraphTests {
 
         using var effect = new Effect(() => seen = either.Value, scheduler);
 
-        for (var i = 0; i < 50; i++) {
-            toggle.Value = !toggle.Value;
-            scheduler.Flush();
-        }
-
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 500; i++) {
-            toggle.Value = !toggle.Value;
-            scheduler.Flush();
-        }
-
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.Equal(0, Measured.Bytes(Frame, warmUp: 50, passes: 500));
         Assert.True(seen is 1 or 2);
+
+        return;
+
+        void Frame() {
+            toggle.Value = !toggle.Value;
+            scheduler.Flush();
+        }
     }
 
     [Fact]
@@ -187,21 +180,18 @@ public class GraphTests {
             Cycle(source, scheduler, subscribing: true);
         }
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 200; i++) {
-            Cycle(source, scheduler, subscribing: false);
-        }
-
-        var withoutEdges = GC.GetAllocatedBytesForCurrentThread() - before;
-
-        before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 200; i++) {
-            Cycle(source, scheduler, subscribing: true);
-        }
-
-        var withEdges = GC.GetAllocatedBytesForCurrentThread() - before;
+        // Both readings are non-zero by construction, so unlike every other measurement here neither
+        // survives a collection landing in it — which is exactly the case Measured re-measures.
+        var withoutEdges = Measured.Bytes(Peeking, warmUp: 0, passes: 200);
+        var withEdges = Measured.Bytes(Subscribing, warmUp: 0, passes: 200);
 
         Assert.Equal(withoutEdges, withEdges);
+
+        return;
+
+        void Peeking() => Cycle(source, scheduler, subscribing: false);
+
+        void Subscribing() => Cycle(source, scheduler, subscribing: true);
 
         static void Cycle(Signal<int> source, EffectScheduler scheduler, bool subscribing) {
             // Peek reads the same value through the same closure and records no edge, which is what

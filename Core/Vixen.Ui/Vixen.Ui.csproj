@@ -64,6 +64,15 @@
             dynamic expression is the whole of ADR-010, and an effect is what Reactive is.
         -->
         <ProjectReference Include="..\Vixen.Ui.Reactive\Vixen.Ui.Reactive.csproj" />
+
+        <!--
+            For `InputKey` and nothing else. The enum is the USB HID usage table, and a UI framework
+            that declared its own copy would be the third in the repository — Vixen.Platform has one
+            because it talks to the backends and Vixen.Input has one because Core cannot reference
+            Platform. InputKey's own remarks name this assembly as its consumer, so this is the
+            reference that documentation was written for.
+        -->
+        <ProjectReference Include="..\Vixen.Input\Vixen.Input.csproj" />
     </ItemGroup>
 
     <ItemGroup>

@@ -380,7 +380,12 @@ public sealed partial class Lowerer {
                     // a composed feature's parameter belongs to the feature, and an inherited field
                     // belongs to the type that inherited it.
                     qualify ? $"{source.Name}.{binding.Name}" : binding.Name,
-                    defaultValue: binding.DefaultValue
+                    // Carried, not defaulted. A merged `RWBuffer` that arrived here read-only was
+                    // decorated `readonly` and then stored into: SPIR-V's validator accepts the
+                    // contradiction and GLSL's front end does not, so an inherited or composed
+                    // storage buffer compiled on one target and failed on the other.
+                    binding.IsWritable,
+                    binding.DefaultValue
                 )
             );
         }

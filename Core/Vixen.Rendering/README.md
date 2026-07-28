@@ -271,6 +271,35 @@ without linking Raven at all. A rule written down twice is a rule that drifts, s
 compiler's side, and read back on this side by `MaterialReflectionTests`, which holds the prediction
 against it in both directions.
 
+### A material binds itself
+
+A material knows it has a texture called `albedo`. Which binding index that is belongs to the compiled
+shader — Raven assigns it from declaration order within a set, so adding a texture above it renumbers
+it — so until the binding plan reached the runtime a host had to write the number down and hand over a
+finished descriptor set.
+
+Give `MaterialRenderFeature` a `Device` and a `DescriptorAllocator` and it writes the set itself: the
+uniform block through `EffectConstants`, and every texture, sampler and storage buffer looked up in
+`Effect.Bindings` by the shader's own name for it. The same fix, and the same argument, as the one that
+made a compositor node's bindings authorable. Leave either null and nothing changes — `DescriptorsOf`
+falls back to `Material.Descriptors`, which is what a host with a bindless table or a texture array
+still wants.
+
+**Per variant, not per material.** A permutation can fold a texture out of the shader entirely, and a
+set written for the variant that has it does not fit the layout of the variant that does not. It is
+also what keeps a depth prepass from binding anything: its effect declares no per-material layout, so
+there is nothing to write.
+
+**Every binding or none.** A material that set no `albedo` gets no set at all, rather than one with a
+hole in it. A partly-written set is a validation error on one backend and a sampled black texture on
+another, and neither says which material forgot which texture — where an object that does not draw is
+unmistakable and the material that owns it is the one being looked at.
+
+Through the frame allocator, so a value that changes is safe: a set rewritten in place is one rewritten
+while an unfinished frame may still be reading it. That costs one descriptor write per variant per
+frame, which is what every compositor node costs too. The bytes are the part worth not repeating, and
+`EffectConstants` compares the collection's version — a material nobody touched uploads once.
+
 ## Image-based lighting
 
 The sky is a light, and `Lighting/` is what turns one into something a shader can evaluate. Karis's
@@ -662,8 +691,9 @@ Two ways to avoid guessing, for two kinds of caller. Code that can reference gen
 `BloomKeys.SourceBinding`. Everything else — a compositor document, a shader loaded from a bundle at
 run time — sets `ResourceBinding.Name` to the shader's own name for the resource and the index comes
 off `Effect.Bindings`, which is the binding plan the reflection always had and the runtime never
-carried. An explicit index remains as the fallback, because a provider that reports no plan is the
-ordinary case until the content build does.
+carried. An explicit index remains as the fallback, for a provider that reports no plan — a test
+fake, a host supplying effects of its own. The shipped ones do report it: a baked `EffectData` carries
+the plan and `EffectLoader` puts it on the effect.
 
 Samplers are describable too: `SamplerDescription` is twelve fields and no device, so it survives
 being written in a document where a handle cannot, and it resolves through the shared `SamplerCache`.
@@ -876,12 +906,6 @@ large enough to eat the mesh on the next insertion. Doing it properly means exac
 written, found wrong by its own tests, and taken back out rather than shipped producing a mesh that is
 not Delaunay.
 
-**Materials are values, not resources.** Every feature's parameters go into the constant buffer; a
-feature that samples a texture needs a descriptor, and which binding index it lands on is the compiled
-shader's decision — the same authoring gap the compositor's nodes have, and closed by the same thing:
-reflecting the binding plan onto `Effect`. Until then a textured material sets values and a host
-builds the descriptor set.
-
 Transmission has a surface feature's worth of channels and no shading model, deliberately: refraction
 needs either the scene colour or an environment sample, both of which belong to the pass rather than
 to the lobe, and inventing a `Shade` that could not reach them would be a feature that compiles and
@@ -900,10 +924,12 @@ there rather than here because this assembly does not reference the content syst
 which is why the claim stayed open so long. Nothing was missing; nothing had put the two halves in
 one room.
 
-A node's bindings are set in code, not in the compositor document. A binding index is a shader's
-decision and a sampler is a device handle, and the asset model can express neither — so a compositor
-loaded from disk declares its dependencies correctly and binds nothing until a host fills in
-`Descriptors`. Reflecting the binding plan onto `Effect` is what closes it.
+A node's bindings **are** authorable, and this section used to say the opposite — see
+[Authored](#authored) above, which is where the current answer lives. A binding names what the shader
+calls the resource and the index comes off `Effect.Bindings`; a sampler names a preset the frame's
+`SamplerCache` turns into a description. What a document still cannot carry is the four things only a
+running renderer has — a device, a module cache, a descriptor allocator, a sampler cache — and
+`CompositorBuilder` is what supplies those.
 
 The generated keys cover the shaders the engine names — `PostFx/Bloom` and `PostFx/Tonemap` — and
 nothing else. The list grows when a node starts binding a shader, not in anticipation, because every

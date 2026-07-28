@@ -11,10 +11,10 @@ namespace Vixen.Rendering.Compositor;
 /// <remarks>
 ///     <para>
 ///         The binding index comes from the shader, not from the compositor: Raven decides what
-///         <c>binding = 3</c> means and the host states it here. Reflecting it off the effect would be
-///         better and is what <c>Effect</c> will eventually carry per resource — until then this is
-///         the seam, and it is a small one because the alternative is the node reaching for a device
-///         handle it has no way to have.
+///         <c>binding = 3</c> means. <see cref="Name" /> is how to say that without writing the number
+///         down — it resolves against <see cref="Effect.Bindings" />, the plan the reflection always
+///         had and the runtime now carries. <see cref="Binding" /> remains for a provider that reports
+///         no plan.
 ///     </para>
 ///     <para>
 ///         <see cref="Kind" /> decides where <see cref="Resource" /> is looked up. A texture kind

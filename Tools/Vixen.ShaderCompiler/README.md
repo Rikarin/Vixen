@@ -47,3 +47,6 @@ nobody asked for, and a run against it reports them as misses by name.
 `EffectSystem.Requests` is every key a run asked for. Play the game against a compiler, write the
 manifest, build the bundle, and the next run compiles nothing — which is the exit criterion in
 docs/plan/06, and is asserted as a test in `Vixen.ShaderCompiler.Tests`.
+
+`vixen content build` is what a project actually runs: `ProjectSettings/Shaders.effects.json` in,
+`shaders.effects` beside the catalog out. See [`Vixen.Cli`](../Vixen.Cli/README.md).

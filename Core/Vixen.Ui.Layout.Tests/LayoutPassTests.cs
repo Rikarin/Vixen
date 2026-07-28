@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Ui.Layout.Tests;
@@ -20,16 +21,11 @@ public class LayoutPassTests {
         using var tree = new LayoutTree();
         var root = BuildPanel(tree, rows: 20, columnsPerRow: 5);
 
-        for (var i = 0; i < 20; i++) {
-            tree.CalculateLayout(root, 800f, 600f, Direction.Ltr);
-        }
+        Assert.Equal(0, Measured.Bytes(Layout, warmUp: 20, passes: 200));
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 200; i++) {
-            tree.CalculateLayout(root, 800f, 600f, Direction.Ltr);
-        }
+        return;
 
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        void Layout() => tree.CalculateLayout(root, 800f, 600f, Direction.Ltr);
     }
 
     [Fact]
@@ -40,19 +36,16 @@ public class LayoutPassTests {
         using var tree = new LayoutTree();
         var root = BuildPanel(tree, rows: 20, columnsPerRow: 5);
         var moving = tree.GetChild(tree.GetChild(root, 0), 0);
+        var frame = 0;
 
-        for (var i = 0; i < 20; i++) {
-            tree.SetDimension(moving, Dimension.Width, StyleLength.Points(10f + i));
+        Assert.Equal(0, Measured.Bytes(Layout, warmUp: 20, passes: 200));
+
+        return;
+
+        void Layout() {
+            tree.SetDimension(moving, Dimension.Width, StyleLength.Points(10f + (frame++ % 40)));
             tree.CalculateLayout(root, 800f, 600f, Direction.Ltr);
         }
-
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 200; i++) {
-            tree.SetDimension(moving, Dimension.Width, StyleLength.Points(10f + (i % 40)));
-            tree.CalculateLayout(root, 800f, 600f, Direction.Ltr);
-        }
-
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
     }
 
     [Fact]
@@ -74,18 +67,16 @@ public class LayoutPassTests {
         }
 
         var toggle = tree.GetChild(root, 0);
-        for (var i = 0; i < 20; i++) {
-            tree.SetDimension(toggle, Dimension.Height, StyleLength.Points(40f + (i % 3)));
+        var frame = 0;
+
+        Assert.Equal(0, Measured.Bytes(Layout, warmUp: 20, passes: 200));
+
+        return;
+
+        void Layout() {
+            tree.SetDimension(toggle, Dimension.Height, StyleLength.Points(40f + (frame++ % 3)));
             tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
         }
-
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 200; i++) {
-            tree.SetDimension(toggle, Dimension.Height, StyleLength.Points(40f + (i % 3)));
-            tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
-        }
-
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
     }
 
     [Fact]

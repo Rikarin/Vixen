@@ -174,12 +174,18 @@ public class IncrementalTests {
     ///     The property that holds whatever the edit: an incremental reparse and a full one produce
     ///     the same tree, character for character and node for node.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The alphabet is the test.</b> Every character it cannot type is a lexer path this
+    ///     never reaches, and the property is only as strong as the shapes it can spell — an
+    ///     unbalanced <c>@(</c> dropped the rest of the file for as long as <c>(</c> was missing
+    ///     from this string. Anything the grammar treats specially belongs here.
+    /// </remarks>
     [Fact]
     public void An_incremental_reparse_equals_a_full_one() {
         var generator =
             from at in Gen.Int[0, Source.Length]
             from removed in Gen.Int[0, 12]
-            from inserted in Gen.String[Gen.Char["<>/ \nabc=\"@{}"], 0, 10]
+            from inserted in Gen.String[Gen.Char["<>/ \nabc=\"@{}()[]!.:"], 0, 10]
             select (at, removed, inserted);
 
         generator.Sample(

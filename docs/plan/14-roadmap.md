@@ -2280,9 +2280,159 @@ sub-piece has its own gate.
 - Gate: draw-list golden tests; parser golden trees + error-recovery tests; hot-reload scenario tests.
 
 **4e — Controls (1.0 EM)**
-- `Vixen.Ui.Controls` (the full standard set) and the `Advanced` set's first three: `DockingHost`,
-  `TreeView`, `PropertyGrid`.
-- `Samples/02-HelloUi`.
+- ✅ **`Vixen.Ui.Controls` — the standard set, and the four framework gaps building it exposed.**
+  Forty-odd controls over one base: `Control` carries whether it is disabled, how prominent it is and
+  how big, and writes the last two through to *classes* rather than reading them, so a game restyles
+  `button.variant-danger` and adds a variant of its own with a plain class. `ButtonBase` carries
+  activation once, for the nine controls that can be pressed — and Space activates on the release
+  while Enter activates on the press, which is not an inconsistency: Space is the key you can back
+  out of, Enter is the one that submits.
+
+  **Four things had to be added to `Vixen.Ui` first, because no control set works without them.**
+  *Keyboard input* — `KeyEvent` and `TextInputEvent`, routed from the focus outwards, with Tab
+  handled by the document after the route and only if nothing wanted it, so a code editor can still
+  take the key. A key is a physical position (`Vixen.Input.InputKey`, which that enum's own remarks
+  already named this assembly as the consumer of) and a character is a separate event, because on an
+  AZERTY keyboard the key that types `a` is `Q`. *Hover and press* — `:hover` and `:active` on the
+  whole ancestor chain, maintained as a difference so that moving a pointer one pixel does not
+  restyle the path to the root, plus `Entered`/`Exited` delivered `Direct` to each element actually
+  crossed. *`:focus-visible`* — the document remembers whether the last input was a key, so a click
+  focuses quietly and a Tab lights the ring; one heuristic in one place rather than a flag on every
+  control. And *`UiElement.OffsetX/Y`*, a translation applied where absolute positions are
+  accumulated: scrolling, popup placement and drag previews are all "the same boxes, somewhere else",
+  and expressing them as layout would cost a cascade and a flexbox pass per frame.
+
+  ⚠ **A control names its own tag, and that is what `OnCreated` is for.** `Create<T>` makes the
+  instance before the style node so it can ask for `TagName`, then binds, attaches, and calls
+  `OnCreated` — the constructor a control cannot have, because a switch is made of elements and an
+  element can only be made by a document.
+
+  ⚠ **Three controls draw themselves and the rest are elements.** A slider's thumb at 37% is a length
+  no stylesheet was given and no flexbox rule produces, and writing it back as an offset settles a
+  frame late on every resize. So `Slider`, `RangeSlider`, `ProgressBar`, `Spinner` and `ScrollBar`
+  compute their geometry in `OnDraw`, where the width is known — and read `--track-color`,
+  `--fill-color`, `--thumb-color` and `--thumb-size` from the cascade, so a theme still decides how
+  they look.
+
+  ⚠ **An overlay is a child of the root, not of whatever opened it**, because painting order is
+  document order: a popup inside the button that opened it is clipped by every `overflow: hidden`
+  between the two. Opening therefore runs a layout pass of its own — where a popup goes depends on
+  how big it is — and light dismiss treats a press on the *anchor* as inside, without which clicking
+  the button that opened a menu closes and reopens it in one gesture.
+
+  **`ControlTheme` is loaded as `StyleOrigin.UserAgent`**, which is the first use of the origin the
+  cascade has had three of since Phase 4a: a game's `button { … }` beats it at equal specificity, so
+  restyling is one rule rather than a fork. It also sets `box-sizing: border-box` on `*`, which is
+  where `LayoutStyleBuilder`'s own remarks said that property belonged.
+
+  **One real bug, found by a control rather than by a test.** `StyleEngine.ResolveAll` never called
+  `StyleResolver.BeginPass`, so the style-sharing cache outlived its pass — and its key describes
+  what an element *is*, including its own state and which parent it hangs off, but nothing about that
+  parent's state. So `checkbox:checked box icon` and `.card:hover .button` resolved to what they were
+  before the state changed, permanently. `StyleUpdater` had always called it; the document's own path
+  never did, and it takes a rule whose subject is a *descendant* of the element that changed to see
+  it. Also fixed: `[UiProperty(Default = double.NegativeInfinity)]` emitted `Infinityd`, which is not
+  a compile error in the generator and is one in every project that declares an unbounded range.
+
+  Gate: 78 control tests over a real theme and a real font — a keyboard interaction matrix per
+  control, draw-list assertions for the ones that draw themselves, and end-to-end pointer input
+  through `Dispatch` rather than synthesised gestures — plus 18 in `Vixen.Ui.Tests` for the framework
+  additions, including the regression test for the sharing cache.
+
+  ⚠ **Still owed, and said plainly rather than left to be found:** `Image` reserves space and draws
+  nothing, because the draw list has no texture command; `TextArea` is a taller `TextBox`, because
+  nothing wraps a line yet; `Tooltip` and `Toast` need a host tick, for the reason
+  `GestureRecognizer.Tick` does; an overlay outlives the control that made it, because there is no
+  `OnRemoved` hook; and `VirtualizingPanel` is not here, so `ScrollView` keeps everything in the tree.
+- ✅ **`Vixen.Ui.Controls.Advanced` — the first three, and the two framework primitives they needed.**
+  `DockingHost` keeps the arrangement (`DockLayout`: binary splits and tab groups) apart from the
+  elements that show it, so what is on screen and what would be saved cannot drift; **a layout
+  round-trips through YAML**, which is this phase's stated exit criterion and is asserted as a fixed
+  point rather than field by field. `TreeView` is virtualised — a hundred thousand nodes is a
+  hundred thousand model objects and about thirty rows, rebound as it scrolls — with lazy children,
+  multi-select, rename in place and a three-zone drop indicator. `PropertyGrid` builds its editors
+  from `Vixen.Core.Reflection` descriptors, edits several objects at once, and says so where they
+  disagree rather than showing the first one's value as though it were the answer.
+
+  **Two things had to be added to `Vixen.Ui` first.** *Inline styles* — the styling engine has
+  resolved them since Phase 4a and nothing could set one, because `StyleTree` had no slot and
+  `ResolveAll` passed none. A splitter at 37% and a virtualised row at y = 880 000 are lengths no
+  stylesheet was given, and `InlineStyleStore.Replace` rewrites a block in place when the set of
+  properties has not changed, so a drag does not allocate per frame. And *reparenting*, which
+  `Move` deliberately refuses: a style slot's position is what three passes read as depth order, so
+  the subtree gets **fresh slots** under its new parent carrying its tags, classes, states,
+  attributes and inline block, while the elements — their handlers, their children, their layout
+  nodes, their focus — are untouched. A docked panel that was rebuilt instead of moved would pass
+  every structural test and lose whatever the user had typed into it.
+
+  ⚠ **Two flexbox traps, both silent, both found the hard way.** A flex item's base size is its
+  content, so a `ScrollView` meant to fill its parent needs `flex-basis: 0px` as well as a
+  grow — without it the viewport grows to the height of everything inside it, nothing overflows, the
+  scroll range is zero, and the virtualiser realises every row there is: the tree looks correct and
+  the process runs out of memory. And a minimum size is applied *before* the free space is shared
+  out, so a dock group with `min-width: 48px` gets 48 pixels plus its share of the remainder and a
+  splitter saved at 25% comes back at 28%; the ratio clamp guards without distorting, and the
+  minimum is zero.
+
+  **One more footgun, named rather than papered over.** `MemberPresentation` is a record *struct*
+  whose `IsEditorVisible` parameter defaults to `true` — which `default(MemberPresentation)` and
+  `new MemberPresentation()` both ignore, because a struct's parameterless constructor zeroes. A
+  hand-written descriptor that defaults the presentation is therefore invisible to the inspector,
+  silently. The generator writes every field and never trips over it; the remark now says so.
+
+  Gate: 56 tests. The docking half asserts the round trip, the stale-layout recovery, every drop
+  zone, the corner case where the nearest edge decides, a panel keeping its contents across a move,
+  and a splitter drag that changes the ratio without rebuilding anything. The tree half asserts that
+  a hundred-thousand-node tree realises under twenty rows and that scrolling rebinds the same
+  elements. The grid half asserts multi-object writes, the mixed-value states, the numeric
+  conversion back to a member's own type, and reset-to-default.
+
+  ⚠ **Still owed:** rows and scroll ranges are one layout pass behind a *resize* — `Refresh()` is
+  today's answer and a "layout finished" callback on `UiDocument` is the real one; floating groups
+  float within the document rather than in an OS window of their own, which is `Vixen.Platform`'s
+  half; `StyleTree.AppendChild` is O(children) per append, which virtualisation keeps every control
+  here clear of and a `DataGrid` may not be; and nested struct members are shown read-only, because
+  the descriptor's accessors box.
+- ✅ **`Samples/02-HelloUi` — an editor shell on a window, with no engine underneath it.** A menu bar
+  over a `DockingHost` holding three panels: a `TreeView` of a thousand nodes, a gallery of the
+  standard set, and a `PropertyGrid` over a hand-written descriptor. It prints the docking
+  arrangement as YAML on exit, which is this phase's round-trip criterion demonstrated by the thing
+  it is about.
+
+  ⚠ **What it proves is an absence, so the absence is now asserted.** Doc 02 calls this sample
+  "Vixen.Ui only, no engine", and the convenient way to write it — `Vixen.App` — references
+  `Vixen.Engine`. So the host is a hundred lines of `Program.cs`, and `CheckArchitecture` now globs
+  `Samples/**` and fails the build if `HelloUi` reaches for either. Verified by sabotage: adding the
+  reference fails with the message that says why.
+
+  ⚠ **`UiInput` — fifty lines turning a `PlatformEvent` into the document's events — lives in the
+  sample, and that is where it has to live today.** `Vixen.Ui` is `Core/` and `Vixen.Platform` is
+  not, so the framework cannot depend on what produces its input; a `Vixen.Platform.Ui` assembly is
+  where it goes when the editor becomes the second consumer. Two things it found: the platform's
+  timestamps are `Stopwatch` ticks rather than milliseconds, and positions are physical pixels that
+  have to be divided by the DPI scale before a document that works in device-independent ones sees
+  them — the second reads as a hit-testing bug in the framework rather than a missing division in
+  the host.
+
+  **The frame budget, measured by the sample and by a benchmark.** `--frames N` reports the UI frame
+  — the two passes and the vertex build, not the present — with the first frame reported separately
+  because it is not one: it carries the JIT, the font load and the rasterisation of every glyph into
+  the MSDF atlas. On this machine, in Release: *287 elements, 192 commands, first frame 590 ms, then
+  over 270 frames mean 0.427 ms and worst 4.9 ms.* Doc 14's budget is 5 000 elements under 2 ms and
+  this shell is 287 — because the tree virtualises, which is what it is there to show — so the
+  number at the roadmap's scale is `Vixen.Benchmarks.Ui`'s new `DocumentBenchmarks`, which builds a
+  themed document of five thousand controls and measures a steady frame with `[MemoryDiagnoser]` on
+  it. That benchmark exists because `LayoutBenchmarks` measures the flexbox engine and three of the
+  four passes in the criterion are above it.
+
+  ⚠ **The font is borrowed from the operating system**, because the repository has no Latin UI face
+  to commit — the fourteen it does have are the Consortium's shaping fixtures. Finding none is not a
+  failure: every label measures zero and the controls draw their chrome regardless, which is worth
+  knowing about the framework as well as convenient in a sample.
+
+  ⚠ **Still owed on the exit criteria:** the browser run is Phase 10's — it needs `net10.0-browser`
+  and the wasm workload — and hot reload of `.vxml`/`.vcss` against a running window is untested from
+  this sample, though `Vixen.Ui.HotReload.Tests` covers the mechanism.
 
 **Exit:** `Samples/02` runs on Windows/Linux/macOS and in a browser. Yoga suite green. UI frame under
 2 ms with 5 000 elements and zero steady-state allocation. Hot reload of `.vxml`/`.vcss` preserves
@@ -2497,8 +2647,28 @@ nowhere in the dependency graph.
   once for one view — so particles do not belong in a shadow stage until the GPU path removes that
   rather than working around it.
 
-  **Owed here:** the GPU emitter, mesh/ribbon/light renderers, custom attributes, and the
-  force-field/curl-noise/collision/sub-emitter/trail updaters this document names.
+  **The graph emits a compute shader.** `VfxShaderEmitter` turns a compiled graph into Raven source —
+  a base shader holding the buffers and the RNG, and one compute entry point per pass — and it is a
+  `switch` that writes a line per operation rather than a second implementation, which is the whole
+  return on the compiled form having been designed first. The order inverts: the CPU sweeps one
+  operation across every particle, and a dispatch runs the whole graph on one particle, because a
+  dispatch has no inner loop to keep an opcode out of and every intermediate can stay in registers.
+  Both are correct because no operation reads another particle. `float3` attributes are declared
+  `float4`, since std430 gives a `vec3` array a stride of sixteen whatever it is called and a host
+  uploading packed `Vector3`s would read every particle after the first from the wrong offset.
+
+  Emitting it found a **lowering bug in Raven**: `MergeInterface` rebuilt each `IrBinding` without its
+  writable flag, so a `RWBuffer` inherited from a base shader — or contributed by a `compose`d feature
+  — arrived read-only. `spirv-val` accepts a `NonWritable` variable that is then stored into and
+  GLSL's front end does not, so the shader ran on Vulkan and would not build for GL, which reads as a
+  backend bug and was one argument in the binding merge. Fixed, with a regression test on both sides;
+  the Vfx tests run *both* reference tools for exactly this reason.
+
+  **Owed here:** the dispatch itself — nothing has yet uploaded a buffer or read one back, which is
+  what the exit criterion's agreement test needs a device for. Spawning and reaping stay on the CPU:
+  the first is bookkeeping, and the second needs an atomic counter the language does not have. Then
+  mesh/ribbon/light renderers, custom attributes, and the force-field/curl-noise/collision/
+  sub-emitter/trail updaters this document names.
 - `Vixen.Editor.VfxGraph`: node library + dual-target compilation + live preview.
 - Particle render feature integrated.
 
