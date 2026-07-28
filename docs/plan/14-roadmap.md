@@ -2098,8 +2098,16 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   is a barrier, so it costs its longest search. Free-running queries would recover the rest and would
   cost the property that makes a scheduler an implementation detail.
 
-  **Owed:** baking from a *scene* rather
-  than from a named collision mesh — which waits on the scene compiler doc 08 splits out.
+  **A navmesh bakes from a list of placed pieces**, not just one merged collision export: `geometry`
+  in a `.vxnavmesh` takes a `source`, `position`, `rotation` and `scale` per entry, each declared as a
+  dependency of its own. That is the half of "bake a scene" that does not need a scene. The other half
+  does, and is genuinely blocked: there is no `[DataContract]` scene or prefab asset in the repo at
+  all — `SceneManager` builds scenes procedurally, `Prefab` captures a live `World` with nothing to
+  serialise, and `NativeFormatImporter` claims `.vxscene` only to scan it for dependencies and copy it
+  through. Doc 08's `SceneCompiler` carries no "Built" marker. When it exists, this importer fills the
+  same list of placements from it and nothing else changes.
+
+  **Owed:** reading placements from a compiled scene, once doc 08's scene compiler exists.
 - `Samples/05-PlatformerGame` — physics, input, animation, audio, VFX end to end on all platforms where
   it is in scope.
 

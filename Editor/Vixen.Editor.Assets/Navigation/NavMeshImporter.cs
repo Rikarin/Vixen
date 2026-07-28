@@ -37,14 +37,33 @@ namespace Vixen.Editor.Assets.Navigation;
 ///         model importer uses.
 ///     </para>
 ///     <para>
+///         <b>A level is usually more than one file.</b> <c>geometry</c> takes either one path or a
+///         list of placed pieces — a floor, a building, three crates at three positions — each read,
+///         transformed to where it stands, and voxelised into one soup with the rest. Every piece is
+///         declared as a dependency of its own, so moving a crate in the source rebakes the navmesh
+///         and re-exporting one building does not require touching the others.
+///     </para>
+///     <para>
+///         <b>What this is not is baking a scene.</b> The placements here are authored in this file
+///         rather than read out of the level the game actually loads, because there is no compiled
+///         scene to read them from — see the assembly's README. When there is, the work left is to
+///         fill the same list from it: the reading, the transforming and the flattening below do not
+///         care where a placement came from.
+///     </para>
+///     <para>
 ///         The document is small enough to read by hand rather than through the YAML object binder:
-///         one path, and a list of area boxes. Doing it by hand is also what lets each mistake be
-///         reported against the line that made it, rather than as a binder exception naming a type.
+///         some paths, and a list of area boxes. Doing it by hand is also what lets each mistake be
+///         reported against the field that made it, rather than as a binder exception naming a type.
 ///     </para>
 /// </remarks>
 /// <example>
 ///     <code>
-///     geometry: level_collision.obj
+///     geometry:
+///       - level_collision.obj
+///       - source: props/crate.fbx
+///         position: [4, 0, 6]
+///         rotation: [0, 45, 0]
+///         scale: [1, 1, 1]
 ///     areas:
 ///       - area: 9
 ///         min: [8, -1, 0]
@@ -90,46 +109,51 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
             return context.Finish();
         }
 
-        if (root["geometry"] is not YamlScalar { Value.Length: > 0 } geometry) {
-            context.Report(ImportSeverity.Error, "It has no `geometry` field naming the collision mesh to bake.");
-
+        if (!TryReadSources(root, context, out var sources)) {
             return context.Finish();
         }
 
-        var path = Resolve(context.SourcePath, geometry.Value);
+        var positions = new List<Vector3>();
+        var triangles = new List<int>();
 
-        // Declared before it is opened, which is both the rule and the point: this is what makes the
-        // navmesh re-bake when the collision mesh is re-exported.
-        context.DependsOnFile(path);
+        foreach (var (path, placement) in sources) {
+            // Declared before it is opened, which is both the rule and the point: this is what makes
+            // the navmesh re-bake when a piece of the collision is re-exported. Declared per piece,
+            // so re-exporting one building does not depend on the others being unchanged.
+            context.DependsOnFile(path);
 
-        if (!context.Files.Exists(path)) {
-            context.Report(ImportSeverity.Error, $"The geometry it names is not there: {path}.");
+            if (!context.Files.Exists(path)) {
+                context.Report(ImportSeverity.Error, $"The geometry it names is not there: {path}.");
 
-            return context.Finish();
+                return context.Finish();
+            }
+
+            byte[] bytes;
+
+            await using (var stream = await context.Files.OpenReadAsync(path, cancellationToken).ConfigureAwait(false)) {
+                using var buffer = new MemoryStream();
+                await stream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
+                bytes = buffer.ToArray();
+            }
+
+            ReadModel read;
+
+            try {
+                read = ModelReader.Read(bytes, Path.GetExtension(path.ToString()), "Collision", new ModelImportSettings());
+            } catch (ModelFormatException failure) {
+                context.Report(ImportSeverity.Error, $"{path} could not be read: {failure.Message}");
+
+                return context.Finish();
+            }
+
+            Combine(read, in placement, positions, triangles);
         }
 
-        byte[] bytes;
-
-        await using (var stream = await context.Files.OpenReadAsync(path, cancellationToken).ConfigureAwait(false)) {
-            using var buffer = new MemoryStream();
-            await stream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
-            bytes = buffer.ToArray();
-        }
-
-        ReadModel read;
-
-        try {
-            read = ModelReader.Read(bytes, Path.GetExtension(path.ToString()), "Collision", new ModelImportSettings());
-        } catch (ModelFormatException failure) {
-            context.Report(ImportSeverity.Error, $"The geometry it names could not be read: {failure.Message}");
-
-            return context.Finish();
-        }
-
-        var (vertices, indices) = Combine(read);
+        var vertices = positions.ToArray();
+        var indices = triangles.ToArray();
 
         if (indices.Length == 0) {
-            context.Report(ImportSeverity.Error, $"The geometry it names has no triangles in it: {path}.");
+            context.Report(ImportSeverity.Error, "The geometry it names has no triangles in it.");
 
             return context.Finish();
         }
@@ -188,7 +212,7 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
         return new(slash < 0 ? relative : string.Concat(directory.AsSpan(0, slash + 1), relative));
     }
 
-    /// <summary>Every placed mesh in the file, concatenated into one triangle soup in world space.</summary>
+    /// <summary>Adds every placed mesh in one file to the soup, at where the file has been put.</summary>
     /// <remarks>
     ///     <para>
     ///         One soup rather than one bake per mesh, because a navmesh is about the level rather
@@ -202,11 +226,13 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
     ///         glTF or an FBX does not. Instanced meshes contribute once per part, which is right: two
     ///         crates are two obstacles.
     ///     </para>
+    ///     <para>
+    ///         <paramref name="placement" /> is where the whole file stands, and it multiplies on the
+    ///         outside of the node's own — a crate's node transform is inside the crate, and the
+    ///         placement is where the crate is.
+    ///     </para>
     /// </remarks>
-    static (Vector3[] Vertices, int[] Indices) Combine(ReadModel read) {
-        var vertices = new List<Vector3>();
-        var indices = new List<int>();
-
+    static void Combine(ReadModel read, ref readonly Matrix4x4 placement, List<Vector3> vertices, List<int> indices) {
         var meshes = new Dictionary<string, MeshData>(StringComparer.Ordinal);
 
         foreach (var mesh in read.Meshes) {
@@ -220,7 +246,7 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
                 continue;
             }
 
-            var transform = world[part.Node];
+            var transform = world[part.Node] * placement;
             var offset = vertices.Count;
 
             foreach (var position in mesh.Positions) {
@@ -231,8 +257,81 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
                 indices.Add(offset + index);
             }
         }
+    }
 
-        return ([.. vertices], [.. indices]);
+    /// <summary>Reads the one or many pieces of geometry the asset is baked from, and where each stands.</summary>
+    /// <remarks>
+    ///     Both spellings are the same thing: <c>geometry: floor.obj</c> is one piece at the origin,
+    ///     and a sequence is several. Keeping the scalar form is not only compatibility — most levels
+    ///     really are one exported collision mesh, and making them write a list for that would be
+    ///     ceremony for its own sake.
+    /// </remarks>
+    static bool TryReadSources(YamlMapping root, ImportContext context, out List<(VirtualPath Path, Matrix4x4 Placement)> sources) {
+        sources = [];
+
+        switch (root["geometry"]) {
+            case YamlScalar { Value.Length: > 0 } single:
+                sources.Add((Resolve(context.SourcePath, single.Value), Matrix4x4.Identity));
+
+                return true;
+
+            case YamlSequence sequence when sequence.Count > 0:
+                foreach (var node in sequence) {
+                    if (!TryReadSource(node, context, out var source)) {
+                        return false;
+                    }
+
+                    sources.Add(source);
+                }
+
+                return true;
+
+            default:
+                context.Report(
+                    ImportSeverity.Error,
+                    "It has no `geometry` field naming the collision to bake. That is either a path, or a list of paths and placements."
+                );
+
+                return false;
+        }
+    }
+
+    static bool TryReadSource(YamlNode node, ImportContext context, out (VirtualPath Path, Matrix4x4 Placement) source) {
+        source = default;
+
+        if (node is YamlScalar { Value.Length: > 0 } scalar) {
+            source = (Resolve(context.SourcePath, scalar.Value), Matrix4x4.Identity);
+
+            return true;
+        }
+
+        if (node is not YamlMapping entry || entry["source"] is not YamlScalar { Value.Length: > 0 } path) {
+            context.Report(ImportSeverity.Error, "An entry under `geometry` is neither a path nor a mapping with a `source`.");
+
+            return false;
+        }
+
+        var position = Vector3.Zero;
+        var rotation = Vector3.Zero;
+        var scale = Vector3.One;
+
+        if ((entry["position"] is not null && !TryReadVector(entry, "position", "geometry", context, out position)) ||
+            (entry["rotation"] is not null && !TryReadVector(entry, "rotation", "geometry", context, out rotation)) ||
+            (entry["scale"] is not null && !TryReadVector(entry, "scale", "geometry", context, out scale))) {
+            return false;
+        }
+
+        // Degrees, because this is a file somebody types by hand and nobody types radians. Yaw, pitch
+        // and roll about Y, X and Z, which is the order the rest of the engine reads Euler angles in.
+        var orientation = Quaternion.FromYawPitchRoll(
+            MathUtil.DegreesToRadians(rotation.Y),
+            MathUtil.DegreesToRadians(rotation.X),
+            MathUtil.DegreesToRadians(rotation.Z)
+        );
+
+        source = (Resolve(context.SourcePath, path.Value), Matrix4x4.Compose(scale, orientation, position));
+
+        return true;
     }
 
     /// <summary>Each node's local-to-world matrix, in one pass because parents come first.</summary>
@@ -267,9 +366,9 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
                 return false;
             }
 
-            if (!TryReadByte(entry, "area", context, out var area) ||
-                !TryReadVector(entry, "min", context, out var minimum) ||
-                !TryReadVector(entry, "max", context, out var maximum)) {
+            if (!TryReadByte(entry, "area", "areas", context, out var area) ||
+                !TryReadVector(entry, "min", "areas", context, out var minimum) ||
+                !TryReadVector(entry, "max", "areas", context, out var maximum)) {
                 return false;
             }
 
@@ -298,7 +397,8 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
                 return false;
             }
 
-            if (!TryReadVector(entry, "start", context, out var start) || !TryReadVector(entry, "end", context, out var end)) {
+            if (!TryReadVector(entry, "start", "links", context, out var start) ||
+                !TryReadVector(entry, "end", "links", context, out var end)) {
                 return false;
             }
 
@@ -312,7 +412,14 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
 
             var area = NavArea.Walkable;
 
-            if (entry["area"] is not null && !TryReadByte(entry, "area", context, out area)) {
+            if (entry["area"] is not null && !TryReadByte(entry, "area", "links", context, out area)) {
+                return false;
+            }
+
+            // Two-way unless the author says otherwise: a ladder is climbed in both directions, and a
+            // one-way link that was meant to be two-way is a bug nobody sees until an agent walks the
+            // long way round.
+            if (!TryReadFlag(entry, "bidirectional", "links", context, fallback: true, out var bidirectional)) {
                 return false;
             }
 
@@ -320,12 +427,7 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
                 Start = start,
                 End = end,
                 Radius = radius,
-                // Two-way unless the author says otherwise: a ladder is climbed in both directions,
-                // and a one-way link that was meant to be two-way is a bug nobody sees until an agent
-                // walks the long way round.
-                Bidirectional = entry["bidirectional"] is not YamlScalar bidirectional
-                    || !bool.TryParse(bidirectional.Value, out var oneWay)
-                    || oneWay,
+                Bidirectional = bidirectional,
                 Area = area,
                 Flags = NavPolyFlags.Walk | NavPolyFlags.Jump,
                 UserId = (uint)Read(entry, "userId", 0f)
@@ -342,17 +444,23 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
             ? value
             : fallback;
 
-    static bool TryReadByte(YamlMapping entry, string key, ImportContext context, out byte value) {
+    /// <summary>Reads a byte field. <paramref name="section" /> is which list the entry came from.</summary>
+    /// <remarks>
+    ///     Named rather than assumed, because these readers serve <c>areas</c>, <c>links</c> and
+    ///     <c>geometry</c> alike — and an error about a malformed link that says "areas" sends the
+    ///     author to the wrong half of the file.
+    /// </remarks>
+    static bool TryReadByte(YamlMapping entry, string key, string section, ImportContext context, out byte value) {
         value = 0;
 
         if (entry[key] is not YamlScalar scalar || !byte.TryParse(scalar.Value, CultureInfo.InvariantCulture, out value)) {
-            context.Report(ImportSeverity.Error, $"An entry under `areas` has no readable `{key}`.");
+            context.Report(ImportSeverity.Error, $"An entry under `{section}` has no readable `{key}`.");
 
             return false;
         }
 
         if (value == NavArea.Null) {
-            context.Report(ImportSeverity.Error, "An entry under `areas` uses area 0, which is what unwalkable means.");
+            context.Report(ImportSeverity.Error, $"An entry under `{section}` uses area 0, which is what unwalkable means.");
 
             return false;
         }
@@ -360,11 +468,11 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
         return true;
     }
 
-    static bool TryReadVector(YamlMapping entry, string key, ImportContext context, out Vector3 value) {
+    static bool TryReadVector(YamlMapping entry, string key, string section, ImportContext context, out Vector3 value) {
         value = Vector3.Zero;
 
         if (entry[key] is not YamlSequence sequence || sequence.Count != 3) {
-            context.Report(ImportSeverity.Error, $"An entry under `areas` has no `{key}` of three numbers.");
+            context.Report(ImportSeverity.Error, $"An entry under `{section}` has no `{key}` of three numbers.");
 
             return false;
         }
@@ -374,7 +482,7 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
         for (var index = 0; index < 3; index++) {
             if (sequence[index] is not YamlScalar scalar ||
                 !float.TryParse(scalar.Value, CultureInfo.InvariantCulture, out parts[index])) {
-                context.Report(ImportSeverity.Error, $"An entry under `areas` has a `{key}` that is not three numbers.");
+                context.Report(ImportSeverity.Error, $"An entry under `{section}` has a `{key}` that is not three numbers.");
 
                 return false;
             }
@@ -383,5 +491,39 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
         value = new(parts[0], parts[1], parts[2]);
 
         return true;
+    }
+
+    /// <summary>Reads an optional boolean, refusing a value it cannot read rather than assuming one.</summary>
+    /// <remarks>
+    ///     <b><c>bidirectional: yes</c> used to mean <c>true</c> by accident.</b> YAML 1.1 spells
+    ///     booleans several ways, <see cref="bool.TryParse" /> accepts one of them, and the old code
+    ///     fell back to the default whenever parsing failed — so an author writing <c>no</c> got a
+    ///     two-way ladder and no complaint. Every other field in this file reports what it could not
+    ///     read, and now this one does too.
+    /// </remarks>
+    static bool TryReadFlag(YamlMapping entry, string key, string section, ImportContext context, bool fallback, out bool value) {
+        value = fallback;
+
+        if (entry[key] is not YamlScalar scalar) {
+            return true;
+        }
+
+        switch (scalar.Value.Trim().ToLowerInvariant()) {
+            case "true" or "yes" or "on" or "1":
+                value = true;
+
+                return true;
+            case "false" or "no" or "off" or "0":
+                value = false;
+
+                return true;
+            default:
+                context.Report(
+                    ImportSeverity.Error,
+                    $"An entry under `{section}` has a `{key}` of `{scalar.Value}`, which is not a yes or a no."
+                );
+
+                return false;
+        }
     }
 }
