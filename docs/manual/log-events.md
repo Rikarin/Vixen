@@ -117,3 +117,11 @@ Vixen would show them the thing the analyzer forbids everywhere else.
 | 14002 | Error | `There is no window to present to.` — `Samples/01` needs a real display | 0.1.0 |
 | 14003 | Error | `The device was lost.` — recreation arrives in Phase 2 | 0.1.0 |
 | 14004 | Information | `The swapchain was out of date and has been rebuilt at {Width}×{Height}.` | 0.1.0 |
+| 14011 | Information | `Showing {Rows}×{Columns} materials on {Adapter} ({Kind}), rendering HDR at {Width}×{Height} and presenting {Format}.` | 0.1.0 |
+| 14012 | Error | `There is no window to present to.` — `Samples/03` needs a real display | 0.1.0 |
+| 14013 | Error | `The device was lost.` — recreation arrives in Phase 2 | 0.1.0 |
+| 14014 | Information | `The swapchain was out of date and has been rebuilt at {Width}×{Height}.` | 0.1.0 |
+
+Two of those read the same as 14002 and 14004 and are separate ids anyway. A shared id would make
+this register ambiguous the first time somebody greps for one in a support log, and the register is
+only useful if an id names exactly one call site.

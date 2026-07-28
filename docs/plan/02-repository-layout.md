@@ -206,8 +206,8 @@ Platform/
 ├── Vixen.Graphics.Vulkan.Tests/
 ├── Vixen.Graphics.Direct3D12/
 ├── Vixen.Graphics.Direct3D12.Tests/
-├── Vixen.Graphics.OpenGL/              # GL 4.5 core (desktop) + GLES 3.0/3.2 (mobile) + WebGL2 (browser)
-├── Vixen.Graphics.OpenGL.Tests/
+├── Vixen.Graphics.OpenGL/              # ✅ GL 4.5 core (desktop) + GLES 3.0/3.2 (mobile) + WebGL2 (browser)
+├── Vixen.Graphics.OpenGL.Tests/        # ✅ drives a recording IGlApi, so the translation is tested without a driver
 ├── Vixen.Graphics.WebGPU/
 ├── Vixen.Graphics.WebGPU.Tests/
 ├── Vixen.Graphics.Null/                # ✅ headless: CI graphics tests AND the shipping dedicated-server backend (17)

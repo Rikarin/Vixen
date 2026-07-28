@@ -138,6 +138,19 @@
     <PackageVersion Include="Silk.NET.Vulkan.Extensions.EXT" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.Core" Version="2.23.0" />
     <!--
+      The OpenGL backend — the RHI's abstraction validator now that D3D12 is postponed
+      (ADR-001 measure 5). Bindings only, like the Vulkan and SDL packages: the context
+      comes from the windowing layer.
+
+      `Silk.NET.OpenGLES` is deliberately *not* here yet. It is a separate assembly with
+      its own entry-point table because libGL and libGLESv2 are different libraries, and
+      the GLES profiles need an EGL context that no app head in this repository creates.
+      `Vixen.Graphics.OpenGL` reaches the binding from exactly one file either way —
+      everything else talks to `IGlApi` — so adding it is one class and no change to the
+      translation layer, which is where the profiles already differ.
+    -->
+    <PackageVersion Include="Silk.NET.OpenGL" Version="2.23.0" />
+    <!--
       The OpenAL backend (docs/plan/02 § Platform, docs/plan/14 Phase 8). Bindings
       for AL and ALC, the ALC_ENUMERATION_EXT device list, and AL_EXT_FLOAT32 so a
       mixer that works in float does not have to quantise on the way out.

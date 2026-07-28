@@ -80,16 +80,37 @@ sealed class Fixture : IDisposable {
     }
 
     /// <summary>Creates a pipeline that lives as long as the fixture.</summary>
+    /// <param name="vertex">The vertex shader.</param>
+    /// <param name="fragment">The fragment shader.</param>
+    /// <param name="blend">How its fragments combine with the target.</param>
+    /// <param name="depth">The depth and stencil tests.</param>
+    /// <param name="vertices">The vertex buffer layouts.</param>
+    /// <param name="pushConstantBytes">How many bytes of push constants, or <c>0</c> for none.</param>
+    /// <param name="rasterizer">
+    ///     How triangles become fragments. Two-sided by default, because most fixtures are about
+    ///     something else and a winding mistake in the fixture's own geometry should not hide it.
+    /// </param>
+    /// <param name="topology">What the vertices mean.</param>
+    /// <param name="sets">Descriptor set layouts, for a fixture that binds resources.</param>
+    /// <param name="targets">
+    ///     The colour targets, or <see langword="null" /> for one opaque <c>Rgba8UNorm</c>. Given
+    ///     explicitly by the fixtures about multiple targets and about sRGB.
+    /// </param>
     public PipelineHandle Pipeline(
         ShaderHandle vertex,
         ShaderHandle fragment,
         BlendState blend,
         DepthStencilState depth,
         VertexBufferLayout[]? vertices = null,
-        int pushConstantBytes = 0
+        int pushConstantBytes = 0,
+        RasterizerState? rasterizer = null,
+        PrimitiveTopology topology = PrimitiveTopology.TriangleList,
+        DescriptorSetLayoutHandle[]? sets = null,
+        ColourTargetState[]? targets = null,
+        PixelFormat depthFormat = PixelFormat.Depth32Float
     ) {
         var layout = device.CreatePipelineLayout(new(
-            [],
+            sets ?? [],
             pushConstantBytes > 0 ? [new(ShaderStage.Vertex, 0, pushConstantBytes)] : null,
             "fixture layout"
         ));
@@ -98,11 +119,12 @@ sealed class Fixture : IDisposable {
             vertex,
             fragment,
             layout,
-            [new(PixelFormat.Rgba8UNorm, blend)],
+            targets ?? [new(PixelFormat.Rgba8UNorm, blend)],
             vertices,
-            Rasterizer: RasterizerState.TwoSided,
-            DepthStencil: depth,
-            DepthFormat: depth.DepthTest ? PixelFormat.Depth32Float : PixelFormat.Undefined,
+            topology,
+            rasterizer ?? RasterizerState.TwoSided,
+            depth,
+            depth.DepthTest || depth.StencilTest ? depthFormat : PixelFormat.Undefined,
             Name: "fixture"
         ));
 
@@ -112,6 +134,64 @@ sealed class Fixture : IDisposable {
         });
 
         return pipeline;
+    }
+
+    /// <summary>A sampler that lives as long as the fixture.</summary>
+    public SamplerHandle Sampler(in SamplerDescription description) {
+        var handle = device.CreateSampler(description);
+        cleanup.Add(() => device.Destroy(handle));
+        return handle;
+    }
+
+    /// <summary>A descriptor set layout that lives as long as the fixture.</summary>
+    public DescriptorSetLayoutHandle SetLayout(in DescriptorSetLayoutDescription description) {
+        var handle = device.CreateDescriptorSetLayout(description);
+        cleanup.Add(() => device.Destroy(handle));
+        return handle;
+    }
+
+    /// <summary>A descriptor set that lives as long as the fixture.</summary>
+    public DescriptorSetHandle DescriptorSet(DescriptorSetLayoutHandle layout, string name) {
+        var handle = device.CreateDescriptorSet(layout, name);
+        cleanup.Add(() => device.Destroy(handle));
+        return handle;
+    }
+
+    /// <summary>Points a set's bindings at resources.</summary>
+    public void Bind(DescriptorSetHandle set, params DescriptorWrite[] writes) =>
+        device.UpdateDescriptorSet(set, writes);
+
+    /// <summary>
+    ///     A small sampled texture, with its contents staged and ready to copy.
+    /// </summary>
+    /// <param name="name">A name for the debugger.</param>
+    /// <param name="side">Its width and height in texels.</param>
+    /// <param name="texels">The contents, RGBA8, row-major from the top.</param>
+    /// <remarks>
+    ///     The staging buffer is returned rather than copied here, because a copy into a texture
+    ///     cannot be recorded inside a render pass and everything a graph pass executes is inside
+    ///     one. <see cref="Render" />'s <c>before</c> is where it goes.
+    /// </remarks>
+    public (TextureHandle Texture, TextureViewHandle View, BufferHandle Staging) Sampled(
+        string name,
+        int side,
+        ReadOnlySpan<byte> texels
+    ) {
+        var owned = Owned(
+            name,
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba8UNorm,
+            side,
+            side
+        );
+
+        var staging = device.CreateBuffer(
+            new(texels.Length, BufferUsage.CopySource, MemoryAccess.HostUpload, $"{name} staging")
+        );
+
+        device.Write(staging, 0, texels);
+        cleanup.Add(() => device.Destroy(staging));
+        return (owned.Texture, owned.View, staging);
     }
 
     /// <summary>Runs the declared graph and reads the colour target back.</summary>
@@ -228,6 +308,30 @@ sealed class Fixture : IDisposable {
     public GraphTexture DepthTarget(string name) =>
         Graph.CreateTexture(new(
             PixelFormat.Depth32Float,
+            Side,
+            Side,
+            TextureUsage.DepthStencilTarget,
+            Name: name
+        ));
+
+    /// <summary>A combined depth-stencil target the graph will provide.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Separate from <see cref="DepthTarget" /> rather than replacing it, because a stencil
+    ///         buffer is not free and <c>Depth32Float</c> is what the engine's reversed-Z wants
+    ///         everywhere it does not need one. A fixture that quietly used the combined format
+    ///         would stop testing the format the renderer actually uses.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <c>Depth32FloatStencil8</c> and not <c>Depth24UNormStencil8</c>, which is the
+    ///         obvious choice and is unavailable on Apple hardware: Metal has no 24-bit depth, so
+    ///         MoltenVK reports <c>VK_ERROR_FORMAT_NOT_SUPPORTED</c> for it. Vulkan guarantees one of
+    ///         the two and not both, and this is the one that is also what reversed-Z wants.
+    ///     </para>
+    /// </remarks>
+    public GraphTexture DepthStencilTarget(string name) =>
+        Graph.CreateTexture(new(
+            PixelFormat.Depth32FloatStencil8,
             Side,
             Side,
             TextureUsage.DepthStencilTarget,

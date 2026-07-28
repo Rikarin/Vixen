@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Graphics.OpenGL</RootNamespace>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Description>
+            The OpenGL backend — GL 4.5 core, GLES 3.0/3.2 and WebGL2 behind one translation layer.
+            Per ADR-001 this is the RHI's abstraction validator now that D3D12 is postponed: GL has no
+            pipeline objects, no descriptor sets, no explicit barriers and no multithreaded recording,
+            so anything Vulkan-shaped that leaked into the abstraction fails here first.
+        </Description>
+        <PackageTags>opengl;gles;webgl;graphics;rhi;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Collections\Vixen.Core.Collections.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+        <!--
+            Bindings only, and reached from exactly one file — `SilkGlApi`. Everything else in this
+            assembly talks to `IGlApi`, which is what makes the translation layer — the part that is
+            actually hard, and the part ADR-001 wants validated — testable on a machine with no GL
+            context at all.
+        -->
+        <PackageReference Include="Silk.NET.OpenGL" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Graphics.OpenGL.Tests" />
+    </ItemGroup>
+
+</Project>
