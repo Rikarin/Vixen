@@ -267,6 +267,20 @@ of the `EffectKey` — two materials differing only in features are two variants
 only permutations could not express. Details, including the one constraint the whole shape is built
 around, are in [Vixen.Rendering's README](../../Core/Vixen.Rendering/README.md#materials).
 
+✅ **And a material binds its own resources**, which was the last thing a host had to do by hand. A
+material knows it has a texture called `albedo`; which binding index that is belongs to the compiled
+shader, so until the binding plan reached the runtime somebody had to write the number down and hand
+over a finished descriptor set. `MaterialRenderFeature` now writes it: the uniform block through
+`EffectConstants`, every texture, sampler and storage buffer looked up in `Effect.Bindings` by the
+shader's own name for it. The same fix that made a compositor node's bindings authorable, applied to
+the other half of the same gap.
+
+Per variant rather than per material, because a permutation can fold a texture out of the shader and a
+set written for the variant that has it does not fit the layout of the one that does not — which is
+also what keeps a depth prepass binding nothing. Every binding or none, because a set short of an entry
+is a validation error on one backend and a sampled black texture on another. Through the frame
+allocator, because a value that changes must not be rewritten under a frame still reading it.
+
 | Layer | Options |
 |---|---|
 | Diffuse | Lambert, Oren–Nayar, Burley (Disney), energy-conserving variants |

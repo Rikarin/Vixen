@@ -75,7 +75,7 @@ public interface IPermutationSubFeature {
 ///         things that do.
 ///     </para>
 /// </remarks>
-public sealed class MaterialRenderFeature : SubRenderFeature {
+public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     readonly List<Material> materials = [];
     readonly Dictionary<Material, int> indices = [];
     readonly Dictionary<EffectKey, uint> groups = new();
@@ -83,6 +83,8 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
     readonly Dictionary<(int Material, uint Flags, string Shader), int> variantIndices = [];
     readonly List<IPermutationSubFeature> contributors = [];
     readonly ParameterCollection scratch = new();
+    readonly List<EffectConstants?> blocks = [];
+    readonly List<DescriptorWrite> writes = [];
 
     /// <summary>Variant × stage → the variant that stage's shader override resolved to, or 0.</summary>
     /// <remarks>
@@ -141,6 +143,50 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
     /// <summary>Where effects are resolved from. Set before the first frame that prepares.</summary>
     public EffectSystem? Effects { get; set; }
 
+    /// <summary>
+    ///     The device a material's own descriptor set is written on, or null to leave that to a host.
+    /// </summary>
+    /// <remarks>
+    ///     Set this and <see cref="Descriptors" /> together and a material binds itself: its uniform
+    ///     block, its textures and its samplers, all resolved from the effect's binding plan. Leave
+    ///     either null and nothing changes — <see cref="DescriptorsOf" /> falls back to
+    ///     <see cref="Material.Descriptors" />, which is what every host did before this existed and
+    ///     what one that owns an unusual set still wants.
+    /// </remarks>
+    public IGraphicsDevice? Device { get; set; }
+
+    /// <summary>Where a material's descriptor set comes from.</summary>
+    /// <remarks>
+    ///     The frame allocator rather than a set created once and kept, because a material's values
+    ///     are not constant: an artist moves a slider, a script swaps a texture, and a set rewritten
+    ///     in place is one rewritten while an unfinished frame may still be reading it. The allocator
+    ///     hands back the <em>same</em> set for the same writes, so a material nobody touched costs a
+    ///     hash rather than a write — which is the whole reason it compares them.
+    /// </remarks>
+    public DescriptorAllocator? Descriptors { get; set; }
+
+    /// <summary>How many variants have a set this feature wrote.</summary>
+    public int BoundCount { get; private set; }
+
+    /// <summary>How many times a material's uniform block has actually gone to the GPU.</summary>
+    /// <remarks>
+    ///     The set is rewritten every frame — the frame allocator's cache is a frame long, which is
+    ///     what makes it safe for values that change. The <em>bytes</em> are the part worth not
+    ///     repeating, and this is how a test says they are not: a material nobody touched uploads
+    ///     once and stays uploaded.
+    /// </remarks>
+    public int UploadCount {
+        get {
+            var total = 0;
+
+            foreach (var block in blocks) {
+                total += block?.UploadCount ?? 0;
+            }
+
+            return total;
+        }
+    }
+
     /// <inheritdoc />
     protected internal override void Initialize(RenderSystem system) {
         ArgumentNullException.ThrowIfNull(system);
@@ -153,6 +199,7 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
         // mean "none" without every caller having to write -1.
         materials.Add(null!);
         variants.Add(new(null, uint.MaxValue));
+        blocks.Add(null);
     }
 
     /// <summary>Registers a material and returns the index objects refer to it by.</summary>
@@ -237,6 +284,132 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
                 }
             }
         }
+
+        // After the object loop, so it runs once per variant rather than once per object — which is
+        // the same economy the variant table itself exists for. Ten thousand objects over twenty
+        // materials is twenty descriptor sets.
+        Bind();
+    }
+
+    /// <summary>
+    ///     Writes each variant's per-material descriptor set from its own effect's binding plan.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>What used to be the host's job, and could not be until the plan reached the
+    ///         runtime.</strong> A material knows it has a texture called <c>albedo</c>; which binding
+    ///         index that is belongs to the compiled shader, and adding a texture above it in the
+    ///         <c>.rvn</c> renumbers it. So the name is what a material carries and
+    ///         <see cref="Effect.Bindings" /> is what turns it into an index — the same fix, and the
+    ///         same argument, as the one that made a compositor node's bindings authorable.
+    ///     </para>
+    ///     <para>
+    ///         The uniform block is written too, and it has to be: a set with a hole in it is a
+    ///         validation error rather than an unused slot, and every material shader has a block
+    ///         even if the material set none of its values. <see cref="EffectConstants" /> fills it
+    ///         from the same parameters, defaults included, and re-uploads only when they change.
+    ///     </para>
+    /// </remarks>
+    void Bind() {
+        if (Device is null || Descriptors is null) {
+            return;
+        }
+
+        BoundCount = 0;
+
+        for (var index = 1; index < variants.Count; index++) {
+            var variant = variants[index];
+
+            if (variant.Effect is not { } effect || variant.Material <= 0 || variant.Material >= materials.Count) {
+                continue;
+            }
+
+            const int slot = (int)DescriptorSetSlot.PerMaterial;
+
+            if (effect.SetLayouts.Length <= slot || !effect.SetLayouts[slot].IsValid) {
+                continue;
+            }
+
+            var material = materials[variant.Material];
+            var block = Constants(index, effect, material);
+
+            writes.Clear();
+            var wanted = 0;
+
+            foreach (var binding in effect.Bindings) {
+                if (binding.Set != DescriptorSetSlot.PerMaterial) {
+                    continue;
+                }
+
+                wanted++;
+
+                if (Write(binding, effect, material, block) is { } write) {
+                    writes.Add(write);
+                }
+            }
+
+            // Every binding or none. A set short of an entry is a validation error on one backend and
+            // a sampled black texture on another, and neither says which material forgot which
+            // texture — where an object that does not draw at all is unmistakable, and the material
+            // that owns it is the one being looked at.
+            if (wanted == 0 || writes.Count != wanted) {
+                continue;
+            }
+
+            variants[index] = variant with {
+                Set = Descriptors.Allocate(effect.SetLayouts[slot], System.Runtime.InteropServices.CollectionsMarshal.AsSpan(writes))
+            };
+
+            BoundCount++;
+        }
+    }
+
+    /// <summary>One binding, as the write that fills it — or null when nothing can.</summary>
+    /// <remarks>
+    ///     A resource the material never set leaves the binding out rather than writing a null handle.
+    ///     The set is then short of an entry and this feature declines to allocate it at all, which is
+    ///     the right failure: a partly-written set is a validation error on one backend and a sampled
+    ///     black texture on another, and neither says which material forgot which texture.
+    /// </remarks>
+    static DescriptorWrite? Write(EffectBinding binding, Effect effect, Material material, EffectConstants? block) {
+        // The uniform block, which is the effect's own and not a value the material carries.
+        if (binding.Kind is DescriptorKind.UniformBuffer or DescriptorKind.DynamicUniformBuffer) {
+            return block is { Size: > 0 } filled
+                ? DescriptorWrite.Uniform(binding.Binding, filled.Buffer, filled.Offset, filled.Size)
+                : null;
+        }
+
+        // Qualified by the shader, because that is how the generator interns it: a material sets
+        // `LightingKeys.Albedo`, whose name is "Lighting.albedo", and the shader calls it "albedo".
+        if (!ParameterKeys.TryGet($"{effect.Key.ShaderName}.{binding.Name}", out var key)) {
+            return null;
+        }
+
+        return binding.Kind switch {
+            DescriptorKind.SampledTexture or DescriptorKind.StorageTexture =>
+                material.Parameters.Has(key) && key is ParameterKey<TextureViewHandle> texture
+                    ? DescriptorWrite.Texture(binding.Binding, material.Parameters.Get(texture))
+                    : null,
+            DescriptorKind.Sampler =>
+                material.Parameters.Has(key) && key is ParameterKey<SamplerHandle> sampler
+                    ? DescriptorWrite.SamplerAt(binding.Binding, material.Parameters.Get(sampler))
+                    : null,
+            DescriptorKind.StorageBuffer or DescriptorKind.DynamicStorageBuffer =>
+                material.Parameters.Has(key) && key is ParameterKey<BufferHandle> buffer
+                    ? DescriptorWrite.Storage(binding.Binding, material.Parameters.Get(buffer))
+                    : null,
+            _ => null
+        };
+    }
+
+    /// <summary>The variant's uniform block, created on first use and refilled when values change.</summary>
+    EffectConstants? Constants(int variant, Effect effect, Material material) {
+        if (effect.ConstantBufferSize == 0) {
+            return null;
+        }
+
+        var block = blocks[variant] ??= new(Device!, material.ShaderName);
+        return block.Update(effect, material.Parameters) ? block : null;
     }
 
     /// <summary>The effect an object resolved to for a stage, or null when it has none.</summary>
@@ -252,8 +425,21 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
     }
 
     /// <summary>The descriptor set an object's material binds, invalid when it has none.</summary>
-    public DescriptorSetHandle DescriptorsOf(RenderSystem system, RenderObjectId id) {
+    /// <param name="system">The render system.</param>
+    /// <param name="id">The object.</param>
+    /// <param name="stage">The stage drawing it, for the same reason <see cref="EffectOf" /> takes one.</param>
+    /// <remarks>
+    ///     The set this feature wrote when it has a <see cref="Device" /> and an allocator, and the
+    ///     material's own otherwise. In that order rather than the reverse: a host that set
+    ///     <see cref="Material.Descriptors" /> by hand and then turned this on would otherwise get the
+    ///     hand-written one forever and no sign that the new path was doing nothing.
+    /// </remarks>
+    public DescriptorSetHandle DescriptorsOf(RenderSystem system, RenderObjectId id, RenderStage? stage = null) {
         ArgumentNullException.ThrowIfNull(system);
+
+        if (variants[IndexFor(system, id, stage)].Set is { IsValid: true } written) {
+            return written;
+        }
 
         var index = system.Objects.Data.Data(MaterialIndex)[id.Index];
         return index > 0 && index < materials.Count ? materials[index].Descriptors : default;
@@ -331,7 +517,8 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
         }
 
         var index = variants.Count;
-        variants.Add(new(Effects!.Resolve(key), group, key));
+        variants.Add(new(Effects!.Resolve(key), group, key, material));
+        blocks.Add(null);
         variantIndices[(material, flags, shaderName)] = index;
         return index;
     }
@@ -405,6 +592,20 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
         return false;
     }
 
+    /// <summary>Releases the uniform blocks this feature created.</summary>
+    /// <remarks>
+    ///     One buffer per variant that has constants, so a scene with forty variants holds forty —
+    ///     small each and worth returning. Called by <see cref="RenderSystem.Dispose" />, which
+    ///     disposes whatever it holds that can be.
+    /// </remarks>
+    public void Dispose() {
+        foreach (var block in blocks) {
+            block?.Dispose();
+        }
+
+        blocks.Clear();
+    }
+
     IReadOnlyList<ParameterKey> KeysFor(string shaderName) =>
         PermutationKeys.TryGetValue(shaderName, out var keys) ? keys : [];
 
@@ -415,5 +616,20 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
     ///     What it was resolved from, kept so a placeholder can be asked again. Building it costs a
     ///     sort and a hash and would otherwise be done twice for every variant still compiling.
     /// </param>
-    readonly record struct Variant(Effect? Effect, uint Group, EffectKey Key = default);
+    /// <param name="Material">
+    ///     Which material's values fill it. A variant is a (material, flags, shader) triple, so this
+    ///     is the one of the three the descriptor set is written from.
+    /// </param>
+    /// <param name="Set">
+    ///     The per-material descriptor set, when this feature wrote one. Per variant rather than per
+    ///     material because a permutation can fold a texture out of the shader entirely, and a set
+    ///     written for the variant that has it does not fit the layout of the variant that does not.
+    /// </param>
+    readonly record struct Variant(
+        Effect? Effect,
+        uint Group,
+        EffectKey Key = default,
+        int Material = 0,
+        DescriptorSetHandle Set = default
+    );
 }

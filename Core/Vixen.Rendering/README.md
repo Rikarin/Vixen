@@ -246,6 +246,35 @@ without linking Raven at all. A rule written down twice is a rule that drifts, s
 compiler's side, and read back on this side by `MaterialReflectionTests`, which holds the prediction
 against it in both directions.
 
+### A material binds itself
+
+A material knows it has a texture called `albedo`. Which binding index that is belongs to the compiled
+shader — Raven assigns it from declaration order within a set, so adding a texture above it renumbers
+it — so until the binding plan reached the runtime a host had to write the number down and hand over a
+finished descriptor set.
+
+Give `MaterialRenderFeature` a `Device` and a `DescriptorAllocator` and it writes the set itself: the
+uniform block through `EffectConstants`, and every texture, sampler and storage buffer looked up in
+`Effect.Bindings` by the shader's own name for it. The same fix, and the same argument, as the one that
+made a compositor node's bindings authorable. Leave either null and nothing changes — `DescriptorsOf`
+falls back to `Material.Descriptors`, which is what a host with a bindless table or a texture array
+still wants.
+
+**Per variant, not per material.** A permutation can fold a texture out of the shader entirely, and a
+set written for the variant that has it does not fit the layout of the variant that does not. It is
+also what keeps a depth prepass from binding anything: its effect declares no per-material layout, so
+there is nothing to write.
+
+**Every binding or none.** A material that set no `albedo` gets no set at all, rather than one with a
+hole in it. A partly-written set is a validation error on one backend and a sampled black texture on
+another, and neither says which material forgot which texture — where an object that does not draw is
+unmistakable and the material that owns it is the one being looked at.
+
+Through the frame allocator, so a value that changes is safe: a set rewritten in place is one rewritten
+while an unfinished frame may still be reading it. That costs one descriptor write per variant per
+frame, which is what every compositor node costs too. The bytes are the part worth not repeating, and
+`EffectConstants` compares the collection's version — a material nobody touched uploads once.
+
 ## Image-based lighting
 
 The sky is a light, and `Lighting/` is what turns one into something a shader can evaluate. Karis's
@@ -851,14 +880,6 @@ to re-triangulate; and with both of those fixed, a single near-degenerate cell s
 large enough to eat the mesh on the next insertion. Doing it properly means exact predicates. It was
 written, found wrong by its own tests, and taken back out rather than shipped producing a mesh that is
 not Delaunay.
-
-**Materials are values, not resources.** Every feature's parameters go into the constant buffer; a
-feature that samples a texture needs a descriptor, and which binding index it lands on is the compiled
-shader's decision. That was the same authoring gap the compositor's nodes had, and the thing that
-closed theirs — the binding plan on `Effect` — is now here and unused by this half: nothing in
-`MaterialRenderFeature` writes a set from named textures, so a textured material still sets values and
-a host fills in `Material.Descriptors`. The blocker moved from "the plan is not carried" to "the
-material feature does not read it", which is a smaller job than it was.
 
 Transmission has a surface feature's worth of channels and no shading model, deliberately: refraction
 needs either the scene colour or an environment sample, both of which belong to the pass rather than
