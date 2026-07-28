@@ -2,7 +2,7 @@ package Vixen.Shaders.PostFx
 
 import Vixen.Shaders.Core
 
-// The dual-filter bloom chain: one shader, three modes, run once per mip in each direction.
+// The dual-filter bloom chain: one shader, four modes, run once per mip in each direction.
 //
 // Bloom is a downsample chain followed by an upsample chain that adds each level back. Doing it with mips
 // rather than one wide blur is what makes it cheap *and* wide: each level halves the resolution, so a
@@ -12,14 +12,31 @@ import Vixen.Shaders.Core
 // tent upsample are chosen so the chain does not alias as it shrinks — a box downsample makes bright
 // pixels flicker as they move, which is the artefact that makes naive bloom unusable in motion.
 //
-// One shader with a `[Permutation]` mode rather than three shaders: the host runs the same pipeline with
-// a different variant per pass, and the three share the prefilter constants.
+// One shader with a `[Permutation]` mode rather than four shaders: the host runs the same pipeline with
+// a different variant per pass, and the four share the prefilter constants.
 
 shader Bloom {
-    /// 0 prefilter (threshold the source), 1 downsample, 2 upsample-and-combine.
+    /// 0 prefilter (threshold the source), 1 first downsample, 2 downsample, 3 upsample-and-combine.
+    ///
+    /// The first downsample is a mode of its own because it is the only pass whose taps are
+    /// Karis-averaged, and nothing else here would tell it from the rest of the chain. A fourth value
+    /// rather than a second permutation: the chain asks for four variants either way, and a
+    /// `FirstDownsample` flag that can only ever be true in one mode is a key every pass would carry
+    /// in order to say nothing.
+    ///
+    /// Defaulting to the first downsample rather than the plain one because reflection describes a
+    /// single variant, and this is the variant whose code is a superset of the other's.
     [Permutation] val Mode: int = 1
 
-    /// Whether to Karis-average the prefilter taps, which stops highlight flicker.
+    /// Whether the first downsample Karis-averages its taps, which stops highlight flicker.
+    ///
+    /// The weight belongs to that pass and to no other. It makes the 13 taps a *weighted* average —
+    /// `1 / (1 + luma)` per tap, before summing — so a highlight sitting in one texel is pulled
+    /// towards its neighbours instead of dragging the whole kernel up with it, and stops flickering as
+    /// it crosses a texel boundary. That is why it is not in `Prefilter()`, which takes one tap: on a
+    /// single sample the weight is not an average at all, only a darkening. And it is not further down
+    /// the chain because every level below the first has already been averaged, so applying it again
+    /// buys no stability and costs brightness.
     [Permutation] val KarisAverage: bool = true
 
     var source: Texture2D
@@ -56,11 +73,13 @@ shader Bloom {
             return float4(Prefilter(), 1f)
         }
 
-        if (Mode == 1) {
-            return float4(Downsample(), 1f)
+        if (Mode == 3) {
+            return float4(Upsample(), 1f)
         }
 
-        return float4(Upsample(), 1f)
+        // Modes 1 and 2 are the same filter. What differs is whether `Tap()` weights, which is the
+        // whole reason the first downsample is a mode rather than a branch on something.
+        return float4(Downsample(), 1f)
     }
 
     /// Keeps what is above the threshold, with a quadratic knee below it.
@@ -118,9 +137,9 @@ shader Bloom {
         return previous.Sample(sourceSampler, uv).rgb + total * intensity
     }
 
-    /// One source tap at a texel offset, Karis-weighted where that is enabled.
+    /// One source tap at a texel offset, Karis-weighted on the first downsample.
     func Tap(offsetX: float, offsetY: float): float3 {
         val color = source.Sample(sourceSampler, uv + float2(offsetX, offsetY)).rgb
-        return KarisAverage && Mode == 0 ? color * Fullscreen.KarisWeight(color) : color
+        return KarisAverage && Mode == 1 ? color * Fullscreen.KarisWeight(color) : color
     }
 }

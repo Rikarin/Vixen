@@ -1,9 +1,9 @@
 #version 450
 #include "bloom.h.glsl"
 
-// Mode 2. A 9-tap tent over the level below, added onto the level beside it. The tent is what makes
+// Mode 3. A 9-tap tent over the level below, added onto the level beside it. The tent is what makes
 // the upsampled level smooth rather than blocky, and `previous` is the only binding that exists in
-// this variant and not the other two.
+// this variant and not the other three.
 
 layout(set = 2, binding = 2) uniform texture2D previous;
 

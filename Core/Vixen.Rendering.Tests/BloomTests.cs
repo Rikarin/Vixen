@@ -111,23 +111,48 @@ public class BloomTests : IDisposable {
         Assert.Equal(new Vector2(1f / 80f, 1f / 45f), h.Bloom.Passes[2].Parameters.Get(TexelSize));
     }
 
-    /// <summary>The three modes are three variants of one shader.</summary>
+    /// <summary>The four modes are four variants of one shader.</summary>
     /// <remarks>
-    ///     A permutation rather than a branch, because the three read different bindings — the
-    ///     upsample has a second texture the others do not — and a runtime branch would keep it bound
-    ///     in every pass of the chain.
+    ///     A permutation rather than a branch, because they read different bindings — the upsample has
+    ///     a second texture the others do not — and a runtime branch would keep it bound in every pass
+    ///     of the chain.
     /// </remarks>
     [Fact]
-    public void The_three_modes_are_three_variants() {
+    public void The_four_modes_are_four_variants() {
         using var h = Build();
         Frame(h);
 
         Assert.Equal(0, h.Bloom.Passes[0].Parameters.Get(Mode));
         Assert.Equal(1, h.Bloom.Passes[1].Parameters.Get(Mode));
-        Assert.Equal(2, h.Bloom.Passes[h.Bloom.PassCount - 1].Parameters.Get(Mode));
+        Assert.Equal(2, h.Bloom.Passes[2].Parameters.Get(Mode));
+        Assert.Equal(3, h.Bloom.Passes[h.Bloom.PassCount - 1].Parameters.Get(Mode));
 
-        // Three bloom variants plus the composite's own shader.
-        Assert.Equal(4, effects.Count);
+        // Four bloom variants plus the composite's own shader.
+        Assert.Equal(5, effects.Count);
+    }
+
+    /// <summary>
+    ///     Exactly one pass Karis-averages, and it is the first downsample.
+    /// </summary>
+    /// <remarks>
+    ///     The assertion the mode split exists for. The weight is what stops a highlight in a single
+    ///     texel flickering as it moves, it only means anything on a pass that averages several taps of
+    ///     the least-filtered level, and until <c>Mode</c> distinguished that pass from the rest of the
+    ///     down-chain the shader's own condition — <c>Mode == 0</c>, the prefilter, which never calls
+    ///     <c>Tap()</c> — could never be true. A chain that stopped selecting the mode would go back to
+    ///     never weighting anything, and nothing else here would notice.
+    /// </remarks>
+    [Fact]
+    public void Only_the_first_downsample_karis_averages() {
+        using var h = Build();
+        Frame(h);
+
+        var weighting = h.Bloom.Passes.Take(h.Bloom.PassCount)
+            .Where(pass => pass.Parameters.Get(Mode) == 1)
+            .ToList();
+
+        Assert.Single(weighting);
+        Assert.Same(h.Bloom.Passes[1], weighting[0]);
     }
 
     /// <summary>An upsample reads the level below it and the one beside it.</summary>
@@ -141,7 +166,7 @@ public class BloomTests : IDisposable {
         using var h = Build();
         Frame(h);
 
-        var upsamples = h.Bloom.Passes.Take(h.Bloom.PassCount).Where(p => p.Parameters.Get(Mode) == 2).ToList();
+        var upsamples = h.Bloom.Passes.Take(h.Bloom.PassCount).Where(p => p.Parameters.Get(Mode) == 3).ToList();
 
         Assert.Equal(4, upsamples.Count);
         Assert.All(upsamples, pass => Assert.Equal(2, pass.Reads.Count));
