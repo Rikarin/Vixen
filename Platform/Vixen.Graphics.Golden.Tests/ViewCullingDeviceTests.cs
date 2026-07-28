@@ -489,6 +489,94 @@ public class ViewCullingDeviceTests {
         $"({command.IndexCount}, {command.InstanceCount}, {command.FirstIndex}, {command.VertexOffset}, {command.FirstInstance})";
 
     /// <summary>
+    ///     Two frames in flight do not rewrite a descriptor set the device is still reading.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>VUID-vkUpdateDescriptorSets-None-03047</c>: a set without the descriptor-indexing
+    ///         update-after-bind flags may not be written while a submitted command buffer
+    ///         references it. Every other test here submits and waits, one frame at a time, which is
+    ///         the one pattern under which this cannot happen — so the bug it guards against is
+    ///         invisible to all of them and to every unit test, and appears only on the path the
+    ///         argument buffer exists for: no readback, no wait, the next frame recorded while the
+    ///         last one runs.
+    ///     </para>
+    ///     <para>
+    ///         The answer is the ring the rest of the renderer already uses — a set per frame in
+    ///         flight, advanced with the frame, so the one being written was last read by a frame the
+    ///         device has finished. It is the same invariant <c>DescriptorAllocator</c> is built on
+    ///         and the same one <c>UploadBuffer</c> writes its regions under.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TwoFramesInFlightDoNotRewriteASetTheDeviceIsReading() {
+        if (!Fixture.TryOpen(out var fixture, out var reason)) {
+            Skip(reason);
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        var effects = new EffectSystem();
+        effects.AddProvider(new Compiler(device));
+
+        var pipelines = new ComputePipelineCache(device);
+
+        using var store = new RenderObjectStore();
+        using var visibility = new GpuVisibilityGroup(device) { Effects = effects, Pipelines = pipelines, ReadBack = false };
+        using var arguments = new GpuDrawArguments(device) { Effects = effects, Pipelines = pipelines };
+
+        for (var i = 0; i < 64; i++) {
+            store.Add(
+                new() {
+                    Bounds = new(new(0f, 0f, i % 2 == 0 ? 12f : -12f), 1f),
+                    Stages = RenderStageMask.Of(0),
+                    IsAlive = true
+                }
+            );
+        }
+
+        RenderView[] views = [Camera("camera", RenderStageMask.Of(0))];
+        var lists = new List<ICommandList>();
+
+        VulkanDiagnostics.Reset();
+
+        // Two frames, recorded and submitted back to back with nothing waited on between them —
+        // which is the whole point, and why the wait is at the end rather than in the loop.
+        for (var frame = 0; frame < 2; frame++) {
+            device.BeginFrame();
+            visibility.Cull(store, views);
+
+            var list = device.BeginCommandList(QueueKind.Compute, $"frame {frame}");
+            lists.Add(list);
+
+            Assert.True(visibility.Record(list), "the cull recorded nothing");
+
+            arguments.Fill(store.Count);
+            Assert.True(arguments.Update(list, visibility.Bits, views.Length, store.Count), "the argument pass did not run");
+
+            list.Finish();
+            device.ComputeQueue.Submit([list]);
+            device.EndFrame();
+        }
+
+        device.WaitIdle();
+
+        foreach (var list in lists) {
+            list.Dispose();
+        }
+
+        pipelines.Clear();
+
+        Assert.True(
+            VulkanDiagnostics.ErrorCount == 0,
+            "two frames in flight produced validation errors: "
+            + string.Join(Environment.NewLine, VulkanDiagnostics.Messages)
+        );
+    }
+
+    /// <summary>
     ///     Each of the three culling shaders compiles to a module a device will take.
     /// </summary>
     /// <remarks>

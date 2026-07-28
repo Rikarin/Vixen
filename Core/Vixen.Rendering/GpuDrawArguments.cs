@@ -84,7 +84,14 @@ public sealed class GpuDrawArguments : IDisposable {
     // dispatch that writes it needs ShaderWrite, so it changes twice a frame and never settles.
     ResourceState state = ResourceState.Undefined;
 
-    DescriptorSetHandle descriptors;
+    // One set per frame in flight, advanced with the frame. A set a submitted command buffer still
+    // references may not be written — VUID-vkUpdateDescriptorSets-None-03047 — and the no-readback
+    // path waits for nothing, so the set this frame rewrites has to be one an earlier frame used and
+    // the device has finished with. The same invariant DescriptorAllocator and UploadBuffer are
+    // built on, and the reason both of those exist rather than one set and one region.
+    DescriptorSetHandle[] descriptors = [];
+    int ring;
+
     DescriptorSetSlot slot;
     Effect? allocatedFor;
     bool disposed;
@@ -205,6 +212,15 @@ public sealed class GpuDrawArguments : IDisposable {
             return false;
         }
 
+        if (packed.Length < objectCount) {
+            throw new InvalidOperationException(
+                $"Update was given {objectCount} objects and Fill was last given {packed.Length}. The "
+                + "templates are what this pass edits one field of, so a frame that dispatched without "
+                + "them would draw every object with whatever the previous frame left — call Fill "
+                + "first, and let the sources write into what it returns."
+            );
+        }
+
         ObjectCount = objectCount;
         ViewCount = viewCount;
 
@@ -229,11 +245,12 @@ public sealed class GpuDrawArguments : IDisposable {
         );
 
         writes[2] = DescriptorWrite.Storage(commandBinding.Binding, commands, 0, (long)viewCount * objectCount * Stride);
-        device.UpdateDescriptorSet(descriptors, writes);
+        ring = descriptors.Length == 0 ? 0 : (ring + 1) % descriptors.Length;
+        device.UpdateDescriptorSet(descriptors[ring], writes);
 
         list.Barrier(new([new(commands, state, ResourceState.ShaderWrite)], []));
         list.BindPipeline(pipeline);
-        list.BindDescriptorSet(slot, descriptors);
+        list.BindDescriptorSet(slot, descriptors[ring]);
 
         list.Dispatch(
             Math.Max(1, (objectCount + GpuCulling.WorkgroupSize - 1) / GpuCulling.WorkgroupSize),
@@ -248,7 +265,9 @@ public sealed class GpuDrawArguments : IDisposable {
     }
 
     bool TryAllocateSet(Effect effect, DescriptorSetSlot wanted) {
-        if (ReferenceEquals(allocatedFor, effect) && descriptors.IsValid) {
+        var slots = Math.Max(1, device.FramesInFlight);
+
+        if (ReferenceEquals(allocatedFor, effect) && descriptors.Length == slots) {
             return true;
         }
 
@@ -256,15 +275,33 @@ public sealed class GpuDrawArguments : IDisposable {
             return false;
         }
 
-        if (descriptors.IsValid) {
-            device.Destroy(descriptors);
+        DestroySets();
+        descriptors = new DescriptorSetHandle[slots];
+
+        for (var index = 0; index < slots; index++) {
+            descriptors[index] = device.CreateDescriptorSet(effect.SetLayouts[(int)wanted], "DrawArguments");
+
+            if (!descriptors[index].IsValid) {
+                return false;
+            }
         }
 
-        descriptors = device.CreateDescriptorSet(effect.SetLayouts[(int)wanted], "DrawArguments");
         slot = wanted;
+        ring = 0;
         allocatedFor = effect;
 
-        return descriptors.IsValid;
+        return true;
+    }
+
+    void DestroySets() {
+        foreach (var set in descriptors) {
+            if (set.IsValid) {
+                device.Destroy(set);
+            }
+        }
+
+        descriptors = [];
+        allocatedFor = null;
     }
 
     bool EnsureCommands(long bytes) {
@@ -303,10 +340,7 @@ public sealed class GpuDrawArguments : IDisposable {
         disposed = true;
         IsFilled = false;
 
-        if (descriptors.IsValid) {
-            device.Destroy(descriptors);
-            descriptors = default;
-        }
+        DestroySets();
 
         if (commands.IsValid) {
             device.Destroy(commands);

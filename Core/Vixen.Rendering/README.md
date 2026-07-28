@@ -181,6 +181,13 @@ ordering this RHI can express is a barrier between two things in one queue: it h
 semaphores. That is the whole reason the culling dispatch became something a node records rather than
 something `Cull` submits.
 
+**And with no wait, every descriptor set is a ring.** A set a submitted command buffer still
+references may not be written — `VUID-vkUpdateDescriptorSets-None-03047` — so all three classes hold
+one set per frame in flight and advance with the frame, which is the invariant `DescriptorAllocator`
+and `UploadBuffer` are already built on. The readback path hides this behind its wait, which is
+exactly why it stayed hidden: it takes two frames in flight to see, and every test that submits and
+waits is a test that cannot.
+
 **It zeroes instance counts; it does not compact.** Compaction needs an atomic counter to claim
 slots with, and Raven has none — the same constraint that shapes `ClusterCulling` and the particle
 kernels. So the buffer holds one record per object slot *at that slot*, and a culled object gets zero

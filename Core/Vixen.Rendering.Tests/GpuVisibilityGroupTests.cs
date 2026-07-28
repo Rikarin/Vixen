@@ -911,6 +911,26 @@ public class GpuVisibilityGroupTests : IDisposable {
 
     // --- Drawing from the device's answer ------------------------------------
 
+    /// <summary>
+    ///     Dispatching without templates is refused, and says what to do about it.
+    /// </summary>
+    /// <remarks>
+    ///     The pass edits one field of records the host supplies, so a dispatch with no templates
+    ///     would leave every draw as whatever the buffer held before — last frame's arguments, or
+    ///     nothing at all. Refusing is not defensiveness: an argument buffer that is silently a frame
+    ///     stale draws a scene that is almost right, which is the hardest kind of wrong to notice.
+    /// </remarks>
+    [Fact]
+    public void Updating_without_filling_is_refused() {
+        using var arguments = new GpuDrawArguments(device) { Effects = effects, Pipelines = pipelines };
+        using var list = device.BeginCommandList(QueueKind.Compute);
+
+        var bits = device.CreateBuffer(new(64, BufferUsage.Storage, MemoryAccess.DeviceLocal, "Bits"));
+        var thrown = Assert.Throws<InvalidOperationException>(() => arguments.Update(list, bits, 1, 8));
+
+        Assert.Contains("Fill", thrown.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>A draw's arguments are twenty bytes, which is what the API's stride is.</summary>
     /// <remarks>
     ///     Not ours to choose: the GPU's command processor reads these bytes directly, in this order.
