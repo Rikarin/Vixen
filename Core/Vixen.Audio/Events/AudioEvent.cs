@@ -4,6 +4,7 @@
 using Vixen.Audio.Effects;
 using Vixen.Audio.Mixing;
 using Vixen.Audio.Parameters;
+using Vixen.Audio.Sources;
 using Vixen.Audio.Spatial;
 using Vixen.Core.Mathematics;
 
@@ -67,6 +68,7 @@ public sealed class AudioEvent {
     readonly float[] variantGain;
     readonly float[] variantPitch;
     readonly VoiceHandle[] instances;
+    readonly AudioEventLayer[] layers;
     readonly float gain;
     readonly float gainVarianceDb;
     readonly float pitchVarianceSemitones;
@@ -87,6 +89,9 @@ public sealed class AudioEvent {
 
     /// <summary>How many sounds it can choose between.</summary>
     public int VariantCount => clips.Length;
+
+    /// <summary>The other events it plays alongside itself.</summary>
+    public IReadOnlyList<AudioEventLayer> Layers => layers;
 
     /// <summary>How many copies may sound at once. Zero is no limit.</summary>
     public int MaxInstances { get; }
@@ -119,6 +124,14 @@ public sealed class AudioEvent {
     /// <summary>The pitch ratio the last play landed on, before the caller's own trim.</summary>
     public float LastPitch { get; private set; } = 1f;
 
+    /// <summary>How many sounds it has started since it was built.</summary>
+    /// <remarks>
+    ///     Counts the plays that found a voice, so a refused one does not. Worth having on an overlay
+    ///     beside <see cref="InstanceCount" />: the two together say whether an event is being played
+    ///     constantly and cut short, or simply played rarely.
+    /// </remarks>
+    public int PlayCount { get; private set; }
+
     /// <summary>How many of its plays are still sounding.</summary>
     /// <remarks>Counts what is playing or paused; a sound already fading out has been let go of.</remarks>
     public int InstanceCount {
@@ -144,6 +157,7 @@ public sealed class AudioEvent {
         IsSpatial = description.IsSpatial;
         Spatial = description.Spatial;
         Parameters = description.Parameters;
+        layers = description.Layers;
         gain = Decibels.ToLinear(description.GainDb);
         gainVarianceDb = MathF.Abs(description.GainVarianceDb);
         pitchVarianceSemitones = MathF.Abs(description.PitchVarianceSemitones);
@@ -204,8 +218,40 @@ public sealed class AudioEvent {
     /// <summary>Plays it.</summary>
     /// <param name="attributes">Where it is, and any trim.</param>
     /// <returns>A handle, or <see cref="VoiceHandle.None" /> if it was refused or the pool was full.</returns>
-    public VoiceHandle Play(in AudioEventPlayback attributes) {
-        if (clips.Length == 0) {
+    public VoiceHandle Play(in AudioEventPlayback attributes) => Start(null, attributes);
+
+    /// <summary>Plays something the caller produces, as this event.</summary>
+    /// <param name="source">Where the samples come from. Not owned or disposed by the engine.</param>
+    /// <param name="attributes">Where it is, and any trim.</param>
+    /// <returns>A handle, or <see cref="VoiceHandle.None" /> if it was refused or the pool was full.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The bridge between voice chat and everything else.</b> A microphone is not a clip, so
+    ///         until now it had to go through <c>AudioEngine.Play</c> directly — which meant it got no
+    ///         bus from an asset, no parameters, no instance limit and no level a designer could
+    ///         change. This is the same play with the caller's samples in place of a variant, so a
+    ///         talking player is an event like anything else.
+    ///     </para>
+    ///     <para>
+    ///         The event's level and its variation still apply, so a voice event should simply declare
+    ///         no variance — which is what a designer would set anyway, since a randomly detuned
+    ///         player is not a feature.
+    ///     </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="source" /> is null.</exception>
+    public VoiceHandle Play(IAudioSampleProvider source, in AudioEventPlayback attributes) {
+        ArgumentNullException.ThrowIfNull(source);
+        return Start(source, attributes);
+    }
+
+    /// <summary>The one play path, with a variant or with what the caller handed over.</summary>
+    VoiceHandle Start(IAudioSampleProvider? source, in AudioEventPlayback attributes) {
+        // A caller-supplied source stands in for a variant, so an event that has none is still
+        // playable — which is what a voice-chat event is, and what a container of layers is.
+        var supplied = source is not null;
+
+        if (!supplied && clips.Length == 0) {
+            PlayLayers(attributes);
             return VoiceHandle.None;
         }
 
@@ -213,13 +259,18 @@ public sealed class AudioEvent {
 
         // Before the draw, so a refused request does not advance the shuffle bag — otherwise a busy
         // event quietly skips variants and the round-robin guarantee is not one.
+        //
+        // And before the layers, so a refusal refuses the whole thing. The instance limit is the
+        // event saying no; a tail with no report in front of it is worse than silence. That is a
+        // different case from the pool being full, which is the engine saying "not right now" — the
+        // layers still try there, and may well find slots the parent did not.
         if (MaxInstances > 0 && live >= MaxInstances && !MakeRoom()) {
             return VoiceHandle.None;
         }
 
-        var variant = Variants.Next();
-        var level = gain * variantGain[variant];
-        var rate = variantPitch[variant];
+        var variant = supplied ? -1 : Variants.Next();
+        var level = gain * (variant >= 0 ? variantGain[variant] : 1f);
+        var rate = variant >= 0 ? variantPitch[variant] : 1f;
 
         if (gainVarianceDb > 0f) {
             level *= Decibels.ToLinear(random.NextBipolar() * gainVarianceDb);
@@ -232,7 +283,7 @@ public sealed class AudioEvent {
         LastGain = level;
         LastPitch = rate;
 
-        var handle = engine.Play(clips[variant], new PlaybackSettings {
+        var settings = new PlaybackSettings {
             Bus = Bus,
             Gain = level * attributes.Gain,
             Pitch = rate * attributes.Pitch,
@@ -241,7 +292,9 @@ public sealed class AudioEvent {
             IsSpatial = IsSpatial,
             StartPaused = attributes.StartPaused,
             Spatial = IsSpatial ? Locate(attributes) : default
-        });
+        };
+
+        var handle = supplied ? engine.Play(source!, settings) : engine.Play(clips[variant], settings);
 
         if (handle.IsValid) {
             // After the play rather than before it, because the sheet is attached to a use of a slot
@@ -251,9 +304,38 @@ public sealed class AudioEvent {
             }
 
             Record(handle);
+            PlayCount++;
         }
 
+        // After the parent, and whether or not it found a voice: a report that lost the steal fight
+        // should still bring its tail, because the tail is what carries at a distance.
+        PlayLayers(attributes);
         return handle;
+    }
+
+    /// <summary>Starts, or schedules, everything layered on top of this event.</summary>
+    /// <remarks>
+    ///     A layer with no delay is played in this call, which is what makes a container of
+    ///     simultaneous layers cost nothing but the calls. One with a delay is handed to the engine,
+    ///     because an event is played and forgotten and nothing would call it again.
+    /// </remarks>
+    void PlayLayers(in AudioEventPlayback attributes) {
+        foreach (var layer in layers) {
+            if (layer.Probability < 1f && random.NextUnit() > MathF.Max(layer.Probability, 0f)) {
+                continue;
+            }
+
+            var passed = attributes with {
+                Gain = attributes.Gain * (layer.GainDb == 0f ? 1f : Decibels.ToLinear(layer.GainDb)),
+                Pitch = attributes.Pitch * Semitones(layer.PitchSemitones)
+            };
+
+            if (layer.DelaySeconds <= 0f) {
+                layer.Sound.Play(passed);
+            } else {
+                engine.Defer(layer.Sound, passed, layer.DelaySeconds);
+            }
+        }
     }
 
     /// <summary>Points one of a play's parameters at a value.</summary>
@@ -268,13 +350,23 @@ public sealed class AudioEvent {
     public bool SetParameter(VoiceHandle handle, string name, float value) =>
         engine.SetParameter(handle, name, value);
 
-    /// <summary>Stops every copy of it that is still sounding.</summary>
+    /// <summary>Stops every copy of it that is still sounding, and everything it layered.</summary>
+    /// <remarks>
+    ///     <b>It cascades.</b> "Stop this sound" means everything the sound started, and a layer that
+    ///     kept going after its parent was stopped would be a sound nobody can find the source of. A
+    ///     layer waiting on its delay is cancelled rather than fired late.
+    /// </remarks>
     public void StopAll() {
         for (var i = 0; i < live; i++) {
             engine.Stop(instances[i]);
         }
 
         live = 0;
+
+        foreach (var layer in layers) {
+            engine.CancelDeferred(layer.Sound);
+            layer.Sound.StopAll();
+        }
     }
 
     /// <summary>Fades every copy of it out and stops each when it gets there.</summary>
@@ -289,6 +381,11 @@ public sealed class AudioEvent {
         // Let go of them here rather than when they land: they are on their way out and must not
         // count against the instance limit for the whole of a two-second fade.
         live = 0;
+
+        foreach (var layer in layers) {
+            engine.CancelDeferred(layer.Sound);
+            layer.Sound.FadeOutAll(duration, curve);
+        }
     }
 
     /// <summary>The event's own spatial settings, with a caller's position filled in.</summary>

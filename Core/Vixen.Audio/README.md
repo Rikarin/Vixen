@@ -75,6 +75,9 @@ that owns its mixer pays.
 | `AudioListenerSet` | up to four pairs of ears, for split-screen |
 | `AudioScatterer` | throws an event about at intervals — most of what an ambience is |
 | `IAudioCaptureDevice` | a microphone. `CaptureSampleProvider` is one the mixer can play |
+| `AudioEventLayer` | another event played alongside this one, a moment later |
+| `SpeakerLayout` | where the speakers are, for quad, 5.1 and 7.1 |
+| `MixControl` | every knob in the mix, by name — the runtime half of live update |
 
 ## Inserts, sends, and the order it all runs in
 
@@ -304,6 +307,53 @@ otherwise every assertion about which take came out is a coin toss.
 **Nothing is allocated by a play.** Variants, weights, the bag and the instance table are sized once
 at construction. A footstep is the frame loop, and doc 00 forbids garbage there.
 
+### Layers
+
+```csharp
+var gunshot = new AudioEvent(engine, new AudioEventDescription {
+    Layers = [
+        new AudioEventLayer(mechanism),
+        new AudioEventLayer(report)    { DelaySeconds = 0.01f },
+        new AudioEventLayer(tail)      { DelaySeconds = 0.03f, Probability = 0.6f }
+    ]
+});
+```
+
+A gunshot is not one sound. It is a mechanism, a report and a tail, each with its own takes, its own
+level and its own distance behaviour — the mechanism is quiet and carries ten metres, the report is
+loud and carries five hundred. One clip cannot be both, and three `Play` calls in gameplay put the
+layering in C# where the person who can hear it is not.
+
+**A layer is a whole event**, so it has its own variants, its own instance limit and its own
+parameters, and it can be played on its own as well. An event with layers and no variants of its own
+is a container: the parent decides where the whole thing is and every sound comes from a layer.
+
+**Cycles are impossible by construction**, which is why nothing checks: a layer holds an `AudioEvent`
+that already exists, so A can only layer B if B was built first.
+
+**A delay is held by the engine**, because an event is played and forgotten and nothing would call it
+again. The pending table is fixed at 128 and drops rather than grows — `AudioEngine.DroppedLayers`
+says so. Firing a layer may schedule more; new entries have their full delay, which is what makes
+walking the table while appending to it safe.
+
+**A refused parent refuses its layers; a parent that found no voice does not.** The instance limit is
+the event saying no, and a tail with no report in front of it is worse than silence. An empty pool is
+the engine saying "not right now", and the tail may well find a slot the report could not.
+
+**`StopAll` cascades**, including cancelling layers still waiting on their delay. "Stop this sound"
+means everything the sound started.
+
+### A source the caller supplies
+
+```csharp
+voiceEvent.Play(new CaptureSampleProvider(microphone), new AudioEventPlayback());
+```
+
+The bridge between voice chat and everything else. A microphone is not a clip, so until this existed
+it had to go through `AudioEngine.Play` directly — which meant no bus from an asset, no parameters,
+no instance limit and no level a designer could change. Same play, with the caller's samples in place
+of a variant.
+
 ### From an entity
 
 ```csharp
@@ -492,6 +542,29 @@ the budget would silence something audible on behalf of something that is not.
 
 Off by default: `AudibleVoices` at zero means every voice is real and there is no ranking pass at all.
 
+## Surround
+
+`SpeakerLayout` knows quad, 5.1 and 7.1, in the WAVE_FORMAT_EXTENSIBLE channel order every consumer
+API agrees on — front left, front right, centre, LFE, sides, backs. Getting that order wrong does not
+sound wrong, it sounds like the room is inside out, and it is the one thing about surround that
+cannot be debugged by ear without a reference.
+
+**Pair-wise panning between the two speakers the sound lies between**, and nothing in the others.
+Spreading a source across all of them makes a point source sound like a wash, because the ear locates
+a sound by the difference between what two speakers are doing and there is no difference left.
+
+**Nothing is ever panned into the LFE.** It is a band, not a place — the ".1" carries what is below
+about 120 Hz from the other channels, and a source panned into it would send its whole spectrum to a
+subwoofer. What feeds it is a bus with a low-pass, which is a mix decision.
+
+**Stereo keeps its own law.** Two speakers are a pair to be balanced across; a ring is a set of
+directions. Run through the ring law, a source at 90° to the right lands in the 300° gap behind a
+stereo pair and comes out barely right of centre, where what everybody wants is hard right. Different
+problems, different arithmetic.
+
+**An unknown channel count falls back to the first two** rather than guessing an arrangement — which
+is how a sound ends up in a speaker that is not where the layout thought it was.
+
 ## Several pairs of ears
 
 `AudioListenerSet` holds up to four listeners with weights, which is split-screen — four players at
@@ -583,6 +656,38 @@ nothing to say to the renderer, so doing it after submission overlaps it with th
 use. Velocity is worked out from how far the entity moved unless `AutoVelocity` is turned off — the
 alternative is every gameplay system that moves something also remembering to tell the audio.
 
+## Live update, minus the wire
+
+```csharp
+foreach (var control in engine.Control.Enumerate()) { … }   // what an editor draws
+engine.Control.TrySet("bus/Music/gain", -6f);               // what it does when a fader moves
+engine.Control.TryGet("bus/Voice/effect/1/Frequency", out var hz);
+```
+
+What makes a designer able to move a fader in an editor while the game runs is not a socket — a
+socket is an afternoon. It is that every knob has a stable name, that the name can be read as well as
+written, and that the whole set can be enumerated so the other end knows what to draw. All three are
+here; the transport belongs with the editor in Phase 6 and can be written against this without
+touching the mixer again.
+
+**Paths, not indices**, because an index moves the day somebody inserts a bus — which is the day a
+saved editor layout starts controlling the wrong thing. The one exception is an effect's position in
+its own chain, which *is* its identity: two reverbs on one bus differ only by where they sit.
+
+**Decibels at the boundary, linear underneath**, so an editor never has to know. A fader bottoms out
+at `MixControl.SilenceDb`, because genuine silence has no decibel value and an editor cannot render
+−∞.
+
+**It only reads and writes what already exists.** Nothing here creates a bus, adds an effect or
+changes a route: a live-update session adjusts a mix, and a mix whose shape can change underneath a
+running game is a different and much harder problem.
+
+Reaching an effect's knobs needs three hand-written switches per effect — `TrySetProperty`,
+`TryGetProperty` and `Properties` — because looking a property up by name is reflection, which
+ADR-002 forbids and which does not survive trimming. They sit together in each effect so a change to
+one makes the others obviously wrong, and a test walks every declared name through both accessors so
+drift is a failure rather than a surprise.
+
 ## Buffer-level testing
 
 `NullAudioBackend` is in this assembly rather than under `Platform/` because it is not a backend, it
@@ -622,7 +727,14 @@ multiply on the few hundred frames that are actually playing.
 
 ## Still to come
 
+**Interactive music.** A timeline with loop regions, transition regions, quantisation — "switch at
+the next bar" — sustain points, and beat and marker callbacks so gameplay can fire on the downbeat.
+The largest single thing FMOD has that this does not, and a phase rather than an afternoon.
+
 **A loudness meter.** EBU R128 / LUFS, which is what console certification measures against.
+
+**The live-update transport.** `MixControl` is the runtime half; what is missing is an editor at the
+other end of a socket, which is Phase 6.
 
 **Per-voice sends.** Sends are per bus, so every source on a bus shares one send amount. For a room's
 reverb that is right; for a reverb amount that tracks how far into the room each emitter is, it is
@@ -630,10 +742,6 @@ not.
 
 **Occlusion and reverb zones**, both of which want physics — the geometry between a source and the
 listener is a raycast, and there is nothing to cast against yet.
-
-**A surround panner.** Beyond two channels a sound is placed in the first two and the rest are
-silent. Silence in the surrounds is wrong in a way somebody will notice and describe; a quiet, wrong
-smear across five speakers is wrong in a way they will not.
 
 **A windowed-sinc resampler.** The rate conversion is linear interpolation, which aliases when
 pitching up hard. The content build resamples clips to the rate they will be played at, so the common

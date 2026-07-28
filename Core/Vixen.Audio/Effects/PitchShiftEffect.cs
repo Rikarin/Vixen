@@ -189,6 +189,32 @@ public sealed class PitchShiftEffect : IAudioEffect {
         }
     }
 
+    /// <inheritdoc />
+    public bool TryGetProperty(string name, out float value) {
+        switch (name) {
+            case "Semitones":
+                value = Semitones;
+                return true;
+
+            case "GrainSeconds":
+                value = GrainSeconds;
+                return true;
+
+            case "Mix":
+                value = Mix;
+                return true;
+
+            default:
+                value = 0f;
+                return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> Properties => Knobs;
+
+    static readonly string[] Knobs = ["Semitones", "GrainSeconds", "Mix"];
+
     /// <summary>Reads a tap, a fractional distance behind the write head.</summary>
     float Read(int channel, float behind, int channels) {
         var read = cursor - behind;

@@ -176,4 +176,46 @@ public sealed class PhaserEffect : IAudioEffect {
                 return false;
         }
     }
+
+    /// <inheritdoc />
+    public bool TryGetProperty(string name, out float value) {
+        switch (name) {
+            case "MinFrequency":
+                value = MinFrequency;
+                return true;
+
+            case "MaxFrequency":
+                value = MaxFrequency;
+                return true;
+
+            case "RateHz":
+                value = RateHz;
+                return true;
+
+            case "Feedback":
+                value = Feedback;
+                return true;
+
+            case "StereoSpread":
+                value = StereoSpread;
+                return true;
+
+            case "Wet":
+                value = Wet;
+                return true;
+
+            case "Dry":
+                value = Dry;
+                return true;
+
+            default:
+                value = 0f;
+                return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> Properties => Knobs;
+
+    static readonly string[] Knobs = ["MinFrequency", "MaxFrequency", "RateHz", "Feedback", "StereoSpread", "Wet", "Dry"];
 }

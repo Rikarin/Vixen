@@ -244,6 +244,28 @@ public sealed class ConvolutionReverbEffect : IAudioEffect {
         }
     }
 
+    /// <inheritdoc />
+    public bool TryGetProperty(string name, out float value) {
+        switch (name) {
+            case "Wet":
+                value = Wet;
+                return true;
+
+            case "Dry":
+                value = Dry;
+                return true;
+
+            default:
+                value = 0f;
+                return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> Properties => Knobs;
+
+    static readonly string[] Knobs = ["Wet", "Dry"];
+
     /// <summary>Convolves one partition's worth of input, and readies the next block of output.</summary>
     /// <remarks>
     ///     <para>

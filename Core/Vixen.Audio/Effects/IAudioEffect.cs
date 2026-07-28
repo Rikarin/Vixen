@@ -71,6 +71,29 @@ public interface IAudioEffect {
     ///     </para>
     /// </remarks>
     bool TrySetProperty(string name, float value) => false;
+
+    /// <summary>Reads one of the effect's knobs by name.</summary>
+    /// <param name="name">The property's own name, matched exactly.</param>
+    /// <param name="value">What it is worth.</param>
+    /// <returns>Whether the effect has such a property.</returns>
+    /// <remarks>
+    ///     The pair of <see cref="TrySetProperty" />, and needed for the same reason a fader can be
+    ///     read as well as moved: anything showing a mix — a live-update session, an overlay — has to
+    ///     start from what the values already are rather than from zero.
+    /// </remarks>
+    bool TryGetProperty(string name, out float value) {
+        value = 0f;
+        return false;
+    }
+
+    /// <summary>The knobs this effect will answer to, by name.</summary>
+    /// <remarks>
+    ///     <b>Declared beside the two accessors, deliberately.</b> The three have to agree, and the
+    ///     only thing that keeps hand-written switches in step is that they sit together where a
+    ///     change to one makes the others obviously wrong. A test walks this list through both
+    ///     accessors, so drift is a failure rather than a surprise.
+    /// </remarks>
+    IReadOnlyList<string> Properties => [];
 }
 
 /// <summary>An effect that listens to one signal while processing another.</summary>

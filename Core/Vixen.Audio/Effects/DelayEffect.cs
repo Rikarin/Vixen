@@ -177,4 +177,38 @@ public sealed class DelayEffect : IAudioEffect {
                 return false;
         }
     }
+
+    /// <inheritdoc />
+    public bool TryGetProperty(string name, out float value) {
+        switch (name) {
+            case "DelaySeconds":
+                value = DelaySeconds;
+                return true;
+
+            case "Feedback":
+                value = Feedback;
+                return true;
+
+            case "Wet":
+                value = Wet;
+                return true;
+
+            case "Dry":
+                value = Dry;
+                return true;
+
+            case "DampingHz":
+                value = DampingHz;
+                return true;
+
+            default:
+                value = 0f;
+                return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> Properties => Knobs;
+
+    static readonly string[] Knobs = ["DelaySeconds", "Feedback", "Wet", "Dry", "DampingHz"];
 }

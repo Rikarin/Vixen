@@ -62,6 +62,49 @@ public readonly record struct AudioEventVariant(AudioClip Clip) {
     public float PitchSemitones { get; init; }
 }
 
+/// <summary>Another event played alongside this one, a moment later.</summary>
+/// <param name="Sound">What to play.</param>
+/// <remarks>
+///     <para>
+///         <b>A gunshot is not one sound.</b> It is a mechanism, a report and a tail, each with its
+///         own takes, its own level and its own distance behaviour — the mechanism is quiet and
+///         carries ten metres, the report is loud and carries five hundred. One clip cannot be both,
+///         and three <c>Play</c> calls in gameplay put the layering in C# where the person who can
+///         hear it is not.
+///     </para>
+///     <para>
+///         <b>The layer is a whole event, not a variant.</b> So it has its own variants, its own
+///         instance limit and its own parameters, and it can be played on its own as well — a tail
+///         that a scripted moment fires directly is the same event the gunshot layers.
+///     </para>
+///     <para>
+///         <b>Cycles are impossible by construction</b>, which is why nothing checks for them: a
+///         layer holds an <see cref="AudioEvent" /> that already exists, so A can only layer B if B
+///         was built first, and B cannot then layer A.
+///     </para>
+/// </remarks>
+public sealed record AudioEventLayer(AudioEvent Sound) {
+    /// <summary>How long after the parent it starts.</summary>
+    /// <remarks>
+    ///     Usually a few tens of milliseconds, and it is most of what makes two sounds read as one
+    ///     event rather than as two. Zero plays it in the same call.
+    /// </remarks>
+    public float DelaySeconds { get; init; }
+
+    /// <summary>A level trim, on top of whatever the layer's own event says.</summary>
+    public float GainDb { get; init; }
+
+    /// <summary>A tuning trim, on top of whatever the layer's own event says.</summary>
+    public float PitchSemitones { get; init; }
+
+    /// <summary>How often it happens at all, from 0 to 1.</summary>
+    /// <remarks>
+    ///     A ricochet that follows one impact in four is the cheapest variety there is, and it costs
+    ///     one comparison. One is always.
+    /// </remarks>
+    public float Probability { get; init; } = 1f;
+}
+
 /// <summary>An event, with everything resolved: the clips are clips and the bus is an index.</summary>
 /// <remarks>
 ///     <para>
@@ -146,6 +189,14 @@ public sealed record AudioEventDescription {
     ///     caller sets the values through.
     /// </remarks>
     public AudioParameterSheet? Parameters { get; init; }
+
+    /// <summary>Other events played alongside this one, each a moment later.</summary>
+    /// <remarks>
+    ///     Played in addition to the variant, not instead of it. An event with layers and no variants
+    ///     of its own is the ordinary way to write a composite: the parent is a container that decides
+    ///     where the whole thing is, and every sound comes from a layer.
+    /// </remarks>
+    public AudioEventLayer[] Layers { get; init; } = [];
 
     /// <summary>Whether it is a thing in the world rather than a sound in the room.</summary>
     public bool IsSpatial { get; init; }

@@ -179,6 +179,24 @@ public sealed class SpectrumAnalyzerEffect : IAudioEffect {
         }
     }
 
+    /// <inheritdoc />
+    public bool TryGetProperty(string name, out float value) {
+        switch (name) {
+            case "Smoothing":
+                value = Smoothing;
+                return true;
+
+            default:
+                value = 0f;
+                return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> Properties => Knobs;
+
+    static readonly string[] Knobs = ["Smoothing"];
+
     void Analyse() {
         for (var i = 0; i < accumulator.Length; i++) {
             real[i] = accumulator[i] * window[i];

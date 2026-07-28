@@ -118,6 +118,12 @@ public static class Spatializer {
         // through 180° as they walk past it.
         var proximity = source.MinDistance > 0f ? Math.Clamp(distance / source.MinDistance, 0f, 1f) : 1f;
         var spread = Math.Clamp(Math.Max(source.Spread, 1f - proximity), 0f, 1f);
+
+        if (outputChannels > 2 && SpeakerLayout.IsKnown(outputChannels)) {
+            Surround(azimuth, spread, gain, outputChannels, gains);
+            return new SpatialResult(distance, attenuation, cone, doppler, cutoff, azimuth, elevation, speed);
+        }
+
         var pan = distance > MathUtil.ZeroTolerance ? Pan(listener, toSource / distance) : 0f;
 
         var angle = (pan + 1f) * (MathF.PI * 0.25f);
@@ -128,6 +134,114 @@ public static class Spatializer {
         gains[1] = right * gain;
 
         return new SpatialResult(distance, attenuation, cone, doppler, cutoff, azimuth, elevation, speed);
+    }
+
+    /// <summary>Places a sound on a ring of speakers.</summary>
+    /// <param name="azimuth">Which way round the listener it is, in degrees.</param>
+    /// <param name="spread">How dissolved it is, from a point at 0 to everywhere at 1.</param>
+    /// <param name="gain">What it is worth in total.</param>
+    /// <param name="channels">How many speakers there are.</param>
+    /// <param name="gains">Where the per-speaker gains go.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Pair-wise, between the two speakers the sound lies between.</b> Every other speaker
+    ///         gets nothing. Spreading a source across all of them instead — which is what a naive
+    ///         "gain by angle" does — makes a point source sound like a wash, because the ear locates
+    ///         a sound by the difference between what two speakers are doing and there is no
+    ///         difference left.
+    ///     </para>
+    ///     <para>
+    ///         <b>The stereo law is deliberately not this.</b> Two speakers are a pair to be balanced
+    ///         across; a ring is a set of directions. Run through here, a source at 90° to the right
+    ///         would land in the 300° gap behind a stereo pair and come out only slightly right of
+    ///         centre, where what anybody wants — and what every stereo mixer does — is hard right.
+    ///         They are different problems and they get different arithmetic.
+    ///     </para>
+    ///     <para>
+    ///         <b>Constant power, so crossing a speaker does not dip</b> — the same reason the stereo
+    ///         law uses a quarter-circle, applied to whichever pair the sound is between.
+    ///     </para>
+    /// </remarks>
+    static void Surround(float azimuth, float spread, float gain, int channels, Span<float> gains) {
+        var angles = SpeakerLayout.Angles(channels);
+        var lfe = SpeakerLayout.LowFrequencyChannel(channels);
+        gains[..channels].Clear();
+
+        // How loud each speaker would be if the sound were everywhere at once: constant power across
+        // the ones that are actually placed, which is what "spread" dissolves towards.
+        var placed = lfe >= 0 ? channels - 1 : channels;
+        var even = placed > 0 ? gain / MathF.Sqrt(placed) : 0f;
+
+        if (spread >= 1f) {
+            for (var channel = 0; channel < channels; channel++) {
+                if (channel != lfe) {
+                    gains[channel] = even;
+                }
+            }
+
+            return;
+        }
+
+        // The pair the sound lies between: the nearest speaker anticlockwise and the nearest
+        // clockwise. Found by walking, because a layout has at most eight entries and a sorted
+        // structure would cost more to keep than the walk costs to run.
+        var (before, after) = (-1, -1);
+        var (behind, ahead) = (float.MaxValue, float.MaxValue);
+
+        for (var channel = 0; channel < channels; channel++) {
+            if (channel == lfe) {
+                continue;
+            }
+
+            var difference = Wrap(angles[channel] - azimuth);
+
+            if (difference <= 0f && -difference < behind) {
+                behind = -difference;
+                before = channel;
+            }
+
+            if (difference >= 0f && difference < ahead) {
+                ahead = difference;
+                after = channel;
+            }
+        }
+
+        if (before < 0 || after < 0) {
+            return;
+        }
+
+        if (before == after) {
+            gains[before] = gain;
+        } else {
+            var span = behind + ahead;
+            var t = span > 0f ? behind / span : 0f;
+            var angle = t * (MathF.PI * 0.5f);
+            gains[before] = MathF.Cos(angle) * gain;
+            gains[after] = MathF.Sin(angle) * gain;
+        }
+
+        if (spread <= 0f) {
+            return;
+        }
+
+        // Towards the even spread rather than to it, so a source walking into its reference distance
+        // dissolves rather than switching.
+        for (var channel = 0; channel < channels; channel++) {
+            if (channel != lfe) {
+                gains[channel] = MathUtil.Lerp(gains[channel], even, spread);
+            }
+        }
+    }
+
+    /// <summary>An angle in degrees, brought into −180..180.</summary>
+    static float Wrap(float degrees) {
+        var wrapped = degrees % 360f;
+
+        return wrapped switch {
+            > 180f => wrapped - 360f,
+            < -180f => wrapped + 360f,
+            _ => wrapped
+        };
     }
 
     /// <summary>Where a sound is, as two angles in the listener's own frame.</summary>

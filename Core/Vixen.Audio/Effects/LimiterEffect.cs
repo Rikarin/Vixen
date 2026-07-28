@@ -175,6 +175,28 @@ public sealed class LimiterEffect : IAudioEffect {
         }
     }
 
+    /// <inheritdoc />
+    public bool TryGetProperty(string name, out float value) {
+        switch (name) {
+            case "CeilingDb":
+                value = CeilingDb;
+                return true;
+
+            case "ReleaseSeconds":
+                value = ReleaseSeconds;
+                return true;
+
+            default:
+                value = 0f;
+                return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> Properties => Knobs;
+
+    static readonly string[] Knobs = ["CeilingDb", "ReleaseSeconds"];
+
     /// <summary>Adds a sample to the sliding maximum and drops what it has made irrelevant.</summary>
     /// <remarks>
     ///     The monotonic deque: anything already in it that is no larger than the arriving value can

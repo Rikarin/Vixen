@@ -221,6 +221,44 @@ public sealed class GateEffect : ISidechainEffect {
         }
     }
 
+    /// <inheritdoc />
+    public bool TryGetProperty(string name, out float value) {
+        switch (name) {
+            case "ThresholdDb":
+                value = ThresholdDb;
+                return true;
+
+            case "KneeDb":
+                value = KneeDb;
+                return true;
+
+            case "RangeDb":
+                value = RangeDb;
+                return true;
+
+            case "AttackSeconds":
+                value = AttackSeconds;
+                return true;
+
+            case "HoldSeconds":
+                value = HoldSeconds;
+                return true;
+
+            case "ReleaseSeconds":
+                value = ReleaseSeconds;
+                return true;
+
+            default:
+                value = 0f;
+                return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> Properties => Knobs;
+
+    static readonly string[] Knobs = ["ThresholdDb", "KneeDb", "RangeDb", "AttackSeconds", "HoldSeconds", "ReleaseSeconds"];
+
     float Coefficient(float seconds) =>
         seconds <= 0f ? 0f : MathF.Exp(-1f / (MathF.Max(seconds, 1e-6f) * sampleRate));
 }

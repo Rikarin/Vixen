@@ -187,6 +187,44 @@ public sealed class CompressorEffect : ISidechainEffect {
         }
     }
 
+    /// <inheritdoc />
+    public bool TryGetProperty(string name, out float value) {
+        switch (name) {
+            case "ThresholdDb":
+                value = ThresholdDb;
+                return true;
+
+            case "Ratio":
+                value = Ratio;
+                return true;
+
+            case "KneeDb":
+                value = KneeDb;
+                return true;
+
+            case "AttackSeconds":
+                value = AttackSeconds;
+                return true;
+
+            case "ReleaseSeconds":
+                value = ReleaseSeconds;
+                return true;
+
+            case "MakeupDb":
+                value = MakeupDb;
+                return true;
+
+            default:
+                value = 0f;
+                return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> Properties => Knobs;
+
+    static readonly string[] Knobs = ["ThresholdDb", "Ratio", "KneeDb", "AttackSeconds", "ReleaseSeconds", "MakeupDb"];
+
     /// <summary>The one-pole coefficient for a time constant, at this sample rate.</summary>
     /// <remarks>
     ///     <c>exp(-1 / (t · fs))</c> — the standard form, which makes the time the point at which the

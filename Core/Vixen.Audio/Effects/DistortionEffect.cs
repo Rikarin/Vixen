@@ -116,6 +116,32 @@ public sealed class DistortionEffect : IAudioEffect {
         }
     }
 
+    /// <inheritdoc />
+    public bool TryGetProperty(string name, out float value) {
+        switch (name) {
+            case "DriveDb":
+                value = DriveDb;
+                return true;
+
+            case "OutputDb":
+                value = OutputDb;
+                return true;
+
+            case "Mix":
+                value = Mix;
+                return true;
+
+            default:
+                value = 0f;
+                return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> Properties => Knobs;
+
+    static readonly string[] Knobs = ["DriveDb", "OutputDb", "Mix"];
+
     /// <summary>Bends one sample.</summary>
     /// <param name="value">The sample, already driven.</param>
     /// <param name="curve">Which curve.</param>

@@ -126,4 +126,30 @@ public sealed class BitCrusherEffect : IAudioEffect {
                 return false;
         }
     }
+
+    /// <inheritdoc />
+    public bool TryGetProperty(string name, out float value) {
+        switch (name) {
+            case "Bits":
+                value = Bits;
+                return true;
+
+            case "Downsample":
+                value = Downsample;
+                return true;
+
+            case "Mix":
+                value = Mix;
+                return true;
+
+            default:
+                value = 0f;
+                return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> Properties => Knobs;
+
+    static readonly string[] Knobs = ["Bits", "Downsample", "Mix"];
 }

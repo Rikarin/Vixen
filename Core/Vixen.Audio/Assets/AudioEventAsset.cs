@@ -89,6 +89,50 @@ public sealed record AudioEventSpatialAsset {
     };
 }
 
+/// <summary>Another event played alongside this one, as a file declares it.</summary>
+/// <remarks>
+///     The layer is named rather than contained, because a tail is usually also played on its own —
+///     by a scripted moment, by a different weapon — and two copies of it would be two instance
+///     budgets that do not know about each other.
+/// </remarks>
+[DataContract("AudioEventLayer")]
+public sealed record AudioEventLayerAsset {
+    /// <summary>Which event, by name.</summary>
+    public string Event { get; init; } = string.Empty;
+
+    /// <summary>How long after the parent it starts.</summary>
+    public float DelaySeconds { get; init; }
+
+    /// <summary>A level trim, on top of whatever the layer's own event says.</summary>
+    public float GainDb { get; init; }
+
+    /// <summary>A tuning trim, on top of whatever the layer's own event says.</summary>
+    public float PitchSemitones { get; init; }
+
+    /// <summary>How often it happens at all, from 0 to 1.</summary>
+    public float Probability { get; init; } = 1f;
+}
+
+/// <summary>Where an event asset's layers are looked up.</summary>
+/// <remarks>
+///     <para>
+///         A layer names an event, and an event is a runtime object — so something has to turn the
+///         one into the other, and it is not the audio subsystem: which events exist is a question
+///         about the game's content table, which lives above this assembly.
+///     </para>
+///     <para>
+///         An interface rather than a delegate because it is usually one object — a game's whole
+///         event library — answering many questions, and a member of an interface is easier to find
+///         than the shape of a <c>Func</c> in a parameter list.
+///     </para>
+/// </remarks>
+public interface IAudioEventLibrary {
+    /// <summary>Finds an event by name.</summary>
+    /// <param name="name">What it is called.</param>
+    /// <returns>The event, or null if there is no such thing.</returns>
+    AudioEvent? Find(string name);
+}
+
 /// <summary>An event, as a file declares it.</summary>
 /// <remarks>
 ///     <para>
@@ -144,6 +188,10 @@ public sealed record AudioEventAsset {
 
     /// <summary>The named values its plays read, and what moving them does.</summary>
     public AudioParameterAsset[] Parameters { get; init; } = [];
+
+    /// <summary>Other events played alongside this one, each a moment later.</summary>
+    /// <remarks>Resolved through the <see cref="IAudioEventLibrary" /> the builder was given, if it was given one.</remarks>
+    public AudioEventLayerAsset[] Layers { get; init; } = [];
 
     /// <summary>How its plays sit in the world, or null for a sound in the room.</summary>
     /// <remarks>

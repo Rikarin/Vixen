@@ -115,6 +115,8 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     readonly FadeState[] fades;
     readonly float[] silence;
     readonly VoiceParameters voiceParameters;
+    readonly DeferredSpawns deferred = new(128);
+    MixControl? control;
     readonly int[] ranking;
     readonly int[] rankPriorities;
     readonly float[] rankAudibility;
@@ -296,6 +298,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     /// <summary>Resolves an event asset against this engine, ready to be played.</summary>
     /// <param name="asset">What to build.</param>
     /// <param name="problems">Everything that did not resolve. Empty is the good case.</param>
+    /// <param name="library">Where its layers are looked up, if it has any.</param>
     /// <returns>The event.</returns>
     /// <remarks>
     ///     The other half of the authoring layer, and the one gameplay touches: a mixer asset decides
@@ -303,8 +306,11 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     ///     report their problems rather than throwing them.
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="asset" /> is null.</exception>
-    public AudioEvent LoadEvent(AudioEventAsset asset, out IReadOnlyList<string> problems) =>
-        AudioEventBuilder.Build(this, asset, out problems);
+    public AudioEvent LoadEvent(
+        AudioEventAsset asset,
+        out IReadOnlyList<string> problems,
+        IAudioEventLibrary? library = null
+    ) => AudioEventBuilder.Build(this, asset, out problems, library);
 
     /// <summary>The limiter on the master, if <see cref="AudioEngineOptions.MasterLimiter" /> asked for one.</summary>
     /// <remarks>
@@ -610,6 +616,26 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
             ? voiceParameters.ValueOf(handle.Index, handle.Generation, parameter)
             : 0f;
 
+    /// <summary>Every knob in the mix, reachable by name — the runtime half of live update.</summary>
+    /// <remarks>
+    ///     Built on first use, because a game that never opens an editor session never needs it and a
+    ///     dedicated server certainly does not.
+    /// </remarks>
+    public MixControl Control => control ??= new(this);
+
+    /// <summary>How many layers are waiting on their delay.</summary>
+    public int PendingLayers => deferred.Count;
+
+    /// <summary>How many layers were never played because the pending table was full.</summary>
+    public long DroppedLayers => deferred.Dropped;
+
+    /// <summary>Holds a play until its delay has run out. Stepped by <see cref="Update(float)" />.</summary>
+    internal void Defer(AudioEvent sound, in AudioEventPlayback attributes, float seconds) =>
+        deferred.Schedule(sound, attributes, seconds);
+
+    /// <summary>Drops everything waiting on one event.</summary>
+    internal void CancelDeferred(AudioEvent sound) => deferred.Cancel(sound);
+
     /// <summary>How many voices may be heard at once, or zero if every voice is real.</summary>
     public int AudibleVoices => audibleVoices;
 
@@ -696,6 +722,11 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         // Before the collection sweep below, so a voice that ended this frame is stepped one last
         // time and then dropped, rather than being dropped and then stepped against a slot somebody
         // else has already taken.
+        // Before the parameters, so a layer that fired this frame has its sheet stepped in the same
+        // frame it started rather than one later — which for a layer whose whole life is fifty
+        // milliseconds is most of it.
+        deferred.Step(deltaSeconds);
+
         voiceParameters.Step(voices, deltaSeconds);
         Parameters?.Step(deltaSeconds);
 

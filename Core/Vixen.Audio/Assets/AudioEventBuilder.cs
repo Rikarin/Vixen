@@ -26,9 +26,19 @@ public static class AudioEventBuilder {
     /// <param name="engine">The engine the event will play through, and whose mixer names the buses.</param>
     /// <param name="asset">What to build.</param>
     /// <param name="problems">Everything that did not resolve, in the order it was found.</param>
+    /// <param name="library">
+    ///     Where its layers are looked up. Without one an asset that declares layers builds without
+    ///     them and says so, which is better than refusing to build at all — a gunshot that is only
+    ///     its report is still a gunshot.
+    /// </param>
     /// <returns>The event. Never null, even when nothing resolved — an event that plays nothing is quiet, not broken.</returns>
     /// <exception cref="ArgumentNullException">Either argument is null.</exception>
-    public static AudioEvent Build(AudioEngine engine, AudioEventAsset asset, out IReadOnlyList<string> problems) {
+    public static AudioEvent Build(
+        AudioEngine engine,
+        AudioEventAsset asset,
+        out IReadOnlyList<string> problems,
+        IAudioEventLibrary? library = null
+    ) {
         ArgumentNullException.ThrowIfNull(engine);
         ArgumentNullException.ThrowIfNull(asset);
 
@@ -75,9 +85,44 @@ public static class AudioEventBuilder {
             MaxInstances = asset.MaxInstances,
             Steal = asset.Steal,
             Parameters = BuildParameters(asset.Parameters),
+            Layers = BuildLayers(asset.Layers, library, name, found),
             IsSpatial = asset.Spatial is not null,
             Spatial = asset.Spatial?.ToSettings() ?? new()
         });
+    }
+
+    static AudioEventLayer[] BuildLayers(
+        AudioEventLayerAsset[] assets,
+        IAudioEventLibrary? library,
+        string name,
+        List<string> problems
+    ) {
+        if (assets.Length == 0) {
+            return [];
+        }
+
+        if (library is null) {
+            problems.Add($"Event '{name}' has {assets.Length} layer(s), and no event library to resolve them in.");
+            return [];
+        }
+
+        var layers = new List<AudioEventLayer>(assets.Length);
+
+        foreach (var layer in assets) {
+            if (library.Find(layer.Event) is not { } sound) {
+                problems.Add($"Event '{name}' layers '{layer.Event}', which does not exist. It was dropped.");
+                continue;
+            }
+
+            layers.Add(new(sound) {
+                DelaySeconds = layer.DelaySeconds,
+                GainDb = layer.GainDb,
+                PitchSemitones = layer.PitchSemitones,
+                Probability = layer.Probability
+            });
+        }
+
+        return [.. layers];
     }
 
     static AudioParameterSheet? BuildParameters(AudioParameterAsset[] assets) {
