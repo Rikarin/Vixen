@@ -1,101 +1,262 @@
 # Vixen.Ui.Controls.Advanced
 
-The three controls [docs/plan/09](../../docs/plan/09-ui-framework.md) § "Control library" calls "the
-ones that prove the framework": `DockingHost`, `TreeView` and `PropertyGrid`.
+The controls [docs/plan/09](../../docs/plan/09-ui-framework.md) § "Control library" calls "the ones
+that prove the framework": `DockingHost`, `TreeView`, `PropertyGrid`, `DataGrid`, `NodeCanvas`,
+`CodeEditor`, `Viewport`, `ColorPicker`, `CurveEditor`, `GradientEditor` and `Timeline`.
 
-`Vixen.Ui.Controls` is a set of widgets. These are three applications' worth of behaviour each, and
-between them they are the reason the framework has reparenting, inline styles and virtualisation at
-all — every one of those landed because one of these could not be written without it.
+`Vixen.Ui.Controls` is a set of widgets. These are an application's worth of behaviour each, and
+between them they are the reason the framework has reparenting, inline styles, virtualisation and
+custom drawing at all — every one of those landed because one of these could not be written without
+it.
 
-## DockingHost
+## What is in it
+
+| | |
+|---|---|
+| Shell | `DockingHost` — splitters, tab groups, float, drag-to-dock, layout that round-trips through YAML |
+| Data | `TreeView`, `DataGrid`, `PropertyGrid` |
+| Graphs | `NodeCanvas`, `CurveEditor`, `Timeline` |
+| Colour | `ColorPicker`, `GradientEditor` |
+| Text | `CodeEditor` |
+| 3D | `Viewport` |
+
+## Four decisions the whole set rests on
+
+**Model and view are kept apart, always.** `DockLayout` is what is saved; `NodeGraph`,
+`CodeBuffer`, `AnimationCurve` and `Gradient` are what is compiled, evaluated, diffed and checked
+in. None of them needs a document, a stylesheet or a font, so a shader graph can be validated on a
+build server that has no interface at all. Every structural change edits the model and the view
+follows, so what is on screen and what would be saved cannot drift.
+
+**Everything that repeats is a pool.** A tree's rows, a grid's rows *and its cells*, a code editor's
+lines and their coloured runs, a canvas's nodes, a timeline's headers: the elements are the ones on
+screen, rebound as the view moves. A hundred thousand rows is thirty elements; ten thousand nodes is
+a few dozen. ⚠ **The pools only ever grow** — removal is final in this framework, so a pool that
+shrank would have to create fresh elements the next time the view got taller.
+
+**What is not a box is drawn.** A slider's thumb was the base set's escape hatch; here it is most of
+the picture. Wires, curves, keyframes, the colour field, the gradient bar, the minimap and the axis
+gizmo are all `OnDraw`, because each of them is a position that is a multiplication rather than a
+layout, and because ten thousand of anything as elements is ten thousand style nodes for a picture
+with no text in it. ⚠ **The theme still owns every colour**, through custom properties the control
+reads out of the cascade.
+
+**Painting order is document order, and that is a design tool.** A selection has to be *under* the
+text and a caret *over* it, so `CodeEditor` puts three siblings either side of its lines. Wires have
+to be over the group boxes and under the nodes, so `NodeCanvas` puts a layer between them. Neither
+needs a z-index, because the tree already says what is on top.
+
+## The controls
+
+### DockingHost
 
 Splitters, tab groups, float, drag-to-dock with a preview, and a layout that round-trips through
 YAML — the exit criterion doc 14 names for Phase 4e.
 
-**Two things kept apart on purpose.** `DockLayout` is the arrangement: a tree of binary splits and
-tab groups that is saved, restored, reset to a preset and compared. `DockingHost` is the elements
-that show it. Every structural change edits the model and rebuilds the views from it, so what is on
-screen and what would be saved cannot drift.
-
 **A panel is created once and moved thereafter.** Before a rebuild every panel is reparented into a
 hidden holder and afterwards into its group, so a panel torn out of one group and dropped into
 another keeps its scroll position, its selection and whatever the user had half-typed. That is what
-`UiDocument.Reparent` exists for, and a host that rebuilt its panels would pass every structural test
-in the suite while losing the user's work.
+`UiDocument.Reparent` exists for.
 
-**A splitter drag rebuilds nothing.** It writes `flex-grow` on two elements — the halves are flex
-items and the ratio is their grow factor — so moving one is a restyle of two elements rather than a
-tear-down at sixty hertz.
+**A splitter drag rebuilds nothing.** It writes `flex-grow` on two elements, so moving one is a
+restyle of two rather than a tear-down at sixty hertz.
 
-Floating groups float *within the document*. Doc 11 asks the editor for "undock to a separate OS
-window"; a second window is a second surface, swapchain and input queue, which belong to
-`Vixen.Platform` and the app head. `DockFloat` is the record such a head would be handed.
+Floating groups float *within the document*. A second OS window is a second surface, swapchain and
+input queue, which belong to `Vixen.Platform` and the app head; `DockFloat` is the record such a
+head would be handed.
 
-## TreeView
+### TreeView
 
-Virtualised rows, lazy children, multi-select, rename in place, and drag-reorder with a three-zone
-drop indicator.
+Virtualised rows, lazy children, multi-select, rename in place, drag-reorder with a three-zone drop
+indicator. Rows are absolutely positioned at a fixed height, because virtualisation has to know
+where row 40 000 is without having measured the 39 999 above it.
 
-**A hundred thousand nodes is a hundred thousand `TreeNode`s and about thirty `TreeRow`s.** The rows
-are a pool the size of the viewport, rebound as the view scrolls — the row that leaves the top is the
-row that appears at the bottom, with a different node in it.
+### DataGrid
 
-Rows are absolutely positioned at a fixed height, because virtualisation has to know where row 40 000
-is without having measured the 39 999 above it. Variable-height rows need a running-sum index and are
-a different control.
+**Virtualised in both directions**, which is the half a tree does not have. A hundred columns of a
+hundred thousand rows is ten million cells; what exists is the twenty-odd columns and thirty-odd
+rows on screen, and neither pool is rebuilt when the other scrolls.
 
-The three drop zones — the top quarter, the middle half, the bottom quarter of a row — are what let a
-drag say "beside this" rather than only "inside this", which is most of what reordering a hierarchy
-is.
+⚠ **A frozen cell is positioned against the scroll offset, not against the content.** The rows are
+inside the scroller and the header is outside it, so the same visual result needs opposite signs —
+and that one line is the entire freezing mechanism. There is no second scroller and no second tree.
 
-## PropertyGrid
+⚠ **Frozen columns are the leading *n*, not a flag on a column.** Freezing an arbitrary subset raises
+a question with no good answer — what happens when a frozen column is dragged to the middle — and
+every grid that offers it ends up reordering columns behind the user's back.
+
+⚠ **Sorting and grouping are a view, never a reorder of the items.** The list belongs to the caller,
+who is very likely iterating it elsewhere. Through LINQ rather than `List.Sort`, because the
+ordering has to be stable: two rows that compare equal must keep their order, or "sort by name, then
+by level" stops being a two-key sort.
+
+### PropertyGrid
 
 Editors generated from `Vixen.Core.Reflection` descriptors, several objects at once, mixed-value
-states, reset-to-default and search.
+states, reset-to-default and search. Generated rather than reflective, so it reads and writes
+arbitrary members after trimming and on iOS. Where the targets disagree the editor says so, and
+writing into it sets every one of them.
 
-**Generated, not reflective.** A `MemberDescriptor`'s accessors are lambdas over a cast, so this
-reads and writes arbitrary members after trimming and on iOS. An inspector built on
-`PropertyInfo.GetValue` cannot.
+### NodeCanvas
 
-**Where the targets disagree, the editor says so** — an indeterminate checkbox, an empty field with
-an em dash for a placeholder — and writing into it sets every one of them. Showing the first object's
-value as though it were the answer is the bug this exists to avoid.
+Infinite pan and zoom, bezier wires, marquee select, snapping, groups and a minimap.
 
-The type decides the editor and the presentation refines it: a `float` is a numeric field, a `float`
-with both ends of a range declared is a slider. Anything with no editor is shown read-only rather
-than omitted.
+⚠ **Zoom is arithmetic, not a transform.** Nothing in `Vixen.Ui` scales a subtree, so the canvas
+converts graph coordinates itself and writes the answer as a position and a size — and writes the
+node's `font-size` with it, so that everything the theme expresses in `em` scales too. One number
+carries the whole scale.
+
+⚠ **A wire's endpoint is arithmetic too**, from the node's rectangle and the port's index rather
+than from a laid-out port's box. The node at the far end of a wire is usually culled and has no
+elements at all, so an endpoint read from layout would collapse to the origin exactly when the wire
+left the viewport.
+
+⚠ **`NodeGraph` refuses a cycle.** A shader graph is evaluated by walking back from the outputs, and
+a cycle is not a graph with a mistake in it but a walk that does not terminate. The moment of
+connection is the only place the user can be told which wire was the problem.
+
+### CodeEditor
+
+Virtualised lines, pluggable highlighting, line numbers, indentation folding, a diagnostics gutter
+and an autocomplete popup.
+
+**Monospace by construction.** A column becomes an x by multiplying, which is what makes hit
+testing, the caret, the selection and the scroll width arithmetic. The character cell is *measured*
+from a shaped glyph in whatever face the theme chose, rather than declared, so it agrees with the
+picture by construction.
+
+⚠ **Highlighting state is cached per line and invalidated from the edit downwards.** A block comment
+opened on line 3 changes what line 4 000 is, so the state has to be carried forward — and
+recomputing the whole file per keystroke is what makes a highlighter feel slow.
+
+⚠ **Folding is lines missing from the row list**, so virtualisation, the caret's row and the scroll
+range all work without knowing that folding exists.
+
+`ICodeTokenizer` is where a `Vixen.Core.Syntax`-backed highlighter plugs in. It is not the default,
+because a control assembly that referenced a parser would drag one language's grammar into every
+application that wanted a text box with colours in it — and because an editor has to colour a file
+that does not parse, which is most of them most of the time somebody is looking at one.
+
+### Viewport
+
+Three jobs, and none of them is drawing a scene: *where and how big* in render pixels, *when that
+changed* — which is when a render target has to be recreated — and the input that happens inside it,
+in the coordinates a camera controller wants.
+
+⚠ **The size is in render pixels, not layout pixels.** A viewport that handed a renderer its layout
+size would produce a soft image on every scaled display and a sharp one on the developer's.
+
+⚠ **Capture does not lock the pointer** and cannot: a pointer lock is a platform request, and this
+assembly has no platform. `PointerLockRequested` is what an app head answers.
+
+### ColorPicker
+
+An HSV or OkLCh field, a hue band, an alpha band over a chequerboard, a hexadecimal field, a
+palette, an eyedropper and an HDR intensity.
+
+⚠ **The model is the source of truth, not the RGB.** Grey has no hue and black has no saturation, so
+a picker that recomputed its axes from the colour would lose which hue the user was on the moment
+they dragged the value to nothing — and snap back to red when they dragged it out again. Every
+picker that has had that bug has had it for that reason.
+
+**HDR is a multiplier beside a colour, not a colour with big numbers in it.** An artist picks a hue
+and then says how bright the light is; keeping the two apart means changing the intensity does not
+move the picker and the chromaticity survives a round trip through a value of forty.
+
+⚠ **The eyedropper cannot read the screen and does not pretend to.** Sampling a pixel needs a screen
+capture permission on macOS and a compositor protocol on Wayland. `EyedropperRequested` asks;
+`Pick` answers.
+
+### CurveEditor
+
+Cubic Hermite between keys, five tangent modes, presets, a pannable graph and a per-pixel-column
+sampled curve.
+
+**Tangents are slopes, not control points**, so a key dragged sideways keeps the shape either side.
+⚠ **Outside the first and last key the curve holds rather than extrapolating** — a cubic run past
+its last key reaches infinity within a second, and an animation sampled one frame past its end would
+send whatever it drives into the next county.
+
+⚠ **The value axis points up.** It is the one place in an interface where the mathematical
+convention wins, because a graph with its value axis upside down is unreadable.
+
+### GradientEditor
+
+Two rails of stops, a sampled bar, three interpolation spaces and a picker beside the selection.
+
+⚠ **Colour and alpha are separate lists.** A particle that fades out at the end has one alpha stop;
+sharing one list would mean duplicating every colour stop to carry the alpha. Every tool that tried
+the single list ended up here.
+
+⚠ **Three spaces because there are three right answers.** sRGB is what the designer's tool showed
+them, linear is what light does, Oklab is what looks like the fade they drew — and they disagree
+visibly, so a gradient that did not record which one it meant could not be reproduced.
+
+### Timeline
+
+Tracks, keyframes, a curve trace, a playhead, a 1-2-5 ruler, frame snapping, drag and marquee.
+
+⚠ **Time and pixels are related by one number.** `PixelsPerSecond` is the zoom and `TimeStart` is
+the pan; everything goes through the two, because a timeline that also kept a visible range would
+have three numbers that could disagree.
+
+⚠ **Snapping is to frames, not to a grid.** An animation plays back at a frame rate and a key
+between two frames plays on one of them anyway, so a pixel grid would put keys where no frame is.
 
 ## What the framework grew to make these possible
 
-- **`UiDocument.Reparent`** — moving an element and its subtree to a different parent. The style
-  slots are rebuilt under the new parent (slot order is depth order, and three passes read it that
-  way); the elements, their handlers, their children and their layout nodes are untouched.
-- **`UiElement.SetStyle`** — declarations written on an element. A splitter at 37% and a virtualised
-  row at y = 880 000 are lengths no stylesheet was given. The store replaces a block in place when
-  the set of properties has not changed, so a drag does not allocate per frame.
+- **`UiDocument.Reparent`** — moving an element and its subtree to a different parent, rebuilding
+  the style slots under the new parent and touching nothing else.
+- **`UiElement.SetStyle`** — declarations written on an element, for the lengths no stylesheet was
+  given. The store replaces a block in place when the set of properties has not changed, so a drag
+  does not allocate per frame.
+- **`WheelEvent.Modifiers`** — because Shift-wheel and Ctrl-wheel mean something in every canvas,
+  graph and timeline, and a control that had to ask a keyboard what was held *now* would get the
+  wrong answer for any event it dealt with a frame later.
 
-## Two flexbox traps worth knowing
+## Four flexbox traps, all silent
 
-Both cost an afternoon here and both are silent:
+Each of these cost an afternoon and none of them shows up as an error:
 
-- **A flex item's base size is its content**, so a `ScrollView` that is meant to fill its parent needs
+- **A flex item's base size is its content**, so a `ScrollView` meant to fill its parent needs
   `flex-basis: 0px` as well as a `flex-grow`. Without it the viewport grows to the height of
-  everything inside it, nothing ever overflows, the scroll range is zero — and a virtualiser realises
+  everything inside it, nothing overflows, the scroll range is zero — and a virtualiser realises
   every row there is. The tree looks right and the process runs out of memory.
-- **A minimum size is applied before the free space is shared out**, so a dock group with
+- **This layout engine takes Yoga's `flex-shrink` default of zero, not CSS's of one.** A control
+  whose content is wider than its parent therefore grows straight out of the window unless it says
+  `flex-shrink: 1`. Measured: a `DataGrid` of two hundred columns made itself twenty-four thousand
+  pixels wide, which switched its own column virtualiser off without saying so.
+- **`min-width` is the same trap on the other axis.** A viewport containing a two-thousand-character
+  line is stretched to two thousand characters wide unless something says `min-width: 0px`.
+- **A minimum size is applied before free space is shared out**, so a dock group with
   `min-width: 48px` gets 48 pixels *plus* its share of the remainder, and a splitter saved at 25%
   comes back at 28%. What keeps a half from being dragged to nothing is `DockSplitNode`'s ratio
   clamp, which guards without distorting.
 
 ## Known gaps
 
+Said out loud rather than left to be discovered:
+
 - **Rows and scroll ranges are one layout pass behind a resize.** `Refresh()` is the answer today;
-  the real fix is a "layout finished" callback on `UiDocument`, which `ScrollView` wants for the same
-  reason.
+  the real fix is a "layout finished" callback on `UiDocument`, which `ScrollView`, `TreeView`,
+  `DataGrid`, `CodeEditor`, `NodeCanvas` and `Viewport` all want for the same reason.
+- **No undo, anywhere.** An undo stack inside a text control can only undo typing, and every
+  application that has one wants it to cover more. `CodeBuffer.Changed`, `NodeGraph.Changed`,
+  `AnimationCurve.Changed` and `Gradient.Changed` are the seams such a stack subscribes to.
+- **`Viewport` draws a placeholder.** The draw list has no texture command, so a renderer
+  composites over the interface until it does. Same gap as `Image`.
+- **`CodeEditor` does not wrap and has no caret blink.** Nothing in the framework wraps a line —
+  `TextRun` says so — and blinking needs a host tick, which `Tooltip` and `ToastHost` also want.
+- **`OkLch.ToSrgb` clamps per channel**, which shifts the hue rather than reducing the chroma. Real
+  gamut mapping walks the chroma down until the colour fits; `IsInGamut` is how a picker can say so
+  meanwhile.
 - **`StyleTree.AppendChild` is O(children) per append**, so an element with tens of thousands of
-  children is quadratic. Virtualisation keeps every control here well clear of it; a `DataGrid` with
-  frozen columns may not be.
-- **Nested struct members are shown read-only.** The descriptor's accessors pass values as `object`,
-  so editing one would edit a box nothing holds. Closing it needs `ref` accessors.
-- **`DataGrid`, `NodeCanvas`, `Timeline`, `CurveEditor`, `ColorPicker`, `GradientEditor`, `Viewport`
-  and `CodeEditor`** are the rest of doc 09's advanced table and belong to Phase 6.
+  children is quadratic. Every control here virtualises well clear of it, which is not the same as
+  the problem being fixed.
+- **Nested struct members are shown read-only in `PropertyGrid`.** The descriptor's accessors pass
+  values as `object`, so editing one would edit a box nothing holds. Closing it needs `ref`
+  accessors.
+- **`Canvas2D` is not here.** It is doc 09's P2 with no editor consumer; see
+  `Samples/06-CanvasStress`.
+
+Licensed under Apache-2.0.

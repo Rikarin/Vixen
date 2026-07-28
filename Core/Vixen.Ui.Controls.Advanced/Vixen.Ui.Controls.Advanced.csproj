@@ -5,10 +5,12 @@
         <RootNamespace>Vixen.Ui.Controls.Advanced</RootNamespace>
         <Description>
             The controls that prove the framework rather than furnish it: a docking host with
-            splitters, tab groups and a layout that round-trips through serialisation; a virtualised
-            tree; and a property grid generated from type descriptors.
+            splitters, tab groups and a serialisable layout; a virtualised tree and a data grid
+            virtualised in both directions; a property grid generated from type descriptors; a node
+            canvas, a code editor, a curve editor, a timeline, a colour picker, a gradient editor
+            and a viewport.
         </Description>
-        <PackageTags>ui;controls;docking;treeview;property-grid;vixen</PackageTags>
+        <PackageTags>ui;controls;docking;treeview;datagrid;property-grid;node-graph;code-editor;timeline;color-picker;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 
