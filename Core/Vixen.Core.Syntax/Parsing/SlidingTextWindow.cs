@@ -29,6 +29,24 @@ sealed class SlidingTextWindow(string text) {
 
     public void Advance(int count = 1) => Position += count;
 
+    /// <summary>Moves back to a position already passed, undoing a scan that turned out not to be one.</summary>
+    /// <remarks>
+    ///     A lexer that can only go forward has to decide what a construct is from its first
+    ///     character. This is for the cases where it cannot — where the scan itself is the test —
+    ///     and the characters have to go back to being whatever they were before it ran.
+    /// </remarks>
+    public void Rewind(int position) {
+        if (position > Position) {
+            throw new ArgumentOutOfRangeException(
+                nameof(position),
+                position,
+                $"A rewind cannot move forward: the window is already at {Position}."
+            );
+        }
+
+        Position = position;
+    }
+
     /// <summary>Consumes <paramref name="expected" /> when it is the current character.</summary>
     public bool TryAdvance(char expected) {
         if (Current != expected) {

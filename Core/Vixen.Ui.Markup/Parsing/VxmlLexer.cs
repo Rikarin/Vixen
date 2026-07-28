@@ -393,17 +393,35 @@ sealed class VxmlLexer {
         return AtWord(name, 1);
     }
 
+    /// <summary>
+    ///     <c>@</c> and the expression it interpolates.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The scan is speculative, and a failed one has to be undone.</b> An <c>@(</c> the
+    ///     file never closes runs to the end looking for its <c>)</c> — and dropping the characters
+    ///     it walked over is a tree that no longer reproduces its file, which is exactly what
+    ///     <c>@(abc</c> used to do to everything after the <c>@</c>. Rewinding hands them back to
+    ///     content, so an unclosed paren costs the author the interpolation and nothing else: the
+    ///     <c>&lt;/div&gt;</c> after it is still a close tag.
+    /// </remarks>
     void LexInterpolation(List<LexedToken> tokens) {
         var at = window.Position;
         Emit(tokens, VxmlTokenKind.At, 1);
 
         var start = window.Position;
-        if (!ScanExpression()) {
-            Report(MarkupDiagnostics.ExpectedExpression, at, at + 1);
+
+        if (ScanExpression()) {
+            Add(tokens, VxmlTokenKind.Expression, start);
             return;
         }
 
-        Add(tokens, VxmlTokenKind.Expression, start);
+        if (window.Position > start) {
+            Report(MarkupDiagnostics.UnbalancedDelimiter, start, window.Position, "(");
+            window.Rewind(start);
+            return;
+        }
+
+        Report(MarkupDiagnostics.ExpectedExpression, at, at + 1);
     }
 
     /// <summary><c>(</c> condition <c>)</c>, with <c>var</c> <c>i</c> <c>in</c> in front for an <c>@for</c>.</summary>
@@ -626,6 +644,11 @@ sealed class VxmlLexer {
     ///     also why <c>@a + b</c> interpolates only <c>a</c>: an operator ends the expression, and
     ///     the author who meant otherwise writes <c>@(a + b)</c>.
     /// </remarks>
+    /// <returns>
+    ///     Whether one was found. ⚠ A <c>false</c> does not mean nothing was consumed — an
+    ///     unbalanced <c>(</c> is only known to be one at the end of the file — so the caller has to
+    ///     rewind rather than assume the window stayed put.
+    /// </returns>
     bool ScanExpression() {
         if (window.Current == '(') {
             return ScanBalanced('(', ')');
