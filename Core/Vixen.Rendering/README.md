@@ -332,20 +332,18 @@ faded against the sky over the probe's own blend distance. `ReflectionProbeSelec
 applies — priority, then weight, then volume, so a cupboard inside a room wins inside the cupboard —
 and it decides it from positions alone, which is why it needs no device to test.
 
-⚠ A probe is applied per *group* rather than per object. This used to say that per-object selection
-needed a descriptor set per probe bound per draw, and that the per-draw set being owned whole by
-`ForwardLightingRenderFeature` was the obstacle. Both halves were wrong. A set per probe bound per
-draw is a set per object in all but name — the cost the four-set convention exists to refuse — and the
-right shape needs nothing from that feature: an **array of probe cubes** bound once, and an index in
-the per-object block, which already exists, is already written per object and is already bound with a
-dynamic offset. A probe costs an `int` and binds nothing.
+**A probe is chosen per object, and it costs an `int`.** The cubes are one binding with a count, bound
+for the frame; the volumes are an array beside them in the per-frame block; and
+`ForwardLightingRenderFeature` writes the index and the blend weight into the per-object block it
+already fills — in the twelve bytes of padding std140 leaves after the light count, so the block is the
+size it always was. Nothing extra is bound per draw.
 
-What actually blocked it was the compiler, and it did so quietly. Raven put an array of textures
-*inside the uniform block* — an opaque type in a `Block`-decorated struct, which `glslc` rejects
-outright and which SPIR-V accepts from the validator and from no driver. `ArrayTypeSymbol` reported no
-resource kind, so an array of textures fell through to the same arm as an array of floats. Fixed, with
-the emitted GLSL now held against `glslc`'s own rule. What remains is `ForwardPlus.rvn` taking an array
-and a feature writing the index.
+This section used to say per-object selection needed a descriptor set per probe bound per draw, and
+that `ForwardLightingRenderFeature` owning the per-draw set was the obstacle. Both halves were wrong.
+A set per probe bound per draw is a set per object in all but name — the cost the four-set convention
+exists to refuse — and the real obstacle was the compiler: Raven folded an array of textures *into the
+uniform block*, an opaque type in a `Block`-decorated struct, which `glslc` rejects outright and which
+`spirv-val` accepts and no driver would.
 
 ## Area lights
 
@@ -636,6 +634,33 @@ never links a parser — asserted by round-tripping a document through `Serializ
 same frame out the far side.
 
 ## Forward+
+
+### The pass says which set each binding is in
+
+It did not, and everything it declared therefore landed in set 2 — the material's — including the
+sixteen-entry light list, the camera, the shadow atlas and the scene's environment. That is not a
+tidiness complaint. `ForwardLightingRenderFeature` writes the per-object block and binds it at **set
+3**, so the shader and the feature that fills it disagreed about which set it was in, and nothing
+anywhere said so: a marker nobody wrote is a default nobody chose.
+
+| Set | Holds | Because |
+|---|---|---|
+| 0 per-frame | environment, probes, shadow atlas, the sun, the light and cluster buffers | one scene, bound once |
+| 1 per-view | `viewProjection`, `viewPosition`, `view` | the block every shader shares — a texture or a buffer here would make two shaders' set 1 incompatible and the shared set unbindable |
+| 2 per-material | whatever the composed surface declares | 1888 bytes to **32**, which is the measure of what was wrong |
+| 3 per-draw | the light list, its count, the probe index and weight | what `ForwardLightingRenderFeature` was writing all along |
+
+`world` became a **push constant**, because that is what `TransformRenderFeature` already does with
+it — and it leaves the per-draw block with exactly one owner, where a block holding both a transform
+and a light list needs two features to agree on its layout. `worldViewProjection` went with it: it was
+world × the view's matrix, computed per object on the CPU and uploaded per object, where the vertex
+stage can multiply two matrices it already has.
+
+The per-draw block's declaration order is not a style choice either. std140 starts an array of
+structures on a sixteen-byte boundary, so the count and the two probe fields fill exactly the header
+`ForwardLightingRenderFeature.HeaderSize` was already writing — and `ForwardPlusLayoutTests` holds all
+four offsets against the checked-in reflection, so the shader and the feature cannot drift apart again
+without a test saying so.
 
 The shader half — `Library/Pipeline/ClusterCulling.rvn` binning lights into a froxel grid, and
 `ForwardPlus.rvn`'s `UseClusteredLights` permutation swapping its uniform-array loop for the cluster

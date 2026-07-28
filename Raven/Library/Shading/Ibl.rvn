@@ -162,3 +162,23 @@ struct ProbeBox {
     /// Where the cubemap was captured from, which is what the correction re-aims away from.
     var center: float3
 }
+
+/// One probe of a bound set: its volume, and how far into its cube the roughest reflection reaches.
+///
+/// A struct so that a pass can hold an *array* of them beside an array of cubes and index both with
+/// one number. Separate from `ProbeBox` because the box is the geometry a correction needs and this
+/// is everything else about the probe — a pass that only corrects a direction should not have to
+/// carry a mip count to do it.
+struct ReflectionProbeVolume {
+    var box: ProbeBox
+
+    /// The radius of a spherical probe, or zero for the box `box` describes.
+    ///
+    /// A branch rather than a permutation: it is the same binding either way, and the value is
+    /// uniform across every fragment of a draw — so it costs a coherent branch, where a permutation
+    /// would cost a second variant of the whole pass.
+    var radius: float
+
+    /// How many mips the capture has, which is what turns a roughness into a level.
+    var mipCount: float
+}

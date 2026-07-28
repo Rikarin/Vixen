@@ -91,20 +91,36 @@ public sealed class ReflectionProbe {
         return BlendDistance <= 0f ? 1f : Math.Clamp(inside / BlendDistance, 0f, 1f);
     }
 
-    /// <summary>Writes this probe into the parameters a pass reads.</summary>
-    /// <param name="parameters">Where the values go.</param>
-    /// <param name="weight">How much of it shows, from <see cref="WeightAt" />.</param>
+    /// <summary>Writes this probe into one slot of the set a pass has bound.</summary>
+    /// <param name="parameters">Where the values go — the frame's, since the array is per frame.</param>
+    /// <param name="index">Which slot of <c>probes</c> this probe occupies.</param>
     /// <param name="shaderName">The pass whose keys to write.</param>
-    public void Apply(ParameterCollection parameters, float weight, string shaderName = "ForwardPlus") {
+    /// <remarks>
+    ///     <para>
+    ///         A slot rather than "the probe", which is what makes per-object selection possible: the
+    ///         cubes are one binding with a count, the volumes are an array beside them in the
+    ///         per-frame block, and an object picks both with one index. What used to be here wrote a
+    ///         single probe's values into the material's block, so every object drawn with that
+    ///         material got the same probe whatever room it was in.
+    ///     </para>
+    ///     <para>
+    ///         The weight is not written here any more. It is a function of where the <em>object</em>
+    ///         is, so it belongs in the per-object block — see
+    ///         <see cref="Features.ForwardLightingRenderFeature" />, which is what fills that.
+    ///     </para>
+    /// </remarks>
+    public void Apply(ParameterCollection parameters, int index, string shaderName = "ForwardPlus") {
         ArgumentNullException.ThrowIfNull(parameters);
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
         ArgumentException.ThrowIfNullOrEmpty(shaderName);
 
-        parameters.Set(ParameterKeys.New<float>($"{shaderName}.probeWeight"), Math.Clamp(weight, 0f, 1f));
-        parameters.Set(ParameterKeys.New<float>($"{shaderName}.probeMipCount"), MipCount);
-        parameters.Set(ParameterKeys.New<float>($"{shaderName}.probeRadius"), Radius);
-        parameters.Set(ParameterKeys.New<Vector3>($"{shaderName}.probeBox.minimum"), Bounds.Minimum);
-        parameters.Set(ParameterKeys.New<Vector3>($"{shaderName}.probeBox.maximum"), Bounds.Maximum);
-        parameters.Set(ParameterKeys.New<Vector3>($"{shaderName}.probeBox.center"), CapturePosition);
+        var slot = $"{shaderName}.probeVolumes[{index.ToString(System.Globalization.CultureInfo.InvariantCulture)}]";
+
+        parameters.Set(ParameterKeys.New<float>($"{slot}.mipCount"), MipCount);
+        parameters.Set(ParameterKeys.New<float>($"{slot}.radius"), Radius);
+        parameters.Set(ParameterKeys.New<Vector3>($"{slot}.box.minimum"), Bounds.Minimum);
+        parameters.Set(ParameterKeys.New<Vector3>($"{slot}.box.maximum"), Bounds.Maximum);
+        parameters.Set(ParameterKeys.New<Vector3>($"{slot}.box.center"), CapturePosition);
     }
 
     /// <summary>How far inside the box a point is, or a negative number when it is outside.</summary>
@@ -129,24 +145,18 @@ public sealed class ReflectionProbe {
 ///         is decidable without a device, a frame or a descriptor set.
 ///     </para>
 ///     <para>
-///         ⚠ <strong>What is not here is the per-object binding</strong>, and what it needs is not
-///         what this used to say. A descriptor set per probe bound per draw is the shape to avoid,
-///         not the shape to build: it is a set per object in all but name, which is the cost the
-///         four-set convention exists to refuse. The right shape is an <em>array</em> of probe cubes
-///         bound once and an index in the per-object block — which is a block that already exists,
-///         already written per object, already bound with a dynamic offset. A probe then costs an
-///         <c>int</c>, and nothing extra is bound anywhere.
+///         <strong>Selection is per object, and it costs an <c>int</c>.</strong> The cubes are one
+///         binding with a count, bound for the frame; the volumes are an array beside them in the
+///         per-frame block; and an object picks both with an index that
+///         <see cref="Features.ForwardLightingRenderFeature" /> writes into the per-object block it
+///         already fills. Nothing extra is bound per draw.
 ///     </para>
 ///     <para>
-///         That was blocked on the compiler rather than on the renderer, and silently: Raven put an
-///         array of textures <em>inside the uniform block</em>, which no backend can express and both
-///         emitted anyway. Fixed — see <c>ArrayTypeSymbol.ResourceKind</c> — so
-///         <c>var probes: TextureCube[N]</c> is now one binding with a count. What remains is the
-///         work in <c>ForwardPlus.rvn</c> and a feature to write the index.
-///     </para>
-///     <para>
-///         Until then a host applies the probe a group of objects shares — a room, a corridor — which
-///         is how probes are authored anyway.
+///         What this used to say was that per-object selection needed a descriptor set per probe
+///         bound per draw. That is the shape to avoid rather than the shape to build — a set per
+///         object in all but name — and the obstacle was never the renderer. It was the compiler:
+///         Raven folded an array of textures into the uniform block, which no backend can express
+///         and both emitted anyway.
 ///     </para>
 /// </remarks>
 public sealed class ReflectionProbeSelector {
