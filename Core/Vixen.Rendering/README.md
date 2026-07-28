@@ -700,8 +700,13 @@ Instance batching by locality: an instanced batch is culled as one object, so wh
 caller's decision and there is nothing here to help make it.
 
 The shadow renderers still take a light direction and a camera from a host rather than from the
-scene, and nothing yet resolves a compositor by *address* — the binary form is proven, the
-`AssetManager` lookup around it is not wired up here.
+scene.
+
+A compositor **does** resolve by address: `Vixen.Assets.Tests.CompositorContentTests` writes one into
+a bundle, asks for it by address and builds a running frame from what comes back. It is asserted
+there rather than here because this assembly does not reference the content system and should not —
+which is why the claim stayed open so long. Nothing was missing; nothing had put the two halves in
+one room.
 
 A node's bindings are set in code, not in the compositor document. A binding index is a shader's
 decision and a sampler is a device handle, and the asset model can express neither — so a compositor

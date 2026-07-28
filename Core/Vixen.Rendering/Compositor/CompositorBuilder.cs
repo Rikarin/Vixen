@@ -184,6 +184,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
             PunctualShadowAsset punctual => Punctual(punctual),
             FullScreenAsset post => FullScreen(post),
             BloomAsset bloom => Bloom(bloom),
+            ComputeAsset compute => Compute(compute),
             _ => throw new CompositorBindingException(
                 declared.Name,
                 "a node kind",
@@ -343,6 +344,37 @@ public sealed class CompositorBuilder(RenderSystem system) {
 
         foreach (var read in declared.BufferReads) {
             node.BufferReads.Add(read);
+        }
+
+        Bind(node.Descriptors, declared.Bindings);
+        return node;
+    }
+
+    ComputeRenderer Compute(ComputeAsset declared) {
+        var node = new ComputeRenderer {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            ShaderName = declared.Shader,
+            Groups = new(declared.GroupsX, declared.GroupsY, declared.GroupsZ),
+            Pipelines = Device is null ? null : new(Device),
+            Samplers = Samplers,
+            Descriptors = { Slot = declared.Slot, Allocator = Descriptors }
+        };
+
+        foreach (var read in declared.Reads) {
+            node.Reads.Add(read);
+        }
+
+        foreach (var write in declared.Writes) {
+            node.Writes.Add(write);
+        }
+
+        foreach (var read in declared.BufferReads) {
+            node.BufferReads.Add(read);
+        }
+
+        foreach (var write in declared.BufferWrites) {
+            node.BufferWrites.Add(write);
         }
 
         Bind(node.Descriptors, declared.Bindings);

@@ -415,6 +415,56 @@ public sealed record FullScreenAsset : ISceneRendererAsset {
     public ResourceBindingAsset[] Bindings { get; init; } = [];
 }
 
+/// <summary>A compute dispatch, and the resources it declares.</summary>
+/// <remarks>
+///     The last node kind that was code-only. Its value over a hand-written dispatch is the two lists
+///     it declares: a pass that says it writes a buffer, beside one that says it reads it, is a pass
+///     the graph orders first and puts a barrier after — and a document can now say so.
+/// </remarks>
+[DataContract("Compute")]
+public sealed record ComputeAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The compute shader to run.</summary>
+    public string Shader { get; init; } = string.Empty;
+
+    /// <summary>The textures it samples.</summary>
+    public string[] Reads { get; init; } = [];
+
+    /// <summary>The textures it writes, as storage images.</summary>
+    public string[] Writes { get; init; } = [];
+
+    /// <summary>The buffers it reads.</summary>
+    public string[] BufferReads { get; init; } = [];
+
+    /// <summary>The buffers it writes.</summary>
+    public string[] BufferWrites { get; init; } = [];
+
+    /// <summary>How many workgroups to run, across each axis.</summary>
+    /// <remarks>
+    ///     Three numbers rather than one vector, because that is what reads well in a document and
+    ///     because a workgroup count is three independent decisions about a grid rather than a point
+    ///     in space.
+    /// </remarks>
+    public int GroupsX { get; init; } = 1;
+
+    /// <inheritdoc cref="GroupsX" />
+    public int GroupsY { get; init; } = 1;
+
+    /// <inheritdoc cref="GroupsX" />
+    public int GroupsZ { get; init; } = 1;
+
+    /// <summary>Which of the four conventional sets it binds.</summary>
+    public DescriptorSetSlot Slot { get; init; } = DescriptorSetSlot.PerMaterial;
+
+    /// <summary>What it binds, and where.</summary>
+    public ResourceBindingAsset[] Bindings { get; init; } = [];
+}
+
 /// <summary>The dual-filter bloom chain.</summary>
 /// <remarks>
 ///     A node rather than a list of passes, because the chain's shape follows from its depth and the

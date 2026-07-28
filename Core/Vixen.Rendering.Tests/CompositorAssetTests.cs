@@ -760,4 +760,62 @@ public class CompositorAssetTests : IDisposable {
         Assert.Equal("parameter", thrown.Kind);
         Assert.Equal("Nothing.Declares.This", thrown.Name);
     }
+
+    /// <summary>
+    ///     A compute dispatch, authored — the last node kind that was code-only.
+    /// </summary>
+    /// <remarks>
+    ///     Its value over a hand-written dispatch is the two lists it declares: a pass that says it
+    ///     writes a buffer, beside one that says it reads it, is a pass the graph orders first and puts
+    ///     a barrier after. A document can now say so, which is what makes a Forward+ preset a file
+    ///     rather than a build.
+    /// </remarks>
+    [Fact]
+    public void A_document_can_author_a_compute_dispatch() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(
+            """
+            version: 2
+            buffers:
+              - name: Clusters
+                size: 4096
+            stages:
+              - name: Opaque
+            game: !Sequence
+              name: Frame
+              children:
+                - !Compute
+                  name: ClusterCull
+                  shader: ClusterCulling
+                  bufferReads: [SceneLights]
+                  bufferWrites: [Clusters]
+                  groupsX: 4
+                  groupsY: 3
+                  groupsZ: 6
+                  bindings:
+                    - name: lights
+                      resource: SceneLights
+                    - name: clusters
+                      resource: Clusters
+            """
+        );
+
+        using var h = Build();
+        using var allocator = new DescriptorAllocator(device);
+
+        h.Builder.Device = device;
+        h.Builder.Descriptors = allocator;
+
+        var compositor = h.Builder.Build(asset);
+        var sequence = Assert.IsType<SceneRendererSequence>(compositor.Game);
+        var cull = Assert.IsType<ComputeRenderer>(sequence.Children[0]);
+
+        Assert.Equal("ClusterCulling", cull.ShaderName);
+        Assert.Equal(new Int3(4, 3, 6), cull.Groups);
+        Assert.Equal(["SceneLights"], cull.BufferReads);
+        Assert.Equal(["Clusters"], cull.BufferWrites);
+
+        // Named, not numbered — the shader's plan is what says where they go.
+        Assert.Equal("lights", cull.Descriptors.Bindings[0].Name);
+        Assert.Same(allocator, cull.Descriptors.Allocator);
+    }
 }
