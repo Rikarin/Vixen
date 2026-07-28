@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Graphics;
+using Vixen.Shaders;
 
 namespace Vixen.Rendering.Compositor;
 
@@ -73,6 +74,37 @@ public sealed class CompositorBuilder(RenderSystem system) {
     /// <summary>Views a node may draw from, by the name the asset uses.</summary>
     public Dictionary<string, RenderView> Views { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>
+    ///     What the post-process nodes need and a document cannot carry.
+    /// </summary>
+    /// <remarks>
+    ///     A device, a shader-module cache, a descriptor allocator and a sampler cache — four things
+    ///     that belong to a running renderer rather than to a file, and which every node built here
+    ///     gets if they are set. Without them the tree still builds and the post nodes decline to
+    ///     draw, which is what an editor loading a document with no device wants.
+    /// </remarks>
+    public IGraphicsDevice? Device { get; set; }
+
+    /// <summary>Where shader modules come from.</summary>
+    public EffectPipelineDescriber? Modules { get; set; }
+
+    /// <summary>Where descriptor sets come from.</summary>
+    public DescriptorAllocator? Descriptors { get; set; }
+
+    /// <summary>Where samplers come from.</summary>
+    public SamplerCache? Samplers { get; set; }
+
+    /// <summary>
+    ///     The per-view block this build created, if the document declared one.
+    /// </summary>
+    /// <remarks>
+    ///     <strong>The caller owns it.</strong> It holds a descriptor set layout and a buffer per view,
+    ///     which is the only device state a build produces — created here because the document is what
+    ///     describes the block, and disposed by whoever asked for the build, because a builder does not
+    ///     outlive anything.
+    /// </remarks>
+    public ViewConstants? ViewBlock { get; private set; }
+
     /// <summary>The stages this build created, by name.</summary>
     public Dictionary<string, RenderStage> Stages { get; } = new(StringComparer.Ordinal);
 
@@ -89,6 +121,8 @@ public sealed class CompositorBuilder(RenderSystem system) {
                 + "produce a frame missing a pass and say nothing about it."
             );
         }
+
+        ViewBlock = asset.ViewBlock is { } block && Device is not null ? Block(block) : null;
 
         foreach (var declared in asset.Stages) {
             Stages[declared.Name] = AddStage(declared);
@@ -148,6 +182,9 @@ public sealed class CompositorBuilder(RenderSystem system) {
             SingleStageAsset single => Single(single),
             ShadowMapAsset shadows => Cascades(shadows),
             PunctualShadowAsset punctual => Punctual(punctual),
+            FullScreenAsset post => FullScreen(post),
+            BloomAsset bloom => Bloom(bloom),
+            ComputeAsset compute => Compute(compute),
             _ => throw new CompositorBindingException(
                 declared.Name,
                 "a node kind",
@@ -188,6 +225,11 @@ public sealed class CompositorBuilder(RenderSystem system) {
             node.BufferReads.Add(read);
         }
 
+        node.Descriptors.Slot = declared.Slot;
+        node.Descriptors.Allocator = Descriptors;
+        node.Samplers = Samplers;
+        Bind(node.Descriptors, declared.Bindings);
+
         foreach (var child in declared.Children) {
             node.Children.Add(Node(child));
         }
@@ -200,8 +242,59 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Name = declared.Name,
             Enabled = declared.Enabled,
             View = Bind(Views, declared.Name, "view", declared.View),
-            Stage = Stage(declared.Name, declared.Stage)
+            Stage = Stage(declared.Name, declared.Stage),
+            Constants = ViewBlock
         };
+
+    /// <summary>
+    ///     The per-view block, and the descriptor set layout every shader in the frame agrees on.
+    /// </summary>
+    /// <remarks>
+    ///     Members are named by parameter key rather than by offset alone, so a document cannot drift
+    ///     from the block a shader reads without the build saying so. An empty list takes
+    ///     <see cref="ViewConstants" />'s own default, which is the view-projection and the view
+    ///     position — what it writes for every view whether or not anything asked.
+    /// </remarks>
+    ViewConstants Block(ViewBlockAsset declared) {
+        // Touched so that the standard keys are interned before anything looks one up by name.
+        _ = ViewConstants.ViewProjection;
+
+        var stages = declared.Stages switch {
+            ShaderStages.Vertex => ShaderStage.Vertex,
+            ShaderStages.Pixel => ShaderStage.Fragment,
+            _ => ShaderStage.Vertex | ShaderStage.Fragment
+        };
+
+        var layout = Device!.CreateDescriptorSetLayout(
+            new(declared.Set, [new(declared.Binding, DescriptorKind.UniformBuffer, stages)], "View")
+        );
+
+        var block = new ViewConstants(Device) {
+            Descriptors = Descriptors,
+            Layout = layout,
+            Slot = declared.Set,
+            Binding = declared.Binding,
+            Size = declared.Size
+        };
+
+        if (declared.Members.Length == 0) {
+            return block;
+        }
+
+        block.Members.Clear();
+
+        foreach (var member in declared.Members) {
+            if (!ParameterKeys.TryGet(member.Name, out var key)) {
+                // A name nothing interned is a document naming a parameter no shader declares, which
+                // would otherwise be a value that silently never arrives.
+                throw new CompositorBindingException("viewBlock", "parameter", member.Name);
+            }
+
+            block.Members.Add(new(key, member.Offset, member.Size));
+        }
+
+        return block;
+    }
 
     ShadowMapRenderer Cascades(ShadowMapAsset declared) =>
         new ShadowMapRenderer {
@@ -209,6 +302,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Enabled = declared.Enabled,
             CasterStage = Stage(declared.Name, declared.Stage),
             Atlas = declared.Atlas,
+            Constants = ViewBlock,
             CascadeCount = declared.CascadeCount,
             Resolution = declared.Resolution,
             ShadowDistance = declared.ShadowDistance,
@@ -224,6 +318,117 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Atlas = declared.Atlas,
             Resolution = declared.Resolution,
             TilesPerSide = declared.TilesPerSide
+        };
+
+    FullScreenRenderer FullScreen(FullScreenAsset declared) {
+        var node = new FullScreenRenderer {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            ShaderName = declared.Shader,
+            Blend = Blend(declared.Blend),
+            Load = declared.Load,
+            ConstantBinding = declared.ConstantBinding,
+            Modules = Modules,
+            Device = Device,
+            Samplers = Samplers,
+            Descriptors = { Slot = declared.Slot, Allocator = Descriptors }
+        };
+
+        foreach (var target in declared.ColourTargets) {
+            node.ColourTargets.Add(target);
+        }
+
+        foreach (var read in declared.Reads) {
+            node.Reads.Add(read);
+        }
+
+        foreach (var read in declared.BufferReads) {
+            node.BufferReads.Add(read);
+        }
+
+        Bind(node.Descriptors, declared.Bindings);
+        return node;
+    }
+
+    ComputeRenderer Compute(ComputeAsset declared) {
+        var node = new ComputeRenderer {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            ShaderName = declared.Shader,
+            Groups = new(declared.GroupsX, declared.GroupsY, declared.GroupsZ),
+            Pipelines = Device is null ? null : new(Device),
+            Samplers = Samplers,
+            Descriptors = { Slot = declared.Slot, Allocator = Descriptors }
+        };
+
+        foreach (var read in declared.Reads) {
+            node.Reads.Add(read);
+        }
+
+        foreach (var write in declared.Writes) {
+            node.Writes.Add(write);
+        }
+
+        foreach (var read in declared.BufferReads) {
+            node.BufferReads.Add(read);
+        }
+
+        foreach (var write in declared.BufferWrites) {
+            node.BufferWrites.Add(write);
+        }
+
+        Bind(node.Descriptors, declared.Bindings);
+        return node;
+    }
+
+    BloomRenderer Bloom(BloomAsset declared) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            ShaderName = declared.Shader,
+            Source = declared.Source,
+            Output = declared.Output,
+            Levels = declared.Levels,
+            Format = declared.Format,
+            Threshold = declared.Threshold,
+            Knee = declared.Knee,
+            FilterRadius = declared.FilterRadius,
+            Intensity = declared.Intensity,
+            Modules = Modules,
+            Device = Device,
+            Descriptors = Descriptors,
+            Samplers = Samplers
+        };
+
+    /// <summary>Copies a document's bindings onto a node, translating its sampler presets.</summary>
+    static void Bind(DescriptorBindings bindings, ResourceBindingAsset[] declared) {
+        foreach (var binding in declared) {
+            bindings.Bindings.Add(
+                new() {
+                    Name = binding.Name,
+                    Binding = binding.Binding,
+                    Kind = binding.Kind,
+                    Resource = binding.Resource,
+                    Offset = binding.Offset,
+                    Size = binding.Size,
+                    Sampled = binding.Sampler switch {
+                        SamplerPreset.LinearClamp => SamplerDescription.LinearClamp,
+                        SamplerPreset.PointClamp => SamplerDescription.PointClamp,
+                        SamplerPreset.LinearRepeat => SamplerDescription.LinearRepeat,
+                        SamplerPreset.Shadow => SamplerDescription.Shadow,
+                        _ => null
+                    }
+                }
+            );
+        }
+    }
+
+    static BlendState Blend(BlendPreset preset) =>
+        preset switch {
+            BlendPreset.AlphaBlend => BlendState.AlphaBlend,
+            BlendPreset.PremultipliedAlpha => BlendState.PremultipliedAlpha,
+            BlendPreset.Additive => BlendState.Additive,
+            _ => BlendState.Opaque
         };
 
     RenderStage Stage(string node, string name) =>

@@ -651,14 +651,20 @@ public sealed class CompositorImageTests {
             Layout = Shadowed.ViewLayout(device, owned)
         };
 
+        // The camera as one description the frame owns, rather than seven scalars copied onto the
+        // shadow node. The view and the cascade fit are then built from the same thing and cannot
+        // disagree about where the camera is looking.
+        var camera = new RenderView("camera") {
+            Camera = RenderCamera.Default with { Position = new(0f, 0f, 10f) }
+        };
+
         var shadows = new ShadowMapRenderer {
             Name = "Shadows",
             CasterStage = casters,
             Atlas = "ShadowAtlas",
             CascadeCount = Cascades,
             Resolution = Tile,
-            Eye = new(0f, 0f, 10f),
-            Forward = new(0f, 0f, -1f),
+            Camera = camera,
             ShadowDistance = 40f,
             LightDirection = Vector3.Normalize(Light)
         };

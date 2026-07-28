@@ -192,3 +192,14 @@ public struct PunctualLightData {
 ///     lighting one unused slot.
 /// </remarks>
 public readonly record struct LightAssignment(int Offset, int Count);
+
+/// <summary>Something that knows which light is the scene's sun.</summary>
+/// <remarks>
+///     An interface rather than a reference to the lighting feature, because a shadow renderer needs
+///     one fact and should not depend on the machinery that happens to produce it — a scene with a
+///     scripted sun, or a cinematic overriding one, supplies this and nothing else changes.
+/// </remarks>
+public interface ISunSource {
+    /// <summary>The directional light casting the scene's shadows, or null when there is none.</summary>
+    RenderLight? Sun { get; }
+}

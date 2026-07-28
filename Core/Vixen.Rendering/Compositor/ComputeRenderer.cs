@@ -90,6 +90,14 @@ public sealed class ComputeRenderer : SceneRenderer {
     /// <summary>How many workgroups to run.</summary>
     public Int3 Groups { get; set; } = new(1, 1, 1);
 
+    /// <summary>Where a described sampler comes from, for a binding that names one by value.</summary>
+    /// <remarks>
+    ///     Shared rather than owned, because a sampler is pure state and a device caps how many exist
+    ///     — a chain of post passes each making its own reaches that cap on drivers that allow four
+    ///     thousand.
+    /// </remarks>
+    public SamplerCache? Samplers { get; set; }
+
     /// <summary>Where compute pipelines come from. Set before the first frame that builds.</summary>
     public ComputePipelineCache? Pipelines { get; set; }
 
@@ -153,7 +161,7 @@ public sealed class ComputeRenderer : SceneRenderer {
             Descriptors.Layout = effect.SetLayouts[(int)Descriptors.Slot];
         }
 
-        var bound = Descriptors.Resolve(ToString(), textures, buffers);
+        var bound = Descriptors.Resolve(ToString(), textures, buffers, effect, Samplers);
         var bufferReads = BufferReads.Select(name => buffers[name]).ToArray();
         var bufferWrites = BufferWrites.Select(name => buffers[name]).ToArray();
         var textureReads = Reads.Select(name => textures[name]).ToArray();

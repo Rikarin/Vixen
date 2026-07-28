@@ -382,6 +382,31 @@ a point light that did not. When it runs out, lights are dropped **whole and cou
 with four of six faces rendered is worse than one with none, because the two missing directions are
 lit as though nothing occludes them.
 
+### The camera, once
+
+A cascade fit needs a camera, and for a long time it held seven scalars describing one — a copy of
+something the frame already knew, which a host had to keep in step with the view it also set. Nothing
+checked that they agreed, and a cascade fitted to a field of view the camera no longer has puts the
+shadow distance somewhere the setting does not say. That shows up as shadows fading in at the wrong
+distance and gets attributed to the shadow distance.
+
+`RenderCamera` is that description once. A `RenderView` carrying one has its position, matrix and
+frustum derived from it, and `ShadowMapRenderer.Camera` points at the same view — so the thing the
+frame is drawn from and the thing the cascades are fitted to are the same object. The scalars remain
+for a test or a tool fitting cascades to a hypothetical camera, which has no view to point at.
+
+A view is still not a camera. Most views are not — a cascade, a probe face — and `Camera` is null on
+every one of them. What changed is that the one view that *is* a camera can say so.
+
+The sun is the same argument: `ISunSource` gives the shadow renderer the scene's brightest
+directional light, rather than a host copying its direction across every frame and one day
+forgetting, leaving a level lit from one direction and shadowed from another. An interface rather than
+a reference to the lighting feature, so a scripted or cinematic sun supplies it and nothing else
+changes.
+
+The golden fixture fits its cascades from a scene camera now, and produces the same reference image
+it did from the scalars.
+
 ### Caching a cascade
 
 Two things have to be true together, and neither is worth anything alone.
@@ -546,11 +571,20 @@ from, so a node taking one from anywhere else is how a frame ends up with a set 
 reject and a release driver mis-binds in silence. A host may still supply its own — a
 `RenderPassRenderer` has no effect of its own and must.
 
-**The binding index is generated, not written down.** Raven assigns it from declaration order within
-a set, so adding a texture above another in a `.rvn` renumbers everything below it — and a host
-holding the old number gets a validation error at best and the wrong texture at worst, with nothing
-to tell it. `BloomKeys.SourceBinding` and its siblings come out of the shader's own reflection;
-`BloomRenderer`'s four were all wrong when they were guessed, which is the argument in one line.
+**The binding index is never written down twice.** Raven assigns it from declaration order within a
+set, so adding a texture above another in a `.rvn` renumbers everything below it — and a host holding
+the old number gets a validation error at best and the wrong texture at worst, with nothing to tell
+it. `BloomRenderer`'s four were all wrong when they were guessed, which is the argument in one line.
+
+Two ways to avoid guessing, for two kinds of caller. Code that can reference generated code names
+`BloomKeys.SourceBinding`. Everything else — a compositor document, a shader loaded from a bundle at
+run time — sets `ResourceBinding.Name` to the shader's own name for the resource and the index comes
+off `Effect.Bindings`, which is the binding plan the reflection always had and the runtime never
+carried. An explicit index remains as the fallback, because a provider that reports no plan is the
+ordinary case until the content build does.
+
+Samplers are describable too: `SamplerDescription` is twelve fields and no device, so it survives
+being written in a document where a handle cannot, and it resolves through the shared `SamplerCache`.
 
 The reflection is checked in beside the shaders rather than compiled during the build, because the
 alternative is `Vixen.Rendering` depending on the compiler being built first, in a repository where
@@ -607,6 +641,40 @@ pure front-to-back, which is exactly what makes early-Z reject the most.
 
 It is the same fix a shadow-caster stage wants, for the same reason.
 
+### Authored
+
+`!FullScreen` and `!Bloom` are nodes a document declares, so a post chain is twenty lines of YAML
+that mention no binding index, no sampler handle and no pass count:
+
+```yaml
+- !Bloom
+  name: Bloom
+  source: SceneColour
+  output: BloomResult
+  levels: 3
+- !FullScreen
+  name: Tonemap
+  shader: Tonemap
+  colourTargets: [Display]
+  reads: [BloomResult]
+  bindings:
+    - name: source
+      resource: BloomResult
+    - kind: Sampler
+      binding: 1
+      sampler: LinearClamp
+```
+
+Two things had made that impossible and both are gone: `name: source` resolves against the shader's
+own binding plan, and `sampler: LinearClamp` is a preset the frame's `SamplerCache` turns into a
+description. What a file still cannot carry is a device, a module cache, a descriptor allocator or a
+sampler cache — so `CompositorBuilder` takes those four and hands them to every node it builds. The
+document says what; a running renderer supplies what only it has.
+
+Bloom is a node rather than a list of passes because its shape follows from its depth and the frame's
+size: nine passes and nine textures out of one line, where a document that spelled them out would need
+rewriting to change the resolution.
+
 ### Bloom
 
 The first effect that is more than one pass, and worth building early for that reason: a pyramid is
@@ -647,8 +715,21 @@ caster could not be told which cascade it was drawing for.
 
 **The layout is shared across every shader in the frame, and that is what makes set 1 work at all.**
 A descriptor set survives a pipeline change only if the two layouts agree up to that set, so the
-members are configured once here rather than taken from an effect: the block belongs to the frame, not
-to any shader in it.
+members are configured once rather than taken from an effect: the block belongs to the frame, not to
+any shader in it. Which is also why a *document* declares it — sets 2 and 3 follow from the shaders,
+and set 1 is a contract between them that only the frame can state:
+
+```yaml
+viewBlock:
+  binding: 0
+  stages: Vertex
+```
+
+Declared with no members it takes the standard block — the view-projection at 0 and the view position
+at 64, which `ViewConstants` writes for every view whether or not anything asked. A member names the
+parameter key rather than an offset alone, so a document cannot drift from the block a shader reads
+without the build refusing it. The builder creates the descriptor set layout, which makes it the one
+piece of device state a build produces — and the caller owns it, because a builder outlives nothing.
 
 `RenderView.ViewProjection` had to exist first, and **setting it re-derives the frustum**. Two
 properties describing one volume is a bug waiting to be written — a view culled against last frame's
@@ -720,23 +801,16 @@ environment.
 Instance batching by locality: an instanced batch is culled as one object, so what goes in one is the
 caller's decision and there is nothing here to help make it.
 
-The shadow renderers still take a light direction and a camera from a host rather than from the
-scene, and nothing yet resolves a compositor by *address* — the binary form is proven, the
-`AssetManager` lookup around it is not wired up here.
-
-A per-view block exists but nothing above `SingleStageRenderer` and `ShadowMapRenderer` configures
-one — a host still creates the layout, the allocator and the `ViewConstants` itself. A compositor
-document has no way to say "this frame has a per-view block", which is the same authoring gap the
-bindings have.
+A compositor **does** resolve by address: `Vixen.Assets.Tests.CompositorContentTests` writes one into
+a bundle, asks for it by address and builds a running frame from what comes back. It is asserted
+there rather than here because this assembly does not reference the content system and should not —
+which is why the claim stayed open so long. Nothing was missing; nothing had put the two halves in
+one room.
 
 A node's bindings are set in code, not in the compositor document. A binding index is a shader's
 decision and a sampler is a device handle, and the asset model can express neither — so a compositor
 loaded from disk declares its dependencies correctly and binds nothing until a host fills in
 `Descriptors`. Reflecting the binding plan onto `Effect` is what closes it.
-
-A post-process node is built in code, not authored: `FullScreenRenderer` and `BloomRenderer` have no
-entry in the compositor asset, for the same reason bindings do not — a binding index is a shader's
-decision and a sampler is a device handle. Closing the binding-plan gap closes both at once.
 
 The generated keys cover the shaders the engine names — `PostFx/Bloom` and `PostFx/Tonemap` — and
 nothing else. The list grows when a node starts binding a shader, not in anticipation, because every
