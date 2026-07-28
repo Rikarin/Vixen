@@ -83,8 +83,18 @@ public readonly record struct DrawBatch(
 ///         else already ordered" — depth left out, sorted on a group value alone. Which means a UI
 ///         render feature has to make that group <i>be</i> the painting order: the sort is stable and
 ///         orders by group, so a group that meant anything else — a material, a pipeline, a texture —
-///         would reorder the interface on the way to the screen and undo everything below. The batch
-///         index is that number.
+///         would reorder the interface on the way to the screen and undo everything below.
+///         <s>The batch index is that number.</s>
+///     </para>
+///     <para>
+///         ⚠ <b>It is not the batch index, and <c>Vixen.Ui.Renderer</c> settled it.</b> A render
+///         object is one <i>surface</i>, not one batch: the store's objects live across frames and are
+///         indexed by a dense id every feature's parallel array is keyed on, so an object per batch
+///         would churn the whole store every time a label changed. The painting order within a surface
+///         is already the order these batches are in, and no sort can reach it. What the group orders
+///         is surfaces against each other — a modal over a document, a tooltip over the modal — which
+///         is a real ordering problem the sort is the right answer to. The conclusion above was right
+///         about <c>ByGroup</c> and wrong about what it counts.
 ///     </para>
 ///     <para>
 ///         So the win here is bounded and honest: adjacent things that happen to match are merged,
@@ -105,9 +115,15 @@ public readonly record struct DrawBatch(
 ///         locals and no array. That is right for a mesh, whose nodes are rebuilt from culling every
 ///         frame so nothing precomputed would survive. A user interface is the opposite case — most
 ///         frames draw exactly what the last one drew — so the runs are worked out <i>behind the
-///         frame diff</i> and a still interface pays nothing. If the UI render feature ends up
-///         binding on change anyway, this list is what stops it recomputing the grouping every frame,
-///         and if it does not, this is the thing to delete.
+///         frame diff</i> and a still interface pays nothing.
+///     </para>
+///     <para>
+///         ⚠ <b>That open question is closed: this list is used, and not by the render feature.</b>
+///         <c>UiGeometryBuilder</c> turns one batch into one <c>UiDraw</c>, which is what carries the
+///         resolved clip and the pipeline kind to the renderer; the renderer then does exactly what
+///         <c>MeshRenderFeature</c> does and re-binds on change. So the grouping is computed once
+///         behind the frame diff and consumed once per frame, which is the arrangement this was
+///         written hoping for rather than the one where it is dead weight.
 ///     </para>
 /// </remarks>
 public static class DrawBatcher {

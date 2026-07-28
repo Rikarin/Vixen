@@ -1400,9 +1400,91 @@ sub-piece has its own gate.
   clip that replaces fails 1, a clip never popped fails 1, a box not parameterised from its centre
   fails 1, emitting empty draws fails 3, a silent dropped glyph fails 1. All nine land.
 
-- Owed: the GPU half — shaders, pipelines and a golden image — plus path tessellation and a wider
-  vertex index. Also font fallback, rich-text runs, variable-font axes,
-  `TextEditor` model with IME and caret affinity.
+- ✅ **A wider vertex index.** `UiGeometry.Indices` was `ushort` and the builder refused to emit past
+  65 535 vertices rather than wrap. Refusing was honest while the index was narrow and it is not a
+  fix: a dense editor really can pass sixteen thousand quads, and the symptom of dropping the rest is
+  a frame missing its bottom half. Thirty-two bits, not because a frame is expected to need them but
+  because the one that does wraps *silently*, drawing geometry from the top of the frame in the
+  middle of it. Sabotaging `start` back to a 16-bit truncation fails the test.
+
+- ✅ **Path tessellation.** `PathFlattener` turns curves into contours at a tolerance the caller
+  chooses — which is where `PathBuilder`'s decision to keep curves as curves is finally spent, and
+  why a path drawn at two zoom levels is right at both. `PathTessellator` turns contours into
+  triangles, filled or stroked.
+
+  ⚠ **A trapezoid sweep, not an ear clip.** Ear clipping is the usual answer and is wrong for the
+  input this gets: it needs one simple polygon, so holes need bridging and self-intersection needs
+  resolving first — and a five-pointed star drawn as five lines self-intersects, which is exactly
+  where the two fill rules disagree and therefore the shape a fill rule is *for*. Sweeping makes the
+  rule the whole of the algorithm. Bands are cut at every vertex **and every crossing**, so no edge
+  begins, ends or crosses another inside one, which is what makes each span an exact trapezoid. The
+  cost is quadratic in the edge count; that is written down along with the Bentley–Ottmann sweep that
+  would fix it, rather than discovered later.
+
+  Strokes are per-segment quads plus a wedge on the outside of each turn: miter with a limit —
+  without one, a nearly-doubled-back corner grows a spike that runs to infinity — round, and bevel;
+  butt, round and square caps. A closed contour joins at the seam and is not capped, which is the
+  whole reason `Closed` survives flattening.
+
+  **Two oracles carry the suite and neither knows how the tessellator works.** A fill is right when a
+  point is covered exactly when the winding rule calls it inside. A stroke with round joins and round
+  caps is right when a point is covered exactly when it lies within half a width of the path — the
+  Minkowski sum of the polyline with a disc, available in closed form.
+
+  ⚠ **Nothing here is antialiased**, and that is stated rather than hidden. A box and a glyph get a
+  perfect edge because the shader evaluates a distance field; a tessellated path arrives at the
+  rasteriser as triangles. Multisampling fixes it and is the compositor's call; a feathered fringe
+  fixes it more cheaply and is owed.
+
+  Verified by sabotage: twelve, eleven landing first time. ⚠ **The twelfth failed to fail** —
+  deleting the seam-duplicate removal broke nothing, because the test used `AddRectangle`, which
+  never walks back to its start, so the duplicate was never there to remove. The shape that needs it
+  is what an imported SVG produces: an explicit line home, then a close. Sharpened, and it lands.
+
+- ✅ **The GPU half** — `Vixen.Ui.Renderer`. Three pipelines over one vertex layout (box, text,
+  solid), host-visible buffers rewritten per frame, an atlas texture uploaded only when its version
+  changes, and a clip applied as a scissor. `UiRenderFeature` is a thin `RootRenderFeature` over it,
+  so the part that touches a device can be driven by a golden image without a `RenderSystem`.
+
+  A separate assembly on purpose: the join belongs in neither half. `Vixen.Ui` would gain a graphics
+  API it is meant to be usable without, and `Vixen.Rendering` would gain a UI framework every
+  renderer would then carry.
+
+  ⚠ **One pipeline layout for all three pipelines, including the two that never sample the atlas.**
+  A layout each is the obvious arrangement and the one that must be got right per draw, because
+  Vulkan disturbs every set from the first one two layouts disagree about — so a box between two runs
+  of text unbinds the atlas. That is undefined behaviour rather than an error, this machine's driver
+  keeps the binding, and the validation layers do not object, so **no golden image here can see it**.
+  Found by a sabotage that changed nothing through two rewrites of the fixture built to catch it.
+  Identical layouts make the question not arise.
+
+  ⚠ **The corrected guess.** `DrawBatch` reasoned that because `RenderSortMode.ByGroup` exists "for
+  UI and anything else already ordered", the batch index must be the sort group. It cannot be: a
+  render object is one *surface*, because the store's objects live across frames under a dense id
+  every feature's array is keyed on, and an object per batch would churn the store on every label
+  change. Painting order within a surface is already the order of `UiGeometry.Draws`. The group
+  orders surfaces against each other. Both `DrawBatch`'s remarks and this entry are corrected rather
+  than quietly left standing — and the other open question there is closed too: the batch list *is*
+  used, by the geometry builder, one batch to one draw, behind the frame diff.
+
+- Gate: ✅ `ui-interface` and `ui-clipped` golden images. Thirteen sabotages, all landing — the
+  projection agreeing with Vulkan instead of the engine fails 2, a scissor never set fails 1, an
+  unbound atlas crashes the driver, the shared state pushed before any pipeline is bound trips
+  validation, the vertex layout swapping colour and shape fails 2, a 16-bit index format fails 2, the
+  box distance's sign fails 2, a border drawn as a fill fails 1, an ignored corner radius fails 1,
+  one channel instead of the median fails 1, an ignored pixel range fails 1, a second y flip fails 2.
+
+  ⚠ **The first version was drawn upside down**, with a comment above the projection arguing at
+  length that it should not be: Vulkan's clip space does have +y down, but nothing sees it, because
+  the backend submits a negative-height viewport so the engine's +y-up convention holds everywhere.
+  ⚠ **And the clip fixture did not notice**, because its box was symmetric about the scissor's edge —
+  a clip test whose picture is its own mirror image cannot see the most common mistake in the file it
+  tests.
+
+- Owed: font fallback, rich-text runs, variable-font axes, `TextEditor` model with IME and caret
+  affinity. On the rendering side: an antialiased path edge, a join and cap style carried on the
+  stroke command rather than set on the builder, and reconciling the per-vertex box parameters here
+  with `Raven/Library/Ui`'s per-uniform ones when Raven takes over shader compilation.
 - Gate: ✅ UAX conformance data green. ✅ shaping conformance green against an external oracle,
   with the quarantine pinned in both directions.
 
@@ -2027,7 +2109,10 @@ sub-piece has its own gate.
 
   Still owed: incremental reparse, an `@namespace` directive, and the `vixen` CLI path for a build
   that wants the generated C# on disk.
-- UI render feature integrated into the renderer.
+- ✅ **UI render feature integrated into the renderer** — `Vixen.Ui.Renderer`, written up under 4c
+  because it is the other end of the geometry builder. `UiRenderFeature` is a `RootRenderFeature`
+  whose objects are surfaces; the stage it is drawn in has to sort `ByGroup`, because every other
+  mode puts depth in the key and an interface has none.
 - Gate: draw-list golden tests; parser golden trees + error-recovery tests; hot-reload scenario tests.
 
 **4e — Controls (1.0 EM)**

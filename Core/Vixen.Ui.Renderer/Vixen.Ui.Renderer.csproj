@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ui.Renderer</RootNamespace>
+        <Description>
+            The GPU half of the user interface: pipelines, buffers and an atlas texture, plus the
+            render feature that draws a frame's geometry inside somebody else's renderer.
+        </Description>
+        <PackageTags>ui;rendering;msdf;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The two halves this assembly exists to join, and the reason it is a separate assembly
+            rather than a folder in either of them. `Vixen.Ui` describes a frame and knows nothing
+            about a device — which is what lets every one of its tests run without one — and
+            `Vixen.Rendering` draws things without knowing what a user interface is. Putting the join
+            in `Vixen.Ui` would drag a graphics API into a UI framework that is meant to be usable
+            without one; putting it in `Vixen.Rendering` would drag a UI framework into every
+            renderer.
+        -->
+        <ProjectReference Include="..\Vixen.Ui\Vixen.Ui.csproj" />
+        <ProjectReference Include="..\Vixen.Rendering\Vixen.Rendering.csproj" />
+    </ItemGroup>
+
+</Project>
