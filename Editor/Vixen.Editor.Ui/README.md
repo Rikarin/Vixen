@@ -38,6 +38,14 @@ as it opens; a toolbar asks on the tick. The cost is that the predicate must be 
 **A command carries no keybinding.** That is `KeyMap`'s, because a binding is the user's and a
 command is the application's.
 
+⚠ **A presenter that rebuilds puts itself back where it was.** Registering a command rebuilds the
+menu bar, and rebuilding replaces the bar rather than editing it — for the good reason that its
+menus hang off the document root and editing in place would leak one per rebuild. But adding a child
+*appends* it, and the shell registers the application's commands long after the workspace and the
+status bar are in the chrome. So both presenters remember the position they were constructed for and
+move the new strip back into it; without that the menu bar and the toolbar arrive along the bottom
+edge of the window, on whichever frame the application happened to register its last command.
+
 ## Keybindings
 
 Two layers: the defaults the application ships and the overrides the user made, and only the second

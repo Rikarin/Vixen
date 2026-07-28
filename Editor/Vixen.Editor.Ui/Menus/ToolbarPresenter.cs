@@ -33,12 +33,23 @@ public sealed class ToolbarPresenter {
     readonly KeyMap keys;
     readonly UiElement host;
 
+    /// <summary>Which of the host's children the strip is, whatever else has been added since.</summary>
+    readonly int slot;
+
     UiElement? strip;
 
     /// <summary>Builds a toolbar into an element.</summary>
     /// <param name="host">Where the strip goes.</param>
     /// <param name="commands">What its buttons run.</param>
     /// <param name="keys">What their tooltips say the shortcut is.</param>
+    /// <remarks>
+    ///     ⚠ <b>Nothing is added until <see cref="Show" /> is called, and the place it will go is
+    ///     remembered now.</b> A shell builds its chrome top to bottom and puts the toolbar's
+    ///     commands on it last — so by the time there is a strip to add, appending it to the host
+    ///     would put it after the docking workspace and the status bar rather than under the menu
+    ///     bar. Remembering the position costs an integer; an empty strip built here to hold the
+    ///     place would cost a bordered band of chrome in every shell that never asks for a toolbar.
+    /// </remarks>
     public ToolbarPresenter(UiElement host, CommandRegistry commands, KeyMap keys) {
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(commands);
@@ -47,6 +58,8 @@ public sealed class ToolbarPresenter {
         this.host = host;
         this.commands = commands;
         this.keys = keys;
+
+        slot = host.Children.Count;
     }
 
     /// <summary>The ids on it, with <c>null</c> for a separator.</summary>
@@ -68,6 +81,13 @@ public sealed class ToolbarPresenter {
         strip?.Remove();
 
         strip = host.Add<UiElement>("toolbar");
+
+        // ⚠ Into the place the constructor reserved. See its remarks: `Add` appends, and the strip
+        // is built after the rest of the chrome is already in the host.
+        if (strip.IndexInParent > slot) {
+            host.Document.Move(strip, Math.Min(slot, host.Children.Count - 1));
+        }
+
         strip.AddHandler<ClickEvent>((_, args) => Chosen(args));
 
         foreach (var id in Items) {

@@ -109,6 +109,26 @@ public sealed class GlyphAtlas {
     /// </remarks>
     public int Version { get; private set; }
 
+    /// <summary>Moves whenever the pixels change: a glyph added, or the whole thing repacked.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not <see cref="Version" />, and confusing the two is a texture that is never
+    ///         re-uploaded.</b> A version moves when the <i>layout</i> changes, so a caller holding
+    ///         texture coordinates knows to ask again; adding a glyph does not move it, because every
+    ///         region it was holding is still where it was. But the pixels did change — an atlas whose
+    ///         reader uploads on the version alone uploads on the first frame and never again, and
+    ///         every glyph the interface meets after that samples whatever was in the texture at that
+    ///         coordinate before: nothing where the label should be, or some earlier glyph's field.
+    ///     </para>
+    ///     <para>
+    ///         This is the counter an uploader watches. It is a number rather than
+    ///         <see cref="Dirty" /> for the reason a version is: a flag belongs to whoever clears it,
+    ///         and two windows over one font cache is the ordinary case — a reader that remembers the
+    ///         number it last saw cannot have it cleared out from under it by the other one.
+    ///     </para>
+    /// </remarks>
+    public int Revision { get; private set; }
+
     /// <summary>Whether the texture's contents have changed since the flag was last cleared.</summary>
     public bool Dirty { get; private set; }
 
@@ -185,6 +205,8 @@ public sealed class GlyphAtlas {
 
         var node = order.AddFirst(new Entry(key, region, field));
         entries[key] = node;
+
+        Revision++;
         Dirty = true;
         return true;
     }
@@ -195,7 +217,9 @@ public sealed class GlyphAtlas {
         order.Clear();
         shelves.Clear();
         Array.Clear(Pixels);
+
         Version++;
+        Revision++;
         Dirty = true;
     }
 
@@ -233,6 +257,7 @@ public sealed class GlyphAtlas {
         }
 
         Version++;
+        Revision++;
         Dirty = true;
     }
 
