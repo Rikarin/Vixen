@@ -83,8 +83,18 @@ public readonly record struct DrawBatch(
 ///         else already ordered" — depth left out, sorted on a group value alone. Which means a UI
 ///         render feature has to make that group <i>be</i> the painting order: the sort is stable and
 ///         orders by group, so a group that meant anything else — a material, a pipeline, a texture —
-///         would reorder the interface on the way to the screen and undo everything below. The batch
-///         index is that number.
+///         would reorder the interface on the way to the screen and undo everything below.
+///         <s>The batch index is that number.</s>
+///     </para>
+///     <para>
+///         ⚠ <b>It is not the batch index, and <c>Vixen.Ui.Renderer</c> settled it.</b> A render
+///         object is one <i>surface</i>, not one batch: the store's objects live across frames and are
+///         indexed by a dense id every feature's parallel array is keyed on, so an object per batch
+///         would churn the whole store every time a label changed. The painting order within a surface
+///         is already the order these batches are in, and no sort can reach it. What the group orders
+///         is surfaces against each other — a modal over a document, a tooltip over the modal — which
+///         is a real ordering problem the sort is the right answer to. The conclusion above was right
+///         about <c>ByGroup</c> and wrong about what it counts.
 ///     </para>
 ///     <para>
 ///         So the win here is bounded and honest: adjacent things that happen to match are merged,
@@ -105,9 +115,15 @@ public readonly record struct DrawBatch(
 ///         locals and no array. That is right for a mesh, whose nodes are rebuilt from culling every
 ///         frame so nothing precomputed would survive. A user interface is the opposite case — most
 ///         frames draw exactly what the last one drew — so the runs are worked out <i>behind the
-///         frame diff</i> and a still interface pays nothing. If the UI render feature ends up
-///         binding on change anyway, this list is what stops it recomputing the grouping every frame,
-///         and if it does not, this is the thing to delete.
+///         frame diff</i> and a still interface pays nothing.
+///     </para>
+///     <para>
+///         ⚠ <b>That open question is closed: this list is used, and not by the render feature.</b>
+///         <c>UiGeometryBuilder</c> turns one batch into one <c>UiDraw</c>, which is what carries the
+///         resolved clip and the pipeline kind to the renderer; the renderer then does exactly what
+///         <c>MeshRenderFeature</c> does and re-binds on change. So the grouping is computed once
+///         behind the frame diff and consumed once per frame, which is the arrangement this was
+///         written hoping for rather than the one where it is dead weight.
 ///     </para>
 /// </remarks>
 public static class DrawBatcher {
@@ -146,9 +162,28 @@ public static class DrawBatcher {
 
     /// <summary>What decides which batch a command can join.</summary>
     /// <remarks>
-    ///     ⚠ The fill rule is part of the key. Two filled paths wound the same way but read by
-    ///     different rules are not the same draw — one of them punches its hole and the other does
-    ///     not — so merging them silently fills in every counter in an icon set.
+    ///     <para>
+    ///         ⚠ <s>The fill rule is part of the key. Two filled paths wound the same way but read by
+    ///         different rules are not the same draw — one of them punches its hole and the other does
+    ///         not — so merging them silently fills in every counter in an icon set.</s>
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That reason stopped being true when the tessellator was written, and the fill rule
+    ///         stays in the key as insurance rather than as a covered claim.</b>
+    ///         <c>UiGeometryBuilder</c> reads <c>command.FillRule</c> per <i>command</i>, so two fills
+    ///         under different rules in one batch each punch their own holes and nothing is lost by
+    ///         merging them. What would make the reason true again is a renderer that resolves the
+    ///         rule on the GPU — stencil-then-cover is the standard way to fill a large path, and
+    ///         there the rule really is pipeline state. Keeping the key coarse costs a draw call in a
+    ///         case that barely happens; taking it out would have to be undone by whoever wrote that
+    ///         renderer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The join and the cap are deliberately <i>not</i> in the key</b>, and that is not
+    ///         an inconsistency. There is no renderer in which a join is pipeline state: a join is
+    ///         geometry, on any implementation, so two strokes that differ only in it are the same
+    ///         draw under every design and not merely under this one.
+    ///     </para>
     /// </remarks>
     static (BatchKind Kind, int Font, PathFillRule Rule) KeyOf(in DrawCommand command) =>
         command.Kind switch {

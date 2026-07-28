@@ -348,6 +348,13 @@ sealed class VxmlLexer {
             return;
         }
 
+        if (AtDirective("namespace")) {
+            Emit(tokens, VxmlTokenKind.NamespaceKeyword, 10);
+            SkipWhitespace(tokens);
+            LexName(tokens);
+            return;
+        }
+
         if (AtDirective("code")) {
             Emit(tokens, VxmlTokenKind.CodeKeyword, 5);
             LexCodeBody(tokens);

@@ -288,11 +288,83 @@ public class EmitterTests {
 
     // ================================================================== Helpers
 
-    static string Emit(string source) {
+    // ------------------------------------------------------------ @namespace
+
+    /// <summary>
+    ///     ⚠ The file wins over the caller. The generator offers the project's root namespace plus
+    ///     the file's folders, which is right nearly always and is not right for a component whose
+    ///     folder is not what its namespace should be — and renaming the folder is not a fix a
+    ///     library can rely on.
+    /// </summary>
+    [Fact]
+    public void The_namespace_directive_overrides_what_the_caller_offered() {
+        const string Source = """
+            @component Counter
+            @namespace Game.Screens
+            <panel />
+            """;
+
+        Assert.Contains("namespace Game.Screens;", Emit(Source, "Project.Generated"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Without_the_directive_the_caller_still_decides() {
+        const string Source = """
+            @component Counter
+            <panel />
+            """;
+
+        Assert.Contains("namespace Project.Generated;", Emit(Source, "Project.Generated"), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ File-scoped, whatever the namespace came from. Every <c>#line</c> span carries a
+    ///     generated column computed from the emitter's depth, and a braced namespace shifts all of
+    ///     them by four — so a debugger following one lands in the wrong column of the .vxml.
+    /// </summary>
+    [Fact]
+    public void The_namespace_stays_file_scoped_so_the_line_columns_do_not_move() {
+        const string Framed = """
+            @component Counter
+            @namespace Game.Screens
+            <panel />
+            """;
+
+        const string Bare = """
+            @component Counter
+            <panel />
+            """;
+
+        var framed = Emit(Framed);
+        var bare = Emit(Bare);
+
+        Assert.Contains("namespace Game.Screens;", framed, StringComparison.Ordinal);
+        Assert.DoesNotContain("namespace Game.Screens {", framed, StringComparison.Ordinal);
+
+        // The same markup, so the same `#line` directives whether or not it is in a namespace.
+        Assert.Equal(Lines(bare, "#line"), Lines(framed, "#line"));
+    }
+
+    [Fact]
+    public void A_namespaced_component_still_compiles() {
+        const string Source = """
+            @component Counter
+            @namespace Game.Screens
+            @using System
+            <panel />
+            """;
+
+        Assert.Empty(Errors(Compile(Emit(Source))));
+    }
+
+    static IReadOnlyList<string> Lines(string generated, string prefix) =>
+        [.. generated.Split('\n').Select(line => line.Trim()).Where(line => line.StartsWith(prefix, StringComparison.Ordinal))];
+
+    static string Emit(string source, string? @namespace = null) {
         var component = Binder.Bind(Markup.Syntax.SyntaxTree.ParseText(source, Path), out var diagnostics);
 
         Assert.Empty(diagnostics.Where(d => d.IsError).Select(d => d.ToString()));
-        return ComponentEmitter.Emit(component!, Path);
+        return ComponentEmitter.Emit(component!, Path, @namespace);
     }
 
     static CSharpCompilation Compile(string generated) =>

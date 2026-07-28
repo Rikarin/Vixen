@@ -5,7 +5,12 @@ using System.Numerics;
 
 namespace Vixen.Ui.Text.Rasterizing;
 
-/// <summary>Where a glyph's field is, and where to draw it.</summary>
+/// <summary>Where a glyph's field is in the atlas, and the quad to draw it in.</summary>
+/// <remarks>
+///     ⚠ Not <c>GlyphPlacement</c>, which this assembly already has and which means something else
+///     — where a <i>shaped</i> glyph sits in a run. Two types of one name in one assembly is a
+///     mistake nobody makes twice and everybody has to read around.
+/// </remarks>
 /// <param name="Region">Its rectangle in the atlas texture, in pixels.</param>
 /// <param name="Left">The quad's left edge, in ems from the pen position.</param>
 /// <param name="Top">Its top edge, in ems above the baseline. Positive is up.</param>
@@ -21,7 +26,7 @@ namespace Vixen.Ui.Text.Rasterizing;
 ///     the whole failure the size-free key exists to avoid. A caller multiplies by the size it is
 ///     drawing at.
 /// </remarks>
-public readonly record struct GlyphPlacement(
+public readonly record struct AtlasGlyph(
     AtlasRegion Region,
     float Left,
     float Top,
@@ -50,7 +55,7 @@ public readonly record struct GlyphPlacement(
 ///     </para>
 /// </remarks>
 public sealed class GlyphFieldCache {
-    readonly Dictionary<GlyphKey, GlyphPlacement> placements = [];
+    readonly Dictionary<GlyphKey, AtlasGlyph> placements = [];
 
     /// <summary>Creates a cache over an atlas.</summary>
     /// <param name="atlas">Where the fields go.</param>
@@ -101,7 +106,7 @@ public sealed class GlyphFieldCache {
     ///     Whether the glyph can be drawn. False for one that draws nothing — a space — and for one
     ///     whose field will not fit the atlas at all.
     /// </returns>
-    public bool TryGet(FontFace font, int fontIndex, ushort glyph, out GlyphPlacement placement) {
+    public bool TryGet(FontFace font, int fontIndex, ushort glyph, out AtlasGlyph placement) {
         ArgumentNullException.ThrowIfNull(font);
 
         var key = new GlyphKey(fontIndex, glyph, Resolution);
@@ -121,7 +126,7 @@ public sealed class GlyphFieldCache {
         return Generate(font, key, glyph, out placement);
     }
 
-    bool Generate(FontFace font, GlyphKey key, ushort glyph, out GlyphPlacement placement) {
+    bool Generate(FontFace font, GlyphKey key, ushort glyph, out AtlasGlyph placement) {
         placement = default;
         Reads++;
 
@@ -158,7 +163,7 @@ public sealed class GlyphFieldCache {
         // In ems, so one entry serves every size. The quad covers the padded cell rather than the
         // glyph, because that is what the texture holds.
         var em = font.UnitsPerEm;
-        placement = new GlyphPlacement(
+        placement = new AtlasGlyph(
             region,
             origin.X / em,
             (origin.Y + (height / scale)) / em,

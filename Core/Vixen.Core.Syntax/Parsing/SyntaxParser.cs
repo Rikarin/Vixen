@@ -105,6 +105,20 @@ abstract class SyntaxParser {
     /// <summary>Rewinds to a raw position previously read from <see cref="RawPosition" />.</summary>
     protected void ResetTo(int rawPosition) => RawPosition = rawPosition;
 
+    /// <summary>Resumes at the first visible token at or after a raw index.</summary>
+    /// <param name="rawPosition">Any raw index, trivia or not.</param>
+    /// <remarks>
+    ///     ⚠ <b>What <see cref="ResetTo" /> is not.</b> That one rewinds to a position the parser had
+    ///     already been at, which is by construction a visible token; this takes an index computed
+    ///     from a <i>text offset</i> — which is what an incremental reuse does when it looks up where
+    ///     a reused node ends — and the token starting exactly there is very often the whitespace
+    ///     before the next real one. Leaving <see cref="RawPosition" /> on trivia breaks the
+    ///     invariant every <c>Kind</c> and <c>At</c> in a language parser rests on, and the symptom is
+    ///     a parser that cannot see the token it is looking at: in VXML, an element whose close tag
+    ///     went missing the moment its last child was reused.
+    /// </remarks>
+    protected void ResumeAt(int rawPosition) => RawPosition = SkipTrivia(rawPosition);
+
     int SkipTrivia(int index) {
         // The final token is never trivia, so this always lands on a visible token.
         var last = Tokens.Count - 1;

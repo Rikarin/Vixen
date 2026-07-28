@@ -1383,9 +1383,201 @@ sub-piece has its own gate.
   placement beside a region the atlas no longer holds passes every assertion about the placement
   while sampling whatever has since been packed at the origin.
 
-- Owed: the UI render feature that draws from the atlas. Also font fallback, rich-text runs,
-  variable-font axes,
-  `TextEditor` model with IME and caret affinity.
+- ✅ **The geometry a renderer submits** — `UiGeometryBuilder`, the CPU half of the UI render
+  feature. A draw list in, vertices out, and a pure function of the list so all of it is checked
+  without a device.
+
+  Boxes are one quad each with the corner radius evaluated in the shader; clips are **resolved**
+  into a scissor rectangle per draw rather than replayed as commands, and a nested one intersects.
+
+  ⚠ **A glyph's position is an offset along its run, not a place on the surface** — the command
+  carries where the line starts, which is what lets two identical labels in different places hold
+  identical glyph runs and therefore what lets the batcher and the frame diff notice. Found while
+  writing the tests: the first fixture put its run at the origin, where the two are the same thing.
+
+  Verified by sabotage: reading glyph offsets as absolute fails 1, a quad ignoring the font size
+  fails 1, an unflipped baseline fails 1, a threshold range that does not scale fails 1, a nested
+  clip that replaces fails 1, a clip never popped fails 1, a box not parameterised from its centre
+  fails 1, emitting empty draws fails 3, a silent dropped glyph fails 1. All nine land.
+
+- ✅ **A wider vertex index.** `UiGeometry.Indices` was `ushort` and the builder refused to emit past
+  65 535 vertices rather than wrap. Refusing was honest while the index was narrow and it is not a
+  fix: a dense editor really can pass sixteen thousand quads, and the symptom of dropping the rest is
+  a frame missing its bottom half. Thirty-two bits, not because a frame is expected to need them but
+  because the one that does wraps *silently*, drawing geometry from the top of the frame in the
+  middle of it. Sabotaging `start` back to a 16-bit truncation fails the test.
+
+- ✅ **Path tessellation.** `PathFlattener` turns curves into contours at a tolerance the caller
+  chooses — which is where `PathBuilder`'s decision to keep curves as curves is finally spent, and
+  why a path drawn at two zoom levels is right at both. `PathTessellator` turns contours into
+  triangles, filled or stroked.
+
+  ⚠ **A trapezoid sweep, not an ear clip.** Ear clipping is the usual answer and is wrong for the
+  input this gets: it needs one simple polygon, so holes need bridging and self-intersection needs
+  resolving first — and a five-pointed star drawn as five lines self-intersects, which is exactly
+  where the two fill rules disagree and therefore the shape a fill rule is *for*. Sweeping makes the
+  rule the whole of the algorithm. Bands are cut at every vertex **and every crossing**, so no edge
+  begins, ends or crosses another inside one, which is what makes each span an exact trapezoid. The
+  cost is quadratic in the edge count; that is written down along with the Bentley–Ottmann sweep that
+  would fix it, rather than discovered later.
+
+  Strokes are per-segment quads plus a wedge on the outside of each turn: miter with a limit —
+  without one, a nearly-doubled-back corner grows a spike that runs to infinity — round, and bevel;
+  butt, round and square caps. A closed contour joins at the seam and is not capped, which is the
+  whole reason `Closed` survives flattening.
+
+  **Two oracles carry the suite and neither knows how the tessellator works.** A fill is right when a
+  point is covered exactly when the winding rule calls it inside. A stroke with round joins and round
+  caps is right when a point is covered exactly when it lies within half a width of the path — the
+  Minkowski sum of the polyline with a disc, available in closed form.
+
+  ~~⚠ **Nothing here is antialiased**, and that is stated rather than hidden.~~ ✅ **It is now**, by a
+  fringe: the interior comes out at full coverage and a half-pixel strip along the outline carries the
+  ramp to zero, in the vertex where a box and a glyph carry a distance. Multisampling is still the
+  other answer and remains the compositor's to choose — `UiGeometryBuilder.Fringe = 0` switches this
+  one off, because two antialiasing schemes over one edge do not make it twice as smooth.
+
+  ⚠ **Which way is out is asked of the fill rule, not derived from the winding.** The cheap version
+  takes a contour's signed area as its orientation and is wrong for exactly the shapes that need a
+  fill rule: under even-odd a hole is a hole however it is wound, so an inner contour wound the same
+  way as its outer one gets its fringe drawn *into* the shape — a bright band around every counter in
+  an icon set. Each edge is probed on both sides instead and kept only where exactly one is inside.
+
+  ⚠ **And an edge is cut where anything crosses it before being asked.** A pentagram's chords all pass
+  through the pentagon in the middle, so probed once at the midpoint every one of them reads
+  "interior" and the star comes out with no antialiased edge at all. Splitting first is the same thing
+  the sweep does to its bands, for the same reason.
+
+  ⚠ A stroke's fringe is emitted per piece, so it overlaps on the inside of every turn — invisible for
+  an opaque stroke and only for an opaque one, since a ramp in the same colour over a pixel already
+  that colour leaves it unchanged. At a partial alpha it is a faint line down the inside of each
+  corner, and the alternative is resolving the union of the pieces into one outline, which is the
+  offset-curve problem the stroker declines to solve.
+
+  Verified by sabotage: eleven, all landing — the direction taken from the winding fails 2, the fringe
+  drawn inward fails 2, an edge decided whole fails 1, the corner wedges left out fails 1, a fringe at
+  full coverage throughout fails 1, an ignored width fails 2, an unfeathered stroke or fill fails 2
+  each, a coverage that never reaches the vertex fails 3, and a shader that ignores it fails 1.
+
+  Verified by sabotage: twelve, eleven landing first time. ⚠ **The twelfth failed to fail** —
+  deleting the seam-duplicate removal broke nothing, because the test used `AddRectangle`, which
+  never walks back to its start, so the duplicate was never there to remove. The shape that needs it
+  is what an imported SVG produces: an explicit line home, then a close. Sharpened, and it lands.
+
+- ✅ **The GPU half** — `Vixen.Ui.Renderer`. Three pipelines over one vertex layout (box, text,
+  solid), host-visible buffers rewritten per frame, an atlas texture uploaded only when its version
+  changes, and a clip applied as a scissor. `UiRenderFeature` is a thin `RootRenderFeature` over it,
+  so the part that touches a device can be driven by a golden image without a `RenderSystem`.
+
+  A separate assembly on purpose: the join belongs in neither half. `Vixen.Ui` would gain a graphics
+  API it is meant to be usable without, and `Vixen.Rendering` would gain a UI framework every
+  renderer would then carry.
+
+  ⚠ **One pipeline layout for all three pipelines, including the two that never sample the atlas.**
+  A layout each is the obvious arrangement and the one that must be got right per draw, because
+  Vulkan disturbs every set from the first one two layouts disagree about — so a box between two runs
+  of text unbinds the atlas. That is undefined behaviour rather than an error, this machine's driver
+  keeps the binding, and the validation layers do not object, so **no golden image here can see it**.
+  Found by a sabotage that changed nothing through two rewrites of the fixture built to catch it.
+  Identical layouts make the question not arise.
+
+  ⚠ **The corrected guess.** `DrawBatch` reasoned that because `RenderSortMode.ByGroup` exists "for
+  UI and anything else already ordered", the batch index must be the sort group. It cannot be: a
+  render object is one *surface*, because the store's objects live across frames under a dense id
+  every feature's array is keyed on, and an object per batch would churn the store on every label
+  change. Painting order within a surface is already the order of `UiGeometry.Draws`. The group
+  orders surfaces against each other. Both `DrawBatch`'s remarks and this entry are corrected rather
+  than quietly left standing — and the other open question there is closed too: the batch list *is*
+  used, by the geometry builder, one batch to one draw, behind the frame diff.
+
+- Gate: ✅ `ui-interface` and `ui-clipped` golden images. Thirteen sabotages, all landing — the
+  projection agreeing with Vulkan instead of the engine fails 2, a scissor never set fails 1, an
+  unbound atlas crashes the driver, the shared state pushed before any pipeline is bound trips
+  validation, the vertex layout swapping colour and shape fails 2, a 16-bit index format fails 2, the
+  box distance's sign fails 2, a border drawn as a fill fails 1, an ignored corner radius fails 1,
+  one channel instead of the median fails 1, an ignored pixel range fails 1, a second y flip fails 2.
+
+  ⚠ **The first version was drawn upside down**, with a comment above the projection arguing at
+  length that it should not be: Vulkan's clip space does have +y down, but nothing sees it, because
+  the backend submits a negative-height viewport so the engine's +y-up convention holds everywhere.
+  ⚠ **And the clip fixture did not notice**, because its box was symmetric about the scissor's edge —
+  a clip test whose picture is its own mirror image cannot see the most common mistake in the file it
+  tests.
+
+- ✅ **A stroke's join and cap are carried on the command**, beside its thickness, rather than set
+  once for the whole frame on the geometry builder — a join is part of the stroke somebody asked for,
+  and nobody would have put the thickness anywhere else. `MiterLimit` is on it too, where ⚠ **zero
+  means the default of four**: the command is a struct, so its default is all-zeroes, and a real
+  limit of zero would bevel every corner of a stroke whose caller set only the thickness.
+
+  ⚠ **And a claim next door stopped being true.** `DrawBatcher` puts the fill rule in the batch key
+  on the argument that "two filled paths read by different rules are not the same draw". Since the
+  tessellator, they are: `UiGeometryBuilder` reads the rule per *command*, so merging them loses
+  nothing. The rule stays in the key as **insurance** against a renderer that resolves it on the GPU
+  — stencil-then-cover, where the rule really is pipeline state — and is now labelled as insurance
+  rather than as a covered claim. The join and cap are deliberately *not* in the key, because there
+  is no implementation in which a join is anything but geometry.
+
+- ✅ **Line wrapping** — `LineWrapper` fills `LineBreaker`'s opportunities into lines of a given
+  width. The two are deliberately apart: the first answers "where *may* a line end", which is a
+  question about Unicode and is judged by the Consortium's suite; this one answers "where does it
+  end", which needs measured widths and cannot be judged that way at all.
+
+  ⚠ **A line is a range of the source, not a slice of the shaped glyphs.** Cutting a shaped paragraph
+  at a break keeps whatever the shaper did across it — a ligature spanning the break survives onto one
+  of the two lines, and a cursive script keeps a medial form on a letter that is now final. The only
+  correct fix is to shape each line, and all a caller needs for that is where the line starts and ends.
+
+  ⚠ **The width is accumulated per cluster, not along the glyph list.** A right-to-left run hands its
+  glyphs back in visual order, so their clusters descend and a running sum measures a bidi paragraph
+  as though it were Latin. What a line's width *is*, is the total advance of the characters in it,
+  which does not depend on the order they are drawn in.
+
+  ⚠ **And `LineBreaker.IsMandatory` is true at the end of the text**, because LB3 says "always break
+  at end of text" — right for a conformance suite, and not a break a *line* was forced into. Left in,
+  every paragraph's last line comes back marked mandatory and a paragraph that fits on one line comes
+  back as one mandatory line. Found by the first test written.
+
+  Greedy first-fit rather than Knuth–Plass: an interface reflows on every resize and every keystroke,
+  so paying for an optimum that changes as fast as it is computed is the wrong trade — and greedy is
+  what every browser does, so a panel wraps where somebody expects.
+
+  Verified by sabotage: eight, seven landing. ⚠ **The eighth failed to fail** — replacing the
+  grapheme boundaries the "break anywhere" mode cuts at with every UTF-16 index changes nothing,
+  because a cluster's whole advance is recorded at its first character, so every cut inside a cluster
+  measures the same as the cut at its end and the largest that fits lands on the end anyway. The
+  guard is kept and labelled as insurance against the cluster reconciliation going away, which is
+  what makes it unreachable.
+
+- ✅ **Gradients and per-corner elliptical radii.** Four corners with a pair of radii each, and a
+  two-stop linear gradient along an axis in the box's own space.
+
+  ⚠ **A storage buffer, one record per box, and the vertex carries the index.** Fourteen more floats
+  on the vertex would take it from forty-eight bytes to a hundred and four, and every glyph and path
+  triangle in the frame would carry fields no shader reads on them; per box it is eighty bytes
+  against the sixty-four its four vertices already spend, and the vertex layout does not move. The
+  draw list keeps the authored form in a side buffer beside the glyphs and the path segments, for the
+  same reason it keeps those there — and the frame diff reads it, or a button whose gradient is being
+  animated emits identical commands every frame and keeps drawing the old colours.
+
+  ⚠ **The exact distance to an ellipse has no closed form.** The corner quadrant is scaled into a
+  circle and the distance scaled back by the *smaller* semi-axis: exact on the axes and within a
+  fraction of a pixel between them, which is all a one-pixel antialiasing band can tell apart.
+  ⚠ And `q` is the offset from the ellipse's *centre*, so `q <= 0` on an axis means the boundary
+  there is a straight edge — measuring from the centre where the edge is straight eats the whole flat
+  part of the side, which is what the first version did.
+
+  Verified by sabotage: fourteen, thirteen landing. ⚠ **One is unreachable**: the `flat` qualifier on
+  the shape index insures against an index a float stops holding exactly — past sixteen million boxes
+  — and interpolating a value equal at all three corners is exact, so no fixture can see it. Labelled
+  as insurance. ⚠ **And one needed a new fixture**: a frame with more boxes than the last one replaces
+  the buffer the descriptor set names, and a suite that uploaded once never grew it — so deleting the
+  rewrite broke nothing, because the descriptor had been written by the atlas path on the way past
+  and was correct by accident.
+
+- Owed: font fallback, rich-text runs, variable-font axes, `TextEditor` model with IME and caret
+  affinity. On the rendering side: reconciling the per-vertex box parameters here with
+  `Raven/Library/Ui`'s per-uniform ones when Raven takes over shader compilation.
 - Gate: ✅ UAX conformance data green. ✅ shaping conformance green against an external oracle,
   with the quarantine pinned in both directions.
 
@@ -1755,7 +1947,35 @@ sub-piece has its own gate.
   something that is — a descendant selector that silently stops matching. So slots leak,
   `StyleTree.DeadCount` says by how much, and **compaction rather than reuse is the fix**, because
   rebuilding without the dead slots preserves relative order where reuse is exactly what does not.
-  **Owed, and it is the one thing keeping this from being finished rather than merely working.**
+  ~~Owed, and it is the one thing keeping this from being finished rather than merely working.~~
+
+- ✅ **Compaction**, which was that owed item. `StyleTree.Compact` rebuilds the store — and all three
+  arenas, so it also reclaims the child runs `AppendChild` abandons when it relocates one — and
+  **hands back a mapping rather than doing it quietly**, because a slot is an index and moving one
+  moves every `StyleNodeId` in existence. `StyleUpdater` and `Animator` follow it; `UiDocument` owns
+  the ids, so `CompactStyles` is what walks the element tree applying the mapping, and `Update` calls
+  it when the tombstones outnumber the elements and there are at least sixty-four of them. Not per
+  removal: compaction is O(elements), so doing it there would make tearing down a thousand-row list
+  quadratic — which is the loop that produces the leak in the first place.
+
+  ⚠ **The animator is remapped, not cleared.** Clearing was one line and already available, and it
+  restarts every fade on the frame a document happens to compact — so deleting one row would jolt the
+  rows transitioning around it. A worse bug than the leak, and rarer, which is the combination nobody
+  finds.
+
+  The oracle is **a tree that never held the removed elements**: compaction should leave a store
+  indistinguishable from one built without them, so the test builds that store and compares every
+  observable rather than asserting the arrays.
+
+  Verified by sabotage: thirteen, and ⚠ **five failed to fail first time**, four of them because the
+  fixture could not reach what they broke. The arena tests had classes and attributes only *before*
+  the removed subtree, where a stale range still lands on the right run. The document test removed a
+  *tail*, where every survivor keeps the slot it had, so the mapping is the identity and deleting the
+  remap changes nothing — a compaction test whose survivors do not move cannot see the only thing
+  compaction does. The fifth was a sabotage that was a no-op. ⚠ And clearing the tail of the arrays
+  turns out to be **unobservable** — every getter validates against `Count` and `CreateElement`
+  writes every field of a slot before handing it out — so it is kept and labelled as insurance, with
+  what it insures against written next to it.
 
   ⚠ **The layout tree already reused its slots and the style tree cannot**, and the asymmetry is not
   an oversight: the layout algorithm descends from the root, so it never cared what order the slots
@@ -1894,9 +2114,52 @@ sub-piece has its own gate.
   immediately after this. The note that stood here said the emitter's output was compiled against a
   written-out declaration of the contract and that nothing built an element; that was true when it
   was written and is not now. The gate compiles against the real assembly, loads it and runs it.
-  Still owed: incremental reparse (the `Blender` exists, but VXML's unit of reuse is not obvious — an element's green node
-  is reusable only if nothing about its *enclosing* content changed), `bind:` update events and
-  `@namespace`. The `IIncrementalGenerator` wrapper is built — see `Vixen.Ui.Markup.Generators`
+  ✅ **`@namespace`** — the file wins over the build. The generator offers the project's root
+  namespace plus the file's folders, which is right nearly always and is not right for a component
+  whose folder is not what its namespace should be; renaming the folder is not a fix a library can
+  rely on. It interleaves freely with `@using`, because a header order nobody can remember is a
+  diagnostic nobody wants, and a second one is rejected rather than replacing the first — falling
+  through to the same "unexpected" path every other stray directive takes, so its characters survive
+  in the tree as trivia. ⚠ Emitted **file-scoped**, whatever it came from: every `#line` span carries
+  a generated column computed from the emitter's depth, and a braced namespace shifts all of them by
+  four. Verified by sabotage: six, all landing — a braced namespace fails 4, the caller winning
+  fails 1, an unbound directive fails 2, a duplicate that replaces fails 1, a fixed header order
+  fails 1, and a keyword length wrong by one fails 6.
+
+  ✅ **Incremental reparse**, which was the other owed item and the one recorded as an open *design*
+  question rather than as missing code. ⚠ **VXML's unit of reuse is a content node whose subtree
+  reported nothing**, and the reasoning that settles it is the point: the worry written down was that
+  an element is reusable only if nothing about its *enclosing* content changed, because an unclosed
+  tag above it changes what it is. That is true of where the node ends up and false of the node
+  itself — `<panel/>` parses to the same green node whether it is a child or a sibling, and the
+  enclosing parse decides which either way. The parser's one piece of enclosing state is the list of
+  elements currently open, **every branch that reads it reports a diagnostic**, so a clean subtree
+  never consulted it. The same rule settles a second problem for free: a reused subtree's diagnostics
+  are not re-reported, and one that had none has none to lose.
+
+  The file is always re-*lexed*; only the parse reuses. That is what keeps a reused node correct when
+  an edit above it disturbs the lexer's mode stack.
+
+  ⚠ **And it found a latent bug in the shared parser.** An incremental reuse is the only place a
+  parser resumes at a position computed from a *text offset* rather than one it had already been at,
+  and the token starting exactly where a reused node ends is very often the whitespace before the
+  next real one. `ResetTo` left `RawPosition` on trivia, which breaks the invariant every `Kind` and
+  `At` rests on — the symptom was an element whose close tag vanished the moment its last child was
+  reused. `SyntaxParser.ResumeAt` is the fix, and Raven's member reuse had the same shape and had
+  been recovering by accident, because its caller skips newlines immediately afterwards.
+
+  Gated by a full reparse as the oracle over two thousand random edits, plus a run of chained edits —
+  the shape a keystroke actually arrives in, and the one where a position shifted by the wrong delta
+  accumulates instead of showing up once. `SyntaxTree.ReusedNodes` says reuse happened, because equal
+  trees only prove it was allowed to.
+
+  Verified by sabotage: eight, five landing. ⚠ **Three did not**, and all three are the same finding:
+  the `Blender`'s one-character margin, the token-boundary re-check and the edge case of a diagnostic
+  ending exactly where a node starts are each unreachable because the others already cover them — an
+  edit that merges with a reused node's first token moves that token's start, so the lookup by full
+  start simply misses. Insurance, labelled as insurance.
+
+  Still owed: `bind:` update events. The `IIncrementalGenerator` wrapper is built — see `Vixen.Ui.Markup.Generators`
   below, which also records the two bugs in *this* project that only a generator could find.
 - ✅ **`Vixen.Ui.HotReload` — three reload channels, and what each one is allowed to lose.**
 
@@ -2008,9 +2271,12 @@ sub-piece has its own gate.
   kept — the fallback discards arguments silently and has no contract — and is now labelled as
   insurance rather than as a covered claim.
 
-  Still owed: incremental reparse, an `@namespace` directive, and the `vixen` CLI path for a build
-  that wants the generated C# on disk.
-- UI render feature integrated into the renderer.
+  Still owed: incremental reparse and the `vixen` CLI path for a build that wants the generated C#
+  on disk.
+- ✅ **UI render feature integrated into the renderer** — `Vixen.Ui.Renderer`, written up under 4c
+  because it is the other end of the geometry builder. `UiRenderFeature` is a `RootRenderFeature`
+  whose objects are surfaces; the stage it is drawn in has to sort `ByGroup`, because every other
+  mode puts depth in the key and an interface has none.
 - Gate: draw-list golden tests; parser golden trees + error-recovery tests; hot-reload scenario tests.
 
 **4e — Controls (1.0 EM)**
