@@ -2019,7 +2019,22 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
 - `Vixen.Editor.AnimationGraph`.
 - `Vixen.Input`: full device set + the Unity-style action system, `.vxinput` asset, generated accessors,
   runtime rebinding, action-map editor, input debug panel.
-- `Vixen.Navigation`: Recast/Detour binding, navmesh baking as a build step, agents, avoidance.
+- ✅ `Vixen.Navigation` — bake, query, agents and avoidance, **as Vixen's own managed code rather
+  than a Recast/Detour binding**. The voxel pipeline (rasterise → filter → erode → monotone regions →
+  contours → convex polygons), a tiled mesh whose tiles can be added and removed under live paths,
+  `NavMeshQuery` (nearest polygon, A\*, funnel, surface raycast, move-along-surface), and a `Crowd`
+  with path corridors, sampled reciprocal velocity obstacles and an ECS bridge. 40 tests.
+
+  **Why the binding was not built:** Recast/Detour publishes no binaries and has no C API, so a
+  binding is a C shim plus a build per RID plus an entry in `build/native-dependencies.json`, none of
+  which exists — and iOS is NativeAOT-only while WebAssembly has no dynamic loading at all. The
+  algorithms are re-derived and credited; no code is copied. `Core/Vixen.Navigation/README.md` records
+  the trade and what it costs.
+
+  **Owed:** watershed partitioning (regions are monotone sweeps today), the height-detail pass (a
+  floor sits up to one cell height high), off-mesh connections, dynamic obstacles, and the content
+  build calling the baker — the bake produces an inert `NavMeshTileData` and nothing imports one yet,
+  so "baking as a build step" is half of this line rather than all of it.
 - `Samples/05-PlatformerGame` — physics, input, animation, audio, VFX end to end on all platforms where
   it is in scope.
 

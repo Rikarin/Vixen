@@ -400,3 +400,35 @@ dotnet_diagnostic.CA1051.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Ui.Markup/Binding/BoundNodes.cs]
 dotnet_diagnostic.CA1711.severity = none
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Navigation/NavMeshTileData.cs
+#
+# CA1051 (do not declare visible instance fields). `NavMeshPolyData` is one
+# element of the array a baked tile is, and the same reasoning as
+# Vixen.Rendering/RenderObject.cs applies from both ends: the pathfinder reads it
+# through a `ref` into that array once per polygon it expands, and the baker fills
+# it field by field while building — `polys[i].Area = …` through a property would
+# write to a copy and the write would be lost.
+#
+# It is also the on-disk shape. A tile is a bake artefact, and a layout that a
+# reader can blit is worth more here than a property that could later validate
+# something nothing is in a position to validate.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Navigation/NavMeshTileData.cs]
+dotnet_diagnostic.CA1051.severity = none
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Navigation/NavQueryFilter.cs
+#
+# CA1711 (identifiers should not have incorrect suffix). The rule reserves the
+# `Flags` suffix. `NavPolyFlags` is a `[Flags]` enum whose members are exactly
+# what everyone who has ever configured a navmesh filter calls the polygon flags —
+# the word is the domain's, and the filter beside it has `IncludeFlags` and
+# `ExcludeFlags` for the same reason. Renaming the type would leave the two
+# properties reading as flags of a thing that is not called flags.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Navigation/NavQueryFilter.cs]
+dotnet_diagnostic.CA1711.severity = none
