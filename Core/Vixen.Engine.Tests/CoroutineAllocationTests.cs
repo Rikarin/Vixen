@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using Vixen.Core;
 
 using Vixen.Engine.Coroutines;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Engine.Tests;
@@ -38,15 +39,20 @@ public sealed class CoroutineAllocationTests {
         var scheduler = new CoroutineScheduler();
         var time = GameTime.Zero;
         var resumes = 0;
+        var frames = 0;
 
         scheduler.BeginFrame(time = time.Advance(Sixtieth));
         scheduler.Run(Body());
 
         Assert.Equal(0, Measure(Frame));
-        Assert.Equal(WarmUpFrames + MeasuredFrames, resumes);
+
+        // One resume per frame, whatever the number of frames turned out to be.
+        Assert.Equal(frames, resumes);
+        Assert.True(frames >= WarmUpFrames + MeasuredFrames);
         return;
 
         void Frame() {
+            frames++;
             scheduler.BeginFrame(time = time.Advance(Sixtieth));
             scheduler.Drain(ResumePoint.Update);
         }
@@ -68,6 +74,7 @@ public sealed class CoroutineAllocationTests {
         var scheduler = new CoroutineScheduler();
         var time = GameTime.Zero;
         var resumes = 0;
+        var frames = 0;
 
         scheduler.BeginFrame(time = time.Advance(Sixtieth));
 
@@ -76,10 +83,14 @@ public sealed class CoroutineAllocationTests {
         }
 
         Assert.Equal(0, Measure(Frame));
-        Assert.Equal(1_000 * (WarmUpFrames + MeasuredFrames), resumes);
+
+        // A thousand resumes per frame, whatever the number of frames turned out to be.
+        Assert.Equal(1_000 * frames, resumes);
+        Assert.True(frames >= WarmUpFrames + MeasuredFrames);
         return;
 
         void Frame() {
+            frames++;
             scheduler.BeginFrame(time = time.Advance(Sixtieth));
             scheduler.Drain(ResumePoint.Update);
         }
@@ -120,14 +131,18 @@ public sealed class CoroutineAllocationTests {
         var scheduler = new CoroutineScheduler();
         var time = GameTime.Zero;
         var finished = 0;
+        var frames = 0;
 
         scheduler.BeginFrame(time = time.Advance(Sixtieth));
 
+        // The divisor is the measured frames rather than the frames run: Measure only ever reports
+        // the bytes of one measured window, however many windows it took to get a clean one.
         var perStart = Measure(Frame) / (double)MeasuredFrames;
 
         // Started before BeginFrame and resumed by the drain after it, so each pass starts one and
         // finishes it.
-        Assert.Equal(WarmUpFrames + MeasuredFrames, finished);
+        Assert.Equal(frames, finished);
+        Assert.True(frames >= WarmUpFrames + MeasuredFrames);
 
 #if DEBUG
         Assert.InRange(perStart, 0d, 128d);
@@ -138,6 +153,7 @@ public sealed class CoroutineAllocationTests {
         return;
 
         void Frame() {
+            frames++;
             scheduler.Run(Body());
             scheduler.BeginFrame(time = time.Advance(Sixtieth));
             scheduler.Drain(ResumePoint.Update);
@@ -178,21 +194,12 @@ public sealed class CoroutineAllocationTests {
 
     /// <summary>
     ///     Runs the frame a few hundred times to let every list reach its size and every pool fill,
-    ///     then measures what a few thousand more cost.
+    ///     then measures what a few thousand more cost. See <see cref="Measured" /> for why the
+    ///     measurement is more than a subtraction, and why the frame may run more often than
+    ///     <c>WarmUpFrames + MeasuredFrames</c> — the callers here count frames rather than predict
+    ///     them.
     /// </summary>
     /// <param name="frame">One frame.</param>
     /// <returns>Bytes allocated on this thread over the measured frames.</returns>
-    static long Measure(Action frame) {
-        for (var index = 0; index < WarmUpFrames; index++) {
-            frame();
-        }
-
-        var before = GC.GetAllocatedBytesForCurrentThread();
-
-        for (var index = 0; index < MeasuredFrames; index++) {
-            frame();
-        }
-
-        return GC.GetAllocatedBytesForCurrentThread() - before;
-    }
+    static long Measure(Action frame) => Measured.Bytes(frame, WarmUpFrames, MeasuredFrames);
 }

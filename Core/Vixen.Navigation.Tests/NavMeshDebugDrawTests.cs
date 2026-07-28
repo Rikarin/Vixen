@@ -6,6 +6,7 @@ using Vixen.Engine.Diagnostics;
 using Vixen.Navigation.Agents;
 using Vixen.Navigation.Baking;
 using Vixen.Navigation.Diagnostics;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Navigation.Tests;

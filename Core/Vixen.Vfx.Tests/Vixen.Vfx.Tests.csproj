@@ -27,4 +27,8 @@
              tooling assembly with reflection and LINQ, and a shipped game compiles no shaders. -->
         <ProjectReference Include="..\..\Raven\Vixen.Raven\Vixen.Raven.csproj" />
     </ItemGroup>
+
+    <!-- Measured, the guarded allocation measurement. See Testing/Vixen.Testing.props. -->
+    <Import Project="..\..\Testing\Vixen.Testing.props" />
+
 </Project>

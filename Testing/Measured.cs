@@ -4,7 +4,7 @@
 using System.Globalization;
 using Xunit;
 
-namespace Vixen.Navigation.Tests;
+namespace Vixen.Testing;
 
 /// <summary>
 ///     Counts the bytes a piece of work asks for, once it has stopped growing whatever it grows.
@@ -13,8 +13,8 @@ namespace Vixen.Navigation.Tests;
 ///     <para>
 ///         Per-thread allocation rather than <c>GC.GetTotalMemory</c>, because the latter measures the
 ///         heap after whatever the collector has done to it and is not a count of what this code asked
-///         for. A single-digit byte count here is not noise to be tolerated — every buffer in these
-///         paths is owned, so the answer is zero or something is wrong.
+///         for. A single-digit byte count here is not noise to be tolerated — the paths these tests
+///         guard own every buffer they touch, so the answer is zero or something is wrong.
 ///     </para>
 ///     <para>
 ///         <b>Which is why the collector has to be kept out of the measurement.</b>
@@ -22,10 +22,12 @@ namespace Vixen.Navigation.Tests;
 ///         remainder of the allocation context it is currently holding, and a collection retires that
 ///         context — so the counter steps up by as much as a whole context, some eight kilobytes, at
 ///         whichever collection happens to land inside the measured window, whether or not the measured
-///         code allocated a byte of it. The same artefact is described at <c>FuzzSession.Weigh</c>,
-///         where a window long enough to absorb it was the right answer. It is not the right answer
-///         here: the claim is exactly zero, and a tolerance wide enough to hide a collection is wide
-///         enough to hide the per-frame allocation these tests exist to catch.
+///         code allocated a byte of it. Whether one lands depends on what else ran in the process, so
+///         the artefact moves with test ordering and machine load rather than with the code under
+///         measurement. The same artefact is described at <c>FuzzSession.Weigh</c>, where a window long
+///         enough to absorb it was the right answer. It is not the right answer here: the claim is
+///         exactly zero, and a tolerance wide enough to hide a collection is wide enough to hide the
+///         per-frame allocation these tests exist to catch.
 ///     </para>
 ///     <para>
 ///         Collecting first is most of the defence. It hands the loop an <i>empty</i> allocation
@@ -36,6 +38,13 @@ namespace Vixen.Navigation.Tests;
 ///         <see cref="GC.CollectionCount" /> either side is for: a non-zero reading with a collection
 ///         in it is thrown away and measured again rather than reported. A number that survives
 ///         <see cref="Attempts" /> of that is a number the collector cannot explain.
+///     </para>
+///     <para>
+///         <b>A caller whose work has a side effect must count it rather than predict it.</b> Because a
+///         non-zero reading is measured again, <paramref name="work" /> runs <i>at least</i>
+///         <c>warmUp + passes</c> times and possibly several times that. Assert that a counter the work
+///         advances is non-zero, or read it after the measurement — never against an arithmetic
+///         expectation of how many times the work should have run.
 ///     </para>
 /// </remarks>
 static class Measured {

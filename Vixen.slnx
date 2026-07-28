@@ -240,6 +240,14 @@
     <Project Path="Raven/Vixen.Raven.Tests/Vixen.Raven.Tests.csproj" />
     <Project Path="Raven/Vixen.Raven.Cli/Vixen.Raven.Cli.csproj" />
   </Folder>
+  <!--
+    Testing — test-only source shared across test assemblies, linked into them rather than built
+    into one. Vixen.Testing.props says why; docs/plan/02 § "Testing/" says where it sits.
+  -->
+  <Folder Name="/Testing/">
+    <File Path="Testing/Vixen.Testing.props" />
+    <File Path="Testing/Measured.cs" />
+  </Folder>
   <Project Path="Samples/01-HelloTriangle/HelloTriangle.csproj" />
   <Project Path="Samples/04-EcsStressTest/EcsStressTest.csproj" />
   <Project Path="Samples/07-AddressablesRemote/AddressablesRemote.csproj" />

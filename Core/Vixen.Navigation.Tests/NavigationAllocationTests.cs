@@ -4,6 +4,7 @@
 using Vixen.Core.Mathematics;
 using Vixen.Navigation.Agents;
 using Vixen.Navigation.Baking;
+using Vixen.Testing;
 using Xunit;
 
 namespace Vixen.Navigation.Tests;
