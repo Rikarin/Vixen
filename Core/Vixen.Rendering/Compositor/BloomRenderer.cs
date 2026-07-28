@@ -152,6 +152,14 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable {
             Declare(frame, Up(i, levels), sizes[i]);
         }
 
+        if (levels == 1) {
+            // One level is the whole chain, so the prefilter's target *is* the result — and with no
+            // up-chain to declare, nothing would otherwise be published under Output at all. Found by
+            // a golden fixture reaching for a single-level bloom; a legitimate low-quality setting
+            // that produced a frame naming a resource nobody had declared.
+            frame.Add(Output, frame.Texture(ToString(), Down(0)), Format);
+        }
+
         var index = 0;
 
         // Prefilter: full-resolution source into the first half-resolution level, keeping what is

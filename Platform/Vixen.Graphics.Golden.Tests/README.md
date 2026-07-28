@@ -69,3 +69,10 @@ and rolls it off against a white point the host never set; setting that white po
 twice is a different colour from one shaded once; relaxing its depth comparison to `Always` turns the
 overlap yellow and moves 17.2% by up to 204/255. A fixture that cannot be made to fail is asserting
 nothing.
+
+Where the arithmetic is beyond hand-checking — `bloom` is nine passes of bilinear taps — the fixture
+asserts the **properties** a correct result has before it trusts the picture: the glow is centred on
+its source, symmetric about that centre, and reaches well past it. Otherwise committing the first
+reference is committing whatever came out first. Those assertions earn their place: setting the
+chain's intensity to zero fails on "the glow does not reach past the source" rather than on a pixel
+count.
