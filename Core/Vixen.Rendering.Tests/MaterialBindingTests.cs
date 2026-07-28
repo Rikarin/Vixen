@@ -54,6 +54,9 @@ public sealed class MaterialBindingTests : IDisposable {
     readonly DescriptorAllocator allocator;
     readonly DescriptorSetLayoutHandle layout;
     readonly DescriptorSetLayoutHandle unlitLayout;
+
+    /// <summary>Set 0's shape, so the frame has something of its own to bind.</summary>
+    readonly DescriptorSetLayoutHandle frameLayout;
     readonly EffectSystem effects = new();
 
     public MaterialBindingTests() {
@@ -83,7 +86,11 @@ public sealed class MaterialBindingTests : IDisposable {
             )
         );
 
-        effects.AddProvider(new Compiles(layout, unlitLayout));
+        frameLayout = device.CreateDescriptorSetLayout(
+            new(DescriptorSetSlot.PerFrame, [new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment)], "Scene")
+        );
+
+        effects.AddProvider(new Compiles(layout, unlitLayout, frameLayout));
     }
 
     public void Dispose() {
@@ -99,16 +106,17 @@ public sealed class MaterialBindingTests : IDisposable {
     ///     qualified by shader. Bridging those two is the thing under test, so a fake that named them
     ///     identically would assert nothing.
     /// </remarks>
-    sealed class Compiles(DescriptorSetLayoutHandle lit, DescriptorSetLayoutHandle unlit) : IEffectProvider {
+    sealed class Compiles(DescriptorSetLayoutHandle lit, DescriptorSetLayoutHandle unlit, DescriptorSetLayoutHandle frame) : IEffectProvider {
         public Effect? TryGet(EffectKey key) =>
             key.ShaderName switch {
                 "Lit" => new() {
                     Key = key,
                     Stages = Modules,
-                    SetLayouts = [default, default, lit, default],
+                    SetLayouts = [frame, default, lit, default],
                     ConstantBufferSize = 16,
                     Parameters = [new(Tint, 0, 12)],
                     Bindings = [
+                        new("environment", DescriptorSetSlot.PerFrame, 0, DescriptorKind.SampledTexture),
                         new("constants", DescriptorSetSlot.PerMaterial, ConstantsBinding, DescriptorKind.UniformBuffer),
                         new("albedo", DescriptorSetSlot.PerMaterial, AlbedoBinding, DescriptorKind.SampledTexture),
                         new("albedoSampler", DescriptorSetSlot.PerMaterial, SamplerBinding, DescriptorKind.Sampler)
@@ -228,7 +236,7 @@ public sealed class MaterialBindingTests : IDisposable {
         return material;
     }
 
-    void Frame(Harness h) {
+    void Frame(Harness h, SceneConstants? scene = null) {
         allocator.BeginFrame();
         h.System.Draw();
 
@@ -247,7 +255,11 @@ public sealed class MaterialBindingTests : IDisposable {
         h.System.Record(
             h.Camera,
             h.Opaque,
-            new(list, effects) { Device = device, Output = new([PixelFormat.Rgba8UNorm]) }
+            new(list, effects) {
+                Device = device,
+                Output = new([PixelFormat.Rgba8UNorm]),
+                SceneConstants = scene
+            }
         );
 
         list.EndRenderPass();
@@ -505,6 +517,56 @@ public sealed class MaterialBindingTests : IDisposable {
         Assert.Equal(1, scene.WriteCount);
 
         list.Finish();
+    }
+
+    /// <summary>
+    ///     The frame's set is bound once for a run, after the first pipeline.
+    /// </summary>
+    /// <remarks>
+    ///     Both halves matter. <em>After</em>, because <c>BindDescriptorSet</c> takes no pipeline
+    ///     layout and infers one from what is bound, so a set before the first pipeline is undefined
+    ///     and the Vulkan backend refuses it outright. <em>Once</em>, because the four-set convention
+    ///     makes every pipeline in a frame layout-compatible up to set 1 — so a set 0 bound at the top
+    ///     of a run survives every pipeline change inside it.
+    /// </remarks>
+    [Fact]
+    public void The_frames_set_is_bound_once_after_the_first_pipeline() {
+        using var h = Build();
+
+        using var scene = new SceneConstants(device) { Descriptors = allocator };
+        scene.Parameters.Set(ParameterKeys.New<TextureViewHandle>("Lit.environment"), Texture());
+
+        for (var i = 0; i < 4; i++) {
+            AddMesh(h, Lit());
+        }
+
+        Frame(h, scene);
+
+        var commands = device.Recorder!.OfKind(RecordedCommandKind.BindDescriptorSet).ToArray();
+        var frame = commands.Where(command => command.A == (long)DescriptorSetSlot.PerFrame).ToArray();
+
+        Assert.Single(frame);
+        Assert.Equal(1, scene.WriteCount);
+
+        // And it came after a pipeline rather than before one, which is the half a driver enforces.
+        var all = device.Recorder.Commands;
+        var firstPipeline = -1;
+        var firstFrameSet = -1;
+
+        for (var i = 0; i < all.Count; i++) {
+            if (firstPipeline < 0 && all[i].Kind == RecordedCommandKind.BindPipeline) {
+                firstPipeline = i;
+            }
+
+            if (firstFrameSet < 0
+                && all[i].Kind == RecordedCommandKind.BindDescriptorSet
+                && all[i].A == (long)DescriptorSetSlot.PerFrame) {
+                firstFrameSet = i;
+            }
+        }
+
+        Assert.True(firstPipeline >= 0);
+        Assert.True(firstPipeline < firstFrameSet);
     }
 
     // --- Declining ----------------------------------------------------------

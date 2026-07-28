@@ -70,6 +70,7 @@ public sealed class MeshRenderFeature : RootRenderFeature {
         var boundPipeline = default(PipelineHandle);
         var boundDescriptors = default(DescriptorSetHandle);
         var boundView = false;
+        var boundScene = false;
 
         foreach (var node in nodes) {
             var draw = draws[node.Object.Index];
@@ -104,6 +105,13 @@ public sealed class MeshRenderFeature : RootRenderFeature {
             // set 1 and a bound set survives a change that does not disturb it.
             if (!boundView && context.ViewConstants is { } view && context.View is { } from) {
                 boundView = view.Bind(context.CommandList, from);
+            }
+
+            // The frame's set, on the same terms and for the same reason. After the pipeline because
+            // no set can precede one; once per run because every pipeline in a frame is layout-
+            // compatible up to set 1, which covers set 0 as well.
+            if (!boundScene && context.SceneConstants is { } scene) {
+                boundScene = scene.Bind(context.CommandList, effect);
             }
 
             // Only when the resolved effect actually has a per-material set. A stage that overrode

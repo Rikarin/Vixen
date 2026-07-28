@@ -687,6 +687,17 @@ finds where `environment` goes.
 a resource and `Effect.Bindings` says where it goes. Every binding or none, for the reason a material's
 set is all-or-nothing.
 
+`MeshRenderFeature` binds set 0 where it binds set 1 — after the first pipeline, once per run. After,
+because `BindDescriptorSet` takes no pipeline layout and infers one from what is bound, so a set before
+the first pipeline is undefined and the Vulkan backend refuses it. Once, because the four-set convention
+makes every pipeline in a frame layout-compatible up to set 1, which covers set 0 with it.
+
+⚠ **The generator still emits keys for one block.** `BindingsEmitter` picks the first uniform block a
+shader has, which was every shader's only block until this pass had four — so `ForwardPlusKeys` covers
+set 0's values and names nothing in set 1, set 2 or set 3. Those parameters are reachable by
+`ParameterKeys.New<T>("ForwardPlus.view")` and not by a generated constant, which is the ergonomics
+rather than the correctness of it. Emitting per block is the same change one level out.
+
 The shader half — `Library/Pipeline/ClusterCulling.rvn` binning lights into a froxel grid, and
 `ForwardPlus.rvn`'s `UseClusteredLights` permutation swapping its uniform-array loop for the cluster
 list — has existed for a while. What was missing was the CPU side, and what was *blocking* it was the
