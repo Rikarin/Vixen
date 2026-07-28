@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.ShaderGraph</RootNamespace>
+        <Description>
+            The shader graph: a node library of maths, texture, vertex-data and master nodes over the
+            reusable node-graph framework, compiling to Raven source that the same compiler a
+            hand-written shader goes through then type-checks.
+        </Description>
+        <PackageTags>editor;shader-graph;node-graph;raven;shaders;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!--
+          CA1051 (no visible instance fields) is the one rule this assembly cannot keep. A node's
+          ports *are* its fields — that is the design in docs/plan/11, and it is what lets a node
+          read as `[Input] public DynamicVector A;` and an Emit read as `$"{A} + {B}"`. Properties
+          would work and would mean the generator wrote a backing store and the author wrote `A.Value`
+          everywhere, which is a worse declaration for no benefit: these types are compile-time
+          scaffolding built and thrown away by the compiler, never a public API anyone holds.
+        -->
+        <NoWarn>$(NoWarn);CA1051</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
+
+        <!--
+          The node generator, over this assembly's own [Node] classes. Analyzers do not flow through
+          a ProjectReference, so every assembly declaring nodes references it directly — which is
+          also what a third-party plugin does, and the reason the arrangement is worth keeping plain.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.NodeGraph.Generator\Vixen.Editor.NodeGraph.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.ShaderGraph.Tests" />
+    </ItemGroup>
+
+</Project>
