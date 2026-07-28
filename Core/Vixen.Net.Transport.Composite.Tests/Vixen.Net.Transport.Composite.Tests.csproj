@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Net.Transport.Composite\Vixen.Net.Transport.Composite.csproj" />
+        <ProjectReference Include="..\Vixen.Net.Transport.Local\Vixen.Net.Transport.Local.csproj" />
+        <ProjectReference Include="..\Vixen.Net.Transport.WebSocket\Vixen.Net.Transport.WebSocket.csproj" />
+
+        <!--
+            For WebSocketLoop, the in-memory socket pair. Referencing another transport's test
+            project is the same arrangement every transport already has with Vixen.Net.Tests for the
+            conformance suite: the point of this project is a composite of two *different*
+            transports, and testing that over two of the same one would not be testing it.
+        -->
+        <ProjectReference Include="..\Vixen.Net.Transport.WebSocket.Tests\Vixen.Net.Transport.WebSocket.Tests.csproj" />
+
+        <!--
+            For the conformance suite and the event recorder, which belong to the contract rather
+            than to any one transport. Every transport's test project takes this reference.
+        -->
+        <ProjectReference Include="..\Vixen.Net.Tests\Vixen.Net.Tests.csproj" />
+    </ItemGroup>
+</Project>

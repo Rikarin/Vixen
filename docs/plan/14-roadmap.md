@@ -2322,9 +2322,56 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   is the work and the query is Jolt's — the sequencing note at the top of this phase stands.
 - Security pass: packet validation, rate limits, closed-set deserialization, protocol/content hash
   handshake. Fuzzing corpus over the packet reader.
+- Transports: ✅ `Local`, ✅ `NetworkSimulation`, ✅ `Udp`, ✅ **`WebSocket`**, ✅ **`Composite`**.
+  **Owed: `Relay`** — see below.
+
+  `WebSocket` is the shortest of the three real transports and that is the fact worth recording: the
+  medium is already reliable, ordered and message-framed, so there is no reliability layer, no
+  sequence numbers, no fragmentation and no reassembly — roughly 300 lines against the UDP
+  transport's 700. What it costs is honest and written down: the four channels collapse to one, so an
+  unreliable snapshot waits behind a retransmission of a stale one over the single TCP stream. A
+  browser has no alternative; a desktop client that could use UDP should.
+
+  The seam is `IWebSocketChannel`, tested over an in-memory pair, with `SystemWebSocketFactory` doing
+  the real thing over a `TcpListener` plus thirty lines of RFC 6455 upgrade — deliberately not
+  `HttpListener`. **The one real bug was in the async-to-polled adaptation**: the send loop drained a
+  `BlockingCollection`, and a blocking enumeration inside an `async` method with no `await` before it
+  runs on the *caller's* thread — so starting the send loop from the accept path blocked the accept
+  path, and a fully handshaked connection was never handed over. Nothing threw. The real-socket test
+  is what caught it, which is the second time that one test has earned its place.
+
+  `Composite` is what lets one server take both. Its whole difficulty is that each inner transport
+  numbers connections from one, so two of them collide within a second — and every layer above keys
+  players, ownership and replication baselines by that number without checking. It renumbers and maps
+  both ways. The conformance suite runs against a composite wrapping a single transport, because
+  everything the contract promises has to survive the wrapping.
+
+  **Owed: `Relay`.** It is the one transport that is not a matter of writing a client — doc 16 asks
+  for "rendezvous + relay client", and a relay client with no relay server to talk to is untestable
+  and unshippable. Building the server too is a decision about scope (do we host one? is it in-box or
+  an addon, like Steam/EOS?) rather than a piece of work waiting to be done, and it wants an answer
+  before code. Transport *fallback* — start several, keep whichever answers — belongs with it, which
+  is why the composite's client half is deliberately a single choice rather than a race.
 - **Server variant end to end** ([17](17-app-heads-and-shipping.md)): headless host on the `Null`
   backend, server content profile (no textures/audio/shader permutations), container image, metrics
   endpoint. Plus **out-of-process play mode** in the editor, which is what makes multiplayer testable.
+
+  **Partly already true, and the remainder is not networking's.** `BuildVariant.Server`,
+  `IsHeadless()`, `Vixen.Platform.Headless` and `Vixen.Graphics.Null` all exist and the host already
+  picks the headless platform for the server variant — the boot path is done. What is left divides
+  into three, none of it blocked on Phase 9:
+
+  - **The metrics endpoint** is the one runtime piece still missing, and it now has something to
+    serve: `BandwidthLedger` plus the session's player and round-trip figures are the numbers a
+    dedicated server is asked for. It is a small piece of work against a decision that has not been
+    made — Prometheus text, OpenTelemetry, or something of our own.
+  - **The server content profile and the container image** are the asset pipeline's and CI's,
+    [08](08-asset-pipeline-and-addressables.md) and [12](12-build-ci-and-testing.md).
+  - **Out-of-process play mode is genuinely blocked**, and not by networking. It needs an editor
+    play-mode host to launch processes from and the remote inspector to attach to them;
+    `Editor/` is `Vixen.Editor.Assets` and `Vixen.Editor.Core` today, with neither. `Samples/08` is
+    the interim answer and a good one — it runs eight clients and a server in one process, and
+    `--mode server`/`--mode client` runs them in as many as you like from a shell.
 - ✅ **Diagnostics** — bandwidth attribution and the packet inspector. `BandwidthLedger` answers
   "what is eating my thirty kilobits" four ways: per component type, per **field**, per RPC, and per
   connection, with per-object behind a flag because its table grows with the world rather than with

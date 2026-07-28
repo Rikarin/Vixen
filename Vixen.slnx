@@ -114,6 +114,10 @@
     <Project Path="Core/Vixen.Net.Transport.Local.Tests/Vixen.Net.Transport.Local.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Transport.Udp/Vixen.Net.Transport.Udp.csproj" />
     <Project Path="Core/Vixen.Net.Transport.Udp.Tests/Vixen.Net.Transport.Udp.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Transport.WebSocket/Vixen.Net.Transport.WebSocket.csproj" />
+    <Project Path="Core/Vixen.Net.Transport.WebSocket.Tests/Vixen.Net.Transport.WebSocket.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Transport.Composite/Vixen.Net.Transport.Composite.csproj" />
+    <Project Path="Core/Vixen.Net.Transport.Composite.Tests/Vixen.Net.Transport.Composite.Tests.csproj" />
   </Folder>
 
   <!--

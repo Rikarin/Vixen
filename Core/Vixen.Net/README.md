@@ -23,8 +23,9 @@ Vixen.Net.Motion       NetworkTransform · SnapshotBuffer · OwnerSmoothing
 Vixen.Net.Diagnostics  BandwidthLedger · SnapshotInspector
 ```
 
-Plus the transports (`Vixen.Net.Transport.Local`, `Vixen.Net.Transport.Udp`) and the build half
-(`Vixen.Net.Generators`), each in their own package with their own README.
+Plus the transports — `Local` (in-process), `Udp`, `WebSocket`, and `Composite` (several at once,
+so one server takes both desktop and browser clients) — and the build half (`Vixen.Net.Generators`),
+each in their own package with their own README.
 
 **[`Samples/08-Multiplayer`](../../Samples/08-Multiplayer) is all of it at once** — eight players,
 server-authoritative movement and shooting, over either transport, ending in a convergence check that

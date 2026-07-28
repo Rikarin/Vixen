@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Net.Transport.Composite</RootNamespace>
+        <Description>
+            Several transports listening at once behind one, so a server can accept UDP and WebSocket
+            clients into the same world. Held to the same conformance suite as the transports it wraps.
+        </Description>
+        <PackageTags>networking;multiplayer;transport;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Net\Vixen.Net.csproj" />
+    </ItemGroup>
+
+</Project>
