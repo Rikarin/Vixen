@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Net.Transport.Udp</RootNamespace>
+        <Description>
+            The UDP transport: four channels, retransmission, reassembly and timeouts, built out of a
+            medium that promises none of it. Held to the same conformance suite as the in-process one.
+        </Description>
+        <PackageTags>networking;multiplayer;transport;udp;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Net\Vixen.Net.csproj" />
+    </ItemGroup>
+
+</Project>

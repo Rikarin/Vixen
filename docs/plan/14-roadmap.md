@@ -2063,9 +2063,48 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   wrapped around it in a `Perfect` profile, where the decorator has to be invisible. Every later
   transport inherits the same suite.
 
-  **Owed:** `Udp` (reliable + unreliable + fragmentation), `WebSocket`, `Relay`, `Composite`. And
-  switching the simulation on by default in dev builds, which is a session-layer wiring decision and
-  has nowhere to live until the session layer exists.
+  **Owed:** `WebSocket`, `Relay`, `Composite`. And switching the simulation on by default in dev
+  builds, which is a session-layer wiring decision. (`Udp` landed later in the phase — see below.)
+
+- ✅ **`Vixen.Net.Transport.Udp`.** 37 tests. The four channels built out of a medium that promises
+  none of them: sequence numbers and acknowledgements and retransmission for the reliable pair, a
+  receiver that holds what arrived early for the ordered one, deduplication for all of them, and
+  anything older than what has already been delivered discarded for the sequenced one. Fragmentation
+  and reassembly up to the 64 KiB the contract promises, keep-alives, and timeouts.
+
+  **The conformance suite is what says it worked**, which is what it was written for: this transport
+  passes exactly the tests the in-process one passes, so the session, replication and RPC layers do
+  not care which they are on. It caught the first bug on the first run — an inbound disconnect was
+  reported as `Kicked` whatever its reason byte said, which would have made "the server shut down"
+  indistinguishable from "the server closed me", and those are the two cases a game reconnects
+  differently for.
+
+  **The socket is behind a seam**, and everything subtle is above it: sequencing and reassembly are
+  tested over an in-memory bus where a datagram arrives when the receiver polls and "the third packet
+  is lost" is a fact rather than a probability. One real-socket test asserts the adapter binds, sends
+  and receives — and it earned its place immediately by failing on macOS, where the Windows-only
+  `SIO_UDP_CONNRESET` control code throws `PlatformNotSupportedException` rather than the
+  `SocketException` that was being caught.
+
+  **A message's fragments occupy consecutive sequences**, which is the decision the rest rests on:
+  the set a fragment belongs to is derivable from its own index, so there is no reassembly table, no
+  separate timeout, and an incomplete set falls out of the window on its own. Ordering falls out too
+  — a message is delivered when its *last* fragment is reached, which is where it would have been if
+  it had never been split.
+
+  **Connecting takes a challenge**, and this one is a hole a test found. The random-junk test showed
+  that a single forged datagram could allocate a connection: 200 random datagrams produced a
+  connection, because one of them started with the byte that means "connect". A server that allocates
+  state for an unverified datagram can be filled by an attacker who never receives a reply, so the
+  server now answers with a cookie derived from the address it claims to be at and a secret of its
+  own, allocates nothing, and waits for the cookie to come back from that address. The request is
+  padded larger than the answer so the exchange cannot be turned into an amplifier either. A cookie,
+  not cryptography — [16](16-networking.md) is explicit that this plan does not claim a bespoke
+  crypto layer.
+
+  **Owed:** adaptive congestion control — there is a cap on unacknowledged datagrams, which bounds
+  memory, and a window that responds to loss is a different thing. Acknowledgements riding on
+  outgoing messages rather than their own datagram. Path MTU discovery. DTLS.
 - ✅ **The tick, the packet codec, and the session.** 68 further tests; 153 across the networking
   projects in total.
 

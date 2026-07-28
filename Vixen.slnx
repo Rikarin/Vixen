@@ -112,6 +112,8 @@
     <Project Path="Core/Vixen.Net.Tests/Vixen.Net.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Transport.Local/Vixen.Net.Transport.Local.csproj" />
     <Project Path="Core/Vixen.Net.Transport.Local.Tests/Vixen.Net.Transport.Local.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Transport.Udp/Vixen.Net.Transport.Udp.csproj" />
+    <Project Path="Core/Vixen.Net.Transport.Udp.Tests/Vixen.Net.Transport.Udp.Tests.csproj" />
   </Folder>
 
   <!--

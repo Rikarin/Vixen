@@ -362,10 +362,12 @@ public abstract class TransportConformance : IDisposable {
     ///     wherever it was going.
     /// </summary>
     /// <param name="rounds">
-    ///     How many times round. The default is enough for a connect and a payload on top of it;
-    ///     a test that injects latency says how long it is prepared to wait.
+    ///     How many times round. The default is enough for a handshake and a payload on top of it —
+    ///     a transport with a challenge-response connect needs three round trips before it is up,
+    ///     where an in-process one needs none. A test that injects latency says how long it is
+    ///     prepared to wait.
     /// </param>
-    protected void Pump(int rounds = 4) {
+    protected void Pump(int rounds = 8) {
         for (var round = 0; round < rounds; round++) {
             Server.Poll(Step, ServerEvents);
 
