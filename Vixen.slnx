@@ -106,6 +106,8 @@
     <Project Path="Core/Vixen.Vfx.Tests/Vixen.Vfx.Tests.csproj" />
     <Project Path="Core/Vixen.Video/Vixen.Video.csproj" />
     <Project Path="Core/Vixen.Video.Tests/Vixen.Video.Tests.csproj" />
+    <Project Path="Core/Vixen.Video.Codecs/Vixen.Video.Codecs.csproj" />
+    <Project Path="Core/Vixen.Video.Codecs.Tests/Vixen.Video.Codecs.Tests.csproj" />
     <Project Path="Core/Vixen.Xr/Vixen.Xr.csproj" />
     <Project Path="Core/Vixen.Xr.Tests/Vixen.Xr.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Reactive/Vixen.Ui.Reactive.csproj" />

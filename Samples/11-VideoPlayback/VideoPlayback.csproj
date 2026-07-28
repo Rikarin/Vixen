@@ -16,6 +16,14 @@
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Video\Vixen.Video.csproj" />
+
+        <!-- Opus, so the WebM's audio track plays and can be the clock. Referencing it is what pulls
+             Concentus in; a game whose video is silent references neither. -->
+        <ProjectReference Include="..\..\Core\Vixen.Video.Codecs\Vixen.Video.Codecs.csproj" />
+
+        <!-- Speakers. A machine with none is an ordinary case the sample handles rather than a
+             configuration it refuses. -->
+        <ProjectReference Include="..\..\Platform\Vixen.Audio.Backend.OpenAL\Vixen.Audio.Backend.OpenAL.csproj" />
     </ItemGroup>
 
     <ItemGroup>

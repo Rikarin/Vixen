@@ -3,6 +3,7 @@
 
 using System.Buffers.Binary;
 using System.Text;
+using Vixen.Audio.Codecs;
 
 namespace Vixen.Samples.VideoPlayback;
 
@@ -51,6 +52,25 @@ static class GeneratedVideo {
     /// <summary>Milliseconds a frame lasts, which is what a block's timestamp is in.</summary>
     const long FrameMilliseconds = FrameNanoseconds / 1_000_000;
 
+    /// <summary>The rate Opus decodes at, whatever it was fed.</summary>
+    const int AudioRate = 48_000;
+
+    /// <summary>Frames in one Opus packet — twenty milliseconds, which is what every muxer writes.</summary>
+    const int PacketFrames = 960;
+
+    /// <summary>How many Opus packets fit in one video frame's worth of time.</summary>
+    const int PacketsPerFrame = (int)(FrameMilliseconds / 20);
+
+    /// <summary>
+    ///     The encoder's lookahead, in 48 kHz samples: the priming a decoder must discard.
+    /// </summary>
+    /// <remarks>
+    ///     312 is Opus's own for every configuration this uses, and it is what a muxer writes into
+    ///     both <c>CodecDelay</c> and the <c>OpusHead</c>. Stating it is what makes the sample
+    ///     exercise the pre-skip path rather than merely have one.
+    /// </remarks>
+    const int PreSkip = 312;
+
     /// <summary>Writes the whole segment.</summary>
     /// <returns>A WebM, complete and legal, about eight megabytes of it.</returns>
     public static byte[] Build() {
@@ -61,9 +81,14 @@ static class GeneratedVideo {
 
         var frame = new byte[(Width * Height) + (2 * ((Width + 1) / 2) * ((Height + 1) / 2))];
 
+        using var encoder = new OpusPacketEncoder(channels: 1, frameMilliseconds: 20, bitrate: 48_000);
+
+        var pcm = new float[PacketFrames];
+        var packet = new byte[OpusPacketEncoder.MaxPacketBytes];
+
         for (var index = 0; index < FrameCount; index++) {
             Paint(frame, index);
-            WriteCluster(body, index, frame);
+            WriteCluster(body, index, frame, encoder, pcm, packet);
         }
 
         using var file = new MemoryStream();
@@ -199,23 +224,107 @@ static class GeneratedVideo {
         using var tracks = new MemoryStream();
 
         Element(tracks, 0xAE, entry.ToArray());
+        Element(tracks, 0xAE, AudioTrack());
         Element(body, 0x1654AE6B, tracks.ToArray());
     }
 
-    /// <summary>One cluster holding one frame, which is the simplest legal arrangement.</summary>
-    static void WriteCluster(Stream body, int index, byte[] frame) {
-        using var block = new MemoryStream();
+    /// <summary>The Opus track, and the two places its priming has to be written down.</summary>
+    static byte[] AudioTrack() {
+        using var audio = new MemoryStream();
 
-        WriteSize(block, 1);                                                // track number
-        WriteInt16(block, 0);                                               // relative to the cluster
-        block.WriteByte(0x80);                                              // a key frame, no lacing
-        block.Write(frame);
+        Element(audio, 0xB5, Float(AudioRate));
+        Element(audio, 0x9F, Unsigned(1));
 
+        using var entry = new MemoryStream();
+
+        Element(entry, 0xD7, Unsigned(2));                                  // TrackNumber
+        Element(entry, 0x73C5, Unsigned(2));                                // TrackUID
+        Element(entry, 0x83, Unsigned(2));                                  // TrackType: audio
+        Element(entry, 0x86, Encoding.UTF8.GetBytes("A_OPUS"));
+        Element(entry, 0x63A2, OpusHead());                                 // CodecPrivate
+        Element(entry, 0x56AA, Unsigned(PreSkip * 1_000_000_000L / AudioRate));   // CodecDelay
+        Element(entry, 0x56BB, Unsigned(80_000_000));                       // SeekPreRoll: Opus's own
+        Element(entry, 0xE1, audio.ToArray());
+
+        return entry.ToArray();
+    }
+
+    /// <summary>The nineteen bytes an Opus track's CodecPrivate is.</summary>
+    static byte[] OpusHead() {
+        var header = new byte[19];
+
+        "OpusHead"u8.CopyTo(header);
+        header[8] = 1;                                                      // version
+        header[9] = 1;                                                      // channels
+        BinaryPrimitives.WriteUInt16LittleEndian(header.AsSpan(10), PreSkip);
+        BinaryPrimitives.WriteUInt32LittleEndian(header.AsSpan(12), AudioRate);
+
+        return header;
+    }
+
+    /// <summary>One cluster: a picture, and the two Opus packets that play under it.</summary>
+    /// <remarks>
+    ///     Interleaved in one cluster rather than written as two runs, because that is what a muxer
+    ///     does and what the demuxer's buffering is shaped for — a file with all the video first
+    ///     would make a player hold the entire sound track in memory.
+    /// </remarks>
+    static void WriteCluster(
+        Stream body,
+        int index,
+        byte[] frame,
+        OpusPacketEncoder encoder,
+        float[] pcm,
+        byte[] packet
+    ) {
         using var cluster = new MemoryStream();
 
         Element(cluster, 0xE7, Unsigned(index * FrameMilliseconds));        // Timestamp
-        Element(cluster, 0xA3, block.ToArray());                            // SimpleBlock
+        Element(cluster, 0xA3, Block(1, 0, frame));                         // the picture
+
+        for (var slot = 0; slot < PacketsPerFrame; slot++) {
+            var first = ((index * PacketsPerFrame) + slot) * PacketFrames;
+
+            Sound(pcm, first);
+
+            var written = encoder.Encode(pcm, packet);
+
+            Element(cluster, 0xA3, Block(2, (short)(slot * 20), packet.AsSpan(0, written)));
+        }
+
         Element(body, 0x1F43B675, cluster.ToArray());
+    }
+
+    /// <summary>A SimpleBlock's payload: a track, a relative time, a flags byte, and the data.</summary>
+    static byte[] Block(int track, short relative, ReadOnlySpan<byte> data) {
+        using var block = new MemoryStream();
+
+        WriteSize(block, track);
+        WriteInt16(block, relative);
+        block.WriteByte(0x80);                                              // a key frame, no lacing
+        block.Write(data);
+
+        return block.ToArray();
+    }
+
+    /// <summary>Twenty milliseconds of sound, starting at a frame.</summary>
+    /// <remarks>
+    ///     <b>A beep on every second, and silence between them.</b> A continuous tone would prove the
+    ///     sound plays and nothing about when: what a sync check needs is a moment audible enough to
+    ///     line up against something visible, and the sweep is at a third of the screen per second.
+    ///     If the beep and the bar drift apart, the clock is wrong — which is the one failure a
+    ///     picture on its own cannot show.
+    /// </remarks>
+    static void Sound(float[] pcm, int firstFrame) {
+        const int beepFrames = AudioRate * 60 / 1_000;
+
+        for (var index = 0; index < pcm.Length; index++) {
+            var frame = firstFrame + index;
+            var intoSecond = frame % AudioRate;
+
+            pcm[index] = intoSecond < beepFrames
+                ? 0.35f * MathF.Sin(2f * MathF.PI * 880f * frame / AudioRate)
+                : 0f;
+        }
     }
 
     // ── EBML primitives ─────────────────────────────────────────────────────────────────────

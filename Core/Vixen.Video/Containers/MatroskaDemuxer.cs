@@ -28,14 +28,40 @@ namespace Vixen.Video.Containers;
 ///         hundred — plays files written by muxers that did not exist when it was written.
 ///     </para>
 ///     <para>
+///         <b>It is safe to read two tracks from two threads, and that is not incidental.</b> A
+///         video's picture is decoded on the player's own thread and its sound is decoded on the
+///         audio pump's, because that is what both subsystems already do — so the ordinary way to
+///         use this class is from two threads at once, and a reader that was not safe for it would
+///         be one that worked in a test and tore in a game. The lock is uncontended in practice:
+///         both callers are reading a file in blocks and hold it for the length of one packet.
+///     </para>
+///     <para>
 ///         <b>A caller must drain every track it reads from.</b> Blocks arrive interleaved, so
 ///         asking for a video packet decodes the audio packets that were in front of it and holds
 ///         them. Reading video and never reading audio grows that queue for the length of the film.
 ///         A track that is never asked for at all costs nothing — its blocks are skipped where they
 ///         lie.
 ///     </para>
+///     <para>
+///         <b>Two readers, one seeker.</b> <see cref="SeekTo" /> moves the file, and the file is
+///         shared — so a seek issued for the picture moves the sound with it, and every packet
+///         buffered for either track is dropped. That is correct when one thing owns the playback
+///         and wrong the moment two do: a video looping on its own while its audio track plays
+///         through the same reader will yank the file back to the start under the audio decoder,
+///         over and over, and what comes out is neither stream.
+///     </para>
+///     <para>
+///         So: share a demuxer when nothing seeks — a cutscene played once, straight through — and
+///         <b>give each track its own demuxer when either side seeks or loops</b>. Two demuxers over
+///         two streams on the same file cost one file handle and a few hundred kilobytes of
+///         buffering, each skips the other's blocks where they lie, and each seeks its own position.
+///         <c>Samples/11-VideoPlayback</c> does exactly that, and says why in its README.
+///     </para>
 /// </remarks>
 public sealed class MatroskaDemuxer : IDisposable {
+    /// <summary>Guards the reader, the cursor and the queues — everything a second thread touches.</summary>
+    readonly Lock gate = new();
+
     readonly List<(TimeSpan Time, long Position, int Track)> cues = [];
     readonly Stack<MatroskaPacket> free = new();
     readonly Stream? owned;
@@ -137,8 +163,10 @@ public sealed class MatroskaDemuxer : IDisposable {
     ///     </para>
     /// </remarks>
     public void Follow(int trackNumber) {
-        if (!pending.ContainsKey(trackNumber)) {
-            pending[trackNumber] = new Queue<MatroskaPacket>();
+        lock (gate) {
+            if (!pending.ContainsKey(trackNumber)) {
+                pending[trackNumber] = new Queue<MatroskaPacket>();
+            }
         }
     }
 
@@ -151,18 +179,20 @@ public sealed class MatroskaDemuxer : IDisposable {
     ///     than skipped. A track nobody asks for costs one skip per block.
     /// </remarks>
     public MatroskaPacket? ReadPacket(int trackNumber) {
-        if (!pending.TryGetValue(trackNumber, out var queue)) {
-            queue = new Queue<MatroskaPacket>();
-            pending[trackNumber] = queue;
-        }
-
-        while (queue.Count == 0) {
-            if (!Pump()) {
-                return null;
+        lock (gate) {
+            if (!pending.TryGetValue(trackNumber, out var queue)) {
+                queue = new Queue<MatroskaPacket>();
+                pending[trackNumber] = queue;
             }
-        }
 
-        return queue.Dequeue();
+            while (queue.Count == 0) {
+                if (!Pump()) {
+                    return null;
+                }
+            }
+
+            return queue.Dequeue();
+        }
     }
 
     /// <summary>Gives a packet back.</summary>
@@ -171,8 +201,10 @@ public sealed class MatroskaDemuxer : IDisposable {
     public void Release(MatroskaPacket packet) {
         ArgumentNullException.ThrowIfNull(packet);
 
-        if (free.Count < 64) {
-            free.Push(packet);
+        lock (gate) {
+            if (free.Count < 64) {
+                free.Push(packet);
+            }
         }
     }
 
@@ -202,28 +234,35 @@ public sealed class MatroskaDemuxer : IDisposable {
             throw new NotSupportedException("The stream cannot seek, so neither can the demuxer.");
         }
 
-        var target = firstClusterPosition >= 0 ? firstClusterPosition : segmentDataStart;
-        var best = TimeSpan.Zero;
+        lock (gate) {
+            var target = firstClusterPosition >= 0 ? firstClusterPosition : segmentDataStart;
+            var best = TimeSpan.Zero;
 
-        foreach (var (time, at, track) in cues) {
-            if (time <= position && time >= best && (track == trackNumber || track == 0)) {
-                best = time;
-                target = at;
+            foreach (var (time, at, track) in cues) {
+                if (time <= position && time >= best && (track == trackNumber || track == 0)) {
+                    best = time;
+                    target = at;
+                }
             }
-        }
 
-        foreach (var queue in pending.Values) {
-            while (queue.TryDequeue(out var packet)) {
-                Release(packet);
+            // ⚠ Every track's queue, not just this one's. A seek moves the file, so a packet buffered
+            // for the *other* track belongs to where the file used to be — and handing it over
+            // afterwards would put that track's stream a jump out of place with no way to notice.
+            foreach (var queue in pending.Values) {
+                while (queue.TryDequeue(out var packet)) {
+                    if (free.Count < 64) {
+                        free.Push(packet);
+                    }
+                }
             }
-        }
 
-        reader.Position = target;
-        inCluster = false;
-        clusterEnd = -1;
-        clusterTimestamp = 0;
-        pushedBack = null;
-        ended = false;
+            reader.Position = target;
+            inCluster = false;
+            clusterEnd = -1;
+            clusterTimestamp = 0;
+            pushedBack = null;
+            ended = false;
+        }
     }
 
     /// <summary>Turns a count of timestamp ticks into a duration.</summary>
@@ -430,6 +469,16 @@ public sealed class MatroskaDemuxer : IDisposable {
 
                 case MatroskaIds.DefaultDuration:
                     track.DefaultDuration = TimeSpan.FromTicks((long)reader.ReadUnsigned(element.Size) / 100);
+
+                    break;
+
+                case MatroskaIds.CodecDelay:
+                    track.CodecDelay = TimeSpan.FromTicks((long)reader.ReadUnsigned(element.Size) / 100);
+
+                    break;
+
+                case MatroskaIds.SeekPreRoll:
+                    track.SeekPreRoll = TimeSpan.FromTicks((long)reader.ReadUnsigned(element.Size) / 100);
 
                     break;
 

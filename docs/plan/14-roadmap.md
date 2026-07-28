@@ -3787,9 +3787,21 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
   hardware — which matters more here than anywhere else in the engine, because a CI runner genuinely
   cannot have a headset.
 
-  **Owed:** single-pass multiview. `XrSwapchainDescription.ArrayLayers` is the hook and the RHI half —
-  a `VK_KHR_multiview` pass and `gl_ViewIndex` — is `Vixen.Graphics`'s to add. Two passes work today
-  and cost what two passes cost.
+  **VR is not in 1.0.** The modules are here, they are tested, and nothing else in the tree references
+  them — which is exactly the property the cut list asked for, and it means the decision costs nothing
+  to take or to reverse. What is *not* done is the half that would make a game shippable in a headset:
+  nothing renders into the eye buffers, single-pass multiview is unwritten, and none of it has met a
+  runtime, because there is no OpenXR on macOS and the tests skip themselves accordingly. Treat
+  `Vixen.Xr` as a spike that landed early and is parked, not as a feature with an exit criterion.
+
+  **Video, by contrast, is finished.** WebM in, Opus for the sound, the picture following the sound's
+  own clock, the planes on the GPU with the coefficients a shader converts them by, an importer that
+  writes down what a game needs before it opens the file, and `Samples/11-VideoPlayback` playing all
+  of it at once.
+
+  **Owed on video:** MP4, which is additive behind `IVideoStreamDecoder`, and a render feature — what a
+  material does with three planes is `Vixen.Rendering`'s business, and the sample's own twenty-line
+  shader is the shape it will take.
 
 **Exit:** deferred and forward+ both pass the golden-image suite. `Samples/02` and `Samples/06` run in
 three browsers within the download-size budget. `Samples/06` holds 60 fps with a 4 K canvas and 20

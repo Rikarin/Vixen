@@ -51,6 +51,12 @@ static class MatroskaIds {
     /// <summary>How long one frame of this track lasts, in nanoseconds.</summary>
     public const uint DefaultDuration = 0x23E383;
 
+    /// <summary>How much of the decoder's output at the start is priming, in nanoseconds.</summary>
+    public const uint CodecDelay = 0x56AA;
+
+    /// <summary>How much must be decoded and discarded after a seek, in nanoseconds.</summary>
+    public const uint SeekPreRoll = 0x56BB;
+
     public const uint TrackVideo = 0xE0;
     public const uint PixelWidth = 0xB0;
     public const uint PixelHeight = 0xBA;

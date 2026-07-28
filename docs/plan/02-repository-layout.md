@@ -145,6 +145,8 @@ Core/
 ├── Vixen.Net.Transport.Relay/          # + .Tests
 ├── Vixen.Video/                        # ✅ WebM demux, codec seam, player, planes on the GPU
 ├── Vixen.Video.Tests/
+├── Vixen.Video.Codecs/                 # ✅ Opus behind IAudioPacketDecoder — a video's sound
+├── Vixen.Video.Codecs.Tests/
 ├── Vixen.Xr/                           # ✅ session, stereo views, actions, ECS — no runtime in it
 ├── Vixen.Xr.Tests/
 │

@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Video.Codecs</RootNamespace>
+        <Description>
+            Opus as a video container's audio track, behind Vixen.Video's IAudioPacketDecoder — so a
+            WebM's sound plays through the mixer, and a game whose only video is uncompressed still
+            carries no codec.
+        </Description>
+        <PackageTags>video;webm;opus;codec;streaming;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Video\Vixen.Video.csproj" />
+
+        <!--
+            The codec itself, which already has exactly the right shape: OpusPacketDecoder takes a
+            packet and produces frames, because the codec and its container come from different
+            places. This assembly exists so that referencing it is what pulls Concentus in.
+        -->
+        <ProjectReference Include="..\Vixen.Audio.Codecs\Vixen.Audio.Codecs.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Video.Codecs.Tests" />
+    </ItemGroup>
+
+</Project>

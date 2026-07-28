@@ -55,6 +55,10 @@
              one type, and the type's name is in the chunk. -->
         <ProjectReference Include="..\..\Core\Vixen.Audio\Vixen.Audio.csproj" />
 
+        <!-- The header reader. The importer copies the container and writes down what is in it;
+             nothing here decodes, because there is no runtime format to decode into. -->
+        <ProjectReference Include="..\..\Core\Vixen.Video\Vixen.Video.csproj" />
+
         <!-- And the model importer produces a ModelData, its meshes, its skeleton and its clips. -->
         <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
 

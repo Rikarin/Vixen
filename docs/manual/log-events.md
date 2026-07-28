@@ -138,3 +138,6 @@ Vixen would show them the thing the analyzer forbids everywhere else.
 | 14004 | Information | `The swapchain was out of date and has been rebuilt at {Width}×{Height}.` | 0.1.0 |
 | 14005 | Information | `Generated {Width}×{Height} at {Rate} Hz, {Duration} s, {Megabytes} MB uncompressed.` — `Samples/11` writes its own WebM rather than carrying one | 0.1.0 |
 | 14006 | Information | `Bound {Planes} plane(s) of a {Width}×{Height} picture.` — once per video, not per frame | 0.1.0 |
+| 14007 | Information | `Sound on {Device} at {Rate} Hz, {Codec} — the picture follows it.` | 0.1.0 |
+| 14008 | Information | `No sound ({Reason}); the picture runs on the frame delta instead.` — a runner with no card, which is ordinary | 0.1.0 |
+| 14009 | Information | `Reached {Position} s in {Wall} s: …` — the sync check, printed at shutdown | 0.1.0 |

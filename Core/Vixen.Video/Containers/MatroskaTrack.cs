@@ -47,6 +47,23 @@ public sealed class MatroskaTrack {
     /// <summary>How long one frame lasts, or zero if the track does not say.</summary>
     public TimeSpan DefaultDuration { get; internal set; }
 
+    /// <summary>How much of the decoder's output at the start of the stream is priming, not sound.</summary>
+    /// <remarks>
+    ///     Opus's pre-skip, stated by the muxer rather than by the codec header — and it is the one
+    ///     that wins when the two disagree, because it is the one written by whoever put the packets
+    ///     in the clusters. A decoder that plays the priming samples starts every track with a few
+    ///     milliseconds of artefact.
+    /// </remarks>
+    public TimeSpan CodecDelay { get; internal set; }
+
+    /// <summary>How much must be decoded and thrown away after a seek before the output is right.</summary>
+    /// <remarks>
+    ///     Carried rather than acted on. This reader seeks to a cluster boundary and decodes forward
+    ///     from there, so the pre-roll is already covered by the distance between the boundary and
+    ///     the target — but a caller doing something cleverer needs the number, and it costs a field.
+    /// </remarks>
+    public TimeSpan SeekPreRoll { get; internal set; }
+
     // ── Video ───────────────────────────────────────────────────────────────────────────────
 
     /// <summary>The coded width in samples. Zero for a track that is not video.</summary>

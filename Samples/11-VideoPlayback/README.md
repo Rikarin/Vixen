@@ -27,7 +27,7 @@ does with them, and it is twenty lines.
 
 ## It carries no content
 
-The engine ships no codec — that is the whole design of `Vixen.Video`, and `UncompressedVideoCodec`
+The engine ships no video codec — that is the whole design of `Vixen.Video`, and `UncompressedVideoCodec`
 is the one decoder it does ship — so a committed fixture would have to be uncompressed, which at any
 size worth looking at is megabytes of binary in the repository. [`GeneratedVideo`](GeneratedVideo.cs)
 writes a legal WebM in memory at start-up instead: a header, one `V_UNCOMPRESSED` track, and a
@@ -42,6 +42,41 @@ dropped frame is a stutter and a wrong frame rate is the wrong speed. The bottom
 black-to-white ramp, which is where a range error shows.
 
 `ColourRoundTripTests` asserts the same round trip numerically. This is the version a person can see.
+
+## The sound is the clock
+
+The video's own Opus track plays through the mixer, and the picture follows where the sound has
+actually got to:
+
+```csharp
+VideoAudioCodecs.RegisterOpus();
+MatroskaAudioStreamDecoder.TryOpen(demuxer, out var track);
+
+sound = new StreamingSampleProvider(track, loop: true);
+audio.Streams.Register(sound);
+audio.Play(sound, new PlaybackSettings());
+
+player.FollowAudio(sound);
+```
+
+`FollowAudio` reads the provider's position, which is frames *delivered to the mixer* — not frames
+decoded. The decoder runs half a second ahead by design, and slaving to it puts the picture half a
+second in front of the sound with every part of it looking correct.
+
+A beep sounds on every second and the white column crosses a third of the screen in that time, so
+the two can be checked against each other by eye and ear. **No sound card is not an error**: the
+sample says so and falls back to the frame delta, which is what a video with no audio track gets
+anyway.
+
+## The picture and the sound get a demuxer each
+
+They are in the same file, and a single demuxer can serve both — but only while nothing seeks. Both
+sides here loop, and a loop is a seek: one reader with two things seeking it yanks the file back to
+the start under whichever of them did not ask. Two demuxers over the same bytes cost one more
+position and a few hundred kilobytes; sharing one costs correctness.
+
+Share a demuxer for a cutscene played once, straight through. Give each track its own the moment
+either side loops or scrubs.
 
 ## Three things worth knowing
 
@@ -59,11 +94,25 @@ would want the opposite; a player showing it directly wants the bytes to arrive 
 untouched by the clear and full of whatever the last frame put there. The same triangle draws the
 picture and the black either side of it.
 
-## What it does not do yet
+## Reading the summary it prints
 
-No audio: the generated file has no audio track, and the one thing that would prove is the clock
-following the sound rather than the frame delta. That wants a real WebM with an Opus track, and an
-`IAudioPacketDecoder` over Concentus — a dozen lines in the assembly that already references it.
+```
+Reached 24.83 s in 26.57 s: 249 frame(s) shown, 372 dropped, 0 stall(s);
+sound 24.95 s, 0 stream and 0 device underrun(s).
+```
+
+Worth printing, because "it did not crash" is not "it played". The position against the wall clock is
+the sync check — those two and the sound's own position should stay within a frame of each other, and
+a position still at zero means the master clock never advanced.
+
+**Dropped frames are not a fault here.** At 1440p with the validation layers on, the window renders
+at around ten frames a second against 25 fps content, so of every two or three frames that fall due
+one is shown and the rest are skipped. That is the design — late frames are dropped, never shown late
+— and the count going up while the position keeps pace with the wall clock is what correct looks
+like. `stalls` is the number that means something is wrong: it counts updates that found nothing
+decoded.
+
+## What it does not do yet
 
 No render feature. What a material does with three planes is `Vixen.Rendering`'s business, and this
 sample is deliberately the RHI and the video module with nothing between them, exactly as

@@ -339,7 +339,7 @@ Importer set for 1.0:
 | `AssetImporter` | vxmat vxscene vxprefab vxgroup vxanim vxvfx … | Vixen-authored YAML assets |
 | `NavMeshImporter` | vxnavmesh | `NavMesh` — the bake, run at build time from the collision mesh the asset names |
 | `ScriptImporter` | cs | script metadata (execution order, default field values) |
-| `VideoImporter` | mp4 webm | `VideoClip` |
+| `VideoImporter` | ✅ webm mkv (mp4 claimed and refused with the reason) | `VideoClip` + the container beside it |
 | `FolderImporter` | folders | folder assets (group inheritance, addressable roots) |
 | `RawImporter` | anything unmatched | verbatim copy, addressable as a byte blob |
 

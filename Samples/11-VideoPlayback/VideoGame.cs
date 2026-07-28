@@ -11,8 +11,16 @@ using Vixen.Graphics.RenderGraph;
 using Vixen.Graphics.Vulkan;
 using Vixen.Platform;
 using Vixen.Video;
+using Vixen.Video.Audio;
+using Vixen.Video.Codecs;
+using Vixen.Video.Containers;
 using Vixen.Video.Gpu;
 using Vixen.Video.Playback;
+using Vixen.Audio;
+using Vixen.Audio.Backend.OpenAL;
+using Vixen.Audio.Devices;
+using Vixen.Audio.Mixing;
+using Vixen.Audio.Streaming;
 
 namespace Vixen.Samples.VideoPlayback;
 
@@ -53,6 +61,15 @@ public sealed class VideoGame : Game {
     VideoPlayer? player;
     VideoTexture? texture;
 
+    byte[] container = [];
+
+    readonly System.Diagnostics.Stopwatch started = System.Diagnostics.Stopwatch.StartNew();
+
+    OpenALBackend? audioBackend;
+    IAudioDevice? audioDevice;
+    AudioEngine? audio;
+    StreamingSampleProvider? sound;
+
     ShaderHandle vertexShader;
     ShaderHandle fragmentShader;
     DescriptorSetLayoutHandle setLayout;
@@ -80,14 +97,12 @@ public sealed class VideoGame : Game {
     protected override void OnInitialise() {
         log = Services.LoggerFactory.CreateLogger("VideoPlayback");
 
-        var bytes = GeneratedVideo.Build();
+        container = GeneratedVideo.Build();
 
         player = new VideoPlayer(
-            new WebMVideoStreamDecoder(new MemoryStream(bytes, writable: false)),
+            new WebMVideoStreamDecoder(new MemoryStream(container, writable: false)),
             new VideoPlayerOptions { Loop = true }
         );
-
-        player.Play();
 
         if (log is not null) {
             SampleLog.VideoOpened(
@@ -96,7 +111,7 @@ public sealed class VideoGame : Game {
                 player.Decoder.Format.Height,
                 player.Decoder.Format.FrameRate.Hz,
                 player.Duration.TotalSeconds,
-                bytes.Length / (1024 * 1024)
+                container.Length / (1024 * 1024)
             );
         }
     }
@@ -114,6 +129,7 @@ public sealed class VideoGame : Game {
     protected override void OnRender(GameTime time) {
         // Advanced whether or not there is anywhere to draw it. A video that stopped while the
         // window was away would resume three seconds behind wherever its audio had got to.
+        audio?.Update();
         player?.Update(time.Elapsed);
 
         if (lost || !EnsureDevice()) {
@@ -200,8 +216,131 @@ public sealed class VideoGame : Game {
     protected override void OnShutdown() {
         Release();
 
+        // Printed because "it did not crash" is not the same as "it played". A position still at
+        // zero after a run means the master clock never advanced — which is what a silent audio
+        // device, or a provider whose position was read from the wrong end, looks like.
+        StopAudio();
+
+        if (log is not null && player is { } finished) {
+            SampleLog.PlaybackSummary(
+                log,
+                finished.Position.TotalSeconds,
+                started.Elapsed.TotalSeconds,
+                finished.FramesShown,
+                finished.FramesDropped,
+                finished.DecodeStalls,
+                sound is null ? 0 : (double)sound.Position / Math.Max(1, sound.Format.SampleRate),
+                sound?.Underruns ?? 0,
+                audioDevice?.Underruns ?? 0
+            );
+        }
+
         player?.Dispose();
         player = null;
+
+        // The device before the engine: the engine's render runs on the device's thread, and
+        // disposing it from under one that is still pulling is the classic shutdown crash.
+        audioDevice?.Stop();
+        audio?.Dispose();
+        audioDevice?.Dispose();
+        audioBackend?.Dispose();
+        sound = null;
+        audio = null;
+        audioDevice = null;
+        audioBackend = null;
+    }
+
+    /// <summary>Takes the stream off the pump before anything disposes what it is reading.</summary>
+    /// <remarks>
+    ///     Unregistering rather than merely stopping the voice: the pump fills the ring on its own
+    ///     thread whether or not anything is listening, and disposing the decoder under it is a read
+    ///     of a stream that has gone.
+    /// </remarks>
+    void StopAudio() {
+        audioDevice?.Stop();
+
+        if (audio is not null && sound is not null) {
+            audio.Streams.Unregister(sound);
+        }
+    }
+
+    /// <summary>Opens the video's own audio track and makes it the clock.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is the whole of A/V sync, and it is three calls.</b> The sound is in the same
+    ///         segment as the picture and is read by the same demuxer; it is played as an ordinary
+    ///         stream, so the mixer knows nothing about video; and the video's clock is pointed at
+    ///         the provider's position, which is frames <em>delivered to the mixer</em> rather than
+    ///         frames decoded.
+    ///     </para>
+    ///     <para>
+    ///         <b>No device is not an error.</b> A CI runner has no sound card, and the right
+    ///         behaviour there is the one a video with no audio track gets anyway: the clock
+    ///         integrates the frame delta. Saying which happened is what stops "the video runs at the
+    ///         wrong speed on the build machine" being a mystery.
+    ///     </para>
+    /// </remarks>
+    void StartAudio() {
+        if (player is null) {
+            return;
+        }
+
+        // Referencing Vixen.Video.Codecs is not enough on its own, deliberately: a module that
+        // altered global state merely by being linked would behave differently under a trimmer.
+        VideoAudioCodecs.RegisterOpus();
+
+        // ⚠ A second demuxer over the same bytes, not the video's. Both this and the picture loop,
+        // and a loop is a seek — one reader with two things seeking it yanks the file back to the
+        // start under whichever of them did not ask, over and over. Two readers cost one more
+        // position and a few hundred kilobytes of buffering; sharing one costs correctness. See
+        // MatroskaDemuxer's remarks.
+        var demuxer = new MatroskaDemuxer(new MemoryStream(container, writable: false));
+
+        if (!MatroskaAudioStreamDecoder.TryOpen(demuxer, out var track) || track is null) {
+            demuxer.Dispose();
+
+            return;
+        }
+
+        audioBackend = new OpenALBackend();
+
+        if (!audioBackend.IsAvailable) {
+            if (log is not null) {
+                SampleLog.NoAudio(log, "no OpenAL device on this machine");
+            }
+
+            track.Dispose();
+            demuxer.Dispose();
+
+            return;
+        }
+
+        try {
+            audioDevice = audioBackend.OpenDevice(new AudioDeviceOptions { Format = new AudioFormat(48_000, 2) });
+        } catch (AudioDeviceException failure) {
+            if (log is not null) {
+                SampleLog.NoAudio(log, failure.Message);
+            }
+
+            track.Dispose();
+            demuxer.Dispose();
+
+            return;
+        }
+
+        audio = new AudioEngine(audioDevice, new AudioEngineOptions(), Services.LoggerFactory.CreateLogger("Audio"));
+
+        // The provider is built here rather than through PlayStream, because the clock needs the
+        // provider itself — PlayStream keeps it, and what it hands back is a voice.
+        sound = new StreamingSampleProvider(track, loop: true);
+        audio.Streams.Register(sound);
+        audio.Play(sound, new PlaybackSettings());
+
+        player.FollowAudio(sound);
+
+        if (log is not null) {
+            SampleLog.AudioReady(log, audioDevice.Info.Name, audioDevice.Format.SampleRate, track.Track.CodecId);
+        }
     }
 
     /// <summary>The scale and offset that letterbox the video into the window.</summary>
@@ -341,6 +480,13 @@ public sealed class VideoGame : Game {
             DepthStencil: DepthStencilState.Disabled,
             Name: "video"
         ));
+
+        // Started here rather than in OnInitialise, and it is not a detail. The clock is the sound,
+        // and building a Vulkan device takes the better part of a second — so a video that began
+        // playing before there was anywhere to draw it would spend its first second correctly
+        // skipping frames nobody could have seen. A game starts a cutscene when the scene is ready.
+        StartAudio();
+        player!.Play();
 
         if (log is not null) {
             SampleLog.DeviceReady(

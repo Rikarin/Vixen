@@ -7,6 +7,7 @@ using Vixen.Editor.Assets.Audio;
 using Vixen.Editor.Assets.Models;
 using Vixen.Editor.Assets.Navigation;
 using Vixen.Editor.Assets.Textures;
+using Vixen.Editor.Assets.Video;
 
 namespace Vixen.Editor.Assets;
 
@@ -34,6 +35,7 @@ public static class BuiltInImporters {
             .Add(new ModelImporter())
             .Add(new AudioImporter())
             .Add(new NavMeshImporter())
+            .Add(new VideoImporter())
             .Add(new NativeFormatImporter())
             .Add(new FolderImporter())
             .AddFallback(new RawImporter());

@@ -158,15 +158,22 @@ public sealed class MatroskaAudioStreamDecoder : IAudioStreamDecoder {
         }
     }
 
-    /// <summary>Opens the first audio track of a segment, if the engine can decode it.</summary>
+    /// <summary>Opens the first audio track of a segment, if anything registered can decode it.</summary>
     /// <param name="demuxer">The container.</param>
     /// <param name="stream">The decoder, when there was a track this could read.</param>
     /// <returns>Whether there was.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="demuxer" /> is null.</exception>
     /// <remarks>
-    ///     False rather than throwing for a codec nothing here decodes, because a video with an Opus
-    ///     track and no Opus decoder linked is an ordinary situation with an obvious behaviour —
-    ///     play the picture, say so once — and not an error the caller can do anything about.
+    ///     <para>
+    ///         False rather than throwing for a codec nothing registered decodes, because a video with
+    ///         an Opus track and no Opus decoder linked is an ordinary situation with an obvious
+    ///         behaviour — play the picture, say so once — and not an error the caller can act on.
+    ///     </para>
+    ///     <para>
+    ///         What is registered by default is the uncompressed pair. Referencing
+    ///         <c>Vixen.Video.Codecs</c> and calling <c>VideoAudioCodecs.RegisterOpus</c> adds the
+    ///         codec WebM actually ships with.
+    ///     </para>
     /// </remarks>
     public static bool TryOpen(MatroskaDemuxer demuxer, out MatroskaAudioStreamDecoder? stream) {
         ArgumentNullException.ThrowIfNull(demuxer);
@@ -175,25 +182,24 @@ public sealed class MatroskaAudioStreamDecoder : IAudioStreamDecoder {
 
         var track = demuxer.FindTrack(MatroskaTrackKind.Audio);
 
-        if (track is null || track.SampleRate <= 0 || track.Channels <= 0) {
+        if (track is null) {
             return false;
         }
 
-        var isFloat = track.CodecId.Equals("A_PCM/FLOAT/IEEE", StringComparison.OrdinalIgnoreCase);
-        var isInteger = track.CodecId.Equals("A_PCM/INT/LIT", StringComparison.OrdinalIgnoreCase);
-
-        if (!isFloat && !isInteger) {
-            return false;
-        }
-
-        var depth = track.BitDepth > 0 ? track.BitDepth : isFloat ? 32 : 16;
-        var format = new AudioFormat(track.SampleRate, track.Channels);
-
-        stream = new MatroskaAudioStreamDecoder(
-            demuxer,
-            track,
-            new PcmPacketDecoder(format, depth, isFloat)
+        var info = new AudioTrackInfo(
+            track.CodecId,
+            track.SampleRate,
+            track.Channels,
+            track.BitDepth,
+            track.CodecPrivate,
+            track.CodecDelay
         );
+
+        if (!AudioPacketDecoderRegistry.TryCreate(in info, out var decoder) || decoder is null) {
+            return false;
+        }
+
+        stream = new MatroskaAudioStreamDecoder(demuxer, track, decoder);
 
         return true;
     }

@@ -59,6 +59,37 @@ static partial class SampleLog {
     );
 
     [LoggerMessage(
+        EventId = 14007,
+        Level = LogLevel.Information,
+        Message = "Sound on {Device} at {Rate} Hz, {Codec} — the picture follows it."
+    )]
+    public static partial void AudioReady(ILogger logger, string device, int rate, string codec);
+
+    [LoggerMessage(
+        EventId = 14008,
+        Level = LogLevel.Information,
+        Message = "No sound ({Reason}); the picture runs on the frame delta instead."
+    )]
+    public static partial void NoAudio(ILogger logger, string reason);
+
+    [LoggerMessage(
+        EventId = 14009,
+        Level = LogLevel.Information,
+        Message = "Reached {Position:F2} s in {Wall:F2} s: {Shown} frame(s) shown, {Dropped} dropped, {Stalls} stall(s); sound {Delivered:F2} s, {StreamUnderruns} stream and {DeviceUnderruns} device underrun(s)."
+    )]
+    public static partial void PlaybackSummary(
+        ILogger logger,
+        double position,
+        double wall,
+        long shown,
+        long dropped,
+        long stalls,
+        double delivered,
+        long streamUnderruns,
+        long deviceUnderruns
+    );
+
+    [LoggerMessage(
         EventId = 14006,
         Level = LogLevel.Information,
         Message = "Bound {Planes} plane(s) of a {Width}×{Height} picture."

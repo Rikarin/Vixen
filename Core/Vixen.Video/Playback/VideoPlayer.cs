@@ -291,6 +291,44 @@ public sealed class VideoPlayer : IDisposable {
         }
     }
 
+    /// <summary>Makes the sound the master clock, and the picture follow it.</summary>
+    /// <param name="audio">
+    ///     What is actually being played. <see cref="Vixen.Audio.Sources.IAudioSampleProvider.Position" />
+    ///     on a streaming provider is frames <em>delivered to the mixer</em>, which is the number this
+    ///     wants: it lags the decoder by the whole ring buffer and leads the speaker only by the
+    ///     device's own block, so it is the closest thing in the process to where the listener is.
+    /// </param>
+    /// <param name="offset">
+    ///     Added to the audio's position. Positive shows the picture earlier. The default of zero is
+    ///     right for a device whose latency the mixer already accounts for; a platform that reports
+    ///     otherwise is what this exists for.
+    /// </param>
+    /// <exception cref="ArgumentNullException"><paramref name="audio" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Slaving to the decoder's position instead would put the picture half a second
+    ///         ahead.</b> A decoder is filled ahead of playback by design — that is what the buffer is
+    ///         for — so its position is where the sound <em>will</em> be, not where it is. This is the
+    ///         single easiest way to get A/V sync visibly wrong while every part of it looks correct.
+    ///     </para>
+    ///     <para>
+    ///         Pass <see langword="null" /> to <see cref="VideoClock.Master" /> to hand the clock
+    ///         back to the frame delta — it resumes from wherever the sound had reached rather than
+    ///         from where it had got to on its own, so muting mid-play does not jump the picture.
+    ///     </para>
+    /// </remarks>
+    public void FollowAudio(Vixen.Audio.Sources.IAudioSampleProvider audio, TimeSpan offset = default) {
+        ArgumentNullException.ThrowIfNull(audio);
+
+        var rate = audio.Format.SampleRate;
+
+        if (rate <= 0) {
+            throw new ArgumentException("The audio source reports no sample rate, so it cannot be a clock.", nameof(audio));
+        }
+
+        Clock.Master = () => TimeSpan.FromSeconds((double)audio.Position / rate) + offset;
+    }
+
     /// <summary>Advances the clock and chooses the frame to show.</summary>
     /// <param name="delta">How long the last frame was.</param>
     /// <remarks>

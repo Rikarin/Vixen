@@ -108,7 +108,10 @@ sealed class WebMBuilder {
         int sampleRate,
         int channels,
         int bitDepth = 32,
-        string codecId = "A_PCM/FLOAT/IEEE"
+        string codecId = "A_PCM/FLOAT/IEEE",
+        byte[]? codecPrivate = null,
+        long codecDelayNanoseconds = 0,
+        long seekPreRollNanoseconds = 0
     ) {
         using var audio = new MemoryStream();
 
@@ -122,6 +125,19 @@ sealed class WebMBuilder {
         Element(entry, 0x73C5, Unsigned((ulong)(1000 + number)));
         Element(entry, 0x83, Unsigned(2));
         Element(entry, 0x86, Ascii(codecId));
+
+        if (codecPrivate is { Length: > 0 }) {
+            Element(entry, 0x63A2, codecPrivate);
+        }
+
+        if (codecDelayNanoseconds > 0) {
+            Element(entry, 0x56AA, Unsigned((ulong)codecDelayNanoseconds));
+        }
+
+        if (seekPreRollNanoseconds > 0) {
+            Element(entry, 0x56BB, Unsigned((ulong)seekPreRollNanoseconds));
+        }
+
         Element(entry, 0xE1, audio.ToArray());
         trackEntries.Add(entry.ToArray());
 
