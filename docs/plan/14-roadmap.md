@@ -3700,6 +3700,26 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
   two builds agree without agreeing on start-up order, which means **renaming a replicated component
   is a wire break**.
 
+  ✅ **The UDP transport is fuzzed too, as the eleventh target** — the code an attacker reaches
+  *first*, and the last of the module to get one. Everything else in the harness sits above the
+  handshake: a snapshot, a call or an input is parsed only once a connection exists. A datagram is
+  parsed by a server listening on a public port, from a source address that costs nothing to forge.
+
+  **The first version of it managed two distinct behaviours in two million cases**, which is the same
+  failure the signature fix caught a slice earlier and worth recording again because it presents as
+  success — a clean run. Every datagram was refused at the handshake, because completing one needs the
+  server's cookie and the cookie is eight random bytes no amount of mutation guesses. That is the
+  cookie working exactly as designed, and it meant the reliability layer and the fragment reassembler
+  sat behind a door the fuzzer could not open. So the target now opens it the way an attacker would:
+  connect properly, then send rubbish. An authenticated client is still an untrusted one. Two million
+  cases went from 2 behaviours to 1,191; twenty million reach 2,390, clean.
+
+  It also confirmed something worth knowing rather than assuming: **the connection table cannot be
+  grown from outside**, because the handshake is stateless until the cookie comes back — the challenge
+  is a hash of a per-process secret, the source address and the client's salt, so a connect request is
+  answered and forgotten. There is no half-open table to fill, which is why the retention oracle never
+  moves however many strangers the fuzzer invents.
+
   **Owed:** the generated encoders end to end. Their *source* is pinned by
   `Vixen.Net.Generators.Tests` and every arithmetic primitive they emit is pinned here, so what is
   uncovered is the composition rather than either half — closing it means referencing the generator

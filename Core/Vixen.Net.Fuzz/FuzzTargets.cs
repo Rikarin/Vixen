@@ -24,7 +24,7 @@ namespace Vixen.Net.Fuzz;
 public static class FuzzTargets {
     /// <summary>The names, for a command line and for a report.</summary>
     public static IReadOnlyList<string> Names { get; } =
-        ["packet", "bits", "handshake", "client", "snapshot", "inspect", "delta", "rpc", "synclist", "input"];
+        ["packet", "bits", "handshake", "client", "snapshot", "inspect", "delta", "rpc", "synclist", "input", "udp"];
 
     /// <summary>Builds every target.</summary>
     /// <returns>Them, in the order <see cref="Names" /> lists.</returns>
@@ -38,7 +38,8 @@ public static class FuzzTargets {
         new DeltaCodecTarget(),
         new RpcRouterTarget(),
         new SyncListTarget(),
-        new InputBufferTarget()
+        new InputBufferTarget(),
+        new UdpTransportTarget()
     ];
 
     /// <summary>Builds one target by name.</summary>

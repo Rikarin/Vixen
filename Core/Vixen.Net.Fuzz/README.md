@@ -26,6 +26,7 @@ anybody who can send a packet, so every one of those is a target.
 | `rpc` | `RpcRouter.Receive` | the one thing a client can make a server do work for |
 | `synclist` | `SyncList.Apply` | the only index that arrives from the network |
 | `input` | `InputBuffer.TryReceive` | the other thing a client can make a server do work for, every tick |
+| `udp` | `UdpTransport.Poll` | the code an attacker reaches *first* — below the handshake, on a public port |
 
 ## The three oracles
 
@@ -158,10 +159,11 @@ without it.
   find in an hour what this finds in a week. The targets are already the right shape for it — each is
   `(ReadOnlySpan<byte>) -> outcome` — so the wrapper is a few lines. Worth having *alongside* rather
   than instead: this one runs on every build, which an instrumented one never will.
-- **The transports themselves.** `Udp`'s reliability layer reassembles fragments and tracks
-  acknowledgement windows from bytes off the wire, and `WebSocket` parses RFC 6455 frames. Both are
-  more exposed than anything in this list — they are *below* the handshake — and both want a target of
-  their own.
+- **The WebSocket upgrade.** `Udp` now has a target; the other transport does not. Its *framing* is
+  `WebSocket.CreateFromStream`, which is the BCL's and deliberately not ours — but the RFC 6455
+  **upgrade** is thirty lines of header parsing we wrote, and it runs before any authentication. It
+  reads from a `NetworkStream` rather than from a span, so giving it a target means giving it a seam
+  first.
 - **Structure-aware mutation.** The mutator does not know a snapshot from a handshake. A mutator that
   understood the record format could keep the tick and break the payload, rather than spending most of
   its budget on inputs the first field refuses.
