@@ -336,4 +336,91 @@ public sealed class SpatializerTests {
         Assert.True(near > far);
         Assert.Equal(near / 16f, far, 0.01f);
     }
+
+    /// <summary>
+    ///     Air absorbs high frequencies faster than low ones, which is why a distant gunshot is a
+    ///     thump and a near one is a crack.
+    /// </summary>
+    [Fact]
+    public void DistanceDullsTheSoundWhenAirAbsorptionIsAskedFor() {
+        var settings = new SpatialSettings {
+            MinDistance = 1f,
+            MaxDistance = 101f,
+            AirAbsorption = 1f,
+            AirAbsorptionCutoff = 700f
+        };
+
+        var near = Spatializer.Evaluate(AtOrigin, settings with { Position = new Vector3(1f, 0f, 0f) }, 2, new float[2]);
+        var far = Spatializer.Evaluate(AtOrigin, settings with { Position = new Vector3(101f, 0f, 0f) }, 2, new float[2]);
+        var middle = Spatializer.Evaluate(AtOrigin, settings with { Position = new Vector3(51f, 0f, 0f) }, 2, new float[2]);
+
+        // Zero and not 20 kHz at the reference distance: no filtering at all is a bypass rather than
+        // a filter set wide open, which is a branch saved on every voice that is close enough not to
+        // need one.
+        Assert.Equal(0f, near.LowPassHz);
+        Assert.Equal(700f, far.LowPassHz, 1f);
+
+        // Halfway is halfway in octaves, not in hertz: the geometric mean of 20 kHz and 700 Hz is
+        // about 3 740, where a linear sweep would still be at 10 350 and would sound like nothing
+        // had happened yet.
+        Assert.Equal(MathF.Sqrt(20_000f * 700f), middle.LowPassHz, 5f);
+    }
+
+    /// <summary>Off by default, because it compounds with content that was authored dull already.</summary>
+    [Fact]
+    public void ThereIsNoFilteringUnlessItIsAskedFor() {
+        var settings = new SpatialSettings { Position = new Vector3(400f, 0f, 0f) };
+
+        Assert.Equal(0f, Spatializer.Evaluate(AtOrigin, settings, 2, new float[2]).LowPassHz);
+    }
+
+    [Fact]
+    public void AbsorptionStrengthScalesHowFarTheFilterTravels() {
+        var settings = new SpatialSettings {
+            Position = new Vector3(101f, 0f, 0f),
+            MinDistance = 1f,
+            MaxDistance = 101f,
+            AirAbsorptionCutoff = 700f
+        };
+
+        var half = Spatializer.Evaluate(AtOrigin, settings with { AirAbsorption = 0.5f }, 2, new float[2]);
+        var full = Spatializer.Evaluate(AtOrigin, settings with { AirAbsorption = 1f }, 2, new float[2]);
+
+        Assert.Equal(MathF.Sqrt(20_000f * 700f), half.LowPassHz, 5f);
+        Assert.Equal(700f, full.LowPassHz, 1f);
+    }
+
+    /// <summary>The filter is per voice, so this is the end-to-end claim rather than the arithmetic.</summary>
+    [Fact]
+    public void ADistantVoiceComesOutDullerThanANearOne() {
+        var bright = AudioTestData.Tone(6_000f, 4_096, 0.5f);
+
+        var near = Brightness(new Vector3(0f, 0f, -2f));
+        var far = Brightness(new Vector3(0f, 0f, -400f));
+
+        Assert.True(far < near * 0.5f, $"near {near:F4}, far {far:F4}");
+
+        float Brightness(Vector3 position) {
+            var (engine, device) = AudioTestData.Engine(channels: 1, voices: 2);
+            using var _ = engine;
+
+            engine.SetListener(AudioListener.Default);
+            engine.Play(bright, new PlaybackSettings {
+                Gain = 1f,
+                Pitch = 1f,
+                IsSpatial = true,
+                Spatial = new SpatialSettings {
+                    Position = position,
+                    Attenuation = AttenuationModel.None,
+                    MinDistance = 1f,
+                    MaxDistance = 400f,
+                    AirAbsorption = 1f
+                }
+            });
+
+            // Past the filter's own settling time, so this is the steady state.
+            AudioTestData.Render(device, 1_024);
+            return AudioTestData.Peak(AudioTestData.Render(device, 1_024));
+        }
+    }
 }

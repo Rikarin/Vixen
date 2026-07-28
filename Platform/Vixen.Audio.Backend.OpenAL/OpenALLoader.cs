@@ -39,10 +39,19 @@ static class OpenALLoader {
 
     static AL? loadedAl;
     static ALContext? loadedAlc;
+    static INativeContext? loadedContext;
     static string? failure;
 
     /// <summary>Where OpenAL was found, for logging at boot.</summary>
     public static string? ResolvedPath { get; private set; }
+
+    /// <summary>The symbol lookup the loaded library was wrapped in, for building an extension.</summary>
+    /// <remarks>
+    ///     Silk.NET's extensions take a context and nothing else, so having this is what lets
+    ///     <c>new Capture(context)</c> replace <c>alc.TryGetExtension</c> — a plain constructor call
+    ///     rather than anything the trimmer has to reason about.
+    /// </remarks>
+    public static INativeContext? Context => loadedContext;
 
     /// <summary>Loads OpenAL, reporting failure rather than throwing.</summary>
     /// <param name="al">The AL API, when it loaded.</param>
@@ -95,6 +104,7 @@ static class OpenALLoader {
 
                 loadedAl = new AL(context);
                 loadedAlc = new ALContext(context);
+                loadedContext = context;
                 ResolvedPath = candidate;
 
                 al = loadedAl;

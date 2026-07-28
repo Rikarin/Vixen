@@ -96,4 +96,41 @@ public readonly record struct PlaybackSettings() {
 
     /// <summary>Whether it starts paused, so a caller can position it before a single frame is heard.</summary>
     public bool StartPaused { get; init; }
+
+    /// <summary>How hard this sound is to displace when the voice pool is full. Higher survives.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Zero is ordinary. Music, dialogue and anything a player is waiting to hear the end of
+    ///         goes above it; footsteps, impacts and ambience stay at it or below.
+    ///     </para>
+    ///     <para>
+    ///         <b>Higher wins, which is the opposite of Unity's convention</b> — there, 0 is the most
+    ///         important and 256 the least, inherited from a table where the number was a sort key.
+    ///         The inversion is a documented trap in every project that uses it, and there is no
+    ///         reason to reproduce it: "more important" reading as "bigger" is what everybody
+    ///         guesses.
+    ///     </para>
+    ///     <para>
+    ///         A sound is only ever displaced by one of at least equal priority, so a pool full of
+    ///         high-priority sounds refuses a low-priority request rather than making room for it.
+    ///     </para>
+    /// </remarks>
+    public int Priority { get; init; }
+
+    /// <summary>The device frame at which it should begin. Zero is "as soon as the mixer sees it".</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A position on <c>AudioEngine.RenderedFrames</c>, which is the only clock here that
+    ///         counts samples actually produced. Scheduling against it is sample-accurate: the audio
+    ///         thread knows which frame its block begins at, so a start half way through a block
+    ///         happens half way through that block.
+    ///     </para>
+    ///     <para>
+    ///         <b>What it is for is music.</b> Two segments joined on a bar line have to join on the
+    ///         sample, not on the frame the game thread happened to notice — the difference is a flam,
+    ///         and a flam is the difference between one piece of music and two recordings of one.
+    ///         Everything else in the mixer starts when it is asked to and is right to.
+    ///     </para>
+    /// </remarks>
+    public long StartFrame { get; init; }
 }

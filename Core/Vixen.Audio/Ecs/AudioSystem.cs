@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Audio.Events;
 using Vixen.Audio.Mixing;
 using Vixen.Audio.Spatial;
 using Vixen.Core.Mathematics;
@@ -40,18 +41,36 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
     readonly QueryDescription listeners = new QueryDescription()
         .WithAll<AudioListenerComponent, WorldTransform>();
 
+    // Four queries and not two, because an event and a clip are alternatives: an entity carrying both
+    // must be reconciled once, and WithNone is what makes "the event wins" an archetype fact rather
+    // than a branch that runs twice and starts two sounds.
     readonly QueryDescription positioned = new QueryDescription()
-        .WithAll<AudioSource, AudioClipRef, AudioSpatial, WorldTransform>();
+        .WithAll<AudioSource, AudioClipRef, AudioSpatial, WorldTransform>()
+        .WithNone<AudioEventRef>();
 
     readonly QueryDescription ambient = new QueryDescription()
         .WithAll<AudioSource, AudioClipRef>()
+        .WithNone<AudioSpatial, AudioEventRef>();
+
+    readonly QueryDescription positionedEvents = new QueryDescription()
+        .WithAll<AudioSource, AudioEventRef, AudioSpatial, WorldTransform>();
+
+    readonly QueryDescription ambientEvents = new QueryDescription()
+        .WithAll<AudioSource, AudioEventRef>()
         .WithNone<AudioSpatial>();
 
     /// <summary>How many entities carried <see cref="AudioListenerComponent" /> in the last pass.</summary>
     /// <remarks>
-    ///     More than one is a mistake in the scene: there is one set of speakers, the first listener
-    ///     found is the one used, and which one that is depends on chunk order — so it will sound
-    ///     right until an unrelated change reorders the archetypes.
+    ///     <para>
+    ///         Up to <see cref="AudioListenerSet.MaxListeners" /> of them are used, which is what makes
+    ///         split-screen work. Past that they are counted and ignored, and which ones survive
+    ///         depends on chunk order — so a scene with five is a scene that will sound right until an
+    ///         unrelated change reorders the archetypes.
+    ///     </para>
+    ///     <para>
+    ///         One is still the ordinary case, and a set of one behaves exactly as a single listener
+    ///         always did.
+    ///     </para>
     /// </remarks>
     public int ListenerCount { get; private set; }
 
@@ -64,6 +83,7 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
     public SystemAccess Access { get; } = SystemAccess.Declare()
         .Read<WorldTransform>()
         .Read<AudioClipRef>()
+        .Read<AudioEventRef>()
         .Write<AudioSource>()
         .Write<AudioSpatial>()
         .Write<AudioListenerComponent>()
@@ -85,11 +105,17 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
         UpdateListener(world, deltaSeconds);
         UpdatePositioned(world, deltaSeconds);
         UpdateAmbient(world);
-        engine.Update();
+        UpdatePositionedEvents(world, deltaSeconds);
+        UpdateAmbientEvents(world);
+
+        // The frame's delta and not a wall clock: a fade that kept running under a pause menu, or
+        // ignored slow motion, is a bug somebody spends an afternoon on.
+        engine.Update(deltaSeconds);
     }
 
     void UpdateListener(World world, float deltaSeconds) {
         var found = 0;
+        var set = default(AudioListenerSet);
 
         foreach (var chunk in world.Chunks(listeners)) {
             var components = chunk.Values<AudioListenerComponent>();
@@ -97,31 +123,38 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
 
             for (var i = 0; i < chunk.Count; i++) {
                 found++;
-
-                if (found > 1) {
-                    continue;
-                }
-
                 ref var component = ref components[i];
                 var matrix = transforms[i].Value;
                 var position = matrix.Translation;
 
-                engine.SetListener(new AudioListener {
-                    Position = position,
-                    Forward = matrix.Forward,
-                    Up = matrix.Up,
-                    Velocity = Track(ref component.Velocity,
-                        ref component.PreviousPosition,
-                        ref component.HasPreviousPosition,
-                        component.AutoVelocity,
-                        position,
-                        deltaSeconds),
-                    Gain = component.Gain
-                });
+                // Velocity is tracked for every listener, including the ones past the cap: it is the
+                // component's own state, and skipping it would leave a listener that came back inside
+                // the cap deriving its velocity from wherever it was when it dropped out.
+                var velocity = Track(ref component.Velocity,
+                    ref component.PreviousPosition,
+                    ref component.HasPreviousPosition,
+                    component.AutoVelocity,
+                    position,
+                    deltaSeconds);
+
+                set.TryAdd(
+                    new AudioListener {
+                        Position = position,
+                        Forward = matrix.Forward,
+                        Up = matrix.Up,
+                        Velocity = velocity,
+                        Gain = component.Gain
+                    },
+                    component.Weight
+                );
             }
         }
 
         ListenerCount = found;
+
+        if (found > 0) {
+            engine.SetListeners(set);
+        }
     }
 
     void UpdatePositioned(World world, float deltaSeconds) {
@@ -145,7 +178,7 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
                     deltaSeconds);
 
                 var settings = spatial.ToSettings(position, matrix.Forward);
-                Reconcile(ref source, world.Read<AudioClipRef>(entities[i]).Clip, spatial: true, settings);
+                Reconcile(ref source, world.Read<AudioClipRef>(entities[i]).Clip, null, spatial: true, settings);
             }
         }
     }
@@ -159,6 +192,7 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
                 Reconcile(
                     ref sources[i],
                     world.Read<AudioClipRef>(entities[i]).Clip,
+                    null,
                     spatial: false,
                     default
                 );
@@ -166,7 +200,59 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
         }
     }
 
-    void Reconcile(ref AudioSource source, AudioClip? clip, bool spatial, in SpatialSettings settings) {
+    void UpdatePositionedEvents(World world, float deltaSeconds) {
+        foreach (var chunk in world.Chunks(positionedEvents)) {
+            var sources = chunk.Values<AudioSource>();
+            var spatials = chunk.Values<AudioSpatial>();
+            var transforms = chunk.ReadValues<WorldTransform>();
+            var entities = chunk.Entities;
+
+            for (var i = 0; i < chunk.Count; i++) {
+                ref var source = ref sources[i];
+                ref var spatial = ref spatials[i];
+                var matrix = transforms[i].Value;
+                var position = matrix.Translation;
+
+                Track(ref spatial.Velocity,
+                    ref spatial.PreviousPosition,
+                    ref spatial.HasPreviousPosition,
+                    spatial.AutoVelocity,
+                    position,
+                    deltaSeconds);
+
+                // The entity supplies where and how fast; the event supplies everything else about
+                // how that place sounds. AudioSpatial's own rolloff and cone are not read here.
+                var sound = world.Read<AudioEventRef>(entities[i]).Event;
+                var settings = sound?.Place(position, spatial.Velocity, matrix.Forward) ?? default;
+                Reconcile(ref source, null, sound, spatial: true, settings);
+            }
+        }
+    }
+
+    void UpdateAmbientEvents(World world) {
+        foreach (var chunk in world.Chunks(ambientEvents)) {
+            var sources = chunk.Values<AudioSource>();
+            var entities = chunk.Entities;
+
+            for (var i = 0; i < chunk.Count; i++) {
+                Reconcile(
+                    ref sources[i],
+                    null,
+                    world.Read<AudioEventRef>(entities[i]).Event,
+                    spatial: false,
+                    default
+                );
+            }
+        }
+    }
+
+    void Reconcile(
+        ref AudioSource source,
+        AudioClip? clip,
+        AudioEvent? sound,
+        bool spatial,
+        in SpatialSettings settings
+    ) {
         var state = source.Voice.IsValid ? engine.StateOf(source.Voice) : VoiceState.Free;
         var alive = state is VoiceState.Playing or VoiceState.Paused or VoiceState.Stopping;
 
@@ -182,13 +268,32 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
 
         switch (source.Playback) {
             case AudioPlayback.Playing when !alive:
-                if (clip is not null) {
+                if (sound is not null) {
+                    source.Voice = sound.Play(new AudioEventPlayback {
+                        Position = settings.Position,
+                        Velocity = settings.Velocity,
+                        ConeDirection = settings.ConeDirection,
+                        Gain = source.Gain,
+                        Pitch = source.Pitch
+                    });
+
+                    // What the event chose for this play, so the per-frame push can scale it rather
+                    // than overwrite it. A refused play leaves them alone; nothing reads them.
+                    if (source.Voice.IsValid) {
+                        source.VoiceGainScale = sound.LastGain;
+                        source.VoicePitchScale = sound.LastPitch;
+                    }
+                } else if (clip is not null) {
+                    source.VoiceGainScale = 1f;
+                    source.VoicePitchScale = 1f;
+
                     source.Voice = engine.Play(clip, new PlaybackSettings {
                         Bus = source.Bus,
                         Gain = source.Gain,
                         Pitch = source.Pitch,
                         Pan = source.Pan,
                         Loop = source.Loop,
+                        Priority = source.Priority,
                         IsSpatial = spatial,
                         Spatial = settings
                     });
@@ -223,8 +328,11 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
     }
 
     void Push(in AudioSource source, bool spatial, in SpatialSettings settings) {
-        engine.SetGain(source.Voice, source.Gain);
-        engine.SetPitch(source.Voice, source.Pitch);
+        // Scaled, not replaced. For a clip the scales are one and this is the gain that was asked
+        // for; for an event they carry the variant and the randomisation, which the source knows
+        // nothing about and must not flatten.
+        engine.SetGain(source.Voice, source.Gain * source.VoiceGainScale);
+        engine.SetPitch(source.Voice, source.Pitch * source.VoicePitchScale);
 
         if (spatial) {
             engine.SetSpatial(source.Voice, settings);

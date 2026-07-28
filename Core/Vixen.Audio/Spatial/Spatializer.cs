@@ -12,16 +12,42 @@ namespace Vixen.Audio.Spatial;
 /// <param name="DopplerRatio">
 ///     What to multiply the playback rate by. Above one is approaching, below one is receding.
 /// </param>
+/// <param name="LowPassHz">
+///     Where distance has put the air-absorption low-pass, in hertz, or <c>0</c> for no filtering at
+///     all — which is both the default and the common case, and is a bypass rather than a filter set
+///     wide open.
+/// </param>
+/// <param name="Azimuth">
+///     Which way round the listener the sound is, in degrees: 0 straight ahead, +90 to the right,
+///     ±180 behind.
+/// </param>
+/// <param name="Elevation">
+///     How far above or below the listener the sound is, in degrees: +90 overhead, −90 underfoot.
+/// </param>
+/// <param name="SourceSpeed">How fast the source is moving, in units a second, regardless of direction.</param>
 /// <remarks>
-///     The parts are returned separately rather than pre-multiplied because the audio debug overlay
-///     <c>docs/plan/13</c> asks for shows exactly this: a source that is inaudible is either too far
-///     away or pointing the wrong way, and a single combined number cannot say which.
+///     <para>
+///         The parts are returned separately rather than pre-multiplied because the audio debug
+///         overlay <c>docs/plan/13</c> asks for shows exactly this: a source that is inaudible is
+///         either too far away or pointing the wrong way, and a single combined number cannot say
+///         which.
+///     </para>
+///     <para>
+///         <b>The last three are here for the built-in parameters</b>, which are read from the game
+///         thread while the audio thread writes them. That is the same documented race as
+///         <c>Voice.Audibility</c>: every term is a float, so the worst case is a curve evaluated
+///         against last block's geometry, which at sixty frames a second is exactly as good.
+///     </para>
 /// </remarks>
 public readonly record struct SpatialResult(
     float Distance,
     float Attenuation,
     float ConeGain,
-    float DopplerRatio
+    float DopplerRatio,
+    float LowPassHz = 0f,
+    float Azimuth = 0f,
+    float Elevation = 0f,
+    float SourceSpeed = 0f
 );
 
 /// <summary>Turns a listener and a source into per-speaker gains and a pitch ratio.</summary>
@@ -77,9 +103,14 @@ public static class Spatializer {
         var doppler = Doppler(listener, source, toSource, distance);
         var gain = attenuation * cone * listener.Gain;
 
+        var cutoff = Absorption(source, distance);
+
+        var (azimuth, elevation) = Bearing(listener, toSource, distance);
+        var speed = source.Velocity.Length();
+
         if (outputChannels <= 1) {
             gains[0] = gain;
-            return new SpatialResult(distance, attenuation, cone, doppler);
+            return new SpatialResult(distance, attenuation, cone, doppler, cutoff, azimuth, elevation, speed);
         }
 
         // Inside the reference distance the direction stops meaning anything — the listener is
@@ -87,6 +118,12 @@ public static class Spatializer {
         // through 180° as they walk past it.
         var proximity = source.MinDistance > 0f ? Math.Clamp(distance / source.MinDistance, 0f, 1f) : 1f;
         var spread = Math.Clamp(Math.Max(source.Spread, 1f - proximity), 0f, 1f);
+
+        if (outputChannels > 2 && SpeakerLayout.IsKnown(outputChannels)) {
+            Surround(azimuth, spread, gain, outputChannels, gains);
+            return new SpatialResult(distance, attenuation, cone, doppler, cutoff, azimuth, elevation, speed);
+        }
+
         var pan = distance > MathUtil.ZeroTolerance ? Pan(listener, toSource / distance) : 0f;
 
         var angle = (pan + 1f) * (MathF.PI * 0.25f);
@@ -96,7 +133,287 @@ public static class Spatializer {
         gains[0] = left * gain;
         gains[1] = right * gain;
 
-        return new SpatialResult(distance, attenuation, cone, doppler);
+        return new SpatialResult(distance, attenuation, cone, doppler, cutoff, azimuth, elevation, speed);
+    }
+
+    /// <summary>Places a sound on a ring of speakers.</summary>
+    /// <param name="azimuth">Which way round the listener it is, in degrees.</param>
+    /// <param name="spread">How dissolved it is, from a point at 0 to everywhere at 1.</param>
+    /// <param name="gain">What it is worth in total.</param>
+    /// <param name="channels">How many speakers there are.</param>
+    /// <param name="gains">Where the per-speaker gains go.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Pair-wise, between the two speakers the sound lies between.</b> Every other speaker
+    ///         gets nothing. Spreading a source across all of them instead — which is what a naive
+    ///         "gain by angle" does — makes a point source sound like a wash, because the ear locates
+    ///         a sound by the difference between what two speakers are doing and there is no
+    ///         difference left.
+    ///     </para>
+    ///     <para>
+    ///         <b>The stereo law is deliberately not this.</b> Two speakers are a pair to be balanced
+    ///         across; a ring is a set of directions. Run through here, a source at 90° to the right
+    ///         would land in the 300° gap behind a stereo pair and come out only slightly right of
+    ///         centre, where what anybody wants — and what every stereo mixer does — is hard right.
+    ///         They are different problems and they get different arithmetic.
+    ///     </para>
+    ///     <para>
+    ///         <b>Constant power, so crossing a speaker does not dip</b> — the same reason the stereo
+    ///         law uses a quarter-circle, applied to whichever pair the sound is between.
+    ///     </para>
+    /// </remarks>
+    static void Surround(float azimuth, float spread, float gain, int channels, Span<float> gains) {
+        var angles = SpeakerLayout.Angles(channels);
+        var lfe = SpeakerLayout.LowFrequencyChannel(channels);
+        gains[..channels].Clear();
+
+        // How loud each speaker would be if the sound were everywhere at once: constant power across
+        // the ones that are actually placed, which is what "spread" dissolves towards.
+        var placed = lfe >= 0 ? channels - 1 : channels;
+        var even = placed > 0 ? gain / MathF.Sqrt(placed) : 0f;
+
+        if (spread >= 1f) {
+            for (var channel = 0; channel < channels; channel++) {
+                if (channel != lfe) {
+                    gains[channel] = even;
+                }
+            }
+
+            return;
+        }
+
+        // The pair the sound lies between: the nearest speaker anticlockwise and the nearest
+        // clockwise. Found by walking, because a layout has at most eight entries and a sorted
+        // structure would cost more to keep than the walk costs to run.
+        var (before, after) = (-1, -1);
+        var (behind, ahead) = (float.MaxValue, float.MaxValue);
+
+        for (var channel = 0; channel < channels; channel++) {
+            if (channel == lfe) {
+                continue;
+            }
+
+            var difference = Wrap(angles[channel] - azimuth);
+
+            if (difference <= 0f && -difference < behind) {
+                behind = -difference;
+                before = channel;
+            }
+
+            if (difference >= 0f && difference < ahead) {
+                ahead = difference;
+                after = channel;
+            }
+        }
+
+        if (before < 0 || after < 0) {
+            return;
+        }
+
+        if (before == after) {
+            gains[before] = gain;
+        } else {
+            var span = behind + ahead;
+            var t = span > 0f ? behind / span : 0f;
+            var angle = t * (MathF.PI * 0.5f);
+            gains[before] = MathF.Cos(angle) * gain;
+            gains[after] = MathF.Sin(angle) * gain;
+        }
+
+        if (spread <= 0f) {
+            return;
+        }
+
+        // Towards the even spread rather than to it, so a source walking into its reference distance
+        // dissolves rather than switching.
+        for (var channel = 0; channel < channels; channel++) {
+            if (channel != lfe) {
+                gains[channel] = MathUtil.Lerp(gains[channel], even, spread);
+            }
+        }
+    }
+
+    /// <summary>An angle in degrees, brought into −180..180.</summary>
+    static float Wrap(float degrees) {
+        var wrapped = degrees % 360f;
+
+        return wrapped switch {
+            > 180f => wrapped - 360f,
+            < -180f => wrapped + 360f,
+            _ => wrapped
+        };
+    }
+
+    /// <summary>Where a sound is, as two angles in the listener's own frame.</summary>
+    /// <param name="listener">Where the ears are.</param>
+    /// <param name="toSource">From the listener to the sound, unnormalised.</param>
+    /// <param name="distance">Its length, already computed.</param>
+    /// <returns>The azimuth and elevation, in degrees.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Degrees, and signed.</b> A parameter curve is drawn by a human against an axis with
+    ///         numbers on it, and −180..180 is the axis anybody would draw — 0 in the middle for
+    ///         straight ahead, the edges for behind. Radians would be correct and unreadable.
+    ///     </para>
+    ///     <para>
+    ///         Azimuth is taken in the horizontal plane of the listener's own basis, so a listener
+    ///         lying down still has a left and a right. Elevation is out of that plane, which is why
+    ///         the two are computed together rather than as two dot products.
+    ///     </para>
+    /// </remarks>
+    static (float Azimuth, float Elevation) Bearing(in AudioListener listener, Vector3 toSource, float distance) {
+        if (distance <= MathUtil.ZeroTolerance) {
+            // Inside the listener's own head. There is no direction, and any answer would swing
+            // wildly as they moved.
+            return (0f, 0f);
+        }
+
+        var forward = SafeNormalize(listener.Forward, Vector3.Forward);
+        var up = SafeNormalize(listener.Up, Vector3.Up);
+        var right = SafeNormalize(Vector3.Cross(forward, up), Vector3.Right);
+        var direction = toSource / distance;
+
+        var ahead = Vector3.Dot(direction, forward);
+        var side = Vector3.Dot(direction, right);
+        var above = Math.Clamp(Vector3.Dot(direction, up), -1f, 1f);
+
+        return (
+            MathF.Atan2(side, ahead) * (180f / MathF.PI),
+            MathF.Asin(above) * (180f / MathF.PI)
+        );
+    }
+
+    /// <summary>Places a sound for several listeners at once.</summary>
+    /// <param name="listeners">Everywhere the game is listening from.</param>
+    /// <param name="source">Where the sound is, and how it behaves there.</param>
+    /// <param name="outputChannels">How many speakers to spread it across.</param>
+    /// <param name="gains">Where the speaker gains go. At least <paramref name="outputChannels" /> long.</param>
+    /// <param name="scratch">Working room for one listener's answer. The same length.</param>
+    /// <returns>What the listener who hears it best hears.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The direction blends and the level does not.</b> Speaker gains are summed across
+    ///         listeners in proportion to how well each hears the sound, and the sum is then scaled so
+    ///         its total is the loudest listener's alone.
+    ///     </para>
+    ///     <para>
+    ///         <b>Summing outright was rejected</b>: two players standing together beside a generator
+    ///         would hear it twice as loud as one player standing there, and every sound in the level
+    ///         would get louder as the party gathered.
+    ///     </para>
+    ///     <para>
+    ///         <b>And so was taking the nearest listener outright.</b> It has the level right, but the
+    ///         pan flips the instant the sound crosses the midpoint between two players — which is
+    ///         audible, and worse than being slightly wrong on either side of it. Blending the
+    ///         direction and normalising the level is right at both ends and unobjectionable between.
+    ///     </para>
+    ///     <para>
+    ///         <b>What it does not fix.</b> Close to the midpoint between two distant listeners the
+    ///         blend is dominated by which of them is nearer, so a sound crossing that line can appear
+    ///         to move the wrong way — it becomes more of the near listener's sound, and they hear it
+    ///         off to their side. That is inherent to representing two places with two speakers rather
+    ///         than a flaw in the blend, and it is continuous, which the alternative was not.
+    ///     </para>
+    ///     <para>
+    ///         Distance, doppler and the absorption cutoff come from the best listener rather than
+    ///         being blended: they are properties of one path from the sound to one pair of ears, and
+    ///         the average of two doppler shifts is a pitch neither listener would hear.
+    ///     </para>
+    /// </remarks>
+    public static SpatialResult Evaluate(
+        in AudioListenerSet listeners,
+        in SpatialSettings source,
+        int outputChannels,
+        Span<float> gains,
+        Span<float> scratch
+    ) {
+        if (listeners.Count <= 1) {
+            var only = listeners.Count == 1 ? listeners.Get(0) : AudioListener.Default;
+            var single = Evaluate(only, source, outputChannels, gains);
+            var weight = listeners.Count == 1 ? listeners.WeightOf(0) : 1f;
+
+            if (weight != 1f) {
+                for (var channel = 0; channel < outputChannels; channel++) {
+                    gains[channel] *= weight;
+                }
+            }
+
+            return single;
+        }
+
+        gains[..outputChannels].Clear();
+
+        var best = default(SpatialResult);
+        var loudest = -1f;
+        var total = 0f;
+
+        for (var i = 0; i < listeners.Count; i++) {
+            var listener = listeners.Get(i);
+            var weight = listeners.WeightOf(i);
+            var result = Evaluate(listener, source, outputChannels, scratch);
+            var contribution = result.Attenuation * result.ConeGain * listener.Gain * weight;
+
+            if (contribution > loudest) {
+                loudest = contribution;
+                best = result;
+            }
+
+            if (contribution <= 0f) {
+                continue;
+            }
+
+            total += contribution;
+
+            for (var channel = 0; channel < outputChannels; channel++) {
+                gains[channel] += scratch[channel] * weight;
+            }
+        }
+
+        if (total > 0f && loudest > 0f) {
+            // The blended direction at the best listener's level. Without this the gains are a sum
+            // and a sound equidistant from four players is four times too loud.
+            var normalise = loudest / total;
+
+            for (var channel = 0; channel < outputChannels; channel++) {
+                gains[channel] *= normalise;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>Where distance has put the low-pass, in hertz, or zero for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Interpolated logarithmically, from 20 kHz at the reference distance down to
+    ///         <see cref="SpatialSettings.AirAbsorptionCutoff" /> at the maximum. Linearly would spend
+    ///         almost the whole journey in the top octave, where nothing is, and then collapse through
+    ///         everything audible in the last few metres — pitch is logarithmic and a filter sweep has
+    ///         to be too, or it does not sound like moving away, it sounds like a switch.
+    ///     </para>
+    ///     <para>
+    ///         Real air absorption also depends on humidity and temperature and is frequency-dependent
+    ///         in a way one biquad cannot express. This is the cheap approximation every game uses; the
+    ///         accurate model belongs in an offline tool, not in a voice.
+    ///     </para>
+    /// </remarks>
+    static float Absorption(in SpatialSettings source, float distance) {
+        var strength = Math.Clamp(source.AirAbsorption, 0f, 1f);
+
+        if (strength <= 0f) {
+            return 0f;
+        }
+
+        var min = Math.Max(source.MinDistance, MathUtil.ZeroTolerance);
+        var max = Math.Max(source.MaxDistance, min + MathUtil.ZeroTolerance);
+        var travelled = Math.Clamp((distance - min) / (max - min), 0f, 1f) * strength;
+
+        if (travelled <= 0f) {
+            return 0f;
+        }
+
+        var target = Math.Clamp(source.AirAbsorptionCutoff, 20f, 20_000f);
+        return MathF.Exp(MathUtil.Lerp(MathF.Log(20_000f), MathF.Log(target), travelled));
     }
 
     /// <summary>Where a direction sits from left to right, as seen by a listener.</summary>

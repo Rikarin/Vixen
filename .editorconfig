@@ -484,10 +484,12 @@ dotnet_diagnostic.CA1716.severity = none
 # a VB consumer an escaped identifier would cost every reader of the contract
 # more than it saves the consumer, and there is no VB in this repository.
 #
-# Scoped to the file that declares the interface. A stray `Stop` on some other
-# virtual member elsewhere is still reported.
+# Scoped to the files that declare the interfaces. A stray `Stop` on some other
+# virtual member elsewhere is still reported. AudioCaptureDevice.cs is the same
+# contract pointing at a microphone, with the same `Start`/`Stop` pair for the
+# same reason.
 # ─────────────────────────────────────────────────────────────────────────────
-[Core/Vixen.Audio/Devices/AudioDevice.cs]
+[Core/Vixen.Audio/Devices/{AudioDevice,AudioCaptureDevice}.cs]
 dotnet_diagnostic.CA1716.severity = none
 
 # ─────────────────────────────────────────────────────────────────────────────

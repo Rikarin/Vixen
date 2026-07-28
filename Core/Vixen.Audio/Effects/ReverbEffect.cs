@@ -153,6 +153,68 @@ public sealed class ReverbEffect : IAudioEffect {
         }
     }
 
+    /// <inheritdoc />
+    public bool TrySetProperty(string name, float value) {
+        switch (name) {
+            case "RoomSize":
+                RoomSize = value;
+                return true;
+
+            case "Damping":
+                Damping = value;
+                return true;
+
+            case "Wet":
+                Wet = value;
+                return true;
+
+            case "Dry":
+                Dry = value;
+                return true;
+
+            case "Width":
+                Width = value;
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public bool TryGetProperty(string name, out float value) {
+        switch (name) {
+            case "RoomSize":
+                value = RoomSize;
+                return true;
+
+            case "Damping":
+                value = Damping;
+                return true;
+
+            case "Wet":
+                value = Wet;
+                return true;
+
+            case "Dry":
+                value = Dry;
+                return true;
+
+            case "Width":
+                value = Width;
+                return true;
+
+            default:
+                value = 0f;
+                return false;
+        }
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> Properties => Knobs;
+
+    static readonly string[] Knobs = ["RoomSize", "Damping", "Wet", "Dry", "Width"];
+
     static int Scaled(int tuning, double scale) => Math.Max(1, (int)Math.Round(tuning * scale));
 
     /// <summary>A damped feedback comb: the part that makes the tail last.</summary>

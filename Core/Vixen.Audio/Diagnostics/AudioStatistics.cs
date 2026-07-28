@@ -17,6 +17,14 @@ public readonly record struct AudioStatistics {
     /// <summary>How many there are in total.</summary>
     public int VoiceCapacity { get; init; }
 
+    /// <summary>How many of the active voices are advancing without being heard.</summary>
+    /// <remarks>
+    ///     Always zero unless <c>AudioEngineOptions.AudibleVoices</c> asked for virtualisation. When it
+    ///     did, this against <see cref="ActiveVoices" /> is the number that says whether the audible
+    ///     budget is the thing shaping the mix.
+    /// </remarks>
+    public int VirtualVoices { get; init; }
+
     /// <summary>The loudest sample the master bus produced. Above one is clipping.</summary>
     public float MasterPeak { get; init; }
 
@@ -46,11 +54,19 @@ public readonly record struct AudioStatistics {
     /// <summary>How many streams the pump is servicing.</summary>
     public int StreamCount { get; init; }
 
-    /// <summary>How many play requests found every voice busy and were dropped.</summary>
+    /// <summary>How many play requests found every voice busy and nothing worth displacing.</summary>
     /// <remarks>
-    ///     Non-zero means either a leak — sounds started and never finishing — or a scene that
-    ///     genuinely wants more than the pool holds. A voice-stealing policy that drops the quietest
-    ///     is the usual answer to the second and is owed.
+    ///     A request is only dropped when every voice in the pool outranks it. Anything else steals,
+    ///     so a non-zero count here means either a leak — sounds started and never finishing — or a
+    ///     scene whose priorities say everything is important, which is the same as saying nothing is.
     /// </remarks>
     public long DroppedRequests { get; init; }
+
+    /// <summary>How many sounds have been displaced to make room for a newer one.</summary>
+    /// <remarks>
+    ///     Steady growth is normal in a busy scene and is the pool doing its job. Growth in a quiet
+    ///     one means the pool is smaller than the scene needs, and the cheapest fix is a bigger pool
+    ///     rather than more careful priorities.
+    /// </remarks>
+    public long StolenVoices { get; init; }
 }
