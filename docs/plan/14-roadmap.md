@@ -3310,6 +3310,34 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
 
   **Owed:** per-bone quantisation by importance, since a finger does not need what a spine needs; and
   interpolating a pose, which `SnapshotBuffer` does for a transform and not for this.
+- ✅ **`SyncList` on the wire, and a design note that turned out to be wrong.** 6 further tests.
+
+  The op log was built and tested and **nothing carried it** — a `SyncList` was a local collection
+  with a wire format nobody called. The note beside it explained why that was fine: a list replicates
+  as *what happened to it*, and ops travelling reliably and in order makes per-connection bookkeeping
+  unnecessary because everyone receives every op exactly once.
+
+  **That is true of a broadcast and false of a snapshot**, which is why it was never wired up. A
+  snapshot goes to the connections an interest resolver returns, so somebody who was not observing has
+  received nothing at all — and an object crossing into their interest has to be told the list rather
+  than the last thing that happened to it. The claim and the missing implementation were the same
+  fact seen twice.
+
+  Sending the **state** instead makes a late joiner, a reconnect, a lost snapshot, an interest change
+  and a player who was in another scene the same case: here is the list. Nothing had to be added to
+  the wire for it, which is the part worth recording — the owed note said this needed "a
+  variable-length record kind beside the fixed-lane one", and it does not: the record format was never
+  fixed-width, only the *delta* path is, and it already declines a replicator that declares no lanes.
+
+  The cost is bandwidth proportional to the list on the tick it changes, which for the sizes lists are
+  actually used at is a few hundred bytes seconds apart. A list changing every tick is a list being
+  used as something it is not — and the shape that would fix that is the one
+  `NetworkAnimatorParameters` and `NetworkBones` use, a fixed capacity buying per-element deltas back,
+  which needs a fixed-width element type a general `SyncList<T>` does not have.
+
+  The op log is not wasted: it still drives `Changed`, which is what a UI binds to. "One item was
+  inserted at index three" is exactly the notification a caller wants and exactly not what a receiver
+  should be sent.
 - ✅ **Networked audio, and the ownership rule that replaces a component** — `Vixen.Net.Audio`,
   6 tests, plus one in `Vixen.Net.Tests`.
 

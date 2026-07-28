@@ -26,3 +26,17 @@ public struct SyncStateVersion {
     /// <summary>Counts up whenever any of this entity's behaviour state changed.</summary>
     public uint Value;
 }
+
+/// <summary>
+///     Marks an entity as having behaviour-held lists, and is what the change versions watch.
+/// </summary>
+/// <remarks>
+///     Separate from <see cref="SyncStateVersion" /> so that a list changing does not re-send a score
+///     and a score changing does not re-send a list. The two travel as different records for the same
+///     reason they are different components: the delta encoder rewards a small unit of change.
+/// </remarks>
+[Component]
+public struct SyncListVersion {
+    /// <summary>Counts up whenever any of this entity's lists changed.</summary>
+    public uint Value;
+}

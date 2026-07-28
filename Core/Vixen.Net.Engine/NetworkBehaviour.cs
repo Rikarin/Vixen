@@ -22,6 +22,8 @@ namespace Vixen.Net.Engine;
 ///     </para>
 /// </remarks>
 public abstract class NetworkBehaviour : Behavior {
+    readonly List<ISyncList> lists = [];
+
     NetworkModule? state;
 
     /// <summary>Which networked object this is part of.</summary>
@@ -38,6 +40,16 @@ public abstract class NetworkBehaviour : Behavior {
     /// <summary>The state this behaviour replicates, fixed the first time it is asked for.</summary>
     public NetworkModule State => state ??= Build();
 
+    /// <summary>The lists this behaviour replicates, in the order they were declared.</summary>
+    /// <remarks>
+    ///     <b>Order is the wire format.</b> Nothing about a list's identity is sent — the record's
+    ///     type index names the behaviour, and its lists are a property of the type — so both ends
+    ///     walk this in the same order or read each other's lists as their own. Declaring one outside
+    ///     the constructor is therefore the same mistake as declaring a <see cref="SyncVar{T}" />
+    ///     there, and <see cref="DeclareList{TList}" /> is where it is refused.
+    /// </remarks>
+    public IReadOnlyList<ISyncList> Lists => lists;
+
     /// <summary>Declares what this behaviour replicates.</summary>
     /// <returns>Its root module.</returns>
     /// <remarks>
@@ -46,6 +58,48 @@ public abstract class NetworkBehaviour : Behavior {
     ///     they never exchange.
     /// </remarks>
     protected abstract NetworkModule Build();
+
+    /// <summary>Declares a list. Call from a constructor, before the behaviour is used.</summary>
+    /// <typeparam name="TList">The list's type.</typeparam>
+    /// <param name="list">The list.</param>
+    /// <param name="name">What to call it, for diagnostics and the bandwidth report.</param>
+    /// <returns>The list, so a declaration can be one line.</returns>
+    /// <exception cref="ArgumentNullException">Either argument is null.</exception>
+    /// <exception cref="InvalidOperationException">The behaviour is already attached to an entity.</exception>
+    protected TList DeclareList<TList>(TList list, string name) where TList : ISyncList {
+        ArgumentNullException.ThrowIfNull(list);
+        ArgumentNullException.ThrowIfNull(name);
+
+        if (World is not null) {
+            throw new InvalidOperationException(
+                "This behaviour is already attached, so its lists are fixed. Declare them in the constructor: "
+                + "a list added later would shift every list after it and both ends would read each other's."
+            );
+        }
+
+        list.Rename(name);
+        lists.Add(list);
+
+        return list;
+    }
+
+    /// <summary>Tells the ECS that one of this behaviour's lists changed.</summary>
+    /// <remarks>
+    ///     Separate from <see cref="MarkChanged" /> so a list changing does not re-send a score, and a
+    ///     score changing does not re-send a list — they are different records for the same reason
+    ///     they are different components.
+    /// </remarks>
+    public void MarkListsChanged() {
+        if (World is null || IsDestroyed) {
+            return;
+        }
+
+        if (!Has<SyncListVersion>()) {
+            World.Add(Entity, new SyncListVersion());
+        }
+
+        World.Get<SyncListVersion>(Entity).Value++;
+    }
 
     /// <summary>
     ///     Tells the ECS that something in this behaviour changed, so the next capture looks at it.
