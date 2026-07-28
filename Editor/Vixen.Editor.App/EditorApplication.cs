@@ -128,6 +128,16 @@ sealed class EditorApplication : IDisposable {
     /// <summary>The interface.</summary>
     public EditorShell Shell { get; }
 
+    /// <summary>The scene being edited.</summary>
+    public SceneDocument Scene => scene;
+
+    /// <summary>The pane the scene is drawn in, or <see langword="null" /> while it is closed.</summary>
+    /// <remarks>
+    ///     Null is the ordinary case rather than an error: a layout without the scene panel in it is
+    ///     one the user chose, and the host renders nothing for it.
+    /// </remarks>
+    public SceneViewport? Viewport => viewport;
+
     /// <summary>Whether the editor has been asked to close.</summary>
     public bool IsClosing { get; private set; }
 

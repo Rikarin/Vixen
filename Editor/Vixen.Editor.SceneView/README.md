@@ -215,9 +215,10 @@ port present as "the remote inspector does not work with more than one client".
 
 ## Not in
 
-**The drawing.** The gizmo says where its handles are and what is under the pointer; something has to
-put triangles there. The same is true of the grid's lines and the selection outline — this assembly
-produces geometry and state, and a debug-line renderer or a compositor node consumes it.
+**Solid handles.** `GizmoGeometry` and `SceneLines` turn the gizmo, the grid and an entity marker into
+line segments that `Vixen.Rendering`'s `LineRenderer` draws — so the viewport shows them now. Cones,
+rings and a selection outline want a mesh path the editor does not have, and lines are what an editor
+draws for a scene of empties anyway.
 
 **Vertex snapping.** `SnapSettings.SnapToVertex` and its radius are in the model and are not honoured
 yet: it needs the mesh under the pointer, which is the same readback picking does but for a position
@@ -231,8 +232,9 @@ keymap over commands, not to a second binding system inside the viewport. `Vixen
 the shape — gizmo modes, snapping, focus and the numpad views are all commands there, so they appear
 in the palette and can be rebound.
 
-**The pixels.** The draw list can carry a texture now and `Viewport` draws one, so what is left is a
-host that renders a scene into a target and registers it — a `RenderSystem` and a `GraphicsCompositor`
-in `Vixen.Editor.App`, which is the next thing rather than a missing capability.
+**Meshes.** `Vixen.Editor.App` renders the scene into an offscreen target and hands it to the
+interface, so the viewport is live. What goes in it is lines: there is no material system wired to an
+editor viewport and no model importer feeding one, so a mesh pass is a second `SceneRenderer` in the
+same target when there is something to put in it.
 
 Licensed under Apache-2.0.

@@ -89,12 +89,20 @@ the seeded one written immediately — the only time the editor saves without be
 project contains the scene you are looking at rather than something that exists until the window
 closes. `Ctrl+S` saves; the menu item greys itself out from the document's own dirty signal.
 
-⚠ **The scene panel draws no scene yet, and the reason has moved.** The draw list carries a texture
-now and `Viewport` draws one — what is missing is something to put *in* the texture: a `RenderSystem`
-and a `GraphicsCompositor` in this host, rendering into an offscreen target that gets handed to
-`UiRenderer.RegisterImage`. Everything around it already works: the camera, the gizmo arithmetic, the
-hit-testing and the undo are all driven and all correct, and the corner axis cross is drawn as
-ordinary UI paths so the camera is legible while you orbit it.
+**The scene panel is live.** `ScenePresenter` renders into an offscreen colour target, registers it
+with `UiRenderer.RegisterImage`, and the viewport control draws it — so the scene arrives in the
+interface as an ordinary element that panels can be drawn over.
+
+⚠ **What it draws is lines**: the grid, a three-axis marker per entity, a line to each parent, and the
+gizmo. There is no material system wired to an editor viewport and no model importer feeding one, so
+there is nothing to draw as a mesh yet — and a grid, markers and a gizmo is what any editor shows for
+a scene of empties regardless. A mesh pass is a second `SceneRenderer` into the same target.
+
+⚠ **The interface's pass declares that it reads the scene's target**, and has to. The interface
+samples it through a descriptor set, which the render graph cannot see — it orders passes and places
+barriers from what they *say* they touch. Without the declaration the target is still a colour
+attachment when the fragment shader reads it, which validation reports as a layout mismatch and which
+on a driver that does not check is a scene drawn from memory nothing had finished writing.
 
 ## The world, and why the editor has one
 
