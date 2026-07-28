@@ -418,9 +418,13 @@ Three things settled while writing it, recorded because they are the reasons rat
   property that makes the dual target cheap.
 - **The graph is unrolled into the shader, not uploaded and interpreted.** One shader per graph rather
   than one shader for every graph, and no branch on the hot path of the processor that likes them least.
-- **Spawning and reaping stay on the CPU.** Spawning is bookkeeping with one right home. Reaping is not
-  a choice: the alive set is a prefix maintained by swap-removal, and compacting it on the GPU needs an
-  atomic counter, which Raven has no syntax for yet.
+- **Spawning and reaping stay on the CPU, for now.** Spawning is bookkeeping with one right home.
+  Reaping was blocked and is not any more: writing the emitter is what put `atomicAdd` into Raven
+  ([07](07-raven-shader-pipeline.md) § Atomics), and GPU compaction is every survivor taking the next
+  slot from a shared counter. It waits on the dispatch rather than on the language. When it lands the
+  two backends will leave the survivors in *different orders*, which is fine and is written down
+  anyway: nothing promises an order, and a particle's randomness follows its identifier rather than
+  its slot.
 
 ## Effect permutations
 

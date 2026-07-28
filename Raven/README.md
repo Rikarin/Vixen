@@ -390,8 +390,10 @@ shader Lit {
 }
 ```
 
-Still missing: a **storage image** — a writable texture. GLSL wants a format qualifier on the
-declaration and SPIR-V an image format on the type, so it needs syntax that does not exist yet.
+The other writable resource is a **storage image** — `[Format("rgba16f")] var target: RWTexture2D<float4>`,
+read and written with `Load` and `Store`. The format is part of the declaration because both targets
+put it there: GLSL as a layout qualifier, SPIR-V as the image type's own format, and without it a read
+needs a capability not every device has.
 
 ### Compute
 
@@ -430,9 +432,72 @@ They are unsigned in both targets, so a signed declaration is refused rather tha
 converted. A `stream` is refused too — it is a location in the pipeline's interface, and a compute
 dispatch has no pipeline.
 
-What a compute shader cannot do yet is **persist anything**: there are no storage buffers and no
-storage images, so it can read bindings and compute but has nothing writable to store into. That
-gap is tracked in [docs/plan/07](../docs/plan/07-raven-shader-pipeline.md).
+A compute shader persists through a `RWBuffer<T>` or a storage image, and coordinates with the other
+invocations through the atomics below. What is still missing is **workgroup-shared memory** — the fast
+scratch a reduction or a bitonic sort stages through — which needs a storage class the language has no
+way to declare. That gap is tracked in
+[docs/plan/07](../docs/plan/07-raven-shader-pipeline.md).
+
+### Atomics
+
+An atomic is an indivisible read-modify-write of one integer in memory, and it answers with the value
+that was there:
+
+```typescript
+shader Compact {
+    var alive: Buffer<uint>
+    var indices: RWBuffer<uint>
+    var counter: RWBuffer<uint>
+    var count: int
+
+    [ComputeShader(64)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val index = int(id.x)
+
+        if (index >= count || alive[index] == 0u) {
+            return
+        }
+
+        // The value that comes back is the slot. Every surviving invocation gets a different one,
+        // and together they are exactly 0..n — which is stream compaction, and is the reason
+        // atomics exist at all.
+        val slot = atomicAdd(counter[0], 1u)
+        indices[int(slot)] = uint(index)
+    }
+}
+```
+
+`atomicAdd`, `atomicMin`, `atomicMax`, `atomicAnd`, `atomicOr`, `atomicXor`, `atomicExchange` and
+`atomicCompareExchange`, on `int` and `uint`. Named as GLSL names them, because that is what both a
+reader and the nearer target already say.
+
+**The first argument is storage, not a value**, and that is the one unusual thing about them. Nothing
+in a signature can say so: `inout` is the language's only by-reference direction and it is defined as
+copy-in/copy-out, which is exactly what an atomic must not be — a copy has nothing indivisible about
+it. So it is a rule about the *call*, checked after overload resolution (`RVN2130`) and honoured by
+lowering, which takes the argument's place rather than loading it. `atomicAdd(count + 1u, 1u)` is
+refused rather than quietly turned into an ordinary add.
+
+They are free functions rather than members of `RWBuffer` so the target can be any place inside one —
+`counts[i]`, but also `cells[i].population`, which a member taking an index could not reach.
+
+**And it has to be memory the dispatch shares.** A local is a place and is refused: GLSL admits only
+"shader block storage or shared variables", and an atomic on storage one invocation owns has nothing
+to be indivisible against anyway. So the root must be a writable resource today, and workgroup-shared
+memory when the language can declare one. A read-modify-write **is** a write, so an atomic on a
+read-only `Buffer<T>` is the same `RVN2119` a store would give, with the same one-character fix in its
+message.
+
+**Scalar integers only.** GLSL 4.5 core has no atomic on a float and none on a vector at all, so a
+wider set would be a signature one backend could not emit. Both operands and the result are the
+place's type, which is also what tells SPIR-V apart from GLSL here: `atomicMin` is one name for both
+signednesses and `OpAtomicSMin`/`OpAtomicUMin` are two, so the split lives in the backend that needs
+it.
+
+Both targets get **device scope and relaxed semantics** — the same two constants glslang emits for the
+same GLSL. Device because a storage buffer is visible to the whole dispatch, and a workgroup-scoped
+atomic on one is correct for every dispatch small enough to be a single workgroup and wrong for every
+one that is not.
 
 ### Streams
 

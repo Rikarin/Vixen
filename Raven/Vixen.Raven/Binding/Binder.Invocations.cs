@@ -105,7 +105,91 @@ public abstract partial class Binder {
         }
 
         CheckInOutArguments(best.Method, best.Arguments, arguments, syntax);
+        CheckAtomicTarget(best.Method, best.Arguments, arguments);
+
         return new BoundInvocationExpression(syntax, group.Receiver, best.Method, best.Arguments);
+    }
+
+    /// <summary>
+    ///     Checks that an atomic's first argument is writable storage rather than a value.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The signature cannot say this. <c>inout</c> is the only by-reference direction the
+    ///         language has, and it is defined as copy-in/copy-out — which is precisely what an
+    ///         atomic must not be, since a copy has nothing indivisible about it. So the first
+    ///         parameter is declared by value and the requirement is a rule about the call, checked
+    ///         here and honoured by <c>Lowerer</c>, which takes the argument's place instead of
+    ///         loading it.
+    ///     </para>
+    ///     <para>
+    ///         <b>And it has to be storage the dispatch shares.</b> An atomic on memory only one
+    ///         invocation can reach has nothing to be indivisible against, and GLSL refuses it in so
+    ///         many words — <i>"only l-values corresponding to shader block storage or shared
+    ///         variables"</i> — so a local target would bind here and fail in one backend. That
+    ///         admits exactly one kind of root today, a writable resource; workgroup-shared memory
+    ///         will be the second when the language can declare it.
+    ///     </para>
+    ///     <para>
+    ///         Writability is <c>CheckAssignable</c>'s, not a rule of its own: a read-modify-write is
+    ///         a write, and the reasons a store into a read-only buffer or a permutation key is
+    ///         refused are the same reasons here, with the same messages.
+    ///     </para>
+    /// </remarks>
+    void CheckAtomicTarget(MethodSymbol method, BoundExpression[] mapped, IReadOnlyList<BoundArgument> arguments) {
+        if (method.MethodKind != MethodKind.Intrinsic || !Intrinsics.IsAtomic(method.Name) || mapped.Length == 0) {
+            return;
+        }
+
+        var target = mapped[0];
+
+        if (target.Type.IsErrorType) {
+            return;
+        }
+
+        // The argument as written, so the squiggle lands on what the author typed rather than on the
+        // whole call — found by identity rather than by position, because a named argument may have
+        // been supplied in any order. A conversion wrapper is what overload resolution puts around a
+        // widened argument, and a widened argument is a value however assignable its operand was.
+        ExpressionSyntax? location = null;
+
+        foreach (var supplied in arguments) {
+            if (ReferenceEquals(supplied.Expression, target)
+                || (target is BoundConversionExpression converted && ReferenceEquals(supplied.Expression, converted.Operand))) {
+                location = supplied.Syntax;
+
+                break;
+            }
+        }
+
+        if (location is null) {
+            return;
+        }
+
+        if (target is BoundConversionExpression || !IsInOutPlace(target)) {
+            Report(
+                SemanticDiagnostics.AtomicTargetMustBeStorage,
+                location,
+                method.Name,
+                "an atomic operates on memory, and this is a value"
+            );
+
+            return;
+        }
+
+        if (RootBinding(target) is null) {
+            Report(
+                SemanticDiagnostics.AtomicTargetMustBeStorage,
+                location,
+                method.Name,
+                "an atomic operates on memory the whole dispatch can reach, and this is private to "
+                + $"one invocation — store into a '{BufferTypeSymbol.ReadWriteName}' instead"
+            );
+
+            return;
+        }
+
+        CheckAssignable(target, location);
     }
 
     /// <summary>

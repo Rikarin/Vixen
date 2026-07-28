@@ -740,6 +740,13 @@ sealed class GlslEmitter {
             case IrArrayLengthInstruction length:
                 return $"{Place(length.Place)}.length()";
 
+            // The place, not a loaded value: GLSL's atomics take an l-value, which is the whole
+            // reason the IR carries a place here.
+            case IrAtomicInstruction atomic:
+                return atomic.Comparand is { } comparand
+                    ? $"atomicCompSwap({Place(atomic.Place)}, {Value(comparand)}, {Value(atomic.Value)})"
+                    : $"{AtomicName(atomic.Op)}({Place(atomic.Place)}, {Value(atomic.Value)})";
+
             case IrUnaryInstruction unary:
                 return UnaryExpression(unary);
 
@@ -815,6 +822,24 @@ sealed class GlslEmitter {
 
         return $"({left} {op} {right})";
     }
+
+    /// <summary>What GLSL calls each atomic.</summary>
+    /// <remarks>
+    ///     One name per operation whatever the operand's signedness, which is where GLSL and SPIR-V
+    ///     part company: <c>atomicMin</c> covers both and <c>OpAtomicSMin</c>/<c>OpAtomicUMin</c> do
+    ///     not. Compare-exchange is not here because its argument order differs too, and one place
+    ///     that spells the whole call is clearer than a name plus an exception.
+    /// </remarks>
+    static string AtomicName(IrAtomicOp op) =>
+        op switch {
+            IrAtomicOp.Add => "atomicAdd",
+            IrAtomicOp.Min => "atomicMin",
+            IrAtomicOp.Max => "atomicMax",
+            IrAtomicOp.And => "atomicAnd",
+            IrAtomicOp.Or => "atomicOr",
+            IrAtomicOp.Xor => "atomicXor",
+            _ => "atomicExchange"
+        };
 
     static string? ComparisonFunction(IrBinaryOp op) =>
         op switch {
