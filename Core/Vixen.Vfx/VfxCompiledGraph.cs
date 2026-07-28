@@ -67,10 +67,18 @@ public readonly record struct VfxSpawner(VfxSpawnerKind Kind, float Rate = 0f, i
 ///     </para>
 /// </remarks>
 public sealed class VfxCompiledGraph {
-    VfxCompiledGraph(VfxSpawner[] spawners, VfxOperation[] initializers, VfxOperation[] updaters, VfxAttribute attributes, int capacity) {
+    VfxCompiledGraph(
+        VfxSpawner[] spawners,
+        VfxOperation[] initializers,
+        VfxOperation[] updaters,
+        VfxRenderer? renderer,
+        VfxAttribute attributes,
+        int capacity
+    ) {
         Spawners = spawners;
         Initializers = initializers;
         Updaters = updaters;
+        Renderer = renderer;
         Attributes = attributes;
         Capacity = capacity;
     }
@@ -83,6 +91,15 @@ public sealed class VfxCompiledGraph {
 
     /// <summary>What happens to it, applied to every live particle every step.</summary>
     public VfxOperation[] Updaters { get; }
+
+    /// <summary>How it is drawn, or <see langword="null" /> if nothing draws it.</summary>
+    /// <remarks>
+    ///     Optional, because a graph that is never drawn should not pay for the attributes drawing
+    ///     would read. A simulation used to drive something else — a physics probe, a test, an
+    ///     effect whose particles are consumed rather than seen — has no renderer and no colour and
+    ///     no size, and that is the same rule as everywhere else here: storage is what is used.
+    /// </remarks>
+    public VfxRenderer? Renderer { get; }
 
     /// <summary>Every attribute the graph touches. Storage is allocated for exactly these.</summary>
     public VfxAttribute Attributes { get; }
@@ -98,6 +115,7 @@ public sealed class VfxCompiledGraph {
     /// <param name="initializers">What a new particle starts as.</param>
     /// <param name="updaters">What happens to a live particle each step.</param>
     /// <param name="capacity">The most particles alive at once.</param>
+    /// <param name="renderer">How it is drawn. Its reads join the derived attribute set.</param>
     /// <returns>The compiled graph.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="capacity" /> is not positive.</exception>
     /// <exception cref="ArgumentException">An updater reads an attribute nothing gives it.</exception>
@@ -110,7 +128,8 @@ public sealed class VfxCompiledGraph {
         ReadOnlySpan<VfxSpawner> spawners,
         ReadOnlySpan<VfxOperation> initializers,
         ReadOnlySpan<VfxOperation> updaters,
-        int capacity
+        int capacity,
+        VfxRenderer? renderer = null
     ) {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
 
@@ -148,7 +167,18 @@ public sealed class VfxCompiledGraph {
             attributes |= reads | VfxOpcodes.Writes(operation.Opcode);
         }
 
-        return new(spawners.ToArray(), initialized, updated, attributes | VfxAttribute.Identifier, capacity);
+        // The renderer declares what it reads the same way an operation does, so a velocity-aligned
+        // billboard is what makes a graph allocate velocity even when nothing in the simulation would
+        // have. Drawing is a reader of the particle state and there is no reason it should be the one
+        // kind of reader that has to be accounted for by hand.
+        return new(
+            spawners.ToArray(),
+            initialized,
+            updated,
+            renderer,
+            attributes | (renderer?.Reads ?? VfxAttribute.None) | VfxAttribute.Identifier,
+            capacity
+        );
     }
 
     /// <summary>Gives every operation without a salt one derived from where it sits.</summary>

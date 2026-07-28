@@ -33,6 +33,8 @@ system.Step(deltaTime);
 | `VfxSimulation` | The CPU backend: one operation swept across every particle. |
 | `VfxRandom` | Stateless integer-only hashing, so a compute shader can reproduce a value exactly. |
 | `VfxSystem` | One running instance: its particles, its clock, its seed, its spawner state. |
+| `VfxRenderer` | How particles are drawn — alignment, sorting — and which attributes that reads. |
+| `VfxGeometryBuilder` | Particles into camera-facing quads, and the draw order. |
 
 ## The compiled graph is data, and that is the whole design
 
@@ -116,6 +118,35 @@ Uniform *by volume* and *by solid angle* where that matters: a position in a sph
 of its radius fraction, or two thirds of the particles pile into the outer third and it reads as a
 shell; a direction samples `z` uniformly rather than the polar angle, or a burst pinches at the poles.
 
+## Geometry stops where the graphics stack starts
+
+`VfxGeometryBuilder` turns particles into quads and nothing more. What happens to those vertices — the
+pipeline, the descriptor set, the draw — belongs to a render feature in `Vixen.Rendering`, which is why
+`Vixen.Vfx` references no graphics at all. The payoff is that every decision the expansion makes is
+checked against a number instead of a screenshot: where the four corners are, which way the quad faces,
+what happens when a streak is seen end-on.
+
+**Four vertices a particle, not six.** The two triangles share an edge, and the index pattern joining
+them is the same for every particle in every effect ever — so it is a buffer built once by whoever
+draws, not two repeated vertices per particle forever.
+
+**Aligned billboards turn to face the particle-to-camera vector, not the camera's forward.** Under
+perspective those differ by more than a little at the edges of the view, and using forward makes a wide
+effect visibly lean. When the fixed axis points straight at the camera the cross product vanishes and
+the quad falls back to the camera's own right — otherwise a spark coming towards the viewer becomes a
+line of zero width, which is the sort of thing that only shows up in one shot out of fifty.
+
+**The renderer declares its reads like any other stage**, so a velocity-aligned billboard is what makes
+a graph allocate velocity even when nothing in the simulation would have. And a graph with **no**
+renderer allocates neither colour nor size — a simulation used to drive something else pays for nothing
+it is not drawn with, and asking to draw it throws rather than quietly producing zero-area quads in a
+colour nobody chose.
+
+**Sorting is a drawing decision**, so it lives on the renderer and defaults to the one that costs
+nothing: additive blending does not care about order, and a key per particle plus a sort is not free.
+`Order` is exposed because a caller uploading per-instance data instead of expanded quads needs the same
+order, and recomputing it would be a second sort that could disagree with the first.
+
 ## Decisions worth knowing about
 
 **The alive set is a prefix, not a mask.** Particles live in `[0, Count)` and a dead one is removed by
@@ -167,11 +198,12 @@ is two small arrays of spawner bookkeeping.
 - **The GPU backend.** The compiled graph is the shape a Raven compute shader would be emitted from,
   and the RNG is built for it, but nothing emits one. This is the half of the dual target that has been
   designed for rather than written, and Phase 7's exit criterion is the test that the two agree.
-- **Renderers.** `Vixen.Vfx` simulates; nothing draws. Billboard, mesh, ribbon and light renderers, and
-  the `ParticleRenderFeature` that [doc 06](../../docs/plan/06-rendering-pipeline.md) lists beside
-  `MeshRenderFeature`, are the next piece.
-- **Sorting.** None, by depth, or by age — needed by the renderers rather than by the simulation, so it
-  waits for them.
+- **`ParticleRenderFeature`.** The quads exist; nothing uploads or draws them. The feature that sits
+  beside `MeshRenderFeature` in [doc 06](../../docs/plan/06-rendering-pipeline.md) belongs in
+  `Vixen.Rendering`, and it is the next piece.
+- **Mesh, ribbon and light renderers.** Only billboards so far. A mesh renderer is an instance
+  transform per particle rather than a quad; a ribbon needs particles linked into strips, which is the
+  one that needs something the storage does not have yet.
 - **The node graph and its editor.** `Vixen.Editor.VfxGraph` authors what `Compile` consumes. A graph is
   written in code today.
 - **Custom attributes.** The attribute set is closed. Opening it means a name-to-slot mapping the
