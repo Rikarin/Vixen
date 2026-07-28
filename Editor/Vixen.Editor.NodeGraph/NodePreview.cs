@@ -7,18 +7,35 @@ using Vixen.Ui;
 namespace Vixen.Editor.NodeGraph;
 
 /// <summary>What a node's output looks like, small, under the node.</summary>
-/// <param name="Color">The colour to show. Alpha is honoured, over a chequer.</param>
+/// <param name="Color">The colour to show when there is no image, or the tint when there is one.</param>
 /// <param name="Label">A few characters over it — a number, a width — or empty.</param>
+/// <param name="Image">
+///     The renderer's handle for a thumbnail rendered into a target, or zero for a flat swatch.
+/// </param>
+/// <param name="FlipVertically">Whether that target is upside down, as a scene's is.</param>
 /// <remarks>
-///     ⚠ <b>A colour rather than an image, and that is a limit of the framework rather than a
-///     design.</b> Doc 11 asks for "live preview thumbnails", which for a shader graph means rendering
-///     the node's expression over a quad; <c>Viewport</c> in <c>Vixen.Ui.Controls.Advanced</c> draws a
-///     placeholder for exactly this reason — the draw list has no texture command yet. A swatch is
-///     what can be drawn honestly today, and it is genuinely useful: it is what a constant, a colour,
-///     a mask and a channel split all reduce to. When the draw list grows a texture command this
-///     becomes a second case here and nothing else moves.
+///     <para>
+///         <b>Two kinds, because the two questions are different.</b> Doc 11 asks for live preview
+///         thumbnails, which for a shader graph means compiling one node's expression and running it
+///         over a quad; that is <see cref="Image" />, and it is drawn exactly the way <c>Viewport</c>
+///         draws a scene — a number the renderer was given, handed back in an image command. A
+///         <i>swatch</i> is the other kind and is not a placeholder for it: a constant, a colour, a
+///         mask and a channel split all reduce to one colour, and rendering a quad to say so would be
+///         a render target per node to answer a question a rectangle answers.
+///     </para>
+///     <para>
+///         ⚠ <b>A number the renderer does not know draws nothing at all</b>, which is
+///         <c>Viewport.RenderTarget</c>'s warning and applies here for the same reason. A preview that
+///         went blank is a target that was recreated and not re-registered — so a source that cannot
+///         guarantee its handle is live should answer with a colour instead.
+///     </para>
 /// </remarks>
-public readonly record struct NodePreview(Color4 Color, string Label = "");
+public readonly record struct NodePreview(
+    Color4 Color,
+    string Label = "",
+    ulong Image = 0,
+    bool FlipVertically = false
+);
 
 /// <summary>Where a node's preview comes from.</summary>
 /// <remarks>
@@ -96,11 +113,25 @@ public sealed class NodePreviewLayer : UiElement {
                 continue;
             }
 
-            // The chequer first, so a preview with alpha in it reads as translucent rather than as a
-            // darker colour — which is the whole question an author asks a mask node's preview.
+            // The chequer first either way, so a preview with alpha in it reads as translucent rather
+            // than as a darker colour — which is the whole question an author asks a mask node's
+            // preview, and is as true of a rendered thumbnail as of a flat colour.
             Chequer(context, swatch);
 
-            context.FillRectangle(swatch, preview.Color, 2f);
+            if (preview.Image != 0) {
+                // The same command and the same flip question as Viewport: a scene renders with the
+                // engine's Y up and an interface draws with Y down, so a target sampled as it stands
+                // is upside down.
+                context.DrawImage(
+                    swatch,
+                    preview.Image,
+                    preview.Color,
+                    preview.FlipVertically ? new Rectangle(0f, 1f, 1f, -1f) : new Rectangle(0f, 0f, 1f, 1f)
+                );
+            } else {
+                context.FillRectangle(swatch, preview.Color, 2f);
+            }
+
             context.StrokeRectangle(swatch, canvas.WireColor, 1f);
         }
     }

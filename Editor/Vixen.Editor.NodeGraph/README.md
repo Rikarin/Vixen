@@ -262,11 +262,14 @@ chain comes out as a line of centres.
 
 ## What is not here yet
 
-- **Previews are a colour, not a picture.** Doc 11 asks for live thumbnails, which for a shader graph
-  means rendering the node's expression over a quad. `Viewport` draws a placeholder for the same
-  reason — the draw list has no texture command. A swatch is what can be drawn honestly today, and it
-  is genuinely what a constant, a colour, a mask and a channel split reduce to. When the draw list
-  grows a texture command this becomes a second case in `NodePreviewLayer` and nothing else moves.
+- **Nothing here renders a thumbnail, though the layer draws one.** `NodePreview` carries either a
+  colour or a render-target handle, and `NodePreviewLayer` draws both — the image case is the same
+  command and the same flip question as `Viewport`. What does not exist is a *shader-graph* preview
+  renderer: compiling one node's sub-expression, running it over a quad, and keeping the target alive
+  across edits. That is `Vixen.Editor.ShaderGraph`'s to write, and it is why the framework's own
+  fixture answers with a swatch. A swatch is not a placeholder for it either — a constant, a colour,
+  a mask and a channel split all reduce to one colour, and a render target per node to say so would
+  be a lot of targets to answer a question a rectangle answers.
 - **A node in two groups is drawn in one of them.** The canvas's group membership is a back-pointer on
   the node, so it holds one; the model does not, because a document should not lose an author's
   grouping to a drawing limitation.

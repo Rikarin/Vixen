@@ -429,10 +429,46 @@ public class ViewTests : IDisposable {
         Assert.Equal([combine.Id], asked);
     }
 
+    [Fact]
+    public void A_preview_with_a_render_target_is_drawn_as_an_image_and_one_without_as_a_swatch() {
+        graph.Add("Test/Combine", new(64f, 64f));
+        fixture.Update();
+
+        View.PreviewSource = new Fixed(new NodePreview(Color4.White, Image: 77UL, FlipVertically: true));
+        fixture.Update();
+
+        var image = Assert.Single(Commands(DrawCommandKind.Image), command => command.Image == 77UL);
+
+        // Flipped, because a scene renders with the engine's Y up and an interface draws with Y down.
+        // The same question Viewport answers, and the same answer.
+        Assert.True(image.Source.Height < 0f);
+
+        View.PreviewSource = new Fixed(new NodePreview(new Color4(1f, 0f, 0f, 1f)));
+        fixture.Update();
+
+        Assert.DoesNotContain(Commands(DrawCommandKind.Image), command => command.Image == 77UL);
+    }
+
+    IEnumerable<DrawCommand> Commands(DrawCommandKind kind) {
+        foreach (var command in fixture.Ui.Drawing.Commands) {
+            if (command.Kind == kind) {
+                yield return command;
+            }
+        }
+    }
+
     sealed class Recorder(List<NodeId> asked) : INodePreviewSource {
         public bool TryGet(NodeGraphModel graph, GraphNode node, NodeTypeDefinition definition, out NodePreview preview) {
             asked.Add(node.Id);
             preview = new(new Color4(1f, 0f, 0f, 1f));
+
+            return true;
+        }
+    }
+
+    sealed class Fixed(NodePreview answer) : INodePreviewSource {
+        public bool TryGet(NodeGraphModel graph, GraphNode node, NodeTypeDefinition definition, out NodePreview preview) {
+            preview = answer;
 
             return true;
         }

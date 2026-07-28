@@ -307,12 +307,13 @@ port model from the start.
 >   own graph with no event for it — is found by comparing the model's edges against the picture's
 >   wires. Both are recorded in the view's README, because both are the kind of thing that reads as a
 >   bug until you know why.
-> - **Two things the section asks for are half here.** Previews are a *colour swatch* rather than a
->   rendered thumbnail, because the draw list still has no texture command — the same reason `Viewport`
->   draws a placeholder — and it is a swatch honestly rather than an empty box hopefully. And a node
->   the model has in two groups is drawn in one of them, because the canvas's group membership is a
->   back-pointer on the node; the model keeps both, since a document should not lose an author's
->   grouping to a drawing limitation.
+> - **Two things the section asks for are half here.** A preview is drawn either as a colour or as a
+>   render target — the same image command and the same flip question as `Viewport` — but nothing yet
+>   *renders* one: compiling a single node's sub-expression, running it over a quad and keeping the
+>   target alive across edits belongs to `.ShaderGraph`, so the framework's own fixture answers with a
+>   swatch. And a node the model has in two groups is drawn in one of them, because the canvas's group
+>   membership is a back-pointer on the node; the model keeps both, since a document should not lose
+>   an author's grouping to a drawing limitation.
 >
 > Not in: the animation graph, selectable wires, editing a sticky note in place, and mapping a
 > *generated shader's* diagnostics back to the node that emitted the line — every diagnostic the graph

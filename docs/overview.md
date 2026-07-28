@@ -327,8 +327,8 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `PublishEditor`, signing, notarisation, `.dmg`/AppImage/MSI | ⬜ | — | |
 | `Vixen.Editor.NodeGraph` — model, generated registry, compiler, port typing | ✅ | Editor/Vixen.Editor.NodeGraph | No UI, and none needed to check it |
 | `NodeGraphView` (pan/zoom/marquee/wires/minimap/search-to-create) | ✅ | Editor/Vixen.Editor.NodeGraph | Over `NodeCanvas`. A one-way projection, rebuilt per structural change; drags write positions in place |
-| Sub-graphs; undo commands; auto-layout; drag-from-port; previews | ✅ | Editor/Vixen.Editor.NodeGraph | Sub-graphs are **inlined**, not called. Previews are a colour swatch — see the row below |
-| Rendered preview thumbnails on nodes | ⛔ | — | Needs a draw-list texture command, same as `Viewport` |
+| Sub-graphs; undo commands; auto-layout; drag-from-port; preview layer | ✅ | Editor/Vixen.Editor.NodeGraph | Sub-graphs are **inlined**, not called. The layer draws a colour *or* a render target |
+| A shader-graph renderer that *fills* a preview thumbnail | ⬜ | — | Unblocked. Compile one node's sub-expression, run it over a quad, keep the target alive across edits. `.ShaderGraph`'s, not the framework's |
 | Selectable wires; in-place sticky-note editing; inlined-node → source-node map | ⬜ | — | The last is what lets a diagnostic inside a sub-graph name a node the author can select |
 | Raven-span → node diagnostics mapping | ⬜ | — | Needs the emitter to record spans as it writes |
 | `Vixen.Editor.ShaderGraph` — node library, `DynamicVector` typing, Raven emission | ✅ | Editor/Vixen.Editor.ShaderGraph | Unlit, Sprite, PBR masters |
@@ -596,7 +596,7 @@ No unmet dependency. Twenty-three independent tracks.
 | ASTC/ETC2 output + full-quality BC7 | W0-15 | Then `ktx validate` + reference-decoder verification |
 | Undoable entity create/destroy; undoable reparenting | W0-16 | |
 | Two-phase occlusion + compacted draws; per-object reflection probes | W0-17 | |
-| Shader-graph procedural/custom-code nodes, Post + UI masters, previews | — | Unblocked: `NodeGraphView` is in. A *rendered* preview still wants the draw-list texture command |
+| Shader-graph procedural/custom-code nodes, Post + UI masters, previews | — | Unblocked: `NodeGraphView` is in and its preview layer already draws a render target |
 | VFX-graph operator nodes, remaining opcode blocks, live preview | W1(VFX GPU) | The view half is in; the live preview is the runtime's |
 | `Relay` transport + transport fallback | W0-21 | |
 | Cross-compilation test pass (ESSL/HLSL/MSL/WGSL) | W0-22 | |

@@ -2873,12 +2873,13 @@ nowhere in the dependency graph.
   behaviours are intercepted rather than configured — Delete, and the reroute gesture that picks a
   wire up off an input — and neither needed a change to `Vixen.Ui.Controls.Advanced`.
 
-  ⚠ **Previews are a colour swatch, not a rendered thumbnail**, because the draw list still has no
-  texture command — the same reason `Viewport` draws a placeholder. It is what can be drawn honestly
-  today and it is what a constant, a colour, a mask and a channel split all reduce to; when the draw
-  list grows a texture command it is one more case in `NodePreviewLayer`. Also owed: selectable wires,
-  editing a sticky note in place, and a source map from an inlined node back to the sub-graph node it
-  came out of, without which a diagnostic about one names an identity the author cannot select.
+  ⚠ **The preview layer draws a thumbnail and nothing renders one.** `NodePreview` carries a colour
+  or a render-target handle and `NodePreviewLayer` draws both, by the same image command and with the
+  same flip question as `Viewport`. What is missing is the *shader-graph* side — compile one node's
+  sub-expression, run it over a quad, keep the target alive across edits — which is `.ShaderGraph`'s
+  and is now unblocked. Also owed: selectable wires, editing a sticky note in place, and a source map
+  from an inlined node back to the sub-graph node it came out of, without which a diagnostic about one
+  names an identity the author cannot select.
 - `Vixen.Editor.ShaderGraph`: node library, `DynamicVector` port typing, Raven emission, show-generated-
   code, diagnostics mapped to ports, master nodes (PBR/unlit/sprite/UI/post).
 - 🟡 `Vixen.Vfx` runtime: SoA attribute storage, spawners/initializers/updaters/renderers, deterministic
