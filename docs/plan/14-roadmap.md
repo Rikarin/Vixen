@@ -2840,8 +2840,27 @@ nowhere in the dependency graph.
 
 ## Phase 7 — Node graphs and VFX *(3.5 EM)*
 
-- `Vixen.Editor.NodeGraph`: model, view (`NodeCanvas`-based), generated node registry, undo, groups,
+- ✅ `Vixen.Editor.NodeGraph`: model, view (`NodeCanvas`-based), generated node registry, undo, groups,
   sub-graphs, search-to-create, drag-from-port, previews, auto-layout, minimap.
+
+  A sub-graph is **inlined rather than called** — every target here is a straight-line program over
+  values, with no function to call and no stack to put one on — so `SubGraphs.Flatten` hands the
+  compiler a graph containing none, and the compiler that walks it has no idea sub-graphs exist. That
+  cost one property and four lines, which is the return on the model having been built first.
+
+  The view is a **one-directional projection**, rebuilt from the model on every structural change: the
+  canvas already culls to the viewport, so the cost is bounded by the screen rather than by the graph,
+  and a projection that is rebuilt cannot drift from the document. A drag is the exception and writes
+  positions in place, because that is the path that runs every frame. Two of the canvas's own
+  behaviours are intercepted rather than configured — Delete, and the reroute gesture that picks a
+  wire up off an input — and neither needed a change to `Vixen.Ui.Controls.Advanced`.
+
+  ⚠ **Previews are a colour swatch, not a rendered thumbnail**, because the draw list still has no
+  texture command — the same reason `Viewport` draws a placeholder. It is what can be drawn honestly
+  today and it is what a constant, a colour, a mask and a channel split all reduce to; when the draw
+  list grows a texture command it is one more case in `NodePreviewLayer`. Also owed: selectable wires,
+  editing a sticky note in place, and a source map from an inlined node back to the sub-graph node it
+  came out of, without which a diagnostic about one names an identity the author cannot select.
 - `Vixen.Editor.ShaderGraph`: node library, `DynamicVector` port typing, Raven emission, show-generated-
   code, diagnostics mapped to ports, master nodes (PBR/unlit/sprite/UI/post).
 - 🟡 `Vixen.Vfx` runtime: SoA attribute storage, spawners/initializers/updaters/renderers, deterministic

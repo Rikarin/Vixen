@@ -263,9 +263,8 @@ port model from the start.
 
 > **As built** (see [`Vixen.Editor.NodeGraph`](../../Editor/Vixen.Editor.NodeGraph/README.md),
 > [`.ShaderGraph`](../../Editor/Vixen.Editor.ShaderGraph/README.md) and
-> [`.VfxGraph`](../../Editor/Vixen.Editor.VfxGraph/README.md)). The model, the generated registry and
-> the compiler are in, and so are two of the three graphs — everything above the line marked
-> `NodeGraphView`. The example in this section compiles as written.
+> [`.VfxGraph`](../../Editor/Vixen.Editor.VfxGraph/README.md)). All four boxes are in, and so are two
+> of the three graphs. The example in this section compiles as written.
 >
 > Three notes on how it came out:
 >
@@ -281,10 +280,40 @@ port model from the start.
 >   against it, so a graph that produces the array produces the Raven too. There is no second lowering
 >   and no way for the two halves to have understood the graph differently.
 >
-> Not in: the view, sub-graphs, the animation graph, and mapping a *generated shader's* diagnostics
-> back to the node that emitted the line — every diagnostic the graph compilers raise names a node and
-> a port, but Raven's own complaints about the generated text are not yet mapped, which needs the
-> emitters to record spans as they write.
+> Four more from building the view and sub-graphs on top:
+>
+> - **A sub-graph is inlined, not called.** Every target here is a straight-line program over values —
+>   Raven source with no function to call, a VFX operation array with no stack to put one on — so
+>   `SubGraphs.Flatten` turns a graph containing sub-graph nodes into one containing none, and the
+>   compiler that walks the result has no idea sub-graphs exist. It cost the compiler one property and
+>   four lines. The interface is *declared* on the model rather than derived from the entry and exit
+>   nodes, because a signature that came and went with a node would change under every containing
+>   graph when somebody deleted one.
+> - **The view is a projection and it is one direction.** The model is the document and the canvas's
+>   own `NodeGraph` is boxes with sockets on; `NodeGraphView` rebuilds the picture from the model on
+>   every structural change rather than editing it incrementally, because the canvas already culls to
+>   the viewport — so the cost is bounded by the screen — and a projection that is rebuilt cannot
+>   drift. A drag is the exception, and writes positions in place.
+> - **Two of the canvas's behaviours had to be intercepted rather than configured, and neither needed
+>   a change to `Vixen.Ui.Controls.Advanced`.** Delete is claimed by a capture-phase key handler,
+>   because the canvas would otherwise remove nodes from its own copy and tell nobody. And the canvas's
+>   reroute gesture — picking a wire up off a connected input, which it performs by disconnecting its
+>   own graph with no event for it — is found by comparing the model's edges against the picture's
+>   wires. Both are recorded in the view's README, because both are the kind of thing that reads as a
+>   bug until you know why.
+> - **Two things the section asks for are half here.** Previews are a *colour swatch* rather than a
+>   rendered thumbnail, because the draw list still has no texture command — the same reason `Viewport`
+>   draws a placeholder — and it is a swatch honestly rather than an empty box hopefully. And a node
+>   the model has in two groups is drawn in one of them, because the canvas's group membership is a
+>   back-pointer on the node; the model keeps both, since a document should not lose an author's
+>   grouping to a drawing limitation.
+>
+> Not in: the animation graph, selectable wires, editing a sticky note in place, and mapping a
+> *generated shader's* diagnostics back to the node that emitted the line — every diagnostic the graph
+> compilers raise names a node and a port, but Raven's own complaints about the generated text are not
+> yet mapped, which needs the emitters to record spans as they write. A diagnostic about a node that
+> came *out of* a sub-graph names a synthetic identity the author cannot select, for the same
+> want of a source map.
 
 ### `Vixen.Editor.Profiler` and `.Debugger`
 
