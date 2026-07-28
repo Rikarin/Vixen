@@ -34,7 +34,16 @@ public sealed partial class ScrollBar : Control {
     protected override bool AcceptsFocus => false;
 
     /// <summary>Which way it runs.</summary>
-    [UiProperty]
+    /// <remarks>
+    ///     ⚠ <b>The class follows the property, and it has to.</b> Everything about where a scrollbar
+    ///     sits is a theme rule keyed on <c>.vertical</c> or <c>.horizontal</c> — a bar whose class
+    ///     said one thing while its drawing and hit testing said the other is laid out down the
+    ///     bottom edge and drawn as though it ran down the side. That is not hypothetical:
+    ///     <see cref="ScrollView" /> creates both bars and assigns this <i>after</i> construction, so
+    ///     a class fixed at creation described the default rather than the answer, and every vertical
+    ///     scrollbar in the set was styled as a horizontal one.
+    /// </remarks>
+    [UiProperty(Changed = nameof(OnOrientationChanged))]
     public partial Orientation Orientation { get; set; }
 
     /// <summary>How far down the content the viewport currently is.</summary>
@@ -65,6 +74,11 @@ public sealed partial class ScrollBar : Control {
 
     /// <summary>How far it can travel.</summary>
     public float Range => MathF.Max(0f, ContentSize - ViewportSize);
+
+    void OnOrientationChanged(Orientation previous, Orientation current) {
+        RemoveClass(Separator.ClassOf(previous));
+        AddClass(Separator.ClassOf(current));
+    }
 
     /// <inheritdoc />
     protected override void OnDraw(DrawContext context) {
