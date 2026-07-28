@@ -308,6 +308,10 @@ public sealed partial class DataGrid : Control {
 
         Scroller.Scrolled += _ => Realise();
 
+        // Nothing else announces a resize, and a resize changes how many rows fit. Gated on the
+        // size — see Control.WhenResized — because Refresh rebuilds the sorted, filtered view.
+        WhenResized(Refresh);
+
         AddHandler<PointerEvent>(static (element, args) => ((DataGrid) element).Pointed(args));
         AddHandler<TapEvent>(static (element, args) => ((DataGrid) element).Tapped(args));
         AddHandler<KeyEvent>(static (element, args) => ((DataGrid) element).Keyed(args));

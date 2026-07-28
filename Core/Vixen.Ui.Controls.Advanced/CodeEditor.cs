@@ -416,6 +416,11 @@ public sealed partial class CodeEditor : Control {
         Scroller.Scrolled += _ => Realise();
         buffer.Changed += OnBufferChanged;
 
+        // ⚠ Gated on the size, and here that gate is doing real work rather than tidying: Refresh
+        // walks every line in the buffer to rebuild the row list, so a hundred-thousand-line file
+        // would pay for that on every frame of every pass. See Control.WhenResized.
+        WhenResized(Refresh);
+
         AddHandler<KeyEvent>(static (element, args) => ((CodeEditor) element).Keyed(args));
         AddHandler<TextInputEvent>(static (element, args) => ((CodeEditor) element).Typed(args));
         AddHandler<PointerEvent>(static (element, args) => ((CodeEditor) element).Pointed(args));

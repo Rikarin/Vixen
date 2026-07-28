@@ -208,7 +208,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Hot reload driven against a **running window** | ⬜ | — | Mechanism covered; never exercised end to end |
 | `Vixen.Ui.Controls` — 40-odd standard controls, `ControlTheme` as `UserAgent` origin | ✅ | Core/Vixen.Ui.Controls | 78 tests over a real theme and font |
 | `Vixen.Ui.Controls.Advanced` — Docking, TreeView, PropertyGrid, NodeCanvas, CodeEditor, DataGrid, Viewport, ColorPicker, CurveEditor, GradientEditor, Timeline | ✅ | Core/Vixen.Ui.Controls.Advanced | 253 tests |
-| `UiDocument` "layout finished" callback | ⬜ | — | ⛔ six advanced controls are one layout pass behind a resize; `Refresh()` is today's answer |
+| `UiDocument` "layout finished" callback | ✅ | Core/Vixen.Ui | All six controls on it. `Control.WhenResized` gates on the box changing; `Update` refuses a nested call, which is what lets a `Refresh` that runs its own pass be hung on the event |
 | Undo inside controls | ⬜ | — | The four `Changed` events are the seams a real stack subscribes to |
 | `Canvas2D` | ⬜ | — | Doc 09's P2, no editor consumer |
 | `OkLch.ToSrgb` real gamut mapping | ⬜ | — | Clamps per channel today, which shifts hue |
@@ -559,7 +559,7 @@ No unmet dependency. Twenty-three independent tracks.
 | W0-6 | `Tools/Vixen.ApiCheck` + first `PublicAPI.Shipped.txt` | `CheckApi` gate → Phase 11 API freeze |
 | W0-7 | CI legs: Windows/Linux Vulkan, NativeAOT publish, run-a-sample, WebGPU-on-lavapipe | Content determinism across 3 OSes; `Samples/01` on Windows/Linux; the AOT gate becoming continuous |
 | W0-8 | `UiDocument.Update` → `StyleUpdater` (incremental cascade) | The largest UI perf item; nothing depends on it, everything benefits |
-| W0-9 | `UiDocument` "layout finished" callback | Resize lag in `ScrollView`, `TreeView`, `DataGrid`, `CodeEditor`, `NodeCanvas`, `Viewport` |
+| ~~W0-9~~ | ~~`UiDocument` "layout finished" callback~~ | Built. The resize lag in `ScrollView`, `TreeView`, `DataGrid`, `CodeEditor`, `NodeCanvas` and `Viewport` is closed |
 | W0-10 | Wire `LineWrapper` into `TextRun`/controls | `TextArea` · `CodeEditor` wrap · rich text |
 | W0-11 | `Vixen.Core.Diagnostics` sinks (ZLogger file, console, platform, remote, `EventSource`) + rate limiting | Editor console · remote inspector · `Vixen.Editor.Profiler`/`.Debugger` |
 | W0-12 | `Vixen.Editor.Plugin` (`AssemblyLoadContext`) | Editor extensibility; lets `Vixen.Editor.App` state its AOT position |

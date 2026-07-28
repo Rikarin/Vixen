@@ -72,11 +72,12 @@ public sealed partial class TreeRow : Control {
 ///         index that is maintained as things expand; that is a different control and is owed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing tells an element that its box changed</b>, so a tree that is resized without
-///         being scrolled realises against the previous size until something calls
-///         <see cref="Refresh" />. It is the same gap <c>ScrollView.Refresh</c> exists for, and it
-///         closes with a "layout finished" callback on <c>UiDocument</c> rather than with anything
-///         here.
+///         <b>A resize is noticed rather than announced.</b> A tree realises against the size of its
+///         own box, which is a result of the layout pass — so <c>Control.WhenResized</c> hangs
+///         <see cref="Refresh" /> on <see cref="UiDocument.LayoutFinished" /> and it runs on the
+///         passes where the box actually moved. <see cref="Refresh" /> stays public because a caller
+///         that has just filled the tree and wants to read a row before the next pass still needs a
+///         way to ask.
 ///     </para>
 /// </remarks>
 public sealed partial class TreeView : Control {
@@ -167,6 +168,11 @@ public sealed partial class TreeView : Control {
         DropIndicator.AddClass("hidden");
 
         Scroller.Scrolled += _ => Realise();
+
+        // A resize changes how many rows fit and how tall the scroll range is, and nothing else
+        // announces it. See Control.WhenResized for why this is gated on the size rather than run
+        // on every pass: Flatten is O(visible).
+        WhenResized(Refresh);
 
         AddHandler<KeyEvent>(static (element, args) => ((TreeView) element).Keyed(args));
         AddHandler<PointerEvent>(static (element, args) => ((TreeView) element).Pointed(args));

@@ -242,9 +242,10 @@ public sealed class EditorShell : IDisposable {
     public void Resize(float width, float height) {
         Document.Resize(width, height);
 
-        // ⚠ Explicit, and it is the gap the advanced controls' README names: nothing tells an
-        // element that its box changed, so a virtualiser realises against the previous size until
-        // something asks it to look again.
+        // The pass is still run here rather than left to the host's next frame, so that a caller
+        // that resizes and then reads a box gets the new one. What it no longer has to do is tell
+        // the virtualisers: `Control.WhenResized` is how they find out, and it fires from inside
+        // this pass rather than from a caller who remembered.
         Document.Update();
     }
 

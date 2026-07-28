@@ -112,6 +112,77 @@ public class SettleTests {
     }
 
     [Fact]
+    public void A_handler_that_runs_a_pass_of_its_own_is_refused_and_settles_anyway() {
+        using var document = Documented();
+        var row = document.Root.Add("div", classNames: "row");
+
+        var calls = 0;
+        var nested = 0;
+
+        document.LayoutFinished += _ => {
+            calls++;
+
+            if (calls > 1) {
+                return;
+            }
+
+            // What TreeView, DataGrid and CodeEditor all do inside Refresh: write a content size as
+            // a declaration and then run a pass because a declaration is not a measurement.
+            row.SetStyle("height", "60px");
+
+            if (document.Update()) {
+                nested++;
+            }
+        };
+
+        document.Update();
+
+        // ⚠ Refused, rather than recursing into Settle from a stack frame underneath itself. The
+        // recursion terminated only when the document ran out of changes, and every nested call
+        // reset the budget that is supposed to bound it.
+        Assert.Equal(0, nested);
+
+        // And the write is not lost: the settle loop is what runs the pass, so the handler's own
+        // change reaches the boxes and the handler is called again to see it.
+        Assert.Equal(60f, row.Height, 0.001f);
+        Assert.Equal(2, calls);
+        Assert.Equal(1, document.SettlingPasses);
+        Assert.True(document.Settled);
+    }
+
+    [Fact]
+    public void A_refused_pass_leaves_the_document_dirty_for_the_loop_that_is_running() {
+        using var document = Documented();
+        var row = document.Root.Add("div", classNames: "row");
+
+        document.LayoutFinished += _ => row.SetStyle("height", "60px");
+
+        // If the nested guard had cleared `dirty` on its way out, the outer loop would see nothing
+        // to do and the handler's write would be stranded until something else invalidated.
+        document.Update();
+
+        Assert.Equal(60f, row.Height, 0.001f);
+    }
+
+    [Fact]
+    public void A_handler_that_throws_does_not_leave_the_document_unable_to_update() {
+        using var document = Documented();
+        document.Root.Add("div", classNames: "row");
+
+        void Thrower(UiDocument _) => throw new InvalidOperationException("handler");
+
+        document.LayoutFinished += Thrower;
+
+        Assert.Throws<InvalidOperationException>(() => document.Update());
+        document.LayoutFinished -= Thrower;
+
+        // ⚠ The flag is cleared in a finally. Left set, every later Update would be a silent no-op —
+        // an interface that stops repainting, with nothing in the exception to say why.
+        document.Invalidate();
+        Assert.True(document.Update());
+    }
+
+    [Fact]
     public void The_tick_carries_the_hosts_clock_rather_than_reading_one() {
         using var document = Documented();
 
