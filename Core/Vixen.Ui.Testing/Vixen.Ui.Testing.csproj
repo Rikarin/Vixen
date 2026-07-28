@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ui.Testing</RootNamespace>
+        <Description>
+            Automated interface testing for games: a chainable, self-retrying command API over a real
+            UiDocument, and visual regression against committed reference images rendered without a
+            GPU.
+        </Description>
+        <PackageTags>testing;ui;visual-regression;golden-image;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The framework under test. Everything this assembly drives — the element tree, event
+            routing, the draw list and the geometry a renderer submits — is Vixen.Ui's, and the point
+            of the design is that none of it is re-implemented here.
+        -->
+        <ProjectReference Include="..\Vixen.Ui\Vixen.Ui.csproj" />
+
+        <!--
+            Named rather than left to flow through Vixen.Ui, because this assembly uses the cascade's
+            own selector machinery directly: `Get(".panel > button:first-child")` compiles through
+            SelectorCompiler and runs through SelectorMatcher, so a selector in a test means exactly
+            what the same selector means in a stylesheet. A test framework with a second, nearly
+            compatible selector dialect is a test framework that lies about what it matched.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Styling\Vixen.Ui.Styling.csproj" />
+
+        <!-- Glyph fields, for the text the software rasteriser draws. -->
+        <ProjectReference Include="..\Vixen.Ui.Text\Vixen.Ui.Text.csproj" />
+
+        <!-- InputKey, for the keys a test presses. -->
+        <ProjectReference Include="..\Vixen.Input\Vixen.Input.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ExCSS parses the selector string. SelectorCompiler takes an ISelector rather than text —
+            the stylesheet loader has already parsed by the time it is called — so the one thing this
+            assembly has to do for itself is get from `".panel > button"` to that tree, which is one
+            call into the same parser the loader uses. Vixen.Ui.Styling puts ExCSS types in its own
+            public surface for the same reason, so this adds no dependency the consumer did not have.
+        -->
+        <PackageReference Include="ExCSS" />
+
+        <!-- Crc32, for the PNG chunk checksums. Microsoft's, and already in the repository. -->
+        <PackageReference Include="System.IO.Hashing" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Ui.Testing.Tests" />
+    </ItemGroup>
+
+</Project>

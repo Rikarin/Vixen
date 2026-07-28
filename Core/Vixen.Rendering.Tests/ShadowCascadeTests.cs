@@ -243,6 +243,83 @@ public class ShadowCascadeTests {
         Assert.Equal(new Int2(512, 512), ShadowCascades.AtlasSize(1, 512));
     }
 
+    /// <summary>
+    ///     A cascade's atlas matrix lands a point in that cascade's tile and nowhere else.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         What a shading pass is given, and the reason it is given a composed matrix rather than
+    ///         the cascade's own: a shader with one atlas and one matrix does <c>NdcToUv(M · p)</c>,
+    ///         which addresses the whole texture. With four tiles in it, the raw matrix sends every
+    ///         lookup a quarter of the way into the wrong one — and reads a plausible depth from it,
+    ///         which is why nothing about the result looks like a mismatch.
+    ///     </para>
+    ///     <para>
+    ///         Checked against the tile the atlas says it is, rather than against numbers typed here:
+    ///         the composed lookup must be exactly the plain one mapped into that rectangle.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_atlas_matrix_lands_in_its_own_tile() {
+        var cascade = Fit(new(0f, 0f, 1f));
+
+        foreach (var index in (int[])[0, 1, 2, 3]) {
+            var (scale, offset) = ShadowCascades.AtlasTile(index, 4);
+            var atlas = ShadowCascades.AtlasProjection(cascade, index, 4);
+
+            foreach (var point in Points(cascade)) {
+                var plain = Uv(cascade.ViewProjection, point);
+                var tiled = Uv(atlas, point);
+
+                Assert.Equal(offset.X + (scale.X * plain.X), tiled.X, 4);
+                Assert.Equal(offset.Y + (scale.Y * plain.Y), tiled.Y, 4);
+
+                // And inside the tile, which is the claim a driver would otherwise make for us by
+                // sampling somebody else's depth.
+                Assert.InRange(tiled.X, offset.X - 1e-4f, offset.X + scale.X + 1e-4f);
+                Assert.InRange(tiled.Y, offset.Y - 1e-4f, offset.Y + scale.Y + 1e-4f);
+            }
+        }
+    }
+
+    /// <summary>One cascade filling the atlas is left exactly as it was.</summary>
+    /// <remarks>
+    ///     The case that has to stay free: a single-cascade atlas is one tile at the origin, so the
+    ///     composition is the identity and a project that never asked for cascades pays nothing for
+    ///     the ones it did not ask for.
+    /// </remarks>
+    [Fact]
+    public void One_cascade_is_composed_with_nothing() {
+        var cascade = Fit(new(0f, 0f, 1f));
+        var atlas = ShadowCascades.AtlasProjection(cascade, 0, 1);
+
+        foreach (var point in Points(cascade)) {
+            var plain = Uv(cascade.ViewProjection, point);
+            var tiled = Uv(atlas, point);
+
+            Assert.Equal(plain.X, tiled.X, 5);
+            Assert.Equal(plain.Y, tiled.Y, 5);
+        }
+    }
+
+    /// <summary>A spread of points inside a cascade, so the claim is not about one of them.</summary>
+    static IEnumerable<Vector3> Points(ShadowCascade cascade) {
+        var radius = cascade.Radius * 0.5f;
+
+        yield return cascade.Centre;
+        yield return cascade.Centre + new Vector3(radius, 0f, 0f);
+        yield return cascade.Centre - new Vector3(0f, radius, 0f);
+        yield return cascade.Centre + new Vector3(radius * 0.3f, -radius * 0.7f, radius * 0.2f);
+    }
+
+    /// <summary>What the shader computes: clip, then normalised device, then a texture coordinate.</summary>
+    static Vector2 Uv(in Matrix4x4 matrix, Vector3 point) {
+        var clip = Matrix4x4.TransformVector4(new(point, 1f), matrix);
+        var ndc = new Vector2(clip.X / clip.W, clip.Y / clip.W);
+
+        return (ndc * 0.5f) + new Vector2(0.5f, 0.5f);
+    }
+
     static ShadowCascade Fit(Vector3 forward, Vector3 eye = default) =>
         ShadowCascades.Fit(eye, forward, Up, Light, Fov, Aspect, 1f, 50f, 1024);
 }

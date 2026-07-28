@@ -44,6 +44,10 @@ public sealed class AudioMixer {
     AudioBus[] renderOrder = [];
     AudioFormat format;
     int maxFrames;
+
+    // One voice's contribution, held apart so it can be scaled twice: once into its bus and once
+    // into its own send. Sized with the buses, and only ever touched by the audio thread.
+    float[] scratch = [];
     int activeVoices;
 
     /// <summary>A mixer with a fixed number of voices.</summary>
@@ -81,6 +85,37 @@ public sealed class AudioMixer {
 
     /// <summary>How many voices there are in total.</summary>
     public int VoiceCapacity => voices.Length;
+
+    /// <summary>Whether spatial sounds are panned through a head model instead of between speakers.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Headphones only, and off by default.</b> Over speakers each ear hears both channels,
+    ///         so the cues arrive crossed and the result is worse than plain panning. Anything turning
+    ///         this on should be reading a headphone setting rather than guessing.
+    ///     </para>
+    ///     <para>
+    ///         Ignored unless the device is stereo — there is no head model for five speakers, and a
+    ///         surround setup already has the front-and-back information an HRTF exists to supply.
+    ///     </para>
+    /// </remarks>
+    public bool UseHrtf {
+        get => hrtf;
+        set {
+            hrtf = value;
+            ApplyHrtf();
+        }
+    }
+
+    bool hrtf;
+
+    /// <summary>Hands every voice a head model, or takes them all away.</summary>
+    void ApplyHrtf() {
+        var wanted = hrtf && format.IsValid && format.Channels == 2;
+
+        foreach (var voice in voices) {
+            voice.Hrtf = wanted ? new HrtfPanner(format.SampleRate) : null;
+        }
+    }
 
     /// <summary>How many were doing something in the last block.</summary>
     public int ActiveVoices => Volatile.Read(ref activeVoices);
@@ -142,6 +177,7 @@ public sealed class AudioMixer {
         lock (gate) {
             format = deviceFormat;
             maxFrames = frames;
+            scratch = new float[frames * deviceFormat.Channels];
 
             foreach (var bus in buses) {
                 bus.Prepare(deviceFormat, frames);
@@ -150,6 +186,10 @@ public sealed class AudioMixer {
             foreach (var voice in voices) {
                 voice.Prepare(deviceFormat);
             }
+
+            // After Prepare, because the panners are built for the rate the device turned out to
+            // have rather than the one anybody assumed.
+            ApplyHrtf();
         }
     }
 
@@ -189,7 +229,32 @@ public sealed class AudioMixer {
             active++;
             var bus = lookup[(uint)voice.Bus < (uint)lookup.Length ? voice.Bus : 0];
 
-            if (!voice.Render(bus.Buffer[..samples], frameCount, listeners, blockStart)) {
+            // A voice with its own send cannot render straight into the bus, because its contribution
+            // has to be scaled separately on the way to the aux and the bus buffer has everything
+            // else in it by then. One extra pass, and only for voices that asked for it.
+            var sendBus = voice.SendBus;
+            var sendLevel = voice.SendLevel;
+            var routed = (uint)sendBus < (uint)lookup.Length && sendLevel > 0f;
+            var target = routed ? scratch.AsSpan(0, samples) : bus.Buffer[..samples];
+
+            if (routed) {
+                target.Clear();
+            }
+
+            var alive = voice.Render(target, frameCount, listeners, blockStart);
+
+            if (routed) {
+                var direct = bus.Buffer;
+                var aux = lookup[sendBus].Buffer;
+
+                for (var i = 0; i < samples; i++) {
+                    var sample = target[i];
+                    direct[i] += sample;
+                    aux[i] += sample * sendLevel;
+                }
+            }
+
+            if (!alive) {
                 // The one moment nothing is reading this voice's render state, and therefore the only
                 // safe place to hand its slot to a sound that stole it.
                 if (voice.TryTakePending(out var paused)) {

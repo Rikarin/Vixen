@@ -3,6 +3,7 @@
 
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
+using Vixen.Shaders;
 
 namespace Vixen.Rendering;
 
@@ -103,6 +104,134 @@ public static class ClusterGrid {
             / MathF.Max(MathF.Log(far / near), 1e-6f);
 
         return Math.Clamp((int)(ratio * Slices), 0, Slices - 1);
+    }
+
+    /// <summary>
+    ///     How far in front of the camera a view-space position is.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Negated, because the engine's view space is right-handed.</strong>
+    ///         <see cref="Matrix4x4.LookAt" /> says it outright — the camera looks down −Z — and
+    ///         <see cref="Matrix4x4.PerspectiveFieldOfView" /> agrees, taking <c>w</c> from <c>-z</c>.
+    ///         Every depth in this grid is a positive distance, so this is the one place the two
+    ///         conventions meet, on both sides: <c>ClusterGrid.DepthOf</c> in the shader is the same
+    ///         line.
+    ///     </para>
+    ///     <para>
+    ///         It was missing from both, and the shape of that failure is worth remembering.
+    ///         <c>Transform.ViewRay</c> pointed down <em>+Z</em>, so a cluster's box came out mirrored
+    ///         in z from the light positions tested against it — nearly nothing intersected, every
+    ///         cluster list came back empty, and the clustered path lit a scene by the sun alone. A
+    ///         handedness mistake produces an empty result rather than a wrong-looking one.
+    ///     </para>
+    /// </remarks>
+    public static float DepthOf(Vector3 positionView) => -positionView.Z;
+
+    /// <summary>The screen UV a view-space position projects to, as the shader computes it.</summary>
+    /// <remarks>
+    ///     The inverse of the ray the culling pass builds its corners from, rather than a
+    ///     projection-matrix multiply that would compute the same number a second way — two
+    ///     derivations of one quantity is how a fragment ends up reading a cluster the culler filled
+    ///     for somewhere else.
+    /// </remarks>
+    public static Vector2 UvOf(Vector3 positionView, Vector2 tanHalfFov) {
+        var depth = MathF.Max(DepthOf(positionView), 1e-6f);
+
+        return new(
+            (positionView.X / (depth * tanHalfFov.X) * 0.5f) + 0.5f,
+            (positionView.Y / (depth * tanHalfFov.Y) * 0.5f) + 0.5f
+        );
+    }
+
+    /// <summary>The cluster a shaded fragment belongs to, from its view-space position.</summary>
+    /// <remarks>
+    ///     The host's copy of <c>ClusterGrid.Of</c>, duplicated for the reason the constants above are
+    ///     — the two sides have to agree by construction, and a copy that can be evaluated on the CPU
+    ///     is what lets a test say they do.
+    /// </remarks>
+    public static int Of(Vector3 positionView, Vector2 tanHalfFov, float near, float far) {
+        var uv = UvOf(positionView, tanHalfFov);
+        var x = Math.Clamp((int)(Math.Clamp(uv.X, 0f, 1f) * TilesX), 0, TilesX - 1);
+        var y = Math.Clamp((int)(Math.Clamp(uv.Y, 0f, 1f) * TilesY), 0, TilesY - 1);
+
+        return Index(x, y, SliceOf(DepthOf(positionView), near, far));
+    }
+
+    /// <summary>
+    ///     The view-space box one cluster occupies, as the culling pass builds it.
+    /// </summary>
+    /// <remarks>
+    ///     Eight corners — four tile corners at each of the slab's two depths — reduced to their min
+    ///     and max. Larger than the wedge it bounds, which costs a few false positives at the corners
+    ///     and never a false negative; a false negative is a light that vanishes.
+    /// </remarks>
+    public static BoundingBox Bounds(int x, int y, int slice, Vector2 tanHalfFov, float near, float far) {
+        var lower = new Vector2((float)x / TilesX, (float)y / TilesY);
+        var upper = new Vector2((float)(x + 1) / TilesX, (float)(y + 1) / TilesY);
+
+        var start = SliceDepth(slice, near, far);
+        var end = SliceDepth(slice + 1, near, far);
+
+        var minimum = new Vector3(float.MaxValue);
+        var maximum = new Vector3(float.MinValue);
+
+        foreach (var uv in (Vector2[])[lower, new(upper.X, lower.Y), new(lower.X, upper.Y), upper]) {
+            var ray = ViewRay(uv, tanHalfFov);
+
+            foreach (var depth in (float[])[start, end]) {
+                minimum = Vector3.Min(minimum, ray * depth);
+                maximum = Vector3.Max(maximum, ray * depth);
+            }
+        }
+
+        return new(minimum, maximum);
+    }
+
+    /// <summary>The view-space ray through a point on the screen — <c>Transform.ViewRay</c>.</summary>
+    /// <remarks>
+    ///     Down −Z, and scaled by a positive distance rather than by a view-space z. That sign is the
+    ///     whole of <see cref="DepthOf" />'s remarks, from the other end.
+    /// </remarks>
+    static Vector3 ViewRay(Vector2 uv, Vector2 tanHalfFov) =>
+        new(((uv.X * 2f) - 1f) * tanHalfFov.X, ((uv.Y * 2f) - 1f) * tanHalfFov.Y, -1f);
+
+    /// <summary>
+    ///     Writes the camera parameters that place a fragment in the grid, under one shader's names.
+    /// </summary>
+    /// <param name="parameters">Where the values go.</param>
+    /// <param name="camera">The camera the grid is built in.</param>
+    /// <param name="shaderName">The pass whose keys to write — the culler, or whatever shades.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Both passes are filled from here, and that is the entire reason it exists.</strong>
+    ///         The culler bins a light into a froxel from these four numbers and a fragment finds its
+    ///         own froxel from the same four; give them a different aspect ratio, or a far plane one
+    ///         of them rounded, and every fragment reads the list that was filled for somewhere else.
+    ///         Nothing about that failure looks like a mismatch — it looks like lights that flicker
+    ///         near the edges of the screen.
+    ///     </para>
+    ///     <para>
+    ///         The vertical half-tangent is the camera's field of view and the horizontal one is that
+    ///         times the aspect ratio, which is the pair <c>ClusterCulling.UvOf</c> divides by. The
+    ///         shader's own defaults — <c>float2(1, 0.5625)</c> — are exactly a 16:9 camera at a
+    ///         ninety-degree horizontal field of view, so a host that writes nothing gets a grid for a
+    ///         camera it probably does not have.
+    ///     </para>
+    /// </remarks>
+    public static void Apply(ParameterCollection parameters, in RenderCamera camera, string shaderName) {
+        ArgumentNullException.ThrowIfNull(parameters);
+        ArgumentException.ThrowIfNullOrEmpty(shaderName);
+
+        var vertical = MathF.Tan(camera.FieldOfView * 0.5f);
+
+        parameters.Set(
+            ParameterKeys.New<Vector2>($"{shaderName}.tanHalfFov"),
+            new(vertical * camera.AspectRatio, vertical)
+        );
+
+        parameters.Set(ParameterKeys.New<float>($"{shaderName}.nearPlane"), camera.NearPlane);
+        parameters.Set(ParameterKeys.New<float>($"{shaderName}.farPlane"), camera.FarPlane);
     }
 }
 

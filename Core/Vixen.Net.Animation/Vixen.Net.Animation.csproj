@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Net.Animation</RootNamespace>
+        <Description>
+            Networked animation: the animator's parameters and its state machine's position, sent
+            instead of its pose. A remote character animates itself from the same inputs rather than
+            being puppeted bone by bone.
+        </Description>
+        <PackageTags>animation;networking;multiplayer;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <!--
+        The same argument Vixen.Net.Physics and Vixen.Net.Engine make: Vixen.Net and Vixen.Animation
+        may not reference each other, so the type that has to see a NetworkId and an Animator lives
+        above both. A game with networking and no animation must not carry a pose replicator.
+    -->
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Net\Vixen.Net.csproj" />
+        <ProjectReference Include="..\Vixen.Animation\Vixen.Animation.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          Named here because analyzers do not flow through a ProjectReference, and the serializer for
+          a component has to be generated in the assembly that declares it.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+</Project>

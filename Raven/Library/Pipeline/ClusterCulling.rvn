@@ -70,13 +70,22 @@ struct ClusterGrid {
         return clamp(int(ratio * float(Slices)), 0, Slices - 1)
     }
 
+    /// How far in front of the camera a view-space position is.
+    ///
+    /// **Negated, and stated once so it can only be wrong once.** The engine's view space is
+    /// right-handed — `Matrix4x4.LookAt` puts the camera looking down −Z — so a visible fragment's
+    /// `z` is negative, while every depth in this grid is a positive distance. `SliceDepth` and
+    /// `SliceOf` speak in distances and the boxes are built from them; this is the one place the two
+    /// conventions meet.
+    static func DepthOf(positionVS: float3): float => -positionVS.z
+
     /// The screen UV a view-space position projects to, inverting `Transform.ViewRay`.
     ///
     /// Deliberately the inverse of the helper the culling pass builds its corners with, rather than a
     /// projection-matrix multiply that would compute the same number a second way. Two derivations of
     /// one quantity is how a fragment ends up reading a cluster the culler filled for somewhere else.
     static func UvOf(positionVS: float3, tanHalfFov: float2): float2 {
-        val depth = max(positionVS.z, Const.Epsilon)
+        val depth = max(DepthOf(positionVS), Const.Epsilon)
         val ndc = float2(positionVS.x / (depth * tanHalfFov.x), positionVS.y / (depth * tanHalfFov.y))
         return Transform.NdcToUv(float3(ndc.x, ndc.y, 0f))
     }
@@ -86,7 +95,7 @@ struct ClusterGrid {
         val uv = saturate(UvOf(positionVS, tanHalfFov))
         val x = clamp(int(uv.x * float(TilesX)), 0, TilesX - 1)
         val y = clamp(int(uv.y * float(TilesY)), 0, TilesY - 1)
-        return Index(x, y, SliceOf(positionVS.z, near, far))
+        return Index(x, y, SliceOf(DepthOf(positionVS), near, far))
     }
 }
 
@@ -173,6 +182,11 @@ shader ClusterCulling {
     /// The eight corners of the wedge — four tile corners at each of the slab's two depths — reduced
     /// to their min and max. The box is larger than the wedge, which costs a few false positives at
     /// the corners and never a false negative, and a false negative is a light that vanishes.
+    ///
+    /// The corners come out with negative `z`, because `Transform.ViewRay` points down −Z and the
+    /// slab's depths are positive distances along it. That is the same space `Touches` transforms a
+    /// light into, which is the whole requirement: the component-wise min and max do not care about
+    /// the sign, but the two sides agreeing does.
     func Bounds(x: int, y: int, slice: int): ClusterBounds {
         val uvMin = float2(float(x) / float(ClusterGrid.TilesX), float(y) / float(ClusterGrid.TilesY))
         val uvMax = float2(float(x + 1) / float(ClusterGrid.TilesX), float(y + 1) / float(ClusterGrid.TilesY))

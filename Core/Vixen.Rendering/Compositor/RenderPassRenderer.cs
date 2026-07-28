@@ -4,6 +4,7 @@
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
+using Vixen.Shaders;
 
 namespace Vixen.Rendering.Compositor;
 
@@ -96,6 +97,49 @@ public sealed class RenderPassRenderer : SceneRenderer {
     /// </remarks>
     public SamplerCache? Samplers { get; set; }
 
+    /// <summary>
+    ///     Frame textures this pass hands to the scene's set, as the shader's name for the binding
+    ///     against the frame's name for the resource.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         How the shadow atlas reaches a shading pass. The atlas is a resource the graph owns and
+    ///         may not have allocated yet, so its handle exists only inside the pass — which makes the
+    ///         <em>consuming</em> pass the one entitled to publish it. A producer that published its
+    ///         own output would be handing over a handle whose read barrier nobody declared.
+    ///     </para>
+    ///     <para>
+    ///         <strong>Publishing implies reading.</strong> A name here does not also have to appear in
+    ///         <see cref="Reads" />: saying a shader will sample it is saying the pass reads it, and
+    ///         the two lists disagreeing is exactly the edge the graph would then be missing.
+    ///     </para>
+    /// </remarks>
+    public IDictionary<string, string> SceneTextures { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary>Frame buffers it hands to the scene's set, on the same terms.</summary>
+    /// <remarks>
+    ///     The cluster list, which a compute pass wrote and this pass's fragments index into. Separate
+    ///     from <see cref="SceneTextures" /> because the graph tracks the two resource kinds
+    ///     separately, which is the same reason <see cref="BufferReads" /> is separate from
+    ///     <see cref="Reads" />.
+    /// </remarks>
+    public IDictionary<string, string> SceneBuffers { get; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary>Which pass's names the published resources are qualified by.</summary>
+    public string ShaderName { get; set; } = "ForwardPlus";
+
+    /// <summary>
+    ///     The frame's set for whatever draws in this pass, or null for a pass that binds none.
+    /// </summary>
+    /// <remarks>
+    ///     On the pass rather than on a child, which is the opposite of where the per-view block sits
+    ///     and follows from what the two sets are: a pass draws several views and each brings its own
+    ///     set 1, while set 0 belongs to <em>the pass</em> — its shadow atlas, its cluster list, its
+    ///     environment. Handed to the context rather than bound here for the usual reason: no set can
+    ///     precede the first pipeline, so a feature is what decides when.
+    /// </remarks>
+    public SceneConstants? SceneConstants { get; set; }
+
     /// <summary>What draws into this pass.</summary>
     public IList<SceneRenderer> Children { get; } = [];
 
@@ -124,11 +168,27 @@ public sealed class RenderPassRenderer : SceneRenderer {
         var depth = DepthTarget is { Length: > 0 } name ? frame.Texture(ToString(), name) : GraphTexture.None;
         var depthFormat = depth.IsValid ? frame.FormatOf(ToString(), DepthTarget!) : PixelFormat.Undefined;
         var output = new RenderOutput(formats, depthFormat, SampleCount);
-        var textures = Reads.ToDictionary(read => read, read => frame.Texture(ToString(), read), StringComparer.Ordinal);
-        var buffers = BufferReads.ToDictionary(read => read, read => frame.Buffer(ToString(), read), StringComparer.Ordinal);
+        // Published resources are read resources, resolved once with the declared ones. A name in
+        // only one of the two lists is the edge the graph would be missing, so there is one list.
+        var textures = Reads.Concat(SceneTextures.Values)
+            .Distinct(StringComparer.Ordinal)
+            .ToDictionary(read => read, read => frame.Texture(ToString(), read), StringComparer.Ordinal);
+
+        var buffers = BufferReads.Concat(SceneBuffers.Values)
+            .Distinct(StringComparer.Ordinal)
+            .ToDictionary(read => read, read => frame.Buffer(ToString(), read), StringComparer.Ordinal);
+
         var bound = Descriptors.Resolve(ToString(), textures, buffers, samplers: Samplers);
-        var sampled = Reads.Select(read => textures[read]).ToArray();
-        var consumed = BufferReads.Select(read => buffers[read]).ToArray();
+        var sampled = textures.Values.ToArray();
+        var consumed = buffers.Values.ToArray();
+
+        var publishedTextures = SceneTextures
+            .Select(entry => (Key: ParameterKeys.New<TextureViewHandle>($"{ShaderName}.{entry.Key}"), Texture: textures[entry.Value]))
+            .ToArray();
+
+        var publishedBuffers = SceneBuffers
+            .Select(entry => (Key: ParameterKeys.New<BufferHandle>($"{ShaderName}.{entry.Key}"), Buffer: buffers[entry.Value]))
+            .ToArray();
 
         frame.Graph.AddPass(
             ToString(),
@@ -153,9 +213,25 @@ public sealed class RenderPassRenderer : SceneRenderer {
                     graphContext => {
                         var context = frame.Context(graphContext.CommandList);
                         var previous = context.Output;
+                        var previousScene = context.SceneConstants;
+
                         context.Output = output;
+                        context.SceneConstants = SceneConstants;
 
                         bound?.Bind(graphContext);
+
+                        // Here rather than at declaration time, because a virtual resource has no
+                        // handle until the graph has placed it — and the set that reads them is bound
+                        // by the mesh feature below, after the first pipeline.
+                        if (SceneConstants is { } scene) {
+                            foreach (var (key, texture) in publishedTextures) {
+                                scene.Parameters.Set(key, graphContext.View(texture));
+                            }
+
+                            foreach (var (key, buffer) in publishedBuffers) {
+                                scene.Parameters.Set(key, graphContext.Buffer(buffer));
+                            }
+                        }
 
                         if (Viewport is { } viewport) {
                             graphContext.CommandList.SetViewport(viewport);
@@ -172,6 +248,7 @@ public sealed class RenderPassRenderer : SceneRenderer {
                         }
 
                         context.Output = previous;
+                        context.SceneConstants = previousScene;
                     }
                 );
             }

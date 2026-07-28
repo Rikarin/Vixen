@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
+using Vixen.Rendering.Lighting;
 using Vixen.Shaders;
 
 namespace Vixen.Rendering.Features;
@@ -55,11 +56,19 @@ public sealed class ForwardLightingRenderFeature
     : SubRenderFeature, IDrawSubFeature, IPermutationSubFeature, ISunSource, IDisposable {
     /// <summary>How many bytes precede the light array in the block.</summary>
     /// <remarks>
-    ///     A <c>uint</c> count followed by twelve bytes of padding, because std140 starts an array of
-    ///     structures on a sixteen-byte boundary whatever precedes it. Writing the array at offset
-    ///     four would put every light one slot early and shade with the wrong ones.
+    ///     A <c>uint</c> count and two more scalars, because std140 starts an array of structures on a
+    ///     sixteen-byte boundary whatever precedes it. Writing the array at offset four would put
+    ///     every light one slot early and shade with the wrong ones — and the padding those three
+    ///     scalars leave is free, which is why the probe fields went here rather than into a block of
+    ///     their own.
     /// </remarks>
     public const int HeaderSize = 16;
+
+    /// <summary>Where the chosen probe's index sits in the header.</summary>
+    public const int ProbeIndexOffset = 4;
+
+    /// <summary>Where the chosen probe's weight sits in the header.</summary>
+    public const int ProbeWeightOffset = 8;
 
     readonly List<RenderLight> lights = [];
     readonly List<int> punctual = [];
@@ -159,6 +168,21 @@ public sealed class ForwardLightingRenderFeature
     /// <summary>How many lights the scene buffer holds this frame.</summary>
     public int SceneLightCount => scene.Count;
 
+    /// <summary>
+    ///     Where to publish the scene's light buffer, or null to publish it nowhere.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="SceneConstants" />' collection, normally. The buffer is a binding of the frame's
+    ///     set — <c>ForwardPlus.lightBuffer</c>, which the clustered variant indexes into — and it is
+    ///     recreated whenever the scene outgrows it, so a host that read the handle once and wrote it
+    ///     down would be binding a buffer the device has since retired. Publishing it from
+    ///     <see cref="Prepare" /> means the name always resolves to this frame's.
+    /// </remarks>
+    public ParameterCollection? Scene { get; set; }
+
+    /// <summary>Which pass's names to publish under.</summary>
+    public string ShaderName { get; set; } = "ForwardPlus";
+
     /// <inheritdoc />
     public IReadOnlyList<PermutationKey<bool>> PermutationKeys => keys;
 
@@ -167,6 +191,18 @@ public sealed class ForwardLightingRenderFeature
 
     /// <summary>Which descriptor set the block is bound to.</summary>
     public DescriptorSetSlot Slot { get; set; } = DescriptorSetSlot.PerDraw;
+
+    /// <summary>
+    ///     Which reflection probe each object gets, or null to leave every object without one.
+    /// </summary>
+    /// <remarks>
+    ///     Here rather than in a feature of its own because a probe's index and weight live in this
+    ///     feature's block — they fit in the padding std140 leaves after the light count — and a
+    ///     second feature writing into one block would mean two owners of one layout. Choosing the
+    ///     probe is still not this class's business: <see cref="ReflectionProbeSelector" /> answers
+    ///     that from positions and volumes alone, with no device and no frame in sight.
+    /// </remarks>
+    public ReflectionProbeSelector? Probes { get; set; }
 
     /// <summary>Which binding within that set.</summary>
     public uint Binding { get; set; }
@@ -261,6 +297,7 @@ public sealed class ForwardLightingRenderFeature
 
         SplitByKind();
         UploadScene();
+        Publish();
 
         // One tick of the ring per frame, and Prepare is what a frame is here. It has to happen on
         // both paths: the clustered path allocates no set, and a ring that only advanced on the
@@ -302,6 +339,7 @@ public sealed class ForwardLightingRenderFeature
 
             var declared = (uint)count;
             MemoryMarshal.Write(block, in declared);
+            WriteProbe(block, candidate.Bounds.Center);
 
             for (var i = 0; i < count; i++) {
                 var light = lights[chosen[i]].ToGpu();
@@ -335,6 +373,44 @@ public sealed class ForwardLightingRenderFeature
             descriptors,
             MemoryMarshal.CreateReadOnlySpan(ref offset, 1)
         );
+    }
+
+    /// <summary>
+    ///     Writes which probe lights this object, and how much of it shows.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         In this block rather than in one of its own, because the header already had the room:
+    ///         std140 puts the light array on a sixteen-byte boundary, so the count left twelve bytes
+    ///         of padding and two of them are now these. A probe therefore costs a per-object block
+    ///         that is exactly the size it already was.
+    ///     </para>
+    ///     <para>
+    ///         <strong>This is what makes probes per object rather than per group.</strong> The cubes
+    ///         are one binding with a count, bound for the frame; the volumes are an array beside
+    ///         them; and an object picks both with this index. Nothing extra is bound per draw, which
+    ///         is the whole reason it is an index and not a descriptor set.
+    ///     </para>
+    ///     <para>
+    ///         No selector means index zero and weight zero, which is the shader's own default: no
+    ///         probe, ambient from the environment alone.
+    ///     </para>
+    /// </remarks>
+    void WriteProbe(Span<byte> block, Vector3 position) {
+        if (Probes is not { } selector || selector.Select(position) is not { } chosenProbe) {
+            return;
+        }
+
+        var index = selector.Probes.IndexOf(chosenProbe.Probe);
+
+        if (index < 0) {
+            return;
+        }
+
+        MemoryMarshal.Write(block[ProbeIndexOffset..], in index);
+
+        var weight = chosenProbe.Weight;
+        MemoryMarshal.Write(block[ProbeWeightOffset..], in weight);
     }
 
     /// <summary>
@@ -454,11 +530,7 @@ public sealed class ForwardLightingRenderFeature
         scene.Device = Device;
         scene.Begin();
 
-        if (punctual.Count == 0) {
-            return;
-        }
-
-        if (flattened.Length < punctual.Count) {
+        if (flattened.Length < Math.Max(punctual.Count, 1)) {
             flattened = new PunctualLightData[Math.Max(punctual.Count, 64)];
         }
 
@@ -466,8 +538,30 @@ public sealed class ForwardLightingRenderFeature
             flattened[i] = lights[punctual[i]].ToGpu();
         }
 
-        scene.Add(flattened.AsSpan(0, punctual.Count));
+        // One empty entry rather than nothing when the scene has no punctual lights at all. The
+        // buffer is a *binding* of the frame's set, and a set is written wholly or not at all — so a
+        // scene lit by the sun alone would otherwise fail to bind set 0 and draw nothing. Nobody
+        // reads it: the count is what ends both loops.
+        if (punctual.Count == 0) {
+            flattened[0] = default;
+        }
+
+        scene.Add(flattened.AsSpan(0, Math.Max(punctual.Count, 1)));
         scene.Upload();
+    }
+
+    /// <summary>Hands this frame's light buffer to whatever binds the frame's set.</summary>
+    /// <remarks>
+    ///     On both paths, because both read it: the clustered variant indexes into it through the
+    ///     cluster lists and the unclustered one declares the binding whether or not its loop uses it,
+    ///     and a set is written wholly or not at all.
+    /// </remarks>
+    void Publish() {
+        if (Scene is not { } parameters || !scene.Buffer.IsValid) {
+            return;
+        }
+
+        parameters.Set(ParameterKeys.New<BufferHandle>($"{ShaderName}.lightBuffer"), scene.Buffer);
     }
 
     void SplitByKind() {

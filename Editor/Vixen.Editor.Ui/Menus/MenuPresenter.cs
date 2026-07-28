@@ -1,0 +1,281 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Ui;
+using Vixen.Ui.Controls;
+
+namespace Vixen.Editor.Ui;
+
+/// <summary>A menu bar built from a model, a registry and a keymap, and rebuilt when any of them changes.</summary>
+/// <remarks>
+///     <para>
+///         <b>The menu is a view, and this is the projection.</b> Doc 11's claim that "menus,
+///         toolbars, context menus and the command palette are all views over the command registry"
+///         is either this class or a lie — the alternative is four places that each know Save is
+///         called Save, which is how an editor ends up with a toolbar button that stays enabled
+///         after the menu item went grey.
+///     </para>
+///     <para>
+///         ⚠ <b>Enablement is applied as the menu opens, not as it is built.</b> A menu built at
+///         start-up and never touched again would show whatever was true then. Opening is the last
+///         moment before the user reads it, and it is cheap: one predicate per visible line.
+///     </para>
+///     <para>
+///         ⚠ <b>A rebuild replaces the bar rather than editing it.</b> <see cref="MenuBar" /> can be
+///         added to and not removed from, and its menus are children of the document root rather
+///         than of the bar — so a presenter that tried to edit in place would leak a menu overlay
+///         per rebuild, invisible and still listening for pointer events.
+///     </para>
+/// </remarks>
+public sealed class MenuPresenter : IDisposable {
+    readonly Dictionary<MenuItem, string> itemCommands = [];
+    readonly List<Menu> menus = [];
+    readonly UiElement host;
+    readonly CommandRegistry commands;
+    readonly KeyMap keys;
+
+    readonly Action<CommandRegistry> onCommandsChanged;
+    readonly Action<KeyMap> onKeysChanged;
+    readonly Action<StringCatalog> onLanguageChanged;
+
+    MenuBar? bar;
+    bool disposed;
+
+    /// <summary>Builds a menu bar into an element.</summary>
+    /// <param name="host">Where the bar goes.</param>
+    /// <param name="model">What is on it.</param>
+    /// <param name="commands">What its lines run.</param>
+    /// <param name="keys">What the shortcuts on it say.</param>
+    public MenuPresenter(UiElement host, MenuModel model, CommandRegistry commands, KeyMap keys) {
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(commands);
+        ArgumentNullException.ThrowIfNull(keys);
+
+        this.host = host;
+        this.commands = commands;
+        this.keys = keys;
+
+        Model = model;
+        Rebuild();
+
+        onCommandsChanged = _ => Rebuild();
+        onKeysChanged = _ => Rebuild();
+        onLanguageChanged = _ => Rebuild();
+
+        commands.Changed += onCommandsChanged;
+        keys.Changed += onKeysChanged;
+
+        // ⚠ `Strings.Changed` is static, so this subscription outlives the document unless it is
+        // taken back. A presenter left subscribed rebuilds a menu bar into a disposed document the
+        // next time anybody switches language, which is an exception from a stack that mentions
+        // neither the language nor the window it came from. Every other subscription here is to
+        // something the shell owns and dies with it.
+        Strings.Changed += onLanguageChanged;
+    }
+
+    /// <summary>What is on the bar.</summary>
+    public MenuModel Model { get; }
+
+    /// <summary>The bar itself, which is replaced by every rebuild.</summary>
+    public MenuBar Bar => bar!;
+
+    /// <inheritdoc />
+    public void Dispose() {
+        if (disposed) {
+            return;
+        }
+
+        disposed = true;
+
+        commands.Changed -= onCommandsChanged;
+        keys.Changed -= onKeysChanged;
+        Strings.Changed -= onLanguageChanged;
+    }
+
+    /// <summary>Throws the bar away and builds it again from the model.</summary>
+    public void Rebuild() {
+        if (disposed) {
+            return;
+        }
+
+        // The menus first: they are the document root's children rather than the bar's, so removing
+        // the bar would leave them behind — open, dismissable and attached to nothing.
+        //
+        // ⚠ Skipping the ones already gone, because `Menu.OnRemoved` takes a menu's submenus with
+        // it and this list is flat — removing a parent menu therefore removes entries further along
+        // it. Removal is final and asking twice throws, so the guard is the adaptation the hook
+        // requires rather than defensive noise.
+        foreach (var menu in menus) {
+            if (!menu.IsRemoved) {
+                menu.Remove();
+            }
+        }
+
+        menus.Clear();
+        itemCommands.Clear();
+        bar?.Remove();
+
+        bar = host.Add<MenuBar>();
+
+        foreach (var group in Model.Menus) {
+            Fill(Bar.AddMenu(group.Title.Text), group);
+        }
+    }
+
+    /// <summary>Builds a context menu over a set of commands.</summary>
+    /// <param name="document">The document it floats in.</param>
+    /// <param name="commands">What can be run.</param>
+    /// <param name="keys">What the shortcuts say.</param>
+    /// <param name="commandIds">The lines, with <c>null</c> for a separator.</param>
+    /// <returns>The menu, ready to be attached to something or opened at a point.</returns>
+    /// <remarks>
+    ///     Static and disposable-by-removal rather than a presenter of its own: a context menu
+    ///     belongs to whatever raised it, is built when it is raised, and is not around long enough
+    ///     for a command to be renamed underneath it.
+    /// </remarks>
+    public static ContextMenu Context(
+        UiDocument document,
+        CommandRegistry commands,
+        KeyMap keys,
+        params ReadOnlySpan<string?> commandIds
+    ) {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(commands);
+        ArgumentNullException.ThrowIfNull(keys);
+
+        var menu = document.Root.Add<ContextMenu>();
+        var map = new Dictionary<MenuItem, string>();
+
+        foreach (var id in commandIds) {
+            if (id is null) {
+                menu.AddSeparator();
+                continue;
+            }
+
+            if (commands.TryGet(id, out var command)) {
+                map[Line(menu, command, keys)] = id;
+            }
+        }
+
+        menu.AddHandler<ClickEvent>(
+            (_, args) => {
+                if (args.Source is MenuItem item && map.TryGetValue(item, out var id)) {
+                    commands.Execute(id);
+                }
+            }
+        );
+
+        menu.OpenChanged += (opened, isOpen) => {
+            if (isOpen) {
+                Enable((Menu) opened, map, commands);
+            }
+        };
+
+        return menu;
+    }
+
+    void Fill(Menu menu, MenuGroup group) {
+        menus.Add(menu);
+
+        // ⚠ On the menu rather than on the bar, and this is not a detail. `MenuBar.AddMenu` puts
+        // the dropdown on the *document root* so that it can hang below the bar without being
+        // clipped by it — so the bar is not an ancestor of its own menu items, and a routed handler
+        // on the bar sees a click on "File" and never sees the click on "Save".
+        menu.AddHandler<ClickEvent>((_, args) => Chosen(args));
+
+        menu.OpenChanged += (opened, isOpen) => {
+            if (isOpen) {
+                Enable((Menu) opened, itemCommands, commands);
+            }
+        };
+
+        // ⚠ Separators are held back rather than added, and only emitted once something follows
+        // them. A menu whose entries are ids, some of which no longer resolve, otherwise comes out
+        // with a rule at the top, two in a row in the middle, and one hanging off the bottom.
+        var pending = false;
+        var any = false;
+
+        foreach (var entry in group.Entries) {
+            switch (entry) {
+                case MenuSeparator:
+                    pending = any;
+                    break;
+
+                case MenuSubmenu(var child):
+                    Rule(menu, ref pending);
+                    Fill(menu.AddSubmenu(child.Title.Text), child);
+
+                    any = true;
+                    break;
+
+                case MenuCommand(var id) when commands.TryGet(id, out var command):
+                    Rule(menu, ref pending);
+                    itemCommands[Line(menu, command, keys)] = id;
+
+                    any = true;
+                    break;
+
+                case MenuDynamic(var ids):
+                    foreach (var id in ids()) {
+                        if (!commands.TryGet(id, out var command)) {
+                            continue;
+                        }
+
+                        Rule(menu, ref pending);
+                        itemCommands[Line(menu, command, keys)] = id;
+
+                        any = true;
+                    }
+
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    }
+
+    static void Rule(Menu menu, ref bool pending) {
+        if (pending) {
+            menu.AddSeparator();
+            pending = false;
+        }
+    }
+
+    /// <summary>Adds one line for a command.</summary>
+    static MenuItem Line(Menu menu, EditorCommand command, KeyMap keys) {
+        var item = menu.AddItem(command.Title.Text);
+
+        if (keys.ChordFor(command.Id) is { IsBound: true } chord) {
+            item.ShowShortcut(chord.Key, chord.Modifiers);
+        }
+
+        return item;
+    }
+
+    /// <summary>Applies enablement and tick marks to a menu that is about to be read.</summary>
+    static void Enable(Menu menu, Dictionary<MenuItem, string> map, CommandRegistry commands) {
+        foreach (var item in menu.Items) {
+            if (!map.TryGetValue(item, out var id) || !commands.TryGet(id, out var command)) {
+                continue;
+            }
+
+            item.Disabled = !command.CanExecute;
+
+            // The tick is a part that exists only once something asks for it, so a command that is
+            // not a toggle never grows one — which is what keeps the ordinary menu from being
+            // indented by a column of empty ticks. An inline `display` rather than a class,
+            // because a class relies on a rule this assembly did not write.
+            if (command.Checked is not null) {
+                item.Mark.SetStyle("display", command.IsChecked ? "flex" : "none");
+            }
+        }
+    }
+
+    void Chosen(ClickEvent args) {
+        if (args.Source is MenuItem item && itemCommands.TryGetValue(item, out var id)) {
+            commands.Execute(id);
+        }
+    }
+}

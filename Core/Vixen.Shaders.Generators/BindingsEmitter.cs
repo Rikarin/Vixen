@@ -42,28 +42,53 @@ static class BindingsEmitter {
         writer.AppendLine($"namespace {Namespace};");
         writer.AppendLine();
 
-        var uniforms = UniformBlock(reflection);
+        var blocks = UniformBlocks(reflection);
 
-        EmitKeys(writer, shaderName, reflection, uniforms);
+        EmitKeys(writer, shaderName, reflection, blocks);
 
-        if (uniforms is not null) {
+        foreach (var block in blocks) {
             writer.AppendLine();
-            EmitConstants(writer, shaderName, reflection, uniforms);
+            EmitConstants(writer, shaderName, reflection, block, blocks.Length > 1);
         }
 
         return writer.ToString();
     }
 
-    /// <summary>The one uniform block a shader's loose uniforms are gathered into, if it has any.</summary>
+    /// <summary>The four-set convention's name for a set index. See docs/plan/05.</summary>
     /// <remarks>
-    ///     Raven puts every loose uniform of a shader into a single block, so there is at most one —
-    ///     which is what lets the generated writer be <c>Write(Span&lt;byte&gt;)</c> on one struct
-    ///     rather than one method per block with the caller choosing.
+    ///     A name rather than the number, because <c>PerDrawBlockSize</c> says what it is and
+    ///     <c>Set3BlockSize</c> says where it happens to be. A set outside the convention keeps its
+    ///     index, which is the honest answer for something the convention has no word for.
     /// </remarks>
-    static UniformBlockInfo? UniformBlock(ShaderReflection reflection) =>
+    static string SetName(int set) =>
+        set switch {
+            0 => "PerFrame",
+            1 => "PerView",
+            2 => "PerMaterial",
+            3 => "PerDraw",
+            _ => $"Set{set.ToString(System.Globalization.CultureInfo.InvariantCulture)}"
+        };
+
+    /// <summary>Every uniform block the shader has — one per set it puts loose uniforms in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Was "the one block", because Raven gathers a shader's loose uniforms into a single
+    ///         block <em>per set</em> and a shader that marks none of its bindings has one set. A pass
+    ///         that says which set each binding is in has up to four, and generating for the first of
+    ///         them left three sets' worth of values with no keys at all — reachable only by spelling
+    ///         the name out, which is the thing generated bindings exist to avoid.
+    ///     </para>
+    ///     <para>
+    ///         In set order, so the block a single-set shader has is the one that keeps the unadorned
+    ///         names.
+    ///     </para>
+    /// </remarks>
+    static UniformBlockInfo[] UniformBlocks(ShaderReflection reflection) =>
         reflection.Sets
             .SelectMany(set => set.Bindings.Select(binding => new UniformBlockInfo(set.Set, binding)))
-            .FirstOrDefault(entry => entry.Binding.Type == "UniformBuffer" && entry.Binding.Members.Count > 0);
+            .Where(entry => entry.Binding.Type == "UniformBuffer" && entry.Binding.Members.Count > 0)
+            .OrderBy(entry => entry.Set)
+            .ToArray();
 
     /// <summary>A uniform block and the set it sits in, which together identify its parameters.</summary>
     /// <remarks>
@@ -75,7 +100,7 @@ static class BindingsEmitter {
         public Binding Binding { get; } = binding;
     }
 
-    static void EmitKeys(StringBuilder writer, string shaderName, ShaderReflection reflection, UniformBlockInfo? uniforms) {
+    static void EmitKeys(StringBuilder writer, string shaderName, ShaderReflection reflection, UniformBlockInfo[] blocks) {
         writer.AppendLine("/// <summary>");
         writer.AppendLine($"///     Typed keys for shader <c>{Escape(shaderName)}</c>.");
         writer.AppendLine("/// </summary>");
@@ -155,14 +180,34 @@ static class BindingsEmitter {
             }
         }
 
-        if (uniforms is not null) {
-            EmitValueKeys(writer, shaderName, reflection, uniforms);
+        foreach (var block in blocks) {
+            EmitValueKeys(writer, shaderName, reflection, block);
+        }
+
+        // The unadorned names describe the first block, which for a shader that marks no sets is its
+        // only one — so nothing a single-set shader's callers wrote changes. A shader with more gets a
+        // named pair per set as well, because "the constant buffer" stops being a well-formed phrase
+        // the moment there are four of them.
+        if (blocks.Length > 0) {
+            var first = blocks[0];
 
             writer.AppendLine();
             writer.AppendLine($"    /// <summary>The uniform block's size in bytes — what to allocate.</summary>");
-            writer.AppendLine($"    public const int ConstantBufferSize = {uniforms.Binding.Size};");
+            writer.AppendLine($"    public const int ConstantBufferSize = {first.Binding.Size};");
 
-            EmitBindingConstants(writer, "ConstantBuffer", uniforms.Set, uniforms.Binding.Index, "the uniform block");
+            EmitBindingConstants(writer, "ConstantBuffer", first.Set, first.Binding.Index, "the uniform block");
+        }
+
+        if (blocks.Length > 1) {
+            foreach (var block in blocks) {
+                var set = SetName(block.Set);
+
+                writer.AppendLine();
+                writer.AppendLine($"    /// <summary>Set {block.Set}'s block size in bytes.</summary>");
+                writer.AppendLine($"    public const int {set}BlockSize = {block.Binding.Size};");
+
+                EmitBindingConstants(writer, $"{set}Block", block.Set, block.Binding.Index, $"set {block.Set}'s block");
+            }
         }
 
         writer.AppendLine("}");
@@ -268,8 +313,14 @@ static class BindingsEmitter {
         StringBuilder writer,
         string shaderName,
         ShaderReflection reflection,
-        UniformBlockInfo uniforms
+        UniformBlockInfo uniforms,
+        bool qualify
     ) {
+        // One struct per block, and the name says which when there is more than one. A shader with a
+        // single block keeps `<Shader>Constants` exactly as it was, because that is every shader that
+        // marks no sets.
+        var structName = qualify ? $"{shaderName}{SetName(uniforms.Set)}Constants" : $"{shaderName}Constants";
+
         var owned = reflection.Parameters
             .Where(p => p.Set == uniforms.Set && p.Binding == uniforms.Binding.Index)
             .ToArray();
@@ -294,7 +345,7 @@ static class BindingsEmitter {
         writer.AppendLine("///     Field order follows the shader's declaration order, not the block's byte order — the");
         writer.AppendLine("///     two differ wherever std140 inserted padding, and the writer knows the difference.");
         writer.AppendLine("/// </remarks>");
-        writer.AppendLine($"public struct {shaderName}Constants {{");
+        writer.AppendLine($"public struct {structName} {{");
 
         foreach (var parameter in scalars) {
             var type = ShaderTypes.Name(parameter.Type)!;
@@ -322,7 +373,7 @@ static class BindingsEmitter {
         writer.AppendLine("    public readonly void Write(System.Span<byte> buffer) {");
         writer.AppendLine("        if (buffer.Length < Size) {");
         writer.AppendLine("            throw new System.ArgumentException(");
-        writer.AppendLine($"                $\"A {shaderName} constant buffer needs {{Size}} bytes; this one has {{buffer.Length}}.\",");
+        writer.AppendLine($"                $\"A {structName} block needs {{Size}} bytes; this one has {{buffer.Length}}.\",");
         writer.AppendLine("                nameof(buffer)");
         writer.AppendLine("            );");
         writer.AppendLine("        }");

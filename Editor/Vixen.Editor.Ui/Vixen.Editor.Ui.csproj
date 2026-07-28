@@ -1,0 +1,64 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.Ui</RootNamespace>
+        <Description>
+            The editor's shell: a docking workspace with named layout presets, a command registry
+            that menus, toolbars and the palette are all views over, remappable keybindings with
+            conflict detection, light and dark theming from design tokens, notifications, a
+            background-task manager with cancellation, and a string catalog everything user-visible
+            goes through.
+        </Description>
+        <PackageTags>editor;shell;docking;commands;palette;theming;localisation;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The three controls that prove the framework, and the docking host is the one this
+            assembly is mostly about: doc 11 calls docking "the single most-used feature in the
+            application". What is here is the half above it — panels registered by id, named
+            presets, and persistence — because DockingHost deliberately knows nothing about either.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
+
+        <!--
+            Keybindings are (InputKey, ModifierKeys) pairs, which is Vixen.Input's vocabulary. It
+            arrives transitively through Vixen.Ui as well; naming it says that a chord is an input
+            concept rather than a UI one, and it is what a rebinding UI would capture through.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Input\Vixen.Input.csproj" />
+
+        <!--
+            Layouts, keymaps and string catalogs are YAML for the reason DockLayout gives: they are
+            files a person diffs, checks in and occasionally repairs by hand.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+
+        <!--
+            Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
+            [UiProperty] controls of its own has to name the generator itself.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
+            ⚠ Deliberately *not* Vixen.Editor.Core. The shell is chrome: a command is an id and a
+            delegate, a panel is an id and a factory, and nothing here knows what a project, a
+            document or an undo stack is. That is what lets the whole assembly be tested against a
+            bare UiDocument with no project on disk — the same bargain Vixen.Ui makes with
+            Vixen.Platform — and it is Vixen.Editor.App's job to join the two.
+        -->
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.Ui.Tests" />
+    </ItemGroup>
+
+</Project>

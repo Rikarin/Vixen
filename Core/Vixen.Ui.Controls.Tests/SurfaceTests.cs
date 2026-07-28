@@ -359,6 +359,66 @@ public class SurfaceTests {
         Assert.False(file.IsOpen);
     }
 
+    /// <summary>
+    ///     ⚠ <b>A menu bar is not an ancestor of its own menus</b>, so a click handler belongs on the
+    ///     menu <see cref="MenuBar.AddMenu" /> returns and not on the bar it was added to.
+    /// </summary>
+    /// <remarks>
+    ///     The bar hangs each dropdown off <c>Document.Root</c> — the same parenting every overlay
+    ///     gets, and the reason a menu is not clipped by the strip that dropped it. The cost is that
+    ///     a <see cref="ClickEvent" /> from a <see cref="MenuItem" /> bubbles menu → root and never
+    ///     crosses the bar, and the failure is silent: the handler is attached, the item is clicked,
+    ///     and nothing happens. Asserting both halves is what makes the fact readable, because
+    ///     <c>menu</c> alone passing proves the wiring works without proving the bar was the wrong
+    ///     place for it.
+    /// </remarks>
+    [Fact]
+    public void A_menu_items_click_reaches_a_handler_on_the_menu_and_not_one_on_the_bar() {
+        using var fixture = new ControlFixture();
+
+        var bar = fixture.Add<MenuBar>();
+        var file = bar.AddMenu("File");
+
+        var reset = file.AddItem("Reset Layout");
+
+        var recent = file.AddSubmenu("Open Recent");
+        var project = recent.AddItem("project.vixen");
+
+        var onBar = new List<string>();
+        var chosen = new List<string>();
+
+        bar.AddHandler<ClickEvent>((_, args) => Record(onBar, args));
+        file.AddHandler<ClickEvent>((_, args) => Record(chosen, args));
+        recent.AddHandler<ClickEvent>((_, args) => Record(chosen, args));
+        fixture.Update();
+
+        fixture.Click(bar.Items[0]);
+        Assert.True(file.IsOpen);
+
+        fixture.Click(reset);
+        Assert.Equal(["Reset Layout"], chosen);
+
+        // And through a submenu, which is parented to the root as well — so a handler on the menu it
+        // opened out of does not see it either.
+        fixture.Click(bar.Items[0]);
+        recent.Open(file.Items[1]);
+        fixture.Update();
+
+        fixture.Click(project);
+        Assert.Equal(["Reset Layout", "project.vixen"], chosen);
+
+        // And the handler the bar was given saw nothing whatever: not the commands, because it is
+        // not on the path they take, and not even the clicks on its own name, because the bar's own
+        // handler is installed in `OnCreated` and marks those handled before a caller's can run.
+        Assert.Empty(onBar);
+    }
+
+    static void Record(List<string> into, ClickEvent args) {
+        if (args.Source is ButtonBase { Label: { } label }) {
+            into.Add(label);
+        }
+    }
+
     [Fact]
     public void A_dialog_traps_the_focus_and_gives_it_back() {
         using var fixture = new ControlFixture();

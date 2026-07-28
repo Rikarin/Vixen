@@ -59,6 +59,9 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
         .WithAll<AudioSource, AudioEventRef>()
         .WithNone<AudioSpatial>();
 
+    readonly QueryDescription zones = new QueryDescription()
+        .WithAll<AudioReverbZoneRef, WorldTransform>();
+
     /// <summary>How many entities carried <see cref="AudioListenerComponent" /> in the last pass.</summary>
     /// <remarks>
     ///     <para>
@@ -74,6 +77,9 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
     /// </remarks>
     public int ListenerCount { get; private set; }
 
+    /// <summary>How many reverb zone entities were live in the last pass.</summary>
+    public int ZoneCount { get; private set; }
+
     /// <inheritdoc />
     /// <remarks>
     ///     Declared here rather than with attributes, because naming a component type in a generic
@@ -84,6 +90,7 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
         .Read<WorldTransform>()
         .Read<AudioClipRef>()
         .Read<AudioEventRef>()
+        .Read<AudioReverbZoneRef>()
         .Write<AudioSource>()
         .Write<AudioSpatial>()
         .Write<AudioListenerComponent>()
@@ -107,10 +114,48 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
         UpdateAmbient(world);
         UpdatePositionedEvents(world, deltaSeconds);
         UpdateAmbientEvents(world);
+        UpdateZones(world);
 
         // The frame's delta and not a wall clock: a fade that kept running under a pause menu, or
         // ignored slow motion, is a bug somebody spends an afternoon on.
         engine.Update(deltaSeconds);
+    }
+
+    /// <summary>Rebuilds the reverb zones from whatever is in the world this frame.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Rebuilt and not maintained.</b> A zone entity that has been destroyed, disabled or
+    ///         had its component removed simply stops appearing here, and stops being a zone — no
+    ///         teardown to forget and no handle to leak. The parameters it drove are still released,
+    ///         because the set remembers every name it has ever seen even when the zone is gone.
+    ///     </para>
+    ///     <para>
+    ///         Before <c>engine.Update</c>, which is where the winner is worked out and written to
+    ///         the mixer's parameters — so a room entered this frame is heard this frame.
+    ///     </para>
+    /// </remarks>
+    void UpdateZones(World world) {
+        engine.ReverbZones.BeginSync();
+        ZoneCount = 0;
+
+        foreach (var chunk in world.Chunks(zones)) {
+            var entities = chunk.Entities;
+            var transforms = chunk.ReadValues<WorldTransform>();
+
+            for (var i = 0; i < chunk.Count; i++) {
+                // One at a time, because the zone is a reference and a managed component's values
+                // live in the world's store rather than in the chunk — the same reason
+                // AudioEventRef is read this way a few methods down.
+                var placed = world.Read<AudioReverbZoneRef>(entities[i]);
+
+                if (!placed.Enabled || placed.Zone is not { } zone) {
+                    continue;
+                }
+
+                engine.ReverbZones.Sync(zone, transforms[i].Value.Translation);
+                ZoneCount++;
+            }
+        }
     }
 
     void UpdateListener(World world, float deltaSeconds) {

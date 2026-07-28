@@ -2424,6 +2424,34 @@ sub-piece has its own gate.
   themed document of five thousand controls and measures a steady frame with `[MemoryDiagnoser]` on
   it. That benchmark exists because `LayoutBenchmarks` measures the flexbox engine and three of the
   four passes in the criterion are above it.
+- ✅ **`DocumentBenchmarks` run, and the exit criterion is met with margin** — *"UI frame under 2 ms
+  with 5 000 elements and zero steady-state allocation"* is **8 001 elements at 0.230 ms, allocating
+  zero bytes**, and it still holds at 32 001 elements and 1.18 ms. Apple M1 Max, .NET 10.0.9. Until
+  this run the budget was the one number in the phase that was quoted and had never been measured.
+
+  ⚠ **And the run found that the incremental cascade is not wired up.** Toggling one class on one row
+  of that document costs **9.50 ms and 8.87 MB** — 41× the steady frame and 80 % of a cold frame that
+  resizes the viewport. `UiDocument.Update` calls `StyleEngine.ResolveAll`, which cascades every live
+  node; `StyleUpdater` and `StyleInvalidator` are **referenced only by their own project's tests**.
+  4b's invalidation gate — *"toggling `.selected` on one row of a 100×100 grid restyles exactly one
+  element"*, with an oracle and four sabotages behind it — is green against an object nothing in the
+  running framework calls.
+
+  ⚠ **`StylesApplied = 1` is why nothing caught it, and the two claims really are different.** 4d's
+  *"one changed class rebuilds one element"* is about what is rebuilt *downstream* of the cascade,
+  which interning makes a pointer comparison — it is true, it is tested, and it says nothing about
+  the cost of the pass that produced the answer. Measured: ~6 840 cascades per pass over 8 001 nodes,
+  and `ResolveAll` alone accounts for 8 642 120 of the frame's 8 866 280 bytes.
+
+  ⚠ **The sharing cache cannot cover for it, and that follows from 4b's own correction.** The key
+  holds the parent *element*, so it shares between identical siblings and nowhere else: a
+  grid is one parent and 10 000 cells, an inspector is 1 000 rows of four differing children, and the
+  hit rate here is 12 %. Sharing makes a *cold* pass cheap for grid-shaped documents; it does nothing
+  for an incremental pass on any shape. Both facts were already written down separately and neither
+  entry drew the line between them.
+
+  Owed, and the largest performance item left in the phase: `UiDocument.Update` taking the dirty set
+  to `StyleUpdater` instead of a flag to `ResolveAll`.
 
   ⚠ **The font is borrowed from the operating system**, because the repository has no Latin UI face
   to commit — the fourteen it does have are the Consortium's shaping fixtures. Finding none is not a
@@ -2434,9 +2462,13 @@ sub-piece has its own gate.
   and the wasm workload — and hot reload of `.vxml`/`.vcss` against a running window is untested from
   this sample, though `Vixen.Ui.HotReload.Tests` covers the mechanism.
 
-**Exit:** `Samples/02` runs on Windows/Linux/macOS and in a browser. Yoga suite green. UI frame under
-2 ms with 5 000 elements and zero steady-state allocation. Hot reload of `.vxml`/`.vcss` preserves
-scroll/focus/selection. A `DockingHost` layout round-trips through serialisation.
+**Exit:** ✅ Yoga suite green. ✅ UI frame under 2 ms with 5 000 elements and zero steady-state
+allocation — measured at 8 001 elements, 0.230 ms, 0 B. ✅ A `DockingHost` layout round-trips through
+serialisation. 🟡 `Samples/02` runs on macOS; it builds and its assemblies are tested on
+Windows/Linux in CI, but **no CI step runs either sample**, so the `--frames N` flag both sample
+READMEs describe as CI's proof is not wired to anything. The browser run is Phase 10's. 🟡 Hot reload
+of `.vxml`/`.vcss` preserving scroll/focus/selection is covered by `Vixen.Ui.HotReload.Tests` and has
+never been driven against a running window.
 
 ---
 
@@ -2597,8 +2629,61 @@ the shipping projects; a `.rvn` edit reparsing incrementally; the differential o
 - `Vixen.Editor.Inspector`: generated drawers, attribute set, custom drawers, multi-object editing.
 - `Vixen.Editor.SceneView`: viewport, gizmos, picking stage, selection outline, debug view modes,
   camera nav, drag-and-drop, play-in-editor with world snapshot.
-- `Vixen.Ui.Controls.Advanced`: `DataGrid`, `NodeCanvas`, `CodeEditor`, `ColorPicker`, `Timeline`,
-  `CurveEditor`, `GradientEditor`, `Viewport`.
+- ✅ **`Vixen.Ui.Controls.Advanced` — the remaining eight, and the one framework field they needed.**
+  `NodeCanvas` (infinite pan/zoom, bezier wires, marquee, snapping, groups, minimap), `CodeEditor`
+  (virtualised lines, pluggable highlighting, folding, diagnostics gutter, completion popup),
+  `DataGrid` (virtualised rows *and* columns, frozen columns, resize/reorder, stable sort, grouping,
+  inline edit, cell templates), `Viewport`, `ColorPicker` (HSV and OkLCh, alpha, palette, HDR,
+  eyedropper), `CurveEditor` (Hermite tangents, five modes, presets), `GradientEditor` (separate
+  colour and alpha stops, three interpolation spaces) and `Timeline` (tracks, keys, playhead, 1-2-5
+  ruler, frame snapping).
+
+  **Model apart from view, everywhere.** `NodeGraph`, `CodeBuffer`, `AnimationCurve` and `Gradient`
+  need no document, stylesheet or font, so a shader graph can be validated on a build server with no
+  interface at all — the same split `DockLayout` makes and for the same reason.
+
+  **What is not a box is drawn.** Wires, curves, keyframes, the colour field, the gradient bar, the
+  minimap and the axis gizmo are all `OnDraw`, because each is a position that is a multiplication
+  rather than a layout — and because ten thousand keyframes as elements is ten thousand style nodes
+  for a picture with no text in it. Colours still come out of the cascade through custom properties.
+
+  **Painting order is document order, used as a design tool.** A selection has to be under the text
+  and a caret over it, so `CodeEditor` puts three siblings either side of its lines; wires have to be
+  over the group boxes and under the nodes, so `NodeCanvas` puts a layer between them. No z-index
+  anywhere.
+
+  **One field was added to `Vixen.Ui`: `WheelEvent.Modifiers`.** Ctrl-wheel means zoom and
+  Shift-wheel means the other axis in every canvas, graph and timeline ever written, and a control
+  that had to ask a keyboard what was held *now* would get the wrong answer for any event it dealt
+  with a frame later — the argument `PointerEvent.Modifiers` already makes.
+
+  ⚠ **Two more silent flexbox traps, both measured.** This layout engine takes Yoga's `flex-shrink`
+  default of **zero**, not CSS's of one, so a control whose content is wider than its parent grows
+  straight out of the window: a `DataGrid` of two hundred columns made itself twenty-four thousand
+  pixels wide, which turned its own column virtualiser off without an error anywhere. `min-width` is
+  the same trap on the other axis. Both are now said out loud in the theme, beside the
+  `flex-basis: 0px` remark Phase 4e left there.
+
+  ⚠ **And one performance trap worth recording.** `UiDocument.LengthOf` parses the interned value on
+  every call, and `NodeCanvas.RectOf` reads three custom properties — so a canvas of ten thousand
+  nodes was doing thirty thousand parses per realise, and a minimap that walked every node twice made
+  it quadratic. One test took four minutes. The fix is a cache keyed on the `ComputedStyle`
+  *reference*, which is sound because the cascade interns them: the same object means the same
+  declarations. Four minutes to one second.
+
+  Gate: 253 tests (up from 82), including a ten-thousand-node canvas realising under thirty elements,
+  a fifty-thousand-line file realising under sixty, a two-hundred-column grid realising under twenty
+  cells per row, a frozen cell whose offset is asserted against the scroll position, a block comment
+  opened on line 0 recolouring line 4 000, a hue that survives a trip through black, and every
+  interaction driven as real `PointerEvent`s through `UiDocument.Dispatch` rather than by calling
+  handlers.
+
+  ⚠ **Still owed:** there is no undo anywhere — an undo stack inside a text control can only undo
+  typing, and the four `Changed` events are the seams a real one subscribes to; `Viewport` draws a
+  placeholder because the draw list has no texture command; `CodeEditor` does not wrap and its caret
+  does not blink, both for want of things the framework has not got yet; `OkLch.ToSrgb` clamps per
+  channel, which shifts the hue where real gamut mapping would walk the chroma down; and every one of
+  these controls is still one layout pass behind a resize, for the reason Phase 4e recorded.
 - Asset editors: texture, model, material, scene, prefab, shader, UI, addressable groups, graphics
   compositor.
 - `Vixen.Editor.Profiler` + `.Debugger` (frame graph, frame debugger, memory view, remote inspector).
@@ -2707,8 +2792,40 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   the device's own clock, segments whose transitions land on a bar line, sustain points, stingers and
   a tempo map. Also landed: a BS.1770 loudness meter, a polyphase sinc resampler with the cutoff
   banded to the pitch, and a loopback live-update listener over `MixControl`. `Vixen.Audio.Codecs`
-  carries Ogg Vorbis and Opus, both pure managed and both rooted in the AOT probe. Still owed:
-  true-peak and loudness-range metering, and ADPCM for effects.
+  carries Ogg Vorbis and Opus, both pure managed and both rooted in the AOT probe.
+
+  **Voice chat is joined up** now that Phase 9 has landed the transport it was waiting for: a packet
+  Opus encoder and decoder beside the stream ones, and a `VoiceSender`/`VoiceReceiver` pair carrying
+  gate-driven transmission, sequencing, a jitter buffer and concealment. Neither knows about a
+  network — `Channel.Sequenced` is four lines in a game. A packet carries a sequence *and* a
+  timestamp because nothing simpler can tell a deliberate pause from a burst of loss, and concealing
+  a pause invents speech into a silence the talker chose. Opus is also pinned to its managed
+  implementation: Concentus P/Invokes a system libopus when it finds one, and against Homebrew's the
+  encoder ignored its bitrate and emitted maximum-length packets.
+
+  **Occlusion and reverb zones** arrived with physics, and needed different things.
+  `IAudioOcclusionProvider` is a seam here and `Vixen.Audio.Physics` answers it with a Jolt raycast,
+  so a game with sound and no physics never links Jolt. Reverb zones need no physics at all — a
+  volume test is arithmetic — so they work in a game that links no native library. Both drive
+  authored curves rather than deciding anything themselves.
+
+  Zones are entities: `AudioReverbZoneRef` places one in a level, `AudioZoneAsset` is the shared
+  description, and the set is rebuilt from the world every frame so a destroyed entity stops being a
+  room without anybody having to say so. **Per-voice sends** landed with them, which is the half a
+  bus send cannot do: one amount per bus means every emitter in a room is equally wet.
+  `Samples/10-VoiceChat` runs the whole voice path over real UDP sockets, which is the one thing the
+  codec tests deliberately cannot check — they drive a stand-in network on purpose.
+
+  The last seven landed together: true-peak metering and loudness range on the meter, ADPCM beside
+  the PCM decoder, a structural HRTF panner behind `Spatializer`, a real-input FFT, oversampling on
+  the distortion, and a phase-vocoder shifter beside the time-domain one. Two of them are worth
+  writing down honestly: the HRTF is a structural model rather than measured impulse responses, so it
+  tells front from back without shipping content but is not as convincing as a good measured set; and
+  the phase vocoder does **not** beat the time-domain shifter on steady material — measured, the
+  crossfade was cleaner — it earns its window of latency on material that does not repeat.
+
+  Nothing structural is owed. What is left is content and platform work: measured HRTF sets for
+  anybody who wants better, and whatever a specific title's certification checklist asks for.
 - `Vixen.Animation`: skeletal playback, blend trees (1D/2D), layers + masks, state machine, IK (two-bone,
   look-at, foot placement), root motion, events, GPU skinning integration.
 - `Vixen.Editor.AnimationGraph`.
@@ -2990,11 +3107,12 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   `IRpcTransport`, because wiring the two together without the marker would have been a connection
   that looked right and mixed three streams into one.
 
-  **Owed:** awaitable calls returning `ValueTask<T>`, which are designed for and refused with a
-  diagnostic that says so. (`NetworkRules` landed with the next slice.)
-- Identity and spawning: `NetworkId` ✅ and ownership with transfer ✅. **Owed:** prefab ids derived
-  from asset GUIDs, and build-time-baked ids for scene-placed objects — both of which are the
-  deterministic content build's to hand over, and neither of which has a caller until spawning exists.
+  Awaitable calls were owed here and are ✅ below — as `Task<T>` rather than the `ValueTask<T>` this
+  was written expecting, for a reason recorded there. (`NetworkRules` landed with the next slice.)
+- ✅ **Identity and spawning**: `NetworkId`, ownership with transfer, prefab ids derived from the
+  content pipeline, and derived ids for scene-placed objects. Written here as owed until spawning had a
+  caller for it; see the spawn entry below for what it became — including that the id comes from the
+  **address** rather than the GUID, which is a correction to doc 16.
 - ✅ **`NetworkRules`** — the policy, as a declaration rather than a `switch`. 12 further tests; 287
   across the networking projects in total.
 
@@ -3013,10 +3131,12 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   `CallServerRpc` is enforced by the router before dispatch, `ChangeOwner` by
   `RpcRouter.TryTransferOwnership`, and `OnOwnerDisconnect` when a player leaves — with the transfer
   done and a `Destroy` handed back as a decision, because destroying an entity is not the policy's to
-  do. `Spawn`, `Despawn` and `Write` are declared and answered through the same registry and have no
-  enforcement point yet, because nothing can spawn a networked object from a client or write
-  replicated state from one; when those arrive they ask this question rather than inventing a second
-  policy. The distinction is in the type's own documentation rather than left to be discovered.
+  do. `Spawn`, `Despawn` and `Write` were declared here with no enforcement point, because nothing yet
+  spawned a networked object or wrote replicated state from a client — with the note that when those
+  arrived they would ask *this* question rather than invent a second policy. **Both have since arrived
+  and both did**: `Write` is what decides authority for networked rigid bodies and animators, and
+  `Spawn` is what `NetworkSpawner.MaySpawn` asks. Writing down what a declaration is *for* turned out
+  to be what made two later slices land in the right place.
 
   **Owed:** the `.vxnetrules` asset itself — the importer, the serialised form and the per-prefab
   reference, which are the asset pipeline's half. `NetworkRulesRegistry` is what it loads into.
@@ -3126,8 +3246,9 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
 - Interest management: ✅ the resolver seam and the default. `IInterestResolver` is what decides which
   entities a player is told about, and `ReplicateEverythingResolver` is what a new project gets —
   a deliberate ergonomics choice rather than a placeholder, so a prototype works before anyone has
-  thought about it. **Owed:** scene scope, explicit overrides, the distance grid and `NetworkLOD`,
-  which are resolvers to write against a seam that now exists.
+  thought about it. ✅ **Scene scope** landed with spawning — `SceneInterestResolver`, the first of the
+  chain doc 16 describes. **Owed:** explicit overrides, the distance grid and `NetworkLOD`, and the
+  composition that lets the four be chained in the order the doc puts them in.
 - ✅ **Motion: interpolation, clamped extrapolation, `NetworkTransform`, owner-side smoothing.**
   26 further tests; 275 across the networking projects in total.
 
@@ -3153,9 +3274,39 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   `[Replicated]` component and a user's own RPC argument get the same encoding rather than a
   second one.
 
-  **Owed:** per-axis enable and parent-relative replication on `NetworkTransform`, and the system
-  that copies between it and the engine's transform hierarchy — which is where `Vixen.Engine` and
-  `Vixen.Net` will first have to meet.
+  ✅ **The transform bridge** — `NetworkTransformCaptureSystem`/`ApplySystem` in `Vixen.Net.Engine`,
+  the seam `Vixen.Engine` and `Vixen.Net` were always going to have to meet at. **The direction
+  depends on which peer this is**, and that is the whole design: a server publishes transform →
+  network, a client applies network → transform, and one system doing both has each end overwriting
+  the other every tick — on a client with physics, the solver and the network fighting over the same
+  body. Filtered on `WithChanged<LocalTransform>`, so a scene of sleeping props visits none of them.
+  `NetworkTeleport` is a tag the bridge turns into the counter the wire carries and takes off again,
+  so nothing has to remember to clear it.
+
+  ✅ **Networked rigid bodies** — `NetworkRigidBody` in `Vixen.Net.Physics`: linear and angular
+  velocity beside the transform, quantised harder than the position because a velocity only ever
+  carries a body a fraction of a second, plus a rest flag that is the bandwidth decision — most
+  objects in most scenes are asleep, and a body written as *exactly* zero costs its unchanged bits
+  for ever after rather than dithering in its last quantisation step.
+
+  **The correction is the piece worth having taken from PurrNet.** A remote body is not moved to the
+  authoritative pose; it is given a velocity that would carry it there, so it arrives through the
+  solver — colliding with what is in the way and resting on what it lands on. `error × frequency` is
+  the critically damped solution: fastest convergence with no overshoot, where underdamped makes the
+  crate wobble around its true position and overdamped never quite arrives. Past a snap threshold it
+  teleports instead, because a spring strong enough to fix a respawn is one that would fling
+  everything else across the level.
+
+  ✅ **Authority is a `NetworkRules` audience**, not a flag on the body. `NetworkRules.Write` was
+  declared from the start with the note "nothing calls it yet, because replication is one-way and a
+  client has no path to write — when it has, this is the question it asks rather than a second
+  policy". This is that, and it turned out to be exactly right: the capture and correction systems
+  ask the one question and take opposite branches, so `rules.Set(crate, NetworkRules.OwnerAuthoritative)`
+  moves both at once and they can never both act on one body. A per-component toggle beside the
+  registry — which is how PurrNet spells it — would be a second policy that can disagree with the
+  first, and the day they disagree one of them is silently ignored.
+
+  **Owed:** per-axis enable and parent-relative replication on `NetworkTransform`.
 - ✅ **Lag compensation** — `Vixen.Net.Physics`, unblocked the moment Phase 8's physics landed and
   built against it. A ring of pose history per tracked body, and a rewind scope that moves those
   bodies to where a shooter saw them, lets one query run, and puts them back.
@@ -3191,6 +3342,93 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   history and multiplies the ring by the tracked bone count. A cost budget for rewinds, which belongs
   in the RPC rate limiter and needs it to know that some calls are dearer than others. And drawing it,
   without which a disputed kill is unanswerable.
+- ✅ **Broadcasts** — `BroadcastRouter` in `Vixen.Net`: a message that is not *about* anything, which
+  is the whole reason it cannot be an RPC. A chat line, a match-state change, a lobby update has no
+  `NetworkId` to be addressed to, and the alternatives — a dummy entity that exists to receive them,
+  or an RPC on the session object — are both a networked object invented to satisfy a signature.
+  `IBroadcast<TSelf>` with `static abstract` members, so a type declares its own name and codec and
+  the router never reflects. Rate-limited per sender like everything else that a client can send.
+- ✅ **Awaitable RPCs** — `RpcRouter.CallAsync<T>`, which the RPC slice designed for and refused with a
+  diagnostic. Correlation ids, a pending table, a five-second default timeout, and cancellation of
+  everything outstanding when a connection drops — because the failure mode of the obvious
+  implementation is a task nobody ever completes and a caller that waits for ever.
+
+  **It returns `Task<T>` rather than the `ValueTask<T>` doc 16 asked for**, and that is a correction
+  rather than a shortcut: CA2012 exists because a `ValueTask` may be awaited only once, and a
+  request/response handle is exactly the thing callers store, pass around and await twice. The doc has
+  been updated rather than the code bent to match it.
+- ✅ **Networked animation** — `Vixen.Net.Animation`: the animator's **inputs** on the wire, not its
+  output. A pose is sixty bone rotations a frame per character; the parameters that produce it are a
+  dozen values that change when somebody presses something. What it costs is a determinism
+  assumption — the receiver reproduces the pose only if its animator reaches the same state from the
+  same parameters — which is true of a gameplay state machine and false of anything driven by local
+  physics, IK against local geometry or a random number generator. `CorrectedCount` is where that
+  assumption failing becomes visible.
+
+  **The channels are the opposite way round from a first guess.** Parameters go *reliably*, because a
+  lost parameter edge never heals: a state machine's position is a function of every parameter it has
+  ever seen, so a missed "jump was pressed" is a jump that never happens on one client. The state goes
+  *unreliably*, because it is re-sent every tick and doubles as the backstop. And the state is applied
+  **only when the receiver disagrees**, with a short crossfade — calling `Play` every tick restarts the
+  state every tick and nothing animates, which presents as the animation being broken rather than as
+  the network being wrong, and therefore has a test rather than a comment.
+
+  **Owed:** `NetworkBones`, for the cases the determinism assumption does not cover. Expensive by
+  nature and wanting the same quantisation the rotation codec already has.
+- ✅ **Spawn, scenes and instance handling** — `NetworkSpawner`, `NetworkSpawnSystem` and
+  `NetworkPrefabRegistry` in `Vixen.Net.Engine`, over a `NetworkSpawn` component in `Vixen.Net`.
+  8 further tests here and 3 on the engine's `Prefab`.
+
+  **A spawn is a replicated component, not a message, and everything follows from that.** It rides the
+  snapshot at the top of the priority list, so it goes to exactly the connections the interest resolver
+  returns, is re-sent until acknowledged and then never again, reaches a player who joins an hour in
+  with everything else, and precedes every state record about the same entity. A message on its own
+  route would have needed its own answer to interest, to loss and to late joiners — three mechanisms
+  that can disagree with the snapshot about who can see what. **Despawn needed nothing at all**:
+  destroying the entity takes it out of what the resolver returns, and leaving interest already means
+  "drop it", so a client cannot tell destruction from walking over the horizon and does not need to.
+
+  **The prefab id is the hash of the *address*.** Doc 16 said "asset GUID" and that has been corrected
+  there: doc 08 is explicit that the GUID is the authoring identity and *never appears in a shipped
+  build*, so a client has no GUID to hash. The address is also the better choice on its merits — it
+  survives edits to the prefab, where the content hash would renumber the wire on every patch, and
+  whether two peers hold the same content under an address is a question for the handshake, asked once.
+  The collision is caught at registration, where both names are still in hand, because the failure
+  downstream is a client instantiating the wrong object with no error anywhere.
+
+  **Only the parts of a prefab that asked for an id get one.** A template node carrying a `NetworkId`
+  opts in, so a hundred-entity set piece where one turret rotates costs one id and one record rather
+  than a hundred of each — and the instance's ids are one reserved run, root first then the marked
+  nodes in capture order, which is what makes a spawn a fixed twelve bytes however large the prefab is.
+  That is only sound because prefab capture order is deterministic, which is now stated where it is
+  relied on.
+
+  **The receiver builds the instance *over* whatever was already standing there**, and that is the part
+  that would have been got wrong. A snapshot names entities by id, so a state record whose spawn is a
+  few ticks behind makes a bare stand-in already holding the object's real position — while the prefab
+  holds the position an artist saved. `Prefab.InstantiateOnto` merges the two with the stand-in
+  winning: the wire says where the object *is*, the prefab says what it is made of. It only happens
+  under loss, which is to say never on a developer's machine, so it has a test of its own.
+
+  **Scenes are named, not numbered.** A `SceneHandle` is handed out in load order, so the same level is
+  scene 2 on a server that loaded a lobby first and scene 1 on a client that did not; `NetworkSceneId`
+  is the hash of the name, which is the thing both ends already agree on. A spawn for a scene this peer
+  has not loaded **waits** rather than landing untagged — an untagged instance is one the scene's
+  unload never sweeps, standing in the middle of the next map — and `PendingCount` is where a client
+  that will never have the content becomes visible. `SceneInterestResolver` is doc 16's first resolver;
+  an entity in no scene is told to everybody, deliberately, because a resolver whose default is
+  "vanish" is one everybody debugs. Scene-placed objects **derive** their ids from the scene and their
+  index rather than being allocated one, so a designer's crate is addressable before anybody has
+  connected, and the two schemes get half the number space each with a guard where they meet.
+
+  **Owed:** filling the prefab registry from the content catalog by label, rather than by hand at
+  start-up. A serialised scene format to take the baked index from, which is doc 08's. Scene load and
+  unload as session messages, which is what turns "waiting for its scene" from a state into a
+  handshake. Client-requested spawns — `MaySpawn` answers the default rule, which is all a rule
+  registry *can* answer before the object exists, and the per-prefab question wants an RPC that
+  receives the address. Wiring `OnOwnerDisconnect` through to `Despawn`. And a way to compose
+  resolvers, without which the scene one cannot be chained with the distance grid it is meant to
+  precede.
 - ✅ **Security pass: packet validation, rate limits, closed-set deserialization, protocol/content hash
   handshake, and the fuzzing corpus over the packet reader.** `Vixen.Net.Fuzz` — nine targets, three
   oracles, nine million cases on every build in nine seconds.

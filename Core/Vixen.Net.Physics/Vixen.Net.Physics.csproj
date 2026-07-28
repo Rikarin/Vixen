@@ -25,7 +25,18 @@
     -->
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Net\Vixen.Net.csproj" />
+        <ProjectReference Include="..\Vixen.Net.Engine\Vixen.Net.Engine.csproj" />
         <ProjectReference Include="..\Vixen.Physics\Vixen.Physics.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          Named here because analyzers do not flow through a ProjectReference, and the serializer for
+          a component has to be generated in the assembly that declares it. Same reasoning as
+          Vixen.Physics, at more length there.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     </ItemGroup>
 
 </Project>

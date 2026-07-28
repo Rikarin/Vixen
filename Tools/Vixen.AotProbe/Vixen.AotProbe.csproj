@@ -40,6 +40,7 @@
         <!-- The two codecs, both pure managed and both here to prove it: a native libvorbis would
              have brought the same Assembly.Location problem the Silk.NET backends document. -->
         <ProjectReference Include="..\..\Core\Vixen.Audio.Codecs\Vixen.Audio.Codecs.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Audio.Physics\Vixen.Audio.Physics.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Collections\Vixen.Core.Collections.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Diagnostics\Vixen.Core.Diagnostics.csproj" />
@@ -76,6 +77,7 @@
         <TrimmerRootAssembly Include="Vixen.Assets" />
         <TrimmerRootAssembly Include="Vixen.Audio" />
         <TrimmerRootAssembly Include="Vixen.Audio.Codecs" />
+        <TrimmerRootAssembly Include="Vixen.Audio.Physics" />
         <TrimmerRootAssembly Include="Vixen.Audio.Backend.OpenAL" />
         <TrimmerRootAssembly Include="Vixen.Core" />
         <TrimmerRootAssembly Include="Vixen.Core.Collections" />

@@ -70,7 +70,25 @@ public enum AudioBuiltinParameter {
 
     /// <summary>How fast the source is moving, in units a second.</summary>
     /// <remarks>An engine that opens up as it accelerates, without the vehicle code knowing what a bus is.</remarks>
-    Speed = 4
+    Speed = 4,
+
+    /// <summary>How much solid geometry is in the way: 0 for a clear path, 1 for a blocked one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The only built-in that is not free. The other four fall out of arithmetic the
+    ///         spatialiser was doing anyway; this one is a raycast, so it produces nothing at all
+    ///         until something is given to <c>AudioEngine.OcclusionProvider</c>. A curve drawn
+    ///         against it on a game with no provider sits at zero, which is "nothing in the way" —
+    ///         the right answer to have when nobody can say otherwise.
+    ///     </para>
+    ///     <para>
+    ///         <b>What it should be drawn onto is a cutoff more than a level.</b> A wall does not
+    ///         make a sound quieter so much as it makes it dull: the low frequencies go through and
+    ///         the high ones do not. A curve that only pulls the gain down sounds like the source
+    ///         moved away rather than like something got between.
+    ///     </para>
+    /// </remarks>
+    Occlusion = 5
 }
 
 /// <summary>A named value a sound reads, and what moving it does.</summary>

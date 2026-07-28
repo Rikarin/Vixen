@@ -19,6 +19,9 @@ sealed class UtilityFixture {
           fontSize:   { xs: [11,16], sm: [12,18], base: [14,20], lg: [17,24], xl: [21,28] }
           fontWeight: { normal: 400, medium: 500, semibold: 600, bold: 700 }
           screens:    { sm: 640, md: 768, lg: 1024, xl: 1280 }
+          shadow:
+            DEFAULT: "0px 1px 2px rgba(0, 0, 0, 0.3)"
+            lg:      "0px 8px 24px rgba(0, 0, 0, 0.45)"
         darkMode: media
         content: ["Assets/**/*.vxml", "Assets/**/*.cs"]
         """;

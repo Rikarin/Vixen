@@ -1844,6 +1844,16 @@ Everything else it reports, and why each is separate rather than merged, is in
 `RequiredCapabilities` as names rather than an enum, and `PushConstants`/`SpecConstants` reported empty
 rather than guessed at.
 
+3. **An array of resources is one binding with a `Count`.** `TextureCube[4]` is four descriptors in one
+   binding, which is how a shader picks a reflection probe or a shadow atlas slice by index without a
+   descriptor set per choice. `ReflectionBuilder` was written for this from the start; the *front end*
+   was not, and the disagreement was silent — a field's resource kind came from its type, an array
+   reported none, and the lowerer's fall-through arm makes anything that is not a declared resource a
+   member of the uniform block. So `var probes: TextureCube[4]` compiled into a block containing
+   `OpTypeImage`, which `glslc` rejects with "member of block cannot be or contain a sampler" and which
+   `spirv-val` accepts and no driver would. Fixed in `ArrayTypeSymbol.ResourceKind`, and the emitted
+   GLSL is now held against `glslc`'s own rule rather than against our reading of it.
+
 ### Artefact schema
 
 Two on-disk formats, both content-addressed into the object database ([08](08-asset-pipeline-and-addressables.md)):
@@ -1987,6 +1997,15 @@ the build-time permutation pre-generator ([06](06-rendering-pipeline.md)) can it
 `.reflect.json` as `AdditionalFiles` and emits, per shader, a `…Keys` class (a typed
 `ParameterKey`/`PermutationKey` per parameter, resource and permutation) and a `…Constants` struct
 whose `Write(Span<byte>)` stores every value at the offset Raven computed.
+
+**A block per set, not "the" block.** Raven gathers a shader's loose uniforms into one block *per set*,
+and a shader that marks none of its bindings has one set — which is why "the uniform block" was a
+well-formed phrase for as long as it was. A pass that says where each binding belongs has up to four,
+and generating for the first left three sets' worth of values reachable only by spelling the name out.
+So: a key for every block's values, a `PerFrameBlockSize`/`PerDrawBlockSize` pair per set, and a writer
+struct per block (`ForwardPlusPerDrawConstants`). A shader with one block keeps `ConstantBufferSize`
+and `<Shader>Constants` unchanged, because that is every shader that marks no sets and every host that
+names one.
 
 **The offsets are copied, never recomputed** — which is the entire point. They come out of the same
 `ShaderLayout` pass that told the GLSL and SPIR-V emitters where to put things, so a host and a shader

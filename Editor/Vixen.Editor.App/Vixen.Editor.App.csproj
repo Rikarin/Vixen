@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.App</RootNamespace>
+        <AssemblyName>VixenEditor</AssemblyName>
+        <IsPackable>false</IsPackable>
+
+        <!--
+            ⚠ Not NativeAOT, and doc 11 says why: plugin assemblies load into an
+            AssemblyLoadContext for unloadability, which is the one place in the codebase where
+            runtime reflection is required rather than merely allowed.
+        -->
+        <PublishAot>false</PublishAot>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- The shell: docking, commands, menus, palette, theming, notifications, tasks. -->
+        <ProjectReference Include="..\Vixen.Editor.Ui\Vixen.Editor.Ui.csproj" />
+
+        <!-- The project model the shell is chrome over: the asset database, the command stack. -->
+        <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
+
+        <!--
+            The window, the device and the four steps of a frame. Deliberately assembled here rather
+            than taken from Tools/Vixen.App: that host owns a frame loop built around an ECS world
+            and a fixed-step accumulator, and the editor's loop is an interface that redraws when
+            something changes. Doc 17's "the app is the executable" is the same argument.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Renderer\Vixen.Ui.Renderer.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            SPIR-V, committed, for the reason Samples/01 and Samples/02 give: `UiRenderer`'s modules
+            are supplied rather than compiled, because turning shader source into modules belongs to
+            Raven — which already carries Ui/Msdf.rvn and Ui/RoundedRect.rvn for exactly this. Until
+            that path is wired a caller hands over whatever it has, and these four are byte for byte
+            the sample's, so the editor and the golden-image fixture cannot disagree about what the
+            shaders do.
+
+            Regenerating: `glslc Shaders/ui.vert -o Shaders/ui.vert.spv`, and likewise for the three
+            fragment stages.
+        -->
+        <EmbeddedResource Include="Shaders\*.spv" />
+    </ItemGroup>
+
+</Project>

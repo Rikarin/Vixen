@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Audio.Dsp;
 using Vixen.Audio.Spatial;
 
 namespace Vixen.Audio.Effects;
@@ -57,6 +58,22 @@ public sealed class LoudnessMeterEffect : IAudioEffect {
     // Three seconds of them, for the short-term reading.
     const int ShortTermBlocks = 30;
 
+    // Loudness range, from EBU Tech 3342. Its gates are not the integrated measurement's: the
+    // relative one is 20 LU rather than 10, and it is applied to short-term values rather than to
+    // momentary ones — a range is a property of how the programme moves over seconds, not over
+    // fractions of one.
+    const float RangeRelativeGateLu = 20f;
+    const float RangeLowPercentile = 0.10f;
+    const float RangeHighPercentile = 0.95f;
+
+    // The history LRA needs, as a histogram rather than a list. A list would grow without bound over
+    // a session; 0.1 LU buckets from silence to well past full scale is seven hundred and fifty
+    // numbers whatever happens, and the percentiles a range is made of do not need more resolution
+    // than that.
+    const float RangeFloorLufs = -70f;
+    const float RangeCeilingLufs = 5f;
+    const float RangeBucketLu = 0.1f;
+
     float[] shelfZ1 = [];
     float[] shelfZ2 = [];
     float[] highZ1 = [];
@@ -82,6 +99,12 @@ public sealed class LoudnessMeterEffect : IAudioEffect {
     double gatedSum;
     long gatedBlocks;
 
+    long[] rangeHistogram = [];
+    double rangeSum;
+    long rangeCount;
+
+    TruePeakMeter? truePeak;
+
     /// <inheritdoc />
     public bool Enabled { get; set; } = true;
 
@@ -101,6 +124,51 @@ public sealed class LoudnessMeterEffect : IAudioEffect {
 
     /// <summary>The loudest single sample since the last <see cref="Reset" />.</summary>
     public float SamplePeak { get; private set; }
+
+    /// <summary>
+    ///     The loudest point of the waveform a converter will actually produce, which is not the same
+    ///     thing and is never lower.
+    /// </summary>
+    /// <remarks>
+    ///     Zero when <see cref="MeasureTruePeak" /> is off. See <see cref="TruePeakMeter" /> for why
+    ///     the two differ and why certification measures this one.
+    /// </remarks>
+    public float TruePeak => truePeak?.Peak ?? 0f;
+
+    /// <summary>The same in dBTP, which is the unit a ceiling is written in.</summary>
+    public float TruePeakDbTp => truePeak?.PeakDbTp ?? float.NegativeInfinity;
+
+    /// <summary>Whether to oversample for <see cref="TruePeak" />.</summary>
+    /// <remarks>
+    ///     <b>On, and it is most of what this effect costs.</b> Three interpolated points per sample
+    ///     per channel, sixteen taps each, against the two biquads the loudness itself needs. Turning
+    ///     it off leaves every LUFS reading intact and makes the meter cheap enough to leave on a bus
+    ///     during play; leaving it on is what a certification pass needs.
+    /// </remarks>
+    public bool MeasureTruePeak { get; set; } = true;
+
+    /// <summary>
+    ///     How far the programme moves, in LU: the spread between its quiet passages and its loud
+    ///     ones.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The number that says whether a mix has dynamics or has been flattened.</b>
+    ///         <see cref="Integrated" /> says how loud a game is on average and cannot distinguish a
+    ///         mix that breathes from one squashed into a two-decibel band — which is the one that is
+    ///         exhausting after an hour.
+    ///     </para>
+    ///     <para>
+    ///         Measured from short-term readings rather than momentary ones, and gated 20 LU below
+    ///         their mean rather than 10, both per EBU Tech 3342: a range is a property of how the
+    ///         programme moves over seconds. It is the spread between the 10th and 95th percentiles,
+    ///         so one gunshot does not become the whole range and neither does one silence.
+    ///     </para>
+    ///     <para>
+    ///         Zero until there is enough programme to have a range at all.
+    ///     </para>
+    /// </remarks>
+    public float LoudnessRange { get; private set; }
 
     /// <summary>How many 400 ms blocks have gone into <see cref="Integrated" /> after gating.</summary>
     public long GatedBlocks => gatedBlocks;
@@ -128,6 +196,9 @@ public sealed class LoudnessMeterEffect : IAudioEffect {
                 : 1f;
         }
 
+        rangeHistogram = new long[(int)((RangeCeilingLufs - RangeFloorLufs) / RangeBucketLu) + 1];
+        truePeak = new TruePeakMeter(channelCount);
+
         hopFrames = Math.Max((int)(sampleRate * HopSeconds), 1);
         hopsPerBlock = Math.Max((int)MathF.Round(BlockSeconds / HopSeconds), 1);
         hopSums = new double[hopsPerBlock];
@@ -150,6 +221,13 @@ public sealed class LoudnessMeterEffect : IAudioEffect {
             for (var channel = 0; channel < channels; channel++) {
                 var value = buffer[offset + channel];
                 SamplePeak = MathF.Max(SamplePeak, MathF.Abs(value));
+
+                // Before the weighting and before the LFE is skipped: a peak is a property of what
+                // reaches the converter, not of what a listener perceives, so every channel counts
+                // and none of them is filtered first.
+                if (MeasureTruePeak) {
+                    truePeak?.Push(channel, value);
+                }
 
                 if (weights[channel] <= 0f) {
                     continue;
@@ -214,6 +292,12 @@ public sealed class LoudnessMeterEffect : IAudioEffect {
 
         ShortTerm = Loudness(recent / window);
 
+        // Only once there is a whole short-term window to speak of. Feeding the partial ones would
+        // put the fade-in at the start of every measurement into the bottom percentile.
+        if (shortTermWritten >= ShortTermBlocks) {
+            Observe(ShortTerm);
+        }
+
         // The absolute gate, applied as the block arrives — below −70 LUFS is not quiet programme,
         // it is the absence of programme, and it never counts towards anything.
         if (loudness <= AbsoluteGateLufs) {
@@ -234,6 +318,75 @@ public sealed class LoudnessMeterEffect : IAudioEffect {
         }
 
         Integrated = gatedBlocks > 0 ? Loudness(gatedSum / gatedBlocks) : float.NegativeInfinity;
+    }
+
+    /// <summary>Files one short-term reading into the range histogram, and recomputes the range.</summary>
+    void Observe(float shortTermLoudness) {
+        if (shortTermLoudness <= RangeFloorLufs || float.IsNaN(shortTermLoudness)) {
+            return;
+        }
+
+        var bucket = Math.Clamp(
+            (int)((shortTermLoudness - RangeFloorLufs) / RangeBucketLu),
+            0,
+            rangeHistogram.Length - 1
+        );
+
+        rangeHistogram[bucket]++;
+        rangeCount++;
+        rangeSum += Math.Pow(10.0, shortTermLoudness / 10.0);
+
+        if (rangeCount < 2) {
+            return;
+        }
+
+        // The relative gate, recomputed each time from the running energy mean of everything above
+        // the absolute floor — the same shape as the integrated measurement's gate, 20 LU down
+        // instead of 10.
+        var threshold = (float)((10.0 * Math.Log10(rangeSum / rangeCount)) - RangeRelativeGateLu);
+        var gated = 0L;
+        var first = 0;
+
+        for (var i = 0; i < rangeHistogram.Length; i++) {
+            if (Centre(i) > threshold) {
+                first = i;
+                break;
+            }
+        }
+
+        for (var i = first; i < rangeHistogram.Length; i++) {
+            gated += rangeHistogram[i];
+        }
+
+        if (gated < 2) {
+            LoudnessRange = 0f;
+            return;
+        }
+
+        // Percentiles rather than extremes, so one gunshot is not the whole range and neither is one
+        // pause. Ten and ninety-five are what the standard picked, and the asymmetry is deliberate:
+        // programme has more quiet outliers than loud ones.
+        LoudnessRange = Percentile(first, gated, RangeHighPercentile)
+            - Percentile(first, gated, RangeLowPercentile);
+    }
+
+    /// <summary>Where a bucket sits, in LUFS.</summary>
+    static float Centre(int bucket) => RangeFloorLufs + (bucket * RangeBucketLu);
+
+    /// <summary>Walks the gated part of the histogram to a percentile.</summary>
+    float Percentile(int first, long gated, float fraction) {
+        var wanted = (long)(gated * fraction);
+        var seen = 0L;
+
+        for (var i = first; i < rangeHistogram.Length; i++) {
+            seen += rangeHistogram[i];
+
+            if (seen > wanted) {
+                return Centre(i);
+            }
+        }
+
+        return Centre(rangeHistogram.Length - 1);
     }
 
     /// <inheritdoc />
@@ -258,10 +411,16 @@ public sealed class LoudnessMeterEffect : IAudioEffect {
         gatedSum = 0.0;
         gatedBlocks = 0;
 
+        Array.Clear(rangeHistogram);
+        rangeSum = 0.0;
+        rangeCount = 0;
+        truePeak?.Reset();
+
         Momentary = float.NegativeInfinity;
         ShortTerm = float.NegativeInfinity;
         Integrated = float.NegativeInfinity;
         SamplePeak = 0f;
+        LoudnessRange = 0f;
     }
 
     static float Loudness(double meanSquare) =>

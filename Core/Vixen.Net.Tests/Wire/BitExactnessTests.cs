@@ -367,6 +367,59 @@ public sealed class BitExactnessTests {
         listing.Matches("components");
     }
 
+    /// <summary>A spawn, whose prefab id is a hash of an address rather than an index into a list.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The most load-bearing hash in the system.</b> A client builds the object the server
+    ///         meant because the two computed the same id from the same address — nothing is exchanged
+    ///         to check it. A hash that came out differently on another platform would not fail: it
+    ///         would build the wrong prefab, or none, on one player's machine only.
+    ///     </para>
+    ///     <para>
+    ///         The addresses below include an empty one and a non-ASCII one because the hash walks
+    ///         <c>char</c>s, so what a path outside the ASCII range hashes to depends on the encoding
+    ///         the file was read as — which is a build setting rather than a platform, and therefore
+    ///         exactly the sort of thing that changes without anyone deciding to change it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ASpawnIsTheSameBytesEverywhere() {
+        var listing = WireGolden.Begin();
+
+        string[] addresses = ["", "gameplay/prefabs/crate", "gameplay/prefabs/turret", "ünïcøde/pråth", "a"];
+
+        foreach (var address in addresses) {
+            listing.Case($"spawn/prefab/{address}", NetworkPrefabId.From(address).Value);
+        }
+
+        using var world = new World("bit-exactness-spawn");
+        var replicator = new NetworkSpawnReplicator();
+        var buffer = new byte[64];
+
+        var entity = world.Create(
+            new NetworkId(1),
+            new NetworkSpawn {
+                Prefab = NetworkPrefabId.From("gameplay/prefabs/crate").Value,
+                Scene = ReplicationRegistry.HashTypeName("Level1"),
+                Owner = 7
+            }
+        );
+
+        var writer = new BitWriter(buffer);
+        replicator.Write(world, entity, ref writer);
+        Assert.True(writer.TryFinish(out var packet));
+        listing.Case("spawn/record", packet);
+
+        // And the index the record names, which is a function of the type name rather than of when
+        // the replicator happened to be registered.
+        var registry = new ReplicationRegistry();
+        registry.Register(new NetworkTransformReplicator());
+        registry.Register(replicator);
+        listing.Case("spawn/registry-index", (uint)registry.IndexOf(replicator.TypeId));
+
+        listing.Matches("spawn");
+    }
+
     /// <summary>The next float below a value, as a bit pattern rather than a subtraction.</summary>
     /// <remarks>
     ///     <c>MathF.BitDecrement</c> would do, and writing it out makes the point that these inputs

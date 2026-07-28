@@ -160,6 +160,10 @@ sealed class VoiceParameters {
                 AudioBuiltinParameter.Distance => spatial.Distance,
                 AudioBuiltinParameter.Direction => spatial.Azimuth,
                 AudioBuiltinParameter.Elevation => spatial.Elevation,
+
+                // Off the voice rather than out of the spatial result: this one is a raycast the game
+                // thread made, not something the audio thread worked out while mixing.
+                AudioBuiltinParameter.Occlusion => voice.Occlusion,
                 _ => spatial.SourceSpeed
             };
 

@@ -63,15 +63,21 @@ public sealed class ShapingCache {
     /// <param name="font">The font to shape with.</param>
     /// <param name="text">The paragraph.</param>
     /// <param name="direction">Its base direction.</param>
+    /// <param name="variation">Where along its axes a variable font is being read.</param>
     /// <returns>
     ///     The shaped paragraph. Shared with every other caller that asked for the same thing, so it
     ///     must be treated as immutable.
     /// </returns>
-    public ShapedText Shape(FontFace font, string text, ParagraphDirection direction = ParagraphDirection.Auto) {
+    public ShapedText Shape(
+        FontFace font,
+        string text,
+        ParagraphDirection direction = ParagraphDirection.Auto,
+        FontVariation? variation = null
+    ) {
         ArgumentNullException.ThrowIfNull(font);
         ArgumentNullException.ThrowIfNull(text);
 
-        var key = new Key(font, text, direction);
+        var key = new Key(font, text, direction, variation ?? FontVariation.None);
 
         if (entries.TryGetValue(key, out var node)) {
             Hits++;
@@ -104,17 +110,28 @@ public sealed class ShapingCache {
         order.Clear();
     }
 
-    readonly record struct Key(FontFace Font, string Text, ParagraphDirection Direction) {
+    /// <remarks>
+    ///     ⚠ <b>The size is deliberately absent and the variation position deliberately present, and
+    ///     the two are not in tension.</b> Shaping happens at design-unit scale, so one entry serves
+    ///     every pixel size — that is what holding the font unscaled buys. An axis position is not a
+    ///     scale: moving <c>wght</c> changes advances in design units, so the same string in the same
+    ///     face at two weights is two different shapings. Leaving it out gives a cache that answers
+    ///     the first weight asked for and keeps answering it, which looks like a font that refuses to
+    ///     animate.
+    /// </remarks>
+    readonly record struct Key(FontFace Font, string Text, ParagraphDirection Direction, FontVariation Variation) {
         public bool Equals(Key other) =>
             ReferenceEquals(Font, other.Font)
             && Direction == other.Direction
-            && string.Equals(Text, other.Text, StringComparison.Ordinal);
+            && string.Equals(Text, other.Text, StringComparison.Ordinal)
+            && Variation.Equals(other.Variation);
 
         public override int GetHashCode() =>
             HashCode.Combine(
                 System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(Font),
                 StringComparer.Ordinal.GetHashCode(Text),
-                Direction
+                Direction,
+                Variation
             );
     }
 

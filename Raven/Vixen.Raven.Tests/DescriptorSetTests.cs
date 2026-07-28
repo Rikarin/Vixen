@@ -145,6 +145,89 @@ public class DescriptorSetTests {
         Assert.Equal([0, 1], plan.Select(b => b.Binding));
     }
 
+    /// <summary>
+    ///     An array of textures is one binding with a count, not a member of the uniform block.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         It used to be the block, and that is the failure this exists to keep out: a field's
+    ///         resource kind came from its type, an array reported none, and the lowerer's binding
+    ///         kind falls through to <c>Uniform</c> for anything that is not a declared resource. So
+    ///         <c>var probes: TextureCube[4]</c> compiled — into a uniform block with
+    ///         <c>OpTypeImage</c> in it, which no backend can express and both of them emitted.
+    ///     </para>
+    ///     <para>
+    ///         Asserted on the plan rather than on the emitted text because the plan is what both
+    ///         backends and the reflection read; the test below holds all three against it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_array_of_textures_is_one_binding_with_a_count() {
+        var shader = Lower(ProbeArray);
+        var plan = BindingPlan.Of(shader);
+
+        var probes = Assert.Single(plan, b => b.Name == "probes");
+
+        Assert.False(probes.IsBlock);
+        Assert.Equal(IrBindingKind.Texture, probes.Kind);
+
+        // And the block that does exist holds the index and nothing else — an array of images in it
+        // is what this is here to prevent.
+        var block = Assert.Single(plan, b => b.IsBlock);
+        Assert.Equal(["probeIndex"], block.Members.Select(m => m.Variable.Name));
+
+        // The count reaches the reflection, which is what a host builds a descriptor set layout from.
+        var reflection = ReflectionBuilder.Describe(shader);
+        var described = reflection.Sets.SelectMany(s => s.Bindings).Single(b => b.Name == "probes");
+
+        Assert.Equal(DescriptorType.SampledTexture, described.Type);
+        Assert.Equal(4, described.Count);
+    }
+
+    /// <summary>And what comes out of both backends is something they will accept.</summary>
+    /// <remarks>
+    ///     The GLSL is the readable half of the same claim: <c>glslc</c> rejects an opaque type
+    ///     inside a block with "member of block cannot be or contain a sampler", and the declaration
+    ///     carrying its own <c>layout(...)</c> is what says it is no longer in one.
+    /// </remarks>
+    [Fact]
+    public void An_array_of_textures_is_declared_outside_the_block() {
+        var glsl = CodeGenTestBase.GenerateClean(ProbeArray, "glsl").Single().Code;
+
+        Assert.Contains(
+            "uniform textureCube probes[4]",
+            Assert.Single(
+                glsl.Split('\n'),
+                line => line.StartsWith("layout(", StringComparison.Ordinal)
+                    && line.Contains(" probes[", StringComparison.Ordinal)
+            ),
+            StringComparison.Ordinal
+        );
+    }
+
+    /// <summary>A shader picking one of several probe cubes by an index the host writes.</summary>
+    /// <remarks>
+    ///     Which is what per-object reflection probes need: one array bound for the frame and an
+    ///     index in the per-object block, rather than a descriptor set per probe bound per draw.
+    /// </remarks>
+    const string ProbeArray = """
+                              package A
+
+                              shader S {
+                                  [Permutation] val ProbeCount: int = 4
+
+                                  var probes: TextureCube[ProbeCount]
+                                  var probeSampler: Sampler
+                                  var probeIndex: int
+
+                                  [PixelShader]
+                                  func Pixel(direction: float3): float4 {
+                                      return probes[probeIndex].Sample(probeSampler, direction)
+                                  }
+                              }
+
+                              """;
+
     // --- The consumers agree ------------------------------------------------
 
     /// <summary>

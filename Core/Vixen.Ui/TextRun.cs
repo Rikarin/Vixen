@@ -37,24 +37,92 @@ public readonly record struct PositionedGlyph(ushort GlyphId, float X, float Y);
 /// <param name="Font">The face it was shaped with.</param>
 /// <param name="Shaped">The glyphs, in design units.</param>
 /// <param name="Size">The font size in pixels — what an <c>em</c> on this element measures.</param>
-public sealed record TextRun(FontFace Font, ShapedText Shaped, float Size) {
+/// <param name="Tracking">
+///     <c>letter-spacing</c> in pixels, added after every typographic character. Zero for the
+///     overwhelming majority of text, and the code below is written so that zero costs nothing.
+/// </param>
+/// <param name="Leading">
+///     The computed <c>line-height</c> in pixels, or <see cref="float.NaN" /> for the font's own
+///     recommendation. NaN rather than zero, because zero is a line height somebody might mean.
+/// </param>
+public sealed record TextRun(
+    FontFace Font,
+    ShapedText Shaped,
+    float Size,
+    float Tracking = 0f,
+    float Leading = float.NaN
+) {
     /// <summary>What multiplies a design unit to give a pixel.</summary>
     public float Scale => Size / Font.UnitsPerEm;
 
-    /// <summary>How wide the line is.</summary>
-    public float Width => Shaped.Advance * Scale;
-
-    /// <summary>How tall one line of it is, as the font's own metrics ask for.</summary>
+    /// <summary>How many typographic characters the line has, for tracking to be added between.</summary>
     /// <remarks>
-    ///     ⚠ The font's line height, not the cascade's <c>line-height</c>. That property is one of
-    ///     the four still inherited as a specified value rather than a computed one — see the
-    ///     cascade's remarks — and honouring it here would mean resolving a relative unit against the
-    ///     wrong font size. Owed with the computed-value stage.
+    ///     ⚠ <b>Clusters, not glyphs.</b> A combining mark is its own glyph and the same cluster as
+    ///     the letter it sits on, so counting glyphs would space an accented <c>é</c> as two
+    ///     characters — and, worse, <see cref="Place" /> would push the accent off the side of the
+    ///     letter. Shaping already gives the cluster and this is the whole reason it is carried.
     /// </remarks>
-    public float Height => Font.Metrics.LineHeight * Scale;
+    public int Clusters {
+        get {
+            var count = 0;
+            var previous = int.MinValue;
+
+            foreach (var placement in Shaped.Placements()) {
+                if (placement.Cluster != previous) {
+                    count++;
+                    previous = placement.Cluster;
+                }
+            }
+
+            return count;
+        }
+    }
+
+    /// <summary>How wide the line is.</summary>
+    /// <remarks>
+    ///     ⚠ Tracking is added after the <i>last</i> character as well as between, which is what CSS
+    ///     specifies and what every browser does. It means centred text with a wide tracking sits
+    ///     half a step left of true centre — visibly, at the sizes tracking is used at. Matched
+    ///     rather than corrected, because a toolkit that quietly disagrees with the specification is
+    ///     harder to reason about than one that reproduces a known wart.
+    /// </remarks>
+    public float Width => Tracking == 0f ? Shaped.Advance * Scale : Shaped.Advance * Scale + Tracking * Clusters;
+
+    /// <summary>How tall one line of it is.</summary>
+    /// <remarks>
+    ///     The computed <c>line-height</c> when there is one, and the font's own recommendation when
+    ///     there is not. <see cref="UiElement.LineHeight" /> is where the cascade's value becomes a
+    ///     number this can use — the property takes relative units, so it has to be resolved against
+    ///     the element's font size before it gets here.
+    /// </remarks>
+    public float Height => float.IsNaN(Leading) ? Font.Metrics.LineHeight * Scale : Leading;
 
     /// <summary>How far below the top of the line the baseline sits.</summary>
-    public float Baseline => Font.Metrics.Ascender * Scale;
+    /// <remarks>
+    ///     <para>
+    ///         CSS's <b>half-leading</b>: the glyphs occupy an area of ascender-plus-descender and
+    ///         the line box may be taller or shorter than that, so the difference is split evenly
+    ///         above and below rather than all going under the text. Putting it all below is what
+    ///         makes a generous <c>line-height</c> look like a top margin.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Half of a <i>negative</i> leading is negative, which is correct: a line height
+    ///         smaller than the glyphs crops them evenly at both ends, and lines overlap. That is
+    ///         what CSS says happens and what the author asked for.
+    ///     </para>
+    /// </remarks>
+    public float Baseline {
+        get {
+            var ascender = Font.Metrics.Ascender * Scale;
+
+            if (float.IsNaN(Leading)) {
+                return ascender;
+            }
+
+            var content = (Font.Metrics.Ascender - Font.Metrics.Descender) * Scale;
+            return ((Leading - content) / 2f) + ascender;
+        }
+    }
 
     /// <summary>Places every glyph relative to the start of the line.</summary>
     /// <param name="into">Where to put them.</param>
@@ -69,8 +137,23 @@ public sealed record TextRun(FontFace Font, ShapedText Shaped, float Size) {
         ArgumentNullException.ThrowIfNull(into);
 
         var scale = Scale;
+
+        // Tracking accumulates once per cluster rather than once per glyph, so a combining mark
+        // moves with the letter it belongs to instead of away from it. Kept out of the common path
+        // entirely: text with no tracking runs the loop it always ran.
+        var offset = 0f;
+        var previous = int.MinValue;
+
         foreach (var placement in Shaped.Placements()) {
-            into.Add(new PositionedGlyph(placement.GlyphId, placement.X * scale, -placement.Y * scale));
+            if (Tracking != 0f) {
+                if (previous != int.MinValue && placement.Cluster != previous) {
+                    offset += Tracking;
+                }
+
+                previous = placement.Cluster;
+            }
+
+            into.Add(new PositionedGlyph(placement.GlyphId, placement.X * scale + offset, -placement.Y * scale));
         }
     }
 

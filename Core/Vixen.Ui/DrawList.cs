@@ -14,6 +14,15 @@ public enum DrawCommandKind : byte {
     /// <summary>An outline drawn inside a rectangle's edges.</summary>
     Border,
 
+    /// <summary>A blurred rectangle, drawn behind the element that cast it.</summary>
+    /// <remarks>
+    ///     The same quad and the same shader as <see cref="Rectangle" />, with a blur radius that
+    ///     turns the distance field's one-pixel edge into a soft one. It is a separate kind rather
+    ///     than a flag because the geometry differs: a shadow's quad is larger than the box it is
+    ///     cast by, and the blur has to reach the edge of it.
+    /// </remarks>
+    Shadow,
+
     /// <summary>A run of positioned glyphs in one font.</summary>
     Text,
 
