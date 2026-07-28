@@ -428,6 +428,38 @@ public partial class UiElement {
     protected internal virtual void OnCreated() {
     }
 
+    /// <summary>Called once, as the element leaves the document.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The other end of <see cref="OnCreated" />, and what an overlay needs to exist.</b> A
+    ///         menu, a select's popover, a dialog and a tooltip all parent their popup on the
+    ///         <i>root</i>, because painting order is document order and a popup inside the control
+    ///         that opened it is clipped by every <c>overflow: hidden</c> between the two. That is the
+    ///         right structure and it leaves the popup with no way to hear that its owner is gone: the
+    ///         two are not related, so removing a panel full of menus left their popups in the
+    ///         document for ever, still styled, still hit-testable, still drawn the moment anything
+    ///         opened them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Called top-down, before anything is detached, and that order is deliberate.</b> An
+    ///         override's whole job is to reach things — the popup it parented elsewhere, a
+    ///         subscription on an ancestor — and both are unreachable once the subtree is out of the
+    ///         document. The alternative, calling it after the stores are cleaned, hands every
+    ///         implementer an element that throws on almost every question.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An override may remove other elements and must not remove this one.</b> Removing
+    ///         a popup from inside this is the case it exists for and is safe: the popup is elsewhere
+    ///         in the tree. Removing an ancestor of the subtree already being removed is not, and is
+    ///         refused by <see cref="UiDocument.Remove" /> rather than left to corrupt the walk.
+    ///     </para>
+    ///     <para>
+    ///         An override must call its base.
+    ///     </para>
+    /// </remarks>
+    protected internal virtual void OnRemoved() {
+    }
+
     /// <summary>Raised after any generated UI property changes.</summary>
     /// <remarks>
     ///     ⚠ Overriding this is how a subclass reacts to a property it did not declare — the
@@ -633,6 +665,12 @@ public partial class UiElement {
     internal void Restyle(StyleNodeId styleNode) => StyleNode = styleNode;
 
     /// <summary>Takes this element and everything under it out of its document.</summary>
+    /// <remarks>
+    ///     ⚠ Removing twice throws, and that is the contract rather than an oversight — see
+    ///     <c>RemovalTests.Removing_the_same_element_twice_says_so</c>. A control whose
+    ///     <see cref="OnRemoved" /> tears down something it does not solely own asks
+    ///     <see cref="IsRemoved" /> first.
+    /// </remarks>
     public void Remove() => Document.Remove(this);
 
     /// <summary>What the last pass wrote through to the layout store.</summary>

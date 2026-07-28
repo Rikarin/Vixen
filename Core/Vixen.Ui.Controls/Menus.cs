@@ -127,6 +127,25 @@ public partial class Menu : Overlay {
 
     /// <inheritdoc />
     /// <remarks>
+    ///     ⚠ <b>A submenu is a sibling, not a child, so removing a menu left every submenu it opened
+    ///     in the document.</b> That is the cost of the root-child arrangement and there was no way to
+    ///     pay it until <see cref="UiElement.OnRemoved" /> existed. The recursion is the point — a
+    ///     submenu has submenus — and it terminates because <c>Remove</c> announces before it detaches,
+    ///     so each one is announced exactly once on the way down.
+    /// </remarks>
+    protected override void OnRemoved() {
+        foreach (var item in items) {
+            if (item.Submenu is { IsRemoved: false } submenu) {
+                item.Submenu = null;
+                Document.Remove(submenu);
+            }
+        }
+
+        base.OnRemoved();
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
     ///     The first item takes the focus, so that a menu opened from the keyboard can be used from
     ///     the keyboard. A menu opened by a click gets it too, which is harmless: the ring only
     ///     shows in keyboard mode.
@@ -338,6 +357,24 @@ public sealed partial class MenuBar : Control {
         );
 
         return menu;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Every menu the bar dropped is a root child. Removing the bar took its <i>items</i> with it,
+    ///     because those really are children, and left the menus themselves — so a shell that rebuilt
+    ///     its menu bar accumulated a full set of orphaned menus each time, each still holding the two
+    ///     capture handlers <see cref="Overlay" /> puts on the root.
+    /// </remarks>
+    protected override void OnRemoved() {
+        foreach (var item in items) {
+            if (item.Menu is { IsRemoved: false } menu) {
+                item.Menu = null!;
+                Document.Remove(menu);
+            }
+        }
+
+        base.OnRemoved();
     }
 
     void Chosen(ClickEvent args) {

@@ -101,8 +101,15 @@ public sealed class MenuPresenter : IDisposable {
 
         // The menus first: they are the document root's children rather than the bar's, so removing
         // the bar would leave them behind — open, dismissable and attached to nothing.
+        //
+        // ⚠ Skipping the ones already gone, because `Menu.OnRemoved` takes a menu's submenus with
+        // it and this list is flat — removing a parent menu therefore removes entries further along
+        // it. Removal is final and asking twice throws, so the guard is the adaptation the hook
+        // requires rather than defensive noise.
         foreach (var menu in menus) {
-            menu.Remove();
+            if (!menu.IsRemoved) {
+                menu.Remove();
+            }
         }
 
         menus.Clear();

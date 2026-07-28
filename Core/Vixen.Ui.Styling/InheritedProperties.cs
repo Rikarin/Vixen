@@ -74,7 +74,6 @@ public sealed class InheritedProperties {
         // `Vixen.Ui` inherits their computed values instead — see `UiElement.LineHeight`.
         "word-spacing",
         "text-align",
-        "text-indent",
         "text-transform",
         "white-space",
         "word-break",

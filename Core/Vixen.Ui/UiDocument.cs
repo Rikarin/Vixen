@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Vixen.Ui.Layout;
 using Vixen.Ui.Styling;
 using Vixen.Ui.Text;
@@ -52,6 +53,18 @@ public sealed partial class UiDocument : IDisposable {
 
     readonly int none;
     readonly int visible;
+
+    /// <summary>The subtrees a <c>Remove</c> is part-way through announcing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Because <c>OnRemoved</c> is allowed to remove things and one of them would corrupt
+    ///     the walk.</b> Removing a popup from inside the hook is the whole point and is safe. Removing
+    ///     an <i>ancestor</i> of the subtree currently being announced is not: the outer call is
+    ///     holding an element it is about to detach, and the inner one would detach it first, leaving
+    ///     the outer one to take a node out of a parent it no longer has. Refused with a message
+    ///     rather than left to be found as a null reference three frames later.
+    /// </remarks>
+    readonly List<UiElement> removing = [];
+
     bool dirty = true;
 
     /// <summary>Creates a document over a surface of a given size.</summary>
@@ -334,6 +347,32 @@ public sealed partial class UiDocument : IDisposable {
             throw new ArgumentException("that element belongs to another document.", nameof(element));
         }
 
+        // An `OnRemoved` that removes something already on its way out. Its own subtree is fine — it
+        // is about to go regardless — but an ancestor of one is not: see `removing`.
+        foreach (var pending in removing) {
+            for (var ancestor = pending; ancestor is not null; ancestor = ancestor.Parent) {
+                if (ReferenceEquals(ancestor, element)) {
+                    throw new InvalidOperationException(
+                        "OnRemoved cannot remove an ancestor of the element being removed — "
+                        + "the outer removal is holding it. Remove what the control owns elsewhere in "
+                        + "the tree instead."
+                    );
+                }
+            }
+        }
+
+        // ⚠ Before anything is detached, and before `Release`, because an override's whole purpose is
+        // to reach elsewhere in the document — a menu closing the popover it parented on the root —
+        // and a handler that runs after the subtree is out of the stores can ask almost nothing. It
+        // may remove other elements; `removing` is what stops it removing one of these.
+        removing.Add(element);
+
+        try {
+            Announce(element);
+        } finally {
+            removing.Remove(element);
+        }
+
         // Before anything is detached, because finding out whether the focus is inside the subtree
         // means walking up from the focus to a parent this is about to clear.
         Release(element);
@@ -365,6 +404,26 @@ public sealed partial class UiDocument : IDisposable {
 
         Gestures.Forget(element);
         ForgetHover(element);
+    }
+
+    /// <summary>Tells a subtree it is going, deepest last.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Parents before children, which is the opposite of a disposal order and is right
+    ///     here.</b> A control's <c>OnRemoved</c> tears down what it owns, and what it owns includes
+    ///     its own parts — so a panel that closes its menu wants to run before that menu's own hook,
+    ///     not after it has already been told. It mirrors <c>OnCreated</c>, which builds outward from
+    ///     the type that was asked for.
+    ///
+    ///     The list is snapshotted per level, because a handler may add or remove children of the
+    ///     element it is called on — a popover closing removes its own items — and iterating the live
+    ///     collection would then skip half of them.
+    /// </remarks>
+    static void Announce(UiElement element) {
+        element.OnRemoved();
+
+        foreach (var child in element.Children.ToArray()) {
+            Announce(child);
+        }
     }
 
     /// <summary>Marks a subtree as no longer part of any document.</summary>
@@ -471,8 +530,115 @@ public sealed partial class UiDocument : IDisposable {
 
         Layout.CalculateLayout(Root.LayoutNode, Viewport.ViewportWidth, Viewport.ViewportHeight, Direction.Ltr);
         Accumulate(Root, 0f, 0f);
+
+        Settle();
         return true;
     }
+
+    /// <summary>Raised when every box in the document is final for this frame.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a control needs and could not have.</b> A scroll bar's range is its content's
+    ///         height, a virtualiser's row count is its viewport's, and both are results of the layout
+    ///         rather than inputs to it — so a control that computed them in a property setter was
+    ///         computing them against the previous frame's boxes. <c>ScrollView.Refresh</c>,
+    ///         <c>TreeView.Refresh</c> and the sample's own resize handler all existed to paper over
+    ///         that, and all of them are a caller being asked to know when the framework had finished.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A handler may change the document, and doing so is normal rather than an abuse.</b>
+    ///         A virtualiser that has just learned its viewport is taller realises more rows, which is
+    ///         a structural change to the tree during a pass that has already run. So this re-enters:
+    ///         after the handlers, a document that was dirtied runs the whole pass again, and it keeps
+    ///         going until nothing more is asked for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Bounded, because the fixed point is not guaranteed to exist.</b> A handler that
+    ///         adds a row whenever it is called, or two that undo each other, would spin for ever — and
+    ///         "the interface hangs" is a worse failure than any interface it could produce. After
+    ///         <see cref="SettlePasses" /> attempts the loop stops and <see cref="Settled" /> reports
+    ///         false, which is a frame drawn one pass stale rather than a frame never drawn.
+    ///     </para>
+    /// </remarks>
+    public event Action<UiDocument>? LayoutFinished;
+
+    /// <summary>How many times a pass will re-run for handlers that changed something.</summary>
+    /// <remarks>
+    ///     Three, because the shapes that legitimately need more than one are two deep — a virtualiser
+    ///     inside a scroll view, where realising rows changes the content size, which changes the
+    ///     bar's range, which can change the viewport's width — and nothing sane is three.
+    /// </remarks>
+    public const int SettlePasses = 3;
+
+    /// <summary>Whether the last <see cref="Update" /> reached a fixed point.</summary>
+    /// <remarks>
+    ///     False means a handler was still asking for changes when the budget ran out, and the frame
+    ///     is one pass behind what it asked for. Exposed rather than logged because a control that
+    ///     does this is a bug in that control, and a number nobody can read is a bug nobody finds.
+    /// </remarks>
+    public bool Settled { get; private set; } = true;
+
+    /// <summary>How many extra passes the last <see cref="Update" /> ran for its handlers.</summary>
+    public int SettlingPasses { get; private set; }
+
+    void Settle() {
+        SettlingPasses = 0;
+        Settled = true;
+
+        if (LayoutFinished is null) {
+            return;
+        }
+
+        for (var pass = 0; pass <= SettlePasses; pass++) {
+            LayoutFinished.Invoke(this);
+
+            if (!dirty) {
+                return;
+            }
+
+            if (pass == SettlePasses) {
+                Settled = false;
+                return;
+            }
+
+            dirty = false;
+            SettlingPasses++;
+
+            StylesResolved += Restyle();
+            Apply(Root, Viewport.RootFontSize, ComputedText.Initial);
+            Layout.CalculateLayout(Root.LayoutNode, Viewport.ViewportWidth, Viewport.ViewportHeight, Direction.Ltr);
+            Accumulate(Root, 0f, 0f);
+        }
+    }
+
+    /// <summary>Lets time pass, for the things that happen because nothing happened.</summary>
+    /// <param name="now">The host's clock.</param>
+    /// <remarks>
+    ///     ⚠ <b>Time arrives from the host rather than from a clock read here</b>, which is the same
+    ///     decision <c>GestureRecognizer</c> made and for the same reasons: a framework that calls
+    ///     <c>DateTime.Now</c> cannot be tested without sleeping, cannot replay a recorded trace, and
+    ///     behaves differently when a breakpoint holds the frame.
+    ///
+    ///     A long press, a tooltip's delay and a toast's dismissal are all things that must happen
+    ///     when <i>no</i> input arrives, and nothing in an input stream can report the absence of
+    ///     input. This is the one call a host must make every frame whether anything happened or not.
+    /// </remarks>
+    public void Tick(TimeSpan now) {
+        Now = now;
+        Gestures.Tick(now);
+        Ticked?.Invoke(this, now);
+    }
+
+    /// <summary>The last time <see cref="Tick" /> was given.</summary>
+    public TimeSpan Now { get; private set; }
+
+    /// <summary>Raised on every <see cref="Tick" />.</summary>
+    /// <remarks>
+    ///     A control subscribes in <c>OnCreated</c> and unsubscribes in <c>OnRemoved</c> — which is
+    ///     the second thing that hook turned out to be for, and a reminder that it was the missing
+    ///     half of a pair rather than a convenience.
+    /// </remarks>
+    public event Action<UiDocument, TimeSpan>? Ticked;
 
     /// <summary>Writes each element's resolved style through to the layout store.</summary>
     /// <remarks>

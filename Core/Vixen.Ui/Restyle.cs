@@ -83,7 +83,7 @@ public sealed partial class UiDocument {
     ///     for the cascade to do — but the only way to ask for a pass was <see cref="Invalidate" />,
     ///     which meant every frame of a scroll re-resolved the document. <c>OnOffsetChanged</c>'s own
     ///     remarks said a scroll was "two walks of the tree and no work" and were describing
-    ///     <see cref="Apply" />, which is downstream of the pass they were counting.
+    ///     <c>Apply</c>, which is downstream of the pass they were counting.
     /// </remarks>
     internal void InvalidatePositions() => dirty = true;
 
