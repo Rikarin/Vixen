@@ -114,6 +114,12 @@ public sealed class SceneViewport : IDisposable {
 
         control.Dragged += OnDragged;
         control.Zoomed += OnZoomed;
+
+        // ⚠ handledEventsToo, because Viewport marks every pointer event handled — it has to, or a
+        // press inside a viewport would also be a press on whatever is behind it. This is the
+        // listener AddHandler's own remarks describe: one that needs to know an event happened
+        // rather than to compete for it.
+        control.AddHandler<PointerEvent>(OnPointer, handledEventsToo: true);
     }
 
     /// <summary>Brings the render view up to date with the camera and the control's size.</summary>
@@ -345,6 +351,39 @@ public sealed class SceneViewport : IDisposable {
     ///     it to <c>() =&gt; EntityGizmoTarget.For(world, selection)</c>.
     /// </remarks>
     public Func<IReadOnlyList<IGizmoTarget>>? TargetsFactory { get; set; }
+
+    /// <summary>Turns a press into a grab and a release into a recorded drag.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only the primary button, and only when it did not start a camera move.</b> Alt+left
+    ///     orbits, and a press that also grabbed a handle would move the object the camera was
+    ///     supposed to be swinging around.
+    /// </remarks>
+    void OnPointer(UiElement element, PointerEvent args) {
+        if (args.Button != PointerButton.Primary) {
+            return;
+        }
+
+        var point = Control.ToRender(args.X, args.Y);
+
+        switch (args.Action) {
+            case PointerAction.Pressed
+                when Interpret(args.Button, args.Modifiers) == NavigationAction.Manipulate:
+                if (!BeginManipulate(point)) {
+                    // Nothing under the pointer, so the press is a selection. The answer arrives
+                    // frames later; see PickingBuffer for why a click does not wait for the GPU.
+                    Pick(point, (args.Modifiers & (ModifierKeys.Shift | ModifierKeys.Control)) != 0);
+                }
+
+                break;
+
+            case PointerAction.Released when Gizmo.IsDragging:
+                EndManipulate();
+                break;
+
+            default:
+                break;
+        }
+    }
 
     void OnDragged(ViewportControl control, ViewportDrag drag) {
         if (Gizmo.IsDragging) {

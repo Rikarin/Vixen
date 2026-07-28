@@ -59,15 +59,18 @@ sealed class EditorHost : IDisposable {
     bool lost;
     bool resized;
 
-    public EditorHost(IPlatform platform, IWindow window) {
+    public EditorHost(IPlatform platform, IWindow window, string? projectRoot = null) {
         this.platform = platform;
         this.window = window;
 
         editor = new EditorApplication(
             window.FramebufferSize.X / Scale,
             window.FramebufferSize.Y / Scale,
-            platform.FileSystem.DataDirectory
-        );
+            platform.FileSystem.DataDirectory,
+            projectRoot
+        ) {
+            RenderScale = Scale
+        };
 
         Fonts.Install(editor.Shell.Document);
     }
@@ -101,12 +104,20 @@ sealed class EditorHost : IDisposable {
                 resized = false;
 
                 editor.Shell.Resize(window.FramebufferSize.X / Scale, window.FramebufferSize.Y / Scale);
+                editor.RenderScale = Scale;
                 Recreate();
             }
 
             editor.Shell.Tick(now, delta);
 
             editor.Shell.Document.Update();
+
+            // ⚠ Between the two, and it is not arbitrary. A viewport measures itself in render pixels
+            // from a box the layout pass is what produces, and the axis cross it draws comes from the
+            // camera this brings up to date — so either side of this pair puts the picture a frame
+            // behind whatever the user just did with the mouse.
+            editor.Update();
+
             editor.Shell.Document.Draw();
 
             Present(Build());
