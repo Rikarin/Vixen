@@ -36,8 +36,11 @@ never a different buffer — one upload however many kinds of thing it draws.
   the whole trick and it is why the atlas must never be sampled as sRGB: the values are distances,
   not light.
 - **Solid** — tessellated paths. ⚠ The one primitive with no distance function, so the one whose edge
-  is whatever the rasteriser gives it. Multisampling the pass fixes it and is the compositor's call;
-  a feathered fringe fixes it more cheaply and is owed.
+  has to be *drawn*: the tessellator emits the interior at full coverage and a half-pixel strip along
+  the outline ramping to zero, and this shader multiplies alpha by it. The coverage rides in
+  `shape.x`, where the text shader keeps its pixel range. Multisampling the pass is the other answer
+  and remains the compositor's — `UiGeometryBuilder.Fringe = 0` turns this one off, because two
+  antialiasing schemes over one edge make a seam rather than a smoother line.
 
 ### One pipeline layout, deliberately
 

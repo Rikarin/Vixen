@@ -176,6 +176,104 @@ public class PathTessellatorTests {
         Assert.Empty(Fill(line));
     }
 
+    // ---------------------------------------------------------------- Fringe
+
+    /// <summary>
+    ///     The fringe lies outside the shape and reaches exactly as far as it was asked to.
+    /// </summary>
+    [Fact]
+    public void A_squares_fringe_is_a_band_outside_it() {
+        const float Width = 2f;
+
+        var fringe = Fringe(new PathBuilder().AddRectangle(new Rectangle(20, 20, 60, 60)), width: Width);
+
+        // Just outside the right edge: in the band. Further out: past it. Inside: not the fringe's,
+        // because the fringe starts *on* the outline and goes out.
+        Assert.True(Covered(fringe, new Vector2(81, 50)), "the band is missing just outside the edge");
+        Assert.False(Covered(fringe, new Vector2(84, 50)), "the band reached further than it was told to");
+        Assert.False(Covered(fringe, new Vector2(70, 50)), "the band was drawn inside the shape");
+    }
+
+    /// <summary>
+    ///     ⚠ The shape that decides whether "outward" was derived or asked. Under even-odd, an inner
+    ///     contour wound the <i>same way</i> as its outer one is still a hole — so the fringe around
+    ///     it has to point into the hole. Taking the direction from the contour's own winding gets
+    ///     this exactly backwards and draws a bright band around every counter in an icon set.
+    /// </summary>
+    [Fact]
+    public void The_fringe_around_a_hole_points_into_the_hole() {
+        const float Width = 2f;
+
+        // Both wound the same way, so nothing about the inner contour says "hole" except the rule.
+        var ring = new PathBuilder()
+            .AddEllipse(new Rectangle(0, 0, 120, 120))
+            .AddEllipse(new Rectangle(35, 35, 50, 50));
+
+        var fringe = Fringe(ring, PathFillRule.EvenOdd, Width);
+        var centre = new Vector2(60, 60);
+
+        // The hole's edge is 25 out from the centre. One unit inside it is in the band; one unit
+        // outside it is in the ring's material and must not be.
+        Assert.True(Covered(fringe, centre + new Vector2(24f, 0)), "the hole has no fringe");
+        Assert.False(Covered(fringe, centre + new Vector2(27f, 0)), "the fringe was drawn into the ring");
+        Assert.False(Covered(fringe, centre + new Vector2(20f, 0)), "the fringe reached too far into the hole");
+    }
+
+    /// <summary>
+    ///     ⚠ A self-crossing contour has edges that are boundary along part of their length and
+    ///     interior along the rest, so each one is cut where anything crosses it before being asked
+    ///     which it is. Probed once at the midpoint, a pentagram's chords all read "interior" — the
+    ///     midpoint is inside the pentagon — and the star comes out with no antialiased edge at all.
+    /// </summary>
+    [Fact]
+    public void A_self_crossing_star_is_feathered_on_its_outer_edges_and_not_inside() {
+        var fringe = Fringe(Star(), width: 2f);
+
+        Assert.NotEmpty(fringe);
+
+        // The middle of the pentagram is deep inside the shape under non-zero, so nothing there.
+        Assert.False(Covered(fringe, new Vector2(70, 70)), "the fringe was drawn through the middle");
+
+        // A point just outside the tip at the top is in the band. The star's first point is at
+        // (70, 10), so a couple of units above it is outside the shape and inside the fringe.
+        Assert.True(
+            fringe.Any(vertex => Vector2.Distance(vertex.Position, new Vector2(70, 10)) < 3f),
+            "the tip has no fringe"
+        );
+    }
+
+    [Fact]
+    public void The_fringe_runs_from_full_coverage_to_none() {
+        var fringe = Fringe(new PathBuilder().AddRectangle(new Rectangle(0, 0, 40, 40)), width: 1f);
+
+        Assert.Contains(fringe, vertex => vertex.Coverage == 1f);
+        Assert.Contains(fringe, vertex => vertex.Coverage == 0f);
+        Assert.All(fringe, vertex => Assert.InRange(vertex.Coverage, 0f, 1f));
+    }
+
+    [Fact]
+    public void The_interior_is_fully_covered() =>
+        Assert.All(Fill(new PathBuilder().AddEllipse(new Rectangle(0, 0, 40, 40))),
+            vertex => Assert.Equal(1f, vertex.Coverage));
+
+    [Fact]
+    public void A_zero_width_fringe_draws_nothing() =>
+        Assert.Empty(Fringe(new PathBuilder().AddRectangle(new Rectangle(0, 0, 40, 40)), width: 0f));
+
+    /// <summary>
+    ///     ⚠ The corner wedges. Without them every convex corner of every icon has a notch out of it
+    ///     the size of the fringe, which is the artefact the fringe exists to remove.
+    /// </summary>
+    [Fact]
+    public void A_corner_is_closed_rather_than_left_as_a_notch() {
+        const float Width = 4f;
+
+        var fringe = Fringe(new PathBuilder().AddRectangle(new Rectangle(20, 20, 60, 60)), width: Width);
+
+        // Diagonally out from the top-right corner, where two strips would otherwise leave a wedge.
+        Assert.True(Covered(fringe, new Vector2(81.5f, 18.5f)), "the corner was left open");
+    }
+
     // ---------------------------------------------------------------- Stroke
 
     /// <summary>
@@ -252,14 +350,14 @@ public class PathTessellatorTests {
             .LineTo(new Vector2(0, 12));
 
         var limited = Stroke(path, width: 8, join: LineJoin.Miter);
-        var reach = limited.Max(point => point.X) - 100;
+        var reach = limited.Max(vertex => vertex.Position.X) - 100;
 
         Assert.True(reach < 4 * 4, $"the miter reached {reach} past the corner");
 
         // ...and it is the limit doing it, not the geometry: raised past what this corner needs, the
         // same corner grows the spike.
         var unlimited = Stroke(path, width: 8, join: LineJoin.Miter, miterLimit: 64);
-        Assert.True(unlimited.Max(point => point.X) - 100 > 40);
+        Assert.True(unlimited.Max(vertex => vertex.Position.X) - 100 > 40);
     }
 
     [Fact]
@@ -377,15 +475,23 @@ public class PathTessellatorTests {
         return new FlatPath(points, contours);
     }
 
-    static List<Vector2> Fill(PathBuilder path, PathFillRule rule = PathFillRule.NonZero) {
+    static List<PathVertex> Fill(PathBuilder path, PathFillRule rule = PathFillRule.NonZero) {
         var flat = Flatten(path);
-        var triangles = new List<Vector2>();
+        var triangles = new List<PathVertex>();
         PathTessellator.Fill(flat.Points, flat.Contours, rule, triangles);
 
         return triangles;
     }
 
-    static List<Vector2> Stroke(
+    static List<PathVertex> Fringe(PathBuilder path, PathFillRule rule = PathFillRule.NonZero, float width = 0.5f) {
+        var flat = Flatten(path);
+        var triangles = new List<PathVertex>();
+        PathTessellator.FillFringe(flat.Points, flat.Contours, rule, width, triangles);
+
+        return triangles;
+    }
+
+    static List<PathVertex> Stroke(
         PathBuilder path,
         float width,
         LineJoin join = LineJoin.Miter,
@@ -393,7 +499,7 @@ public class PathTessellatorTests {
         float miterLimit = PathTessellator.DefaultMiterLimit
     ) {
         var flat = Flatten(path);
-        var triangles = new List<Vector2>();
+        var triangles = new List<PathVertex>();
         PathTessellator.Stroke(flat.Points, flat.Contours, width, join, cap, Tolerance, triangles, miterLimit);
 
         return triangles;
@@ -435,9 +541,9 @@ public class PathTessellatorTests {
     }
 
     /// <summary>Whether any emitted triangle contains the point.</summary>
-    static bool Covered(List<Vector2> triangles, Vector2 point) {
+    static bool Covered(List<PathVertex> triangles, Vector2 point) {
         for (var i = 0; i + 2 < triangles.Count; i += 3) {
-            if (InTriangle(point, triangles[i], triangles[i + 1], triangles[i + 2])) {
+            if (InTriangle(point, triangles[i].Position, triangles[i + 1].Position, triangles[i + 2].Position)) {
                 return true;
             }
         }
@@ -470,11 +576,11 @@ public class PathTessellatorTests {
     }
 
     /// <summary>The signed area of the triangles, which for a tiling is the area they cover.</summary>
-    static float Area(List<Vector2> triangles) {
+    static float Area(List<PathVertex> triangles) {
         var total = 0f;
 
         for (var i = 0; i + 2 < triangles.Count; i += 3) {
-            total += MathF.Abs(Side(triangles[i + 2], triangles[i], triangles[i + 1])) * 0.5f;
+            total += MathF.Abs(Side(triangles[i + 2].Position, triangles[i].Position, triangles[i + 1].Position)) * 0.5f;
         }
 
         return total;

@@ -336,13 +336,13 @@ public class UiGeometryTests {
     }
 
     /// <summary>
-    ///     ⚠ Nothing else in a path's vertex is read, and it has to be zero rather than stale. The box
-    ///     shader reads <c>Shape</c> as a half-size and a radius; left over from whatever quad was
-    ///     emitted last, a path drawn by the wrong pipeline would be a rounded rectangle somewhere
-    ///     else rather than nothing at all — which is a much harder thing to see.
+    ///     ⚠ A path's vertex carries a coverage where the other two kinds carry a distance, and
+    ///     nothing else. Left stale, the box shader would read <c>Shape</c> as a half-size and a
+    ///     radius, and a path drawn by the wrong pipeline would be a rounded rectangle somewhere else
+    ///     rather than nothing at all — which is much harder to see.
     /// </summary>
     [Fact]
-    public void A_path_vertex_carries_no_shape_and_no_texture() {
+    public void A_path_vertex_carries_a_coverage_and_nothing_else() {
         var geometry = Build(list => {
                 list.Add(Rect(0, 0, 80, 40, radius: 12));
                 Fill(list, Circle(), Color4.Red);
@@ -353,7 +353,41 @@ public class UiGeometryTests {
 
         Assert.NotEmpty(path);
         Assert.All(path, vertex => Assert.Equal(Vector2.Zero, vertex.Texture));
-        Assert.All(path, vertex => Assert.Equal(Vector4.Zero, vertex.Shape));
+        Assert.All(path, vertex => Assert.Equal(0f, vertex.Shape.Y));
+        Assert.All(path, vertex => Assert.Equal(0f, vertex.Shape.Z));
+        Assert.All(path, vertex => Assert.Equal(0f, vertex.Shape.W));
+        Assert.All(path, vertex => Assert.InRange(vertex.Shape.X, 0f, 1f));
+
+        // The interior is fully covered and the fringe runs out to nothing, so both ends are there.
+        Assert.Contains(path, vertex => vertex.Shape.X == 1f);
+        Assert.Contains(path, vertex => vertex.Shape.X == 0f);
+    }
+
+    /// <summary>
+    ///     ⚠ The whole of what the fringe buys: an edge that is no longer whatever the rasteriser
+    ///     gives it. Switched off, every vertex is fully covered and the outline is a hard step.
+    /// </summary>
+    [Fact]
+    public void The_fringe_can_be_switched_off_for_a_pass_that_antialiases_itself() {
+        var feathered = Build(list => Fill(list, Circle(), Color4.Red));
+        var hard = BuildWith(builder => builder.Fringe = 0f, list => Fill(list, Circle(), Color4.Red));
+
+        Assert.All(hard.Vertices, vertex => Assert.Equal(1f, vertex.Shape.X));
+        Assert.True(feathered.Vertices.Count > hard.Vertices.Count);
+    }
+
+    /// <summary>
+    ///     ⚠ A stroke is feathered too, and by the same number. A path filled and stroked in the same
+    ///     frame with two different fringe widths would have one edge softer than the other.
+    /// </summary>
+    [Fact]
+    public void A_stroke_is_feathered_as_well() {
+        var feathered = Build(list => Stroke(list, Corner(), Color4.White, 6));
+        var hard = Sharp(list => Stroke(list, Corner(), Color4.White, 6));
+
+        Assert.True(feathered.Vertices.Count > hard.Vertices.Count);
+        Assert.Contains(feathered.Vertices, vertex => vertex.Shape.X == 0f);
+        Assert.All(hard.Vertices, vertex => Assert.Equal(1f, vertex.Shape.X));
     }
 
     [Fact]
@@ -402,11 +436,16 @@ public class UiGeometryTests {
     ///     ⚠ The join is a property of the stroke somebody asked for, so two strokes of the same path
     ///     at the same width are different geometry when their joins differ.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ Built with the fringe off, so the counts are about the join. With it on, every piece
+    ///     brings a strip of its own and the difference between a bevel and a miter is buried in it —
+    ///     a test that counts vertices has to say which vertices it means.
+    /// </remarks>
     [Fact]
     public void The_join_reaches_the_tessellator_from_the_command() {
-        var miter = Build(list => Stroke(list, Corner(), Color4.White, 8, LineJoin.Miter));
-        var bevel = Build(list => Stroke(list, Corner(), Color4.White, 8, LineJoin.Bevel));
-        var round = Build(list => Stroke(list, Corner(), Color4.White, 8, LineJoin.Round));
+        var miter = Sharp(list => Stroke(list, Corner(), Color4.White, 8, LineJoin.Miter));
+        var bevel = Sharp(list => Stroke(list, Corner(), Color4.White, 8, LineJoin.Bevel));
+        var round = Sharp(list => Stroke(list, Corner(), Color4.White, 8, LineJoin.Round));
 
         // A bevel is one triangle at the corner, a miter is two, a round one is a fan of many.
         Assert.Equal(bevel.Vertices.Count + 3, miter.Vertices.Count);
@@ -415,8 +454,8 @@ public class UiGeometryTests {
 
     [Fact]
     public void The_cap_reaches_the_tessellator_from_the_command() {
-        var butt = Build(list => Stroke(list, Corner(), Color4.White, 8, cap: LineCap.Butt));
-        var square = Build(list => Stroke(list, Corner(), Color4.White, 8, cap: LineCap.Square));
+        var butt = Sharp(list => Stroke(list, Corner(), Color4.White, 8, cap: LineCap.Butt));
+        var square = Sharp(list => Stroke(list, Corner(), Color4.White, 8, cap: LineCap.Square));
 
         // Two ends, two triangles each.
         Assert.Equal(butt.Vertices.Count + 12, square.Vertices.Count);
@@ -429,9 +468,9 @@ public class UiGeometryTests {
     /// </summary>
     [Fact]
     public void A_miter_limit_of_zero_means_the_default_rather_than_none() {
-        var unset = Build(list => Stroke(list, Corner(), Color4.White, 8));
-        var four = Build(list => Stroke(list, Corner(), Color4.White, 8, miterLimit: 4));
-        var one = Build(list => Stroke(list, Corner(), Color4.White, 8, miterLimit: 1));
+        var unset = Sharp(list => Stroke(list, Corner(), Color4.White, 8));
+        var four = Sharp(list => Stroke(list, Corner(), Color4.White, 8, miterLimit: 4));
+        var one = Sharp(list => Stroke(list, Corner(), Color4.White, 8, miterLimit: 1));
 
         Assert.Equal(four.Vertices.Count, unset.Vertices.Count);
 
@@ -516,6 +555,9 @@ public class UiGeometryTests {
     static DrawCommand ClipPop() => new(DrawCommandKind.ClipPop, 0, 0, 0, 0, default, 0, 0);
 
     static UiGeometry Build(Action<DrawList> paint) => BuildWith(null, paint);
+
+    /// <summary>Builds without the antialiasing fringe, for a test that counts geometry.</summary>
+    static UiGeometry Sharp(Action<DrawList> paint) => BuildWith(builder => builder.Fringe = 0f, paint);
 
     static UiGeometry BuildWith(Action<UiGeometryBuilder>? configure, Action<DrawList> paint) {
         var list = new DrawList();

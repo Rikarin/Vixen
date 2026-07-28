@@ -1431,10 +1431,33 @@ sub-piece has its own gate.
   caps is right when a point is covered exactly when it lies within half a width of the path — the
   Minkowski sum of the polyline with a disc, available in closed form.
 
-  ⚠ **Nothing here is antialiased**, and that is stated rather than hidden. A box and a glyph get a
-  perfect edge because the shader evaluates a distance field; a tessellated path arrives at the
-  rasteriser as triangles. Multisampling fixes it and is the compositor's call; a feathered fringe
-  fixes it more cheaply and is owed.
+  ~~⚠ **Nothing here is antialiased**, and that is stated rather than hidden.~~ ✅ **It is now**, by a
+  fringe: the interior comes out at full coverage and a half-pixel strip along the outline carries the
+  ramp to zero, in the vertex where a box and a glyph carry a distance. Multisampling is still the
+  other answer and remains the compositor's to choose — `UiGeometryBuilder.Fringe = 0` switches this
+  one off, because two antialiasing schemes over one edge do not make it twice as smooth.
+
+  ⚠ **Which way is out is asked of the fill rule, not derived from the winding.** The cheap version
+  takes a contour's signed area as its orientation and is wrong for exactly the shapes that need a
+  fill rule: under even-odd a hole is a hole however it is wound, so an inner contour wound the same
+  way as its outer one gets its fringe drawn *into* the shape — a bright band around every counter in
+  an icon set. Each edge is probed on both sides instead and kept only where exactly one is inside.
+
+  ⚠ **And an edge is cut where anything crosses it before being asked.** A pentagram's chords all pass
+  through the pentagon in the middle, so probed once at the midpoint every one of them reads
+  "interior" and the star comes out with no antialiased edge at all. Splitting first is the same thing
+  the sweep does to its bands, for the same reason.
+
+  ⚠ A stroke's fringe is emitted per piece, so it overlaps on the inside of every turn — invisible for
+  an opaque stroke and only for an opaque one, since a ramp in the same colour over a pixel already
+  that colour leaves it unchanged. At a partial alpha it is a faint line down the inside of each
+  corner, and the alternative is resolving the union of the pieces into one outline, which is the
+  offset-curve problem the stroker declines to solve.
+
+  Verified by sabotage: eleven, all landing — the direction taken from the winding fails 2, the fringe
+  drawn inward fails 2, an edge decided whole fails 1, the corner wedges left out fails 1, a fringe at
+  full coverage throughout fails 1, an ignored width fails 2, an unfeathered stroke or fill fails 2
+  each, a coverage that never reaches the vertex fails 3, and a shader that ignores it fails 1.
 
   Verified by sabotage: twelve, eleven landing first time. ⚠ **The twelfth failed to fail** —
   deleting the seam-duplicate removal broke nothing, because the test used `AddRectangle`, which
@@ -1496,9 +1519,8 @@ sub-piece has its own gate.
   is no implementation in which a join is anything but geometry.
 
 - Owed: font fallback, rich-text runs, variable-font axes, `TextEditor` model with IME and caret
-  affinity. On the rendering side: an antialiased path edge, and reconciling the per-vertex box
-  parameters here with `Raven/Library/Ui`'s per-uniform ones when Raven takes over shader
-  compilation.
+  affinity. On the rendering side: reconciling the per-vertex box parameters here with
+  `Raven/Library/Ui`'s per-uniform ones when Raven takes over shader compilation.
 - Gate: ✅ UAX conformance data green. ✅ shaping conformance green against an external oracle,
   with the quarantine pinned in both directions.
 

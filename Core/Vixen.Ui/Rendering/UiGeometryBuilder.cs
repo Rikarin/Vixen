@@ -37,7 +37,7 @@ public sealed class UiGeometryBuilder {
     readonly List<Rectangle> clips = [];
     readonly List<Vector2> points = [];
     readonly List<Contour> contours = [];
-    readonly List<Vector2> triangles = [];
+    readonly List<PathVertex> triangles = [];
 
     /// <summary>How many glyphs were dropped because the atlas could not hold them.</summary>
     /// <remarks>
@@ -56,6 +56,16 @@ public sealed class UiGeometryBuilder {
     ///     and inventing one would be guessing.
     /// </remarks>
     public float Tolerance { get; set; } = 0.2f;
+
+    /// <summary>How far a path's antialiasing fringe reaches past its outline, in document pixels.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Half a pixel, and in document pixels like <see cref="Tolerance" />.</b> A surface drawn
+    ///     at twice the scale wants half of this, or the fringe is a whole device pixel wide and the
+    ///     edge reads as soft rather than smooth. Zero switches it off, which is what a caller
+    ///     multisampling the pass should do: two antialiasing schemes over one edge do not make it
+    ///     twice as smooth, they make a seam.
+    /// </remarks>
+    public float Fringe { get; set; } = 0.5f;
 
 
     /// <summary>Builds the geometry for a frame.</summary>
@@ -223,10 +233,17 @@ public sealed class UiGeometryBuilder {
 
     /// <summary>A path, filled or stroked, as loose triangles.</summary>
     /// <remarks>
-    ///     ⚠ <b>The only kind that is real geometry rather than a quad the shader resolves.</b> A box
-    ///     and a glyph are both a distance function evaluated per pixel, so they cost four vertices
-    ///     whatever their shape; an arbitrary path has no such function, so it is tessellated — which
-    ///     is also why it is the only kind that arrives at the rasteriser without an antialiased edge.
+    ///     <para>
+    ///         ⚠ <b>The only kind that is real geometry rather than a quad the shader resolves.</b> A
+    ///         box and a glyph are both a distance function evaluated per pixel, so they cost four
+    ///         vertices whatever their shape; an arbitrary path has no such function, so it is
+    ///         tessellated.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Which is why it is also the only kind whose edge has to be <i>drawn</i>. The interior
+    ///         comes out at full coverage and a strip along the outline carries the ramp from one to
+    ///         zero, and the coverage travels in the vertex where the other two kinds put a distance.
+    ///     </para>
     /// </remarks>
     void Path(DrawList list, DrawCommand command) {
         points.Clear();
@@ -241,6 +258,7 @@ public sealed class UiGeometryBuilder {
 
         if (command.Kind == DrawCommandKind.Path) {
             PathTessellator.Fill(points, contours, command.FillRule, triangles);
+            PathTessellator.FillFringe(points, contours, command.FillRule, Fringe, triangles);
         } else {
             PathTessellator.Stroke(
                 points,
@@ -250,7 +268,8 @@ public sealed class UiGeometryBuilder {
                 command.Cap,
                 Tolerance,
                 triangles,
-                command.MiterLimit > 0 ? command.MiterLimit : PathTessellator.DefaultMiterLimit
+                command.MiterLimit > 0 ? command.MiterLimit : PathTessellator.DefaultMiterLimit,
+                Fringe
             );
         }
 
@@ -262,11 +281,20 @@ public sealed class UiGeometryBuilder {
             // the stroke overlaps rather than seams. An index buffer over this is the identity, and
             // building one would cost a hash per vertex to discover that.
             for (var corner = 0; corner < 3; corner++) {
-                var point = triangles[i + corner];
+                var vertex = triangles[i + corner];
 
-                // Nothing else in the vertex is read: a path has no distance field to sample and no
-                // shape to evaluate, which is what makes it a different pipeline from the other two.
-                vertices.Add(new UiVertex(point, Vector2.Zero, command.Color, Vector4.Zero));
+                // The coverage rides where the other two kinds put a distance, so the solid shader
+                // reads `Shape.x` for the same reason the text shader does. Nothing else is read: a
+                // path has no field to sample and no shape to evaluate.
+                vertices.Add(
+                    new UiVertex(
+                        vertex.Position,
+                        Vector2.Zero,
+                        command.Color,
+                        new Vector4(vertex.Coverage, 0, 0, 0)
+                    )
+                );
+
                 indices.Add(start + (uint)corner);
             }
         }
