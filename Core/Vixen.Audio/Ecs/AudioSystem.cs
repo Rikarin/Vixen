@@ -189,6 +189,7 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
                         Pitch = source.Pitch,
                         Pan = source.Pan,
                         Loop = source.Loop,
+                        Priority = source.Priority,
                         IsSpatial = spatial,
                         Spatial = settings
                     });

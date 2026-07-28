@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Vixen.Audio.Devices;
 using Vixen.Audio.Diagnostics;
+using Vixen.Audio.Effects;
 using Vixen.Audio.Mixing;
 using Vixen.Audio.Sources;
 using Vixen.Audio.Spatial;
@@ -34,6 +35,18 @@ public readonly record struct AudioEngineOptions() {
 
     /// <summary>Whether the device starts pulling as soon as the engine is built.</summary>
     public bool AutoStart { get; init; } = true;
+
+    /// <summary>Whether a <see cref="LimiterEffect" /> is put on the master bus.</summary>
+    /// <remarks>
+    ///     <b>On, and the default is the interesting decision.</b> Most engines ship without one and
+    ///     let a busy scene clip, because a limiter is a mastering tool and mastering is the sound
+    ///     designer's job. The counter-argument won here: the master ends in a clamp whatever
+    ///     happens, so the choice is not "limiter or nothing" but "limiter or hard clipping", and
+    ///     nobody prefers hard clipping. Turn it off to mix a scene without a safety net underneath —
+    ///     which is a real thing to want while balancing levels, because a limiter hides the problem
+    ///     you are trying to hear.
+    /// </remarks>
+    public bool MasterLimiter { get; init; } = true;
 }
 
 /// <summary>The front door: what a game holds, and the only audio type most code touches.</summary>
@@ -82,6 +95,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
 
     long renderedFrames;
     long droppedRequests;
+    long stolenVoices;
     long reportedDrops;
     long reportedStreamUnderruns;
     long reportedDeviceUnderruns;
@@ -111,6 +125,11 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         // device calls Prepare too; doing it here as well means a caller can build an effect chain
         // between construction and AutoStart without tripping over a bus that has no format yet.
         Mixer.Prepare(device.Format, device.BufferFrames);
+
+        if (options.MasterLimiter) {
+            Limiter = new LimiterEffect();
+            Master.AddEffect(Limiter);
+        }
 
         if (options.StreamOnOwnThread) {
             Streams.Start();
@@ -180,6 +199,14 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
 
     /// <summary>The bus everything reaches.</summary>
     public AudioBus Master => Mixer.Master;
+
+    /// <summary>The limiter on the master, if <see cref="AudioEngineOptions.MasterLimiter" /> asked for one.</summary>
+    /// <remarks>
+    ///     Exposed so its ceiling can be changed and its gain reduction read — the second being the
+    ///     number that says the mix is too hot, which is a thing to see on the audio overlay rather
+    ///     than to discover by ear.
+    /// </remarks>
+    public LimiterEffect? Limiter { get; }
 
     /// <summary>What the device is rendering.</summary>
     public AudioFormat Format => Device.Format;
@@ -352,6 +379,8 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
                 streamUnderruns += streaming.Underruns;
             }
 
+            Retire(voice);
+
             if (Volatile.Read(ref voice.State) != (int)VoiceState.Finished) {
                 continue;
             }
@@ -375,7 +404,8 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
             DeviceUnderruns = deviceUnderruns,
             StreamUnderruns = streamUnderruns,
             StreamCount = Streams.StreamCount,
-            DroppedRequests = drops
+            DroppedRequests = drops,
+            StolenVoices = Interlocked.Read(ref stolenVoices)
         };
 
         if (drops > reportedDrops) {
@@ -509,31 +539,141 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     VoiceHandle Play(IAudioSampleProvider source, in PlaybackSettings settings, bool ownsSource) {
         ArgumentNullException.ThrowIfNull(source);
 
-        if (!TryClaim(out var index)) {
+        if (TryClaim(out var index)) {
+            var claimed = voices[index];
+            claimed.Source = source;
+            claimed.OwnsSource = ownsSource;
+            Describe(claimed, settings);
+
+            // Priming the interpolator reads the first two frames, which for a clip is a memory copy
+            // and for a stream is a read from a ring the pump has already filled. It happens here, on
+            // the calling thread, because the audio thread must not be the one to discover that a
+            // provider was empty.
+            claimed.Begin();
+
+            // The state write is what publishes everything above it to the audio thread: it is a
+            // release, and the render loop only looks at a voice it has seen playing.
+            Volatile.Write(
+                ref claimed.State,
+                (int)(settings.StartPaused ? VoiceState.Paused : VoiceState.Playing)
+            );
+
+            return new VoiceHandle(index, claimed.Generation);
+        }
+
+        if (!TrySteal(settings.Priority, out var victim)) {
             Interlocked.Increment(ref droppedRequests);
             return VoiceHandle.None;
         }
 
-        var voice = voices[index];
-        voice.Source = source;
-        voice.OwnsSource = ownsSource;
+        // The victim is or was being rendered, so nothing here may touch its render state. Only the
+        // pending fields and the scalars — and the scalars only affect a block that is fading to
+        // silence anyway.
+        var stolen = voices[victim];
+        stolen.PendingSource = source;
+        stolen.PendingOwnsSource = ownsSource;
+        stolen.PendingPaused = settings.StartPaused;
+        Describe(stolen, settings);
+
+        // Published last, and read first by the audio thread: everything above it is visible by the
+        // time the flag is seen.
+        Volatile.Write(ref stolen.StealPending, 1);
+        Interlocked.Increment(ref stolenVoices);
+        return new VoiceHandle(victim, stolen.Generation);
+    }
+
+    void Describe(Voice voice, in PlaybackSettings settings) {
+        // Clamped rather than rejected: a bus index that no longer names a bus is a stale asset, and
+        // routing it to the master is audible in a way that silently dropping the sound is not.
         voice.Bus = (uint)settings.Bus < (uint)Mixer.Buses.Count ? settings.Bus : 0;
         voice.Gain = settings.Gain;
         voice.Pitch = settings.Pitch;
         voice.Pan = settings.Pan;
+        voice.Priority = settings.Priority;
         voice.IsSpatial = settings.IsSpatial;
         voice.PublishSpatial(settings.Spatial);
+    }
 
-        // Priming the interpolator reads the first two frames, which for a clip is a memory copy and
-        // for a stream is a read from a ring the pump has already filled. It happens here, on the
-        // calling thread, because the audio thread must not be the one to discover that a provider
-        // was empty.
-        voice.Begin();
+    /// <summary>Finds the voice most worth displacing, and asks it to stop.</summary>
+    /// <param name="priority">What the incoming sound is worth.</param>
+    /// <param name="index">Which slot was taken.</param>
+    /// <returns>Whether anything was worth taking.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Quietest of the least important.</b> Priority is the first key because it is what a
+    ///         designer set deliberately; audibility is the tie-break because among sounds nobody
+    ///         ranked, the one nobody can hear is the one to lose. A sound already stopping or
+    ///         finished is taken first of all, since it was on its way out regardless.
+    ///     </para>
+    ///     <para>
+    ///         <b>Nothing more important than the newcomer is ever taken.</b> A pool full of dialogue
+    ///         refuses a footstep rather than making room for it, which is the behaviour that makes
+    ///         priority worth setting at all.
+    ///     </para>
+    ///     <para>
+    ///         The scan is over the whole pool — sixty-four slots — and happens only when the pool is
+    ///         full, which is exactly when a few hundred nanoseconds is affordable.
+    ///     </para>
+    /// </remarks>
+    bool TrySteal(int priority, out int index) {
+        var best = -1;
+        var bestPriority = int.MaxValue;
+        var bestAudibility = float.MaxValue;
 
-        // The state write is what publishes everything above it to the audio thread: it is a release,
-        // and the render loop only looks at a voice it has seen playing.
-        Volatile.Write(ref voice.State, (int)(settings.StartPaused ? VoiceState.Paused : VoiceState.Playing));
-        return new VoiceHandle(index, voice.Generation);
+        for (var i = 0; i < voices.Length; i++) {
+            var voice = voices[i];
+            var state = (VoiceState)Volatile.Read(ref voice.State);
+
+            // A slot mid-steal already has a sound waiting for it; taking it again would strand the
+            // handle already handed out for it.
+            if (Volatile.Read(ref voice.StealPending) != 0) {
+                continue;
+            }
+
+            if (state is not (VoiceState.Playing or VoiceState.Paused)) {
+                continue;
+            }
+
+            if (voice.Priority > priority) {
+                continue;
+            }
+
+            var audibility = voice.Audibility;
+
+            if (voice.Priority > bestPriority || (voice.Priority == bestPriority && audibility >= bestAudibility)) {
+                continue;
+            }
+
+            best = i;
+            bestPriority = voice.Priority;
+            bestAudibility = audibility;
+        }
+
+        if (best < 0) {
+            index = -1;
+            return false;
+        }
+
+        var chosen = voices[best];
+        var chosenState = (VoiceState)Volatile.Read(ref chosen.State);
+
+        if (Interlocked.CompareExchange(
+                ref chosen.State,
+                (int)VoiceState.Stopping,
+                (int)chosenState
+            ) != (int)chosenState) {
+            // It finished on its own between the scan and here. Rare, and the answer is to try the
+            // whole thing again rather than to steal a slot whose state moved underneath us.
+            index = -1;
+            return false;
+        }
+
+        // Bumped while the slot is Stopping, which invalidates the displaced sound's handle
+        // immediately and makes the one about to be returned the only live reference to the slot.
+        // Only the game thread reads it.
+        chosen.Generation++;
+        index = best;
+        return true;
     }
 
     bool TryClaim(out int index) {
@@ -567,6 +707,19 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
 
         voice = null!;
         return false;
+    }
+
+    /// <summary>Disposes what a steal displaced, on a thread that is allowed to.</summary>
+    void Retire(Voice voice) {
+        if (Interlocked.Exchange(ref voice.RetiredSource, null) is not { } retired) {
+            return;
+        }
+
+        if (retired is StreamingSampleProvider streaming) {
+            Streams.Unregister(streaming);
+        }
+
+        (retired as IDisposable)?.Dispose();
     }
 
     void Collect(Voice voice) {

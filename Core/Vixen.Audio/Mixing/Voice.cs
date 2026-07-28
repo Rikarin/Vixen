@@ -88,8 +88,42 @@ sealed class Voice {
     /// </remarks>
     public bool OwnsSource;
 
+    /// <summary>How hard it is to take this voice's slot. Higher survives.</summary>
+    public int Priority;
+
     /// <summary>What the spatialiser last worked out, for the audio debug overlay.</summary>
     public SpatialResult LastSpatial = new(0f, 1f, 1f, 1f);
+
+    /// <summary>The source a steal has lined up, to be taken on by the audio thread.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Why the handoff is deferred rather than done where the steal is decided.</b> A
+    ///         stolen voice is, by definition, one the audio thread may be in the middle of
+    ///         rendering. Swapping <see cref="Source" /> from the game thread would leave
+    ///         <see cref="readAvailable" /> and <see cref="readCursor" /> describing the old
+    ///         provider's buffer and the new provider's channel count — an index out of range on the
+    ///         audio thread, in a callback, which is a crash rather than a glitch.
+    ///     </para>
+    ///     <para>
+    ///         So the game thread only fills these fields and asks for the stop. The audio thread
+    ///         finishes the fade, and at the point where it would have marked the slot
+    ///         <see cref="VoiceState.Finished" /> it picks the pending source up instead. That is the
+    ///         one moment nothing is reading the render state.
+    ///     </para>
+    /// </remarks>
+    public IAudioSampleProvider? PendingSource;
+
+    /// <summary>Whether the pending source is the engine's to dispose.</summary>
+    public bool PendingOwnsSource;
+
+    /// <summary>Whether the pending start is paused.</summary>
+    public bool PendingPaused;
+
+    /// <summary>Non-zero when a steal is waiting to be taken on. Written last, read first.</summary>
+    public int StealPending;
+
+    /// <summary>What the steal displaced, for the game thread to dispose. Never touched by the audio thread twice.</summary>
+    public IAudioSampleProvider? RetiredSource;
 
     /// <summary>Where in the world it is, as the audio thread last managed to read it.</summary>
     public SpatialSettings Spatial => spatial;
@@ -100,6 +134,45 @@ sealed class Voice {
     /// <summary>Publishes new spatial settings from the game thread.</summary>
     /// <param name="settings">Where the sound is, and how it behaves there.</param>
     public void PublishSpatial(in SpatialSettings settings) => published.Write(settings);
+
+    /// <summary>
+    ///     How loud this voice actually is right now, spatialisation included — what a steal
+    ///     compares.
+    /// </summary>
+    /// <remarks>
+    ///     The voice's own gain multiplied by what the spatialiser last worked out, so a sound that
+    ///     is technically at full volume two hundred metres away scores as the near-silence it is.
+    ///     Read from the game thread while the audio thread writes it: every term is a float, so the
+    ///     worst case is scoring against last block's distance, which is exactly as good.
+    /// </remarks>
+    public float Audibility => IsSpatial
+        ? Gain * LastSpatial.Attenuation * LastSpatial.ConeGain
+        : Gain;
+
+    /// <summary>Takes on a source a steal lined up, if there is one.</summary>
+    /// <param name="paused">Whether the new sound should start held.</param>
+    /// <returns>Whether the slot was reused rather than finished.</returns>
+    /// <remarks>Runs on the audio thread, at the one moment nothing is reading the render state.</remarks>
+    public bool TryTakePending(out bool paused) {
+        paused = false;
+
+        if (Volatile.Read(ref StealPending) == 0) {
+            return false;
+        }
+
+        // Handed to the game thread rather than dropped here: the last reference to a provider going
+        // away on the audio thread means a finaliser, and possibly a file handle, on the audio thread.
+        RetiredSource = OwnsSource ? Source : null;
+
+        Source = PendingSource;
+        OwnsSource = PendingOwnsSource;
+        paused = PendingPaused;
+        PendingSource = null;
+
+        Begin();
+        Volatile.Write(ref StealPending, 0);
+        return true;
+    }
 
     /// <summary>Sizes the voice for a device. Called once, before anything plays.</summary>
     /// <param name="format">The device's format.</param>
@@ -332,7 +405,13 @@ sealed class Voice {
         }
 
         if (readCursor >= readAvailable) {
-            readAvailable = source.Read(read, read.Length / sourceChannels);
+            // ReadFrames, not the buffer's whole capacity in frames. The buffer is sized for 256
+            // frames at the widest channel count, so a mono source could be asked for 2 048 — which
+            // is efficient for a clip and wrong for anything live: a provider that answers an
+            // underrun with silence would have 2 048 frames of it committed before it looked at its
+            // ring again, which is forty milliseconds of a voice-chat packet arriving too late to
+            // matter.
+            readAvailable = source.Read(read, ReadFrames);
             readCursor = 0;
 
             if (readAvailable <= 0) {

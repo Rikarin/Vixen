@@ -96,4 +96,24 @@ public readonly record struct PlaybackSettings() {
 
     /// <summary>Whether it starts paused, so a caller can position it before a single frame is heard.</summary>
     public bool StartPaused { get; init; }
+
+    /// <summary>How hard this sound is to displace when the voice pool is full. Higher survives.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Zero is ordinary. Music, dialogue and anything a player is waiting to hear the end of
+    ///         goes above it; footsteps, impacts and ambience stay at it or below.
+    ///     </para>
+    ///     <para>
+    ///         <b>Higher wins, which is the opposite of Unity's convention</b> — there, 0 is the most
+    ///         important and 256 the least, inherited from a table where the number was a sort key.
+    ///         The inversion is a documented trap in every project that uses it, and there is no
+    ///         reason to reproduce it: "more important" reading as "bigger" is what everybody
+    ///         guesses.
+    ///     </para>
+    ///     <para>
+    ///         A sound is only ever displaced by one of at least equal priority, so a pool full of
+    ///         high-priority sounds refuses a low-priority request rather than making room for it.
+    ///     </para>
+    /// </remarks>
+    public int Priority { get; init; }
 }

@@ -51,15 +51,99 @@ that owns its mixer pays.
 | | |
 |---|---|
 | `AudioEngine` | the front door: play, stop, buses, listener, statistics |
-| `AudioMixer` / `AudioBus` | the bus tree and the block render |
+| `AudioMixer` / `AudioBus` | the bus graph, its render order, and the block render |
+| `AudioSend` | a copy of a bus's signal into another, so one reverb serves a whole level |
 | `Voice` | one sound: a source, a rate conversion, a set of speaker gains |
 | `Spatializer` | distance, cone, doppler and panning, as arithmetic |
-| `IAudioEffect` | `BiquadFilterEffect` (seven shapes) and `ReverbEffect` (Freeverb) |
-| `IAudioSampleProvider` | a clip, a stream, or anything a caller can produce samples from |
+| `IAudioEffect` | `BiquadFilterEffect` (seven shapes), `ReverbEffect` (Freeverb), `CompressorEffect`, `LimiterEffect` |
+| `ISidechainEffect` | an effect that listens to one bus while processing another — how ducking is built |
+| `IAudioSampleProvider` | a clip, a stream, a live push source, or anything a caller can produce samples from |
+| `LiveSampleProvider` | frames pushed in as they arrive, for voice chat |
 | `IAudioStreamDecoder` | the seam a codec plugs into — `PcmStreamDecoder` needs none |
 | `AudioStreamPump` | the one thread that keeps every streaming voice fed |
 | `IAudioBackend` | what a platform implements. `NullAudioBackend` is here; OpenAL and WebAudio are under `Platform/` |
 | `Ecs/AudioSystem` | makes the mixer agree with the world, once a frame |
+
+## Inserts, sends, and the order it all runs in
+
+An effect added with `AddEffect` is an **insert**: it processes the bus it is on, and everything
+routed there gets all of it. A **send** is a copy of the bus's signal added into another one at some
+level, and it is what makes a graph out of a tree.
+
+```csharp
+var reverb = engine.CreateBus("Reverb");
+reverb.AddEffect(new ReverbEffect { Wet = 1f, Dry = 0f });
+
+var ambience = engine.CreateBus("Ambience", world);
+ambience.AddSend(reverb, 0.4f);        // post-fader: the fader takes the reverb with it
+```
+
+One reverb wanted by six buses at six different amounts is one reverb and six sends. As inserts it
+would be six reverbs.
+
+**Ducking is a sidechain**, which is the same idea pointing the other way:
+
+```csharp
+music.SetSidechain(dialogue);
+music.AddEffect(new CompressorEffect { ThresholdDb = -40f, Ratio = 20f, AttackSeconds = 0f });
+```
+
+Now the music gets out of the way whenever anybody speaks, and no gameplay system that can produce
+speech has to know the music bus exists.
+
+**The render order is a topological sort**, not a depth sort. With only parent edges the graph is a
+tree and "deepest first" is correct for free; a send is an edge that does not follow the tree, and a
+sidechain is a third kind with the same requirement — the key has to have been rendered. `AddSend`
+and `SetSidechain` refuse anything that would make a cycle, so the sort always succeeds.
+
+**A bus's gain is applied in place**, which is load-bearing rather than incidental: it used to be
+handed back for the parent sum to apply, which meant the buffer held a *pre*-fader signal — so a send
+reading it, or a compressor keying off it, would have ignored the fader entirely.
+
+## When the pool is full
+
+A `Play` that finds every voice busy **steals** the lowest-priority, quietest one. Priority is the
+first key because it is what somebody set deliberately; audibility — gain times distance attenuation
+times cone gain — is the tie-break, because among sounds nobody ranked, the one nobody can hear is
+the one to lose. Nothing more important than the newcomer is ever taken, so a pool full of dialogue
+refuses a footstep rather than making room for it.
+
+**Higher priority survives, which is the opposite of Unity's convention** — there 0 is the most
+important, inherited from a table where the number was a sort key, and it is a documented trap in
+every project that uses it.
+
+**The handoff happens on the audio thread.** A stolen voice is by definition one the audio thread may
+be mid-render on, so the game thread only fills the pending fields and asks for the stop; the audio
+thread picks the new source up at the point it would have marked the slot finished, which is the one
+moment nothing is reading the render state. Swapping the source from the game thread would leave the
+read cursor describing one provider's buffer and another's channel count — an index out of range, in
+a driver callback.
+
+## Voice chat
+
+`LiveSampleProvider` is the push side of the mixer: the network thread writes decoded frames, the
+mixer pulls them, and an empty ring is silence and a counter rather than the end of the voice.
+Somebody who has stopped talking is not somebody who has left — a voice that ended on every late
+packet would be rebuilt, with its bus and its spatialisation, several times a sentence.
+
+**Effects are per bus, not per voice**, which decides how a session is wired. "Some players are
+underwater" is two buses — one with a low-pass and a send to the underwater reverb, one without — and
+each player's voice is routed to whichever matches where they are. That is one bus per *environment*
+rather than per player, and it is both cheaper and how a mixer is meant to be used.
+
+## The master
+
+Ends in a `LimiterEffect` by default, and then a clamp. The limiter is the level control: a
+sliding-window maximum over the look-ahead window means the gain applied to a sample was decided by a
+window containing that sample, so the ceiling is a guarantee rather than a tendency, and the step
+that brings the gain down lands during the quiet part before the transient that caused it.
+
+The clamp behind it is a guard — a NaN out of a misbehaving effect, or an overshoot nothing caught.
+A 16-bit backend would wrap a sample above one round to the opposite rail, which is the loudest click
+a machine can make.
+
+Turn the limiter off with `AudioEngineOptions.MasterLimiter` to balance levels without a safety net
+underneath, which is a real thing to want: a limiter hides the problem you are trying to hear.
 
 ## Two threads, and no lock between them
 
@@ -150,6 +234,16 @@ multiply on the few hundred frames that are actually playing.
 
 ## Still to come
 
+**Per-voice sends.** Sends are per bus, so every source on a bus shares one send amount. For a room's
+reverb that is right; for a reverb amount that tracks how far into the room each emitter is, it is
+not.
+
+**A mixer asset with snapshots.** Buses are built in code. Snapshot transitions — combat, underwater,
+paused — are what a sound designer actually works in.
+
+**Occlusion and reverb zones**, both of which want physics, and a per-voice distance low-pass for air
+absorption, which does not.
+
 **A surround panner.** Beyond two channels a sound is placed in the first two and the rest are
 silent. Silence in the surrounds is wrong in a way somebody will notice and describe; a quiet, wrong
 smear across five speakers is wrong in a way they will not.
@@ -158,9 +252,6 @@ smear across five speakers is wrong in a way they will not.
 pitching up hard. The content build resamples clips to the rate they will be played at, so the common
 ratio is exactly one and the interpolator is bypassed by the arithmetic itself — but a pitched-up
 sound effect is audibly cheap.
-
-**Voice stealing.** A pool with nothing free drops the request and counts it. Dropping the quietest
-voice instead is the usual answer and is owed.
 
 **Codecs.** `IAudioStreamDecoder` is the seam and `PcmStreamDecoder` is the implementation that needs
 none, so the streaming path works today at the cost of disk. Ogg or Opus is what makes a five-minute

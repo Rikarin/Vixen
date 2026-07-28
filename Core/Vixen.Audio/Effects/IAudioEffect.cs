@@ -48,3 +48,30 @@ public interface IAudioEffect {
     /// </remarks>
     void Reset();
 }
+
+/// <summary>An effect that listens to one signal while processing another.</summary>
+/// <remarks>
+///     <para>
+///         Ducking, and everything shaped like it. A compressor on the music bus keyed by the
+///         dialogue bus turns the music down whenever anybody speaks — which is the single most
+///         asked-for behaviour in game audio and cannot be expressed by an effect that can only see
+///         what it is processing.
+///     </para>
+///     <para>
+///         The key arrives as a span the bus owns, valid only for the call. An effect that wants
+///         history keeps an envelope, not the samples.
+///     </para>
+///     <para>
+///         <see cref="IAudioEffect.Process" /> is still implemented and is what runs when the bus
+///         has no <see cref="Vixen.Audio.Mixing.AudioBus.SidechainSource" />, so a keyed effect on
+///         an unkeyed bus behaves as an ordinary one rather than failing.
+///     </para>
+/// </remarks>
+public interface ISidechainEffect : IAudioEffect {
+    /// <summary>Processes a block against a key signal.</summary>
+    /// <param name="buffer">Interleaved, <c>frameCount × channels</c> floats. Processed in place.</param>
+    /// <param name="key">The signal to listen to. The same length and layout as the buffer.</param>
+    /// <param name="frameCount">How many frames.</param>
+    /// <param name="channels">How many channels are interleaved.</param>
+    void Process(Span<float> buffer, ReadOnlySpan<float> key, int frameCount, int channels);
+}

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Audio.Mixing;
+using Vixen.Audio.Sources;
 using Vixen.Audio.Streaming;
 using Xunit;
 
@@ -285,5 +286,99 @@ public sealed class StreamingTests {
         decoder.Decode(destination, 4);
 
         Assert.Equal(32 * AudioTestData.RampStep, destination[0], 1e-6f);
+    }
+}
+
+/// <summary>
+///     The push side of the mixer, which is what a remote player's voice arrives on. Everything else
+///     in the engine is pulled: a clip or a decoder is asked for frames and produces them. A packet
+///     from the network lands when it lands.
+/// </summary>
+public sealed class LiveSampleProviderTests {
+    [Fact]
+    public void WhatIsPushedIsWhatIsPlayed() {
+        var live = new LiveSampleProvider(AudioFormat.Mono48k);
+
+        Assert.Equal(4, live.Write([0.1f, 0.2f, 0.3f, 0.4f]));
+        Assert.Equal(4, live.BufferedFrames);
+
+        var destination = new float[4];
+        Assert.Equal(4, live.Read(destination, 4));
+        Assert.Equal([0.1f, 0.2f, 0.3f, 0.4f], destination);
+    }
+
+    /// <summary>
+    ///     Somebody who has stopped talking is not somebody who has left. A voice that ended every
+    ///     time a packet was late would be rebuilt — with its bus, its spatialisation and its effects
+    ///     — several times a sentence.
+    /// </summary>
+    [Fact]
+    public void SilenceBetweenPacketsIsNotTheEndOfTheVoice() {
+        var live = new LiveSampleProvider(AudioFormat.Mono48k);
+        live.Write([0.5f, 0.5f]);
+
+        var destination = new float[8];
+
+        Assert.Equal(8, live.Read(destination, 8));
+        Assert.Equal(0.5f, destination[0]);
+        Assert.Equal(0f, destination[2]);
+        Assert.Equal(1, live.Underruns);
+        Assert.False(live.IsCompleted);
+
+        live.Write([0.25f]);
+        Assert.Equal(8, live.Read(destination, 8));
+        Assert.Equal(0.25f, destination[0]);
+    }
+
+    /// <summary>
+    ///     The other failure, and the one that is easy to miss: a burst after a stall fills the ring
+    ///     and the excess is thrown away. Growing the buffer to hide it adds latency to every word.
+    /// </summary>
+    [Fact]
+    public void PushingFasterThanRealTimeDropsTheOverflowAndCountsIt() {
+        var live = new LiveSampleProvider(AudioFormat.Mono48k, bufferedFrames: 4);
+
+        Assert.Equal(4, live.Write([1f, 2f, 3f, 4f, 5f, 6f]));
+        Assert.Equal(2, live.DroppedFrames);
+    }
+
+    [Fact]
+    public void CompletingLetsTheVoiceFinishWhatWasAlreadyBuffered() {
+        var live = new LiveSampleProvider(AudioFormat.Mono48k);
+        live.Write([0.5f, 0.5f, 0.5f]);
+        live.Complete();
+
+        var destination = new float[8];
+
+        Assert.Equal(3, live.Read(destination, 8));
+        Assert.Equal(0, live.Read(destination, 8));
+        Assert.Equal(0, live.Underruns);
+    }
+
+    [Fact]
+    public void ALiveVoicePlaysThroughTheMixerAndEndsWhenTheSpeakerLeaves() {
+        var (engine, device) = AudioTestData.Engine(channels: 1);
+        using var _ = engine;
+
+        var live = new LiveSampleProvider(AudioFormat.Mono48k);
+        live.Write(Enumerable.Repeat(0.5f, 512).ToArray());
+
+        var handle = engine.Play(live, new PlaybackSettings { Gain = 1f, Pitch = 1f });
+        var rendered = AudioTestData.Render(device, 256);
+
+        Assert.Equal(0.5f, AudioTestData.Peak(rendered), 0.001f);
+
+        live.Complete();
+        AudioTestData.Render(device, 1_024);
+        engine.Update();
+
+        Assert.False(engine.IsPlaying(handle));
+    }
+
+    [Fact]
+    public void ALiveSourceCannotBeSeeked() {
+        var live = new LiveSampleProvider(AudioFormat.Mono48k);
+
+        Assert.Throws<NotSupportedException>(() => live.Seek(0));
     }
 }

@@ -163,20 +163,27 @@ public sealed class AudioMixerTests {
         Assert.True(engine.IsPlaying(second));
     }
 
+    /// <summary>
+    ///     A request is only refused when every voice in the pool outranks it. Anything else is a
+    ///     steal — see <c>VoiceStealingTests</c>.
+    /// </summary>
     [Fact]
-    public void APoolWithNothingFreeDropsTheRequestAndSaysSo() {
+    public void APoolFullOfMoreImportantSoundsRefusesTheRequest() {
         var (engine, device) = AudioTestData.Engine(voices: 2);
         using var _ = engine;
 
-        engine.Play(AudioTestData.Constant(4_800, 1f));
-        engine.Play(AudioTestData.Constant(4_800, 1f));
-        var dropped = engine.Play(AudioTestData.Constant(4_800, 1f));
+        var settings = new PlaybackSettings { Gain = 1f, Pitch = 1f, Priority = 10 };
+        engine.Play(AudioTestData.Constant(4_800, 1f), settings);
+        engine.Play(AudioTestData.Constant(4_800, 1f), settings);
+
+        var dropped = engine.Play(AudioTestData.Constant(4_800, 1f), settings with { Priority = 0 });
 
         AudioTestData.Render(device, 16);
         engine.Update();
 
         Assert.False(dropped.IsValid);
         Assert.Equal(1, engine.Statistics.DroppedRequests);
+        Assert.Equal(0, engine.Statistics.StolenVoices);
         Assert.Equal(2, engine.Statistics.ActiveVoices);
     }
 

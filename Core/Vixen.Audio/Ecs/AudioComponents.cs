@@ -58,6 +58,10 @@ public struct AudioSource {
     /// <summary>Whether it wraps round instead of ending.</summary>
     public bool Loop;
 
+    /// <summary>How hard it is to displace when the voice pool is full. Higher survives.</summary>
+    /// <remarks>See <see cref="PlaybackSettings.Priority" />. Read when the sound starts, and not after.</remarks>
+    public int Priority;
+
     /// <summary>The voice it is playing on. Written by the system; read by anything that wants the detail.</summary>
     /// <remarks>
     ///     <see cref="VoiceHandle.None" /> when nothing is playing. Game code has no reason to write
