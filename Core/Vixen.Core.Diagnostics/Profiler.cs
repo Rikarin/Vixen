@@ -74,6 +74,10 @@ public static class Profiler {
     static int capacityPerThread = DefaultCapacityPerThread;
     static int frameIndex;
 
+    // Bumped by Reset. A recorder carries the generation it was registered under, so a thread that
+    // is still holding one from before a reset can tell — see Begin.
+    static volatile int generation;
+
     /// <summary>
     ///     Whether scopes are being recorded. A single volatile read on the hot path, which is what
     ///     makes leaving the instrumentation compiled in affordable.
@@ -117,7 +121,14 @@ public static class Profiler {
             return default;
         }
 
-        var thread = recorder ??= CreateRecorder();
+        // The generation check is what keeps the thread-static pointer honest: Reset runs on one
+        // thread but has to be seen by all of them, and a recorder from a previous generation is no
+        // longer in Recorders, so anything written into it would never be collected.
+        var thread = recorder;
+        if (thread is null || thread.Generation != generation) {
+            thread = recorder = CreateRecorder();
+        }
+
         return new(key, Stopwatch.GetTimestamp(), thread.Depth++);
     }
 
@@ -151,27 +162,36 @@ public static class Profiler {
     }
 
     /// <summary>Discards every recorded sample and forgets every thread that has recorded one.</summary>
+    /// <remarks>
+    ///     Safe to call from any thread, and forgets the other threads' recorders as thoroughly as the
+    ///     caller's: each one is stamped with the generation it was registered under, so a thread that
+    ///     was holding a recorder when the reset happened registers a fresh one the next time it opens
+    ///     a scope rather than writing into a ring nobody is listed as owning.
+    /// </remarks>
     public static void Reset() {
         lock (RecorderLock) {
             Recorders.Clear();
+
+            // Under the lock and paired with the clear, so a recorder cannot be registered against a
+            // generation that has already been thrown away.
+            generation++;
         }
 
-        recorder = null;
         frameIndex = 0;
     }
 
     static ThreadRecorder CreateRecorder() {
-        var thread = new ThreadRecorder(
-            Environment.CurrentManagedThreadId,
-            Thread.CurrentThread.Name ?? $"Thread {Environment.CurrentManagedThreadId}",
-            capacityPerThread
-        );
-
         lock (RecorderLock) {
-            Recorders.Add(thread);
-        }
+            var thread = new ThreadRecorder(
+                Environment.CurrentManagedThreadId,
+                Thread.CurrentThread.Name ?? $"Thread {Environment.CurrentManagedThreadId}",
+                capacityPerThread,
+                generation
+            );
 
-        return thread;
+            Recorders.Add(thread);
+            return thread;
+        }
     }
 
     static void Record(ProfilingKey key, long beginTicks, int depth) {
@@ -191,9 +211,13 @@ public static class Profiler {
         );
     }
 
-    sealed class ThreadRecorder(int threadId, string threadName, int capacity) {
+    sealed class ThreadRecorder(int threadId, string threadName, int capacity, int generation) {
         public int ThreadId => threadId;
         public string ThreadName => threadName;
+
+        /// <summary>Which <see cref="Profiler.generation" /> this recorder was registered under.</summary>
+        public int Generation => generation;
+
         public RingBuffer<ProfilerSample> Samples { get; } = new(capacity);
         public int Depth { get; set; }
     }
