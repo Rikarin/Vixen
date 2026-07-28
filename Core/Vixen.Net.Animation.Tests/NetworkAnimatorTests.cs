@@ -9,8 +9,8 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Net.Replication;
-using Vixen.Net.Rules;
 using Vixen.Net.Rpc;
+using Vixen.Net.Rules;
 using Vixen.Net.Sessions;
 using Xunit;
 

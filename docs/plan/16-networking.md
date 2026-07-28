@@ -178,12 +178,23 @@ The backbone. One fixed-tick clock shared with the ECS scheduler's `FixedUpdate`
 
 - `NetworkId` = `readonly record struct(uint Value)` component on replicated entities; server allocates,
   clients never invent.
-- **Prefab IDs come from the asset pipeline**: a networked prefab's id is its asset GUID's stable hash
-  ([08](08-asset-pipeline-and-addressables.md)). No hand-maintained "network prefab list" to desync —
-  this is a direct win from the deterministic content build, and it is where our design is simpler than
-  PurrNet's.
+- **Prefab IDs come from the asset pipeline**: a networked prefab's id is the stable hash of its
+  **address** ([08](08-asset-pipeline-and-addressables.md)). No hand-maintained "network prefab list" to
+  desync — this is a direct win from the deterministic content build, and it is where our design is
+  simpler than PurrNet's.
+
+  > **Corrected.** This said "asset GUID's stable hash" until the spawn layer was built, and a GUID is
+  > the wrong half of doc 08: *"the GUID is the authoring identity and never appears in a shipped
+  > build. The address is the runtime identity."* A shipped client has no GUID to hash. The address is
+  > also the better choice on its own merits — it is stable across edits to the prefab, where the
+  > content hash (`CatalogEntry.Id`) would renumber the wire on every content patch. Whether two peers
+  > hold the *same* content under an address is a question for the handshake's catalog hash, asked
+  > once, rather than smeared across every spawn.
+
 - Scene-placed networked objects get ids baked at content-build time, identical across all peers because
-  the build is deterministic (CI already gates this).
+  the build is deterministic (CI already gates this). The id space is split: `NetworkIdAllocator` counts
+  up from one and stops at `NetworkId.FirstBaked`, and derived scene ids live above it, so a session
+  cannot allocate a number a scene already used.
 - Ownership: per-entity `Owner` (connection id or server), transferable, with `NetworkRules` deciding
   who may transfer. Ownership changes are events users can react to.
 - **`NetworkRules` is a policy asset** (`.vxnetrules`) referenced per prefab or set globally: who may

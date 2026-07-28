@@ -1,0 +1,7 @@
+spawn/prefab/ = 2166136261
+spawn/prefab/gameplay/prefabs/crate = 2553947701
+spawn/prefab/gameplay/prefabs/turret = 3943399856
+spawn/prefab/ünïcøde/pråth = 1536243330
+spawn/prefab/a = 3826002220
+spawn/record = 35263A98A4925B2507000000
+spawn/registry-index = 1
