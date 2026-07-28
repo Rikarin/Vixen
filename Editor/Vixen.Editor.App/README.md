@@ -81,13 +81,64 @@ looking at a real model:
 | Hierarchy | a `TreeView` over the scene's entities; selecting drives the shared selection, and renaming a row is an undo entry |
 | Inspector | an `InspectorView` over the selection, recording every edit on the scene document's stack |
 | Scene | a `SceneViewport`: orbit, pan, zoom, the axis cross, gizmo modes and snapping, drawn into the panel — as lines, for the reason below |
-| Project | still `TreeView` over three made-up folders; listing the asset database is the project browser's own job |
+| Project | `ProjectBrowser`: the asset database as a tree, with a search box, over the real `Assets/` directory |
 | Console | still a line of text |
 
 The scene lives at `Assets/Scenes/Main.vxscene` and is opened on launch. A project that has none gets
 the seeded one written immediately — the only time the editor saves without being asked, so that a new
 project contains the scene you are looking at rather than something that exists until the window
 closes. `Ctrl+S` saves; the menu item greys itself out from the document's own dirty signal.
+
+⚠ **The seeded scene is scanned a second time, and has to be.** `EditorProject.Open` indexes the
+project before that file is written, so without the rescan a first run shows a browser with no scene
+in it — the one file the editor is certain exists, because it just made it.
+
+## The project browser
+
+`ProjectBrowser` is the Project panel: a `SearchBox` and a `TreeView` over `AssetTree.Build`. The
+shape — folder synthesis, ordering, search — is `Vixen.Editor.Core`'s and is tested there without a
+document; what is left here is rows, selection and when to rebuild. `Ctrl+R` rescans, saves the index
+and rebuilds the reverse-reference index with it, and reports what the scan repaired rather than only
+how many assets it found.
+
+⚠ **Not watched.** A file added outside the editor appears on the next refresh. A file-system watcher
+needs debouncing, a rename heuristic and a way not to fight the editor's own writes; one that missed
+half the events while claiming to be live would be worse than a Refresh that says what it does.
+
+⚠ **Only indexed nodes reach the selection.** A folder scanned read-only has no sidecar and so no
+GUID, and putting `AssetId.Empty` in `EditorProject.Selection` would make every such folder select the
+same nothing and look like one asset.
+
+⚠ **Untested at the panel level**, in common with every other panel here — the app is an executable
+with no test project. The model underneath it has 16.
+
+## Importing and building content
+
+`Import Assets` and `Build Content` (`Ctrl+Shift+B`) run `ContentPipeline` on the shell's background
+task manager — the same call `vixen import` and `vixen content build` make. The orchestration moved
+into `Vixen.Editor.Assets` so there is one of it: two would drift, and the way that drift shows up is
+the editor and the CLI producing different output for one project.
+
+⚠ **One at a time**, and the guard is `Interlocked.CompareExchange` rather than a bool. Two imports
+write the same sidecars, artefact store and cache file at once; the second does not produce a worse
+build, it produces a corrupt `Library/`. A menu item and a keybinding dispatched in one frame would
+both see a plain flag unset.
+
+⚠ **Build imports first.** The plan reads the import cache, so building without importing packs the
+previous import's artefacts — a build that succeeds and ships yesterday's content.
+
+⚠ **The workspace has its own `AssetDatabase`.** `Scan` clears and repopulates its dictionaries and
+the import runs on a pool thread, so sharing the one the panels read would be a race. The editor
+rescans afterwards, on the frame thread, which is what `ContentTasks.Rescan` is for.
+
+⚠ **The progress bar fills at the end.** `ImportAllAsync` returns when it is finished, so what drives
+the bar is a walk over what happened rather than a live feed. Honest, and fixed by giving the import
+pipeline a progress callback of its own.
+
+`--run ID` executes one editor command on the first frame, which is how CI proves an import or a
+build through the *editor's* path — enablement, background task and notification — rather than
+through the pipeline the CLI already covers. It exits 2 for a command that is not there or not
+enabled.
 
 **The scene panel is live.** `ScenePresenter` renders into an offscreen colour target, registers it
 with `UiRenderer.RegisterImage`, and the viewport control draws it — so the scene arrives in the

@@ -103,6 +103,12 @@ public interface IEditorCommand
 > generator will emit, so no call site changes when it lands, but an id used nowhere is not yet a
 > build error.
 >
+> **The project browser is `ProjectBrowser` in `Vixen.Editor.App`**, not a shell panel, and for the
+> same reason as the first correction: it needs the asset database, and the shell may not see one.
+> Its shape is `AssetTree` in `Vixen.Editor.Core` — a flat index in, an immutable tree out — so
+> the ordering, the folder synthesis and the search are tested without a document. `Ctrl+R` rescans.
+> It does not watch the file system, and says so rather than pretending.
+>
 > The gaps are a keybinding editor (the model has conflict detection, per-command customisation and
 > reset; there is no UI over it) and plugin loading, which needs `Vixen.Editor.Plugin` to exist.
 

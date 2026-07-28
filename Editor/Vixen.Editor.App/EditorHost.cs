@@ -77,6 +77,15 @@ sealed class EditorHost : IDisposable {
         Fonts.Install(editor.Shell.Document);
     }
 
+    /// <summary>A command to run once, on the first frame, and then forget.</summary>
+    /// <remarks>
+    ///     ⚠ <b>For CI, and it goes through the command registry rather than round it.</b> The point
+    ///     of proving an import or a content build from here is that it is the <i>editor's</i> path —
+    ///     enablement, background task, notification and all. Calling the underlying pipeline
+    ///     directly would prove only what the CLI already proves.
+    /// </remarks>
+    public string? Command { get; set; }
+
     /// <summary>Runs until the window closes, or for a fixed number of frames.</summary>
     /// <param name="frames">How many, or zero for as many as it takes.</param>
     /// <returns>A process exit code.</returns>
@@ -124,6 +133,18 @@ sealed class EditorHost : IDisposable {
 
             Present(Build());
             drawn++;
+
+            // ⚠ After the first frame rather than before the loop, so the command runs against a
+            // shell that has laid itself out and a project that has finished opening — which is the
+            // state a person clicking a menu item is in, and the only state worth proving works.
+            if (drawn == 1 && Command is { Length: > 0 } once) {
+                Command = null;
+
+                if (!editor.Shell.Commands.Execute(once)) {
+                    Console.Error.WriteLine($"There is no enabled command called '{once}'.");
+                    return 2;
+                }
+            }
         }
 
         device?.WaitIdle();
