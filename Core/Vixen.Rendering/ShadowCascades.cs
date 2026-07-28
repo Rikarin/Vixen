@@ -281,6 +281,37 @@ public static class ShadowCascades {
     }
 
     /// <summary>
+    ///     Which cascade shades a fragment at this distance.
+    /// </summary>
+    /// <param name="viewDepth">How far in front of the camera the fragment is.</param>
+    /// <param name="splits">The distances each cascade covers up to, near first.</param>
+    /// <returns>The index of the nearest cascade that still reaches it, or the last.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The host's copy of <c>ForwardPlus.CascadeOf</c>, duplicated for the reason
+    ///         <see cref="ClusterGrid" />'s mirror is: the selection is what makes an atlas cascade at
+    ///         all, and a copy that can be evaluated on the CPU is what lets a test say the cascade a
+    ///         fragment picks is one whose projection contains it.
+    ///     </para>
+    ///     <para>
+    ///         The <em>nearest</em> that covers it, not the largest: the cascades are fitted to
+    ///         successive slices, so the first whose split a fragment is inside is the
+    ///         highest-resolution map that has it. Falling through to the last is what a fragment
+    ///         past the shadow distance gets, which is why the shader fades there rather than
+    ///         trusting it.
+    ///     </para>
+    /// </remarks>
+    public static int CascadeOf(float viewDepth, ReadOnlySpan<float> splits) {
+        for (var i = 0; i < splits.Length; i++) {
+            if (viewDepth <= splits[i]) {
+                return i;
+            }
+        }
+
+        return Math.Max(splits.Length - 1, 0);
+    }
+
+    /// <summary>
     ///     A cascade's matrix, projecting straight into its tile of the atlas.
     /// </summary>
     /// <param name="cascade">The cascade.</param>

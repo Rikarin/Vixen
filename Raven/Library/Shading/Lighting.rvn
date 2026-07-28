@@ -230,6 +230,25 @@ struct Lighting {
     }
 }
 
+/// One cascade of a directional light's shadow, as a shading pass reads it.
+///
+/// The matrix and the distance it is valid to are one record because a fragment needs both to use
+/// either: it picks a cascade by comparing its own view depth against `split`, and then projects
+/// with that cascade's `viewProjection`. Two parallel arrays would be two things a host has to keep
+/// in step, and the failure — a matrix used past the distance it was fitted for — is a shadow that
+/// looks like a shadow and is in the wrong place.
+///
+/// **`viewProjection` maps into the cascade's own tile of the atlas**, not into the whole texture.
+/// One texture with a tile per cascade is what the widest range of hardware renders into with one
+/// pass and a viewport change, and folding the tile into the matrix costs the shader nothing —
+/// `ShadowCascades.AtlasProjection` is the host's half.
+struct ShadowCascade {
+    var viewProjection: mat4
+
+    /// The view-space distance this cascade covers up to.
+    var split: float
+}
+
 /// The three light kinds a `PunctualLight` can be. Floats rather than an enum because the record is
 /// host-written memory and a uniform block has no integer-versus-float ambiguity to lose.
 struct LightKind {
