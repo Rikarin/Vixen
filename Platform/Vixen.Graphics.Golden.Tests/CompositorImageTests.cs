@@ -646,6 +646,11 @@ public sealed class CompositorImageTests {
 
         materials.Assign(system, caster, new Material("Mesh"));
 
+        using var viewConstants = new ViewConstants(device) {
+            Descriptors = allocator,
+            Layout = Shadowed.ViewLayout(device, owned)
+        };
+
         var shadows = new ShadowMapRenderer {
             Name = "Shadows",
             CasterStage = casters,
@@ -695,10 +700,12 @@ public sealed class CompositorImageTests {
             ResourceState.CopySource
         );
 
-        // Collect fits the cascades, which is the first moment their matrices exist. Build runs it
-        // again — it is idempotent against unchanged inputs — so composing the caster's transform in
-        // between is the only way to get a view-projection to a shader while nothing binds per-view
-        // constants.
+        shadows.Constants = viewConstants;
+
+        // The caster's transform is now its own placement and nothing else — the cascade's matrix
+        // reaches the shader through set 1, which is what ViewConstants exists for. Collect still runs
+        // first, because the receiver needs to be told which cascade to look in and that is only known
+        // once the cascades are fitted.
         compositor.Collect();
 
         var cascade = shadows.Cascades[1];
@@ -707,7 +714,7 @@ public sealed class CompositorImageTests {
         receiver.Parameters.Set(ShadowMatrix, cascade.ViewProjection);
         receiver.Parameters.Set(Tile2, new Vector4(scale.X, scale.Y, offset.X, offset.Y));
 
-        system.Objects.Data.Data(transforms.World)[caster.Index] = CasterWorld * cascade.ViewProjection;
+        system.Objects.Data.Data(transforms.World)[caster.Index] = CasterWorld;
 
         allocator.BeginFrame();
         var frame = compositor.Build(owned.Graph, effects, device);
@@ -804,8 +811,14 @@ public sealed class CompositorImageTests {
 
         public Shadowed(Fixture fixture) {
             var device = fixture.Device;
-            var push = device.CreatePipelineLayout(new([], [new(ShaderStage.Vertex, 0, 64)], "caster"));
             var empty = device.CreateDescriptorSetLayout(new(DescriptorSetSlot.PerFrame, [], "empty"));
+
+            // The caster's layout now names the per-view set as well, because its vertex stage reads
+            // one. Set 1 exactly: a set is only bindable to a pipeline whose layout declares it at the
+            // same index.
+            var push = device.CreatePipelineLayout(
+                new([empty, ViewLayout(device, fixture)], [new(ShaderStage.Vertex, 0, 64)], "caster")
+            );
 
             var set = device.CreateDescriptorSetLayout(
                 new(
@@ -830,7 +843,7 @@ public sealed class CompositorImageTests {
 
             caster = new() {
                 Key = EffectKey.Of("DepthOnly"),
-                Stages = [new(ShaderStage.Vertex, Read("prepass.vert.spv"), "main")],
+                Stages = [new(ShaderStage.Vertex, Read("caster.vert.spv"), "main")],
                 Layout = push
             };
 
@@ -846,6 +859,39 @@ public sealed class CompositorImageTests {
                 Parameters = [new(ShadowMatrix, 0, 64), new(Tile2, 64, 16), new(Ground, 80, 16)]
             };
         }
+
+        /// <summary>
+        ///     The one per-view set layout the frame shares, created once.
+        /// </summary>
+        /// <remarks>
+        ///     Shared rather than one per effect, and that is not an economy: a set bound at slot 1
+        ///     stays bound while pipelines change only if their layouts agree up to that slot, which
+        ///     is the entire premise of the four-set convention.
+        /// </remarks>
+        public static DescriptorSetLayoutHandle ViewLayout(IGraphicsDevice device, Fixture fixture) {
+            if (shared.TryGetValue(device, out var existing)) {
+                return existing;
+            }
+
+            var created = device.CreateDescriptorSetLayout(
+                new(
+                    DescriptorSetSlot.PerView,
+                    [new(0, DescriptorKind.UniformBuffer, ShaderStage.Vertex)],
+                    "view"
+                )
+            );
+
+            shared[device] = created;
+
+            fixture.Owns(() => {
+                shared.Remove(device);
+                device.Destroy(created);
+            });
+
+            return created;
+        }
+
+        static readonly Dictionary<IGraphicsDevice, DescriptorSetLayoutHandle> shared = [];
 
         static ImmutableArray<byte> Read(string name) =>
             [.. File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Shaders", name))];

@@ -33,7 +33,7 @@ namespace Vixen.Rendering;
 public sealed class EffectConstants(IGraphicsDevice device, string name = "Constants") : IDisposable {
     byte[] staging = [];
     BufferHandle buffer;
-    Effect? uploaded;
+    object? uploaded;
     int version = -1;
     int capacity;
     int slot;
@@ -83,16 +83,42 @@ public sealed class EffectConstants(IGraphicsDevice device, string name = "Const
     /// <returns>False when the effect declares no constants, so there is nothing to bind.</returns>
     public bool Update(Effect effect, ParameterCollection parameters) {
         ArgumentNullException.ThrowIfNull(effect);
+        return Update(effect, effect.ConstantBufferSize, effect.Parameters.AsSpan(), parameters);
+    }
+
+    /// <summary>
+    ///     Fills and uploads a block whose layout does not come from an effect.
+    /// </summary>
+    /// <param name="layout">
+    ///     What identifies this layout. Compared by reference to decide whether the block's shape
+    ///     changed — an <see cref="Effect" /> for a material's block, and whatever owns the layout for
+    ///     a block shared across effects.
+    /// </param>
+    /// <param name="size">The block's size in bytes.</param>
+    /// <param name="members">Where each value goes.</param>
+    /// <param name="parameters">The values to fill it from.</param>
+    /// <remarks>
+    ///     A per-view block is the case this exists for: every shader in a frame reads the same one,
+    ///     so it belongs to no single effect — which is exactly what the four-set convention says
+    ///     about set 1.
+    /// </remarks>
+    public bool Update(
+        object layout,
+        int size,
+        ReadOnlySpan<EffectParameter> members,
+        ParameterCollection parameters
+    ) {
+        ArgumentNullException.ThrowIfNull(layout);
         ArgumentNullException.ThrowIfNull(parameters);
         ObjectDisposedException.ThrowIf(disposed, this);
 
-        if (effect.ConstantBufferSize <= 0) {
+        if (size <= 0) {
             return false;
         }
 
-        Size = effect.ConstantBufferSize;
+        Size = size;
 
-        if (ReferenceEquals(uploaded, effect) && version == parameters.Version && buffer.IsValid) {
+        if (ReferenceEquals(uploaded, layout) && version == parameters.Version && buffer.IsValid) {
             return true;
         }
 
@@ -110,14 +136,14 @@ public sealed class EffectConstants(IGraphicsDevice device, string name = "Const
         // else entirely.
         Array.Clear(staging, 0, Size);
 
-        foreach (var parameter in effect.Parameters) {
+        foreach (var parameter in members) {
             Write(parameter);
         }
 
         Recreate();
         device.Write(buffer, Offset, staging.AsSpan(0, Size));
 
-        uploaded = effect;
+        uploaded = layout;
         version = parameters.Version;
         UploadCount++;
         return true;

@@ -22,6 +22,8 @@ namespace Vixen.Rendering;
 ///     </para>
 /// </remarks>
 public sealed class RenderView(string name) {
+    Matrix4x4 viewProjection = Matrix4x4.Identity;
+
     /// <summary>The view's name, for logging and profiling.</summary>
     public string Name { get; } = name;
 
@@ -33,6 +35,33 @@ public sealed class RenderView(string name) {
 
     /// <summary>What the view can see.</summary>
     public BoundingFrustum Frustum { get; set; }
+
+    /// <summary>
+    ///     The matrix that takes a world position to this view's clip space.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         What a shader needs and <see cref="Frustum" /> cannot give it: six planes are what the
+    ///         volume <em>is</em>, not how to project into it, and the matrix they were derived from
+    ///         was thrown away. A shadow caster could not be told which cascade it was being drawn for
+    ///         until this existed.
+    ///     </para>
+    ///     <para>
+    ///         <strong>Setting it re-derives the frustum.</strong> Two properties describing one
+    ///         volume is a bug waiting to be written — a view culled against last frame's planes and
+    ///         drawn with this frame's matrix produces geometry that pops in and out at the edges, and
+    ///         nothing anywhere would say why. Setting <see cref="Frustum" /> on its own is still
+    ///         allowed, for a caller that has planes and no matrix, and then this stays whatever it
+    ///         was.
+    ///     </para>
+    /// </remarks>
+    public Matrix4x4 ViewProjection {
+        get => viewProjection;
+        set {
+            viewProjection = value;
+            Frustum = new(value);
+        }
+    }
 
     /// <summary>The view's index within the frame, assigned by <see cref="RenderSystem" />.</summary>
     public int Index { get; internal set; } = -1;

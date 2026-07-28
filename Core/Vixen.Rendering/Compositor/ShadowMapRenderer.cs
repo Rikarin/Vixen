@@ -43,6 +43,14 @@ public sealed class ShadowMapRenderer : SceneRenderer {
     /// <summary>The stage that draws depth-only casters.</summary>
     public required RenderStage CasterStage { get; init; }
 
+    /// <summary>The per-view block to bind before each cascade's casters.</summary>
+    /// <remarks>
+    ///     A cascade is a view, and this is how it tells a caster which projection it is being drawn
+    ///     for. Bound per cascade inside the pass rather than once for the node, because that is the
+    ///     whole distinction between the tiles: they differ by nothing except their view.
+    /// </remarks>
+    public ViewConstants? Constants { get; set; }
+
     /// <summary>The name of the atlas to render into.</summary>
     public string Atlas { get; set; } = string.Empty;
 
@@ -197,7 +205,10 @@ public sealed class ShadowMapRenderer : SceneRenderer {
             }
 
             var view = views[i];
-            view.Frustum = new(cascades[i].ViewProjection);
+            // The matrix, which derives the frustum — not the frustum alone. A view whose planes
+            // came from a matrix it does not carry is one a shader cannot be told how to project
+            // into, which is what kept a caster from knowing its own cascade.
+            view.ViewProjection = cascades[i].ViewProjection;
 
             // The light's position, not the camera's. Sorting a shadow cascade front-to-back is
             // front-to-back *from the light*, which is what early-Z in a depth-only pass rewards —
@@ -328,6 +339,7 @@ public sealed class ShadowMapRenderer : SceneRenderer {
                             // a tile edge would otherwise write into the neighbouring cascade, and a
                             // shadow in a cascade it was never fitted for is the artefact nobody can
                             // attribute.
+                            context.ViewConstants = Constants;
                             compositor.System.Record(views[i], stage, context);
                         }
 

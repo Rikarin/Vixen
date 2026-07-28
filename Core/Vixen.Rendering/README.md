@@ -576,6 +576,34 @@ the shader distinguishes the first downsample from the rest of the chain, hence 
 rather than a `FirstDownsample` flag — the chain asks for four variants either way, and the flag would
 be a key every pass carries in order to say nothing.
 
+## Set 1, and where a set can actually be bound
+
+`ViewConstants` is the per-view uniform block: one per `RenderView`, filled from the view's own
+matrix and position, bound before that view's work. Its absence was the largest hole in the renderer —
+`TransformRenderFeature` pushed a world matrix and nothing carried a view-projection, so a shadow
+caster could not be told which cascade it was drawing for.
+
+**The layout is shared across every shader in the frame, and that is what makes set 1 work at all.**
+A descriptor set survives a pipeline change only if the two layouts agree up to that set, so the
+members are configured once here rather than taken from an effect: the block belongs to the frame, not
+to any shader in it.
+
+`RenderView.ViewProjection` had to exist first, and **setting it re-derives the frustum**. Two
+properties describing one volume is a bug waiting to be written — a view culled against last frame's
+planes and drawn with this frame's matrix drops geometry at the edges and reports nothing. The shadow
+renderer had exactly that shape: it built the frustum from a matrix it then discarded.
+
+**A set cannot be bound before the first pipeline**, which is where this stopped being a design
+question and became an API one. `ICommandList.BindDescriptorSet` takes no pipeline layout and infers
+one from what is bound, so binding set 1 at the start of a view — the obvious place — is undefined,
+and the Vulkan backend refuses it outright. So a compositor node says *what* through
+`RenderDrawContext.ViewConstants` and `MeshRenderFeature` says *when*, immediately after its first
+pipeline. Once per run is enough, because the convention makes every pipeline in a frame compatible
+up to set 1.
+
+The proof is the shadow golden fixture: it used to compose the cascade's matrix into the caster's
+world transform, and now the matrix arrives through set 1 — **against the same reference image**.
+
 ## Writing to memory a frame is still reading
 
 The hazard that keeps reappearing, and the one no API reports. `Write` on a host-visible buffer is a
@@ -619,12 +647,10 @@ The shadow renderers still take a light direction and a camera from a host rathe
 scene, and nothing yet resolves a compositor by *address* — the binary form is proven, the
 `AssetManager` lookup around it is not wired up here.
 
-**Nothing binds per-view constants.** `TransformRenderFeature` pushes a world matrix and there is no
-path for a view-projection to reach a shader — so a shadow caster cannot be told which cascade it is
-being drawn for. The golden fixture works around it by composing the cascade's matrix into the
-object's world transform between `Collect` and `Build`, which is fine for one object in one view and
-is not a design. A per-view uniform block, allocated like the per-frame descriptor sets already are,
-is what closes it.
+A per-view block exists but nothing above `SingleStageRenderer` and `ShadowMapRenderer` configures
+one — a host still creates the layout, the allocator and the `ViewConstants` itself. A compositor
+document has no way to say "this frame has a per-view block", which is the same authoring gap the
+bindings have.
 
 A node's bindings are set in code, not in the compositor document. A binding index is a shader's
 decision and a sampler is a device handle, and the asset model can express neither — so a compositor
