@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Vfx</RootNamespace>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Description>
+            The visual-effect runtime: particle systems as compiled graphs of spawners,
+            initializers, updaters and renderers over struct-of-arrays attribute storage. The
+            compiled form is data rather than code, so one graph can drive both a CPU simulation
+            and a GPU one, and a deterministic per-particle RNG makes the two agree.
+        </Description>
+        <PackageTags>vfx;particles;visual-effects;node-graph;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Memory\Vixen.Core.Memory.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Vfx.Tests" />
+    </ItemGroup>
+
+</Project>

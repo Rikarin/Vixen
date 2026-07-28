@@ -2455,8 +2455,26 @@ nowhere in the dependency graph.
   sub-graphs, search-to-create, drag-from-port, previews, auto-layout, minimap.
 - `Vixen.Editor.ShaderGraph`: node library, `DynamicVector` port typing, Raven emission, show-generated-
   code, diagnostics mapped to ports, master nodes (PBR/unlit/sprite/UI/post).
-- `Vixen.Vfx` runtime: SoA attribute storage, spawners/initializers/updaters/renderers, deterministic
+- 🟡 `Vixen.Vfx` runtime: SoA attribute storage, spawners/initializers/updaters/renderers, deterministic
   RNG shared between CPU and GPU paths, CPU jobs + GPU compute simulation, GPU sort, indirect draw.
+
+  **The simulation and the compiled form are built; the renderers and the GPU path are not.** The
+  compiled graph is an array of fixed-size operations — an opcode, a salt, two `Vector4`s — because
+  that is the only shape a CPU loop, a shader emitter, a constant buffer and a golden test can all
+  read, and this document says that part must be designed in rather than retrofitted. Storage is
+  *derived* from what the operations touch, so an unused attribute has no memory and a graph that
+  reads what nothing writes is refused at compile time rather than running over zeroed memory.
+
+  `VfxRandom` is stateless and integer-only so a compute shader can reproduce a value exactly: a draw
+  is a pure function of the particle's identifier, the effect's seed and a per-operation salt, with
+  the one float conversion taking 24 bits over 2²⁴ so no rounding mode can differ. Two systems with
+  one seed are identical particle for particle, which is what the exit criterion's CPU/GPU agreement
+  test will compare against. Writing it found that these mixers have a fixed point at zero — particle
+  zero of seed zero drew zero for ever — which an offset before mixing removes. 34 tests, and a frame
+  of a running effect allocates nothing.
+
+  **Owed here:** the GPU emitter, the renderers and `ParticleRenderFeature`, sorting, custom
+  attributes, and the force-field/curl-noise/collision/sub-emitter/trail updaters this document names.
 - `Vixen.Editor.VfxGraph`: node library + dual-target compilation + live preview.
 - Particle render feature integrated.
 

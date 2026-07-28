@@ -100,6 +100,8 @@
     <Project Path="Core/Vixen.Rendering.PostFx.Tests/Vixen.Rendering.PostFx.Tests.csproj" />
     <Project Path="Core/Vixen.Animation/Vixen.Animation.csproj" />
     <Project Path="Core/Vixen.Animation.Tests/Vixen.Animation.Tests.csproj" />
+    <Project Path="Core/Vixen.Vfx/Vixen.Vfx.csproj" />
+    <Project Path="Core/Vixen.Vfx.Tests/Vixen.Vfx.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Reactive/Vixen.Ui.Reactive.csproj" />
     <Project Path="Core/Vixen.Ui.Reactive.Tests/Vixen.Ui.Reactive.Tests.csproj" />
     <Project Path="Core/Vixen.Ui.Layout/Vixen.Ui.Layout.csproj" />
