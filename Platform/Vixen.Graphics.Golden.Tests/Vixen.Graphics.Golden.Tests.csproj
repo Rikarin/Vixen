@@ -57,6 +57,17 @@
             bearing.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
+
+        <!--
+            Raven, through the compiler the content build uses. One fixture dispatches
+            `ClusterCulling.rvn` itself rather than a hand-written stand-in: a compute shader nobody
+            has ever run is a compute shader nobody has ever run, and a mirror of it written for the
+            test would agree with the test.
+
+            ⚠ Allowed because this is a test project — Platform may not reference Tools otherwise, and
+            the architecture check says so by name.
+        -->
+        <ProjectReference Include="..\..\Tools\Vixen.ShaderCompiler\Vixen.ShaderCompiler.csproj" />
     </ItemGroup>
 
     <ItemGroup>

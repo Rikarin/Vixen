@@ -66,7 +66,7 @@ public sealed class SceneLightingTests : IDisposable {
     /// </remarks>
     static Effect Pass(int slots = Slots, bool probes = true, DescriptorSetLayoutHandle frame = default) {
         List<EffectBinding> bindings = [
-            new("block", DescriptorSetSlot.PerFrame, BlockBinding, DescriptorKind.UniformBuffer) { Size = 544 },
+            new("block", DescriptorSetSlot.PerFrame, BlockBinding, DescriptorKind.UniformBuffer) { Size = BlockSize },
             new("environment", DescriptorSetSlot.PerFrame, EnvironmentBinding, DescriptorKind.SampledTexture),
             new("environmentSampler", DescriptorSetSlot.PerFrame, EnvironmentSamplerBinding, DescriptorKind.Sampler)
         ];
@@ -85,7 +85,7 @@ public sealed class SceneLightingTests : IDisposable {
             Key = EffectKey.Of(ForwardPlusKeys.ShaderName),
             Stages = [],
             SetLayouts = [frame, default, default, default],
-            ConstantBufferSize = 544,
+            ConstantBufferSize = BlockSize,
             Bindings = [.. bindings],
             Parameters = [.. Volumes()]
         };
@@ -128,6 +128,26 @@ public sealed class SceneLightingTests : IDisposable {
                 offset + (index * stride),
                 4
             ) { Set = DescriptorSetSlot.PerFrame };
+        }
+    }
+
+    /// <summary>How big set 0's block is, taken from the shader rather than typed here.</summary>
+    /// <remarks>
+    ///     A number that moves whenever the pass gains a uniform, and a block one member short is a
+    ///     descriptor range shorter than what it points at. Reading it is free; remembering to update
+    ///     it is not.
+    /// </remarks>
+    static int BlockSize {
+        get {
+            var reflection = JsonDocument.Parse(File.ReadAllText(ReflectionPath())).RootElement;
+
+            foreach (var set in reflection.GetProperty("Sets").EnumerateArray()) {
+                if (set.GetProperty("Set").GetInt32() == 0) {
+                    return set.GetProperty("Bindings").EnumerateArray().First().GetProperty("Size").GetInt32();
+                }
+            }
+
+            throw new InvalidOperationException("ForwardPlus.reflect.json has no set 0.");
         }
     }
 

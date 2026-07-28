@@ -68,13 +68,17 @@ public sealed class ShadowMapRenderer : SceneRenderer {
     ///         biases and the sampler.
     ///     </para>
     ///     <para>
-    ///         <strong>Cascade zero only, because the shader has one matrix.</strong>
-    ///         <c>ForwardPlus.rvn</c> declares a single <c>lightViewProjection</c> and a single
-    ///         <c>shadowMap</c>, so a fragment beyond the nearest cascade's range projects outside its
-    ///         tile and is unshadowed rather than shadowed by the wrong slice. Selecting a cascade per
-    ///         fragment is shader work — an array of matrices and a view-depth comparison — and it is
-    ///         written down here rather than papered over, because publishing all four matrices into a
-    ///         shader that reads one would look like it worked.
+    ///         <strong>Every cascade, with its own tile folded into its own matrix.</strong> The
+    ///         shader picks between them per fragment, on the fragment's own view depth, which is
+    ///         what a cascade <em>is</em>: distance deciding the resolution a surface is shadowed at.
+    ///         This published cascade zero alone for a while, because the shader had one matrix and
+    ///         one distance — so everything past the nearest slice projected outside its tile and
+    ///         came back unshadowed, which reads as a shadow distance far shorter than the setting.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="CascadeCount" /> has to match the shader's <c>CascadeCount</c> permutation.
+    ///         It sizes an array in the block, so the two disagreeing is a fragment reading a matrix
+    ///         nobody wrote — the same agreement <c>MaxLights</c> needs, one array along.
     ///     </para>
     /// </remarks>
     public ParameterCollection? Scene { get; set; }
@@ -94,6 +98,16 @@ public sealed class ShadowMapRenderer : SceneRenderer {
 
     /// <summary>How much more of that a surface gets as it turns away from the light.</summary>
     public float SlopeBias { get; set; } = 0.002f;
+
+    /// <summary>
+    ///     Over what distance shadows fade out at the last cascade's end, in metres.
+    /// </summary>
+    /// <remarks>
+    ///     Without a ramp the shadow term stops at a line across the ground, which reads as a
+    ///     rendering error rather than as the end of <see cref="ShadowDistance" />. Ten metres against
+    ///     a hundred and fifty is about a frame of walking, which is where it stops being visible.
+    /// </remarks>
+    public float FadeRange { get; set; } = 10f;
 
     /// <summary>
     ///     The stage that draws casters which do not move, or null to redraw everything every frame.
@@ -324,16 +338,25 @@ public sealed class ShadowMapRenderer : SceneRenderer {
 
         var atlas = AtlasSize;
 
-        // The tile folded in, not the cascade's own matrix. A shader with one atlas and one matrix
-        // addresses the whole texture, so the raw matrix would land every lookup a quarter of the way
-        // into somebody else's tile — and read a plausible depth from it.
-        parameters.Set(
-            ParameterKeys.New<Matrix4x4>($"{ShaderName}.lightViewProjection"),
-            ShadowCascades.AtlasProjection(cascades[0], 0, count)
-        );
+        for (var i = 0; i < count; i++) {
+            var slot = $"{ShaderName}.cascades[{i.ToString(System.Globalization.CultureInfo.InvariantCulture)}]";
+
+            // The tile folded in, not the cascade's own matrix. One atlas holds all of them, so a
+            // raw matrix would land every lookup a quarter of the way into somebody else's tile —
+            // and read a plausible depth from it.
+            parameters.Set(
+                ParameterKeys.New<Matrix4x4>($"{slot}.viewProjection"),
+                ShadowCascades.AtlasProjection(cascades[i], i, count)
+            );
+
+            // The distance it is valid to, which is what the fragment selects on. Beside the matrix
+            // in one record rather than in a second array, because a matrix used past the distance
+            // it was fitted for is a shadow that looks like a shadow and is in the wrong place.
+            parameters.Set(ParameterKeys.New<float>($"{slot}.split"), splits[i]);
+        }
 
         // The atlas's texel, not a tile's: the PCF taps step in the coordinates the lookup produced,
-        // which the line above just made atlas-wide.
+        // which the tile transform above just made atlas-wide.
         parameters.Set(
             ParameterKeys.New<Vector2>($"{ShaderName}.shadowTexelSize"),
             new(1f / atlas.X, 1f / atlas.Y)
@@ -341,6 +364,7 @@ public sealed class ShadowMapRenderer : SceneRenderer {
 
         parameters.Set(ParameterKeys.New<float>($"{ShaderName}.shadowConstantBias"), ConstantBias);
         parameters.Set(ParameterKeys.New<float>($"{ShaderName}.shadowSlopeBias"), SlopeBias);
+        parameters.Set(ParameterKeys.New<float>($"{ShaderName}.shadowFadeRange"), FadeRange);
 
         if (Samplers is { } samplers) {
             // Clamped and linear. Clamped because a fragment outside the cascade projects outside the
