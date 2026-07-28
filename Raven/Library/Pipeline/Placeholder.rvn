@@ -1,0 +1,57 @@
+package Vixen.Shaders.Pipeline
+
+// What a development build draws with while the shader it actually wants is being compiled.
+//
+// A compile is hundreds of milliseconds and it happens the first time a material is seen, which is
+// exactly when somebody is walking into a new room. Waiting for it is a hitch; drawing nothing is an
+// object that pops in and reads as a bug in the scene rather than in the pipeline. So the frame draws
+// this, and the real variant takes over on whichever frame it arrives.
+//
+// Deliberately unmistakable and deliberately incapable of being mistaken for a material: magenta,
+// checkered, and with nothing on it that could be confused for lighting. Nobody should ever have to
+// ask whether what they are looking at is finished.
+//
+// It takes one uniform and no textures, and that is load-bearing rather than minimal. It stands in
+// for *any* shader, so its own bindings have to be ones every draw can already satisfy — a
+// placeholder that wanted a material's textures could not be bound in place of a material that had
+// not loaded them.
+//
+// It imports nothing, for the same reason. Everything else in the library leans on Core and Geometry
+// and is compiled with them; this one has to be buildable on its own, because the situation it exists
+// for is one where something about the shader build has not gone to plan.
+
+shader Placeholder {
+    /// How many checker cells across the screen. A permutation because it is a look, not a value a
+    /// frame varies, and folding it in keeps the fragment body a multiply.
+    [Permutation] val Cells: int = 24
+
+    var worldViewProjection: mat4
+
+    /// Normalised device coordinates, carried so the checker is in screen space.
+    ///
+    /// Screen space rather than UV space on purpose: a placeholder has to draw for a mesh that has no
+    /// texture coordinates at all, and one that sampled `uv` would be a flat colour on exactly the
+    /// geometry most likely to be missing its shader.
+    stream var ndc: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float3): float4 {
+        val clip = worldViewProjection * float4(position, 1f)
+
+        // Divided here rather than in the fragment stage, where `w` is no longer available: the
+        // interpolator gives the fragment a perspective-correct `ndc` from these, which is what makes
+        // the checker sit still on the screen instead of swimming with the surface.
+        ndc = clip.xy / max(clip.w, 1e-6f)
+        return clip
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        val cell = floor((ndc * 0.5f + float2(0.5f, 0.5f)) * float(Cells))
+        val checker = mod(cell.x + cell.y, 2f)
+
+        return float4(1f, checker * 0.35f, 1f, 1f)
+    }
+}

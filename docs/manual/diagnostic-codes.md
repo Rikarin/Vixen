@@ -38,6 +38,7 @@ is the same argument the [log event register](log-events.md) makes, for the same
 | `VX1002` | The asset database found something while scanning. | `vixen import` |
 | `VX2001` | The build plan found something: an address nothing can resolve, a group nothing defines, a dependency that would not be packed. | `vixen content build` |
 | `VX2002` | The content builder found something while packing. | `vixen content build` |
+| `VX2003` | The shader bundle build found something: a manifest that will not read, a variant that will not compile, a variant no shader answers to. | `vixen content build` |
 | `VX8001` | A pinned native binary has not been restored. | `MoltenVK.targets`, on an iOS build |
 | `VX8002` | A restored native archive exports none of the entry points it was linked for. | `MoltenVK.targets`, on an iOS build |
 | `VX9001` | The tool could not run: no project where one was expected, or an unusable argument. | every command |

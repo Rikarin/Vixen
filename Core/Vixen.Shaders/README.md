@@ -165,3 +165,29 @@ value set through the generated one landing nowhere.
 `Effect` carries bytecode and layout rather than a pipeline, because a pipeline also depends on the
 vertex layout, the render pass and the blend state: one effect backs many pipelines, and keying
 pipelines by effect alone is a cache that returns an object drawn with the wrong blend mode.
+
+## Never a hitch, never a stall
+
+Setting `EffectSystem.Placeholder` turns resolution asynchronous. A key nothing has yet is queued and
+the placeholder comes back immediately, so the frame draws something unmistakably unfinished rather
+than waiting hundreds of milliseconds for a compile — which happens the first time a material is
+seen, which is exactly when somebody is walking into a new room.
+
+`Pump()` is what produces them, and the host calls it: off the render thread, in a job, bounded by a
+count if a frame should only pay for so much. This class owns no thread, because how much CPU to
+spend compiling, on which thread, against what else is running, is a scheduling decision the job
+system exists for and an effect cache does not. It also makes the whole thing testable without a
+clock.
+
+**The placeholder is never cached.** The dictionary holds what a key resolved to; a placeholder is
+what it resolved to *for now*, and caching it would make the temporary answer permanent — a magenta
+object that never becomes anything, with nothing logged. It carries `IsPlaceholder` so that whatever
+kept the answer can tell it is provisional and ask again; without that the compile finishes, the
+cache updates, and nobody asks. `MaterialRenderFeature` re-resolves exactly the variants still
+holding one, which costs a dictionary lookup and, for the whole of a shipping run, happens never.
+
+`Raven/Library/Pipeline/Placeholder.rvn` is the shipped one: a screen-space magenta checker that
+imports nothing and binds one matrix. Screen space rather than UV space because a placeholder has to
+draw for a mesh with no texture coordinates, and one uniform because it stands in for *any* shader —
+a placeholder that wanted a material's textures could not be bound in place of a material that had
+not loaded them.

@@ -81,6 +81,18 @@ public sealed class Effect {
         return null;
     }
 
+    /// <summary>
+    ///     Whether this is something to draw with until the real variant arrives.
+    /// </summary>
+    /// <remarks>
+    ///     Carried on the effect rather than known only to the thing that handed it out, because what
+    ///     needs to know is downstream of that: a render feature resolves a variant once and keeps the
+    ///     answer, and it has to be able to tell that the answer it kept is provisional. Without this
+    ///     the placeholder is drawn forever — the compile finishes, the cache updates, and nothing
+    ///     asks again.
+    /// </remarks>
+    public bool IsPlaceholder { get; init; }
+
     /// <summary>The permutation keys this variant's output depended on.</summary>
     /// <remarks>
     ///     Carried on the effect rather than looked up per draw, because it is what the *next* draw's
@@ -89,8 +101,36 @@ public sealed class Effect {
     /// </remarks>
     public ImmutableArray<ParameterKey> UsedPermutationKeys { get; init; } = [];
 
+    /// <summary>This effect again, marked as something to draw with until the real one arrives.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A copy rather than a mutation, because the original is in the cache under its own key
+    ///         and is a perfectly good effect — the placeholder shader resolved like any other. What
+    ///         differs is only the role it is being put in, and a host sets that role once:
+    ///     </para>
+    ///     <code>effects.Placeholder = effects.Resolve(EffectKey.Of("Placeholder"))?.AsPlaceholder();</code>
+    ///     <para>
+    ///         Written out rather than a <c>with</c> expression, which would mean making this a record
+    ///         — and a record's value equality would change what <c>(Effect, Stage)</c> means as a
+    ///         dictionary key. The shader-module cache is keyed by exactly that and wants reference
+    ///         identity.
+    ///     </para>
+    /// </remarks>
+    public Effect AsPlaceholder() =>
+        new() {
+            Key = Key,
+            Stages = Stages,
+            SetLayouts = SetLayouts,
+            Layout = Layout,
+            ConstantBufferSize = ConstantBufferSize,
+            Parameters = Parameters,
+            Bindings = Bindings,
+            UsedPermutationKeys = UsedPermutationKeys,
+            IsPlaceholder = true
+        };
+
     /// <inheritdoc />
-    public override string ToString() => Key.ToString();
+    public override string ToString() => IsPlaceholder ? $"{Key} (placeholder)" : Key.ToString();
 }
 
 /// <summary>Where one of a shader's resources sits, by the name the shader gave it.</summary>

@@ -133,12 +133,22 @@ public static class VixenCommand {
             Description = "Do not import first. Only for a caller that has already done it in this build."
         };
 
+        // Which Raven backend the shader bundle is compiled for. Not derived from --target, because
+        // the mapping is a device's business rather than a platform's: an Android build may want
+        // SPIR-V for Vulkan or GLSL for GLES, and the same is true of a desktop build running under
+        // an OpenGL backend.
+        var shaderTarget = new Option<string>("--shader-target") {
+            Description = "Which Raven backend to compile the shader bundle for: spirv or glsl.",
+            DefaultValueFactory = _ => ShaderBuildRunner.DefaultBackend
+        };
+
         var command = new Command("build", "Pack imported content into bundles and write the catalog.") {
             project,
             target,
             format,
             outputDirectory,
-            noImport
+            noImport,
+            shaderTarget
         };
 
         command.SetAction(async (parseResult, cancellationToken) => {
@@ -181,7 +191,13 @@ public static class VixenCommand {
                     ? Path.GetFullPath(named)
                     : opened.DefaultOutput(forTarget);
 
-                return (int)(ContentBuildRunner.Run(opened, forTarget, directory, diagnostics)
+                if (!ContentBuildRunner.Run(opened, forTarget, directory, diagnostics)) {
+                    return (int)ExitCode.Failed;
+                }
+
+                // After the content, and into the same directory. A shipping build's only effect
+                // source is this file, so it belongs wherever the catalog it ships beside does.
+                return (int)(ShaderBuildRunner.Run(opened, parseResult.GetRequiredValue(shaderTarget), directory, diagnostics)
                     ? ExitCode.Success
                     : ExitCode.Failed);
             }
@@ -528,6 +544,13 @@ public static class VixenCommand {
             // targets are what copy it beside the binary, and doing it here as well would put two
             // copies in the publish and disagree about which is current.
             if (!ContentBuildRunner.Run(opened, target, opened.DefaultOutput(target), diagnostics)) {
+                return ExitCode.Failed;
+            }
+
+            // A publish is the one build where a missing shader bundle is certainly wrong: there is
+            // no compiler in what it produces, so a variant absent here is an object that never draws
+            // for whoever installs it.
+            if (!ShaderBuildRunner.Run(opened, ShaderBuildRunner.DefaultBackend, opened.DefaultOutput(target), diagnostics)) {
                 return ExitCode.Failed;
             }
         }

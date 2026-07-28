@@ -77,6 +77,31 @@ because a build directory is also where a person keeps the one-line script that 
 
 Two builds of the same content are byte-identical, and there is a test that says so.
 
+### The shader bundle
+
+After the content, into the same directory: `shaders.effects`, which is the only effect source a
+shipping build has. A variant that is not in it is a miss at run time and an object that does not
+draw, because the code that could have compiled one was never linked in.
+
+It is driven by `ProjectSettings/Shaders.effects.json` — a list of shader variants, committed,
+reviewed in a diff, merged when two branches each add a material. There is no manifest by default and
+that is not a failure: a project runs against a compiler in development, and the build says how to
+make one rather than refusing to finish. Write it from `EffectSystem.Requests` after a development
+run and the next build compiles exactly what that run asked for.
+
+**Not "compile everything", and the reason is worth knowing.** A pass with `compose` slots does not
+compile at all without something in them, so "every variant of `ForwardPlus`" is not a well-formed
+question — every variant of `ForwardPlus` *with these features* is, and which features a project has
+lives in its materials rather than its shaders.
+
+`--shader-target` picks the Raven backend, `spirv` by default. It is not derived from `--target`,
+because the mapping is a device's business rather than a platform's: an Android build may want SPIR-V
+for Vulkan or GLSL for GLES, and so may a desktop one.
+
+A variant that will not compile fails the build with everything the compiler said. A variant no
+shader answers to is a warning — the usual cause is a manifest older than the material it was
+captured from, and failing a build over a line somebody can delete would be the wrong trade.
+
 ## `doctor`
 
 **Repairs nothing, on purpose.** `import` scans in the repairing mode; a person asking what is wrong

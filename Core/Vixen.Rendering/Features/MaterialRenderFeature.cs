@@ -295,6 +295,15 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
         var flags = FlagsOf(system, id);
 
         if (variantIndices.TryGetValue((material, flags, shaderName), out var existing)) {
+            // A variant resolved while its shader was still being compiled holds a placeholder, and
+            // the real one arrives some frames later with nothing to announce it. Asking again is how
+            // that is noticed. It costs one dictionary lookup, and only for the variants still
+            // waiting — which is none of them for the whole of a shipping run.
+            if (variants[existing].Effect is { IsPlaceholder: true }) {
+                var waiting = variants[existing];
+                variants[existing] = waiting with { Effect = Effects!.Resolve(waiting.Key) };
+            }
+
             return existing;
         }
 
@@ -322,7 +331,7 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
         }
 
         var index = variants.Count;
-        variants.Add(new(Effects!.Resolve(key), group));
+        variants.Add(new(Effects!.Resolve(key), group, key));
         variantIndices[(material, flags, shaderName)] = index;
         return index;
     }
@@ -399,5 +408,12 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
     IReadOnlyList<ParameterKey> KeysFor(string shaderName) =>
         PermutationKeys.TryGetValue(shaderName, out var keys) ? keys : [];
 
-    readonly record struct Variant(Effect? Effect, uint Group);
+    /// <summary>What one (material, flags, shader) resolved to.</summary>
+    /// <param name="Effect">The variant, null when nothing could supply it.</param>
+    /// <param name="Group">Its sort group, so equal pipelines sort together.</param>
+    /// <param name="Key">
+    ///     What it was resolved from, kept so a placeholder can be asked again. Building it costs a
+    ///     sort and a hash and would otherwise be done twice for every variant still compiling.
+    /// </param>
+    readonly record struct Variant(Effect? Effect, uint Group, EffectKey Key = default);
 }
