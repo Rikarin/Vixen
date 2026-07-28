@@ -1,26 +1,18 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Diagnostics;
 using System.Globalization;
 using Vixen.AssetCompiler;
-using Vixen.Core;
-using Vixen.Editor.Assets;
-using Vixen.Editor.Core;
+using Vixen.Editor.Assets.Content;
 
 namespace Vixen.Cli;
 
-/// <summary>What an import of a whole project did.</summary>
-/// <param name="Imported">How many assets ran an importer.</param>
-/// <param name="Cached">How many were skipped because nothing about them had changed.</param>
-/// <param name="Failed">How many came out with an error.</param>
-/// <param name="Elapsed">How long it took.</param>
-public readonly record struct ImportSummary(int Imported, int Cached, int Failed, TimeSpan Elapsed);
-
 /// <summary>Runs the import pipeline over a project and says what happened.</summary>
 /// <remarks>
-///     Separate from the command that parses the arguments, because <c>content build</c> imports
-///     before it packs and neither of them should own the other's output format.
+///     ⚠ <b>The import itself is <see cref="ContentPipeline" />'s, in <c>Vixen.Editor.Assets</c>.</b>
+///     What is left here is the console and the worker pool — the first because a tool and an editor
+///     want different output, and the second because process isolation is a command-line option and
+///     not something an editor's background task should be starting behind somebody's back.
 /// </remarks>
 public static class ImportRunner {
     /// <summary>Imports everything in a project that needs it.</summary>
@@ -31,12 +23,6 @@ public static class ImportRunner {
     /// <param name="isolated">Whether to run importers in worker processes.</param>
     /// <param name="cancellationToken">Cancels the import.</param>
     /// <returns>What it did.</returns>
-    /// <remarks>
-    ///     <b>The scan repairs.</b> A file with no sidecar gets one, an orphaned sidecar is
-    ///     quarantined, and two assets claiming a GUID are separated — which is what opening a
-    ///     project does, and what a person running <c>vixen import</c> is asking for. <c>doctor</c>
-    ///     is the one that looks without touching.
-    /// </remarks>
     public static async Task<ImportSummary> RunAsync(
         Project project,
         string target,
@@ -48,23 +34,6 @@ public static class ImportRunner {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(output);
 
-        var clock = Stopwatch.StartNew();
-        var scan = project.Database.Scan();
-
-        foreach (var issue in scan.Issues) {
-            output.Asset(DiagnosticWriter.SeverityOf(issue.Kind), issue.Path, DiagnosticCode.Scan, issue.Message);
-        }
-
-        var pipeline = new ImportPipeline(
-            project.Database,
-            Project.Importers(),
-            project.Artifacts,
-            project.Files,
-            project.Cache
-        ) {
-            Target = target
-        };
-
         // Worker processes, when asked for. Doc 08's reason is crash isolation and not speed: an
         // importer that *throws* is already caught, and an importer that takes its process down —
         // a malformed FBX inside a C++ library — is not catchable from inside that process. Off by
@@ -73,39 +42,31 @@ public static class ImportRunner {
         using var pool = isolated ? new CompilerPool(project.Paths.Root) : null;
 
         if (pool is not null) {
-            pipeline.Executor = pool;
             output.Line($"  Importing in {pool.WorkerCount} worker process(es).");
         }
 
-        var pathOf = project.Database.Entries.ToDictionary(entry => entry.Guid, entry => entry.Path);
-        var outcomes = await pipeline.ImportAllAsync(cancellationToken).ConfigureAwait(false);
-        var imported = 0;
-        var cached = 0;
-        var failed = 0;
+        return await ContentPipeline.ImportAsync(
+            project.Workspace,
+            target,
+            diagnostic => ContentBuildRunner.Write(output, diagnostic),
+            verbose ? step => Verbose(output, step) : null,
+            pool,
+            cancellationToken
+        ).ConfigureAwait(false);
+    }
 
-        foreach (var outcome in outcomes) {
-            var path = pathOf.GetValueOrDefault(outcome.Asset, outcome.Asset.ToString());
-
-            if (!outcome.Succeeded) {
-                failed++;
-            } else if (outcome.WasCached) {
-                cached++;
-            } else if (outcome.Importer is not null) {
-                imported++;
-            }
-
-            foreach (var diagnostic in outcome.Diagnostics) {
-                output.Asset(diagnostic.Severity, path, DiagnosticCode.Import, diagnostic.Message);
-            }
-
-            if (verbose && outcome.Importer is not null && outcome.Diagnostics.Count == 0) {
-                output.Line($"  {(outcome.WasCached ? "cached " : "import ")} {path} ({outcome.Importer})");
-            }
+    /// <summary>Names one asset under <c>--verbose</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only the ones that had nothing to say.</b> An asset with a diagnostic has already had
+    ///     it printed, with its path attached, and naming it again would put every warned-about file
+    ///     in the log twice — once as a warning and once as a line saying it was fine.
+    /// </remarks>
+    static void Verbose(DiagnosticWriter output, ImportProgress step) {
+        if (step.Outcome.Importer is not { } importer || step.Outcome.Diagnostics.Count > 0) {
+            return;
         }
 
-        project.Save();
-
-        return new(imported, cached, failed, clock.Elapsed);
+        output.Line($"  {(step.Outcome.WasCached ? "cached " : "import ")} {step.Path} ({importer})");
     }
 
     /// <summary>Prints the one line a person reads when nothing went wrong.</summary>

@@ -112,6 +112,34 @@ same nothing and look like one asset.
 ⚠ **Untested at the panel level**, in common with every other panel here — the app is an executable
 with no test project. The model underneath it has 16.
 
+## Importing and building content
+
+`Import Assets` and `Build Content` (`Ctrl+Shift+B`) run `ContentPipeline` on the shell's background
+task manager — the same call `vixen import` and `vixen content build` make. The orchestration moved
+into `Vixen.Editor.Assets` so there is one of it: two would drift, and the way that drift shows up is
+the editor and the CLI producing different output for one project.
+
+⚠ **One at a time**, and the guard is `Interlocked.CompareExchange` rather than a bool. Two imports
+write the same sidecars, artefact store and cache file at once; the second does not produce a worse
+build, it produces a corrupt `Library/`. A menu item and a keybinding dispatched in one frame would
+both see a plain flag unset.
+
+⚠ **Build imports first.** The plan reads the import cache, so building without importing packs the
+previous import's artefacts — a build that succeeds and ships yesterday's content.
+
+⚠ **The workspace has its own `AssetDatabase`.** `Scan` clears and repopulates its dictionaries and
+the import runs on a pool thread, so sharing the one the panels read would be a race. The editor
+rescans afterwards, on the frame thread, which is what `ContentTasks.Rescan` is for.
+
+⚠ **The progress bar fills at the end.** `ImportAllAsync` returns when it is finished, so what drives
+the bar is a walk over what happened rather than a live feed. Honest, and fixed by giving the import
+pipeline a progress callback of its own.
+
+`--run ID` executes one editor command on the first frame, which is how CI proves an import or a
+build through the *editor's* path — enablement, background task and notification — rather than
+through the pipeline the CLI already covers. It exits 2 for a command that is not there or not
+enabled.
+
 **The scene panel is live.** `ScenePresenter` renders into an offscreen colour target, registers it
 with `UiRenderer.RegisterImage`, and the viewport control draws it — so the scene arrives in the
 interface as an ordinary element that panels can be drawn over.

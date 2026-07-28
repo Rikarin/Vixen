@@ -52,6 +52,7 @@ sealed class EditorApplication : IDisposable {
     readonly World world = new("Editor");
     readonly EditorProject project;
     readonly SceneDocument scene;
+    readonly ContentTasks content;
     readonly string scenePath;
     readonly List<Entity> shown = [];
 
@@ -107,6 +108,13 @@ sealed class EditorApplication : IDisposable {
         scene.Renamed += (_, _) => hierarchyStale = true;
 
         camera = new EditorCamera().Bookmark("initial");
+
+        content = new(project, Shell) {
+            // The panel's own rescan, so the browser shows what an import repaired rather than what
+            // was there before it ran. Assigned rather than called by the tasks directly, because
+            // the browser exists only while its panel is open.
+            Rescan = () => browser?.Rescan()
+        };
 
         Panels();
         Layouts();
@@ -174,6 +182,10 @@ sealed class EditorApplication : IDisposable {
     ///     and the picture is a frame behind.
     /// </remarks>
     public void Update() {
+        // What a finished import or build had to say, on the thread that owns the panels it is about
+        // to rebuild. See `ContentTasks` for why nothing crosses back except a queued value.
+        content.Pump();
+
         if (hierarchyStale) {
             hierarchyStale = false;
             RebuildHierarchy();
@@ -391,6 +403,32 @@ sealed class EditorApplication : IDisposable {
         );
 
         Shell.Keys.SetDefault("assets.refresh", new KeyChord(InputKey.R, ModifierKeys.Control));
+
+        // Both greyed out while either is running: they write the same sidecars, artefact store and
+        // cache file, and two at once corrupts `Library/` rather than merely producing a worse build.
+        Shell.Commands.Add(
+            new EditorCommand(
+                "assets.import",
+                new StringId("editor.command.import-assets", "Import Assets"),
+                content.Import
+            ) {
+                Category = EditorStrings.CategoryFile,
+                Enablement = () => !content.IsBusy
+            }
+        );
+
+        Shell.Commands.Add(
+            new EditorCommand(
+                "assets.build",
+                new StringId("editor.command.build-content", "Build Content"),
+                content.Build
+            ) {
+                Category = EditorStrings.CategoryFile,
+                Enablement = () => !content.IsBusy
+            }
+        );
+
+        Shell.Keys.SetDefault("assets.build", new KeyChord(InputKey.B, ModifierKeys.Control | ModifierKeys.Shift));
 
         Shell.Commands.Add(
             new EditorCommand("help.about", EditorStrings.CommandAbout, About) {

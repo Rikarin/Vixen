@@ -26,7 +26,9 @@ namespace Vixen.Editor.App;
 ///     <para>
 ///         <c>--frames N</c> runs exactly N frames and exits, which is how CI proves the whole stack
 ///         starts, presents and stops without a validation error or a hang — the same flag
-///         <c>Samples/01</c> introduced and for the same reason.
+///         <c>Samples/01</c> introduced and for the same reason. <c>--run ID</c> executes one editor
+///         command on the first frame, which is how the frames after it prove that a background task
+///         the editor started actually finished.
 ///     </para>
 /// </remarks>
 static class Program {
@@ -49,8 +51,19 @@ static class Program {
             }
         );
 
-        using var host = new EditorHost(platform, window, project);
+        using var host = new EditorHost(platform, window, project) { Command = Option(arguments, "--run") };
         return host.Run(frames);
+    }
+
+    /// <summary>Reads an option that takes a value, or null.</summary>
+    static string? Option(string[] arguments, string name) {
+        for (var i = 0; i < arguments.Length - 1; i++) {
+            if (arguments[i] == name) {
+                return arguments[i + 1];
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Reads <c>--project PATH</c>, or nothing for the scratch project.</summary>

@@ -23,6 +23,14 @@
         <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
 
         <!--
+            The importers and the content build, which the editor runs on a background task and the
+            CLI runs from a terminal. Shared rather than reimplemented: two orchestrations over these
+            components drift, and the way that drift shows up is the editor and `vixen content build`
+            producing different output for one project.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
+
+        <!--
             The two panels that are more than chrome. Neither references the other and neither
             references the shell — joining them is this assembly's job, which is also why the
             [Inspector]-annotated bridge from an entity to a row of editors lives here rather than in

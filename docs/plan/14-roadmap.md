@@ -2838,6 +2838,22 @@ the game — entirely in `Vixen.Ui`. The editor-shell performance bar from
 [00](00-vision-and-principles.md) is met. `Sign`/`Notarize` produce installable artefacts. ImGui appears
 nowhere in the dependency graph.
 
+> **The one sentence, as built.** ✅ Opens a project — `EditorProject.Open`, with a `ProjectBrowser`
+> over the result. ✅ Imports assets and ✅ builds content — `ContentPipeline` on the shell's
+> background task manager, the same call the CLI makes, proved from the editor's own path by
+> `--run assets.build`. 🟡 Edits a scene — hierarchy, inspector, gizmos and a viewport, but no undo
+> for creating or destroying an entity, because the ECS cannot reissue a handle. ✅ Saves. ✅ Runs the
+> game, in the sense of play-in-editor over a world snapshot. ✅ Entirely in `Vixen.Ui` — there is no
+> other toolkit anywhere in the dependency graph, and never was.
+>
+> What the sentence does not cover and Phase 6 still lists: the asset editors, the profiler and
+> debugger, plugin loading, the automation harness, and `PublishEditor`. The performance bar is
+> unmeasured — nothing runs the editor-shell benchmark yet.
+>
+> ⚠ **The viewport draws lines, not meshes.** A scene of empties looks right; a scene with a model in
+> it does not show the model. That wants a material system wired to an editor viewport, which is
+> Phase 7's neighbourhood rather than a gap in the wiring.
+
 ---
 
 ## Phase 7 — Node graphs and VFX *(3.5 EM)*
