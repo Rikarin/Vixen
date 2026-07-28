@@ -2956,10 +2956,41 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   **Owed:** per-axis enable and parent-relative replication on `NetworkTransform`, and the system
   that copies between it and the engine's transform hierarchy — which is where `Vixen.Engine` and
   `Vixen.Net` will first have to meet.
-- Lag compensation: transform/collider history ring + rewound Jolt shape casts. **Deferred within the
-  phase.** It is the one item here that cannot start: it rewinds colliders, and `Vixen.Physics` is
-  Phase 8 and not built. The tick history it needs is keyed by `Tick`, which now exists, so the ring
-  is the work and the query is Jolt's — the sequencing note at the top of this phase stands.
+- ✅ **Lag compensation** — `Vixen.Net.Physics`, unblocked the moment Phase 8's physics landed and
+  built against it. A ring of pose history per tracked body, and a rewind scope that moves those
+  bodies to where a shooter saw them, lets one query run, and puts them back.
+
+  **A package of its own, for the reason `Vixen.Net.Engine` is one:** `Vixen.Net` and `Vixen.Physics`
+  may not reference each other, so the type that has to see a `Tick` and a `BodyHandle` lives above
+  both. A game with networking and no physics must not link Jolt to send a packet.
+
+  **Only tracked bodies rewind**, which is both the cheap answer and the correct one: the walls did
+  not move, so a shot through a doorway resolves against the doorway as it is now. The tracked set is
+  players and vehicles — tens of bodies, not thousands.
+
+  **`ClampFor` is the anti-cheat surface and is public because of it.** A hit claim names a tick and
+  the client chooses that number; three bounds decide what it may mean — not in the future, not past
+  `MaxRewind`, and not further back than the player's *measured* round trip plus the interpolation
+  delay they were rendering at. That last bound is the one that does the work, and the one that is
+  easy to leave out: a client renders behind the newest snapshot it holds, so a server allowing only
+  the round trip rewinds to a world the shooter had not been shown. Claims are **clamped rather than
+  refused** — a refusal punishes a player for their latency — and `ClampedCount` says how often.
+
+  **The restore is a `using`, and that is load-bearing.** A world left in the past does not fail: it
+  simulates and replicates and looks entirely normal, with everybody standing where they were a fifth
+  of a second ago, for ever. There is a test for a query that throws mid-rewind, because that is the
+  path nobody writes by hand.
+
+  Eleven tests, the first of which is the whole feature: the same ray, missing live and hitting
+  rewound. `Capture` allocates nothing — the one path a hundred players multiply — and that test is
+  bracketed by a collection count rather than asserting on a bare
+  `GC.GetAllocatedBytesForCurrentThread` difference, for the reason recorded in `FuzzSession.Weigh`.
+
+  **Owed:** the hit-claim message itself, which this validates and nothing yet defines. Per-bone
+  rewind, so a headshot is judged against a skeleton rather than a capsule — that wants animation pose
+  history and multiplies the ring by the tracked bone count. A cost budget for rewinds, which belongs
+  in the RPC rate limiter and needs it to know that some calls are dearer than others. And drawing it,
+  without which a disputed kill is unanswerable.
 - ✅ **Security pass: packet validation, rate limits, closed-set deserialization, protocol/content hash
   handshake, and the fuzzing corpus over the packet reader.** `Vixen.Net.Fuzz` — nine targets, three
   oracles, nine million cases on every build in nine seconds.
