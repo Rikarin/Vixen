@@ -2089,7 +2089,16 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   rebuild a tile against 1.54 ms to bake one, four tiles dirtied by a crate, 2.2 MB resident — which
   the cache reports itself, because the memory is the whole cost of the design.
 
-  **Owed:** moving the sliced search onto a job, and baking from a *scene* rather
+  **The searches run on jobs.** `NavPathQueue.Scheduler` puts each slice on `Vixen.Core.Threading`;
+  null, the default, runs them inline. The queries were separate objects with separate node pools from
+  the start and only read the mesh, so there is nothing to lock. **Both paths run the same rounds and
+  give the same answers in the same updates** — a test runs two queues side by side for sixty-four
+  updates and asserts request-for-request agreement — and scheduling a slice allocates nothing.
+  Measured at under 1.8× on nine workers, and the reason is written down rather than hidden: a round
+  is a barrier, so it costs its longest search. Free-running queries would recover the rest and would
+  cost the property that makes a scheduler an implementation detail.
+
+  **Owed:** baking from a *scene* rather
   than from a named collision mesh — which waits on the scene compiler doc 08 splits out.
 - `Samples/05-PlatformerGame` — physics, input, animation, audio, VFX end to end on all platforms where
   it is in scope.

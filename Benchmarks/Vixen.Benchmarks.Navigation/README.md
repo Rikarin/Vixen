@@ -23,6 +23,7 @@ several times. A benchmark over an empty floor would measure a single polygon an
 | `BakeBenchmarks` | The content-build cost, at two cell sizes and two level sizes, single-tile against tiled. This is the number that decides whether rebaking a tile is something an editor can do while somebody drags a crate about. |
 | `QueryBenchmarks` | Nearest-polygon, A\*, the funnel over its result, and a raycast across the level. One agent changing its mind costs a `FindPath`; one agent walking costs a `FindStraightPath` over a corridor it already has. |
 | `CrowdBenchmarks` | A whole frame for 16, 64 and 256 agents, with avoidance on and off — because avoidance is the term that scales with density rather than with population. `RetargetStorm` is the other frame that matters: the one where every agent is given a new destination at once. |
+| `PathQueueBenchmarks` | Thirty-two searches driven to completion, inline and on the job system. What it measures is not the ratio but its ceiling: a round is a barrier, so it costs its longest search. |
 
 **Allocated is the column to read first.** Every query and crowd case is expected to be **0 B**;
 `NavigationAllocationTests` is the gate that fails the build if it is not, and this is where the same
@@ -58,6 +59,14 @@ a background collection lands inside an iteration — and the mean follows it wh
 | 16 | 25 µs | 26 µs | **0 B** |
 | 64 | 108 µs | 107 µs | **0 B** |
 | 256 | 480 µs | 466 µs | **0 B** |
+
+**Thirty-two searches**, submitted at once and driven to completion, on a machine with nine workers:
+
+| Searches in flight | Inline | Scheduled |
+|---|---|---|
+| 2 | 545 µs | 448 µs |
+| 4 | 545 µs | 333 µs |
+| 8 | 551 µs | **308 µs** |
 
 **A bake**, which is a build step rather than a frame:
 
@@ -96,6 +105,14 @@ So the spike went from ~3.5 ms of A\* to ~0.5 ms of endpoint lookups, and the ne
 lookups rather than the search: an agent already knows the polygon it is standing on, and the
 destination's polygon could be resolved once by whoever set the destination rather than once per
 retarget. Worth doing when something needs it; worth knowing now.
+
+**Running the searches on jobs is worth under 1.8×, and the reason is the barrier rather than the job
+system.** An update is a sequence of rounds, and a round advances every assigned query by its share
+before collecting any of them — so a round costs its *longest* search, and these routes run from a few
+polygons to fifty. Nine workers cannot help with waiting. That barrier is what makes the scheduled
+queue give the same answers in the same updates as the inline one, which is a property worth more than
+the throughput it costs; a free-running queue is written down as the thing to do if something ever
+needs it.
 
 **A raycast does not care how big the level is.** It walks polygons along a line, and the line in this
 test crosses about the same number of them either way; the search beside it is 4.5× slower on the

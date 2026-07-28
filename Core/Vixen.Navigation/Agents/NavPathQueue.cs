@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Core.Threading;
 
 namespace Vixen.Navigation.Agents;
 
@@ -45,11 +46,19 @@ public enum NavPathRequestState {
 ///         in the game.
 ///     </para>
 ///     <para>
-///         <b>The queue is not asynchronous and does not use threads.</b> It is a budget: every
-///         <see cref="Update" /> runs at most <c>iterations</c> polygon expansions in total, shared
-///         between however many searches are in flight. That is enough to fix the spike, it keeps the
-///         determinism the content build and the tests rely on, and it leaves the door open for a job
-///         per query later without changing what a caller sees.
+///         <b>It is a budget first and threads second.</b> Every <see cref="Update" /> runs at most
+///         <c>iterations</c> polygon expansions in total, shared between however many searches are in
+///         flight, and that alone is enough to fix the spike. Setting <see cref="Scheduler" /> then
+///         runs each search's slice on a job instead of on the caller's thread — the searches are
+///         already independent, one query object each.
+///     </para>
+///     <para>
+///         <b>The two run the same rounds and give the same answers in the same updates.</b> An update
+///         is a sequence of rounds: assign every free query from the waiting list, advance every
+///         assigned query by its share, collect whatever finished. Nothing in that depends on which
+///         thread ran what or how fast, so a scheduler changes where the work happens and nothing
+///         else — a test asserts it, the same way the sliced search is asserted to agree with the
+///         whole one.
 ///     </para>
 ///     <para>
 ///         A request whose result is never taken holds its slot until the queue runs out and starts
@@ -60,6 +69,8 @@ public enum NavPathRequestState {
 public sealed class NavPathQueue {
     readonly NavMeshQuery[] queries;
     readonly int[] assignments;
+    readonly NavPathStatus[] statuses;
+    readonly int[] performed;
     readonly Slot[] slots;
     readonly Queue<int> waiting = new();
 
@@ -83,6 +94,8 @@ public sealed class NavPathQueue {
         Mesh = mesh;
         queries = new NavMeshQuery[parallelSearches];
         assignments = new int[parallelSearches];
+        statuses = new NavPathStatus[parallelSearches];
+        performed = new int[parallelSearches];
         slots = new Slot[capacity];
 
         for (var index = 0; index < parallelSearches; index++) {
@@ -97,6 +110,23 @@ public sealed class NavPathQueue {
 
     /// <summary>The mesh being searched.</summary>
     public NavMesh Mesh { get; }
+
+    /// <summary>Where to run the searches, or <see langword="null" /> to run them on the caller's thread.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Off by default, because a scheduler is a process-wide resource with worker threads
+    ///         attached and a navigation queue is not the thing that should decide to create one. A
+    ///         game that has one already hands it over; a tool that does not is not made to.
+    ///     </para>
+    ///     <para>
+    ///         <b>The mesh must not be changed while an update is in flight.</b> The searches only read
+    ///         it, so any number of them are safe together — but <see cref="NavMesh.AddTile" />,
+    ///         <see cref="NavMesh.RemoveTile" /> and therefore
+    ///         <see cref="Baking.NavTileCache.Update" /> write to it, and this is the one place in the
+    ///         assembly where that would be a race rather than a mistake with an obvious symptom.
+    ///     </para>
+    /// </remarks>
+    public JobScheduler? Scheduler { get; set; }
 
     /// <summary>How many requests are waiting or being worked on.</summary>
     public int PendingCount { get; private set; }
@@ -196,30 +226,18 @@ public sealed class NavPathQueue {
         // wants to walk to the next room.
         var share = Math.Max(1, iterations / queries.Length);
 
-        for (var query = 0; query < queries.Length && LastIterations < iterations; query++) {
-            if (assignments[query] < 0 && !TryStart(query)) {
-                continue;
+        // Rounds, rather than one query at a time. Every free query is filled, every assigned query
+        // advances by the same share, and whatever finished is collected — which is a shape that can
+        // be run on one thread or on several without the answers depending on which.
+        while (LastIterations < iterations) {
+            if (!Assign()) {
+                return;
             }
 
-            var index = assignments[query];
-            var status = queries[query].UpdateSlicedFindPath(share, out var performed);
+            Advance(share);
 
-            LastIterations += performed;
-
-            if (status == NavPathStatus.Partial) {
-                continue;
-            }
-
-            slots[index].Status = queries[query].FinalizeSlicedFindPath(slots[index].Path, out var count);
-            slots[index].Count = count;
-            slots[index].State = NavPathRequestState.Ready;
-            assignments[query] = -1;
-            PendingCount--;
-
-            // The query is free again, so let it pick up whatever is waiting rather than idling until
-            // the next update.
-            if (LastIterations < iterations) {
-                query--;
+            if (!Collect()) {
+                return;
             }
         }
     }
@@ -249,6 +267,78 @@ public sealed class NavPathQueue {
         slots[index].Filter = null;
 
         return true;
+    }
+
+    /// <summary>Gives every free query something to search. False when none of them has anything.</summary>
+    bool Assign() {
+        var working = 0;
+
+        for (var query = 0; query < queries.Length; query++) {
+            if (assignments[query] < 0) {
+                TryStart(query);
+            }
+
+            if (assignments[query] >= 0) {
+                working++;
+            }
+        }
+
+        return working > 0;
+    }
+
+    /// <summary>Advances every assigned query by one share, here or on the workers.</summary>
+    void Advance(int share) {
+        if (Scheduler is null) {
+            for (var query = 0; query < queries.Length; query++) {
+                Slice(queries, assignments, statuses, performed, query, share);
+            }
+
+            return;
+        }
+
+        // One index per query, one query per batch. There are a handful of queries and each slice is
+        // microseconds of work, so letting the scheduler group them would put two searches on one
+        // thread and leave another idle.
+        Scheduler.ParallelFor(new SliceJob(queries, assignments, statuses, performed, share), queries.Length, 1);
+    }
+
+    /// <summary>Takes the paths off whichever searches finished. False when none did.</summary>
+    bool Collect() {
+        var finished = false;
+
+        for (var query = 0; query < queries.Length; query++) {
+            var index = assignments[query];
+
+            if (index < 0) {
+                continue;
+            }
+
+            LastIterations += performed[query];
+
+            if (statuses[query] == NavPathStatus.Partial) {
+                continue;
+            }
+
+            slots[index].Status = queries[query].FinalizeSlicedFindPath(slots[index].Path, out var count);
+            slots[index].Count = count;
+            slots[index].State = NavPathRequestState.Ready;
+            assignments[query] = -1;
+            PendingCount--;
+            finished = true;
+        }
+
+        return finished;
+    }
+
+    /// <summary>One query's share of one round. The only thing a worker thread runs.</summary>
+    static void Slice(NavMeshQuery[] queries, int[] assignments, NavPathStatus[] statuses, int[] performed, int query, int share) {
+        if (assignments[query] < 0) {
+            performed[query] = 0;
+
+            return;
+        }
+
+        statuses[query] = queries[query].UpdateSlicedFindPath(share, out performed[query]);
     }
 
     bool TryStart(int query) {
@@ -291,6 +381,22 @@ public sealed class NavPathQueue {
         return (uint)index < (uint)slots.Length
             && slots[index].Generation == request.Generation
             && slots[index].State != NavPathRequestState.Unknown;
+    }
+
+    /// <summary>One round's slices, as a job.</summary>
+    /// <remarks>
+    ///     Every index touches its own query, its own status and its own count, and reads a mesh
+    ///     nothing is writing. That is the whole argument for this being safe, and it is the reason the
+    ///     searches were separate query objects long before there was a scheduler to run them on.
+    /// </remarks>
+    readonly struct SliceJob(
+        NavMeshQuery[] queries,
+        int[] assignments,
+        NavPathStatus[] statuses,
+        int[] performed,
+        int share
+    ) : IJobParallelFor {
+        public void Execute(int index) => Slice(queries, assignments, statuses, performed, index, share);
     }
 
     /// <summary>One outstanding request, and the path it will produce.</summary>

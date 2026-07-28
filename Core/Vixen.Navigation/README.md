@@ -28,7 +28,7 @@ baking as a build step, agents, avoidance"*.
 | `NavMesh`, `NavMeshTileData` | Tiles that can be added and removed while agents stand on them; salted references; links across tile borders. |
 | `NavMeshAsset` | A whole baked mesh as one serialisable value — what a build writes and a player loads. |
 | `NavMeshQuery` | Nearest polygon, A\*, funnel string-pulling, surface raycast, move-along-surface — whole or sliced. |
-| `Agents/NavPathQueue` | Searches run a slice at a time against a frame budget, so a crowd changing its mind costs a budget rather than a search each. |
+| `Agents/NavPathQueue` | Searches run a slice at a time against a frame budget, on the caller's thread or on jobs, so a crowd changing its mind costs a budget rather than a search each. |
 | `NavQueryFilter` | Area costs and capability flags — the two independent questions a filter asks. |
 | `Agents/PathCorridor` | The polygons an agent is inside, trimmed as it moves and straightened by raycast. |
 | `Agents/LocalAvoidance` | Sampled reciprocal velocity obstacles. |
@@ -137,9 +137,35 @@ better-looking than stopping dead while it thinks.
 synchronous answer cannot drift from the sliced one — and a test asserts they produce the same
 corridor, polygon for polygon, when the same search is run four expansions at a time.
 
-**It is a budget, not a thread.** No job scheduling, no locks, and the same answer every run, which
-is what the content build and every test here depend on. A query per job is a change the queue can
-absorb later without a caller noticing, because what a caller sees is a request handle.
+**It is a budget first and threads second.** Setting `NavPathQueue.Scheduler` runs each search's slice
+on a job instead of on the caller's thread; leaving it null is the default and runs everything inline.
+The searches were separate `NavMeshQuery` objects from the start, each with its own node pool and open
+list, and they only read the mesh — so there is nothing to lock, and the only rule is the obvious one:
+**do not change the mesh while an update is in flight**, which means `NavTileCache.Update` and a
+scheduled queue update do not overlap.
+
+**Both run the same rounds and give the same answers in the same updates.** An update is a sequence of
+rounds — assign every free query from the waiting list, advance every assigned query by its share,
+collect whatever finished — and nothing in that depends on which thread ran what or how fast. A test
+runs two queues side by side over sixty-four updates and asserts the same request is `Ready` in the
+same update with the same corridor polygon for polygon, and that both expanded the same number of
+polygons. Scheduling a slice allocates nothing, which is also asserted: a job is a struct copied into a
+preallocated array.
+
+**What it buys, and the ceiling on it.** Thirty-two routes across an eighty-metre level, on a machine
+with nine workers:
+
+| Searches in flight | Inline | Scheduled |
+|---|---|---|
+| 2 | 545 µs | 448 µs |
+| 4 | 545 µs | 333 µs |
+| 8 | 551 µs | **308 µs** |
+
+Under 1.8×, on nine workers. **The round is a barrier, so a round costs its longest search** — and
+these routes run from a few polygons to fifty, so the short ones finish and wait. Letting each query
+free-run and pick up the next request itself would recover most of the rest, and would cost the
+property in the paragraph above. The barrier is what makes a scheduler an implementation detail, and
+that is worth more than the throughput it gives up.
 
 **And it moved the bottleneck rather than removing it**, which the benchmark says plainly: 256 agents
 retargeting at once now costs about 480 µs whether the budget is 256 expansions or a million, because
@@ -358,9 +384,9 @@ where the cost of a crowd actually is.
 - **Compressed tile-cache layers.** `NavTileCache` keeps its voxels uncompressed — 2.2 MB for an
   eighty-metre level. Recast compresses; that is worth adding when a project has measured that it
   needs it, and inventing the requirement first would be picking a compressor for nobody.
-- **Pathfinding on another thread.** The queue slices the work but runs it on the caller's thread. A
-  query per job through `Vixen.Core.Threading` is the next step and needs nothing new from the API —
-  a request handle already hides where the work happened.
+- **A free-running path queue.** The searches run on jobs, but a round is a barrier and so costs its
+  longest search. Letting each query pick up its next request itself would recover the rest and would
+  give up the property that a scheduler changes nothing a caller can observe.
 - **The scene is not a bake input.** The importer bakes the collision mesh a `.vxnavmesh` names. What
   it cannot yet do is bake *a scene* — every static collider in it, at its placed transform — because
   that needs the scene compiler doc 08 splits out and which does not exist. Naming a merged collision
