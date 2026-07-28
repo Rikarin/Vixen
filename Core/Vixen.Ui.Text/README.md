@@ -309,6 +309,33 @@ only ever runs on a set that already fitted, so it is not clear it can lose one.
 not monotone in the insertion order, which is why the guard is there — but several attempts to build
 a set that repacks worse than it packed all fitted.
 
+### One question, from a renderer's side
+
+`GlyphFieldCache` is the join: ask where a glyph is, get an atlas region and the quad to draw it in,
+and never learn that outlines, fields or packing exist. A miss reads the outline, encodes the field
+and packs it; everything after is a lookup.
+
+⚠ **The placement is in ems.** The atlas is size-independent on purpose, so its metadata has to be
+too — a placement in pixels is right for one font size and wrong for the next, and the mistake stays
+invisible until somebody draws the same word twice at two sizes. The same goes for the range a
+shader thresholds against, which scales with the size and would otherwise blur as text grew and
+alias as it shrank.
+
+⚠ **A placement outlives its pixels.** Eviction takes the entry; where the glyph sits relative to
+the pen came from the font and cannot have changed, so it is remembered separately and a re-request
+only re-encodes.
+
+⚠ **The quad covers the padded cell, not the silhouette.** A glyph drawn with an outline or a glow
+reads past its own edge, and a cell cropped to the glyph has nothing there to read.
+
+Verified by sabotage: a placement in pixels fails 1, a quad cropped to the glyph fails 1, an
+unpadded field fails 2, dropping the font from the key fails 1, and a screen-pixel range that
+ignores the resolution fails 1. ⚠ Two more needed the tests sharpened first — remembering that a
+glyph draws nothing is not observable through the atlas, since an empty glyph never reaches it, so
+the reads are counted; and reporting a remembered placement beside a region the atlas no longer
+holds passes every assertion about the placement while sampling whatever has since been packed at
+the origin.
+
 ## Why the tables are generated and committed
 
 CI has no copy of the Unicode Character Database, and fetching one at build time would make a build
