@@ -74,7 +74,10 @@ property to a user-agent sheet rather than baking it in where an author could no
 
 Said out loud rather than left to be discovered:
 
-- **`Image` reserves space and draws nothing.** The draw list has no texture command yet.
+- **`Image` draws a texture the application registered**, and reserves the space when it has none.
+  Turning a `Source` name into a `Texture` number is the application's half: it loads the asset and
+  calls `UiRenderer.RegisterImage`. An unset texture draws nothing, which is what an image whose
+  asset has not arrived should do.
 - **`TextArea` is a taller `TextBox`.** Nothing in the framework wraps a line, so there is no second
   line for Enter to start. The tag exists so the markup will not have to change when it does.
 - ~~**Timed behaviour needs a host tick.**~~ `Tooltip` and `ToastHost` subscribe to

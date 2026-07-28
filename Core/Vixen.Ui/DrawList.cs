@@ -26,6 +26,14 @@ public enum DrawCommandKind : byte {
     /// <summary>A run of positioned glyphs in one font.</summary>
     Text,
 
+    /// <summary>A texture, stretched over a rectangle.</summary>
+    /// <remarks>
+    ///     An image, a video frame, a viewport's render target. What the texture <i>is</i> belongs to
+    ///     the renderer — see <see cref="DrawCommand.Image" /> for why this layer names it with a
+    ///     number rather than a handle.
+    /// </remarks>
+    Image,
+
     /// <summary>The inside of a path.</summary>
     Path,
 
@@ -96,6 +104,29 @@ public readonly record struct DrawCommand(
     ///     fields a kind does not use.
     /// </remarks>
     public int Font { get; init; }
+
+    /// <summary>Which texture, as the renderer's own name for one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Opaque on purpose, exactly as <c>Viewport.RenderTarget</c> is.</b> A texture view
+    ///         is <c>Vixen.Graphics</c>' vocabulary and this assembly does not reference it — the
+    ///         whole bargain <c>Vixen.Ui</c> makes is that it describes what to draw and knows nothing
+    ///         about how. A renderer registers a number for a texture it owns and is handed the number
+    ///         back; nothing in between has to know what it stands for.
+    ///     </para>
+    ///     <para>
+    ///         Zero is "no image", which is what a command of any other kind carries.
+    ///     </para>
+    /// </remarks>
+    public ulong Image { get; init; }
+
+    /// <summary>Which part of the texture to draw, as UVs from the top-left.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Zero-to-one and not pixels</b>, because the command does not know how big the texture
+    ///     is — only the renderer does. A sub-rectangle is how a sprite sheet, a nine-slice and a
+    ///     flipped video frame are all expressed, and the default covers the whole texture.
+    /// </remarks>
+    public Rectangle Source { get; init; } = new(0f, 0f, 1f, 1f);
 
     /// <summary>The font size in pixels, which is what scales a glyph's outline.</summary>
     /// <remarks>

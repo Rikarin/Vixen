@@ -89,12 +89,12 @@ the seeded one written immediately — the only time the editor saves without be
 project contains the scene you are looking at rather than something that exists until the window
 closes. `Ctrl+S` saves; the menu item greys itself out from the document's own dirty signal.
 
-⚠ **The scene panel draws no scene, and cannot yet.** `UiDocument`'s draw list has eight command
-kinds and none of them is a texture — `Viewport`'s own remarks say so, which is why it fills a
-placeholder colour. Everything *around* the missing pixels works: the camera, the gizmo arithmetic,
-the hit-testing and the undo are all driven and all correct, and the corner axis cross is drawn as
-ordinary UI paths so the camera is legible while you orbit it. What unblocks the rest is an image
-command in `Vixen.Ui` plus a compositor in this host, in that order.
+⚠ **The scene panel draws no scene yet, and the reason has moved.** The draw list carries a texture
+now and `Viewport` draws one — what is missing is something to put *in* the texture: a `RenderSystem`
+and a `GraphicsCompositor` in this host, rendering into an offscreen target that gets handed to
+`UiRenderer.RegisterImage`. Everything around it already works: the camera, the gizmo arithmetic, the
+hit-testing and the undo are all driven and all correct, and the corner axis cross is drawn as
+ordinary UI paths so the camera is legible while you orbit it.
 
 ## The world, and why the editor has one
 

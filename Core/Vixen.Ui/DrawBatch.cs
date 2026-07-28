@@ -36,6 +36,9 @@ public enum BatchKind : byte {
     /// <summary>Glyph runs in one font.</summary>
     Text,
 
+    /// <summary>Rectangles sampling one texture.</summary>
+    Image,
+
     /// <summary>The inside of paths under one fill rule.</summary>
     PathFill,
 
@@ -65,7 +68,15 @@ public readonly record struct DrawBatch(
     int Count,
     int Font,
     PathFillRule FillRule
-);
+) {
+    /// <summary>Which texture, for <see cref="BatchKind.Image" />. Zero and unread otherwise.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Part of what decides whether a command joins a batch.</b> A texture is a descriptor
+    ///     set the renderer binds, so two images from different textures are two draws however
+    ///     adjacent they are — merging them would draw the second one with the first one's picture.
+    /// </remarks>
+    public ulong Image { get; init; }
+}
 
 /// <summary>Groups a frame's commands into runs that can be drawn as one.</summary>
 /// <remarks>
@@ -138,16 +149,17 @@ public static class DrawBatcher {
 
         for (var i = 0; i < commands.Count; i++) {
             var (kind, font, rule) = KeyOf(commands[i]);
+            var image = kind == BatchKind.Image ? commands[i].Image : 0ul;
 
             // ⚠ A clip never joins anything, not even another clip. Two pushes in a row would merge
             // into a batch of two under the general rule, and a batch is a thing to draw — a state
             // change that arrives as part of a draw is a state change somebody will apply once.
-            if (kind != BatchKind.Clip && into.Count > 0 && Extends(into[^1], kind, font, rule)) {
+            if (kind != BatchKind.Clip && into.Count > 0 && Extends(into[^1], kind, font, rule, image)) {
                 into[^1] = into[^1] with { Count = into[^1].Count + 1 };
                 continue;
             }
 
-            into.Add(new DrawBatch(kind, i, 1, font, rule));
+            into.Add(new DrawBatch(kind, i, 1, font, rule) { Image = image });
         }
     }
 
@@ -157,8 +169,8 @@ public static class DrawBatcher {
     ///     ask whether the last batch was a clip: it cannot be extended, because its key is
     ///     <see cref="BatchKind.Clip" /> and nothing else has that key.
     /// </remarks>
-    static bool Extends(DrawBatch batch, BatchKind kind, int font, PathFillRule rule) =>
-        batch.Kind == kind && batch.Font == font && batch.FillRule == rule;
+    static bool Extends(DrawBatch batch, BatchKind kind, int font, PathFillRule rule, ulong image) =>
+        batch.Kind == kind && batch.Font == font && batch.FillRule == rule && batch.Image == image;
 
     /// <summary>What decides which batch a command can join.</summary>
     /// <remarks>
@@ -192,6 +204,7 @@ public static class DrawBatcher {
             DrawCommandKind.Rectangle or DrawCommandKind.Border or DrawCommandKind.Shadow =>
                 (BatchKind.Geometry, 0, default),
             DrawCommandKind.Text => (BatchKind.Text, command.Font, default),
+            DrawCommandKind.Image => (BatchKind.Image, 0, default),
             DrawCommandKind.Path => (BatchKind.PathFill, 0, command.FillRule),
             DrawCommandKind.PathStroke => (BatchKind.PathStroke, 0, default),
             _ => (BatchKind.Clip, 0, default)

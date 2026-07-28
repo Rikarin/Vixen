@@ -319,7 +319,12 @@ sealed class EditorHost : IDisposable {
                 device.CreateShader(ShaderStage.Fragment, Module("ui-box.frag.spv"), "ui box"),
                 device.CreateShader(ShaderStage.Fragment, Module("ui-text.frag.spv"), "ui text"),
                 device.CreateShader(ShaderStage.Fragment, Module("ui-solid.frag.spv"), "ui solid")
-            ),
+            ) {
+                // The stage a viewport's render target is drawn through. Supplied here rather than
+                // assumed by the renderer, for the reason UiShaders gives: turning source into
+                // modules is Raven's job and this host hands over what it has.
+                Image = device.CreateShader(ShaderStage.Fragment, Module("ui-image.frag.spv"), "ui image")
+            },
             new Rendering.RenderOutput([swapChain.Format])
         );
 

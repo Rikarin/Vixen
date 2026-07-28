@@ -109,6 +109,10 @@ public sealed class UiGeometryBuilder {
                         Shadow(list, command);
                         break;
 
+                    case DrawCommandKind.Image:
+                        Image(command);
+                        break;
+
                     case DrawCommandKind.Text:
                         Text(list, command, glyphs);
                         break;
@@ -124,7 +128,11 @@ public sealed class UiGeometryBuilder {
             }
 
             if (indices.Count > first) {
-                draws.Add(new UiDraw(batch.Kind, first, indices.Count - first, batch.Font, clip));
+                draws.Add(
+                    new UiDraw(batch.Kind, first, indices.Count - first, batch.Font, clip) {
+                        Image = batch.Image
+                    }
+                );
             }
         }
 
@@ -239,6 +247,33 @@ public sealed class UiGeometryBuilder {
             new Vector2(half.X + margin, half.Y + margin),
             command.Color,
             new Vector4(shapes.Count - 1, 0, 0, 0)
+        );
+    }
+
+    /// <summary>One textured quad.</summary>
+    /// <remarks>
+    ///     ⚠ <b>No shape entry and no distance field.</b> An image is the one thing the interface
+    ///     draws that is already a picture: there is nothing to round, no border to inset and no
+    ///     coverage to compute, so it is four vertices and the UVs the command asked for. Rounding
+    ///     an image's corners would need the box shader's field and the image shader's sample at
+    ///     once, which is a fourth pipeline and not a fourth branch.
+    /// </remarks>
+    void Image(DrawCommand command) {
+        if (command.Image == 0) {
+            // Nothing registered. Drawing it with whatever texture happens to be bound would put the
+            // font atlas in the hole, which reads as a rendering fault rather than as a missing image.
+            return;
+        }
+
+        Quad(
+            command.X,
+            command.Y,
+            command.X + command.Width,
+            command.Y + command.Height,
+            new Vector2(command.Source.X, command.Source.Y),
+            new Vector2(command.Source.X + command.Source.Width, command.Source.Y + command.Source.Height),
+            command.Color,
+            Vector4.Zero
         );
     }
 

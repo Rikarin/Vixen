@@ -120,10 +120,11 @@ public sealed class ViewportGizmo : UiElement {
 ///         which is the bug nobody sees until somebody complains about a screenshot.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It draws a placeholder rather than the scene</b>, because the draw list has no
-///         texture command yet — the same gap <c>Image</c> has, said again here because a viewport
-///         is where it is most conspicuous. <see cref="RenderTarget" /> is the handle a host writes,
-///         and a renderer composites over the interface until the command exists.
+///         <b>It draws <see cref="RenderTarget" /> when there is one</b>, through the draw list's
+///         image command — so a renderer hands the interface a texture rather than compositing over
+///         it, and the viewport is an ordinary element that other elements can be drawn on top of.
+///         With no target it fills a placeholder colour, which is what a viewport nothing has
+///         rendered into yet should look like: empty rather than broken.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Capture does not lock the pointer</b> and cannot: a pointer lock is a platform
@@ -177,11 +178,32 @@ public sealed partial class Viewport : Control {
 
     /// <summary>The renderer's handle for whatever is being drawn here.</summary>
     /// <remarks>
-    ///     Opaque on purpose. A texture id, a render-target index, a pointer — this assembly cannot
-    ///     name the type without depending on the graphics layer, and the only thing it does with
-    ///     the value is hand it back on <see cref="Resized" />.
+    ///     <para>
+    ///         Opaque on purpose. A texture id, a render-target index, a pointer — this assembly
+    ///         cannot name the type without depending on the graphics layer. What it does with the
+    ///         value is hand it back on <see cref="Resized" /> and put it in an image command, which
+    ///         is the same number <c>UiRenderer.RegisterImage</c> was given.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A number the renderer does not know draws nothing at all</b> — not the
+    ///         placeholder, and not another texture. A viewport that went blank after a resize is a
+    ///         target that was recreated and not re-registered.
+    ///     </para>
     /// </remarks>
     public ulong RenderTarget { get; set; }
+
+    /// <summary>
+    ///     Whether the rendered image is flipped vertically on its way to the screen.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A scene is rendered with the engine's Y up and an interface is drawn with Y down</b>,
+    ///     so a render target sampled as it stands is upside down. Which way round it should go is
+    ///     the host's answer, not this one's — a target the renderer already flipped is not to be
+    ///     flipped twice — so it is a property with the common case as its default rather than
+    ///     something assumed.
+    /// </remarks>
+    [UiProperty(Default = true)]
+    public partial bool FlipVertically { get; set; }
 
     /// <summary>How wide the render target should be, in render pixels.</summary>
     public int RenderWidth => renderWidth;
@@ -323,9 +345,19 @@ public sealed partial class Viewport : Control {
     protected override void OnDraw(DrawContext context) {
         base.OnDraw(context);
 
-        // The placeholder, and it is a placeholder: the draw list has no texture command, so what
-        // ships until it does is a renderer compositing over the interface and this filling the hole
-        // so a viewport that nothing is drawing into reads as empty rather than as broken.
+        if (RenderTarget != 0) {
+            context.DrawImage(
+                context.Bounds,
+                RenderTarget,
+                source: FlipVertically ? new Rectangle(0f, 1f, 1f, -1f) : new Rectangle(0f, 0f, 1f, 1f)
+            );
+
+            return;
+        }
+
+        // Nothing has rendered into it yet — the first frame, a collapsed dock panel that just
+        // reopened, a device that has not finished coming back. Filling the hole is what makes that
+        // read as empty rather than as whatever was in the framebuffer.
         if (Document.ColorOf(Style, placeholderColor) is { } colour) {
             context.FillRectangle(context.Bounds, colour);
         }
