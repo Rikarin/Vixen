@@ -9,22 +9,29 @@ baking as a build step, agents, avoidance"*.
 
 ## State
 
-**Bake, query, agents and avoidance are built and tested. 40 tests.**
+**Bake, query, agents, avoidance, authored areas and the content-build step are built and tested.
+55 tests here, 10 more over the importer, and the frame-loop paths are measured at zero allocation.**
 
 | | |
 |---|---|
 | `Baking/Heightfield` | Triangle rasterisation into columns of solid voxels; the low-obstacle, ledge and low-ceiling filters. |
-| `Baking/CompactHeightfield` | The walkable surface with its neighbours resolved; erosion by the agent radius; monotone region partitioning. |
+| `Baking/CompactHeightfield` | The walkable surface with its neighbours resolved; erosion by the agent radius; authored areas; monotone region partitioning. |
 | `Baking/ContourSet` | Region outlines traced from the voxel grid and simplified within an error tolerance. |
 | `Baking/PolyMesh` | Ear-clipping triangulation, convex merge to six-vertex polygons, adjacency by edge matching. |
+| `Baking/NavAreaVolume` | Boxes and convex prisms that stamp an area — water, road, mud — before the surface is partitioned. |
 | `Baking/NavMeshBaker` | The pipeline in order, single-tile and tiled, with the tile margin that makes tiles connect. |
 | `NavMesh`, `NavMeshTileData` | Tiles that can be added and removed while agents stand on them; salted references; links across tile borders. |
+| `NavMeshAsset` | A whole baked mesh as one serialisable value — what a build writes and a player loads. |
 | `NavMeshQuery` | Nearest polygon, A\*, funnel string-pulling, surface raycast, move-along-surface. |
 | `NavQueryFilter` | Area costs and capability flags — the two independent questions a filter asks. |
 | `Agents/PathCorridor` | The polygons an agent is inside, trimmed as it moves and straightened by raycast. |
 | `Agents/LocalAvoidance` | Sampled reciprocal velocity obstacles. |
 | `Agents/Crowd` | Agents, targets, steering, avoidance, separation, and the move that keeps them on the mesh. |
 | `Ecs/` | `NavigationAgent`, `NavigationDestination`, `NavigationState` and the system that joins them to a crowd. |
+
+Baking is a build step: `Editor/Vixen.Editor.Assets/Navigation/NavMeshImporter` takes a `.vxnavmesh`
+naming a collision mesh, bakes it, and writes the `NavMeshAsset` as the artefact — with the geometry
+as a declared dependency, so re-exporting it re-bakes.
 
 ## Why this is Vixen's own code and not a binding
 
@@ -106,6 +113,23 @@ zero samples and zero weights returns the desired velocity unchanged, which look
 avoidance that has decided there is nothing to avoid. It cost an afternoon; the shape here cannot
 reproduce it.
 
+## Nothing in the frame loop allocates, and that is measured
+
+`NavigationAllocationTests` runs each per-frame path until whatever it grows has stopped growing, then
+runs it a thousand times more and asserts that the process allocated **zero** bytes: a search, a
+string-pull, a raycast, a move across the surface, and sixteen agents walking a route with a wall in
+it — replans, avoidance and all.
+
+The one thing that failed it was the proximity grid. A crowd walking across a level occupies a roughly
+constant *number* of cells and a constantly changing *set* of them, so a bucket kept per visited cell
+allocated a list every time somebody walked somewhere new: 872 bytes over a thousand frames, a drip
+that never quite stops. Buckets now go back to a pool on clear, and the number is zero.
+
+The benchmark project (`Benchmarks/Vixen.Benchmarks.Navigation`) is where the same paths get a time
+next to that zero: a search across an eighty-metre level is 12.8 µs, the funnel over its result is
+another 1.3 µs, and a 256-agent crowd frame is 1.59 ms with avoidance and 255 µs without — which is
+where the cost of a crowd actually is.
+
 ## What is not implemented, and why
 
 - **Watershed partitioning.** Regions are built by monotone sweep, which is hole-free by construction
@@ -114,6 +138,9 @@ reproduce it.
 - **Region merging.** Regions below `MinRegionArea` are discarded rather than merged into a
   neighbour. Merging keeps more surface and can produce regions with holes, which is the property the
   partitioning was chosen to avoid.
+- **Off-mesh links between areas an authored volume creates.** A volume stamps a *cost*; it cannot
+  make ground walkable that the bake found unwalkable, and it cannot connect two surfaces that do not
+  touch.
 - **The detail mesh.** Heights come from the polygon corners, so the surface is flat within a polygon
   and a floor sits up to one cell height above where it really is. On rolling terrain that is visible;
   the fix is Recast's height-detail pass, which is a bake stage of its own.
@@ -122,13 +149,16 @@ reproduce it.
 - **Dynamic obstacles.** A crate dropped on the floor means rebaking its tile. There is no tile cache
   and no obstacle carving. Closing a route with `NavMesh.SetPolyFlags` is the cheap half and works
   today.
-- **Baking as a content-build step.** `NavMeshBaker` produces a `NavMeshTileData`, which is inert
-  arrays and is ready to be serialised, but nothing in `Vixen.Assets` imports or writes one yet. Doc
-  14's phrase "navmesh baking as a build step" is therefore half done: the bake is a step anything can
-  call, and the pipeline does not yet call it.
 - **Asynchronous pathfinding.** `NavMeshQuery` is one per thread and every search runs to completion
   inside the frame that asked for it. A crowd of a few hundred is fine; a thousand agents replanning
   in the same frame wants a sliced queue, which is where `Vixen.Core.Threading` comes in.
+- **The scene is not a bake input.** The importer bakes the collision mesh a `.vxnavmesh` names. What
+  it cannot yet do is bake *a scene* — every static collider in it, at its placed transform — because
+  that needs the scene compiler doc 08 splits out and which does not exist. Naming a merged collision
+  export is the shape that works today and is what most projects do anyway.
+- **Nothing draws it.** `Vixen.Engine.Diagnostics.DebugDraw` exists and nothing here calls it, so a
+  bad bake is diagnosed by a failing path rather than by looking at it. That is the cheapest missing
+  thing on this list.
 
 ## Testing
 
@@ -138,5 +168,9 @@ the same input produces the same output, and a box standing on a floor is not wa
 stands. The query layer is checked against geometry whose answer is known — a straight line across an
 open floor, a wall with one gap in it — and the crowd against its invariants: on the mesh at every
 step, no serious interpenetration, and everybody arrives.
+
+Determinism is asserted at the byte level rather than at the polygon level: two bakes of the same
+level serialise to identical bytes, which is the form a content build's determinism check can actually
+use.
 
 Licensed under Apache-2.0.

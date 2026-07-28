@@ -215,6 +215,46 @@ internal sealed class CompactHeightfield {
         }
     }
 
+    /// <summary>Stamps an authored area onto the surface inside a volume.</summary>
+    /// <param name="volume">The volume.</param>
+    /// <remarks>
+    ///     Called after erosion and before partitioning: after, because a volume over ground the agent
+    ///     cannot reach should not resurrect it, and before, because the region sweep will not run a
+    ///     region across an area boundary and that is what keeps a polygon from being half road.
+    /// </remarks>
+    public void MarkArea(NavAreaVolume volume) {
+        ArgumentNullException.ThrowIfNull(volume);
+
+        var minimumX = Math.Max(0, (int)MathF.Floor((volume.Bounds.Minimum.X - Bounds.Minimum.X) / CellSize));
+        var maximumX = Math.Min(Width - 1, (int)MathF.Ceiling((volume.Bounds.Maximum.X - Bounds.Minimum.X) / CellSize));
+        var minimumZ = Math.Max(0, (int)MathF.Floor((volume.Bounds.Minimum.Z - Bounds.Minimum.Z) / CellSize));
+        var maximumZ = Math.Min(Depth - 1, (int)MathF.Ceiling((volume.Bounds.Maximum.Z - Bounds.Minimum.Z) / CellSize));
+
+        for (var z = minimumZ; z <= maximumZ; z++) {
+            for (var x = minimumX; x <= maximumX; x++) {
+                ref var cell = ref Cells[x + (z * Width)];
+
+                for (var index = cell.Index; index < cell.Index + cell.Count; index++) {
+                    if (Areas[index] == NavArea.Null) {
+                        continue;
+                    }
+
+                    // The column's centre rather than its corner, so a volume drawn along a cell
+                    // boundary does not depend on which side of it the arithmetic lands.
+                    var point = new Vector3(
+                        Bounds.Minimum.X + ((x + 0.5f) * CellSize),
+                        Bounds.Minimum.Y + (Spans[index].Y * CellHeight),
+                        Bounds.Minimum.Z + ((z + 0.5f) * CellSize)
+                    );
+
+                    if (volume.Contains(point)) {
+                        Areas[index] = volume.Area;
+                    }
+                }
+            }
+        }
+    }
+
     /// <summary>
     ///     Partitions the walkable surface into regions by sweeping it row by row.
     /// </summary>

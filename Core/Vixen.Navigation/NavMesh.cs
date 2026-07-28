@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 
 namespace Vixen.Navigation;
@@ -18,6 +19,7 @@ namespace Vixen.Navigation;
 ///     How far apart two tiles' border vertices may be vertically. This is the agent's step height:
 ///     the same reason a single tile connects a polygon to the one a step above it.
 /// </param>
+[DataContract("NavMeshParams")]
 public readonly record struct NavMeshParams(
     Vector3 Origin,
     float TileWidth,
@@ -235,6 +237,10 @@ public sealed class NavMesh {
     public NavMeshTile AddTile(NavMeshTileData data) {
         ArgumentNullException.ThrowIfNull(data);
 
+        // Checked here as well as in the constructor, because a tile read from disk reaches its
+        // members through their init setters and never runs one.
+        data.Validate();
+
         if (data.Polys.Length > NavPolyRef.MaxPolysPerTile) {
             throw new InvalidOperationException(
                 $"The tile has {data.Polys.Length} polygons; a reference can only name {NavPolyRef.MaxPolysPerTile}."
@@ -357,6 +363,9 @@ public sealed class NavMesh {
         return NavPolyRef.Encode(tile.Salt, tile.Slot, poly);
     }
 
+    /// <summary>The same, for a tile and index this assembly already knows are in range.</summary>
+    internal static NavPolyRef Reference(NavMeshTile tile, int poly) => NavPolyRef.EncodeUnchecked(tile.Salt, tile.Slot, poly);
+
     /// <summary>Copies a polygon's vertices out.</summary>
     /// <param name="reference">The polygon.</param>
     /// <param name="destination">Where to write them. Six is enough for any polygon this engine bakes.</param>
@@ -449,10 +458,14 @@ public sealed class NavMesh {
 
         ref var poly = ref tile.Polys[index];
 
+        // Compared field by field rather than by packing each neighbour into a reference: this runs
+        // once per corridor step of every funnel, and the polygon index is already in hand.
+        var sameTile = to.Tile == tile.Slot && to.Salt == tile.Salt;
+
         for (var edge = 0; edge < poly.VertexCount; edge++) {
             var neighbour = tile.Data.PolyNeighbours[poly.FirstVertex + edge];
 
-            if (neighbour >= 0 && ReferenceOf(tile, neighbour) == to) {
+            if (neighbour >= 0 && sameTile && neighbour == to.Poly) {
                 (right, left) = EdgePoints(tile, in poly, edge);
 
                 return true;
@@ -694,7 +707,7 @@ public sealed class NavMesh {
                 var crossed = edge++;
 
                 if (neighbour >= 0) {
-                    Current = new(ReferenceOf(tile, neighbour), crossed, 0f, 1f);
+                    Current = new(Reference(tile, neighbour), crossed, 0f, 1f);
 
                     return true;
                 }

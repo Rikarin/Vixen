@@ -39,6 +39,7 @@ public static class NavMeshBaker {
     /// <param name="indices">Three indices per triangle.</param>
     /// <param name="bounds">The volume to voxelise.</param>
     /// <param name="settings">How finely, and for what agent.</param>
+    /// <param name="volumes">Authored areas to stamp onto the surface — water, road, whatever costs.</param>
     /// <returns>The tile, or <see langword="null" /> if nothing in the volume is walkable.</returns>
     /// <remarks>
     ///     The result belongs at tile (0, 0) of a mesh built with <see cref="NavMeshParams.Single" />.
@@ -49,20 +50,27 @@ public static class NavMeshBaker {
         ReadOnlySpan<Vector3> vertices,
         ReadOnlySpan<int> indices,
         BoundingBox bounds,
-        NavMeshBuildSettings settings
+        NavMeshBuildSettings settings,
+        ReadOnlySpan<NavAreaVolume> volumes = default
     ) {
         settings.Validate();
 
-        return BakeTile(vertices, indices, bounds, settings, 0, 0, 0);
+        return BakeTile(vertices, indices, bounds, settings, volumes, 0, 0, 0);
     }
 
     /// <summary>Bakes one tile covering the geometry's own bounds.</summary>
     /// <param name="vertices">The geometry's vertices, in world space.</param>
     /// <param name="indices">Three indices per triangle.</param>
     /// <param name="settings">How finely, and for what agent.</param>
+    /// <param name="volumes">Authored areas to stamp onto the surface.</param>
     /// <returns>The tile, or <see langword="null" /> if nothing is walkable.</returns>
-    public static NavMeshTileData? Bake(ReadOnlySpan<Vector3> vertices, ReadOnlySpan<int> indices, NavMeshBuildSettings settings) =>
-        Bake(vertices, indices, Volume(vertices, settings), settings);
+    public static NavMeshTileData? Bake(
+        ReadOnlySpan<Vector3> vertices,
+        ReadOnlySpan<int> indices,
+        NavMeshBuildSettings settings,
+        ReadOnlySpan<NavAreaVolume> volumes = default
+    ) =>
+        Bake(vertices, indices, Volume(vertices, settings), settings, volumes);
 
     /// <summary>Bakes a grid of tiles.</summary>
     /// <param name="vertices">The geometry's vertices, in world space.</param>
@@ -70,6 +78,7 @@ public static class NavMeshBaker {
     /// <param name="bounds">The volume to cover.</param>
     /// <param name="settings">How finely, and for what agent.</param>
     /// <param name="tileSize">How wide a tile is, in voxels. Recast's usual answer is 32 to 128.</param>
+    /// <param name="volumes">Authored areas to stamp onto the surface. Applied to every tile they reach.</param>
     /// <returns>The tiles and the grid they belong on.</returns>
     /// <remarks>
     ///     <para>
@@ -91,7 +100,8 @@ public static class NavMeshBaker {
         ReadOnlySpan<int> indices,
         BoundingBox bounds,
         NavMeshBuildSettings settings,
-        int tileSize = 64
+        int tileSize = 64,
+        ReadOnlySpan<NavAreaVolume> volumes = default
     ) {
         settings.Validate();
         ArgumentOutOfRangeException.ThrowIfLessThan(tileSize, 8);
@@ -114,7 +124,7 @@ public static class NavMeshBaker {
 
                 var volume = new BoundingBox(minimum, new(minimum.X + extent, bounds.Maximum.Y, minimum.Z + extent));
 
-                if (BakeTile(vertices, indices, volume, settings, x, z, border) is { } tile) {
+                if (BakeTile(vertices, indices, volume, settings, volumes, x, z, border) is { } tile) {
                     tiles.Add(tile);
                 }
             }
@@ -143,6 +153,7 @@ public static class NavMeshBaker {
         ReadOnlySpan<int> indices,
         BoundingBox bounds,
         NavMeshBuildSettings settings,
+        ReadOnlySpan<NavAreaVolume> volumes,
         int tileX,
         int tileZ,
         int border
@@ -170,6 +181,10 @@ public static class NavMeshBaker {
 
         var compact = CompactHeightfield.Build(field, settings.WalkableHeightInCells, settings.WalkableClimbInCells);
         compact.ErodeWalkableArea(settings.WalkableRadiusInCells);
+
+        foreach (var area in volumes) {
+            compact.MarkArea(area);
+        }
 
         DiscardBorder(
             compact,

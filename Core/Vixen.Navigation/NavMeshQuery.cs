@@ -81,6 +81,16 @@ public sealed class NavMeshQuery {
     /// <summary>How many polygons the last search expanded. Diagnostic.</summary>
     public int LastSearchNodes { get; private set; }
 
+    /// <summary>
+    ///     How many corridor steps the last string-pull walked, restarts included. Diagnostic.
+    /// </summary>
+    /// <remarks>
+    ///     Worth exposing because it is not the corridor length: the funnel restarts from each corner
+    ///     it emits, so a corridor that turns often is walked more than once. A number far above the
+    ///     corridor length is what a pathological funnel looks like from outside.
+    /// </remarks>
+    public int LastStraightPathSteps { get; private set; }
+
     /// <summary>Finds the polygon nearest a point.</summary>
     /// <param name="center">The point.</param>
     /// <param name="halfExtents">How far to look in each direction.</param>
@@ -114,7 +124,7 @@ public sealed class NavMeshQuery {
                 }
 
                 for (var index = 0; index < tile.PolyCount; index++) {
-                    var candidate = NavMesh.ReferenceOf(tile, index);
+                    var candidate = NavMesh.Reference(tile, index);
 
                     if (!tile.PolyBounds[index].Intersects(box)) {
                         continue;
@@ -370,6 +380,7 @@ public sealed class NavMeshQuery {
         }
 
         var count = 0;
+        LastStraightPathSteps = 0;
         points[count++] = new(startPosition, path[0]);
 
         if (path.Length == 1) {
@@ -388,6 +399,8 @@ public sealed class NavMeshQuery {
         var rightIndex = 0;
 
         for (var index = 0; index <= path.Length && count < points.Length; index++) {
+            LastStraightPathSteps++;
+
             Vector3 candidateLeft;
             Vector3 candidateRight;
 

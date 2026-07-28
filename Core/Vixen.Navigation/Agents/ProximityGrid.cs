@@ -23,7 +23,7 @@ namespace Vixen.Navigation.Agents;
 /// </remarks>
 public sealed class ProximityGrid {
     readonly Dictionary<long, List<int>> cells = [];
-    readonly List<List<int>> used = [];
+    readonly Stack<List<int>> spare = [];
     readonly float inverseCellSize;
 
     /// <summary>Creates a grid.</summary>
@@ -38,13 +38,21 @@ public sealed class ProximityGrid {
     /// <summary>How wide a cell is.</summary>
     public float CellSize { get; }
 
-    /// <summary>Empties the grid, keeping the buckets.</summary>
+    /// <summary>Empties the grid, keeping the buckets for the next frame.</summary>
+    /// <remarks>
+    ///     The buckets go back to a pool rather than staying keyed to the cells they were in. A crowd
+    ///     walking across a level occupies a roughly constant <i>number</i> of cells and a constantly
+    ///     changing <i>set</i> of them, so keeping a bucket per visited cell allocates a list every
+    ///     time somebody walks somewhere new — a slow drip that never quite stops, which is exactly
+    ///     what a steady-state allocation budget is about.
+    /// </remarks>
     public void Clear() {
-        foreach (var bucket in used) {
+        foreach (var bucket in cells.Values) {
             bucket.Clear();
+            spare.Push(bucket);
         }
 
-        used.Clear();
+        cells.Clear();
     }
 
     /// <summary>Puts an item in the grid.</summary>
@@ -54,12 +62,8 @@ public sealed class ProximityGrid {
         var key = Key(position);
 
         if (!cells.TryGetValue(key, out var bucket)) {
-            bucket = [];
+            bucket = spare.Count > 0 ? spare.Pop() : [];
             cells[key] = bucket;
-        }
-
-        if (bucket.Count == 0) {
-            used.Add(bucket);
         }
 
         bucket.Add(item);

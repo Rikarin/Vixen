@@ -73,6 +73,21 @@ public readonly struct NavPolyRef : IEquatable<NavPolyRef> {
         return new((((ulong)salt & SaltMask) << (PolyBits + TileBits)) | (((ulong)tile & TileMask) << PolyBits) | ((ulong)poly & PolyMask));
     }
 
+    /// <summary>Packs a reference whose fields are already known to fit.</summary>
+    /// <param name="salt">The tile slot's salt.</param>
+    /// <param name="tile">The tile slot.</param>
+    /// <param name="poly">The polygon index within the tile.</param>
+    /// <returns>The reference.</returns>
+    /// <remarks>
+    ///     For the paths inside this assembly that build references out of a mesh's own indices, which
+    ///     <see cref="NavMesh.AddTile" /> has already refused to hold if they did not fit. The four
+    ///     range checks <see cref="Encode" /> makes are worth their cost at an API boundary and are
+    ///     not worth it once per neighbour of every polygon a search expands — measured at roughly a
+    ///     third of the funnel's time, which is per agent per frame.
+    /// </remarks>
+    internal static NavPolyRef EncodeUnchecked(uint salt, int tile, int poly) =>
+        new((((ulong)salt & SaltMask) << (PolyBits + TileBits)) | (((ulong)tile & TileMask) << PolyBits) | ((ulong)poly & PolyMask));
+
     /// <summary>The packed value, for storing a reference somewhere that only holds numbers.</summary>
     /// <returns>The bits.</returns>
     public ulong ToUInt64() => value;

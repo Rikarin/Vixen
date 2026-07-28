@@ -173,6 +173,7 @@
     <Project Path="Benchmarks/Vixen.Benchmarks.Jobs/Vixen.Benchmarks.Jobs.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Ecs/Vixen.Benchmarks.Ecs.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Ui/Vixen.Benchmarks.Ui.csproj" />
+    <Project Path="Benchmarks/Vixen.Benchmarks.Navigation/Vixen.Benchmarks.Navigation.csproj" />
   </Folder>
 
   <!--

@@ -2031,10 +2031,21 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   algorithms are re-derived and credited; no code is copied. `Core/Vixen.Navigation/README.md` records
   the trade and what it costs.
 
+  **Baking is a build step.** `NavMeshImporter` claims `.vxnavmesh`, which names a collision mesh and
+  carries its bake parameters in its `.meta` — so the per-target overrides bake a coarser mesh for a
+  phone, and the geometry is a declared dependency, which is what makes re-exporting it re-bake. What
+  comes out is a serialised `NavMeshAsset`, and two bakes of one level are byte-identical.
+
+  **Zero steady-state allocation is measured, not claimed.** Search, string-pull, raycast,
+  move-along-surface and a sixteen-agent crowd each allocate **0 bytes** over a thousand frames after
+  warm-up (`NavigationAllocationTests`), with `Benchmarks/Vixen.Benchmarks.Navigation` for the times.
+  One thing failed that gate and was fixed: the proximity grid allocated a bucket per newly-visited
+  cell, which is a drip that never stops for a crowd that keeps walking somewhere new.
+
   **Owed:** watershed partitioning (regions are monotone sweeps today), the height-detail pass (a
-  floor sits up to one cell height high), off-mesh connections, dynamic obstacles, and the content
-  build calling the baker — the bake produces an inert `NavMeshTileData` and nothing imports one yet,
-  so "baking as a build step" is half of this line rather than all of it.
+  floor sits up to one cell height high), off-mesh connections, dynamic obstacles, sliced asynchronous
+  pathfinding, and baking from a *scene* rather than from a named collision mesh — which waits on the
+  scene compiler doc 08 splits out.
 - `Samples/05-PlatformerGame` — physics, input, animation, audio, VFX end to end on all platforms where
   it is in scope.
 

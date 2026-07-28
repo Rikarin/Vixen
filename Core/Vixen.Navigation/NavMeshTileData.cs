@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 
 namespace Vixen.Navigation;
@@ -11,6 +12,7 @@ namespace Vixen.Navigation;
 ///     their own: a tile holds thousands of polygons of three to six vertices each, and an array per
 ///     polygon would be thousands of objects for a level that has one shape.
 /// </remarks>
+[DataContract("NavMeshPoly")]
 public struct NavMeshPolyData {
     /// <summary>Where this polygon's vertex indices start in <see cref="NavMeshTileData.PolyVertices" />.</summary>
     public int FirstVertex;
@@ -45,6 +47,7 @@ public struct NavMeshPolyData {
 ///         else, which is a thing this design does not offer.
 ///     </para>
 /// </remarks>
+[DataContract("NavMeshTile")]
 public sealed class NavMeshTileData {
     /// <summary>Creates a tile.</summary>
     /// <param name="x">The tile's column in the mesh's tile grid.</param>
@@ -69,40 +72,68 @@ public sealed class NavMeshTileData {
         ArgumentNullException.ThrowIfNull(polyVertices);
         ArgumentNullException.ThrowIfNull(polyNeighbours);
 
-        if (polyNeighbours.Length != polyVertices.Length) {
-            throw new ArgumentException(
-                $"There are {polyVertices.Length} polygon vertices and {polyNeighbours.Length} neighbours; an edge starts at every vertex, so they are the same length.",
-                nameof(polyNeighbours)
-            );
-        }
-
         X = x;
         Z = z;
         Vertices = vertices;
         Polys = polys;
         PolyVertices = polyVertices;
         PolyNeighbours = polyNeighbours;
-        Bounds = vertices.Length == 0 ? BoundingBox.Empty : BoundingBox.FromPoints(vertices);
+
+        Validate();
     }
 
+    /// <summary>Creates an empty tile, for an object initialiser or a deserialiser to fill.</summary>
+    /// <remarks>
+    ///     The serializer reaches the <c>init</c> setters directly, so the constructor above — and the
+    ///     check it makes — is not on the path a tile takes when it is read from disk.
+    ///     <see cref="NavMesh.AddTile" /> calls <see cref="Validate" /> for that reason: a tile is
+    ///     checked once, wherever it came from.
+    /// </remarks>
+    public NavMeshTileData() { }
+
     /// <summary>The tile's column in the mesh's tile grid.</summary>
-    public int X { get; }
+    public int X { get; init; }
 
     /// <summary>The tile's row in the mesh's tile grid.</summary>
-    public int Z { get; }
+    public int Z { get; init; }
 
     /// <summary>Everything the tile's polygons are made of, in world space.</summary>
-    public Vector3[] Vertices { get; }
+    public Vector3[] Vertices { get; init; } = [];
 
     /// <summary>The polygons.</summary>
-    public NavMeshPolyData[] Polys { get; }
+    public NavMeshPolyData[] Polys { get; init; } = [];
 
     /// <summary>Vertex indices, referenced by range from <see cref="Polys" />.</summary>
-    public int[] PolyVertices { get; }
+    public int[] PolyVertices { get; init; } = [];
 
     /// <summary>Interior adjacency, parallel to <see cref="PolyVertices" />. -1 where there is none.</summary>
-    public int[] PolyNeighbours { get; }
+    public int[] PolyNeighbours { get; init; } = [];
 
     /// <summary>What the tile's geometry spans.</summary>
-    public BoundingBox Bounds { get; }
+    /// <remarks>
+    ///     Derived and cached rather than stored, so it is not in the serialised form. It is a
+    ///     function of the vertices, and a stored copy is a thing that can disagree with them — for
+    ///     twenty-four bytes saved on a file that holds thousands of vertices.
+    /// </remarks>
+    public BoundingBox Bounds {
+        get {
+            if (bounds is null) {
+                bounds = Vertices.Length == 0 ? BoundingBox.Empty : BoundingBox.FromPoints(Vertices);
+            }
+
+            return bounds.Value;
+        }
+    }
+
+    BoundingBox? bounds;
+
+    /// <summary>Throws if the arrays do not describe a tile.</summary>
+    /// <exception cref="ArgumentException">The neighbour array does not match the vertex array.</exception>
+    public void Validate() {
+        if (PolyNeighbours.Length != PolyVertices.Length) {
+            throw new ArgumentException(
+                $"There are {PolyVertices.Length} polygon vertices and {PolyNeighbours.Length} neighbours; an edge starts at every vertex, so they are the same length."
+            );
+        }
+    }
 }
