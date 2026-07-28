@@ -26,6 +26,13 @@ namespace Vixen.Editor.Ui;
 ///         than of the bar — so a presenter that tried to edit in place would leak a menu overlay
 ///         per rebuild, invisible and still listening for pointer events.
 ///     </para>
+///     <para>
+///         ⚠ <b>And the replacement is put back where the first one was.</b> Adding a child appends
+///         it, and a rebuild is triggered by every command anybody registers — so a bar built into
+///         an empty shell and rebuilt once the workspace and the status bar are in it comes back
+///         underneath both of them. In a column that is a menu bar along the bottom of the window,
+///         arriving on whichever frame the application happened to add its last command.
+///     </para>
 /// </remarks>
 public sealed class MenuPresenter : IDisposable {
     readonly Dictionary<MenuItem, string> itemCommands = [];
@@ -37,6 +44,9 @@ public sealed class MenuPresenter : IDisposable {
     readonly Action<CommandRegistry> onCommandsChanged;
     readonly Action<KeyMap> onKeysChanged;
     readonly Action<StringCatalog> onLanguageChanged;
+
+    /// <summary>Which of the host's children the bar is, whatever else has been added since.</summary>
+    readonly int slot;
 
     MenuBar? bar;
     bool disposed;
@@ -55,6 +65,11 @@ public sealed class MenuPresenter : IDisposable {
         this.host = host;
         this.commands = commands;
         this.keys = keys;
+
+        // Taken before the first bar exists, so it is the position the host was handed over for
+        // rather than the position the bar happens to be at — which is the same thing on the first
+        // build and the thing that has to be restored on every one after it.
+        slot = host.Children.Count;
 
         Model = model;
         Rebuild();
@@ -117,6 +132,16 @@ public sealed class MenuPresenter : IDisposable {
         bar?.Remove();
 
         bar = host.Add<MenuBar>();
+
+        // ⚠ Back to where the first one went. `Add` appends, and by the time a command registered
+        // after start-up triggers a rebuild the host has a workspace and a status bar in it — so
+        // without this the bar reappears below both, which in the shell's column is a menu bar along
+        // the bottom edge of the window. Clamped rather than trusted: the host is somebody else's,
+        // and the only thing this knows is that the bar was meant to come before whatever was added
+        // after it.
+        if (bar.IndexInParent > slot) {
+            host.Document.Move(bar, Math.Min(slot, host.Children.Count - 1));
+        }
 
         foreach (var group in Model.Menus) {
             Fill(Bar.AddMenu(group.Title.Text), group);
