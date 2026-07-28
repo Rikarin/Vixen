@@ -63,7 +63,15 @@ That is a 190× reduction, and none of it would have been found by reading the c
 **Bandwidth is a design gap, not a tuning problem.** A record is re-sent every tick until it is
 acknowledged, so with a four-tick round trip each change goes out four times. The server should not
 re-send a record whose previous send could still be in flight — that is retransmission backoff, it is
-what TCP does, and it is not built. Roughly a 4× bandwidth saving is sitting there.
+what TCP does, and it is not built.
+
+It has been *prototyped*, which is how the size of the prize is known rather than guessed:
+suppressing a re-send of the same value within a round trip plus one took this run from **286 to 80
+kbit/s a client**, a 3.6× saving, and ten million records to three. It is not in the tree, because
+the same prototype stopped `Samples/08` converging under packet loss — a client stuck permanently on
+an old value rather than slowly, since nine hundred settle ticks did not clear it. Something about
+suppression interacts with the acknowledged baseline in a way that is not yet understood, and a 3.6×
+saving is not worth a desync. The measurement stands; the mechanism needs its own sitting.
 
 **Worst-tick is a garbage-collection pause**, not the pipeline: the mean is 3.9 ms against a 33 ms
 tick, and there were four Gen0 collections in the whole run. It is real — an 83 ms stall on a game

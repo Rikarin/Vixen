@@ -2493,7 +2493,17 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
   **What is still failing.** Bandwidth, at 286 kbit/s a client against a 128 budget, and that one is
   a design gap rather than tuning: a record is re-sent every tick until acknowledged, so a four-tick
   round trip sends every change four times. **Retransmission backoff — not re-sending a record whose
-  previous send could still be in flight — is not built, and is worth roughly 4×.** Worst-tick, at
+  previous send could still be in flight — is not built.**
+
+  It has been prototyped and measured rather than estimated: suppressing a re-send of the same value
+  within a round trip *plus one* took the soak from **286 to 80 kbit/s a client** — 3.6×, and ten
+  million records down to three. The plus-one matters and is the part that is easy to lose: an
+  acknowledgement becomes useful when it is folded in, not when it arrives, so a delay of exactly the
+  round trip gives a fifth of the saving back. **The prototype is not in the tree**, because it
+  stopped `Samples/08` converging under packet loss — a client stuck *permanently* on an old value,
+  not slowly, since nine hundred settle ticks did not clear it. Suppression interacts with the
+  acknowledged baseline in a way that is not yet understood, and 3.6× is not worth a desync. The
+  number is real; the mechanism needs its own sitting. Worst-tick, at
   83 ms against a 33 ms tick, is a collection pause rather than the pipeline: the mean is 3.9 ms and
   there were four Gen0 collections in the run. Allocation is 24 KB a tick against a 4 KB budget.
 
