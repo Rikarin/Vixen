@@ -2493,10 +2493,15 @@ never been driven against a running window.
   Geometry, Material, Pipeline, PostFx, Ui, Vfx — every shader reaching both backends under `glslc`
   and `spirv-val`.
 - `Vixen.Rendering`: ✅ **the spine** — `RenderSystem`, `RenderObject`/`RenderNode`, the
-  root/sub render-feature extension points, `VisibilityGroup` with parallel CPU culling,
-  `RenderView`/`RenderStage`, sort modes. Still open: the concrete features (mesh, transform,
-  skinning, instancing, material, lighting, shadow-caster), GPU culling, and `GraphicsCompositor` as
-  an asset.
+  root/sub render-feature extension points, `IVisibilityGroup` with both implementations behind it —
+  `VisibilityGroup` culling in parallel on the job system and `GpuVisibilityGroup` dispatching
+  `Library/Pipeline/Culling.rvn` against the frustum and against a `HiZPyramid` of last frame's
+  depth, the second falling back to the first wherever it cannot run and able to skip the readback
+  entirely — `GpuDrawArguments` turns its bits into `DrawIndexedIndirect` arguments without them
+  leaving the device — `RenderView`/`RenderStage`, sort modes. Still open: the concrete features
+  (mesh, transform, skinning, instancing, material, lighting, shadow-caster), the two-phase form of
+  the occlusion test and compacted draws (which want bindless materials first), and
+  `GraphicsCompositor` as an asset.
 - Materials: ✅ **the composable feature tree** — `MaterialDescriptor` and `MaterialCompiler` over two
   `compose` slots on the pass, `surface` for what a point on the surface *is* and `shading` for what it
   does with light. Metallic-roughness and spec-gloss, normal map, emissive, occlusion, anisotropy,

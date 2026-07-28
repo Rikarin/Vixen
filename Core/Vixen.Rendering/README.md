@@ -85,6 +85,117 @@ are whole words: every thread owns the words it writes, and no lock or atomic ap
 Three rejections come before the frustum test, each cheaper than it and each removing objects it
 would have accepted: dead slot, no stage in common, beyond the view's own distance.
 
+### And the same answer, computed on the device
+
+`IVisibilityGroup` is the seam doc 06's "parallel *or GPU*" asks for, and `GpuVisibilityGroup` is the
+second implementation: it packs every object into a 32-byte record, every view into a 128-byte one,
+and dispatches `Library/Pipeline/Culling.rvn`. `RenderSystem.Visibility` is settable, so choosing is
+one line in a host and nothing downstream knows which it got.
+
+**The interface is bits rather than a list**, which is what makes two implementations of it
+interchangeable — sorting walks words and `Hide` clears one, and neither works against an answer
+shaped like anything else.
+
+**One invocation owns one word**, thirty-two objects of it. An invocation per object would need
+thirty-two of them to agree on one store, which means an atomic `or` per object; owning a whole word
+removes the sharing rather than synchronising it — the same trade the CPU path's batch size being a
+multiple of 64 makes, and the same one `ClusterCulling` makes. Thirty-two rather than sixty-four
+because a 64-bit integer is optional on Vulkan and absent from WebGPU; two device words *are* one
+host word, so reassembly is a shift.
+
+**One dispatch for the whole frame**: `x` covers a view's words and `y` is the view, so a camera and
+four shadow cascades are one submission. That is why the object count and the word count travel in
+the *view* record — a dispatch covering every view has no single count to put in a push constant, and
+a uniform block rewritten per view would mean a dispatch per view. The shader declares no scalars at
+all.
+
+**The readback is a stall, and paying it is the design.** The interface promises the bits are this
+frame's when `Cull` returns, and sorting, preparation and recording all read them inside that frame —
+so the alternative is not "no wait" but an answer one frame old, which is geometry popping at the
+edges of a moving camera with nothing to say why. What makes it affordable is the queue: the dispatch
+goes to `ComputeQueue`, so on hardware with a real async compute queue the wait does not drain the
+frame being rendered. The RHI has no fence, which is why the wait is queue-wide rather than on this
+submission alone. It is also optional: `ReadBack = false` pays none of it and moves the decision into
+the draw call instead — see *And drawing from it without ever asking* below.
+
+**It falls back rather than failing.** No effect system, no pipeline cache, a variant that has not
+compiled yet, a provider that does not report set layouts: each of those is a frame that still has to
+be drawn, and each culls on the CPU instead, with `CulledOnDevice` saying which happened. That is
+also what a GL or WebGL target gets, which is what doc 06 means by "the CPU path remains". The
+fallback costs nothing to provide because the GPU group *is* the CPU group plus a front end — it
+composes one and writes the readback into its storage, so there is one bitset implementation in the
+engine rather than two that agree.
+
+The host keeps a copy of the shader's arithmetic in `GpuCulling`, for the reason `ClusterGrid` keeps
+a copy of the froxel grid's: the two sides agree by construction or not at all, and a copy that runs
+on the CPU is what lets a test say they do without a GPU in the room.
+
+### And what the frustum cannot answer
+
+The frustum says what is in front of the camera; it says nothing about what is *behind a wall*. That
+is the second half of doc 06's line, and it is `HiZPyramid` plus the `Occlusion` permutation of
+`Culling.rvn`.
+
+**A pyramid of minima, because depth is reversed.** Near is 1 and far is 0, so the smallest value in
+a tile is the furthest surface drawn in it — and "is this behind everything" can only be asked of the
+furthest one. `HiZReduce.rvn` reduces 3×3 rather than 2×2: a mip chain halves by *flooring*, so an
+odd level leaves a trailing row that a 2×2 block never reads, and a missed occluder raises the tile's
+minimum, which is the direction that culls something visible. Reading a neighbour's texel only lowers
+it, so the extra ring is free in correctness and costs five taps.
+
+**Level 0 is half the depth buffer**, not a copy of it — the first dispatch reduces rather than
+copies, which takes a full-resolution level out of both the memory and the chain and costs nothing an
+occlusion test would notice.
+
+**The test errs towards keeping the object, four times over**: the box around the sphere is projected
+rather than the sphere; anything reaching behind the near plane is kept outright, because its
+projection wraps around the screen rather than growing; the level is the one where the rectangle spans
+at most two texels, so four taps cover all of it; and the comparison is the object's *nearest* point
+against the tile's *furthest* surface. Each of those, written the other way round, culls something
+that was visible — which is a hole in the world, not a slow frame.
+
+**It is a frame old, and per view.** A pass that runs before anything is drawn can only have last
+frame's depth, so the rectangle is projected with the matrix that depth was drawn with — which
+`GpuVisibilityGroup` remembers per view index, and drops whole whenever the number of views changes,
+because a frame that added a view has renumbered every view after it. A view with no remembered matrix
+is frustum-only rather than wrong, which is what makes the first frame of anything safe.
+`OcclusionTested` says whether it happened at all.
+
+**`Compositor/HiZRenderer` is why this is a node.** Depth is a graph resource: a dispatch that sampled
+it without declaring the read would be ordered against nothing and would read it in whatever layout
+the last pass left. The node declares `Reads(depth)` and `SideEffect()` — the second because what it
+writes outlives the graph and so, as far as the graph can see, it produces nothing.
+
+### And drawing from it without ever asking
+
+`GpuVisibilityGroup.ReadBack = false` is the end of the path: no submission, no wait, and the bits
+never leave the device. What replaces them is `GpuDrawArguments` — `Library/Pipeline/DrawArguments.rvn`
+turning the bitset into the five numbers `DrawIndexedIndirect` reads — and
+`Compositor/GpuCullingRenderer`, which records both dispatches at the head of the frame's own list.
+
+**Both dispatches in the frame's list, not a submission of the group's own.** With no wait, the only
+ordering this RHI can express is a barrier between two things in one queue: it has no fences and no
+semaphores. That is the whole reason the culling dispatch became something a node records rather than
+something `Cull` submits.
+
+**It zeroes instance counts; it does not compact.** Compaction needs an atomic counter to claim
+slots with, and Raven has none — the same constraint that shapes `ClusterCulling` and the particle
+kernels. So the buffer holds one record per object slot *at that slot*, and a culled object gets zero
+instances, which every API defines as a draw that fetches and rasterises nothing. The cost is a
+command submitted per object; the saving is the round trip.
+
+**The host's answer becomes conservative, and that is the one place the two groups differ.** With the
+readback off, `Words` holds every live object the view's stages want — everything that *could* be
+seen — so the work list is a superset and the GPU removes the rest. Nothing is drawn that should not
+be; what costs is recording draws that turn out to be empty. It is opt-in for exactly that reason,
+and `Hide` still works, because a bit cleared on the host removes the object from the list entirely.
+
+**The templates are filled by a node, not by a feature's `Prepare`.** A root feature's `Prepare` runs
+before its sub-features', so an instancing batch's size and first instance — two of the five numbers
+— do not exist yet. A node's `Build` runs after the whole of `RenderSystem.Draw`, which is the first
+moment they all do. `IDrawArgumentSource` is the seam; `MeshRenderFeature` implements it and draws
+indirectly whenever the arguments cover its object and view, and directly whenever they do not.
+
 ## Recording
 
 `RenderSystem.Record(view, stage, context)` walks the sorted list and hands each feature its own
@@ -1116,15 +1227,37 @@ node that does not compile, with no hint as to why.
 Bloom has no lens flare and no light streak, and the tonemap pass has no grading LUT as an asset —
 the shader takes one, nothing loads one.
 
-GPU-driven culling is a second implementation of `VisibilityGroup` behind the same interface, which
-is why that interface is bits rather than a list.
+**Two-phase occlusion culling.** The occlusion test here is one-phase — it tests against last
+frame's depth, so something that was hidden last frame and is not now appears a frame late. The fix
+is the standard one: draw what was visible, rebuild the pyramid from *that*, retest the rest, draw
+what the retest found. The pieces exist — a pyramid that can be rebuilt mid-frame, a culling dispatch
+that is already a node — and what is missing is a second argument pass and the compositor sequence
+that interleaves them.
+
+**Compacted draws, and the bindless materials they need.** Indirect draws here are one command per
+object with the culled ones zeroed, because compaction needs an atomic counter Raven does not have.
+Compacting would also only pay off with a bindless material path: what stops one command drawing
+many objects is not the argument buffer, it is that each of them binds its own vertex buffer and its
+own descriptor set.
 
 ## Testing
 
 `Vixen.Rendering.Tests` holds culling to a **brute-force oracle over randomised scenes** (doc 06's
 testing table asks for exactly that), pins that the parallel path agrees with the inline one word for
 word, and asserts that a settled frame of 10 000 objects through extract → cull → sort **allocates
-nothing**. The last one is the guard that a change starting to allocate per object per frame fails a
+nothing**. The GPU path is held to the CPU one the same way: `GpuCulling.IsVisible` is the host's
+transliteration of the shader, compared against `VisibilityGroup` object by object and view by view
+over randomised scenes, with the *shape* of the pass — one invocation per word per view, a barrier
+between the dispatch and the copy out of it — asserted against the recorded command stream. The
+occlusion half is mirrored the same way and tested against a pyramid a test writes by hand: a wall at
+the near plane occludes, an empty frame does not, and an object reaching behind the camera is kept.
+What none of them can see is the shader still containing the arithmetic the mirror mirrors, so two
+tests read `Culling.rvn` and `HiZReduce.rvn` themselves — the same defence the clustered path uses,
+and pointed at the two lines (the rounding slack, and the min-versus-max of the depth comparison)
+whose reversal is invisible everywhere else. The indirect path is asserted where it shows: the node
+records two dispatches with a barrier between them, the templates are the numbers the direct draw
+would have used, and `MeshRenderFeature` emits `DrawIndexedIndirect` at the object's own slot when
+the arguments cover it and `DrawIndexed` when they do not. The last one is the guard that a change starting to allocate per object per frame fails a
 test rather than appearing months later as a GC spike nobody can attribute.
 
 Everything from the mesh feature outward is driven through the **Null backend and asserted against

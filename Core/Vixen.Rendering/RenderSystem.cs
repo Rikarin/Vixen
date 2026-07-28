@@ -35,8 +35,31 @@ public sealed class RenderSystem : IDisposable {
     /// <summary>Every renderable in the scene, and the per-feature arrays beside them.</summary>
     public RenderObjectStore Objects { get; } = new();
 
-    /// <summary>Which objects each view can see.</summary>
-    public VisibilityGroup Visibility { get; } = new();
+    /// <summary>
+    ///     Which objects each view can see, and what decided that.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Settable so a host can hand in a <see cref="GpuVisibilityGroup" /> where the device
+    ///         supports one — [docs/plan/06] wants GPU culling "where capabilities allow" with the
+    ///         CPU path remaining for GL and WebGL, and this property is that choice. Nothing else in
+    ///         the frame changes: both produce the same bitset, and <see cref="Sort" /> walks it
+    ///         without knowing which it got.
+    ///     </para>
+    ///     <para>
+    ///         <strong>Swap it before the first frame.</strong> The system disposes whatever it holds
+    ///         when it is disposed and never the one it is handed, so replacing the default costs
+    ///         nothing before it has culled — it has allocated nothing to leak — and leaks a frame's
+    ///         bitset after.
+    ///     </para>
+    /// </remarks>
+    public IVisibilityGroup Visibility {
+        get;
+        set {
+            ArgumentNullException.ThrowIfNull(value);
+            field = value;
+        }
+    } = new VisibilityGroup();
 
     /// <summary>The scheduler culling and sorting run on. Null runs them inline.</summary>
     /// <remarks>

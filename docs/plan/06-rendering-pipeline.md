@@ -137,6 +137,28 @@ Vixen keeps all three, with these changes:
   transient memory are automatic. The compositor declares; the graph compiles.
 - **GPU-driven culling** where capabilities allow: object bounds uploaded once, frustum + Hi-Z
   occlusion culling in compute, output an indirect draw buffer. The CPU path remains for GL/WebGL.
+  ✅ **Both culls are here.** `IVisibilityGroup` is the seam, `GpuVisibilityGroup` packs the scene
+  into two storage buffers and dispatches `Library/Pipeline/Culling.rvn`, and
+  `RenderSystem.Visibility` is where a host chooses. One invocation owns one 32-object word, so the
+  pass needs no atomic; one dispatch covers every view, which is why the counts travel in the view
+  record rather than in a uniform block. Occlusion is the `Occlusion` permutation of the same shader
+  over a `HiZPyramid` — last frame's depth min-reduced by `Library/Pipeline/HiZReduce.rvn`, built by
+  the `HiZRenderer` compositor node, which exists because declaring the depth *read* is what orders
+  the dispatch after the pass that filled it. Minimum because depth is reversed, 3×3 because a
+  floored mip chain leaves a trailing row, and per view because only a view whose matrix was seen in
+  the frame the pyramid was built in may be projected with it. It falls back to the CPU whenever it
+  cannot run — no pipeline, a variant still compiling, a pyramid not yet built — which is what "the
+  CPU path remains" is, made automatic.
+  ✅ **And the indirect draw buffer.** `GpuVisibilityGroup.ReadBack = false` submits and waits for
+  nothing: `Compositor/GpuCullingRenderer` records the cull and `Library/Pipeline/DrawArguments.rvn`
+  in the frame's own list — the only ordering an RHI with no fences can express — and
+  `MeshRenderFeature` draws through `DrawIndexedIndirect` at each object's own slot. It zeroes
+  instance counts rather than compacting, because compaction needs an atomic counter Raven does not
+  have; the host's bitset then holds what *could* be seen, and the device removes the rest. With the
+  readback on, everything is as before: the bits are this frame's and the work list is exact.
+  Still open: the **two-phase** form of the occlusion test, which is what removes the frame of
+  staleness, and **compaction**, which only pays off once materials are bindless — see
+  `Vixen.Rendering/README.md § Culling`.
 
 ## Frame structure
 

@@ -1,0 +1,1252 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Collections.Immutable;
+using System.Globalization;
+using System.Runtime.InteropServices;
+using CsCheck;
+using Vixen.Core.Mathematics;
+using Vixen.Graphics;
+using Vixen.Graphics.Null;
+using Vixen.Graphics.RenderGraph;
+using Vixen.Rendering;
+using Vixen.Rendering.Compositor;
+using Vixen.Rendering.Features;
+using Vixen.Shaders;
+using Xunit;
+
+namespace Tests;
+
+/// <summary>
+///     GPU-driven culling — docs/plan/06 § Frame structure, step 4, "parallel <em>or GPU</em>".
+/// </summary>
+/// <remarks>
+///     <para>
+///         Three kinds of claim, because a compute pass cannot be run in a unit test and each kind
+///         covers what the others cannot. The <em>arithmetic</em> is checked through
+///         <see cref="GpuCulling.IsVisible" />, the host's transliteration of the shader, against
+///         <see cref="VisibilityGroup" /> — which is the definition — over randomised scenes. The
+///         <em>layout</em> is checked against the constants the shader declares, since the two sides
+///         agree by construction or not at all. And the <em>frame</em> is checked against the
+///         recorded command stream: that the dispatch covers every word of every view, that the copy
+///         out of it is separated by a barrier, and that a device which cannot run it still produces
+///         the right bits.
+///     </para>
+///     <para>
+///         What none of them cover is the shader still containing the arithmetic the mirror mirrors,
+///         which is why <see cref="The_shader_tests_what_the_host_says_it_does" /> reads the source —
+///         the same defence, and the same reason, as the clustered path's.
+///     </para>
+/// </remarks>
+public class GpuVisibilityGroupTests : IDisposable {
+    readonly NullDevice device = new(new() { Record = true });
+
+    public GpuVisibilityGroupTests() {
+        effects.AddProvider(new AlwaysCompiles(device));
+        pipelines = new(device);
+    }
+
+    public void Dispose() {
+        device.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    // --- The records --------------------------------------------------------
+
+    /// <summary>
+    ///     The records are the size and shape <c>Culling.rvn</c> declares.
+    /// </summary>
+    /// <remarks>
+    ///     The host writes bytes and the shader reads structs, so a member that moved is not a
+    ///     compile error anywhere — it is a frustum built from a stage mask, which culls everything
+    ///     or nothing and says why nowhere.
+    /// </remarks>
+    [Fact]
+    public void The_records_match_the_shaders() {
+        // centre + radius, then two halves of the stage mask, flags and the padding the shader
+        // declares: two sixteen-byte rows.
+        Assert.Equal(32, Marshal.SizeOf<CullObject>());
+
+        // Six planes, then position + cutoff, then two halves of the mask and the two counts — 128
+        // bytes of frustum test — and then the occlusion half: a matrix, the level count, the flags
+        // and the padding the shader declares.
+        Assert.Equal(208, Marshal.SizeOf<CullView>());
+
+        Assert.Equal(32, GpuCulling.WordSize);
+        Assert.Equal(64, GpuCulling.WorkgroupSize);
+        Assert.Equal(8, GpuCulling.ReduceWorkgroupSize);
+        Assert.Equal(1u, GpuCulling.Alive);
+        Assert.Equal(1u, GpuCulling.Occluders);
+        Assert.Equal(6, BoundingFrustum.PlaneCount);
+    }
+
+    /// <summary>A word covers 32 objects, and the tail object still gets one.</summary>
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(1, 1)]
+    [InlineData(32, 1)]
+    [InlineData(33, 2)]
+    [InlineData(4096, 128)]
+    public void The_word_count_covers_every_object(int objects, int expected) =>
+        Assert.Equal(expected, GpuCulling.WordsFor(objects));
+
+    /// <summary>Every word of a view is dispatched, including the ones in the last part-workgroup.</summary>
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(1, 1)]
+    [InlineData(64, 1)]
+    [InlineData(65, 2)]
+    public void The_dispatch_covers_every_word(int words, int expected) =>
+        Assert.Equal(expected, GpuCulling.Groups(words));
+
+    /// <summary>
+    ///     Two device words are one host word, low half first.
+    /// </summary>
+    /// <remarks>
+    ///     The device answers in 32-bit words because a 64-bit integer is optional on Vulkan and
+    ///     absent from WebGPU, so this is where the two conventions meet. An odd count is the case
+    ///     worth pinning: a store of 40 objects is two device words and one host word, and a store of
+    ///     20 is one of each — the second half of which nothing wrote.
+    /// </remarks>
+    [Fact]
+    public void The_devices_words_reassemble_into_the_hosts() {
+        var host = new ulong[3];
+
+        GpuCulling.Unpack([0x0000_0001u, 0x8000_0000u, 0xFFFF_FFFFu], host);
+
+        Assert.Equal(0x8000_0000_0000_0001UL, host[0]);
+        Assert.Equal(0x0000_0000_FFFF_FFFFUL, host[1]);
+        Assert.Equal(0UL, host[2]);
+    }
+
+    // --- The arithmetic -----------------------------------------------------
+
+    /// <summary>
+    ///     What the shader will decide is what the CPU path decides, over randomised scenes.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The load-bearing test. <see cref="VisibilityGroup" /> is the definition — it is what
+    ///         doc 06's own testing table compares against a brute-force oracle — and this compares
+    ///         the packing and the test the device will run against it, object by object and view by
+    ///         view. Anything that makes the two paths disagree, from a plane the packer wrote in the
+    ///         wrong order to a stage mask whose halves were swapped, fails here.
+    ///     </para>
+    ///     <para>
+    ///         Two views, because one would not notice a packer that ignored
+    ///         <see cref="RenderView.MaximumDistance" />, and a stage the second view does not draw,
+    ///         because the mask is split in two on the way to the device and a swap of the halves
+    ///         looks like nothing else.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_mirror_of_the_shader_agrees_with_the_cpu_path() {
+        var scene = Gen.Select(
+                Gen.Float[-150f, 150f],
+                Gen.Float[-150f, 150f],
+                Gen.Float[-150f, 150f],
+                Gen.Float[0.1f, 12f],
+                Gen.Int[0, 1]
+            )
+            .Array[1, 200];
+
+        scene.Sample(
+            objects => {
+                using var store = new RenderObjectStore();
+                using var expected = new VisibilityGroup();
+
+                foreach (var (x, y, z, radius, stage) in objects) {
+                    store.Add(
+                        new() {
+                            Bounds = new(new(x, y, z), radius),
+                            Stages = RenderStageMask.Of(stage),
+                            IsAlive = true
+                        }
+                    );
+                }
+
+                var views = new[] { Camera(RenderStageMask.Of(0) | RenderStageMask.Of(1)), Camera(RenderStageMask.Of(0), 90f) };
+                expected.Cull(store, views);
+
+                var wordCount = GpuCulling.WordsFor(store.Count);
+
+                for (var view = 0; view < views.Length; view++) {
+                    var packedView = GpuCulling.Pack(views[view], store.Count, wordCount);
+
+                    for (var i = 0; i < store.Count; i++) {
+                        Assert.Equal(
+                            expected.IsVisible(view, new(i)),
+                            GpuCulling.IsVisible(GpuCulling.Pack(store[new(i)]), packedView)
+                        );
+                    }
+                }
+            },
+            iter: 100
+        );
+    }
+
+    /// <summary>A dead slot is culled by the flag, before anything is measured.</summary>
+    /// <remarks>
+    ///     The one rejection the device cannot infer: a removed object keeps its bounds and its stage
+    ///     mask — <see cref="RenderObjectStore" /> reuses slots rather than compacting them — so
+    ///     without the flag it would be culled by nothing at all.
+    /// </remarks>
+    [Fact]
+    public void A_removed_object_is_culled_by_its_flag() {
+        using var store = new RenderObjectStore();
+
+        var id = store.Add(new() { Bounds = new(new(0f, 0f, 10f), 1f), Stages = RenderStageMask.Of(0), IsAlive = true });
+        store.Remove(id);
+
+        var view = GpuCulling.Pack(Camera(RenderStageMask.Of(0)), store.Count, GpuCulling.WordsFor(store.Count));
+
+        Assert.False(GpuCulling.IsVisible(GpuCulling.Pack(store[id]), view));
+    }
+
+    /// <summary>
+    ///     The high half of a stage mask survives the trip.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="RenderStageMask" /> is 64 bits and the device sees two 32-bit halves, so a
+    ///     stage above 31 is the only thing that notices whether the split and the test agree.
+    /// </remarks>
+    [Fact]
+    public void A_stage_above_the_low_half_still_matches() {
+        var candidate = GpuCulling.Pack(
+            new() { Bounds = new(new(0f, 0f, 10f), 1f), Stages = RenderStageMask.Of(40), IsAlive = true }
+        );
+
+        Assert.True(GpuCulling.IsVisible(candidate, GpuCulling.Pack(Camera(RenderStageMask.Of(40)), 1, 1)));
+        Assert.False(GpuCulling.IsVisible(candidate, GpuCulling.Pack(Camera(RenderStageMask.Of(8)), 1, 1)));
+    }
+
+    /// <summary>
+    ///     The shader still tests what the host says it does.
+    /// </summary>
+    /// <remarks>
+    ///     A test that reads shader source, which is worth defending: everything above tests the
+    ///     host's <em>mirror</em> of the culling test, and the mirror is not what runs. Narrow on
+    ///     purpose — the rounding slack, which is the one number a tighter-looking rewrite would drop
+    ///     and which decides every tangent case, and the word size the host unpacks by.
+    /// </remarks>
+    [Fact]
+    public void The_shader_tests_what_the_host_says_it_does() {
+        var source = Source("Pipeline", "Culling.rvn");
+
+        Assert.Contains(
+            "val slack = RoundingSlack * (radius + dot(abs(center), abs(plane.xyz)) + abs(plane.w))",
+            source,
+            StringComparison.Ordinal
+        );
+
+        Assert.Contains("return distance < -radius - slack", source, StringComparison.Ordinal);
+        Assert.Contains($"const val WordSize = {GpuCulling.WordSize}", source, StringComparison.Ordinal);
+        Assert.Contains($"[ComputeShader({GpuCulling.WorkgroupSize})]", source, StringComparison.Ordinal);
+
+        // The same number as MathUtil.RoundingSlack, which is what the mirror uses and what the
+        // sphere-versus-plane test on the host widens by. Compared as a float rather than as text:
+        // the two are spelled differently and only their values have to agree.
+        const string declaration = "const val RoundingSlack = ";
+        var start = source.IndexOf(declaration, StringComparison.Ordinal);
+
+        Assert.True(start >= 0, "the shader no longer declares a rounding slack");
+
+        start += declaration.Length;
+        var literal = source[start..source.IndexOf('f', start)];
+
+        Assert.Equal(MathUtil.RoundingSlack, float.Parse(literal, CultureInfo.InvariantCulture));
+    }
+
+    // --- The frame ----------------------------------------------------------
+
+    /// <summary>
+    ///     With nothing to dispatch with, the frame is still culled.
+    /// </summary>
+    /// <remarks>
+    ///     Not a degenerate case but the shipped one for a GL or WebGL target, and the one every
+    ///     frame before the culling variant has compiled. A group that answered "nothing is visible"
+    ///     until its shader arrived would show as a scene that fades in.
+    /// </remarks>
+    [Fact]
+    public void Without_a_pipeline_it_culls_on_the_cpu() {
+        using var store = new RenderObjectStore();
+        using var visibility = new GpuVisibilityGroup(device);
+
+        var ahead = Add(store, 10f);
+        var behind = Add(store, -10f);
+
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+
+        Assert.False(visibility.CulledOnDevice);
+        Assert.True(visibility.IsVisible(0, ahead));
+        Assert.False(visibility.IsVisible(0, behind));
+        Assert.Equal(1, visibility.VisibleCount(0));
+    }
+
+    /// <summary>
+    ///     Hiding, counting and walking the words work the same on either group.
+    /// </summary>
+    /// <remarks>
+    ///     They are the composed group's, which is the point: there is one bitset implementation in
+    ///     the engine, so a feature's <c>Prepare</c> cannot behave differently depending on what
+    ///     culled the frame.
+    /// </remarks>
+    [Fact]
+    public void The_answer_is_the_same_shape_whichever_group_holds_it() {
+        using var store = new RenderObjectStore();
+        using var gpu = new GpuVisibilityGroup(device);
+        using var cpu = new VisibilityGroup();
+
+        for (var i = 0; i < 100; i++) {
+            Add(store, i % 2 == 0 ? 10f : -10f);
+        }
+
+        var views = new[] { Camera(RenderStageMask.Of(0)) };
+
+        cpu.Cull(store, views);
+        gpu.Cull(store, views);
+
+        Assert.Equal(cpu.Words(0).ToArray(), gpu.Words(0).ToArray());
+
+        gpu.Hide(0, new(0));
+        cpu.Hide(0, new(0));
+
+        Assert.Equal(cpu.VisibleCount(0), gpu.VisibleCount(0));
+        Assert.False(gpu.IsVisible(0, new(0)));
+    }
+
+    /// <summary>
+    ///     One dispatch covers every word of every view, and the copy out of it is behind a barrier.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The shape of the pass, asserted where it can be: <c>x</c> covers a view's words and
+    ///         <c>y</c> is the view, so four shadow cascades and a camera are one submission rather
+    ///         than five.
+    ///     </para>
+    ///     <para>
+    ///         The barrier between the dispatch and the copy is the part that is not a nicety.
+    ///         Copying a buffer a dispatch has not finished writing is undefined on every API, and
+    ///         the symptom is a bitset that is part of this frame and part of the last one — which
+    ///         looks like objects flickering rather than like a synchronisation bug.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void It_dispatches_one_invocation_per_word_per_view() {
+        using var store = new RenderObjectStore();
+        using var visibility = Configured();
+
+        for (var i = 0; i < 100; i++) {
+            Add(store, 10f);
+        }
+
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0)), Camera(RenderStageMask.Of(0), 50f)]);
+
+        Assert.True(visibility.CulledOnDevice);
+        Assert.True(visibility.Bits.IsValid);
+
+        var stream = device.Recorder!.Commands.ToList();
+        var dispatch = stream.FindIndex(command => command.Kind == RecordedCommandKind.Dispatch);
+        var copy = stream.FindIndex(command => command.Kind == RecordedCommandKind.CopyBuffer);
+        var barrier = stream.FindIndex(dispatch + 1, command => command.Kind == RecordedCommandKind.Barrier);
+
+        Assert.True(dispatch >= 0, "nothing dispatched");
+        Assert.Equal(GpuCulling.Groups(GpuCulling.WordsFor(store.Count)), stream[dispatch].A);
+        Assert.Equal(2, stream[dispatch].B);
+        Assert.Equal(1, stream[dispatch].C);
+
+        Assert.True(barrier > dispatch, "the answer was copied with no barrier after the dispatch");
+        Assert.True(copy > barrier, "the copy happened before the barrier that orders it");
+
+        // Two views of a hundred objects: four device words each.
+        Assert.Equal(GpuCulling.BufferSize(2, GpuCulling.WordsFor(store.Count)), stream[copy].E);
+    }
+
+    /// <summary>
+    ///     A frame with no objects or no views does not dispatch, and reports nothing visible.
+    /// </summary>
+    /// <remarks>
+    ///     A dispatch of zero groups is a validation error on Vulkan rather than a no-op, and there
+    ///     is nothing to read back either way.
+    /// </remarks>
+    [Fact]
+    public void An_empty_frame_dispatches_nothing() {
+        using var store = new RenderObjectStore();
+        using var visibility = Configured();
+
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+
+        Assert.False(visibility.CulledOnDevice);
+
+        Add(store, 10f);
+        visibility.Cull(store, []);
+
+        Assert.False(visibility.CulledOnDevice);
+        Assert.Equal(0, device.Recorder!.CountOf(RecordedCommandKind.Dispatch));
+        Assert.False(visibility.IsVisible(0, new(0)));
+    }
+
+    /// <summary>
+    ///     A scene that grows is dispatched for whole, and the buffers grow with it.
+    /// </summary>
+    /// <remarks>
+    ///     The bitset is sized by the object count, so a frame that added objects after the buffer
+    ///     was made would otherwise dispatch for a word count the buffer cannot hold — which is a
+    ///     write past the end on a device that does not check.
+    /// </remarks>
+    [Fact]
+    public void A_growing_scene_is_dispatched_for_whole() {
+        using var store = new RenderObjectStore();
+        using var visibility = Configured();
+
+        Add(store, 10f);
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+
+        for (var i = 0; i < 500; i++) {
+            Add(store, 10f);
+        }
+
+        device.Recorder!.Clear();
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+
+        var dispatch = Assert.Single(device.Recorder.OfKind(RecordedCommandKind.Dispatch));
+        Assert.Equal(GpuCulling.Groups(GpuCulling.WordsFor(store.Count)), dispatch.A);
+
+        var copy = Assert.Single(device.Recorder.OfKind(RecordedCommandKind.CopyBuffer));
+        Assert.Equal(GpuCulling.BufferSize(1, GpuCulling.WordsFor(store.Count)), copy.E);
+    }
+
+    /// <summary>
+    ///     The render system takes either group, and the frame does not notice.
+    /// </summary>
+    /// <remarks>
+    ///     The whole point of the interface. Sorting walks <see cref="IVisibilityGroup.Words" />,
+    ///     which is filled by a job on one path and by a readback on the other, and the work lists
+    ///     that come out are the same either way.
+    /// </remarks>
+    [Fact]
+    public void The_render_system_takes_either_group() {
+        using var system = new RenderSystem();
+        var stage = system.AddStage(new("Opaque"));
+
+        system.Visibility = new GpuVisibilityGroup(device);
+
+        var id = system.Objects.Add(
+            new() { Bounds = new(new(0f, 0f, 10f), 1f), Stages = stage.Mask, IsAlive = true, FeatureIndex = -1 }
+        );
+
+        system.Objects.Add(
+            new() { Bounds = new(new(0f, 0f, -10f), 1f), Stages = stage.Mask, IsAlive = true, FeatureIndex = -1 }
+        );
+
+        var view = Camera(stage.Mask);
+        system.SetViews([view]);
+        system.Draw();
+
+        var node = Assert.Single(system.Nodes(view, stage));
+        Assert.Equal(id, node.Object);
+    }
+
+    /// <summary>Null is not a visibility group, and finding that out at the setter is the point.</summary>
+    [Fact]
+    public void The_system_refuses_a_null_group() {
+        using var system = new RenderSystem();
+        Assert.Throws<ArgumentNullException>(() => system.Visibility = null!);
+    }
+
+    /// <summary>Disposing gives back everything it made, and twice is harmless.</summary>
+    [Fact]
+    public void Disposing_returns_what_it_created() {
+        using var store = new RenderObjectStore();
+        var visibility = Configured();
+
+        Add(store, 10f);
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+
+        visibility.Dispose();
+        visibility.Dispose();
+
+        Assert.False(visibility.Bits.IsValid);
+    }
+
+    // --- Occlusion ----------------------------------------------------------
+
+    /// <summary>
+    ///     An object behind a wall is culled, and the same object with nothing in front of it is not.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The whole occlusion test in two calls. Depth is reversed — 1 is the near plane — so a
+    ///         pyramid reading 1 everywhere is a wall pressed against the camera, and one reading 0
+    ///         is a frame in which nothing was drawn at all.
+    ///     </para>
+    ///     <para>
+    ///         Getting the sense of that comparison backwards is the mistake worth catching, because
+    ///         it does not look like a mistake: the scene renders, and what is missing is whatever
+    ///         happened to be in front.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_object_behind_a_wall_is_occluded_and_one_in_the_open_is_not() {
+        var view = Occluding(Camera(RenderStageMask.Of(0)));
+        var candidate = GpuCulling.Pack(Object(10f));
+
+        Assert.True(GpuCulling.IsOccluded(candidate, view, new(64, 64), (_, _, _) => 1f));
+        Assert.False(GpuCulling.IsOccluded(candidate, view, new(64, 64), (_, _, _) => 0f));
+    }
+
+    /// <summary>A view with no pyramid to test against is never occluded by one.</summary>
+    /// <remarks>
+    ///     The first frame of every view, and every frame after the view list changed shape. Without
+    ///     the flag the test would run against a matrix of zeroes, which projects the scene to a
+    ///     point and hides all of it.
+    /// </remarks>
+    [Fact]
+    public void A_view_with_no_pyramid_is_never_occluded() {
+        var view = GpuCulling.Pack(Camera(RenderStageMask.Of(0)), 1, 1);
+
+        Assert.False(GpuCulling.IsOccluded(GpuCulling.Pack(Object(10f)), view, new(64, 64), (_, _, _) => 1f));
+    }
+
+    /// <summary>
+    ///     An object reaching behind the near plane is kept, whatever is in front of it.
+    /// </summary>
+    /// <remarks>
+    ///     A corner with a negative <c>w</c> does not project to a point off the edge of the screen —
+    ///     it projects to the other side of it, so the rectangle around the object turns inside out
+    ///     and lands wherever the arithmetic takes it. The only safe answer is to stop testing.
+    /// </remarks>
+    [Fact]
+    public void An_object_reaching_behind_the_camera_is_kept() {
+        var view = Occluding(Camera(RenderStageMask.Of(0)));
+        var candidate = GpuCulling.Pack(Object(1f, radius: 5f));
+
+        Assert.False(GpuCulling.ScreenBounds(candidate, view, out _, out _));
+        Assert.False(GpuCulling.IsOccluded(candidate, view, new(64, 64), (_, _, _) => 1f));
+    }
+
+    /// <summary>
+    ///     The level chosen is the one where four taps cover the rectangle.
+    /// </summary>
+    /// <remarks>
+    ///     One level finer leaves part of the rectangle untested — and the untested part is exactly
+    ///     where the object was visible. One coarser costs a little culling and nothing else, which
+    ///     is why the rounding goes up.
+    /// </remarks>
+    [Theory]
+    [InlineData(1f, 0)]
+    [InlineData(2f, 1)]
+    [InlineData(3f, 2)]
+    [InlineData(4f, 2)]
+    [InlineData(5f, 3)]
+    [InlineData(4096f, 7)]
+    public void The_level_is_the_one_that_covers_the_rectangle(float extent, int expected) =>
+        Assert.Equal(expected, GpuCulling.LevelFor(new(extent, extent), 8));
+
+    /// <summary>A level's size is the mip chain's, floored and never zero.</summary>
+    [Fact]
+    public void A_levels_size_is_the_mip_chains() {
+        Assert.Equal(new Int2(960, 540), GpuCulling.LevelSize(new(960, 540), 0));
+        Assert.Equal(new Int2(480, 270), GpuCulling.LevelSize(new(960, 540), 1));
+        Assert.Equal(new Int2(1, 1), GpuCulling.LevelSize(new(960, 540), 20));
+    }
+
+    /// <summary>
+    ///     The two shaders still reduce and compare the way the host says they do.
+    /// </summary>
+    /// <remarks>
+    ///     Both halves of one argument, and both invisible to every other test here. The reduction
+    ///     has to take the minimum over a 3×3 block — the minimum because depth is reversed, and 3×3
+    ///     because a floored mip chain leaves a trailing row that a 2×2 block never reads; and the
+    ///     comparison has to be the object's nearest point against the tile's furthest surface. Each
+    ///     of those, written the other way round, culls things that were visible.
+    /// </remarks>
+    [Fact]
+    public void The_shaders_reduce_and_compare_the_way_the_host_says() {
+        var reduce = Source("Pipeline", "HiZReduce.rvn");
+
+        Assert.Contains("furthest = min(furthest, source.Load(int3(x, y, 0)).x)", reduce, StringComparison.Ordinal);
+        Assert.Contains("for (dx in 0 .. 2)", reduce, StringComparison.Ordinal);
+        Assert.Contains("for (dy in 0 .. 2)", reduce, StringComparison.Ordinal);
+
+        Assert.Contains(
+            "return maximum.z < min(min(a, b), min(c, d))",
+            Source("Pipeline", "Culling.rvn"),
+            StringComparison.Ordinal
+        );
+    }
+
+    // --- The pyramid --------------------------------------------------------
+
+    /// <summary>
+    ///     The chain starts at half the depth buffer and runs to a single texel.
+    /// </summary>
+    /// <remarks>
+    ///     Half, because reducing straight into level 0 removes a full-resolution level from both
+    ///     the memory and the chain — and an occlusion test that needed the depth of one pixel would
+    ///     be a test of something too small to be worth culling.
+    /// </remarks>
+    [Fact]
+    public void The_pyramid_halves_the_depth_buffer_and_runs_to_one_texel() {
+        using var pyramid = Pyramid();
+
+        Assert.True(Build(pyramid, new(1920, 1080)));
+
+        Assert.Equal(new Int2(960, 540), pyramid.Size);
+        Assert.Equal(10, pyramid.Levels);
+        Assert.True(pyramid.IsBuilt);
+        Assert.True(pyramid.View.IsValid);
+    }
+
+    /// <summary>
+    ///     One dispatch per level, each covering its own level and separated by a barrier.
+    /// </summary>
+    /// <remarks>
+    ///     A level cannot be read until the whole of the level above it is written, and a workgroup
+    ///     can only wait for itself — so the chain is a dispatch per level with a barrier between,
+    ///     rather than one dispatch with a loop in it. Without the barriers a level reads whatever
+    ///     part of its parent happened to be finished, which is a pyramid that is subtly too shallow
+    ///     and culls what it should not.
+    /// </remarks>
+    [Fact]
+    public void The_pyramid_dispatches_once_per_level_behind_barriers() {
+        using var pyramid = Pyramid();
+
+        Build(pyramid, new(64, 64));
+
+        // 32×32 down to 1×1.
+        Assert.Equal(6, pyramid.Levels);
+
+        var stream = device.Recorder!.Commands.ToList();
+        var dispatches = stream.Where(command => command.Kind == RecordedCommandKind.Dispatch).ToList();
+
+        Assert.Equal(pyramid.Levels, dispatches.Count);
+
+        // Level 0 is 32×32 texels at a workgroup of 8.
+        Assert.Equal(4, dispatches[0].A);
+        Assert.Equal(4, dispatches[0].B);
+        Assert.Equal(1, dispatches[^1].A);
+
+        foreach (var dispatch in dispatches) {
+            var before = stream.FindLastIndex(dispatch.Sequence, command => command.Kind == RecordedCommandKind.Barrier);
+            var after = stream.FindIndex(dispatch.Sequence, command => command.Kind == RecordedCommandKind.Barrier);
+
+            Assert.True(before >= 0, "a level was written with no barrier before its dispatch");
+            Assert.True(after > dispatch.Sequence, "a level was left in the state its dispatch wrote it in");
+        }
+    }
+
+    /// <summary>Without an effect there is nothing to dispatch, and nothing is recorded.</summary>
+    [Fact]
+    public void A_pyramid_with_no_shader_builds_nothing() {
+        using var pyramid = new HiZPyramid(device);
+        using var list = device.BeginCommandList(QueueKind.Compute);
+
+        var (_, view) = Depth(new(64, 64));
+
+        Assert.False(pyramid.Build(list, view, new(64, 64)));
+        Assert.False(pyramid.IsBuilt);
+        Assert.Equal(0, device.Recorder!.CountOf(RecordedCommandKind.Dispatch));
+    }
+
+    /// <summary>
+    ///     A resize rebuilds the chain, and until it is rebuilt there is nothing to test against.
+    /// </summary>
+    /// <remarks>
+    ///     A pyramid at the wrong size is not a stale answer — it is a different frame's screen, and
+    ///     an occlusion test against one would cull by geometry from a window that no longer exists.
+    /// </remarks>
+    [Fact]
+    public void A_resize_starts_the_pyramid_again() {
+        using var pyramid = Pyramid();
+
+        Build(pyramid, new(64, 64));
+        Assert.True(pyramid.IsBuilt);
+
+        Build(pyramid, new(128, 128));
+
+        Assert.Equal(new Int2(64, 64), pyramid.Size);
+        Assert.Equal(7, pyramid.Levels);
+    }
+
+    // --- The two together ---------------------------------------------------
+
+    /// <summary>
+    ///     The first frame is frustum-only and the second tests occlusion.
+    /// </summary>
+    /// <remarks>
+    ///     Not a warm-up quirk but the invariant: a view is only tested against a pyramid when this
+    ///     group saw that view's matrix in the frame the pyramid was built in. Before that there is
+    ///     no matrix to project the rectangle with, and projecting it with this frame's would compare
+    ///     a position from now against pixels from then.
+    /// </remarks>
+    [Fact]
+    public void Occlusion_starts_on_the_frame_after_the_first() {
+        using var store = new RenderObjectStore();
+        using var pyramid = Pyramid();
+        using var visibility = Configured();
+
+        visibility.Occluders = pyramid;
+        Build(pyramid, new(64, 64));
+        Add(store, 10f);
+
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+
+        Assert.True(visibility.CulledOnDevice);
+        Assert.False(visibility.OcclusionTested);
+
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+
+        Assert.True(visibility.OcclusionTested);
+    }
+
+    /// <summary>
+    ///     A frame that changed the shape of its view list is frustum-only again.
+    /// </summary>
+    /// <remarks>
+    ///     Views are addressed by index and renumbered every frame, so a frame that added one has
+    ///     moved every view after it. Keeping the matrices would test a cascade's rectangle against
+    ///     the camera's depth.
+    /// </remarks>
+    [Fact]
+    public void Adding_a_view_turns_occlusion_off_for_that_frame() {
+        using var store = new RenderObjectStore();
+        using var pyramid = Pyramid();
+        using var visibility = Configured();
+
+        visibility.Occluders = pyramid;
+        Build(pyramid, new(64, 64));
+        Add(store, 10f);
+
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+        Assert.True(visibility.OcclusionTested);
+
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0)), Camera(RenderStageMask.Of(0), 50f)]);
+        Assert.False(visibility.OcclusionTested);
+
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0)), Camera(RenderStageMask.Of(0), 50f)]);
+        Assert.True(visibility.OcclusionTested);
+    }
+
+    /// <summary>
+    ///     The occlusion variant binds the pyramid, and the frustum-only one does not ask for it.
+    /// </summary>
+    /// <remarks>
+    ///     The permutation's whole point: with it off the shader declares no texture, so a device
+    ///     with no pyramid to bind — the first frame, or a compositor with no depth pass — resolves a
+    ///     variant that cannot ask for one. A single shader with a uniform flag would need something
+    ///     bound to that binding regardless.
+    /// </remarks>
+    [Fact]
+    public void The_variant_without_occlusion_declares_no_texture() {
+        Assert.Null(AlwaysCompiles.Culling(false).BindingOf("occluders"));
+        Assert.NotNull(AlwaysCompiles.Culling(true).BindingOf("occluders"));
+    }
+
+    /// <summary>
+    ///     The node reduces the depth the frame just wrote, after the pass that wrote it.
+    /// </summary>
+    /// <remarks>
+    ///     The declaration is the whole node: depth is a graph resource, so a dispatch that sampled
+    ///     it without saying so would be ordered against nothing and read it in the layout the last
+    ///     pass left it in. Saying <c>Reads</c> is what puts the pyramid's dispatches after the pass
+    ///     and the barrier between them, and it is why doc 06 says GPU occlusion culling needs the
+    ///     culler to be part of the compositor rather than something the render system does alone.
+    /// </remarks>
+    [Fact]
+    public void The_node_builds_the_pyramid_after_the_pass_that_filled_depth() {
+        using var system = new RenderSystem();
+        using var pyramid = Pyramid();
+        var graph = new RenderGraph(device);
+
+        var prepass = new RenderPassRenderer { Name = "Prepass", DepthTarget = "SceneDepth" };
+        var reduce = new HiZRenderer { Name = "HiZ", Depth = "SceneDepth", Pyramid = pyramid };
+
+        var description = new TextureDescription(
+            PixelFormat.Depth32Float,
+            64,
+            64,
+            TextureUsage.DepthStencilTarget | TextureUsage.Sampled,
+            Name: "SceneDepth"
+        );
+
+        var texture = device.CreateTexture(description);
+
+        var compositor = new GraphicsCompositor(system) {
+            FrameSize = new(64, 64),
+            Game = new SceneRendererSequence { Children = { prepass, reduce } }
+        };
+
+        compositor.Imports["SceneDepth"] = new(texture, device.CreateTextureView(texture), description);
+
+        using (var list = device.BeginCommandList()) {
+            graph.Reset();
+            compositor.Build(graph, effects, device);
+            graph.Execute(list);
+            list.Finish();
+            device.GraphicsQueue.Submit([list]);
+        }
+
+        graph.DisposePool();
+
+        Assert.True(pyramid.IsBuilt);
+
+        var stream = device.Recorder!.Commands.ToList();
+        var pass = stream.FindIndex(command => command.Kind == RecordedCommandKind.EndRenderPass);
+        var dispatch = stream.FindIndex(command => command.Kind == RecordedCommandKind.Dispatch);
+
+        Assert.True(pass >= 0, "the depth pass did not run");
+        Assert.True(dispatch > pass, "the pyramid was reduced before the depth it reduces was written");
+    }
+
+    /// <summary>A node with no pyramid declares nothing, and a frame without it still runs.</summary>
+    [Fact]
+    public void A_node_with_no_pyramid_adds_no_pass() {
+        using var system = new RenderSystem();
+        var graph = new RenderGraph(device);
+
+        var compositor = new GraphicsCompositor(system) {
+            FrameSize = new(64, 64),
+            Game = new HiZRenderer { Name = "HiZ", Depth = "SceneDepth" }
+        };
+
+        using (var list = device.BeginCommandList()) {
+            graph.Reset();
+            compositor.Build(graph, effects, device);
+            graph.Execute(list);
+            list.Finish();
+            device.GraphicsQueue.Submit([list]);
+        }
+
+        graph.DisposePool();
+
+        Assert.Equal(0, device.Recorder!.CountOf(RecordedCommandKind.Dispatch));
+    }
+
+    // --- Drawing from the device's answer ------------------------------------
+
+    /// <summary>A draw's arguments are twenty bytes, which is what the API's stride is.</summary>
+    /// <remarks>
+    ///     Not ours to choose: the GPU's command processor reads these bytes directly, in this order.
+    ///     A field added or moved is a draw of somebody else's numbers.
+    /// </remarks>
+    [Fact]
+    public void A_draw_command_is_the_layout_the_api_reads() {
+        Assert.Equal(GpuDrawArguments.Stride, Marshal.SizeOf<DrawCommand>());
+        Assert.Equal(20, GpuDrawArguments.Stride);
+    }
+
+    /// <summary>
+    ///     Without the readback, the host answers with what could be seen and the device narrows it.
+    /// </summary>
+    /// <remarks>
+    ///     The one place this group stops being interchangeable with the CPU one, and the reason it
+    ///     is opt-in. The work list has to be a superset — an object the host left out cannot be
+    ///     drawn by a GPU that decided it was visible — so the conservative answer keeps the two
+    ///     rejections a work list needs (dead, and in no stage this view draws) and drops the
+    ///     frustum, which is the work being moved.
+    /// </remarks>
+    [Fact]
+    public void Without_the_readback_the_host_answer_is_conservative() {
+        using var store = new RenderObjectStore();
+        using var visibility = Configured();
+
+        visibility.ReadBack = false;
+
+        var ahead = Add(store, 10f);
+        var behind = Add(store, -10f);
+        var elsewhere = store.Add(
+            new() { Bounds = new(new(0f, 0f, 10f), 1f), Stages = RenderStageMask.Of(3), IsAlive = true }
+        );
+
+        var dead = Add(store, 10f);
+        store.Remove(dead);
+
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+
+        Assert.True(visibility.CulledOnDevice);
+
+        // Behind the camera is still in the list: that is the frustum's answer, and the frustum is
+        // what the device now owns.
+        Assert.True(visibility.IsVisible(0, ahead));
+        Assert.True(visibility.IsVisible(0, behind));
+
+        // The two the work list itself needs.
+        Assert.False(visibility.IsVisible(0, elsewhere));
+        Assert.False(visibility.IsVisible(0, dead));
+    }
+
+    /// <summary>
+    ///     Without the readback nothing is submitted or waited on during the cull.
+    /// </summary>
+    /// <remarks>
+    ///     The whole point of the setting. The dispatch is left for <see cref="GpuCullingRenderer" />
+    ///     to record into the frame's list, because a barrier between two things in one queue is the
+    ///     only ordering this RHI can express — it has neither fences nor semaphores.
+    /// </remarks>
+    [Fact]
+    public void Without_the_readback_the_cull_records_nothing_of_its_own() {
+        using var store = new RenderObjectStore();
+        using var visibility = Configured();
+
+        visibility.ReadBack = false;
+        Add(store, 10f);
+
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0))]);
+
+        Assert.Equal(0, device.Recorder!.CountOf(RecordedCommandKind.Dispatch));
+        Assert.Equal(0, device.Recorder.CountOf(RecordedCommandKind.CopyBuffer));
+
+        using var list = device.BeginCommandList(QueueKind.Compute);
+
+        Assert.True(visibility.Record(list));
+
+        // And only once: a second call has nothing pending, which is what stops a node that runs
+        // twice dispatching twice.
+        Assert.False(visibility.Record(list));
+
+        list.Finish();
+        device.ComputeQueue.Submit([list]);
+
+        Assert.Equal(1, device.Recorder.CountOf(RecordedCommandKind.Dispatch));
+        Assert.Equal(0, device.Recorder.CountOf(RecordedCommandKind.CopyBuffer));
+    }
+
+    /// <summary>
+    ///     The node culls and writes the arguments in one list, in that order.
+    /// </summary>
+    /// <remarks>
+    ///     Two dispatches with a barrier between them, because the second reads what the first wrote.
+    ///     Both in the frame's list rather than in a submission of the group's own, which is the
+    ///     ordering that needs no fence.
+    /// </remarks>
+    [Fact]
+    public void The_node_culls_and_writes_arguments_in_one_list() {
+        using var system = new RenderSystem();
+        using var visibility = Configured();
+        using var arguments = new GpuDrawArguments(device) { Effects = effects, Pipelines = pipelines };
+
+        visibility.ReadBack = false;
+        system.Visibility = visibility;
+
+        var stage = system.AddStage(new("Opaque"));
+        var meshes = new MeshRenderFeature { Arguments = arguments };
+        system.AddFeature(meshes);
+
+        system.Objects.Add(
+            new() { Bounds = new(new(0f, 0f, 10f), 1f), Stages = stage.Mask, IsAlive = true, FeatureIndex = meshes.Index }
+        );
+
+        // A pass that draws the stage, because a view only exists if a node declares one — and with
+        // no views there is nothing to cull for.
+        var colour = new RenderPassRenderer { Name = "Forward" };
+        colour.ColourTargets.Add("SceneColour");
+        colour.Children.Add(new SingleStageRenderer { View = Camera(stage.Mask), Stage = stage });
+
+        var compositor = new GraphicsCompositor(system) {
+            FrameSize = new(64, 64),
+            Game = new SceneRendererSequence {
+                Children = {
+                    new GpuCullingRenderer { Name = "Culling", Visibility = visibility, Arguments = arguments },
+                    colour
+                }
+            }
+        };
+
+        var description = new TextureDescription(
+            PixelFormat.Rgba16Float,
+            64,
+            64,
+            TextureUsage.ColourTarget | TextureUsage.Sampled,
+            Name: "SceneColour"
+        );
+
+        var target = device.CreateTexture(description);
+        compositor.Imports["SceneColour"] = new(target, device.CreateTextureView(target), description);
+
+        var graph = new RenderGraph(device);
+
+        using (var list = device.BeginCommandList()) {
+            graph.Reset();
+            compositor.Build(graph, effects, device);
+            graph.Execute(list);
+            list.Finish();
+            device.GraphicsQueue.Submit([list]);
+        }
+
+        graph.DisposePool();
+
+        Assert.True(arguments.IsFilled);
+        Assert.True(arguments.Commands.IsValid);
+
+        var stream = device.Recorder!.Commands.ToList();
+        var dispatches = stream.Where(command => command.Kind == RecordedCommandKind.Dispatch).ToList();
+
+        Assert.Equal(2, dispatches.Count);
+        Assert.True(
+            stream.FindIndex(dispatches[0].Sequence, command => command.Kind == RecordedCommandKind.Barrier)
+            < dispatches[1].Sequence,
+            "the arguments were written with no barrier after the cull they read"
+        );
+    }
+
+    /// <summary>
+    ///     The templates are the numbers the direct draw would have used.
+    /// </summary>
+    /// <remarks>
+    ///     Including the instancing batch, which is why they are filled after <c>Prepare</c> rather
+    ///     than inside it. An object that is not drawable, or not indexed, keeps the cleared record it
+    ///     arrived as — a draw of no indices, which draws nothing rather than something arbitrary.
+    /// </remarks>
+    [Fact]
+    public void The_templates_are_what_the_direct_draw_would_have_been() {
+        using var system = new RenderSystem();
+
+        var stage = system.AddStage(new("Opaque"));
+        var meshes = new MeshRenderFeature();
+        system.AddFeature(meshes);
+
+        var indexed = system.Objects.Add(
+            new() { Bounds = new(Vector3.Zero, 1f), Stages = stage.Mask, IsAlive = true, FeatureIndex = meshes.Index }
+        );
+
+        var direct = system.Objects.Add(
+            new() { Bounds = new(Vector3.Zero, 1f), Stages = stage.Mask, IsAlive = true, FeatureIndex = meshes.Index }
+        );
+
+        var vertices = device.CreateBuffer(new() { Size = 1024, Usage = BufferUsage.Vertex });
+        var indices = device.CreateBuffer(new() { Size = 1024, Usage = BufferUsage.Index });
+        var draws = system.Objects.Data.Data(meshes.Draws);
+
+        draws[indexed.Index] = new() {
+            VertexBuffer = vertices,
+            IndexBuffer = indices,
+            Count = 36,
+            FirstIndex = 6,
+            VertexOffset = 2,
+            InstanceCount = 4
+        };
+
+        // Drawable, but with no index buffer — and there is no non-indexed indirect draw to make.
+        draws[direct.Index] = new() { VertexBuffer = vertices, Count = 3, InstanceCount = 1 };
+
+        var commands = new DrawCommand[system.Objects.Count];
+        meshes.FillArguments(system, commands);
+
+        Assert.Equal(36u, commands[indexed.Index].IndexCount);
+        Assert.Equal(4u, commands[indexed.Index].InstanceCount);
+        Assert.Equal(6u, commands[indexed.Index].FirstIndex);
+        Assert.Equal(2u, commands[indexed.Index].VertexOffset);
+        Assert.Equal(0u, commands[indexed.Index].FirstInstance);
+
+        Assert.Equal(default, commands[direct.Index]);
+    }
+
+    /// <summary>An object's arguments sit at its own index, per view.</summary>
+    /// <remarks>
+    ///     No compaction, because compaction needs an atomic counter and Raven has none — so a slot's
+    ///     record is at that slot, and a culled object is a record with no instances rather than a
+    ///     record that is not there.
+    /// </remarks>
+    [Fact]
+    public void An_objects_arguments_sit_at_its_own_slot() {
+        using var store = new RenderObjectStore();
+        using var visibility = Configured();
+        using var arguments = new GpuDrawArguments(device) { Effects = effects, Pipelines = pipelines };
+
+        visibility.ReadBack = false;
+
+        for (var i = 0; i < 10; i++) {
+            Add(store, 10f);
+        }
+
+        visibility.Cull(store, [Camera(RenderStageMask.Of(0)), Camera(RenderStageMask.Of(0), 50f)]);
+
+        using var list = device.BeginCommandList(QueueKind.Compute);
+
+        visibility.Record(list);
+        arguments.Fill(store.Count);
+
+        Assert.True(arguments.Update(list, visibility.Bits, 2, store.Count));
+
+        list.Finish();
+        device.ComputeQueue.Submit([list]);
+
+        Assert.Equal(0, arguments.OffsetOf(0, new(0)));
+        Assert.Equal(GpuDrawArguments.Stride * 3, arguments.OffsetOf(0, new(3)));
+
+        // The second view's records start after the first view's, one per object slot.
+        Assert.Equal(GpuDrawArguments.Stride * 10, arguments.OffsetOf(1, new(0)));
+    }
+
+    // --- The fixture --------------------------------------------------------
+
+    readonly EffectSystem effects = new();
+    readonly ComputePipelineCache pipelines;
+
+    /// <summary>A group with everything it needs to run on the device.</summary>
+    GpuVisibilityGroup Configured() => new(device) { Effects = effects, Pipelines = pipelines };
+
+    /// <summary>A pyramid with everything it needs to build.</summary>
+    HiZPyramid Pyramid() => new(device) { Effects = effects, Pipelines = pipelines };
+
+    /// <summary>Builds a pyramid from a depth texture of a size, in a list of its own.</summary>
+    /// <remarks>
+    ///     Submitted rather than merely finished, because a Null command list hands its recording to
+    ///     the recorder when it is submitted — which is also the only point at which a real backend
+    ///     would have done anything.
+    /// </remarks>
+    bool Build(HiZPyramid pyramid, Int2 size) {
+        using var list = device.BeginCommandList(QueueKind.Compute);
+
+        var (_, view) = Depth(size);
+        var built = pyramid.Build(list, view, size);
+
+        list.Finish();
+        device.ComputeQueue.Submit([list]);
+
+        return built;
+    }
+
+    (TextureHandle Texture, TextureViewHandle View) Depth(Int2 size) {
+        var texture = device.CreateTexture(
+            new(
+                PixelFormat.Depth32Float,
+                size.X,
+                size.Y,
+                TextureUsage.DepthStencilTarget | TextureUsage.Sampled,
+                Name: "SceneDepth"
+            )
+        );
+
+        return (texture, device.CreateTextureView(texture));
+    }
+
+    static RenderObjectId Add(RenderObjectStore store, float z) => store.Add(Object(z));
+
+    static RenderObject Object(float z, float radius = 1f) =>
+        new() { Bounds = new(new(0f, 0f, z), radius), Stages = RenderStageMask.Of(0), IsAlive = true };
+
+    /// <summary>A view packed as though its pyramid were built with the matrix it has now.</summary>
+    static CullView Occluding(RenderView view, int levels = 8) =>
+        GpuCulling.Pack(view, 1, 1, view.ViewProjection, levels);
+
+    /// <summary>A camera at the origin looking down +Z, as the CPU path's own tests build one.</summary>
+    static RenderView Camera(RenderStageMask stages, float maximumDistance = 0f) {
+        var view = Matrix4x4.LookAt(Vector3.Zero, new(0f, 0f, 1f), new(0f, 1f, 0f));
+        var projection = Matrix4x4.PerspectiveFieldOfView(MathF.PI / 3f, 1f, 0.1f, 1000f);
+
+        return new("camera") {
+            Stages = stages,
+            Position = Vector3.Zero,
+            ViewProjection = view * projection,
+            MaximumDistance = maximumDistance
+        };
+    }
+
+    /// <summary>A shipped shader's source, found by walking up rather than by counting directories.</summary>
+    static string Source(string folder, string file) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+            var candidate = Path.Combine(directory.FullName, "Raven", "Library", folder, file);
+
+            if (File.Exists(candidate)) {
+                return File.ReadAllText(candidate);
+            }
+        }
+
+        throw new FileNotFoundException($"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'.");
+    }
+
+    /// <summary>
+    ///     A provider that answers with the variants the two passes would have been compiled to.
+    /// </summary>
+    /// <remarks>
+    ///     The bindings are what the two classes read to build their sets, so they are the part that
+    ///     has to be truthful: the names are the shaders' own, they are all in one set, and the
+    ///     culler's texture appears only in the variant that declares it — which is the permutation
+    ///     this fixture exists to make visible.
+    /// </remarks>
+    sealed class AlwaysCompiles(NullDevice device) : IEffectProvider {
+        readonly DescriptorSetLayoutHandle layout = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerMaterial,
+                [
+                    new(0, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+                    new(1, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+                    new(2, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+                    new(3, DescriptorKind.SampledTexture, ShaderStage.Compute)
+                ],
+                "Culling"
+            )
+        );
+
+        public Effect? TryGet(EffectKey key) =>
+            key.ShaderName switch {
+                GpuCulling.ReduceShaderName => Reduce(key, Layouts(layout)),
+                GpuCulling.ArgumentsShaderName => Arguments(key, Layouts(layout)),
+                _ => Culling(Occludes(key), key, Layouts(layout))
+            };
+
+        /// <summary>Whether a key asked for the variant that tests occlusion.</summary>
+        static bool Occludes(EffectKey key) =>
+            key.Values.Any(value =>
+                string.Equals(value.Key, GpuCulling.OcclusionKey, StringComparison.Ordinal)
+                && string.Equals(value.Value, "true", StringComparison.Ordinal)
+            );
+
+        /// <summary>The culling variant, with or without the texture the permutation declares.</summary>
+        public static Effect Culling(
+            bool occlusion,
+            EffectKey key = default,
+            ImmutableArray<DescriptorSetLayoutHandle> layouts = default
+        ) =>
+            new() {
+                Key = key.ShaderName is null ? EffectKey.Of(GpuCulling.ShaderName) : key,
+                SetLayouts = layouts.IsDefault ? [] : layouts,
+                Stages = [new(ShaderStage.Compute, [1, 2, 3, 4], "main")],
+                Bindings = occlusion
+                    ? [
+                        new("objects", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.StorageBuffer),
+                        new("views", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageBuffer),
+                        new("visibility", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.StorageBuffer),
+                        new("occluders", DescriptorSetSlot.PerMaterial, 3, DescriptorKind.SampledTexture)
+                    ]
+                    : [
+                        new("objects", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.StorageBuffer),
+                        new("views", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageBuffer),
+                        new("visibility", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.StorageBuffer)
+                    ]
+            };
+
+        static Effect Arguments(EffectKey key, ImmutableArray<DescriptorSetLayoutHandle> layouts) =>
+            new() {
+                Key = key,
+                SetLayouts = layouts,
+                Stages = [new(ShaderStage.Compute, [1, 2, 3, 4], "main")],
+                Bindings = [
+                    new("templates", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.StorageBuffer),
+                    new("visibility", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageBuffer),
+                    new("commands", DescriptorSetSlot.PerMaterial, 2, DescriptorKind.StorageBuffer)
+                ]
+            };
+
+        static Effect Reduce(EffectKey key, ImmutableArray<DescriptorSetLayoutHandle> layouts) =>
+            new() {
+                Key = key,
+                SetLayouts = layouts,
+                Stages = [new(ShaderStage.Compute, [1, 2, 3, 4], "main")],
+                Bindings = [
+                    new("source", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.SampledTexture),
+                    new("target", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageTexture)
+                ]
+            };
+
+        static ImmutableArray<DescriptorSetLayoutHandle> Layouts(DescriptorSetLayoutHandle layout) {
+            var layouts = new DescriptorSetLayoutHandle[(int)DescriptorSetSlot.PerMaterial + 1];
+            layouts[(int)DescriptorSetSlot.PerMaterial] = layout;
+
+            return [.. layouts];
+        }
+    }
+}

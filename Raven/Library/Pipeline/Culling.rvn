@@ -1,0 +1,322 @@
+package Vixen.Shaders.Pipeline
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// View culling: the frustum test for every object in the scene, against every view of it.
+//
+// The device-side half of `GpuVisibilityGroup` — [docs/plan/06] asks for "object bounds uploaded once,
+// frustum ... culling in compute", and this is that dispatch. The answer it produces is the same
+// answer `VisibilityGroup` produces on the job system: one bit per object per view, so nothing
+// downstream can tell which of the two filled it in.
+//
+// **One invocation per *word*, not per object.** Thirty-two objects each, because a bit is the unit of
+// the answer and a `uint` is the smallest thing a shader can store — an invocation per object would
+// need thirty-two invocations to agree on one write, which means an atomic `or` per object. Owning a
+// whole word instead removes the sharing rather than synchronising it, which is the same trade
+// `ClusterCulling` makes and the same one the CPU path's batch size is a multiple of 64 for.
+//
+// **Thirty-two rather than sixty-four**, though the host packs its bitset in `ulong`s. A 64-bit integer
+// is an optional capability on Vulkan and absent from WebGPU, and the pairing is free: two of these
+// words side by side *are* one of the host's, so `GpuCulling.Unpack` reassembles them with a shift.
+//
+// **The per-view numbers travel in the view record**, not in a uniform block, which is why this shader
+// declares no scalars at all. A dispatch covering every view at once has no single object count to put
+// in a push constant, and a block written per view would mean a dispatch per view. Two buffers and no
+// uniforms is also two descriptor writes and nothing to keep in step.
+
+/// One object as the culler sees it: a sphere, the stages it appears in, and whether it is there.
+///
+/// The fields are the three rejections in the order they are applied, and nothing else. A material,
+/// a mesh or a transform would make every object's record bigger for data this pass never reads —
+/// the same argument `RenderObject` makes on the host, where this is packed from.
+struct CullObject {
+    var center: float3
+    var radius: float
+
+    /// `RenderStageMask` split in two, low half first: a 64-bit integer is optional on Vulkan and
+    /// unavailable on WebGPU, and a set intersection is the same test done twice.
+    var stagesLow: uint
+    var stagesHigh: uint
+
+    /// `Cull.Alive` when the slot holds a live object.
+    var flags: uint
+
+    /// Declared rather than left to the compiler, so the record is 32 bytes on both sides.
+    var padding: uint
+}
+
+/// One view: the volume, the cutoff, the stages it draws, and how much of the buffers it covers.
+///
+/// The counts are per view because they are what bounds the loops, and putting them here is what lets
+/// one dispatch answer for every view — see the file comment.
+struct CullView {
+    /// Six inward-facing planes as `(normal.xyz, d)`, in `BoundingFrustum`'s order: near, far, left,
+    /// right, top, bottom. The order is immaterial to the test and is preserved so a debugger's view
+    /// of the buffer means something.
+    var planes: float4[6]
+
+    var position: float3
+
+    /// Objects further than this are culled whatever the frustum says. Zero disables it.
+    var maximumDistance: float
+
+    var stagesLow: uint
+    var stagesHigh: uint
+
+    /// How many object slots the store holds — the tail of the buffer beyond it is stale.
+    var objectCount: uint
+
+    /// How many words this view's answer occupies, which is also the stride between views.
+    var wordCount: uint
+
+    /// The matrix the depth pyramid was rendered with, which is *last* frame's for this view.
+    ///
+    /// Last frame's, because that is the only depth a pass running before the frame is drawn can
+    /// have — and it has to be projected with the matrix it was drawn with or the test compares a
+    /// rectangle from this frame against pixels from somewhere else. See `Occluded`.
+    var previousViewProjection: mat4
+
+    /// How many levels the pyramid has, so a level can be clamped to one that exists.
+    var occluderLevels: uint
+
+    /// `Cull.Occluders` when this view has a pyramid and a matrix to project with.
+    var flags: uint
+
+    /// Eight bytes of tail padding the shader declares and never reads.
+    var padding: uint2
+}
+
+/// The constants and the tests both sides of the culler have to agree on.
+struct Cull {
+    /// How many objects one word of the answer holds.
+    const val WordSize = 32
+
+    /// The bit of `CullObject.flags` that says the slot holds a live object.
+    const val Alive = 1u
+
+    /// The bit of `CullView.flags` that says the view has a usable depth pyramid this frame.
+    ///
+    /// Per view rather than per dispatch: a view that is new this frame — a probe face that has just
+    /// started rendering, or the very first frame of any of them — has no previous depth and no
+    /// previous matrix, and testing it against another view's would occlude by arithmetic that was
+    /// never about it.
+    const val Occluders = 1u
+
+    /// `MathUtil.RoundingSlack`, and it has to be the same number.
+    ///
+    /// The host's sphere-versus-plane test widens the plane by this much times the magnitudes it just
+    /// cancelled, so that a sphere sitting exactly on a plane is kept rather than being decided by the
+    /// last bit of a dot product. Culling has to be conservative in that direction — a false positive
+    /// is a draw call and a false negative is an object that vanishes — and a shader that used a
+    /// tighter test than the host's oracle would disagree with it precisely at tangency, which is
+    /// where a randomised comparison spends most of its interesting cases.
+    const val RoundingSlack = 4.7683716e-07f
+
+    /// Whether a sphere is entirely on the outer side of a plane, within the rounding slack.
+    static func Outside(plane: float4, center: float3, radius: float): bool {
+        val distance = dot(plane.xyz, center) + plane.w
+        val slack = RoundingSlack * (radius + dot(abs(center), abs(plane.xyz)) + abs(plane.w))
+        return distance < -radius - slack
+    }
+
+    /// Which way one axis of a corner goes, from the bit of the corner index that decides it.
+    ///
+    /// A function because the eight corners are a loop rather than eight lines, and a loop needs the
+    /// bit test to be an expression.
+    static func Sign(bits: uint, mask: uint): float => (bits & mask) == 0u ? -1f : 1f
+
+    /// Whether the two stage masks have a stage in common.
+    static func Shares(objectLow: uint, objectHigh: uint, viewLow: uint, viewHigh: uint): bool {
+        return (objectLow & viewLow) != 0u || (objectHigh & viewHigh) != 0u
+    }
+
+    /// Whether a sphere reaches within `maximum` of a point.
+    ///
+    /// Measured to the sphere's *surface*, so a large object does not pop out while it is still
+    /// visibly on screen. Squared, because a square root here is paid once per object per view.
+    static func WithinDistance(from: float3, center: float3, radius: float, maximum: float): bool {
+        val reach = maximum + radius
+        val offset = center - from
+        return dot(offset, offset) <= reach * reach
+    }
+}
+
+shader Culling {
+    /// Whether the pass tests against last frame's depth as well as against the frustum.
+    ///
+    /// A permutation rather than a uniform, and not only to remove a branch: with it off the shader
+    /// declares no texture at all, so a device with no pyramid to bind — the first frame, a target
+    /// whose compositor has no depth pass — resolves a variant that cannot ask for one.
+    [Permutation] val Occlusion: bool = false
+
+    /// One record per object slot, indexed by `RenderObjectId`.
+    var objects: Buffer<CullObject>
+
+    /// One record per view, indexed by `RenderView.Index`. The dispatch's `y` extent is its count.
+    var views: Buffer<CullView>
+
+    /// The answer: `wordCount` words per view, view-major. Read back into the host's bitset.
+    var visibility: RWBuffer<uint>
+
+    /// Last frame's depth, min-reduced — `HiZReduce.rvn` builds it and `HiZPyramid` owns it.
+    ///
+    /// Level 0 is half the depth buffer in each dimension, which is why an extent measured in its
+    /// texels is what picks the level. Sampled with `Load` rather than through a sampler: the test
+    /// wants the texel, and a bilinear tap between two of them is a depth no surface has.
+    var occluders: Texture2D
+
+    /// One invocation per word of one view's answer.
+    ///
+    /// The dispatch is `(ceil(wordCount / 64), viewCount, 1)`, so `y` is the view exactly and only `x`
+    /// has a tail to test for. Both targets leave an out-of-range buffer access undefined, which on a
+    /// GPU means a wrong value on one driver and a device loss on another.
+    [ComputeShader(64)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val viewIndex = int(id.y)
+
+        if (viewIndex >= views.Length) {
+            return
+        }
+
+        val view = views[viewIndex]
+        val word = int(id.x)
+
+        if (word >= int(view.wordCount)) {
+            return
+        }
+
+        val first = word * Cull.WordSize
+        var bits = 0u
+
+        for (i in 0 .. 31) {
+            val index = first + i
+
+            if (index >= int(view.objectCount) || index >= objects.Length) {
+                break
+            }
+
+            if (Visible(objects[index], view)) {
+                bits = bits | (1u << i)
+            }
+        }
+
+        visibility[viewIndex * int(view.wordCount) + word] = bits
+    }
+
+    /// Whether one object is visible in one view — the whole of the culling decision.
+    ///
+    /// Three rejections before any geometry: dead, in no stage this view draws, and beyond the view's
+    /// own distance. Each is cheaper than the frustum test and each removes objects the frustum would
+    /// have accepted, and they are in the same order here as in `VisibilityGroup.CullJob` so that
+    /// reading one explains the other.
+    func Visible(candidate: CullObject, view: CullView): bool {
+        if ((candidate.flags & Cull.Alive) == 0u) {
+            return false
+        }
+
+        if (!Cull.Shares(candidate.stagesLow, candidate.stagesHigh, view.stagesLow, view.stagesHigh)) {
+            return false
+        }
+
+        val cutoff = view.maximumDistance
+
+        if (cutoff > 0f && !Cull.WithinDistance(view.position, candidate.center, candidate.radius, cutoff)) {
+            return false
+        }
+
+        var inside = true
+
+        for (i in 0 .. 5) {
+            if (Cull.Outside(view.planes[i], candidate.center, candidate.radius)) {
+                inside = false
+                break
+            }
+        }
+
+        if (!inside) {
+            return false
+        }
+
+        if (Occlusion && (view.flags & Cull.Occluders) != 0u) {
+            return !Occluded(candidate, view)
+        }
+
+        return true
+    }
+
+    /// Whether last frame's depth says nothing of this object could have been seen.
+    ///
+    /// The classic Hi-Z test, and every part of it errs towards keeping the object:
+    ///
+    ///   - the *box* around the sphere is projected, not the sphere, because a sphere's screen bound
+    ///     is not the projection of its centre and the box's is never smaller;
+    ///   - anything reaching behind the near plane is kept outright, because its projection wraps
+    ///     around the screen rather than growing, and a clamped rectangle from it means nothing;
+    ///   - the level is chosen so the rectangle spans at most two texels, so four taps cover it — one
+    ///     level finer would leave part of the rectangle untested, which is what culls a visible
+    ///     object;
+    ///   - the comparison is against the *furthest* depth in the tile and the object's *nearest*
+    ///     point, which is the only pair that makes "definitely behind everything" true.
+    ///
+    /// What it cannot be conservative about is time: the depth is a frame old, so something that was
+    /// hidden last frame and is not now appears a frame late. That is the price of testing before the
+    /// frame is drawn, and it is why a two-phase culler — draw what was visible, rebuild, retest —
+    /// exists at all. This is the one-phase version.
+    func Occluded(candidate: CullObject, view: CullView): bool {
+        val radius = candidate.radius
+
+        var minimum = float3(1f, 1f, 1f)
+        var maximum = float3(0f, 0f, 0f)
+        var started = false
+        var behind = false
+
+        for (i in 0 .. 7) {
+            val bits = uint(i)
+            val offset = float3(Cull.Sign(bits, 1u), Cull.Sign(bits, 2u), Cull.Sign(bits, 4u)) * radius
+            val clip = view.previousViewProjection * float4(candidate.center + offset, 1f)
+
+            if (clip.w <= Const.Epsilon) {
+                behind = true
+                break
+            }
+
+            val ndc = clip.xyz / clip.w
+            val uv = Transform.NdcToUv(ndc)
+            val point = float3(uv.x, uv.y, ndc.z)
+
+            minimum = started ? min(minimum, point) : point
+            maximum = started ? max(maximum, point) : point
+            started = true
+        }
+
+        if (behind) {
+            return false
+        }
+
+        val lowest = saturate(float2(minimum.x, minimum.y))
+        val highest = saturate(float2(maximum.x, maximum.y))
+        val size = occluders.GetDimensions(0)
+
+        // The rectangle in level-0 texels, and the level at which two of them cover it.
+        val extent = (highest - lowest) * float2(float(size.x), float(size.y))
+        val span = max(max(extent.x, extent.y), 1f)
+        val level = clamp(int(ceil(log2(span))), 0, int(view.occluderLevels) - 1)
+        val levelSize = occluders.GetDimensions(level)
+
+        val x0 = clamp(int(lowest.x * float(levelSize.x)), 0, levelSize.x - 1)
+        val y0 = clamp(int(lowest.y * float(levelSize.y)), 0, levelSize.y - 1)
+        val x1 = clamp(int(highest.x * float(levelSize.x)), 0, levelSize.x - 1)
+        val y1 = clamp(int(highest.y * float(levelSize.y)), 0, levelSize.y - 1)
+
+        val a = occluders.Load(int3(x0, y0, level)).x
+        val b = occluders.Load(int3(x1, y0, level)).x
+        val c = occluders.Load(int3(x0, y1, level)).x
+        val d = occluders.Load(int3(x1, y1, level)).x
+
+        // Reverse-Z: the tile's furthest surface is its smallest value, and the object's nearest
+        // point is its largest. Strictly less, so a surface at exactly the object's depth — the
+        // object itself, last frame — does not occlude it.
+        return maximum.z < min(min(a, b), min(c, d))
+    }
+}

@@ -25,7 +25,7 @@ namespace Vixen.Rendering.Features;
 ///         same image, and throw away the reason the sort key puts grouping above depth.
 ///     </para>
 /// </remarks>
-public sealed class MeshRenderFeature : RootRenderFeature {
+public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgumentSource {
     /// <inheritdoc />
     public override string Name => "Mesh";
 
@@ -46,9 +46,64 @@ public sealed class MeshRenderFeature : RootRenderFeature {
     /// </remarks>
     public IPipelineDescriber? Describer { get; set; }
 
+    /// <summary>
+    ///     Where each draw's arguments come from, when the GPU decides whether it draws anything.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Null is the ordinary path: the work list is exactly what is visible, so the draw call
+    ///         carries its own counts. Set — beside a
+    ///         <see cref="GpuVisibilityGroup" /> with <see cref="GpuVisibilityGroup.ReadBack" /> off
+    ///         — the work list is everything that <em>could</em> be visible and the instance count of
+    ///         everything culled has been zeroed on the device, which is where the decision now
+    ///         lives.
+    ///     </para>
+    ///     <para>
+    ///         Indexed draws only. There is no non-indexed indirect entry point in the RHI, and
+    ///         adding one for the case that has no reason to be GPU-driven would be adding it for a
+    ///         path nothing takes: an object with no index buffer is drawn directly, whatever this
+    ///         says.
+    ///     </para>
+    /// </remarks>
+    public GpuDrawArguments? Arguments { get; set; }
+
     /// <inheritdoc />
     protected internal override void Initialize(RenderSystem system) =>
         Draws = system.Objects.Data.Register<MeshDraw>();
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     The same five numbers <see cref="Draw" /> would have passed to
+    ///     <see cref="ICommandList.DrawIndexed" />, including the instancing sub-feature's batch size
+    ///     and first instance — which is why this runs after <c>Prepare</c> rather than inside it.
+    ///     Anything not drawable, or not indexed, is left as the cleared record it arrived as: a draw
+    ///     of no indices, which draws nothing.
+    /// </remarks>
+    public void FillArguments(RenderSystem system, Span<DrawCommand> commands) {
+        ArgumentNullException.ThrowIfNull(system);
+
+        var draws = system.Objects.Data.Data(Draws);
+        var instances = SubFeatures.OfType<IInstanceSource>().FirstOrDefault();
+
+        for (var index = 0; index < commands.Length && index < draws.Length; index++) {
+            ref readonly var draw = ref draws[index];
+
+            if (!draw.IsDrawable || !draw.IsIndexed) {
+                continue;
+            }
+
+            var id = new RenderObjectId(index);
+            var batch = instances?.InstanceCountOf(system, id) ?? 0;
+
+            commands[index] = new() {
+                IndexCount = (uint)draw.Count,
+                InstanceCount = (uint)Math.Max(batch > 0 ? batch : draw.InstanceCount, 1),
+                FirstIndex = (uint)draw.FirstIndex,
+                VertexOffset = (uint)draw.VertexOffset,
+                FirstInstance = (uint)(batch > 0 ? instances!.FirstInstanceOf(system, id) : 0)
+            };
+        }
+    }
 
     /// <inheritdoc />
     protected internal override void Draw(
@@ -143,11 +198,37 @@ public sealed class MeshRenderFeature : RootRenderFeature {
 
             if (draw.IsIndexed) {
                 context.CommandList.BindIndexBuffer(draw.IndexBuffer, draw.IndexFormat);
-                context.CommandList.DrawIndexed(draw.Count, count, draw.FirstIndex, draw.VertexOffset, first);
+
+                // Indirect when something has written this object's arguments for this view: the
+                // counts are the same ones, except that culling may have zeroed the instance count —
+                // which is how a draw the GPU rejected costs a command and no vertex work.
+                if (Indirect(context, node.Object) is { } offset) {
+                    context.CommandList.DrawIndexedIndirect(Arguments!.Commands, offset);
+                } else {
+                    context.CommandList.DrawIndexed(draw.Count, count, draw.FirstIndex, draw.VertexOffset, first);
+                }
             } else {
                 context.CommandList.Draw(draw.Count, count, draw.FirstIndex, first);
             }
         }
+    }
+
+    /// <summary>Where this object's arguments are for this view, or null to draw directly.</summary>
+    /// <remarks>
+    ///     Every one of these conditions is a way the buffer can be present and not apply: a view the
+    ///     argument pass did not cover, an object added after it ran, a frame in which it did not run
+    ///     at all. Drawing indirectly from any of them reads arguments nobody wrote, which is a draw
+    ///     of whatever the allocator left there — a hang on some drivers and geometry through the
+    ///     world on others.
+    /// </remarks>
+    long? Indirect(RenderDrawContext context, RenderObjectId id) {
+        if (Arguments is not { IsFilled: true } arguments || context.View is not { } view) {
+            return null;
+        }
+
+        return view.Index >= 0 && view.Index < arguments.ViewCount && id.Index < arguments.ObjectCount
+            ? arguments.OffsetOf(view.Index, id)
+            : null;
     }
 
     /// <inheritdoc />
