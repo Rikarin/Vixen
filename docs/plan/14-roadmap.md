@@ -2513,8 +2513,16 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   `Samples/10-VoiceChat` runs the whole voice path over real UDP sockets, which is the one thing the
   codec tests deliberately cannot check — they drive a stand-in network on purpose.
 
-  Still owed: true-peak and loudness-range metering, ADPCM for effects, an HRTF panner, a real-input
-  FFT, oversampling for the distortion, and a phase-vocoder pitch shifter.
+  The last seven landed together: true-peak metering and loudness range on the meter, ADPCM beside
+  the PCM decoder, a structural HRTF panner behind `Spatializer`, a real-input FFT, oversampling on
+  the distortion, and a phase-vocoder shifter beside the time-domain one. Two of them are worth
+  writing down honestly: the HRTF is a structural model rather than measured impulse responses, so it
+  tells front from back without shipping content but is not as convincing as a good measured set; and
+  the phase vocoder does **not** beat the time-domain shifter on steady material — measured, the
+  crossfade was cleaner — it earns its window of latency on material that does not repeat.
+
+  Nothing structural is owed. What is left is content and platform work: measured HRTF sets for
+  anybody who wants better, and whatever a specific title's certification checklist asks for.
 - `Vixen.Animation`: skeletal playback, blend trees (1D/2D), layers + masks, state machine, IK (two-bone,
   look-at, foot placement), root motion, events, GPU skinning integration.
 - `Vixen.Editor.AnimationGraph`.

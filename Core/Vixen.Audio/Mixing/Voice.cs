@@ -195,6 +195,13 @@ sealed class Voice {
     /// <summary>An authored high-pass cutoff in hertz, or zero for none.</summary>
     public float ParameterHighPassHz;
 
+    /// <summary>The head model this voice is panned through, or null for amplitude panning.</summary>
+    /// <remarks>
+    ///     Owned by the mixer and handed out per voice, because the filters carry state per sound and
+    ///     two sources sharing one would smear into each other.
+    /// </remarks>
+    public HrtfPanner? Hrtf;
+
     /// <summary>How much solid geometry is between this voice and the listener: 0 clear, 1 blocked.</summary>
     /// <remarks>
     ///     <para>
@@ -506,8 +513,18 @@ sealed class Voice {
                     summed = filtered;
                 }
 
-                for (var channel = 0; channel < channels; channel++) {
-                    destination[offset + channel] += summed * Ramp(channel, t);
+                if (Hrtf is not null && IsSpatial && channels == 2) {
+                    // The one place a sound stops being a level per speaker and becomes two filtered
+                    // copies of itself. It happens after the mono sum and after absorption, because
+                    // both of those are properties of the path and the head model is what happens at
+                    // the end of it.
+                    Hrtf.Process(summed, LastSpatial.Azimuth, LastSpatial.Elevation, out var ear, out var other);
+                    destination[offset] += ear * Ramp(0, t);
+                    destination[offset + 1] += other * Ramp(1, t);
+                } else {
+                    for (var channel = 0; channel < channels; channel++) {
+                        destination[offset + channel] += summed * Ramp(channel, t);
+                    }
                 }
             } else {
                 for (var channel = 0; channel < channels; channel++) {
@@ -555,6 +572,7 @@ sealed class Voice {
         spatial = new SpatialSettings();
         published.Write(spatial);
         LastSpatial = new SpatialResult(0f, 1f, 1f, 1f);
+        Hrtf?.Reset();
         Array.Clear(currentGains);
         Array.Clear(targetGains);
     }
@@ -681,6 +699,22 @@ sealed class Voice {
 
             for (var channel = 0; channel < channels; channel++) {
                 targetGains[channel] *= gain;
+            }
+
+            // An HRTF supplies the direction itself, so the panner's speaker gains would be applied
+            // twice. What is kept is the *level* — distance, cone and listener gain, which the head
+            // model knows nothing about — spread equally, so the ramping and the attenuation still
+            // work and only the placement changes hands.
+            if (Hrtf is not null && channels == 2) {
+                var level = 0f;
+
+                for (var channel = 0; channel < channels; channel++) {
+                    level += targetGains[channel] * targetGains[channel];
+                }
+
+                level = MathF.Sqrt(level);
+                targetGains[0] = level;
+                targetGains[1] = level;
             }
         } else if (downmix) {
             // A mono source spread across speakers: constant power, so crossing the centre does not

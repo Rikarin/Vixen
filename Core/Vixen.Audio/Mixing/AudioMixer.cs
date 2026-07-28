@@ -86,6 +86,37 @@ public sealed class AudioMixer {
     /// <summary>How many voices there are in total.</summary>
     public int VoiceCapacity => voices.Length;
 
+    /// <summary>Whether spatial sounds are panned through a head model instead of between speakers.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Headphones only, and off by default.</b> Over speakers each ear hears both channels,
+    ///         so the cues arrive crossed and the result is worse than plain panning. Anything turning
+    ///         this on should be reading a headphone setting rather than guessing.
+    ///     </para>
+    ///     <para>
+    ///         Ignored unless the device is stereo — there is no head model for five speakers, and a
+    ///         surround setup already has the front-and-back information an HRTF exists to supply.
+    ///     </para>
+    /// </remarks>
+    public bool UseHrtf {
+        get => hrtf;
+        set {
+            hrtf = value;
+            ApplyHrtf();
+        }
+    }
+
+    bool hrtf;
+
+    /// <summary>Hands every voice a head model, or takes them all away.</summary>
+    void ApplyHrtf() {
+        var wanted = hrtf && format.IsValid && format.Channels == 2;
+
+        foreach (var voice in voices) {
+            voice.Hrtf = wanted ? new HrtfPanner(format.SampleRate) : null;
+        }
+    }
+
     /// <summary>How many were doing something in the last block.</summary>
     public int ActiveVoices => Volatile.Read(ref activeVoices);
 
@@ -155,6 +186,10 @@ public sealed class AudioMixer {
             foreach (var voice in voices) {
                 voice.Prepare(deviceFormat);
             }
+
+            // After Prepare, because the panners are built for the rate the device turned out to
+            // have rather than the one anybody assumed.
+            ApplyHrtf();
         }
     }
 

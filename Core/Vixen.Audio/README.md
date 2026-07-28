@@ -83,6 +83,12 @@ that owns its mixer pays.
 | `MusicTempoMap` | how frames, beats and bars relate across a tempo change |
 | `MixControlServer` | the loopback wire an editor drives the mix down |
 | `Dsp/SincTable` | the polyphase filter a pitched voice is resampled through |
+| `Dsp/RealFft` | the same transform for real input: half the work, identical answer |
+| `Dsp/TruePeakMeter` | the peak of the waveform a converter draws, which is not the peak of the samples |
+| `Dsp/Oversampler` | runs a nonlinearity at four times the rate so its harmonics have room |
+| `HrtfPanner` | front, back, above and below — the directions panning has no way to express |
+| `PitchVocoderEffect` | pitch shifting in the frequency domain, for material that does not repeat |
+| `Adpcm` / `AdpcmStreamDecoder` | four to one on short sounds, seekable to the sample |
 
 ## Inserts, sends, and the order it all runs in
 
@@ -937,27 +943,76 @@ straight into the bus exactly as before.
 A send naming a bus that no longer exists is **dropped rather than clamped to the master**: losing an
 effect is a smaller mistake than a stale reverb send arriving at the output.
 
+## The last seven
+
+**True-peak metering.** Sample peak is the largest number in the buffer; true peak is the largest
+point of the curve a converter draws *through* those numbers, and it is never lower. A mix reading
+−1.0 dBFS can be at −0.3 dBTP. Certification measures the second, and so does an Opus encoder's
+reconstruction. Four times oversampled, filter derived rather than tabled — BS.1770 prints
+coefficients for 48 kHz and a meter using them at 44.1 would interpolate in the wrong place.
+`MeasureTruePeak` is most of what the meter costs and can be turned off without touching a LUFS
+reading.
+
+**Loudness range.** The third R128 number, and the one that says whether a mix breathes or has been
+squashed into a two-decibel band. Kept as a histogram rather than a list, so an hour of play costs
+the same 750 buckets as a minute. Its gates are not the integrated measurement's — 20 LU rather than
+10, applied to short-term readings rather than momentary ones, because a range is a property of how
+programme moves over seconds.
+
+**ADPCM.** Four bits a sample, decoded with an add and two lookups. It solves a different problem
+from Vorbis and Opus: they give ten to one and cost real time per voice plus decoder state plus a
+priming delay, which is right for a five-minute track and wrong for a footstep. **Vorbis and Opus for
+few long things; ADPCM for many short ones.** It lives here rather than in `Vixen.Audio.Codecs`
+because it needs no package — the codec is a table and twenty lines — and seeking is a division
+rather than a bisection, which is what a sound starting at an unpredictable moment needs.
+
+**An HRTF panner.** Amplitude panning has a left and a right; a sound behind you produces the same
+two numbers as one in front. This models the three mechanisms behind a measured HRTF — the path
+length difference to the two ears, the shadow the head casts, and what the pinna does — rather than
+shipping megabytes of measured impulse responses. It is **not** as convincing as a good measured set;
+it is convincing enough to tell front from back, which panning cannot do at all, and it costs no
+content. Headphones only, off by default, stereo devices only.
+
+The head shadow is a *filter* and not a gain, and that direction is the whole model: a head is
+transparent to a wavelength much longer than it is and opaque to a short one. Getting the two ends
+the wrong way round — which the first version did — produces something that shadows the bass and
+passes the treble, and reads on a meter as the far ear being louder.
+
+**A phase-vocoder pitch shifter,** and an honest note about it. The received wisdom is that the
+time-domain shifter warbles on sustained tones and that a phase vocoder fixes it. Measured against a
+held sawtooth, that is false: the crossfade put **0.00%** of its energy off the harmonic grid where
+the vocoder put **1.45%**. A two-tap shifter reading a *stationary periodic* signal is very nearly
+exact, because both taps sit on the same repeating waveform. Where it does fall down is material that
+does not repeat — speech, vibrato, a note bending — and that is a judgement about sound rather than a
+number, so it is written here rather than asserted in a test. Use `PitchShiftEffect` for steady
+material and anything needing zero latency; use `PitchVocoderEffect` for voices and music.
+
+**Oversampling for the distortion.** Harmonics above Nyquist fold back as inharmonic tones that move
+the *wrong way* when the input pitch changes, which is what aliased distortion sounds like. Four
+times up, shape, filter, back down: measured at 62 dB of suppression.
+
+It took three attempts and each failure was instructive. A gain of four, because the usual polyphase
+upsampler stuffs zeros and needs that correction and this one interpolates directly and does not —
+caught only after the round-trip test was given an upper bound as well as a lower one. Then the real
+one: the polyphase coefficients were paired with the history walked oldest-first where the
+decomposition wants newest-first, which mirrors every phase. A mirrored phase is still a
+plausible-looking low-pass, so nothing failed outright — image rejection just got *worse* as taps were
+added, and sweeping the tap count and seeing the wrong slope is what found it. And finally the test
+itself was measuring a hard-clipped square wave, whose harmonic series never ends, so no finite
+oversampling could have helped; that is physics rather than a bug, and testing against it proves
+nothing.
+
+**A real-input FFT.** Audio is real, so a complex transform is handed N zeroes it multiplies anyway
+and returns N bins of which half are a mirror. `RealFft` packs N real samples into an N/2 complex
+transform: half the butterflies, half the memory, identical answer. It is checked against the complex
+transform bin for bin rather than against hand-worked expectations, because the failure mode is a
+spectrum that is subtly wrong — and a magnitude-only test would pass on a packing that has mangled
+every phase.
+
 ## Still to come
 
-**True-peak metering.** The loudness meter reports sample peak. Certification wants true peak, which
-means oversampling by four to catch what the reconstruction filter does between samples.
-
-**Loudness range.** The third R128 number, and the one that says whether a mix has dynamics or has
-been flattened. It needs the block history kept rather than summed, which is why it is not here.
-
-**Oversampling for the distortion**, and a phase-vocoder pitch shifter — both now cheap to add, since
-the transform they want is in `Dsp/Fft`.
-
-**A real-input FFT.** Audio is real, so half the transform's input is zeroes and half its output is
-the mirror of the rest. A real-input transform is twice as fast for the same answer, and it doubles
-the index arithmetic — which is where a transform goes quietly wrong, so it is not taken until there
-is a profile that asks for it.
-
-**ADPCM**, which [doc 08](../../docs/plan/08-asset-pipeline-and-addressables.md) lists for effects.
-
-**An HRTF panner.** The panning is amplitude panning, which has a left and a right and no front and
-back — something behind you sounds like something in front of you. An HRTF is a pair of convolutions
-per voice with a filter set that has to be shipped, and it is only correct on headphones. It plugs in
-behind the same `Spatializer.Evaluate` call.
+Nothing structural. What is left is content and platform work rather than engine work: measured HRTF
+filter sets for anybody who wants better than the structural model, and whatever a specific title's
+certification checklist turns out to ask for.
 
 Licensed under Apache-2.0.

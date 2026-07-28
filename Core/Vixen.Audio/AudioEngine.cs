@@ -354,6 +354,18 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     /// </remarks>
     public AudioReverbZones ReverbZones { get; } = new();
 
+    /// <summary>Whether spatial sounds are panned through a head model rather than between speakers.</summary>
+    /// <remarks>
+    ///     <b>Headphones only.</b> Amplitude panning has a left and a right and no front, back, above
+    ///     or below; a head model has all of them. Over speakers it is worse than panning, because
+    ///     each ear hears both channels and the cues arrive crossed — so this belongs behind a
+    ///     headphone setting and not behind a quality slider. Stereo devices only.
+    /// </remarks>
+    public bool UseHrtf {
+        get => Mixer.UseHrtf;
+        set => Mixer.UseHrtf = value;
+    }
+
     /// <summary>How many pairs of ears there are. One, unless somebody asked for split-screen.</summary>
     public int ListenerCount => listeners.Count;
 
