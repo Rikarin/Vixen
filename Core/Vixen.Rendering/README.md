@@ -831,6 +831,11 @@ state the convention. That is deliberate and narrow: the host's mirror is not wh
 was two sides disagreeing while each stayed internally consistent, so a test of either alone would
 have passed throughout.
 
+And one asks the GPU. `ClusterCullingDeviceTests` in `Platform/Vixen.Graphics.Golden.Tests` compiles
+`ClusterCulling.rvn` through the content build's own compiler, dispatches it, and reads every cluster
+list back to compare against `ClusterGrid.Bounds`. Reverting the handedness fix fails it with
+`expected [0], got []` — the original bug, verbatim, from hardware.
+
 **Clustered lighting does no per-object work at all.** No selection, no block per object, no
 descriptor bound per draw — `ForwardLightingRenderFeature.Clustered` turns the whole per-object path
 off, and eight objects produce eight draws and nothing else. That is the point of the pipeline, and

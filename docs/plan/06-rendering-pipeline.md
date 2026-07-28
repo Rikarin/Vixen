@@ -180,7 +180,9 @@ with clustered light lookup → transparent pass → post FX.
   cluster's box was mirrored in z from the lights tested against it and every list came back empty —
   a handedness mistake gives an empty result rather than a wrong-looking one. `ClusterGrid.DepthOf`
   is now the single place the two conventions meet, on both sides, and a test holds the fragment's
-  own cluster against the box the culler built for it. Falls back to tiled (2D) on GLES and to
+  own cluster against the box the culler built for it. The pass is also **dispatched on a device** and
+  its buffer read back, against that same oracle over all 3456 clusters — reverting the handedness
+  fails it with `expected [0], got []`. Falls back to tiled (2D) on GLES and to
   per-object light lists (Stride's `ForwardLightingRenderFeature` approach, max N lights per draw) on
   WebGL2 where compute is absent.
 - **Why default:** MSAA works, transparency works, material variety is unconstrained, memory
