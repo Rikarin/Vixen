@@ -475,3 +475,16 @@ dotnet_diagnostic.CA1716.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Audio/Devices/AudioDevice.cs]
 dotnet_diagnostic.CA1716.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Rendering/Lighting/SphericalHarmonics.cs
+#
+# CA1051 (do not declare visible instance fields). `ShCoefficients` is the CPU
+# side of a struct the GPU reads: Raven/Library/Shading/Ibl.rvn declares the same
+# nine `float3`s in the same order, and the nine names are the parameter names a
+# host writes them under. It is also accumulated in place — `Accumulate` takes it
+# by `ref` and adds a texel's contribution to each band — which is the same
+# `lights[i].Intensity = …` trap Lights.cs is exempted for, one level down.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Rendering/Lighting/SphericalHarmonics.cs]
+dotnet_diagnostic.CA1051.severity = none

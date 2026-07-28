@@ -103,6 +103,44 @@ shader ForwardPlus {
     var environmentMipCount: float = 7f
     var ambientIntensity: float = 1f
 
+    /// Whether a local reflection probe stands in for the environment where it applies.
+    ///
+    /// A permutation rather than a weight of zero, because it is the *bindings* that differ: with it
+    /// off, the probe's cube, its sampler and its bounds fold away entirely and a host binds nothing
+    /// for them. A scene with no probes should not carry a cube it never samples.
+    [Permutation] val UseReflectionProbe: bool = false
+
+    /// A local capture of the surroundings, prefiltered exactly as the environment is.
+    var probe: TextureCube
+
+    var probeSampler: Sampler
+    var probeMipCount: float = 7f
+
+    /// How much of the probe shows through, against the environment behind it.
+    ///
+    /// What makes probes blend rather than pop: a surface deep inside a probe's volume takes it
+    /// whole, and one near the edge fades back to the sky over the probe's falloff distance.
+    var probeWeight: float = 0f
+
+    /// The probe's bounds and the point it was captured from.
+    var probeBox: ProbeBox
+
+    /// The radius of a spherical probe, or zero for the box `probeBox` describes.
+    ///
+    /// A branch rather than a permutation: it is the same binding either way, and the value is
+    /// uniform across every fragment of a draw — so it costs a coherent branch, where a permutation
+    /// would cost a second variant of the whole pass.
+    var probeRadius: float = 0f
+
+    /// The environment's diffuse irradiance, projected into nine coefficients per channel.
+    ///
+    /// Nine numbers rather than a texture, because irradiance is so smooth that order-2 spherical
+    /// harmonics reproduce it to within a percent — and because the alternative this replaces was
+    /// sampling the roughest mip of the reflection cube, which is a different integral: a mip is
+    /// prefiltered against a GGX lobe and irradiance is the cosine lobe, so the ambient term was
+    /// flatter than it should be everywhere and wrong at every silhouette.
+    var environmentSh: ShCoefficients
+
     stream var positionWS: float3
     stream var normalWS: float3
     stream var tangentWS: float4
@@ -244,7 +282,13 @@ shader ForwardPlus {
     /// material with no scatter colour is answered by every model here with zero once the cosine is
     /// zero, so skipping it is free — and one that has one is brightest exactly there.
     func Contribution(light: PunctualLight, d: MaterialData, n: float3, v: float3, alpha: float): float3 {
-        val sample = Lighting.Resolve(light, positionWS, alpha)
+        // The mirror direction, which is what a shaped light finds its representative point along. A
+        // punctual light ignores it, and it is computed per light rather than once per fragment
+        // because the light loop is where a shaded normal is already in registers — one `reflect` is
+        // cheaper than the parameter it would otherwise have to be threaded through.
+        val reflected = reflect(-v, n)
+
+        val sample = Lighting.Resolve(light, positionWS, alpha, reflected)
         val angles = ShadingAngles.Of(n, v, sample.l)
 
         if (angles.NdotL <= 0f && Math.MaxComponent(d.scatterColor) <= 0f) {
@@ -270,21 +314,51 @@ shader ForwardPlus {
         return Lighting.ShadowPcf3x3(shadowMap, shadowSampler, shadowUv, ndc.z - bias, shadowTexelSize)
     }
 
-    /// Image-based ambient: a prefiltered environment for specular, its top mip for diffuse.
+    /// Image-based ambient: a prefiltered environment for specular, spherical harmonics for diffuse.
     ///
-    /// The top mip stands in for spherical-harmonic irradiance, which would need the host to supply
-    /// nine coefficients — `Ibl.IrradianceSh9` is what to use once it does. Sampling the roughest mip
-    /// is the cheap approximation, and it is noticeably flatter.
+    /// The split-sum approximation, with both halves now coming from where they should. **The mip is
+    /// chosen by roughness**, which it was not: this sampled the reflection at level zero whatever the
+    /// material said, so every surface mirrored the environment and `environmentMipCount` and
+    /// `Ibl.SpecularLod` were both dead. A rough metal reflecting a sharp environment reads as a
+    /// material problem rather than as a missing argument, which is why it survived.
+    ///
+    /// `SampleLevel` rather than `Sample`, and not only to state the level: a pixel shader's implicit
+    /// derivatives are undefined under non-uniform flow, and this is called from inside one.
     func Ambient(d: MaterialData, n: float3, v: float3): float3 {
         val NdotV = saturate(dot(n, v))
         val reflected = reflect(-v, n)
 
         val dfg = Ibl.EnvironmentDfg(NdotV, d.perceptualRoughness)
-        val prefiltered = environment.Sample(environmentSampler, reflected).rgb
-        val irradiance = environment.Sample(environmentSampler, n).rgb
+        val lod = Ibl.SpecularLod(d.perceptualRoughness, environmentMipCount)
+
+        var prefiltered = environment.SampleLevel(environmentSampler, reflected, lod).rgb
+
+        if (UseReflectionProbe) {
+            prefiltered = lerp(prefiltered, Probe(d.perceptualRoughness, reflected), saturate(probeWeight))
+        }
+
+        val irradiance = Ibl.IrradianceSh9(n, environmentSh)
 
         val specular = Ibl.Specular(prefiltered, d.f0, dfg, d.occlusion)
         val diffuse = Ibl.Diffuse(irradiance, d.diffuseColor, d.occlusion)
         return (specular + diffuse) * ambientIntensity
+    }
+
+    /// The local probe's radiance along a reflection, corrected for where it was captured from.
+    ///
+    /// **Without the correction a probe is worse than no probe.** A cubemap is captured from one
+    /// point, so sampling it by direction alone reflects the room as seen from that point — a floor
+    /// two metres away reflects the ceiling above the probe rather than what is above the floor, and
+    /// the reflection slides as the camera moves. Re-aiming the direction from the probe's centre
+    /// toward where the ray actually meets the probe's volume is what makes it sit still.
+    func Probe(perceptualRoughness: float, reflected: float3): float3 {
+        var corrected = Ibl.ParallaxCorrect(reflected, positionWS, probeBox)
+
+        if (probeRadius > 0f) {
+            corrected = Ibl.ParallaxCorrectSphere(reflected, positionWS, probeBox.center, probeRadius)
+        }
+
+        val lod = Ibl.SpecularLod(perceptualRoughness, probeMipCount)
+        return probe.SampleLevel(probeSampler, corrected, lod).rgb
     }
 }

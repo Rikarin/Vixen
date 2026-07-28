@@ -2329,7 +2329,28 @@ scroll/focus/selection. A `DockingHost` layout round-trips through serialisation
   all six shading-model tests, dropping the chain from the parameter path fails the reflection oracle,
   taking the composition out of the effect key fails the variant test, and handing a depth prepass the
   material's composition fails the one that says it must not.
-- Lighting: all light types, clustered binning, IBL (prefiltered + SH), light probes, reflection probes.
+- Lighting: ✅ **all light types, clustered binning, IBL and reflection probes.** Directional, point and
+  spot were already there; tube and rectangle join them in the same eighty-byte record and the same
+  loop, through the representative-point approximation rather than LTC — which needs a fitted table an
+  offline optimisation produces and this repository cannot run. IBL is both halves of the split sum
+  *and the producers for them*: `EnvironmentBaker` prefilters a cube per roughness and
+  `SphericalHarmonics` projects it into nine coefficients, on the CPU where closed forms can check the
+  result. Reflection probes are parallax-corrected against a box or a sphere and faded against the sky.
+
+  Two defects fell out of wiring the environment up, both of which had survived by looking like
+  something else: the pass sampled the reflection at mip zero whatever the roughness said — so
+  `Ibl.SpecularLod` and `environmentMipCount` were dead — and the diffuse term took a radiance sample
+  where irradiance belongs, which is where a missing `1/π` was hiding.
+
+  ⚠ **Light probes are not built.** The spherical-harmonic half is, and the tetrahedral interpolation
+  doc 06 asks for is not: Bowyer–Watson over probe positions needs exact predicates to survive the
+  inputs people actually author — a grid of probes is cospherical, and a near-degenerate cell's
+  circumsphere is large enough to eat the mesh. Written, found wrong by its own tests, withdrawn.
+
+  ⚠ **A reflection probe applies per group, not per object.** A probe's cube is a texture, so
+  per-object selection needs a descriptor set per probe bound per draw, and the per-draw set is owned
+  whole by `ForwardLightingRenderFeature` — sharing it is the binding-plan work rather than a detail
+  of probes.
 - Shadows: CSM, cube, spot, atlas + static caching, PCF/PCSS.
 - `Vixen.Rendering.PostFx`: the P1 effect set including TAA, FXAA, SMAA, MSAA resolve, GTAO, SSR,
   bloom, DoF, tonemapping, colour grading, auto-exposure, CAS, outline.
