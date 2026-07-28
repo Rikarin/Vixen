@@ -24,6 +24,13 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!-- The view is drawn with real text, so the tests that lay one out need a real font. The
+             same one the rest of the interface tests use. -->
+        <EmbeddedResource Include="..\..\Core\Vixen.Ui.Text.Tests\Fonts\TestShapeLana.ttf"
+                          LogicalName="Vixen.Editor.NodeGraph.Tests.Fonts.TestShapeLana.ttf" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
 
         <!-- The generator, over this assembly's own fixture nodes: the test that the generator works

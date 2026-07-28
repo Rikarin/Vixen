@@ -5,8 +5,44 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
+using Vixen.Shaders;
+using Vixen.Shaders.Generated;
 
 namespace Vixen.Rendering;
+
+/// <summary>
+///     Which of a two-phase cull's two dispatches a set of records is for.
+/// </summary>
+/// <remarks>
+///     <para>
+///         One-phase culling is <see cref="Main" /> alone, and it is correct: the depth it tests
+///         against is a frame old, so an object that was hidden last frame and is not now is drawn one
+///         frame late. That is a popping artefact at the trailing edge of anything the camera moves
+///         past, and no amount of conservatism in the test removes it — the information simply was not
+///         in the frame.
+///     </para>
+///     <para>
+///         Two-phase adds <see cref="Late" />: draw what <see cref="Main" /> found, reduce
+///         <em>that</em> depth back into the pyramid, and ask again about everything main rejected.
+///         The second answer is tested against this frame's own depth, so it is late by nothing. What
+///         it costs is a second reduction, a second dispatch and a second set of draws — which is why
+///         it is a shape a document chooses rather than the only one on offer.
+///     </para>
+/// </remarks>
+public enum CullPhase {
+    /// <summary>The pass that runs before anything is drawn, against last frame's depth.</summary>
+    Main,
+
+    /// <summary>
+    ///     The pass that runs after the main pass's draws, against the depth they left behind.
+    /// </summary>
+    /// <remarks>
+    ///     Its answer is the <em>difference</em> — what is visible now and was not drawn by the main
+    ///     pass — because that is what a second set of draws must be given. The union would draw every
+    ///     visible object twice.
+    /// </remarks>
+    Late
+}
 
 /// <summary>
 ///     The records, the dispatch shape and the test that <c>Raven/Library/Pipeline/Culling.rvn</c>
@@ -30,7 +66,13 @@ namespace Vixen.Rendering;
 /// </remarks>
 public static class GpuCulling {
     /// <summary>The shader's name, and the effect key the group resolves.</summary>
-    public const string ShaderName = "Culling";
+    /// <remarks>
+    ///     From the generated keys rather than spelled here, which is the point of them: the name,
+    ///     the permutation and every binding index come from the reflection checked in beside the
+    ///     shader, so a rename in the <c>.rvn</c> is a compile error rather than a group that quietly
+    ///     stops finding its bindings and culls on the CPU for ever.
+    /// </remarks>
+    public const string ShaderName = CullingKeys.ShaderName;
 
     /// <summary>How many objects one word of the device's answer holds.</summary>
     /// <remarks>
@@ -71,13 +113,21 @@ public static class GpuCulling {
     public const float ClipEpsilon = 0.0001f;
 
     /// <summary>The name of the shader that builds the depth pyramid.</summary>
-    public const string ReduceShaderName = "HiZReduce";
+    public const string ReduceShaderName = HiZReduceKeys.ShaderName;
 
     /// <summary>The name of the shader that turns the bits into indirect draw arguments.</summary>
-    public const string ArgumentsShaderName = "DrawArguments";
+    public const string ArgumentsShaderName = DrawArgumentsKeys.ShaderName;
 
     /// <summary>The permutation key selecting the variant that tests against that pyramid.</summary>
-    public const string OcclusionKey = $"{ShaderName}.Occlusion";
+    public static string OcclusionKey => CullingKeys.Occlusion.Name;
+
+    /// <summary>The permutation key selecting the second pass of a two-phase cull.</summary>
+    /// <remarks>
+    ///     Meaningful only together with <see cref="OcclusionKey" />: without a pyramid there is
+    ///     nothing a second test could learn that the first did not, so the two are asked for
+    ///     together — see <see cref="CullPhase" />.
+    /// </remarks>
+    public static string LateKey => CullingKeys.Late.Name;
 
     /// <summary>The workgroup size the reduction shader declares, in each of its two dimensions.</summary>
     public const int ReduceWorkgroupSize = 8;
@@ -118,6 +168,37 @@ public static class GpuCulling {
         return device.Features.HasCompute;
     }
 
+    /// <summary>
+    ///     The effect key for one phase of the cull.
+    /// </summary>
+    /// <param name="occlusion">Whether this frame has a pyramid to test against.</param>
+    /// <param name="phase">Which dispatch it is for.</param>
+    /// <remarks>
+    ///     <para>
+    ///         Every permutation is named, including the ones that are off, rather than left to take
+    ///         its default. A bundle records what a run asked for, and "Culling with no permutations"
+    ///         would be a fourth variant nobody wants baked next to the three that are used — so the
+    ///         two frames either side of a pyramid appearing ask for keys that differ in their
+    ///         <em>value</em> rather than in their shape.
+    ///     </para>
+    ///     <para>
+    ///         <strong><see cref="CullPhase.Late" /> without <paramref name="occlusion" /> is a real
+    ///         variant</strong>, and it is the one a two-phase frame runs before it has ever built a
+    ///         pyramid. It re-runs the frustum test, subtracts what the main pass already drew, and
+    ///         reaches an empty difference — which is the answer, and is not the same thing as not
+    ///         dispatching. Skipping it would leave the main pass's bits in the argument buffer for
+    ///         the late draws to find, and every visible object would be drawn twice.
+    ///     </para>
+    /// </remarks>
+    public static EffectKey Key(bool occlusion, CullPhase phase = CullPhase.Main) =>
+        EffectKey.Of(
+            ShaderName,
+            [
+                new(OcclusionKey, occlusion ? "true" : "false"),
+                new(LateKey, phase == CullPhase.Late ? "true" : "false")
+            ]
+        );
+
     /// <summary>How many device words a store of this many objects needs.</summary>
     public static int WordsFor(int objectCount) => objectCount <= 0 ? 0 : ((objectCount + WordSize - 1) / WordSize);
 
@@ -147,8 +228,9 @@ public static class GpuCulling {
     /// <param name="objectCount">How many object slots the store holds.</param>
     /// <param name="wordCount">How many words the view's answer occupies.</param>
     /// <param name="occluderProjection">
-    ///     The matrix the depth pyramid was rendered with, which is this view's from the previous
-    ///     frame. Ignored when <paramref name="occluderLevels" /> is zero.
+    ///     The matrix the depth pyramid was rendered with — last frame's for
+    ///     <see cref="CullPhase.Main" />, this frame's for <see cref="CullPhase.Late" />. Ignored when
+    ///     <paramref name="occluderLevels" /> is zero.
     /// </param>
     /// <param name="occluderLevels">
     ///     How many levels the pyramid has, or zero for a view with nothing to test against — which
@@ -172,7 +254,7 @@ public static class GpuCulling {
             StagesHigh = (uint)(view.Stages.Bits >> 32),
             ObjectCount = (uint)Math.Max(objectCount, 0),
             WordCount = (uint)Math.Max(wordCount, 0),
-            PreviousViewProjection = occluderProjection,
+            OccluderProjection = occluderProjection,
             OccluderLevels = (uint)Math.Max(occluderLevels, 0),
             Flags = occluderLevels > 0 ? Occluders : 0u
         };
@@ -253,7 +335,7 @@ public static class GpuCulling {
     ///     them.
     /// </summary>
     /// <param name="candidate">The packed object.</param>
-    /// <param name="view">The packed view, whose previous matrix does the projecting.</param>
+    /// <param name="view">The packed view, whose occluder matrix does the projecting.</param>
     /// <param name="minimum">The rectangle's lower corner in UV, and the object's furthest depth.</param>
     /// <param name="maximum">Its upper corner, and the object's nearest depth.</param>
     /// <returns>False when the object reaches behind the near plane and has no usable rectangle.</returns>
@@ -285,7 +367,7 @@ public static class GpuCulling {
 
             var clip = Matrix4x4.TransformVector4(
                 new(candidate.Center + offset, 1f),
-                view.PreviousViewProjection
+                view.OccluderProjection
             );
 
             if (clip.W <= ClipEpsilon) {
@@ -369,6 +451,29 @@ public static class GpuCulling {
 
         return maximum.Z < furthest;
     }
+
+    /// <summary>
+    ///     Whether the late pass would set this object's bit, given what the main pass decided about
+    ///     it.
+    /// </summary>
+    /// <param name="candidate">The packed object.</param>
+    /// <param name="view">The packed view, carrying the rebuilt pyramid's matrix and level count.</param>
+    /// <param name="drawn">Whether the main pass already set this bit.</param>
+    /// <param name="size">The rebuilt pyramid's level-0 size in texels.</param>
+    /// <param name="depth">How to read that pyramid.</param>
+    /// <remarks>
+    ///     The mirror of the late variant's whole decision, in one line, and the shape of it is the
+    ///     point: <em>not already drawn</em> comes first, because the answer a second set of draws
+    ///     needs is the difference. An object the main pass drew is not re-examined at all — it is not
+    ///     that it would fail the test, it is that passing would draw it twice.
+    /// </remarks>
+    public static bool IsLate(
+        in CullObject candidate,
+        in CullView view,
+        bool drawn,
+        Int2 size,
+        OccluderDepth depth
+    ) => !drawn && IsVisible(candidate, view) && !IsOccluded(candidate, view, size, depth);
 
     /// <summary>
     ///     Reassembles one view's device words into the host's 64-bit bitset.
@@ -472,16 +577,23 @@ public struct CullView {
     /// <summary>How many words this view's answer occupies, which is also the stride between views.</summary>
     public uint WordCount;
 
-    /// <summary>
-    ///     The matrix the depth pyramid was rendered with, which is this view's from last frame.
-    /// </summary>
+    /// <summary>The matrix the depth pyramid this view is tested against was rendered with.</summary>
     /// <remarks>
-    ///     Last frame's is the only depth a pass that runs before the frame is drawn can have, and it
-    ///     has to be projected with the matrix it was drawn with — projecting this frame's rectangle
-    ///     onto last frame's pixels compares a screen position against depths from somewhere else,
-    ///     which as the camera turns is every object at the edges of the screen.
+    ///     <para>
+    ///         Which frame's that is depends on the phase, and it is the whole difference between the
+    ///         two. <see cref="CullPhase.Main" /> runs before anything is drawn, so the newest depth it
+    ///         can have is last frame's and this is last frame's matrix.
+    ///         <see cref="CullPhase.Late" /> runs after the main pass's draws have been reduced into
+    ///         the pyramid again, so both are this frame's.
+    ///     </para>
+    ///     <para>
+    ///         Either way it is the matrix the depth was <em>drawn</em> with, which is the only one the
+    ///         rectangle may be projected by: projecting this frame's rectangle onto last frame's
+    ///         pixels compares a screen position against depths from somewhere else, which as the
+    ///         camera turns is every object at the edges of the screen.
+    ///     </para>
     /// </remarks>
-    public Matrix4x4 PreviousViewProjection;
+    public Matrix4x4 OccluderProjection;
 
     /// <summary>How many levels the pyramid has, so a chosen level can be clamped to one that exists.</summary>
     public uint OccluderLevels;

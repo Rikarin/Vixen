@@ -2604,11 +2604,24 @@ never been driven against a running window.
   `VisibilityGroup` culling in parallel on the job system and `GpuVisibilityGroup` dispatching
   `Library/Pipeline/Culling.rvn` against the frustum and against a `HiZPyramid` of last frame's
   depth, the second falling back to the first wherever it cannot run and able to skip the readback
-  entirely — `GpuDrawArguments` turns its bits into `DrawIndexedIndirect` arguments without them
-  leaving the device — `RenderView`/`RenderStage`, sort modes. Still open: the concrete features
-  (mesh, transform, skinning, instancing, material, lighting, shadow-caster), the two-phase form of
-  the occlusion test and compacted draws (which want bindless materials first), and
+  entirely — **in one phase or two**, the second `Culling` node testing everything the first rejected
+  against a pyramid rebuilt from the depth the first phase's own draws left, which is what removes
+  the frame of staleness that one-phase occlusion culling cannot avoid — `GpuDrawArguments` turns
+  its bits into `DrawIndexedIndirect` arguments without them leaving the device —
+  `RenderView`/`RenderStage`, sort modes. Still open: the concrete features (mesh, transform,
+  skinning, instancing, material, lighting, shadow-caster), compacted draws, and
   `GraphicsCompositor` as an asset.
+
+  **Compaction is blocked, and on two things rather than the one this used to say.** Claiming a slot
+  needs an atomic add, which Raven has had since the atomics landed — so the shader is not the
+  problem. A compacted run can only be drawn by one command if (a) the command's draw count comes
+  from the device, and `ICommandList.DrawIndexedIndirect` takes `drawCount` as a host integer, and
+  (b) every draw in the run shares its bindings, which they do not: `MeshRenderFeature` binds a
+  vertex buffer, an index buffer and a material set per object. **Bindless materials** are the deeper
+  of the two and the one to do first; an indirect-count draw is a small RHI addition
+  (`vkCmdDrawIndexedIndirectCount`, `ExecuteIndirect` with a count buffer, `glMultiDrawElements-
+  IndirectCount`) that buys nothing on its own. Until both, one record per object slot with a zeroed
+  instance count is the right shape, and it costs a submitted command rather than a vertex fetch.
 - Materials: ✅ **the composable feature tree** — `MaterialDescriptor` and `MaterialCompiler` over two
   `compose` slots on the pass, `surface` for what a point on the surface *is* and `shading` for what it
   does with light. Metallic-roughness and spec-gloss, normal map, emissive, occlusion, anisotropy,
@@ -2861,8 +2874,28 @@ nowhere in the dependency graph.
 
 ## Phase 7 — Node graphs and VFX *(3.5 EM)*
 
-- `Vixen.Editor.NodeGraph`: model, view (`NodeCanvas`-based), generated node registry, undo, groups,
+- ✅ `Vixen.Editor.NodeGraph`: model, view (`NodeCanvas`-based), generated node registry, undo, groups,
   sub-graphs, search-to-create, drag-from-port, previews, auto-layout, minimap.
+
+  A sub-graph is **inlined rather than called** — every target here is a straight-line program over
+  values, with no function to call and no stack to put one on — so `SubGraphs.Flatten` hands the
+  compiler a graph containing none, and the compiler that walks it has no idea sub-graphs exist. That
+  cost one property and four lines, which is the return on the model having been built first.
+
+  The view is a **one-directional projection**, rebuilt from the model on every structural change: the
+  canvas already culls to the viewport, so the cost is bounded by the screen rather than by the graph,
+  and a projection that is rebuilt cannot drift from the document. A drag is the exception and writes
+  positions in place, because that is the path that runs every frame. Two of the canvas's own
+  behaviours are intercepted rather than configured — Delete, and the reroute gesture that picks a
+  wire up off an input — and neither needed a change to `Vixen.Ui.Controls.Advanced`.
+
+  ⚠ **The preview layer draws a thumbnail and nothing renders one.** `NodePreview` carries a colour
+  or a render-target handle and `NodePreviewLayer` draws both, by the same image command and with the
+  same flip question as `Viewport`. What is missing is the *shader-graph* side — compile one node's
+  sub-expression, run it over a quad, keep the target alive across edits — which is `.ShaderGraph`'s
+  and is now unblocked. Also owed: selectable wires, editing a sticky note in place, and a source map
+  from an inlined node back to the sub-graph node it came out of, without which a diagnostic about one
+  names an identity the author cannot select.
 - `Vixen.Editor.ShaderGraph`: node library, `DynamicVector` port typing, Raven emission, show-generated-
   code, diagnostics mapped to ports, master nodes (PBR/unlit/sprite/UI/post).
 - 🟡 `Vixen.Vfx` runtime: SoA attribute storage, spawners/initializers/updaters/renderers, deterministic

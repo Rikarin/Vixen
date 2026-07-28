@@ -291,6 +291,11 @@ coordinate somebody is holding.
 width. What that cannot answer is a glyph wider than every hole while the atlas is nominally full,
 which is what `Compact` is for — it changes every region, so `Version` moves and a caller re-reads.
 
+⚠ **`Version` is for coordinates and `Revision` is for pixels.** They answer two different questions
+and an uploader that watches the wrong one sends the texture once and never again. A version says
+"every region moved, re-read the ones you cached"; a revision says "the bytes changed, send them" —
+so adding a glyph moves the revision alone, and compacting or clearing moves both.
+
 ⚠ **Evict first, compact only when the space is there and the shape is wrong.** Compacting first
 would be tidier and would bump the version on every addition to a full atlas, throwing away every
 texture coordinate in flight — for a steady-state interface that is every frame. So entries go one
@@ -299,7 +304,8 @@ it does not.
 
 Verified by sabotage: a hit that does not refresh its entry fails 2, evicting the newest instead of
 the coldest fails 2, never reusing a freed slot fails 1, dropping the padding fails 1, a compaction
-that does not move the version fails 1, a hit that marks the texture dirty fails 1, and writing a
+that does not move the version fails 1, an addition that does not move the revision fails 1, a hit
+that moves the revision fails 1, a hit that marks the texture dirty fails 1, and writing a
 glyph at the wrong row fails 1 — that last only after a test placed something below the first shelf,
 since everything else lands on row zero where the bug is invisible.
 

@@ -669,10 +669,26 @@ tests, because the first fixture had its run at the origin, where the two are th
 other — and the threshold range with it, or text blurs as it grows and aliases as it shrinks. A
 font's y runs up from the baseline and a surface's runs down, so a glyph's top edge is a subtraction.
 
+⚠ **Every glyph the frame needs is packed before a single quad reads a region.** A quad reads its
+region the moment it is written, and two things move a region afterwards: compaction moves all of
+them at once, and eviction hands one glyph's slot to the next. Interleaved packing and reading
+therefore lets the fortieth glyph of a label silently relocate the first thirty-nine, and what draws
+is the right letters out of the wrong places — a glyph that was evicted mid-run comes back as
+whichever letter took its slot. So `Build` resolves the whole frame's glyphs first and emits second;
+the only packing that can happen during emission is none.
+
+⚠ **What that cannot cover is reported rather than retried.** A frame wanting more distinct glyphs
+at once than the atlas holds evicts, while resolving, what it is about to draw — so emission puts
+them back and can take another one's slot doing it. `AtlasChanged` says so, and it watches the
+atlas's *revision* rather than its version, because a version misses the eviction case entirely. A
+retry has nothing to converge on: the second pass evicts the way the first did. The answer is a
+bigger atlas or a lower field resolution, which belongs to whoever built the cache.
+
 Verified by sabotage: reading glyph offsets as absolute fails 1, a quad that ignores the font size
 fails 1, an unflipped baseline fails 1, a threshold range that does not scale fails 1, a nested clip
 that replaces fails 1, a clip that is never popped fails 1, a box not parameterised from its centre
-fails 1, emitting empty draws fails 3, and a dropped glyph that is silent fails 1.
+fails 1, emitting empty draws fails 3, a dropped glyph that is silent fails 1, removing the resolve
+pass fails 2, and an `AtlasChanged` that never fires fails 3.
 
 **Owed:** paths. Filling one needs a tessellator and stroking one needs that plus a join and cap
 model, so they are skipped rather than approximated — and skipped visibly, since a batch with no

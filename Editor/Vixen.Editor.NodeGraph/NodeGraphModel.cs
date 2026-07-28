@@ -154,6 +154,36 @@ public sealed class NodeGraphModel {
     /// <summary>Its sticky notes.</summary>
     public List<GraphComment> Comments { get; } = [];
 
+    /// <summary>The ports this graph has when another graph contains it as a node.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Declared here rather than derived from the boundary nodes.</b> A sub-graph's entry
+    ///         and exit nodes show these ports — see <see cref="SubGraphs" /> — and deriving the list
+    ///         from them instead would mean a graph with no exit node had no outputs, so deleting one
+    ///         node silently changed the signature every containing graph is wired against.
+    ///     </para>
+    ///     <para>
+    ///         Empty for a graph nobody uses as a sub-graph, which is most of them. Mutating it is not
+    ///         noticed; call <see cref="Touch" /> after.
+    ///     </para>
+    /// </remarks>
+    public List<PortDefinition> Interface { get; } = [];
+
+    /// <summary>Raised after anything structural changes.</summary>
+    /// <remarks>
+    ///     What a view subscribes to. Every method on this type raises it for itself; the three
+    ///     public lists and <see cref="GraphNode.Position" /> cannot, because a list does not know
+    ///     which graph it is in — so whatever mutated one calls <see cref="Touch" />.
+    /// </remarks>
+    public event Action<NodeGraphModel>? Changed;
+
+    /// <summary>Says the graph changed in a way it had no way to notice.</summary>
+    /// <remarks>
+    ///     For the caller who moved a node, retitled a group or edited the interface. The same
+    ///     arrangement <c>Vixen.Ui.Controls.Advanced.NodeGraph</c> has, and for the same reason.
+    /// </remarks>
+    public void Touch() => Changed?.Invoke(this);
+
     /// <summary>Adds a node.</summary>
     /// <param name="type">Which node type, by path.</param>
     /// <param name="position">Where it sits.</param>
@@ -170,6 +200,7 @@ public sealed class NodeGraphModel {
         var node = new GraphNode(new(++next), type, position);
 
         nodes.Add(node.Id, node);
+        Changed?.Invoke(this);
 
         return node;
     }
@@ -202,6 +233,7 @@ public sealed class NodeGraphModel {
         }
 
         next = Math.Max(next, id.Value);
+        Changed?.Invoke(this);
 
         return node;
     }
@@ -223,6 +255,7 @@ public sealed class NodeGraphModel {
         }
 
         next = Math.Max(next, node.Id.Value);
+        Changed?.Invoke(this);
     }
 
     /// <summary>One node by identity.</summary>
@@ -257,6 +290,8 @@ public sealed class NodeGraphModel {
 
         removed.Reverse();
         detached = [.. removed];
+
+        Changed?.Invoke(this);
 
         return node;
     }
@@ -301,6 +336,7 @@ public sealed class NodeGraphModel {
         }
 
         edges.Add(new(from, to));
+        Changed?.Invoke(this);
 
         return replaced;
     }
@@ -314,6 +350,7 @@ public sealed class NodeGraphModel {
                 var edge = edges[index];
 
                 edges.RemoveAt(index);
+                Changed?.Invoke(this);
 
                 return edge;
             }

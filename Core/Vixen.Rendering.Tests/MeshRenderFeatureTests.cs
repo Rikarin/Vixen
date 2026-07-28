@@ -232,8 +232,10 @@ public class MeshRenderFeatureTests : IDisposable {
     ///         fits an engine whose materials are not bindless yet.
     ///     </para>
     ///     <para>
-    ///         The offset is the object's own slot, because the argument pass compacts nothing:
-    ///         Raven has no atomics to claim a slot with.
+    ///         The offset is the object's own slot, because the argument pass compacts nothing — and
+    ///         the reason is this test's own first paragraph rather than anything about the shader.
+    ///         A compacted run needs one command whose count comes from the device and whose draws
+    ///         share their bindings, and the binds above are per object.
     ///     </para>
     /// </remarks>
     [Fact]

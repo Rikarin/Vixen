@@ -46,6 +46,24 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
     /// <summary>The node types the graph may contain.</summary>
     protected NodeTypeRegistry Registry { get; }
 
+    /// <summary>Where sub-graphs are found, or null when this compiler does not support them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Set and the walk changes shape; unset and it does not.</b> With a source in place
+    ///         <see cref="Compile" /> inlines every sub-graph node first — see <see cref="SubGraphs" />
+    ///         — and everything below this line then walks a graph that has none. Without one, a
+    ///         sub-graph node is a node type that is not registered, which is already a diagnostic
+    ///         naming the node.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the subclass is handed is the flattened graph, not the author's.</b>
+    ///         <see cref="Finish" /> and <see cref="Visit" /> see nodes that were never in the file,
+    ///         which is right — they are compiling the program, not the document — and it is why a
+    ///         subclass must not use a node's identity to look anything up in the original.
+    ///     </para>
+    /// </remarks>
+    public ISubGraphSource? SubGraphSource { get; set; }
+
     /// <summary>Compiles a graph.</summary>
     /// <param name="graph">The graph.</param>
     /// <returns>The artefact and everything the compiler had to say.</returns>
@@ -54,6 +72,15 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
         ArgumentNullException.ThrowIfNull(graph);
 
         diagnostics.Clear();
+
+        if (SubGraphSource is { } source && SubGraphs.ContainsSubGraph(graph, source)) {
+            graph = SubGraphs.Flatten(graph, source, out var inlining);
+
+            foreach (var diagnostic in inlining) {
+                Report(diagnostic);
+            }
+        }
+
         Begin(graph);
 
         foreach (var node in graph.Ordered()) {
