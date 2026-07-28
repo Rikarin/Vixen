@@ -120,31 +120,54 @@ public sealed class Shell : IDisposable {
     void BuildMenus(UiElement shell) {
         var bar = shell.Add<MenuBar>();
 
-        var file = bar.AddMenu("File");
+        var file = Listen(bar.AddMenu("File"));
         file.AddItem("New").ShowShortcut(InputKey.N, ModifierKeys.Control);
         file.AddItem("Open…").ShowShortcut(InputKey.O, ModifierKeys.Control);
         file.AddSeparator();
 
-        var recent = file.AddSubmenu("Open Recent");
+        var recent = Listen(file.AddSubmenu("Open Recent"));
         recent.AddItem("shader-graph.vixen");
         recent.AddItem("terrain.vixen");
 
         file.AddSeparator();
         file.AddItem("Save").ShowShortcut(InputKey.S, ModifierKeys.Control);
 
-        var view = bar.AddMenu("View");
+        var view = Listen(bar.AddMenu("View"));
         view.AddItem("Reset Layout");
         view.AddItem("Toggle Dark");
+    }
 
-        // One handler for the whole bar rather than one per item, which is what a routed event is
-        // for — and what makes a menu rebuilt at run time not a subscription-management problem.
-        bar.AddHandler<ClickEvent>(
+    /// <summary>Makes a menu report the command chosen from it.</summary>
+    /// <param name="menu">The menu, as returned by <see cref="MenuBar.AddMenu" /> or <see cref="Menu.AddSubmenu" />.</param>
+    /// <returns>The same menu, so it reads as a wrapper around the call that made it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>On the menu, not on the bar</b> — one handler per menu rather than one for the whole
+    ///     bar, which is not the arrangement a routed event usually wants but is the only one that
+    ///     works here. <see cref="MenuBar.AddMenu" /> hangs its dropdown off <c>Document.Root</c>, and
+    ///     <see cref="Menu.AddSubmenu" /> does the same, precisely so a menu can spill past whatever
+    ///     dropped it without being clipped by it. The bar is therefore <i>not</i> an ancestor of its
+    ///     own items, and a <see cref="ClickEvent" /> from a <see cref="MenuItem" /> bubbles to the
+    ///     menu and then straight to the root — never through the bar. A handler on the bar sees the
+    ///     <see cref="MenuBarItem" /> clicks that open the menus and nothing else, so the commands do
+    ///     nothing at all, silently.
+    ///     <para>
+    ///         Per <i>menu</i> is still not per item: a menu rebuilt at run time is one subscription
+    ///         to redo, not one per line, which is the part of the routed event that survives the
+    ///         overlay's parenting.
+    ///     </para>
+    /// </remarks>
+    Menu Listen(Menu menu) {
+        menu.AddHandler<ClickEvent>(
             (_, args) => {
-                if (args.Source is MenuItem { Label: { } label }) {
+                // An item that opens a submenu was not a command being chosen — the click is what
+                // opens the submenu, and reporting it would announce "Open Recent" as if it were.
+                if (args.Source is MenuItem { Submenu: null, Label: { } label }) {
                     Chose(label);
                 }
             }
         );
+
+        return menu;
     }
 
     void Chose(string label) {

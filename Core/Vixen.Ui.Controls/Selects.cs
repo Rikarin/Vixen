@@ -96,7 +96,7 @@ public abstract partial class SelectBase : Control {
     /// <inheritdoc />
     /// <remarks>The list is a root child, so the subtree removal does not reach it. See its creation.</remarks>
     protected override void OnRemoved() {
-        if (List is not null) {
+        if (List is { IsRemoved: false }) {
             Document.Remove(List);
             List = null!;
         }
@@ -461,7 +461,7 @@ public sealed partial class ComboBox : Control {
     /// <inheritdoc />
     /// <remarks>The list is a root child, so the subtree removal does not reach it. See its creation.</remarks>
     protected override void OnRemoved() {
-        if (List is not null) {
+        if (List is { IsRemoved: false }) {
             Document.Remove(List);
             List = null!;
         }

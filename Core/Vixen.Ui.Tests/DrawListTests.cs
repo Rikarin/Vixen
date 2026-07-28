@@ -258,4 +258,260 @@ public class DrawListTests {
         Assert.False(document.Draw());
         Assert.Equal(version, document.Drawing.Version);
     }
+
+    [Fact]
+    public void Opacity_fades_the_alpha_and_leaves_the_colour_alone() {
+        // ⚠ Not `colour * alpha`, which would scale all four components — right in premultiplied
+        // space and wrong here, where it darkens the colour towards black as well as fading it. The
+        // red channel is what says which of the two happened.
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .box { width: 50px; height: 50px; background-color: #ff0000; opacity: 0.5; }
+            """,
+            document => document.Root.Add("div", classNames: "box")
+        );
+
+        var command = Assert.Single(document.Drawing.Commands);
+
+        Assert.Equal(0.5f, command.Color.A, Tolerance);
+        Assert.True(command.Color.R > 0.99f);
+    }
+
+    [Fact]
+    public void Opacity_multiplies_down_the_tree_because_it_does_not_inherit() {
+        // `opacity` makes a group rather than being inherited, so a child is faded by its ancestors
+        // whatever its own value is — and a child that sets its own is faded by both. Reading it
+        // from the cascade instead would give the child 0.5 rather than 0.25.
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .outer { width: 100px; height: 100px; background-color: #ff0000; opacity: 0.5; }
+            .inner { width: 50px; height: 50px; background-color: #00ff00; opacity: 0.5; }
+            """,
+            document => document.Root.Add("div", classNames: "outer").Add("div", classNames: "inner")
+        );
+
+        Assert.Equal(2, document.Drawing.Commands.Count);
+        Assert.Equal(0.5f, document.Drawing.Commands[0].Color.A, Tolerance);
+        Assert.Equal(0.25f, document.Drawing.Commands[1].Color.A, Tolerance);
+    }
+
+    [Fact]
+    public void A_fully_transparent_subtree_is_not_drawn_at_all() {
+        // The one case where the cheapest thing to do is also exactly right: nothing under a zero
+        // opacity can be visible, so the commands are not worth building to then blend away.
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .outer { width: 100px; height: 100px; background-color: #ff0000; opacity: 0; }
+            .inner { width: 50px; height: 50px; background-color: #00ff00; }
+            """,
+            document => document.Root.Add("div", classNames: "outer").Add("div", classNames: "inner")
+        );
+
+        Assert.Empty(document.Drawing.Commands);
+    }
+
+    [Fact]
+    public void An_element_with_no_opacity_is_untouched() {
+        // The common path, and worth pinning: an alpha that arrived from the colour itself must not
+        // be rewritten by a fade that nobody asked for.
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .box { width: 50px; height: 50px; background-color: #ff000080; }
+            """,
+            document => document.Root.Add("div", classNames: "box")
+        );
+
+        Assert.Equal(0.5f, Assert.Single(document.Drawing.Commands).Color.A, 0.01f);
+    }
+
+    [Fact]
+    public void A_shadow_is_drawn_before_the_background_that_casts_it() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .card {
+                width: 100px; height: 60px; background-color: #ffffff;
+                box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.5);
+            }
+            """,
+            document => document.Root.Add("div", classNames: "card")
+        );
+
+        Assert.Equal(2, document.Drawing.Commands.Count);
+
+        var shadow = document.Drawing.Commands[0];
+        Assert.Equal(DrawCommandKind.Shadow, shadow.Kind);
+        Assert.Equal(DrawCommandKind.Rectangle, document.Drawing.Commands[1].Kind);
+
+        // Offset down by four and not spread, so the box keeps its size and moves.
+        Assert.Equal(0f, shadow.X, Tolerance);
+        Assert.Equal(4f, shadow.Y, Tolerance);
+        Assert.Equal(100f, shadow.Width, Tolerance);
+        Assert.Equal(60f, shadow.Height, Tolerance);
+
+        // ⚠ Half the CSS blur radius. CSS's blur is the total distance the edge fades over and the
+        // shader's is the half-extent either side of it, so passing the whole radius through makes
+        // every shadow twice as soft as it was asked to be.
+        Assert.Equal(6f, shadow.Thickness, Tolerance);
+        Assert.Equal(0.5f, shadow.Color.A, Tolerance);
+    }
+
+    [Fact]
+    public void A_spread_grows_the_shadow_and_its_corners_together() {
+        // A spread that kept the original radius would give a shadow visibly squarer than the thing
+        // casting it — most obvious on a pill, where the ends would stop being round.
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .card {
+                width: 100px; height: 60px; background-color: #ffffff; border-radius: 8px;
+                box-shadow: 0px 0px 0px 5px #000000;
+            }
+            """,
+            document => document.Root.Add("div", classNames: "card")
+        );
+
+        var shadow = document.Drawing.Commands[0];
+
+        Assert.Equal(-5f, shadow.X, Tolerance);
+        Assert.Equal(-5f, shadow.Y, Tolerance);
+        Assert.Equal(110f, shadow.Width, Tolerance);
+        Assert.Equal(70f, shadow.Height, Tolerance);
+        Assert.Equal(13f, shadow.Radius, Tolerance);
+    }
+
+    [Fact]
+    public void An_inset_shadow_is_refused_rather_than_drawn_on_the_wrong_side() {
+        // Not a near miss: an inset shadow drawn as an outer one is a shadow outside the box that
+        // was asked to have one inside it. Nothing is better than that.
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .card {
+                width: 100px; height: 60px; background-color: #ffffff;
+                box-shadow: inset 0px 4px 12px #000000;
+            }
+            """,
+            document => document.Root.Add("div", classNames: "card")
+        );
+
+        Assert.Equal(DrawCommandKind.Rectangle, Assert.Single(document.Drawing.Commands).Kind);
+    }
+
+    [Fact]
+    public void A_shadow_fades_with_the_opacity_of_what_casts_it() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .card {
+                width: 100px; height: 60px; opacity: 0.5;
+                box-shadow: 0px 4px 12px #000000;
+            }
+            """,
+            document => document.Root.Add("div", classNames: "card")
+        );
+
+        Assert.Equal(0.5f, Assert.Single(document.Drawing.Commands).Color.A, Tolerance);
+    }
+
+    [Fact]
+    public void A_lifted_child_is_painted_over_its_later_siblings() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            div { width: 50px; height: 50px; position: absolute; }
+            .first { background-color: #ff0000; z-index: 10; }
+            .second { background-color: #00ff00; }
+            .third { background-color: #0000ff; }
+            """,
+            document => {
+                document.Root.Add("div", classNames: "first");
+                document.Root.Add("div", classNames: "second");
+                document.Root.Add("div", classNames: "third");
+            }
+        );
+
+        // Document order is red, green, blue; paint order is green, blue, red.
+        var painted = document.Drawing.Commands.Select(static command => command.Color.G > 0.5f
+            ? "green"
+            : command.Color.B > 0.5f
+                ? "blue"
+                : "red").ToArray();
+
+        Assert.Equal(["green", "blue", "red"], painted);
+    }
+
+    [Fact]
+    public void Equal_indices_keep_document_order() {
+        // The sort has to be stable, or `z-10` on one child would shuffle the ones it did not touch
+        // — and the shuffling would only show up where they overlap, which is to say rarely and
+        // confusingly.
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            div { width: 50px; height: 50px; position: absolute; z-index: 5; }
+            .a { background-color: #ff0000; }
+            .b { background-color: #00ff00; }
+            .c { background-color: #0000ff; }
+            """,
+            document => {
+                document.Root.Add("div", classNames: "a");
+                document.Root.Add("div", classNames: "b");
+                document.Root.Add("div", classNames: "c");
+            }
+        );
+
+        Assert.True(document.Drawing.Commands[0].Color.R > 0.5f);
+        Assert.True(document.Drawing.Commands[1].Color.G > 0.5f);
+        Assert.True(document.Drawing.Commands[2].Color.B > 0.5f);
+    }
+
+    [Fact]
+    public void A_negative_index_puts_a_child_behind_its_earlier_siblings() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            div { width: 50px; height: 50px; position: absolute; }
+            .front { background-color: #ff0000; }
+            .back { background-color: #00ff00; z-index: -1; }
+            """,
+            document => {
+                document.Root.Add("div", classNames: "front");
+                document.Root.Add("div", classNames: "back");
+            }
+        );
+
+        Assert.True(document.Drawing.Commands[0].Color.G > 0.5f);
+        Assert.True(document.Drawing.Commands[1].Color.R > 0.5f);
+    }
+
+    [Fact]
+    public void Changing_an_index_reorders_the_next_frame() {
+        // The cached order has to be invalidated by the style pass, not only by adding a child.
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            div { width: 50px; height: 50px; position: absolute; }
+            .a { background-color: #ff0000; }
+            .b { background-color: #00ff00; }
+            .a.lift { z-index: 3; }
+            """,
+            document => {
+                document.Root.Add("div", classNames: "a");
+                document.Root.Add("div", classNames: "b");
+            }
+        );
+
+        Assert.True(document.Drawing.Commands[1].Color.G > 0.5f);
+
+        document.Root.Children[0].AddClass("lift");
+        document.Update();
+        document.Draw();
+
+        Assert.True(document.Drawing.Commands[1].Color.R > 0.5f);
+    }
 }

@@ -54,6 +54,9 @@ public sealed class MaterialBindingTests : IDisposable {
     readonly DescriptorAllocator allocator;
     readonly DescriptorSetLayoutHandle layout;
     readonly DescriptorSetLayoutHandle unlitLayout;
+
+    /// <summary>Set 0's shape, so the frame has something of its own to bind.</summary>
+    readonly DescriptorSetLayoutHandle frameLayout;
     readonly EffectSystem effects = new();
 
     public MaterialBindingTests() {
@@ -83,7 +86,11 @@ public sealed class MaterialBindingTests : IDisposable {
             )
         );
 
-        effects.AddProvider(new Compiles(layout, unlitLayout));
+        frameLayout = device.CreateDescriptorSetLayout(
+            new(DescriptorSetSlot.PerFrame, [new(0, DescriptorKind.SampledTexture, ShaderStage.Fragment)], "Scene")
+        );
+
+        effects.AddProvider(new Compiles(layout, unlitLayout, frameLayout));
     }
 
     public void Dispose() {
@@ -99,16 +106,17 @@ public sealed class MaterialBindingTests : IDisposable {
     ///     qualified by shader. Bridging those two is the thing under test, so a fake that named them
     ///     identically would assert nothing.
     /// </remarks>
-    sealed class Compiles(DescriptorSetLayoutHandle lit, DescriptorSetLayoutHandle unlit) : IEffectProvider {
+    sealed class Compiles(DescriptorSetLayoutHandle lit, DescriptorSetLayoutHandle unlit, DescriptorSetLayoutHandle frame) : IEffectProvider {
         public Effect? TryGet(EffectKey key) =>
             key.ShaderName switch {
                 "Lit" => new() {
                     Key = key,
                     Stages = Modules,
-                    SetLayouts = [default, default, lit, default],
+                    SetLayouts = [frame, default, lit, default],
                     ConstantBufferSize = 16,
                     Parameters = [new(Tint, 0, 12)],
                     Bindings = [
+                        new("environment", DescriptorSetSlot.PerFrame, 0, DescriptorKind.SampledTexture),
                         new("constants", DescriptorSetSlot.PerMaterial, ConstantsBinding, DescriptorKind.UniformBuffer),
                         new("albedo", DescriptorSetSlot.PerMaterial, AlbedoBinding, DescriptorKind.SampledTexture),
                         new("albedoSampler", DescriptorSetSlot.PerMaterial, SamplerBinding, DescriptorKind.Sampler)
@@ -228,7 +236,7 @@ public sealed class MaterialBindingTests : IDisposable {
         return material;
     }
 
-    void Frame(Harness h) {
+    void Frame(Harness h, SceneConstants? scene = null) {
         allocator.BeginFrame();
         h.System.Draw();
 
@@ -247,7 +255,11 @@ public sealed class MaterialBindingTests : IDisposable {
         h.System.Record(
             h.Camera,
             h.Opaque,
-            new(list, effects) { Device = device, Output = new([PixelFormat.Rgba8UNorm]) }
+            new(list, effects) {
+                Device = device,
+                Output = new([PixelFormat.Rgba8UNorm]),
+                SceneConstants = scene
+            }
         );
 
         list.EndRenderPass();
@@ -390,6 +402,171 @@ public sealed class MaterialBindingTests : IDisposable {
         Frame(h);
 
         Assert.NotEqual(before, h.Materials.DescriptorsOf(h.System, id));
+    }
+
+    // --- One block per set --------------------------------------------------
+
+    /// <summary>
+    ///     A pass with a block in every set gives each filler the right one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="Effect.ConstantBufferSize" /> names one block, which is all a shader that
+    ///         marks none of its bindings has. A pass that says which set each binding is in has up to
+    ///         four, and the thing filling set 0's buffer must not be handed set 2's size and set 2's
+    ///         member offsets — that writes the right values into the wrong buffer, which is a frame
+    ///         lit by whatever those bytes happened to mean.
+    ///     </para>
+    ///     <para>
+    ///         Asserted on <see cref="Effect.BlockOf" /> directly, because the two callers that use it
+    ///         — the material feature and <see cref="SceneConstants" /> — would each pass over a wrong
+    ///         answer without noticing, and the shapes they write are what a driver sees rather than
+    ///         what a test does.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Each_set_gets_its_own_block() {
+        var effect = new Effect {
+            Key = EffectKey.Of("Layered"),
+            Stages = [],
+            ConstantBufferSize = 544,
+            Bindings = [
+                new("frame", DescriptorSetSlot.PerFrame, 0, DescriptorKind.UniformBuffer) { Size = 544 },
+                new("material", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.UniformBuffer) { Size = 32 }
+            ],
+            Parameters = [
+                new(ParameterKeys.New<float>("Layered.ambient"), 0, 4) { Set = DescriptorSetSlot.PerFrame },
+                new(ParameterKeys.New<float>("Layered.tint"), 16, 4) { Set = DescriptorSetSlot.PerMaterial }
+            ]
+        };
+
+        var frame = effect.BlockOf(DescriptorSetSlot.PerFrame);
+        var material = effect.BlockOf(DescriptorSetSlot.PerMaterial);
+
+        Assert.Equal(544, frame.Size);
+        Assert.Equal("Layered.ambient", Assert.Single(frame.Members).Key.Name);
+
+        Assert.Equal(32, material.Size);
+        Assert.Equal("Layered.tint", Assert.Single(material.Members).Key.Name);
+
+        // A set with no block at all says so, rather than answering with somebody else's.
+        Assert.False(effect.BlockOf(DescriptorSetSlot.PerDraw).Exists);
+    }
+
+    /// <summary>The frame's set is written from the shader's own names, once.</summary>
+    /// <remarks>
+    ///     What <see cref="SceneConstants" /> is: set 0's counterpart to <c>ViewConstants</c>. Unlike
+    ///     set 1 it holds resources as well as a block, which is why it takes its shape from the
+    ///     effect rather than from a host's configuration — set 1 is a contract between shaders and
+    ///     set 0 belongs to whichever pass is drawing.
+    /// </remarks>
+    [Fact]
+    public void The_frames_set_is_written_from_the_shaders_names() {
+        using var device2 = new NullDevice(new() { Record = true });
+        using var frameAllocator = new DescriptorAllocator(device2);
+
+        var frameLayout = device2.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerFrame,
+                [
+                    new(0, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+                    new(1, DescriptorKind.SampledTexture, ShaderStage.Fragment)
+                ],
+                "Scene"
+            )
+        );
+
+        var effect = new Effect {
+            Key = EffectKey.Of("Scene"),
+            Stages = [],
+            SetLayouts = [frameLayout, default, default, default],
+            ConstantBufferSize = 16,
+            Bindings = [
+                new("constants", DescriptorSetSlot.PerFrame, 0, DescriptorKind.UniformBuffer) { Size = 16 },
+                new("environment", DescriptorSetSlot.PerFrame, 1, DescriptorKind.SampledTexture)
+            ],
+            Parameters = [new(ParameterKeys.New<float>("Scene.ambient"), 0, 4) { Set = DescriptorSetSlot.PerFrame }]
+        };
+
+        using var scene = new SceneConstants(device2) { Descriptors = frameAllocator };
+
+        var list = device2.BeginCommandList();
+
+        // Nothing set yet: the environment has no texture, so the set is short of a binding and
+        // nothing is bound — rather than a set with a hole in it.
+        frameAllocator.BeginFrame();
+
+        Assert.False(scene.Bind(list, effect));
+        Assert.False(scene.IsComplete);
+
+        scene.Parameters.Set(ParameterKeys.New<float>("Scene.ambient"), 2f);
+        scene.Parameters.Set(
+            ParameterKeys.New<TextureViewHandle>("Scene.environment"),
+            device2.CreateTextureView(
+                device2.CreateTexture(
+                    new() {
+                        Width = 4, Height = 4, Depth = 1, MipLevels = 1, ArrayLayers = 1, SampleCount = 1,
+                        Format = PixelFormat.Rgba8UNorm, Usage = TextureUsage.Sampled
+                    }
+                )
+            )
+        );
+
+        Assert.True(scene.Bind(list, effect));
+        Assert.True(scene.IsComplete);
+        Assert.Equal(1, scene.WriteCount);
+
+        list.Finish();
+    }
+
+    /// <summary>
+    ///     The frame's set is bound once for a run, after the first pipeline.
+    /// </summary>
+    /// <remarks>
+    ///     Both halves matter. <em>After</em>, because <c>BindDescriptorSet</c> takes no pipeline
+    ///     layout and infers one from what is bound, so a set before the first pipeline is undefined
+    ///     and the Vulkan backend refuses it outright. <em>Once</em>, because the four-set convention
+    ///     makes every pipeline in a frame layout-compatible up to set 1 — so a set 0 bound at the top
+    ///     of a run survives every pipeline change inside it.
+    /// </remarks>
+    [Fact]
+    public void The_frames_set_is_bound_once_after_the_first_pipeline() {
+        using var h = Build();
+
+        using var scene = new SceneConstants(device) { Descriptors = allocator };
+        scene.Parameters.Set(ParameterKeys.New<TextureViewHandle>("Lit.environment"), Texture());
+
+        for (var i = 0; i < 4; i++) {
+            AddMesh(h, Lit());
+        }
+
+        Frame(h, scene);
+
+        var commands = device.Recorder!.OfKind(RecordedCommandKind.BindDescriptorSet).ToArray();
+        var frame = commands.Where(command => command.A == (long)DescriptorSetSlot.PerFrame).ToArray();
+
+        Assert.Single(frame);
+        Assert.Equal(1, scene.WriteCount);
+
+        // And it came after a pipeline rather than before one, which is the half a driver enforces.
+        var all = device.Recorder.Commands;
+        var firstPipeline = -1;
+        var firstFrameSet = -1;
+
+        for (var i = 0; i < all.Count; i++) {
+            if (firstPipeline < 0 && all[i].Kind == RecordedCommandKind.BindPipeline) {
+                firstPipeline = i;
+            }
+
+            if (firstFrameSet < 0
+                && all[i].Kind == RecordedCommandKind.BindDescriptorSet
+                && all[i].A == (long)DescriptorSetSlot.PerFrame) {
+                firstFrameSet = i;
+            }
+        }
+
+        Assert.True(firstPipeline >= 0);
+        Assert.True(firstPipeline < firstFrameSet);
     }
 
     // --- Declining ----------------------------------------------------------

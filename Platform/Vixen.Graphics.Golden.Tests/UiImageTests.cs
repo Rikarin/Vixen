@@ -5,6 +5,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Ui;
 using Vixen.Ui.Renderer;
 using Vixen.Ui.Rendering;
+using Vixen.Ui.Testing.Visual;
 using Vixen.Ui.Text;
 using Vixen.Ui.Text.Rasterizing;
 using Xunit;
@@ -92,6 +93,76 @@ public sealed class UiImageTests {
         AssertTheTextIsThere(image);
 
         GoldenImage.Verify("ui-interface", image, Tolerance.Edges);
+    }
+
+    /// <summary>
+    ///     A shadow, which is the one primitive whose whole point is what happens *between* covered
+    ///     and uncovered.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The geometry tests can say the quad is big enough and the blur reached the shape
+    ///         record. What they cannot say is whether the shader turned it into a falloff — a blur
+    ///         lane read from the wrong component, or a <c>smoothstep</c> with its edges the wrong
+    ///         way round, gives a hard-edged box or nothing at all, and every test in
+    ///         <c>Vixen.Ui</c> still passes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The card is offset from the shadow, and deliberately.</b> A shadow directly under
+    ///         an opaque box of the same size is invisible, so a fixture with the two concentric
+    ///         would pass with the shadow not drawn at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Shadowed() {
+        if (!TryOpen(out var fixture, out _)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var colour = owned.ColourTarget("ui-shadowed");
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+
+        var list = new DrawList();
+        list.BeginFrame();
+
+        // A shadow the size of the card, pushed down and right, then the card on top of it.
+        list.Add(new(DrawCommandKind.Shadow, 40, 44, 48, 40, new Color4(0f, 0f, 0f, 0.8f), 8, 6));
+        list.Add(new(DrawCommandKind.Rectangle, 32, 32, 48, 40, new Color4(0.9f, 0.9f, 0.95f, 1f), 8, 0));
+
+        list.EndFrame();
+
+        var geometry = new UiGeometryBuilder().Build(list, cache, Viewport);
+
+        var renderer = new UiRenderer(
+            owned.Device,
+            new(
+                owned.Shader("ui.vert.spv", ShaderStage.Vertex),
+                owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
+            ),
+            new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
+        );
+
+        owned.Owns(renderer.Dispose);
+
+        owned.Graph.AddPass("ui-shadowed", pass => {
+            pass.ColourAttachment(colour, LoadAction.Clear, new(1f, 1f, 1f, 1f));
+            pass.SideEffect();
+            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+        });
+
+        var image = owned.Render(colour, commands => renderer.Upload(commands, geometry, cache.Atlas));
+
+        // One draw: a shadow shares the box pipeline, so it batches with the card rather than
+        // splitting the frame in two.
+        Assert.Single(geometry.Draws);
+
+        AssertTheShadowFadesOutwards(image);
+        AssertTheCardIsOverTheShadow(image);
+
+        GoldenImage.Verify("ui-shadowed", image, Tolerance.Edges);
     }
 
     /// <summary>
@@ -570,6 +641,45 @@ public sealed class UiImageTests {
     }
 
     // -------------------------------------------------------------- Helpers
+
+    /// <summary>The shadow gets lighter the further out it goes, and never gets darker again.</summary>
+    /// <remarks>
+    ///     ⚠ Monotonicity rather than a value at a point. A hard-edged box passes any single sample
+    ///     taken inside it, and a falloff running the wrong way passes any sample taken outside — the
+    ///     property that separates a blur from both of those is that it only ever lightens as it
+    ///     leaves the box, which needs the whole row to say.
+    /// </remarks>
+    static void AssertTheShadowFadesOutwards(in Bitmap image) {
+        // A column below the card, running from inside the shadow out into the white surface. The
+        // card ends at y = 72 and the shadow's own edge is at 84, so this starts below the card and
+        // covers the whole falloff.
+        const int column = 64;
+        var previous = -1;
+
+        for (var y = 74; y < 108; y++) {
+            var value = Red(image, column, y);
+
+            if (previous >= 0) {
+                Assert.True(
+                    value >= previous - 2,
+                    $"the shadow darkens again at y = {y}: {previous} then {value}"
+                );
+            }
+
+            previous = value;
+        }
+
+        // And it is a gradient rather than a step: solid where the shadow is, white well away from
+        // it, and neither of those at the same value.
+        Assert.True(Red(image, column, 76) < 100, "there is no shadow just below the card");
+        Assert.True(Red(image, column, 107) > 240, "the shadow never reaches the background");
+    }
+
+    /// <summary>The card is drawn over its own shadow rather than under it.</summary>
+    static void AssertTheCardIsOverTheShadow(in Bitmap image) {
+        // The card's own middle, which the shadow lies under and must not darken.
+        Assert.True(Red(image, 56, 52) > 200, "the card is darker than it should be, or is not there");
+    }
 
     static int Red(in Bitmap image, int x, int y) => image.Pixels[image.Offset(x, y)];
 

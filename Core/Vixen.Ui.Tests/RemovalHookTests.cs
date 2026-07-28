@@ -93,6 +93,12 @@ public class RemovalHookTests {
         Assert.False(wasRemoved);
     }
 
+    // ⚠ There is deliberately no "removing twice is quiet" test here, and an earlier draft had one.
+    // `RemovalTests.Removing_the_same_element_twice_says_so` is the contract: removal is final and
+    // asking again is a bug worth reporting. That means a control whose `OnRemoved` tears down
+    // something it does not solely own has to ask `IsRemoved` first — which `Menu`, `MenuBar` and
+    // `SelectBase` all now do, because the editor's menu presenter removes its menus itself.
+
     [Fact]
     public void It_may_remove_something_else() {
         using var document = new UiDocument(200f, 200f);
@@ -158,20 +164,4 @@ public class RemovalHookTests {
         Assert.False(grandparent.IsRemoved);
     }
 
-    [Fact]
-    public void Removing_something_twice_is_quiet() {
-        using var document = new UiDocument(200f, 200f);
-
-        var owner = document.Root.Add<Watcher>();
-        var shared = document.Root.Add<Watcher>();
-
-        owner.OnRemoving = _ => document.Remove(shared);
-
-        document.Update();
-        document.Remove(shared);
-        document.Remove(owner);
-
-        // Two controls can name the same popup, and the second one to go should not throw about it.
-        Assert.Equal(1, shared.Removals);
-    }
 }

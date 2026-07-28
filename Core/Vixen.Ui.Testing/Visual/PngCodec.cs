@@ -4,52 +4,50 @@
 using System.Buffers.Binary;
 using System.IO.Compression;
 using System.IO.Hashing;
+using System.Text;
 
-namespace Vixen.Graphics.Golden.Tests;
+namespace Vixen.Ui.Testing.Visual;
 
-/// <summary>An 8-bit RGBA image in memory.</summary>
-/// <param name="Width">Its width in pixels.</param>
-/// <param name="Height">Its height in pixels.</param>
-/// <param name="Pixels">Its pixels, row-major, four bytes each.</param>
-public readonly record struct Bitmap(int Width, int Height, byte[] Pixels) {
-    /// <summary>The byte offset of a pixel.</summary>
-    /// <param name="x">Its column.</param>
-    /// <param name="y">Its row.</param>
-    public int Offset(int x, int y) => ((y * Width) + x) * 4;
-}
-
-/// <summary>PNG, encoded and decoded, in about two hundred lines and with no dependency.</summary>
+/// <summary>PNG, encoded and decoded, in about two hundred lines and with no imaging dependency.</summary>
 /// <remarks>
 ///     <para>
-///         A golden image nobody can open is a golden image nobody will look at, and looking at it is
-///         the entire workflow when one fails. So the reference images are PNGs rather than a raw
-///         blob: viewable in any file browser, diffable by eye, and small in git.
+///         A reference picture nobody can open is a reference picture nobody will look at, and
+///         looking at it is the entire workflow when one fails. So baselines are PNGs rather than a
+///         raw blob: viewable in any file browser, diffable by eye, and small in git.
 ///     </para>
 ///     <para>
 ///         Written by hand rather than taken from a package. ImageSharp is in the dependency register
-///         but ADR-015 confines it to editor and tooling assemblies for licence reasons, and adding a
-///         second imaging library so that a test project can write a rectangle of bytes would be a
-///         poor trade. PNG's baseline — one colour type, one bit depth, one interlace mode — is a
-///         couple of hundred lines, and the compression is <c>System.IO.Compression</c>'s.
+///         but ADR-015 confines it to editor and tooling assemblies for licence reasons, and this
+///         assembly ships to game developers. PNG's baseline — one colour type, one bit depth, one
+///         interlace mode — is a couple of hundred lines, and the compression is
+///         <c>System.IO.Compression</c>'s.
 ///     </para>
 ///     <para>
-///         Only what is needed is implemented: 8-bit RGBA, non-interlaced. Anything else is refused
-///         with a message rather than half-decoded, because a golden image in an unexpected format is
-///         a broken fixture and not something to guess about.
+///         <b>Written for <c>Vixen.Graphics.Golden.Tests</c> and moved here</b>, which is why a UI
+///         testing library owns the tree's PNG codec. That suite needed one first; this one needed
+///         the same thing for its screenshots, and two hand-rolled PNG encoders is one too many.
+///     </para>
+///     <para>
+///         ⚠ <b>The direction of the reference is the whole reason it could be consolidated at all.</b>
+///         A shipping library can be referenced by a test project and a test project can be
+///         referenced by nothing, so the copy that ships is the only one that can be the shared one —
+///         and it is also the copy under a documentation and API-compatibility obligation, which is
+///         the right one to make load bearing.
 ///     </para>
 /// </remarks>
 public static class PngCodec {
     static ReadOnlySpan<byte> Signature => [0x89, (byte)'P', (byte)'N', (byte)'G', 0x0D, 0x0A, 0x1A, 0x0A];
 
-    /// <summary>Encodes an image.</summary>
+    /// <summary>Encodes a picture.</summary>
     /// <param name="image">What to encode.</param>
+    /// <returns>The file's bytes.</returns>
     public static byte[] Encode(in Bitmap image) {
         var raw = new byte[(image.Height * image.Width * 4) + image.Height];
 
         for (var y = 0; y < image.Height; y++) {
             // Filter type 0 (None) on every row. Filtering would compress better and would also mean
-            // the encoder had to choose one per row, which is a heuristic with no right answer and
-            // an obvious way to make two runs produce different bytes for the same picture.
+            // the encoder had to choose one per row, which is a heuristic with no right answer and an
+            // obvious way to make two runs produce different bytes for the same picture.
             var destination = y * ((image.Width * 4) + 1);
             raw[destination] = 0;
             Array.Copy(image.Pixels, y * image.Width * 4, raw, destination + 1, image.Width * 4);
@@ -70,8 +68,9 @@ public static class PngCodec {
         return output.ToArray();
     }
 
-    /// <summary>Decodes an image.</summary>
+    /// <summary>Decodes a picture.</summary>
     /// <param name="data">The file's bytes.</param>
+    /// <returns>The picture.</returns>
     /// <exception cref="InvalidDataException">It is not a baseline 8-bit RGBA PNG.</exception>
     public static Bitmap Decode(ReadOnlySpan<byte> data) {
         if (data.Length < 8 || !data[..8].SequenceEqual(Signature)) {
@@ -85,7 +84,7 @@ public static class PngCodec {
 
         while (offset + 8 <= data.Length) {
             var length = BinaryPrimitives.ReadInt32BigEndian(data[offset..]);
-            var kind = System.Text.Encoding.ASCII.GetString(data.Slice(offset + 4, 4));
+            var kind = Encoding.ASCII.GetString(data.Slice(offset + 4, 4));
             var body = data.Slice(offset + 8, length);
             offset += 12 + length;
 
@@ -97,7 +96,7 @@ public static class PngCodec {
                     if (body[8] != 8 || body[9] != 6) {
                         throw new InvalidDataException(
                             $"Only 8-bit RGBA PNGs are read; this one is bit depth {body[8]}, colour "
-                            + $"type {body[9]}. A golden image in an unexpected format is a broken "
+                            + $"type {body[9]}. A baseline in an unexpected format is a broken "
                             + "fixture, not something to guess about."
                         );
                     }
@@ -126,15 +125,21 @@ public static class PngCodec {
         return new(width, height, Unfilter(raw, width, height));
     }
 
-    /// <summary>Reads an image from disk.</summary>
+    /// <summary>Reads a picture from disk.</summary>
     /// <param name="path">Where it is.</param>
+    /// <returns>The picture.</returns>
     public static Bitmap Load(string path) => Decode(File.ReadAllBytes(path));
 
-    /// <summary>Writes an image to disk, creating the directory if it is not there.</summary>
+    /// <summary>Writes a picture to disk, creating the directory if it is not there.</summary>
     /// <param name="path">Where to put it.</param>
     /// <param name="image">What to write.</param>
     public static void Save(string path, in Bitmap image) {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        ArgumentNullException.ThrowIfNull(path);
+
+        if (Path.GetDirectoryName(path) is { Length: > 0 } directory) {
+            Directory.CreateDirectory(directory);
+        }
+
         File.WriteAllBytes(path, Encode(image));
     }
 
@@ -142,9 +147,8 @@ public static class PngCodec {
     /// <remarks>
     ///     Five filter types, each predicting a byte from its left, upper and upper-left neighbours.
     ///     They are implemented in full even though this encoder only ever writes type 0: a reference
-    ///     image regenerated by a designer's tool will use all five, and a decoder that handled only
-    ///     what its own encoder produced would reject exactly the files a human is most likely to
-    ///     hand it.
+    ///     regenerated by a designer's tool will use all five, and a decoder that handled only what
+    ///     its own encoder produced would reject exactly the files a human is most likely to hand it.
     /// </remarks>
     static byte[] Unfilter(byte[] raw, int width, int height) {
         var stride = width * 4;
@@ -234,7 +238,7 @@ public static class PngCodec {
         BinaryPrimitives.WriteInt32BigEndian(length, body.Length);
         output.Write(length);
 
-        var name = System.Text.Encoding.ASCII.GetBytes(kind);
+        var name = Encoding.ASCII.GetBytes(kind);
         output.Write(name);
         output.Write(body);
 

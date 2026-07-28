@@ -88,6 +88,24 @@ public interface IEditorCommand
   retrofitting is not needed. (Stride's `Stride.Core.Translation` exists precisely because this was
   retrofitted.)
 
+> **As built** (see [`Editor/Vixen.Editor.Ui/README.md`](../../Editor/Vixen.Editor.Ui/README.md) and
+> [`Editor/Vixen.Editor.App/README.md`](../../Editor/Vixen.Editor.App/README.md)). All of the above
+> is in, with three corrections and two gaps.
+>
+> The corrections. **`Vixen.Editor.Ui` does not reference `Vixen.Editor.Core`**, contrary to what the
+> tree above implies by ordering: a command is an id and a delegate and a panel is an id and a
+> factory, so the shell knows nothing about projects, documents or undo stacks — which is what makes
+> the whole of the editor's chrome testable against a bare `UiDocument`, and it is what doc 11's own
+> "headless editor host" line asks for. `Vixen.Editor.App` joins the two. **Undock to a separate OS
+> window is still half-built**: `DockFloat` is a group floating within the document, and promoting
+> one to a real window needs a second surface, swapchain and input queue from `Vixen.Platform`.
+> **`Strings.Resource` is not generated yet** — `EditorStrings` is hand-written in the shape the
+> generator will emit, so no call site changes when it lands, but an id used nowhere is not yet a
+> build error.
+>
+> The gaps are a keybinding editor (the model has conflict detection, per-command customisation and
+> reset; there is no UI over it) and plugin loading, which needs `Vixen.Editor.Plugin` to exist.
+
 ### `Vixen.Editor.Inspector`
 
 Attribute-driven, generated, not reflective:

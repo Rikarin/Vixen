@@ -37,12 +37,22 @@ namespace Vixen.Ui.Styling;
 ///         actually wants.
 ///     </para>
 ///     <para>
-///         The same gap is still open, narrowly, for the other inherited properties that accept
-///         relative units — <c>line-height</c>, <c>letter-spacing</c>, <c>word-spacing</c> and
-///         <c>text-indent</c> — where an inherited <c>em</c> will measure against the descendant's
-///         font size rather than the ancestor's. Those do not compound, because none of them feeds
-///         back into the unit they are written in, so the error is bounded at one level rather than
-///         growing. Doc 14 records the general fix, which is a computed-value stage.
+///         <b><c>line-height</c> and <c>letter-spacing</c> have since joined it</b>, computed and
+///         inherited by <c>Vixen.Ui</c> for the same reason and by the same mechanism. Both take
+///         relative units, and both are read by the text layout, so the bounded one-level error they
+///         used to carry was one the renderer could see.
+///     </para>
+///     <para>
+///         ⚠ <c>line-height</c> is the one where computing is not simply resolving. A <i>unitless</i>
+///         <c>1.5</c> inherits as the number and is multiplied by each descendant's own font size,
+///         where <c>1.5em</c> inherits as the length the ancestor resolved. That distinction is the
+///         whole reason the unitless form exists, so the computed value carries which of the two it
+///         is rather than collapsing both to pixels.
+///     </para>
+///     <para>
+///         The gap stays open for <c>word-spacing</c> and <c>text-indent</c>, which nothing reads
+///         yet. Computing a value no consumer looks at would be work with no way to be wrong, and
+///         they can join the others on the day something wants them.
 ///     </para>
 /// </remarks>
 public sealed class InheritedProperties {
@@ -57,10 +67,12 @@ public sealed class InheritedProperties {
         "font-weight",
         "font-stretch",
         "font-variant",
-        // ⚠ `line-height`, `letter-spacing`, `word-spacing` and `text-indent` are CSS-inherited
-        // and are deliberately *not* here, for the reason `font-size` is not: they take relative
-        // units, and a specified `em` inherited as text is measured against the descendant. They
-        // are inherited in computed form by `Vixen.Ui` — see `ComputedText`.
+
+        // ⚠ `line-height` and `letter-spacing` are CSS-inherited and are deliberately *not* here,
+        // for the same reason `font-size` is not: both take relative units, and inheriting the text
+        // `1.5em` would resolve it against the descendant's font size rather than the ancestor's.
+        // `Vixen.Ui` inherits their computed values instead — see `UiElement.LineHeight`.
+        "word-spacing",
         "text-align",
         "text-transform",
         "white-space",

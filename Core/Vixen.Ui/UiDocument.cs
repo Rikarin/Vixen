@@ -34,9 +34,14 @@ public sealed partial class UiDocument : IDisposable {
     readonly DrawListBuilder drawings;
     readonly int pointerEvents;
     readonly int fontFamily;
+    readonly int letterSpacing;
+    readonly int lineHeight;
+    readonly int zIndex;
     readonly int fontWeight;
     readonly int fontStyle;
-    readonly int fontStretch;
+    readonly int bold;
+    readonly int italic;
+    readonly int oblique;
     readonly int overflow;
     /// <summary>How many tombstoned slots it takes before compacting is worth the walk.</summary>
     /// <remarks>
@@ -79,12 +84,18 @@ public sealed partial class UiDocument : IDisposable {
         pointerEvents = Styles.Properties.Intern("pointer-events");
         color = Styles.Properties.Intern("color");
         fontFamily = Styles.Properties.Intern("font-family");
+        letterSpacing = Styles.Properties.Intern("letter-spacing");
+        lineHeight = Styles.Properties.Intern("line-height");
+        zIndex = Styles.Properties.Intern("z-index");
         fontWeight = Styles.Properties.Intern("font-weight");
         fontStyle = Styles.Properties.Intern("font-style");
-        fontStretch = Styles.Properties.Intern("font-stretch");
+        bold = Styles.Values.Intern("bold");
+        italic = Styles.Values.Intern("italic");
+        oblique = Styles.Values.Intern("oblique");
         overflow = Styles.Properties.Intern("overflow");
         none = Styles.Values.Intern("none");
         visible = Styles.Values.Intern("visible");
+        InternCursors();
 
         Root = Create("root", null, null, []);
     }
@@ -332,13 +343,6 @@ public sealed partial class UiDocument : IDisposable {
             throw new InvalidOperationException("the root cannot be removed — a document is its tree.");
         }
 
-        // ⚠ Before the ownership check, which reads `Document` — and a removed element throws on
-        // that rather than answering. Two controls may name the same popup, and the second one to go
-        // should find it already gone rather than be told it belongs to nobody.
-        if (element.IsRemoved) {
-            return;
-        }
-
         if (!ReferenceEquals(element.Document, this)) {
             throw new ArgumentException("that element belongs to another document.", nameof(element));
         }
@@ -522,7 +526,7 @@ public sealed partial class UiDocument : IDisposable {
         }
 
         StylesResolved = Restyle();
-        Apply(Root, Viewport.RootFontSize);
+        Apply(Root, Viewport.RootFontSize, ComputedText.Initial);
 
         Layout.CalculateLayout(Root.LayoutNode, Viewport.ViewportWidth, Viewport.ViewportHeight, Direction.Ltr);
         Accumulate(Root, 0f, 0f);
@@ -601,7 +605,7 @@ public sealed partial class UiDocument : IDisposable {
             SettlingPasses++;
 
             StylesResolved += Restyle();
-            Apply(Root, Viewport.RootFontSize);
+            Apply(Root, Viewport.RootFontSize, ComputedText.Initial);
             Layout.CalculateLayout(Root.LayoutNode, Viewport.ViewportWidth, Viewport.ViewportHeight, Direction.Ltr);
             Accumulate(Root, 0f, 0f);
         }
@@ -653,19 +657,42 @@ public sealed partial class UiDocument : IDisposable {
     ///         in three parallel lists.
     ///     </para>
     /// </remarks>
-    void Apply(UiElement element, float parentFontSize) =>
-        Apply(element, parentFontSize, ComputedText.Initial);
+    /// <summary>The text properties that are inherited computed rather than as written.</summary>
+    /// <param name="LineHeight">
+    ///     The ancestor's resolved line height in pixels, or NaN when it was unitless or unset.
+    /// </param>
+    /// <param name="LineHeightFactor">
+    ///     The multiple a unitless <c>line-height</c> named, or NaN. Kept apart from the pixels
+    ///     because the difference is the whole point of the unitless form: <c>1.5</c> inherits as the
+    ///     number and multiplies each descendant's own font size, where <c>1.5em</c> inherits as the
+    ///     length the ancestor resolved once.
+    /// </param>
+    /// <param name="LetterSpacing">The ancestor's resolved letter spacing in pixels.</param>
+    readonly record struct ComputedText(float LineHeight, float LineHeightFactor, float LetterSpacing) {
+        /// <summary>What the root starts with: the font's own line height and no tracking.</summary>
+        public static ComputedText Initial => new(float.NaN, float.NaN, 0f);
+    }
 
-    void Apply(UiElement element, float parentFontSize, in ComputedText parentText) {
+    void Apply(UiElement element, float parentFontSize, ComputedText parentText) {
         var style = Restyler.StyleOf(element.StyleNode);
 
         element.Style = style;
         element.FontSize = Builder.ResolveFontSize(style, parentFontSize, Viewport);
 
-        // ⚠ After the font size and before the children, because these are relative to *this*
-        // element's size and are inherited already absolute. That ordering is the whole of the
-        // computed-value stage — see ComputedText.
-        element.TextStyle = ResolveText(style, parentText, element.FontSize);
+        // ⚠ After the font size and before the children, because both of these resolve against *this*
+        // element's size and both are handed down in the form they came out as.
+        var text = ResolveText(style, element.FontSize, parentText);
+
+        element.LineHeight = float.IsNaN(text.LineHeightFactor)
+            ? text.LineHeight
+            : text.LineHeightFactor * element.FontSize;
+
+        element.LetterSpacing = text.LetterSpacing;
+
+        // Resolved here rather than read in the draw list, because hit testing needs the same answer
+        // and reaching it would mean parsing the same declaration twice per frame from two places
+        // that could disagree. The setter invalidates the parent's paint order when it changes.
+        element.ZIndex = ZIndexOf(style);
 
         // ⚠ Reference equality, which is the whole reason ComputedStyle is interned. Two elements
         // that resolved alike hold the same object, so this is one pointer comparison rather than a
@@ -674,6 +701,7 @@ public sealed partial class UiDocument : IDisposable {
         // The font size has to be part of the test as well as the style: an element whose own
         // declarations did not change still needs rebuilding if an ancestor's font size did, because
         // every `em` on it measures against a different number now.
+        //
         if (!ReferenceEquals(element.AppliedStyle, style) || !element.AppliedFontSize.Equals(element.FontSize)) {
             element.AppliedStyle = style;
             element.AppliedFontSize = element.FontSize;
@@ -682,9 +710,92 @@ public sealed partial class UiDocument : IDisposable {
             Layout.SetStyle(element.LayoutNode, Builder.Build(style, Viewport.WithFontSize(element.FontSize)));
         }
 
-        foreach (var child in element.Children) {
-            Apply(child, element.FontSize, element.TextStyle);
+        // ⚠ Separately, because these change what the element *measures* rather than what its box is
+        // — and the layout tree finds out about a changed measurement only by being told. They are
+        // also inherited outside the cascade, so a label whose *parent* changed `line-height` has an
+        // unchanged ComputedStyle: the reference test above passes, `SetStyle` is never reached, and
+        // the label would keep measuring itself at the old height for the rest of its life.
+        //
+        // `.Equals` rather than `==`, because NaN is a legitimate value here and NaN == NaN is false.
+        if (!element.AppliedLineHeight.Equals(element.LineHeight)
+            || !element.AppliedLetterSpacing.Equals(element.LetterSpacing)) {
+            element.AppliedLineHeight = element.LineHeight;
+            element.AppliedLetterSpacing = element.LetterSpacing;
+
+            // Only a node that measures itself, which is what having text means — and what
+            // `MarkDirty` insists on, on the grounds that nothing else about a node can change
+            // without a style or a child changing and both of those already mark it. An element
+            // with no text has no measurement for these to have changed, only descendants that do.
+            if (!string.IsNullOrEmpty(element.Text)) {
+                Layout.MarkDirty(element.LayoutNode);
+            }
         }
+
+        foreach (var child in element.Children) {
+            Apply(child, element.FontSize, text);
+        }
+    }
+
+    /// <summary>Computes the text properties that are inherited resolved rather than as written.</summary>
+    /// <param name="style">The element's computed style.</param>
+    /// <param name="fontSize">Its own font size, which every relative unit here measures against.</param>
+    /// <param name="parent">What its parent came out with.</param>
+    /// <returns>What it comes out with, and what its children inherit.</returns>
+    /// <remarks>
+    ///     An element that declares nothing passes its parent's answer straight through, which is
+    ///     what makes this inheritance rather than a default — and passes the <i>factor</i> through
+    ///     as a factor, so a unitless <c>1.5</c> on a panel is one and a half times each descendant's
+    ///     own size rather than one and a half times the panel's.
+    /// </remarks>
+    ComputedText ResolveText(ComputedStyle style, float fontSize, ComputedText parent) {
+        var lineHeight = parent.LineHeight;
+        var factor = parent.LineHeightFactor;
+        var tracking = parent.LetterSpacing;
+
+        if (style.TryGet(this.lineHeight, out var declared)) {
+            var value = reader.Parse(declared);
+
+            switch (value.Kind) {
+                // Unitless, and the one that stays a number. `line-height: 1.5` is a ratio every
+                // descendant applies to itself.
+                case StyleValueKind.Number:
+                    lineHeight = float.NaN;
+                    factor = value.Number;
+                    break;
+
+                // ⚠ A percentage is *not* the unitless form. `150%` resolves against this element's
+                // font size once and inherits as that length, which is precisely the trap the
+                // unitless form exists to avoid. Handled apart from the other units because
+                // `LengthContext` deliberately refuses to resolve a percentage — there it means the
+                // containing block, which only layout knows. On `line-height` it means the font size,
+                // and that is known right here.
+                case StyleValueKind.Length when value.Unit == StyleUnit.Percent:
+                    lineHeight = value.Number / 100f * fontSize;
+                    factor = float.NaN;
+                    break;
+
+                case StyleValueKind.Length:
+                    lineHeight = value.Number * Viewport.WithFontSize(fontSize).PixelsPer(value.Unit);
+                    factor = float.NaN;
+                    break;
+
+                // `normal`, and anything else with no reading — the font's own recommendation.
+                default:
+                    lineHeight = float.NaN;
+                    factor = float.NaN;
+                    break;
+            }
+        }
+
+        if (style.TryGet(letterSpacing, out var spacing)) {
+            var value = reader.Parse(spacing);
+
+            tracking = value.Kind == StyleValueKind.Length
+                ? value.Number * Viewport.WithFontSize(fontSize).PixelsPer(value.Unit)
+                : 0f;
+        }
+
+        return new ComputedText(lineHeight, factor, tracking);
     }
 
     /// <summary>Rebuilds the draw list from the current layout and styles.</summary>
@@ -785,65 +896,50 @@ public sealed partial class UiDocument : IDisposable {
     internal bool PointerEventsNone(ComputedStyle style) =>
         style.TryGet(pointerEvents, out var value) && value == none;
 
+    /// <summary>An element's <c>z-index</c>, which is zero when it has none.</summary>
+    /// <remarks>
+    ///     <c>auto</c> is a keyword rather than a number and so reads as zero, which is right here:
+    ///     what <c>auto</c> means in CSS is "take the stacking context's own level", and sibling
+    ///     ordering has no stacking context to take a level from.
+    /// </remarks>
+    int ZIndexOf(ComputedStyle style) =>
+        style.TryGet(zIndex, out var id) && reader.Parse(id) is { Kind: StyleValueKind.Number } value
+            ? (int) value.Number
+            : 0;
+
     internal string? FontFamilyOf(ComputedStyle style) =>
         style.TryGet(fontFamily, out var value) ? Styles.Values.NameOf(value) : null;
 
-    /// <summary>What <c>font-weight</c>, <c>font-style</c> and <c>font-stretch</c> asked for.</summary>
+    /// <summary>An element's <c>font-weight</c> on CSS's 1–1000 scale.</summary>
     /// <remarks>
-    ///     <para>
-    ///         ⚠ <b><c>bold</c> and <c>normal</c> are keywords and <c>700</c> is a number, and the
-    ///         cascade hands both over as interned names.</b> So this reads the name and parses it,
-    ///         rather than asking for a number and getting nothing whenever an author wrote the
-    ///         keyword — which is how almost everybody writes it.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b><c>bolder</c> and <c>lighter</c> are not supported and are read as <c>normal</c>.</b>
-    ///         They are relative to the <i>parent's computed</i> weight, so they need the same
-    ///         computed-value stage <see cref="ComputedText" /> is — one more inherited value carried
-    ///         down resolved. Recorded rather than approximated, because approximating them means
-    ///         picking a weight nobody asked for.
-    ///     </para>
+    ///     ⚠ <c>lighter</c> and <c>bolder</c> are <b>not</b> read, and fall through to regular. They
+    ///     are relative to the <i>parent's computed</i> weight, which this cascade does not have —
+    ///     it inherits specified values, so the parent's declaration might itself be <c>bolder</c>
+    ///     and the chain has no bottom. Owed with the computed-value stage, alongside
+    ///     <c>line-height</c>, and left out rather than approximated as "one step from 400", which
+    ///     would be right only for an element whose parent said nothing.
     /// </remarks>
-    internal FontQuery FontQueryOf(ComputedStyle style) {
-        var weight = 400;
-        var slant = FontStyle.Normal;
-        var stretch = FontStretch.Normal;
-
-        if (style.TryGet(fontWeight, out var weightValue)) {
-            var text = Styles.Values.NameOf(weightValue);
-
-            weight = text switch {
-                "bold" => 700,
-                "normal" => 400,
-                _ => int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
-                    ? Math.Clamp(parsed, 1, 1000)
-                    : 400
-            };
+    internal int FontWeightOf(ComputedStyle style) {
+        if (!style.TryGet(fontWeight, out var id)) {
+            return FontRegistry.RegularWeight;
         }
 
-        if (style.TryGet(fontStyle, out var slantValue)) {
-            slant = Styles.Values.NameOf(slantValue) switch {
-                "italic" => FontStyle.Italic,
-                "oblique" => FontStyle.Oblique,
-                _ => FontStyle.Normal
-            };
+        var value = reader.Parse(id);
+
+        if (value.Kind == StyleValueKind.Number) {
+            return Math.Clamp((int) value.Number, 1, 1000);
         }
 
-        if (style.TryGet(fontStretch, out var stretchValue)) {
-            stretch = Styles.Values.NameOf(stretchValue) switch {
-                "ultra-condensed" => FontStretch.UltraCondensed,
-                "extra-condensed" => FontStretch.ExtraCondensed,
-                "condensed" => FontStretch.Condensed,
-                "semi-condensed" => FontStretch.SemiCondensed,
-                "semi-expanded" => FontStretch.SemiExpanded,
-                "expanded" => FontStretch.Expanded,
-                "extra-expanded" => FontStretch.ExtraExpanded,
-                "ultra-expanded" => FontStretch.UltraExpanded,
-                _ => FontStretch.Normal
-            };
+        return id == bold ? FontRegistry.BoldWeight : FontRegistry.RegularWeight;
+    }
+
+    /// <summary>An element's <c>font-style</c>.</summary>
+    internal FontStyle FontStyleOf(ComputedStyle style) {
+        if (!style.TryGet(fontStyle, out var id)) {
+            return FontStyle.Normal;
         }
 
-        return new FontQuery(weight, slant, stretch);
+        return id == italic ? FontStyle.Italic : id == oblique ? FontStyle.Oblique : FontStyle.Normal;
     }
 
     UiElement? HitTest(UiElement element, float x, float y) {
@@ -858,8 +954,13 @@ public sealed partial class UiDocument : IDisposable {
             return null;
         }
 
-        for (var i = element.Children.Count - 1; i >= 0; i--) {
-            if (HitTest(element.Children[i], x, y) is { } hit) {
+        // Backwards through the *paint* order, so the element on top is the one a click lands on. In
+        // document order these are the same walk; with a `z-index` in play they are not, and a hit
+        // test that kept its own opinion would send the click to whatever the lifted child covers.
+        var order = element.PaintOrder;
+
+        for (var i = order.Count - 1; i >= 0; i--) {
+            if (HitTest(order[i], x, y) is { } hit) {
                 return hit;
             }
         }

@@ -48,6 +48,15 @@ public sealed class ThemeTokens {
     /// <summary>Corner radii in pixels, keyed by suffix.</summary>
     public Dictionary<string, float> Radius { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>Shadows, as the <c>box-shadow</c> text they stand for, keyed by suffix.</summary>
+    /// <remarks>
+    ///     Whole declarations rather than a set of numbers to assemble, because a shadow is a
+    ///     designed thing: the offset, the blur and the alpha are chosen together to read as one
+    ///     height above the surface, and a scale that let them be picked apart would invite exactly
+    ///     the combinations that do not.
+    /// </remarks>
+    public Dictionary<string, string> Shadow { get; } = new(StringComparer.Ordinal);
+
     /// <summary>Font sizes, keyed by suffix.</summary>
     public Dictionary<string, FontSizeToken> FontSize { get; } = new(StringComparer.Ordinal);
 
@@ -100,6 +109,7 @@ public sealed class ThemeTokens {
             tokens.ReadNumbers(theme["fontWeight"], tokens.FontWeight, "fontWeight");
             tokens.ReadNumbers(theme["screens"], tokens.Screens, "screens");
             tokens.ReadFontSizes(theme["fontSize"]);
+            tokens.ReadStrings(theme["shadow"], tokens.Shadow, "shadow");
         }
 
         if (root["darkMode"] is YamlScalar dark) {
@@ -167,6 +177,21 @@ public sealed class ThemeTokens {
 
         if (node is YamlScalar direct && TryNumber(direct.Value, out var scalar)) {
             SpacingBase = scalar;
+        }
+    }
+
+    void ReadStrings(YamlNode? node, Dictionary<string, string> into, string what) {
+        if (node is not YamlMapping mapping) {
+            return;
+        }
+
+        foreach (var (key, value) in mapping) {
+            if (value is YamlScalar scalar) {
+                into[key] = scalar.Value;
+                continue;
+            }
+
+            Diagnostics.Add($"{what} '{key}' is not a value");
         }
     }
 

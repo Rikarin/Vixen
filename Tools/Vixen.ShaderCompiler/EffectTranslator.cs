@@ -54,7 +54,7 @@ public static class EffectTranslator {
             Stages = [.. effect.Modules.Select(module => new EffectStageData(Stage(module.Stage), [.. module.Bytes], module.Name))],
             Bindings = [.. Bindings(reflection)],
             ConstantBufferSize = block?.Binding.Size ?? 0,
-            Parameters = [.. Parameters(effect.Name, reflection, block)]
+            Parameters = [.. Parameters(effect.Name, reflection)]
         };
     }
 
@@ -90,7 +90,8 @@ public static class EffectTranslator {
                     (uint)binding.Binding,
                     Kind(binding.Type),
                     Stages(binding.Stages),
-                    binding.Count
+                    binding.Count,
+                    binding.Size
                 );
             }
         }
@@ -113,10 +114,32 @@ public static class EffectTranslator {
     ///         layer and nothing else, with no error.
     ///     </para>
     /// </remarks>
-    static IEnumerable<EffectParameterData> Parameters(string shaderName, RavenReflection reflection, UniformBlock? block) {
-        if (block is null) {
-            yield break;
+    static IEnumerable<EffectParameterData> Parameters(string shaderName, RavenReflection reflection) {
+        foreach (var block in Blocks(reflection)) {
+            foreach (var parameter in Parameters(shaderName, reflection, block)) {
+                yield return parameter;
+            }
         }
+    }
+
+    /// <summary>Every uniform block the shader has — one per set, for a shader that marks its sets.</summary>
+    /// <remarks>
+    ///     Was one, because a shader that marks nothing has one. A pass that says which set each
+    ///     binding is in has up to four, and a translation that kept only the first would leave three
+    ///     sets' worth of values with no offsets at all.
+    /// </remarks>
+    static IEnumerable<UniformBlock> Blocks(RavenReflection reflection) {
+        foreach (var set in reflection.Sets) {
+            foreach (var binding in set.Bindings) {
+                if (binding.Type == DescriptorType.UniformBuffer && binding.Members.Length > 0) {
+                    yield return new(set.Set, binding);
+                }
+            }
+        }
+    }
+
+    static IEnumerable<EffectParameterData> Parameters(string shaderName, RavenReflection reflection, UniformBlock block) {
+        var slot = (DescriptorSetSlot)block.Set;
 
         foreach (var parameter in reflection.Parameters) {
             if (parameter.Set != block.Set || parameter.Binding != block.Binding.Binding) {
@@ -127,7 +150,7 @@ public static class EffectTranslator {
             var marker = parameter.Name.IndexOf("[]", StringComparison.Ordinal);
 
             if (marker < 0) {
-                yield return new(Qualified(shaderName, parameter.Name), kind, parameter.Offset, parameter.Size);
+                yield return new(Qualified(shaderName, parameter.Name), kind, parameter.Offset, parameter.Size, slot);
                 continue;
             }
 
@@ -140,7 +163,8 @@ public static class EffectTranslator {
                     Qualified(shaderName, name),
                     kind,
                     parameter.Offset + (index * parameter.ArrayStride),
-                    parameter.Size
+                    parameter.Size,
+                    slot
                 );
             }
         }

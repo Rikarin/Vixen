@@ -25,6 +25,53 @@ public class UtilityGenerationTests {
     }
 
     [Fact]
+    public void The_families_added_for_the_engines_own_properties_reach_it() {
+        // Each of these was chosen because the engine already reads the property it sets, so this is
+        // the assertion that says so rather than assuming it. `border-t-2` in particular goes through
+        // ExCSS's shorthand expansion on the way, and `flex-1` becomes three longhands the cascade
+        // sees instead of the word itself.
+        var fixture = new UtilityFixture();
+
+        Assert.Equal("2px", fixture.Computed(["border-t-2"], "border-top-width"));
+        Assert.Equal("1px", fixture.Computed(["border-x"], "border-left-width"));
+        Assert.Equal("1px", fixture.Computed(["border-x"], "border-right-width"));
+
+        // And leaves the other two alone rather than writing a zero over them, so `border-y-2
+        // border-x` is two edges of each width instead of whichever came last.
+        Assert.Null(fixture.Computed(["border-x"], "border-top-width"));
+        // `flex: 1 1 0%` arrives as three longhands with the basis normalised to a bare `0`, which is
+        // ExCSS's doing and not the generator's — worth pinning, because it is the sort of rewrite
+        // that a string comparison against the emitted CSS would never have shown.
+        Assert.Equal("1", fixture.Computed(["flex-1"], "flex-grow"));
+        Assert.Equal("1", fixture.Computed(["flex-1"], "flex-shrink"));
+        Assert.Equal("0", fixture.Computed(["flex-1"], "flex-basis"));
+        Assert.Equal("8px", fixture.Computed(["ps-2"], "padding-inline-start"));
+        Assert.Equal("border-box", fixture.Computed(["box-border"], "box-sizing"));
+        Assert.Equal("16/9", fixture.Computed(["aspect-video"], "aspect-ratio"));
+    }
+
+    [Fact]
+    public void A_negative_utility_survives_being_a_selector() {
+        // `.-mt-4` is a valid CSS identifier — a hyphen followed by a letter — but only just, and a
+        // generator that escaped or emitted it wrongly would produce a rule matching nothing.
+        var fixture = new UtilityFixture();
+
+        Assert.Equal("-16px", fixture.Computed(["-mt-4"], "margin-top"));
+        Assert.Equal("16px", fixture.Computed(["mt-4"], "margin-top"));
+    }
+
+    [Fact]
+    public void A_direction_variant_becomes_an_ancestor_attribute_selector() {
+        // The same shape as `dark:` under the class strategy: an ancestor declares it and the utility
+        // applies below. `direction` is a CSS property here, so an attribute is the only thing in the
+        // tree a selector can match on.
+        var fixture = new UtilityFixture();
+
+        Assert.Contains("[dir=rtl] ", fixture.Generate("rtl:ml-2"), StringComparison.Ordinal);
+        Assert.Contains("[dir=ltr] ", fixture.Generate("ltr:ml-2"), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void The_utilities_layer_loses_to_an_unlayered_component_rule_whatever_the_specificity() {
         // The one line that makes the whole system behave. A generated `.p-4` is one class and a
         // hand-written `.card .body` is two, so on specificity alone the utility wins nothing and

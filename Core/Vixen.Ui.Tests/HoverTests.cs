@@ -236,4 +236,96 @@ public class HoverTests {
 
         Assert.Equal(20f, inner.Width, Tolerance);
     }
+
+    [Fact]
+    public void The_cursor_is_whatever_the_pointer_is_over() {
+        using var document = Documented("""
+            root { width: 400px; height: 300px; }
+            .grip { width: 50px; height: 50px; cursor: col-resize; }
+        """);
+
+        document.Root.Add("div", classNames: "grip");
+        document.Update();
+
+        Assert.Equal(UiCursor.Auto, document.Cursor);
+
+        document.Dispatch(At(10f, 10f));
+        Assert.Equal(UiCursor.ColumnResize, document.Cursor);
+
+        document.Dispatch(At(300f, 200f));
+        Assert.Equal(UiCursor.Auto, document.Cursor);
+    }
+
+    [Fact]
+    public void A_child_can_override_the_cursor_it_inherited() {
+        // `cursor` inherits, so the deepest hovered element's computed style already carries the
+        // panel's answer — which is why this needs no walk up the tree, and why a button inside a
+        // draggable panel can say `pointer` and be believed.
+        using var document = Documented("""
+            root { width: 400px; height: 300px; }
+            .panel { width: 200px; height: 200px; cursor: move; }
+            .button { width: 50px; height: 50px; cursor: pointer; }
+            .plain { width: 50px; height: 50px; }
+        """);
+
+        var panel = document.Root.Add("div", classNames: "panel");
+        panel.Add("div", classNames: "button");
+        panel.Add("div", classNames: "plain");
+
+        document.Update();
+
+        document.Dispatch(At(10f, 10f));
+        Assert.Equal(UiCursor.Pointer, document.Cursor);
+
+        // The sibling declares nothing and inherits the panel's, rather than falling back to auto.
+        document.Dispatch(At(60f, 10f));
+        Assert.Equal(UiCursor.Move, document.Cursor);
+    }
+
+    [Fact]
+    public void A_click_lands_on_whatever_is_painted_on_top_and_not_on_the_last_sibling() {
+        // ⚠ The invariant the whole of `PaintOrder` exists for. Painting order and hit-test order
+        // must agree, or a lifted element is drawn over its siblings and clicks fall through to the
+        // one underneath — a UI where things are not where they look. This is the test that fails if
+        // either walk grows its own opinion.
+        using var document = Documented("""
+            root { width: 400px; height: 300px; }
+            div { width: 100px; height: 100px; position: absolute; top: 0px; left: 0px; }
+            .lifted { z-index: 10; }
+        """);
+
+        var lifted = document.Root.Add("div", classNames: "lifted");
+        var later = document.Root.Add("div");
+
+        document.Update();
+        document.Draw();
+
+        // Both cover the same square, and the lifted one is painted last.
+        Assert.Same(lifted, document.Root.PaintOrder[^1]);
+        Assert.Same(lifted, document.HitTest(50f, 50f));
+
+        // And with the lift gone, the later sibling wins both — which is what says the agreement is
+        // structural rather than this one case happening to line up.
+        lifted.RemoveClass("lifted");
+        document.Update();
+
+        Assert.Same(later, document.Root.PaintOrder[^1]);
+        Assert.Same(later, document.HitTest(50f, 50f));
+    }
+
+    [Fact]
+    public void A_cursor_this_engine_has_no_reading_of_is_the_hosts_to_decide() {
+        // `cursor: url(hand.png)` is valid CSS with no mapping onto a stock cursor, and the host's
+        // default is a better answer to it than the ancestor's cursor would be.
+        using var document = Documented("""
+            root { width: 400px; height: 300px; cursor: move; }
+            .odd { width: 50px; height: 50px; cursor: url(hand.png); }
+        """);
+
+        document.Root.Add("div", classNames: "odd");
+        document.Update();
+        document.Dispatch(At(10f, 10f));
+
+        Assert.Equal(UiCursor.Auto, document.Cursor);
+    }
 }

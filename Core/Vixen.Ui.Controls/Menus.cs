@@ -135,7 +135,7 @@ public partial class Menu : Overlay {
     /// </remarks>
     protected override void OnRemoved() {
         foreach (var item in items) {
-            if (item.Submenu is { } submenu) {
+            if (item.Submenu is { IsRemoved: false } submenu) {
                 item.Submenu = null;
                 Document.Remove(submenu);
             }
@@ -368,7 +368,7 @@ public sealed partial class MenuBar : Control {
     /// </remarks>
     protected override void OnRemoved() {
         foreach (var item in items) {
-            if (item.Menu is { } menu) {
+            if (item.Menu is { IsRemoved: false } menu) {
                 item.Menu = null!;
                 Document.Remove(menu);
             }

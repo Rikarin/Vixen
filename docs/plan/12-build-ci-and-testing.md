@@ -66,8 +66,9 @@ One version for all packages (rationale in [02](02-repository-layout.md)).
 | `Vixen.Engine` | scenes, behaviours, game loop |
 | `Vixen.Input`, `Vixen.Audio`, `Vixen.Physics`, `Vixen.Animation`, `Vixen.Vfx`, `Vixen.Navigation`, `Vixen.Video` | one each — these are genuinely optional |
 | `Vixen.Net` + `Vixen.Net.Transport.{Udp,WebSocket,Local,Relay}` | networking ([16](16-networking.md)); optional, and a project that never references it pays nothing |
-| `Vixen.Ui` | the whole `Vixen.Ui.*` set except `HotReload` |
+| `Vixen.Ui` | the whole `Vixen.Ui.*` set except `HotReload` and `Testing` |
 | `Vixen.Ui.HotReload` | dev-only; `DevelopmentDependency=true` |
+| `Vixen.Ui.Testing` | ✅ the interface test harness — a chainable, frame-retrying command API over a real `UiDocument`, plus visual regression through a software rasteriser. Its own package rather than part of `Vixen.Ui`: a shipped game must not carry it, and a project that references it wants it in the test assembly alone. |
 | `Vixen.Platform.Desktop` / `.Android` / `.iOS` / `.Web` | platform heads |
 | `Vixen.Raven` | the compiler as a library (useful standalone) |
 | `Vixen.Raven.Cli` | `dotnet tool` |
@@ -193,6 +194,16 @@ exact allocation via a `GCHeapAllocationEventSource` listener in the failure mes
   (`log.ShouldContainDrawIndexed(count: 36).AfterBinding(pipeline: "Opaque"))`.
 - **`GoldenFile`** — the snapshot helper: reads/writes under `__golden__/`, honours `--update-golden`,
   produces a readable unified diff on mismatch.
+- **`Vixen.Ui.Testing`** — ✅ the interface half of `TestApp`, built ahead of it because it needs
+  nothing from the engine: a real `UiDocument`, a clock the test owns, a synthetic pointer and
+  keyboard, and a frame pump. Commands retry **in frames rather than in seconds**, which is what
+  makes waiting deterministic and keeps the conventions above (no `Thread.Sleep`, no ambient clock)
+  intact. Selectors compile through the cascade's own `SelectorCompiler`/`SelectorMatcher`, so a
+  selector in a test means what it means in a stylesheet. `Screenshot(name)` is visual regression
+  through a **software rasteriser over `UiGeometry`** — no device, so it runs on every CI leg, and
+  the comparison is exact rather than perceptual because no driver is involved. It does not replace
+  the golden-image suite: it cannot see below `UiGeometry`, which is where descriptor bindings and
+  vertex layouts live. `Ticked` is the per-frame seam a real `TestApp` would drive it through.
 - **`FixtureProject`** — a synthetic Vixen project generator (N textures, M models, K scenes) for asset
   pipeline scale tests.
 - **Fuzzers** — `SharpFuzz` over the VXML parser, the VCSS parser, the Raven parser, the `.meta` reader,

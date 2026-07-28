@@ -28,6 +28,15 @@
         -->
         <EmbeddedResource Include="..\Vixen.Ui.Text.Tests\Fonts\TestShapeLana.ttf"
                           LogicalName="Vixen.Ui.Tests.Fonts.TestShapeLana.ttf" />
+
+        <!--
+            And a Kannada face, for the one thing Latin cannot show: a cluster holding more than one
+            glyph. `letter-spacing` is applied per cluster, and against Latin the per-glyph version
+            of that code gives an identical answer — so a test that only had TestShapeLana would pass
+            with the distinction removed.
+        -->
+        <EmbeddedResource Include="..\Vixen.Ui.Text.Tests\Fonts\NotoSerifKannada-Regular.ttf"
+                          LogicalName="Vixen.Ui.Tests.Fonts.NotoSerifKannada-Regular.ttf" />
     </ItemGroup>
 
     <ItemGroup>
