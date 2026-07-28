@@ -70,6 +70,13 @@ twice is a different colour from one shaded once; relaxing its depth comparison 
 overlap yellow and moves 17.2% by up to 204/255. A fixture that cannot be made to fail is asserting
 nothing.
 
+`shadow-cascade` is the one that took three attempts to become load-bearing. Its first two versions
+passed a deliberate sabotage — sampling the wrong atlas tile — because the caster was bounded loosely
+enough to survive every cascade's cull and therefore landed in every tile, so both tiles held the same
+thing and the mapping was untested. It fails that sabotage now, with "nothing is shadowed anywhere".
+**Sabotage the claim the fixture is supposed to make, not merely some claim**: a fixture that fails
+when you break something unrelated tells you very little.
+
 Where the arithmetic is beyond hand-checking — `bloom` is nine passes of bilinear taps — the fixture
 asserts the **properties** a correct result has before it trusts the picture: the glow is centred on
 its source, symmetric about that centre, and reaches well past it. Otherwise committing the first
