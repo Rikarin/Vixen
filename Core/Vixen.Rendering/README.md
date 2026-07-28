@@ -332,10 +332,18 @@ faded against the sky over the probe's own blend distance. `ReflectionProbeSelec
 applies — priority, then weight, then volume, so a cupboard inside a room wins inside the cupboard —
 and it decides it from positions alone, which is why it needs no device to test.
 
-⚠ A probe is applied per *group* rather than per object, and the reason is the binding plan again: a
-probe's cube is a texture, so per-object selection needs a descriptor set per probe bound per draw,
-and the per-draw set is currently owned whole by `ForwardLightingRenderFeature`. Sharing it between
-two features is a decision about the binding plan, not a detail of probes.
+**A probe is chosen per object, and it costs an `int`.** The cubes are one binding with a count, bound
+for the frame; the volumes are an array beside them in the per-frame block; and
+`ForwardLightingRenderFeature` writes the index and the blend weight into the per-object block it
+already fills — in the twelve bytes of padding std140 leaves after the light count, so the block is the
+size it always was. Nothing extra is bound per draw.
+
+This section used to say per-object selection needed a descriptor set per probe bound per draw, and
+that `ForwardLightingRenderFeature` owning the per-draw set was the obstacle. Both halves were wrong.
+A set per probe bound per draw is a set per object in all but name — the cost the four-set convention
+exists to refuse — and the real obstacle was the compiler: Raven folded an array of textures *into the
+uniform block*, an opaque type in a `Block`-decorated struct, which `glslc` rejects outright and which
+`spirv-val` accepts and no driver would.
 
 ## Area lights
 
@@ -626,6 +634,69 @@ never links a parser — asserted by round-tripping a document through `Serializ
 same frame out the far side.
 
 ## Forward+
+
+### The pass says which set each binding is in
+
+It did not, and everything it declared therefore landed in set 2 — the material's — including the
+sixteen-entry light list, the camera, the shadow atlas and the scene's environment. That is not a
+tidiness complaint. `ForwardLightingRenderFeature` writes the per-object block and binds it at **set
+3**, so the shader and the feature that fills it disagreed about which set it was in, and nothing
+anywhere said so: a marker nobody wrote is a default nobody chose.
+
+| Set | Holds | Because |
+|---|---|---|
+| 0 per-frame | environment, probes, shadow atlas, the sun, the light and cluster buffers | one scene, bound once |
+| 1 per-view | `viewProjection`, `viewPosition`, `view` | the block every shader shares — a texture or a buffer here would make two shaders' set 1 incompatible and the shared set unbindable |
+| 2 per-material | whatever the composed surface declares | 1888 bytes to **32**, which is the measure of what was wrong |
+| 3 per-draw | the light list, its count, the probe index and weight | what `ForwardLightingRenderFeature` was writing all along |
+
+`world` became a **push constant**, because that is what `TransformRenderFeature` already does with
+it — and it leaves the per-draw block with exactly one owner, where a block holding both a transform
+and a light list needs two features to agree on its layout. `worldViewProjection` went with it: it was
+world × the view's matrix, computed per object on the CPU and uploaded per object, where the vertex
+stage can multiply two matrices it already has.
+
+The per-draw block's declaration order is not a style choice either. std140 starts an array of
+structures on a sixteen-byte boundary, so the count and the two probe fields fill exactly the header
+`ForwardLightingRenderFeature.HeaderSize` was already writing — and `ForwardPlusLayoutTests` holds all
+four offsets against the checked-in reflection, so the shader and the feature cannot drift apart again
+without a test saying so.
+
+### One block per set, and who fills each
+
+Marking the sets meant `Effect.ConstantBufferSize` stopped being enough: it names *one* block, which is
+all a shader that marks nothing has, and this pass now has four. `Effect.BlockOf(slot)` is the same
+question asked per set — a caller handed the wrong pair writes the right values into the wrong buffer,
+which is a frame lit by whatever those bytes meant.
+
+| Set | Filled by |
+|---|---|
+| 0 | `SceneConstants` — the environment, the probes, the shadow atlas, the sun |
+| 1 | `ViewConstants` — the block every shader shares |
+| 2 | `MaterialRenderFeature` |
+| 3 | `ForwardLightingRenderFeature` |
+
+`SceneConstants` is set 0's counterpart to `ViewConstants`, and it differs in one way that follows from
+what the two sets are. Set 1 is a **contract between shaders**, so its layout is configured once and
+holds a block only — a texture there would make two shaders' set 1 incompatible and the shared set
+unbindable. Set 0 belongs to whichever pass is drawing, so it takes its shape from that pass's own
+binding plan and can hold resources: a host sets `ForwardPlusKeys.Environment` and `EffectSetWriter`
+finds where `environment` goes.
+
+`EffectSetWriter` is that lookup, shared by both fillers, because the rule is one rule: a caller names
+a resource and `Effect.Bindings` says where it goes. Every binding or none, for the reason a material's
+set is all-or-nothing.
+
+`MeshRenderFeature` binds set 0 where it binds set 1 — after the first pipeline, once per run. After,
+because `BindDescriptorSet` takes no pipeline layout and infers one from what is bound, so a set before
+the first pipeline is undefined and the Vulkan backend refuses it. Once, because the four-set convention
+makes every pipeline in a frame layout-compatible up to set 1, which covers set 0 with it.
+
+⚠ **The generator still emits keys for one block.** `BindingsEmitter` picks the first uniform block a
+shader has, which was every shader's only block until this pass had four — so `ForwardPlusKeys` covers
+set 0's values and names nothing in set 1, set 2 or set 3. Those parameters are reachable by
+`ParameterKeys.New<T>("ForwardPlus.view")` and not by a generated constant, which is the ergonomics
+rather than the correctness of it. Emitting per block is the same change one level out.
 
 The shader half — `Library/Pipeline/ClusterCulling.rvn` binning lights into a froxel grid, and
 `ForwardPlus.rvn`'s `UseClusteredLights` permutation swapping its uniform-array loop for the cluster

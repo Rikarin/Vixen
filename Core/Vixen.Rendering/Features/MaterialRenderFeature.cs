@@ -333,26 +333,11 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
             var material = materials[variant.Material];
             var block = Constants(index, effect, material);
 
-            writes.Clear();
-            var wanted = 0;
-
-            foreach (var binding in effect.Bindings) {
-                if (binding.Set != DescriptorSetSlot.PerMaterial) {
-                    continue;
-                }
-
-                wanted++;
-
-                if (Write(binding, effect, material, block) is { } write) {
-                    writes.Add(write);
-                }
-            }
-
             // Every binding or none. A set short of an entry is a validation error on one backend and
             // a sampled black texture on another, and neither says which material forgot which
             // texture — where an object that does not draw at all is unmistakable, and the material
             // that owns it is the one being looked at.
-            if (wanted == 0 || writes.Count != wanted) {
+            if (!EffectSetWriter.TryWrite(effect, DescriptorSetSlot.PerMaterial, material.Parameters, block, writes)) {
                 continue;
             }
 
@@ -364,52 +349,22 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
         }
     }
 
-    /// <summary>One binding, as the write that fills it — or null when nothing can.</summary>
+    /// <summary>The variant's material block, created on first use and refilled when values change.</summary>
     /// <remarks>
-    ///     A resource the material never set leaves the binding out rather than writing a null handle.
-    ///     The set is then short of an entry and this feature declines to allocate it at all, which is
-    ///     the right failure: a partly-written set is a validation error on one backend and a sampled
-    ///     black texture on another, and neither says which material forgot which texture.
+    ///     <see cref="Effect.BlockOf" /> rather than <see cref="Effect.ConstantBufferSize" />, because
+    ///     a pass that says which set each binding is in has a block in each: filling set 2's buffer
+    ///     with set 0's size and set 0's member offsets writes the right values into the wrong place,
+    ///     which is a frame lit by whatever those bytes happened to mean.
     /// </remarks>
-    static DescriptorWrite? Write(EffectBinding binding, Effect effect, Material material, EffectConstants? block) {
-        // The uniform block, which is the effect's own and not a value the material carries.
-        if (binding.Kind is DescriptorKind.UniformBuffer or DescriptorKind.DynamicUniformBuffer) {
-            return block is { Size: > 0 } filled
-                ? DescriptorWrite.Uniform(binding.Binding, filled.Buffer, filled.Offset, filled.Size)
-                : null;
-        }
-
-        // Qualified by the shader, because that is how the generator interns it: a material sets
-        // `LightingKeys.Albedo`, whose name is "Lighting.albedo", and the shader calls it "albedo".
-        if (!ParameterKeys.TryGet($"{effect.Key.ShaderName}.{binding.Name}", out var key)) {
-            return null;
-        }
-
-        return binding.Kind switch {
-            DescriptorKind.SampledTexture or DescriptorKind.StorageTexture =>
-                material.Parameters.Has(key) && key is ParameterKey<TextureViewHandle> texture
-                    ? DescriptorWrite.Texture(binding.Binding, material.Parameters.Get(texture))
-                    : null,
-            DescriptorKind.Sampler =>
-                material.Parameters.Has(key) && key is ParameterKey<SamplerHandle> sampler
-                    ? DescriptorWrite.SamplerAt(binding.Binding, material.Parameters.Get(sampler))
-                    : null,
-            DescriptorKind.StorageBuffer or DescriptorKind.DynamicStorageBuffer =>
-                material.Parameters.Has(key) && key is ParameterKey<BufferHandle> buffer
-                    ? DescriptorWrite.Storage(binding.Binding, material.Parameters.Get(buffer))
-                    : null,
-            _ => null
-        };
-    }
-
-    /// <summary>The variant's uniform block, created on first use and refilled when values change.</summary>
     EffectConstants? Constants(int variant, Effect effect, Material material) {
-        if (effect.ConstantBufferSize == 0) {
+        var declared = effect.BlockOf(DescriptorSetSlot.PerMaterial);
+
+        if (!declared.Exists) {
             return null;
         }
 
         var block = blocks[variant] ??= new(Device!, material.ShaderName);
-        return block.Update(effect, material.Parameters) ? block : null;
+        return block.Update(effect, declared.Size, declared.Members.AsSpan(), material.Parameters) ? block : null;
     }
 
     /// <summary>The effect an object resolved to for a stage, or null when it has none.</summary>

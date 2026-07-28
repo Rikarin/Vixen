@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
+using Vixen.Rendering.Lighting;
 using Vixen.Shaders;
 
 namespace Vixen.Rendering.Features;
@@ -55,11 +56,19 @@ public sealed class ForwardLightingRenderFeature
     : SubRenderFeature, IDrawSubFeature, IPermutationSubFeature, ISunSource, IDisposable {
     /// <summary>How many bytes precede the light array in the block.</summary>
     /// <remarks>
-    ///     A <c>uint</c> count followed by twelve bytes of padding, because std140 starts an array of
-    ///     structures on a sixteen-byte boundary whatever precedes it. Writing the array at offset
-    ///     four would put every light one slot early and shade with the wrong ones.
+    ///     A <c>uint</c> count and two more scalars, because std140 starts an array of structures on a
+    ///     sixteen-byte boundary whatever precedes it. Writing the array at offset four would put
+    ///     every light one slot early and shade with the wrong ones — and the padding those three
+    ///     scalars leave is free, which is why the probe fields went here rather than into a block of
+    ///     their own.
     /// </remarks>
     public const int HeaderSize = 16;
+
+    /// <summary>Where the chosen probe's index sits in the header.</summary>
+    public const int ProbeIndexOffset = 4;
+
+    /// <summary>Where the chosen probe's weight sits in the header.</summary>
+    public const int ProbeWeightOffset = 8;
 
     readonly List<RenderLight> lights = [];
     readonly List<int> punctual = [];
@@ -167,6 +176,18 @@ public sealed class ForwardLightingRenderFeature
 
     /// <summary>Which descriptor set the block is bound to.</summary>
     public DescriptorSetSlot Slot { get; set; } = DescriptorSetSlot.PerDraw;
+
+    /// <summary>
+    ///     Which reflection probe each object gets, or null to leave every object without one.
+    /// </summary>
+    /// <remarks>
+    ///     Here rather than in a feature of its own because a probe's index and weight live in this
+    ///     feature's block — they fit in the padding std140 leaves after the light count — and a
+    ///     second feature writing into one block would mean two owners of one layout. Choosing the
+    ///     probe is still not this class's business: <see cref="ReflectionProbeSelector" /> answers
+    ///     that from positions and volumes alone, with no device and no frame in sight.
+    /// </remarks>
+    public ReflectionProbeSelector? Probes { get; set; }
 
     /// <summary>Which binding within that set.</summary>
     public uint Binding { get; set; }
@@ -302,6 +323,7 @@ public sealed class ForwardLightingRenderFeature
 
             var declared = (uint)count;
             MemoryMarshal.Write(block, in declared);
+            WriteProbe(block, candidate.Bounds.Center);
 
             for (var i = 0; i < count; i++) {
                 var light = lights[chosen[i]].ToGpu();
@@ -335,6 +357,44 @@ public sealed class ForwardLightingRenderFeature
             descriptors,
             MemoryMarshal.CreateReadOnlySpan(ref offset, 1)
         );
+    }
+
+    /// <summary>
+    ///     Writes which probe lights this object, and how much of it shows.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         In this block rather than in one of its own, because the header already had the room:
+    ///         std140 puts the light array on a sixteen-byte boundary, so the count left twelve bytes
+    ///         of padding and two of them are now these. A probe therefore costs a per-object block
+    ///         that is exactly the size it already was.
+    ///     </para>
+    ///     <para>
+    ///         <strong>This is what makes probes per object rather than per group.</strong> The cubes
+    ///         are one binding with a count, bound for the frame; the volumes are an array beside
+    ///         them; and an object picks both with this index. Nothing extra is bound per draw, which
+    ///         is the whole reason it is an index and not a descriptor set.
+    ///     </para>
+    ///     <para>
+    ///         No selector means index zero and weight zero, which is the shader's own default: no
+    ///         probe, ambient from the environment alone.
+    ///     </para>
+    /// </remarks>
+    void WriteProbe(Span<byte> block, Vector3 position) {
+        if (Probes is not { } selector || selector.Select(position) is not { } chosenProbe) {
+            return;
+        }
+
+        var index = selector.Probes.IndexOf(chosenProbe.Probe);
+
+        if (index < 0) {
+            return;
+        }
+
+        MemoryMarshal.Write(block[ProbeIndexOffset..], in index);
+
+        var weight = chosenProbe.Weight;
+        MemoryMarshal.Write(block[ProbeWeightOffset..], in weight);
     }
 
     /// <summary>

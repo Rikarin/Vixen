@@ -62,14 +62,14 @@ public sealed class EffectLoader(IGraphicsDevice device) {
 
         foreach (var parameter in data.Parameters) {
             if (KeyOf(parameter) is { } parameterKey) {
-                parameters.Add(new(parameterKey, parameter.Offset, parameter.Size));
+                parameters.Add(new(parameterKey, parameter.Offset, parameter.Size) { Set = parameter.Set });
             }
         }
 
         var bindings = ImmutableArray.CreateBuilder<EffectBinding>(data.Bindings.Length);
 
         foreach (var binding in data.Bindings) {
-            bindings.Add(new(binding.Name, binding.Set, binding.Binding, binding.Kind));
+            bindings.Add(new(binding.Name, binding.Set, binding.Binding, binding.Kind) { Size = binding.Size });
         }
 
         var permutations = ImmutableArray.CreateBuilder<ParameterKey>(data.Permutations.Length);
