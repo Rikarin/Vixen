@@ -3,6 +3,7 @@
 
 using Vixen.Net.Messaging;
 using Vixen.Net.Replication;
+using Vixen.Net.Rules;
 using Vixen.Net.Sessions;
 
 namespace Vixen.Net.Rpc;
@@ -90,6 +91,7 @@ public sealed class RpcRouter {
     readonly RpcManifest manifest;
     readonly IRpcTransport transport;
     readonly NetworkOwnership ownership;
+    readonly NetworkRulesRegistry rules;
     readonly IRpcObservers? observers;
     readonly RpcLimits limits;
     readonly byte[] sendBuffer;
@@ -102,6 +104,9 @@ public sealed class RpcRouter {
 
     /// <summary>Who owns what.</summary>
     public NetworkOwnership Ownership => ownership;
+
+    /// <summary>Who is allowed to do what.</summary>
+    public NetworkRulesRegistry Rules => rules;
 
     /// <summary>How many objects have handlers registered.</summary>
     public int RegisteredCount => invokers.Count;
@@ -118,7 +123,10 @@ public sealed class RpcRouter {
     /// <summary>Calls refused because the object they are about is not registered here.</summary>
     public long RefusedByUnknownObjectCount { get; private set; }
 
-    /// <summary>Calls refused because the caller does not own what they were calling about.</summary>
+    /// <summary>
+    ///     Calls refused because the caller was not allowed to make them — by the object's rules, or
+    ///     by the call's own <c>RequireOwnership</c>, whichever was stricter.
+    /// </summary>
     public long RefusedByOwnershipCount { get; private set; }
 
     /// <summary>Calls refused because the caller is making too many.</summary>
@@ -136,6 +144,7 @@ public sealed class RpcRouter {
     /// <param name="role">What this peer is.</param>
     /// <param name="ownership">Who owns what. A fresh one, if null.</param>
     /// <param name="observers">Who can see what, for <see cref="RpcTarget.Observers" />.</param>
+    /// <param name="rules">Who is allowed to do what. Server-authoritative, if null.</param>
     /// <param name="limits">How many calls a connection may make.</param>
     /// <param name="maxPayloadBytes">The largest call this router will encode.</param>
     public RpcRouter(
@@ -145,6 +154,7 @@ public sealed class RpcRouter {
         NetworkOwnership? ownership = null,
         IRpcObservers? observers = null,
         RpcLimits? limits = null,
+        NetworkRulesRegistry? rules = null,
         int maxPayloadBytes = 1200
     ) {
         ArgumentNullException.ThrowIfNull(manifest);
@@ -154,6 +164,7 @@ public sealed class RpcRouter {
         this.manifest = manifest;
         this.transport = transport;
         this.ownership = ownership ?? new NetworkOwnership();
+        this.rules = rules ?? new NetworkRulesRegistry(this.ownership);
         this.observers = observers;
         this.limits = limits ?? new RpcLimits();
 
@@ -184,6 +195,31 @@ public sealed class RpcRouter {
 
         return invokers.Remove((id.Value, invoker.RpcTypeId));
     }
+
+    /// <summary>Hands an object to somebody else, if the asker is allowed to.</summary>
+    /// <param name="id">The object.</param>
+    /// <param name="requester">
+    ///     Who is asking. <see cref="PlayerId.None" /> is the server, which is always allowed.
+    /// </param>
+    /// <param name="newOwner">Who is to have it.</param>
+    /// <returns>Whether it changed hands.</returns>
+    /// <remarks>
+    ///     The enforcement point for <c>NetworkRules.ChangeOwner</c>. Setting an owner through
+    ///     <see cref="Ownership" /> directly is the server doing it and is not checked — the check is
+    ///     for requests that came from a client, and a client cannot reach that method.
+    /// </remarks>
+    public bool TryTransferOwnership(NetworkId id, PlayerId requester, PlayerId newOwner) {
+        if (!rules.MayChangeOwner(id, requester)) {
+            RefusedByRulesCount++;
+
+            return false;
+        }
+
+        return ownership.SetOwner(id, newOwner);
+    }
+
+    /// <summary>Requests refused because the rules did not allow them.</summary>
+    public long RefusedByRulesCount { get; private set; }
 
     /// <summary>Detaches everything about an object, because it was destroyed.</summary>
     /// <param name="id">The networked object.</param>
@@ -332,7 +368,7 @@ public sealed class RpcRouter {
             return false;
         }
 
-        if (method.Kind == RpcKind.Server && method.RequireOwnership && !ownership.IsOwnedBy(target, from)) {
+        if (method.Kind == RpcKind.Server && !rules.MayCallServerRpc(target, from, method.RequireOwnership)) {
             RefusedByOwnershipCount++;
 
             return false;

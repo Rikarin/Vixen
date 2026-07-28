@@ -2140,14 +2140,36 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   `IRpcTransport`, because wiring the two together without the marker would have been a connection
   that looked right and mixed three streams into one.
 
-  **Owed:** `NetworkRules` as a policy asset — ownership answers "whose input does this obey", and
-  who may spawn, despawn, observe and write is still server-authoritative by construction rather than
-  by a reviewable decision. Awaitable calls returning `ValueTask<T>` are designed for and refused with
-  a diagnostic that says so.
+  **Owed:** awaitable calls returning `ValueTask<T>`, which are designed for and refused with a
+  diagnostic that says so. (`NetworkRules` landed with the next slice.)
 - Identity and spawning: `NetworkId` ✅ and ownership with transfer ✅. **Owed:** prefab ids derived
   from asset GUIDs, and build-time-baked ids for scene-placed objects — both of which are the
   deterministic content build's to hand over, and neither of which has a caller until spawning exists.
-- **`NetworkRules`** policy assets (`.vxnetrules`) — spawn/despawn/call/observe/write permissions.
+- ✅ **`NetworkRules`** — the policy, as a declaration rather than a `switch`. 12 further tests; 287
+  across the networking projects in total.
+
+  [16](16-networking.md) calls this the reference implementation's best idea and says to centre the
+  design on it, and the reason holds up: a co-operative game and a competitive shooter want different
+  answers to every question in it, and without this they get them by being different engines.
+
+  The composition rule is the part worth stating. **Rules never grant a client more than the code
+  asked for** — where a rule and an attribute both have an opinion, the stricter wins. So
+  `CallServerRpc` defaults to `Everyone`, which means "the rules add nothing" rather than "anybody may
+  call anything": safety out of the box comes from `[ServerRpc]` requiring ownership unless a method
+  says otherwise, and the rule is the knob that *tightens* that. A policy file quietly widening what a
+  method declared about itself is precisely the failure this design exists to prevent, and it is now
+  impossible rather than merely discouraged.
+
+  `CallServerRpc` is enforced by the router before dispatch, `ChangeOwner` by
+  `RpcRouter.TryTransferOwnership`, and `OnOwnerDisconnect` when a player leaves — with the transfer
+  done and a `Destroy` handed back as a decision, because destroying an entity is not the policy's to
+  do. `Spawn`, `Despawn` and `Write` are declared and answered through the same registry and have no
+  enforcement point yet, because nothing can spawn a networked object from a client or write
+  replicated state from one; when those arrive they ask this question rather than inventing a second
+  policy. The distinction is in the type's own documentation rather than left to be discovered.
+
+  **Owed:** the `.vxnetrules` asset itself — the importer, the serialised form and the per-prefab
+  reference, which are the asset pipeline's half. `NetworkRulesRegistry` is what it loads into.
 - ✅ **Replication, and the generator that writes its serializers.** 51 further tests; 204 across the
   networking projects in total.
 

@@ -64,6 +64,24 @@ public sealed class NetworkOwnership {
         return true;
     }
 
+    /// <summary>Everything one player owns.</summary>
+    /// <param name="player">The player.</param>
+    /// <param name="into">Where to put them. Not cleared first.</param>
+    /// <returns>How many they own.</returns>
+    public int OwnedBy(PlayerId player, List<NetworkId> into) {
+        ArgumentNullException.ThrowIfNull(into);
+        var found = 0;
+
+        foreach (var (id, owner) in owners) {
+            if (owner == player) {
+                into.Add(new(id));
+                found++;
+            }
+        }
+
+        return found;
+    }
+
     /// <summary>Forgets an object, because it was destroyed.</summary>
     /// <param name="id">The object.</param>
     /// <returns>Whether it had an owner.</returns>

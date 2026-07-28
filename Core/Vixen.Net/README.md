@@ -270,6 +270,38 @@ largest component can always be recovered from the other three, and those three 
 they have to be*. Two bits say which one was dropped, and the sender flips the whole quaternion so
 the dropped one is positive — `q` and `-q` being the same rotation is what removes the sign bit.
 
+## Rules
+
+Who may do what is a declaration rather than a `switch`:
+
+```csharp
+router.Rules.Default = NetworkRules.ServerAuthoritative;
+router.Rules.Set(vehicle, NetworkRules.OwnerAuthoritative with {
+    OnOwnerDisconnect = DisconnectBehaviour.TransferToServer,
+});
+```
+
+A co-operative game and a competitive shooter want different answers to every question here, and
+without this they get them by being different engines. With it they are the same engine with
+different rules, and relaxing server authority is a reviewable decision somebody wrote down.
+
+**Rules never grant a client more than the code asked for.** Where a rule and an attribute both have
+an opinion, the stricter wins: an `[ServerRpc(RequireOwnership = true)]` stays an owner's call however
+permissive the object's rules are. That is why `CallServerRpc` defaults to `Everyone` — it means "the
+rules add nothing", not "anybody may call anything". Safety out of the box comes from the attribute,
+which requires ownership unless a method says otherwise; the rule is the knob that *tightens* it.
+
+| Rule | Enforced by |
+|---|---|
+| `CallServerRpc` | `RpcRouter.Receive`, before dispatch |
+| `ChangeOwner` | `RpcRouter.TryTransferOwnership` |
+| `OnOwnerDisconnect` | `NetworkRulesRegistry.OnOwnerLeft` |
+| `Spawn`, `Despawn`, `Write` | declared and answered; **no enforcement point yet** — nothing can spawn or write from a client |
+
+The authoring shape is a `.vxnetrules` asset referenced per prefab. That is the asset pipeline's half
+and is not built; `NetworkRulesRegistry` is what it will be loaded into, and it already answers the
+questions that asset will answer.
+
 ## What goes over a session
 
 The session carries opaque bytes. Three things want to put bytes there — replication, remote calls,
