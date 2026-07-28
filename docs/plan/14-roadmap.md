@@ -1518,6 +1518,37 @@ sub-piece has its own gate.
   rather than as a covered claim. The join and cap are deliberately *not* in the key, because there
   is no implementation in which a join is anything but geometry.
 
+- ✅ **Line wrapping** — `LineWrapper` fills `LineBreaker`'s opportunities into lines of a given
+  width. The two are deliberately apart: the first answers "where *may* a line end", which is a
+  question about Unicode and is judged by the Consortium's suite; this one answers "where does it
+  end", which needs measured widths and cannot be judged that way at all.
+
+  ⚠ **A line is a range of the source, not a slice of the shaped glyphs.** Cutting a shaped paragraph
+  at a break keeps whatever the shaper did across it — a ligature spanning the break survives onto one
+  of the two lines, and a cursive script keeps a medial form on a letter that is now final. The only
+  correct fix is to shape each line, and all a caller needs for that is where the line starts and ends.
+
+  ⚠ **The width is accumulated per cluster, not along the glyph list.** A right-to-left run hands its
+  glyphs back in visual order, so their clusters descend and a running sum measures a bidi paragraph
+  as though it were Latin. What a line's width *is*, is the total advance of the characters in it,
+  which does not depend on the order they are drawn in.
+
+  ⚠ **And `LineBreaker.IsMandatory` is true at the end of the text**, because LB3 says "always break
+  at end of text" — right for a conformance suite, and not a break a *line* was forced into. Left in,
+  every paragraph's last line comes back marked mandatory and a paragraph that fits on one line comes
+  back as one mandatory line. Found by the first test written.
+
+  Greedy first-fit rather than Knuth–Plass: an interface reflows on every resize and every keystroke,
+  so paying for an optimum that changes as fast as it is computed is the wrong trade — and greedy is
+  what every browser does, so a panel wraps where somebody expects.
+
+  Verified by sabotage: eight, seven landing. ⚠ **The eighth failed to fail** — replacing the
+  grapheme boundaries the "break anywhere" mode cuts at with every UTF-16 index changes nothing,
+  because a cluster's whole advance is recorded at its first character, so every cut inside a cluster
+  measures the same as the cut at its end and the largest that fits lands on the end anyway. The
+  guard is kept and labelled as insurance against the cluster reconciliation going away, which is
+  what makes it unreachable.
+
 - Owed: font fallback, rich-text runs, variable-font axes, `TextEditor` model with IME and caret
   affinity. On the rendering side: reconciling the per-vertex box parameters here with
   `Raven/Library/Ui`'s per-uniform ones when Raven takes over shader compilation.
