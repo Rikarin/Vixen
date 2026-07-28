@@ -162,9 +162,28 @@ public static class DrawBatcher {
 
     /// <summary>What decides which batch a command can join.</summary>
     /// <remarks>
-    ///     ⚠ The fill rule is part of the key. Two filled paths wound the same way but read by
-    ///     different rules are not the same draw — one of them punches its hole and the other does
-    ///     not — so merging them silently fills in every counter in an icon set.
+    ///     <para>
+    ///         ⚠ <s>The fill rule is part of the key. Two filled paths wound the same way but read by
+    ///         different rules are not the same draw — one of them punches its hole and the other does
+    ///         not — so merging them silently fills in every counter in an icon set.</s>
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That reason stopped being true when the tessellator was written, and the fill rule
+    ///         stays in the key as insurance rather than as a covered claim.</b>
+    ///         <c>UiGeometryBuilder</c> reads <c>command.FillRule</c> per <i>command</i>, so two fills
+    ///         under different rules in one batch each punch their own holes and nothing is lost by
+    ///         merging them. What would make the reason true again is a renderer that resolves the
+    ///         rule on the GPU — stencil-then-cover is the standard way to fill a large path, and
+    ///         there the rule really is pipeline state. Keeping the key coarse costs a draw call in a
+    ///         case that barely happens; taking it out would have to be undone by whoever wrote that
+    ///         renderer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The join and the cap are deliberately <i>not</i> in the key</b>, and that is not
+    ///         an inconsistency. There is no renderer in which a join is pipeline state: a join is
+    ///         geometry, on any implementation, so two strokes that differ only in it are the same
+    ///         draw under every design and not merely under this one.
+    ///     </para>
     /// </remarks>
     static (BatchKind Kind, int Font, PathFillRule Rule) KeyOf(in DrawCommand command) =>
         command.Kind switch {

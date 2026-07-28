@@ -398,6 +398,47 @@ public class UiGeometryTests {
         Assert.True(fine.Vertices.Count > coarse.Vertices.Count * 2);
     }
 
+    /// <summary>
+    ///     ⚠ The join is a property of the stroke somebody asked for, so two strokes of the same path
+    ///     at the same width are different geometry when their joins differ.
+    /// </summary>
+    [Fact]
+    public void The_join_reaches_the_tessellator_from_the_command() {
+        var miter = Build(list => Stroke(list, Corner(), Color4.White, 8, LineJoin.Miter));
+        var bevel = Build(list => Stroke(list, Corner(), Color4.White, 8, LineJoin.Bevel));
+        var round = Build(list => Stroke(list, Corner(), Color4.White, 8, LineJoin.Round));
+
+        // A bevel is one triangle at the corner, a miter is two, a round one is a fan of many.
+        Assert.Equal(bevel.Vertices.Count + 3, miter.Vertices.Count);
+        Assert.True(round.Vertices.Count > miter.Vertices.Count);
+    }
+
+    [Fact]
+    public void The_cap_reaches_the_tessellator_from_the_command() {
+        var butt = Build(list => Stroke(list, Corner(), Color4.White, 8, cap: LineCap.Butt));
+        var square = Build(list => Stroke(list, Corner(), Color4.White, 8, cap: LineCap.Square));
+
+        // Two ends, two triangles each.
+        Assert.Equal(butt.Vertices.Count + 12, square.Vertices.Count);
+    }
+
+    /// <summary>
+    ///     ⚠ Zero is the default rather than a limit of zero. A struct's default is all-zeroes, so a
+    ///     caller who set the thickness and nothing else would otherwise get a shape whose every
+    ///     corner bevelled.
+    /// </summary>
+    [Fact]
+    public void A_miter_limit_of_zero_means_the_default_rather_than_none() {
+        var unset = Build(list => Stroke(list, Corner(), Color4.White, 8));
+        var four = Build(list => Stroke(list, Corner(), Color4.White, 8, miterLimit: 4));
+        var one = Build(list => Stroke(list, Corner(), Color4.White, 8, miterLimit: 1));
+
+        Assert.Equal(four.Vertices.Count, unset.Vertices.Count);
+
+        // A limit of one bevels the corner this path has, which the default does not.
+        Assert.Equal(unset.Vertices.Count - 3, one.Vertices.Count);
+    }
+
     [Fact]
     public void A_path_that_encloses_nothing_produces_no_draw() {
         var line = new PathBuilder().MoveTo(new Vector2(10, 10)).LineTo(new Vector2(90, 90));
@@ -423,6 +464,13 @@ public class UiGeometryTests {
 
     static PathBuilder Circle() => new PathBuilder().AddEllipse(new Rectangle(20, 20, 100, 100));
 
+    /// <summary>An open path with exactly one corner in it, so a join is countable.</summary>
+    static PathBuilder Corner() =>
+        new PathBuilder()
+            .MoveTo(new Vector2(20, 20))
+            .LineTo(new Vector2(100, 20))
+            .LineTo(new Vector2(100, 100));
+
     static PathBuilder Ring() =>
         new PathBuilder()
             .AddEllipse(new Rectangle(20, 20, 100, 100))
@@ -437,11 +485,22 @@ public class UiGeometryTests {
             }
         );
 
-    static void Stroke(DrawList list, PathBuilder path, Color4 color, float thickness) =>
+    static void Stroke(
+        DrawList list,
+        PathBuilder path,
+        Color4 color,
+        float thickness,
+        LineJoin join = LineJoin.Miter,
+        LineCap cap = LineCap.Butt,
+        float miterLimit = 0
+    ) =>
         list.Add(
             new DrawCommand(DrawCommandKind.PathStroke, 0, 0, 0, 0, color, 0, thickness) {
                 Offset = list.AddPath(path),
-                Length = path.Count
+                Length = path.Count,
+                Join = join,
+                Cap = cap,
+                MiterLimit = miterLimit
             }
         );
 

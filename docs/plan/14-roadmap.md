@@ -1481,10 +1481,24 @@ sub-piece has its own gate.
   a clip test whose picture is its own mirror image cannot see the most common mistake in the file it
   tests.
 
+- ✅ **A stroke's join and cap are carried on the command**, beside its thickness, rather than set
+  once for the whole frame on the geometry builder — a join is part of the stroke somebody asked for,
+  and nobody would have put the thickness anywhere else. `MiterLimit` is on it too, where ⚠ **zero
+  means the default of four**: the command is a struct, so its default is all-zeroes, and a real
+  limit of zero would bevel every corner of a stroke whose caller set only the thickness.
+
+  ⚠ **And a claim next door stopped being true.** `DrawBatcher` puts the fill rule in the batch key
+  on the argument that "two filled paths read by different rules are not the same draw". Since the
+  tessellator, they are: `UiGeometryBuilder` reads the rule per *command*, so merging them loses
+  nothing. The rule stays in the key as **insurance** against a renderer that resolves it on the GPU
+  — stencil-then-cover, where the rule really is pipeline state — and is now labelled as insurance
+  rather than as a covered claim. The join and cap are deliberately *not* in the key, because there
+  is no implementation in which a join is anything but geometry.
+
 - Owed: font fallback, rich-text runs, variable-font axes, `TextEditor` model with IME and caret
-  affinity. On the rendering side: an antialiased path edge, a join and cap style carried on the
-  stroke command rather than set on the builder, and reconciling the per-vertex box parameters here
-  with `Raven/Library/Ui`'s per-uniform ones when Raven takes over shader compilation.
+  affinity. On the rendering side: an antialiased path edge, and reconciling the per-vertex box
+  parameters here with `Raven/Library/Ui`'s per-uniform ones when Raven takes over shader
+  compilation.
 - Gate: ✅ UAX conformance data green. ✅ shaping conformance green against an external oracle,
   with the quarantine pinned in both directions.
 

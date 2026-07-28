@@ -57,17 +57,6 @@ public sealed class UiGeometryBuilder {
     /// </remarks>
     public float Tolerance { get; set; } = 0.2f;
 
-    /// <summary>How a stroke turns a corner.</summary>
-    /// <remarks>
-    ///     ⚠ <b>On the builder rather than on the command, and that is owed rather than intended.</b>
-    ///     A join is a property of the stroke somebody asked for, so it belongs beside the thickness
-    ///     on <see cref="DrawCommand" />; it is here because the command does not carry one yet, and
-    ///     one setting for the whole frame is at least visible. The default is CSS's and SVG's.
-    /// </remarks>
-    public LineJoin Join { get; set; } = LineJoin.Miter;
-
-    /// <summary>How a stroke ends. Owed on the command for the same reason as <see cref="Join" />.</summary>
-    public LineCap Cap { get; set; } = LineCap.Butt;
 
     /// <summary>Builds the geometry for a frame.</summary>
     /// <param name="list">The frame's draw list, already batched.</param>
@@ -253,7 +242,16 @@ public sealed class UiGeometryBuilder {
         if (command.Kind == DrawCommandKind.Path) {
             PathTessellator.Fill(points, contours, command.FillRule, triangles);
         } else {
-            PathTessellator.Stroke(points, contours, command.Thickness, Join, Cap, Tolerance, triangles);
+            PathTessellator.Stroke(
+                points,
+                contours,
+                command.Thickness,
+                command.Join,
+                command.Cap,
+                Tolerance,
+                triangles,
+                command.MiterLimit > 0 ? command.MiterLimit : PathTessellator.DefaultMiterLimit
+            );
         }
 
         for (var i = 0; i + 2 < triangles.Count; i += 3) {

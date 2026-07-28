@@ -5,35 +5,6 @@ using Vixen.Core.Mathematics;
 
 namespace Vixen.Ui.Rendering;
 
-/// <summary>How a stroke turns a corner.</summary>
-public enum LineJoin : byte {
-    /// <summary>Extends both edges until they meet, falling back to a bevel past the limit.</summary>
-    /// <remarks>
-    ///     What CSS and SVG default to, and what a rectangle's corner has to be to look like a corner.
-    ///     The limit is not optional: as the turn approaches a reversal the meeting point runs off to
-    ///     infinity, so a spike that is a hundred times the line width is one missing check away.
-    /// </remarks>
-    Miter,
-
-    /// <summary>Fills the outside of the turn with an arc.</summary>
-    Round,
-
-    /// <summary>Cuts straight across the outside of the turn.</summary>
-    Bevel
-}
-
-/// <summary>How a stroke ends.</summary>
-public enum LineCap : byte {
-    /// <summary>Stops at the end point.</summary>
-    Butt,
-
-    /// <summary>A half-disc past the end point.</summary>
-    Round,
-
-    /// <summary>A half-square past the end point, so the stroke is half a width longer at each end.</summary>
-    Square
-}
-
 /// <summary>Turns flattened contours into triangles.</summary>
 /// <remarks>
 ///     <para>

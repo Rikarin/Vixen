@@ -99,6 +99,27 @@ public readonly record struct DrawCommand(
     /// <summary>How a filled path decides what is inside it.</summary>
     /// <remarks>Only meaningful for <see cref="DrawCommandKind.Path" />.</remarks>
     public PathFillRule FillRule { get; init; }
+
+    /// <summary>How a stroked path turns a corner.</summary>
+    /// <remarks>
+    ///     Only meaningful for <see cref="DrawCommandKind.PathStroke" />. On the command rather than
+    ///     on whatever tessellates it, because a join is part of the stroke somebody asked for — the
+    ///     same argument as <see cref="Thickness" />, which nobody would have put anywhere else.
+    /// </remarks>
+    public LineJoin Join { get; init; }
+
+    /// <summary>How a stroked path's open ends are finished.</summary>
+    public LineCap Cap { get; init; }
+
+    /// <summary>How far a miter may reach, as a multiple of the half width.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Zero means the default</b>, which is four — CSS's and SVG's. A sentinel rather than a
+    ///     real value because this is a struct: its default is all-zeroes, and a miter limit of zero
+    ///     means every corner bevels, so a caller who set the thickness and nothing else would get a
+    ///     shape with no corners at all. <see cref="Radius" /> gets away with a real zero because a
+    ///     square corner is a sensible default; this does not.
+    /// </remarks>
+    public float MiterLimit { get; init; }
 }
 
 /// <summary>A frame's worth of drawing, and whether it differs from the last one.</summary>

@@ -62,12 +62,24 @@ public readonly struct DrawContext {
     /// <param name="path">The path.</param>
     /// <param name="color">What to draw it in.</param>
     /// <param name="thickness">How wide, in device-independent pixels.</param>
+    /// <param name="join">How corners are turned.</param>
+    /// <param name="cap">How open ends are finished.</param>
+    /// <param name="miterLimit">
+    ///     How far a miter may reach, as a multiple of the half width. Zero takes the default of four.
+    /// </param>
     /// <remarks>
     ///     A separate command from <see cref="Fill" /> rather than a flag on one, so that a shape
     ///     that is both filled and stroked is two commands over the same range of the path buffer —
     ///     which is what a renderer wants anyway, since the two are different draws.
     /// </remarks>
-    public void Stroke(PathBuilder path, Color4 color, float thickness) {
+    public void Stroke(
+        PathBuilder path,
+        Color4 color,
+        float thickness,
+        LineJoin join = LineJoin.Miter,
+        LineCap cap = LineCap.Butt,
+        float miterLimit = 0f
+    ) {
         ArgumentNullException.ThrowIfNull(path);
 
         if (path.Count == 0 || thickness <= 0f) {
@@ -77,7 +89,10 @@ public readonly struct DrawContext {
         List.Add(
             new DrawCommand(DrawCommandKind.PathStroke, 0f, 0f, 0f, 0f, color, 0f, thickness) {
                 Offset = List.AddPath(path),
-                Length = path.Count
+                Length = path.Count,
+                Join = join,
+                Cap = cap,
+                MiterLimit = miterLimit
             }
         );
     }
