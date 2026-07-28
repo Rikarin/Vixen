@@ -3278,6 +3278,34 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
 
   **Owed:** per-bone quantisation by importance, since a finger does not need what a spine needs; and
   interpolating a pose, which `SnapshotBuffer` does for a transform and not for this.
+- ✅ **Networked audio, and the ownership rule that replaces a component** — `Vixen.Net.Audio`,
+  6 tests, plus one in `Vixen.Net.Tests`.
+
+  **Whether a sound is playing, and how loud — not the sound, and not the clip.** The entity carrying
+  it was spawned from a prefab and the prefab carries its `AudioClipRef`, so both peers already agree
+  which sound this is by the mechanism that agreed which mesh it has; a clip id would re-state that
+  and need a second asset registry to keep in step with the first.
+
+  **A one-shot at a world position is deliberately not this.** An explosion is an event: it happens
+  once and reaches whoever was there. Replicated state is by definition what a late joiner is caught
+  up on, so modelling it that way means a player who joins five minutes later hears the explosion.
+  Those go on a broadcast, which is what broadcasts are for.
+
+  `Trigger` is the counter that makes "again" visible — playing a one-shot twice sets `Playback` to
+  the value it already had, so a receiver comparing states sees nothing and the second shot is silent,
+  a bug that only appears with two players in the room. The same trick `NetworkTransform.TeleportCount`
+  uses, spelled the same way: a tag the capture system consumes. The restart is stop-now,
+  start-next-pass, because `AudioSystem` starts a voice only when one is not already alive — one frame,
+  inaudible, and the alternative is this system holding an `AudioEngine`.
+
+  ✅ **`OwnershipClaim`, and the component it makes unnecessary.** PurrNet ships an ownership-toggle
+  component: take ownership when something enters a trigger. That bundles two separable things — a
+  trigger deciding *when* to try, which is the game's, and a policy deciding whether it is allowed,
+  which is `NetworkRules`'. So the component is declined and the genuinely missing half is added: an
+  audience says *who* may take an object and `Claim` says *when*, and neither can spell the pick-up
+  rule alone. `ChangeOwner = Everyone` with `Claim = WhenUnowned` is a dropped weapon anybody may take
+  and nobody may steal; its own owner may always transfer, because releasing is a transfer to nobody
+  and a rule that refused it would make a dropped weapon undroppable.
 - ✅ **Spawn, scenes and instance handling** — `NetworkSpawner`, `NetworkSpawnSystem` and
   `NetworkPrefabRegistry` in `Vixen.Net.Engine`, over a `NetworkSpawn` component in `Vixen.Net`.
   8 further tests here and 3 on the engine's `Prefab`.

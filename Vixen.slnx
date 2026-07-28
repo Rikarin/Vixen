@@ -142,6 +142,8 @@
     <Project Path="Core/Vixen.Net.Engine.Tests/Vixen.Net.Engine.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Animation/Vixen.Net.Animation.csproj" />
     <Project Path="Core/Vixen.Net.Animation.Tests/Vixen.Net.Animation.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Audio/Vixen.Net.Audio.csproj" />
+    <Project Path="Core/Vixen.Net.Audio.Tests/Vixen.Net.Audio.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Physics/Vixen.Net.Physics.csproj" />
     <Project Path="Core/Vixen.Net.Physics.Tests/Vixen.Net.Physics.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Telemetry/Vixen.Net.Telemetry.csproj" />
