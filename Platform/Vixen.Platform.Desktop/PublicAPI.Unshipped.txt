@@ -1,0 +1,148 @@
+#nullable enable
+Vixen.Platform.Desktop.DesktopClipboard -> sealed class
+Vixen.Platform.Desktop.DesktopClipboard : Vixen.Platform.IClipboard
+Vixen.Platform.Desktop.DesktopClipboard.Clear() -> void
+Vixen.Platform.Desktop.DesktopClipboard.DesktopClipboard(Silk.NET.SDL.Sdl sdl) -> void
+Vixen.Platform.Desktop.DesktopClipboard.HasImage.get -> bool
+Vixen.Platform.Desktop.DesktopClipboard.HasText.get -> bool
+Vixen.Platform.Desktop.DesktopClipboard.SetData(string format, System.ReadOnlySpan<byte> data) -> bool
+Vixen.Platform.Desktop.DesktopClipboard.SetImage(in Vixen.Platform.ClipboardImage image) -> bool
+Vixen.Platform.Desktop.DesktopClipboard.SetText(string text) -> bool
+Vixen.Platform.Desktop.DesktopClipboard.TryGetData(string format, out System.ReadOnlyMemory<byte> data) -> bool
+Vixen.Platform.Desktop.DesktopClipboard.TryGetImage(out Vixen.Platform.ClipboardImage image) -> bool
+Vixen.Platform.Desktop.DesktopClipboard.TryGetText(out string? text) -> bool
+Vixen.Platform.Desktop.DesktopDialogs -> sealed class
+Vixen.Platform.Desktop.DesktopDialogs : Vixen.Platform.INativeDialogs
+Vixen.Platform.Desktop.DesktopDialogs.DesktopDialogs(Silk.NET.SDL.Sdl sdl) -> void
+Vixen.Platform.Desktop.DesktopDialogs.OpenFileAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string?>
+Vixen.Platform.Desktop.DesktopDialogs.OpenFilesAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<string>>
+Vixen.Platform.Desktop.DesktopDialogs.OpenFolderAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string?>
+Vixen.Platform.Desktop.DesktopDialogs.SaveFileAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string?>
+Vixen.Platform.Desktop.DesktopDialogs.ShowMessageAsync(Vixen.Platform.MessageBoxOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Platform.MessageBoxResult>
+Vixen.Platform.Desktop.DesktopDisplays -> sealed class
+Vixen.Platform.Desktop.DesktopDisplays : Vixen.Platform.IDisplayInfo
+Vixen.Platform.Desktop.DesktopDisplays.DesktopDisplays(Silk.NET.SDL.Sdl sdl) -> void
+Vixen.Platform.Desktop.DesktopDisplays.Displays.get -> System.Collections.Generic.IReadOnlyList<Vixen.Platform.DisplayInfo>
+Vixen.Platform.Desktop.DesktopDisplays.Primary.get -> Vixen.Platform.DisplayInfo?
+Vixen.Platform.Desktop.DesktopDisplays.TryGetForPoint(Vixen.Core.Mathematics.Int2 point, out Vixen.Platform.DisplayInfo? display) -> bool
+Vixen.Platform.Desktop.DesktopDisplays.TryGetForWindow(Vixen.Platform.IWindow window, out Vixen.Platform.DisplayInfo? display) -> bool
+Vixen.Platform.Desktop.DesktopInputSource -> sealed class
+Vixen.Platform.Desktop.DesktopInputSource : Vixen.Platform.IInputSource
+Vixen.Platform.Desktop.DesktopInputSource.DesktopInputSource(Silk.NET.SDL.Sdl sdl) -> void
+Vixen.Platform.Desktop.DesktopInputSource.Gamepads.get -> System.Collections.Generic.IReadOnlyList<Vixen.Platform.IGamepad>
+Vixen.Platform.Desktop.DesktopInputSource.IsKeyDown(Vixen.Platform.Key key) -> bool
+Vixen.Platform.Desktop.DesktopInputSource.IsMouseButtonDown(Vixen.Platform.MouseButton button) -> bool
+Vixen.Platform.Desktop.DesktopInputSource.Modifiers.get -> Vixen.Platform.KeyModifiers
+Vixen.Platform.Desktop.DesktopInputSource.PointerPosition.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Platform.Desktop.DesktopInputSource.TryGetGamepad(int deviceId, out Vixen.Platform.IGamepad? gamepad) -> bool
+Vixen.Platform.Desktop.DesktopLifecycle -> sealed class
+Vixen.Platform.Desktop.DesktopLifecycle : Vixen.Platform.ILifecycle
+Vixen.Platform.Desktop.DesktopLifecycle.CancelQuit() -> void
+Vixen.Platform.Desktop.DesktopLifecycle.DesktopLifecycle(Vixen.Platform.PlatformEventBuffer events) -> void
+Vixen.Platform.Desktop.DesktopLifecycle.IsQuitRequested.get -> bool
+Vixen.Platform.Desktop.DesktopLifecycle.MemoryPressure.get -> Vixen.Platform.MemoryPressure
+Vixen.Platform.Desktop.DesktopLifecycle.RequestQuit() -> void
+Vixen.Platform.Desktop.DesktopLifecycle.State.get -> Vixen.Platform.ApplicationState
+Vixen.Platform.Desktop.DesktopPlatform -> sealed class
+Vixen.Platform.Desktop.DesktopPlatform : System.IDisposable
+Vixen.Platform.Desktop.DesktopPlatform : Vixen.Platform.IPlatform
+Vixen.Platform.Desktop.DesktopPlatform.Capabilities.get -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.Desktop.DesktopPlatform.Clipboard.get -> Vixen.Platform.IClipboard
+Vixen.Platform.Desktop.DesktopPlatform.CreateWindow(in Vixen.Platform.WindowOptions options) -> Vixen.Platform.IWindow
+Vixen.Platform.Desktop.DesktopPlatform.DesktopPlatform() -> void
+Vixen.Platform.Desktop.DesktopPlatform.DesktopPlatform(Vixen.Platform.Desktop.DesktopPlatformOptions options) -> void
+Vixen.Platform.Desktop.DesktopPlatform.Dialogs.get -> Vixen.Platform.INativeDialogs
+Vixen.Platform.Desktop.DesktopPlatform.Displays.get -> Vixen.Platform.IDisplayInfo
+Vixen.Platform.Desktop.DesktopPlatform.Dispose() -> void
+Vixen.Platform.Desktop.DesktopPlatform.FileSystem.get -> Vixen.Platform.IFileSystemHost
+Vixen.Platform.Desktop.DesktopPlatform.Input.get -> Vixen.Platform.IInputSource
+Vixen.Platform.Desktop.DesktopPlatform.Lifecycle.get -> Vixen.Platform.ILifecycle
+Vixen.Platform.Desktop.DesktopPlatform.Name.get -> string
+Vixen.Platform.Desktop.DesktopPlatform.Power.get -> Vixen.Platform.IPowerInfo
+Vixen.Platform.Desktop.DesktopPlatform.Processors.get -> Vixen.Platform.IProcessorTopology
+Vixen.Platform.Desktop.DesktopPlatform.PumpEvents() -> System.ReadOnlySpan<Vixen.Platform.PlatformEvent>
+Vixen.Platform.Desktop.DesktopPlatform.TextInput.get -> Vixen.Platform.ITextInput
+Vixen.Platform.Desktop.DesktopPlatform.TryGetWindow(uint id, out Vixen.Platform.IWindow? window) -> bool
+Vixen.Platform.Desktop.DesktopPlatform.TryOpenUrl(string url) -> bool
+Vixen.Platform.Desktop.DesktopPlatform.VideoDriver.get -> string
+Vixen.Platform.Desktop.DesktopPlatform.Windows.get -> System.Collections.Generic.IReadOnlyList<Vixen.Platform.IWindow>
+Vixen.Platform.Desktop.DesktopPlatformOptions -> readonly struct
+Vixen.Platform.Desktop.DesktopPlatformOptions : System.IEquatable<Vixen.Platform.Desktop.DesktopPlatformOptions>
+Vixen.Platform.Desktop.DesktopPlatformOptions.Application.get -> string
+Vixen.Platform.Desktop.DesktopPlatformOptions.Application.init -> string
+Vixen.Platform.Desktop.DesktopPlatformOptions.DesktopPlatformOptions() -> void
+Vixen.Platform.Desktop.DesktopPlatformOptions.EnableGameControllers.get -> bool
+Vixen.Platform.Desktop.DesktopPlatformOptions.EnableGameControllers.init -> bool
+Vixen.Platform.Desktop.DesktopPlatformOptions.FileSystem.get -> Vixen.Platform.IFileSystemHost?
+Vixen.Platform.Desktop.DesktopPlatformOptions.FileSystem.init -> Vixen.Platform.IFileSystemHost?
+Vixen.Platform.Desktop.DesktopPlatformOptions.Organisation.get -> string
+Vixen.Platform.Desktop.DesktopPlatformOptions.Organisation.init -> string
+Vixen.Platform.Desktop.DesktopPlatformOptions.RequestGpuSurface.get -> bool
+Vixen.Platform.Desktop.DesktopPlatformOptions.RequestGpuSurface.init -> bool
+Vixen.Platform.Desktop.DesktopPlatformOptions.VideoDriver.get -> string?
+Vixen.Platform.Desktop.DesktopPlatformOptions.VideoDriver.init -> string?
+Vixen.Platform.Desktop.DesktopPowerInfo -> sealed class
+Vixen.Platform.Desktop.DesktopPowerInfo : Vixen.Platform.IPowerInfo
+Vixen.Platform.Desktop.DesktopPowerInfo.BatteryLevel.get -> float?
+Vixen.Platform.Desktop.DesktopPowerInfo.DesktopPowerInfo(Silk.NET.SDL.Sdl sdl) -> void
+Vixen.Platform.Desktop.DesktopPowerInfo.EstimatedTimeRemaining.get -> System.TimeSpan?
+Vixen.Platform.Desktop.DesktopPowerInfo.IsLowPowerMode.get -> bool
+Vixen.Platform.Desktop.DesktopPowerInfo.Source.get -> Vixen.Platform.PowerSource
+Vixen.Platform.Desktop.DesktopPowerInfo.Thermal.get -> Vixen.Platform.ThermalState
+Vixen.Platform.Desktop.DesktopProcessorTopology -> sealed class
+Vixen.Platform.Desktop.DesktopProcessorTopology : Vixen.Platform.IProcessorTopology
+Vixen.Platform.Desktop.DesktopProcessorTopology.AvailableProcessors.get -> int
+Vixen.Platform.Desktop.DesktopProcessorTopology.ClassOf(int processor) -> Vixen.Platform.ProcessorClass
+Vixen.Platform.Desktop.DesktopProcessorTopology.ClearAffinity() -> void
+Vixen.Platform.Desktop.DesktopProcessorTopology.DesktopProcessorTopology(Silk.NET.SDL.Sdl sdl) -> void
+Vixen.Platform.Desktop.DesktopProcessorTopology.PerformanceCores.get -> int
+Vixen.Platform.Desktop.DesktopProcessorTopology.PhysicalCores.get -> int
+Vixen.Platform.Desktop.DesktopProcessorTopology.SupportsAffinity.get -> bool
+Vixen.Platform.Desktop.DesktopProcessorTopology.TrySetAffinity(int processor) -> bool
+Vixen.Platform.Desktop.DesktopTextInput -> sealed class
+Vixen.Platform.Desktop.DesktopTextInput : Vixen.Platform.ITextInput
+Vixen.Platform.Desktop.DesktopTextInput.Activate(Vixen.Platform.IWindow window) -> void
+Vixen.Platform.Desktop.DesktopTextInput.Deactivate() -> void
+Vixen.Platform.Desktop.DesktopTextInput.DesktopTextInput(Silk.NET.SDL.Sdl sdl) -> void
+Vixen.Platform.Desktop.DesktopTextInput.HasOnScreenKeyboard.get -> bool
+Vixen.Platform.Desktop.DesktopTextInput.IsActive.get -> bool
+Vixen.Platform.Desktop.DesktopTextInput.IsOnScreenKeyboardVisible.get -> bool
+Vixen.Platform.Desktop.DesktopTextInput.OnScreenKeyboardArea.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Platform.Desktop.DesktopTextInput.SetCandidateArea(Vixen.Platform.IWindow window, Vixen.Core.Mathematics.Rectangle area) -> void
+Vixen.Platform.Desktop.DesktopWindow -> sealed class
+Vixen.Platform.Desktop.DesktopWindow : System.IDisposable
+Vixen.Platform.Desktop.DesktopWindow : Vixen.Platform.IWindow
+Vixen.Platform.Desktop.DesktopWindow.Centre() -> void
+Vixen.Platform.Desktop.DesktopWindow.ClientSize.get -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.Desktop.DesktopWindow.ClientSize.set -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.Desktop.DesktopWindow.CursorMode.get -> Vixen.Platform.CursorMode
+Vixen.Platform.Desktop.DesktopWindow.CursorMode.set -> Vixen.Platform.CursorMode
+Vixen.Platform.Desktop.DesktopWindow.CursorShape.get -> Vixen.Platform.CursorShape
+Vixen.Platform.Desktop.DesktopWindow.CursorShape.set -> Vixen.Platform.CursorShape
+Vixen.Platform.Desktop.DesktopWindow.DisplayIndex.get -> int
+Vixen.Platform.Desktop.DesktopWindow.Dispose() -> void
+Vixen.Platform.Desktop.DesktopWindow.DpiScale.get -> float
+Vixen.Platform.Desktop.DesktopWindow.Focus() -> void
+Vixen.Platform.Desktop.DesktopWindow.FramebufferSize.get -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.Desktop.DesktopWindow.Hide() -> void
+Vixen.Platform.Desktop.DesktopWindow.Id.get -> uint
+Vixen.Platform.Desktop.DesktopWindow.IsClosed.get -> bool
+Vixen.Platform.Desktop.DesktopWindow.IsFocused.get -> bool
+Vixen.Platform.Desktop.DesktopWindow.IsMinimised.get -> bool
+Vixen.Platform.Desktop.DesktopWindow.IsResizable.get -> bool
+Vixen.Platform.Desktop.DesktopWindow.IsResizable.set -> bool
+Vixen.Platform.Desktop.DesktopWindow.IsVisible.get -> bool
+Vixen.Platform.Desktop.DesktopWindow.Mode.get -> Vixen.Platform.WindowMode
+Vixen.Platform.Desktop.DesktopWindow.Mode.set -> Vixen.Platform.WindowMode
+Vixen.Platform.Desktop.DesktopWindow.Position.get -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.Desktop.DesktopWindow.Position.set -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.Desktop.DesktopWindow.RequestAttention() -> void
+Vixen.Platform.Desktop.DesktopWindow.SetIcon(System.ReadOnlySpan<byte> pixels, Vixen.Core.Mathematics.Int2 size) -> void
+Vixen.Platform.Desktop.DesktopWindow.Show() -> void
+Vixen.Platform.Desktop.DesktopWindow.Surface.get -> Vixen.Platform.ISurface
+Vixen.Platform.Desktop.DesktopWindow.Title.get -> string
+Vixen.Platform.Desktop.DesktopWindow.Title.set -> string
+Vixen.Platform.Desktop.SdlLibrary -> static class
+static Vixen.Platform.Desktop.SdlLibrary.IsAvailable.get -> bool
+static Vixen.Platform.Desktop.SdlLibrary.Load() -> Silk.NET.SDL.Sdl
+static Vixen.Platform.Desktop.SdlLibrary.TryLoad(out Silk.NET.SDL.Sdl? api) -> bool

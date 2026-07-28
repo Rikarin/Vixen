@@ -1,0 +1,31 @@
+#nullable enable
+Vixen.Platform.Native.NativeLibraries -> static class
+Vixen.Platform.Native.NativeLibraryNames -> static class
+Vixen.Platform.Native.NativeLibrarySpec -> sealed record
+Vixen.Platform.Native.NativeLibrarySpec : System.IEquatable<Vixen.Platform.Native.NativeLibrarySpec>
+Vixen.Platform.Native.NativeLibrarySpec.ExtraDirectories.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Platform.Native.NativeLibrarySpec.ExtraDirectories.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Platform.Native.NativeLibrarySpec.Library.get -> string
+Vixen.Platform.Native.NativeLibrarySpec.Library.init -> string
+Vixen.Platform.Native.NativeLibrarySpec.NativeLibrarySpec(string Library, System.Collections.Generic.IReadOnlyList<string> Versions, System.Collections.Generic.IReadOnlyList<string> ExtraDirectories) -> void
+Vixen.Platform.Native.NativeLibrarySpec.NativeLibrarySpec(string library) -> void
+Vixen.Platform.Native.NativeLibrarySpec.Versions.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Platform.Native.NativeLibrarySpec.Versions.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Platform.Native.NativeRid -> static class
+Vixen.Platform.Native.NativeSearch -> static class
+const Vixen.Platform.Native.NativeSearch.NativeFolder = "native" -> string
+const Vixen.Platform.Native.NativeSearch.RuntimesFolder = "runtimes" -> string
+static Vixen.Platform.Native.NativeLibraries.BaseDirectory.get -> string
+static Vixen.Platform.Native.NativeLibraries.BaseDirectory.set -> string
+static Vixen.Platform.Native.NativeLibraries.Candidates(string library) -> System.Collections.Generic.IEnumerable<string>
+static Vixen.Platform.Native.NativeLibraries.Describe(Vixen.Platform.Native.NativeLibrarySpec spec) -> void
+static Vixen.Platform.Native.NativeLibraries.Register(System.Reflection.Assembly assembly) -> void
+static Vixen.Platform.Native.NativeLibraries.Resolved.get -> System.Collections.Generic.IReadOnlyDictionary<string, string>
+static Vixen.Platform.Native.NativeLibraryNames.For(string library, params System.ReadOnlySpan<string> versions) -> System.Collections.Generic.IEnumerable<string>
+static Vixen.Platform.Native.NativeLibraryNames.ForPlatform(string library, bool windows, bool macOS, System.Collections.Generic.IReadOnlyList<string> versions) -> System.Collections.Generic.IEnumerable<string>
+static Vixen.Platform.Native.NativeRid.Chain.get -> System.Collections.Generic.IReadOnlyList<string>
+static Vixen.Platform.Native.NativeRid.ChainFor(string rid) -> System.Collections.Generic.IReadOnlyList<string>
+static Vixen.Platform.Native.NativeRid.Current.get -> string
+static Vixen.Platform.Native.NativeRid.CurrentOperatingSystem.get -> string
+static Vixen.Platform.Native.NativeSearch.Directories(string baseDirectory, System.Collections.Generic.IReadOnlyList<string> ridChain, params System.ReadOnlySpan<string> extra) -> System.Collections.Generic.IEnumerable<string>
+static Vixen.Platform.Native.NativeSearch.Paths(System.Collections.Generic.IEnumerable<string> directories, System.Collections.Generic.IEnumerable<string> fileNames) -> System.Collections.Generic.IEnumerable<string>

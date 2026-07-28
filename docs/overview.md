@@ -37,7 +37,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Nuke `CheckAot` (desktop) | 🟡 | build/ | Publishes one RID per invocation; three desktop OSes means one CI leg each — legs not wired |
 | Nuke `CheckAotIos` | ✅ | build/ | `.ipa`, 7 MB native, zero managed assemblies, zero trim/AOT warnings |
 | Nuke `CompileMobile`, `CompileWeb`, `RestoreNativeDeps` | ✅ | build/ | |
-| Nuke `CheckApi` | ⬜ | — | ⛔ needs `Tools/Vixen.ApiCheck` and a first `PublicAPI.Shipped.txt`; neither exists |
+| Nuke `CheckApi` | ✅ | [build/Build.Api.cs](../build/Build.Api.cs), [Tools/Vixen.ApiCheck](../Tools/Vixen.ApiCheck/README.md) | 59 packable assemblies, 22 807 baselined entries, both directions gated (an unapproved addition *and* a silent removal). `Shipped` is empty everywhere, because nothing has shipped |
 | `ci.yml` — 3 desktop runners, test + checks + pack | ✅ | [.github/workflows/ci.yml](../.github/workflows/ci.yml) | Doubles as the bit-exact-serialization gate (3 OSes, 2 architectures) |
 | `nightly.yml` — long-running fuzz | ✅ | [.github/workflows/nightly.yml](../.github/workflows/nightly.yml) | 10 min/target vs. 1 s in the build gate |
 | lavapipe Vulkan CI leg | ✅ | ci.yml | 155 Vulkan tests, zero skipped, validation-clean |
@@ -410,7 +410,7 @@ Phase 9 is the most complete phase in the repository — **all five exit criteri
 | Manual: getting started, per-subsystem guides, UI tutorial, Raven reference, Unity migration | ⬜ |
 | 12+ runnable samples | 🟡 (10 exist) |
 | `dotnet new` templates verified on six targets | ⬜ |
-| `PublicAPI.Shipped.txt` freeze + API review | ⛔ (`Vixen.ApiCheck`) |
+| `PublicAPI.Shipped.txt` freeze + API review | 🟡 (baselines exist and are gated; the freeze is folding `Unshipped` into `Shipped` at the release, and the review pass is the reading nobody has done yet) |
 | Release automation (tag → signed builds + NuGet + GitHub Release) | ⬜ |
 | 24 h editor / 24 h game soak | ⬜ |
 | Public triage process + compatibility policy | ⬜ |
@@ -556,7 +556,7 @@ No unmet dependency. Twenty-three independent tracks.
 | W0-3 | **K3** — `Vixen.Platform.Windows/.Linux/.MacOS` | 5 downstream items |
 | W0-4 | **K4** — `Silk.NET.OpenGLES` + EGL | 3 downstream items |
 | W0-5 | `DescriptorBinding` sample type + comparison sampler (RHI) | WebGPU shadow maps → deferred/forward parity on the web |
-| W0-6 | `Tools/Vixen.ApiCheck` + first `PublicAPI.Shipped.txt` | `CheckApi` gate → Phase 11 API freeze |
+| ~~W0-6~~ | ~~`Tools/Vixen.ApiCheck` + first `PublicAPI.Shipped.txt`~~ | Built. The gate is in CI; what is left is the Phase 11 reading of what it baselined |
 | W0-7 | CI legs: Windows/Linux Vulkan, NativeAOT publish, run-a-sample, WebGPU-on-lavapipe | Content determinism across 3 OSes; `Samples/01` on Windows/Linux; the AOT gate becoming continuous |
 | W0-8 | `UiDocument.Update` → `StyleUpdater` (incremental cascade) | The largest UI perf item; nothing depends on it, everything benefits |
 | W0-9 | `UiDocument` "layout finished" callback | Resize lag in `ScrollView`, `TreeView`, `DataGrid`, `CodeEditor`, `NodeCanvas`, `Viewport` |
@@ -592,7 +592,7 @@ No unmet dependency. Twenty-three independent tracks.
 | Android GLES fallback + capability deny-list | W0-4 | |
 | `Samples/02` in three browsers + Playwright leg | W0-4 | Phase 10 exit criterion |
 | WebGPU shadow maps; WebGPU Linux CI leg | W0-5 + W0-7 | |
-| `CheckApi` gate wired into CI; API review pass | W0-6 | |
+| API review pass | — | Unblocked: the gate is wired and the surface is written down. Reading 22 807 entries and deciding which of them should not be `public` is the Phase 11 work |
 | ASTC/ETC2 output + full-quality BC7 | W0-15 | Then `ktx validate` + reference-decoder verification |
 | Undoable entity create/destroy; undoable reparenting | W0-16 | |
 | Two-phase occlusion + compacted draws; per-object reflection probes | W0-17 | |
@@ -616,7 +616,7 @@ No unmet dependency. Twenty-three independent tracks.
 | Mesh shaders / meshlet culling | Deferred pipeline + capability flags |
 | SMAA · MSAA resolve · GTAO · SSR · DoF | Shaders that do not exist yet; MSAA resolve also wants the Vulkan resolve path |
 | Signing · notarisation · `.dmg`/AppImage/MSI · `PublishEditor` | W0-3 (per-OS) + a full editor |
-| Release automation (tag → signed builds + NuGet + Release) | Signing + `CheckApi` |
+| Release automation (tag → signed builds + NuGet + Release) | Signing |
 | 24 h editor / 24 h game soak | A complete editor and a complete game sample |
 | Perf bars measured on the IHV matrix | Real hardware + all CI legs |
 | DocFX + manual + 12 samples + templates verified clean-machine | Effectively everything |
@@ -726,7 +726,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 82 | `Vixen.Editor.ShaderGraph` | Procedural + custom-code nodes; Post/UI masters; previews; diagnostic mapping | Feature | Emitter span recording |
 | 83 | `Vixen.Editor.VfxGraph` | Operator nodes; remaining opcode blocks; sub-emitters/trails; live preview | Feature | — |
 | 84 | Editor | Asset editors; `Vixen.Editor.Profiler`/`.Debugger`/`.Plugin`/`.AnimationGraph`; golden screenshots; `PublishEditor` | Feature | Various |
-| 85 | Build/CI | `CheckApi` + `Vixen.ApiCheck`; NativeAOT leg; sample-running leg; Playwright leg; 3-OS determinism run | Infra | — |
+| 85 | Build/CI | NativeAOT leg; sample-running leg; Playwright leg; 3-OS determinism run | Infra | — |
 | 86 | Build/CI | Per-file SPDX enforcement; third-party attribution manifest | Licence obligation (ADR-015) | — |
 | 87 | Samples | `05-PlatformerGame`; `06-CanvasStress`; `01` on Windows/Linux and physical devices | Coverage | **K1**, #59, CI legs |
 | 88 | Docs | DocFX; manual; templates; release automation; soak tests; triage + compatibility policy | Phase 11 | Everything |
@@ -749,8 +749,8 @@ it is deliberately distinct from "not started" in Part 1.
 
 | | |
 |---|---|
-| `.csproj` on disk | 196 (`Core` 112 · `Platform` 26 · `Editor` 19 · `Tools` 19 · `Samples` 10 · `Benchmarks` 7 · `Raven` 3) — counting test siblings and generators, per ADR-014 |
-| Planned projects not created | `Vixen.Graphics.Direct3D12`, `Vixen.Platform.Windows/.Linux/.MacOS`, `Vixen.Video`, `Vixen.Net.Transport.Relay`, `Vixen.Editor.AnimationGraph/.Profiler/.Debugger/.Plugin`, `Vixen.ApiCheck`, `Vixen.Templates`, `Vixen.Raven.Transpile` |
+| `.csproj` on disk | 198 (`Core` 112 · `Platform` 26 · `Editor` 19 · `Tools` 21 · `Samples` 10 · `Benchmarks` 7 · `Raven` 3) — counting test siblings and generators, per ADR-014 |
+| Planned projects not created | `Vixen.Graphics.Direct3D12`, `Vixen.Platform.Windows/.Linux/.MacOS`, `Vixen.Video`, `Vixen.Net.Transport.Relay`, `Vixen.Editor.AnimationGraph/.Profiler/.Debugger/.Plugin`, `Vixen.Templates`, `Vixen.Raven.Transpile` |
 | Conformance cases green | 534 Yoga · 22 048 UAX#14/#29 · 91 707 UAX#9 · 328/413 shaping · 100 variable-font |
 | Golden image fixtures | 40 |
 | Fuzz targets / cases per build | 12 / ~11 M in ~7 s |

@@ -1,0 +1,1134 @@
+#nullable enable
+Vixen.Ui.Controls.Advanced.AdvancedTheme -> static class
+Vixen.Ui.Controls.Advanced.AnimationCurve -> sealed class
+Vixen.Ui.Controls.Advanced.AnimationCurve.Add(Vixen.Ui.Controls.Advanced.CurveKey key) -> int
+Vixen.Ui.Controls.Advanced.AnimationCurve.Add(float time, float value) -> Vixen.Ui.Controls.Advanced.CurveKey
+Vixen.Ui.Controls.Advanced.AnimationCurve.AnimationCurve() -> void
+Vixen.Ui.Controls.Advanced.AnimationCurve.AnimationCurve(params System.ReadOnlySpan<Vixen.Ui.Controls.Advanced.CurveKey> source) -> void
+Vixen.Ui.Controls.Advanced.AnimationCurve.Changed -> System.Action<Vixen.Ui.Controls.Advanced.AnimationCurve>?
+Vixen.Ui.Controls.Advanced.AnimationCurve.Evaluate(float time) -> float
+Vixen.Ui.Controls.Advanced.AnimationCurve.Keys.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.CurveKey>
+Vixen.Ui.Controls.Advanced.AnimationCurve.Move(Vixen.Ui.Controls.Advanced.CurveKey key, float time, float value) -> void
+Vixen.Ui.Controls.Advanced.AnimationCurve.Remove(Vixen.Ui.Controls.Advanced.CurveKey key) -> bool
+Vixen.Ui.Controls.Advanced.AnimationCurve.Slopes(int index) -> (float Outgoing, float Incoming)
+Vixen.Ui.Controls.Advanced.AnimationCurve.Touch() -> void
+Vixen.Ui.Controls.Advanced.CStyleTokenizer -> sealed class
+Vixen.Ui.Controls.Advanced.CStyleTokenizer : Vixen.Ui.Controls.Advanced.ICodeTokenizer
+Vixen.Ui.Controls.Advanced.CStyleTokenizer.CStyleTokenizer(System.Collections.Generic.IEnumerable<string> keywords, System.Collections.Generic.IEnumerable<string>? types = null) -> void
+Vixen.Ui.Controls.Advanced.CStyleTokenizer.Tokenize(string line, int state, System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.CodeToken> into) -> int
+Vixen.Ui.Controls.Advanced.CodeBuffer -> sealed class
+Vixen.Ui.Controls.Advanced.CodeBuffer.Back(Vixen.Ui.Controls.Advanced.TextPosition position) -> Vixen.Ui.Controls.Advanced.TextPosition
+Vixen.Ui.Controls.Advanced.CodeBuffer.Changed -> System.Action<Vixen.Ui.Controls.Advanced.CodeBuffer>?
+Vixen.Ui.Controls.Advanced.CodeBuffer.Clamp(Vixen.Ui.Controls.Advanced.TextPosition position) -> Vixen.Ui.Controls.Advanced.TextPosition
+Vixen.Ui.Controls.Advanced.CodeBuffer.CodeBuffer() -> void
+Vixen.Ui.Controls.Advanced.CodeBuffer.CodeBuffer(string text) -> void
+Vixen.Ui.Controls.Advanced.CodeBuffer.Delete(Vixen.Ui.Controls.Advanced.TextPosition from, Vixen.Ui.Controls.Advanced.TextPosition to) -> Vixen.Ui.Controls.Advanced.TextPosition
+Vixen.Ui.Controls.Advanced.CodeBuffer.End.get -> Vixen.Ui.Controls.Advanced.TextPosition
+Vixen.Ui.Controls.Advanced.CodeBuffer.Forward(Vixen.Ui.Controls.Advanced.TextPosition position) -> Vixen.Ui.Controls.Advanced.TextPosition
+Vixen.Ui.Controls.Advanced.CodeBuffer.IndentOf(int line) -> int
+Vixen.Ui.Controls.Advanced.CodeBuffer.Insert(Vixen.Ui.Controls.Advanced.TextPosition at, string text) -> Vixen.Ui.Controls.Advanced.TextPosition
+Vixen.Ui.Controls.Advanced.CodeBuffer.IsBlank(int line) -> bool
+Vixen.Ui.Controls.Advanced.CodeBuffer.LineCount.get -> int
+Vixen.Ui.Controls.Advanced.CodeBuffer.Lines.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Ui.Controls.Advanced.CodeBuffer.Slice(Vixen.Ui.Controls.Advanced.TextPosition from, Vixen.Ui.Controls.Advanced.TextPosition to) -> string
+Vixen.Ui.Controls.Advanced.CodeBuffer.Text.get -> string
+Vixen.Ui.Controls.Advanced.CodeBuffer.Text.set -> string
+Vixen.Ui.Controls.Advanced.CodeBuffer.WordBefore(Vixen.Ui.Controls.Advanced.TextPosition position) -> string
+Vixen.Ui.Controls.Advanced.CodeBuffer.WordEnd(Vixen.Ui.Controls.Advanced.TextPosition position) -> Vixen.Ui.Controls.Advanced.TextPosition
+Vixen.Ui.Controls.Advanced.CodeBuffer.WordStart(Vixen.Ui.Controls.Advanced.TextPosition position) -> Vixen.Ui.Controls.Advanced.TextPosition
+Vixen.Ui.Controls.Advanced.CodeBuffer.this[int line].get -> string
+Vixen.Ui.Controls.Advanced.CodeDiagnostic -> readonly struct
+Vixen.Ui.Controls.Advanced.CodeDiagnostic : System.IEquatable<Vixen.Ui.Controls.Advanced.CodeDiagnostic>
+Vixen.Ui.Controls.Advanced.CodeDiagnostic.CodeDiagnostic() -> void
+Vixen.Ui.Controls.Advanced.CodeDiagnostic.CodeDiagnostic(int Line, int Column, int Length, Vixen.Ui.Controls.Advanced.CodeSeverity Severity, string Message) -> void
+Vixen.Ui.Controls.Advanced.CodeDiagnostic.Column.get -> int
+Vixen.Ui.Controls.Advanced.CodeDiagnostic.Column.init -> int
+Vixen.Ui.Controls.Advanced.CodeDiagnostic.Length.get -> int
+Vixen.Ui.Controls.Advanced.CodeDiagnostic.Length.init -> int
+Vixen.Ui.Controls.Advanced.CodeDiagnostic.Line.get -> int
+Vixen.Ui.Controls.Advanced.CodeDiagnostic.Line.init -> int
+Vixen.Ui.Controls.Advanced.CodeDiagnostic.Message.get -> string
+Vixen.Ui.Controls.Advanced.CodeDiagnostic.Message.init -> string
+Vixen.Ui.Controls.Advanced.CodeDiagnostic.Severity.get -> Vixen.Ui.Controls.Advanced.CodeSeverity
+Vixen.Ui.Controls.Advanced.CodeDiagnostic.Severity.init -> Vixen.Ui.Controls.Advanced.CodeSeverity
+Vixen.Ui.Controls.Advanced.CodeEditor -> sealed class
+Vixen.Ui.Controls.Advanced.CodeEditor : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.CodeEditor.AcceptCompletion() -> bool
+Vixen.Ui.Controls.Advanced.CodeEditor.Anchor.get -> Vixen.Ui.Controls.Advanced.TextPosition
+Vixen.Ui.Controls.Advanced.CodeEditor.AutoFold.get -> bool
+Vixen.Ui.Controls.Advanced.CodeEditor.AutoFold.set -> bool
+Vixen.Ui.Controls.Advanced.CodeEditor.AutoIndent.get -> bool
+Vixen.Ui.Controls.Advanced.CodeEditor.AutoIndent.set -> bool
+Vixen.Ui.Controls.Advanced.CodeEditor.Buffer.get -> Vixen.Ui.Controls.Advanced.CodeBuffer
+Vixen.Ui.Controls.Advanced.CodeEditor.Buffer.set -> Vixen.Ui.Controls.Advanced.CodeBuffer
+Vixen.Ui.Controls.Advanced.CodeEditor.Caret.get -> Vixen.Ui.Controls.Advanced.TextPosition
+Vixen.Ui.Controls.Advanced.CodeEditor.CaretMoved -> System.Action<Vixen.Ui.Controls.Advanced.CodeEditor>?
+Vixen.Ui.Controls.Advanced.CodeEditor.CharacterWidth.get -> float
+Vixen.Ui.Controls.Advanced.CodeEditor.ClearAutoFold() -> void
+Vixen.Ui.Controls.Advanced.CodeEditor.ClearAutoIndent() -> void
+Vixen.Ui.Controls.Advanced.CodeEditor.ClearReadOnly() -> void
+Vixen.Ui.Controls.Advanced.CodeEditor.ClearTabSize() -> void
+Vixen.Ui.Controls.Advanced.CodeEditor.CodeEditor() -> void
+Vixen.Ui.Controls.Advanced.CodeEditor.Completion.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.CodeEditor.CompletionAccepted -> System.Action<Vixen.Ui.Controls.Advanced.CodeEditor, Vixen.Ui.Controls.Advanced.CompletionItem>?
+Vixen.Ui.Controls.Advanced.CodeEditor.CompletionIndex.get -> int
+Vixen.Ui.Controls.Advanced.CodeEditor.CompletionProvider.get -> System.Func<Vixen.Ui.Controls.Advanced.CodeEditor, string, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.CompletionItem>>?
+Vixen.Ui.Controls.Advanced.CodeEditor.CompletionProvider.set -> System.Func<Vixen.Ui.Controls.Advanced.CodeEditor, string, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.CompletionItem>>?
+Vixen.Ui.Controls.Advanced.CodeEditor.Completions.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.CompletionItem>
+Vixen.Ui.Controls.Advanced.CodeEditor.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.CodeDiagnostic>
+Vixen.Ui.Controls.Advanced.CodeEditor.Erase(bool forward) -> void
+Vixen.Ui.Controls.Advanced.CodeEditor.FoldAt(int line) -> Vixen.Ui.Controls.Advanced.CodeFold?
+Vixen.Ui.Controls.Advanced.CodeEditor.Folds.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.CodeFold>
+Vixen.Ui.Controls.Advanced.CodeEditor.Gutter.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.CodeEditor.HasSelection.get -> bool
+Vixen.Ui.Controls.Advanced.CodeEditor.HideCompletion() -> void
+Vixen.Ui.Controls.Advanced.CodeEditor.Insert(string text) -> void
+Vixen.Ui.Controls.Advanced.CodeEditor.IsCollapsed(int line) -> bool
+Vixen.Ui.Controls.Advanced.CodeEditor.IsCompleting.get -> bool
+Vixen.Ui.Controls.Advanced.CodeEditor.Lines.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.CodeEditor.Move(Vixen.Ui.Controls.Advanced.TextPosition position, bool extend = false) -> void
+Vixen.Ui.Controls.Advanced.CodeEditor.Pool.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.CodeLine>
+Vixen.Ui.Controls.Advanced.CodeEditor.ReadOnly.get -> bool
+Vixen.Ui.Controls.Advanced.CodeEditor.ReadOnly.set -> bool
+Vixen.Ui.Controls.Advanced.CodeEditor.Refresh() -> void
+Vixen.Ui.Controls.Advanced.CodeEditor.Reveal() -> void
+Vixen.Ui.Controls.Advanced.CodeEditor.RowHeight.get -> float
+Vixen.Ui.Controls.Advanced.CodeEditor.RowOf(int line) -> int
+Vixen.Ui.Controls.Advanced.CodeEditor.Rows.get -> System.Collections.Generic.IReadOnlyList<int>
+Vixen.Ui.Controls.Advanced.CodeEditor.Scroller.get -> Vixen.Ui.Controls.ScrollView
+Vixen.Ui.Controls.Advanced.CodeEditor.SelectAll() -> void
+Vixen.Ui.Controls.Advanced.CodeEditor.SelectedText.get -> string
+Vixen.Ui.Controls.Advanced.CodeEditor.SetDiagnostics(params System.ReadOnlySpan<Vixen.Ui.Controls.Advanced.CodeDiagnostic> items) -> void
+Vixen.Ui.Controls.Advanced.CodeEditor.SetFolds(params System.ReadOnlySpan<Vixen.Ui.Controls.Advanced.CodeFold> regions) -> void
+Vixen.Ui.Controls.Advanced.CodeEditor.ShowCompletion() -> void
+Vixen.Ui.Controls.Advanced.CodeEditor.Source.get -> string
+Vixen.Ui.Controls.Advanced.CodeEditor.Source.set -> string
+Vixen.Ui.Controls.Advanced.CodeEditor.TabSize.get -> int
+Vixen.Ui.Controls.Advanced.CodeEditor.TabSize.set -> int
+Vixen.Ui.Controls.Advanced.CodeEditor.TextChanged -> System.Action<Vixen.Ui.Controls.Advanced.CodeEditor>?
+Vixen.Ui.Controls.Advanced.CodeEditor.ToPosition(float x, float y) -> Vixen.Ui.Controls.Advanced.TextPosition
+Vixen.Ui.Controls.Advanced.CodeEditor.ToScreen(Vixen.Ui.Controls.Advanced.TextPosition position) -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.CodeEditor.ToggleFold(int line) -> bool
+Vixen.Ui.Controls.Advanced.CodeEditor.Tokenizer.get -> Vixen.Ui.Controls.Advanced.ICodeTokenizer
+Vixen.Ui.Controls.Advanced.CodeEditor.Tokenizer.set -> Vixen.Ui.Controls.Advanced.ICodeTokenizer
+Vixen.Ui.Controls.Advanced.CodeFold -> readonly struct
+Vixen.Ui.Controls.Advanced.CodeFold : System.IEquatable<Vixen.Ui.Controls.Advanced.CodeFold>
+Vixen.Ui.Controls.Advanced.CodeFold.CodeFold() -> void
+Vixen.Ui.Controls.Advanced.CodeFold.CodeFold(int Start, int End) -> void
+Vixen.Ui.Controls.Advanced.CodeFold.End.get -> int
+Vixen.Ui.Controls.Advanced.CodeFold.End.init -> int
+Vixen.Ui.Controls.Advanced.CodeFold.Start.get -> int
+Vixen.Ui.Controls.Advanced.CodeFold.Start.init -> int
+Vixen.Ui.Controls.Advanced.CodeGutterRow -> sealed class
+Vixen.Ui.Controls.Advanced.CodeGutterRow : Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.CodeGutterRow.CodeGutterRow() -> void
+Vixen.Ui.Controls.Advanced.CodeGutterRow.Fold.get -> Vixen.Ui.Controls.Icon
+Vixen.Ui.Controls.Advanced.CodeGutterRow.Index.get -> int
+Vixen.Ui.Controls.Advanced.CodeGutterRow.Number.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.CodeLine -> sealed class
+Vixen.Ui.Controls.Advanced.CodeLine : Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.CodeLine.CodeLine() -> void
+Vixen.Ui.Controls.Advanced.CodeLine.Index.get -> int
+Vixen.Ui.Controls.Advanced.CodeLine.Spans.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.CodeSpan>
+Vixen.Ui.Controls.Advanced.CodeSeverity -> enum : byte
+Vixen.Ui.Controls.Advanced.CodeSeverity.CodeSeverity() -> void
+Vixen.Ui.Controls.Advanced.CodeSeverity.Error = 2 -> Vixen.Ui.Controls.Advanced.CodeSeverity
+Vixen.Ui.Controls.Advanced.CodeSeverity.Hint = 0 -> Vixen.Ui.Controls.Advanced.CodeSeverity
+Vixen.Ui.Controls.Advanced.CodeSeverity.Warning = 1 -> Vixen.Ui.Controls.Advanced.CodeSeverity
+Vixen.Ui.Controls.Advanced.CodeSpan -> sealed class
+Vixen.Ui.Controls.Advanced.CodeSpan : Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.CodeSpan.CodeSpan() -> void
+Vixen.Ui.Controls.Advanced.CodeSpan.Kind.get -> Vixen.Ui.Controls.Advanced.CodeTokenKind
+Vixen.Ui.Controls.Advanced.CodeToken -> readonly struct
+Vixen.Ui.Controls.Advanced.CodeToken : System.IEquatable<Vixen.Ui.Controls.Advanced.CodeToken>
+Vixen.Ui.Controls.Advanced.CodeToken.CodeToken() -> void
+Vixen.Ui.Controls.Advanced.CodeToken.CodeToken(int Start, int Length, Vixen.Ui.Controls.Advanced.CodeTokenKind Kind) -> void
+Vixen.Ui.Controls.Advanced.CodeToken.Kind.get -> Vixen.Ui.Controls.Advanced.CodeTokenKind
+Vixen.Ui.Controls.Advanced.CodeToken.Kind.init -> Vixen.Ui.Controls.Advanced.CodeTokenKind
+Vixen.Ui.Controls.Advanced.CodeToken.Length.get -> int
+Vixen.Ui.Controls.Advanced.CodeToken.Length.init -> int
+Vixen.Ui.Controls.Advanced.CodeToken.Start.get -> int
+Vixen.Ui.Controls.Advanced.CodeToken.Start.init -> int
+Vixen.Ui.Controls.Advanced.CodeTokenKind -> enum : byte
+Vixen.Ui.Controls.Advanced.CodeTokenKind.CodeTokenKind() -> void
+Vixen.Ui.Controls.Advanced.CodeTokenKind.Comment = 5 -> Vixen.Ui.Controls.Advanced.CodeTokenKind
+Vixen.Ui.Controls.Advanced.CodeTokenKind.Directive = 7 -> Vixen.Ui.Controls.Advanced.CodeTokenKind
+Vixen.Ui.Controls.Advanced.CodeTokenKind.Keyword = 1 -> Vixen.Ui.Controls.Advanced.CodeTokenKind
+Vixen.Ui.Controls.Advanced.CodeTokenKind.Number = 3 -> Vixen.Ui.Controls.Advanced.CodeTokenKind
+Vixen.Ui.Controls.Advanced.CodeTokenKind.Operator = 6 -> Vixen.Ui.Controls.Advanced.CodeTokenKind
+Vixen.Ui.Controls.Advanced.CodeTokenKind.Plain = 0 -> Vixen.Ui.Controls.Advanced.CodeTokenKind
+Vixen.Ui.Controls.Advanced.CodeTokenKind.String = 4 -> Vixen.Ui.Controls.Advanced.CodeTokenKind
+Vixen.Ui.Controls.Advanced.CodeTokenKind.Type = 2 -> Vixen.Ui.Controls.Advanced.CodeTokenKind
+Vixen.Ui.Controls.Advanced.ColorChannel -> enum : byte
+Vixen.Ui.Controls.Advanced.ColorChannel.Alpha = 1 -> Vixen.Ui.Controls.Advanced.ColorChannel
+Vixen.Ui.Controls.Advanced.ColorChannel.ColorChannel() -> void
+Vixen.Ui.Controls.Advanced.ColorChannel.Hue = 0 -> Vixen.Ui.Controls.Advanced.ColorChannel
+Vixen.Ui.Controls.Advanced.ColorField -> sealed class
+Vixen.Ui.Controls.Advanced.ColorField : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.ColorField.ColorField() -> void
+Vixen.Ui.Controls.Advanced.ColorField.Marker.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.ColorField.Moved -> System.Action<Vixen.Ui.Controls.Advanced.ColorField, Vixen.Core.Mathematics.Vector2>?
+Vixen.Ui.Controls.Advanced.ColorField.Owner.get -> Vixen.Ui.Controls.Advanced.ColorPicker?
+Vixen.Ui.Controls.Advanced.ColorModel -> enum : byte
+Vixen.Ui.Controls.Advanced.ColorModel.ColorModel() -> void
+Vixen.Ui.Controls.Advanced.ColorModel.Hsv = 0 -> Vixen.Ui.Controls.Advanced.ColorModel
+Vixen.Ui.Controls.Advanced.ColorModel.OkLch = 1 -> Vixen.Ui.Controls.Advanced.ColorModel
+Vixen.Ui.Controls.Advanced.ColorPicker -> sealed class
+Vixen.Ui.Controls.Advanced.ColorPicker : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.ColorPicker.AddToPalette() -> bool
+Vixen.Ui.Controls.Advanced.ColorPicker.AllowAlpha.get -> bool
+Vixen.Ui.Controls.Advanced.ColorPicker.AllowAlpha.set -> bool
+Vixen.Ui.Controls.Advanced.ColorPicker.AllowHdr.get -> bool
+Vixen.Ui.Controls.Advanced.ColorPicker.AllowHdr.set -> bool
+Vixen.Ui.Controls.Advanced.ColorPicker.AlphaStrip.get -> Vixen.Ui.Controls.Advanced.ColorStrip
+Vixen.Ui.Controls.Advanced.ColorPicker.ClearAllowAlpha() -> void
+Vixen.Ui.Controls.Advanced.ColorPicker.ClearAllowHdr() -> void
+Vixen.Ui.Controls.Advanced.ColorPicker.ClearIntensity() -> void
+Vixen.Ui.Controls.Advanced.ColorPicker.ClearModel() -> void
+Vixen.Ui.Controls.Advanced.ColorPicker.ColorPicker() -> void
+Vixen.Ui.Controls.Advanced.ColorPicker.Eyedropper.get -> Vixen.Ui.Controls.IconButton
+Vixen.Ui.Controls.Advanced.ColorPicker.EyedropperRequested -> System.Action<Vixen.Ui.Controls.Advanced.ColorPicker>?
+Vixen.Ui.Controls.Advanced.ColorPicker.Field.get -> Vixen.Ui.Controls.Advanced.ColorField
+Vixen.Ui.Controls.Advanced.ColorPicker.HdrValue.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.ColorPicker.HexField.get -> Vixen.Ui.Controls.TextBox
+Vixen.Ui.Controls.Advanced.ColorPicker.HexText.get -> string
+Vixen.Ui.Controls.Advanced.ColorPicker.Hue.get -> float
+Vixen.Ui.Controls.Advanced.ColorPicker.HueStrip.get -> Vixen.Ui.Controls.Advanced.ColorStrip
+Vixen.Ui.Controls.Advanced.ColorPicker.Intensity.get -> float
+Vixen.Ui.Controls.Advanced.ColorPicker.Intensity.set -> float
+Vixen.Ui.Controls.Advanced.ColorPicker.IntensitySlider.get -> Vixen.Ui.Controls.Slider
+Vixen.Ui.Controls.Advanced.ColorPicker.IsPicking.get -> bool
+Vixen.Ui.Controls.Advanced.ColorPicker.Model.get -> Vixen.Ui.Controls.Advanced.ColorModel
+Vixen.Ui.Controls.Advanced.ColorPicker.Model.set -> Vixen.Ui.Controls.Advanced.ColorModel
+Vixen.Ui.Controls.Advanced.ColorPicker.Palette.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.ColorPicker.Pick(Vixen.Core.Mathematics.Color4 colour) -> void
+Vixen.Ui.Controls.Advanced.ColorPicker.Preview.get -> Vixen.Ui.Controls.Advanced.ColorSwatch
+Vixen.Ui.Controls.Advanced.ColorPicker.RequestEyedropper() -> void
+Vixen.Ui.Controls.Advanced.ColorPicker.SetPalette(params System.ReadOnlySpan<Vixen.Core.Mathematics.Color4> colors) -> void
+Vixen.Ui.Controls.Advanced.ColorPicker.Swatches.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Color4>
+Vixen.Ui.Controls.Advanced.ColorPicker.Value.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.ColorPicker.Value.set -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.ColorPicker.ValueChanged -> System.Action<Vixen.Ui.Controls.Advanced.ColorPicker, Vixen.Core.Mathematics.Color4>?
+Vixen.Ui.Controls.Advanced.ColorStrip -> sealed class
+Vixen.Ui.Controls.Advanced.ColorStrip : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.ColorStrip.Channel.get -> Vixen.Ui.Controls.Advanced.ColorChannel
+Vixen.Ui.Controls.Advanced.ColorStrip.ColorStrip() -> void
+Vixen.Ui.Controls.Advanced.ColorStrip.Fraction.get -> float
+Vixen.Ui.Controls.Advanced.ColorStrip.Moved -> System.Action<Vixen.Ui.Controls.Advanced.ColorStrip, float>?
+Vixen.Ui.Controls.Advanced.ColorStrip.Owner.get -> Vixen.Ui.Controls.Advanced.ColorPicker?
+Vixen.Ui.Controls.Advanced.ColorSwatch -> sealed class
+Vixen.Ui.Controls.Advanced.ColorSwatch : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.ColorSwatch.Color.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.ColorSwatch.ColorSwatch() -> void
+Vixen.Ui.Controls.Advanced.CompletionItem -> readonly struct
+Vixen.Ui.Controls.Advanced.CompletionItem : System.IEquatable<Vixen.Ui.Controls.Advanced.CompletionItem>
+Vixen.Ui.Controls.Advanced.CompletionItem.CompletionItem() -> void
+Vixen.Ui.Controls.Advanced.CompletionItem.CompletionItem(string Label, string? Detail = null) -> void
+Vixen.Ui.Controls.Advanced.CompletionItem.Detail.get -> string?
+Vixen.Ui.Controls.Advanced.CompletionItem.Detail.init -> string?
+Vixen.Ui.Controls.Advanced.CompletionItem.Label.get -> string
+Vixen.Ui.Controls.Advanced.CompletionItem.Label.init -> string
+Vixen.Ui.Controls.Advanced.CurveEditor -> sealed class
+Vixen.Ui.Controls.Advanced.CurveEditor : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.CurveEditor.Active.get -> Vixen.Ui.Controls.Advanced.CurveKey?
+Vixen.Ui.Controls.Advanced.CurveEditor.Apply(Vixen.Ui.Controls.Advanced.AnimationCurve preset) -> void
+Vixen.Ui.Controls.Advanced.CurveEditor.ClearHandleLength() -> void
+Vixen.Ui.Controls.Advanced.CurveEditor.ClearSnapToGrid() -> void
+Vixen.Ui.Controls.Advanced.CurveEditor.ClearTimeStep() -> void
+Vixen.Ui.Controls.Advanced.CurveEditor.ClearValueStep() -> void
+Vixen.Ui.Controls.Advanced.CurveEditor.Curve.get -> Vixen.Ui.Controls.Advanced.AnimationCurve
+Vixen.Ui.Controls.Advanced.CurveEditor.Curve.set -> Vixen.Ui.Controls.Advanced.AnimationCurve
+Vixen.Ui.Controls.Advanced.CurveEditor.CurveChanged -> System.Action<Vixen.Ui.Controls.Advanced.CurveEditor>?
+Vixen.Ui.Controls.Advanced.CurveEditor.CurveEditor() -> void
+Vixen.Ui.Controls.Advanced.CurveEditor.Frame() -> void
+Vixen.Ui.Controls.Advanced.CurveEditor.HandleLength.get -> float
+Vixen.Ui.Controls.Advanced.CurveEditor.HandleLength.set -> float
+Vixen.Ui.Controls.Advanced.CurveEditor.HandlePoint(Vixen.Ui.Controls.Advanced.CurveKey key, bool outgoing) -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.CurveEditor.KeyAt(float x, float y, float radius = 9) -> Vixen.Ui.Controls.Advanced.CurveKey?
+Vixen.Ui.Controls.Advanced.CurveEditor.Selection.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Ui.Controls.Advanced.CurveKey>
+Vixen.Ui.Controls.Advanced.CurveEditor.SelectionChanged -> System.Action<Vixen.Ui.Controls.Advanced.CurveEditor>?
+Vixen.Ui.Controls.Advanced.CurveEditor.SetTangentMode(Vixen.Ui.Controls.Advanced.TangentMode mode) -> void
+Vixen.Ui.Controls.Advanced.CurveEditor.SnapToGrid.get -> bool
+Vixen.Ui.Controls.Advanced.CurveEditor.SnapToGrid.set -> bool
+Vixen.Ui.Controls.Advanced.CurveEditor.TimeStep.get -> float
+Vixen.Ui.Controls.Advanced.CurveEditor.TimeStep.set -> float
+Vixen.Ui.Controls.Advanced.CurveEditor.ToCurve(float x, float y) -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.CurveEditor.ToScreen(float time, float value) -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.CurveEditor.ValueStep.get -> float
+Vixen.Ui.Controls.Advanced.CurveEditor.ValueStep.set -> float
+Vixen.Ui.Controls.Advanced.CurveEditor.View.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Controls.Advanced.CurveEditor.View.set -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Controls.Advanced.CurveKey -> sealed class
+Vixen.Ui.Controls.Advanced.CurveKey.CurveKey(float time, float value, Vixen.Ui.Controls.Advanced.TangentMode mode = Vixen.Ui.Controls.Advanced.TangentMode.Auto) -> void
+Vixen.Ui.Controls.Advanced.CurveKey.InTangent.get -> float
+Vixen.Ui.Controls.Advanced.CurveKey.InTangent.set -> float
+Vixen.Ui.Controls.Advanced.CurveKey.Mode.get -> Vixen.Ui.Controls.Advanced.TangentMode
+Vixen.Ui.Controls.Advanced.CurveKey.Mode.set -> Vixen.Ui.Controls.Advanced.TangentMode
+Vixen.Ui.Controls.Advanced.CurveKey.OutTangent.get -> float
+Vixen.Ui.Controls.Advanced.CurveKey.OutTangent.set -> float
+Vixen.Ui.Controls.Advanced.CurveKey.Time.get -> float
+Vixen.Ui.Controls.Advanced.CurveKey.Time.set -> float
+Vixen.Ui.Controls.Advanced.CurveKey.Value.get -> float
+Vixen.Ui.Controls.Advanced.CurveKey.Value.set -> float
+Vixen.Ui.Controls.Advanced.DataCell -> sealed class
+Vixen.Ui.Controls.Advanced.DataCell : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.DataCell.Column.get -> Vixen.Ui.Controls.Advanced.DataColumn?
+Vixen.Ui.Controls.Advanced.DataCell.DataCell() -> void
+Vixen.Ui.Controls.Advanced.DataCell.Editor.get -> Vixen.Ui.Controls.TextBox?
+Vixen.Ui.Controls.Advanced.DataCell.Item.get -> object?
+Vixen.Ui.Controls.Advanced.DataCell.Label.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.DataColumn -> sealed class
+Vixen.Ui.Controls.Advanced.DataColumn.Commit.get -> System.Action<object, string>?
+Vixen.Ui.Controls.Advanced.DataColumn.Commit.set -> System.Action<object, string>?
+Vixen.Ui.Controls.Advanced.DataColumn.Comparer.get -> System.Collections.Generic.IComparer<object?>?
+Vixen.Ui.Controls.Advanced.DataColumn.Comparer.set -> System.Collections.Generic.IComparer<object?>?
+Vixen.Ui.Controls.Advanced.DataColumn.DataColumn(string header, System.Func<object, object?>? value = null) -> void
+Vixen.Ui.Controls.Advanced.DataColumn.Header.get -> string
+Vixen.Ui.Controls.Advanced.DataColumn.Header.set -> string
+Vixen.Ui.Controls.Advanced.DataColumn.MinimumWidth.get -> float
+Vixen.Ui.Controls.Advanced.DataColumn.MinimumWidth.set -> float
+Vixen.Ui.Controls.Advanced.DataColumn.Resizable.get -> bool
+Vixen.Ui.Controls.Advanced.DataColumn.Resizable.set -> bool
+Vixen.Ui.Controls.Advanced.DataColumn.Sortable.get -> bool
+Vixen.Ui.Controls.Advanced.DataColumn.Sortable.set -> bool
+Vixen.Ui.Controls.Advanced.DataColumn.Template.get -> System.Action<Vixen.Ui.Controls.Advanced.DataCell, object>?
+Vixen.Ui.Controls.Advanced.DataColumn.Template.set -> System.Action<Vixen.Ui.Controls.Advanced.DataCell, object>?
+Vixen.Ui.Controls.Advanced.DataColumn.TextOf(object item) -> string
+Vixen.Ui.Controls.Advanced.DataColumn.Value.get -> System.Func<object, object?>?
+Vixen.Ui.Controls.Advanced.DataColumn.Value.set -> System.Func<object, object?>?
+Vixen.Ui.Controls.Advanced.DataColumn.Width.get -> float
+Vixen.Ui.Controls.Advanced.DataColumn.Width.set -> float
+Vixen.Ui.Controls.Advanced.DataGrid -> sealed class
+Vixen.Ui.Controls.Advanced.DataGrid : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.DataGrid.Activated -> System.Action<Vixen.Ui.Controls.Advanced.DataGrid, object>?
+Vixen.Ui.Controls.Advanced.DataGrid.AddColumn(Vixen.Ui.Controls.Advanced.DataColumn column) -> Vixen.Ui.Controls.Advanced.DataColumn
+Vixen.Ui.Controls.Advanced.DataGrid.AddColumn(string header, System.Func<object, object?>? value = null) -> Vixen.Ui.Controls.Advanced.DataColumn
+Vixen.Ui.Controls.Advanced.DataGrid.BeginEdit(Vixen.Ui.Controls.Advanced.DataCell cell) -> bool
+Vixen.Ui.Controls.Advanced.DataGrid.CellEdited -> System.Action<Vixen.Ui.Controls.Advanced.DataGrid, object, Vixen.Ui.Controls.Advanced.DataColumn>?
+Vixen.Ui.Controls.Advanced.DataGrid.ClearFrozenColumns() -> void
+Vixen.Ui.Controls.Advanced.DataGrid.ClearMultiSelect() -> void
+Vixen.Ui.Controls.Advanced.DataGrid.Columns.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.DataColumn>
+Vixen.Ui.Controls.Advanced.DataGrid.DataGrid() -> void
+Vixen.Ui.Controls.Advanced.DataGrid.FrozenColumns.get -> int
+Vixen.Ui.Controls.Advanced.DataGrid.FrozenColumns.set -> int
+Vixen.Ui.Controls.Advanced.DataGrid.GroupBy(Vixen.Ui.Controls.Advanced.DataColumn? column) -> void
+Vixen.Ui.Controls.Advanced.DataGrid.GroupColumn.get -> Vixen.Ui.Controls.Advanced.DataColumn?
+Vixen.Ui.Controls.Advanced.DataGrid.Header.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.DataGrid.Headers.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.DataHeaderCell>
+Vixen.Ui.Controls.Advanced.DataGrid.IndexOf(Vixen.Ui.Controls.Advanced.DataColumn column) -> int
+Vixen.Ui.Controls.Advanced.DataGrid.ItemAt(int row) -> int
+Vixen.Ui.Controls.Advanced.DataGrid.Items.get -> System.Collections.Generic.IReadOnlyList<object>
+Vixen.Ui.Controls.Advanced.DataGrid.MoveColumn(int from, int to) -> void
+Vixen.Ui.Controls.Advanced.DataGrid.MultiSelect.get -> bool
+Vixen.Ui.Controls.Advanced.DataGrid.MultiSelect.set -> bool
+Vixen.Ui.Controls.Advanced.DataGrid.Refresh() -> void
+Vixen.Ui.Controls.Advanced.DataGrid.RowCount.get -> int
+Vixen.Ui.Controls.Advanced.DataGrid.RowHeight.get -> float
+Vixen.Ui.Controls.Advanced.DataGrid.RowIndexOf(int item) -> int
+Vixen.Ui.Controls.Advanced.DataGrid.Rows.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.DataRow>
+Vixen.Ui.Controls.Advanced.DataGrid.Scroller.get -> Vixen.Ui.Controls.ScrollView
+Vixen.Ui.Controls.Advanced.DataGrid.Select(int item, Vixen.Ui.ModifierKeys modifiers = Vixen.Ui.ModifierKeys.None) -> void
+Vixen.Ui.Controls.Advanced.DataGrid.Selection.get -> System.Collections.Generic.IReadOnlyCollection<int>
+Vixen.Ui.Controls.Advanced.DataGrid.SelectionChanged -> System.Action<Vixen.Ui.Controls.Advanced.DataGrid>?
+Vixen.Ui.Controls.Advanced.DataGrid.SetItems(System.Collections.Generic.IEnumerable<object> source) -> void
+Vixen.Ui.Controls.Advanced.DataGrid.SortBy(Vixen.Ui.Controls.Advanced.DataColumn? column, bool descending = false) -> void
+Vixen.Ui.Controls.Advanced.DataGrid.SortColumn.get -> Vixen.Ui.Controls.Advanced.DataColumn?
+Vixen.Ui.Controls.Advanced.DataGrid.SortDescending.get -> bool
+Vixen.Ui.Controls.Advanced.DataGrid.ToggleGroup(object key) -> void
+Vixen.Ui.Controls.Advanced.DataHeaderCell -> sealed class
+Vixen.Ui.Controls.Advanced.DataHeaderCell : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.DataHeaderCell.Column.get -> Vixen.Ui.Controls.Advanced.DataColumn?
+Vixen.Ui.Controls.Advanced.DataHeaderCell.DataHeaderCell() -> void
+Vixen.Ui.Controls.Advanced.DataHeaderCell.Grip.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.DataHeaderCell.Label.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.DataHeaderCell.Sort.get -> Vixen.Ui.Controls.Icon
+Vixen.Ui.Controls.Advanced.DataRow -> sealed class
+Vixen.Ui.Controls.Advanced.DataRow : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.DataRow.Cells.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.DataCell>
+Vixen.Ui.Controls.Advanced.DataRow.DataRow() -> void
+Vixen.Ui.Controls.Advanced.DataRow.GroupKey.get -> object?
+Vixen.Ui.Controls.Advanced.DataRow.GroupLabel.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.DataRow.Index.get -> int
+Vixen.Ui.Controls.Advanced.DataRow.Item.get -> object?
+Vixen.Ui.Controls.Advanced.DockFloat -> readonly struct
+Vixen.Ui.Controls.Advanced.DockFloat : System.IEquatable<Vixen.Ui.Controls.Advanced.DockFloat>
+Vixen.Ui.Controls.Advanced.DockFloat.DockFloat() -> void
+Vixen.Ui.Controls.Advanced.DockFloat.DockFloat(Vixen.Ui.Controls.Advanced.DockGroupNode Group, float X, float Y, float Width, float Height) -> void
+Vixen.Ui.Controls.Advanced.DockFloat.Group.get -> Vixen.Ui.Controls.Advanced.DockGroupNode
+Vixen.Ui.Controls.Advanced.DockFloat.Group.init -> Vixen.Ui.Controls.Advanced.DockGroupNode
+Vixen.Ui.Controls.Advanced.DockFloat.Height.get -> float
+Vixen.Ui.Controls.Advanced.DockFloat.Height.init -> float
+Vixen.Ui.Controls.Advanced.DockFloat.ToYaml() -> Vixen.Core.Yaml.YamlNode
+Vixen.Ui.Controls.Advanced.DockFloat.Width.get -> float
+Vixen.Ui.Controls.Advanced.DockFloat.Width.init -> float
+Vixen.Ui.Controls.Advanced.DockFloat.X.get -> float
+Vixen.Ui.Controls.Advanced.DockFloat.X.init -> float
+Vixen.Ui.Controls.Advanced.DockFloat.Y.get -> float
+Vixen.Ui.Controls.Advanced.DockFloat.Y.init -> float
+Vixen.Ui.Controls.Advanced.DockGroupNode -> sealed class
+Vixen.Ui.Controls.Advanced.DockGroupNode : Vixen.Ui.Controls.Advanced.DockNode
+Vixen.Ui.Controls.Advanced.DockGroupNode.Add(string id, int index = -1) -> void
+Vixen.Ui.Controls.Advanced.DockGroupNode.DockGroupNode(params System.ReadOnlySpan<string> panels) -> void
+Vixen.Ui.Controls.Advanced.DockGroupNode.IndexOf(string id) -> int
+Vixen.Ui.Controls.Advanced.DockGroupNode.Panels.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Ui.Controls.Advanced.DockGroupNode.Remove(string id) -> bool
+Vixen.Ui.Controls.Advanced.DockGroupNode.Selected.get -> int
+Vixen.Ui.Controls.Advanced.DockGroupNode.Selected.set -> int
+Vixen.Ui.Controls.Advanced.DockGroupView -> sealed class
+Vixen.Ui.Controls.Advanced.DockGroupView : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.DockGroupView.Body.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.DockGroupView.DockGroupView() -> void
+Vixen.Ui.Controls.Advanced.DockGroupView.Node.get -> Vixen.Ui.Controls.Advanced.DockGroupNode?
+Vixen.Ui.Controls.Advanced.DockGroupView.Strip.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.DockLayout -> sealed class
+Vixen.Ui.Controls.Advanced.DockLayout.AddFloating(Vixen.Ui.Controls.Advanced.DockFloat window) -> void
+Vixen.Ui.Controls.Advanced.DockLayout.Contains(Vixen.Ui.Controls.Advanced.DockGroupNode group) -> bool
+Vixen.Ui.Controls.Advanced.DockLayout.Dock(string id, Vixen.Ui.Controls.Advanced.DockGroupNode target, Vixen.Ui.Controls.Advanced.DockZone zone) -> void
+Vixen.Ui.Controls.Advanced.DockLayout.DockLayout() -> void
+Vixen.Ui.Controls.Advanced.DockLayout.Find(string id) -> (Vixen.Ui.Controls.Advanced.DockGroupNode Group, int Index)?
+Vixen.Ui.Controls.Advanced.DockLayout.Float(string id, float x, float y, float width = 320, float height = 240) -> void
+Vixen.Ui.Controls.Advanced.DockLayout.Floating.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.DockFloat>
+Vixen.Ui.Controls.Advanced.DockLayout.Groups() -> System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.DockGroupNode>
+Vixen.Ui.Controls.Advanced.DockLayout.Prune() -> void
+Vixen.Ui.Controls.Advanced.DockLayout.RemoveFloating(int index) -> void
+Vixen.Ui.Controls.Advanced.DockLayout.RemovePanel(string id) -> bool
+Vixen.Ui.Controls.Advanced.DockLayout.Replace(Vixen.Ui.Controls.Advanced.DockNode node, Vixen.Ui.Controls.Advanced.DockNode replacement) -> bool
+Vixen.Ui.Controls.Advanced.DockLayout.Root.get -> Vixen.Ui.Controls.Advanced.DockNode?
+Vixen.Ui.Controls.Advanced.DockLayout.Root.set -> Vixen.Ui.Controls.Advanced.DockNode?
+Vixen.Ui.Controls.Advanced.DockLayout.Save() -> string
+Vixen.Ui.Controls.Advanced.DockLayout.SetFloating(int index, Vixen.Ui.Controls.Advanced.DockFloat window) -> void
+Vixen.Ui.Controls.Advanced.DockNode -> abstract class
+Vixen.Ui.Controls.Advanced.DockNode.DockNode() -> void
+Vixen.Ui.Controls.Advanced.DockPanel -> sealed class
+Vixen.Ui.Controls.Advanced.DockPanel : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.DockPanel.CanClose.get -> bool
+Vixen.Ui.Controls.Advanced.DockPanel.CanClose.set -> bool
+Vixen.Ui.Controls.Advanced.DockPanel.ClearCanClose() -> void
+Vixen.Ui.Controls.Advanced.DockPanel.ClearTitle() -> void
+Vixen.Ui.Controls.Advanced.DockPanel.DockPanel() -> void
+Vixen.Ui.Controls.Advanced.DockPanel.Id.get -> string
+Vixen.Ui.Controls.Advanced.DockPanel.Title.get -> string?
+Vixen.Ui.Controls.Advanced.DockPanel.Title.set -> string?
+Vixen.Ui.Controls.Advanced.DockSplitNode -> sealed class
+Vixen.Ui.Controls.Advanced.DockSplitNode : Vixen.Ui.Controls.Advanced.DockNode
+Vixen.Ui.Controls.Advanced.DockSplitNode.DockSplitNode(Vixen.Ui.Controls.Orientation orientation, Vixen.Ui.Controls.Advanced.DockNode first, Vixen.Ui.Controls.Advanced.DockNode second, float ratio = 0.5) -> void
+Vixen.Ui.Controls.Advanced.DockSplitNode.First.get -> Vixen.Ui.Controls.Advanced.DockNode
+Vixen.Ui.Controls.Advanced.DockSplitNode.First.set -> Vixen.Ui.Controls.Advanced.DockNode
+Vixen.Ui.Controls.Advanced.DockSplitNode.Orientation.get -> Vixen.Ui.Controls.Orientation
+Vixen.Ui.Controls.Advanced.DockSplitNode.Ratio.get -> float
+Vixen.Ui.Controls.Advanced.DockSplitNode.Ratio.set -> float
+Vixen.Ui.Controls.Advanced.DockSplitNode.Second.get -> Vixen.Ui.Controls.Advanced.DockNode
+Vixen.Ui.Controls.Advanced.DockSplitNode.Second.set -> Vixen.Ui.Controls.Advanced.DockNode
+Vixen.Ui.Controls.Advanced.DockSplitterView -> sealed class
+Vixen.Ui.Controls.Advanced.DockSplitterView : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.DockSplitterView.DockSplitterView() -> void
+Vixen.Ui.Controls.Advanced.DockTab -> sealed class
+Vixen.Ui.Controls.Advanced.DockTab : Vixen.Ui.Controls.ButtonBase
+Vixen.Ui.Controls.Advanced.DockTab.CloseButton.get -> Vixen.Ui.Controls.IconButton?
+Vixen.Ui.Controls.Advanced.DockTab.DockTab() -> void
+Vixen.Ui.Controls.Advanced.DockTab.PanelId.get -> string
+Vixen.Ui.Controls.Advanced.DockZone -> enum : byte
+Vixen.Ui.Controls.Advanced.DockZone.Bottom = 4 -> Vixen.Ui.Controls.Advanced.DockZone
+Vixen.Ui.Controls.Advanced.DockZone.Center = 0 -> Vixen.Ui.Controls.Advanced.DockZone
+Vixen.Ui.Controls.Advanced.DockZone.DockZone() -> void
+Vixen.Ui.Controls.Advanced.DockZone.Left = 1 -> Vixen.Ui.Controls.Advanced.DockZone
+Vixen.Ui.Controls.Advanced.DockZone.Right = 2 -> Vixen.Ui.Controls.Advanced.DockZone
+Vixen.Ui.Controls.Advanced.DockZone.Top = 3 -> Vixen.Ui.Controls.Advanced.DockZone
+Vixen.Ui.Controls.Advanced.DockingHost -> sealed class
+Vixen.Ui.Controls.Advanced.DockingHost : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.DockingHost.AddPanel(string id, string? title = null) -> Vixen.Ui.Controls.Advanced.DockPanel
+Vixen.Ui.Controls.Advanced.DockingHost.Detached.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.DockingHost.Dock(string id, Vixen.Ui.Controls.Advanced.DockGroupNode target, Vixen.Ui.Controls.Advanced.DockZone side) -> void
+Vixen.Ui.Controls.Advanced.DockingHost.DockingHost() -> void
+Vixen.Ui.Controls.Advanced.DockingHost.Float(string id, float x, float y, float width = 320, float height = 240) -> void
+Vixen.Ui.Controls.Advanced.DockingHost.Groups.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.DockGroupView>
+Vixen.Ui.Controls.Advanced.DockingHost.Layout.get -> Vixen.Ui.Controls.Advanced.DockLayout
+Vixen.Ui.Controls.Advanced.DockingHost.LayoutChanged -> System.Action<Vixen.Ui.Controls.Advanced.DockingHost>?
+Vixen.Ui.Controls.Advanced.DockingHost.Load(string yaml) -> void
+Vixen.Ui.Controls.Advanced.DockingHost.Panels.get -> System.Collections.Generic.IReadOnlyDictionary<string, Vixen.Ui.Controls.Advanced.DockPanel>
+Vixen.Ui.Controls.Advanced.DockingHost.Preview.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.DockingHost.Rebuild() -> void
+Vixen.Ui.Controls.Advanced.DockingHost.RemovePanel(string id) -> bool
+Vixen.Ui.Controls.Advanced.DockingHost.Save() -> string
+Vixen.Ui.Controls.Advanced.DockingHost.SetLayout(Vixen.Ui.Controls.Advanced.DockLayout layout) -> void
+Vixen.Ui.Controls.Advanced.DockingHost.Surface.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.DropPosition -> enum : byte
+Vixen.Ui.Controls.Advanced.DropPosition.After = 2 -> Vixen.Ui.Controls.Advanced.DropPosition
+Vixen.Ui.Controls.Advanced.DropPosition.Before = 1 -> Vixen.Ui.Controls.Advanced.DropPosition
+Vixen.Ui.Controls.Advanced.DropPosition.DropPosition() -> void
+Vixen.Ui.Controls.Advanced.DropPosition.Into = 0 -> Vixen.Ui.Controls.Advanced.DropPosition
+Vixen.Ui.Controls.Advanced.Gradient -> sealed class
+Vixen.Ui.Controls.Advanced.Gradient.AddAlphaStop(float position, float alpha) -> Vixen.Ui.Controls.Advanced.GradientAlphaStop?
+Vixen.Ui.Controls.Advanced.Gradient.AddColorStop(float position, Vixen.Core.Mathematics.Color4 color) -> Vixen.Ui.Controls.Advanced.GradientColorStop?
+Vixen.Ui.Controls.Advanced.Gradient.AlphaStops.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.GradientAlphaStop>
+Vixen.Ui.Controls.Advanced.Gradient.Changed -> System.Action<Vixen.Ui.Controls.Advanced.Gradient>?
+Vixen.Ui.Controls.Advanced.Gradient.ColorStops.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.GradientColorStop>
+Vixen.Ui.Controls.Advanced.Gradient.Evaluate(float position) -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.Gradient.Gradient() -> void
+Vixen.Ui.Controls.Advanced.Gradient.Gradient(Vixen.Core.Mathematics.Color4 from, Vixen.Core.Mathematics.Color4 to) -> void
+Vixen.Ui.Controls.Advanced.Gradient.Interpolation.get -> Vixen.Ui.Controls.Advanced.GradientInterpolation
+Vixen.Ui.Controls.Advanced.Gradient.Interpolation.set -> Vixen.Ui.Controls.Advanced.GradientInterpolation
+Vixen.Ui.Controls.Advanced.Gradient.Move(Vixen.Ui.Controls.Advanced.GradientAlphaStop stop, float position) -> void
+Vixen.Ui.Controls.Advanced.Gradient.Move(Vixen.Ui.Controls.Advanced.GradientColorStop stop, float position) -> void
+Vixen.Ui.Controls.Advanced.Gradient.Remove(Vixen.Ui.Controls.Advanced.GradientAlphaStop stop) -> bool
+Vixen.Ui.Controls.Advanced.Gradient.Remove(Vixen.Ui.Controls.Advanced.GradientColorStop stop) -> bool
+Vixen.Ui.Controls.Advanced.Gradient.Touch() -> void
+Vixen.Ui.Controls.Advanced.GradientAlphaStop -> sealed class
+Vixen.Ui.Controls.Advanced.GradientAlphaStop.Alpha.get -> float
+Vixen.Ui.Controls.Advanced.GradientAlphaStop.Alpha.set -> float
+Vixen.Ui.Controls.Advanced.GradientAlphaStop.GradientAlphaStop(float position, float alpha) -> void
+Vixen.Ui.Controls.Advanced.GradientAlphaStop.Position.get -> float
+Vixen.Ui.Controls.Advanced.GradientAlphaStop.Position.set -> float
+Vixen.Ui.Controls.Advanced.GradientBar -> sealed class
+Vixen.Ui.Controls.Advanced.GradientBar : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.GradientBar.GradientBar() -> void
+Vixen.Ui.Controls.Advanced.GradientBar.Owner.get -> Vixen.Ui.Controls.Advanced.GradientEditor?
+Vixen.Ui.Controls.Advanced.GradientColorStop -> sealed class
+Vixen.Ui.Controls.Advanced.GradientColorStop.Color.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.GradientColorStop.Color.set -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.GradientColorStop.GradientColorStop(float position, Vixen.Core.Mathematics.Color4 color) -> void
+Vixen.Ui.Controls.Advanced.GradientColorStop.Position.get -> float
+Vixen.Ui.Controls.Advanced.GradientColorStop.Position.set -> float
+Vixen.Ui.Controls.Advanced.GradientEditor -> sealed class
+Vixen.Ui.Controls.Advanced.GradientEditor : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.GradientEditor.AlphaRail.get -> Vixen.Ui.Controls.Advanced.GradientRail
+Vixen.Ui.Controls.Advanced.GradientEditor.AlphaStopAt(float x, float radius = 9) -> Vixen.Ui.Controls.Advanced.GradientAlphaStop?
+Vixen.Ui.Controls.Advanced.GradientEditor.Bar.get -> Vixen.Ui.Controls.Advanced.GradientBar
+Vixen.Ui.Controls.Advanced.GradientEditor.ColorRail.get -> Vixen.Ui.Controls.Advanced.GradientRail
+Vixen.Ui.Controls.Advanced.GradientEditor.ColorStopAt(float x, float radius = 9) -> Vixen.Ui.Controls.Advanced.GradientColorStop?
+Vixen.Ui.Controls.Advanced.GradientEditor.Gradient.get -> Vixen.Ui.Controls.Advanced.Gradient
+Vixen.Ui.Controls.Advanced.GradientEditor.Gradient.set -> Vixen.Ui.Controls.Advanced.Gradient
+Vixen.Ui.Controls.Advanced.GradientEditor.GradientChanged -> System.Action<Vixen.Ui.Controls.Advanced.GradientEditor>?
+Vixen.Ui.Controls.Advanced.GradientEditor.GradientEditor() -> void
+Vixen.Ui.Controls.Advanced.GradientEditor.Opacity.get -> Vixen.Ui.Controls.Slider
+Vixen.Ui.Controls.Advanced.GradientEditor.Picker.get -> Vixen.Ui.Controls.Advanced.ColorPicker
+Vixen.Ui.Controls.Advanced.GradientEditor.Select(Vixen.Ui.Controls.Advanced.GradientAlphaStop? stop) -> void
+Vixen.Ui.Controls.Advanced.GradientEditor.Select(Vixen.Ui.Controls.Advanced.GradientColorStop? stop) -> void
+Vixen.Ui.Controls.Advanced.GradientEditor.SelectedAlphaStop.get -> Vixen.Ui.Controls.Advanced.GradientAlphaStop?
+Vixen.Ui.Controls.Advanced.GradientEditor.SelectedColorStop.get -> Vixen.Ui.Controls.Advanced.GradientColorStop?
+Vixen.Ui.Controls.Advanced.GradientEditor.SelectionChanged -> System.Action<Vixen.Ui.Controls.Advanced.GradientEditor>?
+Vixen.Ui.Controls.Advanced.GradientEditor.Space.get -> Vixen.Ui.Controls.Select
+Vixen.Ui.Controls.Advanced.GradientEditor.ToPosition(float x) -> float
+Vixen.Ui.Controls.Advanced.GradientEditor.ToScreen(float position) -> float
+Vixen.Ui.Controls.Advanced.GradientInterpolation -> enum : byte
+Vixen.Ui.Controls.Advanced.GradientInterpolation.GradientInterpolation() -> void
+Vixen.Ui.Controls.Advanced.GradientInterpolation.Linear = 1 -> Vixen.Ui.Controls.Advanced.GradientInterpolation
+Vixen.Ui.Controls.Advanced.GradientInterpolation.Oklab = 2 -> Vixen.Ui.Controls.Advanced.GradientInterpolation
+Vixen.Ui.Controls.Advanced.GradientInterpolation.Srgb = 0 -> Vixen.Ui.Controls.Advanced.GradientInterpolation
+Vixen.Ui.Controls.Advanced.GradientRail -> sealed class
+Vixen.Ui.Controls.Advanced.GradientRail : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.GradientRail.GradientRail() -> void
+Vixen.Ui.Controls.Advanced.GradientRail.IsAlpha.get -> bool
+Vixen.Ui.Controls.Advanced.GradientRail.Owner.get -> Vixen.Ui.Controls.Advanced.GradientEditor?
+Vixen.Ui.Controls.Advanced.GraphGroup -> sealed class
+Vixen.Ui.Controls.Advanced.GraphGroup.Add(Vixen.Ui.Controls.Advanced.GraphNode node) -> void
+Vixen.Ui.Controls.Advanced.GraphGroup.GraphGroup(string title = "") -> void
+Vixen.Ui.Controls.Advanced.GraphGroup.HeaderHeight.get -> float
+Vixen.Ui.Controls.Advanced.GraphGroup.HeaderHeight.set -> float
+Vixen.Ui.Controls.Advanced.GraphGroup.Nodes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.GraphNode>
+Vixen.Ui.Controls.Advanced.GraphGroup.Padding.get -> float
+Vixen.Ui.Controls.Advanced.GraphGroup.Padding.set -> float
+Vixen.Ui.Controls.Advanced.GraphGroup.Remove(Vixen.Ui.Controls.Advanced.GraphNode node) -> bool
+Vixen.Ui.Controls.Advanced.GraphGroup.Title.get -> string
+Vixen.Ui.Controls.Advanced.GraphGroup.Title.set -> string
+Vixen.Ui.Controls.Advanced.GraphNode -> sealed class
+Vixen.Ui.Controls.Advanced.GraphNode.AddInput(string name) -> Vixen.Ui.Controls.Advanced.GraphPort
+Vixen.Ui.Controls.Advanced.GraphNode.AddOutput(string name) -> Vixen.Ui.Controls.Advanced.GraphPort
+Vixen.Ui.Controls.Advanced.GraphNode.GraphNode(string title = "") -> void
+Vixen.Ui.Controls.Advanced.GraphNode.Group.get -> Vixen.Ui.Controls.Advanced.GraphGroup?
+Vixen.Ui.Controls.Advanced.GraphNode.Inputs.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.GraphPort>
+Vixen.Ui.Controls.Advanced.GraphNode.Outputs.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.GraphPort>
+Vixen.Ui.Controls.Advanced.GraphNode.Position.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.GraphNode.Position.set -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.GraphNode.Rows.get -> int
+Vixen.Ui.Controls.Advanced.GraphNode.Tag.get -> object?
+Vixen.Ui.Controls.Advanced.GraphNode.Tag.set -> object?
+Vixen.Ui.Controls.Advanced.GraphNode.Title.get -> string
+Vixen.Ui.Controls.Advanced.GraphNode.Title.set -> string
+Vixen.Ui.Controls.Advanced.GraphNode.Width.get -> float
+Vixen.Ui.Controls.Advanced.GraphNode.Width.set -> float
+Vixen.Ui.Controls.Advanced.GraphPort -> sealed class
+Vixen.Ui.Controls.Advanced.GraphPort.AllowsMany.get -> bool
+Vixen.Ui.Controls.Advanced.GraphPort.Direction.get -> Vixen.Ui.Controls.Advanced.PortDirection
+Vixen.Ui.Controls.Advanced.GraphPort.Index.get -> int
+Vixen.Ui.Controls.Advanced.GraphPort.Name.get -> string
+Vixen.Ui.Controls.Advanced.GraphPort.Name.set -> string
+Vixen.Ui.Controls.Advanced.GraphPort.Node.get -> Vixen.Ui.Controls.Advanced.GraphNode
+Vixen.Ui.Controls.Advanced.GraphPort.Tag.get -> object?
+Vixen.Ui.Controls.Advanced.GraphPort.Tag.set -> object?
+Vixen.Ui.Controls.Advanced.GraphWire -> sealed class
+Vixen.Ui.Controls.Advanced.GraphWire.From.get -> Vixen.Ui.Controls.Advanced.GraphPort
+Vixen.Ui.Controls.Advanced.GraphWire.To.get -> Vixen.Ui.Controls.Advanced.GraphPort
+Vixen.Ui.Controls.Advanced.Hsv -> readonly struct
+Vixen.Ui.Controls.Advanced.Hsv : System.IEquatable<Vixen.Ui.Controls.Advanced.Hsv>
+Vixen.Ui.Controls.Advanced.Hsv.H.get -> float
+Vixen.Ui.Controls.Advanced.Hsv.H.init -> float
+Vixen.Ui.Controls.Advanced.Hsv.Hsv() -> void
+Vixen.Ui.Controls.Advanced.Hsv.Hsv(float H, float S, float V) -> void
+Vixen.Ui.Controls.Advanced.Hsv.S.get -> float
+Vixen.Ui.Controls.Advanced.Hsv.S.init -> float
+Vixen.Ui.Controls.Advanced.Hsv.ToRgb(float alpha = 1) -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.Hsv.V.get -> float
+Vixen.Ui.Controls.Advanced.Hsv.V.init -> float
+Vixen.Ui.Controls.Advanced.ICodeTokenizer -> interface
+Vixen.Ui.Controls.Advanced.ICodeTokenizer.InitialState.get -> int
+Vixen.Ui.Controls.Advanced.ICodeTokenizer.Tokenize(string line, int state, System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.CodeToken> into) -> int
+Vixen.Ui.Controls.Advanced.NodeCanvas -> sealed class
+Vixen.Ui.Controls.Advanced.NodeCanvas : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.NodeCanvas.Activated -> System.Action<Vixen.Ui.Controls.Advanced.NodeCanvas, Vixen.Ui.Controls.Advanced.GraphNode>?
+Vixen.Ui.Controls.Advanced.NodeCanvas.AnchorOf(Vixen.Ui.Controls.Advanced.GraphPort port) -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.NodeCanvas.ClearGridSize() -> void
+Vixen.Ui.Controls.Advanced.NodeCanvas.ClearMaximumZoom() -> void
+Vixen.Ui.Controls.Advanced.NodeCanvas.ClearMinimumZoom() -> void
+Vixen.Ui.Controls.Advanced.NodeCanvas.ClearMultiSelect() -> void
+Vixen.Ui.Controls.Advanced.NodeCanvas.ClearPan() -> void
+Vixen.Ui.Controls.Advanced.NodeCanvas.ClearSelection() -> void
+Vixen.Ui.Controls.Advanced.NodeCanvas.ClearSnapToGrid() -> void
+Vixen.Ui.Controls.Advanced.NodeCanvas.ClearWireCurvature() -> void
+Vixen.Ui.Controls.Advanced.NodeCanvas.ClearWireThickness() -> void
+Vixen.Ui.Controls.Advanced.NodeCanvas.ClearZoom() -> void
+Vixen.Ui.Controls.Advanced.NodeCanvas.Connected -> System.Action<Vixen.Ui.Controls.Advanced.NodeCanvas, Vixen.Ui.Controls.Advanced.GraphWire>?
+Vixen.Ui.Controls.Advanced.NodeCanvas.Graph.get -> Vixen.Ui.Controls.Advanced.NodeGraph
+Vixen.Ui.Controls.Advanced.NodeCanvas.Graph.set -> Vixen.Ui.Controls.Advanced.NodeGraph
+Vixen.Ui.Controls.Advanced.NodeCanvas.GridSize.get -> float
+Vixen.Ui.Controls.Advanced.NodeCanvas.GridSize.set -> float
+Vixen.Ui.Controls.Advanced.NodeCanvas.GroupLayer.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.NodeCanvas.HeaderHeight.get -> float
+Vixen.Ui.Controls.Advanced.NodeCanvas.HeightOf(Vixen.Ui.Controls.Advanced.GraphNode node) -> float
+Vixen.Ui.Controls.Advanced.NodeCanvas.ItemOf(Vixen.Ui.Controls.Advanced.GraphNode node) -> Vixen.Ui.Controls.Advanced.NodeItem?
+Vixen.Ui.Controls.Advanced.NodeCanvas.Items.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.NodeItem>
+Vixen.Ui.Controls.Advanced.NodeCanvas.Marquee.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.NodeCanvas.MaximumZoom.get -> float
+Vixen.Ui.Controls.Advanced.NodeCanvas.MaximumZoom.set -> float
+Vixen.Ui.Controls.Advanced.NodeCanvas.Minimap.get -> Vixen.Ui.Controls.Advanced.NodeMinimap
+Vixen.Ui.Controls.Advanced.NodeCanvas.MinimumZoom.get -> float
+Vixen.Ui.Controls.Advanced.NodeCanvas.MinimumZoom.set -> float
+Vixen.Ui.Controls.Advanced.NodeCanvas.MultiSelect.get -> bool
+Vixen.Ui.Controls.Advanced.NodeCanvas.MultiSelect.set -> bool
+Vixen.Ui.Controls.Advanced.NodeCanvas.NodeCanvas() -> void
+Vixen.Ui.Controls.Advanced.NodeCanvas.NodeFontSize.get -> float
+Vixen.Ui.Controls.Advanced.NodeCanvas.NodePadding.get -> float
+Vixen.Ui.Controls.Advanced.NodeCanvas.NodesMoved -> System.Action<Vixen.Ui.Controls.Advanced.NodeCanvas>?
+Vixen.Ui.Controls.Advanced.NodeCanvas.Pan.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.NodeCanvas.Pan.set -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.NodeCanvas.PendingPoint.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.NodeCanvas.PendingPort.get -> Vixen.Ui.Controls.Advanced.GraphPort?
+Vixen.Ui.Controls.Advanced.NodeCanvas.PortPitch.get -> float
+Vixen.Ui.Controls.Advanced.NodeCanvas.RectOf(Vixen.Ui.Controls.Advanced.GraphGroup group) -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Controls.Advanced.NodeCanvas.RectOf(Vixen.Ui.Controls.Advanced.GraphNode node) -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Controls.Advanced.NodeCanvas.Refresh() -> void
+Vixen.Ui.Controls.Advanced.NodeCanvas.Select(Vixen.Ui.Controls.Advanced.GraphNode? node, Vixen.Ui.ModifierKeys modifiers = Vixen.Ui.ModifierKeys.None) -> void
+Vixen.Ui.Controls.Advanced.NodeCanvas.SelectAll() -> void
+Vixen.Ui.Controls.Advanced.NodeCanvas.Selection.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Ui.Controls.Advanced.GraphNode>
+Vixen.Ui.Controls.Advanced.NodeCanvas.SelectionChanged -> System.Action<Vixen.Ui.Controls.Advanced.NodeCanvas>?
+Vixen.Ui.Controls.Advanced.NodeCanvas.SnapToGrid.get -> bool
+Vixen.Ui.Controls.Advanced.NodeCanvas.SnapToGrid.set -> bool
+Vixen.Ui.Controls.Advanced.NodeCanvas.Surface.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.NodeCanvas.ToGraph(float x, float y) -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.NodeCanvas.ToScreen(Vixen.Core.Mathematics.Vector2 point) -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.NodeCanvas.View.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Controls.Advanced.NodeCanvas.ViewOf(Vixen.Ui.Controls.Advanced.GraphGroup group) -> Vixen.Ui.Controls.Advanced.NodeGroupView?
+Vixen.Ui.Controls.Advanced.NodeCanvas.Visible.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.GraphNode>
+Vixen.Ui.Controls.Advanced.NodeCanvas.WireActiveColor.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.NodeCanvas.WireColor.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.NodeCanvas.WireCurvature.get -> float
+Vixen.Ui.Controls.Advanced.NodeCanvas.WireCurvature.set -> float
+Vixen.Ui.Controls.Advanced.NodeCanvas.WireLayer.get -> Vixen.Ui.Controls.Advanced.NodeWireLayer
+Vixen.Ui.Controls.Advanced.NodeCanvas.WireThickness.get -> float
+Vixen.Ui.Controls.Advanced.NodeCanvas.WireThickness.set -> float
+Vixen.Ui.Controls.Advanced.NodeCanvas.Zoom.get -> float
+Vixen.Ui.Controls.Advanced.NodeCanvas.Zoom.set -> float
+Vixen.Ui.Controls.Advanced.NodeCanvas.ZoomToFit(bool selectionOnly = false, float margin = 32) -> void
+Vixen.Ui.Controls.Advanced.NodeGraph -> sealed class
+Vixen.Ui.Controls.Advanced.NodeGraph.AddGroup(string title, params System.ReadOnlySpan<Vixen.Ui.Controls.Advanced.GraphNode> members) -> Vixen.Ui.Controls.Advanced.GraphGroup
+Vixen.Ui.Controls.Advanced.NodeGraph.AddNode(Vixen.Ui.Controls.Advanced.GraphNode node) -> Vixen.Ui.Controls.Advanced.GraphNode
+Vixen.Ui.Controls.Advanced.NodeGraph.AddNode(string title, Vixen.Core.Mathematics.Vector2 position = default(Vixen.Core.Mathematics.Vector2)) -> Vixen.Ui.Controls.Advanced.GraphNode
+Vixen.Ui.Controls.Advanced.NodeGraph.Changed -> System.Action<Vixen.Ui.Controls.Advanced.NodeGraph>?
+Vixen.Ui.Controls.Advanced.NodeGraph.Connect(Vixen.Ui.Controls.Advanced.GraphPort from, Vixen.Ui.Controls.Advanced.GraphPort to) -> Vixen.Ui.Controls.Advanced.GraphWire?
+Vixen.Ui.Controls.Advanced.NodeGraph.Disconnect(Vixen.Ui.Controls.Advanced.GraphWire wire) -> bool
+Vixen.Ui.Controls.Advanced.NodeGraph.Groups.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.GraphGroup>
+Vixen.Ui.Controls.Advanced.NodeGraph.NodeGraph() -> void
+Vixen.Ui.Controls.Advanced.NodeGraph.Nodes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.GraphNode>
+Vixen.Ui.Controls.Advanced.NodeGraph.Remove(Vixen.Ui.Controls.Advanced.GraphGroup group) -> bool
+Vixen.Ui.Controls.Advanced.NodeGraph.Remove(Vixen.Ui.Controls.Advanced.GraphNode node) -> bool
+Vixen.Ui.Controls.Advanced.NodeGraph.Touch() -> void
+Vixen.Ui.Controls.Advanced.NodeGraph.Wire(Vixen.Ui.Controls.Advanced.GraphPort port) -> Vixen.Ui.Controls.Advanced.GraphWire?
+Vixen.Ui.Controls.Advanced.NodeGraph.Wires.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.GraphWire>
+Vixen.Ui.Controls.Advanced.NodeGroupView -> sealed class
+Vixen.Ui.Controls.Advanced.NodeGroupView : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.NodeGroupView.Group.get -> Vixen.Ui.Controls.Advanced.GraphGroup?
+Vixen.Ui.Controls.Advanced.NodeGroupView.Header.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.NodeGroupView.NodeGroupView() -> void
+Vixen.Ui.Controls.Advanced.NodeItem -> sealed class
+Vixen.Ui.Controls.Advanced.NodeItem : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.NodeItem.Body.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.NodeItem.Header.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.NodeItem.InputColumn.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.NodeItem.Inputs.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.NodePortView>
+Vixen.Ui.Controls.Advanced.NodeItem.Node.get -> Vixen.Ui.Controls.Advanced.GraphNode?
+Vixen.Ui.Controls.Advanced.NodeItem.NodeItem() -> void
+Vixen.Ui.Controls.Advanced.NodeItem.OutputColumn.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.NodeItem.Outputs.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.NodePortView>
+Vixen.Ui.Controls.Advanced.NodeItem.ViewOf(Vixen.Ui.Controls.Advanced.GraphPort port) -> Vixen.Ui.Controls.Advanced.NodePortView?
+Vixen.Ui.Controls.Advanced.NodeMinimap -> sealed class
+Vixen.Ui.Controls.Advanced.NodeMinimap : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.NodeMinimap.Canvas.get -> Vixen.Ui.Controls.Advanced.NodeCanvas?
+Vixen.Ui.Controls.Advanced.NodeMinimap.Extent.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Controls.Advanced.NodeMinimap.NodeMinimap() -> void
+Vixen.Ui.Controls.Advanced.NodeMinimap.Scale.get -> float
+Vixen.Ui.Controls.Advanced.NodeMinimap.ToGraph(float x, float y) -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.NodeMinimap.ToScreen(Vixen.Core.Mathematics.Vector2 point) -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.NodePortView -> sealed class
+Vixen.Ui.Controls.Advanced.NodePortView : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.NodePortView.Dot.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.NodePortView.Label.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.NodePortView.NodePortView() -> void
+Vixen.Ui.Controls.Advanced.NodePortView.Port.get -> Vixen.Ui.Controls.Advanced.GraphPort?
+Vixen.Ui.Controls.Advanced.NodeWireLayer -> sealed class
+Vixen.Ui.Controls.Advanced.NodeWireLayer : Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.NodeWireLayer.Canvas.get -> Vixen.Ui.Controls.Advanced.NodeCanvas?
+Vixen.Ui.Controls.Advanced.NodeWireLayer.NodeWireLayer() -> void
+Vixen.Ui.Controls.Advanced.OkLch -> readonly struct
+Vixen.Ui.Controls.Advanced.OkLch : System.IEquatable<Vixen.Ui.Controls.Advanced.OkLch>
+Vixen.Ui.Controls.Advanced.OkLch.C.get -> float
+Vixen.Ui.Controls.Advanced.OkLch.C.init -> float
+Vixen.Ui.Controls.Advanced.OkLch.H.get -> float
+Vixen.Ui.Controls.Advanced.OkLch.H.init -> float
+Vixen.Ui.Controls.Advanced.OkLch.IsInGamut.get -> bool
+Vixen.Ui.Controls.Advanced.OkLch.L.get -> float
+Vixen.Ui.Controls.Advanced.OkLch.L.init -> float
+Vixen.Ui.Controls.Advanced.OkLch.OkLch() -> void
+Vixen.Ui.Controls.Advanced.OkLch.OkLch(float L, float C, float H) -> void
+Vixen.Ui.Controls.Advanced.OkLch.ToSrgb(float alpha = 1) -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.PlainTokenizer -> sealed class
+Vixen.Ui.Controls.Advanced.PlainTokenizer : Vixen.Ui.Controls.Advanced.ICodeTokenizer
+Vixen.Ui.Controls.Advanced.PlainTokenizer.PlainTokenizer() -> void
+Vixen.Ui.Controls.Advanced.PlainTokenizer.Tokenize(string line, int state, System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.CodeToken> into) -> int
+Vixen.Ui.Controls.Advanced.PortDirection -> enum : byte
+Vixen.Ui.Controls.Advanced.PortDirection.Input = 0 -> Vixen.Ui.Controls.Advanced.PortDirection
+Vixen.Ui.Controls.Advanced.PortDirection.Output = 1 -> Vixen.Ui.Controls.Advanced.PortDirection
+Vixen.Ui.Controls.Advanced.PortDirection.PortDirection() -> void
+Vixen.Ui.Controls.Advanced.PropertyGrid -> sealed class
+Vixen.Ui.Controls.Advanced.PropertyGrid : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.PropertyGrid.Body.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.PropertyGrid.Clear() -> void
+Vixen.Ui.Controls.Advanced.PropertyGrid.Descriptor.get -> Vixen.Core.Reflection.TypeDescriptor?
+Vixen.Ui.Controls.Advanced.PropertyGrid.Inspect(params System.ReadOnlySpan<object> objects) -> void
+Vixen.Ui.Controls.Advanced.PropertyGrid.PropertyGrid() -> void
+Vixen.Ui.Controls.Advanced.PropertyGrid.Reload() -> void
+Vixen.Ui.Controls.Advanced.PropertyGrid.Rows.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.PropertyRow>
+Vixen.Ui.Controls.Advanced.PropertyGrid.Search.get -> Vixen.Ui.Controls.SearchBox
+Vixen.Ui.Controls.Advanced.PropertyGrid.Targets.get -> System.Collections.Generic.IReadOnlyList<object>
+Vixen.Ui.Controls.Advanced.PropertyGrid.ValueChanged -> System.Action<Vixen.Ui.Controls.Advanced.PropertyGrid, Vixen.Core.Reflection.MemberDescriptor>?
+Vixen.Ui.Controls.Advanced.PropertyRow -> sealed class
+Vixen.Ui.Controls.Advanced.PropertyRow : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.PropertyRow.Editor.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.PropertyRow.Label.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.PropertyRow.Member.get -> Vixen.Core.Reflection.MemberDescriptor?
+Vixen.Ui.Controls.Advanced.PropertyRow.PropertyRow() -> void
+Vixen.Ui.Controls.Advanced.PropertyRow.Reset.get -> Vixen.Ui.Controls.IconButton
+Vixen.Ui.Controls.Advanced.TangentMode -> enum : byte
+Vixen.Ui.Controls.Advanced.TangentMode.Auto = 0 -> Vixen.Ui.Controls.Advanced.TangentMode
+Vixen.Ui.Controls.Advanced.TangentMode.Broken = 2 -> Vixen.Ui.Controls.Advanced.TangentMode
+Vixen.Ui.Controls.Advanced.TangentMode.Constant = 4 -> Vixen.Ui.Controls.Advanced.TangentMode
+Vixen.Ui.Controls.Advanced.TangentMode.Free = 1 -> Vixen.Ui.Controls.Advanced.TangentMode
+Vixen.Ui.Controls.Advanced.TangentMode.Linear = 3 -> Vixen.Ui.Controls.Advanced.TangentMode
+Vixen.Ui.Controls.Advanced.TangentMode.TangentMode() -> void
+Vixen.Ui.Controls.Advanced.TextPosition -> readonly struct
+Vixen.Ui.Controls.Advanced.TextPosition : System.IComparable<Vixen.Ui.Controls.Advanced.TextPosition>
+Vixen.Ui.Controls.Advanced.TextPosition : System.IEquatable<Vixen.Ui.Controls.Advanced.TextPosition>
+Vixen.Ui.Controls.Advanced.TextPosition.Column.get -> int
+Vixen.Ui.Controls.Advanced.TextPosition.Column.init -> int
+Vixen.Ui.Controls.Advanced.TextPosition.CompareTo(Vixen.Ui.Controls.Advanced.TextPosition other) -> int
+Vixen.Ui.Controls.Advanced.TextPosition.Line.get -> int
+Vixen.Ui.Controls.Advanced.TextPosition.Line.init -> int
+Vixen.Ui.Controls.Advanced.TextPosition.TextPosition() -> void
+Vixen.Ui.Controls.Advanced.TextPosition.TextPosition(int Line, int Column) -> void
+Vixen.Ui.Controls.Advanced.Timeline -> sealed class
+Vixen.Ui.Controls.Advanced.Timeline : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.Timeline.AddTrack(string name) -> Vixen.Ui.Controls.Advanced.TimelineTrack
+Vixen.Ui.Controls.Advanced.Timeline.ClearDuration() -> void
+Vixen.Ui.Controls.Advanced.Timeline.ClearFrameRate() -> void
+Vixen.Ui.Controls.Advanced.Timeline.ClearKeySize() -> void
+Vixen.Ui.Controls.Advanced.Timeline.ClearPixelsPerSecond() -> void
+Vixen.Ui.Controls.Advanced.Timeline.ClearScrollTop() -> void
+Vixen.Ui.Controls.Advanced.Timeline.ClearSnapToFrames() -> void
+Vixen.Ui.Controls.Advanced.Timeline.ClearTime() -> void
+Vixen.Ui.Controls.Advanced.Timeline.ClearTimeStart() -> void
+Vixen.Ui.Controls.Advanced.Timeline.CurveColor.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.Timeline.DeleteSelection() -> void
+Vixen.Ui.Controls.Advanced.Timeline.Duration.get -> float
+Vixen.Ui.Controls.Advanced.Timeline.Duration.set -> float
+Vixen.Ui.Controls.Advanced.Timeline.FirstVisibleTrack.get -> int
+Vixen.Ui.Controls.Advanced.Timeline.FrameRate.get -> float
+Vixen.Ui.Controls.Advanced.Timeline.FrameRate.set -> float
+Vixen.Ui.Controls.Advanced.Timeline.GridColor.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.Timeline.HeaderRows.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.TimelineHeader>
+Vixen.Ui.Controls.Advanced.Timeline.Headers.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.Timeline.KeyActiveColor.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.Timeline.KeyAt(float x, float y) -> Vixen.Ui.Controls.Advanced.TimelineKey?
+Vixen.Ui.Controls.Advanced.Timeline.KeyColor.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.Timeline.KeySize.get -> float
+Vixen.Ui.Controls.Advanced.Timeline.KeySize.set -> float
+Vixen.Ui.Controls.Advanced.Timeline.KeysMoved -> System.Action<Vixen.Ui.Controls.Advanced.Timeline>?
+Vixen.Ui.Controls.Advanced.Timeline.Lanes.get -> Vixen.Ui.Controls.Advanced.TimelineLanes
+Vixen.Ui.Controls.Advanced.Timeline.Marquee.get -> Vixen.Core.Mathematics.Rectangle?
+Vixen.Ui.Controls.Advanced.Timeline.MarqueeColor.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.Timeline.PixelsPerSecond.get -> float
+Vixen.Ui.Controls.Advanced.Timeline.PixelsPerSecond.set -> float
+Vixen.Ui.Controls.Advanced.Timeline.PlayheadColor.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.Timeline.Refresh() -> void
+Vixen.Ui.Controls.Advanced.Timeline.Remove(Vixen.Ui.Controls.Advanced.TimelineTrack track) -> bool
+Vixen.Ui.Controls.Advanced.Timeline.Ruler.get -> Vixen.Ui.Controls.Advanced.TimelineRuler
+Vixen.Ui.Controls.Advanced.Timeline.ScrollTop.get -> float
+Vixen.Ui.Controls.Advanced.Timeline.ScrollTop.set -> float
+Vixen.Ui.Controls.Advanced.Timeline.Select(Vixen.Ui.Controls.Advanced.TimelineKey? key, Vixen.Ui.ModifierKeys modifiers = Vixen.Ui.ModifierKeys.None) -> void
+Vixen.Ui.Controls.Advanced.Timeline.SelectAll() -> void
+Vixen.Ui.Controls.Advanced.Timeline.Selection.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Ui.Controls.Advanced.TimelineKey>
+Vixen.Ui.Controls.Advanced.Timeline.SelectionChanged -> System.Action<Vixen.Ui.Controls.Advanced.Timeline>?
+Vixen.Ui.Controls.Advanced.Timeline.Snap(float time) -> float
+Vixen.Ui.Controls.Advanced.Timeline.SnapToFrames.get -> bool
+Vixen.Ui.Controls.Advanced.Timeline.SnapToFrames.set -> bool
+Vixen.Ui.Controls.Advanced.Timeline.StripeColor.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.Timeline.TickStep.get -> float
+Vixen.Ui.Controls.Advanced.Timeline.Time.get -> float
+Vixen.Ui.Controls.Advanced.Timeline.Time.set -> float
+Vixen.Ui.Controls.Advanced.Timeline.TimeChanged -> System.Action<Vixen.Ui.Controls.Advanced.Timeline, float>?
+Vixen.Ui.Controls.Advanced.Timeline.TimeStart.get -> float
+Vixen.Ui.Controls.Advanced.Timeline.TimeStart.set -> float
+Vixen.Ui.Controls.Advanced.Timeline.Timeline() -> void
+Vixen.Ui.Controls.Advanced.Timeline.ToScreen(float time) -> float
+Vixen.Ui.Controls.Advanced.Timeline.ToTime(float x) -> float
+Vixen.Ui.Controls.Advanced.Timeline.TrackAt(float y) -> int
+Vixen.Ui.Controls.Advanced.Timeline.TrackHeight.get -> float
+Vixen.Ui.Controls.Advanced.Timeline.Tracks.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.TimelineTrack>
+Vixen.Ui.Controls.Advanced.Timeline.ZoomToFit() -> void
+Vixen.Ui.Controls.Advanced.TimelineHeader -> sealed class
+Vixen.Ui.Controls.Advanced.TimelineHeader : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.TimelineHeader.Label.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.TimelineHeader.Mute.get -> Vixen.Ui.Controls.ToggleButton
+Vixen.Ui.Controls.Advanced.TimelineHeader.TimelineHeader() -> void
+Vixen.Ui.Controls.Advanced.TimelineHeader.Track.get -> Vixen.Ui.Controls.Advanced.TimelineTrack?
+Vixen.Ui.Controls.Advanced.TimelineKey -> sealed class
+Vixen.Ui.Controls.Advanced.TimelineKey.Tag.get -> object?
+Vixen.Ui.Controls.Advanced.TimelineKey.Tag.set -> object?
+Vixen.Ui.Controls.Advanced.TimelineKey.Time.get -> float
+Vixen.Ui.Controls.Advanced.TimelineKey.Time.set -> float
+Vixen.Ui.Controls.Advanced.TimelineKey.TimelineKey(float time, object? tag = null) -> void
+Vixen.Ui.Controls.Advanced.TimelineLanes -> sealed class
+Vixen.Ui.Controls.Advanced.TimelineLanes : Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.TimelineLanes.Owner.get -> Vixen.Ui.Controls.Advanced.Timeline?
+Vixen.Ui.Controls.Advanced.TimelineLanes.TimelineLanes() -> void
+Vixen.Ui.Controls.Advanced.TimelineRuler -> sealed class
+Vixen.Ui.Controls.Advanced.TimelineRuler : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.TimelineRuler.Owner.get -> Vixen.Ui.Controls.Advanced.Timeline?
+Vixen.Ui.Controls.Advanced.TimelineRuler.TimelineRuler() -> void
+Vixen.Ui.Controls.Advanced.TimelineTrack -> sealed class
+Vixen.Ui.Controls.Advanced.TimelineTrack.Add(float time, object? tag = null) -> Vixen.Ui.Controls.Advanced.TimelineKey
+Vixen.Ui.Controls.Advanced.TimelineTrack.Curve.get -> Vixen.Ui.Controls.Advanced.AnimationCurve?
+Vixen.Ui.Controls.Advanced.TimelineTrack.Curve.set -> Vixen.Ui.Controls.Advanced.AnimationCurve?
+Vixen.Ui.Controls.Advanced.TimelineTrack.Keys.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.TimelineKey>
+Vixen.Ui.Controls.Advanced.TimelineTrack.Move(Vixen.Ui.Controls.Advanced.TimelineKey key, float time) -> void
+Vixen.Ui.Controls.Advanced.TimelineTrack.Muted.get -> bool
+Vixen.Ui.Controls.Advanced.TimelineTrack.Muted.set -> bool
+Vixen.Ui.Controls.Advanced.TimelineTrack.Name.get -> string
+Vixen.Ui.Controls.Advanced.TimelineTrack.Name.set -> string
+Vixen.Ui.Controls.Advanced.TimelineTrack.Remove(Vixen.Ui.Controls.Advanced.TimelineKey key) -> bool
+Vixen.Ui.Controls.Advanced.TimelineTrack.Tag.get -> object?
+Vixen.Ui.Controls.Advanced.TimelineTrack.Tag.set -> object?
+Vixen.Ui.Controls.Advanced.TimelineTrack.TimelineTrack(string name) -> void
+Vixen.Ui.Controls.Advanced.TreeNode -> sealed class
+Vixen.Ui.Controls.Advanced.TreeNode.Add(Vixen.Ui.Controls.Advanced.TreeNode child, int index = -1) -> Vixen.Ui.Controls.Advanced.TreeNode
+Vixen.Ui.Controls.Advanced.TreeNode.Add(string? text, object? tag = null) -> Vixen.Ui.Controls.Advanced.TreeNode
+Vixen.Ui.Controls.Advanced.TreeNode.Children.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.TreeNode>
+Vixen.Ui.Controls.Advanced.TreeNode.Contains(Vixen.Ui.Controls.Advanced.TreeNode node) -> bool
+Vixen.Ui.Controls.Advanced.TreeNode.Depth.get -> int
+Vixen.Ui.Controls.Advanced.TreeNode.HasChildren.get -> bool
+Vixen.Ui.Controls.Advanced.TreeNode.HasChildren.set -> bool
+Vixen.Ui.Controls.Advanced.TreeNode.IndexOf(Vixen.Ui.Controls.Advanced.TreeNode child) -> int
+Vixen.Ui.Controls.Advanced.TreeNode.IsExpanded.get -> bool
+Vixen.Ui.Controls.Advanced.TreeNode.Parent.get -> Vixen.Ui.Controls.Advanced.TreeNode?
+Vixen.Ui.Controls.Advanced.TreeNode.Populate.get -> System.Action<Vixen.Ui.Controls.Advanced.TreeNode>?
+Vixen.Ui.Controls.Advanced.TreeNode.Populate.set -> System.Action<Vixen.Ui.Controls.Advanced.TreeNode>?
+Vixen.Ui.Controls.Advanced.TreeNode.Remove(Vixen.Ui.Controls.Advanced.TreeNode child) -> bool
+Vixen.Ui.Controls.Advanced.TreeNode.Tag.get -> object?
+Vixen.Ui.Controls.Advanced.TreeNode.Tag.set -> object?
+Vixen.Ui.Controls.Advanced.TreeNode.Text.get -> string?
+Vixen.Ui.Controls.Advanced.TreeNode.Text.set -> string?
+Vixen.Ui.Controls.Advanced.TreeNode.TreeNode(string? text = null, object? tag = null) -> void
+Vixen.Ui.Controls.Advanced.TreeRow -> sealed class
+Vixen.Ui.Controls.Advanced.TreeRow : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.TreeRow.Chevron.get -> Vixen.Ui.Controls.Icon
+Vixen.Ui.Controls.Advanced.TreeRow.Editor.get -> Vixen.Ui.Controls.TextBox?
+Vixen.Ui.Controls.Advanced.TreeRow.Indent.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.TreeRow.Label.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.TreeRow.Node.get -> Vixen.Ui.Controls.Advanced.TreeNode?
+Vixen.Ui.Controls.Advanced.TreeRow.TreeRow() -> void
+Vixen.Ui.Controls.Advanced.TreeView -> sealed class
+Vixen.Ui.Controls.Advanced.TreeView : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.TreeView.Activated -> System.Action<Vixen.Ui.Controls.Advanced.TreeView, Vixen.Ui.Controls.Advanced.TreeNode>?
+Vixen.Ui.Controls.Advanced.TreeView.AllowDrag.get -> bool
+Vixen.Ui.Controls.Advanced.TreeView.AllowDrag.set -> bool
+Vixen.Ui.Controls.Advanced.TreeView.BeginRename(Vixen.Ui.Controls.Advanced.TreeNode node) -> void
+Vixen.Ui.Controls.Advanced.TreeView.ClearAllowDrag() -> void
+Vixen.Ui.Controls.Advanced.TreeView.ClearMultiSelect() -> void
+Vixen.Ui.Controls.Advanced.TreeView.DropIndicator.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.TreeView.Expand(Vixen.Ui.Controls.Advanced.TreeNode node, bool expanded = true) -> void
+Vixen.Ui.Controls.Advanced.TreeView.Indent.get -> float
+Vixen.Ui.Controls.Advanced.TreeView.MoveNode(Vixen.Ui.Controls.Advanced.TreeNode node, Vixen.Ui.Controls.Advanced.TreeNode target, Vixen.Ui.Controls.Advanced.DropPosition position) -> bool
+Vixen.Ui.Controls.Advanced.TreeView.Moved -> System.Action<Vixen.Ui.Controls.Advanced.TreeView, Vixen.Ui.Controls.Advanced.TreeNode>?
+Vixen.Ui.Controls.Advanced.TreeView.MultiSelect.get -> bool
+Vixen.Ui.Controls.Advanced.TreeView.MultiSelect.set -> bool
+Vixen.Ui.Controls.Advanced.TreeView.Refresh() -> void
+Vixen.Ui.Controls.Advanced.TreeView.Renamed -> System.Action<Vixen.Ui.Controls.Advanced.TreeView, Vixen.Ui.Controls.Advanced.TreeNode, string>?
+Vixen.Ui.Controls.Advanced.TreeView.Reveal(Vixen.Ui.Controls.Advanced.TreeNode node) -> void
+Vixen.Ui.Controls.Advanced.TreeView.Root.get -> Vixen.Ui.Controls.Advanced.TreeNode
+Vixen.Ui.Controls.Advanced.TreeView.RowHeight.get -> float
+Vixen.Ui.Controls.Advanced.TreeView.RowOf(Vixen.Ui.Controls.Advanced.TreeNode node) -> Vixen.Ui.Controls.Advanced.TreeRow?
+Vixen.Ui.Controls.Advanced.TreeView.Rows.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.TreeRow>
+Vixen.Ui.Controls.Advanced.TreeView.Scroller.get -> Vixen.Ui.Controls.ScrollView
+Vixen.Ui.Controls.Advanced.TreeView.Select(Vixen.Ui.Controls.Advanced.TreeNode? node, Vixen.Ui.ModifierKeys modifiers = Vixen.Ui.ModifierKeys.None) -> void
+Vixen.Ui.Controls.Advanced.TreeView.Selection.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Ui.Controls.Advanced.TreeNode>
+Vixen.Ui.Controls.Advanced.TreeView.SelectionChanged -> System.Action<Vixen.Ui.Controls.Advanced.TreeView>?
+Vixen.Ui.Controls.Advanced.TreeView.TreeView() -> void
+Vixen.Ui.Controls.Advanced.TreeView.Visible.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.TreeNode>
+Vixen.Ui.Controls.Advanced.Viewport -> sealed class
+Vixen.Ui.Controls.Advanced.Viewport : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.Viewport.AspectRatio.get -> float
+Vixen.Ui.Controls.Advanced.Viewport.AxisColor(int axis) -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.Viewport.Capture(bool lockPointer = false) -> void
+Vixen.Ui.Controls.Advanced.Viewport.CaptureChanged -> System.Action<Vixen.Ui.Controls.Advanced.Viewport, bool>?
+Vixen.Ui.Controls.Advanced.Viewport.ClearFlipVertically() -> void
+Vixen.Ui.Controls.Advanced.Viewport.ClearRenderScale() -> void
+Vixen.Ui.Controls.Advanced.Viewport.ClearShowGizmo() -> void
+Vixen.Ui.Controls.Advanced.Viewport.Dragged -> System.Action<Vixen.Ui.Controls.Advanced.Viewport, Vixen.Ui.Controls.Advanced.ViewportDrag>?
+Vixen.Ui.Controls.Advanced.Viewport.FlipVertically.get -> bool
+Vixen.Ui.Controls.Advanced.Viewport.FlipVertically.set -> bool
+Vixen.Ui.Controls.Advanced.Viewport.Gizmo.get -> Vixen.Ui.Controls.Advanced.ViewportGizmo
+Vixen.Ui.Controls.Advanced.Viewport.IsCapturing.get -> bool
+Vixen.Ui.Controls.Advanced.Viewport.Overlay.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.Viewport.PointerLockRequested -> System.Action<Vixen.Ui.Controls.Advanced.Viewport, bool>?
+Vixen.Ui.Controls.Advanced.Viewport.Refresh() -> bool
+Vixen.Ui.Controls.Advanced.Viewport.ReleaseCapture() -> void
+Vixen.Ui.Controls.Advanced.Viewport.RenderHeight.get -> int
+Vixen.Ui.Controls.Advanced.Viewport.RenderScale.get -> float
+Vixen.Ui.Controls.Advanced.Viewport.RenderScale.set -> float
+Vixen.Ui.Controls.Advanced.Viewport.RenderTarget.get -> ulong
+Vixen.Ui.Controls.Advanced.Viewport.RenderTarget.set -> ulong
+Vixen.Ui.Controls.Advanced.Viewport.RenderWidth.get -> int
+Vixen.Ui.Controls.Advanced.Viewport.Resized -> System.Action<Vixen.Ui.Controls.Advanced.Viewport>?
+Vixen.Ui.Controls.Advanced.Viewport.ShowGizmo.get -> bool
+Vixen.Ui.Controls.Advanced.Viewport.ShowGizmo.set -> bool
+Vixen.Ui.Controls.Advanced.Viewport.ToRender(float x, float y) -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.Viewport.ViewRotation.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Ui.Controls.Advanced.Viewport.ViewRotation.set -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Ui.Controls.Advanced.Viewport.Viewport() -> void
+Vixen.Ui.Controls.Advanced.Viewport.Zoomed -> System.Action<Vixen.Ui.Controls.Advanced.Viewport, float>?
+Vixen.Ui.Controls.Advanced.ViewportDrag -> readonly struct
+Vixen.Ui.Controls.Advanced.ViewportDrag : System.IEquatable<Vixen.Ui.Controls.Advanced.ViewportDrag>
+Vixen.Ui.Controls.Advanced.ViewportDrag.Button.get -> Vixen.Ui.PointerButton
+Vixen.Ui.Controls.Advanced.ViewportDrag.Button.init -> Vixen.Ui.PointerButton
+Vixen.Ui.Controls.Advanced.ViewportDrag.DeltaX.get -> float
+Vixen.Ui.Controls.Advanced.ViewportDrag.DeltaX.init -> float
+Vixen.Ui.Controls.Advanced.ViewportDrag.DeltaY.get -> float
+Vixen.Ui.Controls.Advanced.ViewportDrag.DeltaY.init -> float
+Vixen.Ui.Controls.Advanced.ViewportDrag.Modifiers.get -> Vixen.Ui.ModifierKeys
+Vixen.Ui.Controls.Advanced.ViewportDrag.Modifiers.init -> Vixen.Ui.ModifierKeys
+Vixen.Ui.Controls.Advanced.ViewportDrag.TotalX.get -> float
+Vixen.Ui.Controls.Advanced.ViewportDrag.TotalX.init -> float
+Vixen.Ui.Controls.Advanced.ViewportDrag.TotalY.get -> float
+Vixen.Ui.Controls.Advanced.ViewportDrag.TotalY.init -> float
+Vixen.Ui.Controls.Advanced.ViewportDrag.ViewportDrag() -> void
+Vixen.Ui.Controls.Advanced.ViewportDrag.ViewportDrag(Vixen.Ui.PointerButton Button, Vixen.Ui.ModifierKeys Modifiers, float X, float Y, float DeltaX, float DeltaY, float TotalX, float TotalY) -> void
+Vixen.Ui.Controls.Advanced.ViewportDrag.X.get -> float
+Vixen.Ui.Controls.Advanced.ViewportDrag.X.init -> float
+Vixen.Ui.Controls.Advanced.ViewportDrag.Y.get -> float
+Vixen.Ui.Controls.Advanced.ViewportDrag.Y.init -> float
+Vixen.Ui.Controls.Advanced.ViewportGizmo -> sealed class
+Vixen.Ui.Controls.Advanced.ViewportGizmo : Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.ViewportGizmo.Owner.get -> Vixen.Ui.Controls.Advanced.Viewport?
+Vixen.Ui.Controls.Advanced.ViewportGizmo.ViewportGizmo() -> void
+abstract Vixen.Ui.Controls.Advanced.DockNode.Collect(System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.DockGroupNode> into) -> void
+abstract Vixen.Ui.Controls.Advanced.DockNode.ToYaml() -> Vixen.Core.Yaml.YamlNode
+const Vixen.Ui.Controls.Advanced.CodeEditor.Overscan = 2 -> int
+const Vixen.Ui.Controls.Advanced.ColorField.Samples = 16 -> int
+const Vixen.Ui.Controls.Advanced.ColorPicker.MaximumChroma = 0.37 -> float
+const Vixen.Ui.Controls.Advanced.DataGrid.Overscan = 2 -> int
+const Vixen.Ui.Controls.Advanced.DockSplitNode.MinimumRatio = 0.05 -> float
+const Vixen.Ui.Controls.Advanced.Gradient.MaximumStops = 8 -> int
+const Vixen.Ui.Controls.Advanced.GradientBar.Bands = 48 -> int
+const Vixen.Ui.Controls.Advanced.NodeCanvas.Overscan = 0.2 -> float
+const Vixen.Ui.Controls.Advanced.TreeView.Overscan = 2 -> int
+override Vixen.Ui.Controls.Advanced.CodeEditor.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.CodeEditor.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.CodeEditor.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.CodeGutterRow.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.CodeGutterRow.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.CodeLine.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.CodeSpan.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.CodeSpan.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.ColorField.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.ColorField.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.ColorField.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Advanced.ColorField.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.ColorPicker.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.ColorPicker.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.ColorPicker.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.ColorStrip.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.ColorStrip.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.ColorStrip.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Advanced.ColorStrip.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.ColorSwatch.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.ColorSwatch.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.ColorSwatch.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Advanced.ColorSwatch.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.CurveEditor.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.CurveEditor.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.CurveEditor.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Advanced.CurveEditor.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.CurveKey.ToString() -> string
+override Vixen.Ui.Controls.Advanced.DataCell.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.DataCell.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.DataCell.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.DataGrid.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.DataGrid.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.DataGrid.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.DataHeaderCell.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.DataHeaderCell.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.DataHeaderCell.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.DataRow.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.DataRow.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.DataRow.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.DockGroupNode.Collect(System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.DockGroupNode> into) -> void
+override Vixen.Ui.Controls.Advanced.DockGroupNode.ToYaml() -> Vixen.Core.Yaml.YamlNode
+override Vixen.Ui.Controls.Advanced.DockGroupView.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.DockGroupView.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.DockGroupView.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.DockPanel.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.DockPanel.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.DockSplitNode.Collect(System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.DockGroupNode> into) -> void
+override Vixen.Ui.Controls.Advanced.DockSplitNode.ToYaml() -> Vixen.Core.Yaml.YamlNode
+override Vixen.Ui.Controls.Advanced.DockSplitterView.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.DockSplitterView.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.DockSplitterView.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.DockTab.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.DockingHost.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.DockingHost.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.DockingHost.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.GradientBar.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.GradientBar.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Advanced.GradientBar.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.GradientEditor.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.GradientEditor.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.GradientEditor.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.GradientRail.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.GradientRail.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Advanced.GradientRail.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.GraphNode.ToString() -> string
+override Vixen.Ui.Controls.Advanced.GraphPort.ToString() -> string
+override Vixen.Ui.Controls.Advanced.GraphWire.ToString() -> string
+override Vixen.Ui.Controls.Advanced.NodeCanvas.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.NodeCanvas.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.NodeCanvas.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Advanced.NodeCanvas.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.NodeGroupView.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.NodeGroupView.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.NodeGroupView.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.NodeItem.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.NodeItem.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.NodeItem.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.NodeMinimap.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.NodeMinimap.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.NodeMinimap.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Advanced.NodeMinimap.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.NodePortView.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.NodePortView.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.NodePortView.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.NodeWireLayer.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Advanced.NodeWireLayer.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.PropertyGrid.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.PropertyGrid.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.PropertyGrid.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.PropertyRow.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.PropertyRow.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.PropertyRow.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.TextPosition.ToString() -> string
+override Vixen.Ui.Controls.Advanced.Timeline.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.Timeline.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.Timeline.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.TimelineHeader.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.TimelineHeader.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.TimelineHeader.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.TimelineKey.ToString() -> string
+override Vixen.Ui.Controls.Advanced.TimelineLanes.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Advanced.TimelineLanes.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.TimelineRuler.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.TimelineRuler.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Advanced.TimelineRuler.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.TreeRow.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.TreeRow.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.TreeView.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.TreeView.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.TreeView.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.Viewport.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.Viewport.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.Viewport.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Advanced.Viewport.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.ViewportGizmo.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Advanced.ViewportGizmo.TagName.get -> string
+static Vixen.Ui.Controls.Advanced.AdvancedTheme.Css.get -> string
+static Vixen.Ui.Controls.Advanced.AdvancedTheme.Install(Vixen.Ui.UiDocument document) -> int
+static Vixen.Ui.Controls.Advanced.AnimationCurve.EaseIn() -> Vixen.Ui.Controls.Advanced.AnimationCurve
+static Vixen.Ui.Controls.Advanced.AnimationCurve.EaseInOut() -> Vixen.Ui.Controls.Advanced.AnimationCurve
+static Vixen.Ui.Controls.Advanced.AnimationCurve.EaseOut() -> Vixen.Ui.Controls.Advanced.AnimationCurve
+static Vixen.Ui.Controls.Advanced.AnimationCurve.Linear() -> Vixen.Ui.Controls.Advanced.AnimationCurve
+static Vixen.Ui.Controls.Advanced.AnimationCurve.Step() -> Vixen.Ui.Controls.Advanced.AnimationCurve
+static Vixen.Ui.Controls.Advanced.CStyleTokenizer.CSharp.get -> Vixen.Ui.Controls.Advanced.CStyleTokenizer
+static Vixen.Ui.Controls.Advanced.CStyleTokenizer.Raven.get -> Vixen.Ui.Controls.Advanced.CStyleTokenizer
+static Vixen.Ui.Controls.Advanced.DockLayout.Load(string yaml) -> Vixen.Ui.Controls.Advanced.DockLayout
+static Vixen.Ui.Controls.Advanced.DockNode.FromYaml(Vixen.Core.Yaml.YamlNode? node) -> Vixen.Ui.Controls.Advanced.DockNode?
+static Vixen.Ui.Controls.Advanced.Hsv.FromRgb(Vixen.Core.Mathematics.Color4 color) -> Vixen.Ui.Controls.Advanced.Hsv
+static Vixen.Ui.Controls.Advanced.OkLch.FromSrgb(Vixen.Core.Mathematics.Color4 color) -> Vixen.Ui.Controls.Advanced.OkLch
+static Vixen.Ui.Controls.Advanced.PlainTokenizer.Instance.get -> Vixen.Ui.Controls.Advanced.PlainTokenizer
+static Vixen.Ui.Controls.Advanced.TextPosition.operator <(Vixen.Ui.Controls.Advanced.TextPosition left, Vixen.Ui.Controls.Advanced.TextPosition right) -> bool
+static Vixen.Ui.Controls.Advanced.TextPosition.operator <=(Vixen.Ui.Controls.Advanced.TextPosition left, Vixen.Ui.Controls.Advanced.TextPosition right) -> bool
+static Vixen.Ui.Controls.Advanced.TextPosition.operator >(Vixen.Ui.Controls.Advanced.TextPosition left, Vixen.Ui.Controls.Advanced.TextPosition right) -> bool
+static Vixen.Ui.Controls.Advanced.TextPosition.operator >=(Vixen.Ui.Controls.Advanced.TextPosition left, Vixen.Ui.Controls.Advanced.TextPosition right) -> bool
+static readonly Vixen.Ui.Controls.Advanced.CodeEditor.AutoFoldProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.CodeEditor.AutoIndentProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.CodeEditor.ReadOnlyProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.CodeEditor.TabSizeProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.ColorPicker.AllowAlphaProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.ColorPicker.AllowHdrProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.ColorPicker.IntensityProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.ColorPicker.ModelProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.CurveEditor.HandleLengthProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.CurveEditor.SnapToGridProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.CurveEditor.TimeStepProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.CurveEditor.ValueStepProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.DataGrid.FrozenColumnsProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.DataGrid.MultiSelectProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.DockPanel.CanCloseProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.DockPanel.TitleProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.NodeCanvas.GridSizeProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.NodeCanvas.MaximumZoomProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.NodeCanvas.MinimumZoomProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.NodeCanvas.MultiSelectProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.NodeCanvas.PanProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.NodeCanvas.SnapToGridProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.NodeCanvas.WireCurvatureProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.NodeCanvas.WireThicknessProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.NodeCanvas.ZoomProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.Timeline.DurationProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.Timeline.FrameRateProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.Timeline.KeySizeProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.Timeline.PixelsPerSecondProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.Timeline.ScrollTopProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.Timeline.SnapToFramesProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.Timeline.TimeProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.Timeline.TimeStartProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.TreeView.AllowDragProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.TreeView.MultiSelectProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.Viewport.FlipVerticallyProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.Viewport.RenderScaleProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.Viewport.ShowGizmoProperty -> Vixen.Ui.UiPropertyKey

@@ -1,0 +1,341 @@
+#nullable enable
+Vixen.Engine.Behaviors.Behavior -> abstract class
+Vixen.Engine.Behaviors.Behavior : Vixen.Engine.Coroutines.ICoroutineOwner
+Vixen.Engine.Behaviors.Behavior.Behavior() -> void
+Vixen.Engine.Behaviors.Behavior.CoroutineGeneration.get -> int
+Vixen.Engine.Behaviors.Behavior.Coroutines.get -> Vixen.Engine.Coroutines.CoroutineScheduler
+Vixen.Engine.Behaviors.Behavior.Destroy() -> void
+Vixen.Engine.Behaviors.Behavior.Enabled.get -> bool
+Vixen.Engine.Behaviors.Behavior.Enabled.set -> bool
+Vixen.Engine.Behaviors.Behavior.Entity.get -> Vixen.Core.Entity
+Vixen.Engine.Behaviors.Behavior.Get<T>() -> T
+Vixen.Engine.Behaviors.Behavior.GetBehavior<T>() -> T?
+Vixen.Engine.Behaviors.Behavior.Has<T>() -> bool
+Vixen.Engine.Behaviors.Behavior.IsAwake.get -> bool
+Vixen.Engine.Behaviors.Behavior.IsDestroyed.get -> bool
+Vixen.Engine.Behaviors.Behavior.IsStarted.get -> bool
+Vixen.Engine.Behaviors.Behavior.LocalPosition.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Behaviors.Behavior.LocalPosition.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Behaviors.Behavior.LocalRotation.get -> Vixen.Core.Mathematics.Quaternion
+Vixen.Engine.Behaviors.Behavior.LocalRotation.set -> Vixen.Core.Mathematics.Quaternion
+Vixen.Engine.Behaviors.Behavior.NextFrame(Vixen.Engine.Coroutines.ResumePoint? point = null) -> Vixen.Engine.Coroutines.CoroutineAwaitable
+Vixen.Engine.Behaviors.Behavior.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Behaviors.Behavior.Position.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Behaviors.Behavior.Read<T>() -> T
+Vixen.Engine.Behaviors.Behavior.ResumeOnLoop(Vixen.Engine.Coroutines.ResumePoint point = Vixen.Engine.Coroutines.ResumePoint.Update) -> Vixen.Engine.Coroutines.CoroutineAwaitable
+Vixen.Engine.Behaviors.Behavior.Rotation.get -> Vixen.Core.Mathematics.Quaternion
+Vixen.Engine.Behaviors.Behavior.Rotation.set -> Vixen.Core.Mathematics.Quaternion
+Vixen.Engine.Behaviors.Behavior.Run(Vixen.Engine.Coroutines.Coroutine coroutine) -> Vixen.Engine.Coroutines.CoroutineHandle
+Vixen.Engine.Behaviors.Behavior.Seconds(float seconds, Vixen.Engine.Coroutines.ResumePoint? point = null) -> Vixen.Engine.Coroutines.CoroutineAwaitable
+Vixen.Engine.Behaviors.Behavior.StopCoroutines() -> void
+Vixen.Engine.Behaviors.Behavior.Time.get -> Vixen.Core.GameTime
+Vixen.Engine.Behaviors.Behavior.Transform.get -> Vixen.Engine.Transforms.Transform
+Vixen.Engine.Behaviors.Behavior.UnscaledSeconds(float seconds, Vixen.Engine.Coroutines.ResumePoint? point = null) -> Vixen.Engine.Coroutines.CoroutineAwaitable
+Vixen.Engine.Behaviors.Behavior.Until(System.Func<bool> predicate, Vixen.Engine.Coroutines.ResumePoint? point = null) -> Vixen.Engine.Coroutines.CoroutineAwaitable
+Vixen.Engine.Behaviors.Behavior.While(System.Func<bool> predicate, Vixen.Engine.Coroutines.ResumePoint? point = null) -> Vixen.Engine.Coroutines.CoroutineAwaitable
+Vixen.Engine.Behaviors.Behavior.World.get -> Vixen.Ecs.World
+Vixen.Engine.Behaviors.BehaviorLateUpdateSystem -> sealed class
+Vixen.Engine.Behaviors.BehaviorLateUpdateSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Engine.Behaviors.BehaviorLateUpdateSystem.BehaviorLateUpdateSystem(Vixen.Engine.Behaviors.BehaviorStore store) -> void
+Vixen.Engine.Behaviors.BehaviorLifecycleSystem -> sealed class
+Vixen.Engine.Behaviors.BehaviorLifecycleSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Engine.Behaviors.BehaviorLifecycleSystem.BehaviorLifecycleSystem(Vixen.Engine.Behaviors.BehaviorStore store) -> void
+Vixen.Engine.Behaviors.BehaviorLink -> struct
+Vixen.Engine.Behaviors.BehaviorLink.BehaviorLink() -> void
+Vixen.Engine.Behaviors.BehaviorLink.Items -> Vixen.Engine.Behaviors.Behavior[]
+Vixen.Engine.Behaviors.BehaviorStore -> sealed class
+Vixen.Engine.Behaviors.BehaviorStore.Add<T>(Vixen.Core.Entity entity) -> T
+Vixen.Engine.Behaviors.BehaviorStore.Add<T>(Vixen.Core.Entity entity, T behavior) -> T
+Vixen.Engine.Behaviors.BehaviorStore.AllOn(Vixen.Core.Entity entity) -> System.ReadOnlySpan<Vixen.Engine.Behaviors.Behavior>
+Vixen.Engine.Behaviors.BehaviorStore.BehaviorStore(Vixen.Ecs.World world, Vixen.Engine.Coroutines.CoroutineScheduler? coroutines = null) -> void
+Vixen.Engine.Behaviors.BehaviorStore.Coroutines.get -> Vixen.Engine.Coroutines.CoroutineScheduler
+Vixen.Engine.Behaviors.BehaviorStore.Count.get -> int
+Vixen.Engine.Behaviors.BehaviorStore.Destroy(Vixen.Engine.Behaviors.Behavior behavior) -> void
+Vixen.Engine.Behaviors.BehaviorStore.Get<T>(Vixen.Core.Entity entity) -> T?
+Vixen.Engine.Behaviors.BehaviorStore.RunLateUpdate() -> void
+Vixen.Engine.Behaviors.BehaviorStore.RunLifecycle() -> void
+Vixen.Engine.Behaviors.BehaviorStore.RunUpdate() -> void
+Vixen.Engine.Behaviors.BehaviorStore.Time.get -> Vixen.Core.GameTime
+Vixen.Engine.Behaviors.BehaviorStore.Time.set -> Vixen.Core.GameTime
+Vixen.Engine.Behaviors.BehaviorStore.World.get -> Vixen.Ecs.World
+Vixen.Engine.Behaviors.BehaviorUpdateSystem -> sealed class
+Vixen.Engine.Behaviors.BehaviorUpdateSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Engine.Behaviors.BehaviorUpdateSystem.BehaviorUpdateSystem(Vixen.Engine.Behaviors.BehaviorStore store) -> void
+Vixen.Engine.Cameras.Camera -> struct
+Vixen.Engine.Cameras.Camera.AspectRatio -> float
+Vixen.Engine.Cameras.Camera.Camera() -> void
+Vixen.Engine.Cameras.Camera.FarPlane -> float
+Vixen.Engine.Cameras.Camera.FieldOfView -> float
+Vixen.Engine.Cameras.Camera.NearPlane -> float
+Vixen.Engine.Cameras.Camera.Order -> int
+Vixen.Engine.Cameras.Camera.Orthographic -> bool
+Vixen.Engine.Cameras.Camera.OrthographicHeight -> float
+Vixen.Engine.Cameras.CameraMath -> static class
+Vixen.Engine.Coroutines.Coroutine -> readonly struct
+Vixen.Engine.Coroutines.Coroutine.Coroutine() -> void
+Vixen.Engine.Coroutines.Coroutine.GetAwaiter() -> System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable.ConfiguredValueTaskAwaiter
+Vixen.Engine.Coroutines.CoroutineAwaitable -> readonly struct
+Vixen.Engine.Coroutines.CoroutineAwaitable : System.IEquatable<Vixen.Engine.Coroutines.CoroutineAwaitable>
+Vixen.Engine.Coroutines.CoroutineAwaitable : System.Runtime.CompilerServices.ICriticalNotifyCompletion
+Vixen.Engine.Coroutines.CoroutineAwaitable : System.Runtime.CompilerServices.INotifyCompletion
+Vixen.Engine.Coroutines.CoroutineAwaitable.CoroutineAwaitable() -> void
+Vixen.Engine.Coroutines.CoroutineAwaitable.Equals(Vixen.Engine.Coroutines.CoroutineAwaitable other) -> bool
+Vixen.Engine.Coroutines.CoroutineAwaitable.GetAwaiter() -> Vixen.Engine.Coroutines.CoroutineAwaitable
+Vixen.Engine.Coroutines.CoroutineAwaitable.GetResult() -> void
+Vixen.Engine.Coroutines.CoroutineAwaitable.IsCompleted.get -> bool
+Vixen.Engine.Coroutines.CoroutineAwaitable.OnCompleted(System.Action continuation) -> void
+Vixen.Engine.Coroutines.CoroutineAwaitable.UnsafeOnCompleted(System.Action continuation) -> void
+Vixen.Engine.Coroutines.CoroutineEndOfFrameSystem -> sealed class
+Vixen.Engine.Coroutines.CoroutineEndOfFrameSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Engine.Coroutines.CoroutineEndOfFrameSystem.CoroutineEndOfFrameSystem(Vixen.Engine.Coroutines.CoroutineScheduler scheduler) -> void
+Vixen.Engine.Coroutines.CoroutineFixedStepSystem -> sealed class
+Vixen.Engine.Coroutines.CoroutineFixedStepSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Engine.Coroutines.CoroutineFixedStepSystem.CoroutineFixedStepSystem(Vixen.Engine.Coroutines.CoroutineScheduler scheduler) -> void
+Vixen.Engine.Coroutines.CoroutineHandle -> readonly struct
+Vixen.Engine.Coroutines.CoroutineHandle : System.IEquatable<Vixen.Engine.Coroutines.CoroutineHandle>
+Vixen.Engine.Coroutines.CoroutineHandle.CoroutineHandle() -> void
+Vixen.Engine.Coroutines.CoroutineHandle.IsRunning.get -> bool
+Vixen.Engine.Coroutines.CoroutineLateUpdateSystem -> sealed class
+Vixen.Engine.Coroutines.CoroutineLateUpdateSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Engine.Coroutines.CoroutineLateUpdateSystem.CoroutineLateUpdateSystem(Vixen.Engine.Coroutines.CoroutineScheduler scheduler) -> void
+Vixen.Engine.Coroutines.CoroutineMethodBuilder -> struct
+Vixen.Engine.Coroutines.CoroutineMethodBuilder.AwaitOnCompleted<TAwaiter, TStateMachine>(ref TAwaiter awaiter, ref TStateMachine stateMachine) -> void
+Vixen.Engine.Coroutines.CoroutineMethodBuilder.AwaitUnsafeOnCompleted<TAwaiter, TStateMachine>(ref TAwaiter awaiter, ref TStateMachine stateMachine) -> void
+Vixen.Engine.Coroutines.CoroutineMethodBuilder.CoroutineMethodBuilder() -> void
+Vixen.Engine.Coroutines.CoroutineMethodBuilder.SetException(System.Exception exception) -> void
+Vixen.Engine.Coroutines.CoroutineMethodBuilder.SetResult() -> void
+Vixen.Engine.Coroutines.CoroutineMethodBuilder.SetStateMachine(System.Runtime.CompilerServices.IAsyncStateMachine stateMachine) -> void
+Vixen.Engine.Coroutines.CoroutineMethodBuilder.Start<TStateMachine>(ref TStateMachine stateMachine) -> void
+Vixen.Engine.Coroutines.CoroutineMethodBuilder.Task.get -> Vixen.Engine.Coroutines.Coroutine
+Vixen.Engine.Coroutines.CoroutineScheduler -> sealed class
+Vixen.Engine.Coroutines.CoroutineScheduler.BeginFrame(in Vixen.Core.GameTime time) -> void
+Vixen.Engine.Coroutines.CoroutineScheduler.BeginStep() -> void
+Vixen.Engine.Coroutines.CoroutineScheduler.CoroutineScheduler() -> void
+Vixen.Engine.Coroutines.CoroutineScheduler.CurrentPoint.get -> Vixen.Engine.Coroutines.ResumePoint
+Vixen.Engine.Coroutines.CoroutineScheduler.Drain(Vixen.Engine.Coroutines.ResumePoint point) -> void
+Vixen.Engine.Coroutines.CoroutineScheduler.Frame.get -> long
+Vixen.Engine.Coroutines.CoroutineScheduler.NextFrame(Vixen.Engine.Coroutines.ResumePoint? point = null, Vixen.Engine.Coroutines.ICoroutineOwner? owner = null) -> Vixen.Engine.Coroutines.CoroutineAwaitable
+Vixen.Engine.Coroutines.CoroutineScheduler.ResumeOnLoop(Vixen.Engine.Coroutines.ResumePoint point = Vixen.Engine.Coroutines.ResumePoint.Update, Vixen.Engine.Coroutines.ICoroutineOwner? owner = null) -> Vixen.Engine.Coroutines.CoroutineAwaitable
+Vixen.Engine.Coroutines.CoroutineScheduler.Run(Vixen.Engine.Coroutines.Coroutine coroutine) -> Vixen.Engine.Coroutines.CoroutineHandle
+Vixen.Engine.Coroutines.CoroutineScheduler.RunningCount.get -> int
+Vixen.Engine.Coroutines.CoroutineScheduler.Seconds(float seconds, Vixen.Engine.Coroutines.ResumePoint? point = null, Vixen.Engine.Coroutines.ICoroutineOwner? owner = null) -> Vixen.Engine.Coroutines.CoroutineAwaitable
+Vixen.Engine.Coroutines.CoroutineScheduler.Step.get -> long
+Vixen.Engine.Coroutines.CoroutineScheduler.Time.get -> Vixen.Core.GameTime
+Vixen.Engine.Coroutines.CoroutineScheduler.UnhandledException.get -> System.Action<System.Exception>?
+Vixen.Engine.Coroutines.CoroutineScheduler.UnhandledException.set -> System.Action<System.Exception>?
+Vixen.Engine.Coroutines.CoroutineScheduler.UnscaledSeconds(float seconds, Vixen.Engine.Coroutines.ResumePoint? point = null, Vixen.Engine.Coroutines.ICoroutineOwner? owner = null) -> Vixen.Engine.Coroutines.CoroutineAwaitable
+Vixen.Engine.Coroutines.CoroutineScheduler.Until(System.Func<bool> predicate, Vixen.Engine.Coroutines.ResumePoint? point = null, Vixen.Engine.Coroutines.ICoroutineOwner? owner = null) -> Vixen.Engine.Coroutines.CoroutineAwaitable
+Vixen.Engine.Coroutines.CoroutineScheduler.WaitingCount(Vixen.Engine.Coroutines.ResumePoint point) -> int
+Vixen.Engine.Coroutines.CoroutineScheduler.While(System.Func<bool> predicate, Vixen.Engine.Coroutines.ResumePoint? point = null, Vixen.Engine.Coroutines.ICoroutineOwner? owner = null) -> Vixen.Engine.Coroutines.CoroutineAwaitable
+Vixen.Engine.Coroutines.CoroutineUpdateSystem -> sealed class
+Vixen.Engine.Coroutines.CoroutineUpdateSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Engine.Coroutines.CoroutineUpdateSystem.CoroutineUpdateSystem(Vixen.Engine.Coroutines.CoroutineScheduler scheduler) -> void
+Vixen.Engine.Coroutines.ICoroutineOwner -> interface
+Vixen.Engine.Coroutines.ICoroutineOwner.CoroutineGeneration.get -> int
+Vixen.Engine.Coroutines.ICoroutineOwner.IsDestroyed.get -> bool
+Vixen.Engine.Coroutines.ResumePoint -> enum : int
+Vixen.Engine.Coroutines.ResumePoint.EndOfFrame = 3 -> Vixen.Engine.Coroutines.ResumePoint
+Vixen.Engine.Coroutines.ResumePoint.FixedStep = 2 -> Vixen.Engine.Coroutines.ResumePoint
+Vixen.Engine.Coroutines.ResumePoint.LateUpdate = 1 -> Vixen.Engine.Coroutines.ResumePoint
+Vixen.Engine.Coroutines.ResumePoint.ResumePoint() -> void
+Vixen.Engine.Coroutines.ResumePoint.Update = 0 -> Vixen.Engine.Coroutines.ResumePoint
+Vixen.Engine.Diagnostics.DebugDraw -> sealed class
+Vixen.Engine.Diagnostics.DebugDraw.Advance(float seconds) -> void
+Vixen.Engine.Diagnostics.DebugDraw.Axes(Vixen.Core.Mathematics.Matrix4x4 transform, float length = 1, float seconds = 0) -> void
+Vixen.Engine.Diagnostics.DebugDraw.Box(Vixen.Core.Mathematics.BoundingBox box, Vixen.Core.Mathematics.Color4 colour, float seconds = 0) -> void
+Vixen.Engine.Diagnostics.DebugDraw.Clear() -> void
+Vixen.Engine.Diagnostics.DebugDraw.Count.get -> int
+Vixen.Engine.Diagnostics.DebugDraw.DebugDraw() -> void
+Vixen.Engine.Diagnostics.DebugDraw.Enabled.get -> bool
+Vixen.Engine.Diagnostics.DebugDraw.Enabled.set -> bool
+Vixen.Engine.Diagnostics.DebugDraw.Line(Vixen.Core.Mathematics.Vector3 from, Vixen.Core.Mathematics.Vector3 to, Vixen.Core.Mathematics.Color4 colour, float seconds = 0) -> void
+Vixen.Engine.Diagnostics.DebugDraw.Lines.get -> System.ReadOnlySpan<Vixen.Engine.Diagnostics.DebugLine>
+Vixen.Engine.Diagnostics.DebugDraw.Ray(Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 direction, Vixen.Core.Mathematics.Color4 colour, float seconds = 0) -> void
+Vixen.Engine.Diagnostics.DebugDraw.Sphere(Vixen.Core.Mathematics.BoundingSphere sphere, Vixen.Core.Mathematics.Color4 colour, float seconds = 0) -> void
+Vixen.Engine.Diagnostics.DebugDrawSystem -> sealed class
+Vixen.Engine.Diagnostics.DebugDrawSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Engine.Diagnostics.DebugDrawSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Engine.Diagnostics.DebugDrawSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Engine.Diagnostics.DebugDrawSystem.DebugDrawSystem(Vixen.Engine.Diagnostics.DebugDraw draw) -> void
+Vixen.Engine.Diagnostics.DebugLine -> readonly struct
+Vixen.Engine.Diagnostics.DebugLine : System.IEquatable<Vixen.Engine.Diagnostics.DebugLine>
+Vixen.Engine.Diagnostics.DebugLine.Colour.get -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.DebugLine.Colour.init -> Vixen.Core.Mathematics.Color4
+Vixen.Engine.Diagnostics.DebugLine.DebugLine() -> void
+Vixen.Engine.Diagnostics.DebugLine.DebugLine(Vixen.Core.Mathematics.Vector3 From, Vixen.Core.Mathematics.Vector3 To, Vixen.Core.Mathematics.Color4 Colour, float Remaining) -> void
+Vixen.Engine.Diagnostics.DebugLine.From.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Diagnostics.DebugLine.From.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Diagnostics.DebugLine.Remaining.get -> float
+Vixen.Engine.Diagnostics.DebugLine.Remaining.init -> float
+Vixen.Engine.Diagnostics.DebugLine.To.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Diagnostics.DebugLine.To.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Frames.EngineLoop -> sealed class
+Vixen.Engine.Frames.EngineLoop : System.IDisposable
+Vixen.Engine.Frames.EngineLoop.Add(Vixen.Ecs.Systems.ISystem system) -> Vixen.Engine.Frames.EngineLoop
+Vixen.Engine.Frames.EngineLoop.Behaviors.get -> Vixen.Engine.Behaviors.BehaviorStore
+Vixen.Engine.Frames.EngineLoop.Coroutines.get -> Vixen.Engine.Coroutines.CoroutineScheduler
+Vixen.Engine.Frames.EngineLoop.Dispose() -> void
+Vixen.Engine.Frames.EngineLoop.EngineLoop(Vixen.Ecs.World? world = null, Vixen.Core.Threading.JobScheduler? jobs = null, Vixen.Engine.Frames.FixedStepAccumulator? fixedStep = null, bool registerDefaultSystems = true) -> void
+Vixen.Engine.Frames.EngineLoop.FixedStep.get -> Vixen.Engine.Frames.FixedStepAccumulator
+Vixen.Engine.Frames.EngineLoop.Frame(System.TimeSpan elapsed, float timeScale = 1) -> void
+Vixen.Engine.Frames.EngineLoop.LastFixedSteps.get -> int
+Vixen.Engine.Frames.EngineLoop.Systems.get -> Vixen.Ecs.Systems.SystemRunner
+Vixen.Engine.Frames.EngineLoop.Time.get -> Vixen.Core.GameTime
+Vixen.Engine.Frames.EngineLoop.World.get -> Vixen.Ecs.World
+Vixen.Engine.Frames.FixedStepAccumulator -> sealed class
+Vixen.Engine.Frames.FixedStepAccumulator.Advance(System.TimeSpan elapsed) -> int
+Vixen.Engine.Frames.FixedStepAccumulator.Alpha.get -> float
+Vixen.Engine.Frames.FixedStepAccumulator.DroppedSteps.get -> long
+Vixen.Engine.Frames.FixedStepAccumulator.FixedStepAccumulator(System.TimeSpan step = default(System.TimeSpan), int maxStepsPerFrame = 5) -> void
+Vixen.Engine.Frames.FixedStepAccumulator.MaxStepsPerFrame.get -> int
+Vixen.Engine.Frames.FixedStepAccumulator.Pending.get -> System.TimeSpan
+Vixen.Engine.Frames.FixedStepAccumulator.Reset() -> void
+Vixen.Engine.Frames.FixedStepAccumulator.Step.get -> System.TimeSpan
+Vixen.Engine.Frames.FixedStepAccumulator.StepTime(Vixen.Core.GameTime frame) -> Vixen.Core.GameTime
+Vixen.Engine.Frames.FixedStepAccumulator.TotalSteps.get -> long
+Vixen.Engine.Input.InputUpdateSystem -> sealed class
+Vixen.Engine.Input.InputUpdateSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Engine.Input.InputUpdateSystem.InputUpdateSystem(Vixen.Input.InputService input) -> void
+Vixen.Engine.Scenes.Prefab -> sealed class
+Vixen.Engine.Scenes.Prefab : System.IDisposable
+Vixen.Engine.Scenes.Prefab.ArchetypeCount.get -> int
+Vixen.Engine.Scenes.Prefab.Dispose() -> void
+Vixen.Engine.Scenes.Prefab.EntityCount.get -> int
+Vixen.Engine.Scenes.Prefab.Instantiate(Vixen.Ecs.World world, System.Span<Vixen.Core.Entity> created, Vixen.Engine.Transforms.LocalTransform? at = null) -> Vixen.Core.Entity
+Vixen.Engine.Scenes.Prefab.Instantiate(Vixen.Ecs.World world, Vixen.Engine.Transforms.LocalTransform? at = null) -> Vixen.Core.Entity
+Vixen.Engine.Scenes.Prefab.InstantiateOnto(Vixen.Ecs.World world, Vixen.Core.Entity standIn, System.Span<Vixen.Core.Entity> created, Vixen.Engine.Transforms.LocalTransform? at = null) -> Vixen.Core.Entity
+Vixen.Engine.Scenes.Prefab.Name.get -> string
+Vixen.Engine.Scenes.Prefab.NodeHas<T>(int node) -> bool
+Vixen.Engine.Scenes.SceneHandle -> readonly struct
+Vixen.Engine.Scenes.SceneHandle : System.IEquatable<Vixen.Engine.Scenes.SceneHandle>
+Vixen.Engine.Scenes.SceneHandle.Id.get -> int
+Vixen.Engine.Scenes.SceneHandle.Id.init -> int
+Vixen.Engine.Scenes.SceneHandle.IsValid.get -> bool
+Vixen.Engine.Scenes.SceneHandle.SceneHandle() -> void
+Vixen.Engine.Scenes.SceneHandle.SceneHandle(int Id) -> void
+Vixen.Engine.Scenes.SceneManager -> sealed class
+Vixen.Engine.Scenes.SceneManager.Adopt(Vixen.Engine.Scenes.SceneHandle scene, Vixen.Core.Entity root) -> void
+Vixen.Engine.Scenes.SceneManager.CountIn(Vixen.Engine.Scenes.SceneHandle scene) -> int
+Vixen.Engine.Scenes.SceneManager.Create(string name) -> Vixen.Engine.Scenes.SceneHandle
+Vixen.Engine.Scenes.SceneManager.CreateEntity(Vixen.Engine.Scenes.SceneHandle scene) -> Vixen.Core.Entity
+Vixen.Engine.Scenes.SceneManager.CreateTransform(Vixen.Engine.Scenes.SceneHandle scene, Vixen.Engine.Transforms.LocalTransform local) -> Vixen.Core.Entity
+Vixen.Engine.Scenes.SceneManager.IsLoaded(Vixen.Engine.Scenes.SceneHandle scene) -> bool
+Vixen.Engine.Scenes.SceneManager.Loaded.get -> System.Collections.Generic.IReadOnlyList<Vixen.Engine.Scenes.SceneHandle>
+Vixen.Engine.Scenes.SceneManager.NameOf(Vixen.Engine.Scenes.SceneHandle scene) -> string
+Vixen.Engine.Scenes.SceneManager.SceneManager(Vixen.Ecs.World world) -> void
+Vixen.Engine.Scenes.SceneManager.SceneOf(Vixen.Core.Entity entity) -> Vixen.Engine.Scenes.SceneHandle
+Vixen.Engine.Scenes.SceneManager.Unload(Vixen.Engine.Scenes.SceneHandle scene, Vixen.Engine.Behaviors.BehaviorStore? behaviors = null) -> int
+Vixen.Engine.Scenes.SceneManager.World.get -> Vixen.Ecs.World
+Vixen.Engine.Scenes.SceneTag -> struct
+Vixen.Engine.Scenes.SceneTag.SceneId -> int
+Vixen.Engine.Scenes.SceneTag.SceneTag() -> void
+Vixen.Engine.Transforms.Child -> struct
+Vixen.Engine.Transforms.Child.Child() -> void
+Vixen.Engine.Transforms.Child.First -> Vixen.Core.Entity
+Vixen.Engine.Transforms.Hierarchy -> static class
+Vixen.Engine.Transforms.Hierarchy.ChildSequence -> readonly struct
+Vixen.Engine.Transforms.Hierarchy.ChildSequence.ChildSequence() -> void
+Vixen.Engine.Transforms.Hierarchy.ChildSequence.ChildSequence(Vixen.Ecs.World world, Vixen.Core.Entity first) -> void
+Vixen.Engine.Transforms.Hierarchy.ChildSequence.Enumerator -> struct
+Vixen.Engine.Transforms.Hierarchy.ChildSequence.Enumerator.Enumerator() -> void
+Vixen.Engine.Transforms.Hierarchy.ChildSequence.Enumerator.Enumerator(Vixen.Ecs.World world, Vixen.Core.Entity first) -> void
+Vixen.Engine.Transforms.Hierarchy.ChildSequence.Enumerator.MoveNext() -> bool
+Vixen.Engine.Transforms.Hierarchy.ChildSequence.GetEnumerator() -> Vixen.Engine.Transforms.Hierarchy.ChildSequence.Enumerator
+Vixen.Engine.Transforms.HierarchyDepth -> struct
+Vixen.Engine.Transforms.HierarchyDepth.HierarchyDepth() -> void
+Vixen.Engine.Transforms.HierarchyDepth.Value -> short
+Vixen.Engine.Transforms.LocalTransform -> struct
+Vixen.Engine.Transforms.LocalTransform.LocalTransform() -> void
+Vixen.Engine.Transforms.LocalTransform.Position -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Transforms.LocalTransform.Rotation -> Vixen.Core.Mathematics.Quaternion
+Vixen.Engine.Transforms.LocalTransform.Scale -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Transforms.Parent -> struct
+Vixen.Engine.Transforms.Parent.Parent() -> void
+Vixen.Engine.Transforms.Parent.Value -> Vixen.Core.Entity
+Vixen.Engine.Transforms.Sibling -> struct
+Vixen.Engine.Transforms.Sibling.Next -> Vixen.Core.Entity
+Vixen.Engine.Transforms.Sibling.Previous -> Vixen.Core.Entity
+Vixen.Engine.Transforms.Sibling.Sibling() -> void
+Vixen.Engine.Transforms.Transform -> readonly ref struct
+Vixen.Engine.Transforms.Transform.Entity.get -> Vixen.Core.Entity
+Vixen.Engine.Transforms.Transform.Forward.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Transforms.Transform.InverseTransformPoint(Vixen.Core.Mathematics.Vector3 point) -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Transforms.Transform.LocalPosition.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Transforms.Transform.LocalPosition.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Transforms.Transform.LocalRotation.get -> Vixen.Core.Mathematics.Quaternion
+Vixen.Engine.Transforms.Transform.LocalRotation.set -> Vixen.Core.Mathematics.Quaternion
+Vixen.Engine.Transforms.Transform.LocalScale.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Transforms.Transform.LocalScale.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Transforms.Transform.LocalToWorld.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Engine.Transforms.Transform.LookAt(Vixen.Core.Mathematics.Vector3 target, Vixen.Core.Mathematics.Vector3 up = default(Vixen.Core.Mathematics.Vector3)) -> void
+Vixen.Engine.Transforms.Transform.LossyScale.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Transforms.Transform.Parent.get -> Vixen.Core.Entity
+Vixen.Engine.Transforms.Transform.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Transforms.Transform.Position.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Transforms.Transform.Right.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Transforms.Transform.Rotation.get -> Vixen.Core.Mathematics.Quaternion
+Vixen.Engine.Transforms.Transform.Rotation.set -> Vixen.Core.Mathematics.Quaternion
+Vixen.Engine.Transforms.Transform.Transform() -> void
+Vixen.Engine.Transforms.Transform.Transform(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> void
+Vixen.Engine.Transforms.Transform.TransformDirection(Vixen.Core.Mathematics.Vector3 direction) -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Transforms.Transform.TransformPoint(Vixen.Core.Mathematics.Vector3 point) -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Transforms.Transform.Translate(Vixen.Core.Mathematics.Vector3 offset) -> void
+Vixen.Engine.Transforms.Transform.Up.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Transforms.TransformSystem -> sealed class
+Vixen.Engine.Transforms.TransformSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Engine.Transforms.TransformSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Engine.Transforms.TransformSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Engine.Transforms.TransformSystem.Resolve(Vixen.Ecs.World world) -> void
+Vixen.Engine.Transforms.TransformSystem.TransformSystem() -> void
+Vixen.Engine.Transforms.WorldTransform -> struct
+Vixen.Engine.Transforms.WorldTransform.Value -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Engine.Transforms.WorldTransform.WorldTransform() -> void
+override Vixen.Engine.Behaviors.BehaviorLateUpdateSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Engine.Behaviors.BehaviorLifecycleSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Engine.Behaviors.BehaviorUpdateSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Engine.Coroutines.CoroutineAwaitable.Equals(object? obj) -> bool
+override Vixen.Engine.Coroutines.CoroutineAwaitable.GetHashCode() -> int
+override Vixen.Engine.Coroutines.CoroutineEndOfFrameSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Engine.Coroutines.CoroutineFixedStepSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Engine.Coroutines.CoroutineLateUpdateSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Engine.Coroutines.CoroutineUpdateSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Engine.Diagnostics.DebugDrawSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Engine.Input.InputUpdateSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Engine.Scenes.Prefab.ToString() -> string
+override Vixen.Engine.Transforms.Transform.ToString() -> string
+override Vixen.Engine.Transforms.TransformSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+readonly Vixen.Engine.Transforms.Hierarchy.ChildSequence.Enumerator.Current.get -> Vixen.Core.Entity
+readonly Vixen.Engine.Transforms.LocalTransform.ToMatrix() -> Vixen.Core.Mathematics.Matrix4x4
+readonly Vixen.Engine.Transforms.WorldTransform.Position.get -> Vixen.Core.Mathematics.Vector3
+static Vixen.Engine.Cameras.Camera.Orthographic2D.get -> Vixen.Engine.Cameras.Camera
+static Vixen.Engine.Cameras.Camera.Perspective.get -> Vixen.Engine.Cameras.Camera
+static Vixen.Engine.Cameras.CameraMath.Frustum(in Vixen.Engine.Cameras.Camera camera, in Vixen.Engine.Transforms.WorldTransform transform, float aspectRatio = 0) -> Vixen.Core.Mathematics.BoundingFrustum
+static Vixen.Engine.Cameras.CameraMath.Projection(in Vixen.Engine.Cameras.Camera camera, float aspectRatio = 0) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Engine.Cameras.CameraMath.View(in Vixen.Engine.Transforms.WorldTransform transform) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Engine.Cameras.CameraMath.ViewProjection(in Vixen.Engine.Cameras.Camera camera, in Vixen.Engine.Transforms.WorldTransform transform, float aspectRatio = 0) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Engine.Coroutines.Coroutine.Completed.get -> Vixen.Engine.Coroutines.Coroutine
+static Vixen.Engine.Coroutines.Coroutine.WhenAll(params Vixen.Engine.Coroutines.Coroutine[] coroutines) -> Vixen.Engine.Coroutines.Coroutine
+static Vixen.Engine.Coroutines.CoroutineAwaitable.operator !=(Vixen.Engine.Coroutines.CoroutineAwaitable left, Vixen.Engine.Coroutines.CoroutineAwaitable right) -> bool
+static Vixen.Engine.Coroutines.CoroutineAwaitable.operator ==(Vixen.Engine.Coroutines.CoroutineAwaitable left, Vixen.Engine.Coroutines.CoroutineAwaitable right) -> bool
+static Vixen.Engine.Coroutines.CoroutineMethodBuilder.Create() -> Vixen.Engine.Coroutines.CoroutineMethodBuilder
+static Vixen.Engine.Scenes.Prefab.CaptureFrom(Vixen.Ecs.World world, Vixen.Core.Entity root, string name = "Prefab") -> Vixen.Engine.Scenes.Prefab
+static Vixen.Engine.Scenes.SceneHandle.None.get -> Vixen.Engine.Scenes.SceneHandle
+static Vixen.Engine.Transforms.Hierarchy.ChildrenOf(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> Vixen.Engine.Transforms.Hierarchy.ChildSequence
+static Vixen.Engine.Transforms.Hierarchy.CreateTransform(Vixen.Ecs.World world, Vixen.Engine.Transforms.LocalTransform local) -> Vixen.Core.Entity
+static Vixen.Engine.Transforms.Hierarchy.DepthOf(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> int
+static Vixen.Engine.Transforms.Hierarchy.DestroySubtree(Vixen.Ecs.World world, Vixen.Core.Entity root) -> void
+static Vixen.Engine.Transforms.Hierarchy.DestroySubtree(Vixen.Ecs.World world, Vixen.Ecs.CommandBuffer commands, Vixen.Core.Entity root) -> void
+static Vixen.Engine.Transforms.Hierarchy.IsAncestorOf(Vixen.Ecs.World world, Vixen.Core.Entity ancestor, Vixen.Core.Entity entity) -> bool
+static Vixen.Engine.Transforms.Hierarchy.ParentOf(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> Vixen.Core.Entity
+static Vixen.Engine.Transforms.Hierarchy.SetParent(Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Core.Entity parent) -> void
+static Vixen.Engine.Transforms.Hierarchy.SetParentKeepingWorldPosition(Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Core.Entity parent) -> void
+static Vixen.Engine.Transforms.LocalTransform.At(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Engine.Transforms.LocalTransform
+static Vixen.Engine.Transforms.LocalTransform.Identity.get -> Vixen.Engine.Transforms.LocalTransform
+static Vixen.Engine.Transforms.Transform.LookRotation(Vixen.Core.Mathematics.Vector3 forward, Vixen.Core.Mathematics.Vector3 up) -> Vixen.Core.Mathematics.Quaternion
+virtual Vixen.Engine.Behaviors.Behavior.Awake() -> void
+virtual Vixen.Engine.Behaviors.Behavior.LateUpdate() -> void
+virtual Vixen.Engine.Behaviors.Behavior.OnDestroy() -> void
+virtual Vixen.Engine.Behaviors.Behavior.OnDisable() -> void
+virtual Vixen.Engine.Behaviors.Behavior.OnEnable() -> void
+virtual Vixen.Engine.Behaviors.Behavior.Start() -> void
+virtual Vixen.Engine.Behaviors.Behavior.Update() -> void

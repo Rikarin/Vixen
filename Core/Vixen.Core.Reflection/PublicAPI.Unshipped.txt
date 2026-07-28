@@ -1,0 +1,70 @@
+#nullable enable
+Vixen.Core.Reflection.CollectionFactory -> static class
+Vixen.Core.Reflection.MemberDescriptor -> sealed class
+Vixen.Core.Reflection.MemberDescriptor.CanWrite.get -> bool
+Vixen.Core.Reflection.MemberDescriptor.GetValue(object instance) -> object?
+Vixen.Core.Reflection.MemberDescriptor.IsInitOnly.get -> bool
+Vixen.Core.Reflection.MemberDescriptor.MemberDescriptor(string name, System.Type memberType, int order, System.Func<object, object?>? getter, System.Action<object, object?>? setter, Vixen.Core.Reflection.MemberPresentation presentation = default(Vixen.Core.Reflection.MemberPresentation), bool isInitOnly = false) -> void
+Vixen.Core.Reflection.MemberDescriptor.MemberType.get -> System.Type
+Vixen.Core.Reflection.MemberDescriptor.Name.get -> string
+Vixen.Core.Reflection.MemberDescriptor.Order.get -> int
+Vixen.Core.Reflection.MemberDescriptor.Presentation.get -> Vixen.Core.Reflection.MemberPresentation
+Vixen.Core.Reflection.MemberDescriptor.SetValue(object instance, object? value) -> void
+Vixen.Core.Reflection.MemberPresentation -> readonly struct
+Vixen.Core.Reflection.MemberPresentation : System.IEquatable<Vixen.Core.Reflection.MemberPresentation>
+Vixen.Core.Reflection.MemberPresentation.Category.get -> string?
+Vixen.Core.Reflection.MemberPresentation.Category.init -> string?
+Vixen.Core.Reflection.MemberPresentation.DisplayName.get -> string?
+Vixen.Core.Reflection.MemberPresentation.DisplayName.init -> string?
+Vixen.Core.Reflection.MemberPresentation.IsEditorReadOnly.get -> bool
+Vixen.Core.Reflection.MemberPresentation.IsEditorReadOnly.init -> bool
+Vixen.Core.Reflection.MemberPresentation.IsEditorVisible.get -> bool
+Vixen.Core.Reflection.MemberPresentation.IsEditorVisible.init -> bool
+Vixen.Core.Reflection.MemberPresentation.Logarithmic.get -> bool
+Vixen.Core.Reflection.MemberPresentation.Logarithmic.init -> bool
+Vixen.Core.Reflection.MemberPresentation.Maximum.get -> double?
+Vixen.Core.Reflection.MemberPresentation.Maximum.init -> double?
+Vixen.Core.Reflection.MemberPresentation.MemberPresentation() -> void
+Vixen.Core.Reflection.MemberPresentation.MemberPresentation(string? Category = null, string? DisplayName = null, string? Tooltip = null, double? Minimum = null, double? Maximum = null, double Step = 0, bool Logarithmic = false, bool IsEditorVisible = true, bool IsEditorReadOnly = false) -> void
+Vixen.Core.Reflection.MemberPresentation.Minimum.get -> double?
+Vixen.Core.Reflection.MemberPresentation.Minimum.init -> double?
+Vixen.Core.Reflection.MemberPresentation.Step.get -> double
+Vixen.Core.Reflection.MemberPresentation.Step.init -> double
+Vixen.Core.Reflection.MemberPresentation.Tooltip.get -> string?
+Vixen.Core.Reflection.MemberPresentation.Tooltip.init -> string?
+Vixen.Core.Reflection.TypeDescriptor -> sealed class
+Vixen.Core.Reflection.TypeDescriptor.Alias.get -> string
+Vixen.Core.Reflection.TypeDescriptor.CanCreate.get -> bool
+Vixen.Core.Reflection.TypeDescriptor.Category.get -> string?
+Vixen.Core.Reflection.TypeDescriptor.Create() -> object
+Vixen.Core.Reflection.TypeDescriptor.FindMember(string name) -> Vixen.Core.Reflection.MemberDescriptor?
+Vixen.Core.Reflection.TypeDescriptor.FormerAliases.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Core.Reflection.TypeDescriptor.Has(Vixen.Core.Reflection.TypeTraits traits) -> bool
+Vixen.Core.Reflection.TypeDescriptor.Members.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Reflection.MemberDescriptor>
+Vixen.Core.Reflection.TypeDescriptor.Serializer.get -> Vixen.Core.Serialization.DataSerializer?
+Vixen.Core.Reflection.TypeDescriptor.Traits.get -> Vixen.Core.Reflection.TypeTraits
+Vixen.Core.Reflection.TypeDescriptor.Type.get -> System.Type
+Vixen.Core.Reflection.TypeDescriptor.TypeDescriptor(System.Type type, string alias, Vixen.Core.Reflection.TypeTraits traits, Vixen.Core.Reflection.MemberDescriptor[] members, System.Func<object>? factory = null, string? category = null, string[]? formerAliases = null) -> void
+Vixen.Core.Reflection.TypeRegistry -> static class
+Vixen.Core.Reflection.TypeTraits -> enum : int
+Vixen.Core.Reflection.TypeTraits.Abstract = 8 -> Vixen.Core.Reflection.TypeTraits
+Vixen.Core.Reflection.TypeTraits.Component = 2 -> Vixen.Core.Reflection.TypeTraits
+Vixen.Core.Reflection.TypeTraits.DataContract = 1 -> Vixen.Core.Reflection.TypeTraits
+Vixen.Core.Reflection.TypeTraits.EditorVisible = 4 -> Vixen.Core.Reflection.TypeTraits
+Vixen.Core.Reflection.TypeTraits.None = 0 -> Vixen.Core.Reflection.TypeTraits
+Vixen.Core.Reflection.TypeTraits.TypeTraits() -> void
+override Vixen.Core.Reflection.MemberDescriptor.ToString() -> string
+override Vixen.Core.Reflection.TypeDescriptor.ToString() -> string
+static Vixen.Core.Reflection.CollectionFactory.Clear() -> void
+static Vixen.Core.Reflection.CollectionFactory.Count.get -> int
+static Vixen.Core.Reflection.CollectionFactory.Register(System.Type type, System.Func<int, object> create) -> void
+static Vixen.Core.Reflection.CollectionFactory.TryCreate(System.Type type, int capacity, out object? instance) -> bool
+static Vixen.Core.Reflection.TypeRegistry.All.get -> System.Collections.Generic.IEnumerable<Vixen.Core.Reflection.TypeDescriptor>
+static Vixen.Core.Reflection.TypeRegistry.AssignableTo<TBase>() -> System.Collections.Generic.IEnumerable<Vixen.Core.Reflection.TypeDescriptor>
+static Vixen.Core.Reflection.TypeRegistry.Clear() -> void
+static Vixen.Core.Reflection.TypeRegistry.Count.get -> int
+static Vixen.Core.Reflection.TypeRegistry.Register(Vixen.Core.Reflection.TypeDescriptor descriptor) -> void
+static Vixen.Core.Reflection.TypeRegistry.TryGet(System.Type type, out Vixen.Core.Reflection.TypeDescriptor? descriptor) -> bool
+static Vixen.Core.Reflection.TypeRegistry.TryGet<T>(out Vixen.Core.Reflection.TypeDescriptor? descriptor) -> bool
+static Vixen.Core.Reflection.TypeRegistry.TryGetByAlias(string alias, out Vixen.Core.Reflection.TypeDescriptor? descriptor) -> bool
+static Vixen.Core.Reflection.TypeRegistry.With(Vixen.Core.Reflection.TypeTraits traits) -> System.Collections.Generic.IEnumerable<Vixen.Core.Reflection.TypeDescriptor>

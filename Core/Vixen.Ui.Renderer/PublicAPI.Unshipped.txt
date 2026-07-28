@@ -1,0 +1,50 @@
+#nullable enable
+Vixen.Ui.Renderer.UiRenderFeature -> sealed class
+Vixen.Ui.Renderer.UiRenderFeature : Vixen.Rendering.RootRenderFeature
+Vixen.Ui.Renderer.UiRenderFeature.Remove(Vixen.Rendering.RenderObjectId id) -> void
+Vixen.Ui.Renderer.UiRenderFeature.Renderer.get -> Vixen.Ui.Renderer.UiRenderer?
+Vixen.Ui.Renderer.UiRenderFeature.Renderer.set -> Vixen.Ui.Renderer.UiRenderer?
+Vixen.Ui.Renderer.UiRenderFeature.Set(Vixen.Rendering.RenderObjectId id, in Vixen.Ui.Renderer.UiSurface surface) -> void
+Vixen.Ui.Renderer.UiRenderFeature.UiRenderFeature() -> void
+Vixen.Ui.Renderer.UiRenderer -> sealed class
+Vixen.Ui.Renderer.UiRenderer : System.IDisposable
+Vixen.Ui.Renderer.UiRenderer.AtlasUploads.get -> int
+Vixen.Ui.Renderer.UiRenderer.Dispose() -> void
+Vixen.Ui.Renderer.UiRenderer.Draws.get -> int
+Vixen.Ui.Renderer.UiRenderer.ImageSets.get -> int
+Vixen.Ui.Renderer.UiRenderer.Record(Vixen.Graphics.ICommandList commands, in Vixen.Ui.Rendering.UiGeometry geometry, Vixen.Core.Mathematics.Int2 surface, float scale = 1) -> void
+Vixen.Ui.Renderer.UiRenderer.Region.get -> int
+Vixen.Ui.Renderer.UiRenderer.Regions.get -> int
+Vixen.Ui.Renderer.UiRenderer.RegisterImage(ulong image, Vixen.Graphics.TextureViewHandle view) -> void
+Vixen.Ui.Renderer.UiRenderer.UiRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Ui.Renderer.UiShaders shaders, Vixen.Rendering.RenderOutput output) -> void
+Vixen.Ui.Renderer.UiRenderer.UnregisterImage(ulong image) -> bool
+Vixen.Ui.Renderer.UiRenderer.Upload(Vixen.Graphics.ICommandList commands, in Vixen.Ui.Rendering.UiGeometry geometry, Vixen.Ui.Text.Rasterizing.GlyphAtlas atlas) -> void
+Vixen.Ui.Renderer.UiShaders -> readonly struct
+Vixen.Ui.Renderer.UiShaders : System.IEquatable<Vixen.Ui.Renderer.UiShaders>
+Vixen.Ui.Renderer.UiShaders.Box.get -> Vixen.Graphics.ShaderHandle
+Vixen.Ui.Renderer.UiShaders.Box.init -> Vixen.Graphics.ShaderHandle
+Vixen.Ui.Renderer.UiShaders.Image.get -> Vixen.Graphics.ShaderHandle
+Vixen.Ui.Renderer.UiShaders.Image.init -> Vixen.Graphics.ShaderHandle
+Vixen.Ui.Renderer.UiShaders.Solid.get -> Vixen.Graphics.ShaderHandle
+Vixen.Ui.Renderer.UiShaders.Solid.init -> Vixen.Graphics.ShaderHandle
+Vixen.Ui.Renderer.UiShaders.Text.get -> Vixen.Graphics.ShaderHandle
+Vixen.Ui.Renderer.UiShaders.Text.init -> Vixen.Graphics.ShaderHandle
+Vixen.Ui.Renderer.UiShaders.UiShaders() -> void
+Vixen.Ui.Renderer.UiShaders.UiShaders(Vixen.Graphics.ShaderHandle Vertex, Vixen.Graphics.ShaderHandle Box, Vixen.Graphics.ShaderHandle Text, Vixen.Graphics.ShaderHandle Solid) -> void
+Vixen.Ui.Renderer.UiShaders.Vertex.get -> Vixen.Graphics.ShaderHandle
+Vixen.Ui.Renderer.UiShaders.Vertex.init -> Vixen.Graphics.ShaderHandle
+Vixen.Ui.Renderer.UiSurface -> readonly struct
+Vixen.Ui.Renderer.UiSurface : System.IEquatable<Vixen.Ui.Renderer.UiSurface>
+Vixen.Ui.Renderer.UiSurface.Atlas.get -> Vixen.Ui.Text.Rasterizing.GlyphAtlas
+Vixen.Ui.Renderer.UiSurface.Atlas.init -> Vixen.Ui.Text.Rasterizing.GlyphAtlas
+Vixen.Ui.Renderer.UiSurface.Geometry.get -> Vixen.Ui.Rendering.UiGeometry
+Vixen.Ui.Renderer.UiSurface.Geometry.init -> Vixen.Ui.Rendering.UiGeometry
+Vixen.Ui.Renderer.UiSurface.Order.get -> uint
+Vixen.Ui.Renderer.UiSurface.Order.init -> uint
+Vixen.Ui.Renderer.UiSurface.Surface.get -> Vixen.Core.Mathematics.Int2
+Vixen.Ui.Renderer.UiSurface.Surface.init -> Vixen.Core.Mathematics.Int2
+Vixen.Ui.Renderer.UiSurface.UiSurface() -> void
+Vixen.Ui.Renderer.UiSurface.UiSurface(Vixen.Ui.Rendering.UiGeometry Geometry, Vixen.Ui.Text.Rasterizing.GlyphAtlas Atlas, Vixen.Core.Mathematics.Int2 Surface, uint Order) -> void
+override Vixen.Ui.Renderer.UiRenderFeature.Draw(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderDrawContext context, System.ReadOnlySpan<Vixen.Rendering.RenderNode> nodes) -> void
+override Vixen.Ui.Renderer.UiRenderFeature.Name.get -> string
+override Vixen.Ui.Renderer.UiRenderFeature.SortGroupOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, Vixen.Rendering.RenderStage stage) -> uint

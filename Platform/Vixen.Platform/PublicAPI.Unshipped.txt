@@ -1,0 +1,633 @@
+#nullable enable
+Vixen.Platform.ApplicationState -> enum : byte
+Vixen.Platform.ApplicationState.ApplicationState() -> void
+Vixen.Platform.ApplicationState.Background = 2 -> Vixen.Platform.ApplicationState
+Vixen.Platform.ApplicationState.Running = 1 -> Vixen.Platform.ApplicationState
+Vixen.Platform.ApplicationState.Starting = 0 -> Vixen.Platform.ApplicationState
+Vixen.Platform.ApplicationState.Stopping = 4 -> Vixen.Platform.ApplicationState
+Vixen.Platform.ApplicationState.Suspended = 3 -> Vixen.Platform.ApplicationState
+Vixen.Platform.ClipboardImage -> readonly struct
+Vixen.Platform.ClipboardImage : System.IEquatable<Vixen.Platform.ClipboardImage>
+Vixen.Platform.ClipboardImage.ClipboardImage() -> void
+Vixen.Platform.ClipboardImage.ClipboardImage(System.ReadOnlyMemory<byte> Pixels, Vixen.Core.Mathematics.Int2 Size) -> void
+Vixen.Platform.ClipboardImage.Pixels.get -> System.ReadOnlyMemory<byte>
+Vixen.Platform.ClipboardImage.Pixels.init -> System.ReadOnlyMemory<byte>
+Vixen.Platform.ClipboardImage.Size.get -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.ClipboardImage.Size.init -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.CursorMode -> enum : byte
+Vixen.Platform.CursorMode.Confined = 2 -> Vixen.Platform.CursorMode
+Vixen.Platform.CursorMode.CursorMode() -> void
+Vixen.Platform.CursorMode.Hidden = 1 -> Vixen.Platform.CursorMode
+Vixen.Platform.CursorMode.Normal = 0 -> Vixen.Platform.CursorMode
+Vixen.Platform.CursorMode.Relative = 3 -> Vixen.Platform.CursorMode
+Vixen.Platform.CursorShape -> enum : byte
+Vixen.Platform.CursorShape.Arrow = 0 -> Vixen.Platform.CursorShape
+Vixen.Platform.CursorShape.Crosshair = 3 -> Vixen.Platform.CursorShape
+Vixen.Platform.CursorShape.CursorShape() -> void
+Vixen.Platform.CursorShape.Hand = 4 -> Vixen.Platform.CursorShape
+Vixen.Platform.CursorShape.NotAllowed = 10 -> Vixen.Platform.CursorShape
+Vixen.Platform.CursorShape.ResizeAll = 9 -> Vixen.Platform.CursorShape
+Vixen.Platform.CursorShape.ResizeDiagonalDown = 8 -> Vixen.Platform.CursorShape
+Vixen.Platform.CursorShape.ResizeDiagonalUp = 7 -> Vixen.Platform.CursorShape
+Vixen.Platform.CursorShape.ResizeHorizontal = 5 -> Vixen.Platform.CursorShape
+Vixen.Platform.CursorShape.ResizeVertical = 6 -> Vixen.Platform.CursorShape
+Vixen.Platform.CursorShape.TextBeam = 1 -> Vixen.Platform.CursorShape
+Vixen.Platform.CursorShape.Wait = 2 -> Vixen.Platform.CursorShape
+Vixen.Platform.DisplayInfo -> sealed record
+Vixen.Platform.DisplayInfo : System.IEquatable<Vixen.Platform.DisplayInfo>
+Vixen.Platform.DisplayInfo.Bounds.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Platform.DisplayInfo.Bounds.init -> Vixen.Core.Mathematics.Rectangle
+Vixen.Platform.DisplayInfo.CurrentMode.get -> Vixen.Platform.DisplayMode
+Vixen.Platform.DisplayInfo.CurrentMode.init -> Vixen.Platform.DisplayMode
+Vixen.Platform.DisplayInfo.DisplayInfo(int Index, string Name, Vixen.Core.Mathematics.Rectangle Bounds, Vixen.Core.Mathematics.Rectangle WorkArea, float DpiScale, Vixen.Platform.DisplayMode CurrentMode, System.Collections.Generic.IReadOnlyList<Vixen.Platform.DisplayMode> Modes, bool IsPrimary) -> void
+Vixen.Platform.DisplayInfo.DpiScale.get -> float
+Vixen.Platform.DisplayInfo.DpiScale.init -> float
+Vixen.Platform.DisplayInfo.Index.get -> int
+Vixen.Platform.DisplayInfo.Index.init -> int
+Vixen.Platform.DisplayInfo.IsPrimary.get -> bool
+Vixen.Platform.DisplayInfo.IsPrimary.init -> bool
+Vixen.Platform.DisplayInfo.Modes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Platform.DisplayMode>
+Vixen.Platform.DisplayInfo.Modes.init -> System.Collections.Generic.IReadOnlyList<Vixen.Platform.DisplayMode>
+Vixen.Platform.DisplayInfo.Name.get -> string
+Vixen.Platform.DisplayInfo.Name.init -> string
+Vixen.Platform.DisplayInfo.SupportsHdr.get -> bool
+Vixen.Platform.DisplayInfo.WorkArea.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Platform.DisplayInfo.WorkArea.init -> Vixen.Core.Mathematics.Rectangle
+Vixen.Platform.DisplayMode -> readonly struct
+Vixen.Platform.DisplayMode : System.IEquatable<Vixen.Platform.DisplayMode>
+Vixen.Platform.DisplayMode.DisplayMode() -> void
+Vixen.Platform.DisplayMode.DisplayMode(Vixen.Core.Mathematics.Int2 Size, float RefreshRate, bool IsHdr) -> void
+Vixen.Platform.DisplayMode.IsHdr.get -> bool
+Vixen.Platform.DisplayMode.IsHdr.init -> bool
+Vixen.Platform.DisplayMode.RefreshRate.get -> float
+Vixen.Platform.DisplayMode.RefreshRate.init -> float
+Vixen.Platform.DisplayMode.Size.get -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.DisplayMode.Size.init -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.FileDialogOptions -> readonly struct
+Vixen.Platform.FileDialogOptions : System.IEquatable<Vixen.Platform.FileDialogOptions>
+Vixen.Platform.FileDialogOptions.AllowsMultipleSelection.get -> bool
+Vixen.Platform.FileDialogOptions.AllowsMultipleSelection.init -> bool
+Vixen.Platform.FileDialogOptions.FileDialogOptions() -> void
+Vixen.Platform.FileDialogOptions.Filters.get -> System.Collections.Generic.IReadOnlyList<Vixen.Platform.FileFilter>
+Vixen.Platform.FileDialogOptions.Filters.init -> System.Collections.Generic.IReadOnlyList<Vixen.Platform.FileFilter>
+Vixen.Platform.FileDialogOptions.InitialDirectory.get -> string?
+Vixen.Platform.FileDialogOptions.InitialDirectory.init -> string?
+Vixen.Platform.FileDialogOptions.SuggestedFileName.get -> string?
+Vixen.Platform.FileDialogOptions.SuggestedFileName.init -> string?
+Vixen.Platform.FileDialogOptions.Title.get -> string?
+Vixen.Platform.FileDialogOptions.Title.init -> string?
+Vixen.Platform.FileFilter -> readonly struct
+Vixen.Platform.FileFilter : System.IEquatable<Vixen.Platform.FileFilter>
+Vixen.Platform.FileFilter.Extensions.get -> string[]
+Vixen.Platform.FileFilter.Extensions.init -> string[]
+Vixen.Platform.FileFilter.FileFilter() -> void
+Vixen.Platform.FileFilter.FileFilter(string Name, params string[] Extensions) -> void
+Vixen.Platform.FileFilter.Name.get -> string
+Vixen.Platform.FileFilter.Name.init -> string
+Vixen.Platform.GamepadAxis -> enum : byte
+Vixen.Platform.GamepadAxis.GamepadAxis() -> void
+Vixen.Platform.GamepadAxis.LeftStickX = 1 -> Vixen.Platform.GamepadAxis
+Vixen.Platform.GamepadAxis.LeftStickY = 2 -> Vixen.Platform.GamepadAxis
+Vixen.Platform.GamepadAxis.LeftTrigger = 5 -> Vixen.Platform.GamepadAxis
+Vixen.Platform.GamepadAxis.None = 0 -> Vixen.Platform.GamepadAxis
+Vixen.Platform.GamepadAxis.RightStickX = 3 -> Vixen.Platform.GamepadAxis
+Vixen.Platform.GamepadAxis.RightStickY = 4 -> Vixen.Platform.GamepadAxis
+Vixen.Platform.GamepadAxis.RightTrigger = 6 -> Vixen.Platform.GamepadAxis
+Vixen.Platform.GamepadButton -> enum : byte
+Vixen.Platform.GamepadButton.Back = 5 -> Vixen.Platform.GamepadButton
+Vixen.Platform.GamepadButton.DPadDown = 13 -> Vixen.Platform.GamepadButton
+Vixen.Platform.GamepadButton.DPadLeft = 14 -> Vixen.Platform.GamepadButton
+Vixen.Platform.GamepadButton.DPadRight = 15 -> Vixen.Platform.GamepadButton
+Vixen.Platform.GamepadButton.DPadUp = 12 -> Vixen.Platform.GamepadButton
+Vixen.Platform.GamepadButton.East = 2 -> Vixen.Platform.GamepadButton
+Vixen.Platform.GamepadButton.GamepadButton() -> void
+Vixen.Platform.GamepadButton.Guide = 6 -> Vixen.Platform.GamepadButton
+Vixen.Platform.GamepadButton.LeftShoulder = 10 -> Vixen.Platform.GamepadButton
+Vixen.Platform.GamepadButton.LeftStick = 8 -> Vixen.Platform.GamepadButton
+Vixen.Platform.GamepadButton.None = 0 -> Vixen.Platform.GamepadButton
+Vixen.Platform.GamepadButton.North = 4 -> Vixen.Platform.GamepadButton
+Vixen.Platform.GamepadButton.RightShoulder = 11 -> Vixen.Platform.GamepadButton
+Vixen.Platform.GamepadButton.RightStick = 9 -> Vixen.Platform.GamepadButton
+Vixen.Platform.GamepadButton.South = 1 -> Vixen.Platform.GamepadButton
+Vixen.Platform.GamepadButton.Start = 7 -> Vixen.Platform.GamepadButton
+Vixen.Platform.GamepadButton.Touchpad = 16 -> Vixen.Platform.GamepadButton
+Vixen.Platform.GamepadButton.West = 3 -> Vixen.Platform.GamepadButton
+Vixen.Platform.GamepadKind -> enum : byte
+Vixen.Platform.GamepadKind.GamepadKind() -> void
+Vixen.Platform.GamepadKind.Nintendo = 3 -> Vixen.Platform.GamepadKind
+Vixen.Platform.GamepadKind.PlayStation = 2 -> Vixen.Platform.GamepadKind
+Vixen.Platform.GamepadKind.Unknown = 0 -> Vixen.Platform.GamepadKind
+Vixen.Platform.GamepadKind.Virtual = 4 -> Vixen.Platform.GamepadKind
+Vixen.Platform.GamepadKind.Xbox = 1 -> Vixen.Platform.GamepadKind
+Vixen.Platform.IClipboard -> interface
+Vixen.Platform.IClipboard.Clear() -> void
+Vixen.Platform.IClipboard.HasImage.get -> bool
+Vixen.Platform.IClipboard.HasText.get -> bool
+Vixen.Platform.IClipboard.SetData(string format, System.ReadOnlySpan<byte> data) -> bool
+Vixen.Platform.IClipboard.SetImage(in Vixen.Platform.ClipboardImage image) -> bool
+Vixen.Platform.IClipboard.SetText(string text) -> bool
+Vixen.Platform.IClipboard.TryGetData(string format, out System.ReadOnlyMemory<byte> data) -> bool
+Vixen.Platform.IClipboard.TryGetImage(out Vixen.Platform.ClipboardImage image) -> bool
+Vixen.Platform.IClipboard.TryGetText(out string? text) -> bool
+Vixen.Platform.IDisplayInfo -> interface
+Vixen.Platform.IDisplayInfo.Displays.get -> System.Collections.Generic.IReadOnlyList<Vixen.Platform.DisplayInfo>
+Vixen.Platform.IDisplayInfo.Primary.get -> Vixen.Platform.DisplayInfo?
+Vixen.Platform.IDisplayInfo.TryGetForPoint(Vixen.Core.Mathematics.Int2 point, out Vixen.Platform.DisplayInfo? display) -> bool
+Vixen.Platform.IDisplayInfo.TryGetForWindow(Vixen.Platform.IWindow window, out Vixen.Platform.DisplayInfo? display) -> bool
+Vixen.Platform.IFileSystemHost -> interface
+Vixen.Platform.IFileSystemHost.ApplicationDirectory.get -> string
+Vixen.Platform.IFileSystemHost.CacheDirectory.get -> string
+Vixen.Platform.IFileSystemHost.DataDirectory.get -> string
+Vixen.Platform.IFileSystemHost.IsSandboxed.get -> bool
+Vixen.Platform.IFileSystemHost.MountStandardLocations(Vixen.Core.IO.VirtualFileSystem fileSystem) -> void
+Vixen.Platform.IFileSystemHost.RequestPermissionAsync(Vixen.Platform.PermissionKind permission, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+Vixen.Platform.IFileSystemHost.TemporaryDirectory.get -> string
+Vixen.Platform.IGamepad -> interface
+Vixen.Platform.IGamepad.DeviceId.get -> int
+Vixen.Platform.IGamepad.GetAxis(Vixen.Platform.GamepadAxis axis) -> float
+Vixen.Platform.IGamepad.Haptics.get -> Vixen.Platform.IHaptics?
+Vixen.Platform.IGamepad.IsButtonDown(Vixen.Platform.GamepadButton button) -> bool
+Vixen.Platform.IGamepad.IsConnected.get -> bool
+Vixen.Platform.IGamepad.Kind.get -> Vixen.Platform.GamepadKind
+Vixen.Platform.IGamepad.Name.get -> string
+Vixen.Platform.IGamepad.PlayerIndex.get -> int
+Vixen.Platform.IHaptics -> interface
+Vixen.Platform.IHaptics.Rumble(float lowFrequency, float highFrequency, System.TimeSpan duration) -> void
+Vixen.Platform.IHaptics.RumbleTriggers(float left, float right, System.TimeSpan duration) -> void
+Vixen.Platform.IHaptics.StopRumble() -> void
+Vixen.Platform.IHaptics.SupportsRumble.get -> bool
+Vixen.Platform.IHaptics.SupportsTriggerRumble.get -> bool
+Vixen.Platform.IInputSource -> interface
+Vixen.Platform.IInputSource.Gamepads.get -> System.Collections.Generic.IReadOnlyList<Vixen.Platform.IGamepad>
+Vixen.Platform.IInputSource.IsKeyDown(Vixen.Platform.Key key) -> bool
+Vixen.Platform.IInputSource.IsMouseButtonDown(Vixen.Platform.MouseButton button) -> bool
+Vixen.Platform.IInputSource.Modifiers.get -> Vixen.Platform.KeyModifiers
+Vixen.Platform.IInputSource.PointerPosition.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Platform.IInputSource.TryGetGamepad(int deviceId, out Vixen.Platform.IGamepad? gamepad) -> bool
+Vixen.Platform.ILifecycle -> interface
+Vixen.Platform.ILifecycle.CancelQuit() -> void
+Vixen.Platform.ILifecycle.IsQuitRequested.get -> bool
+Vixen.Platform.ILifecycle.MemoryPressure.get -> Vixen.Platform.MemoryPressure
+Vixen.Platform.ILifecycle.RequestQuit() -> void
+Vixen.Platform.ILifecycle.State.get -> Vixen.Platform.ApplicationState
+Vixen.Platform.INativeDialogs -> interface
+Vixen.Platform.INativeDialogs.OpenFileAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string?>
+Vixen.Platform.INativeDialogs.OpenFilesAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<string>>
+Vixen.Platform.INativeDialogs.OpenFolderAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string?>
+Vixen.Platform.INativeDialogs.SaveFileAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string?>
+Vixen.Platform.INativeDialogs.ShowMessageAsync(Vixen.Platform.MessageBoxOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Platform.MessageBoxResult>
+Vixen.Platform.IPlatform -> interface
+Vixen.Platform.IPlatform : System.IDisposable
+Vixen.Platform.IPlatform.Capabilities.get -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.IPlatform.Clipboard.get -> Vixen.Platform.IClipboard
+Vixen.Platform.IPlatform.CreateWindow(in Vixen.Platform.WindowOptions options) -> Vixen.Platform.IWindow
+Vixen.Platform.IPlatform.Dialogs.get -> Vixen.Platform.INativeDialogs
+Vixen.Platform.IPlatform.Displays.get -> Vixen.Platform.IDisplayInfo
+Vixen.Platform.IPlatform.FileSystem.get -> Vixen.Platform.IFileSystemHost
+Vixen.Platform.IPlatform.Input.get -> Vixen.Platform.IInputSource
+Vixen.Platform.IPlatform.Lifecycle.get -> Vixen.Platform.ILifecycle
+Vixen.Platform.IPlatform.Name.get -> string
+Vixen.Platform.IPlatform.Power.get -> Vixen.Platform.IPowerInfo
+Vixen.Platform.IPlatform.Processors.get -> Vixen.Platform.IProcessorTopology
+Vixen.Platform.IPlatform.PumpEvents() -> System.ReadOnlySpan<Vixen.Platform.PlatformEvent>
+Vixen.Platform.IPlatform.TextInput.get -> Vixen.Platform.ITextInput
+Vixen.Platform.IPlatform.TryGetWindow(uint id, out Vixen.Platform.IWindow? window) -> bool
+Vixen.Platform.IPlatform.TryOpenUrl(string url) -> bool
+Vixen.Platform.IPlatform.Windows.get -> System.Collections.Generic.IReadOnlyList<Vixen.Platform.IWindow>
+Vixen.Platform.IPowerInfo -> interface
+Vixen.Platform.IPowerInfo.BatteryLevel.get -> float?
+Vixen.Platform.IPowerInfo.EstimatedTimeRemaining.get -> System.TimeSpan?
+Vixen.Platform.IPowerInfo.IsLowPowerMode.get -> bool
+Vixen.Platform.IPowerInfo.Source.get -> Vixen.Platform.PowerSource
+Vixen.Platform.IPowerInfo.Thermal.get -> Vixen.Platform.ThermalState
+Vixen.Platform.IProcessorTopology -> interface
+Vixen.Platform.IProcessorTopology.AvailableProcessors.get -> int
+Vixen.Platform.IProcessorTopology.ClassOf(int processor) -> Vixen.Platform.ProcessorClass
+Vixen.Platform.IProcessorTopology.ClearAffinity() -> void
+Vixen.Platform.IProcessorTopology.PerformanceCores.get -> int
+Vixen.Platform.IProcessorTopology.PhysicalCores.get -> int
+Vixen.Platform.IProcessorTopology.SupportsAffinity.get -> bool
+Vixen.Platform.IProcessorTopology.TrySetAffinity(int processor) -> bool
+Vixen.Platform.ISurface -> interface
+Vixen.Platform.ISurface.Handle.get -> Vixen.Core.SurfaceHandle
+Vixen.Platform.ISurface.PixelSize.get -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.ITextInput -> interface
+Vixen.Platform.ITextInput.Activate(Vixen.Platform.IWindow window) -> void
+Vixen.Platform.ITextInput.Deactivate() -> void
+Vixen.Platform.ITextInput.HasOnScreenKeyboard.get -> bool
+Vixen.Platform.ITextInput.IsActive.get -> bool
+Vixen.Platform.ITextInput.IsOnScreenKeyboardVisible.get -> bool
+Vixen.Platform.ITextInput.OnScreenKeyboardArea.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Platform.ITextInput.SetCandidateArea(Vixen.Platform.IWindow window, Vixen.Core.Mathematics.Rectangle area) -> void
+Vixen.Platform.IWindow -> interface
+Vixen.Platform.IWindow : System.IDisposable
+Vixen.Platform.IWindow.Centre() -> void
+Vixen.Platform.IWindow.ClientSize.get -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.IWindow.ClientSize.set -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.IWindow.CursorMode.get -> Vixen.Platform.CursorMode
+Vixen.Platform.IWindow.CursorMode.set -> Vixen.Platform.CursorMode
+Vixen.Platform.IWindow.CursorShape.get -> Vixen.Platform.CursorShape
+Vixen.Platform.IWindow.CursorShape.set -> Vixen.Platform.CursorShape
+Vixen.Platform.IWindow.DisplayIndex.get -> int
+Vixen.Platform.IWindow.DpiScale.get -> float
+Vixen.Platform.IWindow.Focus() -> void
+Vixen.Platform.IWindow.FramebufferSize.get -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.IWindow.Hide() -> void
+Vixen.Platform.IWindow.Id.get -> uint
+Vixen.Platform.IWindow.IsClosed.get -> bool
+Vixen.Platform.IWindow.IsFocused.get -> bool
+Vixen.Platform.IWindow.IsMinimised.get -> bool
+Vixen.Platform.IWindow.IsResizable.get -> bool
+Vixen.Platform.IWindow.IsResizable.set -> bool
+Vixen.Platform.IWindow.IsVisible.get -> bool
+Vixen.Platform.IWindow.Mode.get -> Vixen.Platform.WindowMode
+Vixen.Platform.IWindow.Mode.set -> Vixen.Platform.WindowMode
+Vixen.Platform.IWindow.Position.get -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.IWindow.Position.set -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.IWindow.RequestAttention() -> void
+Vixen.Platform.IWindow.SetIcon(System.ReadOnlySpan<byte> pixels, Vixen.Core.Mathematics.Int2 size) -> void
+Vixen.Platform.IWindow.Show() -> void
+Vixen.Platform.IWindow.Surface.get -> Vixen.Platform.ISurface
+Vixen.Platform.IWindow.Title.get -> string
+Vixen.Platform.IWindow.Title.set -> string
+Vixen.Platform.Key -> enum : ushort
+Vixen.Platform.Key.A = 4 -> Vixen.Platform.Key
+Vixen.Platform.Key.Apostrophe = 52 -> Vixen.Platform.Key
+Vixen.Platform.Key.Application = 101 -> Vixen.Platform.Key
+Vixen.Platform.Key.B = 5 -> Vixen.Platform.Key
+Vixen.Platform.Key.Back = 512 -> Vixen.Platform.Key
+Vixen.Platform.Key.Backslash = 49 -> Vixen.Platform.Key
+Vixen.Platform.Key.Backspace = 42 -> Vixen.Platform.Key
+Vixen.Platform.Key.C = 6 -> Vixen.Platform.Key
+Vixen.Platform.Key.CapsLock = 57 -> Vixen.Platform.Key
+Vixen.Platform.Key.Comma = 54 -> Vixen.Platform.Key
+Vixen.Platform.Key.D = 7 -> Vixen.Platform.Key
+Vixen.Platform.Key.Delete = 76 -> Vixen.Platform.Key
+Vixen.Platform.Key.Down = 81 -> Vixen.Platform.Key
+Vixen.Platform.Key.E = 8 -> Vixen.Platform.Key
+Vixen.Platform.Key.End = 77 -> Vixen.Platform.Key
+Vixen.Platform.Key.Enter = 40 -> Vixen.Platform.Key
+Vixen.Platform.Key.Equals = 46 -> Vixen.Platform.Key
+Vixen.Platform.Key.Escape = 41 -> Vixen.Platform.Key
+Vixen.Platform.Key.F = 9 -> Vixen.Platform.Key
+Vixen.Platform.Key.F1 = 58 -> Vixen.Platform.Key
+Vixen.Platform.Key.F10 = 67 -> Vixen.Platform.Key
+Vixen.Platform.Key.F11 = 68 -> Vixen.Platform.Key
+Vixen.Platform.Key.F12 = 69 -> Vixen.Platform.Key
+Vixen.Platform.Key.F13 = 104 -> Vixen.Platform.Key
+Vixen.Platform.Key.F14 = 105 -> Vixen.Platform.Key
+Vixen.Platform.Key.F15 = 106 -> Vixen.Platform.Key
+Vixen.Platform.Key.F16 = 107 -> Vixen.Platform.Key
+Vixen.Platform.Key.F17 = 108 -> Vixen.Platform.Key
+Vixen.Platform.Key.F18 = 109 -> Vixen.Platform.Key
+Vixen.Platform.Key.F19 = 110 -> Vixen.Platform.Key
+Vixen.Platform.Key.F2 = 59 -> Vixen.Platform.Key
+Vixen.Platform.Key.F20 = 111 -> Vixen.Platform.Key
+Vixen.Platform.Key.F21 = 112 -> Vixen.Platform.Key
+Vixen.Platform.Key.F22 = 113 -> Vixen.Platform.Key
+Vixen.Platform.Key.F23 = 114 -> Vixen.Platform.Key
+Vixen.Platform.Key.F24 = 115 -> Vixen.Platform.Key
+Vixen.Platform.Key.F3 = 60 -> Vixen.Platform.Key
+Vixen.Platform.Key.F4 = 61 -> Vixen.Platform.Key
+Vixen.Platform.Key.F5 = 62 -> Vixen.Platform.Key
+Vixen.Platform.Key.F6 = 63 -> Vixen.Platform.Key
+Vixen.Platform.Key.F7 = 64 -> Vixen.Platform.Key
+Vixen.Platform.Key.F8 = 65 -> Vixen.Platform.Key
+Vixen.Platform.Key.F9 = 66 -> Vixen.Platform.Key
+Vixen.Platform.Key.G = 10 -> Vixen.Platform.Key
+Vixen.Platform.Key.Grave = 53 -> Vixen.Platform.Key
+Vixen.Platform.Key.H = 11 -> Vixen.Platform.Key
+Vixen.Platform.Key.Home = 74 -> Vixen.Platform.Key
+Vixen.Platform.Key.I = 12 -> Vixen.Platform.Key
+Vixen.Platform.Key.Insert = 73 -> Vixen.Platform.Key
+Vixen.Platform.Key.J = 13 -> Vixen.Platform.Key
+Vixen.Platform.Key.K = 14 -> Vixen.Platform.Key
+Vixen.Platform.Key.Key() -> void
+Vixen.Platform.Key.Keypad0 = 98 -> Vixen.Platform.Key
+Vixen.Platform.Key.Keypad1 = 89 -> Vixen.Platform.Key
+Vixen.Platform.Key.Keypad2 = 90 -> Vixen.Platform.Key
+Vixen.Platform.Key.Keypad3 = 91 -> Vixen.Platform.Key
+Vixen.Platform.Key.Keypad4 = 92 -> Vixen.Platform.Key
+Vixen.Platform.Key.Keypad5 = 93 -> Vixen.Platform.Key
+Vixen.Platform.Key.Keypad6 = 94 -> Vixen.Platform.Key
+Vixen.Platform.Key.Keypad7 = 95 -> Vixen.Platform.Key
+Vixen.Platform.Key.Keypad8 = 96 -> Vixen.Platform.Key
+Vixen.Platform.Key.Keypad9 = 97 -> Vixen.Platform.Key
+Vixen.Platform.Key.KeypadDivide = 84 -> Vixen.Platform.Key
+Vixen.Platform.Key.KeypadEnter = 88 -> Vixen.Platform.Key
+Vixen.Platform.Key.KeypadMinus = 86 -> Vixen.Platform.Key
+Vixen.Platform.Key.KeypadMultiply = 85 -> Vixen.Platform.Key
+Vixen.Platform.Key.KeypadPeriod = 99 -> Vixen.Platform.Key
+Vixen.Platform.Key.KeypadPlus = 87 -> Vixen.Platform.Key
+Vixen.Platform.Key.L = 15 -> Vixen.Platform.Key
+Vixen.Platform.Key.Left = 80 -> Vixen.Platform.Key
+Vixen.Platform.Key.LeftAlt = 226 -> Vixen.Platform.Key
+Vixen.Platform.Key.LeftBracket = 47 -> Vixen.Platform.Key
+Vixen.Platform.Key.LeftControl = 224 -> Vixen.Platform.Key
+Vixen.Platform.Key.LeftMeta = 227 -> Vixen.Platform.Key
+Vixen.Platform.Key.LeftShift = 225 -> Vixen.Platform.Key
+Vixen.Platform.Key.M = 16 -> Vixen.Platform.Key
+Vixen.Platform.Key.Minus = 45 -> Vixen.Platform.Key
+Vixen.Platform.Key.N = 17 -> Vixen.Platform.Key
+Vixen.Platform.Key.NonUsBackslash = 100 -> Vixen.Platform.Key
+Vixen.Platform.Key.NumLock = 83 -> Vixen.Platform.Key
+Vixen.Platform.Key.Number0 = 39 -> Vixen.Platform.Key
+Vixen.Platform.Key.Number1 = 30 -> Vixen.Platform.Key
+Vixen.Platform.Key.Number2 = 31 -> Vixen.Platform.Key
+Vixen.Platform.Key.Number3 = 32 -> Vixen.Platform.Key
+Vixen.Platform.Key.Number4 = 33 -> Vixen.Platform.Key
+Vixen.Platform.Key.Number5 = 34 -> Vixen.Platform.Key
+Vixen.Platform.Key.Number6 = 35 -> Vixen.Platform.Key
+Vixen.Platform.Key.Number7 = 36 -> Vixen.Platform.Key
+Vixen.Platform.Key.Number8 = 37 -> Vixen.Platform.Key
+Vixen.Platform.Key.Number9 = 38 -> Vixen.Platform.Key
+Vixen.Platform.Key.O = 18 -> Vixen.Platform.Key
+Vixen.Platform.Key.P = 19 -> Vixen.Platform.Key
+Vixen.Platform.Key.PageDown = 78 -> Vixen.Platform.Key
+Vixen.Platform.Key.PageUp = 75 -> Vixen.Platform.Key
+Vixen.Platform.Key.Pause = 72 -> Vixen.Platform.Key
+Vixen.Platform.Key.Period = 55 -> Vixen.Platform.Key
+Vixen.Platform.Key.PrintScreen = 70 -> Vixen.Platform.Key
+Vixen.Platform.Key.Q = 20 -> Vixen.Platform.Key
+Vixen.Platform.Key.R = 21 -> Vixen.Platform.Key
+Vixen.Platform.Key.Right = 79 -> Vixen.Platform.Key
+Vixen.Platform.Key.RightAlt = 230 -> Vixen.Platform.Key
+Vixen.Platform.Key.RightBracket = 48 -> Vixen.Platform.Key
+Vixen.Platform.Key.RightControl = 228 -> Vixen.Platform.Key
+Vixen.Platform.Key.RightMeta = 231 -> Vixen.Platform.Key
+Vixen.Platform.Key.RightShift = 229 -> Vixen.Platform.Key
+Vixen.Platform.Key.S = 22 -> Vixen.Platform.Key
+Vixen.Platform.Key.ScrollLock = 71 -> Vixen.Platform.Key
+Vixen.Platform.Key.Semicolon = 51 -> Vixen.Platform.Key
+Vixen.Platform.Key.Slash = 56 -> Vixen.Platform.Key
+Vixen.Platform.Key.Space = 44 -> Vixen.Platform.Key
+Vixen.Platform.Key.T = 23 -> Vixen.Platform.Key
+Vixen.Platform.Key.Tab = 43 -> Vixen.Platform.Key
+Vixen.Platform.Key.U = 24 -> Vixen.Platform.Key
+Vixen.Platform.Key.Unknown = 0 -> Vixen.Platform.Key
+Vixen.Platform.Key.Up = 82 -> Vixen.Platform.Key
+Vixen.Platform.Key.V = 25 -> Vixen.Platform.Key
+Vixen.Platform.Key.W = 26 -> Vixen.Platform.Key
+Vixen.Platform.Key.X = 27 -> Vixen.Platform.Key
+Vixen.Platform.Key.Y = 28 -> Vixen.Platform.Key
+Vixen.Platform.Key.Z = 29 -> Vixen.Platform.Key
+Vixen.Platform.KeyModifierExtensions -> static class
+Vixen.Platform.KeyModifiers -> enum : ushort
+Vixen.Platform.KeyModifiers.Alt = Vixen.Platform.KeyModifiers.LeftAlt | Vixen.Platform.KeyModifiers.RightAlt -> Vixen.Platform.KeyModifiers
+Vixen.Platform.KeyModifiers.CapsLock = 256 -> Vixen.Platform.KeyModifiers
+Vixen.Platform.KeyModifiers.Control = Vixen.Platform.KeyModifiers.LeftControl | Vixen.Platform.KeyModifiers.RightControl -> Vixen.Platform.KeyModifiers
+Vixen.Platform.KeyModifiers.KeyModifiers() -> void
+Vixen.Platform.KeyModifiers.LeftAlt = 16 -> Vixen.Platform.KeyModifiers
+Vixen.Platform.KeyModifiers.LeftControl = 4 -> Vixen.Platform.KeyModifiers
+Vixen.Platform.KeyModifiers.LeftMeta = 64 -> Vixen.Platform.KeyModifiers
+Vixen.Platform.KeyModifiers.LeftShift = 1 -> Vixen.Platform.KeyModifiers
+Vixen.Platform.KeyModifiers.Meta = Vixen.Platform.KeyModifiers.LeftMeta | Vixen.Platform.KeyModifiers.RightMeta -> Vixen.Platform.KeyModifiers
+Vixen.Platform.KeyModifiers.None = 0 -> Vixen.Platform.KeyModifiers
+Vixen.Platform.KeyModifiers.NumLock = 512 -> Vixen.Platform.KeyModifiers
+Vixen.Platform.KeyModifiers.RightAlt = 32 -> Vixen.Platform.KeyModifiers
+Vixen.Platform.KeyModifiers.RightControl = 8 -> Vixen.Platform.KeyModifiers
+Vixen.Platform.KeyModifiers.RightMeta = 128 -> Vixen.Platform.KeyModifiers
+Vixen.Platform.KeyModifiers.RightShift = 2 -> Vixen.Platform.KeyModifiers
+Vixen.Platform.KeyModifiers.Shift = Vixen.Platform.KeyModifiers.LeftShift | Vixen.Platform.KeyModifiers.RightShift -> Vixen.Platform.KeyModifiers
+Vixen.Platform.MemoryPressure -> enum : byte
+Vixen.Platform.MemoryPressure.Critical = 2 -> Vixen.Platform.MemoryPressure
+Vixen.Platform.MemoryPressure.MemoryPressure() -> void
+Vixen.Platform.MemoryPressure.Normal = 0 -> Vixen.Platform.MemoryPressure
+Vixen.Platform.MemoryPressure.Warning = 1 -> Vixen.Platform.MemoryPressure
+Vixen.Platform.MessageBoxButtons -> enum : byte
+Vixen.Platform.MessageBoxButtons.MessageBoxButtons() -> void
+Vixen.Platform.MessageBoxButtons.Ok = 0 -> Vixen.Platform.MessageBoxButtons
+Vixen.Platform.MessageBoxButtons.OkCancel = 1 -> Vixen.Platform.MessageBoxButtons
+Vixen.Platform.MessageBoxButtons.YesNo = 2 -> Vixen.Platform.MessageBoxButtons
+Vixen.Platform.MessageBoxButtons.YesNoCancel = 3 -> Vixen.Platform.MessageBoxButtons
+Vixen.Platform.MessageBoxOptions -> readonly struct
+Vixen.Platform.MessageBoxOptions : System.IEquatable<Vixen.Platform.MessageBoxOptions>
+Vixen.Platform.MessageBoxOptions.Buttons.get -> Vixen.Platform.MessageBoxButtons
+Vixen.Platform.MessageBoxOptions.Buttons.init -> Vixen.Platform.MessageBoxButtons
+Vixen.Platform.MessageBoxOptions.Message.get -> string
+Vixen.Platform.MessageBoxOptions.Message.init -> string
+Vixen.Platform.MessageBoxOptions.MessageBoxOptions() -> void
+Vixen.Platform.MessageBoxOptions.Severity.get -> Vixen.Platform.MessageBoxSeverity
+Vixen.Platform.MessageBoxOptions.Severity.init -> Vixen.Platform.MessageBoxSeverity
+Vixen.Platform.MessageBoxOptions.Title.get -> string
+Vixen.Platform.MessageBoxOptions.Title.init -> string
+Vixen.Platform.MessageBoxResult -> enum : byte
+Vixen.Platform.MessageBoxResult.Cancel = 2 -> Vixen.Platform.MessageBoxResult
+Vixen.Platform.MessageBoxResult.MessageBoxResult() -> void
+Vixen.Platform.MessageBoxResult.No = 4 -> Vixen.Platform.MessageBoxResult
+Vixen.Platform.MessageBoxResult.None = 0 -> Vixen.Platform.MessageBoxResult
+Vixen.Platform.MessageBoxResult.Ok = 1 -> Vixen.Platform.MessageBoxResult
+Vixen.Platform.MessageBoxResult.Yes = 3 -> Vixen.Platform.MessageBoxResult
+Vixen.Platform.MessageBoxSeverity -> enum : byte
+Vixen.Platform.MessageBoxSeverity.Error = 2 -> Vixen.Platform.MessageBoxSeverity
+Vixen.Platform.MessageBoxSeverity.Information = 0 -> Vixen.Platform.MessageBoxSeverity
+Vixen.Platform.MessageBoxSeverity.MessageBoxSeverity() -> void
+Vixen.Platform.MessageBoxSeverity.Warning = 1 -> Vixen.Platform.MessageBoxSeverity
+Vixen.Platform.MobileLifecycle -> sealed class
+Vixen.Platform.MobileLifecycle : Vixen.Platform.ILifecycle
+Vixen.Platform.MobileLifecycle.CancelQuit() -> void
+Vixen.Platform.MobileLifecycle.EnterBackground() -> void
+Vixen.Platform.MobileLifecycle.EnterForeground() -> void
+Vixen.Platform.MobileLifecycle.IsQuitRequested.get -> bool
+Vixen.Platform.MobileLifecycle.MemoryPressure.get -> Vixen.Platform.MemoryPressure
+Vixen.Platform.MobileLifecycle.MobileLifecycle(Vixen.Platform.PlatformEventBuffer events) -> void
+Vixen.Platform.MobileLifecycle.ReportMemoryPressure(Vixen.Platform.MemoryPressure pressure) -> void
+Vixen.Platform.MobileLifecycle.RequestQuit() -> void
+Vixen.Platform.MobileLifecycle.State.get -> Vixen.Platform.ApplicationState
+Vixen.Platform.MobileLifecycle.Stopping() -> void
+Vixen.Platform.MobileLifecycle.Suspend() -> void
+Vixen.Platform.MouseButton -> enum : byte
+Vixen.Platform.MouseButton.Extra1 = 4 -> Vixen.Platform.MouseButton
+Vixen.Platform.MouseButton.Extra2 = 5 -> Vixen.Platform.MouseButton
+Vixen.Platform.MouseButton.Middle = 3 -> Vixen.Platform.MouseButton
+Vixen.Platform.MouseButton.MouseButton() -> void
+Vixen.Platform.MouseButton.None = 0 -> Vixen.Platform.MouseButton
+Vixen.Platform.MouseButton.Primary = 1 -> Vixen.Platform.MouseButton
+Vixen.Platform.MouseButton.Secondary = 2 -> Vixen.Platform.MouseButton
+Vixen.Platform.PermissionKind -> enum : byte
+Vixen.Platform.PermissionKind.Camera = 4 -> Vixen.Platform.PermissionKind
+Vixen.Platform.PermissionKind.Microphone = 3 -> Vixen.Platform.PermissionKind
+Vixen.Platform.PermissionKind.Notifications = 5 -> Vixen.Platform.PermissionKind
+Vixen.Platform.PermissionKind.PermissionKind() -> void
+Vixen.Platform.PermissionKind.ReadExternalStorage = 1 -> Vixen.Platform.PermissionKind
+Vixen.Platform.PermissionKind.WriteExternalStorage = 2 -> Vixen.Platform.PermissionKind
+Vixen.Platform.PlatformCapabilities -> enum : int
+Vixen.Platform.PlatformCapabilities.Clipboard = 32 -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.PlatformCapabilities.Cursor = 16 -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.PlatformCapabilities.DisplayEnumeration = 8 -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.PlatformCapabilities.DragAndDrop = 4096 -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.PlatformCapabilities.GameControllers = 256 -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.PlatformCapabilities.Haptics = 512 -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.PlatformCapabilities.MultiWindow = 2 -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.PlatformCapabilities.NativeDialogs = 64 -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.PlatformCapabilities.None = 0 -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.PlatformCapabilities.PlatformCapabilities() -> void
+Vixen.Platform.PlatformCapabilities.PowerInfo = 1024 -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.PlatformCapabilities.Suspension = 2048 -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.PlatformCapabilities.TextInput = 128 -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.PlatformCapabilities.WindowPositioning = 4 -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.PlatformCapabilities.Windowing = 1 -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.PlatformEvent -> readonly struct
+Vixen.Platform.PlatformEvent.ClickCount.get -> int
+Vixen.Platform.PlatformEvent.Delta.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Platform.PlatformEvent.DeviceId.get -> int
+Vixen.Platform.PlatformEvent.DpiScale.get -> float
+Vixen.Platform.PlatformEvent.GamepadAxis.get -> Vixen.Platform.GamepadAxis
+Vixen.Platform.PlatformEvent.GamepadButton.get -> Vixen.Platform.GamepadButton
+Vixen.Platform.PlatformEvent.IsRepeat.get -> bool
+Vixen.Platform.PlatformEvent.Key.get -> Vixen.Platform.Key
+Vixen.Platform.PlatformEvent.Kind.get -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEvent.Modifiers.get -> Vixen.Platform.KeyModifiers
+Vixen.Platform.PlatformEvent.MouseButton.get -> Vixen.Platform.MouseButton
+Vixen.Platform.PlatformEvent.PixelSize.get -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.PlatformEvent.PlatformEvent() -> void
+Vixen.Platform.PlatformEvent.Position.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Platform.PlatformEvent.SelectionLength.get -> int
+Vixen.Platform.PlatformEvent.SelectionStart.get -> int
+Vixen.Platform.PlatformEvent.Size.get -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.PlatformEvent.Text.get -> string
+Vixen.Platform.PlatformEvent.Timestamp.get -> long
+Vixen.Platform.PlatformEvent.Value.get -> float
+Vixen.Platform.PlatformEvent.WindowId.get -> uint
+Vixen.Platform.PlatformEvent.WindowPosition.get -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.PlatformEventBuffer -> sealed class
+Vixen.Platform.PlatformEventBuffer.Clear() -> void
+Vixen.Platform.PlatformEventBuffer.Drain() -> System.ReadOnlySpan<Vixen.Platform.PlatformEvent>
+Vixen.Platform.PlatformEventBuffer.DroppedCount.get -> long
+Vixen.Platform.PlatformEventBuffer.PendingCount.get -> int
+Vixen.Platform.PlatformEventBuffer.PlatformEventBuffer() -> void
+Vixen.Platform.PlatformEventBuffer.Post(in Vixen.Platform.PlatformEvent platformEvent) -> bool
+Vixen.Platform.PlatformEventKind -> enum : byte
+Vixen.Platform.PlatformEventKind.DisplaysChanged = 60 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.DropFile = 80 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.DropText = 81 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.GamepadAxisMoved = 54 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.GamepadButtonDown = 52 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.GamepadButtonUp = 53 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.GamepadConnected = 50 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.GamepadDisconnected = 51 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.KeyDown = 20 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.KeyUp = 21 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.LowMemory = 72 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.MouseButtonDown = 31 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.MouseButtonUp = 32 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.MouseMoved = 30 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.MouseWheel = 33 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.None = 0 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.PlatformEventKind() -> void
+Vixen.Platform.PlatformEventKind.Quit = 73 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.Resumed = 71 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.Suspending = 70 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.TextEditing = 23 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.TextInput = 22 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.TouchDown = 40 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.TouchMoved = 41 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.TouchUp = 42 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.WindowCloseRequested = 10 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.WindowDpiChanged = 11 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.WindowFocusGained = 5 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.WindowFocusLost = 6 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.WindowHidden = 2 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.WindowMaximised = 8 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.WindowMinimised = 7 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.WindowMouseEntered = 12 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.WindowMouseLeft = 13 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.WindowMoved = 3 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.WindowResized = 4 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.WindowRestored = 9 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.WindowShown = 1 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformExtensions -> static class
+Vixen.Platform.PowerSource -> enum : byte
+Vixen.Platform.PowerSource.Battery = 2 -> Vixen.Platform.PowerSource
+Vixen.Platform.PowerSource.Charging = 3 -> Vixen.Platform.PowerSource
+Vixen.Platform.PowerSource.Mains = 1 -> Vixen.Platform.PowerSource
+Vixen.Platform.PowerSource.PowerSource() -> void
+Vixen.Platform.PowerSource.Unknown = 0 -> Vixen.Platform.PowerSource
+Vixen.Platform.ProcessorClass -> enum : byte
+Vixen.Platform.ProcessorClass.Efficiency = 2 -> Vixen.Platform.ProcessorClass
+Vixen.Platform.ProcessorClass.Performance = 1 -> Vixen.Platform.ProcessorClass
+Vixen.Platform.ProcessorClass.ProcessorClass() -> void
+Vixen.Platform.ProcessorClass.Unknown = 0 -> Vixen.Platform.ProcessorClass
+Vixen.Platform.StandardFileSystemHost -> sealed class
+Vixen.Platform.StandardFileSystemHost : Vixen.Platform.IFileSystemHost
+Vixen.Platform.StandardFileSystemHost.ApplicationDirectory.get -> string
+Vixen.Platform.StandardFileSystemHost.CacheDirectory.get -> string
+Vixen.Platform.StandardFileSystemHost.DataDirectory.get -> string
+Vixen.Platform.StandardFileSystemHost.IsSandboxed.get -> bool
+Vixen.Platform.StandardFileSystemHost.MountStandardLocations(Vixen.Core.IO.VirtualFileSystem fileSystem) -> void
+Vixen.Platform.StandardFileSystemHost.RequestPermissionAsync(Vixen.Platform.PermissionKind permission, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+Vixen.Platform.StandardFileSystemHost.StandardFileSystemHost(string organisation, string application, string? applicationDirectory = null) -> void
+Vixen.Platform.StandardFileSystemHost.TemporaryDirectory.get -> string
+Vixen.Platform.ThermalState -> enum : byte
+Vixen.Platform.ThermalState.Critical = 3 -> Vixen.Platform.ThermalState
+Vixen.Platform.ThermalState.Fair = 1 -> Vixen.Platform.ThermalState
+Vixen.Platform.ThermalState.Nominal = 0 -> Vixen.Platform.ThermalState
+Vixen.Platform.ThermalState.Serious = 2 -> Vixen.Platform.ThermalState
+Vixen.Platform.ThermalState.ThermalState() -> void
+Vixen.Platform.TouchTracker -> sealed class
+Vixen.Platform.TouchTracker.Clear() -> System.Collections.Generic.IReadOnlyList<int>
+Vixen.Platform.TouchTracker.Count.get -> int
+Vixen.Platform.TouchTracker.TouchTracker() -> void
+Vixen.Platform.TouchTracker.TryBegin(long key, Vixen.Core.Mathematics.Vector2 position, out int finger) -> bool
+Vixen.Platform.TouchTracker.TryEnd(long key, out int finger) -> bool
+Vixen.Platform.TouchTracker.TryGetPosition(long key, out Vixen.Core.Mathematics.Vector2? position) -> bool
+Vixen.Platform.TouchTracker.TryMove(long key, Vixen.Core.Mathematics.Vector2 position, out int finger, out Vixen.Core.Mathematics.Vector2 delta) -> bool
+Vixen.Platform.WindowMode -> enum : byte
+Vixen.Platform.WindowMode.BorderlessFullscreen = 2 -> Vixen.Platform.WindowMode
+Vixen.Platform.WindowMode.ExclusiveFullscreen = 3 -> Vixen.Platform.WindowMode
+Vixen.Platform.WindowMode.Maximised = 1 -> Vixen.Platform.WindowMode
+Vixen.Platform.WindowMode.WindowMode() -> void
+Vixen.Platform.WindowMode.Windowed = 0 -> Vixen.Platform.WindowMode
+Vixen.Platform.WindowOptions -> readonly struct
+Vixen.Platform.WindowOptions : System.IEquatable<Vixen.Platform.WindowOptions>
+Vixen.Platform.WindowOptions.AcceptsDrops.get -> bool
+Vixen.Platform.WindowOptions.AcceptsDrops.init -> bool
+Vixen.Platform.WindowOptions.DisplayIndex.get -> int?
+Vixen.Platform.WindowOptions.DisplayIndex.init -> int?
+Vixen.Platform.WindowOptions.IsAlwaysOnTop.get -> bool
+Vixen.Platform.WindowOptions.IsAlwaysOnTop.init -> bool
+Vixen.Platform.WindowOptions.IsDecorated.get -> bool
+Vixen.Platform.WindowOptions.IsDecorated.init -> bool
+Vixen.Platform.WindowOptions.IsResizable.get -> bool
+Vixen.Platform.WindowOptions.IsResizable.init -> bool
+Vixen.Platform.WindowOptions.IsVisible.get -> bool
+Vixen.Platform.WindowOptions.IsVisible.init -> bool
+Vixen.Platform.WindowOptions.MaximumSize.get -> Vixen.Core.Mathematics.Int2?
+Vixen.Platform.WindowOptions.MaximumSize.init -> Vixen.Core.Mathematics.Int2?
+Vixen.Platform.WindowOptions.MinimumSize.get -> Vixen.Core.Mathematics.Int2?
+Vixen.Platform.WindowOptions.MinimumSize.init -> Vixen.Core.Mathematics.Int2?
+Vixen.Platform.WindowOptions.Mode.get -> Vixen.Platform.WindowMode
+Vixen.Platform.WindowOptions.Mode.init -> Vixen.Platform.WindowMode
+Vixen.Platform.WindowOptions.Position.get -> Vixen.Core.Mathematics.Int2?
+Vixen.Platform.WindowOptions.Position.init -> Vixen.Core.Mathematics.Int2?
+Vixen.Platform.WindowOptions.Size.get -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.WindowOptions.Size.init -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.WindowOptions.Title.get -> string
+Vixen.Platform.WindowOptions.Title.init -> string
+Vixen.Platform.WindowOptions.WindowOptions() -> void
+const Vixen.Platform.PlatformEventBuffer.Capacity = 8192 -> int
+const Vixen.Platform.TouchTracker.MaximumTouches = 10 -> int
+override Vixen.Platform.DisplayInfo.ToString() -> string
+override Vixen.Platform.DisplayMode.ToString() -> string
+override Vixen.Platform.PlatformEvent.ToString() -> string
+static Vixen.Platform.KeyModifierExtensions.Exactly(this Vixen.Platform.KeyModifiers modifiers, Vixen.Platform.KeyModifiers mask) -> bool
+static Vixen.Platform.KeyModifierExtensions.HasAll(this Vixen.Platform.KeyModifiers modifiers, Vixen.Platform.KeyModifiers mask) -> bool
+static Vixen.Platform.KeyModifierExtensions.HasAny(this Vixen.Platform.KeyModifiers modifiers, Vixen.Platform.KeyModifiers mask) -> bool
+static Vixen.Platform.PlatformEvent.Application(Vixen.Platform.PlatformEventKind kind, long timestamp) -> Vixen.Platform.PlatformEvent
+static Vixen.Platform.PlatformEvent.Drop(Vixen.Platform.PlatformEventKind kind, uint windowId, long timestamp, string text, Vixen.Core.Mathematics.Vector2 position) -> Vixen.Platform.PlatformEvent
+static Vixen.Platform.PlatformEvent.GamepadAxisMoved(long timestamp, int deviceId, Vixen.Platform.GamepadAxis axis, float position) -> Vixen.Platform.PlatformEvent
+static Vixen.Platform.PlatformEvent.GamepadButtonChanged(Vixen.Platform.PlatformEventKind kind, long timestamp, int deviceId, Vixen.Platform.GamepadButton button) -> Vixen.Platform.PlatformEvent
+static Vixen.Platform.PlatformEvent.GamepadConnection(Vixen.Platform.PlatformEventKind kind, long timestamp, int deviceId) -> Vixen.Platform.PlatformEvent
+static Vixen.Platform.PlatformEvent.Keyboard(Vixen.Platform.PlatformEventKind kind, uint windowId, long timestamp, Vixen.Platform.Key key, Vixen.Platform.KeyModifiers modifiers, bool isRepeat = false) -> Vixen.Platform.PlatformEvent
+static Vixen.Platform.PlatformEvent.MouseButtonChanged(Vixen.Platform.PlatformEventKind kind, uint windowId, long timestamp, Vixen.Platform.MouseButton button, Vixen.Core.Mathematics.Vector2 position, int clickCount = 1, Vixen.Platform.KeyModifiers modifiers = Vixen.Platform.KeyModifiers.None) -> Vixen.Platform.PlatformEvent
+static Vixen.Platform.PlatformEvent.MouseMoved(uint windowId, long timestamp, Vixen.Core.Mathematics.Vector2 position, Vixen.Core.Mathematics.Vector2 delta, Vixen.Platform.KeyModifiers modifiers = Vixen.Platform.KeyModifiers.None) -> Vixen.Platform.PlatformEvent
+static Vixen.Platform.PlatformEvent.MouseWheel(uint windowId, long timestamp, Vixen.Core.Mathematics.Vector2 position, Vixen.Core.Mathematics.Vector2 delta, Vixen.Platform.KeyModifiers modifiers = Vixen.Platform.KeyModifiers.None) -> Vixen.Platform.PlatformEvent
+static Vixen.Platform.PlatformEvent.TextEditing(uint windowId, long timestamp, string text, int selectionStart, int selectionLength) -> Vixen.Platform.PlatformEvent
+static Vixen.Platform.PlatformEvent.TextInput(uint windowId, long timestamp, string text) -> Vixen.Platform.PlatformEvent
+static Vixen.Platform.PlatformEvent.Touch(Vixen.Platform.PlatformEventKind kind, uint windowId, long timestamp, int fingerId, Vixen.Core.Mathematics.Vector2 position, Vixen.Core.Mathematics.Vector2 delta = default(Vixen.Core.Mathematics.Vector2), float pressure = 1) -> Vixen.Platform.PlatformEvent
+static Vixen.Platform.PlatformEvent.Window(Vixen.Platform.PlatformEventKind kind, uint windowId, long timestamp) -> Vixen.Platform.PlatformEvent
+static Vixen.Platform.PlatformEvent.WindowDpiChanged(uint windowId, long timestamp, float dpiScale) -> Vixen.Platform.PlatformEvent
+static Vixen.Platform.PlatformEvent.WindowMoved(uint windowId, long timestamp, Vixen.Core.Mathematics.Int2 position) -> Vixen.Platform.PlatformEvent
+static Vixen.Platform.PlatformEvent.WindowResized(uint windowId, long timestamp, Vixen.Core.Mathematics.Int2 size, Vixen.Core.Mathematics.Int2 pixelSize) -> Vixen.Platform.PlatformEvent
+static Vixen.Platform.PlatformExtensions.FocusedWindow(this Vixen.Platform.IPlatform platform) -> Vixen.Platform.IWindow?
+static Vixen.Platform.PlatformExtensions.Has(this Vixen.Platform.IPlatform platform, Vixen.Platform.PlatformCapabilities required) -> bool

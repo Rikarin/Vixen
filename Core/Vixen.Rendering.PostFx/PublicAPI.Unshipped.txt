@@ -1,0 +1,541 @@
+#nullable enable
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer -> sealed class
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.AmbientOcclusionRenderer() -> void
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.BentNormal.get -> bool
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.BentNormal.set -> bool
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Directions.get -> int
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Directions.set -> int
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Falloff.get -> float
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Falloff.set -> float
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Intensity.get -> float
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Intensity.set -> float
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.InverseProjection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.InverseProjection.set -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Radius.get -> float
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Radius.set -> float
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Scale.get -> float
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Scale.set -> float
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Steps.get -> int
+Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Steps.set -> int
+Vixen.Rendering.PostFx.BloomAsset -> sealed record
+Vixen.Rendering.PostFx.BloomAsset : System.IEquatable<Vixen.Rendering.PostFx.BloomAsset>
+Vixen.Rendering.PostFx.BloomAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.PostFx.BloomAsset.BloomAsset() -> void
+Vixen.Rendering.PostFx.BloomAsset.Enabled.get -> bool
+Vixen.Rendering.PostFx.BloomAsset.Enabled.init -> bool
+Vixen.Rendering.PostFx.BloomAsset.FilterRadius.get -> float
+Vixen.Rendering.PostFx.BloomAsset.FilterRadius.init -> float
+Vixen.Rendering.PostFx.BloomAsset.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.BloomAsset.Format.init -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.BloomAsset.Intensity.get -> float
+Vixen.Rendering.PostFx.BloomAsset.Intensity.init -> float
+Vixen.Rendering.PostFx.BloomAsset.Knee.get -> float
+Vixen.Rendering.PostFx.BloomAsset.Knee.init -> float
+Vixen.Rendering.PostFx.BloomAsset.Levels.get -> int
+Vixen.Rendering.PostFx.BloomAsset.Levels.init -> int
+Vixen.Rendering.PostFx.BloomAsset.Name.get -> string
+Vixen.Rendering.PostFx.BloomAsset.Name.init -> string
+Vixen.Rendering.PostFx.BloomAsset.Output.get -> string
+Vixen.Rendering.PostFx.BloomAsset.Output.init -> string
+Vixen.Rendering.PostFx.BloomAsset.Shader.get -> string
+Vixen.Rendering.PostFx.BloomAsset.Shader.init -> string
+Vixen.Rendering.PostFx.BloomAsset.Source.get -> string
+Vixen.Rendering.PostFx.BloomAsset.Source.init -> string
+Vixen.Rendering.PostFx.BloomAsset.Threshold.get -> float
+Vixen.Rendering.PostFx.BloomAsset.Threshold.init -> float
+Vixen.Rendering.PostFx.BloomRenderer -> sealed class
+Vixen.Rendering.PostFx.BloomRenderer : System.IDisposable
+Vixen.Rendering.PostFx.BloomRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.PostFx.BloomRenderer.BloomRenderer() -> void
+Vixen.Rendering.PostFx.BloomRenderer.ConstantBinding.get -> uint
+Vixen.Rendering.PostFx.BloomRenderer.ConstantBinding.set -> uint
+Vixen.Rendering.PostFx.BloomRenderer.Descriptors.get -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.PostFx.BloomRenderer.Descriptors.set -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.PostFx.BloomRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.PostFx.BloomRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.PostFx.BloomRenderer.Dispose() -> void
+Vixen.Rendering.PostFx.BloomRenderer.FilterRadius.get -> float
+Vixen.Rendering.PostFx.BloomRenderer.FilterRadius.set -> float
+Vixen.Rendering.PostFx.BloomRenderer.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.BloomRenderer.Format.set -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.BloomRenderer.Intensity.get -> float
+Vixen.Rendering.PostFx.BloomRenderer.Intensity.set -> float
+Vixen.Rendering.PostFx.BloomRenderer.KarisAverage.get -> bool
+Vixen.Rendering.PostFx.BloomRenderer.KarisAverage.set -> bool
+Vixen.Rendering.PostFx.BloomRenderer.Knee.get -> float
+Vixen.Rendering.PostFx.BloomRenderer.Knee.set -> float
+Vixen.Rendering.PostFx.BloomRenderer.Levels.get -> int
+Vixen.Rendering.PostFx.BloomRenderer.Levels.set -> int
+Vixen.Rendering.PostFx.BloomRenderer.Modules.get -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
+Vixen.Rendering.PostFx.BloomRenderer.Modules.set -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
+Vixen.Rendering.PostFx.BloomRenderer.Output.get -> string
+Vixen.Rendering.PostFx.BloomRenderer.Output.init -> string
+Vixen.Rendering.PostFx.BloomRenderer.PassCount.get -> int
+Vixen.Rendering.PostFx.BloomRenderer.Passes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Compositor.FullScreenRenderer>
+Vixen.Rendering.PostFx.BloomRenderer.PreviousBinding.get -> uint
+Vixen.Rendering.PostFx.BloomRenderer.PreviousBinding.set -> uint
+Vixen.Rendering.PostFx.BloomRenderer.SamplerBinding.get -> uint
+Vixen.Rendering.PostFx.BloomRenderer.SamplerBinding.set -> uint
+Vixen.Rendering.PostFx.BloomRenderer.Samplers.get -> Vixen.Rendering.SamplerCache?
+Vixen.Rendering.PostFx.BloomRenderer.Samplers.set -> Vixen.Rendering.SamplerCache?
+Vixen.Rendering.PostFx.BloomRenderer.ShaderName.get -> string
+Vixen.Rendering.PostFx.BloomRenderer.ShaderName.init -> string
+Vixen.Rendering.PostFx.BloomRenderer.SourceBinding.get -> uint
+Vixen.Rendering.PostFx.BloomRenderer.SourceBinding.set -> uint
+Vixen.Rendering.PostFx.BloomRenderer.Threshold.get -> float
+Vixen.Rendering.PostFx.BloomRenderer.Threshold.set -> float
+Vixen.Rendering.PostFx.FogRenderer -> sealed class
+Vixen.Rendering.PostFx.FogRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
+Vixen.Rendering.PostFx.FogRenderer.CameraPosition.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.PostFx.FogRenderer.CameraPosition.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.PostFx.FogRenderer.Colour.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.PostFx.FogRenderer.Colour.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.PostFx.FogRenderer.Density.get -> float
+Vixen.Rendering.PostFx.FogRenderer.Density.set -> float
+Vixen.Rendering.PostFx.FogRenderer.End.get -> float
+Vixen.Rendering.PostFx.FogRenderer.End.set -> float
+Vixen.Rendering.PostFx.FogRenderer.FogRenderer() -> void
+Vixen.Rendering.PostFx.FogRenderer.HeightFalloff.get -> bool
+Vixen.Rendering.PostFx.FogRenderer.HeightFalloff.set -> bool
+Vixen.Rendering.PostFx.FogRenderer.InverseViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.PostFx.FogRenderer.InverseViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.PostFx.FogRenderer.Mode.get -> int
+Vixen.Rendering.PostFx.FogRenderer.Mode.set -> int
+Vixen.Rendering.PostFx.FogRenderer.Start.get -> float
+Vixen.Rendering.PostFx.FogRenderer.Start.set -> float
+Vixen.Rendering.PostFx.FogRenderer.SunScattering.get -> bool
+Vixen.Rendering.PostFx.FogRenderer.SunScattering.set -> bool
+Vixen.Rendering.PostFx.FxaaRenderer -> sealed class
+Vixen.Rendering.PostFx.FxaaRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
+Vixen.Rendering.PostFx.FxaaRenderer.EdgeThreshold.get -> float
+Vixen.Rendering.PostFx.FxaaRenderer.EdgeThreshold.set -> float
+Vixen.Rendering.PostFx.FxaaRenderer.EdgeThresholdMinimum.get -> float
+Vixen.Rendering.PostFx.FxaaRenderer.EdgeThresholdMinimum.set -> float
+Vixen.Rendering.PostFx.FxaaRenderer.FxaaRenderer() -> void
+Vixen.Rendering.PostFx.FxaaRenderer.Subpixel.get -> bool
+Vixen.Rendering.PostFx.FxaaRenderer.Subpixel.set -> bool
+Vixen.Rendering.PostFx.FxaaRenderer.SubpixelQuality.get -> float
+Vixen.Rendering.PostFx.FxaaRenderer.SubpixelQuality.set -> float
+Vixen.Rendering.PostFx.OutlineRenderer -> sealed class
+Vixen.Rendering.PostFx.OutlineRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
+Vixen.Rendering.PostFx.OutlineRenderer.Colour.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Rendering.PostFx.OutlineRenderer.Colour.set -> Vixen.Core.Mathematics.Vector4
+Vixen.Rendering.PostFx.OutlineRenderer.DepthThreshold.get -> float
+Vixen.Rendering.PostFx.OutlineRenderer.DepthThreshold.set -> float
+Vixen.Rendering.PostFx.OutlineRenderer.FarPlane.get -> float
+Vixen.Rendering.PostFx.OutlineRenderer.FarPlane.set -> float
+Vixen.Rendering.PostFx.OutlineRenderer.NearPlane.get -> float
+Vixen.Rendering.PostFx.OutlineRenderer.NearPlane.set -> float
+Vixen.Rendering.PostFx.OutlineRenderer.Normals.get -> string
+Vixen.Rendering.PostFx.OutlineRenderer.Normals.init -> string
+Vixen.Rendering.PostFx.OutlineRenderer.OutlineRenderer() -> void
+Vixen.Rendering.PostFx.OutlineRenderer.SelectionMask.get -> string
+Vixen.Rendering.PostFx.OutlineRenderer.SelectionMask.init -> string
+Vixen.Rendering.PostFx.OutlineRenderer.SelectionOnly.get -> bool
+Vixen.Rendering.PostFx.OutlineRenderer.SelectionOnly.set -> bool
+Vixen.Rendering.PostFx.OutlineRenderer.Thickness.get -> float
+Vixen.Rendering.PostFx.OutlineRenderer.Thickness.set -> float
+Vixen.Rendering.PostFx.OutlineRenderer.UseNormals.get -> bool
+Vixen.Rendering.PostFx.OutlineRenderer.UseNormals.set -> bool
+Vixen.Rendering.PostFx.PostEffectFactory -> sealed class
+Vixen.Rendering.PostFx.PostEffectFactory : Vixen.Rendering.Compositor.ISceneRendererFactory
+Vixen.Rendering.PostFx.PostEffectFactory.Create(Vixen.Rendering.Compositor.ISceneRendererAsset declared, Vixen.Rendering.Compositor.CompositorBuilder builder) -> Vixen.Rendering.Compositor.SceneRenderer?
+Vixen.Rendering.PostFx.PostEffectFactory.PostEffectFactory() -> void
+Vixen.Rendering.PostFx.PostEffectRenderer -> abstract class
+Vixen.Rendering.PostFx.PostEffectRenderer : System.IDisposable
+Vixen.Rendering.PostFx.PostEffectRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.PostFx.PostEffectRenderer.Allocator.get -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.PostFx.PostEffectRenderer.Allocator.set -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.PostFx.PostEffectRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.PostFx.PostEffectRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.PostFx.PostEffectRenderer.Dispose() -> void
+Vixen.Rendering.PostFx.PostEffectRenderer.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.PostEffectRenderer.Format.set -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.PostEffectRenderer.Modules.get -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
+Vixen.Rendering.PostFx.PostEffectRenderer.Modules.set -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
+Vixen.Rendering.PostFx.PostEffectRenderer.Output.get -> string
+Vixen.Rendering.PostFx.PostEffectRenderer.Output.init -> string
+Vixen.Rendering.PostFx.PostEffectRenderer.Pass.get -> Vixen.Rendering.Compositor.FullScreenRenderer
+Vixen.Rendering.PostFx.PostEffectRenderer.PostEffectRenderer(string shaderName, System.Collections.Generic.IReadOnlyList<Vixen.Shaders.ParameterKey> permutationKeys, uint constantBinding) -> void
+Vixen.Rendering.PostFx.PostEffectRenderer.Read(System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings, uint binding, string resource) -> void
+Vixen.Rendering.PostFx.PostEffectRenderer.Samplers.get -> Vixen.Rendering.SamplerCache?
+Vixen.Rendering.PostFx.PostEffectRenderer.Samplers.set -> Vixen.Rendering.SamplerCache?
+Vixen.Rendering.PostFx.SharpenRenderer -> sealed class
+Vixen.Rendering.PostFx.SharpenRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
+Vixen.Rendering.PostFx.SharpenRenderer.PerChannel.get -> bool
+Vixen.Rendering.PostFx.SharpenRenderer.PerChannel.set -> bool
+Vixen.Rendering.PostFx.SharpenRenderer.SharpenRenderer() -> void
+Vixen.Rendering.PostFx.SharpenRenderer.Sharpness.get -> float
+Vixen.Rendering.PostFx.SharpenRenderer.Sharpness.set -> float
+Vixen.Rendering.PostFx.TemporalAntialiasingRenderer -> sealed class
+Vixen.Rendering.PostFx.TemporalAntialiasingRenderer : System.IDisposable
+Vixen.Rendering.PostFx.TemporalAntialiasingRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
+Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Feedback.get -> float
+Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Feedback.set -> float
+Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.HasHistory.get -> bool
+Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.History.get -> Vixen.Graphics.TextureHandle
+Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Target.get -> Vixen.Graphics.TextureHandle
+Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.TemporalAntialiasingRenderer() -> void
+Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.VarianceClipping.get -> bool
+Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.VarianceClipping.set -> bool
+Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.VarianceGamma.get -> float
+Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.VarianceGamma.set -> float
+Vixen.Rendering.PostFx.TonemapAsset -> sealed record
+Vixen.Rendering.PostFx.TonemapAsset : System.IEquatable<Vixen.Rendering.PostFx.TonemapAsset>
+Vixen.Rendering.PostFx.TonemapAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.PostFx.TonemapAsset.Contrast.get -> float
+Vixen.Rendering.PostFx.TonemapAsset.Contrast.init -> float
+Vixen.Rendering.PostFx.TonemapAsset.Enabled.get -> bool
+Vixen.Rendering.PostFx.TonemapAsset.Enabled.init -> bool
+Vixen.Rendering.PostFx.TonemapAsset.EncodeSrgb.get -> bool
+Vixen.Rendering.PostFx.TonemapAsset.EncodeSrgb.init -> bool
+Vixen.Rendering.PostFx.TonemapAsset.Exposure.get -> float
+Vixen.Rendering.PostFx.TonemapAsset.Exposure.init -> float
+Vixen.Rendering.PostFx.TonemapAsset.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.TonemapAsset.Format.init -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.TonemapAsset.Lut.get -> string
+Vixen.Rendering.PostFx.TonemapAsset.Lut.init -> string
+Vixen.Rendering.PostFx.TonemapAsset.Name.get -> string
+Vixen.Rendering.PostFx.TonemapAsset.Name.init -> string
+Vixen.Rendering.PostFx.TonemapAsset.Operator.get -> int
+Vixen.Rendering.PostFx.TonemapAsset.Operator.init -> int
+Vixen.Rendering.PostFx.TonemapAsset.Output.get -> string
+Vixen.Rendering.PostFx.TonemapAsset.Output.init -> string
+Vixen.Rendering.PostFx.TonemapAsset.Saturation.get -> float
+Vixen.Rendering.PostFx.TonemapAsset.Saturation.init -> float
+Vixen.Rendering.PostFx.TonemapAsset.Source.get -> string
+Vixen.Rendering.PostFx.TonemapAsset.Source.init -> string
+Vixen.Rendering.PostFx.TonemapAsset.Temperature.get -> float
+Vixen.Rendering.PostFx.TonemapAsset.Temperature.init -> float
+Vixen.Rendering.PostFx.TonemapAsset.TonemapAsset() -> void
+Vixen.Rendering.PostFx.TonemapAsset.WhitePoint.get -> float
+Vixen.Rendering.PostFx.TonemapAsset.WhitePoint.init -> float
+Vixen.Rendering.PostFx.TonemapRenderer -> sealed class
+Vixen.Rendering.PostFx.TonemapRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
+Vixen.Rendering.PostFx.TonemapRenderer.Contrast.get -> float
+Vixen.Rendering.PostFx.TonemapRenderer.Contrast.set -> float
+Vixen.Rendering.PostFx.TonemapRenderer.EncodeSrgb.get -> bool
+Vixen.Rendering.PostFx.TonemapRenderer.EncodeSrgb.set -> bool
+Vixen.Rendering.PostFx.TonemapRenderer.Exposure.get -> float
+Vixen.Rendering.PostFx.TonemapRenderer.Exposure.set -> float
+Vixen.Rendering.PostFx.TonemapRenderer.HighlightTint.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.PostFx.TonemapRenderer.HighlightTint.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.PostFx.TonemapRenderer.Lut.get -> string
+Vixen.Rendering.PostFx.TonemapRenderer.Lut.init -> string
+Vixen.Rendering.PostFx.TonemapRenderer.LutSize.get -> float
+Vixen.Rendering.PostFx.TonemapRenderer.LutSize.set -> float
+Vixen.Rendering.PostFx.TonemapRenderer.Operator.get -> int
+Vixen.Rendering.PostFx.TonemapRenderer.Operator.set -> int
+Vixen.Rendering.PostFx.TonemapRenderer.Saturation.get -> float
+Vixen.Rendering.PostFx.TonemapRenderer.Saturation.set -> float
+Vixen.Rendering.PostFx.TonemapRenderer.ShadowTint.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.PostFx.TonemapRenderer.ShadowTint.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.PostFx.TonemapRenderer.Temperature.get -> float
+Vixen.Rendering.PostFx.TonemapRenderer.Temperature.set -> float
+Vixen.Rendering.PostFx.TonemapRenderer.TonemapRenderer() -> void
+Vixen.Rendering.PostFx.TonemapRenderer.WhitePoint.get -> float
+Vixen.Rendering.PostFx.TonemapRenderer.WhitePoint.set -> float
+Vixen.Rendering.PostFx.VignetteRenderer -> sealed class
+Vixen.Rendering.PostFx.VignetteRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
+Vixen.Rendering.PostFx.VignetteRenderer.AberrationStrength.get -> float
+Vixen.Rendering.PostFx.VignetteRenderer.AberrationStrength.set -> float
+Vixen.Rendering.PostFx.VignetteRenderer.FrameIndex.get -> float
+Vixen.Rendering.PostFx.VignetteRenderer.FrameIndex.set -> float
+Vixen.Rendering.PostFx.VignetteRenderer.GrainIntensity.get -> float
+Vixen.Rendering.PostFx.VignetteRenderer.GrainIntensity.set -> float
+Vixen.Rendering.PostFx.VignetteRenderer.GrainScale.get -> float
+Vixen.Rendering.PostFx.VignetteRenderer.GrainScale.set -> float
+Vixen.Rendering.PostFx.VignetteRenderer.LuminanceWeightedGrain.get -> bool
+Vixen.Rendering.PostFx.VignetteRenderer.LuminanceWeightedGrain.set -> bool
+Vixen.Rendering.PostFx.VignetteRenderer.UseChromaticAberration.get -> bool
+Vixen.Rendering.PostFx.VignetteRenderer.UseChromaticAberration.set -> bool
+Vixen.Rendering.PostFx.VignetteRenderer.UseGrain.get -> bool
+Vixen.Rendering.PostFx.VignetteRenderer.UseGrain.set -> bool
+Vixen.Rendering.PostFx.VignetteRenderer.UseVignette.get -> bool
+Vixen.Rendering.PostFx.VignetteRenderer.UseVignette.set -> bool
+Vixen.Rendering.PostFx.VignetteRenderer.VignetteIntensity.get -> float
+Vixen.Rendering.PostFx.VignetteRenderer.VignetteIntensity.set -> float
+Vixen.Rendering.PostFx.VignetteRenderer.VignetteRenderer() -> void
+Vixen.Rendering.PostFx.VignetteRenderer.VignetteSmoothness.get -> float
+Vixen.Rendering.PostFx.VignetteRenderer.VignetteSmoothness.set -> float
+Vixen.Shaders.Generated.FogConstants -> struct
+Vixen.Shaders.Generated.FogConstants.CameraPosition -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.FogConstants.Density -> float
+Vixen.Shaders.Generated.FogConstants.FogColor -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.FogConstants.FogConstants() -> void
+Vixen.Shaders.Generated.FogConstants.FogEnd -> float
+Vixen.Shaders.Generated.FogConstants.FogHeight -> float
+Vixen.Shaders.Generated.FogConstants.FogStart -> float
+Vixen.Shaders.Generated.FogConstants.HeightFalloffRate -> float
+Vixen.Shaders.Generated.FogConstants.InverseViewProjection -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Shaders.Generated.FogConstants.SunAnisotropy -> float
+Vixen.Shaders.Generated.FogConstants.SunColor -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.FogConstants.SunDirection -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.FogKeys -> static class
+Vixen.Shaders.Generated.FxaaConstants -> struct
+Vixen.Shaders.Generated.FxaaConstants.EdgeThreshold -> float
+Vixen.Shaders.Generated.FxaaConstants.EdgeThresholdMin -> float
+Vixen.Shaders.Generated.FxaaConstants.FxaaConstants() -> void
+Vixen.Shaders.Generated.FxaaConstants.SubpixelQuality -> float
+Vixen.Shaders.Generated.FxaaConstants.TexelSize -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.FxaaKeys -> static class
+Vixen.Shaders.Generated.OutlineConstants -> struct
+Vixen.Shaders.Generated.OutlineConstants.DepthThreshold -> float
+Vixen.Shaders.Generated.OutlineConstants.FarPlane -> float
+Vixen.Shaders.Generated.OutlineConstants.NearPlane -> float
+Vixen.Shaders.Generated.OutlineConstants.NormalThreshold -> float
+Vixen.Shaders.Generated.OutlineConstants.OutlineColor -> Vixen.Core.Mathematics.Vector4
+Vixen.Shaders.Generated.OutlineConstants.OutlineConstants() -> void
+Vixen.Shaders.Generated.OutlineConstants.TexelSize -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.OutlineConstants.Thickness -> float
+Vixen.Shaders.Generated.OutlineKeys -> static class
+Vixen.Shaders.Generated.SharpenConstants -> struct
+Vixen.Shaders.Generated.SharpenConstants.SharpenConstants() -> void
+Vixen.Shaders.Generated.SharpenConstants.Sharpness -> float
+Vixen.Shaders.Generated.SharpenConstants.TexelSize -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.SharpenKeys -> static class
+Vixen.Shaders.Generated.SsaoConstants -> struct
+Vixen.Shaders.Generated.SsaoConstants.Falloff -> float
+Vixen.Shaders.Generated.SsaoConstants.Intensity -> float
+Vixen.Shaders.Generated.SsaoConstants.InverseProjection -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Shaders.Generated.SsaoConstants.Radius -> float
+Vixen.Shaders.Generated.SsaoConstants.SsaoConstants() -> void
+Vixen.Shaders.Generated.SsaoConstants.TexelSize -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.SsaoKeys -> static class
+Vixen.Shaders.Generated.TaaConstants -> struct
+Vixen.Shaders.Generated.TaaConstants.Feedback -> float
+Vixen.Shaders.Generated.TaaConstants.TaaConstants() -> void
+Vixen.Shaders.Generated.TaaConstants.TexelSize -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.TaaConstants.VarianceGamma -> float
+Vixen.Shaders.Generated.TaaKeys -> static class
+Vixen.Shaders.Generated.VignetteConstants -> struct
+Vixen.Shaders.Generated.VignetteConstants.AberrationStrength -> float
+Vixen.Shaders.Generated.VignetteConstants.FrameIndex -> float
+Vixen.Shaders.Generated.VignetteConstants.GrainIntensity -> float
+Vixen.Shaders.Generated.VignetteConstants.GrainScale -> float
+Vixen.Shaders.Generated.VignetteConstants.ScreenSize -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.VignetteConstants.VignetteConstants() -> void
+Vixen.Shaders.Generated.VignetteConstants.VignetteIntensity -> float
+Vixen.Shaders.Generated.VignetteConstants.VignetteSmoothness -> float
+Vixen.Shaders.Generated.VignetteKeys -> static class
+abstract Vixen.Rendering.PostFx.PostEffectRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
+const Vixen.Shaders.Generated.FogConstants.Size = 144 -> int
+const Vixen.Shaders.Generated.FogKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.FogKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.FogKeys.ConstantBufferSize = 144 -> int
+const Vixen.Shaders.Generated.FogKeys.DepthBufferBinding = 2 -> uint
+const Vixen.Shaders.Generated.FogKeys.DepthBufferSet = 2 -> int
+const Vixen.Shaders.Generated.FogKeys.LinearSamplerBinding = 3 -> uint
+const Vixen.Shaders.Generated.FogKeys.LinearSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.FogKeys.ShaderName = "Fog" -> string
+const Vixen.Shaders.Generated.FogKeys.SourceBinding = 1 -> uint
+const Vixen.Shaders.Generated.FogKeys.SourceSet = 2 -> int
+const Vixen.Shaders.Generated.FxaaConstants.Size = 32 -> int
+const Vixen.Shaders.Generated.FxaaKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.FxaaKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.FxaaKeys.ConstantBufferSize = 32 -> int
+const Vixen.Shaders.Generated.FxaaKeys.ShaderName = "Fxaa" -> string
+const Vixen.Shaders.Generated.FxaaKeys.SourceBinding = 1 -> uint
+const Vixen.Shaders.Generated.FxaaKeys.SourceSamplerBinding = 2 -> uint
+const Vixen.Shaders.Generated.FxaaKeys.SourceSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.FxaaKeys.SourceSet = 2 -> int
+const Vixen.Shaders.Generated.OutlineConstants.Size = 64 -> int
+const Vixen.Shaders.Generated.OutlineKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.OutlineKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.OutlineKeys.ConstantBufferSize = 64 -> int
+const Vixen.Shaders.Generated.OutlineKeys.DepthBufferBinding = 2 -> uint
+const Vixen.Shaders.Generated.OutlineKeys.DepthBufferSet = 2 -> int
+const Vixen.Shaders.Generated.OutlineKeys.NormalBufferBinding = 3 -> uint
+const Vixen.Shaders.Generated.OutlineKeys.NormalBufferSet = 2 -> int
+const Vixen.Shaders.Generated.OutlineKeys.PointSamplerBinding = 5 -> uint
+const Vixen.Shaders.Generated.OutlineKeys.PointSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.OutlineKeys.SelectionMaskBinding = 4 -> uint
+const Vixen.Shaders.Generated.OutlineKeys.SelectionMaskSet = 2 -> int
+const Vixen.Shaders.Generated.OutlineKeys.ShaderName = "Outline" -> string
+const Vixen.Shaders.Generated.OutlineKeys.SourceBinding = 1 -> uint
+const Vixen.Shaders.Generated.OutlineKeys.SourceSet = 2 -> int
+const Vixen.Shaders.Generated.SharpenConstants.Size = 16 -> int
+const Vixen.Shaders.Generated.SharpenKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.SharpenKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.SharpenKeys.ConstantBufferSize = 16 -> int
+const Vixen.Shaders.Generated.SharpenKeys.PointSamplerBinding = 2 -> uint
+const Vixen.Shaders.Generated.SharpenKeys.PointSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.SharpenKeys.ShaderName = "Sharpen" -> string
+const Vixen.Shaders.Generated.SharpenKeys.SourceBinding = 1 -> uint
+const Vixen.Shaders.Generated.SharpenKeys.SourceSet = 2 -> int
+const Vixen.Shaders.Generated.SsaoConstants.Size = 96 -> int
+const Vixen.Shaders.Generated.SsaoKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.SsaoKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.SsaoKeys.ConstantBufferSize = 96 -> int
+const Vixen.Shaders.Generated.SsaoKeys.DepthBufferBinding = 1 -> uint
+const Vixen.Shaders.Generated.SsaoKeys.DepthBufferSet = 2 -> int
+const Vixen.Shaders.Generated.SsaoKeys.NormalBufferBinding = 2 -> uint
+const Vixen.Shaders.Generated.SsaoKeys.NormalBufferSet = 2 -> int
+const Vixen.Shaders.Generated.SsaoKeys.PointSamplerBinding = 3 -> uint
+const Vixen.Shaders.Generated.SsaoKeys.PointSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.SsaoKeys.ShaderName = "Ssao" -> string
+const Vixen.Shaders.Generated.TaaConstants.Size = 16 -> int
+const Vixen.Shaders.Generated.TaaKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.TaaKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.TaaKeys.ConstantBufferSize = 16 -> int
+const Vixen.Shaders.Generated.TaaKeys.CurrentBinding = 1 -> uint
+const Vixen.Shaders.Generated.TaaKeys.CurrentSet = 2 -> int
+const Vixen.Shaders.Generated.TaaKeys.DepthBufferBinding = 4 -> uint
+const Vixen.Shaders.Generated.TaaKeys.DepthBufferSet = 2 -> int
+const Vixen.Shaders.Generated.TaaKeys.HistoryBinding = 2 -> uint
+const Vixen.Shaders.Generated.TaaKeys.HistorySet = 2 -> int
+const Vixen.Shaders.Generated.TaaKeys.LinearSamplerBinding = 5 -> uint
+const Vixen.Shaders.Generated.TaaKeys.LinearSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.TaaKeys.MotionVectorsBinding = 3 -> uint
+const Vixen.Shaders.Generated.TaaKeys.MotionVectorsSet = 2 -> int
+const Vixen.Shaders.Generated.TaaKeys.PointSamplerBinding = 6 -> uint
+const Vixen.Shaders.Generated.TaaKeys.PointSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.TaaKeys.ShaderName = "Taa" -> string
+const Vixen.Shaders.Generated.VignetteConstants.Size = 32 -> int
+const Vixen.Shaders.Generated.VignetteKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.VignetteKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.VignetteKeys.ConstantBufferSize = 32 -> int
+const Vixen.Shaders.Generated.VignetteKeys.LinearSamplerBinding = 2 -> uint
+const Vixen.Shaders.Generated.VignetteKeys.LinearSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.VignetteKeys.ShaderName = "Vignette" -> string
+const Vixen.Shaders.Generated.VignetteKeys.SourceBinding = 1 -> uint
+const Vixen.Shaders.Generated.VignetteKeys.SourceSet = 2 -> int
+override Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
+override Vixen.Rendering.PostFx.AmbientOcclusionRenderer.TargetSize(Vixen.Core.Mathematics.Int2 frame) -> Vixen.Core.Mathematics.Int2
+override Vixen.Rendering.PostFx.BloomRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
+override Vixen.Rendering.PostFx.FogRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
+override Vixen.Rendering.PostFx.FxaaRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
+override Vixen.Rendering.PostFx.OutlineRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
+override Vixen.Rendering.PostFx.PostEffectRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
+override Vixen.Rendering.PostFx.SharpenRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
+override Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
+override Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.DeclareOutput(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Core.Mathematics.Int2 size) -> void
+override Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Dispose(bool disposing) -> void
+override Vixen.Rendering.PostFx.TonemapRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
+override Vixen.Rendering.PostFx.VignetteRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
+readonly Vixen.Shaders.Generated.FogConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.FxaaConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.OutlineConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.SharpenConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.SsaoConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.TaaConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.VignetteConstants.Write(System.Span<byte> buffer) -> void
+required Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Depth.get -> string
+required Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Depth.init -> string
+required Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Normals.get -> string
+required Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Normals.init -> string
+required Vixen.Rendering.PostFx.BloomRenderer.Source.get -> string
+required Vixen.Rendering.PostFx.BloomRenderer.Source.init -> string
+required Vixen.Rendering.PostFx.FogRenderer.Depth.get -> string
+required Vixen.Rendering.PostFx.FogRenderer.Depth.init -> string
+required Vixen.Rendering.PostFx.FogRenderer.Source.get -> string
+required Vixen.Rendering.PostFx.FogRenderer.Source.init -> string
+required Vixen.Rendering.PostFx.FxaaRenderer.Source.get -> string
+required Vixen.Rendering.PostFx.FxaaRenderer.Source.init -> string
+required Vixen.Rendering.PostFx.OutlineRenderer.Depth.get -> string
+required Vixen.Rendering.PostFx.OutlineRenderer.Depth.init -> string
+required Vixen.Rendering.PostFx.OutlineRenderer.Source.get -> string
+required Vixen.Rendering.PostFx.OutlineRenderer.Source.init -> string
+required Vixen.Rendering.PostFx.SharpenRenderer.Source.get -> string
+required Vixen.Rendering.PostFx.SharpenRenderer.Source.init -> string
+required Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Depth.get -> string
+required Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Depth.init -> string
+required Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.MotionVectors.get -> string
+required Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.MotionVectors.init -> string
+required Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Source.get -> string
+required Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Source.init -> string
+required Vixen.Rendering.PostFx.TonemapRenderer.Source.get -> string
+required Vixen.Rendering.PostFx.TonemapRenderer.Source.init -> string
+required Vixen.Rendering.PostFx.VignetteRenderer.Source.get -> string
+required Vixen.Rendering.PostFx.VignetteRenderer.Source.init -> string
+static Vixen.Rendering.PostFx.PostEffectRenderer.Sample(System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings, uint binding, Vixen.Graphics.SamplerHandle sampler) -> void
+static Vixen.Rendering.PostFx.PostEffectRenderer.TexelSize(Vixen.Core.Mathematics.Int2 size) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Jitter(int frameIndex) -> Vixen.Core.Mathematics.Vector2
+static readonly Vixen.Shaders.Generated.FogKeys.CameraPosition -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.FogKeys.Density -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.FogKeys.DepthBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.FogKeys.FogColor -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.FogKeys.FogEnd -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.FogKeys.FogHeight -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.FogKeys.FogStart -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.FogKeys.HeightFalloff -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.FogKeys.HeightFalloffRate -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.FogKeys.InverseViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
+static readonly Vixen.Shaders.Generated.FogKeys.LinearSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.FogKeys.Mode -> Vixen.Shaders.PermutationKey<int>
+static readonly Vixen.Shaders.Generated.FogKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.FogKeys.SunAnisotropy -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.FogKeys.SunColor -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.FogKeys.SunDirection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.FogKeys.SunScattering -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.FogKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.FxaaKeys.EdgeThreshold -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.FxaaKeys.EdgeThresholdMin -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.FxaaKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.FxaaKeys.SourceSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.FxaaKeys.Subpixel -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.FxaaKeys.SubpixelQuality -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.FxaaKeys.TexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.FxaaKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.OutlineKeys.DepthBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.OutlineKeys.DepthThreshold -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.OutlineKeys.FarPlane -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.OutlineKeys.NearPlane -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.OutlineKeys.NormalBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.OutlineKeys.NormalThreshold -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.OutlineKeys.OutlineColor -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector4>
+static readonly Vixen.Shaders.Generated.OutlineKeys.PointSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.OutlineKeys.SelectionMask -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.OutlineKeys.SelectionOnly -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.OutlineKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.OutlineKeys.TexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.OutlineKeys.Thickness -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.OutlineKeys.UseNormals -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.OutlineKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.SharpenKeys.PerChannel -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.SharpenKeys.PointSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.SharpenKeys.Sharpness -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.SharpenKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.SharpenKeys.TexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.SharpenKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.SsaoKeys.BentNormal -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.SsaoKeys.DepthBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.SsaoKeys.Directions -> Vixen.Shaders.PermutationKey<int>
+static readonly Vixen.Shaders.Generated.SsaoKeys.Falloff -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.SsaoKeys.Intensity -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.SsaoKeys.InverseProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
+static readonly Vixen.Shaders.Generated.SsaoKeys.NormalBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.SsaoKeys.PointSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.SsaoKeys.Radius -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.SsaoKeys.Steps -> Vixen.Shaders.PermutationKey<int>
+static readonly Vixen.Shaders.Generated.SsaoKeys.TexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.SsaoKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.TaaKeys.Current -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.TaaKeys.DepthBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.TaaKeys.Feedback -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.TaaKeys.History -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.TaaKeys.LinearSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.TaaKeys.MotionVectors -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.TaaKeys.PointSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.TaaKeys.TexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.TaaKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.TaaKeys.VarianceClipping -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.TaaKeys.VarianceGamma -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.VignetteKeys.AberrationStrength -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.VignetteKeys.FrameIndex -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.VignetteKeys.GrainIntensity -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.VignetteKeys.GrainScale -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.VignetteKeys.LinearSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.VignetteKeys.LuminanceWeightedGrain -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.VignetteKeys.ScreenSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.VignetteKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.VignetteKeys.UseChromaticAberration -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.VignetteKeys.UseGrain -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.VignetteKeys.UseVignette -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.VignetteKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.VignetteKeys.VignetteIntensity -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.VignetteKeys.VignetteSmoothness -> Vixen.Shaders.ParameterKey<float>
+virtual Vixen.Rendering.PostFx.PostEffectRenderer.DeclareOutput(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Core.Mathematics.Int2 size) -> void
+virtual Vixen.Rendering.PostFx.PostEffectRenderer.Dispose(bool disposing) -> void
+virtual Vixen.Rendering.PostFx.PostEffectRenderer.TargetSize(Vixen.Core.Mathematics.Int2 frame) -> Vixen.Core.Mathematics.Int2

@@ -1,0 +1,186 @@
+#nullable enable
+Vixen.Ui.Testing.CommandLog -> sealed class
+Vixen.Ui.Testing.CommandLog.CommandLog() -> void
+Vixen.Ui.Testing.CommandLog.Commands.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Testing.LoggedCommand>
+Vixen.Ui.Testing.LoggedCommand -> readonly struct
+Vixen.Ui.Testing.LoggedCommand : System.IEquatable<Vixen.Ui.Testing.LoggedCommand>
+Vixen.Ui.Testing.LoggedCommand.Depth.get -> int
+Vixen.Ui.Testing.LoggedCommand.Depth.init -> int
+Vixen.Ui.Testing.LoggedCommand.Frames.get -> int
+Vixen.Ui.Testing.LoggedCommand.Frames.init -> int
+Vixen.Ui.Testing.LoggedCommand.LoggedCommand() -> void
+Vixen.Ui.Testing.LoggedCommand.LoggedCommand(int Depth, string Text, string? Outcome, int Frames) -> void
+Vixen.Ui.Testing.LoggedCommand.Outcome.get -> string?
+Vixen.Ui.Testing.LoggedCommand.Outcome.init -> string?
+Vixen.Ui.Testing.LoggedCommand.Text.get -> string
+Vixen.Ui.Testing.LoggedCommand.Text.init -> string
+Vixen.Ui.Testing.UiSubject -> sealed class
+Vixen.Ui.Testing.UiSubject.Blur() -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.Children() -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.Click(Vixen.Ui.PointerButton button = Vixen.Ui.PointerButton.Primary, bool force = false) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.Closest(string selector) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.Contains(string text) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.Count.get -> int
+Vixen.Ui.Testing.UiSubject.Description.get -> string
+Vixen.Ui.Testing.UiSubject.DoubleClick(bool force = false) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.DragBy(float deltaX, float deltaY) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.DragTo(float x, float y) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.Element.get -> Vixen.Ui.UiElement
+Vixen.Ui.Testing.UiSubject.Elements.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiElement>
+Vixen.Ui.Testing.UiSubject.Filter(string selector) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.Find(string selector) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.First() -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.Focus() -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.Hover() -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.Last() -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.Nth(int index) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.Parent() -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.Pinch(float scale, float rotation = 0, float separation = 40) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.Press(Vixen.Ui.PointerButton button = Vixen.Ui.PointerButton.Primary) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.PressKey(Vixen.Input.InputKey key) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.Release(Vixen.Ui.PointerButton button = Vixen.Ui.PointerButton.Primary) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.RightClick(bool force = false) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.Scroll(float deltaX, float deltaY) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.ShouldBeFocused() -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.ShouldBeHittable() -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.ShouldBeVisible() -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.ShouldContainText(string text) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.ShouldExist() -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.ShouldHaveClass(string className) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.ShouldHaveColor(string property, Vixen.Core.Mathematics.Color4 expected, float tolerance = 0.004) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.ShouldHaveCount(int count) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.ShouldHaveLength(string property, float expected, float tolerance = 0.01) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.ShouldHaveState(Vixen.Ui.Styling.ElementState state) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.ShouldHaveStyle(string property, string value) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.ShouldHaveText(string text) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.ShouldMatch(System.Func<Vixen.Ui.UiElement, bool> predicate, string description) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.ShouldNotBeVisible() -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.ShouldNotExist() -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.ShouldNotHaveClass(string className) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.Test.get -> Vixen.Ui.Testing.UiTest
+Vixen.Ui.Testing.UiSubject.Then(System.Action<Vixen.Ui.UiElement> action) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.Type(string text) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiSubject.Where(System.Func<Vixen.Ui.UiElement, bool> predicate, string description) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiTest -> sealed class
+Vixen.Ui.Testing.UiTest : System.IDisposable
+Vixen.Ui.Testing.UiTest.Advance(System.TimeSpan duration) -> void
+Vixen.Ui.Testing.UiTest.At(float x, float y) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiTest.Capture() -> Vixen.Ui.Testing.Visual.Bitmap
+Vixen.Ui.Testing.UiTest.ColorOf(Vixen.Ui.UiElement element, string property) -> Vixen.Core.Mathematics.Color4?
+Vixen.Ui.Testing.UiTest.Contains(string text) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiTest.Create(string tag, Vixen.Ui.UiElement? parent = null, string? id = null, params string[] classNames) -> Vixen.Ui.UiElement
+Vixen.Ui.Testing.UiTest.Dispose() -> void
+Vixen.Ui.Testing.UiTest.Document.get -> Vixen.Ui.UiDocument
+Vixen.Ui.Testing.UiTest.Drag(float fromX, float fromY, float toX, float toY, int steps = 8) -> Vixen.Ui.UiElement?
+Vixen.Ui.Testing.UiTest.Frame() -> void
+Vixen.Ui.Testing.UiTest.FrameCount.get -> int
+Vixen.Ui.Testing.UiTest.Frames(int count) -> void
+Vixen.Ui.Testing.UiTest.Get(string selector) -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiTest.Hold(Vixen.Ui.ModifierKeys modifiers) -> Vixen.Ui.Testing.UiTest
+Vixen.Ui.Testing.UiTest.KeyDown(Vixen.Input.InputKey key, bool isRepeat = false) -> Vixen.Ui.UiElement?
+Vixen.Ui.Testing.UiTest.KeyUp(Vixen.Input.InputKey key) -> Vixen.Ui.UiElement?
+Vixen.Ui.Testing.UiTest.LengthOf(Vixen.Ui.UiElement element, string property) -> float?
+Vixen.Ui.Testing.UiTest.Load(string css) -> int
+Vixen.Ui.Testing.UiTest.Log.get -> Vixen.Ui.Testing.CommandLog
+Vixen.Ui.Testing.UiTest.Modifiers.get -> Vixen.Ui.ModifierKeys
+Vixen.Ui.Testing.UiTest.MovePointer(float x, float y, int pointer = 1) -> Vixen.Ui.UiElement?
+Vixen.Ui.Testing.UiTest.Now.get -> System.TimeSpan
+Vixen.Ui.Testing.UiTest.NumberOf(Vixen.Ui.UiElement element, string property) -> float?
+Vixen.Ui.Testing.UiTest.Options.get -> Vixen.Ui.Testing.UiTestOptions
+Vixen.Ui.Testing.UiTest.Pointer.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Testing.UiTest.PointerAt(int pointer) -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Testing.UiTest.PressKey(Vixen.Input.InputKey key) -> Vixen.Ui.UiElement?
+Vixen.Ui.Testing.UiTest.PressPointer(Vixen.Ui.PointerButton button = Vixen.Ui.PointerButton.Primary, int pointer = 1) -> Vixen.Ui.UiElement?
+Vixen.Ui.Testing.UiTest.ReleasePointer(Vixen.Ui.PointerButton button = Vixen.Ui.PointerButton.Primary, int pointer = 1) -> Vixen.Ui.UiElement?
+Vixen.Ui.Testing.UiTest.Root.get -> Vixen.Ui.Testing.UiSubject
+Vixen.Ui.Testing.UiTest.Screenshot(string name, Vixen.Ui.Testing.Visual.ImageTolerance? tolerance = null) -> void
+Vixen.Ui.Testing.UiTest.StyleOf(Vixen.Ui.UiElement element, string property) -> string?
+Vixen.Ui.Testing.UiTest.Tab(bool backwards = false) -> bool
+Vixen.Ui.Testing.UiTest.Ticked -> System.Action?
+Vixen.Ui.Testing.UiTest.Tree() -> string
+Vixen.Ui.Testing.UiTest.TypeText(string text) -> Vixen.Ui.UiElement?
+Vixen.Ui.Testing.UiTest.Wheel(float deltaX, float deltaY) -> Vixen.Ui.UiElement?
+Vixen.Ui.Testing.UiTestException -> sealed class
+Vixen.Ui.Testing.UiTestException : System.Exception
+Vixen.Ui.Testing.UiTestException.UiTestException() -> void
+Vixen.Ui.Testing.UiTestException.UiTestException(string message) -> void
+Vixen.Ui.Testing.UiTestException.UiTestException(string message, System.Exception inner) -> void
+Vixen.Ui.Testing.UiTestOptions -> sealed class
+Vixen.Ui.Testing.UiTestOptions.ArtifactDirectory.get -> string?
+Vixen.Ui.Testing.UiTestOptions.ArtifactDirectory.set -> string?
+Vixen.Ui.Testing.UiTestOptions.Background.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Testing.UiTestOptions.Background.set -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Testing.UiTestOptions.BaselineDirectory.get -> string?
+Vixen.Ui.Testing.UiTestOptions.BaselineDirectory.set -> string?
+Vixen.Ui.Testing.UiTestOptions.FrameDelta.get -> System.TimeSpan
+Vixen.Ui.Testing.UiTestOptions.FrameDelta.set -> System.TimeSpan
+Vixen.Ui.Testing.UiTestOptions.RetryFrames.get -> int
+Vixen.Ui.Testing.UiTestOptions.RetryFrames.set -> int
+Vixen.Ui.Testing.UiTestOptions.SourceBaselineDirectory.get -> string?
+Vixen.Ui.Testing.UiTestOptions.SourceBaselineDirectory.set -> string?
+Vixen.Ui.Testing.UiTestOptions.Tolerance.get -> Vixen.Ui.Testing.Visual.ImageTolerance
+Vixen.Ui.Testing.UiTestOptions.Tolerance.set -> Vixen.Ui.Testing.Visual.ImageTolerance
+Vixen.Ui.Testing.UiTestOptions.UiTestOptions() -> void
+Vixen.Ui.Testing.UiTestOptions.UpdateBaselines.get -> bool
+Vixen.Ui.Testing.UiTestOptions.UpdateBaselines.set -> bool
+Vixen.Ui.Testing.Visual.Bitmap -> readonly struct
+Vixen.Ui.Testing.Visual.Bitmap : System.IEquatable<Vixen.Ui.Testing.Visual.Bitmap>
+Vixen.Ui.Testing.Visual.Bitmap.Bitmap() -> void
+Vixen.Ui.Testing.Visual.Bitmap.Bitmap(int Width, int Height, byte[] Pixels) -> void
+Vixen.Ui.Testing.Visual.Bitmap.Height.get -> int
+Vixen.Ui.Testing.Visual.Bitmap.Height.init -> int
+Vixen.Ui.Testing.Visual.Bitmap.Offset(int x, int y) -> int
+Vixen.Ui.Testing.Visual.Bitmap.Pixels.get -> byte[]
+Vixen.Ui.Testing.Visual.Bitmap.Pixels.init -> byte[]
+Vixen.Ui.Testing.Visual.Bitmap.Width.get -> int
+Vixen.Ui.Testing.Visual.Bitmap.Width.init -> int
+Vixen.Ui.Testing.Visual.ImageComparer -> static class
+Vixen.Ui.Testing.Visual.ImageComparison -> readonly struct
+Vixen.Ui.Testing.Visual.ImageComparison : System.IEquatable<Vixen.Ui.Testing.Visual.ImageComparison>
+Vixen.Ui.Testing.Visual.ImageComparison.DifferingPixels.get -> int
+Vixen.Ui.Testing.Visual.ImageComparison.DifferingPixels.init -> int
+Vixen.Ui.Testing.Visual.ImageComparison.Fraction.get -> double
+Vixen.Ui.Testing.Visual.ImageComparison.ImageComparison() -> void
+Vixen.Ui.Testing.Visual.ImageComparison.ImageComparison(bool Matches, int DifferingPixels, int TotalPixels, int WorstChannel, int WorstX, int WorstY) -> void
+Vixen.Ui.Testing.Visual.ImageComparison.Matches.get -> bool
+Vixen.Ui.Testing.Visual.ImageComparison.Matches.init -> bool
+Vixen.Ui.Testing.Visual.ImageComparison.TotalPixels.get -> int
+Vixen.Ui.Testing.Visual.ImageComparison.TotalPixels.init -> int
+Vixen.Ui.Testing.Visual.ImageComparison.WorstChannel.get -> int
+Vixen.Ui.Testing.Visual.ImageComparison.WorstChannel.init -> int
+Vixen.Ui.Testing.Visual.ImageComparison.WorstX.get -> int
+Vixen.Ui.Testing.Visual.ImageComparison.WorstX.init -> int
+Vixen.Ui.Testing.Visual.ImageComparison.WorstY.get -> int
+Vixen.Ui.Testing.Visual.ImageComparison.WorstY.init -> int
+Vixen.Ui.Testing.Visual.ImageTolerance -> readonly struct
+Vixen.Ui.Testing.Visual.ImageTolerance : System.IEquatable<Vixen.Ui.Testing.Visual.ImageTolerance>
+Vixen.Ui.Testing.Visual.ImageTolerance.Channel.get -> int
+Vixen.Ui.Testing.Visual.ImageTolerance.Channel.init -> int
+Vixen.Ui.Testing.Visual.ImageTolerance.Fraction.get -> double
+Vixen.Ui.Testing.Visual.ImageTolerance.Fraction.init -> double
+Vixen.Ui.Testing.Visual.ImageTolerance.ImageTolerance() -> void
+Vixen.Ui.Testing.Visual.ImageTolerance.ImageTolerance(int Channel, double Fraction) -> void
+Vixen.Ui.Testing.Visual.PngCodec -> static class
+Vixen.Ui.Testing.Visual.SoftwareUiRasterizer -> static class
+Vixen.Ui.Testing.Visual.VisualBaseline -> static class
+const Vixen.Ui.Testing.UiTest.PointerId = 1 -> int
+const Vixen.Ui.Testing.UiTest.SecondPointerId = 2 -> int
+const Vixen.Ui.Testing.Visual.VisualBaseline.DirectoryName = "__screenshots__" -> string
+override Vixen.Ui.Testing.CommandLog.ToString() -> string
+override Vixen.Ui.Testing.LoggedCommand.ToString() -> string
+override Vixen.Ui.Testing.UiSubject.ToString() -> string
+override Vixen.Ui.Testing.Visual.ImageComparison.ToString() -> string
+static Vixen.Ui.Testing.UiTest.Create(float width = 1280, float height = 720, Vixen.Ui.Testing.UiTestOptions? options = null) -> Vixen.Ui.Testing.UiTest
+static Vixen.Ui.Testing.Visual.ImageComparer.Compare(in Vixen.Ui.Testing.Visual.Bitmap rendered, in Vixen.Ui.Testing.Visual.Bitmap expected, Vixen.Ui.Testing.Visual.ImageTolerance tolerance) -> Vixen.Ui.Testing.Visual.ImageComparison
+static Vixen.Ui.Testing.Visual.ImageComparer.Diff(in Vixen.Ui.Testing.Visual.Bitmap rendered, in Vixen.Ui.Testing.Visual.Bitmap expected, Vixen.Ui.Testing.Visual.ImageTolerance tolerance) -> Vixen.Ui.Testing.Visual.Bitmap
+static Vixen.Ui.Testing.Visual.ImageTolerance.Edges.get -> Vixen.Ui.Testing.Visual.ImageTolerance
+static Vixen.Ui.Testing.Visual.ImageTolerance.Exact.get -> Vixen.Ui.Testing.Visual.ImageTolerance
+static Vixen.Ui.Testing.Visual.ImageTolerance.Slight.get -> Vixen.Ui.Testing.Visual.ImageTolerance
+static Vixen.Ui.Testing.Visual.PngCodec.Decode(System.ReadOnlySpan<byte> data) -> Vixen.Ui.Testing.Visual.Bitmap
+static Vixen.Ui.Testing.Visual.PngCodec.Encode(in Vixen.Ui.Testing.Visual.Bitmap image) -> byte[]
+static Vixen.Ui.Testing.Visual.PngCodec.Load(string path) -> Vixen.Ui.Testing.Visual.Bitmap
+static Vixen.Ui.Testing.Visual.PngCodec.Save(string path, in Vixen.Ui.Testing.Visual.Bitmap image) -> void
+static Vixen.Ui.Testing.Visual.SoftwareUiRasterizer.BoxDistance(Vixen.Core.Mathematics.Vector2 point, Vixen.Core.Mathematics.Vector2 half, Vixen.Core.Mathematics.Vector2 radius) -> float
+static Vixen.Ui.Testing.Visual.SoftwareUiRasterizer.Render(Vixen.Ui.Rendering.UiGeometry geometry, Vixen.Ui.Text.Rasterizing.GlyphAtlas atlas, int width, int height, Vixen.Core.Mathematics.Color4 background) -> Vixen.Ui.Testing.Visual.Bitmap
+static Vixen.Ui.Testing.Visual.VisualBaseline.SourceDirectory(Vixen.Ui.Testing.UiTest test) -> string
+static Vixen.Ui.Testing.Visual.VisualBaseline.Verify(Vixen.Ui.Testing.UiTest test, string name, in Vixen.Ui.Testing.Visual.Bitmap rendered, Vixen.Ui.Testing.Visual.ImageTolerance tolerance) -> string

@@ -1,0 +1,419 @@
+#nullable enable
+Vixen.Core.AssetId -> readonly struct
+Vixen.Core.AssetId : System.IComparable<Vixen.Core.AssetId>
+Vixen.Core.AssetId : System.IEquatable<Vixen.Core.AssetId>
+Vixen.Core.AssetId : System.IFormattable
+Vixen.Core.AssetId : System.IParsable<Vixen.Core.AssetId>
+Vixen.Core.AssetId : System.ISpanFormattable
+Vixen.Core.AssetId : System.ISpanParsable<Vixen.Core.AssetId>
+Vixen.Core.AssetId : System.IUtf8SpanFormattable
+Vixen.Core.AssetId.AssetId() -> void
+Vixen.Core.AssetId.AssetId(System.Guid Value) -> void
+Vixen.Core.AssetId.CompareTo(Vixen.Core.AssetId other) -> int
+Vixen.Core.AssetId.IsEmpty.get -> bool
+Vixen.Core.AssetId.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.AssetId.TryFormat(System.Span<byte> utf8Destination, out int bytesWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.AssetId.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.AssetId.Value.get -> System.Guid
+Vixen.Core.AssetId.Value.init -> System.Guid
+Vixen.Core.AssetReference -> readonly struct
+Vixen.Core.AssetReference : System.IEquatable<Vixen.Core.AssetReference>
+Vixen.Core.AssetReference : System.IFormattable
+Vixen.Core.AssetReference : System.IParsable<Vixen.Core.AssetReference>
+Vixen.Core.AssetReference : System.ISpanFormattable
+Vixen.Core.AssetReference : System.ISpanParsable<Vixen.Core.AssetReference>
+Vixen.Core.AssetReference.Asset.get -> Vixen.Core.AssetId
+Vixen.Core.AssetReference.Asset.init -> Vixen.Core.AssetId
+Vixen.Core.AssetReference.AssetReference() -> void
+Vixen.Core.AssetReference.AssetReference(Vixen.Core.AssetId Asset, Vixen.Core.SubAssetId SubAsset) -> void
+Vixen.Core.AssetReference.AssetReference(Vixen.Core.AssetId asset) -> void
+Vixen.Core.AssetReference.IsNull.get -> bool
+Vixen.Core.AssetReference.SubAsset.get -> Vixen.Core.SubAssetId
+Vixen.Core.AssetReference.SubAsset.init -> Vixen.Core.SubAssetId
+Vixen.Core.AssetReference.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.AssetReference.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.CategoryAttribute -> sealed class
+Vixen.Core.CategoryAttribute : System.Attribute
+Vixen.Core.CategoryAttribute.CategoryAttribute(string name) -> void
+Vixen.Core.CategoryAttribute.Collapsed.get -> bool
+Vixen.Core.CategoryAttribute.Collapsed.set -> bool
+Vixen.Core.CategoryAttribute.Name.get -> string
+Vixen.Core.ComponentAttribute -> sealed class
+Vixen.Core.ComponentAttribute : System.Attribute
+Vixen.Core.ComponentAttribute.ComponentAttribute() -> void
+Vixen.Core.ComponentTypeId -> readonly struct
+Vixen.Core.ComponentTypeId : System.IComparable<Vixen.Core.ComponentTypeId>
+Vixen.Core.ComponentTypeId : System.IEquatable<Vixen.Core.ComponentTypeId>
+Vixen.Core.ComponentTypeId : System.IFormattable
+Vixen.Core.ComponentTypeId : System.IParsable<Vixen.Core.ComponentTypeId>
+Vixen.Core.ComponentTypeId : System.ISpanFormattable
+Vixen.Core.ComponentTypeId : System.ISpanParsable<Vixen.Core.ComponentTypeId>
+Vixen.Core.ComponentTypeId : System.IUtf8SpanFormattable
+Vixen.Core.ComponentTypeId.CompareTo(Vixen.Core.ComponentTypeId other) -> int
+Vixen.Core.ComponentTypeId.ComponentTypeId() -> void
+Vixen.Core.ComponentTypeId.ComponentTypeId(int Value) -> void
+Vixen.Core.ComponentTypeId.IsValid.get -> bool
+Vixen.Core.ComponentTypeId.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.ComponentTypeId.TryFormat(System.Span<byte> utf8Destination, out int bytesWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.ComponentTypeId.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.ComponentTypeId.Value.get -> int
+Vixen.Core.ComponentTypeId.Value.init -> int
+Vixen.Core.DataAliasAttribute -> sealed class
+Vixen.Core.DataAliasAttribute : System.Attribute
+Vixen.Core.DataAliasAttribute.DataAliasAttribute(string name) -> void
+Vixen.Core.DataAliasAttribute.Name.get -> string
+Vixen.Core.DataContractAttribute -> sealed class
+Vixen.Core.DataContractAttribute : System.Attribute
+Vixen.Core.DataContractAttribute.Alias.get -> string?
+Vixen.Core.DataContractAttribute.Alias.set -> string?
+Vixen.Core.DataContractAttribute.DataContractAttribute() -> void
+Vixen.Core.DataContractAttribute.DataContractAttribute(string alias) -> void
+Vixen.Core.DataContractAttribute.Inherited.get -> bool
+Vixen.Core.DataContractAttribute.Inherited.set -> bool
+Vixen.Core.DataContractAttribute.SerializedVersion.get -> int
+Vixen.Core.DataContractAttribute.SerializedVersion.set -> int
+Vixen.Core.DataMemberAttribute -> sealed class
+Vixen.Core.DataMemberAttribute : System.Attribute
+Vixen.Core.DataMemberAttribute.DataMemberAttribute() -> void
+Vixen.Core.DataMemberAttribute.DataMemberAttribute(int order) -> void
+Vixen.Core.DataMemberAttribute.DataMemberAttribute(string name) -> void
+Vixen.Core.DataMemberAttribute.Name.get -> string?
+Vixen.Core.DataMemberAttribute.Name.set -> string?
+Vixen.Core.DataMemberAttribute.Order.get -> int
+Vixen.Core.DataMemberAttribute.Order.set -> int
+Vixen.Core.DataMemberIgnoreAttribute -> sealed class
+Vixen.Core.DataMemberIgnoreAttribute : System.Attribute
+Vixen.Core.DataMemberIgnoreAttribute.DataMemberIgnoreAttribute() -> void
+Vixen.Core.DisposeBag -> sealed class
+Vixen.Core.DisposeBag : System.IAsyncDisposable
+Vixen.Core.DisposeBag : System.IDisposable
+Vixen.Core.DisposeBag.Add(System.Action onDispose) -> void
+Vixen.Core.DisposeBag.Add<T>(T disposable) -> T
+Vixen.Core.DisposeBag.AddAsync<T>(T disposable) -> T
+Vixen.Core.DisposeBag.Count.get -> int
+Vixen.Core.DisposeBag.Dispose() -> void
+Vixen.Core.DisposeBag.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Vixen.Core.DisposeBag.DisposeBag() -> void
+Vixen.Core.DisposeBag.IsDisposed.get -> bool
+Vixen.Core.EditorVisibleAttribute -> sealed class
+Vixen.Core.EditorVisibleAttribute : System.Attribute
+Vixen.Core.EditorVisibleAttribute.DisplayName.get -> string?
+Vixen.Core.EditorVisibleAttribute.DisplayName.set -> string?
+Vixen.Core.EditorVisibleAttribute.EditorVisibleAttribute() -> void
+Vixen.Core.EditorVisibleAttribute.EditorVisibleAttribute(bool visible) -> void
+Vixen.Core.EditorVisibleAttribute.ReadOnly.get -> bool
+Vixen.Core.EditorVisibleAttribute.ReadOnly.set -> bool
+Vixen.Core.EditorVisibleAttribute.Visible.get -> bool
+Vixen.Core.Entity -> readonly struct
+Vixen.Core.Entity : System.IComparable<Vixen.Core.Entity>
+Vixen.Core.Entity : System.IEquatable<Vixen.Core.Entity>
+Vixen.Core.Entity : System.IFormattable
+Vixen.Core.Entity : System.IParsable<Vixen.Core.Entity>
+Vixen.Core.Entity : System.ISpanFormattable
+Vixen.Core.Entity : System.ISpanParsable<Vixen.Core.Entity>
+Vixen.Core.Entity : System.IUtf8SpanFormattable
+Vixen.Core.Entity.CompareTo(Vixen.Core.Entity other) -> int
+Vixen.Core.Entity.Entity() -> void
+Vixen.Core.Entity.Entity(int Id, int Version, short WorldId) -> void
+Vixen.Core.Entity.Id.get -> int
+Vixen.Core.Entity.Id.init -> int
+Vixen.Core.Entity.IsNull.get -> bool
+Vixen.Core.Entity.Packed.get -> ulong
+Vixen.Core.Entity.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Entity.TryFormat(System.Span<byte> utf8Destination, out int bytesWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.Entity.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.Entity.Version.get -> int
+Vixen.Core.Entity.Version.init -> int
+Vixen.Core.Entity.WorldId.get -> short
+Vixen.Core.Entity.WorldId.init -> short
+Vixen.Core.GameTime -> readonly struct
+Vixen.Core.GameTime : System.IEquatable<Vixen.Core.GameTime>
+Vixen.Core.GameTime : System.IFormattable
+Vixen.Core.GameTime : System.ISpanFormattable
+Vixen.Core.GameTime.Advance(System.TimeSpan unscaledElapsed, float timeScale = 1) -> Vixen.Core.GameTime
+Vixen.Core.GameTime.DeltaSeconds.get -> float
+Vixen.Core.GameTime.Elapsed.get -> System.TimeSpan
+Vixen.Core.GameTime.Elapsed.init -> System.TimeSpan
+Vixen.Core.GameTime.FrameCount.get -> long
+Vixen.Core.GameTime.FrameCount.init -> long
+Vixen.Core.GameTime.GameTime() -> void
+Vixen.Core.GameTime.GameTime(System.TimeSpan Total, System.TimeSpan Elapsed, System.TimeSpan UnscaledElapsed, long FrameCount, float TimeScale) -> void
+Vixen.Core.GameTime.IsPaused.get -> bool
+Vixen.Core.GameTime.TimeScale.get -> float
+Vixen.Core.GameTime.TimeScale.init -> float
+Vixen.Core.GameTime.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.GameTime.Total.get -> System.TimeSpan
+Vixen.Core.GameTime.Total.init -> System.TimeSpan
+Vixen.Core.GameTime.TotalSeconds.get -> double
+Vixen.Core.GameTime.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.GameTime.UnscaledDeltaSeconds.get -> float
+Vixen.Core.GameTime.UnscaledElapsed.get -> System.TimeSpan
+Vixen.Core.GameTime.UnscaledElapsed.init -> System.TimeSpan
+Vixen.Core.HotPathAttribute -> sealed class
+Vixen.Core.HotPathAttribute : System.Attribute
+Vixen.Core.HotPathAttribute.HotPathAttribute() -> void
+Vixen.Core.LeakReport -> sealed record
+Vixen.Core.LeakReport : System.IEquatable<Vixen.Core.LeakReport>
+Vixen.Core.LeakReport.Category.get -> string
+Vixen.Core.LeakReport.Category.init -> string
+Vixen.Core.LeakReport.Description.get -> string?
+Vixen.Core.LeakReport.Description.init -> string?
+Vixen.Core.LeakReport.Handle.get -> long
+Vixen.Core.LeakReport.Handle.init -> long
+Vixen.Core.LeakReport.LeakReport(long Handle, string Category, string? Description, string? StackTrace) -> void
+Vixen.Core.LeakReport.StackTrace.get -> string?
+Vixen.Core.LeakReport.StackTrace.init -> string?
+Vixen.Core.LeakTracker -> static class
+Vixen.Core.ObjectId -> readonly struct
+Vixen.Core.ObjectId : System.IComparable<Vixen.Core.ObjectId>
+Vixen.Core.ObjectId : System.IEquatable<Vixen.Core.ObjectId>
+Vixen.Core.ObjectId : System.IFormattable
+Vixen.Core.ObjectId : System.IParsable<Vixen.Core.ObjectId>
+Vixen.Core.ObjectId : System.ISpanFormattable
+Vixen.Core.ObjectId : System.ISpanParsable<Vixen.Core.ObjectId>
+Vixen.Core.ObjectId : System.IUtf8SpanFormattable
+Vixen.Core.ObjectId.CompareTo(Vixen.Core.ObjectId other) -> int
+Vixen.Core.ObjectId.High.get -> ulong
+Vixen.Core.ObjectId.IsEmpty.get -> bool
+Vixen.Core.ObjectId.Low.get -> ulong
+Vixen.Core.ObjectId.ObjectId() -> void
+Vixen.Core.ObjectId.ObjectId(ulong high, ulong low) -> void
+Vixen.Core.ObjectId.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.ObjectId.TryFormat(System.Span<byte> utf8Destination, out int bytesWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.ObjectId.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.ObjectId.TryWriteBytes(System.Span<byte> destination) -> bool
+Vixen.Core.ObjectId.WriteTo(System.Span<byte> destination) -> void
+Vixen.Core.Pooling.ObjectPool<T> -> sealed class
+Vixen.Core.Pooling.ObjectPool<T>.Capacity.get -> int
+Vixen.Core.Pooling.ObjectPool<T>.Clear() -> void
+Vixen.Core.Pooling.ObjectPool<T>.ObjectPool(System.Func<T> factory, System.Action<T>? reset = null, int capacity = 32) -> void
+Vixen.Core.Pooling.ObjectPool<T>.Rent() -> T
+Vixen.Core.Pooling.ObjectPool<T>.RentScoped() -> Vixen.Core.Pooling.PooledObject<T>
+Vixen.Core.Pooling.ObjectPool<T>.Return(T instance) -> void
+Vixen.Core.Pooling.PooledArray -> static class
+Vixen.Core.Pooling.PooledArray<T> -> readonly struct
+Vixen.Core.Pooling.PooledArray<T> : System.IDisposable
+Vixen.Core.Pooling.PooledArray<T> : System.IEquatable<Vixen.Core.Pooling.PooledArray<T>>
+Vixen.Core.Pooling.PooledArray<T>.Array.get -> T[]
+Vixen.Core.Pooling.PooledArray<T>.Dispose() -> void
+Vixen.Core.Pooling.PooledArray<T>.Equals(Vixen.Core.Pooling.PooledArray<T> other) -> bool
+Vixen.Core.Pooling.PooledArray<T>.GetEnumerator() -> System.Span<T>.Enumerator
+Vixen.Core.Pooling.PooledArray<T>.Length.get -> int
+Vixen.Core.Pooling.PooledArray<T>.PooledArray() -> void
+Vixen.Core.Pooling.PooledArray<T>.Span.get -> System.Span<T>
+Vixen.Core.Pooling.PooledArray<T>.this[int index].get -> T
+Vixen.Core.Pooling.PooledDictionary<TKey, TValue> -> struct
+Vixen.Core.Pooling.PooledDictionary<TKey, TValue> : System.IDisposable
+Vixen.Core.Pooling.PooledDictionary<TKey, TValue>.Add(TKey key, TValue value) -> void
+Vixen.Core.Pooling.PooledDictionary<TKey, TValue>.AsDictionary() -> System.Collections.Generic.Dictionary<TKey, TValue>
+Vixen.Core.Pooling.PooledDictionary<TKey, TValue>.Dispose() -> void
+Vixen.Core.Pooling.PooledDictionary<TKey, TValue>.PooledDictionary() -> void
+Vixen.Core.Pooling.PooledDictionary<TKey, TValue>.PooledDictionary(int capacity) -> void
+Vixen.Core.Pooling.PooledDictionary<TKey, TValue>.TryAdd(TKey key, TValue value) -> bool
+Vixen.Core.Pooling.PooledDictionary<TKey, TValue>.this[TKey key].get -> TValue
+Vixen.Core.Pooling.PooledDictionary<TKey, TValue>.this[TKey key].set -> TValue
+Vixen.Core.Pooling.PooledList<T> -> struct
+Vixen.Core.Pooling.PooledList<T> : System.IDisposable
+Vixen.Core.Pooling.PooledList<T>.Add(T item) -> void
+Vixen.Core.Pooling.PooledList<T>.AddRange(System.ReadOnlySpan<T> items) -> void
+Vixen.Core.Pooling.PooledList<T>.AppendSpan(int length) -> System.Span<T>
+Vixen.Core.Pooling.PooledList<T>.Clear() -> void
+Vixen.Core.Pooling.PooledList<T>.Dispose() -> void
+Vixen.Core.Pooling.PooledList<T>.PooledList() -> void
+Vixen.Core.Pooling.PooledList<T>.PooledList(int capacity) -> void
+Vixen.Core.Pooling.PooledList<T>.RemoveAt(int index) -> void
+Vixen.Core.Pooling.PooledList<T>.RemoveAtSwapBack(int index) -> void
+Vixen.Core.Pooling.PooledObject<T> -> readonly struct
+Vixen.Core.Pooling.PooledObject<T> : System.IDisposable
+Vixen.Core.Pooling.PooledObject<T> : System.IEquatable<Vixen.Core.Pooling.PooledObject<T>>
+Vixen.Core.Pooling.PooledObject<T>.Dispose() -> void
+Vixen.Core.Pooling.PooledObject<T>.Equals(Vixen.Core.Pooling.PooledObject<T> other) -> bool
+Vixen.Core.Pooling.PooledObject<T>.PooledObject() -> void
+Vixen.Core.Pooling.PooledObject<T>.Value.get -> T
+Vixen.Core.RangeAttribute -> sealed class
+Vixen.Core.RangeAttribute : System.Attribute
+Vixen.Core.RangeAttribute.Logarithmic.get -> bool
+Vixen.Core.RangeAttribute.Logarithmic.set -> bool
+Vixen.Core.RangeAttribute.Maximum.get -> double
+Vixen.Core.RangeAttribute.Minimum.get -> double
+Vixen.Core.RangeAttribute.RangeAttribute(double minimum, double maximum) -> void
+Vixen.Core.RangeAttribute.Step.get -> double
+Vixen.Core.RangeAttribute.Step.set -> double
+Vixen.Core.ServiceNotFoundException -> sealed class
+Vixen.Core.ServiceNotFoundException : System.Exception
+Vixen.Core.ServiceNotFoundException.ServiceNotFoundException() -> void
+Vixen.Core.ServiceNotFoundException.ServiceNotFoundException(System.Type serviceType) -> void
+Vixen.Core.ServiceNotFoundException.ServiceNotFoundException(string message) -> void
+Vixen.Core.ServiceNotFoundException.ServiceNotFoundException(string message, System.Exception innerException) -> void
+Vixen.Core.ServiceNotFoundException.ServiceType.get -> System.Type?
+Vixen.Core.ServiceRegistry -> sealed class
+Vixen.Core.ServiceRegistry : System.IServiceProvider
+Vixen.Core.ServiceRegistry.Add<T>(T service) -> void
+Vixen.Core.ServiceRegistry.AddOrReplace<T>(T service) -> T?
+Vixen.Core.ServiceRegistry.Clear() -> void
+Vixen.Core.ServiceRegistry.Contains<T>() -> bool
+Vixen.Core.ServiceRegistry.Count.get -> int
+Vixen.Core.ServiceRegistry.Get<T>() -> T
+Vixen.Core.ServiceRegistry.GetOrDefault<T>() -> T?
+Vixen.Core.ServiceRegistry.Remove<T>() -> bool
+Vixen.Core.ServiceRegistry.ServiceRegistry() -> void
+Vixen.Core.ServiceRegistry.ServiceTypes.get -> System.Collections.Generic.IReadOnlyCollection<System.Type>
+Vixen.Core.ServiceRegistry.TryAdd<T>(T service) -> bool
+Vixen.Core.ServiceRegistry.TryGet<T>(out T? service) -> bool
+Vixen.Core.SubAssetId -> readonly struct
+Vixen.Core.SubAssetId : System.IComparable<Vixen.Core.SubAssetId>
+Vixen.Core.SubAssetId : System.IEquatable<Vixen.Core.SubAssetId>
+Vixen.Core.SubAssetId : System.IFormattable
+Vixen.Core.SubAssetId : System.IParsable<Vixen.Core.SubAssetId>
+Vixen.Core.SubAssetId : System.ISpanFormattable
+Vixen.Core.SubAssetId : System.ISpanParsable<Vixen.Core.SubAssetId>
+Vixen.Core.SubAssetId.CompareTo(Vixen.Core.SubAssetId other) -> int
+Vixen.Core.SubAssetId.IsMain.get -> bool
+Vixen.Core.SubAssetId.SubAssetId() -> void
+Vixen.Core.SubAssetId.SubAssetId(uint Value) -> void
+Vixen.Core.SubAssetId.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.SubAssetId.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.SubAssetId.Value.get -> uint
+Vixen.Core.SubAssetId.Value.init -> uint
+Vixen.Core.SurfaceHandle -> readonly struct
+Vixen.Core.SurfaceHandle : System.IEquatable<Vixen.Core.SurfaceHandle>
+Vixen.Core.SurfaceHandle.CanPresent.get -> bool
+Vixen.Core.SurfaceHandle.Display.get -> nint
+Vixen.Core.SurfaceHandle.Display.init -> nint
+Vixen.Core.SurfaceHandle.Handle.get -> nint
+Vixen.Core.SurfaceHandle.Handle.init -> nint
+Vixen.Core.SurfaceHandle.Kind.get -> Vixen.Core.SurfaceKind
+Vixen.Core.SurfaceHandle.Kind.init -> Vixen.Core.SurfaceKind
+Vixen.Core.SurfaceHandle.SurfaceHandle() -> void
+Vixen.Core.SurfaceHandle.SurfaceHandle(Vixen.Core.SurfaceKind Kind, nint Display, nint Handle) -> void
+Vixen.Core.SurfaceKind -> enum : byte
+Vixen.Core.SurfaceKind.Android = 5 -> Vixen.Core.SurfaceKind
+Vixen.Core.SurfaceKind.Metal = 4 -> Vixen.Core.SurfaceKind
+Vixen.Core.SurfaceKind.None = 0 -> Vixen.Core.SurfaceKind
+Vixen.Core.SurfaceKind.SurfaceKind() -> void
+Vixen.Core.SurfaceKind.Wayland = 3 -> Vixen.Core.SurfaceKind
+Vixen.Core.SurfaceKind.Web = 6 -> Vixen.Core.SurfaceKind
+Vixen.Core.SurfaceKind.Win32 = 1 -> Vixen.Core.SurfaceKind
+Vixen.Core.SurfaceKind.Xlib = 2 -> Vixen.Core.SurfaceKind
+Vixen.Core.TooltipAttribute -> sealed class
+Vixen.Core.TooltipAttribute : System.Attribute
+Vixen.Core.TooltipAttribute.Text.get -> string
+Vixen.Core.TooltipAttribute.TooltipAttribute(string text) -> void
+const Vixen.Core.AssetId.TextLength = 32 -> int
+const Vixen.Core.AssetReference.MaxTextLength = 44 -> int
+const Vixen.Core.AssetReference.Prefix = "vx:" -> string
+const Vixen.Core.Entity.MaxTextLength = 30 -> int
+const Vixen.Core.LeakTracker.IsSupported = false -> bool
+const Vixen.Core.LeakTracker.NotTracked = 0 -> long
+const Vixen.Core.ObjectId.SizeInBytes = 16 -> int
+const Vixen.Core.ObjectId.TextLength = 32 -> int
+const Vixen.Core.SubAssetId.TextLength = 8 -> int
+override Vixen.Core.AssetId.ToString() -> string
+override Vixen.Core.AssetReference.ToString() -> string
+override Vixen.Core.ComponentTypeId.ToString() -> string
+override Vixen.Core.Entity.ToString() -> string
+override Vixen.Core.GameTime.ToString() -> string
+override Vixen.Core.ObjectId.GetHashCode() -> int
+override Vixen.Core.ObjectId.ToString() -> string
+override Vixen.Core.Pooling.PooledArray<T>.Equals(object? obj) -> bool
+override Vixen.Core.Pooling.PooledArray<T>.GetHashCode() -> int
+override Vixen.Core.Pooling.PooledObject<T>.Equals(object? obj) -> bool
+override Vixen.Core.Pooling.PooledObject<T>.GetHashCode() -> int
+override Vixen.Core.SubAssetId.ToString() -> string
+readonly Vixen.Core.Pooling.PooledDictionary<TKey, TValue>.Clear() -> void
+readonly Vixen.Core.Pooling.PooledDictionary<TKey, TValue>.ContainsKey(TKey key) -> bool
+readonly Vixen.Core.Pooling.PooledDictionary<TKey, TValue>.Count.get -> int
+readonly Vixen.Core.Pooling.PooledDictionary<TKey, TValue>.GetEnumerator() -> System.Collections.Generic.Dictionary<TKey, TValue>.Enumerator
+readonly Vixen.Core.Pooling.PooledDictionary<TKey, TValue>.Keys.get -> System.Collections.Generic.Dictionary<TKey, TValue>.KeyCollection
+readonly Vixen.Core.Pooling.PooledDictionary<TKey, TValue>.Remove(TKey key) -> bool
+readonly Vixen.Core.Pooling.PooledDictionary<TKey, TValue>.TryGetValue(TKey key, out TValue value) -> bool
+readonly Vixen.Core.Pooling.PooledDictionary<TKey, TValue>.Values.get -> System.Collections.Generic.Dictionary<TKey, TValue>.ValueCollection
+readonly Vixen.Core.Pooling.PooledList<T>.Capacity.get -> int
+readonly Vixen.Core.Pooling.PooledList<T>.Count.get -> int
+readonly Vixen.Core.Pooling.PooledList<T>.GetEnumerator() -> System.Span<T>.Enumerator
+readonly Vixen.Core.Pooling.PooledList<T>.IsEmpty.get -> bool
+readonly Vixen.Core.Pooling.PooledList<T>.Span.get -> System.Span<T>
+readonly Vixen.Core.Pooling.PooledList<T>.ToArray() -> T[]
+readonly Vixen.Core.Pooling.PooledList<T>.this[int index].get -> T
+static Vixen.Core.AssetId.Empty.get -> Vixen.Core.AssetId
+static Vixen.Core.AssetId.New() -> Vixen.Core.AssetId
+static Vixen.Core.AssetId.Parse(System.ReadOnlySpan<char> s, System.IFormatProvider? provider = null) -> Vixen.Core.AssetId
+static Vixen.Core.AssetId.Parse(string s, System.IFormatProvider? provider = null) -> Vixen.Core.AssetId
+static Vixen.Core.AssetId.TryParse(System.ReadOnlySpan<char> s, System.IFormatProvider? provider, out Vixen.Core.AssetId result) -> bool
+static Vixen.Core.AssetId.TryParse(System.ReadOnlySpan<char> s, out Vixen.Core.AssetId result) -> bool
+static Vixen.Core.AssetId.TryParse(string? s, System.IFormatProvider? provider, out Vixen.Core.AssetId result) -> bool
+static Vixen.Core.AssetId.TryParse(string? s, out Vixen.Core.AssetId result) -> bool
+static Vixen.Core.AssetId.operator <(Vixen.Core.AssetId left, Vixen.Core.AssetId right) -> bool
+static Vixen.Core.AssetId.operator <=(Vixen.Core.AssetId left, Vixen.Core.AssetId right) -> bool
+static Vixen.Core.AssetId.operator >(Vixen.Core.AssetId left, Vixen.Core.AssetId right) -> bool
+static Vixen.Core.AssetId.operator >=(Vixen.Core.AssetId left, Vixen.Core.AssetId right) -> bool
+static Vixen.Core.AssetReference.Null.get -> Vixen.Core.AssetReference
+static Vixen.Core.AssetReference.Parse(System.ReadOnlySpan<char> s, System.IFormatProvider? provider = null) -> Vixen.Core.AssetReference
+static Vixen.Core.AssetReference.Parse(string s, System.IFormatProvider? provider = null) -> Vixen.Core.AssetReference
+static Vixen.Core.AssetReference.TryParse(System.ReadOnlySpan<char> s, System.IFormatProvider? provider, out Vixen.Core.AssetReference result) -> bool
+static Vixen.Core.AssetReference.TryParse(System.ReadOnlySpan<char> s, out Vixen.Core.AssetReference result) -> bool
+static Vixen.Core.AssetReference.TryParse(string? s, System.IFormatProvider? provider, out Vixen.Core.AssetReference result) -> bool
+static Vixen.Core.AssetReference.TryParse(string? s, out Vixen.Core.AssetReference result) -> bool
+static Vixen.Core.ComponentTypeId.Invalid.get -> Vixen.Core.ComponentTypeId
+static Vixen.Core.ComponentTypeId.Parse(System.ReadOnlySpan<char> s, System.IFormatProvider? provider = null) -> Vixen.Core.ComponentTypeId
+static Vixen.Core.ComponentTypeId.Parse(string s, System.IFormatProvider? provider = null) -> Vixen.Core.ComponentTypeId
+static Vixen.Core.ComponentTypeId.TryParse(System.ReadOnlySpan<char> s, System.IFormatProvider? provider, out Vixen.Core.ComponentTypeId result) -> bool
+static Vixen.Core.ComponentTypeId.TryParse(string? s, System.IFormatProvider? provider, out Vixen.Core.ComponentTypeId result) -> bool
+static Vixen.Core.ComponentTypeId.operator <(Vixen.Core.ComponentTypeId left, Vixen.Core.ComponentTypeId right) -> bool
+static Vixen.Core.ComponentTypeId.operator <=(Vixen.Core.ComponentTypeId left, Vixen.Core.ComponentTypeId right) -> bool
+static Vixen.Core.ComponentTypeId.operator >(Vixen.Core.ComponentTypeId left, Vixen.Core.ComponentTypeId right) -> bool
+static Vixen.Core.ComponentTypeId.operator >=(Vixen.Core.ComponentTypeId left, Vixen.Core.ComponentTypeId right) -> bool
+static Vixen.Core.Entity.FromPacked(ulong packed, short worldId = 0) -> Vixen.Core.Entity
+static Vixen.Core.Entity.Null.get -> Vixen.Core.Entity
+static Vixen.Core.Entity.Parse(System.ReadOnlySpan<char> s, System.IFormatProvider? provider = null) -> Vixen.Core.Entity
+static Vixen.Core.Entity.Parse(string s, System.IFormatProvider? provider = null) -> Vixen.Core.Entity
+static Vixen.Core.Entity.TryParse(System.ReadOnlySpan<char> s, System.IFormatProvider? provider, out Vixen.Core.Entity result) -> bool
+static Vixen.Core.Entity.TryParse(System.ReadOnlySpan<char> s, out Vixen.Core.Entity result) -> bool
+static Vixen.Core.Entity.TryParse(string? s, System.IFormatProvider? provider, out Vixen.Core.Entity result) -> bool
+static Vixen.Core.Entity.TryParse(string? s, out Vixen.Core.Entity result) -> bool
+static Vixen.Core.Entity.operator <(Vixen.Core.Entity left, Vixen.Core.Entity right) -> bool
+static Vixen.Core.Entity.operator <=(Vixen.Core.Entity left, Vixen.Core.Entity right) -> bool
+static Vixen.Core.Entity.operator >(Vixen.Core.Entity left, Vixen.Core.Entity right) -> bool
+static Vixen.Core.Entity.operator >=(Vixen.Core.Entity left, Vixen.Core.Entity right) -> bool
+static Vixen.Core.GameTime.Zero.get -> Vixen.Core.GameTime
+static Vixen.Core.LeakTracker.CaptureStackTraces.get -> bool
+static Vixen.Core.LeakTracker.CaptureStackTraces.set -> bool
+static Vixen.Core.LeakTracker.FormatReport() -> string
+static Vixen.Core.LeakTracker.IsEnabled.get -> bool
+static Vixen.Core.LeakTracker.IsEnabled.set -> bool
+static Vixen.Core.LeakTracker.LiveCount.get -> int
+static Vixen.Core.LeakTracker.Reset() -> void
+static Vixen.Core.LeakTracker.Snapshot() -> Vixen.Core.LeakReport[]
+static Vixen.Core.LeakTracker.Track(string category, string? description = null) -> long
+static Vixen.Core.LeakTracker.Untrack(long handle) -> bool
+static Vixen.Core.ObjectId.Empty.get -> Vixen.Core.ObjectId
+static Vixen.Core.ObjectId.FromBytes(System.ReadOnlySpan<byte> bytes) -> Vixen.Core.ObjectId
+static Vixen.Core.ObjectId.Parse(System.ReadOnlySpan<char> s, System.IFormatProvider? provider = null) -> Vixen.Core.ObjectId
+static Vixen.Core.ObjectId.Parse(string s, System.IFormatProvider? provider = null) -> Vixen.Core.ObjectId
+static Vixen.Core.ObjectId.TryParse(System.ReadOnlySpan<char> s, System.IFormatProvider? provider, out Vixen.Core.ObjectId result) -> bool
+static Vixen.Core.ObjectId.TryParse(System.ReadOnlySpan<char> s, out Vixen.Core.ObjectId result) -> bool
+static Vixen.Core.ObjectId.TryParse(string? s, System.IFormatProvider? provider, out Vixen.Core.ObjectId result) -> bool
+static Vixen.Core.ObjectId.TryParse(string? s, out Vixen.Core.ObjectId result) -> bool
+static Vixen.Core.ObjectId.operator <(Vixen.Core.ObjectId left, Vixen.Core.ObjectId right) -> bool
+static Vixen.Core.ObjectId.operator <=(Vixen.Core.ObjectId left, Vixen.Core.ObjectId right) -> bool
+static Vixen.Core.ObjectId.operator >(Vixen.Core.ObjectId left, Vixen.Core.ObjectId right) -> bool
+static Vixen.Core.ObjectId.operator >=(Vixen.Core.ObjectId left, Vixen.Core.ObjectId right) -> bool
+static Vixen.Core.Pooling.PooledArray.ClearsOnReturn<T>() -> bool
+static Vixen.Core.Pooling.PooledArray.Rent<T>(int minimumLength) -> Vixen.Core.Pooling.PooledArray<T>
+static Vixen.Core.Pooling.PooledArray.RentCleared<T>(int minimumLength) -> Vixen.Core.Pooling.PooledArray<T>
+static Vixen.Core.Pooling.PooledArray<T>.operator !=(Vixen.Core.Pooling.PooledArray<T> left, Vixen.Core.Pooling.PooledArray<T> right) -> bool
+static Vixen.Core.Pooling.PooledArray<T>.operator ==(Vixen.Core.Pooling.PooledArray<T> left, Vixen.Core.Pooling.PooledArray<T> right) -> bool
+static Vixen.Core.Pooling.PooledObject<T>.operator !=(Vixen.Core.Pooling.PooledObject<T> left, Vixen.Core.Pooling.PooledObject<T> right) -> bool
+static Vixen.Core.Pooling.PooledObject<T>.operator ==(Vixen.Core.Pooling.PooledObject<T> left, Vixen.Core.Pooling.PooledObject<T> right) -> bool
+static Vixen.Core.SubAssetId.Main.get -> Vixen.Core.SubAssetId
+static Vixen.Core.SubAssetId.Parse(System.ReadOnlySpan<char> s, System.IFormatProvider? provider = null) -> Vixen.Core.SubAssetId
+static Vixen.Core.SubAssetId.Parse(string s, System.IFormatProvider? provider = null) -> Vixen.Core.SubAssetId
+static Vixen.Core.SubAssetId.TryParse(System.ReadOnlySpan<char> s, System.IFormatProvider? provider, out Vixen.Core.SubAssetId result) -> bool
+static Vixen.Core.SubAssetId.TryParse(System.ReadOnlySpan<char> s, out Vixen.Core.SubAssetId result) -> bool
+static Vixen.Core.SubAssetId.TryParse(string? s, System.IFormatProvider? provider, out Vixen.Core.SubAssetId result) -> bool
+static Vixen.Core.SubAssetId.TryParse(string? s, out Vixen.Core.SubAssetId result) -> bool
+static Vixen.Core.SubAssetId.operator <(Vixen.Core.SubAssetId left, Vixen.Core.SubAssetId right) -> bool
+static Vixen.Core.SubAssetId.operator <=(Vixen.Core.SubAssetId left, Vixen.Core.SubAssetId right) -> bool
+static Vixen.Core.SubAssetId.operator >(Vixen.Core.SubAssetId left, Vixen.Core.SubAssetId right) -> bool
+static Vixen.Core.SubAssetId.operator >=(Vixen.Core.SubAssetId left, Vixen.Core.SubAssetId right) -> bool
+static Vixen.Core.SurfaceHandle.None.get -> Vixen.Core.SurfaceHandle

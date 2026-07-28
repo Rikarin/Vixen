@@ -1,0 +1,799 @@
+#nullable enable
+Vixen.Core.Mathematics.BoundingBox -> readonly struct
+Vixen.Core.Mathematics.BoundingBox : System.IEquatable<Vixen.Core.Mathematics.BoundingBox>
+Vixen.Core.Mathematics.BoundingBox : System.IFormattable
+Vixen.Core.Mathematics.BoundingBox.BoundingBox() -> void
+Vixen.Core.Mathematics.BoundingBox.BoundingBox(Vixen.Core.Mathematics.Vector3 minimum, Vixen.Core.Mathematics.Vector3 maximum) -> void
+Vixen.Core.Mathematics.BoundingBox.Center.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.BoundingBox.Contains(Vixen.Core.Mathematics.BoundingBox other) -> Vixen.Core.Mathematics.ContainmentType
+Vixen.Core.Mathematics.BoundingBox.Contains(Vixen.Core.Mathematics.BoundingSphere sphere) -> Vixen.Core.Mathematics.ContainmentType
+Vixen.Core.Mathematics.BoundingBox.Contains(Vixen.Core.Mathematics.Vector3 point) -> bool
+Vixen.Core.Mathematics.BoundingBox.Equals(Vixen.Core.Mathematics.BoundingBox other) -> bool
+Vixen.Core.Mathematics.BoundingBox.Extent.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.BoundingBox.GetCorners(System.Span<Vixen.Core.Mathematics.Vector3> destination) -> void
+Vixen.Core.Mathematics.BoundingBox.Intersects(Vixen.Core.Mathematics.BoundingBox other) -> bool
+Vixen.Core.Mathematics.BoundingBox.Intersects(Vixen.Core.Mathematics.BoundingSphere sphere) -> bool
+Vixen.Core.Mathematics.BoundingBox.Intersects(Vixen.Core.Mathematics.Plane plane) -> Vixen.Core.Mathematics.PlaneIntersectionType
+Vixen.Core.Mathematics.BoundingBox.IsEmpty.get -> bool
+Vixen.Core.Mathematics.BoundingBox.Size.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.BoundingBox.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Mathematics.BoundingFrustum -> readonly struct
+Vixen.Core.Mathematics.BoundingFrustum : System.IEquatable<Vixen.Core.Mathematics.BoundingFrustum>
+Vixen.Core.Mathematics.BoundingFrustum.AsSpan() -> System.ReadOnlySpan<Vixen.Core.Mathematics.Plane>
+Vixen.Core.Mathematics.BoundingFrustum.BoundingFrustum() -> void
+Vixen.Core.Mathematics.BoundingFrustum.BoundingFrustum(in Vixen.Core.Mathematics.Matrix4x4 viewProjection) -> void
+Vixen.Core.Mathematics.BoundingFrustum.Contains(Vixen.Core.Mathematics.BoundingBox box) -> Vixen.Core.Mathematics.ContainmentType
+Vixen.Core.Mathematics.BoundingFrustum.Contains(Vixen.Core.Mathematics.BoundingSphere sphere) -> Vixen.Core.Mathematics.ContainmentType
+Vixen.Core.Mathematics.BoundingFrustum.Contains(Vixen.Core.Mathematics.Vector3 point) -> bool
+Vixen.Core.Mathematics.BoundingFrustum.Equals(Vixen.Core.Mathematics.BoundingFrustum other) -> bool
+Vixen.Core.Mathematics.BoundingFrustum.GetCorners(System.Span<Vixen.Core.Mathematics.Vector3> destination) -> void
+Vixen.Core.Mathematics.BoundingFrustum.Intersects(Vixen.Core.Mathematics.BoundingBox box) -> bool
+Vixen.Core.Mathematics.BoundingFrustum.Intersects(Vixen.Core.Mathematics.BoundingSphere sphere) -> bool
+Vixen.Core.Mathematics.BoundingSphere -> readonly struct
+Vixen.Core.Mathematics.BoundingSphere : System.IEquatable<Vixen.Core.Mathematics.BoundingSphere>
+Vixen.Core.Mathematics.BoundingSphere : System.IFormattable
+Vixen.Core.Mathematics.BoundingSphere.BoundingSphere() -> void
+Vixen.Core.Mathematics.BoundingSphere.BoundingSphere(Vixen.Core.Mathematics.Vector3 center, float radius) -> void
+Vixen.Core.Mathematics.BoundingSphere.Contains(Vixen.Core.Mathematics.BoundingBox box) -> Vixen.Core.Mathematics.ContainmentType
+Vixen.Core.Mathematics.BoundingSphere.Contains(Vixen.Core.Mathematics.BoundingSphere other) -> Vixen.Core.Mathematics.ContainmentType
+Vixen.Core.Mathematics.BoundingSphere.Contains(Vixen.Core.Mathematics.Vector3 point) -> bool
+Vixen.Core.Mathematics.BoundingSphere.Equals(Vixen.Core.Mathematics.BoundingSphere other) -> bool
+Vixen.Core.Mathematics.BoundingSphere.Intersects(Vixen.Core.Mathematics.BoundingBox box) -> bool
+Vixen.Core.Mathematics.BoundingSphere.Intersects(Vixen.Core.Mathematics.BoundingSphere other) -> bool
+Vixen.Core.Mathematics.BoundingSphere.Intersects(Vixen.Core.Mathematics.Plane plane) -> Vixen.Core.Mathematics.PlaneIntersectionType
+Vixen.Core.Mathematics.BoundingSphere.IsEmpty.get -> bool
+Vixen.Core.Mathematics.BoundingSphere.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Mathematics.Color -> readonly struct
+Vixen.Core.Mathematics.Color : System.IEquatable<Vixen.Core.Mathematics.Color>
+Vixen.Core.Mathematics.Color : System.IFormattable
+Vixen.Core.Mathematics.Color.AsSpan() -> System.ReadOnlySpan<byte>
+Vixen.Core.Mathematics.Color.Color() -> void
+Vixen.Core.Mathematics.Color.Color(byte r, byte g, byte b) -> void
+Vixen.Core.Mathematics.Color.Color(byte r, byte g, byte b, byte a) -> void
+Vixen.Core.Mathematics.Color.Deconstruct(out byte r, out byte g, out byte b, out byte a) -> void
+Vixen.Core.Mathematics.Color.Equals(Vixen.Core.Mathematics.Color other) -> bool
+Vixen.Core.Mathematics.Color.ToArgb() -> uint
+Vixen.Core.Mathematics.Color.ToColor4() -> Vixen.Core.Mathematics.Color4
+Vixen.Core.Mathematics.Color.ToHex(bool includeAlpha = true) -> string
+Vixen.Core.Mathematics.Color.ToLinear() -> Vixen.Core.Mathematics.Color4
+Vixen.Core.Mathematics.Color.ToRgba() -> uint
+Vixen.Core.Mathematics.Color.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Mathematics.Color3 -> readonly struct
+Vixen.Core.Mathematics.Color3 : System.IEquatable<Vixen.Core.Mathematics.Color3>
+Vixen.Core.Mathematics.Color3 : System.IFormattable
+Vixen.Core.Mathematics.Color3 : System.ISpanFormattable
+Vixen.Core.Mathematics.Color3.AsSpan() -> System.ReadOnlySpan<float>
+Vixen.Core.Mathematics.Color3.Color3() -> void
+Vixen.Core.Mathematics.Color3.Color3(float intensity) -> void
+Vixen.Core.Mathematics.Color3.Color3(float r, float g, float b) -> void
+Vixen.Core.Mathematics.Color3.Deconstruct(out float r, out float g, out float b) -> void
+Vixen.Core.Mathematics.Color3.Equals(Vixen.Core.Mathematics.Color3 other) -> bool
+Vixen.Core.Mathematics.Color3.Luminance() -> float
+Vixen.Core.Mathematics.Color3.ToSrgb() -> Vixen.Core.Mathematics.Color3
+Vixen.Core.Mathematics.Color3.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Mathematics.Color3.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.Mathematics.Color3.this[int index].get -> float
+Vixen.Core.Mathematics.Color4 -> readonly struct
+Vixen.Core.Mathematics.Color4 : System.IEquatable<Vixen.Core.Mathematics.Color4>
+Vixen.Core.Mathematics.Color4 : System.IFormattable
+Vixen.Core.Mathematics.Color4 : System.ISpanFormattable
+Vixen.Core.Mathematics.Color4.AsSpan() -> System.ReadOnlySpan<float>
+Vixen.Core.Mathematics.Color4.Color4() -> void
+Vixen.Core.Mathematics.Color4.Color4(Vixen.Core.Mathematics.Color3 rgb, float a) -> void
+Vixen.Core.Mathematics.Color4.Color4(float intensity) -> void
+Vixen.Core.Mathematics.Color4.Color4(float r, float g, float b) -> void
+Vixen.Core.Mathematics.Color4.Color4(float r, float g, float b, float a) -> void
+Vixen.Core.Mathematics.Color4.Deconstruct(out float r, out float g, out float b, out float a) -> void
+Vixen.Core.Mathematics.Color4.Equals(Vixen.Core.Mathematics.Color4 other) -> bool
+Vixen.Core.Mathematics.Color4.Luminance() -> float
+Vixen.Core.Mathematics.Color4.Premultiplied() -> Vixen.Core.Mathematics.Color4
+Vixen.Core.Mathematics.Color4.Rgb.get -> Vixen.Core.Mathematics.Color3
+Vixen.Core.Mathematics.Color4.ToSrgb() -> Vixen.Core.Mathematics.Color4
+Vixen.Core.Mathematics.Color4.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Mathematics.Color4.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.Mathematics.Color4.this[int index].get -> float
+Vixen.Core.Mathematics.ColorSpace -> static class
+Vixen.Core.Mathematics.ContainmentType -> enum : int
+Vixen.Core.Mathematics.ContainmentType.ContainmentType() -> void
+Vixen.Core.Mathematics.ContainmentType.Contains = 1 -> Vixen.Core.Mathematics.ContainmentType
+Vixen.Core.Mathematics.ContainmentType.Disjoint = 0 -> Vixen.Core.Mathematics.ContainmentType
+Vixen.Core.Mathematics.ContainmentType.Intersects = 2 -> Vixen.Core.Mathematics.ContainmentType
+Vixen.Core.Mathematics.Int2 -> readonly struct
+Vixen.Core.Mathematics.Int2 : System.IEquatable<Vixen.Core.Mathematics.Int2>
+Vixen.Core.Mathematics.Int2 : System.IFormattable
+Vixen.Core.Mathematics.Int2.Area.get -> long
+Vixen.Core.Mathematics.Int2.Deconstruct(out int x, out int y) -> void
+Vixen.Core.Mathematics.Int2.Equals(Vixen.Core.Mathematics.Int2 other) -> bool
+Vixen.Core.Mathematics.Int2.Int2() -> void
+Vixen.Core.Mathematics.Int2.Int2(int value) -> void
+Vixen.Core.Mathematics.Int2.Int2(int x, int y) -> void
+Vixen.Core.Mathematics.Int2.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Mathematics.Int2.this[int index].get -> int
+Vixen.Core.Mathematics.Int3 -> readonly struct
+Vixen.Core.Mathematics.Int3 : System.IEquatable<Vixen.Core.Mathematics.Int3>
+Vixen.Core.Mathematics.Int3 : System.IFormattable
+Vixen.Core.Mathematics.Int3.Deconstruct(out int x, out int y, out int z) -> void
+Vixen.Core.Mathematics.Int3.Equals(Vixen.Core.Mathematics.Int3 other) -> bool
+Vixen.Core.Mathematics.Int3.Int3() -> void
+Vixen.Core.Mathematics.Int3.Int3(int value) -> void
+Vixen.Core.Mathematics.Int3.Int3(int x, int y, int z) -> void
+Vixen.Core.Mathematics.Int3.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Mathematics.Int3.Volume.get -> long
+Vixen.Core.Mathematics.Int3.Xy.get -> Vixen.Core.Mathematics.Int2
+Vixen.Core.Mathematics.Int3.this[int index].get -> int
+Vixen.Core.Mathematics.Int4 -> readonly struct
+Vixen.Core.Mathematics.Int4 : System.IEquatable<Vixen.Core.Mathematics.Int4>
+Vixen.Core.Mathematics.Int4 : System.IFormattable
+Vixen.Core.Mathematics.Int4.Deconstruct(out int x, out int y, out int z, out int w) -> void
+Vixen.Core.Mathematics.Int4.Equals(Vixen.Core.Mathematics.Int4 other) -> bool
+Vixen.Core.Mathematics.Int4.Int4() -> void
+Vixen.Core.Mathematics.Int4.Int4(int value) -> void
+Vixen.Core.Mathematics.Int4.Int4(int x, int y, int z, int w) -> void
+Vixen.Core.Mathematics.Int4.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Mathematics.Int4.Xy.get -> Vixen.Core.Mathematics.Int2
+Vixen.Core.Mathematics.Int4.Xyz.get -> Vixen.Core.Mathematics.Int3
+Vixen.Core.Mathematics.Int4.this[int index].get -> int
+Vixen.Core.Mathematics.MathUtil -> static class
+Vixen.Core.Mathematics.Matrix3x3 -> readonly struct
+Vixen.Core.Mathematics.Matrix3x3 : System.IEquatable<Vixen.Core.Mathematics.Matrix3x3>
+Vixen.Core.Mathematics.Matrix3x3 : System.IFormattable
+Vixen.Core.Mathematics.Matrix3x3 : System.ISpanFormattable
+Vixen.Core.Mathematics.Matrix3x3.AsSpan() -> System.ReadOnlySpan<float>
+Vixen.Core.Mathematics.Matrix3x3.Equals(Vixen.Core.Mathematics.Matrix3x3 other) -> bool
+Vixen.Core.Mathematics.Matrix3x3.Matrix3x3() -> void
+Vixen.Core.Mathematics.Matrix3x3.Matrix3x3(Vixen.Core.Mathematics.Vector3 row1, Vixen.Core.Mathematics.Vector3 row2, Vixen.Core.Mathematics.Vector3 row3) -> void
+Vixen.Core.Mathematics.Matrix3x3.Matrix3x3(float m11, float m12, float m13, float m21, float m22, float m23, float m31, float m32, float m33) -> void
+Vixen.Core.Mathematics.Matrix3x3.Row1.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.Matrix3x3.Row2.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.Matrix3x3.Row3.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.Matrix3x3.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Mathematics.Matrix3x3.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.Mathematics.Matrix4x4 -> readonly struct
+Vixen.Core.Mathematics.Matrix4x4 : System.IEquatable<Vixen.Core.Mathematics.Matrix4x4>
+Vixen.Core.Mathematics.Matrix4x4 : System.IFormattable
+Vixen.Core.Mathematics.Matrix4x4 : System.ISpanFormattable
+Vixen.Core.Mathematics.Matrix4x4.AsSpan() -> System.ReadOnlySpan<float>
+Vixen.Core.Mathematics.Matrix4x4.Equals(Vixen.Core.Mathematics.Matrix4x4 other) -> bool
+Vixen.Core.Mathematics.Matrix4x4.Forward.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.Matrix4x4.IsIdentity.get -> bool
+Vixen.Core.Mathematics.Matrix4x4.Matrix4x4() -> void
+Vixen.Core.Mathematics.Matrix4x4.Matrix4x4(Vixen.Core.Mathematics.Vector4 row1, Vixen.Core.Mathematics.Vector4 row2, Vixen.Core.Mathematics.Vector4 row3, Vixen.Core.Mathematics.Vector4 row4) -> void
+Vixen.Core.Mathematics.Matrix4x4.Matrix4x4(float m11, float m12, float m13, float m14, float m21, float m22, float m23, float m24, float m31, float m32, float m33, float m34, float m41, float m42, float m43, float m44) -> void
+Vixen.Core.Mathematics.Matrix4x4.Right.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.Matrix4x4.Row1.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Core.Mathematics.Matrix4x4.Row2.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Core.Mathematics.Matrix4x4.Row3.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Core.Mathematics.Matrix4x4.Row4.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Core.Mathematics.Matrix4x4.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Mathematics.Matrix4x4.Translation.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.Matrix4x4.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.Mathematics.Matrix4x4.Up.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.Matrix4x4.this[int row, int column].get -> float
+Vixen.Core.Mathematics.Oklab -> readonly struct
+Vixen.Core.Mathematics.Oklab : System.IEquatable<Vixen.Core.Mathematics.Oklab>
+Vixen.Core.Mathematics.Oklab.A.get -> float
+Vixen.Core.Mathematics.Oklab.A.init -> float
+Vixen.Core.Mathematics.Oklab.B.get -> float
+Vixen.Core.Mathematics.Oklab.B.init -> float
+Vixen.Core.Mathematics.Oklab.L.get -> float
+Vixen.Core.Mathematics.Oklab.L.init -> float
+Vixen.Core.Mathematics.Oklab.Oklab() -> void
+Vixen.Core.Mathematics.Oklab.Oklab(float L, float A, float B) -> void
+Vixen.Core.Mathematics.Oklab.ToLinear() -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.Plane -> readonly struct
+Vixen.Core.Mathematics.Plane : System.IEquatable<Vixen.Core.Mathematics.Plane>
+Vixen.Core.Mathematics.Plane : System.IFormattable
+Vixen.Core.Mathematics.Plane.Classify(Vixen.Core.Mathematics.Vector3 point) -> Vixen.Core.Mathematics.PlaneIntersectionType
+Vixen.Core.Mathematics.Plane.DotCoordinate(Vixen.Core.Mathematics.Vector3 point) -> float
+Vixen.Core.Mathematics.Plane.DotNormal(Vixen.Core.Mathematics.Vector3 direction) -> float
+Vixen.Core.Mathematics.Plane.Equals(Vixen.Core.Mathematics.Plane other) -> bool
+Vixen.Core.Mathematics.Plane.Plane() -> void
+Vixen.Core.Mathematics.Plane.Plane(Vixen.Core.Mathematics.Vector3 normal, float d) -> void
+Vixen.Core.Mathematics.Plane.Plane(float a, float b, float c, float d) -> void
+Vixen.Core.Mathematics.Plane.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Mathematics.PlaneIntersectionType -> enum : int
+Vixen.Core.Mathematics.PlaneIntersectionType.Back = 0 -> Vixen.Core.Mathematics.PlaneIntersectionType
+Vixen.Core.Mathematics.PlaneIntersectionType.Front = 1 -> Vixen.Core.Mathematics.PlaneIntersectionType
+Vixen.Core.Mathematics.PlaneIntersectionType.Intersecting = 2 -> Vixen.Core.Mathematics.PlaneIntersectionType
+Vixen.Core.Mathematics.PlaneIntersectionType.PlaneIntersectionType() -> void
+Vixen.Core.Mathematics.Quaternion -> readonly struct
+Vixen.Core.Mathematics.Quaternion : System.IEquatable<Vixen.Core.Mathematics.Quaternion>
+Vixen.Core.Mathematics.Quaternion : System.IFormattable
+Vixen.Core.Mathematics.Quaternion : System.ISpanFormattable
+Vixen.Core.Mathematics.Quaternion.Angle() -> float
+Vixen.Core.Mathematics.Quaternion.AsSpan() -> System.ReadOnlySpan<float>
+Vixen.Core.Mathematics.Quaternion.Axis() -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.Quaternion.Deconstruct(out float x, out float y, out float z, out float w) -> void
+Vixen.Core.Mathematics.Quaternion.Equals(Vixen.Core.Mathematics.Quaternion other) -> bool
+Vixen.Core.Mathematics.Quaternion.IsIdentity.get -> bool
+Vixen.Core.Mathematics.Quaternion.Length() -> float
+Vixen.Core.Mathematics.Quaternion.LengthSquared() -> float
+Vixen.Core.Mathematics.Quaternion.Quaternion() -> void
+Vixen.Core.Mathematics.Quaternion.Quaternion(Vixen.Core.Mathematics.Vector3 vector, float scalar) -> void
+Vixen.Core.Mathematics.Quaternion.Quaternion(float x, float y, float z, float w) -> void
+Vixen.Core.Mathematics.Quaternion.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Mathematics.Quaternion.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.Mathematics.Quaternion.Xyz.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.Ray -> readonly struct
+Vixen.Core.Mathematics.Ray : System.IEquatable<Vixen.Core.Mathematics.Ray>
+Vixen.Core.Mathematics.Ray : System.IFormattable
+Vixen.Core.Mathematics.Ray.Equals(Vixen.Core.Mathematics.Ray other) -> bool
+Vixen.Core.Mathematics.Ray.GetPoint(float distance) -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.Ray.Intersects(Vixen.Core.Mathematics.BoundingBox box, out float distance) -> bool
+Vixen.Core.Mathematics.Ray.Intersects(Vixen.Core.Mathematics.BoundingSphere sphere, out float distance) -> bool
+Vixen.Core.Mathematics.Ray.Intersects(Vixen.Core.Mathematics.Plane plane, out float distance) -> bool
+Vixen.Core.Mathematics.Ray.Intersects(Vixen.Core.Mathematics.Vector3 a, Vixen.Core.Mathematics.Vector3 b, Vixen.Core.Mathematics.Vector3 c, out float distance) -> bool
+Vixen.Core.Mathematics.Ray.Ray() -> void
+Vixen.Core.Mathematics.Ray.Ray(Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 direction) -> void
+Vixen.Core.Mathematics.Ray.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Mathematics.Rectangle -> readonly struct
+Vixen.Core.Mathematics.Rectangle : System.IEquatable<Vixen.Core.Mathematics.Rectangle>
+Vixen.Core.Mathematics.Rectangle : System.IFormattable
+Vixen.Core.Mathematics.Rectangle.Bottom.get -> float
+Vixen.Core.Mathematics.Rectangle.Center.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Core.Mathematics.Rectangle.Contains(Vixen.Core.Mathematics.Rectangle other) -> bool
+Vixen.Core.Mathematics.Rectangle.Contains(Vixen.Core.Mathematics.Vector2 point) -> bool
+Vixen.Core.Mathematics.Rectangle.Deconstruct(out float x, out float y, out float width, out float height) -> void
+Vixen.Core.Mathematics.Rectangle.Equals(Vixen.Core.Mathematics.Rectangle other) -> bool
+Vixen.Core.Mathematics.Rectangle.Intersects(Vixen.Core.Mathematics.Rectangle other) -> bool
+Vixen.Core.Mathematics.Rectangle.IsEmpty.get -> bool
+Vixen.Core.Mathematics.Rectangle.Left.get -> float
+Vixen.Core.Mathematics.Rectangle.Position.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Core.Mathematics.Rectangle.Rectangle() -> void
+Vixen.Core.Mathematics.Rectangle.Rectangle(Vixen.Core.Mathematics.Vector2 position, Vixen.Core.Mathematics.Vector2 size) -> void
+Vixen.Core.Mathematics.Rectangle.Rectangle(float x, float y, float width, float height) -> void
+Vixen.Core.Mathematics.Rectangle.Right.get -> float
+Vixen.Core.Mathematics.Rectangle.Size.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Core.Mathematics.Rectangle.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Mathematics.Rectangle.Top.get -> float
+Vixen.Core.Mathematics.Vector2 -> readonly struct
+Vixen.Core.Mathematics.Vector2 : System.IEquatable<Vixen.Core.Mathematics.Vector2>
+Vixen.Core.Mathematics.Vector2 : System.IFormattable
+Vixen.Core.Mathematics.Vector2 : System.ISpanFormattable
+Vixen.Core.Mathematics.Vector2.AsSpan() -> System.ReadOnlySpan<float>
+Vixen.Core.Mathematics.Vector2.CopyTo(System.Span<float> destination) -> void
+Vixen.Core.Mathematics.Vector2.Deconstruct(out float x, out float y) -> void
+Vixen.Core.Mathematics.Vector2.Equals(Vixen.Core.Mathematics.Vector2 other) -> bool
+Vixen.Core.Mathematics.Vector2.IsNaN.get -> bool
+Vixen.Core.Mathematics.Vector2.IsZero.get -> bool
+Vixen.Core.Mathematics.Vector2.Length() -> float
+Vixen.Core.Mathematics.Vector2.LengthSquared() -> float
+Vixen.Core.Mathematics.Vector2.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Mathematics.Vector2.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.Mathematics.Vector2.Vector2() -> void
+Vixen.Core.Mathematics.Vector2.Vector2(float value) -> void
+Vixen.Core.Mathematics.Vector2.Vector2(float x, float y) -> void
+Vixen.Core.Mathematics.Vector2.this[int index].get -> float
+Vixen.Core.Mathematics.Vector3 -> readonly struct
+Vixen.Core.Mathematics.Vector3 : System.IEquatable<Vixen.Core.Mathematics.Vector3>
+Vixen.Core.Mathematics.Vector3 : System.IFormattable
+Vixen.Core.Mathematics.Vector3 : System.ISpanFormattable
+Vixen.Core.Mathematics.Vector3.AsSpan() -> System.ReadOnlySpan<float>
+Vixen.Core.Mathematics.Vector3.CopyTo(System.Span<float> destination) -> void
+Vixen.Core.Mathematics.Vector3.Deconstruct(out float x, out float y, out float z) -> void
+Vixen.Core.Mathematics.Vector3.Equals(Vixen.Core.Mathematics.Vector3 other) -> bool
+Vixen.Core.Mathematics.Vector3.IsNaN.get -> bool
+Vixen.Core.Mathematics.Vector3.IsZero.get -> bool
+Vixen.Core.Mathematics.Vector3.Length() -> float
+Vixen.Core.Mathematics.Vector3.LengthSquared() -> float
+Vixen.Core.Mathematics.Vector3.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Mathematics.Vector3.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.Mathematics.Vector3.Vector3() -> void
+Vixen.Core.Mathematics.Vector3.Vector3(Vixen.Core.Mathematics.Vector2 xy, float z) -> void
+Vixen.Core.Mathematics.Vector3.Vector3(float value) -> void
+Vixen.Core.Mathematics.Vector3.Vector3(float x, float y, float z) -> void
+Vixen.Core.Mathematics.Vector3.Xy.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Core.Mathematics.Vector3.this[int index].get -> float
+Vixen.Core.Mathematics.Vector4 -> readonly struct
+Vixen.Core.Mathematics.Vector4 : System.IEquatable<Vixen.Core.Mathematics.Vector4>
+Vixen.Core.Mathematics.Vector4 : System.IFormattable
+Vixen.Core.Mathematics.Vector4 : System.ISpanFormattable
+Vixen.Core.Mathematics.Vector4.AsSpan() -> System.ReadOnlySpan<float>
+Vixen.Core.Mathematics.Vector4.AsVector128() -> System.Runtime.Intrinsics.Vector128<float>
+Vixen.Core.Mathematics.Vector4.CopyTo(System.Span<float> destination) -> void
+Vixen.Core.Mathematics.Vector4.Deconstruct(out float x, out float y, out float z, out float w) -> void
+Vixen.Core.Mathematics.Vector4.Equals(Vixen.Core.Mathematics.Vector4 other) -> bool
+Vixen.Core.Mathematics.Vector4.IsNaN.get -> bool
+Vixen.Core.Mathematics.Vector4.IsZero.get -> bool
+Vixen.Core.Mathematics.Vector4.Length() -> float
+Vixen.Core.Mathematics.Vector4.LengthSquared() -> float
+Vixen.Core.Mathematics.Vector4.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Mathematics.Vector4.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
+Vixen.Core.Mathematics.Vector4.Vector4() -> void
+Vixen.Core.Mathematics.Vector4.Vector4(Vixen.Core.Mathematics.Vector3 xyz, float w) -> void
+Vixen.Core.Mathematics.Vector4.Vector4(float value) -> void
+Vixen.Core.Mathematics.Vector4.Vector4(float x, float y, float z, float w) -> void
+Vixen.Core.Mathematics.Vector4.Xy.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Core.Mathematics.Vector4.Xyz.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.Vector4.this[int index].get -> float
+Vixen.Core.Mathematics.Viewport -> readonly struct
+Vixen.Core.Mathematics.Viewport : System.IEquatable<Vixen.Core.Mathematics.Viewport>
+Vixen.Core.Mathematics.Viewport : System.IFormattable
+Vixen.Core.Mathematics.Viewport.AspectRatio.get -> float
+Vixen.Core.Mathematics.Viewport.Bounds.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Core.Mathematics.Viewport.Equals(Vixen.Core.Mathematics.Viewport other) -> bool
+Vixen.Core.Mathematics.Viewport.GetPickingRay(Vixen.Core.Mathematics.Vector2 screenPosition, in Vixen.Core.Mathematics.Matrix4x4 viewProjection) -> Vixen.Core.Mathematics.Ray
+Vixen.Core.Mathematics.Viewport.Project(Vixen.Core.Mathematics.Vector3 point, in Vixen.Core.Mathematics.Matrix4x4 worldViewProjection) -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.Viewport.ToString(string? format, System.IFormatProvider? formatProvider) -> string
+Vixen.Core.Mathematics.Viewport.Unproject(Vixen.Core.Mathematics.Vector3 point, in Vixen.Core.Mathematics.Matrix4x4 worldViewProjection) -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.Viewport.Viewport() -> void
+Vixen.Core.Mathematics.Viewport.Viewport(Vixen.Core.Mathematics.Rectangle bounds) -> void
+Vixen.Core.Mathematics.Viewport.Viewport(float x, float y, float width, float height) -> void
+Vixen.Core.Mathematics.Viewport.Viewport(float x, float y, float width, float height, float minDepth, float maxDepth) -> void
+const Vixen.Core.Mathematics.BoundingBox.CornerCount = 8 -> int
+const Vixen.Core.Mathematics.BoundingFrustum.CornerCount = 8 -> int
+const Vixen.Core.Mathematics.BoundingFrustum.PlaneCount = 6 -> int
+const Vixen.Core.Mathematics.Color3.ComponentCount = 3 -> int
+const Vixen.Core.Mathematics.Color4.ComponentCount = 4 -> int
+const Vixen.Core.Mathematics.MathUtil.Pi = 3.1415927 -> float
+const Vixen.Core.Mathematics.MathUtil.PiOverFour = 0.7853982 -> float
+const Vixen.Core.Mathematics.MathUtil.PiOverTwo = 1.5707964 -> float
+const Vixen.Core.Mathematics.MathUtil.RoundingSlack = 4.7683716E-07 -> float
+const Vixen.Core.Mathematics.MathUtil.TwoPi = 6.2831855 -> float
+const Vixen.Core.Mathematics.MathUtil.ZeroTolerance = 1E-06 -> float
+const Vixen.Core.Mathematics.Matrix3x3.ComponentCount = 9 -> int
+const Vixen.Core.Mathematics.Matrix4x4.ComponentCount = 16 -> int
+const Vixen.Core.Mathematics.Quaternion.ComponentCount = 4 -> int
+const Vixen.Core.Mathematics.Vector2.ComponentCount = 2 -> int
+const Vixen.Core.Mathematics.Vector3.ComponentCount = 3 -> int
+const Vixen.Core.Mathematics.Vector4.ComponentCount = 4 -> int
+override Vixen.Core.Mathematics.BoundingBox.Equals(object? obj) -> bool
+override Vixen.Core.Mathematics.BoundingBox.GetHashCode() -> int
+override Vixen.Core.Mathematics.BoundingBox.ToString() -> string
+override Vixen.Core.Mathematics.BoundingFrustum.Equals(object? obj) -> bool
+override Vixen.Core.Mathematics.BoundingFrustum.GetHashCode() -> int
+override Vixen.Core.Mathematics.BoundingFrustum.ToString() -> string
+override Vixen.Core.Mathematics.BoundingSphere.Equals(object? obj) -> bool
+override Vixen.Core.Mathematics.BoundingSphere.GetHashCode() -> int
+override Vixen.Core.Mathematics.BoundingSphere.ToString() -> string
+override Vixen.Core.Mathematics.Color.Equals(object? obj) -> bool
+override Vixen.Core.Mathematics.Color.GetHashCode() -> int
+override Vixen.Core.Mathematics.Color.ToString() -> string
+override Vixen.Core.Mathematics.Color3.Equals(object? obj) -> bool
+override Vixen.Core.Mathematics.Color3.GetHashCode() -> int
+override Vixen.Core.Mathematics.Color3.ToString() -> string
+override Vixen.Core.Mathematics.Color4.Equals(object? obj) -> bool
+override Vixen.Core.Mathematics.Color4.GetHashCode() -> int
+override Vixen.Core.Mathematics.Color4.ToString() -> string
+override Vixen.Core.Mathematics.Int2.Equals(object? obj) -> bool
+override Vixen.Core.Mathematics.Int2.GetHashCode() -> int
+override Vixen.Core.Mathematics.Int2.ToString() -> string
+override Vixen.Core.Mathematics.Int3.Equals(object? obj) -> bool
+override Vixen.Core.Mathematics.Int3.GetHashCode() -> int
+override Vixen.Core.Mathematics.Int3.ToString() -> string
+override Vixen.Core.Mathematics.Int4.Equals(object? obj) -> bool
+override Vixen.Core.Mathematics.Int4.GetHashCode() -> int
+override Vixen.Core.Mathematics.Int4.ToString() -> string
+override Vixen.Core.Mathematics.Matrix3x3.Equals(object? obj) -> bool
+override Vixen.Core.Mathematics.Matrix3x3.GetHashCode() -> int
+override Vixen.Core.Mathematics.Matrix3x3.ToString() -> string
+override Vixen.Core.Mathematics.Matrix4x4.Equals(object? obj) -> bool
+override Vixen.Core.Mathematics.Matrix4x4.GetHashCode() -> int
+override Vixen.Core.Mathematics.Matrix4x4.ToString() -> string
+override Vixen.Core.Mathematics.Plane.Equals(object? obj) -> bool
+override Vixen.Core.Mathematics.Plane.GetHashCode() -> int
+override Vixen.Core.Mathematics.Plane.ToString() -> string
+override Vixen.Core.Mathematics.Quaternion.Equals(object? obj) -> bool
+override Vixen.Core.Mathematics.Quaternion.GetHashCode() -> int
+override Vixen.Core.Mathematics.Quaternion.ToString() -> string
+override Vixen.Core.Mathematics.Ray.Equals(object? obj) -> bool
+override Vixen.Core.Mathematics.Ray.GetHashCode() -> int
+override Vixen.Core.Mathematics.Ray.ToString() -> string
+override Vixen.Core.Mathematics.Rectangle.Equals(object? obj) -> bool
+override Vixen.Core.Mathematics.Rectangle.GetHashCode() -> int
+override Vixen.Core.Mathematics.Rectangle.ToString() -> string
+override Vixen.Core.Mathematics.Vector2.Equals(object? obj) -> bool
+override Vixen.Core.Mathematics.Vector2.GetHashCode() -> int
+override Vixen.Core.Mathematics.Vector2.ToString() -> string
+override Vixen.Core.Mathematics.Vector3.Equals(object? obj) -> bool
+override Vixen.Core.Mathematics.Vector3.GetHashCode() -> int
+override Vixen.Core.Mathematics.Vector3.ToString() -> string
+override Vixen.Core.Mathematics.Vector4.Equals(object? obj) -> bool
+override Vixen.Core.Mathematics.Vector4.GetHashCode() -> int
+override Vixen.Core.Mathematics.Vector4.ToString() -> string
+override Vixen.Core.Mathematics.Viewport.Equals(object? obj) -> bool
+override Vixen.Core.Mathematics.Viewport.GetHashCode() -> int
+override Vixen.Core.Mathematics.Viewport.ToString() -> string
+readonly Vixen.Core.Mathematics.BoundingBox.Maximum -> Vixen.Core.Mathematics.Vector3
+readonly Vixen.Core.Mathematics.BoundingBox.Minimum -> Vixen.Core.Mathematics.Vector3
+readonly Vixen.Core.Mathematics.BoundingFrustum.Bottom -> Vixen.Core.Mathematics.Plane
+readonly Vixen.Core.Mathematics.BoundingFrustum.Far -> Vixen.Core.Mathematics.Plane
+readonly Vixen.Core.Mathematics.BoundingFrustum.Left -> Vixen.Core.Mathematics.Plane
+readonly Vixen.Core.Mathematics.BoundingFrustum.Near -> Vixen.Core.Mathematics.Plane
+readonly Vixen.Core.Mathematics.BoundingFrustum.Right -> Vixen.Core.Mathematics.Plane
+readonly Vixen.Core.Mathematics.BoundingFrustum.Top -> Vixen.Core.Mathematics.Plane
+readonly Vixen.Core.Mathematics.BoundingSphere.Center -> Vixen.Core.Mathematics.Vector3
+readonly Vixen.Core.Mathematics.BoundingSphere.Radius -> float
+readonly Vixen.Core.Mathematics.Color.A -> byte
+readonly Vixen.Core.Mathematics.Color.B -> byte
+readonly Vixen.Core.Mathematics.Color.G -> byte
+readonly Vixen.Core.Mathematics.Color.R -> byte
+readonly Vixen.Core.Mathematics.Color3.B -> float
+readonly Vixen.Core.Mathematics.Color3.G -> float
+readonly Vixen.Core.Mathematics.Color3.R -> float
+readonly Vixen.Core.Mathematics.Color4.A -> float
+readonly Vixen.Core.Mathematics.Color4.B -> float
+readonly Vixen.Core.Mathematics.Color4.G -> float
+readonly Vixen.Core.Mathematics.Color4.R -> float
+readonly Vixen.Core.Mathematics.Int2.X -> int
+readonly Vixen.Core.Mathematics.Int2.Y -> int
+readonly Vixen.Core.Mathematics.Int3.X -> int
+readonly Vixen.Core.Mathematics.Int3.Y -> int
+readonly Vixen.Core.Mathematics.Int3.Z -> int
+readonly Vixen.Core.Mathematics.Int4.W -> int
+readonly Vixen.Core.Mathematics.Int4.X -> int
+readonly Vixen.Core.Mathematics.Int4.Y -> int
+readonly Vixen.Core.Mathematics.Int4.Z -> int
+readonly Vixen.Core.Mathematics.Matrix3x3.M11 -> float
+readonly Vixen.Core.Mathematics.Matrix3x3.M12 -> float
+readonly Vixen.Core.Mathematics.Matrix3x3.M13 -> float
+readonly Vixen.Core.Mathematics.Matrix3x3.M21 -> float
+readonly Vixen.Core.Mathematics.Matrix3x3.M22 -> float
+readonly Vixen.Core.Mathematics.Matrix3x3.M23 -> float
+readonly Vixen.Core.Mathematics.Matrix3x3.M31 -> float
+readonly Vixen.Core.Mathematics.Matrix3x3.M32 -> float
+readonly Vixen.Core.Mathematics.Matrix3x3.M33 -> float
+readonly Vixen.Core.Mathematics.Matrix4x4.M11 -> float
+readonly Vixen.Core.Mathematics.Matrix4x4.M12 -> float
+readonly Vixen.Core.Mathematics.Matrix4x4.M13 -> float
+readonly Vixen.Core.Mathematics.Matrix4x4.M14 -> float
+readonly Vixen.Core.Mathematics.Matrix4x4.M21 -> float
+readonly Vixen.Core.Mathematics.Matrix4x4.M22 -> float
+readonly Vixen.Core.Mathematics.Matrix4x4.M23 -> float
+readonly Vixen.Core.Mathematics.Matrix4x4.M24 -> float
+readonly Vixen.Core.Mathematics.Matrix4x4.M31 -> float
+readonly Vixen.Core.Mathematics.Matrix4x4.M32 -> float
+readonly Vixen.Core.Mathematics.Matrix4x4.M33 -> float
+readonly Vixen.Core.Mathematics.Matrix4x4.M34 -> float
+readonly Vixen.Core.Mathematics.Matrix4x4.M41 -> float
+readonly Vixen.Core.Mathematics.Matrix4x4.M42 -> float
+readonly Vixen.Core.Mathematics.Matrix4x4.M43 -> float
+readonly Vixen.Core.Mathematics.Matrix4x4.M44 -> float
+readonly Vixen.Core.Mathematics.Plane.D -> float
+readonly Vixen.Core.Mathematics.Plane.Normal -> Vixen.Core.Mathematics.Vector3
+readonly Vixen.Core.Mathematics.Quaternion.W -> float
+readonly Vixen.Core.Mathematics.Quaternion.X -> float
+readonly Vixen.Core.Mathematics.Quaternion.Y -> float
+readonly Vixen.Core.Mathematics.Quaternion.Z -> float
+readonly Vixen.Core.Mathematics.Ray.Direction -> Vixen.Core.Mathematics.Vector3
+readonly Vixen.Core.Mathematics.Ray.Origin -> Vixen.Core.Mathematics.Vector3
+readonly Vixen.Core.Mathematics.Rectangle.Height -> float
+readonly Vixen.Core.Mathematics.Rectangle.Width -> float
+readonly Vixen.Core.Mathematics.Rectangle.X -> float
+readonly Vixen.Core.Mathematics.Rectangle.Y -> float
+readonly Vixen.Core.Mathematics.Vector2.X -> float
+readonly Vixen.Core.Mathematics.Vector2.Y -> float
+readonly Vixen.Core.Mathematics.Vector3.X -> float
+readonly Vixen.Core.Mathematics.Vector3.Y -> float
+readonly Vixen.Core.Mathematics.Vector3.Z -> float
+readonly Vixen.Core.Mathematics.Vector4.W -> float
+readonly Vixen.Core.Mathematics.Vector4.X -> float
+readonly Vixen.Core.Mathematics.Vector4.Y -> float
+readonly Vixen.Core.Mathematics.Vector4.Z -> float
+readonly Vixen.Core.Mathematics.Viewport.Height -> float
+readonly Vixen.Core.Mathematics.Viewport.MaxDepth -> float
+readonly Vixen.Core.Mathematics.Viewport.MinDepth -> float
+readonly Vixen.Core.Mathematics.Viewport.Width -> float
+readonly Vixen.Core.Mathematics.Viewport.X -> float
+readonly Vixen.Core.Mathematics.Viewport.Y -> float
+static Vixen.Core.Mathematics.BoundingBox.Empty.get -> Vixen.Core.Mathematics.BoundingBox
+static Vixen.Core.Mathematics.BoundingBox.FromPoints(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> points) -> Vixen.Core.Mathematics.BoundingBox
+static Vixen.Core.Mathematics.BoundingBox.FromSphere(Vixen.Core.Mathematics.BoundingSphere sphere) -> Vixen.Core.Mathematics.BoundingBox
+static Vixen.Core.Mathematics.BoundingBox.Merge(Vixen.Core.Mathematics.BoundingBox box, Vixen.Core.Mathematics.Vector3 point) -> Vixen.Core.Mathematics.BoundingBox
+static Vixen.Core.Mathematics.BoundingBox.Merge(Vixen.Core.Mathematics.BoundingBox left, Vixen.Core.Mathematics.BoundingBox right) -> Vixen.Core.Mathematics.BoundingBox
+static Vixen.Core.Mathematics.BoundingBox.NearEqual(Vixen.Core.Mathematics.BoundingBox left, Vixen.Core.Mathematics.BoundingBox right, float tolerance = 1E-06) -> bool
+static Vixen.Core.Mathematics.BoundingBox.Transform(Vixen.Core.Mathematics.BoundingBox box, in Vixen.Core.Mathematics.Matrix4x4 matrix) -> Vixen.Core.Mathematics.BoundingBox
+static Vixen.Core.Mathematics.BoundingBox.operator !=(Vixen.Core.Mathematics.BoundingBox left, Vixen.Core.Mathematics.BoundingBox right) -> bool
+static Vixen.Core.Mathematics.BoundingBox.operator ==(Vixen.Core.Mathematics.BoundingBox left, Vixen.Core.Mathematics.BoundingBox right) -> bool
+static Vixen.Core.Mathematics.BoundingFrustum.Intersection(Vixen.Core.Mathematics.Plane a, Vixen.Core.Mathematics.Plane b, Vixen.Core.Mathematics.Plane c) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.BoundingFrustum.NearEqual(in Vixen.Core.Mathematics.BoundingFrustum left, in Vixen.Core.Mathematics.BoundingFrustum right, float tolerance = 1E-06) -> bool
+static Vixen.Core.Mathematics.BoundingFrustum.operator !=(Vixen.Core.Mathematics.BoundingFrustum left, Vixen.Core.Mathematics.BoundingFrustum right) -> bool
+static Vixen.Core.Mathematics.BoundingFrustum.operator ==(Vixen.Core.Mathematics.BoundingFrustum left, Vixen.Core.Mathematics.BoundingFrustum right) -> bool
+static Vixen.Core.Mathematics.BoundingSphere.Empty.get -> Vixen.Core.Mathematics.BoundingSphere
+static Vixen.Core.Mathematics.BoundingSphere.FromBox(Vixen.Core.Mathematics.BoundingBox box) -> Vixen.Core.Mathematics.BoundingSphere
+static Vixen.Core.Mathematics.BoundingSphere.FromPoints(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> points) -> Vixen.Core.Mathematics.BoundingSphere
+static Vixen.Core.Mathematics.BoundingSphere.Merge(Vixen.Core.Mathematics.BoundingSphere left, Vixen.Core.Mathematics.BoundingSphere right) -> Vixen.Core.Mathematics.BoundingSphere
+static Vixen.Core.Mathematics.BoundingSphere.NearEqual(Vixen.Core.Mathematics.BoundingSphere left, Vixen.Core.Mathematics.BoundingSphere right, float tolerance = 1E-06) -> bool
+static Vixen.Core.Mathematics.BoundingSphere.Transform(Vixen.Core.Mathematics.BoundingSphere sphere, in Vixen.Core.Mathematics.Matrix4x4 matrix) -> Vixen.Core.Mathematics.BoundingSphere
+static Vixen.Core.Mathematics.BoundingSphere.operator !=(Vixen.Core.Mathematics.BoundingSphere left, Vixen.Core.Mathematics.BoundingSphere right) -> bool
+static Vixen.Core.Mathematics.BoundingSphere.operator ==(Vixen.Core.Mathematics.BoundingSphere left, Vixen.Core.Mathematics.BoundingSphere right) -> bool
+static Vixen.Core.Mathematics.Color.Black.get -> Vixen.Core.Mathematics.Color
+static Vixen.Core.Mathematics.Color.FromArgb(uint packed) -> Vixen.Core.Mathematics.Color
+static Vixen.Core.Mathematics.Color.FromColor4(Vixen.Core.Mathematics.Color4 color) -> Vixen.Core.Mathematics.Color
+static Vixen.Core.Mathematics.Color.FromLinear(Vixen.Core.Mathematics.Color4 linear) -> Vixen.Core.Mathematics.Color
+static Vixen.Core.Mathematics.Color.FromRgba(uint packed) -> Vixen.Core.Mathematics.Color
+static Vixen.Core.Mathematics.Color.Transparent.get -> Vixen.Core.Mathematics.Color
+static Vixen.Core.Mathematics.Color.TryParseHex(System.ReadOnlySpan<char> text, out Vixen.Core.Mathematics.Color color) -> bool
+static Vixen.Core.Mathematics.Color.White.get -> Vixen.Core.Mathematics.Color
+static Vixen.Core.Mathematics.Color.operator !=(Vixen.Core.Mathematics.Color left, Vixen.Core.Mathematics.Color right) -> bool
+static Vixen.Core.Mathematics.Color.operator ==(Vixen.Core.Mathematics.Color left, Vixen.Core.Mathematics.Color right) -> bool
+static Vixen.Core.Mathematics.Color3.Black.get -> Vixen.Core.Mathematics.Color3
+static Vixen.Core.Mathematics.Color3.FromSrgb(Vixen.Core.Mathematics.Color3 srgb) -> Vixen.Core.Mathematics.Color3
+static Vixen.Core.Mathematics.Color3.Lerp(Vixen.Core.Mathematics.Color3 from, Vixen.Core.Mathematics.Color3 to, float amount) -> Vixen.Core.Mathematics.Color3
+static Vixen.Core.Mathematics.Color3.NearEqual(Vixen.Core.Mathematics.Color3 left, Vixen.Core.Mathematics.Color3 right, float tolerance = 1E-06) -> bool
+static Vixen.Core.Mathematics.Color3.White.get -> Vixen.Core.Mathematics.Color3
+static Vixen.Core.Mathematics.Color3.explicit operator Vixen.Core.Mathematics.Color3(Vixen.Core.Mathematics.Vector3 vector) -> Vixen.Core.Mathematics.Color3
+static Vixen.Core.Mathematics.Color3.explicit operator Vixen.Core.Mathematics.Vector3(Vixen.Core.Mathematics.Color3 color) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Color3.operator !=(Vixen.Core.Mathematics.Color3 left, Vixen.Core.Mathematics.Color3 right) -> bool
+static Vixen.Core.Mathematics.Color3.operator *(Vixen.Core.Mathematics.Color3 color, float scale) -> Vixen.Core.Mathematics.Color3
+static Vixen.Core.Mathematics.Color3.operator *(Vixen.Core.Mathematics.Color3 left, Vixen.Core.Mathematics.Color3 right) -> Vixen.Core.Mathematics.Color3
+static Vixen.Core.Mathematics.Color3.operator *(float scale, Vixen.Core.Mathematics.Color3 color) -> Vixen.Core.Mathematics.Color3
+static Vixen.Core.Mathematics.Color3.operator +(Vixen.Core.Mathematics.Color3 left, Vixen.Core.Mathematics.Color3 right) -> Vixen.Core.Mathematics.Color3
+static Vixen.Core.Mathematics.Color3.operator -(Vixen.Core.Mathematics.Color3 left, Vixen.Core.Mathematics.Color3 right) -> Vixen.Core.Mathematics.Color3
+static Vixen.Core.Mathematics.Color3.operator ==(Vixen.Core.Mathematics.Color3 left, Vixen.Core.Mathematics.Color3 right) -> bool
+static Vixen.Core.Mathematics.Color4.Black.get -> Vixen.Core.Mathematics.Color4
+static Vixen.Core.Mathematics.Color4.Blue.get -> Vixen.Core.Mathematics.Color4
+static Vixen.Core.Mathematics.Color4.FromSrgb(Vixen.Core.Mathematics.Color4 srgb) -> Vixen.Core.Mathematics.Color4
+static Vixen.Core.Mathematics.Color4.Green.get -> Vixen.Core.Mathematics.Color4
+static Vixen.Core.Mathematics.Color4.Lerp(Vixen.Core.Mathematics.Color4 from, Vixen.Core.Mathematics.Color4 to, float amount) -> Vixen.Core.Mathematics.Color4
+static Vixen.Core.Mathematics.Color4.NearEqual(Vixen.Core.Mathematics.Color4 left, Vixen.Core.Mathematics.Color4 right, float tolerance = 1E-06) -> bool
+static Vixen.Core.Mathematics.Color4.Red.get -> Vixen.Core.Mathematics.Color4
+static Vixen.Core.Mathematics.Color4.Saturate(Vixen.Core.Mathematics.Color4 color) -> Vixen.Core.Mathematics.Color4
+static Vixen.Core.Mathematics.Color4.Transparent.get -> Vixen.Core.Mathematics.Color4
+static Vixen.Core.Mathematics.Color4.White.get -> Vixen.Core.Mathematics.Color4
+static Vixen.Core.Mathematics.Color4.explicit operator Vixen.Core.Mathematics.Color4(Vixen.Core.Mathematics.Vector4 vector) -> Vixen.Core.Mathematics.Color4
+static Vixen.Core.Mathematics.Color4.explicit operator Vixen.Core.Mathematics.Vector4(Vixen.Core.Mathematics.Color4 color) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Color4.operator !=(Vixen.Core.Mathematics.Color4 left, Vixen.Core.Mathematics.Color4 right) -> bool
+static Vixen.Core.Mathematics.Color4.operator *(Vixen.Core.Mathematics.Color4 color, float scale) -> Vixen.Core.Mathematics.Color4
+static Vixen.Core.Mathematics.Color4.operator *(Vixen.Core.Mathematics.Color4 left, Vixen.Core.Mathematics.Color4 right) -> Vixen.Core.Mathematics.Color4
+static Vixen.Core.Mathematics.Color4.operator *(float scale, Vixen.Core.Mathematics.Color4 color) -> Vixen.Core.Mathematics.Color4
+static Vixen.Core.Mathematics.Color4.operator +(Vixen.Core.Mathematics.Color4 left, Vixen.Core.Mathematics.Color4 right) -> Vixen.Core.Mathematics.Color4
+static Vixen.Core.Mathematics.Color4.operator -(Vixen.Core.Mathematics.Color4 left, Vixen.Core.Mathematics.Color4 right) -> Vixen.Core.Mathematics.Color4
+static Vixen.Core.Mathematics.Color4.operator ==(Vixen.Core.Mathematics.Color4 left, Vixen.Core.Mathematics.Color4 right) -> bool
+static Vixen.Core.Mathematics.ColorSpace.LinearToSrgb(float value) -> float
+static Vixen.Core.Mathematics.ColorSpace.Luminance(Vixen.Core.Mathematics.Vector3 linear) -> float
+static Vixen.Core.Mathematics.ColorSpace.SrgbToLinear(float value) -> float
+static Vixen.Core.Mathematics.Int2.Clamp(Vixen.Core.Mathematics.Int2 value, Vixen.Core.Mathematics.Int2 min, Vixen.Core.Mathematics.Int2 max) -> Vixen.Core.Mathematics.Int2
+static Vixen.Core.Mathematics.Int2.Max(Vixen.Core.Mathematics.Int2 left, Vixen.Core.Mathematics.Int2 right) -> Vixen.Core.Mathematics.Int2
+static Vixen.Core.Mathematics.Int2.Min(Vixen.Core.Mathematics.Int2 left, Vixen.Core.Mathematics.Int2 right) -> Vixen.Core.Mathematics.Int2
+static Vixen.Core.Mathematics.Int2.One.get -> Vixen.Core.Mathematics.Int2
+static Vixen.Core.Mathematics.Int2.UnitX.get -> Vixen.Core.Mathematics.Int2
+static Vixen.Core.Mathematics.Int2.UnitY.get -> Vixen.Core.Mathematics.Int2
+static Vixen.Core.Mathematics.Int2.Zero.get -> Vixen.Core.Mathematics.Int2
+static Vixen.Core.Mathematics.Int2.implicit operator Vixen.Core.Mathematics.Vector2(Vixen.Core.Mathematics.Int2 value) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Int2.operator !=(Vixen.Core.Mathematics.Int2 left, Vixen.Core.Mathematics.Int2 right) -> bool
+static Vixen.Core.Mathematics.Int2.operator *(Vixen.Core.Mathematics.Int2 left, Vixen.Core.Mathematics.Int2 right) -> Vixen.Core.Mathematics.Int2
+static Vixen.Core.Mathematics.Int2.operator *(Vixen.Core.Mathematics.Int2 value, int scale) -> Vixen.Core.Mathematics.Int2
+static Vixen.Core.Mathematics.Int2.operator *(int scale, Vixen.Core.Mathematics.Int2 value) -> Vixen.Core.Mathematics.Int2
+static Vixen.Core.Mathematics.Int2.operator +(Vixen.Core.Mathematics.Int2 left, Vixen.Core.Mathematics.Int2 right) -> Vixen.Core.Mathematics.Int2
+static Vixen.Core.Mathematics.Int2.operator -(Vixen.Core.Mathematics.Int2 left, Vixen.Core.Mathematics.Int2 right) -> Vixen.Core.Mathematics.Int2
+static Vixen.Core.Mathematics.Int2.operator -(Vixen.Core.Mathematics.Int2 value) -> Vixen.Core.Mathematics.Int2
+static Vixen.Core.Mathematics.Int2.operator /(Vixen.Core.Mathematics.Int2 left, Vixen.Core.Mathematics.Int2 right) -> Vixen.Core.Mathematics.Int2
+static Vixen.Core.Mathematics.Int2.operator /(Vixen.Core.Mathematics.Int2 value, int divisor) -> Vixen.Core.Mathematics.Int2
+static Vixen.Core.Mathematics.Int2.operator ==(Vixen.Core.Mathematics.Int2 left, Vixen.Core.Mathematics.Int2 right) -> bool
+static Vixen.Core.Mathematics.Int3.Clamp(Vixen.Core.Mathematics.Int3 value, Vixen.Core.Mathematics.Int3 min, Vixen.Core.Mathematics.Int3 max) -> Vixen.Core.Mathematics.Int3
+static Vixen.Core.Mathematics.Int3.Max(Vixen.Core.Mathematics.Int3 left, Vixen.Core.Mathematics.Int3 right) -> Vixen.Core.Mathematics.Int3
+static Vixen.Core.Mathematics.Int3.Min(Vixen.Core.Mathematics.Int3 left, Vixen.Core.Mathematics.Int3 right) -> Vixen.Core.Mathematics.Int3
+static Vixen.Core.Mathematics.Int3.One.get -> Vixen.Core.Mathematics.Int3
+static Vixen.Core.Mathematics.Int3.UnitX.get -> Vixen.Core.Mathematics.Int3
+static Vixen.Core.Mathematics.Int3.UnitY.get -> Vixen.Core.Mathematics.Int3
+static Vixen.Core.Mathematics.Int3.UnitZ.get -> Vixen.Core.Mathematics.Int3
+static Vixen.Core.Mathematics.Int3.Zero.get -> Vixen.Core.Mathematics.Int3
+static Vixen.Core.Mathematics.Int3.implicit operator Vixen.Core.Mathematics.Vector3(Vixen.Core.Mathematics.Int3 value) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Int3.operator !=(Vixen.Core.Mathematics.Int3 left, Vixen.Core.Mathematics.Int3 right) -> bool
+static Vixen.Core.Mathematics.Int3.operator *(Vixen.Core.Mathematics.Int3 left, Vixen.Core.Mathematics.Int3 right) -> Vixen.Core.Mathematics.Int3
+static Vixen.Core.Mathematics.Int3.operator *(Vixen.Core.Mathematics.Int3 value, int scale) -> Vixen.Core.Mathematics.Int3
+static Vixen.Core.Mathematics.Int3.operator *(int scale, Vixen.Core.Mathematics.Int3 value) -> Vixen.Core.Mathematics.Int3
+static Vixen.Core.Mathematics.Int3.operator +(Vixen.Core.Mathematics.Int3 left, Vixen.Core.Mathematics.Int3 right) -> Vixen.Core.Mathematics.Int3
+static Vixen.Core.Mathematics.Int3.operator -(Vixen.Core.Mathematics.Int3 left, Vixen.Core.Mathematics.Int3 right) -> Vixen.Core.Mathematics.Int3
+static Vixen.Core.Mathematics.Int3.operator -(Vixen.Core.Mathematics.Int3 value) -> Vixen.Core.Mathematics.Int3
+static Vixen.Core.Mathematics.Int3.operator /(Vixen.Core.Mathematics.Int3 left, Vixen.Core.Mathematics.Int3 right) -> Vixen.Core.Mathematics.Int3
+static Vixen.Core.Mathematics.Int3.operator /(Vixen.Core.Mathematics.Int3 value, int divisor) -> Vixen.Core.Mathematics.Int3
+static Vixen.Core.Mathematics.Int3.operator ==(Vixen.Core.Mathematics.Int3 left, Vixen.Core.Mathematics.Int3 right) -> bool
+static Vixen.Core.Mathematics.Int4.Clamp(Vixen.Core.Mathematics.Int4 value, Vixen.Core.Mathematics.Int4 min, Vixen.Core.Mathematics.Int4 max) -> Vixen.Core.Mathematics.Int4
+static Vixen.Core.Mathematics.Int4.Max(Vixen.Core.Mathematics.Int4 left, Vixen.Core.Mathematics.Int4 right) -> Vixen.Core.Mathematics.Int4
+static Vixen.Core.Mathematics.Int4.Min(Vixen.Core.Mathematics.Int4 left, Vixen.Core.Mathematics.Int4 right) -> Vixen.Core.Mathematics.Int4
+static Vixen.Core.Mathematics.Int4.One.get -> Vixen.Core.Mathematics.Int4
+static Vixen.Core.Mathematics.Int4.Zero.get -> Vixen.Core.Mathematics.Int4
+static Vixen.Core.Mathematics.Int4.implicit operator Vixen.Core.Mathematics.Vector4(Vixen.Core.Mathematics.Int4 value) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Int4.operator !=(Vixen.Core.Mathematics.Int4 left, Vixen.Core.Mathematics.Int4 right) -> bool
+static Vixen.Core.Mathematics.Int4.operator *(Vixen.Core.Mathematics.Int4 left, Vixen.Core.Mathematics.Int4 right) -> Vixen.Core.Mathematics.Int4
+static Vixen.Core.Mathematics.Int4.operator *(Vixen.Core.Mathematics.Int4 value, int scale) -> Vixen.Core.Mathematics.Int4
+static Vixen.Core.Mathematics.Int4.operator *(int scale, Vixen.Core.Mathematics.Int4 value) -> Vixen.Core.Mathematics.Int4
+static Vixen.Core.Mathematics.Int4.operator +(Vixen.Core.Mathematics.Int4 left, Vixen.Core.Mathematics.Int4 right) -> Vixen.Core.Mathematics.Int4
+static Vixen.Core.Mathematics.Int4.operator -(Vixen.Core.Mathematics.Int4 left, Vixen.Core.Mathematics.Int4 right) -> Vixen.Core.Mathematics.Int4
+static Vixen.Core.Mathematics.Int4.operator -(Vixen.Core.Mathematics.Int4 value) -> Vixen.Core.Mathematics.Int4
+static Vixen.Core.Mathematics.Int4.operator /(Vixen.Core.Mathematics.Int4 left, Vixen.Core.Mathematics.Int4 right) -> Vixen.Core.Mathematics.Int4
+static Vixen.Core.Mathematics.Int4.operator /(Vixen.Core.Mathematics.Int4 value, int divisor) -> Vixen.Core.Mathematics.Int4
+static Vixen.Core.Mathematics.Int4.operator ==(Vixen.Core.Mathematics.Int4 left, Vixen.Core.Mathematics.Int4 right) -> bool
+static Vixen.Core.Mathematics.MathUtil.AlignUp(int value, int alignment) -> int
+static Vixen.Core.Mathematics.MathUtil.Clamp(float value, float min, float max) -> float
+static Vixen.Core.Mathematics.MathUtil.Clamp(int value, int min, int max) -> int
+static Vixen.Core.Mathematics.MathUtil.DegreesToRadians(float degrees) -> float
+static Vixen.Core.Mathematics.MathUtil.DeltaAngle(float from, float to) -> float
+static Vixen.Core.Mathematics.MathUtil.InverseLerp(float from, float to, float value) -> float
+static Vixen.Core.Mathematics.MathUtil.IsOne(float value) -> bool
+static Vixen.Core.Mathematics.MathUtil.IsPowerOfTwo(int value) -> bool
+static Vixen.Core.Mathematics.MathUtil.IsZero(float value) -> bool
+static Vixen.Core.Mathematics.MathUtil.Lerp(float from, float to, float amount) -> float
+static Vixen.Core.Mathematics.MathUtil.NearEqual(float left, float right, float tolerance = 1E-06) -> bool
+static Vixen.Core.Mathematics.MathUtil.NextPowerOfTwo(int value) -> int
+static Vixen.Core.Mathematics.MathUtil.PingPong(float value, float length) -> float
+static Vixen.Core.Mathematics.MathUtil.RadiansToDegrees(float radians) -> float
+static Vixen.Core.Mathematics.MathUtil.Repeat(float value, float length) -> float
+static Vixen.Core.Mathematics.MathUtil.Saturate(float value) -> float
+static Vixen.Core.Mathematics.MathUtil.SmoothStep(float amount) -> float
+static Vixen.Core.Mathematics.MathUtil.SmootherStep(float amount) -> float
+static Vixen.Core.Mathematics.MathUtil.WrapAngle(float radians) -> float
+static Vixen.Core.Mathematics.Matrix3x3.Determinant(in Vixen.Core.Mathematics.Matrix3x3 matrix) -> float
+static Vixen.Core.Mathematics.Matrix3x3.FromMatrix4x4(in Vixen.Core.Mathematics.Matrix4x4 matrix) -> Vixen.Core.Mathematics.Matrix3x3
+static Vixen.Core.Mathematics.Matrix3x3.FromQuaternion(Vixen.Core.Mathematics.Quaternion rotation) -> Vixen.Core.Mathematics.Matrix3x3
+static Vixen.Core.Mathematics.Matrix3x3.FromScale(Vixen.Core.Mathematics.Vector3 scale) -> Vixen.Core.Mathematics.Matrix3x3
+static Vixen.Core.Mathematics.Matrix3x3.Identity.get -> Vixen.Core.Mathematics.Matrix3x3
+static Vixen.Core.Mathematics.Matrix3x3.Invert(in Vixen.Core.Mathematics.Matrix3x3 matrix, out Vixen.Core.Mathematics.Matrix3x3 result) -> bool
+static Vixen.Core.Mathematics.Matrix3x3.Multiply(in Vixen.Core.Mathematics.Matrix3x3 left, in Vixen.Core.Mathematics.Matrix3x3 right) -> Vixen.Core.Mathematics.Matrix3x3
+static Vixen.Core.Mathematics.Matrix3x3.NearEqual(in Vixen.Core.Mathematics.Matrix3x3 left, in Vixen.Core.Mathematics.Matrix3x3 right, float tolerance = 1E-06) -> bool
+static Vixen.Core.Mathematics.Matrix3x3.Normal(in Vixen.Core.Mathematics.Matrix4x4 modelToWorld) -> Vixen.Core.Mathematics.Matrix3x3
+static Vixen.Core.Mathematics.Matrix3x3.Transform(Vixen.Core.Mathematics.Vector3 value, in Vixen.Core.Mathematics.Matrix3x3 matrix) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Matrix3x3.Transpose(in Vixen.Core.Mathematics.Matrix3x3 matrix) -> Vixen.Core.Mathematics.Matrix3x3
+static Vixen.Core.Mathematics.Matrix3x3.operator !=(Vixen.Core.Mathematics.Matrix3x3 left, Vixen.Core.Mathematics.Matrix3x3 right) -> bool
+static Vixen.Core.Mathematics.Matrix3x3.operator *(Vixen.Core.Mathematics.Matrix3x3 left, Vixen.Core.Mathematics.Matrix3x3 right) -> Vixen.Core.Mathematics.Matrix3x3
+static Vixen.Core.Mathematics.Matrix3x3.operator *(Vixen.Core.Mathematics.Vector3 value, Vixen.Core.Mathematics.Matrix3x3 matrix) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Matrix3x3.operator ==(Vixen.Core.Mathematics.Matrix3x3 left, Vixen.Core.Mathematics.Matrix3x3 right) -> bool
+static Vixen.Core.Mathematics.Matrix4x4.Compose(Vixen.Core.Mathematics.Vector3 scale, Vixen.Core.Mathematics.Quaternion rotation, Vixen.Core.Mathematics.Vector3 translation) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Core.Mathematics.Matrix4x4.Decompose(in Vixen.Core.Mathematics.Matrix4x4 matrix, out Vixen.Core.Mathematics.Vector3 scale, out Vixen.Core.Mathematics.Quaternion rotation, out Vixen.Core.Mathematics.Vector3 translation) -> bool
+static Vixen.Core.Mathematics.Matrix4x4.Determinant(in Vixen.Core.Mathematics.Matrix4x4 matrix) -> float
+static Vixen.Core.Mathematics.Matrix4x4.FromQuaternion(Vixen.Core.Mathematics.Quaternion rotation) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Core.Mathematics.Matrix4x4.FromRotationX(float radians) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Core.Mathematics.Matrix4x4.FromRotationY(float radians) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Core.Mathematics.Matrix4x4.FromRotationZ(float radians) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Core.Mathematics.Matrix4x4.FromScale(Vixen.Core.Mathematics.Vector3 scale) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Core.Mathematics.Matrix4x4.FromTranslation(Vixen.Core.Mathematics.Vector3 translation) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Core.Mathematics.Matrix4x4.FromUniformScale(float scale) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Core.Mathematics.Matrix4x4.Identity.get -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Core.Mathematics.Matrix4x4.Invert(in Vixen.Core.Mathematics.Matrix4x4 matrix, out Vixen.Core.Mathematics.Matrix4x4 result) -> bool
+static Vixen.Core.Mathematics.Matrix4x4.LookAt(Vixen.Core.Mathematics.Vector3 eye, Vixen.Core.Mathematics.Vector3 target, Vixen.Core.Mathematics.Vector3 up) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Core.Mathematics.Matrix4x4.Multiply(in Vixen.Core.Mathematics.Matrix4x4 left, in Vixen.Core.Mathematics.Matrix4x4 right) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Core.Mathematics.Matrix4x4.NearEqual(in Vixen.Core.Mathematics.Matrix4x4 left, in Vixen.Core.Mathematics.Matrix4x4 right, float tolerance = 1E-06) -> bool
+static Vixen.Core.Mathematics.Matrix4x4.Orthographic(float width, float height, float nearPlane, float farPlane) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Core.Mathematics.Matrix4x4.OrthographicOffCenter(float left, float right, float bottom, float top, float nearPlane, float farPlane) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Core.Mathematics.Matrix4x4.PerspectiveFieldOfView(float fieldOfView, float aspectRatio, float nearPlane, float farPlane) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Core.Mathematics.Matrix4x4.PerspectiveFieldOfViewInfinite(float fieldOfView, float aspectRatio, float nearPlane) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Core.Mathematics.Matrix4x4.ToQuaternion(in Vixen.Core.Mathematics.Matrix4x4 matrix) -> Vixen.Core.Mathematics.Quaternion
+static Vixen.Core.Mathematics.Matrix4x4.TransformDirection(Vixen.Core.Mathematics.Vector3 direction, in Vixen.Core.Mathematics.Matrix4x4 matrix) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Matrix4x4.TransformDirections(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> source, in Vixen.Core.Mathematics.Matrix4x4 matrix, System.Span<Vixen.Core.Mathematics.Vector3> destination) -> void
+static Vixen.Core.Mathematics.Matrix4x4.TransformPosition(Vixen.Core.Mathematics.Vector3 position, in Vixen.Core.Mathematics.Matrix4x4 matrix) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Matrix4x4.TransformPositions(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> source, in Vixen.Core.Mathematics.Matrix4x4 matrix, System.Span<Vixen.Core.Mathematics.Vector3> destination) -> void
+static Vixen.Core.Mathematics.Matrix4x4.TransformVector4(Vixen.Core.Mathematics.Vector4 value, in Vixen.Core.Mathematics.Matrix4x4 matrix) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Matrix4x4.Transpose(in Vixen.Core.Mathematics.Matrix4x4 matrix) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Core.Mathematics.Matrix4x4.implicit operator System.Numerics.Matrix4x4(Vixen.Core.Mathematics.Matrix4x4 value) -> System.Numerics.Matrix4x4
+static Vixen.Core.Mathematics.Matrix4x4.implicit operator Vixen.Core.Mathematics.Matrix4x4(System.Numerics.Matrix4x4 value) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Core.Mathematics.Matrix4x4.operator !=(Vixen.Core.Mathematics.Matrix4x4 left, Vixen.Core.Mathematics.Matrix4x4 right) -> bool
+static Vixen.Core.Mathematics.Matrix4x4.operator *(Vixen.Core.Mathematics.Matrix4x4 left, Vixen.Core.Mathematics.Matrix4x4 right) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Core.Mathematics.Matrix4x4.operator *(Vixen.Core.Mathematics.Vector4 value, Vixen.Core.Mathematics.Matrix4x4 matrix) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Matrix4x4.operator ==(Vixen.Core.Mathematics.Matrix4x4 left, Vixen.Core.Mathematics.Matrix4x4 right) -> bool
+static Vixen.Core.Mathematics.Oklab.FromLinear(Vixen.Core.Mathematics.Vector3 linear) -> Vixen.Core.Mathematics.Oklab
+static Vixen.Core.Mathematics.Oklab.Lerp(Vixen.Core.Mathematics.Color4 from, Vixen.Core.Mathematics.Color4 to, float amount) -> Vixen.Core.Mathematics.Color4
+static Vixen.Core.Mathematics.Oklab.Lerp(Vixen.Core.Mathematics.Oklab from, Vixen.Core.Mathematics.Oklab to, float amount) -> Vixen.Core.Mathematics.Oklab
+static Vixen.Core.Mathematics.Plane.FromPointNormal(Vixen.Core.Mathematics.Vector3 point, Vixen.Core.Mathematics.Vector3 normal) -> Vixen.Core.Mathematics.Plane
+static Vixen.Core.Mathematics.Plane.FromPoints(Vixen.Core.Mathematics.Vector3 a, Vixen.Core.Mathematics.Vector3 b, Vixen.Core.Mathematics.Vector3 c) -> Vixen.Core.Mathematics.Plane
+static Vixen.Core.Mathematics.Plane.NearEqual(Vixen.Core.Mathematics.Plane left, Vixen.Core.Mathematics.Plane right, float tolerance = 1E-06) -> bool
+static Vixen.Core.Mathematics.Plane.Normalize(Vixen.Core.Mathematics.Plane plane) -> Vixen.Core.Mathematics.Plane
+static Vixen.Core.Mathematics.Plane.Transform(Vixen.Core.Mathematics.Plane plane, in Vixen.Core.Mathematics.Matrix4x4 matrix) -> Vixen.Core.Mathematics.Plane
+static Vixen.Core.Mathematics.Plane.operator !=(Vixen.Core.Mathematics.Plane left, Vixen.Core.Mathematics.Plane right) -> bool
+static Vixen.Core.Mathematics.Plane.operator ==(Vixen.Core.Mathematics.Plane left, Vixen.Core.Mathematics.Plane right) -> bool
+static Vixen.Core.Mathematics.Quaternion.Concatenate(Vixen.Core.Mathematics.Quaternion first, Vixen.Core.Mathematics.Quaternion second) -> Vixen.Core.Mathematics.Quaternion
+static Vixen.Core.Mathematics.Quaternion.Conjugate(Vixen.Core.Mathematics.Quaternion value) -> Vixen.Core.Mathematics.Quaternion
+static Vixen.Core.Mathematics.Quaternion.Dot(Vixen.Core.Mathematics.Quaternion left, Vixen.Core.Mathematics.Quaternion right) -> float
+static Vixen.Core.Mathematics.Quaternion.FromAxisAngle(Vixen.Core.Mathematics.Vector3 axis, float angle) -> Vixen.Core.Mathematics.Quaternion
+static Vixen.Core.Mathematics.Quaternion.FromToRotation(Vixen.Core.Mathematics.Vector3 from, Vixen.Core.Mathematics.Vector3 to) -> Vixen.Core.Mathematics.Quaternion
+static Vixen.Core.Mathematics.Quaternion.FromYawPitchRoll(float yaw, float pitch, float roll) -> Vixen.Core.Mathematics.Quaternion
+static Vixen.Core.Mathematics.Quaternion.Identity.get -> Vixen.Core.Mathematics.Quaternion
+static Vixen.Core.Mathematics.Quaternion.Inverse(Vixen.Core.Mathematics.Quaternion value) -> Vixen.Core.Mathematics.Quaternion
+static Vixen.Core.Mathematics.Quaternion.NearEqual(Vixen.Core.Mathematics.Quaternion left, Vixen.Core.Mathematics.Quaternion right, float tolerance = 1E-06) -> bool
+static Vixen.Core.Mathematics.Quaternion.Nlerp(Vixen.Core.Mathematics.Quaternion from, Vixen.Core.Mathematics.Quaternion to, float amount) -> Vixen.Core.Mathematics.Quaternion
+static Vixen.Core.Mathematics.Quaternion.Normalize(Vixen.Core.Mathematics.Quaternion value) -> Vixen.Core.Mathematics.Quaternion
+static Vixen.Core.Mathematics.Quaternion.SameRotation(Vixen.Core.Mathematics.Quaternion left, Vixen.Core.Mathematics.Quaternion right, float tolerance = 1E-06) -> bool
+static Vixen.Core.Mathematics.Quaternion.Slerp(Vixen.Core.Mathematics.Quaternion from, Vixen.Core.Mathematics.Quaternion to, float amount) -> Vixen.Core.Mathematics.Quaternion
+static Vixen.Core.Mathematics.Quaternion.Transform(Vixen.Core.Mathematics.Vector3 value, Vixen.Core.Mathematics.Quaternion rotation) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Quaternion.implicit operator System.Numerics.Quaternion(Vixen.Core.Mathematics.Quaternion value) -> System.Numerics.Quaternion
+static Vixen.Core.Mathematics.Quaternion.implicit operator Vixen.Core.Mathematics.Quaternion(System.Numerics.Quaternion value) -> Vixen.Core.Mathematics.Quaternion
+static Vixen.Core.Mathematics.Quaternion.operator !=(Vixen.Core.Mathematics.Quaternion left, Vixen.Core.Mathematics.Quaternion right) -> bool
+static Vixen.Core.Mathematics.Quaternion.operator *(Vixen.Core.Mathematics.Quaternion first, Vixen.Core.Mathematics.Quaternion second) -> Vixen.Core.Mathematics.Quaternion
+static Vixen.Core.Mathematics.Quaternion.operator ==(Vixen.Core.Mathematics.Quaternion left, Vixen.Core.Mathematics.Quaternion right) -> bool
+static Vixen.Core.Mathematics.Ray.Transform(Vixen.Core.Mathematics.Ray ray, in Vixen.Core.Mathematics.Matrix4x4 matrix) -> Vixen.Core.Mathematics.Ray
+static Vixen.Core.Mathematics.Ray.operator !=(Vixen.Core.Mathematics.Ray left, Vixen.Core.Mathematics.Ray right) -> bool
+static Vixen.Core.Mathematics.Ray.operator ==(Vixen.Core.Mathematics.Ray left, Vixen.Core.Mathematics.Ray right) -> bool
+static Vixen.Core.Mathematics.Rectangle.Empty.get -> Vixen.Core.Mathematics.Rectangle
+static Vixen.Core.Mathematics.Rectangle.FromCorners(Vixen.Core.Mathematics.Vector2 first, Vixen.Core.Mathematics.Vector2 second) -> Vixen.Core.Mathematics.Rectangle
+static Vixen.Core.Mathematics.Rectangle.Inflate(Vixen.Core.Mathematics.Rectangle rectangle, float horizontal, float vertical) -> Vixen.Core.Mathematics.Rectangle
+static Vixen.Core.Mathematics.Rectangle.Intersect(Vixen.Core.Mathematics.Rectangle left, Vixen.Core.Mathematics.Rectangle right) -> Vixen.Core.Mathematics.Rectangle
+static Vixen.Core.Mathematics.Rectangle.NearEqual(Vixen.Core.Mathematics.Rectangle left, Vixen.Core.Mathematics.Rectangle right, float tolerance = 1E-06) -> bool
+static Vixen.Core.Mathematics.Rectangle.Offset(Vixen.Core.Mathematics.Rectangle rectangle, Vixen.Core.Mathematics.Vector2 offset) -> Vixen.Core.Mathematics.Rectangle
+static Vixen.Core.Mathematics.Rectangle.Union(Vixen.Core.Mathematics.Rectangle left, Vixen.Core.Mathematics.Rectangle right) -> Vixen.Core.Mathematics.Rectangle
+static Vixen.Core.Mathematics.Rectangle.operator !=(Vixen.Core.Mathematics.Rectangle left, Vixen.Core.Mathematics.Rectangle right) -> bool
+static Vixen.Core.Mathematics.Rectangle.operator ==(Vixen.Core.Mathematics.Rectangle left, Vixen.Core.Mathematics.Rectangle right) -> bool
+static Vixen.Core.Mathematics.Vector2.Abs(Vixen.Core.Mathematics.Vector2 value) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Vector2.Clamp(Vixen.Core.Mathematics.Vector2 value, Vixen.Core.Mathematics.Vector2 min, Vixen.Core.Mathematics.Vector2 max) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Vector2.Cross(Vixen.Core.Mathematics.Vector2 left, Vixen.Core.Mathematics.Vector2 right) -> float
+static Vixen.Core.Mathematics.Vector2.Distance(Vixen.Core.Mathematics.Vector2 left, Vixen.Core.Mathematics.Vector2 right) -> float
+static Vixen.Core.Mathematics.Vector2.DistanceSquared(Vixen.Core.Mathematics.Vector2 left, Vixen.Core.Mathematics.Vector2 right) -> float
+static Vixen.Core.Mathematics.Vector2.Dot(Vixen.Core.Mathematics.Vector2 left, Vixen.Core.Mathematics.Vector2 right) -> float
+static Vixen.Core.Mathematics.Vector2.Lerp(Vixen.Core.Mathematics.Vector2 from, Vixen.Core.Mathematics.Vector2 to, float amount) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Vector2.Max(Vixen.Core.Mathematics.Vector2 left, Vixen.Core.Mathematics.Vector2 right) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Vector2.Min(Vixen.Core.Mathematics.Vector2 left, Vixen.Core.Mathematics.Vector2 right) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Vector2.NearEqual(Vixen.Core.Mathematics.Vector2 left, Vixen.Core.Mathematics.Vector2 right, float tolerance = 1E-06) -> bool
+static Vixen.Core.Mathematics.Vector2.Normalize(Vixen.Core.Mathematics.Vector2 value) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Vector2.One.get -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Vector2.UnitX.get -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Vector2.UnitY.get -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Vector2.Zero.get -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Vector2.implicit operator System.Numerics.Vector2(Vixen.Core.Mathematics.Vector2 value) -> System.Numerics.Vector2
+static Vixen.Core.Mathematics.Vector2.implicit operator Vixen.Core.Mathematics.Vector2(System.Numerics.Vector2 value) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Vector2.operator !=(Vixen.Core.Mathematics.Vector2 left, Vixen.Core.Mathematics.Vector2 right) -> bool
+static Vixen.Core.Mathematics.Vector2.operator *(Vixen.Core.Mathematics.Vector2 left, Vixen.Core.Mathematics.Vector2 right) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Vector2.operator *(Vixen.Core.Mathematics.Vector2 value, float scale) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Vector2.operator *(float scale, Vixen.Core.Mathematics.Vector2 value) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Vector2.operator +(Vixen.Core.Mathematics.Vector2 left, Vixen.Core.Mathematics.Vector2 right) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Vector2.operator -(Vixen.Core.Mathematics.Vector2 left, Vixen.Core.Mathematics.Vector2 right) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Vector2.operator -(Vixen.Core.Mathematics.Vector2 value) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Vector2.operator /(Vixen.Core.Mathematics.Vector2 left, Vixen.Core.Mathematics.Vector2 right) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Vector2.operator /(Vixen.Core.Mathematics.Vector2 value, float divisor) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Core.Mathematics.Vector2.operator ==(Vixen.Core.Mathematics.Vector2 left, Vixen.Core.Mathematics.Vector2 right) -> bool
+static Vixen.Core.Mathematics.Vector3.Abs(Vixen.Core.Mathematics.Vector3 value) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.Backward.get -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.Clamp(Vixen.Core.Mathematics.Vector3 value, Vixen.Core.Mathematics.Vector3 min, Vixen.Core.Mathematics.Vector3 max) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.Cross(Vixen.Core.Mathematics.Vector3 left, Vixen.Core.Mathematics.Vector3 right) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.Distance(Vixen.Core.Mathematics.Vector3 left, Vixen.Core.Mathematics.Vector3 right) -> float
+static Vixen.Core.Mathematics.Vector3.DistanceSquared(Vixen.Core.Mathematics.Vector3 left, Vixen.Core.Mathematics.Vector3 right) -> float
+static Vixen.Core.Mathematics.Vector3.Dot(Vixen.Core.Mathematics.Vector3 left, Vixen.Core.Mathematics.Vector3 right) -> float
+static Vixen.Core.Mathematics.Vector3.Down.get -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.Forward.get -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.Left.get -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.Lerp(Vixen.Core.Mathematics.Vector3 from, Vixen.Core.Mathematics.Vector3 to, float amount) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.Max(Vixen.Core.Mathematics.Vector3 left, Vixen.Core.Mathematics.Vector3 right) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.Min(Vixen.Core.Mathematics.Vector3 left, Vixen.Core.Mathematics.Vector3 right) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.NearEqual(Vixen.Core.Mathematics.Vector3 left, Vixen.Core.Mathematics.Vector3 right, float tolerance = 1E-06) -> bool
+static Vixen.Core.Mathematics.Vector3.Normalize(Vixen.Core.Mathematics.Vector3 value) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.One.get -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.Project(Vixen.Core.Mathematics.Vector3 value, Vixen.Core.Mathematics.Vector3 onto) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.Reflect(Vixen.Core.Mathematics.Vector3 direction, Vixen.Core.Mathematics.Vector3 normal) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.Right.get -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.UnitX.get -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.UnitY.get -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.UnitZ.get -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.Up.get -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.Zero.get -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.implicit operator System.Numerics.Vector3(Vixen.Core.Mathematics.Vector3 value) -> System.Numerics.Vector3
+static Vixen.Core.Mathematics.Vector3.implicit operator Vixen.Core.Mathematics.Vector3(System.Numerics.Vector3 value) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.operator !=(Vixen.Core.Mathematics.Vector3 left, Vixen.Core.Mathematics.Vector3 right) -> bool
+static Vixen.Core.Mathematics.Vector3.operator *(Vixen.Core.Mathematics.Vector3 left, Vixen.Core.Mathematics.Vector3 right) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.operator *(Vixen.Core.Mathematics.Vector3 value, float scale) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.operator *(float scale, Vixen.Core.Mathematics.Vector3 value) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.operator +(Vixen.Core.Mathematics.Vector3 left, Vixen.Core.Mathematics.Vector3 right) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.operator -(Vixen.Core.Mathematics.Vector3 left, Vixen.Core.Mathematics.Vector3 right) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.operator -(Vixen.Core.Mathematics.Vector3 value) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.operator /(Vixen.Core.Mathematics.Vector3 left, Vixen.Core.Mathematics.Vector3 right) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.operator /(Vixen.Core.Mathematics.Vector3 value, float divisor) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Core.Mathematics.Vector3.operator ==(Vixen.Core.Mathematics.Vector3 left, Vixen.Core.Mathematics.Vector3 right) -> bool
+static Vixen.Core.Mathematics.Vector4.Abs(Vixen.Core.Mathematics.Vector4 value) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.Clamp(Vixen.Core.Mathematics.Vector4 value, Vixen.Core.Mathematics.Vector4 min, Vixen.Core.Mathematics.Vector4 max) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.Distance(Vixen.Core.Mathematics.Vector4 left, Vixen.Core.Mathematics.Vector4 right) -> float
+static Vixen.Core.Mathematics.Vector4.Dot(Vixen.Core.Mathematics.Vector4 left, Vixen.Core.Mathematics.Vector4 right) -> float
+static Vixen.Core.Mathematics.Vector4.FromVector128(System.Runtime.Intrinsics.Vector128<float> value) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.Lerp(Vixen.Core.Mathematics.Vector4 from, Vixen.Core.Mathematics.Vector4 to, float amount) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.Max(Vixen.Core.Mathematics.Vector4 left, Vixen.Core.Mathematics.Vector4 right) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.Min(Vixen.Core.Mathematics.Vector4 left, Vixen.Core.Mathematics.Vector4 right) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.NearEqual(Vixen.Core.Mathematics.Vector4 left, Vixen.Core.Mathematics.Vector4 right, float tolerance = 1E-06) -> bool
+static Vixen.Core.Mathematics.Vector4.Normalize(Vixen.Core.Mathematics.Vector4 value) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.One.get -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.UnitW.get -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.UnitX.get -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.UnitY.get -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.UnitZ.get -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.Zero.get -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.implicit operator System.Numerics.Vector4(Vixen.Core.Mathematics.Vector4 value) -> System.Numerics.Vector4
+static Vixen.Core.Mathematics.Vector4.implicit operator Vixen.Core.Mathematics.Vector4(System.Numerics.Vector4 value) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.operator !=(Vixen.Core.Mathematics.Vector4 left, Vixen.Core.Mathematics.Vector4 right) -> bool
+static Vixen.Core.Mathematics.Vector4.operator *(Vixen.Core.Mathematics.Vector4 left, Vixen.Core.Mathematics.Vector4 right) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.operator *(Vixen.Core.Mathematics.Vector4 value, float scale) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.operator *(float scale, Vixen.Core.Mathematics.Vector4 value) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.operator +(Vixen.Core.Mathematics.Vector4 left, Vixen.Core.Mathematics.Vector4 right) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.operator -(Vixen.Core.Mathematics.Vector4 left, Vixen.Core.Mathematics.Vector4 right) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.operator -(Vixen.Core.Mathematics.Vector4 value) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.operator /(Vixen.Core.Mathematics.Vector4 left, Vixen.Core.Mathematics.Vector4 right) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.operator /(Vixen.Core.Mathematics.Vector4 value, float divisor) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Core.Mathematics.Vector4.operator ==(Vixen.Core.Mathematics.Vector4 left, Vixen.Core.Mathematics.Vector4 right) -> bool
+static Vixen.Core.Mathematics.Viewport.NearEqual(Vixen.Core.Mathematics.Viewport left, Vixen.Core.Mathematics.Viewport right, float tolerance = 1E-06) -> bool
+static Vixen.Core.Mathematics.Viewport.operator !=(Vixen.Core.Mathematics.Viewport left, Vixen.Core.Mathematics.Viewport right) -> bool
+static Vixen.Core.Mathematics.Viewport.operator ==(Vixen.Core.Mathematics.Viewport left, Vixen.Core.Mathematics.Viewport right) -> bool

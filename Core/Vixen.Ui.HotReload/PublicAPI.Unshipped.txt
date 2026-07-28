@@ -1,0 +1,43 @@
+#nullable enable
+Vixen.Ui.HotReload.HotReloadHost -> sealed class
+Vixen.Ui.HotReload.HotReloadHost.Components.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Composition.Component>
+Vixen.Ui.HotReload.HotReloadHost.Document.get -> Vixen.Ui.UiDocument
+Vixen.Ui.HotReload.HotReloadHost.HotReloadHost(Vixen.Ui.UiDocument document) -> void
+Vixen.Ui.HotReload.HotReloadHost.Mount<T>(Vixen.Ui.UiElement parent) -> T
+Vixen.Ui.HotReload.HotReloadHost.ReloadComponents() -> Vixen.Ui.HotReload.ReloadReport
+Vixen.Ui.HotReload.HotReloadHost.ReloadStyles(int sheet, string css) -> Vixen.Ui.HotReload.ReloadReport
+Vixen.Ui.HotReload.HotReloadHost.Reloaded -> System.Action<Vixen.Ui.HotReload.ReloadReport>?
+Vixen.Ui.HotReload.HotReloadHost.Replace(Vixen.Ui.Composition.Component component, System.Func<Vixen.Ui.Composition.Component> create) -> Vixen.Ui.HotReload.ReloadReport
+Vixen.Ui.HotReload.HotReloadStateAttribute -> sealed class
+Vixen.Ui.HotReload.HotReloadStateAttribute : System.Attribute
+Vixen.Ui.HotReload.HotReloadStateAttribute.HotReloadStateAttribute() -> void
+Vixen.Ui.HotReload.HotReloadWatcher -> sealed class
+Vixen.Ui.HotReload.HotReloadWatcher : System.IDisposable
+Vixen.Ui.HotReload.HotReloadWatcher.Dispose() -> void
+Vixen.Ui.HotReload.HotReloadWatcher.HotReloadWatcher(Vixen.Ui.HotReload.HotReloadHost host, string directory) -> void
+Vixen.Ui.HotReload.HotReloadWatcher.Load(string path) -> int
+Vixen.Ui.HotReload.HotReloadWatcher.Poll() -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.HotReload.ReloadReport>
+Vixen.Ui.HotReload.HotReloadWatcher.Reloaded -> System.Action<Vixen.Ui.HotReload.ReloadReport>?
+Vixen.Ui.HotReload.MetadataUpdate -> static class
+Vixen.Ui.HotReload.ReloadChannel -> enum : byte
+Vixen.Ui.HotReload.ReloadChannel.Component = 2 -> Vixen.Ui.HotReload.ReloadChannel
+Vixen.Ui.HotReload.ReloadChannel.Markup = 1 -> Vixen.Ui.HotReload.ReloadChannel
+Vixen.Ui.HotReload.ReloadChannel.ReloadChannel() -> void
+Vixen.Ui.HotReload.ReloadChannel.Styles = 0 -> Vixen.Ui.HotReload.ReloadChannel
+Vixen.Ui.HotReload.ReloadReport -> readonly struct
+Vixen.Ui.HotReload.ReloadReport : System.IEquatable<Vixen.Ui.HotReload.ReloadReport>
+Vixen.Ui.HotReload.ReloadReport.Channel.get -> Vixen.Ui.HotReload.ReloadChannel
+Vixen.Ui.HotReload.ReloadReport.Channel.init -> Vixen.Ui.HotReload.ReloadChannel
+Vixen.Ui.HotReload.ReloadReport.Components.get -> int
+Vixen.Ui.HotReload.ReloadReport.Components.init -> int
+Vixen.Ui.HotReload.ReloadReport.Errors.get -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Ui.HotReload.ReloadReport.Errors.init -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Ui.HotReload.ReloadReport.FocusRestored.get -> bool
+Vixen.Ui.HotReload.ReloadReport.FocusRestored.init -> bool
+Vixen.Ui.HotReload.ReloadReport.ReloadReport() -> void
+Vixen.Ui.HotReload.ReloadReport.ReloadReport(Vixen.Ui.HotReload.ReloadChannel Channel, int Components, bool FocusRestored, System.Collections.Immutable.ImmutableArray<string> Errors) -> void
+Vixen.Ui.HotReload.ReloadReport.Succeeded.get -> bool
+static Vixen.Ui.HotReload.MetadataUpdate.ClearCache(System.Type[]? types) -> void
+static Vixen.Ui.HotReload.MetadataUpdate.Register(Vixen.Ui.HotReload.HotReloadHost host) -> void
+static Vixen.Ui.HotReload.MetadataUpdate.Unregister(Vixen.Ui.HotReload.HotReloadHost host) -> bool
+static Vixen.Ui.HotReload.MetadataUpdate.UpdateApplication(System.Type[]? types) -> void

@@ -49,9 +49,10 @@ remains front-loaded into Phase 3.
   signals-dotnet).
 - `Directory.Build.props/.targets`, `Directory.Packages.props` with every version from
   [01](01-technology-decisions.md), `global.json`, `.editorconfig`, `Vixen.slnx` + filters.
-- ✅ Nuke: `Clean Restore Compile Test Pack CheckFormat CheckArchitecture Benchmark`, with
-  `build.sh`/`build.cmd` as the entry point CI and developers share. `CheckApi` waits for
-  `Tools/Vixen.ApiCheck` and the first `PublicAPI.Shipped.txt`.
+- ✅ Nuke: `Clean Restore Compile Test Pack CheckFormat CheckArchitecture CheckApi Benchmark`, with
+  `build.sh`/`build.cmd` as the entry point CI and developers share. `CheckApi` is
+  `Tools/Vixen.ApiCheck` over the 59 packable assemblies, with the first baselines committed —
+  22 807 entries, all of them unshipped, because nothing has shipped.
 - ✅ `ci.yml` on three desktop runners — test matrix, checks, pack. Branch protection is a repository
   setting, not a file, so it stays a manual step.
 - 🟡 `references/` — the README with the clone commands is tracked; the clones themselves are a local

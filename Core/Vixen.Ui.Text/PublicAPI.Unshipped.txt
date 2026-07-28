@@ -1,0 +1,678 @@
+#nullable enable
+Vixen.Ui.Text.AxisSegmentMap -> readonly struct
+Vixen.Ui.Text.AxisSegmentMap : System.IEquatable<Vixen.Ui.Text.AxisSegmentMap>
+Vixen.Ui.Text.AxisSegmentMap.Apply(float coordinate) -> float
+Vixen.Ui.Text.AxisSegmentMap.AxisSegmentMap() -> void
+Vixen.Ui.Text.AxisSegmentMap.AxisSegmentMap(System.Collections.Immutable.ImmutableArray<(float From, float To)> Pairs) -> void
+Vixen.Ui.Text.AxisSegmentMap.Pairs.get -> System.Collections.Immutable.ImmutableArray<(float From, float To)>
+Vixen.Ui.Text.AxisSegmentMap.Pairs.init -> System.Collections.Immutable.ImmutableArray<(float From, float To)>
+Vixen.Ui.Text.BidiAlgorithm -> static class
+Vixen.Ui.Text.BidiClass -> enum : byte
+Vixen.Ui.Text.BidiClass.AL = 1 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.AN = 2 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.B = 3 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.BN = 4 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.BidiClass() -> void
+Vixen.Ui.Text.BidiClass.CS = 5 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.EN = 6 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.ES = 7 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.ET = 8 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.FSI = 9 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.L = 10 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.LRE = 11 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.LRI = 12 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.LRO = 13 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.NSM = 14 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.ON = 15 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.Other = 0 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.PDF = 16 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.PDI = 17 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.R = 18 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.RLE = 19 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.RLI = 20 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.RLO = 21 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.S = 22 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiClass.WS = 23 -> Vixen.Ui.Text.BidiClass
+Vixen.Ui.Text.BidiResult -> readonly struct
+Vixen.Ui.Text.BidiResult : System.IEquatable<Vixen.Ui.Text.BidiResult>
+Vixen.Ui.Text.BidiResult.BidiResult() -> void
+Vixen.Ui.Text.BidiResult.BidiResult(int ParagraphLevel, int[] Levels, int[] VisualOrder) -> void
+Vixen.Ui.Text.BidiResult.Levels.get -> int[]
+Vixen.Ui.Text.BidiResult.Levels.init -> int[]
+Vixen.Ui.Text.BidiResult.ParagraphLevel.get -> int
+Vixen.Ui.Text.BidiResult.ParagraphLevel.init -> int
+Vixen.Ui.Text.BidiResult.VisualOrder.get -> int[]
+Vixen.Ui.Text.BidiResult.VisualOrder.init -> int[]
+Vixen.Ui.Text.ClusterSpan -> readonly struct
+Vixen.Ui.Text.ClusterSpan : System.IEquatable<Vixen.Ui.Text.ClusterSpan>
+Vixen.Ui.Text.ClusterSpan.Advance.get -> float
+Vixen.Ui.Text.ClusterSpan.Advance.init -> float
+Vixen.Ui.Text.ClusterSpan.ClusterSpan() -> void
+Vixen.Ui.Text.ClusterSpan.ClusterSpan(int Start, int End, float X, float Advance, bool IsRightToLeft) -> void
+Vixen.Ui.Text.ClusterSpan.End.get -> int
+Vixen.Ui.Text.ClusterSpan.End.init -> int
+Vixen.Ui.Text.ClusterSpan.IsRightToLeft.get -> bool
+Vixen.Ui.Text.ClusterSpan.IsRightToLeft.init -> bool
+Vixen.Ui.Text.ClusterSpan.Right.get -> float
+Vixen.Ui.Text.ClusterSpan.Start.get -> int
+Vixen.Ui.Text.ClusterSpan.Start.init -> int
+Vixen.Ui.Text.ClusterSpan.X.get -> float
+Vixen.Ui.Text.ClusterSpan.X.init -> float
+Vixen.Ui.Text.EastAsianWidthClass -> enum : byte
+Vixen.Ui.Text.EastAsianWidthClass.A = 1 -> Vixen.Ui.Text.EastAsianWidthClass
+Vixen.Ui.Text.EastAsianWidthClass.EastAsianWidthClass() -> void
+Vixen.Ui.Text.EastAsianWidthClass.F = 2 -> Vixen.Ui.Text.EastAsianWidthClass
+Vixen.Ui.Text.EastAsianWidthClass.H = 3 -> Vixen.Ui.Text.EastAsianWidthClass
+Vixen.Ui.Text.EastAsianWidthClass.N = 4 -> Vixen.Ui.Text.EastAsianWidthClass
+Vixen.Ui.Text.EastAsianWidthClass.Na = 5 -> Vixen.Ui.Text.EastAsianWidthClass
+Vixen.Ui.Text.EastAsianWidthClass.Other = 0 -> Vixen.Ui.Text.EastAsianWidthClass
+Vixen.Ui.Text.EastAsianWidthClass.W = 6 -> Vixen.Ui.Text.EastAsianWidthClass
+Vixen.Ui.Text.ExtendedPictographicClass -> enum : byte
+Vixen.Ui.Text.ExtendedPictographicClass.ExtendedPictographic = 1 -> Vixen.Ui.Text.ExtendedPictographicClass
+Vixen.Ui.Text.ExtendedPictographicClass.ExtendedPictographicClass() -> void
+Vixen.Ui.Text.ExtendedPictographicClass.Other = 0 -> Vixen.Ui.Text.ExtendedPictographicClass
+Vixen.Ui.Text.FontAxis -> readonly struct
+Vixen.Ui.Text.FontAxis : System.IEquatable<Vixen.Ui.Text.FontAxis>
+Vixen.Ui.Text.FontAxis.Clamp(float value) -> float
+Vixen.Ui.Text.FontAxis.Default.get -> float
+Vixen.Ui.Text.FontAxis.Default.init -> float
+Vixen.Ui.Text.FontAxis.FontAxis() -> void
+Vixen.Ui.Text.FontAxis.FontAxis(string Tag, float Minimum, float Default, float Maximum) -> void
+Vixen.Ui.Text.FontAxis.Maximum.get -> float
+Vixen.Ui.Text.FontAxis.Maximum.init -> float
+Vixen.Ui.Text.FontAxis.Minimum.get -> float
+Vixen.Ui.Text.FontAxis.Minimum.init -> float
+Vixen.Ui.Text.FontAxis.Normalize(float value) -> float
+Vixen.Ui.Text.FontAxis.Tag.get -> string
+Vixen.Ui.Text.FontAxis.Tag.init -> string
+Vixen.Ui.Text.FontFace -> sealed class
+Vixen.Ui.Text.FontFace : System.IDisposable
+Vixen.Ui.Text.FontFace.Axes.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Text.FontAxis>
+Vixen.Ui.Text.FontFace.Dispose() -> void
+Vixen.Ui.Text.FontFace.GetOutline(ushort glyphId, Vixen.Ui.Text.FontVariation? variation = null) -> Vixen.Ui.Text.Outlines.GlyphOutline
+Vixen.Ui.Text.FontFace.GlyphCount.get -> int
+Vixen.Ui.Text.FontFace.GlyphFor(int codePoint) -> ushort
+Vixen.Ui.Text.FontFace.GlyphName(ushort glyphId) -> string
+Vixen.Ui.Text.FontFace.HasOutlines.get -> bool
+Vixen.Ui.Text.FontFace.Instance.get -> Vixen.Ui.Text.FontVariation
+Vixen.Ui.Text.FontFace.IsVariable.get -> bool
+Vixen.Ui.Text.FontFace.Metrics.get -> Vixen.Ui.Text.FontMetrics
+Vixen.Ui.Text.FontFace.Name.get -> string
+Vixen.Ui.Text.FontFace.SetInstance(Vixen.Ui.Text.FontVariation? variation) -> void
+Vixen.Ui.Text.FontFace.Supports(int codePoint) -> bool
+Vixen.Ui.Text.FontFace.TryGetGlyphExtents(ushort glyphId, out Vixen.Ui.Text.Outlines.GlyphBounds bounds) -> bool
+Vixen.Ui.Text.FontFace.UnitsPerEm.get -> int
+Vixen.Ui.Text.FontFace.Variation(System.Collections.Generic.IReadOnlyDictionary<string, float> values) -> Vixen.Ui.Text.FontVariation
+Vixen.Ui.Text.FontMetrics -> readonly struct
+Vixen.Ui.Text.FontMetrics : System.IEquatable<Vixen.Ui.Text.FontMetrics>
+Vixen.Ui.Text.FontMetrics.Ascender.get -> int
+Vixen.Ui.Text.FontMetrics.Ascender.init -> int
+Vixen.Ui.Text.FontMetrics.Descender.get -> int
+Vixen.Ui.Text.FontMetrics.Descender.init -> int
+Vixen.Ui.Text.FontMetrics.FontMetrics() -> void
+Vixen.Ui.Text.FontMetrics.FontMetrics(int Ascender, int Descender, int LineGap) -> void
+Vixen.Ui.Text.FontMetrics.LineGap.get -> int
+Vixen.Ui.Text.FontMetrics.LineGap.init -> int
+Vixen.Ui.Text.FontMetrics.LineHeight.get -> int
+Vixen.Ui.Text.FontVariation -> sealed class
+Vixen.Ui.Text.FontVariation : System.IEquatable<Vixen.Ui.Text.FontVariation>
+Vixen.Ui.Text.FontVariation.Coordinates.get -> System.Collections.Immutable.ImmutableArray<float>
+Vixen.Ui.Text.FontVariation.Equals(Vixen.Ui.Text.FontVariation? other) -> bool
+Vixen.Ui.Text.FontVariation.FontVariation(System.Collections.Immutable.ImmutableArray<float> coordinates) -> void
+Vixen.Ui.Text.FontVariation.IsNone.get -> bool
+Vixen.Ui.Text.GlyphPlacement -> readonly struct
+Vixen.Ui.Text.GlyphPlacement : System.IEquatable<Vixen.Ui.Text.GlyphPlacement>
+Vixen.Ui.Text.GlyphPlacement.Cluster.get -> int
+Vixen.Ui.Text.GlyphPlacement.Cluster.init -> int
+Vixen.Ui.Text.GlyphPlacement.GlyphId.get -> ushort
+Vixen.Ui.Text.GlyphPlacement.GlyphId.init -> ushort
+Vixen.Ui.Text.GlyphPlacement.GlyphPlacement() -> void
+Vixen.Ui.Text.GlyphPlacement.GlyphPlacement(ushort GlyphId, int Cluster, float X, float Y) -> void
+Vixen.Ui.Text.GlyphPlacement.X.get -> float
+Vixen.Ui.Text.GlyphPlacement.X.init -> float
+Vixen.Ui.Text.GlyphPlacement.Y.get -> float
+Vixen.Ui.Text.GlyphPlacement.Y.init -> float
+Vixen.Ui.Text.GraphemeBreakClass -> enum : byte
+Vixen.Ui.Text.GraphemeBreakClass.CR = 1 -> Vixen.Ui.Text.GraphemeBreakClass
+Vixen.Ui.Text.GraphemeBreakClass.Control = 2 -> Vixen.Ui.Text.GraphemeBreakClass
+Vixen.Ui.Text.GraphemeBreakClass.Extend = 3 -> Vixen.Ui.Text.GraphemeBreakClass
+Vixen.Ui.Text.GraphemeBreakClass.GraphemeBreakClass() -> void
+Vixen.Ui.Text.GraphemeBreakClass.L = 4 -> Vixen.Ui.Text.GraphemeBreakClass
+Vixen.Ui.Text.GraphemeBreakClass.LF = 5 -> Vixen.Ui.Text.GraphemeBreakClass
+Vixen.Ui.Text.GraphemeBreakClass.LV = 6 -> Vixen.Ui.Text.GraphemeBreakClass
+Vixen.Ui.Text.GraphemeBreakClass.LVT = 7 -> Vixen.Ui.Text.GraphemeBreakClass
+Vixen.Ui.Text.GraphemeBreakClass.Other = 0 -> Vixen.Ui.Text.GraphemeBreakClass
+Vixen.Ui.Text.GraphemeBreakClass.Prepend = 8 -> Vixen.Ui.Text.GraphemeBreakClass
+Vixen.Ui.Text.GraphemeBreakClass.RegionalIndicator = 9 -> Vixen.Ui.Text.GraphemeBreakClass
+Vixen.Ui.Text.GraphemeBreakClass.SpacingMark = 10 -> Vixen.Ui.Text.GraphemeBreakClass
+Vixen.Ui.Text.GraphemeBreakClass.T = 11 -> Vixen.Ui.Text.GraphemeBreakClass
+Vixen.Ui.Text.GraphemeBreakClass.V = 12 -> Vixen.Ui.Text.GraphemeBreakClass
+Vixen.Ui.Text.GraphemeBreakClass.ZWJ = 13 -> Vixen.Ui.Text.GraphemeBreakClass
+Vixen.Ui.Text.GraphemeBreaker -> static class
+Vixen.Ui.Text.IndicConjunctClass -> enum : byte
+Vixen.Ui.Text.IndicConjunctClass.Consonant = 1 -> Vixen.Ui.Text.IndicConjunctClass
+Vixen.Ui.Text.IndicConjunctClass.Extend = 2 -> Vixen.Ui.Text.IndicConjunctClass
+Vixen.Ui.Text.IndicConjunctClass.IndicConjunctClass() -> void
+Vixen.Ui.Text.IndicConjunctClass.Linker = 3 -> Vixen.Ui.Text.IndicConjunctClass
+Vixen.Ui.Text.IndicConjunctClass.Other = 0 -> Vixen.Ui.Text.IndicConjunctClass
+Vixen.Ui.Text.LineBreakClass -> enum : byte
+Vixen.Ui.Text.LineBreakClass.AI = 1 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.AK = 2 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.AL = 3 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.AP = 4 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.AS = 5 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.B2 = 6 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.BA = 7 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.BB = 8 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.BK = 9 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.CB = 10 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.CJ = 11 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.CL = 12 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.CM = 13 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.CP = 14 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.CR = 15 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.EB = 16 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.EM = 17 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.EX = 18 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.GL = 19 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.H2 = 20 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.H3 = 21 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.HH = 22 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.HL = 23 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.HY = 24 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.ID = 25 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.IN = 26 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.IS = 27 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.JL = 28 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.JT = 29 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.JV = 30 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.LF = 31 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.LineBreakClass() -> void
+Vixen.Ui.Text.LineBreakClass.NL = 32 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.NS = 33 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.NU = 34 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.OP = 35 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.Other = 0 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.PO = 36 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.PR = 37 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.QU = 38 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.RI = 39 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.SA = 40 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.SG = 41 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.SP = 42 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.SY = 43 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.VF = 44 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.VI = 45 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.WJ = 46 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.XX = 47 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.ZW = 48 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreakClass.ZWJ = 49 -> Vixen.Ui.Text.LineBreakClass
+Vixen.Ui.Text.LineBreaker -> static class
+Vixen.Ui.Text.LineWrapper -> static class
+Vixen.Ui.Text.Outlines.GlyphBounds -> readonly struct
+Vixen.Ui.Text.Outlines.GlyphBounds : System.IEquatable<Vixen.Ui.Text.Outlines.GlyphBounds>
+Vixen.Ui.Text.Outlines.GlyphBounds.GlyphBounds() -> void
+Vixen.Ui.Text.Outlines.GlyphBounds.GlyphBounds(float MinX, float MinY, float MaxX, float MaxY) -> void
+Vixen.Ui.Text.Outlines.GlyphBounds.Height.get -> float
+Vixen.Ui.Text.Outlines.GlyphBounds.MaxX.get -> float
+Vixen.Ui.Text.Outlines.GlyphBounds.MaxX.init -> float
+Vixen.Ui.Text.Outlines.GlyphBounds.MaxY.get -> float
+Vixen.Ui.Text.Outlines.GlyphBounds.MaxY.init -> float
+Vixen.Ui.Text.Outlines.GlyphBounds.MinX.get -> float
+Vixen.Ui.Text.Outlines.GlyphBounds.MinX.init -> float
+Vixen.Ui.Text.Outlines.GlyphBounds.MinY.get -> float
+Vixen.Ui.Text.Outlines.GlyphBounds.MinY.init -> float
+Vixen.Ui.Text.Outlines.GlyphBounds.Width.get -> float
+Vixen.Ui.Text.Outlines.GlyphOutline -> sealed class
+Vixen.Ui.Text.Outlines.GlyphOutline.Bounds(int samples = 32) -> Vixen.Ui.Text.Outlines.GlyphBounds
+Vixen.Ui.Text.Outlines.GlyphOutline.IsEmpty.get -> bool
+Vixen.Ui.Text.Outlines.GlyphOutline.Segments.get -> System.Collections.Immutable.ImmutableArray<Vixen.Ui.Text.Outlines.OutlineSegment>
+Vixen.Ui.Text.Outlines.OutlineSegment -> readonly struct
+Vixen.Ui.Text.Outlines.OutlineSegment : System.IEquatable<Vixen.Ui.Text.Outlines.OutlineSegment>
+Vixen.Ui.Text.Outlines.OutlineSegment.OutlineSegment() -> void
+Vixen.Ui.Text.Outlines.OutlineSegment.OutlineSegment(Vixen.Ui.Text.Outlines.OutlineVerb Verb, float X0, float Y0, float X1 = 0, float Y1 = 0, float X2 = 0, float Y2 = 0) -> void
+Vixen.Ui.Text.Outlines.OutlineSegment.Verb.get -> Vixen.Ui.Text.Outlines.OutlineVerb
+Vixen.Ui.Text.Outlines.OutlineSegment.Verb.init -> Vixen.Ui.Text.Outlines.OutlineVerb
+Vixen.Ui.Text.Outlines.OutlineSegment.X0.get -> float
+Vixen.Ui.Text.Outlines.OutlineSegment.X0.init -> float
+Vixen.Ui.Text.Outlines.OutlineSegment.X1.get -> float
+Vixen.Ui.Text.Outlines.OutlineSegment.X1.init -> float
+Vixen.Ui.Text.Outlines.OutlineSegment.X2.get -> float
+Vixen.Ui.Text.Outlines.OutlineSegment.X2.init -> float
+Vixen.Ui.Text.Outlines.OutlineSegment.Y0.get -> float
+Vixen.Ui.Text.Outlines.OutlineSegment.Y0.init -> float
+Vixen.Ui.Text.Outlines.OutlineSegment.Y1.get -> float
+Vixen.Ui.Text.Outlines.OutlineSegment.Y1.init -> float
+Vixen.Ui.Text.Outlines.OutlineSegment.Y2.get -> float
+Vixen.Ui.Text.Outlines.OutlineSegment.Y2.init -> float
+Vixen.Ui.Text.Outlines.OutlineVerb -> enum : int
+Vixen.Ui.Text.Outlines.OutlineVerb.Close = 4 -> Vixen.Ui.Text.Outlines.OutlineVerb
+Vixen.Ui.Text.Outlines.OutlineVerb.Cubic = 3 -> Vixen.Ui.Text.Outlines.OutlineVerb
+Vixen.Ui.Text.Outlines.OutlineVerb.Line = 1 -> Vixen.Ui.Text.Outlines.OutlineVerb
+Vixen.Ui.Text.Outlines.OutlineVerb.Move = 0 -> Vixen.Ui.Text.Outlines.OutlineVerb
+Vixen.Ui.Text.Outlines.OutlineVerb.OutlineVerb() -> void
+Vixen.Ui.Text.Outlines.OutlineVerb.Quadratic = 2 -> Vixen.Ui.Text.Outlines.OutlineVerb
+Vixen.Ui.Text.ParagraphDirection -> enum : byte
+Vixen.Ui.Text.ParagraphDirection.Auto = 0 -> Vixen.Ui.Text.ParagraphDirection
+Vixen.Ui.Text.ParagraphDirection.LeftToRight = 1 -> Vixen.Ui.Text.ParagraphDirection
+Vixen.Ui.Text.ParagraphDirection.ParagraphDirection() -> void
+Vixen.Ui.Text.ParagraphDirection.RightToLeft = 2 -> Vixen.Ui.Text.ParagraphDirection
+Vixen.Ui.Text.Rasterizing.AtlasGlyph -> readonly struct
+Vixen.Ui.Text.Rasterizing.AtlasGlyph : System.IEquatable<Vixen.Ui.Text.Rasterizing.AtlasGlyph>
+Vixen.Ui.Text.Rasterizing.AtlasGlyph.AtlasGlyph() -> void
+Vixen.Ui.Text.Rasterizing.AtlasGlyph.AtlasGlyph(Vixen.Ui.Text.Rasterizing.AtlasRegion Region, float Left, float Top, float Right, float Bottom, float ScreenPixelRange) -> void
+Vixen.Ui.Text.Rasterizing.AtlasGlyph.Bottom.get -> float
+Vixen.Ui.Text.Rasterizing.AtlasGlyph.Bottom.init -> float
+Vixen.Ui.Text.Rasterizing.AtlasGlyph.IsEmpty.get -> bool
+Vixen.Ui.Text.Rasterizing.AtlasGlyph.Left.get -> float
+Vixen.Ui.Text.Rasterizing.AtlasGlyph.Left.init -> float
+Vixen.Ui.Text.Rasterizing.AtlasGlyph.Region.get -> Vixen.Ui.Text.Rasterizing.AtlasRegion
+Vixen.Ui.Text.Rasterizing.AtlasGlyph.Region.init -> Vixen.Ui.Text.Rasterizing.AtlasRegion
+Vixen.Ui.Text.Rasterizing.AtlasGlyph.Right.get -> float
+Vixen.Ui.Text.Rasterizing.AtlasGlyph.Right.init -> float
+Vixen.Ui.Text.Rasterizing.AtlasGlyph.ScreenPixelRange.get -> float
+Vixen.Ui.Text.Rasterizing.AtlasGlyph.ScreenPixelRange.init -> float
+Vixen.Ui.Text.Rasterizing.AtlasGlyph.Top.get -> float
+Vixen.Ui.Text.Rasterizing.AtlasGlyph.Top.init -> float
+Vixen.Ui.Text.Rasterizing.AtlasRegion -> readonly struct
+Vixen.Ui.Text.Rasterizing.AtlasRegion : System.IEquatable<Vixen.Ui.Text.Rasterizing.AtlasRegion>
+Vixen.Ui.Text.Rasterizing.AtlasRegion.AtlasRegion() -> void
+Vixen.Ui.Text.Rasterizing.AtlasRegion.AtlasRegion(int X, int Y, int Width, int Height) -> void
+Vixen.Ui.Text.Rasterizing.AtlasRegion.Height.get -> int
+Vixen.Ui.Text.Rasterizing.AtlasRegion.Height.init -> int
+Vixen.Ui.Text.Rasterizing.AtlasRegion.Width.get -> int
+Vixen.Ui.Text.Rasterizing.AtlasRegion.Width.init -> int
+Vixen.Ui.Text.Rasterizing.AtlasRegion.X.get -> int
+Vixen.Ui.Text.Rasterizing.AtlasRegion.X.init -> int
+Vixen.Ui.Text.Rasterizing.AtlasRegion.Y.get -> int
+Vixen.Ui.Text.Rasterizing.AtlasRegion.Y.init -> int
+Vixen.Ui.Text.Rasterizing.ColouredEdge -> readonly struct
+Vixen.Ui.Text.Rasterizing.ColouredEdge : System.IEquatable<Vixen.Ui.Text.Rasterizing.ColouredEdge>
+Vixen.Ui.Text.Rasterizing.ColouredEdge.Channels.get -> Vixen.Ui.Text.Rasterizing.EdgeChannels
+Vixen.Ui.Text.Rasterizing.ColouredEdge.Channels.init -> Vixen.Ui.Text.Rasterizing.EdgeChannels
+Vixen.Ui.Text.Rasterizing.ColouredEdge.ColouredEdge() -> void
+Vixen.Ui.Text.Rasterizing.ColouredEdge.ColouredEdge(System.Numerics.Vector2 From, System.Numerics.Vector2 To, Vixen.Ui.Text.Rasterizing.EdgeChannels Channels) -> void
+Vixen.Ui.Text.Rasterizing.ColouredEdge.From.get -> System.Numerics.Vector2
+Vixen.Ui.Text.Rasterizing.ColouredEdge.From.init -> System.Numerics.Vector2
+Vixen.Ui.Text.Rasterizing.ColouredEdge.To.get -> System.Numerics.Vector2
+Vixen.Ui.Text.Rasterizing.ColouredEdge.To.init -> System.Numerics.Vector2
+Vixen.Ui.Text.Rasterizing.CoverageBitmap -> readonly struct
+Vixen.Ui.Text.Rasterizing.CoverageBitmap : System.IEquatable<Vixen.Ui.Text.Rasterizing.CoverageBitmap>
+Vixen.Ui.Text.Rasterizing.CoverageBitmap.Area.get -> float
+Vixen.Ui.Text.Rasterizing.CoverageBitmap.Coverage.get -> float[]
+Vixen.Ui.Text.Rasterizing.CoverageBitmap.Coverage.init -> float[]
+Vixen.Ui.Text.Rasterizing.CoverageBitmap.CoverageBitmap() -> void
+Vixen.Ui.Text.Rasterizing.CoverageBitmap.CoverageBitmap(int Width, int Height, float[] Coverage) -> void
+Vixen.Ui.Text.Rasterizing.CoverageBitmap.Height.get -> int
+Vixen.Ui.Text.Rasterizing.CoverageBitmap.Height.init -> int
+Vixen.Ui.Text.Rasterizing.CoverageBitmap.Width.get -> int
+Vixen.Ui.Text.Rasterizing.CoverageBitmap.Width.init -> int
+Vixen.Ui.Text.Rasterizing.CoverageBitmap.this[int x, int y].get -> float
+Vixen.Ui.Text.Rasterizing.DistanceField -> static class
+Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap -> readonly struct
+Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap : System.IEquatable<Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap>
+Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap.Channels.get -> float[]
+Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap.Channels.init -> float[]
+Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap.DistanceFieldBitmap() -> void
+Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap.DistanceFieldBitmap(int Width, int Height, float Range, float[] Channels) -> void
+Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap.Height.get -> int
+Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap.Height.init -> int
+Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap.Median(int x, int y) -> float
+Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap.Range.get -> float
+Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap.Range.init -> float
+Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap.Width.get -> int
+Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap.Width.init -> int
+Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap.this[int x, int y].get -> (float R, float G, float B)
+Vixen.Ui.Text.Rasterizing.Edge -> readonly struct
+Vixen.Ui.Text.Rasterizing.Edge : System.IEquatable<Vixen.Ui.Text.Rasterizing.Edge>
+Vixen.Ui.Text.Rasterizing.Edge.Edge() -> void
+Vixen.Ui.Text.Rasterizing.Edge.Edge(System.Numerics.Vector2 From, System.Numerics.Vector2 To, int Source) -> void
+Vixen.Ui.Text.Rasterizing.Edge.From.get -> System.Numerics.Vector2
+Vixen.Ui.Text.Rasterizing.Edge.From.init -> System.Numerics.Vector2
+Vixen.Ui.Text.Rasterizing.Edge.Source.get -> int
+Vixen.Ui.Text.Rasterizing.Edge.Source.init -> int
+Vixen.Ui.Text.Rasterizing.Edge.To.get -> System.Numerics.Vector2
+Vixen.Ui.Text.Rasterizing.Edge.To.init -> System.Numerics.Vector2
+Vixen.Ui.Text.Rasterizing.EdgeChannels -> enum : int
+Vixen.Ui.Text.Rasterizing.EdgeChannels.Blue = 4 -> Vixen.Ui.Text.Rasterizing.EdgeChannels
+Vixen.Ui.Text.Rasterizing.EdgeChannels.EdgeChannels() -> void
+Vixen.Ui.Text.Rasterizing.EdgeChannels.Green = 2 -> Vixen.Ui.Text.Rasterizing.EdgeChannels
+Vixen.Ui.Text.Rasterizing.EdgeChannels.None = 0 -> Vixen.Ui.Text.Rasterizing.EdgeChannels
+Vixen.Ui.Text.Rasterizing.EdgeChannels.Red = 1 -> Vixen.Ui.Text.Rasterizing.EdgeChannels
+Vixen.Ui.Text.Rasterizing.EdgeChannels.White = Vixen.Ui.Text.Rasterizing.EdgeChannels.Red | Vixen.Ui.Text.Rasterizing.EdgeChannels.Green | Vixen.Ui.Text.Rasterizing.EdgeChannels.Blue -> Vixen.Ui.Text.Rasterizing.EdgeChannels
+Vixen.Ui.Text.Rasterizing.EdgeColoring -> static class
+Vixen.Ui.Text.Rasterizing.GlyphAtlas -> sealed class
+Vixen.Ui.Text.Rasterizing.GlyphAtlas.Add(Vixen.Ui.Text.Rasterizing.GlyphKey key, Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap field, out Vixen.Ui.Text.Rasterizing.AtlasRegion region) -> bool
+Vixen.Ui.Text.Rasterizing.GlyphAtlas.Clear() -> void
+Vixen.Ui.Text.Rasterizing.GlyphAtlas.Compact() -> void
+Vixen.Ui.Text.Rasterizing.GlyphAtlas.Count.get -> int
+Vixen.Ui.Text.Rasterizing.GlyphAtlas.Dirty.get -> bool
+Vixen.Ui.Text.Rasterizing.GlyphAtlas.Evictions.get -> long
+Vixen.Ui.Text.Rasterizing.GlyphAtlas.GlyphAtlas(int width = 1024, int height = 1024, int padding = 1) -> void
+Vixen.Ui.Text.Rasterizing.GlyphAtlas.Height.get -> int
+Vixen.Ui.Text.Rasterizing.GlyphAtlas.Hits.get -> long
+Vixen.Ui.Text.Rasterizing.GlyphAtlas.Misses.get -> long
+Vixen.Ui.Text.Rasterizing.GlyphAtlas.Pixels.get -> float[]
+Vixen.Ui.Text.Rasterizing.GlyphAtlas.TryGet(Vixen.Ui.Text.Rasterizing.GlyphKey key, out Vixen.Ui.Text.Rasterizing.AtlasRegion region) -> bool
+Vixen.Ui.Text.Rasterizing.GlyphAtlas.Uploaded() -> void
+Vixen.Ui.Text.Rasterizing.GlyphAtlas.Version.get -> int
+Vixen.Ui.Text.Rasterizing.GlyphAtlas.Width.get -> int
+Vixen.Ui.Text.Rasterizing.GlyphFieldCache -> sealed class
+Vixen.Ui.Text.Rasterizing.GlyphFieldCache.Atlas.get -> Vixen.Ui.Text.Rasterizing.GlyphAtlas
+Vixen.Ui.Text.Rasterizing.GlyphFieldCache.Generated.get -> long
+Vixen.Ui.Text.Rasterizing.GlyphFieldCache.GlyphFieldCache(Vixen.Ui.Text.Rasterizing.GlyphAtlas atlas, int resolution = 32, float range = 4) -> void
+Vixen.Ui.Text.Rasterizing.GlyphFieldCache.Range.get -> float
+Vixen.Ui.Text.Rasterizing.GlyphFieldCache.Reads.get -> long
+Vixen.Ui.Text.Rasterizing.GlyphFieldCache.Resolution.get -> int
+Vixen.Ui.Text.Rasterizing.GlyphFieldCache.TryGet(Vixen.Ui.Text.FontFace font, int fontIndex, ushort glyph, out Vixen.Ui.Text.Rasterizing.AtlasGlyph placement) -> bool
+Vixen.Ui.Text.Rasterizing.GlyphKey -> readonly struct
+Vixen.Ui.Text.Rasterizing.GlyphKey : System.IEquatable<Vixen.Ui.Text.Rasterizing.GlyphKey>
+Vixen.Ui.Text.Rasterizing.GlyphKey.Font.get -> int
+Vixen.Ui.Text.Rasterizing.GlyphKey.Font.init -> int
+Vixen.Ui.Text.Rasterizing.GlyphKey.Glyph.get -> ushort
+Vixen.Ui.Text.Rasterizing.GlyphKey.Glyph.init -> ushort
+Vixen.Ui.Text.Rasterizing.GlyphKey.GlyphKey() -> void
+Vixen.Ui.Text.Rasterizing.GlyphKey.GlyphKey(int Font, ushort Glyph, int Size, Vixen.Ui.Text.FontVariation? Variation = null) -> void
+Vixen.Ui.Text.Rasterizing.GlyphKey.Size.get -> int
+Vixen.Ui.Text.Rasterizing.GlyphKey.Size.init -> int
+Vixen.Ui.Text.Rasterizing.GlyphKey.Variation.get -> Vixen.Ui.Text.FontVariation?
+Vixen.Ui.Text.Rasterizing.GlyphKey.Variation.init -> Vixen.Ui.Text.FontVariation?
+Vixen.Ui.Text.Rasterizing.GlyphRasterizer -> static class
+Vixen.Ui.Text.Rasterizing.OutlineFlattener -> static class
+Vixen.Ui.Text.Script -> enum : uint
+Vixen.Ui.Text.Script.Adlam = 1097100397 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Ahom = 1097363309 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.AnatolianHieroglyphs = 1215067511 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Arabic = 1098015074 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Armenian = 1098018158 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Avestan = 1098281844 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Balinese = 1113681001 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Bamum = 1113681269 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.BassaVah = 1113682803 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Batak = 1113683051 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Bengali = 1113943655 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.BeriaErfe = 1113944678 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Bhaiksuki = 1114139507 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Bopomofo = 1114599535 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Brahmi = 1114792296 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Braille = 1114792297 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Buginese = 1114990441 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Buhid = 1114990692 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.CanadianAboriginal = 1130458739 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Carian = 1130459753 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.CaucasianAlbanian = 1097295970 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Chakma = 1130457965 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Cham = 1130914157 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Cherokee = 1130915186 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Chorasmian = 1130918515 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Common = 1517910393 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Coptic = 1131376756 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Cuneiform = 1483961720 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Cypriot = 1131442804 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.CyproMinoan = 1131441518 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Cyrillic = 1132032620 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Deseret = 1148416628 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Devanagari = 1147500129 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.DivesAkuru = 1147756907 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Dogra = 1148151666 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Duployan = 1148547180 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.EgyptianHieroglyphs = 1164409200 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Elbasan = 1164730977 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Elymaic = 1164736877 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Ethiopic = 1165256809 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Garay = 1197568609 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Georgian = 1197830002 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Glagolitic = 1198285159 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Gothic = 1198486632 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Grantha = 1198678382 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Greek = 1198679403 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Gujarati = 1198877298 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.GunjalaGondi = 1198485095 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Gurmukhi = 1198879349 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.GurungKhema = 1198877544 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Han = 1214344809 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Hangul = 1214344807 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.HanifiRohingya = 1383032935 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Hanunoo = 1214344815 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Hatran = 1214346354 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Hebrew = 1214603890 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Hiragana = 1214870113 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.ImperialAramaic = 1098018153 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Inherited = 1516858984 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.InscriptionalPahlavi = 1349020777 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.InscriptionalParthian = 1349678185 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Javanese = 1247901281 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Kaithi = 1265920105 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Kannada = 1265525857 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Katakana = 1264676449 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Kawi = 1264678761 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.KayahLi = 1264675945 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Kharoshthi = 1265131890 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.KhitanSmallScript = 1265202291 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Khmer = 1265134962 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Khojki = 1265135466 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Khudawadi = 1399418468 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.KiratRai = 1265787241 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Lao = 1281453935 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Latin = 1281455214 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Lepcha = 1281716323 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Limbu = 1281977698 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.LinearA = 1281977953 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.LinearB = 1281977954 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Lisu = 1281979253 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Lycian = 1283023721 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Lydian = 1283023977 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Mahajani = 1298229354 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Makasar = 1298230113 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Malayalam = 1298954605 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Mandaic = 1298230884 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Manichaean = 1298230889 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Marchen = 1298231907 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.MasaramGondi = 1198485101 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Medefaidrin = 1298490470 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.MeeteiMayek = 1299473769 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.MendeKikakui = 1298493028 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.MeroiticCursive = 1298494051 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.MeroiticHieroglyphs = 1298494063 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Miao = 1349284452 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Modi = 1299145833 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Mongolian = 1299148391 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Mro = 1299345263 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Multani = 1299541108 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Myanmar = 1299803506 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Nabataean = 1315070324 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.NagMundari = 1315006317 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Nandinagari = 1315008100 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.NewTaiLue = 1415670901 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Newa = 1315272545 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Nko = 1315663727 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Nushu = 1316186229 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.NyiakengPuachueHmong = 1215131248 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Ogham = 1332175213 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.OlChiki = 1332503403 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.OlOnal = 1332633967 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.OldHungarian = 1215655527 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.OldItalic = 1232363884 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.OldNorthArabian = 1315009122 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.OldPermic = 1348825709 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.OldPersian = 1483761007 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.OldSogdian = 1399809903 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.OldSouthArabian = 1398895202 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.OldTurkic = 1332898664 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.OldUyghur = 1333094258 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Oriya = 1332902241 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Osage = 1332963173 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Osmanya = 1332964705 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.PahawhHmong = 1215131239 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Palmyrene = 1348562029 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.PauCinHau = 1348564323 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.PhagsPa = 1349017959 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Phoenician = 1349021304 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.PsalterPahlavi = 1349020784 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Rejang = 1382706791 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Runic = 1383427698 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Samaritan = 1398893938 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Saurashtra = 1398895986 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Script() -> void
+Vixen.Ui.Text.Script.Sharada = 1399353956 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Shavian = 1399349623 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Siddham = 1399415908 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Sidetic = 1399415924 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.SignWriting = 1399287415 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Sinhala = 1399418472 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Sogdian = 1399809892 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.SoraSompeng = 1399812705 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Soyombo = 1399814511 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Sundanese = 1400204900 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Sunuwar = 1400204917 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.SylotiNagri = 1400466543 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Syriac = 1400468067 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Tagalog = 1416064103 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Tagbanwa = 1415669602 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.TaiLe = 1415670885 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.TaiTham = 1281453665 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.TaiViet = 1415673460 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.TaiYo = 1415674223 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Takri = 1415670642 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Tamil = 1415671148 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Tangsa = 1416524641 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Tangut = 1415671399 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Telugu = 1415933045 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Thaana = 1416126817 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Thai = 1416126825 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Tibetan = 1416192628 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Tifinagh = 1415999079 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Tirhuta = 1416196712 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Todhri = 1416586354 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.TolongSiki = 1416588403 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Toto = 1416590447 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.TuluTigalari = 1416983655 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Ugaritic = 1432838514 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Unknown = 1517976186 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Vai = 1449224553 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Vithkuqi = 1449751656 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Wancho = 1466132591 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.WarangCiti = 1466004065 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Yezidi = 1499822697 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.Yi = 1500080489 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.Script.ZanabazarSquare = 1516334690 -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.ShapedGlyph -> readonly struct
+Vixen.Ui.Text.ShapedGlyph : System.IEquatable<Vixen.Ui.Text.ShapedGlyph>
+Vixen.Ui.Text.ShapedGlyph.Cluster.get -> int
+Vixen.Ui.Text.ShapedGlyph.Cluster.init -> int
+Vixen.Ui.Text.ShapedGlyph.GlyphId.get -> ushort
+Vixen.Ui.Text.ShapedGlyph.GlyphId.init -> ushort
+Vixen.Ui.Text.ShapedGlyph.ShapedGlyph() -> void
+Vixen.Ui.Text.ShapedGlyph.ShapedGlyph(ushort GlyphId, int Cluster, float XAdvance, float YAdvance, float XOffset, float YOffset) -> void
+Vixen.Ui.Text.ShapedGlyph.XAdvance.get -> float
+Vixen.Ui.Text.ShapedGlyph.XAdvance.init -> float
+Vixen.Ui.Text.ShapedGlyph.XOffset.get -> float
+Vixen.Ui.Text.ShapedGlyph.XOffset.init -> float
+Vixen.Ui.Text.ShapedGlyph.YAdvance.get -> float
+Vixen.Ui.Text.ShapedGlyph.YAdvance.init -> float
+Vixen.Ui.Text.ShapedGlyph.YOffset.get -> float
+Vixen.Ui.Text.ShapedGlyph.YOffset.init -> float
+Vixen.Ui.Text.ShapedRun -> sealed class
+Vixen.Ui.Text.ShapedRun.Advance.get -> float
+Vixen.Ui.Text.ShapedRun.Font.get -> Vixen.Ui.Text.FontFace
+Vixen.Ui.Text.ShapedRun.Glyphs.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Text.ShapedGlyph>
+Vixen.Ui.Text.ShapedRun.Item.get -> Vixen.Ui.Text.TextItem
+Vixen.Ui.Text.ShapedText -> sealed class
+Vixen.Ui.Text.ShapedText.Advance.get -> float
+Vixen.Ui.Text.ShapedText.CaretIndexAt(float x) -> int
+Vixen.Ui.Text.ShapedText.CaretOffset(int index) -> float
+Vixen.Ui.Text.ShapedText.Clusters.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Text.ClusterSpan>
+Vixen.Ui.Text.ShapedText.Placements() -> System.Collections.Generic.IEnumerable<Vixen.Ui.Text.GlyphPlacement>
+Vixen.Ui.Text.ShapedText.Runs.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Text.ShapedRun>
+Vixen.Ui.Text.ShapedText.Text.get -> string
+Vixen.Ui.Text.ShapingCache -> sealed class
+Vixen.Ui.Text.ShapingCache.Clear() -> void
+Vixen.Ui.Text.ShapingCache.Count.get -> int
+Vixen.Ui.Text.ShapingCache.Hits.get -> long
+Vixen.Ui.Text.ShapingCache.Misses.get -> long
+Vixen.Ui.Text.ShapingCache.Shape(Vixen.Ui.Text.FontFace font, string text, Vixen.Ui.Text.ParagraphDirection direction = Vixen.Ui.Text.ParagraphDirection.Auto, Vixen.Ui.Text.FontVariation? variation = null) -> Vixen.Ui.Text.ShapedText
+Vixen.Ui.Text.ShapingCache.ShapingCache(int capacity = 512) -> void
+Vixen.Ui.Text.TextItem -> readonly struct
+Vixen.Ui.Text.TextItem : System.IEquatable<Vixen.Ui.Text.TextItem>
+Vixen.Ui.Text.TextItem.IsRightToLeft.get -> bool
+Vixen.Ui.Text.TextItem.Length.get -> int
+Vixen.Ui.Text.TextItem.Length.init -> int
+Vixen.Ui.Text.TextItem.Level.get -> int
+Vixen.Ui.Text.TextItem.Level.init -> int
+Vixen.Ui.Text.TextItem.Script.get -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.TextItem.Script.init -> Vixen.Ui.Text.Script
+Vixen.Ui.Text.TextItem.Start.get -> int
+Vixen.Ui.Text.TextItem.Start.init -> int
+Vixen.Ui.Text.TextItem.TextItem() -> void
+Vixen.Ui.Text.TextItem.TextItem(int Start, int Length, int Level, Vixen.Ui.Text.Script Script) -> void
+Vixen.Ui.Text.TextItemizer -> static class
+Vixen.Ui.Text.TextLine -> readonly struct
+Vixen.Ui.Text.TextLine : System.IEquatable<Vixen.Ui.Text.TextLine>
+Vixen.Ui.Text.TextLine.Advance.get -> float
+Vixen.Ui.Text.TextLine.Advance.init -> float
+Vixen.Ui.Text.TextLine.End.get -> int
+Vixen.Ui.Text.TextLine.Length.get -> int
+Vixen.Ui.Text.TextLine.Length.init -> int
+Vixen.Ui.Text.TextLine.Mandatory.get -> bool
+Vixen.Ui.Text.TextLine.Mandatory.init -> bool
+Vixen.Ui.Text.TextLine.Start.get -> int
+Vixen.Ui.Text.TextLine.Start.init -> int
+Vixen.Ui.Text.TextLine.TextLine() -> void
+Vixen.Ui.Text.TextLine.TextLine(int Start, int Length, float Advance, bool Mandatory) -> void
+Vixen.Ui.Text.TextShaper -> static class
+Vixen.Ui.Text.TextWrapMode -> enum : byte
+Vixen.Ui.Text.TextWrapMode.Anywhere = 1 -> Vixen.Ui.Text.TextWrapMode
+Vixen.Ui.Text.TextWrapMode.TextWrapMode() -> void
+Vixen.Ui.Text.TextWrapMode.Word = 0 -> Vixen.Ui.Text.TextWrapMode
+Vixen.Ui.Text.WordBreakClass -> enum : byte
+Vixen.Ui.Text.WordBreakClass.ALetter = 1 -> Vixen.Ui.Text.WordBreakClass
+Vixen.Ui.Text.WordBreakClass.CR = 2 -> Vixen.Ui.Text.WordBreakClass
+Vixen.Ui.Text.WordBreakClass.DoubleQuote = 3 -> Vixen.Ui.Text.WordBreakClass
+Vixen.Ui.Text.WordBreakClass.Extend = 4 -> Vixen.Ui.Text.WordBreakClass
+Vixen.Ui.Text.WordBreakClass.ExtendNumLet = 5 -> Vixen.Ui.Text.WordBreakClass
+Vixen.Ui.Text.WordBreakClass.Format = 6 -> Vixen.Ui.Text.WordBreakClass
+Vixen.Ui.Text.WordBreakClass.HebrewLetter = 7 -> Vixen.Ui.Text.WordBreakClass
+Vixen.Ui.Text.WordBreakClass.Katakana = 8 -> Vixen.Ui.Text.WordBreakClass
+Vixen.Ui.Text.WordBreakClass.LF = 9 -> Vixen.Ui.Text.WordBreakClass
+Vixen.Ui.Text.WordBreakClass.MidLetter = 10 -> Vixen.Ui.Text.WordBreakClass
+Vixen.Ui.Text.WordBreakClass.MidNum = 11 -> Vixen.Ui.Text.WordBreakClass
+Vixen.Ui.Text.WordBreakClass.MidNumLet = 12 -> Vixen.Ui.Text.WordBreakClass
+Vixen.Ui.Text.WordBreakClass.Newline = 13 -> Vixen.Ui.Text.WordBreakClass
+Vixen.Ui.Text.WordBreakClass.Numeric = 14 -> Vixen.Ui.Text.WordBreakClass
+Vixen.Ui.Text.WordBreakClass.Other = 0 -> Vixen.Ui.Text.WordBreakClass
+Vixen.Ui.Text.WordBreakClass.RegionalIndicator = 15 -> Vixen.Ui.Text.WordBreakClass
+Vixen.Ui.Text.WordBreakClass.SingleQuote = 16 -> Vixen.Ui.Text.WordBreakClass
+Vixen.Ui.Text.WordBreakClass.WSegSpace = 17 -> Vixen.Ui.Text.WordBreakClass
+Vixen.Ui.Text.WordBreakClass.WordBreakClass() -> void
+Vixen.Ui.Text.WordBreakClass.ZWJ = 18 -> Vixen.Ui.Text.WordBreakClass
+Vixen.Ui.Text.WordBreaker -> static class
+const Vixen.Ui.Text.BidiAlgorithm.MaximumDepth = 125 -> int
+override Vixen.Ui.Text.FontVariation.Equals(object? obj) -> bool
+override Vixen.Ui.Text.FontVariation.GetHashCode() -> int
+override Vixen.Ui.Text.TextLine.ToString() -> string
+static Vixen.Ui.Text.BidiAlgorithm.Resolve(System.ReadOnlySpan<int> codePoints, Vixen.Ui.Text.ParagraphDirection direction = Vixen.Ui.Text.ParagraphDirection.Auto) -> Vixen.Ui.Text.BidiResult
+static Vixen.Ui.Text.BidiAlgorithm.Resolve(string text, Vixen.Ui.Text.ParagraphDirection direction = Vixen.Ui.Text.ParagraphDirection.Auto) -> Vixen.Ui.Text.BidiResult
+static Vixen.Ui.Text.FontFace.Load(byte[] data, int index = 0, string? name = null) -> Vixen.Ui.Text.FontFace
+static Vixen.Ui.Text.FontVariation.Create(System.Collections.Immutable.ImmutableArray<Vixen.Ui.Text.FontAxis> axes, System.Collections.Immutable.ImmutableArray<Vixen.Ui.Text.AxisSegmentMap> maps, System.Collections.Generic.IReadOnlyDictionary<string, float> values) -> Vixen.Ui.Text.FontVariation
+static Vixen.Ui.Text.GraphemeBreaker.Boundaries(string text) -> System.Collections.Generic.List<int>
+static Vixen.Ui.Text.GraphemeBreaker.ClusterAt(System.ReadOnlySpan<char> text, int index) -> (int Start, int End)
+static Vixen.Ui.Text.GraphemeBreaker.Collect(System.ReadOnlySpan<char> text, System.Collections.Generic.List<int> boundaries) -> void
+static Vixen.Ui.Text.GraphemeBreaker.Count(System.ReadOnlySpan<char> text) -> int
+static Vixen.Ui.Text.GraphemeBreaker.IsBoundary(System.ReadOnlySpan<char> text, int index) -> bool
+static Vixen.Ui.Text.LineBreaker.Collect(System.ReadOnlySpan<char> text, System.Collections.Generic.List<int> opportunities) -> void
+static Vixen.Ui.Text.LineBreaker.IsMandatory(System.ReadOnlySpan<char> text, int index) -> bool
+static Vixen.Ui.Text.LineBreaker.Opportunities(string text) -> System.Collections.Generic.List<int>
+static Vixen.Ui.Text.LineWrapper.Lines(Vixen.Ui.Text.ShapedText shaped, float maxAdvance, Vixen.Ui.Text.TextWrapMode mode = Vixen.Ui.Text.TextWrapMode.Word) -> System.Collections.Generic.List<Vixen.Ui.Text.TextLine>
+static Vixen.Ui.Text.LineWrapper.Wrap(Vixen.Ui.Text.ShapedText shaped, float maxAdvance, System.Collections.Generic.List<Vixen.Ui.Text.TextLine> lines, Vixen.Ui.Text.TextWrapMode mode = Vixen.Ui.Text.TextWrapMode.Word) -> void
+static Vixen.Ui.Text.Outlines.GlyphOutline.Empty.get -> Vixen.Ui.Text.Outlines.GlyphOutline
+static Vixen.Ui.Text.Rasterizing.DistanceField.Generate(Vixen.Ui.Text.Outlines.GlyphOutline outline, int width, int height, float scale, System.Numerics.Vector2 origin, float range = 4) -> Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap
+static Vixen.Ui.Text.Rasterizing.EdgeColoring.Colour(Vixen.Ui.Text.Outlines.GlyphOutline outline, System.Collections.Generic.List<Vixen.Ui.Text.Rasterizing.Edge> edges) -> System.Collections.Generic.List<Vixen.Ui.Text.Rasterizing.ColouredEdge>
+static Vixen.Ui.Text.Rasterizing.GlyphRasterizer.Rasterize(Vixen.Ui.Text.Outlines.GlyphOutline outline, int width, int height, float scale, System.Numerics.Vector2 origin) -> Vixen.Ui.Text.Rasterizing.CoverageBitmap
+static Vixen.Ui.Text.Rasterizing.OutlineFlattener.Flatten(Vixen.Ui.Text.Outlines.GlyphOutline outline, float tolerance) -> System.Collections.Generic.List<Vixen.Ui.Text.Rasterizing.Edge>
+static Vixen.Ui.Text.TextItemizer.Itemize(string text, Vixen.Ui.Text.ParagraphDirection direction = Vixen.Ui.Text.ParagraphDirection.Auto) -> System.Collections.Generic.List<Vixen.Ui.Text.TextItem>
+static Vixen.Ui.Text.TextItemizer.VisualOrder(System.Collections.Generic.IReadOnlyList<Vixen.Ui.Text.TextItem> items) -> int[]
+static Vixen.Ui.Text.TextShaper.Shape(Vixen.Ui.Text.FontFace font, string text, Vixen.Ui.Text.ParagraphDirection direction = Vixen.Ui.Text.ParagraphDirection.Auto, Vixen.Ui.Text.FontVariation? variation = null) -> Vixen.Ui.Text.ShapedText
+static Vixen.Ui.Text.WordBreaker.Boundaries(string text) -> System.Collections.Generic.List<int>
+static Vixen.Ui.Text.WordBreaker.Collect(System.ReadOnlySpan<char> text, System.Collections.Generic.List<int> boundaries) -> void
+static Vixen.Ui.Text.WordBreaker.WordAt(System.ReadOnlySpan<char> text, int index) -> (int Start, int End)
+static readonly Vixen.Ui.Text.FontVariation.None -> Vixen.Ui.Text.FontVariation

@@ -1,0 +1,157 @@
+#nullable enable
+Vixen.Platform.Headless.HeadlessClipboard -> sealed class
+Vixen.Platform.Headless.HeadlessClipboard : Vixen.Platform.IClipboard
+Vixen.Platform.Headless.HeadlessClipboard.Clear() -> void
+Vixen.Platform.Headless.HeadlessClipboard.HasImage.get -> bool
+Vixen.Platform.Headless.HeadlessClipboard.HasText.get -> bool
+Vixen.Platform.Headless.HeadlessClipboard.HeadlessClipboard() -> void
+Vixen.Platform.Headless.HeadlessClipboard.SetData(string format, System.ReadOnlySpan<byte> data) -> bool
+Vixen.Platform.Headless.HeadlessClipboard.SetImage(in Vixen.Platform.ClipboardImage image) -> bool
+Vixen.Platform.Headless.HeadlessClipboard.SetText(string text) -> bool
+Vixen.Platform.Headless.HeadlessClipboard.TryGetData(string format, out System.ReadOnlyMemory<byte> data) -> bool
+Vixen.Platform.Headless.HeadlessClipboard.TryGetImage(out Vixen.Platform.ClipboardImage image) -> bool
+Vixen.Platform.Headless.HeadlessClipboard.TryGetText(out string? text) -> bool
+Vixen.Platform.Headless.HeadlessDialogs -> sealed class
+Vixen.Platform.Headless.HeadlessDialogs : Vixen.Platform.INativeDialogs
+Vixen.Platform.Headless.HeadlessDialogs.HeadlessDialogs() -> void
+Vixen.Platform.Headless.HeadlessDialogs.OpenFileAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string?>
+Vixen.Platform.Headless.HeadlessDialogs.OpenFilesAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<string>>
+Vixen.Platform.Headless.HeadlessDialogs.OpenFolderAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string?>
+Vixen.Platform.Headless.HeadlessDialogs.SaveFileAsync(Vixen.Platform.FileDialogOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string?>
+Vixen.Platform.Headless.HeadlessDialogs.ShowMessageAsync(Vixen.Platform.MessageBoxOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Platform.MessageBoxResult>
+Vixen.Platform.Headless.HeadlessDisplays -> sealed class
+Vixen.Platform.Headless.HeadlessDisplays : Vixen.Platform.IDisplayInfo
+Vixen.Platform.Headless.HeadlessDisplays.Displays.get -> System.Collections.Generic.IReadOnlyList<Vixen.Platform.DisplayInfo>
+Vixen.Platform.Headless.HeadlessDisplays.HeadlessDisplays() -> void
+Vixen.Platform.Headless.HeadlessDisplays.Primary.get -> Vixen.Platform.DisplayInfo?
+Vixen.Platform.Headless.HeadlessDisplays.TryGetForPoint(Vixen.Core.Mathematics.Int2 point, out Vixen.Platform.DisplayInfo? display) -> bool
+Vixen.Platform.Headless.HeadlessDisplays.TryGetForWindow(Vixen.Platform.IWindow window, out Vixen.Platform.DisplayInfo? display) -> bool
+Vixen.Platform.Headless.HeadlessInputSource -> sealed class
+Vixen.Platform.Headless.HeadlessInputSource : Vixen.Platform.IInputSource
+Vixen.Platform.Headless.HeadlessInputSource.Gamepads.get -> System.Collections.Generic.IReadOnlyList<Vixen.Platform.IGamepad>
+Vixen.Platform.Headless.HeadlessInputSource.HeadlessInputSource() -> void
+Vixen.Platform.Headless.HeadlessInputSource.IsKeyDown(Vixen.Platform.Key key) -> bool
+Vixen.Platform.Headless.HeadlessInputSource.IsMouseButtonDown(Vixen.Platform.MouseButton button) -> bool
+Vixen.Platform.Headless.HeadlessInputSource.Modifiers.get -> Vixen.Platform.KeyModifiers
+Vixen.Platform.Headless.HeadlessInputSource.Modifiers.set -> Vixen.Platform.KeyModifiers
+Vixen.Platform.Headless.HeadlessInputSource.PointerPosition.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Platform.Headless.HeadlessInputSource.PointerPosition.set -> Vixen.Core.Mathematics.Vector2
+Vixen.Platform.Headless.HeadlessInputSource.ReleaseAll() -> void
+Vixen.Platform.Headless.HeadlessInputSource.SetKey(Vixen.Platform.Key key, bool down) -> void
+Vixen.Platform.Headless.HeadlessInputSource.SetMouseButton(Vixen.Platform.MouseButton button, bool down) -> void
+Vixen.Platform.Headless.HeadlessInputSource.TryGetGamepad(int deviceId, out Vixen.Platform.IGamepad? gamepad) -> bool
+Vixen.Platform.Headless.HeadlessLifecycle -> sealed class
+Vixen.Platform.Headless.HeadlessLifecycle : Vixen.Platform.ILifecycle
+Vixen.Platform.Headless.HeadlessLifecycle.CancelQuit() -> void
+Vixen.Platform.Headless.HeadlessLifecycle.HeadlessLifecycle(Vixen.Platform.PlatformEventBuffer events) -> void
+Vixen.Platform.Headless.HeadlessLifecycle.IsQuitRequested.get -> bool
+Vixen.Platform.Headless.HeadlessLifecycle.MemoryPressure.get -> Vixen.Platform.MemoryPressure
+Vixen.Platform.Headless.HeadlessLifecycle.ReportMemoryPressure(Vixen.Platform.MemoryPressure pressure) -> void
+Vixen.Platform.Headless.HeadlessLifecycle.RequestQuit() -> void
+Vixen.Platform.Headless.HeadlessLifecycle.Resume() -> void
+Vixen.Platform.Headless.HeadlessLifecycle.SetBackground(bool background) -> void
+Vixen.Platform.Headless.HeadlessLifecycle.State.get -> Vixen.Platform.ApplicationState
+Vixen.Platform.Headless.HeadlessLifecycle.Suspend() -> void
+Vixen.Platform.Headless.HeadlessPlatform -> sealed class
+Vixen.Platform.Headless.HeadlessPlatform : System.IDisposable
+Vixen.Platform.Headless.HeadlessPlatform : Vixen.Platform.IPlatform
+Vixen.Platform.Headless.HeadlessPlatform.Capabilities.get -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.Headless.HeadlessPlatform.Clipboard.get -> Vixen.Platform.IClipboard
+Vixen.Platform.Headless.HeadlessPlatform.CreateWindow(in Vixen.Platform.WindowOptions options) -> Vixen.Platform.IWindow
+Vixen.Platform.Headless.HeadlessPlatform.Dialogs.get -> Vixen.Platform.INativeDialogs
+Vixen.Platform.Headless.HeadlessPlatform.Displays.get -> Vixen.Platform.IDisplayInfo
+Vixen.Platform.Headless.HeadlessPlatform.Dispose() -> void
+Vixen.Platform.Headless.HeadlessPlatform.FileSystem.get -> Vixen.Platform.IFileSystemHost
+Vixen.Platform.Headless.HeadlessPlatform.HeadlessPlatform() -> void
+Vixen.Platform.Headless.HeadlessPlatform.HeadlessPlatform(Vixen.Platform.Headless.HeadlessPlatformOptions options) -> void
+Vixen.Platform.Headless.HeadlessPlatform.Input.get -> Vixen.Platform.IInputSource
+Vixen.Platform.Headless.HeadlessPlatform.Lifecycle.get -> Vixen.Platform.ILifecycle
+Vixen.Platform.Headless.HeadlessPlatform.Name.get -> string
+Vixen.Platform.Headless.HeadlessPlatform.Post(in Vixen.Platform.PlatformEvent platformEvent) -> bool
+Vixen.Platform.Headless.HeadlessPlatform.Power.get -> Vixen.Platform.IPowerInfo
+Vixen.Platform.Headless.HeadlessPlatform.Processors.get -> Vixen.Platform.IProcessorTopology
+Vixen.Platform.Headless.HeadlessPlatform.PumpEvents() -> System.ReadOnlySpan<Vixen.Platform.PlatformEvent>
+Vixen.Platform.Headless.HeadlessPlatform.SimulatedInput.get -> Vixen.Platform.Headless.HeadlessInputSource
+Vixen.Platform.Headless.HeadlessPlatform.Simulation.get -> Vixen.Platform.Headless.HeadlessLifecycle
+Vixen.Platform.Headless.HeadlessPlatform.TextInput.get -> Vixen.Platform.ITextInput
+Vixen.Platform.Headless.HeadlessPlatform.TryGetWindow(uint id, out Vixen.Platform.IWindow? window) -> bool
+Vixen.Platform.Headless.HeadlessPlatform.TryOpenUrl(string url) -> bool
+Vixen.Platform.Headless.HeadlessPlatform.Windows.get -> System.Collections.Generic.IReadOnlyList<Vixen.Platform.IWindow>
+Vixen.Platform.Headless.HeadlessPlatformOptions -> readonly struct
+Vixen.Platform.Headless.HeadlessPlatformOptions : System.IEquatable<Vixen.Platform.Headless.HeadlessPlatformOptions>
+Vixen.Platform.Headless.HeadlessPlatformOptions.Application.get -> string
+Vixen.Platform.Headless.HeadlessPlatformOptions.Application.init -> string
+Vixen.Platform.Headless.HeadlessPlatformOptions.FileSystem.get -> Vixen.Platform.IFileSystemHost?
+Vixen.Platform.Headless.HeadlessPlatformOptions.FileSystem.init -> Vixen.Platform.IFileSystemHost?
+Vixen.Platform.Headless.HeadlessPlatformOptions.HeadlessPlatformOptions() -> void
+Vixen.Platform.Headless.HeadlessPlatformOptions.Organisation.get -> string
+Vixen.Platform.Headless.HeadlessPlatformOptions.Organisation.init -> string
+Vixen.Platform.Headless.HeadlessPowerInfo -> sealed class
+Vixen.Platform.Headless.HeadlessPowerInfo : Vixen.Platform.IPowerInfo
+Vixen.Platform.Headless.HeadlessPowerInfo.BatteryLevel.get -> float?
+Vixen.Platform.Headless.HeadlessPowerInfo.EstimatedTimeRemaining.get -> System.TimeSpan?
+Vixen.Platform.Headless.HeadlessPowerInfo.HeadlessPowerInfo() -> void
+Vixen.Platform.Headless.HeadlessPowerInfo.IsLowPowerMode.get -> bool
+Vixen.Platform.Headless.HeadlessPowerInfo.Source.get -> Vixen.Platform.PowerSource
+Vixen.Platform.Headless.HeadlessPowerInfo.Thermal.get -> Vixen.Platform.ThermalState
+Vixen.Platform.Headless.HeadlessProcessorTopology -> sealed class
+Vixen.Platform.Headless.HeadlessProcessorTopology : Vixen.Platform.IProcessorTopology
+Vixen.Platform.Headless.HeadlessProcessorTopology.AvailableProcessors.get -> int
+Vixen.Platform.Headless.HeadlessProcessorTopology.ClassOf(int processor) -> Vixen.Platform.ProcessorClass
+Vixen.Platform.Headless.HeadlessProcessorTopology.ClearAffinity() -> void
+Vixen.Platform.Headless.HeadlessProcessorTopology.HeadlessProcessorTopology() -> void
+Vixen.Platform.Headless.HeadlessProcessorTopology.PerformanceCores.get -> int
+Vixen.Platform.Headless.HeadlessProcessorTopology.PhysicalCores.get -> int
+Vixen.Platform.Headless.HeadlessProcessorTopology.SupportsAffinity.get -> bool
+Vixen.Platform.Headless.HeadlessProcessorTopology.TrySetAffinity(int processor) -> bool
+Vixen.Platform.Headless.HeadlessTextInput -> sealed class
+Vixen.Platform.Headless.HeadlessTextInput : Vixen.Platform.ITextInput
+Vixen.Platform.Headless.HeadlessTextInput.Activate(Vixen.Platform.IWindow window) -> void
+Vixen.Platform.Headless.HeadlessTextInput.CandidateArea.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Platform.Headless.HeadlessTextInput.Deactivate() -> void
+Vixen.Platform.Headless.HeadlessTextInput.HasOnScreenKeyboard.get -> bool
+Vixen.Platform.Headless.HeadlessTextInput.HeadlessTextInput() -> void
+Vixen.Platform.Headless.HeadlessTextInput.IsActive.get -> bool
+Vixen.Platform.Headless.HeadlessTextInput.IsOnScreenKeyboardVisible.get -> bool
+Vixen.Platform.Headless.HeadlessTextInput.OnScreenKeyboardArea.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Platform.Headless.HeadlessTextInput.SetCandidateArea(Vixen.Platform.IWindow window, Vixen.Core.Mathematics.Rectangle area) -> void
+Vixen.Platform.Headless.HeadlessWindow -> sealed class
+Vixen.Platform.Headless.HeadlessWindow : System.IDisposable
+Vixen.Platform.Headless.HeadlessWindow : Vixen.Platform.IWindow
+Vixen.Platform.Headless.HeadlessWindow.AttentionRequests.get -> int
+Vixen.Platform.Headless.HeadlessWindow.Centre() -> void
+Vixen.Platform.Headless.HeadlessWindow.ClientSize.get -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.Headless.HeadlessWindow.ClientSize.set -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.Headless.HeadlessWindow.CursorMode.get -> Vixen.Platform.CursorMode
+Vixen.Platform.Headless.HeadlessWindow.CursorMode.set -> Vixen.Platform.CursorMode
+Vixen.Platform.Headless.HeadlessWindow.CursorShape.get -> Vixen.Platform.CursorShape
+Vixen.Platform.Headless.HeadlessWindow.CursorShape.set -> Vixen.Platform.CursorShape
+Vixen.Platform.Headless.HeadlessWindow.DisplayIndex.get -> int
+Vixen.Platform.Headless.HeadlessWindow.Dispose() -> void
+Vixen.Platform.Headless.HeadlessWindow.DpiScale.get -> float
+Vixen.Platform.Headless.HeadlessWindow.Focus() -> void
+Vixen.Platform.Headless.HeadlessWindow.FramebufferSize.get -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.Headless.HeadlessWindow.Hide() -> void
+Vixen.Platform.Headless.HeadlessWindow.Icon.get -> System.ReadOnlyMemory<byte>
+Vixen.Platform.Headless.HeadlessWindow.IconSize.get -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.Headless.HeadlessWindow.Id.get -> uint
+Vixen.Platform.Headless.HeadlessWindow.IsClosed.get -> bool
+Vixen.Platform.Headless.HeadlessWindow.IsFocused.get -> bool
+Vixen.Platform.Headless.HeadlessWindow.IsMinimised.get -> bool
+Vixen.Platform.Headless.HeadlessWindow.IsResizable.get -> bool
+Vixen.Platform.Headless.HeadlessWindow.IsResizable.set -> bool
+Vixen.Platform.Headless.HeadlessWindow.IsVisible.get -> bool
+Vixen.Platform.Headless.HeadlessWindow.Mode.get -> Vixen.Platform.WindowMode
+Vixen.Platform.Headless.HeadlessWindow.Mode.set -> Vixen.Platform.WindowMode
+Vixen.Platform.Headless.HeadlessWindow.Position.get -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.Headless.HeadlessWindow.Position.set -> Vixen.Core.Mathematics.Int2
+Vixen.Platform.Headless.HeadlessWindow.RequestAttention() -> void
+Vixen.Platform.Headless.HeadlessWindow.RequestClose() -> void
+Vixen.Platform.Headless.HeadlessWindow.SetDpiScale(float scale) -> void
+Vixen.Platform.Headless.HeadlessWindow.SetFocused(bool focused) -> void
+Vixen.Platform.Headless.HeadlessWindow.SetIcon(System.ReadOnlySpan<byte> pixels, Vixen.Core.Mathematics.Int2 size) -> void
+Vixen.Platform.Headless.HeadlessWindow.SetMinimised(bool minimised) -> void
+Vixen.Platform.Headless.HeadlessWindow.Show() -> void
+Vixen.Platform.Headless.HeadlessWindow.Surface.get -> Vixen.Platform.ISurface
+Vixen.Platform.Headless.HeadlessWindow.Title.get -> string
+Vixen.Platform.Headless.HeadlessWindow.Title.set -> string

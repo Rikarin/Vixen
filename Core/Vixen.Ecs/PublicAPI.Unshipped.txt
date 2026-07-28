@@ -1,0 +1,529 @@
+#nullable enable
+Vixen.Ecs.Archetype -> sealed class
+Vixen.Ecs.Archetype.ChunkBytes.get -> int
+Vixen.Ecs.Archetype.ChunkCapacity.get -> int
+Vixen.Ecs.Archetype.Chunks.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ecs.Chunk>
+Vixen.Ecs.Archetype.ColumnCount.get -> int
+Vixen.Ecs.Archetype.ColumnOf(Vixen.Core.ComponentTypeId id) -> int
+Vixen.Ecs.Archetype.EntityCount.get -> int
+Vixen.Ecs.Archetype.Has(Vixen.Core.ComponentTypeId id) -> bool
+Vixen.Ecs.Archetype.Mask.get -> Vixen.Core.Collections.BitSet
+Vixen.Ecs.Archetype.Signature.get -> Vixen.Ecs.ComponentSignature
+Vixen.Ecs.Archetype.World.get -> Vixen.Ecs.World
+Vixen.Ecs.Chunk -> sealed class
+Vixen.Ecs.Chunk.Archetype.get -> Vixen.Ecs.Archetype
+Vixen.Ecs.Chunk.Capacity.get -> int
+Vixen.Ecs.Chunk.Count.get -> int
+Vixen.Ecs.Chunk.Entities.get -> System.ReadOnlySpan<Vixen.Core.Entity>
+Vixen.Ecs.Chunk.IsFull.get -> bool
+Vixen.Ecs.Chunk.ReadValues<T>() -> System.ReadOnlySpan<T>
+Vixen.Ecs.Chunk.Values<T>() -> System.Span<T>
+Vixen.Ecs.Chunk.VersionOf(int column) -> uint
+Vixen.Ecs.ChunkSequence -> readonly struct
+Vixen.Ecs.ChunkSequence.ChunkSequence() -> void
+Vixen.Ecs.ChunkSequence.Enumerator -> struct
+Vixen.Ecs.ChunkSequence.Enumerator.Enumerator() -> void
+Vixen.Ecs.ChunkSequence.Enumerator.MoveNext() -> bool
+Vixen.Ecs.ChunkSequence.GetEnumerator() -> Vixen.Ecs.ChunkSequence.Enumerator
+Vixen.Ecs.CommandBuffer -> sealed class
+Vixen.Ecs.CommandBuffer.Add<T>(Vixen.Core.Entity entity) -> void
+Vixen.Ecs.CommandBuffer.Add<T>(Vixen.Core.Entity entity, in T value) -> void
+Vixen.Ecs.CommandBuffer.AsParallelWriter() -> Vixen.Ecs.CommandBuffer.ParallelWriter
+Vixen.Ecs.CommandBuffer.Clear() -> void
+Vixen.Ecs.CommandBuffer.CommandBuffer(Vixen.Ecs.World world) -> void
+Vixen.Ecs.CommandBuffer.Count.get -> int
+Vixen.Ecs.CommandBuffer.Create() -> Vixen.Core.Entity
+Vixen.Ecs.CommandBuffer.Destroy(Vixen.Core.Entity entity) -> void
+Vixen.Ecs.CommandBuffer.ParallelWriter -> readonly struct
+Vixen.Ecs.CommandBuffer.ParallelWriter.Add<T>(int sortKey, Vixen.Core.Entity entity) -> void
+Vixen.Ecs.CommandBuffer.ParallelWriter.Add<T>(int sortKey, Vixen.Core.Entity entity, in T value) -> void
+Vixen.Ecs.CommandBuffer.ParallelWriter.Create(int sortKey) -> Vixen.Core.Entity
+Vixen.Ecs.CommandBuffer.ParallelWriter.Destroy(int sortKey, Vixen.Core.Entity entity) -> void
+Vixen.Ecs.CommandBuffer.ParallelWriter.ParallelWriter() -> void
+Vixen.Ecs.CommandBuffer.ParallelWriter.Remove<T>(int sortKey, Vixen.Core.Entity entity) -> void
+Vixen.Ecs.CommandBuffer.ParallelWriter.Set<T>(int sortKey, Vixen.Core.Entity entity, in T value) -> void
+Vixen.Ecs.CommandBuffer.Playback() -> void
+Vixen.Ecs.CommandBuffer.Remove<T>(Vixen.Core.Entity entity) -> void
+Vixen.Ecs.CommandBuffer.Resolve(Vixen.Core.Entity placeholder) -> Vixen.Core.Entity
+Vixen.Ecs.CommandBuffer.Set<T>(Vixen.Core.Entity entity, in T value) -> void
+Vixen.Ecs.CommandBuffer.World.get -> Vixen.Ecs.World
+Vixen.Ecs.CommandKind -> enum : int
+Vixen.Ecs.CommandKind.Add = 2 -> Vixen.Ecs.CommandKind
+Vixen.Ecs.CommandKind.CommandKind() -> void
+Vixen.Ecs.CommandKind.Create = 0 -> Vixen.Ecs.CommandKind
+Vixen.Ecs.CommandKind.Destroy = 1 -> Vixen.Ecs.CommandKind
+Vixen.Ecs.CommandKind.Remove = 4 -> Vixen.Ecs.CommandKind
+Vixen.Ecs.CommandKind.Set = 3 -> Vixen.Ecs.CommandKind
+Vixen.Ecs.ComponentNotFoundException -> sealed class
+Vixen.Ecs.ComponentNotFoundException : System.InvalidOperationException
+Vixen.Ecs.ComponentNotFoundException.ComponentNotFoundException() -> void
+Vixen.Ecs.ComponentNotFoundException.ComponentNotFoundException(Vixen.Core.Entity entity, System.Type componentType, Vixen.Ecs.ComponentSignature archetype) -> void
+Vixen.Ecs.ComponentNotFoundException.ComponentNotFoundException(string message) -> void
+Vixen.Ecs.ComponentNotFoundException.ComponentNotFoundException(string message, System.Exception innerException) -> void
+Vixen.Ecs.ComponentNotFoundException.ComponentType.get -> System.Type?
+Vixen.Ecs.ComponentNotFoundException.Entity.get -> Vixen.Core.Entity
+Vixen.Ecs.ComponentRegistry -> static class
+Vixen.Ecs.ComponentSignature -> readonly struct
+Vixen.Ecs.ComponentSignature : System.IEquatable<Vixen.Ecs.ComponentSignature>
+Vixen.Ecs.ComponentSignature.ComponentSignature() -> void
+Vixen.Ecs.ComponentSignature.Contains(Vixen.Core.ComponentTypeId id) -> bool
+Vixen.Ecs.ComponentSignature.Count.get -> int
+Vixen.Ecs.ComponentSignature.Equals(Vixen.Ecs.ComponentSignature other) -> bool
+Vixen.Ecs.ComponentSignature.Ids.get -> System.ReadOnlySpan<Vixen.Core.ComponentTypeId>
+Vixen.Ecs.ComponentSignature.With(Vixen.Core.ComponentTypeId id) -> Vixen.Ecs.ComponentSignature
+Vixen.Ecs.ComponentSignature.Without(Vixen.Core.ComponentTypeId id) -> Vixen.Ecs.ComponentSignature
+Vixen.Ecs.ComponentType -> sealed class
+Vixen.Ecs.ComponentType.Alignment.get -> int
+Vixen.Ecs.ComponentType.Id.get -> Vixen.Core.ComponentTypeId
+Vixen.Ecs.ComponentType.IsManaged.get -> bool
+Vixen.Ecs.ComponentType.IsTag.get -> bool
+Vixen.Ecs.ComponentType.Size.get -> int
+Vixen.Ecs.ComponentType.Type.get -> System.Type
+Vixen.Ecs.ComponentType<T> -> static class
+Vixen.Ecs.EntityNotFoundException -> sealed class
+Vixen.Ecs.EntityNotFoundException : System.InvalidOperationException
+Vixen.Ecs.EntityNotFoundException.Entity.get -> Vixen.Core.Entity
+Vixen.Ecs.EntityNotFoundException.EntityNotFoundException() -> void
+Vixen.Ecs.EntityNotFoundException.EntityNotFoundException(Vixen.Core.Entity entity, string reason) -> void
+Vixen.Ecs.EntityNotFoundException.EntityNotFoundException(string message) -> void
+Vixen.Ecs.EntityNotFoundException.EntityNotFoundException(string message, System.Exception innerException) -> void
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15> -> interface
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>.Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12, ref T13 component13, ref T14 component14, ref T15 component15) -> void
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14> -> interface
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14>.Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12, ref T13 component13, ref T14 component14) -> void
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13> -> interface
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>.Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12, ref T13 component13) -> void
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12> -> interface
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>.Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12) -> void
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11> -> interface
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>.Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11) -> void
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10> -> interface
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>.Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10) -> void
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9> -> interface
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>.Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9) -> void
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7, T8> -> interface
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7, T8>.Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8) -> void
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7> -> interface
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7>.Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7) -> void
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6> -> interface
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6>.Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6) -> void
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5> -> interface
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5>.Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5) -> void
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4> -> interface
+Vixen.Ecs.IForEach<T0, T1, T2, T3, T4>.Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4) -> void
+Vixen.Ecs.IForEach<T0, T1, T2, T3> -> interface
+Vixen.Ecs.IForEach<T0, T1, T2, T3>.Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3) -> void
+Vixen.Ecs.IForEach<T0, T1, T2> -> interface
+Vixen.Ecs.IForEach<T0, T1, T2>.Execute(ref T0 component0, ref T1 component1, ref T2 component2) -> void
+Vixen.Ecs.IForEach<T0, T1> -> interface
+Vixen.Ecs.IForEach<T0, T1>.Execute(ref T0 component0, ref T1 component1) -> void
+Vixen.Ecs.IForEach<T0> -> interface
+Vixen.Ecs.IForEach<T0>.Execute(ref T0 component0) -> void
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15> -> interface
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>.Execute(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12, ref T13 component13, ref T14 component14, ref T15 component15) -> void
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14> -> interface
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14>.Execute(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12, ref T13 component13, ref T14 component14) -> void
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13> -> interface
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>.Execute(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12, ref T13 component13) -> void
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12> -> interface
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>.Execute(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12) -> void
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11> -> interface
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>.Execute(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11) -> void
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10> -> interface
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>.Execute(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10) -> void
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9> -> interface
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>.Execute(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9) -> void
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8> -> interface
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8>.Execute(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8) -> void
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6, T7> -> interface
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6, T7>.Execute(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7) -> void
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6> -> interface
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5, T6>.Execute(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6) -> void
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5> -> interface
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4, T5>.Execute(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5) -> void
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4> -> interface
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3, T4>.Execute(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4) -> void
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3> -> interface
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2, T3>.Execute(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3) -> void
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2> -> interface
+Vixen.Ecs.IForEachWithEntity<T0, T1, T2>.Execute(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2) -> void
+Vixen.Ecs.IForEachWithEntity<T0, T1> -> interface
+Vixen.Ecs.IForEachWithEntity<T0, T1>.Execute(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1) -> void
+Vixen.Ecs.IForEachWithEntity<T0> -> interface
+Vixen.Ecs.IForEachWithEntity<T0>.Execute(Vixen.Core.Entity entity, ref T0 component0) -> void
+Vixen.Ecs.ITagComponent -> interface
+Vixen.Ecs.Query -> sealed class
+Vixen.Ecs.Query.Archetypes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ecs.Archetype>
+Vixen.Ecs.Query.Chunks(uint since = 0) -> Vixen.Ecs.ChunkSequence
+Vixen.Ecs.Query.Description.get -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.Query.EntityCount.get -> int
+Vixen.Ecs.Query.World.get -> Vixen.Ecs.World
+Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15> -> delegate
+Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14> -> delegate
+Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13> -> delegate
+Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12> -> delegate
+Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11> -> delegate
+Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10> -> delegate
+Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9> -> delegate
+Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8> -> delegate
+Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7> -> delegate
+Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6> -> delegate
+Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5> -> delegate
+Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4> -> delegate
+Vixen.Ecs.QueryAction<T0, T1, T2, T3> -> delegate
+Vixen.Ecs.QueryAction<T0, T1, T2> -> delegate
+Vixen.Ecs.QueryAction<T0, T1> -> delegate
+Vixen.Ecs.QueryAction<T0> -> delegate
+Vixen.Ecs.QueryDescription -> sealed class
+Vixen.Ecs.QueryDescription.ChangedComponents.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.ComponentTypeId>
+Vixen.Ecs.QueryDescription.Exclude(System.ReadOnlySpan<Vixen.Core.ComponentTypeId> componentTypes) -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.HasChangeFilter.get -> bool
+Vixen.Ecs.QueryDescription.Matches(Vixen.Ecs.Archetype archetype) -> bool
+Vixen.Ecs.QueryDescription.MatchesChange(Vixen.Ecs.Chunk chunk, uint since) -> bool
+Vixen.Ecs.QueryDescription.QueryDescription() -> void
+Vixen.Ecs.QueryDescription.RequireAll(System.ReadOnlySpan<Vixen.Core.ComponentTypeId> componentTypes) -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.RequireAny(System.ReadOnlySpan<Vixen.Core.ComponentTypeId> componentTypes) -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.RequireChanged(System.ReadOnlySpan<Vixen.Core.ComponentTypeId> componentTypes) -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAll<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAll<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAll<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAll<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAll<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAll<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAll<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAll<T0, T1, T2, T3, T4, T5, T6, T7, T8>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAll<T0, T1, T2, T3, T4, T5, T6, T7>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAll<T0, T1, T2, T3, T4, T5, T6>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAll<T0, T1, T2, T3, T4, T5>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAll<T0, T1, T2, T3, T4>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAll<T0, T1, T2, T3>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAll<T0, T1, T2>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAll<T0, T1>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAll<T0>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAny<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAny<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAny<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAny<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAny<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAny<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAny<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAny<T0, T1, T2, T3, T4, T5, T6, T7, T8>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAny<T0, T1, T2, T3, T4, T5, T6, T7>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAny<T0, T1, T2, T3, T4, T5, T6>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAny<T0, T1, T2, T3, T4, T5>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAny<T0, T1, T2, T3, T4>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAny<T0, T1, T2, T3>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAny<T0, T1, T2>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAny<T0, T1>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithAny<T0>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithChanged<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithChanged<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithChanged<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithChanged<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithChanged<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithChanged<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithChanged<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithChanged<T0, T1, T2, T3, T4, T5, T6, T7, T8>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithChanged<T0, T1, T2, T3, T4, T5, T6, T7>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithChanged<T0, T1, T2, T3, T4, T5, T6>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithChanged<T0, T1, T2, T3, T4, T5>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithChanged<T0, T1, T2, T3, T4>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithChanged<T0, T1, T2, T3>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithChanged<T0, T1, T2>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithChanged<T0, T1>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithChanged<T0>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithNone<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithNone<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithNone<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithNone<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithNone<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithNone<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithNone<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithNone<T0, T1, T2, T3, T4, T5, T6, T7, T8>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithNone<T0, T1, T2, T3, T4, T5, T6, T7>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithNone<T0, T1, T2, T3, T4, T5, T6>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithNone<T0, T1, T2, T3, T4, T5>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithNone<T0, T1, T2, T3, T4>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithNone<T0, T1, T2, T3>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithNone<T0, T1, T2>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithNone<T0, T1>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryDescription.WithNone<T0>() -> Vixen.Ecs.QueryDescription
+Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15> -> delegate
+Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14> -> delegate
+Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13> -> delegate
+Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12> -> delegate
+Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11> -> delegate
+Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10> -> delegate
+Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9> -> delegate
+Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8> -> delegate
+Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7> -> delegate
+Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6> -> delegate
+Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5> -> delegate
+Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4> -> delegate
+Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3> -> delegate
+Vixen.Ecs.QueryEntityAction<T0, T1, T2> -> delegate
+Vixen.Ecs.QueryEntityAction<T0, T1> -> delegate
+Vixen.Ecs.QueryEntityAction<T0> -> delegate
+Vixen.Ecs.Systems.IDeclaredAccess -> interface
+Vixen.Ecs.Systems.IDeclaredAccess.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Ecs.Systems.ISystem -> interface
+Vixen.Ecs.Systems.ISystem : System.IDisposable
+Vixen.Ecs.Systems.ISystem.Initialize(in Vixen.Ecs.Systems.SystemContext context) -> void
+Vixen.Ecs.Systems.ISystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+Vixen.Ecs.Systems.ReadsAttribute -> sealed class
+Vixen.Ecs.Systems.ReadsAttribute : System.Attribute
+Vixen.Ecs.Systems.ReadsAttribute.ComponentTypes.get -> System.Collections.Generic.IReadOnlyList<System.Type>
+Vixen.Ecs.Systems.ReadsAttribute.ReadsAttribute(params System.Type[] componentTypes) -> void
+Vixen.Ecs.Systems.SystemAccess -> sealed class
+Vixen.Ecs.Systems.SystemAccess.Builder -> sealed class
+Vixen.Ecs.Systems.SystemAccess.Builder.Build() -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Ecs.Systems.SystemAccess.Builder.Builder() -> void
+Vixen.Ecs.Systems.SystemAccess.Builder.Read<T>() -> Vixen.Ecs.Systems.SystemAccess.Builder
+Vixen.Ecs.Systems.SystemAccess.Builder.Write<T>() -> Vixen.Ecs.Systems.SystemAccess.Builder
+Vixen.Ecs.Systems.SystemAccess.ConflictsWith(Vixen.Ecs.Systems.SystemAccess other) -> bool
+Vixen.Ecs.Systems.SystemAccess.IsEmpty.get -> bool
+Vixen.Ecs.Systems.SystemAccess.Reads.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.ComponentTypeId>
+Vixen.Ecs.Systems.SystemAccess.SystemAccess(System.Collections.Generic.IEnumerable<Vixen.Core.ComponentTypeId> reads, System.Collections.Generic.IEnumerable<Vixen.Core.ComponentTypeId> writes) -> void
+Vixen.Ecs.Systems.SystemAccess.Writes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.ComponentTypeId>
+Vixen.Ecs.Systems.SystemBase -> abstract class
+Vixen.Ecs.Systems.SystemBase : System.IDisposable
+Vixen.Ecs.Systems.SystemBase : Vixen.Ecs.Systems.ISystem
+Vixen.Ecs.Systems.SystemBase.SystemBase() -> void
+Vixen.Ecs.Systems.SystemContext -> readonly struct
+Vixen.Ecs.Systems.SystemContext : System.IEquatable<Vixen.Ecs.Systems.SystemContext>
+Vixen.Ecs.Systems.SystemContext.Commands.get -> Vixen.Ecs.CommandBuffer
+Vixen.Ecs.Systems.SystemContext.Commands.init -> Vixen.Ecs.CommandBuffer
+Vixen.Ecs.Systems.SystemContext.Jobs.get -> Vixen.Core.Threading.JobScheduler?
+Vixen.Ecs.Systems.SystemContext.Jobs.init -> Vixen.Core.Threading.JobScheduler?
+Vixen.Ecs.Systems.SystemContext.Phase.get -> Vixen.Ecs.Systems.SystemPhase
+Vixen.Ecs.Systems.SystemContext.Phase.init -> Vixen.Ecs.Systems.SystemPhase
+Vixen.Ecs.Systems.SystemContext.SystemContext() -> void
+Vixen.Ecs.Systems.SystemContext.SystemContext(Vixen.Ecs.World World, Vixen.Core.GameTime Time, Vixen.Core.Threading.JobScheduler? Jobs, Vixen.Ecs.CommandBuffer Commands, Vixen.Ecs.Systems.SystemPhase Phase = Vixen.Ecs.Systems.SystemPhase.Update) -> void
+Vixen.Ecs.Systems.SystemContext.Time.get -> Vixen.Core.GameTime
+Vixen.Ecs.Systems.SystemContext.Time.init -> Vixen.Core.GameTime
+Vixen.Ecs.Systems.SystemContext.World.get -> Vixen.Ecs.World
+Vixen.Ecs.Systems.SystemContext.World.init -> Vixen.Ecs.World
+Vixen.Ecs.Systems.SystemGraph -> sealed class
+Vixen.Ecs.Systems.SystemGraph.All.get -> System.Collections.Generic.IEnumerable<Vixen.Ecs.Systems.SystemNode>
+Vixen.Ecs.Systems.SystemGraph.InPhase(Vixen.Ecs.Systems.SystemPhase phase) -> System.Collections.Generic.IReadOnlyList<Vixen.Ecs.Systems.SystemNode>
+Vixen.Ecs.Systems.SystemGraph.Phases.get -> System.Collections.Generic.IEnumerable<Vixen.Ecs.Systems.SystemPhase>
+Vixen.Ecs.Systems.SystemGraph.SystemGraph() -> void
+Vixen.Ecs.Systems.SystemGraph.ToDot() -> string
+Vixen.Ecs.Systems.SystemGraph.ToMermaid() -> string
+Vixen.Ecs.Systems.SystemNode -> sealed record
+Vixen.Ecs.Systems.SystemNode : System.IEquatable<Vixen.Ecs.Systems.SystemNode>
+Vixen.Ecs.Systems.SystemNode.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Ecs.Systems.SystemNode.Access.init -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Ecs.Systems.SystemNode.DependsOn.get -> System.Collections.Generic.IReadOnlyList<int>
+Vixen.Ecs.Systems.SystemNode.Name.get -> string
+Vixen.Ecs.Systems.SystemNode.Order.get -> int
+Vixen.Ecs.Systems.SystemNode.Order.init -> int
+Vixen.Ecs.Systems.SystemNode.Phase.get -> Vixen.Ecs.Systems.SystemPhase
+Vixen.Ecs.Systems.SystemNode.Phase.init -> Vixen.Ecs.Systems.SystemPhase
+Vixen.Ecs.Systems.SystemNode.System.get -> Vixen.Ecs.Systems.ISystem
+Vixen.Ecs.Systems.SystemNode.System.init -> Vixen.Ecs.Systems.ISystem
+Vixen.Ecs.Systems.SystemNode.SystemNode(Vixen.Ecs.Systems.ISystem System, Vixen.Ecs.Systems.SystemPhase Phase, Vixen.Ecs.Systems.SystemAccess Access, int Order) -> void
+Vixen.Ecs.Systems.SystemPhase -> enum : int
+Vixen.Ecs.Systems.SystemPhase.Animation = 4 -> Vixen.Ecs.Systems.SystemPhase
+Vixen.Ecs.Systems.SystemPhase.EarlyUpdate = 0 -> Vixen.Ecs.Systems.SystemPhase
+Vixen.Ecs.Systems.SystemPhase.FixedUpdate = 2 -> Vixen.Ecs.Systems.SystemPhase
+Vixen.Ecs.Systems.SystemPhase.Input = 1 -> Vixen.Ecs.Systems.SystemPhase
+Vixen.Ecs.Systems.SystemPhase.LateUpdate = 5 -> Vixen.Ecs.Systems.SystemPhase
+Vixen.Ecs.Systems.SystemPhase.PostRender = 8 -> Vixen.Ecs.Systems.SystemPhase
+Vixen.Ecs.Systems.SystemPhase.PreRender = 6 -> Vixen.Ecs.Systems.SystemPhase
+Vixen.Ecs.Systems.SystemPhase.Render = 7 -> Vixen.Ecs.Systems.SystemPhase
+Vixen.Ecs.Systems.SystemPhase.SystemPhase() -> void
+Vixen.Ecs.Systems.SystemPhase.Update = 3 -> Vixen.Ecs.Systems.SystemPhase
+Vixen.Ecs.Systems.SystemRunner -> sealed class
+Vixen.Ecs.Systems.SystemRunner : System.IDisposable
+Vixen.Ecs.Systems.SystemRunner.Add(Vixen.Ecs.Systems.ISystem system) -> Vixen.Ecs.Systems.SystemRunner
+Vixen.Ecs.Systems.SystemRunner.Commands.get -> Vixen.Ecs.CommandBuffer
+Vixen.Ecs.Systems.SystemRunner.Dispose() -> void
+Vixen.Ecs.Systems.SystemRunner.Graph.get -> Vixen.Ecs.Systems.SystemGraph
+Vixen.Ecs.Systems.SystemRunner.Initialize(Vixen.Core.GameTime time = default(Vixen.Core.GameTime)) -> void
+Vixen.Ecs.Systems.SystemRunner.Jobs.get -> Vixen.Core.Threading.JobScheduler?
+Vixen.Ecs.Systems.SystemRunner.RunFrame(Vixen.Core.GameTime time) -> void
+Vixen.Ecs.Systems.SystemRunner.RunPhase(Vixen.Ecs.Systems.SystemPhase phase, Vixen.Core.GameTime time) -> void
+Vixen.Ecs.Systems.SystemRunner.SystemRunner(Vixen.Ecs.World world, Vixen.Core.Threading.JobScheduler? jobs = null) -> void
+Vixen.Ecs.Systems.SystemRunner.World.get -> Vixen.Ecs.World
+Vixen.Ecs.Systems.UpdateAfterAttribute -> sealed class
+Vixen.Ecs.Systems.UpdateAfterAttribute : System.Attribute
+Vixen.Ecs.Systems.UpdateAfterAttribute.SystemType.get -> System.Type
+Vixen.Ecs.Systems.UpdateAfterAttribute.UpdateAfterAttribute(System.Type systemType) -> void
+Vixen.Ecs.Systems.UpdateBeforeAttribute -> sealed class
+Vixen.Ecs.Systems.UpdateBeforeAttribute : System.Attribute
+Vixen.Ecs.Systems.UpdateBeforeAttribute.SystemType.get -> System.Type
+Vixen.Ecs.Systems.UpdateBeforeAttribute.UpdateBeforeAttribute(System.Type systemType) -> void
+Vixen.Ecs.Systems.UpdateInGroupAttribute -> sealed class
+Vixen.Ecs.Systems.UpdateInGroupAttribute : System.Attribute
+Vixen.Ecs.Systems.UpdateInGroupAttribute.Phase.get -> Vixen.Ecs.Systems.SystemPhase
+Vixen.Ecs.Systems.UpdateInGroupAttribute.UpdateInGroupAttribute(Vixen.Ecs.Systems.SystemPhase phase) -> void
+Vixen.Ecs.Systems.WritesAttribute -> sealed class
+Vixen.Ecs.Systems.WritesAttribute : System.Attribute
+Vixen.Ecs.Systems.WritesAttribute.ComponentTypes.get -> System.Collections.Generic.IReadOnlyList<System.Type>
+Vixen.Ecs.Systems.WritesAttribute.WritesAttribute(params System.Type[] componentTypes) -> void
+Vixen.Ecs.World -> sealed class
+Vixen.Ecs.World : System.IDisposable
+Vixen.Ecs.World.Add<T>(Vixen.Core.Entity entity) -> void
+Vixen.Ecs.World.Add<T>(Vixen.Core.Entity entity, in T value) -> void
+Vixen.Ecs.World.AdvanceVersion() -> uint
+Vixen.Ecs.World.ArchetypeOf(System.ReadOnlySpan<Vixen.Core.ComponentTypeId> componentTypes) -> Vixen.Ecs.Archetype
+Vixen.Ecs.World.ArchetypeOf(Vixen.Core.Entity entity) -> Vixen.Ecs.Archetype
+Vixen.Ecs.World.Archetypes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ecs.Archetype>
+Vixen.Ecs.World.Chunks(Vixen.Ecs.QueryDescription description, uint since = 0) -> Vixen.Ecs.ChunkSequence
+Vixen.Ecs.World.Clear() -> void
+Vixen.Ecs.World.CopyComponentsFrom(Vixen.Core.Entity target, Vixen.Ecs.World source, Vixen.Core.Entity sourceEntity) -> void
+Vixen.Ecs.World.Create() -> Vixen.Core.Entity
+Vixen.Ecs.World.Create(Vixen.Ecs.Archetype archetype) -> Vixen.Core.Entity
+Vixen.Ecs.World.Create<T0, T1, T2, T3>(in T0 component0, in T1 component1, in T2 component2, in T3 component3) -> Vixen.Core.Entity
+Vixen.Ecs.World.Create<T0, T1, T2>(in T0 component0, in T1 component1, in T2 component2) -> Vixen.Core.Entity
+Vixen.Ecs.World.Create<T0, T1>(in T0 component0, in T1 component1) -> Vixen.Core.Entity
+Vixen.Ecs.World.Create<T0>(in T0 component0) -> Vixen.Core.Entity
+Vixen.Ecs.World.CreateMany(Vixen.Ecs.Archetype archetype, System.Span<Vixen.Core.Entity> created) -> void
+Vixen.Ecs.World.Destroy(Vixen.Core.Entity entity) -> void
+Vixen.Ecs.World.Dispose() -> void
+Vixen.Ecs.World.EmptyArchetype.get -> Vixen.Ecs.Archetype
+Vixen.Ecs.World.EntityCount.get -> int
+Vixen.Ecs.World.Get<T>(Vixen.Core.Entity entity) -> T
+Vixen.Ecs.World.Has<T>(Vixen.Core.Entity entity) -> bool
+Vixen.Ecs.World.Id.get -> short
+Vixen.Ecs.World.IsAlive(Vixen.Core.Entity entity) -> bool
+Vixen.Ecs.World.IsDisposed.get -> bool
+Vixen.Ecs.World.Name.get -> string
+Vixen.Ecs.World.Query(Vixen.Ecs.QueryDescription description) -> Vixen.Ecs.Query
+Vixen.Ecs.World.Read<T>(Vixen.Core.Entity entity) -> T
+Vixen.Ecs.World.Remove<T>(Vixen.Core.Entity entity) -> void
+Vixen.Ecs.World.Set<T>(Vixen.Core.Entity entity, in T value) -> void
+Vixen.Ecs.World.StructuralVersion.get -> int
+Vixen.Ecs.World.TryGet<T>(Vixen.Core.Entity entity, out T? value) -> bool
+Vixen.Ecs.World.Version.get -> uint
+Vixen.Ecs.World.World(string name = "World") -> void
+Vixen.Ecs.WorldDigest -> static class
+Vixen.Ecs.WorldQueryExtensions -> static class
+abstract Vixen.Ecs.Systems.SystemBase.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+const Vixen.Ecs.Archetype.ChunkBudget = 16384 -> int
+override Vixen.Ecs.Archetype.ToString() -> string
+override Vixen.Ecs.ComponentSignature.Equals(object? obj) -> bool
+override Vixen.Ecs.ComponentSignature.GetHashCode() -> int
+override Vixen.Ecs.ComponentSignature.ToString() -> string
+override Vixen.Ecs.ComponentType.ToString() -> string
+override Vixen.Ecs.Query.ToString() -> string
+override Vixen.Ecs.QueryDescription.ToString() -> string
+override Vixen.Ecs.Systems.SystemAccess.ToString() -> string
+override Vixen.Ecs.World.ToString() -> string
+readonly Vixen.Ecs.ChunkSequence.Enumerator.Current.get -> Vixen.Ecs.Chunk
+static Vixen.Ecs.ComponentRegistry.Count.get -> int
+static Vixen.Ecs.ComponentRegistry.Get(Vixen.Core.ComponentTypeId id) -> Vixen.Ecs.ComponentType
+static Vixen.Ecs.ComponentRegistry.Of<T>() -> Vixen.Ecs.ComponentType
+static Vixen.Ecs.ComponentRegistry.TryGet(System.Type type, out Vixen.Ecs.ComponentType? component) -> bool
+static Vixen.Ecs.ComponentSignature.Empty.get -> Vixen.Ecs.ComponentSignature
+static Vixen.Ecs.ComponentSignature.Of(System.ReadOnlySpan<Vixen.Core.ComponentTypeId> unsorted) -> Vixen.Ecs.ComponentSignature
+static Vixen.Ecs.ComponentSignature.operator !=(Vixen.Ecs.ComponentSignature left, Vixen.Ecs.ComponentSignature right) -> bool
+static Vixen.Ecs.ComponentSignature.operator ==(Vixen.Ecs.ComponentSignature left, Vixen.Ecs.ComponentSignature right) -> bool
+static Vixen.Ecs.Systems.SystemAccess.Declare() -> Vixen.Ecs.Systems.SystemAccess.Builder
+static Vixen.Ecs.Systems.SystemAccess.FromAttributes(System.Type systemType) -> Vixen.Ecs.Systems.SystemAccess
+static Vixen.Ecs.Systems.SystemAccess.None.get -> Vixen.Ecs.Systems.SystemAccess
+static Vixen.Ecs.Systems.SystemGraph.Build(System.Collections.Generic.IReadOnlyList<Vixen.Ecs.Systems.ISystem> systems) -> Vixen.Ecs.Systems.SystemGraph
+static Vixen.Ecs.World.Find(short id) -> Vixen.Ecs.World?
+static Vixen.Ecs.WorldDigest.Agree(Vixen.Ecs.World left, Vixen.Ecs.World right) -> bool
+static Vixen.Ecs.WorldDigest.Compute(Vixen.Ecs.World world) -> ulong
+static Vixen.Ecs.WorldQueryExtensions.ForEach<TVisitor, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEach<TVisitor, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEach<TVisitor, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEach<TVisitor, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEach<TVisitor, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEach<TVisitor, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEach<TVisitor, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEach<TVisitor, T0, T1, T2, T3, T4, T5, T6, T7, T8>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEach<TVisitor, T0, T1, T2, T3, T4, T5, T6, T7>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEach<TVisitor, T0, T1, T2, T3, T4, T5, T6>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEach<TVisitor, T0, T1, T2, T3, T4, T5>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEach<TVisitor, T0, T1, T2, T3, T4>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEach<TVisitor, T0, T1, T2, T3>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEach<TVisitor, T0, T1, T2>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEach<TVisitor, T0, T1>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEach<TVisitor, T0>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEachWithEntity<TVisitor, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEachWithEntity<TVisitor, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEachWithEntity<TVisitor, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEachWithEntity<TVisitor, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEachWithEntity<TVisitor, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEachWithEntity<TVisitor, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEachWithEntity<TVisitor, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEachWithEntity<TVisitor, T0, T1, T2, T3, T4, T5, T6, T7, T8>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEachWithEntity<TVisitor, T0, T1, T2, T3, T4, T5, T6, T7>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEachWithEntity<TVisitor, T0, T1, T2, T3, T4, T5, T6>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEachWithEntity<TVisitor, T0, T1, T2, T3, T4, T5>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEachWithEntity<TVisitor, T0, T1, T2, T3, T4>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEachWithEntity<TVisitor, T0, T1, T2, T3>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEachWithEntity<TVisitor, T0, T1, T2>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEachWithEntity<TVisitor, T0, T1>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.ForEachWithEntity<TVisitor, T0>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, ref TVisitor visitor, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.Query<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.Query<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.Query<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.Query<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.Query<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.Query<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.Query<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.Query<T0, T1, T2, T3, T4, T5, T6, T7, T8>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.Query<T0, T1, T2, T3, T4, T5, T6, T7>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.Query<T0, T1, T2, T3, T4, T5, T6>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.Query<T0, T1, T2, T3, T4, T5>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.Query<T0, T1, T2, T3, T4>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.Query<T0, T1, T2, T3>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryAction<T0, T1, T2, T3> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.Query<T0, T1, T2>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryAction<T0, T1, T2> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.Query<T0, T1>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryAction<T0, T1> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.Query<T0>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryAction<T0> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.QueryWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.QueryWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.QueryWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.QueryWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.QueryWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.QueryWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.QueryWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.QueryWithEntity<T0, T1, T2, T3, T4, T5, T6, T7, T8>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.QueryWithEntity<T0, T1, T2, T3, T4, T5, T6, T7>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.QueryWithEntity<T0, T1, T2, T3, T4, T5, T6>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.QueryWithEntity<T0, T1, T2, T3, T4, T5>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.QueryWithEntity<T0, T1, T2, T3, T4>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.QueryWithEntity<T0, T1, T2, T3>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.QueryWithEntity<T0, T1, T2>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryEntityAction<T0, T1, T2> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.QueryWithEntity<T0, T1>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryEntityAction<T0, T1> action, uint since = 0) -> void
+static Vixen.Ecs.WorldQueryExtensions.QueryWithEntity<T0>(this Vixen.Ecs.World world, Vixen.Ecs.QueryDescription description, Vixen.Ecs.QueryEntityAction<T0> action, uint since = 0) -> void
+static readonly Vixen.Ecs.ComponentType<T>.Id -> Vixen.Core.ComponentTypeId
+static readonly Vixen.Ecs.ComponentType<T>.Info -> Vixen.Ecs.ComponentType
+virtual Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>.Invoke(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12, ref T13 component13, ref T14 component14, ref T15 component15) -> void
+virtual Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14>.Invoke(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12, ref T13 component13, ref T14 component14) -> void
+virtual Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>.Invoke(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12, ref T13 component13) -> void
+virtual Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>.Invoke(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12) -> void
+virtual Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>.Invoke(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11) -> void
+virtual Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>.Invoke(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10) -> void
+virtual Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>.Invoke(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9) -> void
+virtual Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7, T8>.Invoke(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8) -> void
+virtual Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6, T7>.Invoke(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7) -> void
+virtual Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5, T6>.Invoke(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6) -> void
+virtual Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4, T5>.Invoke(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5) -> void
+virtual Vixen.Ecs.QueryAction<T0, T1, T2, T3, T4>.Invoke(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4) -> void
+virtual Vixen.Ecs.QueryAction<T0, T1, T2, T3>.Invoke(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3) -> void
+virtual Vixen.Ecs.QueryAction<T0, T1, T2>.Invoke(ref T0 component0, ref T1 component1, ref T2 component2) -> void
+virtual Vixen.Ecs.QueryAction<T0, T1>.Invoke(ref T0 component0, ref T1 component1) -> void
+virtual Vixen.Ecs.QueryAction<T0>.Invoke(ref T0 component0) -> void
+virtual Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>.Invoke(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12, ref T13 component13, ref T14 component14, ref T15 component15) -> void
+virtual Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14>.Invoke(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12, ref T13 component13, ref T14 component14) -> void
+virtual Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>.Invoke(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12, ref T13 component13) -> void
+virtual Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>.Invoke(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12) -> void
+virtual Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>.Invoke(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11) -> void
+virtual Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>.Invoke(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10) -> void
+virtual Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9>.Invoke(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9) -> void
+virtual Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7, T8>.Invoke(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8) -> void
+virtual Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6, T7>.Invoke(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7) -> void
+virtual Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5, T6>.Invoke(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6) -> void
+virtual Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4, T5>.Invoke(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5) -> void
+virtual Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3, T4>.Invoke(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4) -> void
+virtual Vixen.Ecs.QueryEntityAction<T0, T1, T2, T3>.Invoke(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3) -> void
+virtual Vixen.Ecs.QueryEntityAction<T0, T1, T2>.Invoke(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1, ref T2 component2) -> void
+virtual Vixen.Ecs.QueryEntityAction<T0, T1>.Invoke(Vixen.Core.Entity entity, ref T0 component0, ref T1 component1) -> void
+virtual Vixen.Ecs.QueryEntityAction<T0>.Invoke(Vixen.Core.Entity entity, ref T0 component0) -> void
+virtual Vixen.Ecs.Systems.SystemBase.Dispose() -> void
+virtual Vixen.Ecs.Systems.SystemBase.Initialize(in Vixen.Ecs.Systems.SystemContext context) -> void

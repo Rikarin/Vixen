@@ -1,0 +1,221 @@
+#nullable enable
+Vixen.Assets.AddressNotFoundException -> sealed class
+Vixen.Assets.AddressNotFoundException : System.Exception
+Vixen.Assets.AddressNotFoundException.Address.get -> string
+Vixen.Assets.AddressNotFoundException.AddressNotFoundException(string address) -> void
+Vixen.Assets.AssetHandle<T> -> sealed class
+Vixen.Assets.AssetHandle<T>.Acquired.get -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Assets.AssetHandle<T>.Address.get -> string
+Vixen.Assets.AssetHandle<T>.Completion.get -> System.Threading.Tasks.Task<T>
+Vixen.Assets.AssetHandle<T>.GetAwaiter() -> System.Runtime.CompilerServices.TaskAwaiter<T>
+Vixen.Assets.AssetHandle<T>.Release() -> void
+Vixen.Assets.AssetHandle<T>.Result.get -> T
+Vixen.Assets.AssetHandle<T>.Status.get -> Vixen.Assets.AssetStatus
+Vixen.Assets.AssetManager -> sealed class
+Vixen.Assets.AssetManager.AssetManager(Vixen.Assets.ContentCatalog catalog, Vixen.Assets.IBundleSource bundles, Vixen.Core.Serialization.Storage.ObjectDatabase? database = null) -> void
+Vixen.Assets.AssetManager.Bundles.get -> Vixen.Assets.IBundleSource
+Vixen.Assets.AssetManager.Catalog.get -> Vixen.Assets.ContentCatalog
+Vixen.Assets.AssetManager.ClaimCount(string address) -> int
+Vixen.Assets.AssetManager.ClearCache(params System.Collections.Generic.IEnumerable<string> addresses) -> int
+Vixen.Assets.AssetManager.DownloadAsync(System.Collections.Generic.IEnumerable<string> addresses, System.IProgress<Vixen.Assets.BundleProgress>? progress = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task
+Vixen.Assets.AssetManager.DownloadSize(params System.Collections.Generic.IEnumerable<string> addresses) -> long
+Vixen.Assets.AssetManager.IsLoaded(string address) -> bool
+Vixen.Assets.AssetManager.Load<T>(string address, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Vixen.Assets.AssetHandle<T>
+Vixen.Assets.AssetManager.LoadAsync<T>(string address, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Vixen.Assets.AssetHandle<T>
+Vixen.Assets.AssetManager.LoadByLabelAsync<T>(string label, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Immutable.ImmutableArray<Vixen.Assets.AssetHandle<T>>
+Vixen.Assets.AssetManager.LoadMatchingAsync<T>(string pattern, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Immutable.ImmutableArray<Vixen.Assets.AssetHandle<T>>
+Vixen.Assets.AssetManager.LoadedCount.get -> int
+Vixen.Assets.AssetManager.Scope() -> Vixen.Assets.AssetScope
+Vixen.Assets.AssetScope -> sealed class
+Vixen.Assets.AssetScope : System.IDisposable
+Vixen.Assets.AssetScope.Count.get -> int
+Vixen.Assets.AssetScope.Dispose() -> void
+Vixen.Assets.AssetScope.LoadAsync<T>(string address, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Vixen.Assets.AssetHandle<T>
+Vixen.Assets.AssetStatus -> enum : int
+Vixen.Assets.AssetStatus.AssetStatus() -> void
+Vixen.Assets.AssetStatus.Failed = 2 -> Vixen.Assets.AssetStatus
+Vixen.Assets.AssetStatus.Loaded = 1 -> Vixen.Assets.AssetStatus
+Vixen.Assets.AssetStatus.Loading = 0 -> Vixen.Assets.AssetStatus
+Vixen.Assets.AssetStatus.Released = 3 -> Vixen.Assets.AssetStatus
+Vixen.Assets.BundleCache -> sealed class
+Vixen.Assets.BundleCache.BufferSize.get -> int
+Vixen.Assets.BundleCache.BufferSize.init -> int
+Vixen.Assets.BundleCache.BundleCache(Vixen.Core.IO.VirtualFileSystem files, Vixen.Core.IO.VirtualPath root, Vixen.Assets.IContentTransport transport) -> void
+Vixen.Assets.BundleCache.Clear() -> int
+Vixen.Assets.BundleCache.EnsureAsync(Vixen.Assets.CatalogBundle bundle, System.IProgress<Vixen.Assets.BundleProgress>? progress = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Vixen.Core.IO.VirtualPath>
+Vixen.Assets.BundleCache.Evict(Vixen.Assets.CatalogBundle bundle) -> bool
+Vixen.Assets.BundleCache.IsCached(Vixen.Assets.CatalogBundle bundle) -> bool
+Vixen.Assets.BundleCache.PartialPathOf(Vixen.Assets.CatalogBundle bundle) -> Vixen.Core.IO.VirtualPath
+Vixen.Assets.BundleCache.PathOf(Vixen.Assets.CatalogBundle bundle) -> Vixen.Core.IO.VirtualPath
+Vixen.Assets.BundleCache.ReceivedSoFar(Vixen.Assets.CatalogBundle bundle) -> long
+Vixen.Assets.BundleCache.Root.get -> Vixen.Core.IO.VirtualPath
+Vixen.Assets.BundleCache.TotalSize() -> long
+Vixen.Assets.BundleCache.VerifyAsync(Vixen.Assets.CatalogBundle bundle, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+Vixen.Assets.BundleProgress -> readonly struct
+Vixen.Assets.BundleProgress : System.IEquatable<Vixen.Assets.BundleProgress>
+Vixen.Assets.BundleProgress.Bundle.get -> string
+Vixen.Assets.BundleProgress.Bundle.init -> string
+Vixen.Assets.BundleProgress.BundleProgress() -> void
+Vixen.Assets.BundleProgress.BundleProgress(string Bundle, long Received, long Total) -> void
+Vixen.Assets.BundleProgress.Fraction.get -> double
+Vixen.Assets.BundleProgress.Received.get -> long
+Vixen.Assets.BundleProgress.Received.init -> long
+Vixen.Assets.BundleProgress.Total.get -> long
+Vixen.Assets.BundleProgress.Total.init -> long
+Vixen.Assets.BundleUnavailableException -> sealed class
+Vixen.Assets.BundleUnavailableException : System.Exception
+Vixen.Assets.BundleUnavailableException.Bundle.get -> string
+Vixen.Assets.BundleUnavailableException.BundleUnavailableException(string bundle, string reason, System.Exception? inner = null) -> void
+Vixen.Assets.CatalogBundle -> readonly struct
+Vixen.Assets.CatalogBundle : System.IEquatable<Vixen.Assets.CatalogBundle>
+Vixen.Assets.CatalogBundle.CatalogBundle() -> void
+Vixen.Assets.CatalogBundle.CatalogBundle(string Name, string Url, Vixen.Core.ObjectId Hash, long Size, uint Crc, Vixen.Core.Serialization.Storage.CompressionMethod Compression, System.Collections.Immutable.ImmutableArray<string> Dependencies) -> void
+Vixen.Assets.CatalogBundle.Compression.get -> Vixen.Core.Serialization.Storage.CompressionMethod
+Vixen.Assets.CatalogBundle.Compression.init -> Vixen.Core.Serialization.Storage.CompressionMethod
+Vixen.Assets.CatalogBundle.Crc.get -> uint
+Vixen.Assets.CatalogBundle.Crc.init -> uint
+Vixen.Assets.CatalogBundle.Dependencies.get -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Assets.CatalogBundle.Dependencies.init -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Assets.CatalogBundle.Equals(Vixen.Assets.CatalogBundle other) -> bool
+Vixen.Assets.CatalogBundle.Hash.get -> Vixen.Core.ObjectId
+Vixen.Assets.CatalogBundle.Hash.init -> Vixen.Core.ObjectId
+Vixen.Assets.CatalogBundle.Name.get -> string
+Vixen.Assets.CatalogBundle.Name.init -> string
+Vixen.Assets.CatalogBundle.Size.get -> long
+Vixen.Assets.CatalogBundle.Size.init -> long
+Vixen.Assets.CatalogBundle.Url.get -> string
+Vixen.Assets.CatalogBundle.Url.init -> string
+Vixen.Assets.CatalogEntry -> readonly struct
+Vixen.Assets.CatalogEntry : System.IEquatable<Vixen.Assets.CatalogEntry>
+Vixen.Assets.CatalogEntry.Address.get -> string
+Vixen.Assets.CatalogEntry.Address.init -> string
+Vixen.Assets.CatalogEntry.Bundle.get -> string
+Vixen.Assets.CatalogEntry.Bundle.init -> string
+Vixen.Assets.CatalogEntry.CatalogEntry() -> void
+Vixen.Assets.CatalogEntry.CatalogEntry(string Address, Vixen.Core.ObjectId Id, string Bundle, Vixen.Assets.ContentProvider Provider, System.Collections.Immutable.ImmutableArray<string> Dependencies, System.Collections.Immutable.ImmutableArray<string> Labels, long Size) -> void
+Vixen.Assets.CatalogEntry.Dependencies.get -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Assets.CatalogEntry.Dependencies.init -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Assets.CatalogEntry.Equals(Vixen.Assets.CatalogEntry other) -> bool
+Vixen.Assets.CatalogEntry.Id.get -> Vixen.Core.ObjectId
+Vixen.Assets.CatalogEntry.Id.init -> Vixen.Core.ObjectId
+Vixen.Assets.CatalogEntry.Labels.get -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Assets.CatalogEntry.Labels.init -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Assets.CatalogEntry.Provider.get -> Vixen.Assets.ContentProvider
+Vixen.Assets.CatalogEntry.Provider.init -> Vixen.Assets.ContentProvider
+Vixen.Assets.CatalogEntry.Size.get -> long
+Vixen.Assets.CatalogEntry.Size.init -> long
+Vixen.Assets.CatalogFormat -> static class
+Vixen.Assets.CatalogFormatException -> sealed class
+Vixen.Assets.CatalogFormatException : System.Exception
+Vixen.Assets.CatalogFormatException.CatalogFormatException(string message) -> void
+Vixen.Assets.ContentCatalog -> sealed class
+Vixen.Assets.ContentCatalog.BuildHash.get -> Vixen.Core.ObjectId
+Vixen.Assets.ContentCatalog.Bundles.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Assets.CatalogBundle>
+Vixen.Assets.ContentCatalog.ByLabel(string label) -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Assets.ContentCatalog.Closure(params System.ReadOnlySpan<string> addresses) -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Assets.ContentCatalog.ContentCatalog(int version, Vixen.Core.ObjectId buildHash, string target, System.Collections.Generic.IEnumerable<Vixen.Assets.CatalogEntry> entries, System.Collections.Generic.IEnumerable<Vixen.Assets.CatalogBundle> bundles) -> void
+Vixen.Assets.ContentCatalog.Count.get -> int
+Vixen.Assets.ContentCatalog.DownloadSize(System.Collections.Generic.IEnumerable<string> addresses, System.Func<Vixen.Assets.CatalogBundle, bool>? isCached = null) -> long
+Vixen.Assets.ContentCatalog.Entries.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Assets.CatalogEntry>
+Vixen.Assets.ContentCatalog.Get(string address) -> Vixen.Assets.CatalogEntry
+Vixen.Assets.ContentCatalog.Labels.get -> System.Collections.Generic.IReadOnlyCollection<string>
+Vixen.Assets.ContentCatalog.Match(string pattern) -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Assets.ContentCatalog.MergedWith(Vixen.Assets.ContentCatalog update) -> Vixen.Assets.ContentCatalog
+Vixen.Assets.ContentCatalog.RemoteBundlesFor(System.Collections.Generic.IEnumerable<string> addresses) -> System.Collections.Immutable.ImmutableArray<Vixen.Assets.CatalogBundle>
+Vixen.Assets.ContentCatalog.Target.get -> string
+Vixen.Assets.ContentCatalog.TryGet(string address, out Vixen.Assets.CatalogEntry entry) -> bool
+Vixen.Assets.ContentCatalog.TryGetBundle(string name, out Vixen.Assets.CatalogBundle bundle) -> bool
+Vixen.Assets.ContentCatalog.Version.get -> int
+Vixen.Assets.ContentCatalogExtensions -> static class
+Vixen.Assets.ContentDownload -> sealed class
+Vixen.Assets.ContentDownload : System.IDisposable
+Vixen.Assets.ContentDownload.Body.get -> System.IO.Stream
+Vixen.Assets.ContentDownload.ContentDownload(System.IO.Stream body, long offset, long? totalLength) -> void
+Vixen.Assets.ContentDownload.Dispose() -> void
+Vixen.Assets.ContentDownload.Offset.get -> long
+Vixen.Assets.ContentDownload.TotalLength.get -> long?
+Vixen.Assets.ContentProvider -> enum : int
+Vixen.Assets.ContentProvider.ContentProvider() -> void
+Vixen.Assets.ContentProvider.Local = 0 -> Vixen.Assets.ContentProvider
+Vixen.Assets.ContentProvider.Remote = 1 -> Vixen.Assets.ContentProvider
+Vixen.Assets.ContentTransportException -> sealed class
+Vixen.Assets.ContentTransportException : System.Exception
+Vixen.Assets.ContentTransportException.ContentTransportException(string url, string reason, System.Exception? inner = null) -> void
+Vixen.Assets.ContentTransportException.Url.get -> string
+Vixen.Assets.ContentUpdate -> sealed class
+Vixen.Assets.ContentUpdate.ApplyAsync(Vixen.Assets.ContentCatalog local, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Vixen.Assets.ContentUpdateResult>
+Vixen.Assets.ContentUpdate.CacheRoot.get -> Vixen.Core.IO.VirtualPath
+Vixen.Assets.ContentUpdate.CachedCatalogPath.get -> Vixen.Core.IO.VirtualPath
+Vixen.Assets.ContentUpdate.CachedHashPath.get -> Vixen.Core.IO.VirtualPath
+Vixen.Assets.ContentUpdate.CachedVersion() -> Vixen.Core.ObjectId?
+Vixen.Assets.ContentUpdate.CatalogUrl.get -> string
+Vixen.Assets.ContentUpdate.ContentUpdate(Vixen.Core.IO.VirtualFileSystem files, Vixen.Core.IO.VirtualPath cacheRoot, Vixen.Assets.IContentTransport transport, string catalogUrl) -> void
+Vixen.Assets.ContentUpdate.HashUrl.get -> string
+Vixen.Assets.ContentUpdateOutcome -> enum : int
+Vixen.Assets.ContentUpdateOutcome.AlreadyCurrent = 1 -> Vixen.Assets.ContentUpdateOutcome
+Vixen.Assets.ContentUpdateOutcome.ContentUpdateOutcome() -> void
+Vixen.Assets.ContentUpdateOutcome.NoRemoteConfigured = 0 -> Vixen.Assets.ContentUpdateOutcome
+Vixen.Assets.ContentUpdateOutcome.Offline = 3 -> Vixen.Assets.ContentUpdateOutcome
+Vixen.Assets.ContentUpdateOutcome.Rejected = 4 -> Vixen.Assets.ContentUpdateOutcome
+Vixen.Assets.ContentUpdateOutcome.Updated = 2 -> Vixen.Assets.ContentUpdateOutcome
+Vixen.Assets.ContentUpdateResult -> readonly struct
+Vixen.Assets.ContentUpdateResult : System.IEquatable<Vixen.Assets.ContentUpdateResult>
+Vixen.Assets.ContentUpdateResult.Catalog.get -> Vixen.Assets.ContentCatalog
+Vixen.Assets.ContentUpdateResult.Catalog.init -> Vixen.Assets.ContentCatalog
+Vixen.Assets.ContentUpdateResult.ContentUpdateResult() -> void
+Vixen.Assets.ContentUpdateResult.ContentUpdateResult(Vixen.Assets.ContentCatalog Catalog, Vixen.Assets.ContentUpdateOutcome Outcome, string? Reason = null) -> void
+Vixen.Assets.ContentUpdateResult.Outcome.get -> Vixen.Assets.ContentUpdateOutcome
+Vixen.Assets.ContentUpdateResult.Outcome.init -> Vixen.Assets.ContentUpdateOutcome
+Vixen.Assets.ContentUpdateResult.Reason.get -> string?
+Vixen.Assets.ContentUpdateResult.Reason.init -> string?
+Vixen.Assets.HttpContentTransport -> sealed class
+Vixen.Assets.HttpContentTransport : System.IDisposable
+Vixen.Assets.HttpContentTransport : Vixen.Assets.IContentTransport
+Vixen.Assets.HttpContentTransport.Dispose() -> void
+Vixen.Assets.HttpContentTransport.GetAsync(string url, long offset = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Assets.ContentDownload>
+Vixen.Assets.HttpContentTransport.HttpContentTransport() -> void
+Vixen.Assets.HttpContentTransport.HttpContentTransport(System.Net.Http.HttpClient client, bool ownsClient = false) -> void
+Vixen.Assets.IBundleSource -> interface
+Vixen.Assets.IBundleSource.EnsureAsync(Vixen.Assets.CatalogBundle bundle, System.IProgress<Vixen.Assets.BundleProgress>? progress = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Vixen.Assets.IBundleSource.Evict(Vixen.Assets.CatalogBundle bundle) -> bool
+Vixen.Assets.IBundleSource.IsAvailable(Vixen.Assets.CatalogBundle bundle) -> bool
+Vixen.Assets.IBundleSource.OpenAsync(Vixen.Assets.CatalogBundle bundle, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Core.Serialization.Storage.IOdbBackend>
+Vixen.Assets.IContentTransport -> interface
+Vixen.Assets.IContentTransport.GetAsync(string url, long offset = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Assets.ContentDownload>
+Vixen.Assets.LocalBundleSource -> sealed class
+Vixen.Assets.LocalBundleSource : System.IDisposable
+Vixen.Assets.LocalBundleSource : Vixen.Assets.IBundleSource
+Vixen.Assets.LocalBundleSource.Dispose() -> void
+Vixen.Assets.LocalBundleSource.IsAvailable(Vixen.Assets.CatalogBundle bundle) -> bool
+Vixen.Assets.LocalBundleSource.LocalBundleSource(Vixen.Core.IO.VirtualFileSystem files, Vixen.Core.IO.VirtualPath root, bool verifyChecksum = false) -> void
+Vixen.Assets.LocalBundleSource.OpenAsync(Vixen.Assets.CatalogBundle bundle, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Core.Serialization.Storage.IOdbBackend>
+Vixen.Assets.LocalBundleSource.PathOf(Vixen.Assets.CatalogBundle bundle) -> Vixen.Core.IO.VirtualPath
+Vixen.Assets.RemoteBundleSource -> sealed class
+Vixen.Assets.RemoteBundleSource : System.IDisposable
+Vixen.Assets.RemoteBundleSource : Vixen.Assets.IBundleSource
+Vixen.Assets.RemoteBundleSource.Cache.get -> Vixen.Assets.BundleCache
+Vixen.Assets.RemoteBundleSource.Dispose() -> void
+Vixen.Assets.RemoteBundleSource.EnsureAsync(Vixen.Assets.CatalogBundle bundle, System.IProgress<Vixen.Assets.BundleProgress>? progress = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Vixen.Assets.RemoteBundleSource.Evict(Vixen.Assets.CatalogBundle bundle) -> bool
+Vixen.Assets.RemoteBundleSource.IsAvailable(Vixen.Assets.CatalogBundle bundle) -> bool
+Vixen.Assets.RemoteBundleSource.OpenAsync(Vixen.Assets.CatalogBundle bundle, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Core.Serialization.Storage.IOdbBackend>
+Vixen.Assets.RemoteBundleSource.RemoteBundleSource(Vixen.Core.IO.VirtualFileSystem files, Vixen.Assets.BundleCache cache, bool verifyChecksum = false) -> void
+Vixen.Assets.RoutedBundleSource -> sealed class
+Vixen.Assets.RoutedBundleSource : System.IDisposable
+Vixen.Assets.RoutedBundleSource : Vixen.Assets.IBundleSource
+Vixen.Assets.RoutedBundleSource.Dispose() -> void
+Vixen.Assets.RoutedBundleSource.EnsureAsync(Vixen.Assets.CatalogBundle bundle, System.IProgress<Vixen.Assets.BundleProgress>? progress = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Vixen.Assets.RoutedBundleSource.Evict(Vixen.Assets.CatalogBundle bundle) -> bool
+Vixen.Assets.RoutedBundleSource.IsAvailable(Vixen.Assets.CatalogBundle bundle) -> bool
+Vixen.Assets.RoutedBundleSource.OpenAsync(Vixen.Assets.CatalogBundle bundle, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Core.Serialization.Storage.IOdbBackend>
+Vixen.Assets.RoutedBundleSource.RoutedBundleSource(Vixen.Assets.IBundleSource local, Vixen.Assets.IBundleSource remote) -> void
+Vixen.Assets.RoutedBundleSource.SourceFor(Vixen.Assets.CatalogBundle bundle) -> Vixen.Assets.IBundleSource
+const Vixen.Assets.CatalogFormat.Version = 1 -> int
+override Vixen.Assets.CatalogBundle.GetHashCode() -> int
+override Vixen.Assets.CatalogEntry.GetHashCode() -> int
+static Vixen.Assets.CatalogFormat.Magic.get -> System.ReadOnlySpan<byte>
+static Vixen.Assets.CatalogFormat.Read(System.ReadOnlySpan<byte> file) -> Vixen.Assets.ContentCatalog
+static Vixen.Assets.CatalogFormat.Write(Vixen.Assets.ContentCatalog catalog) -> byte[]
+static Vixen.Assets.ContentCatalog.Matches(string address, string pattern) -> bool
+static Vixen.Assets.ContentCatalogExtensions.Contains(this Vixen.Assets.ContentCatalog catalog, string address) -> bool
+static Vixen.Assets.ContentCatalogExtensions.TryGetBundleFor(this Vixen.Assets.ContentCatalog catalog, string address, out Vixen.Assets.CatalogBundle? bundle) -> bool
