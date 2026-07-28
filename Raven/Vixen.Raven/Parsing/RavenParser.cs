@@ -873,13 +873,13 @@ sealed class RavenParser : SyntaxParser {
         }
 
         var fullStart = Tokens[firstTrivia].Position;
-        if (blender.TryReuse(fullStart) is not { } green) {
-            return null;
-        }
 
-        var end = fullStart + green.FullWidth;
-        var next = RawIndexAt(end);
-        if (next is null) {
+        // ⚠ The blender is handed the new token stream, not just the position. Characters no change
+        // touched can still lex differently once something next door has changed, and a span test
+        // cannot see the difference — so the blender compares the two streams kind for kind before
+        // it hands anything over, and returns the index to resume at, which subsumes the boundary
+        // check this used to do for itself.
+        if (blender.TryReuse(fullStart, Tokens, out var next) is not { } green) {
             return null;
         }
 
@@ -887,28 +887,8 @@ sealed class RavenParser : SyntaxParser {
         // after it, which is trivia. This grammar happens to recover — the caller skips newlines
         // immediately — so nothing here was ever wrong; VXML's does not, which is where the
         // difference between the two was found.
-        ResumeAt(next.Value);
+        ResumeAt(next);
         return green.CreateRed(null, 0) as MemberDeclarationSyntax;
-    }
-
-    /// <summary>The raw index of the token starting exactly at <paramref name="position" />, or null.</summary>
-    int? RawIndexAt(int position) {
-        int low = 0, high = Tokens.Count - 1;
-        while (low <= high) {
-            var middle = (low + high) / 2;
-            var start = Tokens[middle].Position;
-            if (start == position) {
-                return middle;
-            }
-
-            if (start < position) {
-                low = middle + 1;
-            } else {
-                high = middle - 1;
-            }
-        }
-
-        return null;
     }
 
     MemberDeclarationSyntax? ParseMemberDeclaration() {
