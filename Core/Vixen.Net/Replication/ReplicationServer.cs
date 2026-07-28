@@ -67,6 +67,7 @@ public sealed class ReplicationServer {
     readonly Dictionary<uint, uint> wireIndex = [];
     readonly List<Entity> observed = [];
     readonly HashSet<uint> observedIds = [];
+    readonly HashSet<uint> notDue = [];
     readonly List<NetworkId> finished = [];
     readonly List<uint> stamping = [];
     readonly byte[] encodeScratch = new byte[4096];
@@ -97,6 +98,20 @@ public sealed class ReplicationServer {
 
     /// <summary>Records not sent because the same value was already on its way.</summary>
     public long SuppressedRecordCount { get; private set; }
+
+    /// <summary>How often each object is worth sending, or null for every object every tick.</summary>
+    /// <remarks>
+    ///     <b>Here rather than in the interest resolver, and that placement is the whole point.</b>
+    ///     Leaving the observed set means "drop this object" — destruction and walking over the
+    ///     horizon are deliberately the same mechanism — so a rate expressed by omitting an object
+    ///     from the set would destroy and recreate it on every tick it skipped. Skipping a record is
+    ///     already a thing this method does when the budget runs out, and it takes the same path out:
+    ///     nothing was acknowledged, so it goes in the next snapshot.
+    /// </remarks>
+    public IReplicationRate? Rate { get; set; }
+
+    /// <summary>Records not written because the object was not due this tick.</summary>
+    public long RateSkippedRecordCount { get; private set; }
 
     /// <summary>Where the bandwidth went, or null to not ask.</summary>
     /// <remarks>
@@ -225,9 +240,24 @@ public sealed class ReplicationServer {
         observedIds.Clear();
         interest.Resolve(world, player, observed);
 
+        notDue.Clear();
+
         foreach (var entity in observed) {
-            if (world.Has<NetworkId>(entity)) {
-                observedIds.Add(world.Read<NetworkId>(entity).Value);
+            if (!world.Has<NetworkId>(entity)) {
+                continue;
+            }
+
+            var id = world.Read<NetworkId>(entity);
+            observedIds.Add(id.Value);
+
+            // Asked once per object rather than once per component, because a rate is a property of
+            // the object — and only for objects this connection already holds something for, so a
+            // reduced rate never delays an object <i>appearing</i>. Slowing down the updates of a
+            // distant crate is the point; making it take half a second to turn up is not.
+            if (Rate is { } rate
+                && connection.Holding.Contains(id.Value)
+                && !rate.ShouldSend(world, player, entity, id, tick)) {
+                notDue.Add(id.Value);
             }
         }
 
@@ -434,6 +464,12 @@ public sealed class ReplicationServer {
 
         foreach (var replicator in byPriority) {
             foreach (var id in observedIds) {
+                if (notDue.Contains(id)) {
+                    RateSkippedRecordCount++;
+
+                    continue;
+                }
+
                 var key = new BaselineKey(new(id), replicator.TypeId);
 
                 if (!current.TryGetValue(key, out var ring) || !ring.HasAny) {

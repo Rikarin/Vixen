@@ -7,8 +7,8 @@ Spec: [docs/plan/16-networking.md](../../docs/plan/16-networking.md).
 
 ## What is here so far
 
-Everything from the wire up to the policy. Lag compensation is the one item of the phase that is not
-built, and it is blocked on Phase 8 rather than owed by this package; see the roadmap.
+Everything from the wire up to the policy, plus interest management and client-side prediction. What
+is left of the phase is in the roadmap and in each package's Owed section.
 
 ```
 Vixen.Net              Channel · ConnectionId · DisconnectReason · Tick
@@ -235,6 +235,44 @@ that can disagree about who may see what is how objects end up on one screen and
 Despawning needed nothing new at all: leaving the interest set already means "drop it", so
 destruction and walking over the horizon are the same mechanism. The half that has to see a `Prefab`
 lives in `Vixen.Net.Engine`.
+
+## Interest
+
+Who is told about what. `InterestChain` is a **source** of candidates and a list of **rules** asked in
+order, where the first definite answer wins — which is what doc 16's "scene scope → explicit overrides
+→ distance grid" ordering has to mean for an override to be one.
+
+**Most rules say `Undecided` most of the time, and that is what makes a chain work.** A scene rule
+knows an object in a level you have not loaded is hidden; it knows nothing about whether one in a
+level you *have* loaded is close enough to matter. Saying so — rather than voting "observed" and
+forcing every later rule to be able to overrule it — is what lets rules be written independently.
+
+**The grid is a source, not a rule, and that is where the scaling is.** A rule filters what it is
+given, so a chain of rules over ten thousand objects and two hundred players is two million questions
+a tick whatever the rules then say. `InterestGrid` buckets the world once and answers each player from
+the cells around them. It reads exactly like a filter — "is this within range" — and writing it as one
+produces something that passes every test and scales like the thing it replaced.
+
+**It leaves with hysteresis, which is not polish.** Leaving the observed set and being destroyed are
+the same thing to a client, so an object at the boundary is not "flickering" — it is being destroyed
+and recreated, every tick, with whatever the game hangs off a spawn.
+
+The fallback is `Observed`, so a chain with no rules is what a new project already had, and adding a
+rule can only ever *hide* things — the direction in which mistakes get noticed rather than debugged.
+
+## Rate, which doc 16 puts in the chain and cannot go there
+
+That document lists the resolvers as "scene scope → explicit visibility overrides → distance grid →
+**LOD rate reduction**". The last is not a filter. Leaving the observed set means "drop this object",
+so an LOD written as a rule would despawn and respawn every distant object on every tick it skipped —
+a bug that looks like the feature working.
+
+So rate lives on `ReplicationServer.Rate`, where skipping a record already means "not this tick": it
+is the same thing the bandwidth budget does when it sheds, and it takes the same path out — nothing
+was acknowledged, so it goes in the next snapshot. `DistanceReplicationRate` is the banded
+implementation, phased **by object id** so distant objects spread across the ticks instead of arriving
+together on every fourth one. An object the connection does not hold yet is never rate-limited, so a
+reduced rate slows updates without delaying anything's appearance.
 
 ## Predicted input
 

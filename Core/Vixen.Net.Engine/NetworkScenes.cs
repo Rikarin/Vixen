@@ -143,24 +143,29 @@ public sealed class NetworkSceneMap {
     }
 }
 
-/// <summary>Tells each player about the scenes they have loaded, and nothing else.</summary>
+/// <summary>Hides what is in a scene a player has not loaded.</summary>
 /// <remarks>
 ///     <para>
-///         The first resolver in [16](../../../docs/plan/16-networking.md)'s chain, and the one that
-///         does the most for the least: a player in the lobby is not sent the contents of a level they
-///         are not in, whatever the distance grid would have said about it.
+///         The first rule in [16](../../../docs/plan/16-networking.md)'s chain, and the one that does
+///         the most for the least: a player in the lobby is not sent the contents of a level they are
+///         not in, whatever the distance grid would have said about it.
 ///     </para>
 ///     <para>
-///         <b>An entity in no scene is told to everybody.</b> Not an oversight — an object created
-///         outside a scene is one that belongs to the session rather than to a level, and the failure
-///         mode of the other choice is objects silently invisible because nobody remembered to tag
-///         them. A resolver whose default is "vanish" is one that is debugged by everybody who uses
-///         it.
+///         <b>It hides, and never shows.</b> Being in the right scene is not a reason to be told about
+///         something — it is only the absence of a reason not to be — so an object in a scene the
+///         player has loaded comes back <see cref="Interest.Undecided" /> and the distance grid after
+///         it gets its say. A rule that voted <see cref="Interest.Observed" /> here would make itself
+///         the last word on every object in the level, which is precisely what an ordered chain is
+///         for avoiding.
+///     </para>
+///     <para>
+///         <b>An entity in no scene is left to everybody.</b> Not an oversight — an object created
+///         outside a scene belongs to the session rather than to a level, and the failure mode of the
+///         other choice is objects silently invisible because nobody remembered to tag them. A rule
+///         whose default is "vanish" is one that is debugged by everybody who uses it.
 ///     </para>
 /// </remarks>
-public sealed class SceneInterestResolver : IInterestResolver {
-    static readonly QueryDescription Networked = new QueryDescription().RequireAll([ComponentType<NetworkId>.Id]);
-
+public sealed class SceneInterestRule : IInterestRule {
     readonly Dictionary<uint, HashSet<int>> byPlayer = [];
 
     /// <summary>Records that a player has a scene loaded.</summary>
@@ -186,32 +191,21 @@ public sealed class SceneInterestResolver : IInterestResolver {
     /// <param name="player">Who.</param>
     public void Forget(PlayerId player) => byPlayer.Remove(player.Value);
 
-    /// <summary>Which scenes a player has loaded.</summary>
+    /// <summary>How many scenes a player has loaded.</summary>
     /// <param name="player">Who.</param>
     /// <returns>How many.</returns>
     public int CountFor(PlayerId player) => byPlayer.TryGetValue(player.Value, out var scenes) ? scenes.Count : 0;
 
     /// <inheritdoc />
-    public void Resolve(World world, PlayerId player, List<Entity> observed) {
+    public Interest Decide(World world, PlayerId player, Entity entity) {
         ArgumentNullException.ThrowIfNull(world);
-        ArgumentNullException.ThrowIfNull(observed);
 
-        var scenes = byPlayer.GetValueOrDefault(player.Value);
-
-        foreach (var chunk in world.Chunks(Networked)) {
-            var entities = chunk.Entities;
-
-            for (var index = 0; index < chunk.Count; index++) {
-                if (!world.TryGet<SceneTag>(entities[index], out var tag)) {
-                    observed.Add(entities[index]);
-
-                    continue;
-                }
-
-                if (scenes is not null && scenes.Contains(tag.SceneId)) {
-                    observed.Add(entities[index]);
-                }
-            }
+        if (!world.TryGet<SceneTag>(entity, out var tag)) {
+            return Interest.Undecided;
         }
+
+        return byPlayer.TryGetValue(player.Value, out var scenes) && scenes.Contains(tag.SceneId)
+            ? Interest.Undecided
+            : Interest.Hidden;
     }
 }

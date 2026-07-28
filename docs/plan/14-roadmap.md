@@ -3129,9 +3129,41 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
 - Interest management: ✅ the resolver seam and the default. `IInterestResolver` is what decides which
   entities a player is told about, and `ReplicateEverythingResolver` is what a new project gets —
   a deliberate ergonomics choice rather than a placeholder, so a prototype works before anyone has
-  thought about it. ✅ **Scene scope** landed with spawning — `SceneInterestResolver`, the first of the
-  chain doc 16 describes. **Owed:** explicit overrides, the distance grid and `NetworkLOD`, and the
-  composition that lets the four be chained in the order the doc puts them in.
+  thought about it. ✅ **The chain, the rules, the grid and the rate** — 9 further tests, and two
+  corrections to [16](16-networking.md) that only appeared once it was built.
+
+  **Rules give a three-valued verdict and the first definite answer wins**, which is what makes an
+  explicit override placed before the grid something the grid cannot argue with. Most rules answer
+  `Undecided` most of the time — the scene rule hides what is in a level you have not loaded and says
+  nothing about the rest — and that is what lets rules be written independently and put in any order.
+  A rule that voted "observed" for everything in its own scene would make itself the last word on the
+  whole level, which is exactly what an ordered chain exists to avoid.
+
+  **The distance grid is a *source*, not a rule, and that is where the scaling is.** Doc 16 lists it
+  as the third of four filters. A filter is asked about everything, so a chain of filters over ten
+  thousand objects and two hundred players is two million questions a tick whatever the filters then
+  say — which is the cost the feature exists to remove. `InterestGrid` buckets the world once per tick
+  and answers each player from the cells around them. The distinction is invisible in the result and
+  total in the cost, which is why the test asserts on `ConsideredCount` rather than on who saw what:
+  written as a filter it would pass every behavioural test and scale like the thing it replaced.
+
+  **It leaves with hysteresis, and that is not polish.** Leaving the observed set and being destroyed
+  are deliberately the same thing to a client, so an object hovering at the boundary is not flickering
+  — it is being destroyed and recreated on every tick it wavers, with whatever the game hangs off a
+  spawn. Two radii, and the band between them is where a player walking a boundary spends their time.
+
+  **`NetworkLOD` is the second correction: rate reduction cannot be a resolver at all.** Doc 16 lists
+  it as the fourth filter in the chain, and building it as one would despawn and respawn every distant
+  object on every tick it skipped. Rate belongs where records are written — `ReplicationServer.Rate` —
+  because skipping one there already means "not this tick": it is the same thing the budget does when
+  it sheds, and it takes the same path out, unacknowledged into the next snapshot.
+  `DistanceReplicationRate` is banded and **phased by object id**, so distant objects spread across
+  the ticks instead of arriving together on every fourth one and defeating the budget and the path MTU
+  at once. An object a connection does not hold yet is never rate-limited, so a reduced rate slows
+  updates without delaying anything's appearance.
+
+  **Owed:** the team, room and fog-of-war rules doc 16 names — deliberately, since each is a game's own
+  idea of who may see what and the chain takes any `IInterestRule`.
 - ✅ **Motion: interpolation, clamped extrapolation, `NetworkTransform`, owner-side smoothing.**
   26 further tests; 275 across the networking projects in total.
 

@@ -226,10 +226,17 @@ public sealed class NetworkSpawnTests : IDisposable {
     }
 
     /// <summary>A player is told about the scenes they are in, and about what is in no scene at all.</summary>
+    /// <remarks>
+    ///     The scene rule <i>hides</i> and never shows. Being in the right scene is not a reason to be
+    ///     told about something — it is the absence of a reason not to be — so an object in a loaded
+    ///     scene comes back undecided and whatever follows in the chain gets its say. A rule that
+    ///     voted "observed" here would make itself the last word on every object in the level.
+    /// </remarks>
     [Fact]
     public void ThePlayerIsToldAboutTheScenesTheyAreIn() {
         var scenes = new SceneManager(server);
-        var interest = new SceneInterestResolver();
+        var rule = new SceneInterestRule();
+        var chain = new InterestChain { Rules = { rule } };
 
         var here = scenes.Create("Here");
         var elsewhere = scenes.Create("Elsewhere");
@@ -238,20 +245,24 @@ public sealed class NetworkSpawnTests : IDisposable {
         var theirs = server.Create(ids.Next(), new SceneTag { SceneId = elsewhere.Id });
         var everyones = server.Create(ids.Next());
 
-        interest.Enter(Player, here);
+        rule.Enter(Player, here);
+
+        Assert.Equal(Interest.Undecided, rule.Decide(server, Player, mine));
+        Assert.Equal(Interest.Hidden, rule.Decide(server, Player, theirs));
+        Assert.Equal(Interest.Undecided, rule.Decide(server, Player, everyones));
+        Assert.Equal(1, rule.CountFor(Player));
 
         var observed = new List<Entity>();
-        interest.Resolve(server, Player, observed);
+        chain.Resolve(server, Player, observed);
 
         Assert.Contains(mine, observed);
         Assert.Contains(everyones, observed);
         Assert.DoesNotContain(theirs, observed);
-        Assert.Equal(1, interest.CountFor(Player));
 
         // And a player who has loaded nothing still sees what belongs to no scene, rather than
         // nothing at all.
         observed.Clear();
-        interest.Resolve(server, new(2), observed);
+        chain.Resolve(server, new(2), observed);
 
         Assert.Equal([everyones], observed);
     }

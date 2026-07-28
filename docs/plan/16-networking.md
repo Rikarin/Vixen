@@ -291,6 +291,29 @@ Composable resolvers, in evaluation order: scene scope → explicit visibility o
 new project is "everything in the loaded scenes", so a prototype works before anyone thinks about it,
 which is a deliberate ergonomics choice.
 
+> **Corrected when it was built.** Two things in that sentence do not survive contact with the
+> replication server's own design.
+>
+> **LOD rate reduction is not a resolver and cannot be one.** Leaving the observed set means "drop this
+> object" — destruction and walking over the horizon are deliberately the same mechanism to a client —
+> so an LOD written as the fourth filter in this chain would despawn and respawn every distant object
+> on every tick it skipped, complete with whatever the game hangs off a spawn. Rate belongs where the
+> records are written, which is `ReplicationServer.Rate`; skipping a record there already means "not
+> this tick", because it is the same thing the bandwidth budget does when it sheds.
+>
+> **The distance grid is a *source*, not a filter.** A filter is asked about everything, so a chain of
+> filters over ten thousand objects and two hundred players is two million questions a tick whatever
+> the filters then say — which is the cost this feature exists to remove. `InterestGrid` buckets the
+> world once per tick and answers each player from the cells around them. It reads exactly like a
+> filter, and writing it as one produces something that passes every test and scales like the thing it
+> replaced.
+>
+> The rest stands, and the ordering is real: the rules give a three-valued verdict and the first
+> definite answer wins, which is what makes an explicit override placed before the grid something the
+> grid cannot argue with. Most rules answer `Undecided` most of the time — the scene rule hides what is
+> in a level you have not loaded and says nothing about the rest — and that is what lets the rules be
+> written independently.
+
 ### Motion: interpolation, extrapolation, smoothing
 
 - Snapshot buffer per replicated entity, interpolated at `serverTick - interpolationDelay`.

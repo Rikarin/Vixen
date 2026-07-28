@@ -102,9 +102,11 @@ the join between the two on each peer.
   object the scene's unload never sweeps, standing in the middle of the next map. `PendingCount` is
   where that becomes visible, and a number that never comes down is a client that will never have the
   content.
-- **`SceneInterestResolver`** is doc 16's first resolver: a player is told about the scenes they have
-  loaded, and about anything in no scene at all. The second half is deliberate — a resolver whose
-  default is "vanish" is one everybody debugs.
+- **`SceneInterestRule`** is doc 16's first resolver, and it goes in an `InterestChain` beside the
+  explicit overrides and the distance grid. It **hides and never shows**: being in the right scene is
+  not a reason to be told about something, only the absence of a reason not to be, so an object in a
+  loaded scene comes back `Undecided` and the grid after it gets its say. An entity in no scene is
+  left to everybody — a rule whose default is "vanish" is one everybody debugs.
 - **Scene-placed objects derive their ids** from the scene and their index in it rather than being
   allocated one, so a designer's crate is addressable the moment the scene loads and before anybody
   has connected. Those live above `NetworkId.FirstBaked`, which the allocator will not reach.
