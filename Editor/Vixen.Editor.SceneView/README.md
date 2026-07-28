@@ -123,6 +123,31 @@ with a different rasterizer and a different blend. ⚠ That mutates the stage, a
 render system rather than to a view — so a four-pane layout with independent render modes needs a stage
 per pane. `ViewportLayout` gives each pane a whole `SceneViewport` for this reason.
 
+## The document
+
+`SceneDocument` is what `Vixen.Editor.Core`'s README promised would arrive here, and the reason it is
+here rather than there is the reference: a scene *is* an ECS world, and `Vixen.Editor.Core` does not
+reference `Vixen.Ecs` — deliberately, so the command stack and the asset database stay testable
+without one.
+
+**The editor names entities and the runtime does not.** There is no name component: a name is thirty
+bytes per entity in every chunk of a shipping build, serving a panel that does not exist at run time.
+The map lives on the document, which also makes renaming an ordinary undoable edit rather than a
+structural change to the world.
+
+⚠ **Creating and destroying entities is not undoable, and is therefore not offered.** An `Entity` is
+a slot and a version, and the ECS cannot be asked to reissue a particular one — so a redo would hand
+back a *different* handle and every reference to the old one (the selection, the name map, the
+hierarchy's rows) would be quietly stale. Offering an operation that silently is not undoable is
+worse than not offering it. `Add` exists for a host building a scene from a file or a template, and a
+shell should not put it behind a button until `Vixen.Ecs` can reserve a handle. Reparenting is
+missing for a narrower reason: undo has to put the entity back at the same index among its old
+siblings, and the intrusive list records a neighbour rather than a position.
+
+⚠ **Saving throws without an `ISceneWriter`.** `EditorDocument.Save` marks the document clean
+afterwards, so a `SaveCore` that wrote nothing would leave it claiming to match a file that does not
+exist — and the next crash would take the work with it.
+
 ## Play mode, both topologies
 
 **In-process** is `WorldSnapshot` plus `PlayModeController`. A snapshot is a walk over the archetypes
@@ -167,6 +192,12 @@ rather than an id.
 different copy and a different resolve.
 
 **Camera flight input.** `EditorCamera.Fly` is there and nothing calls it: WASD belongs to the shell's
-keymap over commands, not to a second binding system inside the viewport.
+keymap over commands, not to a second binding system inside the viewport. `Vixen.Editor.App` shows
+the shape — gizmo modes, snapping, focus and the numpad views are all commands there, so they appear
+in the palette and can be rebound.
+
+**The pixels.** A viewport draws a placeholder colour because `UiDocument`'s draw list has no texture
+command. Everything here is driven and correct without one; see `Vixen.Editor.App`'s README for what
+unblocks it.
 
 Licensed under Apache-2.0.

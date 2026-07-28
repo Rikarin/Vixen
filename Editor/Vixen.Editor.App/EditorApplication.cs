@@ -1,48 +1,89 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
+using Vixen.Core.Mathematics;
+using Vixen.Ecs;
+using Vixen.Editor.Core;
+using Vixen.Editor.Inspector;
+using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
+using Vixen.Engine.Transforms;
 using Vixen.Input;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
+using ViewportControl = Vixen.Ui.Controls.Advanced.Viewport;
 
 namespace Vixen.Editor.App;
 
-/// <summary>The editor as an application: which panels exist, which layouts, and what persists.</summary>
+/// <summary>The editor as an application: a project, a scene, which panels exist, and what persists.</summary>
 /// <remarks>
 ///     <para>
 ///         <b>The half of the editor that is not chrome.</b> <see cref="EditorShell" /> is a menu
 ///         bar, a docking workspace, a palette and a status bar with nothing in them;
-///         <see cref="EditorHost" /> is a window, a device and a frame loop. This is the list of what
-///         goes in the panels, what the layouts are called, and where the arrangement is written when
-///         the window closes — which is the part a game team would fork and the other two are not.
+///         <see cref="EditorHost" /> is a window, a device and a frame loop. This is what goes in the
+///         panels and what the panels are looking <i>at</i> — which is the part a game team would
+///         fork and the other two are not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The panels are placeholders and are meant to be read as such.</b>
-///         <c>Vixen.Editor.SceneView</c>, <c>.Inspector</c>, <c>.NodeGraph</c> and <c>.Profiler</c>
-///         are separate assemblies in doc 11's tree and none of them exists yet; what is here is the
-///         hierarchy and the inspector built out of the two advanced controls that do, so that the
-///         shell is exercised by something real rather than by four empty boxes. Each becomes a
-///         one-line change when its assembly lands, because a panel is an id and a factory.
+///         <b>It owns a world, and that is not the contradiction it looks like.</b>
+///         <c>Program</c>'s remarks say the editor's loop is an interface and has no world. It still
+///         does: nothing here ticks systems, runs a fixed step or updates behaviours. The world is a
+///         <i>document</i> — the thing the hierarchy lists, the inspector edits and the gizmo drags —
+///         and it starts being a running game only when play mode says so.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every user-facing decision is written on the way out, and nothing on the way in is
-///         required.</b> A first run has no layout, no keymap and no theme file, and the editor
-///         opens on the Default preset in dark — the same argument <c>ProjectSettingsStore</c> makes
-///         about a missing settings file meaning the defaults.
+///         ⚠ <b>The selection is polled once a frame rather than subscribed to.</b>
+///         <c>Selection&lt;T&gt;</c> is signal-backed, and an <c>Effect</c> over it would be the
+///         better wiring — but nothing in this loop flushes the reactive scheduler, and adding one
+///         changes the loop's contract for notifications and background tasks too. A comparison of a
+///         handful of handles once a frame is not a cost, and it is honest about what is here.
+///     </para>
+///     <para>
+///         ⚠ <b>A panel's factory runs again when it is reopened</b>, so nothing durable may live in
+///         one. The camera is kept as a <see cref="ViewBookmark" /> on this object and restored when
+///         the scene panel is rebuilt; without that, closing and reopening the viewport would put the
+///         user back at the origin.
 ///     </para>
 /// </remarks>
 sealed class EditorApplication : IDisposable {
     readonly EditorUserStore store;
+    readonly World world = new("Editor");
+    readonly EditorProject project;
+    readonly SceneDocument scene;
+    readonly List<Entity> shown = [];
+
+    SceneViewport? viewport;
+    InspectorView? inspector;
+    TreeView? hierarchy;
+    ViewBookmark camera;
+    bool hierarchyStale = true;
 
     /// <summary>Builds the editor's interface into a new document.</summary>
     /// <param name="width">The surface's width in device-independent pixels.</param>
     /// <param name="height">Its height.</param>
     /// <param name="directory">Where the user's layouts, keymap and preferences live.</param>
-    public EditorApplication(float width, float height, string directory) {
+    /// <param name="projectRoot">The project to open, or <see langword="null" /> for a scratch one.</param>
+    public EditorApplication(float width, float height, string directory, string? projectRoot = null) {
         store = new EditorUserStore(directory);
         Shell = new EditorShell(width, height);
+
+        // A scratch project under the user's data directory, so a first run with no arguments opens
+        // something real rather than refusing to start. `Open` tolerates a missing Assets directory
+        // — see AssetDatabase.Scan — which is what makes a directory that does not exist yet fine.
+        project = new EditorProject(new ProjectPaths(projectRoot ?? Path.Combine(directory, "Scratch")));
+        project.Open();
+
+        scene = new SceneDocument(project, world, AssetId.Empty, "Untitled");
+        project.Activate(scene);
+
+        Seed();
+
+        scene.StructureChanged += _ => hierarchyStale = true;
+        scene.Renamed += (_, _) => hierarchyStale = true;
+
+        camera = new EditorCamera().Bookmark("initial");
 
         Panels();
         Layouts();
@@ -64,7 +105,7 @@ sealed class EditorApplication : IDisposable {
             Shell.Workspace.Reset();
         }
 
-        Shell.Status = "Ready";
+        Shell.Status = project.Name;
     }
 
     /// <summary>The interface.</summary>
@@ -72,6 +113,60 @@ sealed class EditorApplication : IDisposable {
 
     /// <summary>Whether the editor has been asked to close.</summary>
     public bool IsClosing { get; private set; }
+
+    /// <summary>How many render pixels one layout pixel is.</summary>
+    /// <remarks>
+    ///     Pushed down to the viewport rather than read from it, because the display's scale belongs
+    ///     to the window and a panel has no way to ask.
+    /// </remarks>
+    public float RenderScale {
+        get;
+
+        set {
+            field = value;
+
+            if (viewport is not null) {
+                viewport.Control.RenderScale = value;
+            }
+        }
+    } = 1f;
+
+    /// <summary>
+    ///     Brings the panels up to date with the model, once a frame, after the layout pass.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>After <c>UiDocument.Update</c> and before <c>Draw</c>.</b> The viewport measures
+    ///     itself in render pixels from its own box, which the layout pass is what produces; and the
+    ///     axis cross it draws comes from the camera rotation this writes. Either side of that pair
+    ///     and the picture is a frame behind.
+    /// </remarks>
+    public void Update() {
+        if (hierarchyStale) {
+            hierarchyStale = false;
+            RebuildHierarchy();
+        }
+
+        if (Changed()) {
+            ShowSelection();
+        }
+
+        if (viewport is not { } pane) {
+            return;
+        }
+
+        pane.Update();
+
+        // ⚠ Kept every frame, not on the way out. A panel's factory runs again when it is reopened
+        // and the SceneViewport goes with the old one, so there is no teardown hook to read the
+        // camera in — and a bookmark taken once at startup would restore the origin every time.
+        camera = pane.Camera.Bookmark("current");
+
+        // The inspector follows the gizmo. Reload rather than Inspect, because the rows and their
+        // handlers already exist and rebuilding would take the focus out of whatever is being typed.
+        if (pane.Gizmo.IsDragging) {
+            inspector?.Reload();
+        }
+    }
 
     /// <summary>Writes what the user changed.</summary>
     /// <remarks>
@@ -85,22 +180,62 @@ sealed class EditorApplication : IDisposable {
     }
 
     /// <inheritdoc />
-    public void Dispose() => Shell.Dispose();
+    public void Dispose() {
+        viewport?.Dispose();
+        Shell.Dispose();
+        world.Dispose();
+    }
+
+    /// <summary>A scene with something in it, so the panels have something to show.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A placeholder, and the last one left.</b> The hierarchy and the inspector are now
+    ///     reading a real world through a real document; what is still made up is the <i>content</i>
+    ///     of that world, because loading one needs a scene format and an importer. When
+    ///     <c>SceneDocument.Writer</c> has an implementation this becomes "open the last scene".
+    /// </remarks>
+    void Seed() {
+        var root = scene.Add("Scene Root", LocalTransform.Identity);
+
+        scene.Add("Directional Light", LocalTransform.At(new Vector3(0f, 3f, 0f)), root);
+        scene.Add("Main Camera", LocalTransform.At(new Vector3(0f, 1.5f, 6f)), root);
+
+        var ground = scene.Add("Ground", LocalTransform.Identity, root);
+        scene.Add("Crate", LocalTransform.At(new Vector3(1.5f, 0.5f, 0f)), ground);
+        scene.Add("Barrel", LocalTransform.At(new Vector3(-2f, 0.5f, 1f)), ground);
+
+        // The stack starts empty: seeding is not an edit somebody made, and an editor that opened
+        // with five undo steps already on it is one where Ctrl+Z does something inexplicable.
+        scene.Stack.Clear();
+        scene.Stack.MarkClean();
+    }
 
     void Panels() {
         Shell.RegisterPanel(
             "hierarchy",
             new StringId("editor.panel.hierarchy", "Hierarchy"),
             panel => {
-                var tree = panel.Add<TreeView>();
-                var scene = tree.Root.Add("Scene");
+                hierarchy = panel.Add<TreeView>();
+                hierarchy.MultiSelect = true;
 
-                scene.Add("Directional Light");
-                scene.Add("Main Camera");
-                scene.Add("Ground");
+                hierarchy.SelectionChanged += tree => {
+                    List<Entity> picked = [];
 
-                tree.Refresh();
-                tree.Expand(scene);
+                    foreach (var node in tree.Selection) {
+                        if (node.Tag is Entity entity) {
+                            picked.Add(entity);
+                        }
+                    }
+
+                    scene.Selection.Set(picked);
+                };
+
+                hierarchy.Renamed += (_, node, name) => {
+                    if (node.Tag is Entity entity) {
+                        scene.Rename(entity, name);
+                    }
+                };
+
+                hierarchyStale = true;
             }
         );
 
@@ -109,8 +244,10 @@ sealed class EditorApplication : IDisposable {
             new StringId("editor.panel.project", "Project"),
             panel => {
                 var tree = panel.Add<TreeView>();
-                var assets = tree.Root.Add("Assets");
+                var assets = tree.Root.Add(project.Name);
 
+                // Still the asset database's shape rather than its contents: a scratch project has no
+                // Assets directory, and listing one that is there is the project browser's own job.
                 assets.Add("Materials");
                 assets.Add("Scenes");
                 assets.Add("Shaders");
@@ -123,13 +260,33 @@ sealed class EditorApplication : IDisposable {
         Shell.RegisterPanel(
             "scene",
             new StringId("editor.panel.scene", "Scene"),
-            panel => panel.Add<EmptyState>().Title = "The viewport lands with Vixen.Editor.SceneView."
+            panel => {
+                var control = panel.Add<ViewportControl>();
+                control.RenderScale = RenderScale;
+
+                viewport = new SceneViewport(control, scene.Selection) {
+                    Document = scene,
+                    TargetsFactory = () => EntityGizmoTarget.For(world, scene.Selection)
+                };
+
+                // ⚠ Restored, because this factory runs again every time the panel is reopened and a
+                // fresh SceneViewport starts at the origin looking down −Z.
+                viewport.Camera.Restore(camera);
+            }
         );
 
         Shell.RegisterPanel(
             "inspector",
             new StringId("editor.panel.inspector", "Inspector"),
-            panel => panel.Add<PropertyGrid>()
+            panel => {
+                inspector = panel.Add<InspectorView>();
+                inspector.EditedDocument = scene;
+
+                // The rows were built against the previous instance of this panel, so what is
+                // selected has to be pushed into the new one rather than waited for.
+                shown.Clear();
+                ShowSelection();
+            }
         );
 
         Shell.RegisterPanel(
@@ -195,6 +352,9 @@ sealed class EditorApplication : IDisposable {
             }
         );
 
+        EditCommands();
+        SceneCommands();
+
         Shell.Keys.SetDefault("file.exit", new KeyChord(InputKey.Q, ModifierKeys.Control));
 
         Shell.Toolbar.Show("view.palette", null, "view.reset-layout", "view.toggle-theme");
@@ -213,6 +373,200 @@ sealed class EditorApplication : IDisposable {
                 }
             )
         );
+    }
+
+    /// <summary>Undo and redo, over whichever document is active.</summary>
+    /// <remarks>
+    ///     Bound to the document's stack rather than to a global one, and enabled from the stack's
+    ///     own signal — which is what makes the menu item grey itself out with no code here saying
+    ///     when. <c>UndoName</c> is read for the same reason: the label is "Undo Set Roughness"
+    ///     because the command said so, not because a menu was told.
+    /// </remarks>
+    void EditCommands() {
+        Shell.Commands.Add(
+            new EditorCommand("edit.undo", new StringId("editor.command.undo", "Undo"), () => scene.Stack.Undo()) {
+                Category = EditorStrings.CategoryEdit,
+                Enablement = () => scene.Stack.CanUndo.Value
+            }
+        );
+
+        Shell.Commands.Add(
+            new EditorCommand("edit.redo", new StringId("editor.command.redo", "Redo"), () => scene.Stack.Redo()) {
+                Category = EditorStrings.CategoryEdit,
+                Enablement = () => scene.Stack.CanRedo.Value
+            }
+        );
+
+        Shell.Keys.SetDefault("edit.undo", new KeyChord(InputKey.Z, ModifierKeys.Control));
+        Shell.Keys.SetDefault("edit.redo", new KeyChord(InputKey.Z, ModifierKeys.Control | ModifierKeys.Shift));
+    }
+
+    /// <summary>What the viewport can be told to do, as commands rather than as a second keymap.</summary>
+    /// <remarks>
+    ///     Every one of these goes through the command registry, so it appears in the palette, can be
+    ///     rebound, and greys itself out when there is no viewport — which is the whole reason
+    ///     <c>SceneViewport</c> has no bindings of its own.
+    /// </remarks>
+    void SceneCommands() {
+        Mode("scene.translate", "Translate", GizmoMode.Translate, InputKey.W);
+        Mode("scene.rotate", "Rotate", GizmoMode.Rotate, InputKey.E);
+        Mode("scene.scale", "Scale", GizmoMode.Scale, InputKey.R);
+
+        Add("scene.toggle-space", "Toggle Gizmo Space", pane =>
+            pane.Gizmo.Space = pane.Gizmo.Space == GizmoSpace.World ? GizmoSpace.Local : GizmoSpace.World
+        );
+
+        Add("scene.toggle-pivot", "Toggle Pivot", pane =>
+            pane.Gizmo.Pivot = pane.Gizmo.Pivot == PivotMode.Pivot ? PivotMode.Center : PivotMode.Pivot
+        );
+
+        Add("scene.toggle-snap", "Toggle Snapping", pane => {
+            var on = !pane.Gizmo.Snap.SnapPosition;
+
+            pane.Gizmo.Snap.SnapPosition = on;
+            pane.Gizmo.Snap.SnapRotation = on;
+            pane.Gizmo.Snap.SnapScale = on;
+        });
+
+        Add("scene.toggle-grid", "Toggle Grid", pane => pane.Grid.Enabled = !pane.Grid.Enabled);
+
+        Add("scene.toggle-projection", "Toggle Orthographic", pane =>
+            pane.Camera.IsOrthographic = !pane.Camera.IsOrthographic
+        );
+
+        Add("scene.focus", "Focus Selection", pane => pane.FocusSelection(SelectionBounds()), InputKey.F);
+        Add("scene.frame-all", "Frame All", pane => pane.Camera.Focus(SceneBounds()), InputKey.A);
+
+        View("scene.view-front", "Front View", ViewDirection.Front, InputKey.Keypad1);
+        View("scene.view-right", "Right View", ViewDirection.Right, InputKey.Keypad3);
+        View("scene.view-top", "Top View", ViewDirection.Top, InputKey.Keypad7);
+
+        void Mode(string id, string label, GizmoMode mode, InputKey key) =>
+            Add(id, label, pane => pane.Gizmo.Mode = mode, key);
+
+        void View(string id, string label, ViewDirection direction, InputKey key) =>
+            Add(id, label, pane => pane.Camera.LookFrom(direction), key);
+
+        void Add(string id, string label, Action<SceneViewport> action, InputKey key = InputKey.Unknown) {
+            Shell.Commands.Add(
+                new EditorCommand(id, new StringId("editor.command." + id, label), () => {
+                        if (viewport is { } pane) {
+                            action(pane);
+                        }
+                    }
+                ) {
+                    Category = new StringId("editor.category.scene", "Scene"),
+                    Enablement = () => viewport is not null
+                }
+            );
+
+            if (key != InputKey.Unknown) {
+                Shell.Keys.SetDefault(id, new KeyChord(key, ModifierKeys.None));
+            }
+        }
+    }
+
+    /// <summary>Whether the selection differs from what the inspector is showing.</summary>
+    bool Changed() {
+        if (shown.Count != scene.Selection.Count) {
+            return true;
+        }
+
+        for (var index = 0; index < shown.Count; index++) {
+            if (shown[index] != scene.Selection[index]) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    void ShowSelection() {
+        shown.Clear();
+        shown.AddRange(scene.Selection);
+
+        // One SceneEntity per selected entity, made fresh: it holds a handle and a document and
+        // nothing else, so keeping a cache of them would be bookkeeping in exchange for nothing.
+        inspector?.Inspect([.. shown.Select(entity => new SceneEntity(scene, entity))]);
+
+        Shell.Status = shown.Count switch {
+            0 => project.Name,
+            1 => scene.NameOf(shown[0]),
+            _ => $"{shown.Count} selected"
+        };
+    }
+
+    void RebuildHierarchy() {
+        if (hierarchy is not { } tree) {
+            return;
+        }
+
+        while (tree.Root.Children.Count > 0) {
+            tree.Root.Remove(tree.Root.Children[^1]);
+        }
+
+        foreach (var entity in scene.Roots) {
+            Branch(tree.Root, entity);
+        }
+
+        tree.Refresh();
+
+        foreach (var node in tree.Root.Children) {
+            tree.Expand(node);
+        }
+
+        void Branch(TreeNode parent, Entity entity) {
+            var node = parent.Add(scene.NameOf(entity), entity);
+
+            foreach (var child in Hierarchy.ChildrenOf(world, entity)) {
+                Branch(node, child);
+            }
+        }
+    }
+
+    BoundingBox SelectionBounds() {
+        if (scene.Selection.Count == 0) {
+            return SceneBounds();
+        }
+
+        return Around(scene.Selection);
+    }
+
+    BoundingBox SceneBounds() {
+        var entities = scene.Roots;
+
+        return entities.Count == 0
+            ? new BoundingBox(new Vector3(-1f), new Vector3(1f))
+            : Around(scene.Entities);
+    }
+
+    /// <summary>A box around some entities' origins.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Origins, not render bounds.</b> Nothing here has a mesh yet, so "how big is it" has
+    ///     no answer — a padded box around the points is what makes focus and frame-all land
+    ///     somewhere sensible until there is geometry to measure. <c>EditorCamera.Focus</c> floors
+    ///     the radius anyway, so a single entity still gets a usable distance.
+    /// </remarks>
+    BoundingBox Around(IEnumerable<Entity> entities) {
+        var low = new Vector3(float.MaxValue);
+        var high = new Vector3(float.MinValue);
+        var any = false;
+
+        foreach (var entity in entities) {
+            if (!world.IsAlive(entity) || !world.Has<WorldTransform>(entity)) {
+                continue;
+            }
+
+            var position = new Transform(world, entity).Position;
+
+            low = Vector3.Min(low, position);
+            high = Vector3.Max(high, position);
+            any = true;
+        }
+
+        return any
+            ? new BoundingBox(low - new Vector3(0.5f), high + new Vector3(0.5f))
+            : new BoundingBox(new Vector3(-1f), new Vector3(1f));
     }
 
     void SaveLayout() {
