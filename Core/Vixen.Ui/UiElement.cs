@@ -100,6 +100,25 @@ public partial class UiElement {
     /// <summary>Its resolved font size in pixels, which every <c>em</c> on it measures against.</summary>
     public float FontSize { get; internal set; } = LengthContext.InitialFontSize;
 
+    /// <summary>The inherited text lengths, resolved against this element's own font size.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>line-height</c>, <c>letter-spacing</c>, <c>word-spacing</c> and <c>text-indent</c>
+    ///         live here rather than in <see cref="Style" /> for the same reason
+    ///         <see cref="FontSize" /> does: the cascade inherits specified values and CSS inherits
+    ///         computed ones, so an <c>em</c> in any of them would be measured a second time against
+    ///         the descendant's font size. See <see cref="ComputedText" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing draws with these yet.</b> <c>TextRun</c> uses the font's own line height
+    ///         and lays out one run at a time with no spacing adjustments, so these are resolved
+    ///         correctly and consumed by nothing — which is stated rather than left for somebody to
+    ///         discover. They are what rich-text runs and <c>TextArea</c> will read, and getting the
+    ///         inheritance right before there is a consumer is the cheap order to do it in.
+    ///     </para>
+    /// </remarks>
+    public ComputedText TextStyle { get; internal set; } = ComputedText.Initial;
+
     internal StyleNodeId StyleNode { get; private set; }
 
     internal LayoutNodeId LayoutNode { get; private set; }

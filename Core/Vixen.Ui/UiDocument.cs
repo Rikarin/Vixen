@@ -646,11 +646,19 @@ public sealed partial class UiDocument : IDisposable {
     ///         in three parallel lists.
     ///     </para>
     /// </remarks>
-    void Apply(UiElement element, float parentFontSize) {
+    void Apply(UiElement element, float parentFontSize) =>
+        Apply(element, parentFontSize, ComputedText.Initial);
+
+    void Apply(UiElement element, float parentFontSize, in ComputedText parentText) {
         var style = Restyler.StyleOf(element.StyleNode);
 
         element.Style = style;
         element.FontSize = Builder.ResolveFontSize(style, parentFontSize, Viewport);
+
+        // ⚠ After the font size and before the children, because these are relative to *this*
+        // element's size and are inherited already absolute. That ordering is the whole of the
+        // computed-value stage — see ComputedText.
+        element.TextStyle = ResolveText(style, parentText, element.FontSize);
 
         // ⚠ Reference equality, which is the whole reason ComputedStyle is interned. Two elements
         // that resolved alike hold the same object, so this is one pointer comparison rather than a
@@ -668,7 +676,7 @@ public sealed partial class UiDocument : IDisposable {
         }
 
         foreach (var child in element.Children) {
-            Apply(child, element.FontSize);
+            Apply(child, element.FontSize, element.TextStyle);
         }
     }
 

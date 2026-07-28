@@ -57,11 +57,11 @@ public sealed class InheritedProperties {
         "font-weight",
         "font-stretch",
         "font-variant",
-        "line-height",
-        "letter-spacing",
-        "word-spacing",
+        // ⚠ `line-height`, `letter-spacing`, `word-spacing` and `text-indent` are CSS-inherited
+        // and are deliberately *not* here, for the reason `font-size` is not: they take relative
+        // units, and a specified `em` inherited as text is measured against the descendant. They
+        // are inherited in computed form by `Vixen.Ui` — see `ComputedText`.
         "text-align",
-        "text-indent",
         "text-transform",
         "white-space",
         "word-break",
