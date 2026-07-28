@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!--
+          net10.0-browser, not net10.0. [JSImport] lives in
+          System.Runtime.InteropServices.JavaScript, which only exists in the browser runtime pack,
+          and the source generator that emits its marshalling only runs for a browser target.
+
+          The consequence is that this project needs the `wasm-tools` workload to evaluate, so — like
+          Vixen.Audio.Backend.WebAudio, Vixen.Platform.Android and Vixen.Platform.iOS, and for the
+          same reason — it is NOT in Vixen.slnx. `nuke Compile` does not build it and neither does CI
+          today; it is built by the web app head, which is Phase 10 work (docs/plan/14). See the
+          README.
+        -->
+        <TargetFramework>net10.0-browser</TargetFramework>
+        <RootNamespace>Vixen.Graphics.WebGPU.Browser</RootNamespace>
+        <!-- Required by [JSImport]: the generated marshalling is unsafe (SYSLIB1074). -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Description>
+            The browser half of the WebGPU backend: navigator.gpu reached through JSImport. Everything
+            above the binding — translation, validation, handle lifetime, command replay — comes from
+            Vixen.Graphics.WebGPU unchanged, which is what makes this interop rather than a second
+            backend.
+        </Description>
+        <PackageTags>webgpu;wasm;browser;graphics;rhi;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          The browser half. It has to be fetchable by URL at run time — JSHost.ImportAsync takes a
+          path, not a stream — so it is copied beside the assembly rather than embedded, and packed
+          as a content file an application head can place wherever its assets live.
+        -->
+        <None Include="wwwroot\vixen-webgpu.js"
+              CopyToOutputDirectory="PreserveNewest"
+              Pack="true"
+              PackagePath="contentFiles/any/any/" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Graphics.WebGPU\Vixen.Graphics.WebGPU.csproj" />
+    </ItemGroup>
+
+</Project>

@@ -188,7 +188,7 @@ Known concessions, documented up front so nobody is surprised:
 - Uniform buffers only (no storage buffers on WebGL2 — compute is unavailable there entirely, which
   cascades into the post-FX chain having a non-compute fallback for every effect).
 
-### `Vixen.Graphics.WebGPU`
+### `Vixen.Graphics.WebGPU` — **built**
 
 `Silk.NET.WebGPU` binds native Dawn/wgpu. In the browser, WebGPU is reached through JS interop, not
 through the native binding — so `Vixen.Graphics.WebGPU` has two surface implementations (native
@@ -196,6 +196,31 @@ Dawn for desktop testing, `JSImport` for browser) behind one backend. WebGPU map
 (bind groups ≈ descriptor sets, render pipelines ≈ PSOs, explicit passes), which makes it a better
 long-term web story than WebGL2. It is sequenced after WebGL2 because browser availability, while good
 in 2026, still needs the WebGL2 floor.
+
+The seam between the two surfaces is `IWebGpuBinding`, and **it decides nothing**: it marshals and
+returns. Translation, validation, handle lifetime, deferred destruction, push-constant emulation and
+command replay all sit above it and run unchanged on both, which is what makes the *web* path
+testable — `Vixen.Graphics.WebGPU.Tests` drives all of it against a recording fake on a machine with
+no GPU, no Dawn and no browser. The browser half is `Vixen.Graphics.WebGPU.Browser`, out of
+`Vixen.slnx` for the reason `Vixen.Audio.Backend.WebAudio` is.
+
+Three things the RHI has that WebGPU does not, and what happens instead:
+
+- **Push constants.** Emulated as a dynamic uniform buffer bound at group
+  `PipelineLayoutDescription.Sets.Length` — where SPIRV-Cross puts a Vulkan push-constant block when
+  it emits WGSL ([07 § ADR-012](07-raven-shader-pipeline.md)). A layout that uses all four bind
+  groups *and* declares push constants is refused: WebGPU guarantees four and there is nowhere left.
+- **Compute outside a pass.** The RHI has render passes only; WebGPU has no dispatch outside a
+  compute pass, so replay opens one on demand and closes it when a render pass or a copy arrives.
+- **Border colours.** `ClampToBorder` becomes `ClampToEdge`, which `SamplerDescription.Shadow`
+  notices: outside a shadow map reads as the edge texel rather than as lit.
+
+**Owed, and it is a change to `Vixen.Graphics` rather than to the backend.** WebGPU requires a
+sampled texture's type and a sampler's comparison-ness to be declared in the bind group layout;
+`DescriptorBinding` carries a kind, some stages and a count and nothing about formats. So every
+layout the backend builds says "filterable float", and a shadow map bound through one is refused with
+that explanation. Sampling depth on WebGPU needs `DescriptorBinding` to grow a sample type — which
+every other backend would ignore.
 
 ## Shader interface
 

@@ -138,6 +138,14 @@
     <PackageVersion Include="Silk.NET.Vulkan.Extensions.EXT" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.Core" Version="2.23.0" />
     <!--
+      The native half of the WebGPU backend (docs/plan/05 § Vixen.Graphics.WebGPU).
+      Bindings to webgpu.h — Dawn or wgpu-native supplies the library, the same
+      arrangement as Vulkan's. It is deliberately NOT the browser half: this package
+      binds a C entry point, and a browser reaches WebGPU through navigator.gpu and
+      nothing else, which is why Vixen.Graphics.WebGPU.Browser exists.
+    -->
+    <PackageVersion Include="Silk.NET.WebGPU" Version="2.23.0" />
+    <!--
       The OpenAL backend (docs/plan/02 § Platform, docs/plan/14 Phase 8). Bindings
       for AL and ALC, the ALC_ENUMERATION_EXT device list, and AL_EXT_FLOAT32 so a
       mixer that works in float does not have to quantise on the way out.

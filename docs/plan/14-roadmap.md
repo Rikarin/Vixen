@@ -3756,7 +3756,22 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
   non-representable materials, decals.
 - Volumetric fog, contact shadows, light shafts, motion blur, SSS blur, upscaler interface + FSR1.
 - Mesh shaders / meshlet culling behind capability flags.
-- `Vixen.Graphics.WebGPU` (native + browser surfaces).
+- ✅ **`Vixen.Graphics.WebGPU` (native + browser surfaces).** One backend over `IWebGpuBinding`, with
+  Dawn/wgpu behind it on the desktop and `navigator.gpu` behind it in a tab. The seam decides
+  nothing, so translation, validation, handle lifetime, push-constant emulation and command replay
+  are written once and — this is the part worth having — **the web path is covered by tests that run
+  on a CI machine with no browser**, against a recording fake.
+
+  Three RHI ideas WebGPU does not have are resolved rather than deferred: push constants become a
+  dynamic uniform buffer at the group after the caller's sets, a dispatch gets a compute pass opened
+  around it at replay, and `ClampToBorder` becomes `ClampToEdge` — which the shadow sampler notices,
+  and the backend's README says so.
+
+  **Owed:** a sampled depth texture and a comparison sampler are refused, because WebGPU needs a
+  sample type declared in the bind group layout and `DescriptorBinding` carries none. That is a
+  change to `Vixen.Graphics` — see [05](05-graphics-rhi.md) — and it is owed before a shadow map
+  renders on the web. Nothing has been rendered on a real implementation yet: no desktop OS ships
+  Dawn or wgpu-native, so the first picture waits on either a fetched binary or a browser head.
 - `Vixen.Platform.Web` completion: canvas, all input, IndexedDB providers, fetch provider with range
   requests, single-threaded job mode, size optimisation (trimming, SIMD, Brotli, lazy assemblies).
 - `Samples/02` running in Chrome/Firefox/Safari (WebGL2 path already verified — see

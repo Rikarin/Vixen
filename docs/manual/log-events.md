@@ -48,6 +48,12 @@ identifies its origin on sight.
 |---|---|---|---|
 | 2001 | Warning | The Vulkan validation layers were asked for and are not installed | 0.1.0 |
 | 2002 | Warning | The validation layer was found but would not load; the instance was created without it | 0.1.0 |
+| 2003 | Information | `Vulkan device created on '{Adapter}' ({Kind}, Vulkan {ApiVersion}) using {RenderPath}; validation {ValidationEnabled}.` | 0.1.0 |
+| 2100 | Information | `WebGPU device created on '{Adapter}' ({Kind}, {Driver}), {Mode}.` — on the web three of those four are "unknown", and knowing they are unknown rather than unlogged is the useful part | 0.1.0 |
+| 2101 | Warning | `WebGPU reported an error the backend could not attribute to a call: {Message}` — WebGPU has no return codes, so this callback is the only place a failure appears | 0.1.0 |
+| 2102 | Debug | `WaitIdle did nothing: this WebGPU surface cannot block on the queue.` — a browser tab has one thread and blocking on it is a deadlock | 0.1.0 |
+| 2103 | Warning | `wgpu-native or Dawn could not be loaded ({Reason})` — no desktop OS ships one, so this is ordinary and selection moves on | 0.1.0 |
+| 2104 | Warning | `WebGPU device lost ({Reason}). Everything has to be recreated.` | 0.1.0 |
 
 ### `Vixen.Ui.Reactive` — the signal graph
 
