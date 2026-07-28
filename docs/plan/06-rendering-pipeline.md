@@ -406,7 +406,7 @@ material/shader system usable at all.
   machine compiles and returns it, the device caches it. This is what makes on-device shader iteration
   tolerable and it is worth building early.
 
-### ✅ Status: the key, the cache and the seam are built
+### ✅ Status: all three tiers are built, and the exit criterion is a test
 
 `EffectKey`, `Effect` and `EffectSystem` are in `Core/Vixen.Shaders`, with `ParameterCollection`
 beside them. Three things the implementation settled:
@@ -430,6 +430,58 @@ every use, which is what makes "what is this frame's effect key" a field rather 
 the permutations Raven reports as `UsedPermutationKeys` reach the key — the difference between a
 tractable cache and 2ⁿ entries where a handful are distinct — and the values are sorted by name, so
 the same settings in a different order are the same key rather than a cache that never hits.
+
+#### What the three tiers turned out to need
+
+**A form for a variant that the compiler is not needed to read.** Raven already writes `.rvnfx` —
+bytecode, reflection, permutation key, source hash — and it is unusable at run time, because
+`CompiledEffectReader` lives in the compiler assembly and reading one links the parser, the lowerer
+and both backends. So `Vixen.Shaders` has **`EffectData`**: the same content, device-independent,
+carried by the engine's own serializer. The disk cache, the baked bundle and the answer that comes
+back over TCP are all that one record, and translating a `.rvnfx` into it happens once, on the build
+side, in `Tools/Vixen.ShaderCompiler` — the only project that references both halves.
+
+**The tiers answer with bytes, not with effects.** `IEffectProvider` gives an `Effect`, which is a
+thing on a device; the tiers underneath implement **`IEffectSource`** and give an `EffectData`. That
+is what lets them compose: a disk cache that missed can ask the dev machine and *write down what came
+back*, which it could not do if the answer were already a set of device handles. One
+`EffectSourceProvider` at the top turns whatever the stack produced into an effect, and a shipping
+build's stack is one deep.
+
+**The disk cache is keyed by (key, target) with the source hash checked rather than named.** Doc's
+`(RavenSourceHash, PermutationKey, Backend)` has a direction problem: a reader has to be able to
+*find* an entry, and a runtime asking for a variant does not know what the shader source hashed to —
+the compiler that knew is the thing this tier exists to avoid running. So the hash rides inside the
+record and `Expect` is what a host that does know sets. Every failure to read is a miss and never an
+exception: a cache is an optimisation and its failure mode has to be "slower".
+
+**Pre-generation is a fixed point, not a cross product.** Raven reports which keys a compilation
+*read*, and the answer depends on the values — a flag guarded by another flag is unread until the
+outer one is on. Compiling once with the defaults undercounts; the cross product of everything
+declared overcounts by orders of magnitude. `PermutationClosure` compiles the defaults, enumerates
+over what was read, and starts again if any of those compilations read something new. The set only
+grows and is bounded by what the shader declares, so it terminates having compiled exactly the
+variants that exist — three declared keys and two that matter is two shaders, measured rather than
+claimed.
+
+That enumeration also found a constraint worth writing down: **a shader whose used-key set depends on
+its values has variants no draw can ask for.** The engine builds its key from the `UsedPermutationKeys`
+in the reflection checked in beside the shader, and that reflection came from one compilation. If
+`Inner` is only read inside `if (Outer)`, the generated key list does not contain `Inner` and nothing
+can select those variants. The closure reports it as `Dependent`; the fix is in the shader, which
+should read the inner key unconditionally.
+
+**Numbers need a domain and booleans do not.** A `bool` has two values and enumerating them is
+complete; an `int` does not, and which values matter is project knowledge — a light-count bucket is 4,
+16 and 64 because of what the scenes look like. Unsupplied, a numeric key contributes its declared
+default alone, and the variants nobody asked for show up as named misses rather than as a silently
+short bundle.
+
+**Where the manifest comes from is a playthrough.** No static analysis of a scene knows which shading
+model a script switches to on level three. `EffectSystem.Requests` records every key anything asked
+for — before the in-memory tier, so a key resolved once and cached is still in the list — and that is
+an `EffectManifest`: JSON, because it is a build input people read, review in a diff and merge when
+two branches each add a material. Play, dump, build, and the next run compiles nothing.
 
 ## Testing
 

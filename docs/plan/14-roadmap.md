@@ -2297,9 +2297,16 @@ scroll/focus/selection. A `DockingHost` layout round-trips through serialisation
 
 - `Vixen.Shaders`: ✅ **typed parameter/permutation keys and the constant-buffer writers**, with
   `Vixen.Shaders.Generators` emitting both from Raven's reflection — see
-  [07 § Generated C# bindings](07-raven-shader-pipeline.md#generated-c-bindings). Still open: the
-  effect system, the three cache tiers, build-time permutation pre-generation and
-  `Tools/Vixen.ShaderCompilerService`, all of which need `Vixen.Rendering` to design against.
+  [07 § Generated C# bindings](07-raven-shader-pipeline.md#generated-c-bindings). ✅ **the effect
+  system and all three cache tiers**: `EffectStore` over a baked bundle, `EffectDiskCache`
+  read-through and write-back over a directory, and `RemoteEffectSource` over a socket — each an
+  `IEffectSource` producing an `EffectData`, which is the device-independent form of a variant that
+  reading needs no compiler for. ✅ **build-time pre-generation** in `Tools/Vixen.ShaderCompiler`,
+  where `PermutationClosure` finds a shader's variants by compiling until the read-key set stops
+  growing, and `EffectBundleBuilder` bakes them. ✅ **`Tools/Vixen.ShaderCompilerService`** — a device
+  asks for a permutation over TCP, this machine compiles it, and both ends cache. The exit
+  criterion below is asserted in `Vixen.ShaderCompiler.Tests`: a run records what it asked for, the
+  build bakes exactly that, and a second run over the bundle alone misses nothing.
 - `Raven/Library`: ✅ the full shader library from [07](07-raven-shader-pipeline.md) — Core, Shading,
   Geometry, Material, Pipeline, PostFx, Ui, Vfx — every shader reaching both backends under `glslc`
   and `spirv-val`.

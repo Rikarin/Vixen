@@ -178,6 +178,10 @@
     <Project Path="Tools/Vixen.ContentServer.Tests/Vixen.ContentServer.Tests.csproj" />
     <Project Path="Tools/Vixen.Sdk/Vixen.Sdk.csproj" />
     <Project Path="Tools/Vixen.Sdk.Tests/Vixen.Sdk.Tests.csproj" />
+    <Project Path="Tools/Vixen.ShaderCompiler/Vixen.ShaderCompiler.csproj" />
+    <Project Path="Tools/Vixen.ShaderCompiler.Tests/Vixen.ShaderCompiler.Tests.csproj" />
+    <Project Path="Tools/Vixen.ShaderCompilerService/Vixen.ShaderCompilerService.csproj" />
+    <Project Path="Tools/Vixen.ShaderCompilerService.Tests/Vixen.ShaderCompilerService.Tests.csproj" />
     <Project Path="Tools/Vixen.TextRenderingTestGen/Vixen.TextRenderingTestGen.csproj" />
     <Project Path="Tools/Vixen.UnicodeTableGen/Vixen.UnicodeTableGen.csproj" />
     <Project Path="Tools/Vixen.YogaTestGen/Vixen.YogaTestGen.csproj" />

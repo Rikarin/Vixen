@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.ShaderCompiler</RootNamespace>
+        <IsPackable>true</IsPackable>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <Description>
+            The one place Raven and the runtime meet. Compiles a shader variant in process and
+            translates the compiler's artefact into the device-independent record the engine loads,
+            enumerates the variants a shader actually has, and bakes them into a bundle. A build-time
+            library: nothing that ships references it, which is what makes "zero runtime shader
+            compilation" a fact about the link rather than a policy.
+        </Description>
+        <PackageTags>shaders;raven;permutations;content-build;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          Both halves, which is the point of this project existing at all. Vixen.Raven is the
+          compiler and Vixen.Shaders is the runtime, and neither may reference the other: the
+          compiler would gain a dependency on the engine it is meant to be usable without, and the
+          engine would link a parser into every shipped game. Here is where they are allowed to be in
+          one room.
+        -->
+        <ProjectReference Include="..\..\Raven\Vixen.Raven\Vixen.Raven.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Shaders\Vixen.Shaders.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.ShaderCompiler.Tests" />
+    </ItemGroup>
+
+</Project>

@@ -1,0 +1,39 @@
+package Vixen.Fixtures
+
+// A shader whose permutation keys are not independent, which is the case a single compilation with
+// the declared defaults gets wrong.
+//
+// `Inner` is only reachable when `Outer` is on, so a compilation with the defaults reports `Outer`
+// alone as read — and an enumeration that trusted that first answer would produce two variants and
+// miss two. `Never` is reachable from nothing and is the control: it must not appear in any key.
+
+shader Nested {
+    [Permutation] val Outer: bool = false
+    [Permutation] val Inner: bool = false
+    [Permutation] val Never: bool = false
+
+    var tint: float3
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float3, texcoord: float2): float4 {
+        uv = texcoord
+        return float4(position, 1f)
+    }
+
+    [PixelShader]
+    [Semantic("SV_Target")]
+    func Pixel(): float4 {
+        var color = tint
+
+        if (Outer) {
+            if (Inner) {
+                color = color * 0.5f
+            }
+        }
+
+        return float4(color, 1f)
+    }
+}
