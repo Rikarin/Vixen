@@ -27,7 +27,25 @@ public readonly record struct ParticleVertex(Vector3 Position, Vector2 Texture, 
 ///     Three vectors rather than a view matrix, because that is all the expansion uses and taking the
 ///     matrix would mean this module had an opinion about which convention it was in.
 /// </remarks>
-public readonly record struct VfxCamera(Vector3 Position, Vector3 Right, Vector3 Up);
+public readonly record struct VfxCamera(Vector3 Position, Vector3 Right, Vector3 Up) {
+    /// <summary>The basis for a camera at a point, looking a way, with an idea of which way is up.</summary>
+    /// <param name="position">Where the camera is.</param>
+    /// <param name="forward">Which way it looks. Need not be normalised.</param>
+    /// <param name="up">Roughly which way is up. Need not be square to <paramref name="forward" />.</param>
+    /// <returns>The camera.</returns>
+    /// <remarks>
+    ///     The same derivation as <c>Matrix4x4.LookAt</c>, and deliberately so: a billboard built from
+    ///     a basis that disagreed with the view matrix by a sign would be mirrored, which is a thing
+    ///     nobody notices on a round puff of smoke and everybody notices on a number. Right-handed,
+    ///     with the camera looking down its own -Z.
+    /// </remarks>
+    public static VfxCamera Looking(Vector3 position, Vector3 forward, Vector3 up) {
+        var back = Vector3.Normalize(-forward);
+        var right = Vector3.Normalize(Vector3.Cross(up, back));
+
+        return new(position, right, Vector3.Cross(back, right));
+    }
+}
 
 /// <summary>
 ///     Turns particles into quads.

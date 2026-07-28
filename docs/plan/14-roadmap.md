@@ -2473,8 +2473,17 @@ nowhere in the dependency graph.
   zero of seed zero drew zero for ever — which an offset before mixing removes. 34 tests, and a frame
   of a running effect allocates nothing.
 
-  **Owed here:** the GPU emitter, the renderers and `ParticleRenderFeature`, sorting, custom
-  attributes, and the force-field/curl-noise/collision/sub-emitter/trail updaters this document names.
+  **Particles are drawn.** `ParticleRenderFeature` sits beside `MeshRenderFeature` and is the first
+  feature whose geometry does not exist until the frame asks for it: `Prepare` expands each particle
+  into a camera-facing quad and appends it to one vertex buffer every effect in the frame shares, and
+  `Draw` binds that buffer once and reaches each run through the draw call's vertex offset. The
+  dependency runs Rendering → Vfx and not the other way, so the expansion is a unit test rather than a
+  screenshot. Two limits are deliberate and written down: the expansion is on the CPU, and it happens
+  once for one view — so particles do not belong in a shadow stage until the GPU path removes that
+  rather than working around it.
+
+  **Owed here:** the GPU emitter, mesh/ribbon/light renderers, custom attributes, and the
+  force-field/curl-noise/collision/sub-emitter/trail updaters this document names.
 - `Vixen.Editor.VfxGraph`: node library + dual-target compilation + live preview.
 - Particle render feature integrated.
 

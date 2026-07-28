@@ -128,6 +128,31 @@ all — putting one on every object would make them carry 64 bytes to say nothin
 A **skinned, instanced mesh** is the case an inheritance hierarchy needs a class for. Here it is two
 independent flags on one object, and neither feature knows the other exists.
 
+## The second one, which makes its own geometry
+
+`ParticleRenderFeature` draws the particles of a `Vixen.Vfx` system, and it is the first feature whose
+geometry does not exist until the frame asks for it. A mesh arrives as buffers and the feature binds
+them; an effect arrives as a few thousand positions that were different last frame, so `Prepare`
+expands each particle into a camera-facing quad, appends it to one vertex buffer shared by every effect
+in the frame, and records where the run is. `Draw` then binds that buffer **once** and reaches each
+effect's run through the draw call's vertex offset — a hundred effects are a hundred draws and one
+binding.
+
+The dependency runs one way: `Vixen.Rendering` references `Vixen.Vfx`, and `Vixen.Vfx` references no
+graphics at all. The expansion itself lives over there, in `VfxGeometryBuilder`, which is what lets
+"where are the four corners" be a unit test instead of a screenshot.
+
+**Two limits, both deliberate.** The expansion is on the CPU, where doc 06 eventually wants a compute
+shader and an indirect draw — this works everywhere, needs no compute, and is what the GPU path will be
+checked against. And it expands once, for one view, so an effect drawn into a second view gets quads
+facing the first one's camera; that is fine for a reflection and wrong for a shadow caster, so
+particles do not belong in a shadow stage until the GPU path removes the limitation rather than working
+around it.
+
+It shares `UploadBuffer` with skinning and instancing — the ring per frame in flight, the staging, the
+single write — which needed one change to serve it: the buffer's usage became a parameter instead of
+always being `Storage`.
+
 `MaterialRenderFeature` is where the shader half of the engine meets the renderer half: preparation
 turns a material's `ParameterCollection` into an `EffectKey`, resolves it, and remembers the answer
 per object — so by recording time "which shader" is an array lookup. It resolves **per material, not
