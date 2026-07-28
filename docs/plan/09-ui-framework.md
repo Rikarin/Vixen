@@ -504,6 +504,20 @@ Underestimating text is the classic UI-framework mistake.
   dynamically packed with an LRU eviction; CJK's glyph count makes a static atlas impossible.
   A subpixel-AA raster path exists for small desktop text where MSDF is visibly softer, selected per
   font size.
+
+  ⚠ **This paragraph assumed contours were available and they are not.** HarfBuzzSharp exposes no
+  outline API whatsoever — `TryGetGlyphExtents` is a bounding box, and there is no draw, paint or
+  outline surface — so the atlas needs a glyph source of its own. **Settled by
+  [spikes/text-glyph-outlines](spikes/text-glyph-outlines/RESULT.md)**: a managed `glyf`/`CFF`
+  parser over `Face.ReferenceTable`, ~600 lines for both formats, checked against HarfBuzz's own
+  extents over 259,298 glyphs of 242 fonts. No new native dependency, and the WebAssembly path is
+  untouched.
+
+  ⚠ **And a rule the atlas has to obey, learned there rather than here**: HarfBuzz reports extents
+  for a glyph *positioned* so that its `xMin` sits on the left side bearing, while the outline the
+  parser produces is in the font's own coordinates. Where a font's stored `xMin` disagrees with its
+  `lsb` — universal in italics — placing the parsed outline without that shift puts every glyph
+  `lsb − xMin` units off.
 - **Font fallback chains** per script, with a system-font enumerator per platform.
 - **Rich text**: an inline model (runs with per-run style) supporting bold/italic/colour/size/link/
   inline image/inline component. Needed by the console, the inspector, and any tooltip.

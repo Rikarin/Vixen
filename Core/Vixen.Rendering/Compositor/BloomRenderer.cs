@@ -4,6 +4,7 @@
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Shaders;
+using Vixen.Shaders.Generated;
 
 namespace Vixen.Rendering.Compositor;
 
@@ -40,7 +41,7 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable {
     bool disposed;
 
     /// <summary>The shader to run, in its three modes.</summary>
-    public string ShaderName { get; init; } = "Bloom";
+    public string ShaderName { get; init; } = BloomKeys.ShaderName;
 
     /// <summary>The name of the texture the chain reads.</summary>
     public required string Source { get; init; }
@@ -98,16 +99,23 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable {
     public IGraphicsDevice? Device { get; set; }
 
     /// <summary>Which binding the source texture occupies.</summary>
-    public uint SourceBinding { get; set; }
+    /// <remarks>
+    ///     Defaulted from the shader rather than written down here, and that is the point of the
+    ///     generated constants: Raven assigns a binding index from declaration order within a set, so
+    ///     adding a texture above another in <c>Bloom.rvn</c> renumbers everything below it. A host
+    ///     holding the old number gets a validation error at best and the wrong texture at worst, and
+    ///     nothing would have told it. These four were all wrong when they were guessed.
+    /// </remarks>
+    public uint SourceBinding { get; set; } = BloomKeys.SourceBinding;
 
     /// <summary>Which binding the sampler occupies.</summary>
-    public uint SamplerBinding { get; set; } = 1;
+    public uint SamplerBinding { get; set; } = BloomKeys.SourceSamplerBinding;
 
     /// <summary>Which binding the larger mip occupies, for the upsample mode.</summary>
-    public uint PreviousBinding { get; set; } = 2;
+    public uint PreviousBinding { get; set; } = BloomKeys.PreviousBinding;
 
     /// <summary>Where the uniform block goes.</summary>
-    public uint ConstantBinding { get; set; } = 3;
+    public uint ConstantBinding { get; set; } = BloomKeys.ConstantBufferBinding;
 
     /// <summary>How many passes the last build declared.</summary>
     public int PassCount { get; private set; }
@@ -190,18 +198,18 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable {
         pass.Modules = Modules;
         pass.Device = Device;
         pass.Descriptors.Allocator = Descriptors;
-        pass.Parameters.Set(ModeKey, mode);
-        pass.Parameters.Set(KarisKey, KarisAverage);
+        pass.Parameters.Set(BloomKeys.Mode, mode);
+        pass.Parameters.Set(BloomKeys.KarisAverage, KarisAverage);
 
         // One texel of the *source*, not of the target. Both filters step in the source's texel grid,
         // and using the target's would make the downsample's taps land half a texel apart and the
         // upsample's tent twice as wide as it should be — a bloom that is subtly too soft, which is
         // exactly the kind of wrong nobody can point at.
-        pass.Parameters.Set(TexelSizeKey, new Vector2(1f / Math.Max(sourceSize.X, 1), 1f / Math.Max(sourceSize.Y, 1)));
-        pass.Parameters.Set(ThresholdKey, Threshold);
-        pass.Parameters.Set(KneeKey, Knee);
-        pass.Parameters.Set(FilterRadiusKey, FilterRadius);
-        pass.Parameters.Set(IntensityKey, Intensity);
+        pass.Parameters.Set(BloomKeys.TexelSize, new Vector2(1f / Math.Max(sourceSize.X, 1), 1f / Math.Max(sourceSize.Y, 1)));
+        pass.Parameters.Set(BloomKeys.Threshold, Threshold);
+        pass.Parameters.Set(BloomKeys.Knee, Knee);
+        pass.Parameters.Set(BloomKeys.FilterRadius, FilterRadius);
+        pass.Parameters.Set(BloomKeys.Intensity, Intensity);
 
         pass.ColourTargets.Clear();
         pass.ColourTargets.Add(target);
@@ -264,7 +272,7 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable {
         new() {
             Name = NameFor(mode, index),
             ShaderName = ShaderName,
-            PermutationKeys = [ModeKey, KarisKey],
+            PermutationKeys = [BloomKeys.Mode, BloomKeys.KarisAverage],
             ConstantBinding = ConstantBinding
         };
 
@@ -291,15 +299,16 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable {
         passes.Clear();
     }
 
+    /// <summary>The three values <c>Bloom.rvn</c>'s <c>Mode</c> permutation takes.</summary>
+    /// <remarks>
+    ///     Named here rather than generated, because a permutation's <em>meaning</em> is prose in the
+    ///     shader — "0 prefilter, 1 downsample, 2 upsample-and-combine" — and nothing in the
+    ///     reflection carries it. The key and its default are generated; what each number means is
+    ///     the one thing still copied by hand.
+    /// </remarks>
     const int PrefilterMode = 0;
-    const int DownsampleMode = 1;
-    const int UpsampleMode = 2;
 
-    static readonly PermutationKey<int> ModeKey = ParameterKeys.NewPermutation(1, "Bloom.Mode");
-    static readonly PermutationKey<bool> KarisKey = ParameterKeys.NewPermutation(true, "Bloom.KarisAverage");
-    static readonly ParameterKey<Vector2> TexelSizeKey = ParameterKeys.New<Vector2>("Bloom.texelSize");
-    static readonly ParameterKey<float> ThresholdKey = ParameterKeys.New("Bloom.threshold", 1f);
-    static readonly ParameterKey<float> KneeKey = ParameterKeys.New("Bloom.knee", 0.5f);
-    static readonly ParameterKey<float> FilterRadiusKey = ParameterKeys.New("Bloom.filterRadius", 1f);
-    static readonly ParameterKey<float> IntensityKey = ParameterKeys.New("Bloom.intensity", 1f);
+    const int DownsampleMode = 1;
+
+    const int UpsampleMode = 2;
 }

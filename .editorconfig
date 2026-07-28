@@ -367,6 +367,20 @@ dotnet_diagnostic.CA1711.severity = none
 dotnet_diagnostic.CA1051.severity = none
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Animation/BoneTransform.cs
+#
+# CA1051 (do not declare visible instance fields). A `BoneTransform` is one
+# element of a pose array, and every blend in the module writes it in place
+# through a `Span<BoneTransform>` — `bones[i].Rotation = …`. A property returning
+# a copy would compile and silently drop the write, which is the same trap
+# RenderObject.cs and the ECS components are exempted for. It is also the element
+# of the array a hundred of which are read per character per frame, so the
+# indirection is not free either.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Animation/BoneTransform.cs]
+dotnet_diagnostic.CA1051.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Core/Vixen.Rendering/Lights.cs
 #
 # CA1051 (do not declare visible instance fields). Two structs, exempted for two
@@ -400,3 +414,50 @@ dotnet_diagnostic.CA1051.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Ui.Markup/Binding/BoundNodes.cs]
 dotnet_diagnostic.CA1711.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Editor/Vixen.Editor.Core/CommandStack.cs
+#
+# CA1711 (identifiers should not have incorrect suffix). The rule reserves
+# `…Stack` for types deriving from System.Collections.Stack, a non-generic .NET
+# 1.0 type nothing should derive from. `CommandStack` is the undo history, and
+# "command stack" is the term docs/plan/11 uses for it and the term every editor
+# uses for it — Photoshop, Blender, Visual Studio. It is also literally a stack
+# in the sense that matters: entries are pushed, undone from the top, and moved
+# to a second stack. Naming it `CommandHistory` to satisfy the rule would rename
+# the concept the whole document model is built around.
+# ─────────────────────────────────────────────────────────────────────────────
+[Editor/Vixen.Editor.Core/CommandStack.cs]
+dotnet_diagnostic.CA1711.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Editor/Vixen.Editor.Core/IEditorCommand.cs
+#
+# CA1716 (identifiers should not match keywords). `Do` is a Visual Basic keyword,
+# and the rule's concern is a VB consumer implementing the interface. Vixen has
+# no VB surface and will not grow one; against that, `Do`/`Undo` is the pair
+# docs/plan/11 specifies and the pair that reads correctly at every call site —
+# `command.Do(context)` beside `command.Undo(context)`. The alternatives break
+# the symmetry (`Apply`/`Undo`) or collide with the stack's own vocabulary
+# (`Execute`, which is what CommandStack.Execute does *to* a command).
+# ─────────────────────────────────────────────────────────────────────────────
+[Editor/Vixen.Editor.Core/IEditorCommand.cs]
+dotnet_diagnostic.CA1716.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Audio/Devices/AudioDevice.cs
+#
+# CA1716 (identifier conflicts with a reserved language keyword). `Stop` is a
+# statement in Visual Basic, so the rule wants `IAudioDevice.Stop()` renamed.
+# `Start`/`Stop` is what every audio API in existence calls this pair — OpenAL's
+# source play/stop, WebAudio's `AudioBufferSourceNode.start`/`stop`, WASAPI's
+# `IAudioClient::Start`/`Stop` — and a backend author implementing this interface
+# is coming straight from one of them. Renaming it to `Halt` or `Cease` to spare
+# a VB consumer an escaped identifier would cost every reader of the contract
+# more than it saves the consumer, and there is no VB in this repository.
+#
+# Scoped to the file that declares the interface. A stray `Stop` on some other
+# virtual member elsewhere is still reported.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Audio/Devices/AudioDevice.cs]
+dotnet_diagnostic.CA1716.severity = none

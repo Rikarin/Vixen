@@ -174,14 +174,29 @@ sealed class Fixture : IDisposable {
     ///     </para>
     /// </remarks>
     public GraphTexture ColourTarget(string name) {
-        var description = new TextureDescription(
-            PixelFormat.Rgba8UNorm,
-            Side,
-            Side,
-            TextureUsage.ColourTarget | TextureUsage.CopySource,
-            Name: name
+        var owned = Owned(name, TextureUsage.ColourTarget | TextureUsage.CopySource);
+        return Graph.ImportTexture(
+            owned.Texture,
+            owned.View,
+            owned.Description,
+            ResourceState.Undefined,
+            ResourceState.CopySource
         );
+    }
 
+    /// <summary>A texture and its view, owned by the fixture, for a caller that imports it itself.</summary>
+    /// <remarks>
+    ///     What <see cref="ColourTarget" /> is built on, exposed for the fixtures that cannot use it:
+    ///     a compositor imports its own targets by name, so a harness that had already imported them
+    ///     would hand the graph two virtual resources over one texture and get a barrier between a
+    ///     pass and itself.
+    /// </remarks>
+    public (TextureHandle Texture, TextureViewHandle View, TextureDescription Description) Owned(
+        string name,
+        TextureUsage usage,
+        PixelFormat format = PixelFormat.Rgba8UNorm
+    ) {
+        var description = new TextureDescription(format, Side, Side, usage, Name: name);
         var texture = device.CreateTexture(description);
         var view = device.CreateTextureView(texture);
 
@@ -190,8 +205,11 @@ sealed class Fixture : IDisposable {
             device.Destroy(texture);
         });
 
-        return Graph.ImportTexture(texture, view, description, ResourceState.Undefined, ResourceState.CopySource);
+        return (texture, view, description);
     }
+
+    /// <summary>Registers something for the fixture to dispose.</summary>
+    public void Owns(Action dispose) => cleanup.Add(dispose);
 
     /// <summary>A depth target the graph will provide.</summary>
     public GraphTexture DepthTarget(string name) =>

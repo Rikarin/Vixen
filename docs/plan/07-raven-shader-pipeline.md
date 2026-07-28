@@ -522,6 +522,19 @@ being files that each happen to compile; **every shader with an entry point reac
 with `glslc` and `spirv-val` as the verdict; and a shader compiles against the free-function packages
 through `.rvnlib` references.
 
+✅ **The reflection for the shaders the engine binds by name is checked in beside them**, and
+`LibraryReflectionTests` regenerates and compares it. That is what gives `Vixen.Rendering` typed keys
+and — the part that could not be written down by hand — the binding indices, which Raven assigns from
+declaration order within a set and therefore renumbers whenever a resource is added above another.
+Checked in rather than compiled during the build, because the alternative is the engine's render
+project depending on the compiler being built first. Only `PostFx/Bloom` and `PostFx/Tonemap` so far:
+the list grows when a node starts binding a shader, since every entry is a file somebody has to keep
+compiling.
+
+The reflection describes **one variant**, so a resource only a non-default variant reads generates no
+key. `Bloom`'s `previous` texture is exactly that shape — read only by the upsample mode — and a test
+asserts it survives the default rather than leaving it to luck.
+
 | Package | Files |
 |---|---|
 | `Core/` | `Math` (constants, `SafeNormalize`, branchless basis, spherical, octahedral, matrix-first transforms) · `ColorSpaces` (sRGB exact and cheap, Rec.709/2020 luminance, Reinhard, ACES, AgX, PQ, YCoCg) · `Random` (PCG hash, uniform floats, sphere/hemisphere/disk) · `Sampling` (radical inverse, Hammersley, Halton, concentric disk, cosine hemisphere, GGX importance sampling) |

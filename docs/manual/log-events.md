@@ -33,7 +33,7 @@ identifies its origin on sight.
 | 6 000 – 6 999 | `Vixen.Assets`, content pipeline | reserved |
 | 7 000 – 7 999 | `Vixen.Ui.*` | **in use** |
 | 8 000 – 8 999 | `Vixen.Platform.*` | reserved |
-| 9 000 – 9 999 | `Vixen.Physics`, `Vixen.Audio`, `Vixen.Animation`, `Vixen.Input` | reserved |
+| 9 000 – 9 999 | `Vixen.Physics`, `Vixen.Audio`, `Vixen.Animation`, `Vixen.Input` | **in use** |
 | 10 000 – 10 999 | `Vixen.Net.*` | reserved |
 | 11 000 – 11 999 | `Vixen.Editor.*` | reserved |
 | 12 000 – 12 999 | `Vixen.Raven` — the compiler's own diagnostics are `RVNxxxx`, not these | reserved |
@@ -56,6 +56,28 @@ identifies its origin on sight.
 | 7001 | Error | `The effect declared at {Origin} re-triggered itself {Runs} times in one flush and has been suspended.` | 0.1.0 |
 | 7002 | Error | `The effect declared at {Origin} threw and has been suspended.` | 0.1.0 |
 | 7003 | Warning | `An effect flush hit its budget of {Budget} runs with work still queued.` | 0.1.0 |
+
+### `Vixen.Audio` and its backends
+
+The 9 000 range is shared by four gameplay subsystems, so it is subdivided a hundred at a time:
+physics 9 000, audio 9 100, animation 9 200, input 9 300. A hundred ids is more than any of them will
+ever need and the block boundary makes the owner obvious from the number.
+
+**Nothing here is logged from the audio thread.** A log call takes locks, formats strings and may
+write to a file; a callback that did any of those would drop out. The render path counts and
+`AudioEngine.Update` reports once a frame, which is also why several of these say "since the engine
+started" rather than "just now".
+
+| Id | Level | Message | Since |
+|---|---|---|---|
+| 9100 | Information | `Audio on {Backend}: {Device}, {SampleRate} Hz, {Channels} ch, {BufferFrames}-frame blocks.` | 0.1.0 |
+| 9101 | Warning | `No audio device on {Backend} ({Reason})` — the mixer runs against nothing, so voices still start and finish | 0.1.0 |
+| 9102 | Warning | `{Dropped} play requests were dropped: all {Capacity} voices were busy.` | 0.1.0 |
+| 9103 | Warning | `Audio streaming fell behind {Underruns} times` — a track played silence while its decoder caught up | 0.1.0 |
+| 9104 | Warning | `The audio device reported {Underruns} underruns.` | 0.1.0 |
+| 9105 | Error | `The audio render threw and the block was silenced.` — an exception onto a driver's callback thread would take the process with it | 0.1.0 |
+| 9110 | Warning | `OpenAL could not be loaded ({Reason}).` — the backend reports itself unavailable and selection moves on | 0.1.0 |
+| 9111 | Error | `The OpenAL pump thread threw and has stopped; the process keeps running and is silent.` | 0.1.0 |
 
 ### `Vixen.App` — the host
 
