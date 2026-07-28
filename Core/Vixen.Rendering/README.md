@@ -133,6 +133,13 @@ The host keeps a copy of the shader's arithmetic in `GpuCulling`, for the reason
 a copy of the froxel grid's: the two sides agree by construction or not at all, and a copy that runs
 on the CPU is what lets a test say they do without a GPU in the room.
 
+**The names and the binding indices are not a copy.** All three passes publish reflection beside the
+shader — `Culling.reflect.json` and its two siblings — and the host binds through the constants
+generated from it. A binding index is declaration order within a set, so adding a buffer above
+another renumbers it; a literal in C# survives that and a generated constant does not. It matters
+more here than elsewhere because of how this fails: a name the shader no longer has does not throw,
+it makes the group fall back to the CPU, on every frame, silently.
+
 ### And what the frustum cannot answer
 
 The frustum says what is in front of the camera; it says nothing about what is *behind a wall*. That
@@ -164,6 +171,45 @@ because a frame that added a view has renumbered every view after it. A view wit
 is frustum-only rather than wrong, which is what makes the first frame of anything safe.
 `OcclusionTested` says whether it happened at all.
 
+### Two phases, and the frame of staleness they remove
+
+A frame old is a real artefact: an object hidden last frame and visible now is drawn one frame late,
+which is a pop at the trailing edge of whatever the camera moved past. No amount of conservatism in
+the test removes it, because the information was not in the frame. **Two-phase culling puts it
+there** — cull, draw, rebuild the pyramid from the depth those draws left, cull again, draw what the
+second answer found. `GpuVisibilityGroup.TwoPhase` turns it on and the `Late` permutation of
+`Culling.rvn` is the second dispatch.
+
+**The second answer is a difference, not an answer.** The late variant reads the visibility word
+before it writes it, clears the bits the main pass already drew, and writes only what is visible now
+and was not drawn then — because that is what a second set of draws has to be given. The union would
+draw every visible object twice. One invocation owns a whole word, so the read-modify-write is one
+thread's; the same ownership that makes the main pass need no atomic.
+
+**It is one buffer and one argument pass, run twice.** The late dispatch overwrites the bits and
+`GpuDrawArguments` rewrites the same argument buffer from them, so `MeshRenderFeature` needs to know
+nothing at all: the late draws are the *same draws*, reading a buffer whose contents changed between
+the two passes. What orders read-then-overwrite-then-read is the barrier `RecordDispatch` places,
+which is also why the whole thing lives in one command list.
+
+**A frame with no pyramid still runs the late pass.** It gets an empty difference, and that is the
+answer — skipping the dispatch would leave the main pass's bits in the argument buffer for the late
+draws to find, and every visible object would be drawn twice. So the key names `Late` by phase alone
+and never gates it on occlusion.
+
+**It needs the readback off**, because the two dispatches straddle a set of draws and the readback
+path submits and waits before any of them are recorded. With it on, no late dispatch is prepared and
+the frame is culled exactly as a one-phase frame. `LatePhaseRan` says which happened, for the reason
+`OcclusionTested` does: a two-phase cull quietly running one phase looks exactly like one whose
+second phase never finds anything, and those are opposite conclusions.
+
+**Two runs of a thing in one frame is two descriptor rings.** A set may not be rewritten while a
+submitted command buffer references it, and two dispatches before one submission are two rewrites —
+which sizing a ring to frames in flight alone does not cover. `HiZPyramid.BuildsPerFrame` and
+`GpuDrawArguments.DispatchesPerFrame` are the depths, and `CompositorBuilder` sets them by *counting
+the nodes the document placed* rather than by inferring them from the late node, because a document
+may reduce twice without culling twice.
+
 **`Compositor/HiZRenderer` is why this is a node.** Depth is a graph resource: a dispatch that sampled
 it without declaring the read would be ordered against nothing and would read it in whatever layout
 the last pass left. The node declares `Reads(depth)` and `SideEffect()` — the second because what it
@@ -181,17 +227,39 @@ ordering this RHI can express is a barrier between two things in one queue: it h
 semaphores. That is the whole reason the culling dispatch became something a node records rather than
 something `Cull` submits.
 
-**It zeroes instance counts; it does not compact.** Compaction needs an atomic counter to claim
-slots with, and Raven has none — the same constraint that shapes `ClusterCulling` and the particle
-kernels. So the buffer holds one record per object slot *at that slot*, and a culled object gets zero
-instances, which every API defines as a draw that fetches and rasterises nothing. The cost is a
-command submitted per object; the saving is the round trip.
+**And with no wait, every descriptor set is a ring.** A set a submitted command buffer still
+references may not be written — `VUID-vkUpdateDescriptorSets-None-03047` — so all three classes hold
+one set per frame in flight and advance with the frame, which is the invariant `DescriptorAllocator`
+and `UploadBuffer` are already built on. The readback path hides this behind its wait, which is
+exactly why it stayed hidden: it takes two frames in flight to see, and every test that submits and
+waits is a test that cannot.
+
+**It zeroes instance counts; it does not compact.** Not because of the shader — claiming a slot needs
+an `atomicAdd` and Raven has one — but because of the draw: a single command covers a compacted run
+only if its count comes from the device *and* every draw in the run shares its bindings, and neither
+holds here. So the buffer holds one record per object slot *at that slot*, and a culled object gets
+zero instances, which every API defines as a draw that fetches and rasterises nothing. The cost is a
+command submitted per object; the saving is the round trip. See *What is not here* for the two things
+that would change it.
 
 **The host's answer becomes conservative, and that is the one place the two groups differ.** With the
 readback off, `Words` holds every live object the view's stages want — everything that *could* be
 seen — so the work list is a superset and the GPU removes the rest. Nothing is drawn that should not
 be; what costs is recording draws that turn out to be empty. It is opt-in for exactly that reason,
 and `Hide` still works, because a bit cleared on the host removes the object from the list entirely.
+
+**A document turns all of it on.** `!GpuCulling` at the head of the frame and `!HiZ` after whatever
+fills depth, with `readBack` and `indirectDraws` as the two flags — and a second `!GpuCulling` with
+`phase: Late` after the `!HiZ`, followed by a pass that loads rather than clears, for the two-phase
+form. Nothing in the file says "two-phase": the ordering *is* the feature, which is why it is
+expressed by where a node sits. The builder makes the two
+assignments a file cannot: `RenderSystem.Visibility` becomes the group, and every
+`IDrawArgumentSource` feature is handed the arguments. Both are things a host placing the node by
+hand has to remember in the same breath, and forgetting either is a frame that culls on the CPU or
+draws everything, with nothing to say why. The resources stay host-supplied — a visibility group
+holds device memory across frames and a file cannot make one — which is the same division
+`descriptors` and `samplers` already have, and what lets one document run on a target with no compute
+at all: the nodes build, and do nothing.
 
 **The templates are filled by a node, not by a feature's `Prepare`.** A root feature's `Prepare` runs
 before its sub-features', so an instancing batch's size and first instance — two of the five numbers
@@ -1275,18 +1343,14 @@ node that does not compile, with no hint as to why.
 Bloom has no lens flare and no light streak, and the tonemap pass has no grading LUT as an asset —
 the shader takes one, nothing loads one.
 
-**Two-phase occlusion culling.** The occlusion test here is one-phase — it tests against last
-frame's depth, so something that was hidden last frame and is not now appears a frame late. The fix
-is the standard one: draw what was visible, rebuild the pyramid from *that*, retest the rest, draw
-what the retest found. The pieces exist — a pyramid that can be rebuilt mid-frame, a culling dispatch
-that is already a node — and what is missing is a second argument pass and the compositor sequence
-that interleaves them.
-
 **Compacted draws, and the bindless materials they need.** Indirect draws here are one command per
-object with the culled ones zeroed, because compaction needs an atomic counter Raven does not have.
-Compacting would also only pay off with a bindless material path: what stops one command drawing
-many objects is not the argument buffer, it is that each of them binds its own vertex buffer and its
-own descriptor set.
+object with the culled ones zeroed. The reason is not the shader — claiming a slot needs an
+`atomicAdd` and Raven has one. It is the draw, twice over: a single command covers a compacted run
+only if its count comes from the device, and `ICommandList.DrawIndexedIndirect` takes `drawCount` as
+a host integer; and a single command covers several objects only if they share their bindings, and
+`MeshRenderFeature` binds a vertex buffer, an index buffer and a material set per object. **Bindless
+materials** are the deeper of the two and the one to do first — an indirect-count draw is a small
+RHI addition that buys nothing on its own.
 
 ## Testing
 

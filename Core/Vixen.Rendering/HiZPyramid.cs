@@ -4,6 +4,7 @@
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Shaders;
+using Vixen.Shaders.Generated;
 
 namespace Vixen.Rendering;
 
@@ -48,18 +49,22 @@ public sealed class HiZPyramid : IDisposable {
     TextureViewHandle[] targets = [];
     ResourceState[] states = [];
 
-    // One set per level per frame in flight. Per level because the whole chain is recorded into one
-    // list and a set cannot be rewritten between two dispatches that both read it; per frame because
-    // the source of level 0 is the caller's depth texture, whose handle a graph may change — and
-    // rewriting a set a submitted frame still references is the race DescriptorAllocator exists for.
+    // One set per level, per build, per frame in flight. Per level because the whole chain is
+    // recorded into one list and a set cannot be rewritten between two dispatches that both read it;
+    // per build for the same reason one level up, since a two-phase frame reduces twice before it
+    // submits once; per frame because the source of level 0 is the caller's depth texture, whose
+    // handle a graph may change — and rewriting a set a submitted frame still references is the race
+    // DescriptorAllocator exists for.
     DescriptorSetHandle[] sets = [];
     int ring;
     int slots = 1;
 
-    DescriptorSetSlot slot;
+    // Where the set goes, from the reflection checked in beside the shader rather than from a name
+    // looked up at run time: a binding index is declaration order within a set, so adding an image
+    // above another renumbers it — and the generated constant moves with it while a literal does not.
+    const DescriptorSetSlot Slot = (DescriptorSetSlot)HiZReduceKeys.SourceSet;
+
     Effect? allocatedFor;
-    uint sourceBinding;
-    uint targetBinding;
     bool disposed;
 
     /// <summary>Creates a pyramid on a device. Nothing is allocated until the first build.</summary>
@@ -75,6 +80,26 @@ public sealed class HiZPyramid : IDisposable {
 
     /// <summary>Where the compute pipeline comes from. Null builds nothing.</summary>
     public ComputePipelineCache? Pipelines { get; set; }
+
+    /// <summary>
+    ///     How many times a frame <see cref="Build" /> is called, which is what the set ring has to be
+    ///     deep enough for.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         One for an ordinary frame; two for a two-phase cull, which reduces the depth again
+    ///         after the main pass's draws so the late pass has something current to test against.
+    ///     </para>
+    ///     <para>
+    ///         <strong>It is the ring's depth, not a limit.</strong> A set may not be rewritten while
+    ///         a submitted command buffer still references it — and two builds in one frame are two
+    ///         rewrites before a single submission, which is the same violation as rewriting across
+    ///         frames and not caught by sizing the ring to frames in flight alone. Setting this too
+    ///         low is a validation error and a set the second build reads the first's contents from;
+    ///         setting it too high costs a descriptor set.
+    ///     </para>
+    /// </remarks>
+    public int BuildsPerFrame { get; set; } = 1;
 
     /// <summary>Level 0's size in texels — half the depth buffer, rounded down.</summary>
     public Int2 Size { get; private set; }
@@ -125,7 +150,7 @@ public sealed class HiZPyramid : IDisposable {
 
         var pipeline = Pipelines.GetOrCreate(effect);
 
-        if (!pipeline.IsValid || !TryBindings(effect) || !EnsureTexture(depthSize) || !EnsureSets(effect)) {
+        if (!pipeline.IsValid || !EnsureTexture(depthSize) || !EnsureSets(effect)) {
             return false;
         }
 
@@ -139,13 +164,13 @@ public sealed class HiZPyramid : IDisposable {
             device.UpdateDescriptorSet(
                 set,
                 [
-                    DescriptorWrite.Texture(sourceBinding, level == 0 ? depth : sources[level - 1]),
-                    new(targetBinding, DescriptorKind.StorageTexture, TextureView: targets[level])
+                    DescriptorWrite.Texture(HiZReduceKeys.SourceBinding, level == 0 ? depth : sources[level - 1]),
+                    new(HiZReduceKeys.TargetBinding, DescriptorKind.StorageTexture, TextureView: targets[level])
                 ]
             );
 
             Transition(list, level, ResourceState.ShaderWrite);
-            list.BindDescriptorSet(slot, set);
+            list.BindDescriptorSet(Slot, set);
 
             list.Dispatch(
                 Groups(size.X),
@@ -173,26 +198,6 @@ public sealed class HiZPyramid : IDisposable {
 
         list.Barrier(new([], [new(texture, states[level], next, level, 1)]));
         states[level] = next;
-    }
-
-    /// <summary>Finds where the two bindings go, under the shader's own names for them.</summary>
-    bool TryBindings(Effect effect) {
-        if (effect.BindingOf("source") is not { } source || effect.BindingOf("target") is not { } target) {
-            return false;
-        }
-
-        if (source.Set != target.Set) {
-            throw new InvalidOperationException(
-                $"'{GpuCulling.ReduceShaderName}' declares its two images in different descriptor sets, "
-                + "and one dispatch binds one set."
-            );
-        }
-
-        sourceBinding = source.Binding;
-        targetBinding = target.Binding;
-        slot = source.Set;
-
-        return true;
     }
 
     /// <summary>Makes the chain, or remakes it when the depth buffer's size changed.</summary>
@@ -250,7 +255,7 @@ public sealed class HiZPyramid : IDisposable {
     }
 
     bool EnsureSets(Effect effect) {
-        var wanted = Math.Max(1, device.FramesInFlight);
+        var wanted = Math.Max(1, device.FramesInFlight) * Math.Max(1, BuildsPerFrame);
 
         if (sets.Length == wanted * Levels && ReferenceEquals(allocatedFor, effect)) {
             return true;
@@ -258,7 +263,7 @@ public sealed class HiZPyramid : IDisposable {
 
         DestroySets();
 
-        if ((int)slot >= effect.SetLayouts.Length || !effect.SetLayouts[(int)slot].IsValid) {
+        if ((int)Slot >= effect.SetLayouts.Length || !effect.SetLayouts[(int)Slot].IsValid) {
             return false;
         }
 
@@ -267,7 +272,7 @@ public sealed class HiZPyramid : IDisposable {
         ring = 0;
 
         for (var index = 0; index < sets.Length; index++) {
-            sets[index] = device.CreateDescriptorSet(effect.SetLayouts[(int)slot], "HiZ");
+            sets[index] = device.CreateDescriptorSet(effect.SetLayouts[(int)Slot], "HiZ");
 
             if (!sets[index].IsValid) {
                 return false;

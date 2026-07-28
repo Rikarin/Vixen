@@ -58,7 +58,16 @@ public class LibraryReflectionTests {
         ("PostFx", "Outline"),
         ("PostFx", "Ssao"),
         ("PostFx", "Taa"),
-        ("Pipeline", "ForwardPlus")
+        ("Pipeline", "ForwardPlus"),
+
+        // The GPU culling passes, whose host binds every one of their buffers by name — see
+        // Vixen.Rendering's GpuVisibilityGroup, HiZPyramid and GpuDrawArguments. Published for the
+        // reason the others are: a binding index comes from declaration order within a set, so
+        // adding a texture above another renumbers it, and a name that is a literal in C# survives a
+        // rename in the .rvn as a silent fall back to the CPU rather than as an error.
+        ("Pipeline", "Culling"),
+        ("Pipeline", "HiZReduce"),
+        ("Pipeline", "DrawArguments")
     ];
 
     /// <summary>

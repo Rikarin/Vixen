@@ -70,12 +70,16 @@ struct CullView {
     /// How many words this view's answer occupies, which is also the stride between views.
     var wordCount: uint
 
-    /// The matrix the depth pyramid was rendered with, which is *last* frame's for this view.
+    /// The matrix the depth pyramid was rendered with.
     ///
-    /// Last frame's, because that is the only depth a pass running before the frame is drawn can
-    /// have — and it has to be projected with the matrix it was drawn with or the test compares a
-    /// rectangle from this frame against pixels from somewhere else. See `Occluded`.
-    var previousViewProjection: mat4
+    /// *Which* frame's depends on the phase, and that is the whole difference between the two. The
+    /// main pass runs before anything is drawn, so the newest depth it can have is last frame's and
+    /// this is last frame's matrix. The late pass runs after the main pass's draws have been reduced
+    /// into the pyramid again, so the depth is *this* frame's and so is this. Either way it is the
+    /// matrix the depth was drawn with, which is the only one the rectangle may be projected by —
+    /// projecting this frame's rectangle onto last frame's pixels compares a screen position against
+    /// depths from somewhere else. See `Occluded`.
+    var occluderProjection: mat4
 
     /// How many levels the pyramid has, so a level can be clamped to one that exists.
     var occluderLevels: uint
@@ -156,6 +160,24 @@ shader Culling {
     /// every view.
     [Permutation] val Occlusion: bool = false
 
+    /// Whether this is the *second* pass of a two-phase cull, which answers a different question.
+    ///
+    /// The main pass answers "what is visible", against a pyramid a frame old. This one answers
+    /// "**what else** is visible", against a pyramid rebuilt from the depth the main pass's draws
+    /// just left behind — so an object that was hidden last frame and is not now is drawn in the
+    /// frame it became visible rather than the frame after. That is the whole of what two-phase
+    /// occlusion buys, and the price is a second dispatch and a second set of draws.
+    ///
+    /// **It reads `visibility` before it writes it**, which is why the buffer is the same one and
+    /// not a second. An invocation owns a whole word, so the read-modify-write is one thread's — the
+    /// same ownership that makes the main pass need no atomic. Bits already set are objects the main
+    /// pass drew; they are cleared here rather than kept, because what the late draws must be given
+    /// is the *difference*. Drawing the union again would draw every visible object twice.
+    ///
+    /// Meaningful only with `Occlusion`. Without a pyramid there is nothing a second test could
+    /// learn that the first did not, and the host asks for the two keys together.
+    [Permutation] val Late: bool = false
+
     /// One record per object slot, indexed by `RenderObjectId`.
     var objects: Buffer<CullObject>
 
@@ -193,6 +215,16 @@ shader Culling {
         }
 
         val first = word * Cull.WordSize
+        val slot = viewIndex * int(view.wordCount) + word
+
+        // The main pass's answer for this word, and only in the pass that has one to read. A whole
+        // word is this invocation's, so nothing else is writing it while this reads it.
+        var already = 0u
+
+        if (Late) {
+            already = visibility[slot]
+        }
+
         var bits = 0u
 
         for (i in 0 .. 31) {
@@ -202,12 +234,16 @@ shader Culling {
                 break
             }
 
-            if (Visible(objects[index], view)) {
+            // Already drawn is already done: the late pass owes the draws the *difference*, not the
+            // union. In the main pass `already` is zero and this is the whole word.
+            val drawn = (already & (1u << i)) != 0u
+
+            if (!drawn && Visible(objects[index], view)) {
                 bits = bits | (1u << i)
             }
         }
 
-        visibility[viewIndex * int(view.wordCount) + word] = bits
+        visibility[slot] = bits
     }
 
     /// Whether one object is visible in one view — the whole of the culling decision.
@@ -265,10 +301,10 @@ shader Culling {
     ///   - the comparison is against the *furthest* depth in the tile and the object's *nearest*
     ///     point, which is the only pair that makes "definitely behind everything" true.
     ///
-    /// What it cannot be conservative about is time: the depth is a frame old, so something that was
-    /// hidden last frame and is not now appears a frame late. That is the price of testing before the
-    /// frame is drawn, and it is why a two-phase culler — draw what was visible, rebuild, retest —
-    /// exists at all. This is the one-phase version.
+    /// What it cannot be conservative about is time, and that is what `Late` is for. Run once, the
+    /// depth is a frame old and something that was hidden last frame and is not now appears a frame
+    /// late. Run again after the first pass's draws have been reduced back into the pyramid, and the
+    /// depth is this frame's — so the second answer is late by nothing.
     func Occluded(candidate: CullObject, view: CullView): bool {
         val radius = candidate.radius
 
@@ -280,7 +316,7 @@ shader Culling {
         for (i in 0 .. 7) {
             val bits = uint(i)
             val offset = float3(Cull.Sign(bits, 1u), Cull.Sign(bits, 2u), Cull.Sign(bits, 4u)) * radius
-            val clip = view.previousViewProjection * float4(candidate.center + offset, 1f)
+            val clip = view.occluderProjection * float4(candidate.center + offset, 1f)
 
             if (clip.w <= Const.Epsilon) {
                 behind = true
