@@ -146,7 +146,42 @@ siblings, and the intrusive list records a neighbour rather than a position.
 
 ⚠ **Saving throws without an `ISceneWriter`.** `EditorDocument.Save` marks the document clean
 afterwards, so a `SaveCore` that wrote nothing would leave it claiming to match a file that does not
-exist — and the next crash would take the work with it.
+exist — and the next crash would take the work with it. `SceneFileWriter` is the implementation the
+editor uses.
+
+## The file
+
+`.vxscene` is the authoring format: YAML through the same binder a material and a settings asset go
+through. A content build compiles it, so nothing about it is shaped for load speed and everything is
+shaped for being read by a person and merged by git.
+
+**An entity is named by a GUID, not by its handle.** An `Entity` is a slot and a version in one
+world; loading the same scene twice reissues every one of them. `EntityId` is the identity that
+survives, and it is what a reference between entities, a prefab override and a multi-user session
+all have to be expressed in.
+
+⚠ **A GUID rather than a counter, and the reason is git.** A local counter reads better in a diff and
+has one unreadable failure: two branches each add an entity, each picks the next id, and the merge
+takes both hunks cleanly — leaving two entities claiming one id, which no tool reports. Same trade
+doc 08 already made for assets.
+
+**Children are nested rather than each naming a parent.** Moving a subtree is one moved block instead
+of *n* scattered edits. It also means a parent exists before anything that hangs from it, for free.
+
+**A vector is one scalar**: `position: 1 2 3`, not a mapping with three keys — fifteen lines per
+entity is a diff nobody can scan. Written with round-trip precision, because a scene that is opened
+and saved has to produce the same bytes; a format that quietly rounded would make every scene a merge
+conflict with itself.
+
+⚠ **Children are restored in reverse.** `Hierarchy.Link` puts a new child at the *head* of the
+intrusive list — O(1), which is why the list is intrusive — so creating the file's children in order
+leaves the world holding them backwards, and the scene flips its sibling order on every
+open-and-save. Not visibly wrong, and enough to make every scene conflict with itself. The
+same-bytes round-trip test is what holds this honest if `Link` ever changes.
+
+⚠ **A version field that is written and checked.** A file from a newer editor is refused rather than
+bound as far as it goes: a scene half-read is a scene saved back with the other half gone, which is
+the one failure a version field exists to prevent.
 
 ## Play mode, both topologies
 

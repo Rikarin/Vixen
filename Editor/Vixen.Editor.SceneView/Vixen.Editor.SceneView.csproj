@@ -43,6 +43,28 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!--
+            The scene's authoring format is YAML, read and written by the same binder a material and
+            a settings asset go through — see SceneFile for why the authoring form is the readable
+            one and the runtime's is not this.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+
+        <!--
+            Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
+            [DataContract] types of its own has to name both generators: the descriptors come from
+            Vixen.Core.Reflection.Generator and the serializers they point at from
+            Vixen.Core.Serialization.Generator.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Editor.SceneView.Tests" />
     </ItemGroup>
 

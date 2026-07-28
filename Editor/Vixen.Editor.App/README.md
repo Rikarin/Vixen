@@ -84,6 +84,11 @@ looking at a real model:
 | Project | still `TreeView` over three made-up folders; listing the asset database is the project browser's own job |
 | Console | still a line of text |
 
+The scene lives at `Assets/Scenes/Main.vxscene` and is opened on launch. A project that has none gets
+the seeded one written immediately — the only time the editor saves without being asked, so that a new
+project contains the scene you are looking at rather than something that exists until the window
+closes. `Ctrl+S` saves; the menu item greys itself out from the document's own dirty signal.
+
 ⚠ **The scene panel draws no scene, and cannot yet.** `UiDocument`'s draw list has eight command
 kinds and none of them is a texture — `Viewport`'s own remarks say so, which is why it fills a
 placeholder colour. Everything *around* the missing pixels works: the camera, the gizmo arithmetic,
@@ -120,9 +125,6 @@ rebuilt; without it, closing and reopening the viewport puts the user back at th
   the `PublishAot` property says so already.
 - **No file dialog, so no "open project…".** A project comes from `--project` or is the scratch one;
   choosing one at run time needs a dialog, which is `Vixen.Platform`'s and not built.
-- **No Save.** `SceneDocument.SaveCore` throws without an `ISceneWriter`, deliberately — a save that
-  wrote nothing would mark the document clean and lose the work at the next crash. A scene file
-  format is the asset pipeline's, so no Save command is registered until there is one.
 - **Creating and deleting entities is not offered.** An `Entity` is a slot and a version and the ECS
   cannot reissue one, so a redo would hand back a different handle and every reference to the old one
   would be stale. Handle reservation in `Vixen.Ecs` is what unblocks it; until then the scene is
@@ -132,8 +134,8 @@ rebuilt; without it, closing and reopening the viewport puts the user back at th
 - **It redraws every frame.** Redrawing only on change is the right end state and is not free — every
   animation, toast expiry and task progress has to say so, and one that forgets leaves a progress bar
   frozen at forty per cent.
-- **The seeded scene is the last placeholder.** Five named entities in a hierarchy, because loading
-  a real one needs a scene format and an importer.
+- **One scene per project, chosen by path rather than by a dialog.** `Assets/Scenes/Main.vxscene`,
+  because picking another needs a file dialog that `Vixen.Platform` does not have.
 - **The four SPIR-V modules are committed here and in `Samples/02-HelloUi`**, byte for byte. They
   belong in one place once Raven's `Ui/*.rvn` path is wired; until then a caller hands the renderer
   whatever it has.

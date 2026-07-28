@@ -52,6 +52,7 @@ sealed class EditorApplication : IDisposable {
     readonly World world = new("Editor");
     readonly EditorProject project;
     readonly SceneDocument scene;
+    readonly string scenePath;
     readonly List<Entity> shown = [];
 
     SceneViewport? viewport;
@@ -75,10 +76,26 @@ sealed class EditorApplication : IDisposable {
         project = new EditorProject(new ProjectPaths(projectRoot ?? Path.Combine(directory, "Scratch")));
         project.Open();
 
-        scene = new SceneDocument(project, world, AssetId.Empty, "Untitled");
+        // One scene per project until there is a file dialog to choose another. The path is decided
+        // here rather than by the document, because where a scene lives is the shell's answer and a
+        // document only knows how to write itself.
+        scenePath = Path.Combine(project.Paths.Assets, "Scenes", "Main" + SceneSerializer.Extension);
+
+        scene = new SceneDocument(project, world, AssetId.Empty, "Main") {
+            Writer = new SceneFileWriter(scenePath)
+        };
+
         project.Activate(scene);
 
-        Seed();
+        if (SceneSerializer.Load(scene, scenePath) == 0) {
+            Seed();
+
+            // ⚠ Written immediately, which is the one time the editor saves without being asked. A
+            // new project should contain the scene you are looking at rather than something that
+            // exists only until the window closes — and it makes the *second* launch take the load
+            // path, which is otherwise reachable only by remembering to press Save first.
+            scene.Save();
+        }
 
         scene.StructureChanged += _ => hierarchyStale = true;
         scene.Renamed += (_, _) => hierarchyStale = true;
@@ -186,12 +203,11 @@ sealed class EditorApplication : IDisposable {
         world.Dispose();
     }
 
-    /// <summary>A scene with something in it, so the panels have something to show.</summary>
+    /// <summary>A scene with something in it, for a project that has none yet.</summary>
     /// <remarks>
-    ///     ⚠ <b>A placeholder, and the last one left.</b> The hierarchy and the inspector are now
-    ///     reading a real world through a real document; what is still made up is the <i>content</i>
-    ///     of that world, because loading one needs a scene format and an importer. When
-    ///     <c>SceneDocument.Writer</c> has an implementation this becomes "open the last scene".
+    ///     ⚠ <b>Only when there is no file to open.</b> A first run in an empty project opens
+    ///     something rather than an empty tree and a viewport with nothing to look at; the moment
+    ///     that scene is saved, this never runs again for that project.
     /// </remarks>
     void Seed() {
         var root = scene.Add("Scene Root", LocalTransform.Identity);
@@ -345,6 +361,17 @@ sealed class EditorApplication : IDisposable {
                 Category = EditorStrings.CategoryView
             }
         );
+
+        // Enabled only when there is something to write, so the menu item greys itself out from the
+        // document's own dirty signal rather than from anything here deciding when.
+        Shell.Commands.Add(
+            new EditorCommand("file.save", new StringId("editor.command.save", "Save Scene"), SaveScene) {
+                Category = EditorStrings.CategoryFile,
+                Enablement = () => scene.IsDirty.Value
+            }
+        );
+
+        Shell.Keys.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
 
         Shell.Commands.Add(
             new EditorCommand("help.about", EditorStrings.CommandAbout, About) {
@@ -567,6 +594,21 @@ sealed class EditorApplication : IDisposable {
         return any
             ? new BoundingBox(low - new Vector3(0.5f), high + new Vector3(0.5f))
             : new BoundingBox(new Vector3(-1f), new Vector3(1f));
+    }
+
+    /// <summary>Writes the scene, and says so.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A failed save is a notification and not an exception.</b> A full disk or a read-only
+    ///     working tree is an ordinary thing to meet, and an editor that took the process down with
+    ///     the unsaved work still in it would be the worst possible response to it.
+    /// </remarks>
+    void SaveScene() {
+        try {
+            scene.Save();
+            Shell.Notifications.Success(Path.GetFileName(scenePath));
+        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+            Shell.Notifications.Show("Could not save the scene", NotificationSeverity.Error, exception.Message);
+        }
     }
 
     void SaveLayout() {

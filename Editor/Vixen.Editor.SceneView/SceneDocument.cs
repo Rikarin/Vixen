@@ -107,6 +107,8 @@ public sealed class RenameEntityCommand : IEditorCommand {
 /// </remarks>
 public sealed class SceneDocument : EditorDocument {
     readonly Dictionary<Entity, string> names = [];
+    readonly Dictionary<Entity, EntityId> ids = [];
+    readonly Dictionary<EntityId, Entity> byId = [];
     readonly QueryDescription tagged = new QueryDescription().RequireAll([ComponentType<SceneTag>.Id]);
 
     /// <summary>The world the scene lives in.</summary>
@@ -138,6 +140,57 @@ public sealed class SceneDocument : EditorDocument {
 
     /// <summary>Raised when an entity's name changes.</summary>
     public event Action<SceneDocument, Entity>? Renamed;
+
+    /// <summary>What names an entity in a file, rather than in this world.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Its stable id, minted on first ask.</returns>
+    /// <remarks>
+    ///     Minted lazily rather than at creation, so an entity that is never saved never costs a
+    ///     GUID — and so that an id read out of a file is the one that entity keeps, instead of
+    ///     being a second id assigned before the file was opened. See <see cref="EntityId" /> for
+    ///     why the identity in the file cannot be the handle.
+    /// </remarks>
+    public EntityId IdOf(Entity entity) {
+        if (ids.TryGetValue(entity, out var existing)) {
+            return existing;
+        }
+
+        var id = EntityId.New();
+
+        ids[entity] = id;
+        byId[id] = entity;
+
+        return id;
+    }
+
+    /// <summary>Which entity a file's id names, if any.</summary>
+    /// <param name="id">The id.</param>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Whether it is in this document and alive.</returns>
+    public bool TryGetEntity(EntityId id, out Entity entity) {
+        if (byId.TryGetValue(id, out entity) && World.IsAlive(entity)) {
+            return true;
+        }
+
+        entity = Entity.Null;
+        return false;
+    }
+
+    /// <summary>Says that an entity is the one a file called something.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <param name="id">What the file called it.</param>
+    /// <remarks>
+    ///     What a reader calls as it creates each entity, so that references inside the file — and
+    ///     the next save — name the same thing the file did rather than a fresh identity.
+    /// </remarks>
+    public void Adopt(Entity entity, EntityId id) {
+        if (id.IsNone) {
+            return;
+        }
+
+        ids[entity] = id;
+        byId[id] = entity;
+    }
 
     /// <summary>Opens a scene for editing.</summary>
     /// <param name="project">The project it belongs to.</param>
@@ -290,8 +343,18 @@ public sealed class SceneDocument : EditorDocument {
             }
         }
 
+        foreach (var entity in ids.Keys) {
+            if (!World.IsAlive(entity) && !dead.Contains(entity)) {
+                dead.Add(entity);
+            }
+        }
+
         foreach (var entity in dead) {
             names.Remove(entity);
+
+            if (ids.Remove(entity, out var id)) {
+                byId.Remove(id);
+            }
         }
 
         return dead.Count;
@@ -317,10 +380,28 @@ public sealed class SceneDocument : EditorDocument {
             }
         }
 
+        // The stable ids move with the names and for the same reason: they are what a file and a
+        // reference name an entity by, and a table keyed by handles that no longer exist names
+        // nothing at all.
+        Dictionary<Entity, EntityId> movedIds = new(ids.Count);
+
+        foreach (var (entity, id) in ids) {
+            if (translation.TryGetValue(entity, out var now)) {
+                movedIds[now] = id;
+            }
+        }
+
         names.Clear();
+        ids.Clear();
+        byId.Clear();
 
         foreach (var (entity, name) in moved) {
             names[entity] = name;
+        }
+
+        foreach (var (entity, id) in movedIds) {
+            ids[entity] = id;
+            byId[id] = entity;
         }
 
         StructureChanged?.Invoke(this);
