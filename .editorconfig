@@ -551,3 +551,16 @@ dotnet_diagnostic.CA1711.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Vfx/VfxAttribute.cs]
 dotnet_diagnostic.CA1711.severity = none
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Rendering/Features/ParticleRenderFeature.cs
+#
+# CA1051 (do not declare visible instance fields). `ParticleDraw` is an element
+# of a RenderDataHolder array, exactly as `MeshDraw` is — native memory, written
+# per object in the prepare loop and read per node in the draw loop — so it is a
+# data layout rather than an object, and a property returning a copy would
+# silently drop a write. Same rule, same reason, one file further along.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Rendering/Features/ParticleRenderFeature.cs]
+dotnet_diagnostic.CA1051.severity = none
