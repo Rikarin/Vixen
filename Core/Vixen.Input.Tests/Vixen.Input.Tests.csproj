@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+        <RootNamespace>Vixen.Input.Tests</RootNamespace>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Input\Vixen.Input.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+
+        <!--
+            A test project may reference anything, and this one has to: InputKeyTests asserts member
+            by member that Vixen.Input's own key table and Vixen.Platform's agree. That check is what
+            makes the duplication the layer rule forces on Core safe rather than merely tolerated —
+            see Controls/InputKey.cs.
+        -->
+        <ProjectReference Include="..\..\Platform\Vixen.Platform\Vixen.Platform.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The accessor generator, run over Assets/SampleInput.vxinput below. Analyzers are not
+            transitive through a ProjectReference, so a project with a .vxinput names it directly —
+            which is exactly what a consuming game does, so the test project is also the smallest
+            worked example of the wiring.
+        -->
+        <ProjectReference Include="..\Vixen.Input.Generators\Vixen.Input.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <AdditionalFiles Include="Assets\**\*.vxinput" />
+        <CompilerVisibleProperty Include="RootNamespace" />
+        <CompilerVisibleProperty Include="ProjectDir" />
+    </ItemGroup>
+</Project>

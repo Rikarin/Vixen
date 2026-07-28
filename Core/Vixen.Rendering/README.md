@@ -598,6 +598,14 @@ node that does not compile, with no hint as to why.
 Bloom has no lens flare and no light streak, and the tonemap pass has no grading LUT as an asset —
 the shader takes one, nothing loads one.
 
+**`Bloom.rvn`'s Karis average never runs.** Its `Tap()` applies the weight only when `Mode == 0`, and
+mode 0 is the prefilter, which samples directly and never calls `Tap()`. So the weighting is
+unreachable — and it is not decoration: Karis-averaging the taps of the first downsample is what stops
+a specular highlight flickering as it moves between texels, which is the single most visible temporal
+artefact a bloom chain has. Fixing it is a shader-design decision rather than a patch, because the
+weight belongs to the *first* downsample and nothing in the shader distinguishes that from the rest of
+the chain.
+
 GPU-driven culling is a second implementation of `VisibilityGroup` behind the same interface, which
 is why that interface is bits rather than a list.
 

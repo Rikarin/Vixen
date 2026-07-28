@@ -204,6 +204,26 @@ public class BloomTests : IDisposable {
         Assert.All(h.Bloom.Passes.Take(h.Bloom.PassCount), pass => Assert.Equal(1, pass.UploadCount));
     }
 
+    /// <summary>
+    ///     A single-level chain still publishes its result.
+    /// </summary>
+    /// <remarks>
+    ///     One level means no up-chain, and the up-chain is what normally declares the output — so
+    ///     until this was fixed a <c>Levels = 1</c> bloom declared everything except the name the
+    ///     rest of the frame reads it by, and the pass that read it failed by name. A legitimate
+    ///     low-quality setting, and the shortest chain is exactly the one nobody tries.
+    /// </remarks>
+    [Fact]
+    public void A_single_level_chain_still_publishes_its_result() {
+        using var h = Build();
+        h.Bloom.Levels = 1;
+
+        Frame(h);
+
+        Assert.Equal(1, h.Bloom.PassCount);
+        Assert.Equal(2, device.Recorder!.CountOf(RecordedCommandKind.Draw));
+    }
+
     /// <summary>The result is published under one name, whatever the chain's depth.</summary>
     [Fact]
     public void The_result_is_the_top_of_the_up_chain() {

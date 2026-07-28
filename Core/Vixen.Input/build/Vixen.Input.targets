@@ -1,0 +1,27 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    What makes a .vxinput compile by being in the project. Imported automatically by a
+    PackageReference to Vixen.Input; inside this repository a project has to name the generator
+    itself, because analyzers are not transitive through a ProjectReference.
+-->
+<Project>
+
+    <!--
+        A .targets rather than a .props, for the reason Vixen.Ui.targets records: this is imported
+        after the consuming project's body, which is when DefaultItemExcludes finally holds the
+        project's own additions to it. Globbed in a .props, a .vxinput copied into bin/ by a previous
+        build would be compiled a second time under a different path — two accessor classes with one
+        name, and an error naming neither the file the author wrote nor the reason.
+    -->
+    <ItemGroup Condition="'$(EnableVixenInput)' != 'false'">
+        <AdditionalFiles Include="**/*.vxinput" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <CompilerVisibleProperty Include="RootNamespace" />
+        <CompilerVisibleProperty Include="ProjectDir" />
+    </ItemGroup>
+
+</Project>

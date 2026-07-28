@@ -1,0 +1,88 @@
+# The worked example from Core/Vixen.Input/README.md, and the input to the generator test.
+name: SampleInput
+version: 1
+
+maps:
+  - name: Player
+    actions:
+      - name: Move
+        type: value
+        controlType: vector2
+        bindings:
+          - composite: vector2
+            name: WASD
+            groups: Keyboard&Mouse
+            parts:
+              - part: up
+                path: <Keyboard>/w
+              - part: down
+                path: <Keyboard>/s
+              - part: left
+                path: <Keyboard>/a
+              - part: right
+                path: <Keyboard>/d
+          - path: <Gamepad>/leftStick
+            groups: Gamepad
+            processors: stickDeadzone(min=0.125,max=0.925)
+
+      - name: Look
+        type: value
+        controlType: vector2
+        bindings:
+          - path: <Mouse>/delta
+            groups: Keyboard&Mouse
+            processors: scale(factor=0.05)
+          - path: <Gamepad>/rightStick
+            groups: Gamepad
+
+      - name: Fire
+        type: button
+        bindings:
+          - path: <Mouse>/primary
+            groups: Keyboard&Mouse
+          - path: <Gamepad>/rightTrigger
+            groups: Gamepad
+
+      - name: Crouch
+        type: button
+        bindings:
+          - path: <Keyboard>/leftControl
+            groups: Keyboard&Mouse
+            interactions: hold(duration=0.3)
+
+  - name: Menu
+    actions:
+      - name: Navigate
+        type: value
+        controlType: vector2
+        bindings:
+          - path: <Gamepad>/dpad
+            groups: Gamepad
+          - composite: vector2
+            parts:
+              - part: up
+                path: <Keyboard>/up
+              - part: down
+                path: <Keyboard>/down
+              - part: left
+                path: <Keyboard>/left
+              - part: right
+                path: <Keyboard>/right
+
+      - name: Submit
+        type: button
+        bindings:
+          - path: <Keyboard>/enter
+            groups: Keyboard&Mouse
+          - path: <Gamepad>/buttonSouth
+            groups: Gamepad
+
+controlSchemes:
+  - name: Keyboard&Mouse
+    devices:
+      - device: keyboard
+      - device: mouse
+
+  - name: Gamepad
+    devices:
+      - device: gamepad
