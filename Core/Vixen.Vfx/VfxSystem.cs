@@ -45,7 +45,7 @@ public sealed class VfxSystem : IDisposable {
 
         Graph = graph;
         Seed = seed;
-        Particles = new(graph.Attributes, graph.Capacity);
+        Particles = new(graph.Attributes, graph.Capacity, graph.Customs);
 
         debts = new float[graph.Spawners.Length];
         bursts = new int[graph.Spawners.Length];

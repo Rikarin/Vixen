@@ -152,6 +152,43 @@ public static class VfxSimulation {
                     break;
                 }
 
+                case VfxOpcode.SetCustom: {
+                    var values = buffer.Custom(operation.Slot);
+                    var width = buffer.Lanes(operation.Slot);
+
+                    for (var index = first; index < first + count; index++) {
+                        for (var lane = 0; lane < width; lane++) {
+                            values[(index * width) + lane] = Lane(operation.A, lane);
+                        }
+                    }
+
+                    break;
+                }
+
+                case VfxOpcode.RandomCustom: {
+                    var values = buffer.Custom(operation.Slot);
+                    var width = buffer.Lanes(operation.Slot);
+
+                    for (var index = first; index < first + count; index++) {
+                        var particle = identifiers[index];
+
+                        for (var lane = 0; lane < width; lane++) {
+                            // A salt per lane, so a three-lane attribute is three unrelated draws
+                            // rather than one value in three places. The stride between operations is
+                            // four, which is why four lanes is the widest an attribute can be.
+                            values[(index * width) + lane] = VfxRandom.Range(
+                                particle,
+                                seed,
+                                operation.Salt + (uint)lane,
+                                Lane(operation.A, lane),
+                                Lane(operation.B, lane)
+                            );
+                        }
+                    }
+
+                    break;
+                }
+
                 default: {
                     // An updater in the initializer list. The compiler does not refuse it, because
                     // "apply gravity once at birth" is a legitimate thing to author.
@@ -284,6 +321,24 @@ public static class VfxSimulation {
                 break;
             }
 
+            case VfxOpcode.CustomOverLife: {
+                var values = buffer.Custom(operation.Slot);
+                var width = buffer.Lanes(operation.Slot);
+                var ages = buffer.Age;
+                var lifetimes = buffer.Lifetime;
+
+                for (var index = first; index < first + count; index++) {
+                    var fraction = Fraction(ages[index], lifetimes[index]);
+
+                    for (var lane = 0; lane < width; lane++) {
+                        values[(index * width) + lane] =
+                            float.Lerp(Lane(operation.A, lane), Lane(operation.B, lane), fraction);
+                    }
+                }
+
+                break;
+            }
+
             case VfxOpcode.Attract: {
                 var centre = new Vector3(operation.A.X, operation.A.Y, operation.A.Z);
                 var strength = operation.A.W * deltaTime;
@@ -390,6 +445,19 @@ public static class VfxSimulation {
             values[index] = VfxRandom.Range(identifiers[index], seed, operation.Salt, operation.A.X, operation.A.Y);
         }
     }
+
+    /// <summary>One lane of a parameter block, by index rather than by name.</summary>
+    /// <remarks>
+    ///     A custom attribute has between one and four lanes and the operation does not know which
+    ///     until it reads the graph, so the parameters are reached positionally. This is the only
+    ///     place in the module that does — every built-in knows what its own <c>A.x</c> means.
+    /// </remarks>
+    static float Lane(Vector4 value, int lane) => lane switch {
+        0 => value.X,
+        1 => value.Y,
+        2 => value.Z,
+        _ => value.W
+    };
 
     /// <summary>How far through its life a particle is, clamped to [0, 1].</summary>
     /// <remarks>

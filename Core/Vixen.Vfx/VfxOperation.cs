@@ -93,7 +93,24 @@ public enum VfxOpcode {
     ///     Velocity is pushed by curl noise. <c>A.xyz</c> is the frequency, <c>A.w</c> the
     ///     acceleration, <c>B.x</c> how fast the field drifts, and <c>B.y</c> how many octaves.
     /// </summary>
-    Turbulence
+    Turbulence,
+
+    /// <summary>
+    ///     A custom attribute is a fixed value. <see cref="VfxOperation.Slot" /> says which, and
+    ///     <c>A</c> is the value — as many lanes as the slot was declared with.
+    /// </summary>
+    SetCustom,
+
+    /// <summary>
+    ///     A custom attribute is uniform between two values, lane by lane. <c>A</c> is the low end
+    ///     and <c>B</c> the high one.
+    /// </summary>
+    RandomCustom,
+
+    /// <summary>
+    ///     A custom attribute follows age. <c>A</c> is the value at birth, <c>B</c> at death.
+    /// </summary>
+    CustomOverLife
 }
 
 /// <summary>One operation, as the compiled graph stores it.</summary>
@@ -104,6 +121,10 @@ public enum VfxOpcode {
 /// </param>
 /// <param name="A">The first four parameters. What they mean depends on the opcode.</param>
 /// <param name="B">The next four.</param>
+/// <param name="Slot">
+///     Which custom attribute the operation targets, for the opcodes that target one. Zero and
+///     ignored for every other opcode.
+/// </param>
 /// <remarks>
 ///     <para>
 ///         <b>Two float4s and no more, on purpose.</b> The parameter block is a fixed size because
@@ -113,11 +134,14 @@ public enum VfxOpcode {
 ///         than this is one that should be two operations.
 ///     </para>
 ///     <para>
-///         Nothing here is a pointer, a delegate or an index into anything. That is the property the
-///         GPU backend needs and the reason this type is the shape it is.
+///         Nothing here is a pointer or a delegate. <see cref="Slot" /> is an index, and it is the one
+///         thing that had to be added when attributes stopped being a closed set — but it indexes the
+///         graph's own declaration list, which travels with the operations and is fixed when they are.
+///         It is not a parameter, which is why the two-<c>float4</c> rule above is untouched by it:
+///         nothing about a slot is a number the effect computes with.
 ///     </para>
 /// </remarks>
-public readonly record struct VfxOperation(VfxOpcode Opcode, uint Salt, Vector4 A, Vector4 B) {
+public readonly record struct VfxOperation(VfxOpcode Opcode, uint Salt, Vector4 A, Vector4 B, int Slot = 0) {
     /// <summary>An operation with no parameters.</summary>
     /// <param name="opcode">What it does.</param>
     /// <param name="salt">Which randomness it draws on.</param>
@@ -145,7 +169,8 @@ public static class VfxOpcodes {
         VfxOpcode.Integrate => VfxAttribute.Velocity,
         VfxOpcode.Drag => VfxAttribute.Velocity,
         VfxOpcode.Rotate => VfxAttribute.AngularVelocity,
-        VfxOpcode.SizeOverLife or VfxOpcode.ColourOverLife => VfxAttribute.Age | VfxAttribute.Lifetime,
+        VfxOpcode.SizeOverLife or VfxOpcode.ColourOverLife or VfxOpcode.CustomOverLife =>
+            VfxAttribute.Age | VfxAttribute.Lifetime,
 
         // A force reads where the particle is, which is the whole difference between it and gravity:
         // gravity is the same everywhere and a field is not. That also means `Compile` refuses a
@@ -191,7 +216,19 @@ public static class VfxOpcodes {
         or VfxOpcode.ColourOverLife
         or VfxOpcode.Attract
         or VfxOpcode.Vortex
-        or VfxOpcode.Turbulence;
+        or VfxOpcode.Turbulence
+        or VfxOpcode.CustomOverLife;
+
+    /// <summary>Whether an opcode writes a custom attribute rather than a built-in one.</summary>
+    /// <param name="opcode">The opcode.</param>
+    /// <returns><see langword="true" /> if it does, in which case <see cref="VfxOperation.Slot" /> says which.</returns>
+    /// <remarks>
+    ///     Asked by <see cref="VfxCompiledGraph.Compile" />, which has to check the slot exists, and by
+    ///     both backends, which have to reach a different array. One predicate, so the three cannot
+    ///     come to disagree about which operations have a slot at all.
+    /// </remarks>
+    public static bool IsCustom(VfxOpcode opcode) =>
+        opcode is VfxOpcode.SetCustom or VfxOpcode.RandomCustom or VfxOpcode.CustomOverLife;
 
     /// <summary>Whether an opcode needs a salt of its own, so two of them draw unrelated numbers.</summary>
     /// <param name="opcode">The opcode.</param>
@@ -216,5 +253,6 @@ public static class VfxOpcodes {
         or VfxOpcode.SetLifetime
         or VfxOpcode.SetSize
         or VfxOpcode.SetRotation
-        or VfxOpcode.SetAngularVelocity;
+        or VfxOpcode.SetAngularVelocity
+        or VfxOpcode.RandomCustom;
 }

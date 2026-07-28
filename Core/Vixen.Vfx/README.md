@@ -29,7 +29,8 @@ system.Step(deltaTime);
 | `VfxAttribute` | The per-particle quantities, as bit positions so a declaration is a mask. |
 | `ParticleBuffer` | Struct-of-arrays storage in native memory, one array per attribute the graph touches. |
 | `VfxOperation`, `VfxOpcode` | One node of a compiled graph: an opcode and two `Vector4`s of parameters. |
-| `VfxCompiledGraph` | The artefact both backends read. Derives storage, assigns salts, refuses graphs that read what nothing writes. |
+| `VfxCompiledGraph` | The artefact both backends read. Derives storage, assigns salts and slots, refuses graphs that read what nothing writes. |
+| `VfxCustomAttribute` | A per-particle quantity a graph declares by name and everything downstream reaches by slot. |
 | `VfxSimulation` | The CPU backend: one operation swept across every particle. |
 | `VfxRandom` | Stateless integer-only hashing, so a compute shader can reproduce a value exactly. |
 | `VfxNoise` | Value noise over a lattice, and the curl of three — the field turbulence samples. |
@@ -119,6 +120,40 @@ recycling buffer to prove it does not.
 Uniform *by volume* and *by solid angle* where that matters: a position in a sphere takes the cube root
 of its radius fraction, or two thirds of the particles pile into the outer third and it reads as a
 shell; a direction samples `z` uniformly rather than the polar angle, or a burst pinches at the poles.
+
+## Attributes a graph declares for itself
+
+```csharp
+var graph = VfxCompiledGraph.Compile(
+    spawners:     [VfxSpawner.AtRate(60f)],
+    initializers: [new(VfxOpcode.RandomCustom, new Vector4(0.5f, 0f, 0f, 0f)) { B = new(2f, 0f, 0f, 0f) }],
+    updaters:     [],
+    capacity:     4096,
+    customs:      [new("mass", VfxAttributeType.Float)]);
+```
+
+**A name to the author, a slot to everything else.** Slots are assigned by declaration order; an
+operation's `Slot` is an index into that list, the storage is allocated by index, and the emitted
+shader declares its buffers in the same sequence. Nothing looks a name up at run time, and the two
+backends cannot come to different conclusions because neither of them decides — `Compile` does, once.
+Reordering the declarations is therefore a *different graph*, which is the same rule the salts follow
+and for the same reason: a compiled artefact whose meaning depended on how it was written down would
+not be comparable in a golden test.
+
+**The name has to be an identifier**, because it names a binding in the emitted shader and a host
+binds by it. A custom attribute called `"particle size"` would compile perfectly on the CPU and emit a
+shader that does not parse — a failure a long way from its cause, so it is refused at the declaration.
+
+**Float lanes only, one to four.** The one unsigned quantity here is the identifier and it belongs to
+the runtime; a custom integer would need its own interpolation rule, and there is none. Four lanes is
+the widest because a random draw takes one salt per lane and the stride between operations is four.
+
+**What this does not buy is an arbitrary expression over a custom attribute.** That needs the node
+graph and a lowering to add/multiply/select over a register file — the cost the closed opcode set was
+chosen to avoid, and named as such at the top of this file. What it buys is the three operations that
+make storage useful without one: write it at birth, draw it at random, animate it over a life. The
+first real consumer is the ribbon renderer, which needs to know which strip a particle belongs to and
+where in it — an ordering the built-in set has no place for.
 
 ## Force fields, and why the noise is the shape it is
 
@@ -320,8 +355,10 @@ is two small arrays of spawner bookkeeping.
   workaround; the GPU path is the fix, which is why the workaround is not in.
 - **The node graph and its editor.** `Vixen.Editor.VfxGraph` authors what `Compile` consumes. A graph is
   written in code today.
-- **Custom attributes.** The attribute set is closed. Opening it means a name-to-slot mapping the
-  compiled graph carries and both backends agree on, which is a design rather than an addition.
+- **Arbitrary expressions over custom attributes.** The storage and its three operations are here; what
+  is not is a node reading two attributes and writing a third. That is the node graph, and a lowering
+  to add/multiply/select over a register file — a different design, and the one the closed opcode set
+  exists to postpone.
 - **Collision, sub-emitters, trails.** The updaters doc 06 names that this still does not have.
   Collision is the one that needs something outside the module — a depth buffer or a physics query —
   and is therefore the one that cannot be an opcode and a sweep like the rest.

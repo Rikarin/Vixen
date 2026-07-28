@@ -42,13 +42,17 @@ public sealed class ParticleBuffer : IDisposable {
     NativeArray<float> angularVelocity;
     NativeArray<uint> identifier;
 
+    readonly NativeArray<float>[] customs;
+    readonly int[] lanes;
+
     bool disposed;
 
     /// <summary>Allocates storage for a declared set of attributes.</summary>
     /// <param name="attributes">Which attributes the graph uses. <see cref="VfxAttribute.Identifier" /> is added.</param>
     /// <param name="capacity">The most particles that can be alive at once.</param>
+    /// <param name="declared">The graph's custom attributes, in slot order.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="capacity" /> is not positive.</exception>
-    public ParticleBuffer(VfxAttribute attributes, int capacity) {
+    public ParticleBuffer(VfxAttribute attributes, int capacity, ReadOnlySpan<VfxCustomAttribute> declared = default) {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
 
         // Always present, whatever the graph said. Every random value a particle is given is a
@@ -90,6 +94,17 @@ public sealed class ParticleBuffer : IDisposable {
         }
 
         identifier = NativeArray<uint>.Zeroed(capacity, name: "Vfx.Identifier");
+
+        // One array per declared slot, each a flat run of lanes. Flat rather than typed because the
+        // type is the graph's to know and the storage's job is to be a place — every sweep that
+        // touches one already knows how many lanes it is reading.
+        customs = new NativeArray<float>[declared.Length];
+        lanes = new int[declared.Length];
+
+        for (var slot = 0; slot < declared.Length; slot++) {
+            lanes[slot] = VfxAttributes.Lanes(declared[slot].Type);
+            customs[slot] = NativeArray<float>.Zeroed(capacity * lanes[slot], name: "Vfx." + declared[slot].Name);
+        }
     }
 
     /// <summary>Which attributes have storage.</summary>
@@ -142,6 +157,24 @@ public sealed class ParticleBuffer : IDisposable {
 
     /// <summary>Their identifiers.</summary>
     public Span<uint> Identifier => identifier.AsSpan();
+
+    /// <summary>How many custom attributes this buffer has storage for.</summary>
+    public int CustomCount => customs.Length;
+
+    /// <summary>How many floats one particle occupies in a custom slot.</summary>
+    /// <param name="slot">The slot.</param>
+    /// <returns>Its lane count.</returns>
+    public int Lanes(int slot) => lanes[slot];
+
+    /// <summary>One custom attribute's storage, as a flat run of lanes.</summary>
+    /// <param name="slot">The slot, as the graph assigned it.</param>
+    /// <returns>The storage. Particle <c>i</c>'s lane <c>l</c> is at <c>i * Lanes(slot) + l</c>.</returns>
+    /// <remarks>
+    ///     Flat rather than a span of vectors, because the lane count is a property of the graph and
+    ///     not of the type system here. A caller that knows its slot is a <c>Float3</c> can index it
+    ///     three at a time; one that does not can copy it without caring.
+    /// </remarks>
+    public Span<float> Custom(int slot) => customs[slot].AsSpan();
 
     /// <summary>Adds particles, and says where they landed.</summary>
     /// <param name="count">How many to add. More than <see cref="Free" /> adds what fits.</param>
@@ -236,6 +269,10 @@ public sealed class ParticleBuffer : IDisposable {
         rotation.Dispose();
         angularVelocity.Dispose();
         identifier.Dispose();
+
+        foreach (var custom in customs) {
+            custom.Dispose();
+        }
     }
 
     void CopyParticle(int from, int to) {
@@ -272,5 +309,17 @@ public sealed class ParticleBuffer : IDisposable {
         }
 
         identifier[to] = identifier[from];
+
+        // A custom attribute travels with its particle for the same reason every built-in does: a
+        // swap-removal that left one behind would give the particle moved into the hole somebody
+        // else's value, and nothing about it would look wrong.
+        for (var slot = 0; slot < customs.Length; slot++) {
+            var values = customs[slot].AsSpan();
+            var width = lanes[slot];
+
+            for (var lane = 0; lane < width; lane++) {
+                values[(to * width) + lane] = values[(from * width) + lane];
+            }
+        }
     }
 }

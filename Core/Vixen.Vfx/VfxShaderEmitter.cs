@@ -15,7 +15,11 @@ namespace Vixen.Vfx;
 ///     Whether a kernel stores into it. A buffer nothing writes is declared read-only, which is one
 ///     access decoration and lets a driver hoist a load out of a loop.
 /// </param>
-public readonly record struct VfxShaderBinding(string Name, VfxAttribute Attribute, int Stride, bool IsWritten);
+/// <param name="Slot">
+///     Which custom attribute this is, or -1 for a built-in. The graph assigned it, so a host that
+///     knows the graph knows which buffer it is binding without matching on the name.
+/// </param>
+public readonly record struct VfxShaderBinding(string Name, VfxAttribute Attribute, int Stride, bool IsWritten, int Slot = -1);
 
 /// <summary>A compiled graph as Raven source, plus what the host has to bind to run it.</summary>
 /// <remarks>
@@ -191,8 +195,10 @@ public static class VfxShaderEmitter {
             .AppendLine("    var time: float");
 
         foreach (var binding in bindings) {
+            var element = binding.Slot < 0 ? Element(binding.Attribute) : Element(graph.Customs[binding.Slot].Type);
+
             text.AppendLine()
-                .AppendLine($"    var {binding.Name}: {(binding.IsWritten ? "RW" : "")}Buffer<{Element(binding.Attribute)}>");
+                .AppendLine($"    var {binding.Name}: {(binding.IsWritten ? "RW" : "")}Buffer<{element}>");
         }
 
         var random = graph.Initializers.Any(operation => VfxOpcodes.IsRandom(operation.Opcode));
@@ -218,7 +224,9 @@ public static class VfxShaderEmitter {
             Cone(text);
         }
 
-        if (Touches(graph, VfxOpcode.SizeOverLife) || Touches(graph, VfxOpcode.ColourOverLife)) {
+        if (Touches(graph, VfxOpcode.SizeOverLife)
+            || Touches(graph, VfxOpcode.ColourOverLife)
+            || Touches(graph, VfxOpcode.CustomOverLife)) {
             Fraction(text);
         }
 
@@ -461,9 +469,9 @@ public static class VfxShaderEmitter {
             if (VfxOpcodes.IsUpdater(operation.Opcode)) {
                 // An updater in the initializer list — "apply gravity once at birth" — which the CPU
                 // backend runs with a step of zero rather than refusing.
-                Apply(text, operation, "0f", index);
+                Apply(text, operation, "0f", index, graph);
             } else {
-                Initialize(text, operation);
+                Initialize(text, operation, graph);
             }
         }
 
@@ -485,12 +493,12 @@ public static class VfxShaderEmitter {
 
         for (var index = 0; index < updaters.Length; index++) {
             text.AppendLine();
-            Apply(text, updaters[index], "deltaTime", index);
+            Apply(text, updaters[index], "deltaTime", index, graph);
         }
     }
 
     /// <summary>One initializer, as the statement that writes its attribute.</summary>
-    static void Initialize(StringBuilder text, VfxOperation operation) {
+    static void Initialize(StringBuilder text, VfxOperation operation, VfxCompiledGraph graph) {
         var salt = operation.Salt;
 
         switch (operation.Opcode) {
@@ -587,6 +595,30 @@ public static class VfxShaderEmitter {
                 break;
             }
 
+            case VfxOpcode.SetCustom: {
+                var custom = graph.Customs[operation.Slot];
+
+                text.AppendLine($"        {custom.Name}[slot] = {Lanes(custom.Type, lane => Float(Lane(operation.A, lane)))}");
+
+                break;
+            }
+
+            case VfxOpcode.RandomCustom: {
+                var custom = graph.Customs[operation.Slot];
+
+                // A salt per lane, so a three-lane attribute is three unrelated draws rather than one
+                // value in three places. Four apart is the stride between operations, which is why
+                // four lanes is the widest an attribute can be.
+                text.AppendLine(
+                    $"        {custom.Name}[slot] = {Lanes(
+                        custom.Type,
+                        lane => $"Range(particle, {salt + (uint)lane}u, {Float(Lane(operation.A, lane))}, {Float(Lane(operation.B, lane))})"
+                    )}"
+                );
+
+                break;
+            }
+
             default: {
                 throw new ArgumentException($"`{operation.Opcode}` is neither an initializer nor an updater.", nameof(operation));
             }
@@ -606,7 +638,8 @@ public static class VfxShaderEmitter {
     ///     declaring the same local twice. A field needs a distance before it can use one, and a
     ///     distance needs a name.
     /// </param>
-    static void Apply(StringBuilder text, VfxOperation operation, string step, int index) {
+    /// <param name="graph">The graph, for the custom attribute a slot names.</param>
+    static void Apply(StringBuilder text, VfxOperation operation, string step, int index, VfxCompiledGraph graph) {
         switch (operation.Opcode) {
             case VfxOpcode.Integrate: {
                 text.AppendLine($"        position[slot] = position[slot] + float4(velocity[slot].xyz * {step}, 0f)");
@@ -705,11 +738,51 @@ public static class VfxShaderEmitter {
                 break;
             }
 
+            case VfxOpcode.CustomOverLife: {
+                var custom = graph.Customs[operation.Slot];
+
+                text.AppendLine(
+                    $"        {custom.Name}[slot] = {Lanes(
+                        custom.Type,
+                        lane => $"lerp({Float(Lane(operation.A, lane))}, {Float(Lane(operation.B, lane))}, Fraction(age[slot], lifetime[slot]))"
+                    )}"
+                );
+
+                break;
+            }
+
             default: {
                 throw new ArgumentException($"`{operation.Opcode}` is not an updater.", nameof(operation));
             }
         }
     }
+
+    /// <summary>
+    ///     One custom attribute's value, spelled at whatever width the slot was declared with.
+    /// </summary>
+    /// <param name="type">The slot's type.</param>
+    /// <param name="lane">What to write for lane <c>n</c>.</param>
+    /// <returns>A scalar for a one-lane slot, and a <c>float4</c> otherwise.</returns>
+    /// <remarks>
+    ///     A three-lane attribute comes out as a <c>float4</c> with a zero in the fourth, because
+    ///     std430 gives it those bytes whatever it is called — the same reason position is a
+    ///     <c>float4</c>. The unused lane is written rather than left alone so that a buffer read back
+    ///     by a host holds a number rather than whatever the allocation happened to contain.
+    /// </remarks>
+    static string Lanes(VfxAttributeType type, Func<int, string> lane) =>
+        VfxAttributes.Lanes(type) switch {
+            1 => lane(0),
+            3 => $"float4({lane(0)}, {lane(1)}, {lane(2)}, 0f)",
+            _ => $"float4({lane(0)}, {lane(1)}, {lane(2)}, {lane(3)})"
+        };
+
+    /// <summary>One lane of a parameter block, by index rather than by name.</summary>
+    static float Lane(Vector4 value, int lane) => lane switch {
+        0 => value.X,
+        1 => value.Y,
+        2 => value.Z,
+        _ => value.W
+    };
 
     // --- Bindings ----------------------------------------------------------
 
@@ -744,6 +817,23 @@ public static class VfxShaderEmitter {
             bindings.Add(new(Name(attribute), attribute, Stride(attribute), (written & attribute) != 0));
         }
 
+        // Then the custom slots, in slot order, which is what makes the shader's binding sequence and
+        // the graph's declaration list the same list seen from two sides. Only the ones an operation
+        // touches: a declared attribute nothing writes is storage on the CPU and a descriptor here,
+        // and a descriptor bound for nothing is the thing this whole module keeps refusing to pay for.
+        for (var slot = 0; slot < graph.Customs.Length; slot++) {
+            var target = slot;
+
+            if (!graph.Initializers.Concat(updaters)
+                    .Any(operation => VfxOpcodes.IsCustom(operation.Opcode) && operation.Slot == target)) {
+                continue;
+            }
+
+            var custom = graph.Customs[slot];
+
+            bindings.Add(new(custom.Name, VfxAttribute.None, Stride(custom.Type), true, slot));
+        }
+
         return [.. bindings];
     }
 
@@ -756,13 +846,19 @@ public static class VfxShaderEmitter {
     ///     bytes the layout was going to spend anyway, and it spends them somewhere a later attribute
     ///     can use rather than in padding nothing can name.
     /// </remarks>
-    static int Stride(VfxAttribute attribute) => VfxAttributes.TypeOf(attribute) switch {
+    static int Stride(VfxAttribute attribute) => Stride(VfxAttributes.TypeOf(attribute));
+
+    /// <summary>The same question for a custom attribute, whose type is the graph's to say.</summary>
+    static int Stride(VfxAttributeType type) => type switch {
         VfxAttributeType.Float3 or VfxAttributeType.Float4 => 16,
         _ => 4
     };
 
     /// <summary>What an attribute is declared as in the shader.</summary>
-    static string Element(VfxAttribute attribute) => VfxAttributes.TypeOf(attribute) switch {
+    static string Element(VfxAttribute attribute) => Element(VfxAttributes.TypeOf(attribute));
+
+    /// <summary>The same question for a custom attribute.</summary>
+    static string Element(VfxAttributeType type) => type switch {
         VfxAttributeType.Float3 or VfxAttributeType.Float4 => "float4",
         VfxAttributeType.UInt => "uint",
         _ => "float"

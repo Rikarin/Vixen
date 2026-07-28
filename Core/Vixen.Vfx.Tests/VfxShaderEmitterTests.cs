@@ -192,7 +192,10 @@ public class VfxShaderEmitterTests {
                 new(VfxOpcode.SetSize, new Vector4(0.1f, 0.5f, 0f, 0f)),
                 new(VfxOpcode.SetColour, new Vector4(0.2f, 0.4f, 0.8f, 1f)),
                 new(VfxOpcode.SetRotation, new Vector4(0f, 6.28f, 0f, 0f)),
-                new(VfxOpcode.SetAngularVelocity, new Vector4(-2f, 2f, 0f, 0f))
+                new(VfxOpcode.SetAngularVelocity, new Vector4(-2f, 2f, 0f, 0f)),
+                new(VfxOpcode.SetCustom, new Vector4(1.5f, 0f, 0f, 0f)),
+                new(VfxOpcode.RandomCustom, new Vector4(0f, 0f, 0f, 0f)) { B = new(1f, 1f, 1f, 0f), Slot = 1 },
+                new(VfxOpcode.SetCustom, new Vector4(0.1f, 0.2f, 0.3f, 0.4f)) { Slot = 2 }
             ],
             [
                 new(VfxOpcode.Gravity, new Vector4(0f, -9.81f, 0f, 0f)),
@@ -204,9 +207,16 @@ public class VfxShaderEmitterTests {
                 new(VfxOpcode.Integrate),
                 new(VfxOpcode.Rotate),
                 new(VfxOpcode.SizeOverLife, new Vector4(0.5f, 0f, 0f, 0f)),
-                new(VfxOpcode.ColourOverLife, Vector4.One) { B = Vector4.Zero }
+                new(VfxOpcode.ColourOverLife, Vector4.One) { B = Vector4.Zero },
+                new(VfxOpcode.CustomOverLife, new Vector4(1f, 0f, 0f, 0f)) { B = Vector4.Zero },
+                new(VfxOpcode.CustomOverLife, new Vector4(0f, 0f, 0f, 0f)) { B = new(1f, 1f, 1f, 0f), Slot = 1 }
             ],
-            1024
+            1024,
+            customs: [
+                new("mass", VfxAttributeType.Float),
+                new("drift", VfxAttributeType.Float3),
+                new("stain", VfxAttributeType.Float4)
+            ]
         );
 
     /// <summary>

@@ -74,6 +74,30 @@ public enum VfxAttributeType {
     UInt
 }
 
+/// <summary>A per-particle quantity a graph declares for itself.</summary>
+/// <param name="Name">
+///     What it is called. Has to be an identifier, because it names a binding in the emitted shader
+///     and a host looks it up by that name in the reflection.
+/// </param>
+/// <param name="Type">What it is made of. Float lanes only — see <see cref="VfxCompiledGraph" />.</param>
+/// <remarks>
+///     <para>
+///         <b>The graph carries the mapping, so both backends agree on it.</b> A custom attribute is
+///         a name to the author and a <i>slot</i> to everything downstream: the operations reference
+///         it by position, the storage is allocated by position, and the emitted shader declares its
+///         buffers in that order. Nothing has to look a name up at run time, and the two backends
+///         cannot come to different conclusions about which array is which, because neither of them
+///         decides — <see cref="VfxCompiledGraph.Compile" /> does, once.
+///     </para>
+///     <para>
+///         Slots are assigned by declaration order, which means <b>reordering the declarations is a
+///         different graph</b>. That is the same rule the salts follow and for the same reason: a
+///         compiled artefact that changed meaning depending on how it was written down would not be
+///         comparable in a golden test.
+///     </para>
+/// </remarks>
+public readonly record struct VfxCustomAttribute(string Name, VfxAttributeType Type);
+
 /// <summary>What each attribute is made of, and how to talk about a set of them.</summary>
 public static class VfxAttributes {
     /// <summary>Every attribute, in bit order.</summary>
@@ -101,6 +125,20 @@ public static class VfxAttributes {
             or VfxAttribute.Rotation or VfxAttribute.AngularVelocity => VfxAttributeType.Float,
         VfxAttribute.Identifier => VfxAttributeType.UInt,
         _ => throw new ArgumentOutOfRangeException(nameof(attribute), attribute, "Not a single known attribute.")
+    };
+
+    /// <summary>How many floats one particle's worth of a type occupies.</summary>
+    /// <param name="type">The type.</param>
+    /// <returns>Its lane count.</returns>
+    /// <remarks>
+    ///     Custom storage is a flat array of floats indexed by lane, so this is what says where one
+    ///     particle's value ends and the next begins. A <see cref="VfxAttributeType.UInt" /> has one
+    ///     lane and no float meaning, which is why a custom attribute cannot be one.
+    /// </remarks>
+    public static int Lanes(VfxAttributeType type) => type switch {
+        VfxAttributeType.Float3 => 3,
+        VfxAttributeType.Float4 => 4,
+        _ => 1
     };
 
     /// <summary>How many bytes one particle's worth of a set occupies.</summary>
