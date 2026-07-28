@@ -129,14 +129,24 @@ public sealed class ReflectionProbe {
 ///         is decidable without a device, a frame or a descriptor set.
 ///     </para>
 ///     <para>
-///         ⚠ <strong>What is not here is the per-object binding.</strong> A probe's cube is a texture,
-///         so a scene where every object picks its own probe needs a descriptor set per probe bound
-///         per draw — and the per-draw set is currently owned whole by
-///         <see cref="Features.ForwardLightingRenderFeature" />, which writes its light list into it.
-///         Sharing that set between two features is the binding-plan work
-///         <c>Vixen.Rendering</c>'s README already names, not a detail of probes. Until then a host
-///         applies the probe a group of objects shares — a room, a corridor — which is how probes are
-///         authored anyway.
+///         ⚠ <strong>What is not here is the per-object binding</strong>, and what it needs is not
+///         what this used to say. A descriptor set per probe bound per draw is the shape to avoid,
+///         not the shape to build: it is a set per object in all but name, which is the cost the
+///         four-set convention exists to refuse. The right shape is an <em>array</em> of probe cubes
+///         bound once and an index in the per-object block — which is a block that already exists,
+///         already written per object, already bound with a dynamic offset. A probe then costs an
+///         <c>int</c>, and nothing extra is bound anywhere.
+///     </para>
+///     <para>
+///         That was blocked on the compiler rather than on the renderer, and silently: Raven put an
+///         array of textures <em>inside the uniform block</em>, which no backend can express and both
+///         emitted anyway. Fixed — see <c>ArrayTypeSymbol.ResourceKind</c> — so
+///         <c>var probes: TextureCube[N]</c> is now one binding with a count. What remains is the
+///         work in <c>ForwardPlus.rvn</c> and a feature to write the index.
+///     </para>
+///     <para>
+///         Until then a host applies the probe a group of objects shares — a room, a corridor — which
+///         is how probes are authored anyway.
 ///     </para>
 /// </remarks>
 public sealed class ReflectionProbeSelector {

@@ -332,10 +332,20 @@ faded against the sky over the probe's own blend distance. `ReflectionProbeSelec
 applies — priority, then weight, then volume, so a cupboard inside a room wins inside the cupboard —
 and it decides it from positions alone, which is why it needs no device to test.
 
-⚠ A probe is applied per *group* rather than per object, and the reason is the binding plan again: a
-probe's cube is a texture, so per-object selection needs a descriptor set per probe bound per draw,
-and the per-draw set is currently owned whole by `ForwardLightingRenderFeature`. Sharing it between
-two features is a decision about the binding plan, not a detail of probes.
+⚠ A probe is applied per *group* rather than per object. This used to say that per-object selection
+needed a descriptor set per probe bound per draw, and that the per-draw set being owned whole by
+`ForwardLightingRenderFeature` was the obstacle. Both halves were wrong. A set per probe bound per
+draw is a set per object in all but name — the cost the four-set convention exists to refuse — and the
+right shape needs nothing from that feature: an **array of probe cubes** bound once, and an index in
+the per-object block, which already exists, is already written per object and is already bound with a
+dynamic offset. A probe costs an `int` and binds nothing.
+
+What actually blocked it was the compiler, and it did so quietly. Raven put an array of textures
+*inside the uniform block* — an opaque type in a `Block`-decorated struct, which `glslc` rejects
+outright and which SPIR-V accepts from the validator and from no driver. `ArrayTypeSymbol` reported no
+resource kind, so an array of textures fell through to the same arm as an array of floats. Fixed, with
+the emitted GLSL now held against `glslc`'s own rule. What remains is `ForwardPlus.rvn` taking an array
+and a feature writing the index.
 
 ## Area lights
 
