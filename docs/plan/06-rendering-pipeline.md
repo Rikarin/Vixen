@@ -368,6 +368,28 @@ Renderers → billboard (camera/velocity/fixed-axis aligned), mesh, ribbon, ligh
 
 **Authoring** is `Vixen.Editor.VfxGraph` — see [11](11-editor.md).
 
+### 🟡 Status: both targets are emitted; only one of them runs
+
+`Vixen.Vfx` has the storage, the compiled graph, the CPU simulation, billboard geometry and
+`ParticleRenderFeature`. `VfxShaderEmitter` closes the other half of the dual target on paper: the same
+compiled graph becomes a Raven compute shader, and the tests compile it and hand both targets to
+`glslangValidator` and `spirv-val`. What is not built is the dispatch — nothing uploads a particle
+buffer, runs the kernel or reads it back — so the exit criterion's CPU/GPU agreement test is waiting on
+a device rather than on the translation.
+
+Three things settled while writing it, recorded because they are the reasons rather than the results:
+
+- **The sweep order inverts between the targets, and that is fine.** The CPU runs one operation across
+  every particle to keep the opcode dispatch out of the inner loop; a compute invocation runs the whole
+  graph on one particle, because it has no inner loop and every intermediate can stay in a register.
+  Both are correct because no operation reads another particle — which is worth stating, since it is the
+  property that makes the dual target cheap.
+- **The graph is unrolled into the shader, not uploaded and interpreted.** One shader per graph rather
+  than one shader for every graph, and no branch on the hot path of the processor that likes them least.
+- **Spawning and reaping stay on the CPU.** Spawning is bookkeeping with one right home. Reaping is not
+  a choice: the alive set is a prefix maintained by swap-removal, and compacting it on the GPU needs an
+  atomic counter, which Raven has no syntax for yet.
+
 ## Effect permutations
 
 The problem Stride solves with `EffectSystem` + `.sdfx` mixins, and the thing that makes a

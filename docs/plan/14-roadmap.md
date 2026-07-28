@@ -2463,8 +2463,28 @@ nowhere in the dependency graph.
   once for one view — so particles do not belong in a shadow stage until the GPU path removes that
   rather than working around it.
 
-  **Owed here:** the GPU emitter, mesh/ribbon/light renderers, custom attributes, and the
-  force-field/curl-noise/collision/sub-emitter/trail updaters this document names.
+  **The graph emits a compute shader.** `VfxShaderEmitter` turns a compiled graph into Raven source —
+  a base shader holding the buffers and the RNG, and one compute entry point per pass — and it is a
+  `switch` that writes a line per operation rather than a second implementation, which is the whole
+  return on the compiled form having been designed first. The order inverts: the CPU sweeps one
+  operation across every particle, and a dispatch runs the whole graph on one particle, because a
+  dispatch has no inner loop to keep an opcode out of and every intermediate can stay in registers.
+  Both are correct because no operation reads another particle. `float3` attributes are declared
+  `float4`, since std430 gives a `vec3` array a stride of sixteen whatever it is called and a host
+  uploading packed `Vector3`s would read every particle after the first from the wrong offset.
+
+  Emitting it found a **lowering bug in Raven**: `MergeInterface` rebuilt each `IrBinding` without its
+  writable flag, so a `RWBuffer` inherited from a base shader — or contributed by a `compose`d feature
+  — arrived read-only. `spirv-val` accepts a `NonWritable` variable that is then stored into and
+  GLSL's front end does not, so the shader ran on Vulkan and would not build for GL, which reads as a
+  backend bug and was one argument in the binding merge. Fixed, with a regression test on both sides;
+  the Vfx tests run *both* reference tools for exactly this reason.
+
+  **Owed here:** the dispatch itself — nothing has yet uploaded a buffer or read one back, which is
+  what the exit criterion's agreement test needs a device for. Spawning and reaping stay on the CPU:
+  the first is bookkeeping, and the second needs an atomic counter the language does not have. Then
+  mesh/ribbon/light renderers, custom attributes, and the force-field/curl-noise/collision/
+  sub-emitter/trail updaters this document names.
 - `Vixen.Editor.VfxGraph`: node library + dual-target compilation + live preview.
 - Particle render feature integrated.
 
