@@ -19,17 +19,18 @@ namespace Vixen.Ui.Tests;
 /// </remarks>
 public class TextTests {
     const float Tolerance = 0.01f;
-    static readonly FontFace Font = LoadFont();
+    static readonly FontFace Font = LoadFont("TestShapeLana.ttf", "TestShapeLana");
+    static readonly FontFace Kannada = LoadFont("NotoSerifKannada-Regular.ttf", "Kannada");
 
-    static FontFace LoadFont() {
+    static FontFace LoadFont(string resource, string name) {
         using var stream = Assembly.GetExecutingAssembly()
-            .GetManifestResourceStream("Vixen.Ui.Tests.Fonts.TestShapeLana.ttf")
-            ?? throw new InvalidOperationException("the test font is not embedded");
+            .GetManifestResourceStream($"Vixen.Ui.Tests.Fonts.{resource}")
+            ?? throw new InvalidOperationException($"the test font '{resource}' is not embedded");
 
         using var memory = new MemoryStream();
         stream.CopyTo(memory);
 
-        return FontFace.Load(memory.ToArray(), name: "TestShapeLana");
+        return FontFace.Load(memory.ToArray(), name: name);
     }
 
     static UiDocument Documented(string css = "root { width: 400px; height: 200px; }") {
@@ -444,5 +445,288 @@ public class TextTests {
         // Rather than transparent, which is what falling through to `default` would give — text that
         // is there, measured, batched and invisible.
         Assert.Equal(Color4.Black, TextCommand(document).Color);
+    }
+
+    [Fact]
+    public void Text_is_aligned_within_its_content_box_and_not_its_border_box() {
+        // ⚠ The padding is uneven on purpose. Centring against the border box puts the run half the
+        // padding difference out — which looks exactly like a padding mistake, and is the reason
+        // this test measures against a box whose two paddings differ.
+        using var document = Documented("""
+            root { width: 400px; height: 200px; align-items: flex-start; }
+            label { font-family: Test; width: 200px; padding-left: 40px; padding-right: 0px; }
+            .middle { text-align: center; }
+            .far { text-align: right; }
+        """);
+
+        var start = document.Root.Add("label");
+        var middle = document.Root.Add("label", null, "middle");
+        var far = document.Root.Add("label", null, "far");
+
+        foreach (var label in new[] { start, middle, far }) {
+            label.Text = "AB";
+        }
+
+        document.Update();
+        document.Draw();
+
+        var commands = document.Drawing.Commands.Where(static c => c.Kind == DrawCommandKind.Text).ToArray();
+        Assert.Equal(3, commands.Length);
+
+        // ⚠ 200, not 160. `box-sizing` defaults to content-box, so the declared width *is* the
+        // content width and the padding is added outside it — the border box is 240. Alignment that
+        // subtracted the padding from the declared width would centre every padded label short.
+        const float content = 200f;
+
+        Assert.Equal(240f, start.Width, 1f);
+        var run = start.Run()!;
+
+        Assert.Equal(start.AbsoluteLeft + 40f, commands[0].X, 1f);
+        Assert.Equal(middle.AbsoluteLeft + 40f + ((content - run.Width) / 2f), commands[1].X, 1f);
+        Assert.Equal(far.AbsoluteLeft + 40f + (content - run.Width), commands[2].X, 1f);
+    }
+
+    [Fact]
+    public void Text_wider_than_its_box_is_not_aligned_anywhere() {
+        // Centring negative slack would hide the beginning of the string, and the beginning is the
+        // part a reader needs to recognise what has been cut off.
+        using var document = Documented("""
+            root { width: 400px; height: 200px; align-items: flex-start; }
+            label { font-family: Test; width: 4px; text-align: center; }
+        """);
+
+        var label = document.Root.Add("label");
+        label.Text = "ABABABAB";
+
+        document.Update();
+        document.Draw();
+
+        Assert.True(label.Run()!.Width > label.Width);
+        Assert.Equal(label.AbsoluteLeft, TextCommand(document).X, 1f);
+    }
+
+    [Fact]
+    public void Letter_spacing_widens_the_run_and_the_measurement_with_it() {
+        // Tracking has to reach the *measure*, not just the drawing — an element sized from text it
+        // then draws wider would clip its own last letter, and the clipping would look like a
+        // shaping bug rather than a spacing one.
+        using var document = Documented("""
+            root { width: 400px; height: 200px; align-items: flex-start; }
+            label { font-family: Test; }
+            .wide { letter-spacing: 4px; }
+        """);
+
+        var tight = document.Root.Add("label");
+        var wide = document.Root.Add("label", null, "wide");
+
+        tight.Text = "AB";
+        wide.Text = "AB";
+
+        document.Update();
+
+        var run = wide.Run()!;
+
+        // Two characters, and CSS adds the spacing after the last one as well as between — which is
+        // the wart every browser reproduces and this deliberately matches.
+        Assert.Equal(2, run.Clusters);
+        Assert.Equal(tight.Run()!.Width + 8f, run.Width, Tolerance);
+        Assert.True(wide.Width > tight.Width);
+    }
+
+    [Fact]
+    public void Letter_spacing_is_relative_to_the_elements_own_font_size() {
+        // `em` on every property except `font-size` itself means the element's own size, so tracking
+        // on a heading is a fraction of the heading rather than of whatever it sits in.
+        using var document = Documented("""
+            root { width: 400px; height: 200px; align-items: flex-start; font-size: 16px; }
+            label { font-family: Test; font-size: 32px; letter-spacing: 0.5em; }
+        """);
+
+        var label = document.Root.Add("label");
+        label.Text = "AB";
+
+        document.Update();
+
+        // Half of 32, not half of the root's 16.
+        Assert.Equal(16f, label.Run()!.Tracking, Tolerance);
+    }
+
+    [Fact]
+    public void A_line_height_replaces_the_fonts_own() {
+        using var document = Documented("""
+            root { width: 400px; height: 200px; align-items: flex-start; }
+            label { font-family: Test; font-size: 20px; }
+            .tall { line-height: 40px; }
+        """);
+
+        var natural = document.Root.Add("label");
+        var tall = document.Root.Add("label", null, "tall");
+
+        natural.Text = "AB";
+        tall.Text = "AB";
+
+        document.Update();
+
+        Assert.Equal(40f, tall.Run()!.Height, Tolerance);
+        Assert.NotEqual(40f, natural.Run()!.Height, 1f);
+
+        // And the element measures itself at it, which is the half of this that matters — a run that
+        // reported one height while the layout used another would put every baseline in the wrong
+        // place by the difference.
+        Assert.Equal(40f, tall.Height, 1f);
+    }
+
+    [Fact]
+    public void The_extra_height_is_split_above_and_below_the_text() {
+        // CSS's half-leading. Putting it all below is what makes a generous `line-height` look like
+        // a top margin, and it is the sort of thing that gets called a padding bug for a week.
+        using var document = Documented("""
+            root { width: 400px; height: 200px; align-items: flex-start; }
+            label { font-family: Test; font-size: 20px; line-height: 60px; }
+        """);
+
+        var label = document.Root.Add("label");
+        label.Text = "AB";
+
+        document.Update();
+
+        var run = label.Run()!;
+        var content = (Font.Metrics.Ascender - Font.Metrics.Descender) * run.Scale;
+        var above = run.Baseline - (Font.Metrics.Ascender * run.Scale);
+        var below = run.Height - run.Baseline - (-Font.Metrics.Descender * run.Scale);
+
+        Assert.Equal((60f - content) / 2f, above, Tolerance);
+        Assert.Equal(above, below, Tolerance);
+    }
+
+    [Fact]
+    public void A_unitless_line_height_is_a_ratio_each_descendant_applies_to_itself() {
+        // ⚠ The whole reason the unitless form exists, and the one place computing a value is not
+        // simply resolving it. `1.5` inherits as the *number*; `1.5em` inherits as the length the
+        // ancestor resolved. A panel at 10px with a 30px child gets 15 and 45 from the first and
+        // 15 and 15 from the second.
+        using var document = Documented("""
+            root { width: 400px; height: 200px; align-items: flex-start; }
+            .ratio { font-size: 10px; line-height: 1.5; }
+            .fixed { font-size: 10px; line-height: 1.5em; }
+            label { font-family: Test; font-size: 30px; }
+        """);
+
+        var ratio = document.Root.Add("div", classNames: "ratio");
+        var relative = document.Root.Add("div", classNames: "fixed");
+
+        var underRatio = ratio.Add("label");
+        var underRelative = relative.Add("label");
+
+        underRatio.Text = "AB";
+        underRelative.Text = "AB";
+
+        document.Update();
+
+        Assert.Equal(45f, underRatio.Run()!.Height, Tolerance);
+        Assert.Equal(15f, underRelative.Run()!.Height, Tolerance);
+    }
+
+    [Fact]
+    public void A_percentage_line_height_is_the_ancestors_and_not_the_descendants() {
+        // A percentage is *not* the unitless form, which is exactly the trap the unitless form
+        // exists to avoid: `150%` resolves once, against the element that declared it.
+        using var document = Documented("""
+            root { width: 400px; height: 200px; align-items: flex-start; }
+            .panel { font-size: 10px; line-height: 150%; }
+            label { font-family: Test; font-size: 30px; }
+        """);
+
+        var label = document.Root.Add("div", classNames: "panel").Add("label");
+        label.Text = "AB";
+
+        document.Update();
+
+        Assert.Equal(15f, label.Run()!.Height, Tolerance);
+    }
+
+    [Fact]
+    public void An_inherited_text_property_changing_rebuilds_the_children_that_never_declared_it() {
+        // ⚠ The trap this design creates. `line-height` and `letter-spacing` are inherited outside
+        // the cascade now, so a label whose *parent* changed one has an unchanged ComputedStyle —
+        // the pass's reference test passes, nothing is rebuilt, and the label keeps measuring itself
+        // at the old height for the rest of the document's life.
+        using var document = Documented("""
+            root { width: 400px; height: 200px; align-items: flex-start; }
+            .panel { font-size: 20px; }
+            .panel.tall { line-height: 50px; }
+            label { font-family: Test; }
+        """);
+
+        var panel = document.Root.Add("div", classNames: "panel");
+        var label = panel.Add("label");
+        label.Text = "AB";
+
+        document.Update();
+        Assert.NotEqual(50f, label.Height, 1f);
+
+        panel.AddClass("tall");
+        document.Update();
+
+        Assert.Equal(50f, label.Run()!.Height, Tolerance);
+        Assert.Equal(50f, label.Height, 1f);
+    }
+
+    [Fact]
+    public void Letter_spacing_is_added_per_cluster_and_not_per_glyph() {
+        // ⚠ The one thing Latin cannot show. This syllable is five code points that shape to more
+        // glyphs than clusters, so a per-glyph implementation adds tracking *inside* it — pushing
+        // the marks off the letter they belong to and measuring the run too wide. Against "AB" the
+        // two implementations agree exactly, which is why this test uses a font that reorders.
+        const string syllable = "ಲ್ಲಿ";
+
+        var document = new UiDocument(400f, 200f);
+        document.Fonts.Register("Kannada", Kannada);
+        document.Load("""
+            root { width: 400px; height: 200px; align-items: flex-start; }
+            label { font-family: Kannada; letter-spacing: 10px; }
+        """);
+
+        using var owned = document;
+        var label = document.Root.Add("label");
+        label.Text = syllable;
+
+        document.Update();
+
+        var run = label.Run()!;
+        var glyphs = new List<PositionedGlyph>();
+        run.Place(glyphs);
+
+        Assert.True(
+            glyphs.Count > run.Clusters,
+            $"the test needs a string with more glyphs than clusters; got {glyphs.Count} and {run.Clusters}"
+        );
+
+        // Tracking per cluster, so the width grows by the clusters and not by the glyphs.
+        var untracked = new TextRun(run.Font, run.Shaped, run.Size);
+        Assert.Equal(untracked.Width + (10f * run.Clusters), run.Width, Tolerance);
+
+        // And exactly which gaps grew: the ones that cross a cluster boundary, and no others. A
+        // per-glyph implementation widens every gap by the same amount and would satisfy any check
+        // looser than this one — including "each gap grew by nothing or by one step", which every
+        // gap growing by one step also satisfies.
+        var placed = new List<PositionedGlyph>();
+        untracked.Place(placed);
+
+        var boundaries = run.Shaped.Placements().Select(static placement => placement.Cluster).ToArray();
+        var shared = 0;
+
+        for (var i = 1; i < glyphs.Count; i++) {
+            var grew = glyphs[i].X - glyphs[i - 1].X - (placed[i].X - placed[i - 1].X);
+            var crosses = boundaries[i] != boundaries[i - 1];
+
+            if (!crosses) {
+                shared++;
+            }
+
+            Assert.Equal(crosses ? 10f : 0f, grew, Tolerance);
+        }
+
+        Assert.True(shared > 0, "the test needs at least one adjacent pair of glyphs inside one cluster");
     }
 }
