@@ -7,6 +7,7 @@ using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Core.Syntax.Parsing;
 using Vixen.Core.Syntax.Text;
 using Vixen.Ui.Markup.Parsing;
+using Green = Vixen.Core.Syntax.InternalSyntax;
 
 namespace Vixen.Ui.Markup.Syntax;
 
@@ -14,6 +15,16 @@ namespace Vixen.Ui.Markup.Syntax;
 public sealed class SyntaxTree : ISyntaxTree {
     DocumentSyntax? root;
     Diagnostic[] diagnostics = [];
+
+    /// <summary>The token stream this tree was parsed from.</summary>
+    /// <remarks>
+    ///     Kept for the next incremental reparse, which has to know how the previous text
+    ///     <i>lexed</i> and not merely what it said: the same characters read differently under a
+    ///     different mode stack, and a candidate for reuse is only sound when the new stream reads
+    ///     them the old way. The list is the one the lexer already built, so this is a reference
+    ///     held rather than work done.
+    /// </remarks>
+    IReadOnlyList<LexedToken> tokens = [];
 
     /// <summary>The encoding the file was read with, when the caller knew it.</summary>
     public Encoding? Encoding { get; private init; }
@@ -73,8 +84,9 @@ public sealed class SyntaxTree : ISyntaxTree {
             Encoding = encoding, FilePath = filePath, Length = text.Length, Text = sourceText
         };
 
-        var tokens = VxmlLexer.Lex(text, bag, sourceText, filePath);
-        tree.root = VxmlParser.Parse(tokens, bag, sourceText, filePath, blender, out var reused);
+        var lexed = VxmlLexer.Lex(text, bag, sourceText, filePath);
+        tree.tokens = lexed;
+        tree.root = VxmlParser.Parse(lexed, bag, sourceText, filePath, blender, out var reused);
         tree.root.SyntaxTree = tree;
         tree.diagnostics = bag.ToArray();
         tree.ReusedNodes = reused;
@@ -89,8 +101,10 @@ public sealed class SyntaxTree : ISyntaxTree {
     ///     <para>
     ///         Content nodes whose text a change did not touch are taken from this tree's green
     ///         nodes rather than reparsed — editing one attribute reparses that element and shifts
-    ///         the rest. The file is always re-<i>lexed</i>, which is what makes the token stream
-    ///         under a reused node correct however the lexer's mode stack was disturbed above it.
+    ///         the rest. The file is always re-<i>lexed</i>, and a node is only lent out when the
+    ///         new stream reads its characters as the old one did: this lexer carries a mode stack,
+    ///         so an edit above a node decides what its text lexes <i>as</i>, and untouched
+    ///         characters are no promise of unchanged tokens.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Only subtrees that reported nothing are offered.</b> The parser's one piece of
@@ -117,7 +131,7 @@ public sealed class SyntaxTree : ISyntaxTree {
             return this;
         }
 
-        var blender = new Blender(Candidates(root, diagnostics), changes);
+        var blender = new Blender(Candidates(root, diagnostics), changes, tokens);
         return ParseText(newText.ToString(), FilePath, Encoding, blender);
     }
 
@@ -146,7 +160,16 @@ public sealed class SyntaxTree : ISyntaxTree {
         }
     }
 
-    /// <summary>Whether nothing was reported anywhere inside a node's full span.</summary>
+    /// <summary>Whether a node's parse ran to the end without complaining.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A diagnostic does not always land inside the node whose parse produced it.</b>
+    ///     <c>Expect</c> reports where the parser is <i>standing</i>, and recovery can have carried
+    ///     that far past the node it was parsing — a <c>&lt;style</c> whose tag never closes skips
+    ///     the rest of the file and then reports its missing <c>&gt;</c> at end of file, leaving a
+    ///     node whose own span no diagnostic touches. The fabricated token, though, is always in the
+    ///     node, so that is the second half of the question: nothing reported over these characters,
+    ///     <em>and</em> nothing missing among them.
+    /// </remarks>
     static bool Clean(SyntaxNode node, IReadOnlyList<Diagnostic> reported) {
         var start = node.Position;
         var end = start + node.Green.FullWidth;
@@ -161,6 +184,21 @@ public sealed class SyntaxTree : ISyntaxTree {
             }
         }
 
-        return true;
+        return !AnythingMissing(node.Green);
+    }
+
+    /// <summary>Whether a green subtree holds a token the parser fabricated.</summary>
+    static bool AnythingMissing(Green.GreenNode green) {
+        if (green.IsToken) {
+            return green is Green.SyntaxToken { IsMissing: true };
+        }
+
+        for (var i = 0; i < green.SlotCount; i++) {
+            if (green.GetSlot(i) is { } child && AnythingMissing(child)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
