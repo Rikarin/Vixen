@@ -2218,6 +2218,13 @@ sub-piece has its own gate.
   `RowOf` for an item inside the pool and outside the data is the only way to tell a bounds check
   from a parked check, and "already visible does not move" cannot be tested by calling
   `ScrollIntoView` twice, because centring answers the same both times.
+
+  ✅ **`TreeView` is migrated onto it**, so the arithmetic exists once. What is left in that control
+  is what is actually about a tree — flattening the expanded nodes and binding a row to one — and its
+  253 tests pass unchanged. ⚠ One found a real regression on the way: `Refresh` set the panel's
+  `Count` and stopped, and adding a child to a *collapsed* node leaves the count exactly as it was
+  while changing what one row says. Assigning a property its existing value does nothing, so the row
+  kept drawing a leaf that had children.
 - Owed in `Vixen.Ui`: style-slot compaction, gradients, per-corner elliptical radii, pinch and
   rotate, multi-window and DPI.
 - `Vixen.Ui.Markup`: ✅ **VXML — lexer, parser, binder, emitter and `#line` mapping.** A `.vxml`
