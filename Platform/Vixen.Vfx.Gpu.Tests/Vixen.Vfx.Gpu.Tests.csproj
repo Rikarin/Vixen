@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Vfx.Gpu.Tests</RootNamespace>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The three halves of the claim this project exists to check. Vfx emits the shader and runs
+            the CPU simulation, Raven compiles the shader, and the Vulkan backend runs it. Nothing
+            that ships references all three: the runtime does not link a compiler and the compiler
+            does not link a driver. A test does, because the question — do the two backends produce
+            the same particles — cannot be asked from anywhere that does not.
+        -->
+        <ProjectReference Include="..\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
+        <ProjectReference Include="..\..\Raven\Vixen.Raven\Vixen.Raven.csproj" />
+    </ItemGroup>
+</Project>

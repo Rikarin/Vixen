@@ -168,6 +168,7 @@
     <Project Path="Platform/Vixen.Graphics.Golden.Tests/Vixen.Graphics.Golden.Tests.csproj" />
     <Project Path="Platform/Vixen.Graphics.Vulkan/Vixen.Graphics.Vulkan.csproj" />
     <Project Path="Platform/Vixen.Graphics.Vulkan.Tests/Vixen.Graphics.Vulkan.Tests.csproj" />
+    <Project Path="Platform/Vixen.Vfx.Gpu.Tests/Vixen.Vfx.Gpu.Tests.csproj" />
     <!--
       Vixen.Audio.Backend.WebAudio is deliberately absent, for the same reason
       Vixen.Platform.Android and Vixen.Platform.iOS are: it targets net10.0-browser,
@@ -226,6 +227,7 @@
     <Project Path="Benchmarks/Vixen.Benchmarks.Animation/Vixen.Benchmarks.Animation.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Ui/Vixen.Benchmarks.Ui.csproj" />
     <Project Path="Benchmarks/Vixen.Benchmarks.Navigation/Vixen.Benchmarks.Navigation.csproj" />
+    <Project Path="Benchmarks/Vixen.Benchmarks.Vfx/Vixen.Benchmarks.Vfx.csproj" />
   </Folder>
 
   <!--

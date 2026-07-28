@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
+using Vixen.Core.Threading;
+
 namespace Vixen.Vfx;
 
 /// <summary>
@@ -31,6 +34,7 @@ public sealed class VfxSystem : IDisposable {
     readonly float[] debts;
     readonly int[] bursts;
 
+    Vector3[]? graveyard;
     bool disposed;
 
     /// <summary>Starts an instance of a graph.</summary>
@@ -76,6 +80,66 @@ public sealed class VfxSystem : IDisposable {
     /// <summary>How many particles the last <see cref="Step" /> spawned.</summary>
     public int LastSpawned { get; private set; }
 
+    /// <summary>Where the particles the last <see cref="Step" /> spawned begin.</summary>
+    /// <remarks>
+    ///     They occupy [<see cref="FirstSpawned" />, <see cref="Count" />), because a step reaps
+    ///     before it spawns and spawning appends. That ordering is what makes this a range rather
+    ///     than a list, and it is what a birth-triggered sub-emitter walks.
+    /// </remarks>
+    public int FirstSpawned => Count - LastSpawned;
+
+    /// <summary>Whether to remember where particles died, for a sub-emitter to use.</summary>
+    /// <remarks>
+    ///     Off by default, and it costs a <see cref="Vector3" /> per particle of capacity when it is
+    ///     on — the same rule as every other attribute in this module. A firework needs it; a puff of
+    ///     smoke does not, and should not be made to allocate for a thing it will never read.
+    /// </remarks>
+    public bool RecordDeaths { get; set; }
+
+    /// <summary>How many particles died in the last <see cref="Step" />.</summary>
+    public int LastDied { get; private set; }
+
+    /// <summary>Where they were when they died, when <see cref="RecordDeaths" /> is on.</summary>
+    /// <remarks>
+    ///     Positions and not indices, because by the time anyone reads this the slots have been
+    ///     filled by survivors — see <see cref="ParticleBuffer.Reap(Span{Vector3})" />. Empty when
+    ///     the recording is off, which is what a sub-emitter attached to a system nobody switched it
+    ///     on for will see.
+    /// </remarks>
+    public ReadOnlySpan<Vector3> Deaths =>
+        graveyard is null ? default : graveyard.AsSpan(0, Math.Min(LastDied, graveyard.Length));
+
+    /// <summary>Where the sweeps run, or null to run them on the calling thread.</summary>
+    /// <remarks>
+    ///     Off by default and per instance rather than global, because a scheduler is a thing the host
+    ///     owns and hands out. An effect small enough not to need one should not be made to find one.
+    /// </remarks>
+    public JobScheduler? Scheduler { get; set; }
+
+    /// <summary>How many particles it takes before <see cref="Scheduler" /> is used at all.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         A number rather than a rule, and it is measured rather than guessed — see the module's
+    ///         README. A dispatch and a barrier cost a few microseconds whatever they carry, and a
+    ///         thousand particles through four updaters is over in less than that, so a low threshold
+    ///         makes a small effect <i>slower</i>.
+    ///     </para>
+    ///     <para>
+    ///         Public because the right number depends on how expensive the graph is, and a graph of
+    ///         three curl-noise octaves reaches the crossover far sooner than one that adds gravity.
+    ///     </para>
+    /// </remarks>
+    public int ParallelThreshold { get; set; } = 4096;
+
+    /// <summary>Whether the last <see cref="Step" /> ran its sweeps across threads.</summary>
+    /// <remarks>
+    ///     Reported for the same reason <see cref="LastRefused" /> is: whether an effect crossed the
+    ///     threshold is a thing an author tuning one wants to see, and it is not otherwise visible
+    ///     from anywhere — a parallel step and a serial one produce identical particles, which is the
+    ///     point and also the reason it cannot be inferred.
+    /// </remarks>
+    public bool LastStepWasParallel { get; private set; }
+
     /// <summary>How many the last <see cref="Step" /> could not spawn because the buffer was full.</summary>
     /// <remarks>
     ///     Reported rather than logged, because a system running at capacity is a normal state for a
@@ -99,7 +163,17 @@ public sealed class VfxSystem : IDisposable {
         // order gives every particle one step less of life than it asked for. The clock passed is
         // the one at the *start* of the step, so a field's drift and a particle's motion are
         // sampled at the same instant rather than half a frame apart.
-        VfxSimulation.Update(Particles, Graph.Updaters, deltaTime, Time);
+        LastStepWasParallel = Scheduler is not null && Particles.Count >= ParallelThreshold;
+
+        if (RecordDeaths) {
+            graveyard ??= new Vector3[Graph.Capacity];
+        }
+
+        var deaths = RecordDeaths ? graveyard.AsSpan() : default;
+
+        LastDied = LastStepWasParallel
+            ? VfxSimulation.Update(Particles, Graph.Updaters, deltaTime, Time, Scheduler!, graveyard: deaths)
+            : VfxSimulation.Update(Particles, Graph.Updaters, deltaTime, Time, deaths);
 
         Time += deltaTime;
 

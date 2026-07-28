@@ -35,9 +35,12 @@ system.Step(deltaTime);
 | `VfxRandom` | Stateless integer-only hashing, so a compute shader can reproduce a value exactly. |
 | `VfxNoise` | Value noise over a lattice, and the curl of three — the field turbulence samples. |
 | `VfxSystem` | One running instance: its particles, its clock, its seed, its spawner state. |
+| `VfxSubEmitter` | Particles that emit particles — a burst on death, on birth, or a trail. |
 | `VfxRenderer` | How particles are drawn — alignment, sorting — and which attributes that reads. |
 | `VfxGeometryBuilder` | Particles into quads, instance transforms or ribbon strips, and the draw order. |
 | `VfxShaderEmitter` | The same compiled graph as a Raven compute shader: the GPU backend's front half. |
+| `VfxShaderUniforms` | The push-constant block that shader declares, as the host writes it. |
+| `VfxShaderPacking` | One attribute between `ParticleBuffer` and the bytes a storage buffer holds. |
 
 ## The compiled graph is data, and that is the whole design
 
@@ -248,6 +251,50 @@ the hash and a tolerance on positions**, which is the honest form of that claim 
 it: a tolerance on a value fed by an exact hash is a real check, and a tolerance on a value fed by a
 different random draw would not be.
 
+Measured on a device rather than reasoned about, that shakes out finer than the paragraph above
+implies. The values that are a multiply-add over the hash — a position in a box, a lifetime, a size —
+land within **one or two ulps**, because a target may contract `min + (max - min) t` into a fused
+instruction that rounds once instead of twice. The one born value that goes through a sine and a
+cosine lands within about **twenty**. So the agreement test holds those two apart rather than sizing
+one tolerance for trigonometry and letting a real regression in the arithmetic hide inside it. Even
+the tightest of them is six orders of magnitude away from what a disagreeing hash would cost, which is
+why a tolerance is still the test that proves the hash agrees.
+
+### Running it
+
+`Vixen.Rendering.VfxGpuSimulation` is the device-side half: it allocates the buffers the emitted
+shader binds, builds the descriptor set that names them, and records the dispatches. It does *not*
+compile anything — turning Raven source into a module is the shader compiler's job, and a runtime that
+linked one would be a runtime that ships a compiler. The caller compiles and hands over a
+`PipelineHandle`.
+
+```csharp
+using var simulation = new VfxGpuSimulation(device, shader, capacity);
+
+simulation.Upload(list, particles, count);                        // seeding, once
+simulation.Initialize(list, initializeKernel, 0, count, seed, 0f);
+simulation.Update(list, updateKernel, count, dt, seed, time);
+simulation.Download(list, count);                                 // comparing, or debugging
+```
+
+**The five per-dispatch scalars are push constants.** Twenty bytes written into the command buffer, so
+an initialize and an update can be recorded into one list with different values — which a uniform
+buffer cannot do without being two buffers. It also drops a descriptor: the set holds nothing but
+particle storage. `VfxShaderUniforms` is the host-side struct whose field order *is* the shader's
+declaration order, and a test compiles the emitted source and compares the reflected offsets to
+`Marshal.OffsetOf` member by member, because a field inserted into the middle of either one compiles
+perfectly and moves everything after it.
+
+**Upload and download are stalls and are meant to be rare.** A GPU effect exists so that particle
+state never leaves the device. The two transfer paths are there for seeding a system from a CPU spawn
+and for reading the result back to compare it — neither belongs in a frame, and the dispatches touch
+neither.
+
+`Platform/Vixen.Vfx.Gpu.Tests` is where the three assemblies that no shipping build links together —
+the runtime, the compiler and the driver — are put in one process so the question can be asked at all.
+It skips where there is no Vulkan, and `VIXEN_REQUIRE_VULKAN=1` turns that skip into a failure on the
+leg whose purpose is to run it.
+
 The tests compile every emitted shader with the real compiler and hand both targets to their reference
 tools, because a generated shader that reads perfectly can still be a module no driver would load.
 That is not hypothetical: it is how a lowering bug was found in Raven itself, where a `RWBuffer`
@@ -255,7 +302,8 @@ inherited from a base shader arrived read-only. `spirv-val` accepted the contrad
 `glslangValidator` did not, so the effect ran on Vulkan and would not build for GL — which reads as a
 backend bug and was one line in the binding merge. Both tools run, for that reason.
 
-**What is still the CPU's:** deciding how many particles to spawn and where, and reaping the dead.
+**What is still the CPU's on the device path:** deciding how many particles to spawn and where, and
+reaping the dead.
 Spawning is bookkeeping rather than arithmetic and there is one right place for it. Reaping is a
 choice again now that Raven has `atomicAdd` — the GPU form is every survivor taking the next slot from
 a shared counter, and the value the atomic hands back is the slot — but it changes the *order* the
@@ -277,11 +325,11 @@ what happens when a streak is seen end-on.
 them is the same for every particle in every effect ever — so it is a buffer built once by whoever
 draws, not two repeated vertices per particle forever.
 
-**Three renderers, and only one of them needs particles to know about each other.** A billboard is a
-quad. A mesh is an instance transform — three `float4` rows, because the fourth row of an affine
-transform is always the same and uploading it is sixteen bytes an instance to say so. A **ribbon** is
-the odd one: it joins particles into a strip, so it has to know which strip a particle belongs to and
-where in it.
+**Four renderers, one of which needs particles to know about each other and one of which draws
+nothing.** A billboard is a quad. A mesh is an instance transform — three `float4` rows, because the
+fourth row of an affine transform is always the same and uploading it is sixteen bytes an instance to
+say so. A **ribbon** is the odd one: it joins particles into a strip, so it has to know which strip a
+particle belongs to and where in it. A **light** produces no geometry at all.
 
 That was the thing the storage had no place for, and it is a custom attribute — the first real
 consumer of them. Ordering *within* a strip is age, which is a built-in the runtime already keeps, so
@@ -319,6 +367,24 @@ colour nobody chose.
 nothing: additive blending does not care about order, and a key per particle plus a sort is not free.
 `Order` is exposed because a caller uploading per-instance data instead of expanded quads needs the same
 order, and recomputing it would be a second sort that could disagree with the first.
+
+### The renderer that draws nothing
+
+`VfxRenderer.Light()` makes each particle a point light. `Vixen.Rendering.ParticleLights.Collect`
+appends them to whatever is gathering lights this frame, and that lives in `Vixen.Rendering` because
+`RenderLight` does — the runtime knows what a light-emitting particle *is* and nothing about how the
+renderer represents one, which is the same split `VfxGpuSimulation` makes.
+
+It is the one renderer an additive quad cannot fake: the quad brightens the sparks, not the wall behind
+them. **Colour's alpha is the intensity and size is the range**, so a colour-over-life fade dims the
+pool of light and a size-over-life curve shrinks it — the two curves an author has already written are
+the two an author expects the light to follow.
+
+**It takes a budget and reports what did not fit.** A light costs every fragment it reaches in every
+pass that shades one, so a thousand of them is not an effect but an outage. A system meant to light a
+scene has a capacity of a dozen; the budget is the author's to set, and being at it is normal for a
+deliberate effect and a mistake for an accidental one — which is exactly why it is reported rather
+than logged.
 
 ## Decisions worth knowing about
 
@@ -366,16 +432,109 @@ hundred frames and asserts the process allocated **zero** bytes. Particle storag
 graph is read-only and shared between instances, and the only per-instance state besides the particles
 is two small arrays of spawner bookkeeping.
 
+## Colliders are analytic, and that is what makes them opcodes
+
+`CollidePlane` and `CollideSphere` keep particles on the right side of a surface. Both are ordinary
+updaters — a read of position and velocity, a test, and a write — which is what lets them be a case in
+the CPU sweep and a case in the emitter like everything else.
+
+```csharp
+new(VfxOpcode.CollidePlane, new Vector4(0f, 1f, 0f, 0f)) { B = new(0.6f, 0.2f, 0f, 0f) }
+//                          normal        distance          bounce  friction
+```
+
+**Bounce and friction are separate because they mean different things.** The velocity is split into
+the part along the normal and the part across it: bounce is how much of the approach comes back,
+friction is how much of the slide is scrubbed off. Reflecting the whole vector and scaling it would
+make a particle dropped straight down and one skimming along the floor lose the same fraction of their
+speed, which is neither word.
+
+**Only an approach is reflected.** A particle already moving away from the surface was pushed out last
+step and is leaving; bouncing it again traps it against the surface, vibrating. That is the classic
+way a collider makes a system buzz, and it is one comparison.
+
+**The particle is moved as well as turned.** These run after the integration, so a particle that hit
+something is already through it. Putting it back on the surface is what stops the one frame inside the
+floor that a viewer notices.
+
+An earlier draft of this file said collision "needs something outside the module — a depth buffer or a
+physics query — and is therefore the one that cannot be an opcode". That is true of *screen-space*
+collision and false of analytic primitives, which is what these are. Depth-buffer collision remains
+outside; a plane and a sphere never were.
+
+## Particles that emit particles
+
+`VfxSubEmitter` connects one system's particles to another system, on one of three events.
+
+```csharp
+var burst = new VfxSubEmitter(shell, sparks, VfxEmitEvent.Death, count: 40);
+shell.RecordDeaths = true;
+
+shell.Step(dt);
+sparks.Step(dt);
+burst.Step(dt);      // after both, always
+```
+
+**Two systems rather than one system with two kinds of particle.** A shell and its sparks have
+different lifetimes, forces, renderers and capacities; they are two effects that happen to be
+connected. Folding them into one graph would put a test for "which kind is this" inside every
+operation, which is the per-particle branch the storage design exists to avoid.
+
+**The child's initializers are an offset, not a replacement.** A child is initialized by its own graph
+and then moved to where its parent was, so "burst in a sphere" scatters around the parent rather than
+around the origin. That is the only reading under which authoring the child graph separately is worth
+anything.
+
+**A trail needs no storage of its own.** The interval is counted off the parent's *age*: a particle
+whose age and whose age-a-step-ago fall either side of a multiple of the interval is one that is due.
+That is exact, costs nothing per particle, and stays right when a death reorders the buffer — which a
+per-slot timer would not. It also sheds the first child at birth, so there is no gap between the
+parent and the trail behind it.
+
+**A death burst needs `RecordDeaths`.** By the time a step has finished, a dead particle's slot belongs
+to a survivor, so the position has to be kept as it is reaped. It costs a `Vector3` per particle of
+capacity and it is off by default — the same rule as every other attribute here. A sub-emitter on a
+system nobody switched it on for emits nothing rather than guessing.
+
+**Step it after both systems.** A child spawned here waits until the next step to be updated, which is
+exactly what happens to a particle a spawner produces, because `Step` updates before it spawns.
+Emitting between the two steps would age a child on the step it was born and leave the two ways a
+particle can come into existence disagreeing about how old it is.
+
+## Sweeps across threads, and the number that decides
+
+`VfxSystem.Scheduler` is null by default. Given one, a step runs its updaters across the scheduler's
+threads when the population reaches `ParallelThreshold`.
+
+**One dispatch for the whole graph, not one per operation.** Scheduling per operation matches the
+serial sweep's shape and is the wrong one: six updaters would pay six barriers, and gravity over ten
+thousand particles is over before a barrier is. A batch runs the *whole updater list* over its own
+range of particles — which is also the order the GPU backend runs in, and produces bit-identical
+results because no operation reads another particle.
+
+**The threshold is measured, and the measurement says a particle count cannot be right for every
+graph.** `Benchmarks/Vixen.Benchmarks.Vfx` runs a cheap graph (gravity, integrate) and an expensive one
+(attract, vortex, three octaves of curl noise, integrate, two curves) at five populations, serial and
+parallel. What it shows, consistently across two runs:
+
+- The expensive graph is several times faster on the scheduler from about a thousand particles up —
+  five-fold at four thousand and above.
+- The cheap graph is **never** faster, at any population measured up to 65,536. It is bandwidth-bound;
+  four threads streaming the same arrays do not stream them faster.
+- Neither path allocates a byte, at any size.
+
+So there is no particle count at which parallelism is free for a cheap graph, and the default of 4096
+is chosen for the case where a scheduler was handed over at all — someone with an expensive graph. It
+is a public settable property because the right number is a property of the graph, and this is the
+measurement that says so rather than an opinion.
+
+One caution about those numbers: the sweep takes twenty minutes and this machine throttled during it,
+so the second run's absolute times run up to three times the first run's at the largest populations and
+the error bars reach fifty per cent. The *ratios within a population* held across both runs, and the
+ratios are what the threshold rests on. Absolute throughput from this table would be worth nothing.
+
 ## What is not here yet
 
-- **The GPU backend's back half.** `VfxShaderEmitter` writes the shader and the reference tools accept
-  it; nothing has yet uploaded a particle buffer, dispatched it, or read the result back. That needs a
-  device, and so does Phase 7's exit criterion — the test that the two paths agree. Until there is one,
-  what is claimed is that the translation compiles and is well typed, which is a weaker statement than
-  the roadmap's and the true one.
-- **The light renderer.** Billboards, meshes and ribbons are here; a particle that *is* a light is the
-  one left, and it is not a geometry problem — it is a per-frame contribution to the light list, which
-  belongs to `ForwardLightingRenderFeature` rather than to a geometry builder.
 - **A second view of the same effect.** `ParticleRenderFeature` expands once, against one view, so a
   reflection or a shadow pass draws quads facing the wrong camera. Expanding per view is the
   workaround; the GPU path is the fix, which is why the workaround is not in.
@@ -385,11 +544,9 @@ is two small arrays of spawner bookkeeping.
   is not is a node reading two attributes and writing a third. That is the node graph, and a lowering
   to add/multiply/select over a register file — a different design, and the one the closed opcode set
   exists to postpone.
-- **Collision, sub-emitters, trails.** The updaters doc 06 names that this still does not have.
-  Collision is the one that needs something outside the module — a depth buffer or a physics query —
-  and is therefore the one that cannot be an opcode and a sweep like the rest.
-- **Parallel simulation.** The sweeps are single-threaded. They are the right shape for
-  `IJobParallelFor` — a range of a dense array with no cross-particle dependency — and it is not worth
-  scheduling until there is a particle count that needs it.
+- **Screen-space collision.** The analytic colliders are in; colliding against a depth buffer needs one,
+  and that is a renderer's resource rather than a simulation's.
+- **Sub-emitters on the GPU.** `VfxSubEmitter` is a CPU object walking CPU particles. The device form
+  needs the atomic append that reaping needs, and the same dispatch that would drive it.
 
 Licensed under Apache-2.0.

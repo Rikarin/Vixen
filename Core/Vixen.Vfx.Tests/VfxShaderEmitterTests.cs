@@ -205,6 +205,8 @@ public class VfxShaderEmitterTests {
                 new(VfxOpcode.Vortex, new Vector4(0f, 0f, 0f, 6f)) { B = new(0f, 1f, 0f, 4f) },
                 new(VfxOpcode.Turbulence, new Vector4(0.4f, 0.4f, 0.4f, 3f)) { B = new(0.5f, 3f, 0f, 0f) },
                 new(VfxOpcode.Integrate),
+                new(VfxOpcode.CollidePlane, new Vector4(0f, 1f, 0f, -2f)) { B = new(0.6f, 0.2f, 0f, 0f) },
+                new(VfxOpcode.CollideSphere, new Vector4(0f, 0f, 0f, 1.5f)) { B = new(0.8f, 0.1f, 0f, 0f) },
                 new(VfxOpcode.Rotate),
                 new(VfxOpcode.SizeOverLife, new Vector4(0.5f, 0f, 0f, 0f)),
                 new(VfxOpcode.ColourOverLife, Vector4.One) { B = Vector4.Zero },

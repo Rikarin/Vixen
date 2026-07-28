@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Core.Threading;
 
 namespace Vixen.Vfx;
 
@@ -225,11 +226,22 @@ public static class VfxSimulation {
     ///         whole module is arranged around.
     ///     </para>
     /// </remarks>
-    public static void Update(ParticleBuffer buffer, ReadOnlySpan<VfxOperation> operations, float deltaTime, float time = 0f) {
+    /// <param name="graveyard">
+    ///     Filled with the position of each particle that died, for a sub-emitter to burst from.
+    ///     Empty by default, which records nothing and costs nothing.
+    /// </param>
+    /// <returns>How many particles died.</returns>
+    public static int Update(
+        ParticleBuffer buffer,
+        ReadOnlySpan<VfxOperation> operations,
+        float deltaTime,
+        float time = 0f,
+        Span<Vector3> graveyard = default
+    ) {
         ArgumentNullException.ThrowIfNull(buffer);
 
         if (buffer.Count == 0 || deltaTime <= 0f) {
-            return;
+            return 0;
         }
 
         if (buffer.Has(VfxAttribute.Age)) {
@@ -244,7 +256,118 @@ public static class VfxSimulation {
             Apply(buffer, operation, 0, buffer.Count, deltaTime, time);
         }
 
-        buffer.Reap();
+        return buffer.Reap(graveyard);
+    }
+
+    /// <summary>Advances every live particle by one step, across the scheduler's threads.</summary>
+    /// <param name="buffer">The particles.</param>
+    /// <param name="operations">The graph's updaters.</param>
+    /// <param name="deltaTime">How much time passed.</param>
+    /// <param name="time">How long the system has been running, at the start of this step.</param>
+    /// <param name="scheduler">Where the work runs.</param>
+    /// <param name="batchSize">How many particles one work item covers, or zero for a derived size.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="buffer" /> or <paramref name="scheduler" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>One dispatch for the whole graph, not one per operation.</b> Scheduling per operation
+    ///         is the shape that matches the serial sweep, and it is the wrong one: a frame with six
+    ///         updaters would pay six barriers, and gravity over ten thousand particles is over before
+    ///         the barrier is. So a batch runs the <em>whole updater list</em> over its own range of
+    ///         particles.
+    ///     </para>
+    ///     <para>
+    ///         <b>That is exactly the serial result, and the reason is worth stating:</b> no operation
+    ///         reads another particle. The order of operations within one particle is preserved, and
+    ///         the order between particles was never observable. It is also the order the GPU backend
+    ///         runs in, which makes this the first place the two agree about more than arithmetic.
+    ///     </para>
+    ///     <para>
+    ///         Ageing goes in the batch for the same reason; reaping does not, because it moves
+    ///         particles between slots and changes the count. It runs here, once, after the barrier.
+    ///     </para>
+    /// </remarks>
+    /// <param name="graveyard">
+    ///     Filled with the position of each particle that died. Reaping is serial, so this is filled
+    ///     in the same order and by the same code as the single-threaded sweep's.
+    /// </param>
+    /// <returns>How many particles died.</returns>
+    public static int Update(
+        ParticleBuffer buffer,
+        VfxOperation[] operations,
+        float deltaTime,
+        float time,
+        JobScheduler scheduler,
+        int batchSize = 0,
+        Span<Vector3> graveyard = default
+    ) {
+        ArgumentNullException.ThrowIfNull(buffer);
+        ArgumentNullException.ThrowIfNull(operations);
+        ArgumentNullException.ThrowIfNull(scheduler);
+
+        if (buffer.Count == 0 || deltaTime <= 0f) {
+            return 0;
+        }
+
+        // Four batches a thread, which is what the scheduler would pick for itself; named here
+        // because the length being scheduled is a batch count rather than a particle count, and the
+        // scheduler cannot work that out from a number it was handed already divided.
+        var batch = batchSize > 0
+            ? batchSize
+            : Math.Max(64, (buffer.Count / Math.Max(1, scheduler.WorkerCount * 4)) + 1);
+
+        var batches = (buffer.Count + batch - 1) / batch;
+
+        scheduler.ScheduleParallel(
+            new Sweep {
+                Buffer = buffer,
+                Operations = operations,
+                Count = buffer.Count,
+                Batch = batch,
+                DeltaTime = deltaTime,
+                Time = time
+            },
+            batches,
+            1
+        ).Complete();
+
+        return buffer.Reap(graveyard);
+    }
+
+    /// <summary>One batch of particles, run through the whole updater list.</summary>
+    /// <remarks>
+    ///     The index is a <em>batch</em> and not a particle, which is what keeps the opcode switch out
+    ///     of the per-particle path: dispatching per particle would run it ten thousand times a frame
+    ///     to answer the same question. The scheduler is told a batch size of one for that reason —
+    ///     the division has already happened.
+    /// </remarks>
+    readonly struct Sweep : IJobParallelFor {
+        public required ParticleBuffer Buffer { get; init; }
+        public required VfxOperation[] Operations { get; init; }
+        public required int Count { get; init; }
+        public required int Batch { get; init; }
+        public required float DeltaTime { get; init; }
+        public required float Time { get; init; }
+
+        public void Execute(int index) {
+            var first = index * Batch;
+            var count = Math.Min(Batch, Count - first);
+
+            if (count <= 0) {
+                return;
+            }
+
+            if (Buffer.Has(VfxAttribute.Age)) {
+                var ages = Buffer.Age;
+
+                for (var particle = first; particle < first + count; particle++) {
+                    ages[particle] += DeltaTime;
+                }
+            }
+
+            foreach (var operation in Operations) {
+                Apply(Buffer, operation, first, count, DeltaTime, Time);
+            }
+        }
     }
 
     /// <summary>One updater over a run of particles.</summary>
@@ -406,12 +529,93 @@ public static class VfxSimulation {
                 break;
             }
 
+            case VfxOpcode.CollidePlane: {
+                var normal = new Vector3(operation.A.X, operation.A.Y, operation.A.Z);
+                var distance = operation.A.W;
+                var bounce = operation.B.X;
+                var friction = operation.B.Y;
+                var positions = buffer.Position;
+                var velocities = buffer.Velocity;
+
+                for (var index = first; index < first + count; index++) {
+                    var depth = Vector3.Dot(normal, positions[index]) - distance;
+
+                    if (depth >= 0f) {
+                        continue;
+                    }
+
+                    // Put it back on the surface rather than where it would have been had it stopped
+                    // there: this runs after the integration, so the particle is already through, and
+                    // the frame it spends inside the floor is the frame a viewer notices.
+                    positions[index] -= normal * depth;
+                    velocities[index] = Bounce(velocities[index], normal, bounce, friction);
+                }
+
+                break;
+            }
+
+            case VfxOpcode.CollideSphere: {
+                var centre = new Vector3(operation.A.X, operation.A.Y, operation.A.Z);
+                var radius = operation.A.W;
+                var bounce = operation.B.X;
+                var friction = operation.B.Y;
+                var positions = buffer.Position;
+                var velocities = buffer.Velocity;
+
+                for (var index = first; index < first + count; index++) {
+                    var offset = positions[index] - centre;
+                    var length = offset.Length();
+
+                    if (length >= radius) {
+                        continue;
+                    }
+
+                    // A particle exactly at the centre has no direction to be pushed out along, and
+                    // normalizing its zero offset is how a collider fills a system with NaNs. Up is
+                    // an arbitrary choice and an arbitrary choice is what the case needs.
+                    var normal = length > 0f ? offset / length : Vector3.UnitY;
+
+                    positions[index] = centre + (normal * radius);
+                    velocities[index] = Bounce(velocities[index], normal, bounce, friction);
+                }
+
+                break;
+            }
+
             default: {
                 // An initializer in the updater list — "reset the colour every step" — which is
                 // legitimate and is handled by the initializer switch instead.
                 break;
             }
         }
+    }
+
+    /// <summary>A velocity reflected off a surface, with a bounce and a friction.</summary>
+    /// <param name="velocity">What it was.</param>
+    /// <param name="normal">The unit surface normal, pointing away from the surface.</param>
+    /// <param name="bounce">How much of the approach speed survives, from nothing to all of it.</param>
+    /// <param name="friction">How much of the sliding speed is lost, from none of it to all.</param>
+    /// <returns>What it becomes.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         Split into the part along the normal and the part across it, because the two are what
+    ///         the two numbers mean: bounce is how much of the approach comes back, friction is how
+    ///         much of the slide is scrubbed off. Reflecting the whole vector and scaling it would
+    ///         make a ball dropped straight down and one thrown along the floor lose the same
+    ///         fraction of their speed, which is not what either word means.
+    ///     </para>
+    ///     <para>
+    ///         Only an approach is reflected. A particle already moving away from the surface is one
+    ///         that was pushed out last step and is leaving; bouncing it again would trap it against
+    ///         the surface, vibrating, which is the classic way a collider makes a system buzz.
+    ///     </para>
+    /// </remarks>
+    static Vector3 Bounce(Vector3 velocity, Vector3 normal, float bounce, float friction) {
+        var approach = Vector3.Dot(velocity, normal);
+        var along = velocity - (normal * approach);
+        var away = approach < 0f ? -approach * Math.Clamp(bounce, 0f, 1f) : approach;
+
+        return (along * (1f - Math.Clamp(friction, 0f, 1f))) + (normal * away);
     }
 
     /// <summary>How much of a field's strength reaches a particle this far from it.</summary>

@@ -174,31 +174,40 @@ public static class VfxShaderEmitter {
     ///     exactly this and two copies of a hash function is two things to keep the same.
     /// </remarks>
     static void Common(StringBuilder text, string name, VfxCompiledGraph graph, VfxShaderBinding[] bindings) {
-        // No initializers on the uniforms. A SPIR-V uniform cannot carry one — the compiler says so
-        // as an info — and every one of these is set by whoever dispatches, so a default would be a
-        // value that never applies and a reader would have to work that out.
+        // The five scalars are push constants rather than uniforms, and that is what lets one command
+        // list hold both dispatches: a uniform buffer holds one value at a time, so an initialize and
+        // an update recorded together would have to be two buffers or two submissions. Twenty bytes
+        // is well inside the hundred and twenty-eight every Vulkan device guarantees. It also drops a
+        // descriptor: the set below holds nothing but the particle storage.
+        //
+        // The buffers are [PerFrame], which is set 0. An unmarked field would land in set 2, where the
+        // convention puts a material's parameters — and a pipeline layout numbers its sets by
+        // position, so binding at set 2 means declaring sets 0 and 1 as empty layouts that exist only
+        // to be counted past. The argument against defaulting to set 0 is that a shader would collide
+        // with the engine's camera and lighting buffers; nothing else is bound into this pipeline, so
+        // there is nothing here to collide with.
         text.AppendLine($"shader {name}Common {{")
             .AppendLine("    /// The step, in seconds. Zero for the initializer dispatch, which applies an")
             .AppendLine("    /// updater in the initializer list exactly as the CPU backend does.")
-            .AppendLine("    var deltaTime: float")
+            .AppendLine("    [PushConstant] var deltaTime: float")
             .AppendLine()
             .AppendLine("    /// The system instance's seed.")
-            .AppendLine("    var seed: uint")
+            .AppendLine("    [PushConstant] var seed: uint")
             .AppendLine()
             .AppendLine("    /// The first particle this dispatch touches. Zero for an update.")
-            .AppendLine("    var first: int")
+            .AppendLine("    [PushConstant] var first: int")
             .AppendLine()
             .AppendLine("    /// How many it touches.")
-            .AppendLine("    var particleCount: int")
+            .AppendLine("    [PushConstant] var particleCount: int")
             .AppendLine()
             .AppendLine("    /// How long the system has been running. Only a drifting field reads it.")
-            .AppendLine("    var time: float");
+            .AppendLine("    [PushConstant] var time: float");
 
         foreach (var binding in bindings) {
             var element = binding.Slot < 0 ? Element(binding.Attribute) : Element(graph.Customs[binding.Slot].Type);
 
             text.AppendLine()
-                .AppendLine($"    var {binding.Name}: {(binding.IsWritten ? "RW" : "")}Buffer<{element}>");
+                .AppendLine($"    [PerFrame] var {binding.Name}: {(binding.IsWritten ? "RW" : "")}Buffer<{element}>");
         }
 
         var random = graph.Initializers.Any(operation => VfxOpcodes.IsRandom(operation.Opcode));
@@ -234,6 +243,10 @@ public static class VfxShaderEmitter {
             Falloff(text);
         }
 
+        if (Touches(graph, VfxOpcode.CollidePlane) || Touches(graph, VfxOpcode.CollideSphere)) {
+            Bounce(text);
+        }
+
         if (Touches(graph, VfxOpcode.Turbulence)) {
             Noise(text);
         }
@@ -254,6 +267,23 @@ public static class VfxShaderEmitter {
             .AppendLine("        val remaining = 1f - clamp(distance / radius, 0f, 1f)")
             .AppendLine()
             .AppendLine("        return remaining * remaining")
+            .AppendLine("    }");
+    }
+
+    /// <summary>A velocity reflected off a surface, transcribed from <see cref="VfxSimulation" />.</summary>
+    /// <remarks>
+    ///     Split into the part along the normal and the part across it, because that is what the two
+    ///     numbers mean — and only an approach is reflected, because a particle already leaving is one
+    ///     that was pushed out last step, and bouncing it again is what makes a collider buzz.
+    /// </remarks>
+    static void Bounce(StringBuilder text) {
+        text.AppendLine()
+            .AppendLine("    func Bounce(velocity: float3, normal: float3, bounce: float, friction: float): float3 {")
+            .AppendLine("        val approach = dot(velocity, normal)")
+            .AppendLine("        val along = velocity - normal * approach")
+            .AppendLine("        val away = approach < 0f ? -approach * clamp(bounce, 0f, 1f) : approach")
+            .AppendLine()
+            .AppendLine("        return along * (1f - clamp(friction, 0f, 1f)) + normal * away")
             .AppendLine("    }");
     }
 
@@ -734,6 +764,46 @@ public static class VfxShaderEmitter {
                     $"        velocity[slot] = velocity[slot] + float4(Turbulence(position[slot].xyz * {Vector(operation.A)} "
                     + $"+ float3({drift}, {drift}, {drift}), {operation.Salt}u, {octaves}) * {Float(operation.A.W)} * {step}, 0f)"
                 );
+
+                break;
+            }
+
+            case VfxOpcode.CollidePlane: {
+                // One statement per line, and the intermediates named, because a Raven statement ends
+                // where its line does — the alternative is one expression nobody could read and the
+                // emitter could not wrap.
+                text.AppendLine($"        val normal{index} = {Vector(operation.A)}")
+                    .AppendLine($"        val depth{index} = dot(normal{index}, position[slot].xyz) - {Float(operation.A.W)}")
+                    .AppendLine()
+                    .AppendLine($"        if (depth{index} < 0f) {{")
+                    .AppendLine($"            position[slot] = float4(position[slot].xyz - normal{index} * depth{index}, 0f)")
+                    .AppendLine(
+                        $"            velocity[slot] = float4(Bounce(velocity[slot].xyz, normal{index}, "
+                        + $"{Float(operation.B.X)}, {Float(operation.B.Y)}), 0f)"
+                    )
+                    .AppendLine("        }");
+
+                break;
+            }
+
+            case VfxOpcode.CollideSphere: {
+                text.AppendLine($"        val offset{index} = position[slot].xyz - {Vector(operation.A)}")
+                    .AppendLine($"        val reach{index} = length(offset{index})")
+                    .AppendLine()
+                    .AppendLine($"        if (reach{index} < {Float(operation.A.W)}) {{")
+                    // The same arbitrary up as the CPU backend picks for a particle exactly at the
+                    // centre, and arbitrary in the same direction: the two have to agree even here.
+                    .AppendLine(
+                        $"            val outward{index} = reach{index} > 0f ? offset{index} / reach{index} : float3(0f, 1f, 0f)"
+                    )
+                    .AppendLine(
+                        $"            position[slot] = float4({Vector(operation.A)} + outward{index} * {Float(operation.A.W)}, 0f)"
+                    )
+                    .AppendLine(
+                        $"            velocity[slot] = float4(Bounce(velocity[slot].xyz, outward{index}, "
+                        + $"{Float(operation.B.X)}, {Float(operation.B.Y)}), 0f)"
+                    )
+                    .AppendLine("        }");
 
                 break;
             }

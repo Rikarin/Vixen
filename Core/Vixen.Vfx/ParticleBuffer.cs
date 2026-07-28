@@ -205,7 +205,7 @@ public sealed class ParticleBuffer : IDisposable {
     /// <param name="index">The particle to remove.</param>
     /// <remarks>
     ///     The caller is sweeping and must not advance past the index it just wrote to: whatever was
-    ///     moved into it has not been looked at yet. <see cref="Reap" /> is the version that gets that
+    ///     moved into it has not been looked at yet. <see cref="Reap()" /> is the version that gets that
     ///     right.
     /// </remarks>
     public void RemoveAt(int index) {
@@ -226,13 +226,30 @@ public sealed class ParticleBuffer : IDisposable {
     ///     survived — which is the whole subtlety of swap-removal and the reason it lives here rather
     ///     than in every caller.
     /// </remarks>
-    public int Reap() {
+    public int Reap() => Reap(default);
+
+    /// <summary>Removes every particle whose age has reached its lifetime, noting where they were.</summary>
+    /// <param name="graveyard">
+    ///     Filled with the position of each particle that died, in the order they were found. Pass an
+    ///     empty span — which is what <see cref="Reap()" /> does — to skip recording. A span shorter
+    ///     than the number that died keeps the first that fit.
+    /// </param>
+    /// <returns>How many died, whether or not they fitted in <paramref name="graveyard" />.</returns>
+    /// <remarks>
+    ///     The positions are recorded rather than the indices, because by the time anyone could look
+    ///     at an index the particle that had it is gone — swap-removal has already put a survivor
+    ///     there. A sub-emitter wants where the particle was, and that is the one thing the index
+    ///     would no longer answer.
+    /// </remarks>
+    public int Reap(Span<Vector3> graveyard) {
         if (!Has(VfxAttribute.Age) || !Has(VfxAttribute.Lifetime)) {
             return 0;
         }
 
         var ages = Age;
         var lifetimes = Lifetime;
+        var positions = Position;
+        var record = !graveyard.IsEmpty && Has(VfxAttribute.Position);
         var died = 0;
 
         for (var index = 0; index < Count;) {
@@ -240,6 +257,10 @@ public sealed class ParticleBuffer : IDisposable {
                 index++;
 
                 continue;
+            }
+
+            if (record && died < graveyard.Length) {
+                graveyard[died] = positions[index];
             }
 
             RemoveAt(index);

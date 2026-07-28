@@ -96,6 +96,29 @@ public enum VfxOpcode {
     Turbulence,
 
     /// <summary>
+    ///     Particles are kept on the front side of a plane. <c>A.xyz</c> is the unit normal,
+    ///     <c>A.w</c> the plane's distance along it from the origin, <c>B.x</c> how much of the
+    ///     approach speed survives the bounce, and <c>B.y</c> how much of the sliding speed is lost
+    ///     to friction.
+    /// </summary>
+    /// <remarks>
+    ///     A floor, a wall, a windscreen. The cheapest collider there is, and the one an effect wants
+    ///     nine times in ten — the tenth is <see cref="CollideSphere" />.
+    /// </remarks>
+    CollidePlane,
+
+    /// <summary>
+    ///     Particles are kept outside a sphere. <c>A.xyz</c> is the centre, <c>A.w</c> the radius,
+    ///     <c>B.x</c> the bounce and <c>B.y</c> the friction.
+    /// </summary>
+    /// <remarks>
+    ///     Solid and seen from outside. Containing particles <i>within</i> a sphere is a different
+    ///     operation rather than a flag on this one, and it is not here until something needs it —
+    ///     the opcode set stays small by adding what is asked for.
+    /// </remarks>
+    CollideSphere,
+
+    /// <summary>
     ///     A custom attribute is a fixed value. <see cref="VfxOperation.Slot" /> says which, and
     ///     <c>A</c> is the value — as many lanes as the slot was declared with.
     /// </summary>
@@ -177,6 +200,11 @@ public static class VfxOpcodes {
         // graph whose initializers never place its particles, which is the right refusal — a field
         // acting on particles all at the origin accelerates every one of them identically.
         VfxOpcode.Attract or VfxOpcode.Vortex or VfxOpcode.Turbulence => VfxAttribute.Position,
+
+        // A collider reads both and writes both: where a particle is decides whether it hit
+        // anything, and a bounce that only changed the velocity would leave it inside the floor for
+        // a frame — which is exactly long enough to see.
+        VfxOpcode.CollidePlane or VfxOpcode.CollideSphere => VfxAttribute.Position | VfxAttribute.Velocity,
         _ => VfxAttribute.None
     };
 
@@ -194,6 +222,7 @@ public static class VfxOpcodes {
         VfxOpcode.SetColour or VfxOpcode.ColourOverLife => VfxAttribute.Colour,
         VfxOpcode.SetRotation or VfxOpcode.Rotate => VfxAttribute.Rotation,
         VfxOpcode.SetAngularVelocity => VfxAttribute.AngularVelocity,
+        VfxOpcode.CollidePlane or VfxOpcode.CollideSphere => VfxAttribute.Position | VfxAttribute.Velocity,
         _ => VfxAttribute.None
     };
 
@@ -217,6 +246,8 @@ public static class VfxOpcodes {
         or VfxOpcode.Attract
         or VfxOpcode.Vortex
         or VfxOpcode.Turbulence
+        or VfxOpcode.CollidePlane
+        or VfxOpcode.CollideSphere
         or VfxOpcode.CustomOverLife;
 
     /// <summary>Whether an opcode writes a custom attribute rather than a built-in one.</summary>
