@@ -484,11 +484,20 @@ from, so a node taking one from anywhere else is how a frame ends up with a set 
 reject and a release driver mis-binds in silence. A host may still supply its own — a
 `RenderPassRenderer` has no effect of its own and must.
 
-**The binding index is generated, not written down.** Raven assigns it from declaration order within
-a set, so adding a texture above another in a `.rvn` renumbers everything below it — and a host
-holding the old number gets a validation error at best and the wrong texture at worst, with nothing
-to tell it. `BloomKeys.SourceBinding` and its siblings come out of the shader's own reflection;
-`BloomRenderer`'s four were all wrong when they were guessed, which is the argument in one line.
+**The binding index is never written down twice.** Raven assigns it from declaration order within a
+set, so adding a texture above another in a `.rvn` renumbers everything below it — and a host holding
+the old number gets a validation error at best and the wrong texture at worst, with nothing to tell
+it. `BloomRenderer`'s four were all wrong when they were guessed, which is the argument in one line.
+
+Two ways to avoid guessing, for two kinds of caller. Code that can reference generated code names
+`BloomKeys.SourceBinding`. Everything else — a compositor document, a shader loaded from a bundle at
+run time — sets `ResourceBinding.Name` to the shader's own name for the resource and the index comes
+off `Effect.Bindings`, which is the binding plan the reflection always had and the runtime never
+carried. An explicit index remains as the fallback, because a provider that reports no plan is the
+ordinary case until the content build does.
+
+Samplers are describable too: `SamplerDescription` is twelve fields and no device, so it survives
+being written in a document where a handle cannot, and it resolves through the shared `SamplerCache`.
 
 The reflection is checked in beside the shaders rather than compiled during the build, because the
 alternative is `Vixen.Rendering` depending on the compiler being built first, in a repository where
@@ -658,8 +667,9 @@ loaded from disk declares its dependencies correctly and binds nothing until a h
 `Descriptors`. Reflecting the binding plan onto `Effect` is what closes it.
 
 A post-process node is built in code, not authored: `FullScreenRenderer` and `BloomRenderer` have no
-entry in the compositor asset, for the same reason bindings do not — a binding index is a shader's
-decision and a sampler is a device handle. Closing the binding-plan gap closes both at once.
+entry in the compositor asset. The two things that used to make that impossible are gone — a binding
+can name what the shader calls it and a sampler can be a description — so what is left is the asset
+model itself, which is ordinary work rather than a blocked design.
 
 The generated keys cover the shaders the engine names — `PostFx/Bloom` and `PostFx/Tonemap` — and
 nothing else. The list grows when a node starts binding a shader, not in anticipation, because every

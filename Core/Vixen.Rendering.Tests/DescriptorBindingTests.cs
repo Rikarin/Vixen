@@ -76,7 +76,14 @@ public class DescriptorBindingTests : IDisposable {
                         new(ShaderStage.Vertex, [1, 2, 3, 4], "main"),
                         new(ShaderStage.Fragment, [5, 6, 7, 8], "main")
                     ],
-                SetLayouts = layouts
+                SetLayouts = layouts,
+
+                // What a provider backed by Raven's reflection would report, and what lets a caller
+                // name a resource instead of numbering it.
+                Bindings = [
+                    new("lights", DescriptorSetSlot.PerMaterial, 0, DescriptorKind.StorageBuffer),
+                    new("clusters", DescriptorSetSlot.PerMaterial, 1, DescriptorKind.StorageBuffer)
+                ]
             };
     }
 
@@ -369,6 +376,110 @@ public class DescriptorBindingTests : IDisposable {
 
         Assert.Equal("bound buffer", thrown.Kind);
         Assert.Equal("Undeclared", thrown.Name);
+    }
+
+    /// <summary>
+    ///     A binding can name what the shader calls it instead of writing down an index.
+    /// </summary>
+    /// <remarks>
+    ///     The seam that had been open since bindings existed. A binding index is Raven's decision —
+    ///     assigned from declaration order within a set — so a host that wrote one down was recording
+    ///     a number it could not see and would not be told about when a resource was added above it.
+    ///     Generated constants close it for code that can reference generated code, and close nothing
+    ///     for a compositor document or a shader loaded from a bundle. The effect's own plan is what
+    ///     both of those need.
+    /// </remarks>
+    [Fact]
+    public void A_binding_can_name_what_the_shader_calls_it() {
+        using var h = Build();
+        var cull = Cull();
+
+        cull.Descriptors.Bindings.Clear();
+
+        // No index anywhere: the shader says where these go.
+        cull.Descriptors.Bindings.Add(new() { Name = "lights", Resource = "SceneLights" });
+        cull.Descriptors.Bindings.Add(new() { Name = "clusters", Resource = "Clusters" });
+
+        var reader = new RenderPassRenderer { Name = "Forward" };
+        reader.ColourTargets.Add("SceneColour");
+        reader.BufferReads.Add("Clusters");
+
+        h.Compositor.Game = new SceneRendererSequence { Children = { cull, reader } };
+
+        Frame(h);
+
+        Assert.Single(device.Recorder!.OfKind(RecordedCommandKind.BindDescriptorSet));
+        Assert.Equal(1, allocator.WriteCount);
+    }
+
+    /// <summary>
+    ///     A name the effect does not know falls back to the index that was written down.
+    /// </summary>
+    /// <remarks>
+    ///     Because a provider that reports no plan is the ordinary case until the content build does
+    ///     — and a renderer that stopped binding anything the moment reflection was absent would be
+    ///     worse than one that took the host at its word.
+    /// </remarks>
+    [Fact]
+    public void An_unknown_name_falls_back_to_the_index() {
+        using var h = Build();
+        var cull = Cull();
+
+        cull.Descriptors.Bindings.Clear();
+
+        cull.Descriptors.Bindings.Add(
+            new() {
+                Name = "nothing the shader declares",
+                Binding = 0,
+                Kind = DescriptorKind.StorageBuffer,
+                Resource = "SceneLights"
+            }
+        );
+
+        var reader = new RenderPassRenderer { Name = "Forward" };
+        reader.ColourTargets.Add("SceneColour");
+        reader.BufferReads.Add("Clusters");
+
+        h.Compositor.Game = new SceneRendererSequence { Children = { cull, reader } };
+
+        Frame(h);
+
+        Assert.Single(device.Recorder!.OfKind(RecordedCommandKind.BindDescriptorSet));
+    }
+
+    /// <summary>
+    ///     A sampler can be described rather than handed over, which is what an asset can carry.
+    /// </summary>
+    /// <remarks>
+    ///     A <see cref="SamplerDescription" /> is twelve fields and no device, so it survives being
+    ///     written in a document where a handle cannot. Resolved through the shared cache, which is
+    ///     also what stops a chain of post passes creating one sampler each.
+    /// </remarks>
+    [Fact]
+    public void A_sampler_can_be_described_rather_than_handed_over() {
+        using var h = Build();
+        using var samplers = new SamplerCache(device);
+
+        var pass = new RenderPassRenderer { Name = "Forward", Samplers = samplers };
+        pass.ColourTargets.Add("SceneColour");
+        pass.BufferReads.Add("SceneLights");
+        pass.Descriptors.Allocator = allocator;
+        pass.Descriptors.Layout = viewLayout;
+
+        pass.Descriptors.Bindings.Add(
+            new() { Binding = 0, Kind = DescriptorKind.StorageBuffer, Resource = "SceneLights" }
+        );
+
+        pass.Descriptors.Bindings.Add(
+            new() { Binding = 1, Kind = DescriptorKind.Sampler, Sampled = SamplerDescription.LinearClamp }
+        );
+
+        h.Compositor.Game = pass;
+
+        Frame(h);
+
+        Assert.Single(device.Recorder!.OfKind(RecordedCommandKind.BindDescriptorSet));
+        Assert.Equal(1, samplers.Count);
     }
 
     RenderPassRenderer Reader(string name, string target) {

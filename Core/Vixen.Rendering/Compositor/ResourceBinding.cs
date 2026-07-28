@@ -3,6 +3,7 @@
 
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
+using Vixen.Shaders;
 
 namespace Vixen.Rendering.Compositor;
 
@@ -23,11 +24,24 @@ namespace Vixen.Rendering.Compositor;
 ///     </para>
 /// </remarks>
 public sealed class ResourceBinding {
-    /// <summary>Its index within the set.</summary>
-    public required uint Binding { get; init; }
+    /// <summary>
+    ///     The shader's own name for it, resolved against the effect's binding plan.
+    /// </summary>
+    /// <remarks>
+    ///     The way to say where something goes without writing down a number the shader owns. Raven
+    ///     assigns a binding index from declaration order within a set, so adding a texture above
+    ///     another renumbers everything below it — and a host holding the old number gets a
+    ///     validation error at best. Set this and leave <see cref="Binding" /> alone; the explicit
+    ///     index stays for a provider whose effects do not report their plan.
+    /// </remarks>
+    public string? Name { get; init; }
+
+    /// <summary>Its index within the set, when <see cref="Name" /> is not used or not found.</summary>
+    public uint Binding { get; init; }
 
     /// <summary>What it binds, which is also what decides how <see cref="Resource" /> resolves.</summary>
-    public required DescriptorKind Kind { get; init; }
+    /// <remarks>Taken from the effect's plan when <see cref="Name" /> resolves against one.</remarks>
+    public DescriptorKind Kind { get; init; }
 
     /// <summary>The graph resource's name, for every kind but a bare sampler.</summary>
     public string Resource { get; init; } = "";
@@ -35,18 +49,36 @@ public sealed class ResourceBinding {
     /// <summary>The sampler, for <see cref="DescriptorKind.Sampler" />.</summary>
     public SamplerHandle Sampler { get; init; }
 
+    /// <summary>
+    ///     The sampler to use, described rather than handed over.
+    /// </summary>
+    /// <remarks>
+    ///     A <see cref="SamplerDescription" /> is data — twelve fields and no device in it — so this
+    ///     is the form a compositor document can carry where <see cref="Sampler" /> cannot. Resolved
+    ///     through the frame's <see cref="SamplerCache" />, which is also what stops a chain of post
+    ///     passes creating one sampler each.
+    /// </remarks>
+    public SamplerDescription? Sampled { get; init; }
+
+    /// <summary>This binding as the effect's plan describes it, or as it was written down.</summary>
+    internal (uint Binding, DescriptorKind Kind) Resolve(Effect? effect) =>
+        Name is { Length: > 0 } name && effect?.BindingOf(name) is { } found
+            ? (found.Binding, found.Kind)
+            : (Binding, Kind);
+
     /// <summary>Where in the buffer the binding starts.</summary>
     public long Offset { get; init; }
 
     /// <summary>How much of the buffer, or zero for the rest of it.</summary>
     public long Size { get; init; }
 
-    /// <summary>Whether this resolves against a texture.</summary>
-    public bool IsTexture => Kind is DescriptorKind.SampledTexture or DescriptorKind.StorageTexture;
+    /// <summary>Whether a kind resolves against a texture.</summary>
+    public static bool IsTexture(DescriptorKind kind) =>
+        kind is DescriptorKind.SampledTexture or DescriptorKind.StorageTexture;
 
-    /// <summary>Whether this resolves against a buffer.</summary>
-    public bool IsBuffer =>
-        Kind is DescriptorKind.UniformBuffer
+    /// <summary>Whether a kind resolves against a buffer.</summary>
+    public static bool IsBuffer(DescriptorKind kind) =>
+        kind is DescriptorKind.UniformBuffer
             or DescriptorKind.StorageBuffer
             or DescriptorKind.DynamicUniformBuffer
             or DescriptorKind.DynamicStorageBuffer;
@@ -98,44 +130,64 @@ public sealed class DescriptorBindings {
     /// <param name="node">The node, for the exception message.</param>
     /// <param name="textures">The textures it declared, by name.</param>
     /// <param name="buffers">The buffers it declared, by name.</param>
+    /// <param name="effect">
+    ///     The variant being drawn with, whose plan a binding's <see cref="ResourceBinding.Name" />
+    ///     resolves against. Null for a node that has no effect of its own — a render pass — whose
+    ///     bindings therefore have to carry their indices.
+    /// </param>
+    /// <param name="samplers">Where a described sampler comes from.</param>
     /// <returns>The resolved set, or null when there is nothing to bind.</returns>
     /// <exception cref="CompositorBindingException">A binding names something undeclared.</exception>
     internal BoundBindings? Resolve(
         string node,
         IReadOnlyDictionary<string, GraphTexture> textures,
-        IReadOnlyDictionary<string, GraphBuffer> buffers
+        IReadOnlyDictionary<string, GraphBuffer> buffers,
+        Effect? effect = null,
+        SamplerCache? samplers = null
     ) {
         if (!IsConfigured) {
             return null;
         }
 
         var bindings = Bindings.ToArray();
+        var places = new (uint Binding, DescriptorKind Kind)[bindings.Length];
         var resolvedTextures = new GraphTexture[bindings.Length];
         var resolvedBuffers = new GraphBuffer[bindings.Length];
+        var resolvedSamplers = new SamplerHandle[bindings.Length];
 
         for (var i = 0; i < bindings.Length; i++) {
             var binding = bindings[i];
+            places[i] = binding.Resolve(effect);
+            resolvedSamplers[i] = binding.Sampler;
 
-            if (binding.IsTexture) {
+            if (binding.Sampled is { } description) {
+                resolvedSamplers[i] = samplers is not null
+                    ? samplers.GetOrCreate(description)
+                    : throw new CompositorBindingException(node, "sampler", description.Name);
+            }
+
+            if (ResourceBinding.IsTexture(places[i].Kind)) {
                 resolvedTextures[i] = textures.TryGetValue(binding.Resource, out var texture)
                     ? texture
                     : throw new CompositorBindingException(node, "bound texture", binding.Resource);
-            } else if (binding.IsBuffer) {
+            } else if (ResourceBinding.IsBuffer(places[i].Kind)) {
                 resolvedBuffers[i] = buffers.TryGetValue(binding.Resource, out var buffer)
                     ? buffer
                     : throw new CompositorBindingException(node, "bound buffer", binding.Resource);
             }
         }
 
-        return new(bindings, resolvedTextures, resolvedBuffers, Allocator!, Layout, Slot);
+        return new(bindings, places, resolvedTextures, resolvedBuffers, resolvedSamplers, Allocator!, Layout, Slot);
     }
 }
 
 /// <summary>One frame's resolution of a node's bindings, ready to become a set when the pass runs.</summary>
 sealed class BoundBindings(
     ResourceBinding[] bindings,
+    (uint Binding, DescriptorKind Kind)[] places,
     GraphTexture[] textures,
     GraphBuffer[] buffers,
+    SamplerHandle[] samplers,
     DescriptorAllocator allocator,
     DescriptorSetLayoutHandle layout,
     DescriptorSetSlot slot
@@ -155,22 +207,12 @@ sealed class BoundBindings(
         }
 
         for (var i = 0; i < bindings.Length; i++) {
-            var binding = bindings[i];
+            var (index, kind) = places[i];
 
-            writes[i] = binding.Kind switch {
-                DescriptorKind.Sampler => DescriptorWrite.SamplerAt(binding.Binding, binding.Sampler),
-                _ when binding.IsTexture => new(
-                    binding.Binding,
-                    binding.Kind,
-                    TextureView: context.View(textures[i])
-                ),
-                _ => new(
-                    binding.Binding,
-                    binding.Kind,
-                    context.Buffer(buffers[i]),
-                    binding.Offset,
-                    binding.Size
-                )
+            writes[i] = kind switch {
+                DescriptorKind.Sampler => DescriptorWrite.SamplerAt(index, samplers[i]),
+                _ when ResourceBinding.IsTexture(kind) => new(index, kind, TextureView: context.View(textures[i])),
+                _ => new(index, kind, context.Buffer(buffers[i]), bindings[i].Offset, bindings[i].Size)
             };
         }
 

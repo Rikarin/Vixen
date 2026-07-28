@@ -47,6 +47,30 @@ public sealed class Effect {
     /// <summary>The value parameters this variant actually has, for filling that block.</summary>
     public ImmutableArray<EffectParameter> Parameters { get; init; } = [];
 
+    /// <summary>Where each of its resources sits, by the shader's name for it.</summary>
+    /// <remarks>
+    ///     What lets a caller say "bind the scene colour to <c>source</c>" instead of "bind it to
+    ///     binding 1". Empty for a provider that does not report it, in which case a caller has to
+    ///     supply indices itself — which is what every caller did before this existed.
+    /// </remarks>
+    public ImmutableArray<EffectBinding> Bindings { get; init; } = [];
+
+    /// <summary>Where a named resource sits, or null when this variant has no such name.</summary>
+    /// <remarks>
+    ///     Linear over a handful of entries rather than a dictionary: a shader has a few resources,
+    ///     this is asked once per binding when a frame is built rather than per draw, and a dictionary
+    ///     per effect would cost more to build than every lookup it ever serves.
+    /// </remarks>
+    public EffectBinding? BindingOf(string name) {
+        foreach (var binding in Bindings) {
+            if (string.Equals(binding.Name, name, StringComparison.Ordinal)) {
+                return binding;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>The permutation keys this variant's output depended on.</summary>
     /// <remarks>
     ///     Carried on the effect rather than looked up per draw, because it is what the *next* draw's
@@ -58,6 +82,33 @@ public sealed class Effect {
     /// <inheritdoc />
     public override string ToString() => Key.ToString();
 }
+
+/// <summary>Where one of a shader's resources sits, by the name the shader gave it.</summary>
+/// <param name="Name">The shader's own name for it — <c>source</c>, <c>sourceSampler</c>.</param>
+/// <param name="Set">Which of the four conventional sets holds it.</param>
+/// <param name="Binding">Its index within that set.</param>
+/// <param name="Kind">What it binds.</param>
+/// <remarks>
+///     <para>
+///         The half of the reflection that never reached the runtime. An effect carried its parameter
+///         <em>offsets</em> from the day it was written and not its binding <em>indices</em>, so
+///         everything that had to fill a descriptor set — a compositor node, a material, a per-view
+///         block — was handed a number by whoever configured it.
+///     </para>
+///     <para>
+///         That number is the shader's decision: Raven assigns it from declaration order within a
+///         set, so adding a texture above another renumbers everything below it. Generated constants
+///         fix it for code that can reference generated code, and fix nothing for a compositor
+///         document naming a resource or a shader loaded from a bundle at run time. This is what
+///         those need.
+///     </para>
+/// </remarks>
+public readonly record struct EffectBinding(
+    string Name,
+    DescriptorSetSlot Set,
+    uint Binding,
+    DescriptorKind Kind
+);
 
 /// <summary>Where one parameter lives in an effect's constant buffer.</summary>
 /// <param name="Key">The key a host sets it through.</param>
