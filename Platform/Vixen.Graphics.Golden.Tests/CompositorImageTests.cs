@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
+using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Rendering;
 using Vixen.Rendering.Features;
@@ -328,6 +329,218 @@ public sealed class CompositorImageTests {
         );
     }
 
+    /// <summary>
+    ///     The bloom pyramid: nine passes, nine declared textures, one glow.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The most machinery of any fixture here, and the reason it is worth a picture: a
+    ///         downsample chain and an upsample chain over transient levels the graph allocates and
+    ///         aliases, where every level is written by one pass and read by exactly one other. Nine
+    ///         passes have to run in the right order against the right levels for anything to appear.
+    ///     </para>
+    ///     <para>
+    ///         <strong>A golden image alone cannot tell whether the first one was right.</strong> A
+    ///         nine-pass pyramid of bilinear taps is not something anybody recomputes by hand, so
+    ///         committing whatever came out first would be committing whatever came out first. What
+    ///         can be checked are the properties a correct bloom has and a broken one does not, and
+    ///         they are asserted here before the comparison:
+    ///     </para>
+    ///     <list type="bullet">
+    ///         <item><description>
+    ///             the glow is <strong>centred on the source</strong>, which a flipped V or a
+    ///             half-texel offset moves;
+    ///         </description></item>
+    ///         <item><description>
+    ///             it is <strong>symmetric</strong> about that centre in both axes, which a texel size
+    ///             taken from the target rather than the source breaks unevenly;
+    ///         </description></item>
+    ///         <item><description>
+    ///             it <strong>spreads well beyond the source</strong>, which is the only evidence that
+    ///             the deep levels contributed at all — a chain that silently ran one level would
+    ///             still produce a plausible-looking picture.
+    ///         </description></item>
+    ///     </list>
+    /// </remarks>
+    [Fact]
+    public void Bloom() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        var scene = owned.Owned("scene", TextureUsage.ColourTarget | TextureUsage.Sampled);
+        var display = owned.Owned("display", TextureUsage.ColourTarget | TextureUsage.CopySource);
+
+        using var allocator = new DescriptorAllocator(device);
+        using var samplers = new SamplerCache(device);
+        using var system = new RenderSystem();
+
+        var describer = new EffectPipelineDescriber(device);
+        var effects = new EffectSystem();
+        effects.AddProvider(new Chain(owned));
+
+        var spark = owned.Pipeline(
+            owned.Shader("scene.vert.spv", ShaderStage.Vertex),
+            owned.Shader("scene.frag.spv", ShaderStage.Fragment),
+            BlendState.Opaque,
+            DepthStencilState.Disabled,
+            [
+                new VertexBufferLayout(
+                    Vertex.Stride,
+                    [new(0, VertexFormat.Float32X3, 0), new(1, VertexFormat.Float32X4, 12)]
+                )
+            ],
+            64
+        );
+
+        var vertices = owned.Buffer<Vertex>(Vertex.Spark.AsSpan(), BufferUsage.Vertex);
+        var indices = owned.Buffer<ushort>([0, 1, 2, 2, 1, 3], BufferUsage.Index);
+
+        // A small bright square, off centre so that a flipped or offset sample is a moved glow rather
+        // than an identical one.
+        var world = new Matrix4x4(
+            new Vector4(SparkExtent, 0f, 0f, 0f),
+            new Vector4(0f, SparkExtent, 0f, 0f),
+            new Vector4(0f, 0f, 1f, 0f),
+            new Vector4(SparkX, SparkY, 0f, 1f)
+        );
+
+        var source = new RenderPassRenderer { Name = "Scene", ClearColour = new(0f, 0f, 0f, 1f) };
+        source.ColourTargets.Add("SceneColour");
+
+        source.Children.Add(
+            new DelegateSceneRenderer {
+                OnRecord = (_, context) => {
+                    context.CommandList.BindPipeline(spark);
+                    context.CommandList.PushConstants(ShaderStage.Vertex, 0, MemoryMarshal.AsBytes(new ReadOnlySpan<Matrix4x4>(in world)));
+                    context.CommandList.BindVertexBuffer(0, vertices);
+                    context.CommandList.BindIndexBuffer(indices, IndexFormat.UInt16);
+                    context.CommandList.DrawIndexed(6);
+                }
+            }
+        );
+
+        using var bloom = new BloomRenderer {
+            Name = "Bloom",
+            Source = "SceneColour",
+            Output = "BloomResult",
+            Modules = describer,
+            Descriptors = allocator,
+            Samplers = samplers,
+            Device = device,
+            Threshold = 0.3f,
+            Knee = 0.2f
+        };
+
+        // The pyramid is declared, so something has to read the result or the graph drops all nine
+        // passes. A bloom-only view rather than a composite: the glow is what is being checked, and
+        // adding the source back would swamp it.
+        using var copy = new FullScreenRenderer {
+            Name = "Copy",
+            ShaderName = "Copy",
+            Modules = describer,
+            Device = device,
+            Descriptors = { Allocator = allocator }
+        };
+
+        copy.ColourTargets.Add("Display");
+        copy.Reads.Add("BloomResult");
+
+        copy.Descriptors.Bindings.Add(
+            new() { Binding = 1, Kind = DescriptorKind.SampledTexture, Resource = "BloomResult" }
+        );
+
+        copy.Descriptors.Bindings.Add(
+            new() { Binding = 3, Kind = DescriptorKind.Sampler, Sampler = samplers.LinearClamp }
+        );
+
+        var compositor = new GraphicsCompositor(system) {
+            FrameSize = new(Fixture.Side, Fixture.Side),
+            Game = new SceneRendererSequence { Children = { source, bloom, copy } }
+        };
+
+        compositor.Imports["SceneColour"] = new(scene.Texture, scene.View, scene.Description);
+
+        compositor.Imports["Display"] = new(
+            display.Texture,
+            display.View,
+            display.Description,
+            ResourceState.Undefined,
+            ResourceState.CopySource
+        );
+
+        allocator.BeginFrame();
+        var frame = compositor.Build(owned.Graph, effects, device);
+        var image = owned.Render(frame.Texture("harness", "Display"));
+
+        Assert.Equal(9, bloom.PassCount);
+        AssertGlow(image);
+
+        GoldenImage.Verify("bloom", image, Tolerance.Interpolated);
+    }
+
+    /// <summary>The properties a correct bloom has, checked before the picture is trusted.</summary>
+    static void AssertGlow(in Bitmap image) {
+        var centreX = (SparkX + 1f) * 0.5f * Fixture.Side;
+
+        // Y is inverted going from clip space to rows, because the engine's clip space is +Y up and
+        // the backend expresses that with a negative-height viewport
+        // (Core/Vixen.Core.Mathematics/Conventions.md, VulkanCommandList.SetViewport). Writing this
+        // the other way round is what made the first run of this fixture look like a flipped sample
+        // — the convention was right and the expectation was not, which is the failure a fixture with
+        // no vertical asymmetry cannot tell you about.
+        var centreY = (1f - SparkY) * 0.5f * Fixture.Side;
+
+        // Where the light actually ended up. A flipped V puts it on the other side of the image, and
+        // a half-texel error moves it by a pixel or two — so this is checked loosely enough to
+        // survive filtering and tightly enough to catch either.
+        double weight = 0, sumX = 0, sumY = 0;
+
+        for (var y = 0; y < image.Height; y++) {
+            for (var x = 0; x < image.Width; x++) {
+                var l = Luminance(image, x, y);
+                weight += l;
+                sumX += l * x;
+                sumY += l * y;
+            }
+        }
+
+        Assert.True(weight > 0, "the bloom chain produced nothing at all");
+        Assert.InRange(sumX / weight, centreX - 2, centreX + 2);
+        Assert.InRange(sumY / weight, centreY - 2, centreY + 2);
+
+        // Symmetric about that centre. Sampled away from the source itself, where the glow is what is
+        // left rather than the square that produced it.
+        for (var d = 12; d <= 24; d += 4) {
+            var left = Luminance(image, (int)centreX - d, (int)centreY);
+            var right = Luminance(image, (int)centreX + d, (int)centreY);
+            var up = Luminance(image, (int)centreX, (int)centreY - d);
+            var down = Luminance(image, (int)centreX, (int)centreY + d);
+
+            Assert.True(Math.Abs(left - right) < 0.06, $"horizontally asymmetric at {d}: {left} vs {right}");
+            Assert.True(Math.Abs(up - down) < 0.06, $"vertically asymmetric at {d}: {up} vs {down}");
+        }
+
+        // The square is about eight pixels across. Light a long way outside it can only have come from
+        // levels that were downsampled far enough to spread it there.
+        Assert.True(
+            Luminance(image, (int)centreX + 28, (int)centreY) > 0.01,
+            "the glow does not reach past the source, so the deep levels contributed nothing"
+        );
+    }
+
+    static double Luminance(in Bitmap image, int x, int y) {
+        var o = image.Offset(Math.Clamp(x, 0, image.Width - 1), Math.Clamp(y, 0, image.Height - 1));
+        return (0.2126 * image.Pixels[o] + 0.7152 * image.Pixels[o + 1] + 0.0722 * image.Pixels[o + 2]) / 255.0;
+    }
+
+    const float SparkExtent = 0.24f;
+    const float SparkX = -0.3f;
+    const float SparkY = -0.2f;
+
     /// <summary>Adds one quad to the scene, in both stages.</summary>
     static void Add(
         RenderSystem system,
@@ -391,8 +604,161 @@ public sealed class CompositorImageTests {
             At(-0.5f, -0.5f, Green), At(0.5f, -0.5f, Green), At(-0.5f, 0.5f, Green), At(0.5f, 0.5f, Green)
         ];
 
+        /// <summary>A unit square, white — the bloom fixture's source, scaled by its transform.</summary>
+        /// <remarks>
+        ///     Its own geometry rather than a reuse of <see cref="Quads" />, because changing those
+        ///     would change the depth-prepass reference image for a reason that has nothing to do
+        ///     with depth.
+        /// </remarks>
+        public static Vertex[] Spark => [
+            At(-0.5f, -0.5f, White), At(0.5f, -0.5f, White), At(-0.5f, 0.5f, White), At(0.5f, 0.5f, White)
+        ];
+
+        static Vector4 White => new(1f, 1f, 1f, 1f);
+
         static Vector4 Red => new(0.8f, 0.1f, 0.1f, 1f);
         static Vector4 Green => new(0.1f, 0.8f, 0.1f, 1f);
+    }
+
+    /// <summary>
+    ///     The bloom chain's three variants and the copy that reads its result.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Three effects for one shader name, chosen by the <c>Bloom.Mode</c> permutation in the
+    ///         key — which is what an effect provider backed by a bundle does, and the reason
+    ///         <see cref="BloomRenderer" /> varies a permutation rather than a uniform.
+    ///     </para>
+    ///     <para>
+    ///         <strong>Each variant's set layout holds only what that variant reads.</strong> The
+    ///         upsample declares <c>previous</c> and the other two do not, so a set written for a
+    ///         downsample has no binding left uninitialised — which a validation layer is entitled to
+    ///         object to whether or not the shader touches it.
+    ///     </para>
+    ///     <para>
+    ///         Set 2, with two empty layouts in front of it, because that is the set Raven puts an
+    ///         unmarked binding in and the numbers under test are <see cref="BloomKeys" />'s own.
+    ///     </para>
+    /// </remarks>
+    sealed class Chain : IEffectProvider {
+        readonly Effect prefilter;
+        readonly Effect downsample;
+        readonly Effect upsample;
+        readonly Effect copy;
+
+        public Chain(Fixture fixture) {
+            var device = fixture.Device;
+            var empty = device.CreateDescriptorSetLayout(new(DescriptorSetSlot.PerFrame, [], "empty"));
+
+            var sampled = device.CreateDescriptorSetLayout(
+                new(
+                    DescriptorSetSlot.PerMaterial,
+                    [
+                        new(BloomKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+                        new(BloomKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+                        new(BloomKeys.SourceSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
+                    ],
+                    "bloom"
+                )
+            );
+
+            var combining = device.CreateDescriptorSetLayout(
+                new(
+                    DescriptorSetSlot.PerMaterial,
+                    [
+                        new(BloomKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+                        new(BloomKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+                        new(BloomKeys.PreviousBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+                        new(BloomKeys.SourceSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
+                    ],
+                    "bloom.up"
+                )
+            );
+
+            var plain = device.CreateDescriptorSetLayout(
+                new(
+                    DescriptorSetSlot.PerMaterial,
+                    [
+                        new(BloomKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+                        new(BloomKeys.SourceSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
+                    ],
+                    "copy"
+                )
+            );
+
+            var sampledLayout = device.CreatePipelineLayout(new([empty, empty, sampled], null, "bloom"));
+            var combiningLayout = device.CreatePipelineLayout(new([empty, empty, combining], null, "bloom.up"));
+            var plainLayout = device.CreatePipelineLayout(new([empty, empty, plain], null, "copy"));
+
+            fixture.Owns(() => {
+                device.Destroy(sampledLayout);
+                device.Destroy(combiningLayout);
+                device.Destroy(plainLayout);
+                device.Destroy(plain);
+                device.Destroy(combining);
+                device.Destroy(sampled);
+                device.Destroy(empty);
+            });
+
+            // The offsets Bloom.reflect.json reports, which is what the GLSL block beside this file
+            // was written to match.
+            EffectParameter[] parameters = [
+                new(BloomKeys.TexelSize, 0, 8),
+                new(BloomKeys.Threshold, 8, 4),
+                new(BloomKeys.Knee, 12, 4),
+                new(BloomKeys.FilterRadius, 16, 4),
+                new(BloomKeys.Intensity, 20, 4)
+            ];
+
+            prefilter = Variant("bloom-prefilter.frag.spv", sampled, sampledLayout, parameters);
+            downsample = Variant("bloom-down.frag.spv", sampled, sampledLayout, parameters);
+            upsample = Variant("bloom-up.frag.spv", combining, combiningLayout, parameters);
+
+            copy = new() {
+                Key = EffectKey.Of("Copy"),
+                Stages = [
+                    new(ShaderStage.Vertex, Read("fullscreen.vert.spv"), "main"),
+                    new(ShaderStage.Fragment, Read("copy.frag.spv"), "main")
+                ],
+                SetLayouts = [default, default, plain],
+                Layout = plainLayout
+            };
+        }
+
+        static Effect Variant(
+            string fragment,
+            DescriptorSetLayoutHandle set,
+            PipelineLayoutHandle layout,
+            EffectParameter[] parameters
+        ) =>
+            new() {
+                Key = EffectKey.Of(BloomKeys.ShaderName),
+                Stages = [
+                    new(ShaderStage.Vertex, Read("fullscreen.vert.spv"), "main"),
+                    new(ShaderStage.Fragment, Read(fragment), "main")
+                ],
+                SetLayouts = [default, default, set],
+                Layout = layout,
+                ConstantBufferSize = BloomKeys.ConstantBufferSize,
+                Parameters = [.. parameters]
+            };
+
+        static ImmutableArray<byte> Read(string name) =>
+            [.. File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Shaders", name))];
+
+        public Effect? TryGet(EffectKey key) {
+            if (key.ShaderName != BloomKeys.ShaderName) {
+                return copy;
+            }
+
+            var mode = key.Values.FirstOrDefault(v => v.Key == BloomKeys.Mode.Name).Value;
+
+            return mode switch {
+                "0" => prefilter,
+                "2" => upsample,
+                _ => downsample
+            };
+        }
     }
 
     /// <summary>
