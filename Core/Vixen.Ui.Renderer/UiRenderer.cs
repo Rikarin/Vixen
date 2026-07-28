@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
@@ -67,13 +68,22 @@ public sealed class UiRenderer : IDisposable {
     BufferHandle vertices;
     BufferHandle indices;
     BufferHandle boxes;
+
+    /// <summary>How many bytes one frame's region of each buffer is.</summary>
+    /// <remarks>Per region, not per buffer: each buffer is this many bytes times <see cref="slots" />.</remarks>
     int vertexCapacity;
     int indexCapacity;
     int boxCapacity;
 
+    /// <summary>How many frames the device may have in flight, and so how many regions each buffer has.</summary>
+    readonly int slots;
+
+    /// <summary>Which region this frame writes and draws from.</summary>
+    int slot;
+
     TextureHandle atlasTexture;
     TextureViewHandle atlasView;
-    DescriptorSetHandle atlasDescriptors;
+    DescriptorSetHandle[] atlasDescriptors = [];
     BufferHandle atlasStaging;
     int atlasWidth;
     int atlasHeight;
@@ -91,6 +101,19 @@ public sealed class UiRenderer : IDisposable {
 
         this.device = device;
         this.shaders = shaders;
+
+        // ⚠ A region per frame in flight, and it is the whole of what stops the interface tearing.
+        // `IGraphicsDevice.Write` is a memcpy into persistently-mapped host-visible memory: writing
+        // this frame's vertices at offset zero overwrites the ones the GPU is still reading for a
+        // frame that has not finished, and the symptom is an interface that is briefly a blend of
+        // two frames. `Vixen.Rendering.UploadBuffer` says the same thing about skinning matrices and
+        // rings its buffer for the same reason.
+        //
+        // What made it visible is what makes it confusing: hovering a row inserts one rectangle
+        // *before* everything drawn after it, so every later element's vertices move to a different
+        // offset — and a panel on the other side of the window flickers while the list under the
+        // pointer looks perfectly still.
+        slots = Math.Max(1, device.FramesInFlight);
 
         atlasLayout = device.CreateDescriptorSetLayout(
             new(
@@ -151,6 +174,26 @@ public sealed class UiRenderer : IDisposable {
     ///     move bytes that did not change, and it is invisible in the picture.
     /// </remarks>
     public int AtlasUploads { get; private set; }
+
+    /// <summary>How many frames' worth of geometry the buffers hold at once.</summary>
+    /// <remarks>
+    ///     The device's frames in flight, and the reason the buffers are that many times bigger than
+    ///     one frame needs. Exposed for the same reason the two above are: the claim it makes — that
+    ///     a frame never writes over geometry an unfinished frame is reading — is otherwise
+    ///     unobservable from outside, and its failure mode is a picture that is briefly a blend of
+    ///     two frames rather than an error anything reports.
+    /// </remarks>
+    public int Regions => slots;
+
+    /// <summary>Which of them the last <see cref="Upload" /> wrote.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It advances per upload, which assumes one upload per frame.</b> That is what a
+    ///     renderer per surface gives, and it is the only arrangement there is today. A caller that
+    ///     drew two surfaces through one renderer would consume two regions a frame and could come
+    ///     back round to one an unfinished frame is still reading — the fix for which is a renderer
+    ///     each, not a bigger ring, because the two surfaces have different geometry anyway.
+    /// </remarks>
+    public int Region => slot;
 
     /// <summary>
     ///     Puts this frame's geometry where the GPU can read it. Called outside a render pass.
@@ -220,8 +263,11 @@ public sealed class UiRenderer : IDisposable {
         // while it does.
         Span<float> projection = [2f / surface.X, -2f / surface.Y, -1f, 1f];
 
-        commands.BindVertexBuffer(0, vertices);
-        commands.BindIndexBuffer(indices, IndexFormat.UInt32);
+        // ⚠ At this frame's region. The indices stay zero-based because the vertex binding moves
+        // with them — an index is relative to the bound vertex offset, which is exactly why the ring
+        // costs nothing downstream.
+        commands.BindVertexBuffer(0, vertices, (long) slot * vertexCapacity);
+        commands.BindIndexBuffer(indices, IndexFormat.UInt32, (long) slot * indexCapacity);
 
         var bound = default(PipelineHandle);
         var shared = false;
@@ -240,7 +286,7 @@ public sealed class UiRenderer : IDisposable {
                 // bound — and because all three pipelines share one layout, a later pipeline change
                 // cannot disturb either of them.
                 commands.PushConstants(ShaderStage.Vertex, 0, MemoryMarshal.AsBytes(projection));
-                commands.BindDescriptorSet(DescriptorSetSlot.PerFrame, atlasDescriptors);
+                commands.BindDescriptorSet(DescriptorSetSlot.PerFrame, atlasDescriptors[slot]);
                 shared = true;
             }
 
@@ -326,6 +372,14 @@ public sealed class UiRenderer : IDisposable {
             return;
         }
 
+        // ⚠ Advanced here rather than in Record, because this is the call that writes: the region
+        // moved on to is the one used `slots` frames ago, which the device has finished with. It is
+        // the same invariant `UploadBuffer.Begin` and `DescriptorAllocator.BeginFrame` keep.
+        slot = (slot + 1) % slots;
+
+        // The return is ignored for these two: they are bound by handle in `Record`, every frame, so
+        // a replacement is picked up without anything having to be rewritten. Only the storage
+        // buffer is reached through a descriptor set.
         Grow(ref vertices, ref vertexCapacity, geometry.Vertices.Count * 48, BufferUsage.Vertex, "ui vertices");
         Grow(ref indices, ref indexCapacity, geometry.Indices.Count * 4, BufferUsage.Index, "ui indices");
 
@@ -334,20 +388,18 @@ public sealed class UiRenderer : IDisposable {
         // bind it and never read it — which is undefined rather than harmless, and would be
         // undefined only on the frames where nothing looked wrong.
         var boxBytes = Math.Max(geometry.Shapes.Count, 1) * 80;
-        var rebound = !boxes.IsValid || boxCapacity < boxBytes;
-        Grow(ref boxes, ref boxCapacity, boxBytes, BufferUsage.Storage, "ui boxes");
 
-        if (rebound && atlasDescriptors.IsValid) {
-            // ⚠ Growing the buffer replaced it, so the descriptor set points at a buffer that no
-            // longer exists. Rewriting the set is the whole of the fix and forgetting it is a frame
+        if (Grow(ref boxes, ref boxCapacity, boxBytes, BufferUsage.Storage, "ui boxes")) {
+            // ⚠ Growing the buffer replaced it, so every descriptor set points at a buffer that no
+            // longer exists. Rewriting them is the whole of the fix and forgetting it is a frame
             // that draws every box with whatever memory the allocator handed out next.
-            device.UpdateDescriptorSet(atlasDescriptors, [DescriptorWrite.Storage(2, boxes)]);
+            BindBoxes();
         }
 
         if (geometry.Shapes.Count > 0) {
             var shapeBytes = new UiShape[geometry.Shapes.Count];
             geometry.Shapes.CopyToArray(shapeBytes);
-            device.Write(boxes, 0, MemoryMarshal.AsBytes<UiShape>(shapeBytes));
+            device.Write(boxes, (long) slot * boxCapacity, MemoryMarshal.AsBytes<UiShape>(shapeBytes));
         }
 
         // Copied through arrays because the geometry is exposed as `IReadOnlyList`, which is what
@@ -359,8 +411,24 @@ public sealed class UiRenderer : IDisposable {
         var indexBytes = new uint[geometry.Indices.Count];
         geometry.Indices.CopyToArray(indexBytes);
 
-        device.Write(vertices, 0, MemoryMarshal.AsBytes<UiVertex>(vertexBytes));
-        device.Write(indices, 0, MemoryMarshal.AsBytes<uint>(indexBytes));
+        device.Write(vertices, (long) slot * vertexCapacity, MemoryMarshal.AsBytes<UiVertex>(vertexBytes));
+        device.Write(indices, (long) slot * indexCapacity, MemoryMarshal.AsBytes<uint>(indexBytes));
+    }
+
+    /// <summary>Points every frame's descriptor set at that frame's region of the box buffer.</summary>
+    void BindBoxes() {
+        if (!boxes.IsValid) {
+            return;
+        }
+
+        for (var index = 0; index < atlasDescriptors.Length; index++) {
+            if (atlasDescriptors[index].IsValid) {
+                device.UpdateDescriptorSet(
+                    atlasDescriptors[index],
+                    [DescriptorWrite.Storage(2, boxes, (long) index * boxCapacity, boxCapacity)]
+                );
+            }
+        }
     }
 
     void UploadAtlas(ICommandList commands, GlyphAtlas atlas) {
@@ -430,18 +498,22 @@ public sealed class UiRenderer : IDisposable {
             new(atlasBytes.Length, BufferUsage.CopySource, MemoryAccess.HostUpload, "ui atlas staging")
         );
 
-        atlasDescriptors = device.CreateDescriptorSet(atlasLayout, "ui atlas");
+        // ⚠ One set per frame in flight, because the storage binding carries an offset and the
+        // offset is what makes the ring work. A single set rewritten each frame would be a
+        // descriptor update on a set an unfinished frame is still using, which is undefined and
+        // which validation reports somewhere else entirely.
+        atlasDescriptors = new DescriptorSetHandle[slots];
 
-        var writes = new List<DescriptorWrite> {
-            DescriptorWrite.Texture(0, atlasView),
-            DescriptorWrite.SamplerAt(1, sampler)
-        };
+        for (var index = 0; index < slots; index++) {
+            atlasDescriptors[index] = device.CreateDescriptorSet(atlasLayout, "ui atlas " + index.ToString(CultureInfo.InvariantCulture));
 
-        if (boxes.IsValid) {
-            writes.Add(DescriptorWrite.Storage(2, boxes));
+            device.UpdateDescriptorSet(
+                atlasDescriptors[index],
+                [DescriptorWrite.Texture(0, atlasView), DescriptorWrite.SamplerAt(1, sampler)]
+            );
         }
 
-        device.UpdateDescriptorSet(atlasDescriptors, [.. writes]);
+        BindBoxes();
 
         // A version no atlas has, so the first frame always uploads — including a frame that draws no
         // text at all, which still has to leave the texture in a state the shader can read.
@@ -454,6 +526,14 @@ public sealed class UiRenderer : IDisposable {
             return;
         }
 
+        foreach (var set in atlasDescriptors) {
+            if (set.IsValid) {
+                device.Destroy(set);
+            }
+        }
+
+        atlasDescriptors = [];
+
         device.Destroy(atlasView);
         device.Destroy(atlasTexture);
         device.Destroy(atlasStaging);
@@ -465,9 +545,18 @@ public sealed class UiRenderer : IDisposable {
         atlasState = ResourceState.Undefined;
     }
 
-    void Grow(ref BufferHandle buffer, ref int capacity, int bytes, BufferUsage usage, string name) {
+    /// <summary>Makes sure a buffer has room for <paramref name="bytes" /> in every region.</summary>
+    /// <returns>Whether the buffer was replaced, which is what invalidates a descriptor pointing at it.</returns>
+    /// <remarks>
+    ///     ⚠ <b><paramref name="capacity" /> is one region, and the allocation is that many times
+    ///     <see cref="slots" />.</b> Rounded up to <see cref="Alignment" /> so that region <c>n</c>
+    ///     starts at an offset a storage-buffer descriptor may legally be bound at — a
+    ///     <c>minStorageBufferOffsetAlignment</c> of 256 is common, and an unaligned binding is a
+    ///     validation error rather than a slow path.
+    /// </remarks>
+    bool Grow(ref BufferHandle buffer, ref int capacity, int bytes, BufferUsage usage, string name) {
         if (buffer.IsValid && capacity >= bytes) {
-            return;
+            return false;
         }
 
         if (buffer.IsValid) {
@@ -478,8 +567,14 @@ public sealed class UiRenderer : IDisposable {
         // and a renderer that reallocated on every size change would reallocate on every keystroke
         // in a text box.
         capacity = Math.Max(bytes, capacity * 2);
-        buffer = device.CreateBuffer(new(capacity, usage, MemoryAccess.HostUpload, name));
+        capacity = (capacity + Alignment - 1) / Alignment * Alignment;
+
+        buffer = device.CreateBuffer(new((long) capacity * slots, usage, MemoryAccess.HostUpload, name));
+        return true;
     }
+
+    /// <summary>What a region's offset is rounded up to.</summary>
+    const int Alignment = 256;
 
     /// <summary>A clip rectangle as a scissor, clamped to the surface.</summary>
     /// <remarks>
