@@ -168,7 +168,7 @@ signature generated from the four-set convention; descriptor heaps as ring alloc
 over committed heaps; **Enhanced Barriers** (Agility SDK), which is why the RHI's barrier model is
 specified against Vulkan `synchronization2` rather than legacy resource states.
 
-### `Vixen.Graphics.OpenGL` — **now the abstraction validator**
+### `Vixen.Graphics.OpenGL` — ✅ **built, and now the abstraction validator**
 
 One project, three profiles: GL 4.5 core (desktop), GLES 3.0/3.2 (Android), WebGL2 (browser), selected
 at construction. Shares the state-shadowing, pipeline-emulation, and barrier-elision logic; differs in
@@ -179,6 +179,27 @@ API-neutral. It is a *harder* test than D3D12 would have been — GL has no PSOs
 explicit barriers, and no multithreaded recording, so anything Vulkan-shaped that leaked into the
 abstraction shows up here immediately. Consequence: **GL must not also be deferred**, and its WebGL2
 profile is already verified working ([spikes/web-webgl2](spikes/web-webgl2/RESULT.md)).
+
+**What building it actually taught the RHI** is collected in
+[`docs/rhi-backend-mapping.md`](../rhi-backend-mapping.md), which is ADR-001's fourth measure. Three
+findings are worth naming here because they are about the *abstraction* rather than about GL:
+
+- **`ResourceState` has to stay a flags enum.** GL needs the `ShaderWrite` bit specifically, to
+  decide between "no call at all" and `glMemoryBarrier`. That the RHI's barrier model carries exactly
+  enough to make that distinction, on an API with no barriers, is the strongest evidence it is not a
+  Vulkan wrapper.
+- **The four-set convention pays for itself on a backend with no sets.** Ordering sets by change
+  frequency is what makes GL's flat binding indices stable across pipelines. Numbered arbitrarily it
+  would not work at all.
+- **`DescriptorWrite.Kind` is advisory; the layout is authoritative.** `DescriptorWrite.Uniform`
+  produces the non-dynamic kind and there is no helper for the other, so a backend that trusted the
+  write drops the dynamic offset of every caller who used the obvious one. Vulkan catches that only
+  because its validation layers check the write's type against the layout's.
+
+Every GL call goes through `IGlApi`, and the test assembly drives a recording implementation of it —
+so the translation layer is checked on every build rather than only on the CI leg that has Mesa. The
+Silk.NET binding is one file, is nothing but transcription, and is the only file the suite does not
+touch.
 
 Known concessions, documented up front so nobody is surprised:
 - No true multithreaded command recording. Command lists are recorded into a deferred, replayable
@@ -261,7 +282,7 @@ Raven produces both (see [07](07-raven-shader-pipeline.md)). The RHI never parse
 | Unit | Every RHI operation tested against `Null`, asserting the recorded command stream. Handle lifetime/generation tests. Allocator tests (fragmentation, alignment, OOM behaviour). |
 | Render graph | Property tests: random pass DAGs produce correct barrier placement, verified against an independent reference tracker; aliasing never overlaps live ranges |
 | Validation | Vulkan validation layers + `spirv-val` run in CI on Linux with **lavapipe** (Mesa software Vulkan) — a real Vulkan driver with no GPU, so full API conformance is CI-testable |
-| Golden image | `Samples/01-HelloTriangle` and a suite of ~40 rendering fixtures rendered headless on lavapipe, compared with a perceptual (not bitwise) diff and a tolerance per fixture. Bitwise comparison across drivers is a maintenance sinkhole; perceptual with an explicit threshold is the workable version. |
+| Golden image | ✅ `Samples/01-HelloTriangle` and a suite of **forty** rendering fixtures rendered headless on lavapipe, compared with a perceptual (not bitwise) diff and a tolerance per fixture. Bitwise comparison across drivers is a maintenance sinkhole; perceptual with an explicit threshold is the workable version. The bulk of the suite is one fixture per state bit a backend can silently ignore — which is the row below, made concrete. |
 | Cross-backend equivalence | The same fixture rendered on Vulkan/lavapipe and on GL/Mesa-softpipe must match within tolerance. This catches the class of bug where a backend silently ignores a state bit. |
 | Device loss | A fault-injection mode in `Null` and Vulkan (`VK_ERROR_DEVICE_LOST` on demand) proving the engine recreates the device and reloads resources rather than crashing — Android and driver-update reality make this mandatory |
 

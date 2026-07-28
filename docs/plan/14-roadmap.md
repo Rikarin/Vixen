@@ -2572,10 +2572,37 @@ never been driven against a running window.
   rather than the full-screen one.
 - `Vixen.Graphics.Direct3D12` — **not built** (Q4: postponed past 1.0). Stub project only. The abstraction
   validator role passes to `Vixen.Graphics.OpenGL`, which is a stricter test — see ADR-001.
-- `docs/rhi-backend-mapping.md` written and kept current, so D3D12 mappability is reviewed by inspection
-  rather than discovered later.
-- `Samples/03-PbrShowcase`.
-- Golden-image fixture suite (~40) on lavapipe.
+- ✅ **`Vixen.Graphics.OpenGL`** — GL 4.5 core, GLES 3.0/3.2 and WebGL2 behind one translation layer.
+  Pipelines become a program plus a state block with a shadow-state diff; descriptor sets become a
+  flat binding plan per resource class; barriers become nothing at all, except after a shader write;
+  command lists record into managed memory on any thread and replay on the GL thread at submit.
+
+  Every GL call goes through `IGlApi`, so the translation — which is the part ADR-001 wants validated
+  and the part that can actually be wrong — is exercised against a recording fake on every build
+  rather than only on a CI leg with a driver. Ninety-two tests. `SilkGlApi` is the one file the suite
+  does not touch, and there is nothing in it but transcription.
+
+  ⚠ Still to come: `Silk.NET.OpenGLES` and an EGL context, which is what the GLES profiles need to
+  run rather than merely to be modelled — one class implementing `IGlApi` and no change above it. And
+  `glBindImageTexture` for storage images, which every compute path that would use one already has a
+  fullscreen-fragment variant for.
+- ✅ **`docs/rhi-backend-mapping.md`** — every RHI concept against Vulkan, D3D12, GL, GLES/WebGL2,
+  WebGPU and Metal, with the findings from building the GL backend and a list of what the table has
+  already changed. Reviewed whenever the RHI's surface changes; that is the whole obligation.
+- ✅ **`Samples/03-PbrShowcase`** — twenty-five spheres over metallic × roughness, Cook-Torrance with
+  GGX and Smith height-correlated visibility, rendered to an HDR target and tone-mapped onto the
+  swapchain through the render graph. ⚠ Its ambient term is the analytic constant-radiance
+  environment rather than real image-based lighting, and nothing casts a shadow: both need content
+  the importer does not produce yet, and the sample's README says so rather than implying otherwise.
+- ✅ **Golden-image fixture suite — forty.** `PipelineStateImageTests` is the new bulk of it: one
+  fixture per state bit a backend can silently ignore — cull mode, topology, instancing, vertex
+  formats, index offsets, depth comparisons and bias, stencil, blend factors and operations, write
+  masks, viewport, scissor, a second colour target, load actions, sampler filters and address modes,
+  and the two transfer paths.
+
+  Two of them were wrong when first written and both looked right: one sampled uninitialised memory
+  outside the region it copied, and one asked for a depth bias four orders of magnitude too small to
+  do anything. Neither failed. The suite's README now names both.
 
 **Exit:** `Samples/03` at the [00](00-vision-and-principles.md) performance bar on Vulkan and D3D12.
 Golden images within tolerance on Vulkan/lavapipe and MoltenVK. White-furnace and BRDF numeric tests

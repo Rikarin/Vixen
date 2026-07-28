@@ -6,12 +6,24 @@ This is the level of testing every other kind is a proxy for. A command-stream a
 backend emitted the calls somebody intended; only a picture proves those calls draw what they were
 meant to.
 
-Two kinds of fixture. `GoldenImageTests` renders from a command list and is about the **backend**: a
-clear, a triangle, an indexed quad, blending, reversed depth. `CompositorImageTests` renders from a
-`GraphicsCompositor` and is about the **renderer** — the layer engine code actually uses, and one
-that had been asserted entirely against a recording backend, which will happily record a descriptor
-set bound to the wrong index and a uniform written at the wrong offset and report that the calls were
-made.
+Four kinds of fixture, forty in all — the suite `docs/plan/05` § Testing asks for.
+
+| Class | What it is about |
+|---|---|
+| `GoldenImageTests` | The **backend**, at its simplest: a clear, a triangle, an indexed quad, blending, reversed depth |
+| `PipelineStateImageTests` | One **state bit** each — cull mode, topology, instancing, vertex formats, index offsets, depth comparisons and bias, stencil, blend factors and operations, write masks, viewport, scissor, multiple targets, load actions, sampler filters and address modes, and the two transfer paths |
+| `CompositorImageTests` | The **renderer** — the layer engine code actually uses |
+| `UiImageTests` | The user interface's GPU half |
+
+`PipelineStateImageTests` is the largest and the most repetitive, deliberately. Every bit it covers is
+one a backend can silently ignore: recording `BindPipeline` proves the call was made and proves
+nothing about whether the driver was told to cull the right face or compare depth the right way
+round. `docs/plan/05` § Cross-backend equivalence names that exact class of bug — "a backend silently
+ignores a state bit" — and it is the reason this suite exists at all.
+
+`CompositorImageTests` matters for a different reason: the renderer had been asserted entirely
+against a recording backend, which will happily record a descriptor set bound to the wrong index and
+a uniform written at the wrong offset and report that the calls were made.
 
 ```bash
 ./build.sh GoldenImages --configuration Release
@@ -109,3 +121,16 @@ its source, symmetric about that centre, and reaches well past it. Otherwise com
 reference is committing whatever came out first. Those assertions earn their place: setting the
 chain's intensity to zero fails on "the glow does not reach past the source" rather than on a pixel
 count.
+
+Two more traps, both caught while writing the state fixtures and both worth knowing before adding
+another:
+
+- **Look at the picture before committing it.** `copy-region` copies a 4×4 block into an 8×8 texture
+  and samples the whole thing — so its first version recorded the driver's uninitialised memory as
+  the expected value of the other three quarters, which came out white and would have been a
+  different colour on the next machine. It fills the texture first now.
+- **Check that the state you set does something.** `depth-bias` asked for a bias of `0.002` and
+  produced a picture identical to no bias at all, passing forever. Every API multiplies
+  `RasterizerState.DepthBias` by the depth format's smallest resolvable difference, which for a
+  32-bit float buffer is around `6 × 10⁻⁸`, so the number that reads as "tiny" is nothing whatsoever.
+  Both failures look exactly like a fixture that works.

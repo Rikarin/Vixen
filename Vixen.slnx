@@ -12,6 +12,11 @@
   </Folder>
 
   <Folder Name="/docs/">
+    <!--
+      ADR-001 measure 4: every RHI concept against every backend, reviewed whenever the RHI surface
+      changes, so D3D12 mappability is checked by inspection rather than discovered when it lands.
+    -->
+    <File Path="docs/rhi-backend-mapping.md" />
     <File Path="docs/plan/README.md" />
     <File Path="docs/plan/00-vision-and-principles.md" />
     <File Path="docs/plan/01-technology-decisions.md" />
@@ -182,6 +187,15 @@
     -->
     <Project Path="Platform/Vixen.Graphics.WebGPU/Vixen.Graphics.WebGPU.csproj" />
     <Project Path="Platform/Vixen.Graphics.WebGPU.Tests/Vixen.Graphics.WebGPU.Tests.csproj" />
+    <!--
+      The abstraction validator. ADR-001 postponed D3D12 past 1.0 and passed the job of proving the
+      RHI is API-neutral to OpenGL, which is a stricter test — no pipeline objects, no descriptor
+      sets, no explicit barriers, no multithreaded recording. Its test assembly drives a recording
+      IGlApi rather than a driver, so the translation layer is checked on every build and not only
+      on the CI leg that has Mesa.
+    -->
+    <Project Path="Platform/Vixen.Graphics.OpenGL/Vixen.Graphics.OpenGL.csproj" />
+    <Project Path="Platform/Vixen.Graphics.OpenGL.Tests/Vixen.Graphics.OpenGL.Tests.csproj" />
     <Project Path="Platform/Vixen.Vfx.Gpu.Tests/Vixen.Vfx.Gpu.Tests.csproj" />
     <!--
       Vixen.Platform.Web, Vixen.Audio.Backend.WebAudio and Vixen.Graphics.WebGPU.Browser
@@ -302,6 +316,7 @@
   </Folder>
   <Project Path="Samples/01-HelloTriangle/HelloTriangle.csproj" />
   <Project Path="Samples/02-HelloUi/HelloUi.csproj" />
+  <Project Path="Samples/03-PbrShowcase/PbrShowcase.csproj" />
   <Project Path="Samples/04-EcsStressTest/EcsStressTest.csproj" />
   <Project Path="Samples/07-AddressablesRemote/AddressablesRemote.csproj" />
   <Project Path="Samples/08-Multiplayer/Multiplayer.csproj" />
