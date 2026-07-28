@@ -176,25 +176,8 @@ public sealed class NavigationAllocationTests {
 
     /// <summary>
     ///     Runs the work until whatever it grows has stopped growing, then measures the same work
-    ///     again.
+    ///     again. See <see cref="Measured" /> for why the measurement is more than a subtraction.
     /// </summary>
-    /// <remarks>
-    ///     Per-thread allocation rather than <c>GC.GetTotalMemory</c>, because the latter measures the
-    ///     heap after whatever the collector has done to it and is not a count of what this code
-    ///     asked for. A single-digit byte count here is not noise to be tolerated — every buffer in
-    ///     the path is owned, so the answer is zero or something is wrong.
-    /// </remarks>
-    static long Measure(Action frame, int warmUp = WarmUpFrames) {
-        for (var index = 0; index < warmUp; index++) {
-            frame();
-        }
-
-        var before = GC.GetAllocatedBytesForCurrentThread();
-
-        for (var index = 0; index < MeasuredFrames; index++) {
-            frame();
-        }
-
-        return GC.GetAllocatedBytesForCurrentThread() - before;
-    }
+    static long Measure(Action frame, int warmUp = WarmUpFrames)
+        => Measured.Bytes(frame, warmUp, MeasuredFrames);
 }
