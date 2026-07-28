@@ -87,6 +87,14 @@ public sealed class UiImageTests {
         // The atlas was uploaded once, not once per glyph.
         Assert.Equal(1, renderer.AtlasUploads);
 
+        // ⚠ One region per frame in flight, and the upload moved on to a new one. `Write` on a
+        // host-visible buffer is a memcpy into memory the GPU may still be reading for a frame that
+        // has not finished, so a renderer with one region draws an interface that is briefly a blend
+        // of two frames — which looks like a panel flickering while whatever the pointer is over
+        // stays perfectly still, because only the geometry *after* the change moves in the buffer.
+        Assert.Equal(owned.Device.FramesInFlight, renderer.Regions);
+        Assert.Equal(1 % renderer.Regions, renderer.Region);
+
         AssertTheBoxIsRounded(image);
         AssertTheBoxIsGraded(image);
         AssertTheBorderIsHollow(image);
