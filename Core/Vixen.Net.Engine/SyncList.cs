@@ -41,21 +41,33 @@ public enum SyncListChange : byte {
 ///         list every time somebody picked something up.
 ///     </para>
 ///     <para>
-///         <b>Ops travel reliably and in order, which is what makes per-connection differencing
-///         unnecessary.</b> Everyone receives every op exactly once, so nobody needs to be told which
-///         ops they missed — the guarantee the channel already provides is the same guarantee an
-///         acknowledged baseline would have had to reconstruct. A connection that arrives late gets
-///         the list whole once, and ops from then on. That is the "reliable-eventual semantics for
-///         <c>SyncVar</c>-style state" <c>docs/plan/16</c> asks for, taken literally.
+///         <b>Corrected when it was wired up: the ops do not travel, the list does.</b> This said that
+///         ops go on the wire and that the reliable channel's ordering makes per-connection
+///         bookkeeping unnecessary — everyone receives every op exactly once. That is true of a
+///         broadcast and false of a snapshot, which is why it was never wired up: a snapshot goes to
+///         the connections an interest resolver returns, so somebody who was not observing has
+///         received nothing at all, and an object crossing into their interest has to be told the
+///         list rather than the last op. <see cref="SyncListReplicator{T}" /> sends
+///         <see cref="WriteWhole" />, which makes a late joiner, a reconnect, a lost snapshot and an
+///         interest change the same case.
+///     </para>
+///     <para>
+///         <b>The op log is still what this type is for locally.</b> It drives
+///         <see cref="Changed" /> — which is what a UI binds to, and where "one item was inserted at
+///         index three" is exactly the notification a caller wants rather than "here is a list
+///         again". What it is not is the wire format.
 ///     </para>
 /// </remarks>
-public sealed class SyncList<T> : IReadOnlyList<T> {
+public sealed class SyncList<T> : IReadOnlyList<T>, ISyncList {
     readonly ISyncCodec<T> codec;
     readonly List<T> items = [];
     readonly List<Operation> pending = [];
 
     /// <summary>What it is called, for diagnostics.</summary>
-    public string Name { get; internal set; } = string.Empty;
+    public string Name { get; private set; } = string.Empty;
+
+    /// <inheritdoc />
+    public void Rename(string name) => Name = name;
 
     /// <summary>How many are in it.</summary>
     public int Count => items.Count;

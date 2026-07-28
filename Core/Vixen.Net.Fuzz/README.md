@@ -25,6 +25,9 @@ anybody who can send a packet, so every one of those is a target.
 | `delta` | `DeltaCodec.TryDecode` | writes into a buffer from widths a packet chose |
 | `rpc` | `RpcRouter.Receive` | the one thing a client can make a server do work for |
 | `synclist` | `SyncList.Apply` | the only index that arrives from the network |
+| `input` | `InputBuffer.TryReceive` | the other thing a client can make a server do work for, every tick |
+| `udp` | `UdpTransport.Poll` | the code an attacker reaches *first* — below the handshake, on a public port |
+| `upgrade` | `WebSocketUpgrade` | HTTP headers from a stranger, parsed before anything authenticates |
 
 ## The three oracles
 
@@ -95,10 +98,16 @@ a rumour.
 
 ## Running it
 
-The gate runs on every build, in `Vixen.Net.Fuzz.Tests` — roughly nine million cases in nine seconds,
+The gate runs on every build, in `Vixen.Net.Fuzz.Tests` — eleven million cases in about seven seconds,
 bounded by **case count rather than by the clock**, because a run bounded by time executes a different
 number of cases on a loaded machine than on a laptop and a green build then proves nothing in
 particular.
+
+**The rows are generated from the registry, not written out.** Three targets were once written,
+registered and named, and were simply not among the theory's `[InlineData]` rows — so they existed,
+passed the test that checks the names match the constructors, and never ran. A target that exists is
+now a target the gate runs; forgetting to give it a case budget fails a test rather than making it
+disappear.
 
 For a longer run, give it seconds instead:
 
@@ -114,7 +123,15 @@ because a finding whose bytes only exist in an assertion message is one somebody
 ## What it found
 
 Four defects on the first run, all in code that had tests and review and none of which either had
-caught.
+caught — and two more later, both found by building a target rather than by running one.
+
+- **The WebSocket upgrade rebuilt its whole request on every read.** It decoded and split the entire
+  accumulated buffer each time bytes arrived, so a client dribbling one byte at a time made the server
+  build four thousand strings of up to four kilobytes — about eight megabytes of garbage for four
+  kilobytes sent, at no cost to the sender, times however many sockets they cared to open. It had no
+  test because it had no seam; giving it one to fuzz is what surfaced it.
+- **And it had no timeout.** A client that opened a socket and said nothing held a descriptor and a
+  pending task until the listener stopped. Slowloris, in a package with a conformance suite.
 
 - **`PacketReader` threw on a length above `int.MaxValue`.** Two mistakes deep, which is why it took a
   fuzzer: a blob's length is a `uint` and its cap is an `int`, so the comparison is unsigned and a
@@ -157,10 +174,6 @@ without it.
   find in an hour what this finds in a week. The targets are already the right shape for it — each is
   `(ReadOnlySpan<byte>) -> outcome` — so the wrapper is a few lines. Worth having *alongside* rather
   than instead: this one runs on every build, which an instrumented one never will.
-- **The transports themselves.** `Udp`'s reliability layer reassembles fragments and tracks
-  acknowledgement windows from bytes off the wire, and `WebSocket` parses RFC 6455 frames. Both are
-  more exposed than anything in this list — they are *below* the handshake — and both want a target of
-  their own.
 - **Structure-aware mutation.** The mutator does not know a snapshot from a handshake. A mutator that
   understood the record format could keep the tick and break the payload, rather than spending most of
   its budget on inputs the first field refuses.

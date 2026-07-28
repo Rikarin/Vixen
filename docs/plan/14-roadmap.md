@@ -3246,9 +3246,41 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
 - Interest management: ✅ the resolver seam and the default. `IInterestResolver` is what decides which
   entities a player is told about, and `ReplicateEverythingResolver` is what a new project gets —
   a deliberate ergonomics choice rather than a placeholder, so a prototype works before anyone has
-  thought about it. ✅ **Scene scope** landed with spawning — `SceneInterestResolver`, the first of the
-  chain doc 16 describes. **Owed:** explicit overrides, the distance grid and `NetworkLOD`, and the
-  composition that lets the four be chained in the order the doc puts them in.
+  thought about it. ✅ **The chain, the rules, the grid and the rate** — 9 further tests, and two
+  corrections to [16](16-networking.md) that only appeared once it was built.
+
+  **Rules give a three-valued verdict and the first definite answer wins**, which is what makes an
+  explicit override placed before the grid something the grid cannot argue with. Most rules answer
+  `Undecided` most of the time — the scene rule hides what is in a level you have not loaded and says
+  nothing about the rest — and that is what lets rules be written independently and put in any order.
+  A rule that voted "observed" for everything in its own scene would make itself the last word on the
+  whole level, which is exactly what an ordered chain exists to avoid.
+
+  **The distance grid is a *source*, not a rule, and that is where the scaling is.** Doc 16 lists it
+  as the third of four filters. A filter is asked about everything, so a chain of filters over ten
+  thousand objects and two hundred players is two million questions a tick whatever the filters then
+  say — which is the cost the feature exists to remove. `InterestGrid` buckets the world once per tick
+  and answers each player from the cells around them. The distinction is invisible in the result and
+  total in the cost, which is why the test asserts on `ConsideredCount` rather than on who saw what:
+  written as a filter it would pass every behavioural test and scale like the thing it replaced.
+
+  **It leaves with hysteresis, and that is not polish.** Leaving the observed set and being destroyed
+  are deliberately the same thing to a client, so an object hovering at the boundary is not flickering
+  — it is being destroyed and recreated on every tick it wavers, with whatever the game hangs off a
+  spawn. Two radii, and the band between them is where a player walking a boundary spends their time.
+
+  **`NetworkLOD` is the second correction: rate reduction cannot be a resolver at all.** Doc 16 lists
+  it as the fourth filter in the chain, and building it as one would despawn and respawn every distant
+  object on every tick it skipped. Rate belongs where records are written — `ReplicationServer.Rate` —
+  because skipping one there already means "not this tick": it is the same thing the budget does when
+  it sheds, and it takes the same path out, unacknowledged into the next snapshot.
+  `DistanceReplicationRate` is banded and **phased by object id**, so distant objects spread across
+  the ticks instead of arriving together on every fourth one and defeating the budget and the path MTU
+  at once. An object a connection does not hold yet is never rate-limited, so a reduced rate slows
+  updates without delaying anything's appearance.
+
+  **Owed:** the team, room and fog-of-war rules doc 16 names — deliberately, since each is a game's own
+  idea of who may see what and the chain takes any `IInterestRule`.
 - ✅ **Motion: interpolation, clamped extrapolation, `NetworkTransform`, owner-side smoothing.**
   26 further tests; 275 across the networking projects in total.
 
@@ -3373,8 +3405,84 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   state every tick and nothing animates, which presents as the animation being broken rather than as
   the network being wrong, and therefore has a test rather than a comment.
 
-  **Owed:** `NetworkBones`, for the cases the determinism assumption does not cover. Expensive by
-  nature and wanting the same quantisation the rotation codec already has.
+  ✅ **`NetworkBones`** is the honest fallback, built rather than left owed: the pose itself, for a
+  ragdoll driven by the local solver, IK against local geometry, or procedural motion with a random
+  number generator in it. Three things make it affordable enough to exist — **rotations only**,
+  because a skeleton is rigid and a joint's translation is its bind pose; **a selected subset**, since
+  a ragdoll is driven by about sixteen joints of a sixty-joint rig and `NetworkBoneSelection` is not
+  replicated because it comes from the same content on both peers; and **stored packed rather than as
+  quaternions**, which makes a bone that did not move bit-identical to last tick so the delta codec
+  spends one bit on it, and makes the component a quarter of the size in a chunk.
+
+  `MathCodec.PackRotation`/`UnpackRotation` expose the existing 32-bit smallest-three encoding as a
+  value, and `WriteRotation` is now written in terms of them. **The wire golden is what says that
+  refactor changed no bytes** — which is precisely the regression the corpus was built to catch, and
+  the first time it has been used on a change to the codec rather than as a platform gate.
+
+  The cost is stated rather than discovered: 776 bits whole, about 15 kbit/s per character at twenty
+  updates a second, with the delta taking most of that back for a pose that is partly still. Both
+  systems run in `LateUpdate` — after the animation system produces the pose and before the skinning
+  system consumes it — which is an ordering *guarantee* rather than a hope about the dependency graph,
+  because what they touch is a managed `Animator`'s pose and no declared component access describes it.
+
+  **Owed:** per-bone quantisation by importance, since a finger does not need what a spine needs; and
+  interpolating a pose, which `SnapshotBuffer` does for a transform and not for this.
+- ✅ **`SyncList` on the wire, and a design note that turned out to be wrong.** 6 further tests.
+
+  The op log was built and tested and **nothing carried it** — a `SyncList` was a local collection
+  with a wire format nobody called. The note beside it explained why that was fine: a list replicates
+  as *what happened to it*, and ops travelling reliably and in order makes per-connection bookkeeping
+  unnecessary because everyone receives every op exactly once.
+
+  **That is true of a broadcast and false of a snapshot**, which is why it was never wired up. A
+  snapshot goes to the connections an interest resolver returns, so somebody who was not observing has
+  received nothing at all — and an object crossing into their interest has to be told the list rather
+  than the last thing that happened to it. The claim and the missing implementation were the same
+  fact seen twice.
+
+  Sending the **state** instead makes a late joiner, a reconnect, a lost snapshot, an interest change
+  and a player who was in another scene the same case: here is the list. Nothing had to be added to
+  the wire for it, which is the part worth recording — the owed note said this needed "a
+  variable-length record kind beside the fixed-lane one", and it does not: the record format was never
+  fixed-width, only the *delta* path is, and it already declines a replicator that declares no lanes.
+
+  The cost is bandwidth proportional to the list on the tick it changes, which for the sizes lists are
+  actually used at is a few hundred bytes seconds apart. A list changing every tick is a list being
+  used as something it is not — and the shape that would fix that is the one
+  `NetworkAnimatorParameters` and `NetworkBones` use, a fixed capacity buying per-element deltas back,
+  which needs a fixed-width element type a general `SyncList<T>` does not have.
+
+  The op log is not wasted: it still drives `Changed`, which is what a UI binds to. "One item was
+  inserted at index three" is exactly the notification a caller wants and exactly not what a receiver
+  should be sent.
+- ✅ **Networked audio, and the ownership rule that replaces a component** — `Vixen.Net.Audio`,
+  6 tests, plus one in `Vixen.Net.Tests`.
+
+  **Whether a sound is playing, and how loud — not the sound, and not the clip.** The entity carrying
+  it was spawned from a prefab and the prefab carries its `AudioClipRef`, so both peers already agree
+  which sound this is by the mechanism that agreed which mesh it has; a clip id would re-state that
+  and need a second asset registry to keep in step with the first.
+
+  **A one-shot at a world position is deliberately not this.** An explosion is an event: it happens
+  once and reaches whoever was there. Replicated state is by definition what a late joiner is caught
+  up on, so modelling it that way means a player who joins five minutes later hears the explosion.
+  Those go on a broadcast, which is what broadcasts are for.
+
+  `Trigger` is the counter that makes "again" visible — playing a one-shot twice sets `Playback` to
+  the value it already had, so a receiver comparing states sees nothing and the second shot is silent,
+  a bug that only appears with two players in the room. The same trick `NetworkTransform.TeleportCount`
+  uses, spelled the same way: a tag the capture system consumes. The restart is stop-now,
+  start-next-pass, because `AudioSystem` starts a voice only when one is not already alive — one frame,
+  inaudible, and the alternative is this system holding an `AudioEngine`.
+
+  ✅ **`OwnershipClaim`, and the component it makes unnecessary.** PurrNet ships an ownership-toggle
+  component: take ownership when something enters a trigger. That bundles two separable things — a
+  trigger deciding *when* to try, which is the game's, and a policy deciding whether it is allowed,
+  which is `NetworkRules`'. So the component is declined and the genuinely missing half is added: an
+  audience says *who* may take an object and `Claim` says *when*, and neither can spell the pick-up
+  rule alone. `ChangeOwner = Everyone` with `Claim = WhenUnowned` is a dropped weapon anybody may take
+  and nobody may steal; its own owner may always transfer, because releasing is a transfer to nobody
+  and a rule that refused it would make a dropped weapon undroppable.
 - ✅ **Spawn, scenes and instance handling** — `NetworkSpawner`, `NetworkSpawnSystem` and
   `NetworkPrefabRegistry` in `Vixen.Net.Engine`, over a `NetworkSpawn` component in `Vixen.Net`.
   8 further tests here and 3 on the engine's `Prefab`.
@@ -3430,8 +3538,8 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   resolvers, without which the scene one cannot be chained with the distance grid it is meant to
   precede.
 - ✅ **Security pass: packet validation, rate limits, closed-set deserialization, protocol/content hash
-  handshake, and the fuzzing corpus over the packet reader.** `Vixen.Net.Fuzz` — nine targets, three
-  oracles, nine million cases on every build in nine seconds.
+  handshake, and the fuzzing corpus over the packet reader.** `Vixen.Net.Fuzz` — twelve targets, three
+  oracles, eleven million cases on every build in about seven seconds.
 
   **The list of targets is the claim.** "The packet reader is fuzzed" is a much smaller statement than
   it sounds: the reader is the bottom of the stack, and above it sit a handshake that reads four fields
@@ -3737,6 +3845,53 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
   two builds agree without agreeing on start-up order, which means **renaming a replicated component
   is a wire break**.
 
+  ✅ **The UDP transport is fuzzed too, as the eleventh target** — the code an attacker reaches
+  *first*, and the last of the module to get one. Everything else in the harness sits above the
+  handshake: a snapshot, a call or an input is parsed only once a connection exists. A datagram is
+  parsed by a server listening on a public port, from a source address that costs nothing to forge.
+
+  **The first version of it managed two distinct behaviours in two million cases**, which is the same
+  failure the signature fix caught a slice earlier and worth recording again because it presents as
+  success — a clean run. Every datagram was refused at the handshake, because completing one needs the
+  server's cookie and the cookie is eight random bytes no amount of mutation guesses. That is the
+  cookie working exactly as designed, and it meant the reliability layer and the fragment reassembler
+  sat behind a door the fuzzer could not open. So the target now opens it the way an attacker would:
+  connect properly, then send rubbish. An authenticated client is still an untrusted one. Two million
+  cases went from 2 behaviours to 1,191; twenty million reach 2,390, clean.
+
+  ✅ **And the WebSocket upgrade, as the twelfth** — the only part of that transport we parse, since
+  the framing is `WebSocket.CreateFromStream` and deliberately not ours. Making it fuzzable meant
+  making it a function over a span rather than a loop reading a `NetworkStream`, and **that shape
+  change found two defects that had no test because they had no seam**: it decoded and split the whole
+  accumulated request on every read, so a client dribbling one byte at a time cost the server about
+  eight megabytes of garbage for four kilobytes sent, free to the sender and times however many
+  sockets they open; and there was no timeout at all, so a client that connected and said nothing held
+  a descriptor until the listener stopped. Slowloris, in a package with a conformance suite. Both
+  fixed, with a five-second deadline per upgrade and a ceiling of 64 in flight.
+
+  **That target's first signature saturated at 65,536 behaviours**, which is the same lesson from the
+  other end: it folded the header length straight in, so nearly every case looked novel and the
+  guidance switched itself off. A signature has to describe what the code *did*, not what it was
+  given. Made categorical it reports 7 behaviours over five million cases — which is the honest
+  picture of a small state machine, and the value of the target is the never-throws and
+  never-amplifies oracles rather than corpus guidance. The one real invariant it checks is that
+  reading a request in chunks finds the same headers as reading it whole, which is the three-byte
+  step-back being exactly right rather than approximately.
+
+  **And neither of them was in the gate.** The theory's rows were written out by hand, so three
+  targets — the input buffer, the transport and the upgrade — existed, were registered, passed the
+  test that checks the names match the constructors, and never ran. The rows are now generated from
+  the registry and a missing case budget fails a test of its own, so a target that exists is a target
+  the gate runs. Worth recording because the shape recurs: a list written twice is a list that
+  disagrees with itself, and the assertion that kept two of the three copies honest did not cover the
+  third.
+
+  It also confirmed something worth knowing rather than assuming: **the connection table cannot be
+  grown from outside**, because the handshake is stateless until the cookie comes back — the challenge
+  is a hash of a per-process secret, the source address and the client's salt, so a connect request is
+  answered and forgotten. There is no half-open table to fill, which is why the retention oracle never
+  moves however many strangers the fuzzer invents.
+
   **Owed:** the generated encoders end to end. Their *source* is pinned by
   `Vixen.Net.Generators.Tests` and every arithmetic primitive they emit is pinned here, so what is
   uncovered is the composition rather than either half — closing it means referencing the generator
@@ -3744,9 +3899,92 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
   And the same treatment for content determinism, which doc 12 wants on the same three legs and which
   has no corpus at all.
 
-> **Client-side prediction is explicitly *not* in this phase** — see [16](16-networking.md). PurrNet does
-> not have it either. The tick loop and snapshot APIs are shaped to accept it later (+2 EM), and the
-> ECS's chunk-copy world snapshots plus input-log replay are already the rollback primitives.
+- ✅ **Client-side prediction — the mechanism.** This note previously read *"explicitly not in this
+  phase … PurrNet does not have it either"*, and both halves of that have since stopped being true:
+  the comparison was corrected in [16](16-networking.md) when PurrDiction was found, and the feature
+  was asked for. 18 tests across two slices.
+
+  **The input pipeline first, because prediction is meaningless without it.** `IPredictedInput<T>` is
+  a game-defined struct with a `static abstract` codec. `InputLog<T>` sends the last several ticks in
+  every packet — a lost input is *not* a lost update the next packet supersedes, it is a tick the
+  server simulates differently from the client that predicted it, and nothing afterwards repairs the
+  divergence. There is a test that drops three consecutive packets and loses nothing, and one that
+  sets the redundancy to two and asserts it *does* lose something, because a constant is only
+  meaningful if exceeding it does what the number says. The log is trimmed by acknowledgement rather
+  than age, since it is both what goes on the wire and what a rollback replays from.
+
+  `InputBuffer<T>` is the server's jitter buffer, and its counters are a **control signal rather than
+  diagnostics**: depth against target is what a client steers its tick lead by. A starved tick repeats
+  the last input rather than zeroing, because zeroing stops a player dead for one tick on the server
+  while their own client predicts them still moving — a dropped packet turned into a guaranteed
+  correction.
+
+  **Then rollback, and the decision that made it small.** `PredictionHistory` records predicted
+  entities through the same `IComponentReplicator` the server writes with, so a frame of history and a
+  snapshot are the same bytes and comparing them is a span comparison. That settles what "predicted
+  state" *is* — exactly what is replicated, because a field the server never sends is a field no
+  snapshot can contradict — and it gets the tolerance right for free: a difference below the wire's
+  quantization encodes identically and causes no rollback, where a float comparison would roll back on
+  nearly every snapshot and the cost would look like the feature working.
+
+  Agreement is the common case and is a byte comparison and a copy, with no simulation.
+  `ResimulatedTickCount` is the price of the feature; `MispredictionCount` is the number that says
+  whether the game's predicted step is actually deterministic, since one that reads anything outside
+  the world and the input mispredicts on *every* snapshot with no packet loss at all — and looks like
+  jitter rather than like a bug.
+
+  **Two defects in the first draft, both found by tests rather than review.** The send window was
+  computed as `newest − redundancy`, which at the start of a session reaches past the beginning of the
+  log and sends ticks that never existed — and the server counts those as *late*, which is the signal
+  the client steers by, so the client would answer by running further ahead and paying input latency
+  for it permanently. It now walks back and stops at the first tick it does not hold. The capacity
+  floor was off by one.
+
+  **And one older defect this uncovered:** `NetworkPayload.TryUnwrap` bounded the kind byte against
+  `PayloadKind.Rpc` *by name*, which was the largest kind when it was written and stopped being so
+  when broadcasts were added — so every broadcast that went through the session layer was refused as
+  malformed, while the router's own tests passed because they never went through it. The bound is now
+  a `Last` member and a test enumerates the enum, so the next kind fails there rather than in a game.
+
+  `InputBuffer.TryReceive` is fuzzed as the tenth target — the second parser a client controls, and
+  the only one that arrives every tick.
+
+  ✅ **And then the wiring**, which [16](16-networking.md)'s own argument says matters most — a game
+  that predicts movement but not the interactions movement causes feels *less* consistent than one
+  that predicts nothing, so what is and is not predicted has to be legible rather than assumed.
+  11 further tests.
+
+  **What is predicted comes from the rules.** `PredictedOwnershipSystem` tags what
+  `NetworkRules.Write` says this client may decide — the same question the rigid bodies and the
+  animators ask — and untags it when somebody else takes the object, because a predicted thing whose
+  prediction is never confirmed is a correction on every snapshot for as long as it lives. Inventing a
+  second notion of "mine" beside the rules is how the two come to disagree, and the day they do a
+  client predicts something the server overrules every tick. With no rules nothing is predicted, which
+  is the safe direction.
+
+  **How far ahead to run is the server's answer, not the client's.** A client can measure a round trip
+  and a round trip is a good estimate of the wrong thing: what matters is whether its input reached
+  the server *before* the tick it was for, which is a fact about the server's buffer and about nothing
+  the client can observe. `PredictionHealthReporter` sends it back as a broadcast — deltas rather than
+  lifetime totals, every thirtieth tick rather than every tick — and `TickLeadController` turns it into
+  `TickManager.LeadBias`, which is kept separate from the round-trip estimate rather than replacing
+  it, so an adjustment is something somebody can inspect and clamp. It moves **one tick at a time and
+  never on one report**, because changing the lead moves every input the client has not sent yet and a
+  controller reacting to a single starved tick spends its life oscillating — each oscillation being a
+  visible correction. Asymmetric on purpose: starvation corrected quickly, depth given up slowly,
+  because being too far ahead costs a little input latency and being too far behind costs corrections
+  a player sees.
+
+  **Corrections are hidden from the eye and not from the simulation.** `ClientPrediction.Corrections`
+  reports what the last reconciliation moved and `PredictionSmoother` keeps an `OwnerSmoothing` per
+  object — per object, because one shared error is wrong the moment a player and the vehicle they are
+  driving are corrected by different amounts, which is the normal case. Blending the *simulation*
+  instead would mean predicting on from a position the server has already disagreed with.
+
+  **Still owed:** predicted spawns — a client cannot predict an object into existence, which needs an
+  id space a client may allocate in and a reconciliation matching its guess to the server's real
+  spawn; and running the scheduler's fixed-step group rather than a delegate, which wants the
+  scheduler to be re-entrant.
 
 ---
 

@@ -33,6 +33,25 @@ public enum DisconnectBehaviour : byte {
     Persist = 2
 }
 
+/// <summary>When a change of owner is allowed, as distinct from who may ask for one.</summary>
+/// <remarks>
+///     <b>The other half of the question <see cref="RuleAudience" /> answers.</b> An audience says
+///     <i>who</i>; this says <i>when</i>, and the two are genuinely independent — "any client may take
+///     this, but only if nobody has it" is the pick-up-a-weapon rule and it cannot be spelled with an
+///     audience alone. Keeping it in the same record is the point: a second registry answering a
+///     second half of one question is how two policies come to disagree.
+/// </remarks>
+public enum OwnershipClaim : byte {
+    /// <summary>Whenever the audience allows it, owned or not. Taking it from its owner is allowed.</summary>
+    Anytime = 0,
+
+    /// <summary>
+    ///     Only while nobody owns it — and by its own owner, so giving one up is always possible.
+    ///     What a dropped weapon, a vehicle seat or a puzzle piece wants.
+    /// </summary>
+    WhenUnowned = 1
+}
+
 /// <summary>
 ///     Who is allowed to do what to a networked object.
 /// </summary>
@@ -104,6 +123,13 @@ public sealed record NetworkRules {
 
     /// <summary>Who may hand one to somebody else.</summary>
     public RuleAudience ChangeOwner { get; init; } = RuleAudience.ServerOnly;
+
+    /// <summary>When they may, which is a different question from who.</summary>
+    /// <remarks>
+    ///     Constrains clients only. The server is the authority and is never refused, so a game that
+    ///     wants to hand an owned object to somebody else does it server-side whatever this says.
+    /// </remarks>
+    public OwnershipClaim Claim { get; init; } = OwnershipClaim.Anytime;
 
     /// <summary>What becomes of one when the player who owned it goes.</summary>
     public DisconnectBehaviour OnOwnerDisconnect { get; init; } = DisconnectBehaviour.TransferToServer;

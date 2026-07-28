@@ -430,7 +430,7 @@ dotnet_diagnostic.CA1711.severity = none
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Core/Vixen.Net.Transport.WebSocket/SystemWebSocketFactory.cs
+# Core/Vixen.Net.Transport.WebSocket/WebSocketUpgrade.cs
 #
 # CA5350 (do not use weak cryptographic algorithms). The SHA-1 here is not a
 # security decision and cannot be changed: RFC 6455 § 4.2.2 defines the opening
@@ -439,8 +439,12 @@ dotnet_diagnostic.CA1711.severity = none
 # nothing — its purpose is to prove the server understood the WebSocket
 # handshake rather than being an HTTP cache that echoed a header. Confidentiality
 # on this transport is `wss`, which is TLS underneath and a separate decision.
+#
+# The exemption moved here from SystemWebSocketFactory.cs when the handshake was
+# lifted out of it — the parsing had to become a function over bytes to be
+# fuzzable, and the response belongs beside the request it answers.
 # ─────────────────────────────────────────────────────────────────────────────
-[Core/Vixen.Net.Transport.WebSocket/SystemWebSocketFactory.cs]
+[Core/Vixen.Net.Transport.WebSocket/WebSocketUpgrade.cs]
 dotnet_diagnostic.CA5350.severity = none
 
 # ─────────────────────────────────────────────────────────────────────────────
