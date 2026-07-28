@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
 using Vixen.Rendering;
+using Vixen.Rendering.Compositor;
 using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 using Xunit;
@@ -170,7 +171,17 @@ public class ClusterCullingDeviceTests {
         return new EffectLoader(device).Load(data!);
     }
 
-    /// <summary>Dispatches the culler over the whole grid and reads every list back.</summary>
+    /// <summary>
+    ///     Dispatches the culler over the whole grid, through the compositor, and reads every list back.
+    /// </summary>
+    /// <remarks>
+    ///     Through <see cref="ComputeRenderer" /> and the render graph rather than a hand-written
+    ///     dispatch, which is the second thing this fixture is for: the barrier between the culler and
+    ///     the copy is the graph's to place, and the block is filled from
+    ///     <see cref="ComputeRenderer.Parameters" /> at the offsets the compiled shader's own plan
+    ///     gives. Recording it by hand would test the shader and leave the path a frame actually takes
+    ///     unexercised — which is how a compute node with no way to fill its uniforms went unnoticed.
+    /// </remarks>
     static int[][] Cull(Fixture fixture, Effect effect, DescriptorSetSlot slot, RenderLight[] lights) {
         var device = fixture.Device;
         var stride = Marshal.SizeOf<ClusterLights>();
@@ -188,48 +199,68 @@ public class ClusterCullingDeviceTests {
         );
 
         using var allocator = new DescriptorAllocator(device);
-        using var constants = new EffectConstants(device, "ClusterCulling");
+        using var system = new RenderSystem();
         var pipelines = new ComputePipelineCache(device);
 
-        // Filled by name through the same writer a real host uses, so the descriptor indices are the
-        // shader's own rather than numbers written down here.
-        var parameters = new ParameterCollection();
+        var effects = new EffectSystem();
+        effects.AddProvider(new Baked(effect));
 
-        parameters.Set(ParameterKeys.New<BufferHandle>("ClusterCulling.lights"), input);
-        parameters.Set(ParameterKeys.New<BufferHandle>("ClusterCulling.clusters"), clusters);
-        parameters.Set(ParameterKeys.New<Matrix4x4>("ClusterCulling.view"), Camera.View);
-        parameters.Set(ParameterKeys.New<int>("ClusterCulling.lightCount"), lights.Length);
+        using var culling = new ComputeRenderer {
+            Name = "ClusterCulling",
+            ShaderName = "ClusterCulling",
+            Pipelines = pipelines,
+            Groups = ClusterGrid.GroupCount,
+            ConstantBinding = effect.Bindings.Single(binding => binding.Kind == DescriptorKind.UniformBuffer).Binding,
+            Descriptors = { Allocator = allocator, Slot = slot }
+        };
 
-        ClusterGrid.Apply(parameters, Camera, "ClusterCulling");
+        culling.BufferReads.Add("SceneLights");
+        culling.BufferWrites.Add("Clusters");
 
-        Assert.True(constants.Update(effect, parameters));
+        // By name against the effect's plan, so the descriptor indices are the shader's own rather
+        // than numbers written down here.
+        culling.Descriptors.Bindings.Add(new() { Name = "lights", Resource = "SceneLights" });
+        culling.Descriptors.Bindings.Add(new() { Name = "clusters", Resource = "Clusters" });
 
-        List<DescriptorWrite> writes = [];
-        Assert.True(EffectSetWriter.TryWrite(effect, slot, parameters, constants, writes));
+        culling.Parameters.Set(ParameterKeys.New<Matrix4x4>("ClusterCulling.view"), Camera.View);
+        culling.Parameters.Set(ParameterKeys.New<int>("ClusterCulling.lightCount"), lights.Length);
+        ClusterGrid.Apply(culling.Parameters, Camera, "ClusterCulling");
 
-        allocator.BeginFrame();
-        var set = allocator.Allocate(effect.SetLayouts[(int)slot], CollectionsMarshal.AsSpan(writes));
+        var compositor = new GraphicsCompositor(system) {
+            FrameSize = new(Fixture.Side, Fixture.Side),
+            Game = culling
+        };
+
+        compositor.BufferImports["SceneLights"] = new(
+            input,
+            new(gpu.Length * Marshal.SizeOf<PunctualLightData>(), BufferUsage.Storage, MemoryAccess.HostUpload, "SceneLights"),
+            ResourceState.ShaderRead,
+            ResourceState.ShaderRead
+        );
+
+        // Handed back as a copy source, so the graph is the one that transitions it — the barrier
+        // between the dispatch and the read is exactly what a hand-written version gets wrong, and
+        // getting it wrong reads whatever the buffer held before, which is zeros and looks like a
+        // culler that found nothing.
+        compositor.BufferImports["Clusters"] = new(
+            clusters,
+            new(size, BufferUsage.Storage | BufferUsage.CopySource, MemoryAccess.DeviceLocal, "Clusters"),
+            ResourceState.Undefined,
+            ResourceState.CopySource
+        );
 
         VulkanDiagnostics.Reset();
+        allocator.BeginFrame();
         device.BeginFrame();
 
-        using (var commands = device.BeginCommandList(QueueKind.Compute, "cull")) {
-            commands.BindPipeline(pipelines.GetOrCreate(effect));
-            commands.BindDescriptorSet(slot, set);
+        fixture.Graph.Reset();
+        compositor.Build(fixture.Graph, effects, device);
 
-            var groups = ClusterGrid.GroupCount;
-            commands.Dispatch(groups.X, groups.Y, groups.Z);
-
-            // The copy has to wait for the dispatch. Hand-written because there is no graph here —
-            // and left out, this reads whatever the buffer held before, which on a fresh allocation
-            // is zeros and looks exactly like a culler that found nothing.
-            commands.Barrier(
-                new([new BufferBarrier(clusters, ResourceState.ShaderWrite, ResourceState.CopySource)], [])
-            );
-
+        using (var commands = device.BeginCommandList(QueueKind.Graphics, "cull")) {
+            fixture.Graph.Execute(commands);
             commands.CopyBuffer(clusters, 0, readback, 0, size);
             commands.Finish();
-            device.ComputeQueue.Submit([commands]);
+            device.GraphicsQueue.Submit([commands]);
         }
 
         device.EndFrame();
@@ -263,6 +294,11 @@ public class ClusterCullingDeviceTests {
         }
 
         return lists;
+    }
+
+    /// <summary>The one variant there is, which is what a baked bundle looks like from here.</summary>
+    sealed class Baked(Effect effect) : IEffectProvider {
+        public Effect? TryGet(EffectKey key) => effect;
     }
 
     // --- The oracle ---------------------------------------------------------

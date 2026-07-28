@@ -54,7 +54,10 @@ public static class EffectTranslator {
             Stages = [.. effect.Modules.Select(module => new EffectStageData(Stage(module.Stage), [.. module.Bytes], module.Name))],
             Bindings = [.. Bindings(reflection)],
             ConstantBufferSize = block?.Binding.Size ?? 0,
-            Parameters = [.. Parameters(effect.Name, reflection)]
+            Parameters = [.. Parameters(effect.Name, reflection)],
+            PushConstants = [
+                .. reflection.PushConstants.Select(range => new EffectPushConstantData(Stages(range.Stages), range.Offset, range.Size))
+            ]
         };
     }
 

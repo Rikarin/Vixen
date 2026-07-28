@@ -196,7 +196,9 @@ with clustered light lookup → transparent pass → post FX.
   cluster buffer and the shading pass *reads* it, so the graph orders them and places the barrier.
   The buffer is declared rather than imported, so a cull nothing consumes is dropped with its
   dispatch, and the node binds what it declared out of the per-frame descriptor allocator rather than
-  through a host callback. Clustered lighting then costs **nothing per object** — no selection, no
+  through a host callback — and it fills its own uniform block from `ConstantBinding`, without which
+  the culler's camera, planes and light count had no way in at all. Clustered lighting then costs
+  **nothing per object** — no selection, no
   per-draw block, no descriptor per draw. The grid is right-handed like the rest of the engine, which
   it was not: `Transform.ViewRay` pointed down +Z while `Matrix4x4.LookAt` looks down −Z, so every
   cluster's box was mirrored in z from the lights tested against it and every list came back empty —

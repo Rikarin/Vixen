@@ -110,6 +110,12 @@ against it and **every list came back empty** — a scene lit by the sun alone, 
 frame rather than a crash. Reverting that one character today fails this fixture with
 `expected [0], got []`, which is the bug verbatim.
 
+It runs the shader **through the compositor** — a `ComputeRenderer` node and the render graph — rather
+than through a hand-written dispatch, which is the second thing it is for: the barrier between the
+dispatch and the read is the graph's to place, and the uniform block is filled from the node's own
+parameters. Recording it by hand tests the shader and leaves the path a frame actually takes
+unexercised, which is how a compute node with no way to fill its uniforms went unnoticed.
+
 The oracle is `ClusterGrid.Bounds` plus the sphere test written out again from the shader's own
 description, compared over all 3456 clusters. Two guards keep it honest: a shader that wrote nothing
 would agree with an oracle that expected nothing, so the fixture also asserts that *some* cluster

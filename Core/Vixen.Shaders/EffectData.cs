@@ -137,6 +137,31 @@ public sealed record EffectBindingData(
     int Size = 0
 );
 
+/// <summary>
+///     One push-constant range: what a shader is handed per draw without a descriptor.
+/// </summary>
+/// <param name="Stages">Which stages read it.</param>
+/// <param name="Offset">Where the range starts, in bytes.</param>
+/// <param name="Size">How many bytes it is.</param>
+/// <remarks>
+///     <para>
+///         Carried because a pipeline layout has to declare it, and a layout that does not is one a
+///         push is silently dropped against — or refused outright by the validation layers. It went
+///         missing for a while, and what it costs is not obscure: <c>ForwardPlus.rvn</c> pushes the
+///         <em>world matrix</em>, so every object in the frame is drawn at the origin.
+///     </para>
+///     <para>
+///         The members are not here. What a host needs is the range — the offsets inside it come from
+///         the generated constants, which is where a caller building the bytes already looks.
+///     </para>
+/// </remarks>
+[DataContract("EffectPushConstantData")]
+public sealed record EffectPushConstantData(
+    ShaderStage Stages = ShaderStage.None,
+    int Offset = 0,
+    int Size = 0
+);
+
 /// <summary>Where one value sits in the constant buffer, and what type it is.</summary>
 /// <param name="Name">The dotted name the shader's reflection gave it.</param>
 /// <param name="Kind">Its CLR type, for interning the key.</param>
@@ -206,6 +231,9 @@ public sealed record EffectData {
 
     /// <summary>Every value in that block, one entry per value.</summary>
     public EffectParameterData[] Parameters { get; init; } = [];
+
+    /// <summary>The push-constant ranges its pipeline layout has to declare.</summary>
+    public EffectPushConstantData[] PushConstants { get; init; } = [];
 
     /// <summary>The key that selects this variant.</summary>
     /// <remarks>
