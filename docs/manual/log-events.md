@@ -136,3 +136,5 @@ Vixen would show them the thing the analyzer forbids everywhere else.
 | 14002 | Error | `There is no window to present to.` — `Samples/01` needs a real display | 0.1.0 |
 | 14003 | Error | `The device was lost.` — recreation arrives in Phase 2 | 0.1.0 |
 | 14004 | Information | `The swapchain was out of date and has been rebuilt at {Width}×{Height}.` | 0.1.0 |
+| 14005 | Information | `Generated {Width}×{Height} at {Rate} Hz, {Duration} s, {Megabytes} MB uncompressed.` — `Samples/11` writes its own WebM rather than carrying one | 0.1.0 |
+| 14006 | Information | `Bound {Planes} plane(s) of a {Width}×{Height} picture.` — once per video, not per frame | 0.1.0 |

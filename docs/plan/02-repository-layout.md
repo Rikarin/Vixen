@@ -347,7 +347,11 @@ Samples/
 ├── 04-EcsStressTest/             # 100k entities
 ├── 05-PlatformerGame/            # physics, input, animation, audio, VFX end to end
 ├── 06-CanvasStress/              # P2: huge scrollable 2D canvas, layers, tool overlays, floating palettes
-└── 07-AddressablesRemote/        # remote catalog + delta update on mobile
+├── 07-AddressablesRemote/        # remote catalog + delta update on mobile
+├── 08-Multiplayer/               # session, replication, prediction-shaped tick loop
+├── 09-NetworkSoak/               # a day of traffic in an hour
+├── 10-VoiceChat/                 # capture, Opus, jitter buffer, spatialised playback
+└── 11-VideoPlayback/             # ✅ WebM → three planes → the sampler. Generates its own content
 
 Benchmarks/
 ├── Vixen.Benchmarks.Ecs/         # ported from Arch's suite (ADR-004)
