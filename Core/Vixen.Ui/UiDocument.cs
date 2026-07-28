@@ -34,6 +34,14 @@ public sealed partial class UiDocument : IDisposable {
     readonly int pointerEvents;
     readonly int fontFamily;
     readonly int overflow;
+    /// <summary>How many tombstoned slots it takes before compacting is worth the walk.</summary>
+    /// <remarks>
+    ///     A floor rather than a pure ratio, because the ratio alone would compact a four-element
+    ///     document that removed three — a walk of the whole tree to reclaim three slots, on the frame
+    ///     where somebody happened to close a menu.
+    /// </remarks>
+    const int CompactionFloor = 64;
+
     readonly int none;
     readonly int visible;
     bool dirty = true;
@@ -306,6 +314,58 @@ public sealed partial class UiDocument : IDisposable {
         }
     }
 
+    /// <summary>How many times the style store has been compacted.</summary>
+    /// <remarks>
+    ///     Exposed for the same reason <c>DrawList.Batched</c> is: "a document that builds and tears
+    ///     down a list no longer grows without bound" is a claim, and a claim about work that cannot
+    ///     be counted is one nobody can check.
+    /// </remarks>
+    public int StyleCompactions { get; private set; }
+
+    /// <summary>Reclaims the style slots removal left behind.</summary>
+    /// <returns>Whether anything was reclaimed.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the document's to do and nobody else's.</b> A slot is an index, so
+    ///         compacting moves every <c>StyleNodeId</c> in existence — and the only object that
+    ///         knows where they all are is the one that handed them out. <c>StyleTree.Compact</c>
+    ///         therefore returns a mapping rather than doing this quietly, and this is what walks the
+    ///         element tree applying it.
+    ///     </para>
+    ///     <para>
+    ///         Public as well as automatic, because a caller that has just torn down a large subtree
+    ///         knows something the heuristic below does not.
+    ///     </para>
+    /// </remarks>
+    public bool CompactStyles() {
+        var tree = Styles.Tree;
+
+        if (tree.DeadCount == 0) {
+            return false;
+        }
+
+        var remap = new int[tree.Count];
+        tree.Compact(remap);
+        Remap(Root, remap);
+        StyleCompactions++;
+
+        return true;
+    }
+
+    /// <summary>Points every element at the slot its style moved to.</summary>
+    /// <remarks>
+    ///     ⚠ A walk of the tree, so every live element is reached exactly once and no removed one is.
+    ///     A list in creation order would need the removed entries taken out of it first, which is the
+    ///     bookkeeping compaction exists to stop doing.
+    /// </remarks>
+    static void Remap(UiElement element, ReadOnlySpan<int> remap) {
+        element.Restyle(new StyleNodeId(remap[element.StyleNode.Index]));
+
+        foreach (var child in element.Children) {
+            Remap(child, remap);
+        }
+    }
+
     /// <summary>Runs the passes, if anything has changed since the last one.</summary>
     /// <returns>Whether any work was done.</returns>
     public bool Update() {
@@ -316,6 +376,16 @@ public sealed partial class UiDocument : IDisposable {
 
         dirty = false;
         StylesApplied = 0;
+
+        // ⚠ Before anything reads a slot, and only when the tombstones outnumber the elements. Here
+        // rather than in `Remove`, because compaction is O(elements) and removing a thousand-row list
+        // one row at a time would then be O(elements²) — and because a pass is the one moment where
+        // every id is about to be re-read anyway, so nothing is holding a stale one across it.
+        //
+        // The floor stops a document with four elements compacting because it removed three.
+        if (Styles.Tree.DeadCount >= CompactionFloor && Styles.Tree.DeadCount > Styles.Tree.LiveCount) {
+            CompactStyles();
+        }
 
         var computed = Styles.ResolveAll();
         Apply(computed, Root, Viewport.RootFontSize);

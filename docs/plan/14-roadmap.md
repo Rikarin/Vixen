@@ -1868,7 +1868,35 @@ sub-piece has its own gate.
   something that is — a descendant selector that silently stops matching. So slots leak,
   `StyleTree.DeadCount` says by how much, and **compaction rather than reuse is the fix**, because
   rebuilding without the dead slots preserves relative order where reuse is exactly what does not.
-  **Owed, and it is the one thing keeping this from being finished rather than merely working.**
+  ~~Owed, and it is the one thing keeping this from being finished rather than merely working.~~
+
+- ✅ **Compaction**, which was that owed item. `StyleTree.Compact` rebuilds the store — and all three
+  arenas, so it also reclaims the child runs `AppendChild` abandons when it relocates one — and
+  **hands back a mapping rather than doing it quietly**, because a slot is an index and moving one
+  moves every `StyleNodeId` in existence. `StyleUpdater` and `Animator` follow it; `UiDocument` owns
+  the ids, so `CompactStyles` is what walks the element tree applying the mapping, and `Update` calls
+  it when the tombstones outnumber the elements and there are at least sixty-four of them. Not per
+  removal: compaction is O(elements), so doing it there would make tearing down a thousand-row list
+  quadratic — which is the loop that produces the leak in the first place.
+
+  ⚠ **The animator is remapped, not cleared.** Clearing was one line and already available, and it
+  restarts every fade on the frame a document happens to compact — so deleting one row would jolt the
+  rows transitioning around it. A worse bug than the leak, and rarer, which is the combination nobody
+  finds.
+
+  The oracle is **a tree that never held the removed elements**: compaction should leave a store
+  indistinguishable from one built without them, so the test builds that store and compares every
+  observable rather than asserting the arrays.
+
+  Verified by sabotage: thirteen, and ⚠ **five failed to fail first time**, four of them because the
+  fixture could not reach what they broke. The arena tests had classes and attributes only *before*
+  the removed subtree, where a stale range still lands on the right run. The document test removed a
+  *tail*, where every survivor keeps the slot it had, so the mapping is the identity and deleting the
+  remap changes nothing — a compaction test whose survivors do not move cannot see the only thing
+  compaction does. The fifth was a sabotage that was a no-op. ⚠ And clearing the tail of the arrays
+  turns out to be **unobservable** — every getter validates against `Count` and `CreateElement`
+  writes every field of a slot before handing it out — so it is kept and labelled as insurance, with
+  what it insures against written next to it.
 
   ⚠ **The layout tree already reused its slots and the style tree cannot**, and the asymmetry is not
   an oversight: the layout algorithm descends from the root, so it never cared what order the slots

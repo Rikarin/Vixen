@@ -409,6 +409,15 @@ public partial class UiElement {
         LayoutNode = layoutNode;
     }
 
+    /// <summary>Points this element at the slot its style moved to.</summary>
+    /// <remarks>
+    ///     ⚠ Only <c>UiDocument.CompactStyles</c> may call this, and only while it is applying a
+    ///     mapping to the whole tree. Moving one element's slot on its own would leave it wearing
+    ///     whatever style belongs to a different element, which is why this is not a settable
+    ///     property.
+    /// </remarks>
+    internal void Restyle(StyleNodeId styleNode) => StyleNode = styleNode;
+
     /// <summary>Takes this element and everything under it out of its document.</summary>
     public void Remove() => Document.Remove(this);
 
