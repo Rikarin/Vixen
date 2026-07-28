@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Testing;
 using Vixen.Vfx;
 using Xunit;
 
@@ -289,19 +290,18 @@ public sealed class VfxSystemTests {
         using var system = new VfxSystem(Fountain(1024));
 
         // Warmed until the buffer is at its working population, so what is measured is a frame of a
-        // running effect rather than one of a starting one.
-        Run(system, 2f);
-
-        var before = GC.GetAllocatedBytesForCurrentThread();
-
-        Run(system, 5f);
-
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        // running effect rather than one of a starting one: two seconds of warm-up at a sixtieth
+        // each, then five seconds measured.
+        var allocated = Measured.Bytes(Frame, warmUp: 120, passes: 300);
 
         Assert.True(
             allocated == 0,
             $"Three hundred frames of a running effect allocated {allocated} bytes. Particle storage is native and the "
             + "graph is read-only, so the only right answer is none."
         );
+
+        return;
+
+        void Frame() => system.Step(1f / 60f);
     }
 }
