@@ -534,3 +534,20 @@ dotnet_diagnostic.CA1711.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Navigation/Agents/NavPathQueue.cs]
 dotnet_diagnostic.CA1711.severity = none
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Vfx/VfxAttribute.cs
+#
+# CA1711 (identifiers should not have incorrect suffix). The rule reserves the
+# `Attribute` suffix for types deriving from System.Attribute. This one is a
+# particle *attribute* — position, velocity, colour — which is the word every
+# system of this kind uses for the idea and the word docs/plan/06 uses for it:
+# "SoA NativeArray per attribute, with attributes allocated only if the graph
+# uses them". Unity's VFX Graph and Stride's particle runtime both call them
+# attributes too, so it is also the term anybody reading this code arrives with.
+# Renaming it would rename the concept the whole storage design is built around,
+# and there is no System.Attribute anywhere near it to be confused with.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Vfx/VfxAttribute.cs]
+dotnet_diagnostic.CA1711.severity = none
