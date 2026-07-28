@@ -140,4 +140,40 @@ public sealed class PhaserEffect : IAudioEffect {
         Array.Clear(feedbackState);
         phase = 0.0;
     }
+
+    /// <inheritdoc />
+    public bool TrySetProperty(string name, float value) {
+        switch (name) {
+            case "MinFrequency":
+                MinFrequency = value;
+                return true;
+
+            case "MaxFrequency":
+                MaxFrequency = value;
+                return true;
+
+            case "RateHz":
+                RateHz = value;
+                return true;
+
+            case "Feedback":
+                Feedback = value;
+                return true;
+
+            case "StereoSpread":
+                StereoSpread = value;
+                return true;
+
+            case "Wet":
+                Wet = value;
+                return true;
+
+            case "Dry":
+                Dry = value;
+                return true;
+
+            default:
+                return false;
+        }
+    }
 }

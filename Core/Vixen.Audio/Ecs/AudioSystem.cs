@@ -61,9 +61,16 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
 
     /// <summary>How many entities carried <see cref="AudioListenerComponent" /> in the last pass.</summary>
     /// <remarks>
-    ///     More than one is a mistake in the scene: there is one set of speakers, the first listener
-    ///     found is the one used, and which one that is depends on chunk order — so it will sound
-    ///     right until an unrelated change reorders the archetypes.
+    ///     <para>
+    ///         Up to <see cref="AudioListenerSet.MaxListeners" /> of them are used, which is what makes
+    ///         split-screen work. Past that they are counted and ignored, and which ones survive
+    ///         depends on chunk order — so a scene with five is a scene that will sound right until an
+    ///         unrelated change reorders the archetypes.
+    ///     </para>
+    ///     <para>
+    ///         One is still the ordinary case, and a set of one behaves exactly as a single listener
+    ///         always did.
+    ///     </para>
     /// </remarks>
     public int ListenerCount { get; private set; }
 
@@ -108,6 +115,7 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
 
     void UpdateListener(World world, float deltaSeconds) {
         var found = 0;
+        var set = default(AudioListenerSet);
 
         foreach (var chunk in world.Chunks(listeners)) {
             var components = chunk.Values<AudioListenerComponent>();
@@ -115,31 +123,38 @@ public sealed class AudioSystem(AudioEngine engine) : SystemBase, IDeclaredAcces
 
             for (var i = 0; i < chunk.Count; i++) {
                 found++;
-
-                if (found > 1) {
-                    continue;
-                }
-
                 ref var component = ref components[i];
                 var matrix = transforms[i].Value;
                 var position = matrix.Translation;
 
-                engine.SetListener(new AudioListener {
-                    Position = position,
-                    Forward = matrix.Forward,
-                    Up = matrix.Up,
-                    Velocity = Track(ref component.Velocity,
-                        ref component.PreviousPosition,
-                        ref component.HasPreviousPosition,
-                        component.AutoVelocity,
-                        position,
-                        deltaSeconds),
-                    Gain = component.Gain
-                });
+                // Velocity is tracked for every listener, including the ones past the cap: it is the
+                // component's own state, and skipping it would leave a listener that came back inside
+                // the cap deriving its velocity from wherever it was when it dropped out.
+                var velocity = Track(ref component.Velocity,
+                    ref component.PreviousPosition,
+                    ref component.HasPreviousPosition,
+                    component.AutoVelocity,
+                    position,
+                    deltaSeconds);
+
+                set.TryAdd(
+                    new AudioListener {
+                        Position = position,
+                        Forward = matrix.Forward,
+                        Up = matrix.Up,
+                        Velocity = velocity,
+                        Gain = component.Gain
+                    },
+                    component.Weight
+                );
             }
         }
 
         ListenerCount = found;
+
+        if (found > 0) {
+            engine.SetListeners(set);
+        }
     }
 
     void UpdatePositioned(World world, float deltaSeconds) {

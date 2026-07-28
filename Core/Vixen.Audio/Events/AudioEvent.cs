@@ -3,6 +3,7 @@
 
 using Vixen.Audio.Effects;
 using Vixen.Audio.Mixing;
+using Vixen.Audio.Parameters;
 using Vixen.Audio.Spatial;
 using Vixen.Core.Mathematics;
 
@@ -99,6 +100,13 @@ public sealed class AudioEvent {
     /// <summary>How its plays attenuate. The position is the caller's.</summary>
     public SpatialSettings Spatial { get; }
 
+    /// <summary>The named values its plays read, or null.</summary>
+    /// <remarks>
+    ///     Ask it for an index once and set through <c>AudioEngine.SetParameter</c> with that index
+    ///     rather than by name, if the value moves every frame.
+    /// </remarks>
+    public AudioParameterSheet? Parameters { get; }
+
     /// <summary>The gain the last play landed on, before the caller's own trim.</summary>
     /// <remarks>
     ///     The event's level, the variant's correction and that play's roll of the dice, multiplied
@@ -135,6 +143,7 @@ public sealed class AudioEvent {
         Steal = description.Steal;
         IsSpatial = description.IsSpatial;
         Spatial = description.Spatial;
+        Parameters = description.Parameters;
         gain = Decibels.ToLinear(description.GainDb);
         gainVarianceDb = MathF.Abs(description.GainVarianceDb);
         pitchVarianceSemitones = MathF.Abs(description.PitchVarianceSemitones);
@@ -235,11 +244,29 @@ public sealed class AudioEvent {
         });
 
         if (handle.IsValid) {
+            // After the play rather than before it, because the sheet is attached to a use of a slot
+            // and there is no slot until the play has picked one.
+            if (Parameters is not null) {
+                engine.AttachParameters(handle, Parameters);
+            }
+
             Record(handle);
         }
 
         return handle;
     }
+
+    /// <summary>Points one of a play's parameters at a value.</summary>
+    /// <param name="handle">Which play — what <see cref="Play()" /> returned.</param>
+    /// <param name="name">What the parameter is called.</param>
+    /// <param name="value">Where it should go.</param>
+    /// <returns>Whether there was such a parameter on such a play.</returns>
+    /// <remarks>
+    ///     A convenience over <c>AudioEngine.SetParameter</c>, so a caller holding an event does not
+    ///     also have to hold the engine. It resolves the name every call.
+    /// </remarks>
+    public bool SetParameter(VoiceHandle handle, string name, float value) =>
+        engine.SetParameter(handle, name, value);
 
     /// <summary>Stops every copy of it that is still sounding.</summary>
     public void StopAll() {

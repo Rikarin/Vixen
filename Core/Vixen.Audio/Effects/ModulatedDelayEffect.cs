@@ -219,6 +219,42 @@ public sealed class ModulatedDelayEffect : IAudioEffect {
         phase = 0.0;
     }
 
+    /// <inheritdoc />
+    public bool TrySetProperty(string name, float value) {
+        switch (name) {
+            case "DelaySeconds":
+                DelaySeconds = value;
+                return true;
+
+            case "DepthSeconds":
+                DepthSeconds = value;
+                return true;
+
+            case "RateHz":
+                RateHz = value;
+                return true;
+
+            case "Feedback":
+                Feedback = value;
+                return true;
+
+            case "StereoSpread":
+                StereoSpread = value;
+                return true;
+
+            case "Wet":
+                Wet = value;
+                return true;
+
+            case "Dry":
+                Dry = value;
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
     /// <summary>Reads the line a fractional number of samples behind the write head.</summary>
     /// <remarks>
     ///     The interpolation is the effect. Rounding to whole samples turns a smooth sweep into a

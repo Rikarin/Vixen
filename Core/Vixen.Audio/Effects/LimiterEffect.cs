@@ -159,6 +159,22 @@ public sealed class LimiterEffect : IAudioEffect {
         GainReductionDb = 0f;
     }
 
+    /// <inheritdoc />
+    public bool TrySetProperty(string name, float value) {
+        switch (name) {
+            case "CeilingDb":
+                CeilingDb = value;
+                return true;
+
+            case "ReleaseSeconds":
+                ReleaseSeconds = value;
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
     /// <summary>Adds a sample to the sliding maximum and drops what it has made irrelevant.</summary>
     /// <remarks>
     ///     The monotonic deque: anything already in it that is no larger than the arriving value can

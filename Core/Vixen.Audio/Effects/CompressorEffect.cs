@@ -155,6 +155,38 @@ public sealed class CompressorEffect : ISidechainEffect {
         GainReductionDb = 0f;
     }
 
+    /// <inheritdoc />
+    public bool TrySetProperty(string name, float value) {
+        switch (name) {
+            case "ThresholdDb":
+                ThresholdDb = value;
+                return true;
+
+            case "Ratio":
+                Ratio = value;
+                return true;
+
+            case "KneeDb":
+                KneeDb = value;
+                return true;
+
+            case "AttackSeconds":
+                AttackSeconds = value;
+                return true;
+
+            case "ReleaseSeconds":
+                ReleaseSeconds = value;
+                return true;
+
+            case "MakeupDb":
+                MakeupDb = value;
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
     /// <summary>The one-pole coefficient for a time constant, at this sample rate.</summary>
     /// <remarks>
     ///     <c>exp(-1 / (t · fs))</c> — the standard form, which makes the time the point at which the

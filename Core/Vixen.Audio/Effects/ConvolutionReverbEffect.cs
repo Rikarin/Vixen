@@ -228,6 +228,22 @@ public sealed class ConvolutionReverbEffect : IAudioEffect {
         drained = 0;
     }
 
+    /// <inheritdoc />
+    public bool TrySetProperty(string name, float value) {
+        switch (name) {
+            case "Wet":
+                Wet = value;
+                return true;
+
+            case "Dry":
+                Dry = value;
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
     /// <summary>Convolves one partition's worth of input, and readies the next block of output.</summary>
     /// <remarks>
     ///     <para>

@@ -142,6 +142,9 @@ public sealed record AudioEventAsset {
     /// <summary>What gives way when <see cref="MaxInstances" /> is reached.</summary>
     public EventStealMode Steal { get; init; } = EventStealMode.Oldest;
 
+    /// <summary>The named values its plays read, and what moving them does.</summary>
+    public AudioParameterAsset[] Parameters { get; init; } = [];
+
     /// <summary>How its plays sit in the world, or null for a sound in the room.</summary>
     /// <remarks>
     ///     Its presence is the switch, as <c>AudioSpatial</c>'s is in the ECS: an event either is a

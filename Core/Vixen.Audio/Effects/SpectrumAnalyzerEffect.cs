@@ -167,6 +167,18 @@ public sealed class SpectrumAnalyzerEffect : IAudioEffect {
         Interlocked.Increment(ref sequence);
     }
 
+    /// <inheritdoc />
+    public bool TrySetProperty(string name, float value) {
+        switch (name) {
+            case "Smoothing":
+                Smoothing = value;
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
     void Analyse() {
         for (var i = 0; i < accumulator.Length; i++) {
             real[i] = accumulator[i] * window[i];

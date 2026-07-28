@@ -253,6 +253,14 @@ public struct AudioListenerComponent {
     /// <summary>A gain over every positioned voice.</summary>
     public float Gain;
 
+    /// <summary>How much of the mix these ears get, against the other listeners'.</summary>
+    /// <remarks>
+    ///     Only read when there is more than one listener, and equal weights are the split-screen
+    ///     case. An unequal one is for ears that should be present without dominating — a spectator,
+    ///     a security camera, a drone.
+    /// </remarks>
+    public float Weight;
+
     /// <summary>Whether the system works velocity out from how far the entity moved.</summary>
     public bool AutoVelocity;
 
@@ -266,5 +274,5 @@ public struct AudioListenerComponent {
     public bool HasPreviousPosition;
 
     /// <summary>Full gain, velocity worked out from movement.</summary>
-    public static AudioListenerComponent Default => new() { Gain = 1f, AutoVelocity = true };
+    public static AudioListenerComponent Default => new() { Gain = 1f, Weight = 1f, AutoVelocity = true };
 }

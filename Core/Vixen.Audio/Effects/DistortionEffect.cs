@@ -96,6 +96,26 @@ public sealed class DistortionEffect : IAudioEffect {
     /// <inheritdoc />
     public void Reset() { }
 
+    /// <inheritdoc />
+    public bool TrySetProperty(string name, float value) {
+        switch (name) {
+            case "DriveDb":
+                DriveDb = value;
+                return true;
+
+            case "OutputDb":
+                OutputDb = value;
+                return true;
+
+            case "Mix":
+                Mix = value;
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
     /// <summary>Bends one sample.</summary>
     /// <param name="value">The sample, already driven.</param>
     /// <param name="curve">Which curve.</param>

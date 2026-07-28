@@ -106,4 +106,24 @@ public sealed class BitCrusherEffect : IAudioEffect {
         Array.Clear(held);
         countdown = 0f;
     }
+
+    /// <inheritdoc />
+    public bool TrySetProperty(string name, float value) {
+        switch (name) {
+            case "Bits":
+                Bits = value;
+                return true;
+
+            case "Downsample":
+                Downsample = value;
+                return true;
+
+            case "Mix":
+                Mix = value;
+                return true;
+
+            default:
+                return false;
+        }
+    }
 }

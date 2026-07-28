@@ -17,6 +17,14 @@ public readonly record struct AudioStatistics {
     /// <summary>How many there are in total.</summary>
     public int VoiceCapacity { get; init; }
 
+    /// <summary>How many of the active voices are advancing without being heard.</summary>
+    /// <remarks>
+    ///     Always zero unless <c>AudioEngineOptions.AudibleVoices</c> asked for virtualisation. When it
+    ///     did, this against <see cref="ActiveVoices" /> is the number that says whether the audible
+    ///     budget is the thing shaping the mix.
+    /// </remarks>
+    public int VirtualVoices { get; init; }
+
     /// <summary>The loudest sample the master bus produced. Above one is clipping.</summary>
     public float MasterPeak { get; init; }
 

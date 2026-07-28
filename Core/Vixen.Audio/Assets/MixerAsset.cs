@@ -208,6 +208,42 @@ public sealed record CompressorEffectAsset : IAudioEffectAsset {
     };
 }
 
+/// <summary>A noise gate, as a file declares it.</summary>
+[DataContract("GateEffect")]
+public sealed record GateEffectAsset : IAudioEffectAsset {
+    /// <summary>The level below which it starts closing.</summary>
+    public float ThresholdDb { get; init; } = -45f;
+
+    /// <summary>How far below that it must fall before it is fully shut.</summary>
+    public float KneeDb { get; init; } = 6f;
+
+    /// <summary>How far down a closed gate goes.</summary>
+    public float RangeDb { get; init; } = -60f;
+
+    /// <summary>How quickly it opens.</summary>
+    public float AttackSeconds { get; init; } = 0.002f;
+
+    /// <summary>How long it stays open after the signal has fallen back.</summary>
+    public float HoldSeconds { get; init; } = 0.15f;
+
+    /// <summary>How slowly it closes once the hold has run out.</summary>
+    public float ReleaseSeconds { get; init; } = 0.2f;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <inheritdoc />
+    public IAudioEffect Create() => new GateEffect {
+        ThresholdDb = ThresholdDb,
+        KneeDb = KneeDb,
+        RangeDb = RangeDb,
+        AttackSeconds = AttackSeconds,
+        HoldSeconds = HoldSeconds,
+        ReleaseSeconds = ReleaseSeconds,
+        Enabled = Enabled
+    };
+}
+
 /// <summary>A limiter, as a file declares it.</summary>
 [DataContract("LimiterEffect")]
 public sealed record LimiterEffectAsset : IAudioEffectAsset {
@@ -540,4 +576,12 @@ public sealed record MixerAsset {
 
     /// <summary>Which snapshot the mixer starts in, by name. Empty means whatever the buses say.</summary>
     public string DefaultSnapshot { get; init; } = string.Empty;
+
+    /// <summary>Engine-wide parameters and what moving them does to the mix.</summary>
+    /// <remarks>
+    ///     Beside the snapshots rather than instead of them: a snapshot is a named mix arrived at over
+    ///     a duration, and a parameter is a dial held at a position. "The underwater mix" is the first;
+    ///     "this much rain" is the second.
+    /// </remarks>
+    public AudioBusParameterAsset[] Parameters { get; init; } = [];
 }

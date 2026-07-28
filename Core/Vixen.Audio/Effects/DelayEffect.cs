@@ -149,4 +149,32 @@ public sealed class DelayEffect : IAudioEffect {
         Array.Clear(damping);
         cursor = 0;
     }
+
+    /// <inheritdoc />
+    public bool TrySetProperty(string name, float value) {
+        switch (name) {
+            case "DelaySeconds":
+                DelaySeconds = value;
+                return true;
+
+            case "Feedback":
+                Feedback = value;
+                return true;
+
+            case "Wet":
+                Wet = value;
+                return true;
+
+            case "Dry":
+                Dry = value;
+                return true;
+
+            case "DampingHz":
+                DampingHz = value;
+                return true;
+
+            default:
+                return false;
+        }
+    }
 }

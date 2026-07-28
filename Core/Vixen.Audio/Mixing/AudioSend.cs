@@ -37,4 +37,8 @@ public sealed class AudioSend {
 
     /// <summary>How much of the signal to send, as a linear gain. Zero costs one branch a block.</summary>
     public float Level { get; set; } = 1f;
+
+    /// <summary>What parameter automation last worked out for this send, as a linear multiplier.</summary>
+    /// <remarks>Kept apart from <see cref="Level" /> for the reason <c>AudioBus.ParameterGain</c> gives.</remarks>
+    public float ParameterLevel { get; set; } = 1f;
 }

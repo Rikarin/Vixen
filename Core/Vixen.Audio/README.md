@@ -55,7 +55,7 @@ that owns its mixer pays.
 | `AudioSend` | a copy of a bus's signal into another, so one reverb serves a whole level |
 | `Voice` | one sound: a source, a rate conversion, a set of speaker gains |
 | `Spatializer` | distance, cone, doppler and panning, as arithmetic |
-| `IAudioEffect` | thirteen of them — see below |
+| `IAudioEffect` | fourteen of them — see below |
 | `Dsp/Fft` | radix-2 transform, for the convolution reverb and the analyser |
 | `ISidechainEffect` | an effect that listens to one bus while processing another — how ducking is built |
 | `IAudioSampleProvider` | a clip, a stream, a live push source, or anything a caller can produce samples from |
@@ -69,6 +69,10 @@ that owns its mixer pays.
 | `AudioEvent` | a sound as a designer describes it: variants, variation, instance limits |
 | `VariantSelector` | which take plays next, and why it is not the one that just played |
 | `AudioEventAsset` | the same, as a file — the unit gameplay should actually be playing |
+| `AudioParameterSheet` | named values a *sound* reads, with curves onto its gain, pitch and filters |
+| `MixerParameters` | named values the *mix* reads, with curves onto buses, sends and effect knobs |
+| `AudioCurve` | how a parameter's 0..1 maps onto decibels, semitones or hertz |
+| `AudioListenerSet` | up to four pairs of ears, for split-screen |
 
 ## Inserts, sends, and the order it all runs in
 
@@ -118,6 +122,7 @@ reading it, or a compressor keying off it, would have ignored the fader entirely
 | `ModulatedDelayEffect` | chorus, flanger and vibrato, which are one effect |
 | `PhaserEffect` | swept all-pass stages — notches that are *not* a harmonic comb |
 | `CompressorEffect` | feed-forward, soft knee, sidechain input |
+| `GateEffect` | the same pointing downwards, with a hold — what an open microphone needs |
 | `LimiterEffect` | look-ahead brickwall, on the master by default |
 | `DistortionEffect` | four waveshaping curves |
 | `BitCrusherEffect` | quantise and decimate, both sweepable |
@@ -141,6 +146,14 @@ other. That is the difference between a jet and a swirl.
 sustained tones and smears transients, and there is no grain length that avoids both. A phase
 vocoder sounds better and needs an FFT pair per hop, a window of latency, and transient handling; the
 transform is now here, so it is a real option and it is owed.
+
+**The gate is the compressor with its gain computer mirrored**, plus a hold — and the hold is the
+part that matters. Speech dips below any useful threshold between syllables, so a gate without one
+slams shut in the gaps, which is the chattering that makes gated dialogue sound worse than ungated.
+It closes to `RangeDb` rather than to silence for the same reason: a gate that shuts completely is
+obvious, because the room tone it was hiding stops dead the moment somebody speaks. `IsOpen` reads
+the detector rather than the gain, so it doubles as a voice-activity flag — what a name plate lights
+up from, and what a client uses to decide whether to send a packet at all.
 
 **The distortion aliases.** Bending a waveform makes harmonics, and harmonics above Nyquist fold back
 as inharmonic tones. Oversampling by four is the fix; for a radio voice or an explosion nobody
@@ -310,6 +323,116 @@ the sound. That split is what lets a designer change a rolloff without opening a
 than replace. Without them an event's two decibels of level variation would last exactly one frame
 and every copy would snap to the same level — audible long before it is found.
 
+## Parameters
+
+```csharp
+footsteps.Play(feet);                                  // an event, as before
+
+var voice = engine.Play(microphone, settings);         // a player talking
+engine.AttachParameters(voice, submersion);
+engine.SetParameter(voice, "depth", 1f);               // and that player alone is underwater
+```
+
+A parameter is a named float, a range, and some curves saying what moving it does. Gameplay writes
+the number; what the number *means* is an asset edit. That indirection is the same one events are
+for, one level down.
+
+**Two kinds, and they drive disjoint things.** `AudioParameterSheet` is attached to a *sound* and
+drives that sound's gain, pitch and filters. `MixerParameters` is engine-wide and drives bus gains,
+send levels and named knobs on inserts. They are separate types rather than one with a scope flag,
+because there is no overlap at all in what each can reach — and because the per-sound one is the
+only one that can say "this player is underwater and that one is not".
+
+**Which is the thing a bus per environment could not do.** The old answer to voice chat was one bus
+per environment and each player routed to whichever matched. That is right for two environments and
+absurd for twenty, and it cannot express "half submerged". A per-voice low-pass driven by a parameter
+can, and `Voice` now carries one — a second biquad, separate from the distance filter, because
+distance is nobody's decision and this is a designer's.
+
+**Curves output the target's own unit** — decibels for a gain, semitones for a pitch, hertz for a
+cutoff — which is what makes a straight line the right default. A linear ramp in decibels sounds
+linear; a linear ramp in amplitude does not.
+
+**Gains and pitches add where two parameters meet; cutoffs take the extreme.** Decibels and semitones
+are already logarithmic, so adding them multiplies what they describe. Hertz are not: a sound both
+underwater and behind a door is muffled by whichever is muffling it more, and there is no sense in
+which two cutoffs combine.
+
+**`SeekSeconds` is what stops it clicking.** A parameter driven by a gameplay boolean crosses its
+whole range in one frame, and a filter cutoff crossing two octaves in one frame is a click. What
+gameplay sets is a target; the value moves towards it at a rate.
+
+**Everything is evaluated on the game thread**, once a frame in `Update`, and what reaches the audio
+thread is four floats a voice was already reading. No curve, no name lookup and no allocation goes
+anywhere near a device callback.
+
+**A driven effect knob is set outright**, unlike a bus gain or a send, which are multipliers on top
+of what the mix already has. The unit is the effect's own — hertz, a ratio, seconds — and there is no
+rule for combining two of them that is right for all three, so two parameters driving one knob is not
+a thing to do: the last one declared wins.
+
+**Effect knobs are reached by a switch each effect writes**, not by reflection — ADR-002 forbids that
+in runtime code and it does not survive trimming. The match is case-sensitive, deliberately: matching
+loosely means lowering the name on every call, which is a string allocation per driven property per
+frame. The cost of exactness is a typo, and a typo is reported when the automation resolves rather
+than being silently ignored for the life of the project.
+
+**A snapshot is still the right answer for a named state.** `MixerSnapshots.TransitionTo("Underwater",
+0.4s)` is a destination arrived at; a parameter is a dial held at a position. "The underwater mix" is
+the first and "this much rain" is the second, and neither replaces the other.
+
+## Virtual voices
+
+```csharp
+new AudioEngineOptions { VoiceCapacity = 256, AudibleVoices = 32 }
+```
+
+Two numbers instead of one: how many sounds may be *playing*, and how many of those may be
+*rendering*. Every frame the engine ranks by priority and then audibility, and the ones that do not
+make the cut keep advancing through their sources while producing nothing.
+
+**Which is a different answer from stealing, and a better one where it applies.** A stolen sound is
+gone — its handle stops naming anything. A virtual one comes back at the right place, so the
+three-minute looping ambience a player walked away from is where it should be when they walk back
+rather than restarting or never returning. A sound only actually dies once all 256 slots are busy.
+
+**It works by clearing the target gains**, exactly as a stopping voice does, so a demoted voice fades
+out over one block and a promoted one fades in over one — no click at either end and no special case
+in the mixing loop. Once it is fully silent the loop stops accumulating and only the source read
+remains, which is the whole cost of being virtual.
+
+**Paused voices are left out of the ranking.** They render nothing already, so counting them against
+the budget would silence something audible on behalf of something that is not.
+
+Off by default: `AudibleVoices` at zero means every voice is real and there is no ranking pass at all.
+
+## Several pairs of ears
+
+`AudioListenerSet` holds up to four listeners with weights, which is split-screen — four players at
+four places, and one stereo output that has to represent all of them. There is no correct answer to
+that, so what matters is picking a wrong one nobody notices.
+
+**The direction blends and the level does not.** Speaker gains are summed across listeners in
+proportion to how well each hears the sound, then scaled so the total is the loudest listener's
+alone.
+
+**Summing outright was rejected**: two players standing together beside a generator would hear it
+twice as loud as one player standing there, and every sound in the level would get louder as the
+party gathered.
+
+**And so was nearest-wins.** It has the level right and the pan flips the instant a sound crosses the
+midpoint between two players, which is audible. The blend is continuous across that line. What it
+does not fix is that near the midpoint the pan is dominated by which listener is nearer, so a sound
+crossing it can appear to move the wrong way — that is inherent to representing two places with two
+speakers, and continuity is worth more than it costs.
+
+Distance, doppler and the absorption cutoff come from the best listener rather than being blended:
+they are properties of one path from the sound to one pair of ears, and the average of two doppler
+shifts is a pitch neither listener would hear.
+
+A set of one behaves exactly as the single listener always did, and that is the path almost every
+game takes.
+
 ## The master
 
 Ends in a `LimiterEffect` by default, and then a clamp. The limiter is the level control: a
@@ -413,28 +536,12 @@ multiply on the few hundred frames that are actually playing.
 
 ## Still to come
 
-**Event parameters.** An event is a fixed description; the next thing wanted is a continuous value
-that drives it — "as `wetness` goes 0 to 1, this filter sweeps 20 kHz to 800 Hz and this send goes to
-0.6" — authored as a curve rather than written in C#. That is the mechanism a per-player underwater
-voice should eventually be expressed through, instead of one bus per environment. Snapshots are the
-global, named, discrete version of the same idea and are already here; the per-instance continuous
-one is not. Once it exists, distance, direction, elevation and speed come nearly free as built-in
-parameters, because `Spatializer` already computes all four.
-
-**Virtualisation.** A voice displaced by the pool is stopped. The better behaviour, and what
-middleware does, is to keep its playhead advancing while it renders nothing, so it comes back at the
-right position when it is audible again. Walk away from a three-minute looping ambience and back, and
-stealing either restarts it or loses it. A virtual voice is one whose render advances the read cursor
-and writes silence, so this is cheap — it is a missing behaviour rather than a missing algorithm.
-
-**A noise gate.** `CompressorEffect` clamps its ratio at one, so there is no expander below the
-threshold. For open-mic voice chat that is not a nicety: it is what stops thirty seconds of keyboard
-clatter and room tone from every idle player. The same gain computer, with an upward-bending segment
-below the threshold and a hold time.
+**Built-in parameters.** Distance, direction, elevation and speed as parameters a curve can be drawn
+against, without gameplay setting them. `Spatializer` already computes all four; what is missing is
+the plumbing that feeds them into a sheet each frame, which is why they are the obvious next thing
+rather than a project.
 
 **A loudness meter.** EBU R128 / LUFS, which is what console certification measures against.
-
-**Multiple listeners.** There is one. Split-screen wants up to about four, weighted or nearest.
 
 **Per-voice sends.** Sends are per bus, so every source on a bus shares one send amount. For a room's
 reverb that is right; for a reverb amount that tracks how far into the room each emitter is, it is

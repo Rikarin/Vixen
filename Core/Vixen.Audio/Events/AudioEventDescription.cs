@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Audio.Parameters;
 using Vixen.Audio.Spatial;
 
 namespace Vixen.Audio.Events;
@@ -136,6 +137,15 @@ public sealed record AudioEventDescription {
 
     /// <summary>What gives way when <see cref="MaxInstances" /> is reached.</summary>
     public EventStealMode Steal { get; init; } = EventStealMode.Oldest;
+
+    /// <summary>The named values its plays read, or null for a sound nothing drives.</summary>
+    /// <remarks>
+    ///     Shared by every play: one sheet describes the sound and each play gets its own set of
+    ///     values, so ten players talking through one "underwater" description is one sheet and ten
+    ///     sets of floats. <c>AudioEvent.Play</c> attaches it, and the handle it returns is what a
+    ///     caller sets the values through.
+    /// </remarks>
+    public AudioParameterSheet? Parameters { get; init; }
 
     /// <summary>Whether it is a thing in the world rather than a sound in the room.</summary>
     public bool IsSpatial { get; init; }

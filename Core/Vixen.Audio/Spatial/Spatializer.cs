@@ -107,6 +107,105 @@ public static class Spatializer {
         return new SpatialResult(distance, attenuation, cone, doppler, cutoff);
     }
 
+    /// <summary>Places a sound for several listeners at once.</summary>
+    /// <param name="listeners">Everywhere the game is listening from.</param>
+    /// <param name="source">Where the sound is, and how it behaves there.</param>
+    /// <param name="outputChannels">How many speakers to spread it across.</param>
+    /// <param name="gains">Where the speaker gains go. At least <paramref name="outputChannels" /> long.</param>
+    /// <param name="scratch">Working room for one listener's answer. The same length.</param>
+    /// <returns>What the listener who hears it best hears.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The direction blends and the level does not.</b> Speaker gains are summed across
+    ///         listeners in proportion to how well each hears the sound, and the sum is then scaled so
+    ///         its total is the loudest listener's alone.
+    ///     </para>
+    ///     <para>
+    ///         <b>Summing outright was rejected</b>: two players standing together beside a generator
+    ///         would hear it twice as loud as one player standing there, and every sound in the level
+    ///         would get louder as the party gathered.
+    ///     </para>
+    ///     <para>
+    ///         <b>And so was taking the nearest listener outright.</b> It has the level right, but the
+    ///         pan flips the instant the sound crosses the midpoint between two players — which is
+    ///         audible, and worse than being slightly wrong on either side of it. Blending the
+    ///         direction and normalising the level is right at both ends and unobjectionable between.
+    ///     </para>
+    ///     <para>
+    ///         <b>What it does not fix.</b> Close to the midpoint between two distant listeners the
+    ///         blend is dominated by which of them is nearer, so a sound crossing that line can appear
+    ///         to move the wrong way — it becomes more of the near listener's sound, and they hear it
+    ///         off to their side. That is inherent to representing two places with two speakers rather
+    ///         than a flaw in the blend, and it is continuous, which the alternative was not.
+    ///     </para>
+    ///     <para>
+    ///         Distance, doppler and the absorption cutoff come from the best listener rather than
+    ///         being blended: they are properties of one path from the sound to one pair of ears, and
+    ///         the average of two doppler shifts is a pitch neither listener would hear.
+    ///     </para>
+    /// </remarks>
+    public static SpatialResult Evaluate(
+        in AudioListenerSet listeners,
+        in SpatialSettings source,
+        int outputChannels,
+        Span<float> gains,
+        Span<float> scratch
+    ) {
+        if (listeners.Count <= 1) {
+            var only = listeners.Count == 1 ? listeners.Get(0) : AudioListener.Default;
+            var single = Evaluate(only, source, outputChannels, gains);
+            var weight = listeners.Count == 1 ? listeners.WeightOf(0) : 1f;
+
+            if (weight != 1f) {
+                for (var channel = 0; channel < outputChannels; channel++) {
+                    gains[channel] *= weight;
+                }
+            }
+
+            return single;
+        }
+
+        gains[..outputChannels].Clear();
+
+        var best = default(SpatialResult);
+        var loudest = -1f;
+        var total = 0f;
+
+        for (var i = 0; i < listeners.Count; i++) {
+            var listener = listeners.Get(i);
+            var weight = listeners.WeightOf(i);
+            var result = Evaluate(listener, source, outputChannels, scratch);
+            var contribution = result.Attenuation * result.ConeGain * listener.Gain * weight;
+
+            if (contribution > loudest) {
+                loudest = contribution;
+                best = result;
+            }
+
+            if (contribution <= 0f) {
+                continue;
+            }
+
+            total += contribution;
+
+            for (var channel = 0; channel < outputChannels; channel++) {
+                gains[channel] += scratch[channel] * weight;
+            }
+        }
+
+        if (total > 0f && loudest > 0f) {
+            // The blended direction at the best listener's level. Without this the gains are a sum
+            // and a sound equidistant from four players is four times too loud.
+            var normalise = loudest / total;
+
+            for (var channel = 0; channel < outputChannels; channel++) {
+                gains[channel] *= normalise;
+            }
+        }
+
+        return best;
+    }
+
     /// <summary>Where distance has put the low-pass, in hertz, or zero for none.</summary>
     /// <remarks>
     ///     <para>

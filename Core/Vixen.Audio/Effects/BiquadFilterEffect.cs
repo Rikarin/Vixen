@@ -251,6 +251,26 @@ public sealed class BiquadFilterEffect : IAudioEffect {
     /// <inheritdoc />
     public void Reset() => Array.Clear(state);
 
+    /// <inheritdoc />
+    public bool TrySetProperty(string name, float value) {
+        switch (name) {
+            case "Frequency":
+                Frequency = value;
+                return true;
+
+            case "Q":
+                Q = value;
+                return true;
+
+            case "GainDb":
+                GainDb = value;
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
     void Redesign() {
         var kind = Kind;
         var frequency = Frequency;

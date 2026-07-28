@@ -10,6 +10,7 @@ using Vixen.Audio.Diagnostics;
 using Vixen.Audio.Effects;
 using Vixen.Audio.Events;
 using Vixen.Audio.Mixing;
+using Vixen.Audio.Parameters;
 using Vixen.Audio.Sources;
 using Vixen.Audio.Spatial;
 using Vixen.Audio.Streaming;
@@ -37,6 +38,28 @@ public readonly record struct AudioEngineOptions() {
 
     /// <summary>Whether the device starts pulling as soon as the engine is built.</summary>
     public bool AutoStart { get; init; } = true;
+
+    /// <summary>How many voices may actually be heard at once. Zero means all of them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What turns <see cref="VoiceCapacity" /> into a virtual voice count.</b> Set it below
+    ///         the capacity and the pool becomes two numbers: how many sounds may be <em>playing</em>,
+    ///         and how many of those may be <em>rendering</em>. Every frame the engine ranks by
+    ///         priority and then audibility, and the ones that do not make the cut keep advancing
+    ///         through their sources while producing nothing.
+    ///     </para>
+    ///     <para>
+    ///         That is a different answer from stealing to the same question, and a better one where
+    ///         it applies: a stolen sound is gone, and a virtual one comes back at the right place. A
+    ///         capacity of 256 with 32 audible means a scene can have 256 things making noise and pay
+    ///         for 32 of them — and a sound only ever actually dies when 256 are already going.
+    ///     </para>
+    ///     <para>
+    ///         Zero by default, which is every voice real and no ranking pass at all, because the
+    ///         behaviour only earns its keep once the capacity is large.
+    ///     </para>
+    /// </remarks>
+    public int AudibleVoices { get; init; }
 
     /// <summary>Whether a <see cref="LimiterEffect" /> is put on the master bus.</summary>
     /// <remarks>
@@ -91,12 +114,17 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     readonly Voice[] voices;
     readonly FadeState[] fades;
     readonly float[] silence;
+    readonly VoiceParameters voiceParameters;
+    readonly int[] ranking;
+    readonly int[] rankPriorities;
+    readonly float[] rankAudibility;
+    readonly int audibleVoices;
     readonly Stopwatch clock = Stopwatch.StartNew();
     TimeSpan lastUpdate;
 
-    Published<AudioListener> publishedListener;
-    AudioListener listener = AudioListener.Default;
-    AudioListener rendered = AudioListener.Default;
+    Published<AudioListenerSet> publishedListener;
+    AudioListenerSet listeners = AudioListenerSet.Default;
+    AudioListenerSet rendered = AudioListenerSet.Default;
 
     long renderedFrames;
     long droppedRequests;
@@ -123,9 +151,19 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         voices = Mixer.Voices;
         fades = new FadeState[voices.Length];
         silence = new float[device.BufferFrames * device.Format.Channels];
+        voiceParameters = new VoiceParameters(voices.Length);
+        ranking = new int[voices.Length];
+        rankPriorities = new int[voices.Length];
+        rankAudibility = new float[voices.Length];
+
+        // Zero and anything at or above the capacity both mean "every voice is real", which is the
+        // case where the ranking pass is skipped entirely rather than run and found to change nothing.
+        audibleVoices = options.AudibleVoices > 0 && options.AudibleVoices < voices.Length
+            ? options.AudibleVoices
+            : 0;
 
         Streams = new AudioStreamPump();
-        publishedListener.Write(listener);
+        publishedListener.Write(listeners);
 
         // Prepare before Start, so the first block the device asks for finds sized buffers. The
         // device calls Prepare too; doing it here as well means a caller can build an effect chain
@@ -227,9 +265,32 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="asset" /> is null.</exception>
     public IReadOnlyList<string> LoadMixer(MixerAsset asset) {
+        ArgumentNullException.ThrowIfNull(asset);
         var result = MixerBuilder.Build(Mixer, asset);
         Snapshots = result.Snapshots;
-        return result.Problems;
+
+        if (asset.Parameters.Length == 0) {
+            return result.Problems;
+        }
+
+        // After the buses, sends and effects exist, because that is what the automation names. The
+        // problems are concatenated rather than reported separately: from a caller's point of view
+        // one asset failed to resolve in several places.
+        var definitions = new AudioBusParameterDefinition[asset.Parameters.Length];
+
+        for (var i = 0; i < definitions.Length; i++) {
+            definitions[i] = asset.Parameters[i].ToDefinition();
+        }
+
+        LoadParameters(definitions, out var parameterProblems);
+
+        if (parameterProblems.Count == 0) {
+            return result.Problems;
+        }
+
+        var problems = new List<string>(result.Problems);
+        problems.AddRange(parameterProblems);
+        return problems;
     }
 
     /// <summary>Resolves an event asset against this engine, ready to be played.</summary>
@@ -256,8 +317,14 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     /// <summary>What the device is rendering.</summary>
     public AudioFormat Format => Device.Format;
 
-    /// <summary>Where the ears are, as last set.</summary>
-    public AudioListener Listener => listener;
+    /// <summary>Where the ears are, as last set. The first of them, if there are several.</summary>
+    public AudioListener Listener => listeners.Count > 0 ? listeners.Get(0) : AudioListener.Default;
+
+    /// <summary>Everywhere the game is listening from.</summary>
+    public AudioListenerSet Listeners => listeners;
+
+    /// <summary>How many pairs of ears there are. One, unless somebody asked for split-screen.</summary>
+    public int ListenerCount => listeners.Count;
 
     /// <summary>What the subsystem was doing as of the last <see cref="Update()" />.</summary>
     public AudioStatistics Statistics { get; private set; }
@@ -265,9 +332,25 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     /// <summary>Moves the listener.</summary>
     /// <param name="value">Where the ears are now.</param>
     /// <remarks>Call it from one thread. The mixer picks it up on the next block.</remarks>
-    public void SetListener(in AudioListener value) {
-        listener = value;
-        publishedListener.Write(value);
+    public void SetListener(in AudioListener value) => SetListeners(AudioListenerSet.Single(value));
+
+    /// <summary>Moves every listener at once.</summary>
+    /// <param name="value">Where all the ears are now.</param>
+    /// <remarks>
+    ///     <para>
+    ///         Split-screen, and nothing else. One set of speakers cannot represent four places
+    ///         honestly, so <c>Spatializer</c> blends the direction across the listeners and takes the
+    ///         level from whichever hears the sound best — see the note there for why summing and
+    ///         nearest-wins were both rejected.
+    ///     </para>
+    ///     <para>
+    ///         An empty set is not silence: it is the default listener at the origin, because a scene
+    ///         that forgot its listener should be audible and wrong rather than silent and mysterious.
+    ///     </para>
+    /// </remarks>
+    public void SetListeners(in AudioListenerSet value) {
+        listeners = value.Count > 0 ? value : AudioListenerSet.Default;
+        publishedListener.Write(listeners);
     }
 
     /// <summary>Adds a bus.</summary>
@@ -427,6 +510,109 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     public VoiceState StateOf(VoiceHandle handle) =>
         TryResolve(handle, out var voice) ? (VoiceState)Volatile.Read(ref voice.State) : VoiceState.Free;
 
+    /// <summary>The engine-wide parameters, if any have been loaded.</summary>
+    /// <remarks>
+    ///     The continuous half of the authoring layer, beside <see cref="Snapshots" />' discrete one:
+    ///     a snapshot is a named mix arrived at over a duration, and a parameter is a dial held at a
+    ///     position. Stepped by <see cref="Update(float)" />.
+    /// </remarks>
+    public MixerParameters? Parameters { get; private set; }
+
+    /// <summary>Resolves engine-wide parameters against this engine's mixer.</summary>
+    /// <param name="definitions">The parameters and what they drive.</param>
+    /// <param name="problems">Everything that did not resolve. Empty is the good case.</param>
+    /// <returns>The parameters, also left on <see cref="Parameters" />.</returns>
+    /// <remarks>
+    ///     Called after <see cref="LoadMixer" />, because the buses, sends and effects the automation
+    ///     names have to exist before they can be found. <see cref="LoadMixer" /> does it itself for
+    ///     the parameters an asset declares.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="definitions" /> is null.</exception>
+    public MixerParameters LoadParameters(
+        IReadOnlyList<AudioBusParameterDefinition> definitions,
+        out IReadOnlyList<string> problems
+    ) {
+        Parameters = new(Mixer, definitions, out problems);
+        return Parameters;
+    }
+
+    /// <summary>Gives a sound a set of parameters, at their defaults.</summary>
+    /// <param name="handle">Which sound. A stale handle does nothing.</param>
+    /// <param name="sheet">What parameters it has, and what moving them does.</param>
+    /// <returns>Whether the handle named a live sound.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Per sound, which is what makes a parameter different from a snapshot.</b> A snapshot
+    ///         is a named state of the whole mix and moves every voice on a bus together; this moves
+    ///         one. "This player is underwater and that one is not" cannot be said any other way, and
+    ///         it is the shape a voice-chat session actually has.
+    ///     </para>
+    ///     <para>
+    ///         Attaching allocates nothing — the values live in a table sized for the whole pool — so
+    ///         it is safe on the play of every footstep.
+    ///     </para>
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="sheet" /> is null.</exception>
+    public bool AttachParameters(VoiceHandle handle, AudioParameterSheet sheet) {
+        ArgumentNullException.ThrowIfNull(sheet);
+
+        if (!TryResolve(handle, out _)) {
+            return false;
+        }
+
+        voiceParameters.Attach(handle.Index, handle.Generation, sheet);
+        return true;
+    }
+
+    /// <summary>The parameters a sound is running, if any.</summary>
+    /// <param name="handle">Which sound.</param>
+    /// <returns>Its sheet, or null.</returns>
+    public AudioParameterSheet? ParametersOf(VoiceHandle handle) =>
+        handle.IsValid && (uint)handle.Index < (uint)voices.Length
+            ? voiceParameters.SheetOf(handle.Index, handle.Generation)
+            : null;
+
+    /// <summary>Points one of a sound's parameters at a value.</summary>
+    /// <param name="handle">Which sound.</param>
+    /// <param name="parameter">Which parameter, by its index in the sheet.</param>
+    /// <param name="value">Where it should go. Clamped to the parameter's range.</param>
+    /// <returns>Whether there was such a parameter on such a sound.</returns>
+    /// <remarks>
+    ///     <b>A target and not a position.</b> The value moves at the rate the parameter's
+    ///     <c>SeekSeconds</c> asked for, stepped by <see cref="Update(float)" />. A parameter driven
+    ///     by a gameplay boolean would otherwise cross its whole range in one frame, and a filter
+    ///     cutoff crossing two octaves in one frame is a click.
+    /// </remarks>
+    public bool SetParameter(VoiceHandle handle, int parameter, float value) =>
+        TryResolve(handle, out _) && voiceParameters.SetTarget(handle.Index, handle.Generation, parameter, value);
+
+    /// <summary>Points one of a sound's parameters at a value, by name.</summary>
+    /// <param name="handle">Which sound.</param>
+    /// <param name="name">What the parameter is called.</param>
+    /// <param name="value">Where it should go.</param>
+    /// <returns>Whether there was such a parameter on such a sound.</returns>
+    /// <remarks>
+    ///     Resolves the name every call. Code setting a parameter every frame should ask the sheet for
+    ///     the index once and use the overload that takes it.
+    /// </remarks>
+    public bool SetParameter(VoiceHandle handle, string name, float value) {
+        var sheet = ParametersOf(handle);
+        var index = sheet?.IndexOf(name) ?? -1;
+        return index >= 0 && SetParameter(handle, index, value);
+    }
+
+    /// <summary>Where one of a sound's parameters currently is.</summary>
+    /// <param name="handle">Which sound.</param>
+    /// <param name="parameter">Which parameter.</param>
+    /// <returns>Its value, which is not always the one it was last pointed at.</returns>
+    public float ParameterOf(VoiceHandle handle, int parameter) =>
+        handle.IsValid && (uint)handle.Index < (uint)voices.Length
+            ? voiceParameters.ValueOf(handle.Index, handle.Generation, parameter)
+            : 0f;
+
+    /// <summary>How many voices may be heard at once, or zero if every voice is real.</summary>
+    public int AudibleVoices => audibleVoices;
+
     /// <summary>How many voices can sound at once.</summary>
     /// <remarks>Fixed at construction from <see cref="AudioEngineOptions.VoiceCapacity" />; the pool never grows.</remarks>
     public int VoiceCapacity => voices.Length;
@@ -506,6 +692,16 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
     /// <remarks>Once a frame, on the game thread. See the note on the class about what happens if it is not.</remarks>
     public void Update(float deltaSeconds) {
         StepFades(deltaSeconds);
+
+        // Before the collection sweep below, so a voice that ended this frame is stepped one last
+        // time and then dropped, rather than being dropped and then stepped against a slot somebody
+        // else has already taken.
+        voiceParameters.Step(voices, deltaSeconds);
+        Parameters?.Step(deltaSeconds);
+
+        // After the parameters, because a gain curve changes how audible a voice is and the ranking
+        // should be against this frame's answer rather than last frame's.
+        var virtualVoices = Rank();
         var streamUnderruns = 0L;
 
         foreach (var voice in voices) {
@@ -531,6 +727,7 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         Statistics = new AudioStatistics {
             ActiveVoices = Mixer.ActiveVoices,
             VoiceCapacity = Mixer.VoiceCapacity,
+            VirtualVoices = virtualVoices,
             MasterPeak = Master.PeakLevel,
             RenderedFrames = Interlocked.Read(ref renderedFrames),
             LastRenderTime = elapsed,
@@ -795,7 +992,81 @@ public sealed class AudioEngine : IAudioRenderSource, IDisposable {
         voice.Priority = settings.Priority;
         voice.IsSpatial = settings.IsSpatial;
         voice.PublishSpatial(settings.Spatial);
+
+        // A stolen slot does not go through Voice.Reset — the audio thread picks the new source up
+        // where it would have retired the old one — so the automation the previous sound was running
+        // would otherwise still be on it. A footstep that took an underwater voice's slot would be
+        // underwater, at whatever gain that voice's curves had last worked out.
+        //
+        // The sheet itself is safe: it is keyed by generation, so the next Update drops it. These
+        // four are what the audio thread reads directly, and it reads them before that Update.
+        voice.ParameterGain = 1f;
+        voice.ParameterPitch = 1f;
+        voice.ParameterLowPassHz = 0f;
+        voice.ParameterHighPassHz = 0f;
     }
+
+    /// <summary>Decides which of the playing voices are heard this frame, if not all of them are.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Priority first and audibility second — the same two keys, in the same order, as a steal
+    ///         uses, because it is the same judgement about which sound matters least. What differs is
+    ///         the consequence: a steal ends a sound, and this only stops rendering one.
+    ///     </para>
+    ///     <para>
+    ///         <b>An insertion sort, which is the right one here and usually is not.</b> The ranking
+    ///         barely changes between frames — a sound does not become inaudible in sixteen
+    ///         milliseconds — so the array arrives nearly sorted, which is the case insertion sort is
+    ///         linear on and every other sort is not.
+    ///     </para>
+    ///     <para>
+    ///         Paused voices are left out: they render nothing already, so counting them against the
+    ///         budget would silence something audible on behalf of something that is not.
+    ///     </para>
+    /// </remarks>
+    int Rank() {
+        if (audibleVoices == 0) {
+            return 0;
+        }
+
+        var count = 0;
+
+        for (var i = 0; i < voices.Length; i++) {
+            var voice = voices[i];
+
+            if ((VoiceState)Volatile.Read(ref voice.State) is not VoiceState.Playing) {
+                voice.Virtual = false;
+                continue;
+            }
+
+            ranking[count++] = i;
+            rankPriorities[i] = voice.Priority;
+            rankAudibility[i] = voice.Audibility;
+        }
+
+        for (var i = 1; i < count; i++) {
+            var key = ranking[i];
+            var j = i - 1;
+
+            while (j >= 0 && Precedes(key, ranking[j])) {
+                ranking[j + 1] = ranking[j];
+                j--;
+            }
+
+            ranking[j + 1] = key;
+        }
+
+        for (var i = 0; i < count; i++) {
+            voices[ranking[i]].Virtual = i >= audibleVoices;
+        }
+
+        return Math.Max(count - audibleVoices, 0);
+    }
+
+    bool Precedes(int a, int b) =>
+        rankPriorities[a] != rankPriorities[b]
+            ? rankPriorities[a] > rankPriorities[b]
+            : rankAudibility[a] > rankAudibility[b];
 
     /// <summary>Finds the voice most worth displacing, and asks it to stop.</summary>
     /// <param name="priority">What the incoming sound is worth.</param>

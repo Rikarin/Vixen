@@ -3,6 +3,7 @@
 
 using Vixen.Audio.Events;
 using Vixen.Audio.Mixing;
+using Vixen.Audio.Parameters;
 
 namespace Vixen.Audio.Assets;
 
@@ -73,9 +74,24 @@ public static class AudioEventBuilder {
             Priority = asset.Priority,
             MaxInstances = asset.MaxInstances,
             Steal = asset.Steal,
+            Parameters = BuildParameters(asset.Parameters),
             IsSpatial = asset.Spatial is not null,
             Spatial = asset.Spatial?.ToSettings() ?? new()
         });
+    }
+
+    static AudioParameterSheet? BuildParameters(AudioParameterAsset[] assets) {
+        if (assets.Length == 0) {
+            return null;
+        }
+
+        var definitions = new AudioParameterDefinition[assets.Length];
+
+        for (var i = 0; i < assets.Length; i++) {
+            definitions[i] = assets[i].ToDefinition();
+        }
+
+        return new(definitions);
     }
 
     static int ResolveBus(AudioMixer mixer, string bus, string name, List<string> problems) {

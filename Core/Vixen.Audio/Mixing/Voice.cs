@@ -34,6 +34,7 @@ sealed class Voice {
     readonly float[] currentGains = new float[AudioFormat.MaxChannels];
     readonly float[] targetGains = new float[AudioFormat.MaxChannels];
     readonly float[] sample = new float[AudioFormat.MaxChannels];
+    readonly float[] listenerGains = new float[AudioFormat.MaxChannels];
 
     float[] previous = new float[AudioFormat.MaxChannels];
     float[] next = new float[AudioFormat.MaxChannels];
@@ -57,6 +58,18 @@ sealed class Voice {
     float absorptionZ1;
     float absorptionZ2;
     float absorptionHz;
+
+    // The authored filter, which is a different thing from air absorption and so is a different
+    // filter. Absorption is worked out from distance and is nobody's decision; this one is a
+    // parameter curve saying "underwater" or "through a wall", and the two compose.
+    readonly float[] lowZ1 = new float[AudioFormat.MaxChannels];
+    readonly float[] lowZ2 = new float[AudioFormat.MaxChannels];
+    readonly float[] highZ1 = new float[AudioFormat.MaxChannels];
+    readonly float[] highZ2 = new float[AudioFormat.MaxChannels];
+    BiquadCoefficients low = BiquadCoefficients.Identity;
+    BiquadCoefficients high = BiquadCoefficients.Identity;
+    float lowHz;
+    float highHz;
 
     /// <summary>Which use of this slot the handle must name to reach it.</summary>
     public int Generation;
@@ -96,6 +109,50 @@ sealed class Voice {
 
     /// <summary>How hard it is to take this voice's slot. Higher survives.</summary>
     public int Priority;
+
+    /// <summary>Whether it should keep playing without being heard.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The difference between losing a sound and not rendering it.</b> A stolen voice is
+    ///         gone; a virtual one still advances through its source, so the looping ambience a player
+    ///         walked away from is at the right place in its loop when they walk back rather than
+    ///         restarting or never returning.
+    ///     </para>
+    ///     <para>
+    ///         Set from the game thread by the engine's ranking pass and read here. It works by
+    ///         clearing the target gains, exactly as <see cref="VoiceState.Stopping" /> does, so the
+    ///         voice fades out over one block and fades back in over one when it returns — no click at
+    ///         either end, and no special case in the mixing loop. Once it is fully silent the loop
+    ///         stops accumulating and only the source read remains, which is the whole cost of being
+    ///         virtual.
+    ///     </para>
+    /// </remarks>
+    public bool Virtual;
+
+    /// <summary>What this voice's parameter automation last worked out, as a linear gain.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Separate from <see cref="Gain" /> and multiplied with it, rather than folded into it,
+    ///         so that the two things writing a voice's level never overwrite each other:
+    ///         <c>SetGain</c> and the fades own the first, and <c>AudioEngine.Update</c> owns this. A
+    ///         single field would mean a fade cancelling an automation curve or the other way round,
+    ///         depending on which ran last.
+    ///     </para>
+    ///     <para>
+    ///         A plain float, written by the game thread and read by the audio thread, like every
+    ///         other scalar here — the worst case is a change landing one block late.
+    ///     </para>
+    /// </remarks>
+    public float ParameterGain = 1f;
+
+    /// <summary>What this voice's parameter automation last worked out, as a pitch ratio.</summary>
+    public float ParameterPitch = 1f;
+
+    /// <summary>An authored low-pass cutoff in hertz, or zero for none.</summary>
+    public float ParameterLowPassHz;
+
+    /// <summary>An authored high-pass cutoff in hertz, or zero for none.</summary>
+    public float ParameterHighPassHz;
 
     /// <summary>What the spatialiser last worked out, for the audio debug overlay.</summary>
     public SpatialResult LastSpatial = new(0f, 1f, 1f, 1f);
@@ -152,8 +209,8 @@ sealed class Voice {
     ///     worst case is scoring against last block's distance, which is exactly as good.
     /// </remarks>
     public float Audibility => IsSpatial
-        ? Gain * LastSpatial.Attenuation * LastSpatial.ConeGain
-        : Gain;
+        ? Gain * ParameterGain * LastSpatial.Attenuation * LastSpatial.ConeGain
+        : Gain * ParameterGain;
 
     /// <summary>Takes on a source a steal lined up, if there is one.</summary>
     /// <param name="paused">Whether the new sound should start held.</param>
@@ -216,6 +273,7 @@ sealed class Voice {
         absorptionZ1 = 0f;
         absorptionZ2 = 0f;
         absorptionHz = 0f;
+        ClearFilters();
         Array.Clear(currentGains);
         Array.Clear(previous);
         Array.Clear(next);
@@ -234,9 +292,9 @@ sealed class Voice {
     /// <summary>Adds this voice's contribution to a bus buffer.</summary>
     /// <param name="destination">The bus's interleaved accumulator.</param>
     /// <param name="frameCount">How many frames.</param>
-    /// <param name="listener">Where the ears are, for a spatialised voice.</param>
+    /// <param name="listeners">Where the ears are, for a spatialised voice.</param>
     /// <returns>Whether the voice is still alive. False means it has run out and should be collected.</returns>
-    public bool Render(Span<float> destination, int frameCount, in AudioListener listener) {
+    public bool Render(Span<float> destination, int frameCount, in AudioListenerSet listeners) {
         var state = (VoiceState)Volatile.Read(ref State);
 
         if (state is VoiceState.Paused) {
@@ -247,8 +305,14 @@ sealed class Voice {
             return !ended;
         }
 
-        var ratio = ComputeTargetGains(listener, state);
+        var ratio = ComputeTargetGains(listeners, state);
         var channels = outputChannels;
+        var filtering = RetuneFilters();
+
+        // Nothing this voice produces can reach the bus, so everything that produces it is skipped —
+        // the interpolation, the filters and the accumulate. What is not skipped is the source read
+        // below, which is the playhead advancing and is the entire point of a virtual voice.
+        var silent = IsSilent(channels);
 
         // The gains move across the block rather than jumping at its edge. A step in gain is a step
         // in the waveform, and a step in the waveform is a click — which is what a source moving
@@ -260,12 +324,25 @@ sealed class Voice {
                 break;
             }
 
+            if (silent) {
+                Step(ratio);
+                continue;
+            }
+
             var t = frame * inverse;
             var position = (float)fraction;
 
             for (var channel = 0; channel < sourceChannels; channel++) {
                 sample[channel] = previous[channel]
                     + ((next[channel] - previous[channel]) * position);
+            }
+
+            // Before the downmix and before the panning, on the source's own channels. After the
+            // pan a stereo output would run two independent filters over one signal, and the two
+            // would disagree the moment either was retuned; before the downmix a stereo source keeps
+            // its two filters over its two genuinely different channels, which is what it wants.
+            if (filtering) {
+                Filter();
             }
 
             var offset = frame * channels;
@@ -279,10 +356,10 @@ sealed class Voice {
 
                 summed /= sourceChannels;
 
-                // Air absorption, and the one place a voice filters anything. It sits here rather
-                // than on the mono sum's way out because it is a property of the path from the source
-                // to the ears, so it belongs before the sound is spread across the speakers — filter
-                // after panning and the two channels get two independent filters chasing one distance.
+                // Air absorption, which is the distance filter rather than the authored one above.
+                // It sits on the mono sum rather than after the panning because it is a property of
+                // the path from the source to the ears — filter after panning and the two channels
+                // get two independent filters chasing one distance.
                 if (absorptionHz > 0f) {
                     var filtered = (absorption.B0 * summed) + absorptionZ1;
                     absorptionZ1 = (absorption.B1 * summed) - (absorption.A1 * filtered) + absorptionZ2;
@@ -299,16 +376,7 @@ sealed class Voice {
                 }
             }
 
-            fraction += ratio;
-
-            while (fraction >= 1.0) {
-                fraction -= 1.0;
-
-                if (!Advance()) {
-                    ended = true;
-                    break;
-                }
-            }
+            Step(ratio);
         }
 
         Array.Copy(targetGains, currentGains, channels);
@@ -333,8 +401,14 @@ sealed class Voice {
         Pitch = 1f;
         Pan = 0f;
         Bus = 0;
+        ParameterGain = 1f;
+        ParameterPitch = 1f;
+        ParameterLowPassHz = 0f;
+        ParameterHighPassHz = 0f;
+        ClearFilters();
         IsSpatial = false;
         OwnsSource = false;
+        Virtual = false;
         spatial = new SpatialSettings();
         published.Write(spatial);
         LastSpatial = new SpatialResult(0f, 1f, 1f, 1f);
@@ -342,24 +416,128 @@ sealed class Voice {
         Array.Clear(targetGains);
     }
 
+    /// <summary>Moves the read position on by one output frame's worth of source.</summary>
+    void Step(double ratio) {
+        fraction += ratio;
+
+        while (fraction >= 1.0) {
+            fraction -= 1.0;
+
+            if (!Advance()) {
+                ended = true;
+                return;
+            }
+        }
+    }
+
+    bool IsSilent(int channels) {
+        for (var channel = 0; channel < channels; channel++) {
+            if (currentGains[channel] != 0f || targetGains[channel] != 0f) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     float Ramp(int channel, float t) =>
         currentGains[channel] + ((targetGains[channel] - currentGains[channel]) * t);
 
-    double ComputeTargetGains(in AudioListener listener, VoiceState state) {
+    /// <summary>Redesigns the authored filters if their cutoffs have moved enough to matter.</summary>
+    /// <returns>Whether either of them is doing anything.</returns>
+    /// <remarks>
+    ///     The same two per cent rule as <see cref="SetAbsorption" />, and for the same reason: a
+    ///     parameter seeking across its range moves a cutoff by a hair every block, and redesigning a
+    ///     biquad sixty times a second for a change nobody can hear is transcendentals nobody asked
+    ///     for. The filter state survives a retune — it is the signal that was passing through, and
+    ///     clearing it is a click.
+    /// </remarks>
+    bool RetuneFilters() {
+        // Above Nyquist a low-pass is not filtering anything, and designing one there produces
+        // coefficients that ring. Treating it as "off" is both cheaper and what the author meant by
+        // sweeping the cutoff up out of the way.
+        var wantedLow = ParameterLowPassHz;
+        var wantedHigh = ParameterHighPassHz;
+        var ceiling = outputRate * 0.5f;
+
+        if (wantedLow >= ceiling) {
+            wantedLow = 0f;
+        }
+
+        if (wantedHigh >= ceiling) {
+            wantedHigh = 0f;
+        }
+
+        if (wantedLow <= 0f) {
+            lowHz = 0f;
+        } else if (lowHz <= 0f || MathF.Abs(wantedLow - lowHz) >= lowHz * 0.02f) {
+            lowHz = wantedLow;
+            low = BiquadCoefficients.Design(BiquadFilterKind.LowPass, outputRate, wantedLow);
+        }
+
+        if (wantedHigh <= 0f) {
+            highHz = 0f;
+        } else if (highHz <= 0f || MathF.Abs(wantedHigh - highHz) >= highHz * 0.02f) {
+            highHz = wantedHigh;
+            high = BiquadCoefficients.Design(BiquadFilterKind.HighPass, outputRate, wantedHigh);
+        }
+
+        return lowHz > 0f || highHz > 0f;
+    }
+
+    void Filter() {
+        for (var channel = 0; channel < sourceChannels; channel++) {
+            var value = sample[channel];
+
+            if (lowHz > 0f) {
+                var filtered = (low.B0 * value) + lowZ1[channel];
+                lowZ1[channel] = (low.B1 * value) - (low.A1 * filtered) + lowZ2[channel];
+                lowZ2[channel] = (low.B2 * value) - (low.A2 * filtered);
+                value = filtered;
+            }
+
+            if (highHz > 0f) {
+                var filtered = (high.B0 * value) + highZ1[channel];
+                highZ1[channel] = (high.B1 * value) - (high.A1 * filtered) + highZ2[channel];
+                highZ2[channel] = (high.B2 * value) - (high.A2 * filtered);
+                value = filtered;
+            }
+
+            sample[channel] = value;
+        }
+    }
+
+    void ClearFilters() {
+        low = BiquadCoefficients.Identity;
+        high = BiquadCoefficients.Identity;
+        lowHz = 0f;
+        highHz = 0f;
+        Array.Clear(lowZ1);
+        Array.Clear(lowZ2);
+        Array.Clear(highZ1);
+        Array.Clear(highZ2);
+    }
+
+    double ComputeTargetGains(in AudioListenerSet listeners, VoiceState state) {
         var channels = outputChannels;
-        var ratio = ratioBase * Math.Clamp(Pitch, (float)MinRatio, (float)MaxRatio);
+
+        // The voice's own gain and pitch, times whatever its parameter automation last worked out.
+        // Two fields rather than one because two different things write them at two different times;
+        // see the note on ParameterGain.
+        var gain = Gain * ParameterGain;
+        var ratio = ratioBase * Math.Clamp(Pitch * ParameterPitch, (float)MinRatio, (float)MaxRatio);
 
         if (IsSpatial) {
             // A failed read means the game thread was mid-write; the settings from the previous
             // block are used instead, which is one block — ten milliseconds — of staleness.
             published.TryRead(ref spatial);
-            var result = Spatializer.Evaluate(listener, spatial, channels, targetGains);
+            var result = Spatializer.Evaluate(listeners, spatial, channels, targetGains, listenerGains);
             LastSpatial = result;
             ratio *= result.DopplerRatio;
             SetAbsorption(result.LowPassHz);
 
             for (var channel = 0; channel < channels; channel++) {
-                targetGains[channel] *= Gain;
+                targetGains[channel] *= gain;
             }
         } else if (downmix) {
             // A mono source spread across speakers: constant power, so crossing the centre does not
@@ -367,10 +545,10 @@ sealed class Voice {
             var pan = Math.Clamp(Pan, -1f, 1f);
             var angle = (pan + 1f) * (MathF.PI * 0.25f);
             Array.Clear(targetGains);
-            targetGains[0] = MathF.Cos(angle) * Gain;
+            targetGains[0] = MathF.Cos(angle) * gain;
 
             if (channels > 1) {
-                targetGains[1] = MathF.Sin(angle) * Gain;
+                targetGains[1] = MathF.Sin(angle) * gain;
             }
         } else {
             // A source whose channels already match the output: this is a balance, not a pan. At the
@@ -378,18 +556,18 @@ sealed class Voice {
             // 0.707 — quieter than the same file played with no pan control at all.
             var pan = Math.Clamp(Pan, -1f, 1f);
             Array.Clear(targetGains);
-            targetGains[0] = Math.Min(1f, 1f - pan) * Gain;
+            targetGains[0] = Math.Min(1f, 1f - pan) * gain;
 
             if (channels > 1) {
-                targetGains[1] = Math.Min(1f, 1f + pan) * Gain;
+                targetGains[1] = Math.Min(1f, 1f + pan) * gain;
             }
 
             for (var channel = 2; channel < channels; channel++) {
-                targetGains[channel] = Gain;
+                targetGains[channel] = gain;
             }
         }
 
-        if (state is VoiceState.Stopping) {
+        if (Virtual || state is VoiceState.Stopping) {
             Array.Clear(targetGains);
         }
 

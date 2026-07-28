@@ -77,6 +77,15 @@ public sealed class AudioBus {
     /// </remarks>
     public bool Muted { get; set; }
 
+    /// <summary>What parameter automation last worked out for this bus, as a linear gain.</summary>
+    /// <remarks>
+    ///     Multiplied with <see cref="Gain" /> rather than folded into it, for the same reason a voice
+    ///     keeps the two apart: the fader, the fades and a snapshot all own <see cref="Gain" />, and a
+    ///     parameter curve owning it too would mean whichever ran last winning. One is the mix, the
+    ///     other is what the world is doing to it.
+    /// </remarks>
+    public float ParameterGain { get; set; } = 1f;
+
     /// <summary>The effects on it, in the order they run.</summary>
     public IReadOnlyList<IAudioEffect> Effects => effects;
 
@@ -329,13 +338,13 @@ public sealed class AudioBus {
             effect.Process(span, frames, format.Channels);
         }
 
-        var gain = Muted ? 0f : Gain;
+        var gain = Muted ? 0f : Gain * ParameterGain;
 
         // Pre-fader sends are taken here, before the gain lands; post-fader ones are scaled by it.
         // Both have to happen before the buffer is faded, because after that the pre-fader signal is
         // gone.
         foreach (var send in sends) {
-            var level = send.Level * (send.PreFader ? 1f : gain);
+            var level = send.Level * send.ParameterLevel * (send.PreFader ? 1f : gain);
 
             if (level == 0f) {
                 continue;

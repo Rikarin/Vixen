@@ -47,6 +47,30 @@ public interface IAudioEffect {
     ///     the next one.
     /// </remarks>
     void Reset();
+
+    /// <summary>Sets one of the effect's knobs by name, for automation.</summary>
+    /// <param name="name">The property's own name, matched exactly — <c>Wet</c>, <c>Frequency</c>.</param>
+    /// <param name="value">What to set it to.</param>
+    /// <returns>Whether the effect has such a property.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A switch each effect writes, and not reflection.</b> Looking a property up by name
+    ///         at run time is what <c>ADR-002</c> forbids and what does not survive trimming, so every
+    ///         effect that wants to be automatable declares which of its knobs are. The default is
+    ///         "none", so an effect that says nothing is simply not automatable rather than broken.
+    ///     </para>
+    ///     <para>
+    ///         <b>Case-sensitive, deliberately.</b> Matching loosely would mean lowering the name on
+    ///         every call — a string allocation per driven property per frame, in the frame loop. The
+    ///         cost of exactness is a typo, and a typo is caught where the automation is resolved
+    ///         rather than being silently ignored for the life of the project.
+    ///     </para>
+    ///     <para>
+    ///         Called from the game thread while <see cref="Process" /> may be running, which is the
+    ///         same documented race as writing the property directly.
+    ///     </para>
+    /// </remarks>
+    bool TrySetProperty(string name, float value) => false;
 }
 
 /// <summary>An effect that listens to one signal while processing another.</summary>
