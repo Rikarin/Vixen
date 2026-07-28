@@ -2424,6 +2424,34 @@ sub-piece has its own gate.
   themed document of five thousand controls and measures a steady frame with `[MemoryDiagnoser]` on
   it. That benchmark exists because `LayoutBenchmarks` measures the flexbox engine and three of the
   four passes in the criterion are above it.
+- ✅ **`DocumentBenchmarks` run, and the exit criterion is met with margin** — *"UI frame under 2 ms
+  with 5 000 elements and zero steady-state allocation"* is **8 001 elements at 0.230 ms, allocating
+  zero bytes**, and it still holds at 32 001 elements and 1.18 ms. Apple M1 Max, .NET 10.0.9. Until
+  this run the budget was the one number in the phase that was quoted and had never been measured.
+
+  ⚠ **And the run found that the incremental cascade is not wired up.** Toggling one class on one row
+  of that document costs **9.50 ms and 8.87 MB** — 41× the steady frame and 80 % of a cold frame that
+  resizes the viewport. `UiDocument.Update` calls `StyleEngine.ResolveAll`, which cascades every live
+  node; `StyleUpdater` and `StyleInvalidator` are **referenced only by their own project's tests**.
+  4b's invalidation gate — *"toggling `.selected` on one row of a 100×100 grid restyles exactly one
+  element"*, with an oracle and four sabotages behind it — is green against an object nothing in the
+  running framework calls.
+
+  ⚠ **`StylesApplied = 1` is why nothing caught it, and the two claims really are different.** 4d's
+  *"one changed class rebuilds one element"* is about what is rebuilt *downstream* of the cascade,
+  which interning makes a pointer comparison — it is true, it is tested, and it says nothing about
+  the cost of the pass that produced the answer. Measured: ~6 840 cascades per pass over 8 001 nodes,
+  and `ResolveAll` alone accounts for 8 642 120 of the frame's 8 866 280 bytes.
+
+  ⚠ **The sharing cache cannot cover for it, and that follows from 4b's own correction.** The key
+  holds the parent *element*, so it shares between identical siblings and nowhere else: a
+  grid is one parent and 10 000 cells, an inspector is 1 000 rows of four differing children, and the
+  hit rate here is 12 %. Sharing makes a *cold* pass cheap for grid-shaped documents; it does nothing
+  for an incremental pass on any shape. Both facts were already written down separately and neither
+  entry drew the line between them.
+
+  Owed, and the largest performance item left in the phase: `UiDocument.Update` taking the dirty set
+  to `StyleUpdater` instead of a flag to `ResolveAll`.
 
   ⚠ **The font is borrowed from the operating system**, because the repository has no Latin UI face
   to commit — the fourteen it does have are the Consortium's shaping fixtures. Finding none is not a
@@ -2434,9 +2462,13 @@ sub-piece has its own gate.
   and the wasm workload — and hot reload of `.vxml`/`.vcss` against a running window is untested from
   this sample, though `Vixen.Ui.HotReload.Tests` covers the mechanism.
 
-**Exit:** `Samples/02` runs on Windows/Linux/macOS and in a browser. Yoga suite green. UI frame under
-2 ms with 5 000 elements and zero steady-state allocation. Hot reload of `.vxml`/`.vcss` preserves
-scroll/focus/selection. A `DockingHost` layout round-trips through serialisation.
+**Exit:** ✅ Yoga suite green. ✅ UI frame under 2 ms with 5 000 elements and zero steady-state
+allocation — measured at 8 001 elements, 0.230 ms, 0 B. ✅ A `DockingHost` layout round-trips through
+serialisation. 🟡 `Samples/02` runs on macOS; it builds and its assemblies are tested on
+Windows/Linux in CI, but **no CI step runs either sample**, so the `--frames N` flag both sample
+READMEs describe as CI's proof is not wired to anything. The browser run is Phase 10's. 🟡 Hot reload
+of `.vxml`/`.vcss` preserving scroll/focus/selection is covered by `Vixen.Ui.HotReload.Tests` and has
+never been driven against a running window.
 
 ---
 
