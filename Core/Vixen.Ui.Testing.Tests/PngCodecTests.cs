@@ -2,17 +2,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using CsCheck;
+using Vixen.Ui.Testing.Visual;
 using Xunit;
 
-namespace Vixen.Graphics.Golden.Tests;
+namespace Vixen.Ui.Testing.Tests;
 
 /// <summary>
-///     The codec the whole suite's evidence passes through.
+///     The codec every picture suite's evidence passes through.
 /// </summary>
 /// <remarks>
-///     Worth testing carefully out of proportion to its size: every golden image is compared through
-///     it, so a decoding bug would not fail — it would make the comparison meaningless in a way that
-///     looks exactly like a passing suite.
+///     <para>
+///         Worth testing carefully out of proportion to its size: every screenshot and every golden
+///         image is compared through it, so a decoding bug would not fail — it would make the
+///         comparison meaningless in a way that looks exactly like a passing suite.
+///     </para>
+///     <para>
+///         Written for <c>Vixen.Graphics.Golden.Tests</c>, which had the codec first, and moved here
+///         with it. The library is where a shipping type's tests belong, and the golden suite reads
+///         the same codec through its project reference — so this is one set of tests over one
+///         implementation rather than two of each.
+///     </para>
 /// </remarks>
 public sealed class PngCodecTests {
     [Fact]
