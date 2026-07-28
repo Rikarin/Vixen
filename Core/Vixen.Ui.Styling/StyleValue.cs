@@ -187,6 +187,19 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
     ///     </para>
     /// </remarks>
     public static bool CanInterpolate(StyleValue from, StyleValue to) {
+        // ⚠ **Zero belongs to every unit**, and this line is not a special case for tidiness. CSS
+        // Values 4 says a bare `0` is a valid length, so `width: 0` and `width: 0px` are the same
+        // value — and "grow from nothing" is the commonest animation there is. Without it, `from {
+        // width: 0 } to { width: 100px }` has no interpolation and swaps at the halfway mark, which
+        // looks like an animation that does not run rather than like a units rule.
+        if (Zero(from) && to.Kind is StyleValueKind.Number or StyleValueKind.Length) {
+            return true;
+        }
+
+        if (Zero(to) && from.Kind is StyleValueKind.Number or StyleValueKind.Length) {
+            return true;
+        }
+
         if (from.Kind != to.Kind) {
             return false;
         }
@@ -209,6 +222,10 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
         }
     }
 
+    /// <summary>Whether a value is a zero that any unit would accept.</summary>
+    static bool Zero(StyleValue value) =>
+        value.Number == 0f && value.Kind is StyleValueKind.Number or StyleValueKind.Length;
+
     /// <summary>Interpolates between two values.</summary>
     /// <param name="from">The value at 0.</param>
     /// <param name="to">The value at 1.</param>
@@ -225,6 +242,14 @@ public readonly struct StyleValue : IEquatable<StyleValue> {
             // Discrete: the change happens at the halfway mark, which is what CSS specifies for
             // anything with no meaningful midpoint.
             return amount < 0.5f ? from : to;
+        }
+
+        // A bare zero takes the other end's unit before the switch below reads one off it — the
+        // whole point of zero being unit-agnostic is that the *other* end decides what it means.
+        if (Zero(from) && to.Kind == StyleValueKind.Length) {
+            from = FromLength(0f, to.Unit);
+        } else if (Zero(to) && from.Kind == StyleValueKind.Length) {
+            to = FromLength(0f, from.Unit);
         }
 
         switch (from.Kind) {

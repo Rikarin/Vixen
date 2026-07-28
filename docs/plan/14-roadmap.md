@@ -1056,8 +1056,21 @@ sub-piece has its own gate.
   so a true value sitting on a rounding boundary fails on 3e-7 of float noise. Tolerances, not digit
   counts.
 
-  **Owed:** several simultaneous animations per element (`animation-name: a, b` runs the first), and
-  transform decomposition, which waits on there being a transform property.
+  ✅ **Several animations per element**, since: `animation: spin 1s infinite, pulse 2s infinite` runs
+  both. Every one of those longhands is a *list*, matched by position against `animation-name` and
+  **cycled** where it is shorter — CSS Animations 1 §4.4 — so a reader that took the first duration
+  gave the second animation the first one's timing, which is a plausible wrong answer rather than a
+  missing feature. Where two animations set the same property the later one wins (§3), and the
+  running list is matched by *position* so that changing one name leaves the other where it was.
+
+  Verified by sabotage, seven of seven landing. ⚠ **Writing the tests found a defect underneath
+  them**: `from { width: 0 }` to `to { width: 100px }` had no midpoint and swapped at the halfway
+  mark, because a bare zero is a number and `100px` is a length. CSS Values 4 says a zero is a valid
+  length, ExCSS serialises `0px` back out as `0`, and "grow from nothing" is the commonest animation
+  there is — so `StyleValue.CanInterpolate` now lets a zero take the other end's unit. Removing that
+  one rule fails six of the animation tests.
+
+  **Owed:** transform decomposition, which waits on there being a transform property.
 - ✅ **`Vixen.Ui.Styling.Utilities` is built and its gate is green.** Token config, candidate
   scanner, utility grammar, variant system, arbitrary values, `@apply`, generated stylesheet.
   78 tests.
