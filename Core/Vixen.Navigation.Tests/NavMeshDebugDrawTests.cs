@@ -86,15 +86,19 @@ public sealed class NavMeshDebugDrawTests {
 
         NavMeshDebugDraw.DrawMesh(draw, mesh, style);
 
-        // The floor bakes a voxel above zero; what matters is that the lift moved the lines up by
-        // what it was asked for rather than by nothing.
         var lowest = float.MaxValue;
 
         foreach (var line in draw.Lines) {
             lowest = MathF.Min(lowest, line.From.Y);
         }
 
-        Assert.True(lowest > 0.25f, $"The lowest line is at {lowest}, which is not lifted clear of the floor.");
+        // The lift, and nothing else. This used to allow anything above the lift because the floor
+        // itself baked a voxel above zero; now that a surface is reported where the geometry is, the
+        // lowest line over a floor at y=0 is the lift exactly, and the test can say so.
+        Assert.True(
+            MathF.Abs(lowest - 0.25f) < 0.02f,
+            $"The lowest line is at {lowest}, and the floor it is drawn over is at zero with a lift of 0.25."
+        );
     }
 
     [Fact]

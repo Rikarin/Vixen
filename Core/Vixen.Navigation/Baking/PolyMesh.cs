@@ -157,8 +157,12 @@ internal sealed class PolyMesh {
         // regions that trace the same corner can compute its height from different sets of spans, and
         // a vertex that failed to match would leave two polygons meeting along an edge that shares no
         // endpoints — a crack the adjacency pass cannot see and a path can fall through.
+        //
+        // Two voxels, expressed in the sub-voxel units heights are traced in. Widening the tolerance
+        // with the unit is the point: the corners being matched are the same corners as before, and
+        // they now differ by fractions where they used to be equal.
         foreach (var candidate in bucket) {
-            if (Math.Abs(Vertices[(candidate * 3) + 1] - y) <= 2) {
+            if (Math.Abs(Vertices[(candidate * 3) + 1] - y) <= 2 * HeightfieldSpan.DropScale) {
                 return candidate;
             }
         }

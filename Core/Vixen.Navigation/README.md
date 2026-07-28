@@ -325,12 +325,45 @@ the sampling finds no deviation, adds no vertices, and the timings are identical
 `DetailSampleDistance = 0` is worth setting for a level built out of floors rather than left as a
 default that pays for itself everywhere.
 
-**A flat floor is still reported one cell height above itself**, and that is not something this pass
-can fix. A span is the voxel the surface passes through and its walkable height is the top of that
-voxel — biased upwards deliberately, because a surface reported *below* the true floor puts an agent
-inside it. The detail pass reads those same spans, so it removes the height error that varies over
-uneven ground and leaves the constant exactly where it was. A test asserts the constant, so that it
-stays a decision rather than becoming a bug somebody fixes by accident.
+## The voxel a surface is in, and where in it
+
+A span records the voxel its surface passes through, and every decision the bake makes about that
+surface — step or wall, ledge or floor, connected or not — is integer arithmetic on that voxel index,
+tuned against a grid and tested against one. The height *reported* to an agent came from the same
+integer, so a flat floor read one whole cell height above itself.
+
+The fix is not to make the filters fractional. `HeightfieldSpan.Drop` records how far below the voxel's
+top the triangle actually was, in sixteenths, **alongside** the integer rather than instead of it. It
+is carried through rasterisation, the merge, and the compact field without being read, past every
+filter that wants a grid, and is first used by the contour tracer — the first stage that *reports* a
+height rather than comparing one. From there the heights are in sixteenths of a voxel all the way to
+`ToTile`, which is the one place they become metres.
+
+That unit change costs exactly two adjustments: the polygon vertex matcher's tolerance, which is still
+two voxels but now says so in sixteenths, and the detail pass's error tolerance. Nothing else in the
+bake looks at a height — every geometric predicate in the contour tracer and the polygoniser is in XZ.
+
+**Taking the highest of four corners gets better for it**, which was not the point but is worth having:
+four spans meeting at a corner used to be four identical integers and are now four distinct heights,
+so the corner lands on the highest surface rather than on whichever the tie-break happened to pick.
+
+| Level | Detail | Before | After |
+|---|---|---|---|
+| Flat floor | either | 0.200 m | **0.000 m** |
+| Constant ramp | either | 0.200 m | **0.075 m** |
+| 24 m hill | on | 0.152 m | **0.054 m** |
+| 24 m hill | off | 0.764 m | 0.897 m |
+
+Mean absolute height error. The flat floor is now exact, the ramp keeps only the error the cell size
+genuinely implies — a cell of a 1-in-4 slope really does span 0.075 m, and the corner takes the top of
+it — and the hill with detail is three times closer with its bias gone: it was **+0.152 m systematically
+high** and is now +0.010 m, which is no bias at all.
+
+**The last row got worse, and that is the honest reading of it.** A hill with detail sampling switched
+off is three enormous flat polygons, and their plane sits *below* the ground it spans; the old
+whole-cell upward bias was accidentally cancelling part of that. Removing the bias exposes the plane
+error at its true size. The fix for that configuration is the detail pass, which is on by default — and
+a number that was only ever right because two errors pointed in opposite directions was not right.
 
 ## A crate on the level, and where the bake is cut in half
 
@@ -430,9 +463,10 @@ where the cost of a crowd actually is.
 - **Off-mesh links between areas an authored volume creates.** A volume stamps a *cost*; it cannot
   make ground walkable that the bake found unwalkable, and it cannot connect two surfaces that do not
   touch.
-- **A sub-voxel surface height.** The detail mesh removes the height error that varies; the constant
-  one that remains is described in the section above, and removing it means storing where inside its
-  voxel a span's surface actually is.
+- **A sub-voxel *horizontal* surface.** Heights are sub-voxel now; X and Z are not, and a wall still
+  lands on a cell boundary. That is a different trade — the horizontal grid is what makes contours,
+  regions and adjacency integer problems, and the agent radius already keeps a path well clear of
+  where the wall exactly was.
 - **Off-mesh connections between two meshes.** A connection joins two places on one navmesh. Two
   agent sizes are two meshes and nothing joins them, which is right — they are different graphs — but
   it does mean a lift shared between them is authored twice.

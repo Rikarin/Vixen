@@ -232,19 +232,28 @@ internal sealed class ContourSet {
 
     /// <summary>The height of a corner shared by up to four spans: the highest of them.</summary>
     /// <remarks>
-    ///     The highest, because the contour is the top of a surface and a vertex that took the lowest
-    ///     of the four would sink the polygon's corner below the floor it belongs to. Where the four
-    ///     disagree by more than a step they are not one surface, and the region boundary is between
-    ///     them anyway.
+    ///     <para>
+    ///         The highest, because the contour is the top of a surface and a vertex that took the
+    ///         lowest of the four would sink the polygon's corner below the floor it belongs to. Where
+    ///         the four disagree by more than a step they are not one surface, and the region boundary
+    ///         is between them anyway.
+    ///     </para>
+    ///     <para>
+    ///         <b>In <see cref="HeightfieldSpan.DropScale" />ths of a voxel, not in voxels.</b> This is
+    ///         the first stage that reports a height rather than comparing one, so it is the first that
+    ///         can afford the sub-voxel part — and taking the highest of four surfaces is a comparison
+    ///         that gets <i>better</i> for having it, because four spans in the same voxel are no
+    ///         longer four identical numbers.
+    ///     </para>
     /// </remarks>
     static int CornerHeight(CompactHeightfield field, int x, int z, int index, int direction) {
-        var height = (int)field.Spans[index].Y;
+        var height = field.Spans[index].Surface;
         var next = (direction + 1) & 3;
 
         var alongDirection = field.Neighbour(index, x, z, direction);
 
         if (alongDirection >= 0) {
-            height = Math.Max(height, field.Spans[alongDirection].Y);
+            height = Math.Max(height, field.Spans[alongDirection].Surface);
 
             var diagonal = field.Neighbour(
                 alongDirection,
@@ -254,14 +263,14 @@ internal sealed class ContourSet {
             );
 
             if (diagonal >= 0) {
-                height = Math.Max(height, field.Spans[diagonal].Y);
+                height = Math.Max(height, field.Spans[diagonal].Surface);
             }
         }
 
         var alongNext = field.Neighbour(index, x, z, next);
 
         if (alongNext >= 0) {
-            height = Math.Max(height, field.Spans[alongNext].Y);
+            height = Math.Max(height, field.Spans[alongNext].Surface);
 
             var diagonal = field.Neighbour(
                 alongNext,
@@ -271,7 +280,7 @@ internal sealed class ContourSet {
             );
 
             if (diagonal >= 0) {
-                height = Math.Max(height, field.Spans[diagonal].Y);
+                height = Math.Max(height, field.Spans[diagonal].Surface);
             }
         }
 

@@ -2570,6 +2570,16 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   Three tests fail on the old code and pass on the new one, including the streaming order where the
   far end arrives last.
 
+  **A surface is reported where it is, not where its voxel is.** A flat floor used to read one whole
+  cell height above itself, because the height handed to an agent came from the same integer the step
+  and ledge filters compare. A span now also records where inside that voxel the triangle was, in
+  sixteenths, carried past every filter that wants a grid and first read by the contour tracer — the
+  first stage that reports a height rather than comparing one. Flat floors are exact, a ramp keeps only
+  the error its cell size implies, and the hill the detail pass is measured on is three times closer
+  with its systematic bias gone. One number got worse and the README says why: a hill with detail off
+  is three enormous planes sitting below the ground, and the old upward bias was accidentally
+  cancelling part of that.
+
   **Owed:** reading placements from a compiled scene, once doc 08's scene compiler exists.
 - `Samples/05-PlatformerGame` — physics, input, animation, audio, VFX end to end on all platforms where
   it is in scope.
