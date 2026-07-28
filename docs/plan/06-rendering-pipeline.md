@@ -292,6 +292,21 @@ scRGB displays.
 
 Stride's `Images/` directory is essentially the complete list, and the set is right:
 
+✅ **`Vixen.Rendering.PostFx` is where they live**, as of the effects marked below. The project exists
+because the *set* is content-shaped — added, removed and reordered per project — where the compositor
+and the render graph are the engine's spine; a game that ships no outline should not link one. Its
+`PostEffectRenderer` holds what every effect has in common and a subclass answers four questions:
+which shader, which permutations, which textures on which bindings, and its own parameters.
+
+Adding it needed one thing from `Vixen.Rendering`: `SceneRenderer`'s three phase methods are
+`protected internal`, so a composite node *outside* that assembly could not drive a child — which
+would have made "a post effect is a node over a full-screen pass" a sentence only the engine could
+write, and a game's own effect impossible. `BuildChild` and its two siblings are that seam, and
+deliberately the only thing that widens.
+
+`BloomRenderer` and the tonemap pass stay in `Vixen.Rendering.Compositor` where they were written;
+moving them is a rename across the golden fixtures that bind them, and worth doing on its own.
+
 Every entry below is a `FullScreenRenderer` or a node built out of several. ✅ **The full-screen pass
 is the edge every one of them was waiting on**: everything else in the compositor draws *objects*, and
 a post effect has none. It draws three vertices generated from `SV_VertexID`, so there is no vertex
@@ -304,23 +319,23 @@ merely waste one.
 | Effect | Pri | Implementation note |
 |---|---|---|
 | Depth prepass / Z-prepass | ✅ | `RenderStage.ShaderName` is what makes it a prepass rather than a second shading pass: one stage draws the objects with `DepthOnly.rvn` while another draws them with their materials, off one extraction and one cull. The per-material set is bound only where the resolved effect declares one, so a depth-only pipeline is not handed a layout it does not have. Every object in the prepass resolves to the same variant, so the stage's sort collapses to pure front-to-back — which is what makes early-Z reject the most |
-| **TAA** | P1 | jittered projection, motion-vector reprojection, neighbourhood clamping, variance clipping. The default AA. |
-| FXAA | P1 | cheap fallback / mobile |
+| **TAA** | ✅ | `TemporalAntialiasingRenderer` in `Vixen.Rendering.PostFx`. It owns its history and alternates two textures, because a pass cannot read the target it writes — and they are *imports* rather than graph resources, since a transient dies at the end of the frame and a history that dies every frame is a history of nothing. The jitter sequence is exposed rather than applied: what it offsets is the projection, which belongs to the view |
+| FXAA | ✅ | `FxaaRenderer`. Needs no history, no motion vectors and no depth, which is why it is the fallback wherever the others cannot go |
 | SMAA | P1 | 1×/T2× for the no-TAA case |
 | MSAA (forward only) | P1 | 2/4/8×, with a custom depth resolve (Stride has `MSAADepthResolverShader`) |
 | Upscaling hook | P2 | a `IUpscaler` interface so FSR/XeSS/DLSS can be plugged; ship FSR1 (spatial, no licence friction) in-box |
-| SSAO / GTAO | P1 | GTAO with bent normals |
+| SSAO / GTAO | ✅ (SSAO) | `AmbientOcclusionRenderer` over `Ssao.rvn`, at half resolution by default — occlusion from a hemisphere is low frequency almost everywhere, so the cost halves twice and only contact edges notice. The march steps in the *depth buffer's* texel grid rather than its own half-size target's, which is the one thing about running it at a fraction that can be silently wrong. Bent normals are a permutation the shader has and nothing yet consumes; the full GTAO horizon integral is still to come |
 | SSR (screen-space reflections) | P1 | Stride's `LocalReflections`; hierarchical depth trace |
 | Bloom + lens flare + light streak | ✅ (bloom) | `BloomRenderer`: Jimenez's 13-tap downsample and 9-tap tent upsample, one shader in three permuted modes. The pyramid is **declared**, so nine textures and nine passes vanish when nothing reads the result. Each pass steps in its *source's* texel grid — taking it from the target makes a bloom that is subtly too soft and that no screenshot answers. Lens flare and light streak still to come |
 | Depth of field | P1 | bokeh, near/far, physical aperture params |
 | Motion blur | P2 | camera + per-object from motion vectors |
 | Tonemap + colour grading | P1 | `Tonemap.rvn` exists and `FullScreenRenderer` runs it; what is not wired is the grading LUT as an asset. ACES/AgX/Reinhard/Filmic, 3D LUT, curves, white balance, split toning |
 | Auto-exposure | P1 | histogram-based luminance in compute, with adaptation curve |
-| Fog (linear/exp/height) | P1 | |
-| Vignette, chromatic aberration, film grain, dithering | P1 | cheap, expected |
-| Outline | P1 | editor selection needs it; Stride has it |
+| Fog (linear/exp/height) | ✅ | `FogRenderer`. A post-process because fog depends on distance, which the depth buffer already holds for every pixel — putting it in every material would mean every material carrying its parameters and evaluating it whether it is on or not |
+| Vignette, chromatic aberration, film grain, dithering | ✅ (three of four) | `VignetteRenderer`: one pass, three permutations, because they are one look and each is one or two taps. Grain moves with a frame index — grain that does not is a texture stuck to the screen, which is worse than none. Dithering is not in it |
+| Outline | ✅ | `OutlineRenderer`, from depth and normal discontinuities. Screen space rather than geometry: the alternative needs adjacency the importer would have to build, and scales with the scene rather than the screen |
 | Subsurface-scattering blur | P2 | |
-| Sharpen (CAS) | P1 | |
+| Sharpen (CAS) | ✅ | `SharpenRenderer`, contrast-adaptive, to put back what antialiasing and upscaling took out |
 
 Each effect is an `ImageEffect` (Stride's `ImageEffectShader` model: a Raven shader + declared inputs
 + a parameter block), so the chain is data-driven and user-extensible, and each declares a

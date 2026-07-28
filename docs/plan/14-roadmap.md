@@ -2352,8 +2352,27 @@ scroll/focus/selection. A `DockingHost` layout round-trips through serialisation
   whole by `ForwardLightingRenderFeature` — sharing it is the binding-plan work rather than a detail
   of probes.
 - Shadows: CSM, cube, spot, atlas + static caching, PCF/PCSS.
-- `Vixen.Rendering.PostFx`: the P1 effect set including TAA, FXAA, SMAA, MSAA resolve, GTAO, SSR,
-  bloom, DoF, tonemapping, colour grading, auto-exposure, CAS, outline.
+- `Vixen.Rendering.PostFx`: ✅ **the project, and seven of the effect set.** TAA (with its own
+  alternating history, since a pass cannot read the target it writes), FXAA, sharpening, ambient
+  occlusion at half resolution, fog, outline, and the lens trio of vignette, chromatic aberration and
+  grain. Each was a shader that shipped in `Raven/Library/PostFx` with nothing in the engine calling
+  it — which compiles, validates and shades nothing, the same failure the material system's BSDF
+  layers had.
+
+  Adding the project needed one change in `Vixen.Rendering`: `SceneRenderer`'s phase methods are
+  `protected internal`, so a composite node in another assembly could not drive a child. `BuildChild`
+  is that seam — without it, a game's own post effect could not be a node at all.
+
+  Publishing the reflection for those shaders also turned up a generated file that did not compile:
+  `Fog` declared a `[Permutation] HeightFalloff` and a uniform `heightFalloff`, which Raven allows and
+  C# does not, and both became one identifier. Renamed in the shader, where the distinction is worth
+  saying out loud anyway.
+
+  ⚠ Still to come: SMAA, MSAA resolve, the full GTAO horizon integral, screen-space reflections,
+  depth of field, motion blur, and colour grading as an asset — each needs a shader that does not
+  exist yet rather than a pass over one that does. `AutoExposure.rvn` is also still unwired: it is two
+  compute passes over a histogram and a buffer that survives the frame, so it wants the compute node
+  rather than the full-screen one.
 - `Vixen.Graphics.Direct3D12` — **not built** (Q4: postponed past 1.0). Stub project only. The abstraction
   validator role passes to `Vixen.Graphics.OpenGL`, which is a stricter test — see ADR-001.
 - `docs/rhi-backend-mapping.md` written and kept current, so D3D12 mappability is reviewed by inspection

@@ -73,8 +73,16 @@
                           ReferenceOutputAssembly="false" />
     </ItemGroup>
 
+    <!--
+      Named rather than globbed, and that is not tidiness: the generator emits a `…Keys` type per
+      file, so two projects globbing the same directory emit the same type twice and the second one
+      to be referenced wins with a warning. Each project takes the reflection for the shaders its own
+      nodes bind — these, and Vixen.Rendering.PostFx takes the effect set.
+    -->
     <ItemGroup>
-        <AdditionalFiles Include="..\..\Raven\Library\**\*.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\Pipeline\*.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\Bloom.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\Tonemap.reflect.json" />
     </ItemGroup>
 
     <ItemGroup>

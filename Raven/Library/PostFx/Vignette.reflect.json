@@ -1,0 +1,360 @@
+{
+  "Sets": [
+    {
+      "Set": 2,
+      "Bindings": [
+        {
+          "Binding": 0,
+          "Name": "VignettePerMaterialUniforms",
+          "Type": "UniformBuffer",
+          "Count": 1,
+          "Stages": "Vertex, Pixel",
+          "Members": [
+            {
+              "Name": "vignetteIntensity",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.4"
+            },
+            {
+              "Name": "vignetteSmoothness",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 4,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.5"
+            },
+            {
+              "Name": "aberrationStrength",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 8,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.003"
+            },
+            {
+              "Name": "grainIntensity",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 12,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.04"
+            },
+            {
+              "Name": "grainScale",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 16,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "1"
+            },
+            {
+              "Name": "frameIndex",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 20,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0"
+            },
+            {
+              "Name": "screenSize",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 24,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            }
+          ],
+          "Size": 32,
+          "IsWritable": false
+        },
+        {
+          "Binding": 1,
+          "Name": "source",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Vertex, Pixel",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 2,
+          "Name": "linearSampler",
+          "Type": "Sampler",
+          "Count": 1,
+          "Stages": "Vertex, Pixel",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        }
+      ]
+    }
+  ],
+  "VertexInputs": [],
+  "Outputs": [
+    {
+      "Location": 0,
+      "Name": "result",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Semantic": "SV_Target"
+    }
+  ],
+  "PushConstants": [],
+  "SpecConstants": [],
+  "Permutations": [
+    {
+      "Name": "UseVignette",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "true"
+    },
+    {
+      "Name": "UseChromaticAberration",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "true"
+    },
+    {
+      "Name": "UseGrain",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "true"
+    },
+    {
+      "Name": "LuminanceWeightedGrain",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "true"
+    }
+  ],
+  "ValueParameters": [],
+  "Parameters": [
+    {
+      "Name": "vignetteIntensity",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 0,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.4"
+    },
+    {
+      "Name": "vignetteSmoothness",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 4,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.5"
+    },
+    {
+      "Name": "aberrationStrength",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 8,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.003"
+    },
+    {
+      "Name": "grainIntensity",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 12,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.04"
+    },
+    {
+      "Name": "grainScale",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 16,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "1"
+    },
+    {
+      "Name": "frameIndex",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 20,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
+    },
+    {
+      "Name": "screenSize",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 24,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    }
+  ],
+  "RequiredCapabilities": [],
+  "UsedPermutationKeys": [
+    "LuminanceWeightedGrain",
+    "UseChromaticAberration",
+    "UseGrain",
+    "UseVignette"
+  ],
+  "Stages": [
+    "Vertex",
+    "Pixel"
+  ]
+}
