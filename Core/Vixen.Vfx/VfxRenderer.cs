@@ -28,7 +28,25 @@ public enum VfxRendererKind {
     ///     belongs to is a custom attribute — <see cref="VfxRenderer.RibbonSlot" /> — and where it sits
     ///     within one is its age, which is a built-in the runtime already keeps.
     /// </remarks>
-    Ribbon
+    Ribbon,
+
+    /// <summary>
+    ///     A light per particle, submitted to the lighting pass rather than drawn.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The renderer that produces no geometry at all. A shower of sparks that lights the wall
+    ///         behind it is the case, and it is the one effect authors reach for that the other three
+    ///         cannot fake: an additive quad brightens the sparks, not the wall.
+    ///     </para>
+    ///     <para>
+    ///         <b>It is expensive per particle in a way the others are not.</b> A quad costs four
+    ///         vertices; a light costs every fragment it reaches, in every pass that shades one. A
+    ///         system meant to light a scene is one with a capacity of a dozen, and the budget is the
+    ///         author's to set — the same capacity policy the rest of this module has.
+    ///     </para>
+    /// </remarks>
+    Light
 }
 
 /// <summary>Which way a billboard faces.</summary>
@@ -86,13 +104,24 @@ public enum VfxSortMode {
 ///     For <see cref="VfxRendererKind.Ribbon" />: which custom attribute holds the strip a particle
 ///     belongs to. Particles sharing a value are one ribbon, ordered by age.
 /// </param>
+/// <param name="Intensity">
+///     For <see cref="VfxRendererKind.Light" />: how bright one particle is, multiplied by the alpha
+///     of its colour. Alpha rather than a second attribute, so that a colour-over-life fade dims the
+///     light it is fading — which is what an author who wrote that fade meant.
+/// </param>
+/// <param name="Range">
+///     For <see cref="VfxRendererKind.Light" />: how far a particle of unit size reaches, in metres.
+///     Scaled by size, so a size-over-life curve shrinks the pool of light with the spark.
+/// </param>
 public readonly record struct VfxRenderer(
     VfxRendererKind Kind = VfxRendererKind.Billboard,
     VfxBillboardAlignment Alignment = VfxBillboardAlignment.Camera,
     VfxSortMode Sort = VfxSortMode.None,
     Vector3 Axis = default,
     float Stretch = 0f,
-    int RibbonSlot = 0
+    int RibbonSlot = 0,
+    float Intensity = 1f,
+    float Range = 4f
 ) {
     /// <summary>A camera-facing quad, unsorted. What an additive effect wants.</summary>
     public static VfxRenderer Billboard => new();
@@ -129,6 +158,13 @@ public readonly record struct VfxRenderer(
     ///     tangle. <see cref="Sort" /> is left alone for that reason: it says nothing here.
     /// </remarks>
     public static VfxRenderer Ribbon(int slot) => new(VfxRendererKind.Ribbon, RibbonSlot: slot);
+
+    /// <summary>A point light per particle, coloured and ranged by the particle.</summary>
+    /// <param name="intensity">How bright a particle at full alpha is.</param>
+    /// <param name="range">How far a particle of unit size reaches, in metres.</param>
+    /// <returns>The renderer.</returns>
+    public static VfxRenderer Light(float intensity = 1f, float range = 4f) =>
+        new(VfxRendererKind.Light, Intensity: intensity, Range: range);
 
     /// <summary>The attributes it needs in order to draw anything.</summary>
     /// <remarks>
