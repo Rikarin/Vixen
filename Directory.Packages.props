@@ -142,6 +142,24 @@
       and has nothing to do with Silk.NET's.
     -->
     <PackageVersion Include="Silk.NET.OpenAL.Soft.Native" Version="1.23.1" />
+
+    <!--
+      The two codecs, both pure managed and both deliberately so. A native libvorbis
+      and libopus would decode faster and would mean shipping a binary per RID plus a
+      resolver like OpenALLoader's — and the browser target has no answer at all for
+      that. Managed decoders publish under NativeAOT, run in WebAssembly, and cost a
+      fraction of a per-cent of a core for a stereo stream, which for something the
+      streaming pump does on its own thread is not a number anybody will notice.
+
+      NVorbis is MIT; Concentus is BSD-3-Clause. Both are permissive and neither adds
+      a notice obligation beyond attribution.
+
+      They live in Core/Vixen.Audio.Codecs and not in Vixen.Audio, so a game with no
+      compressed audio links neither — which is the same reason IAudioStreamDecoder
+      is an interface in the first place.
+    -->
+    <PackageVersion Include="NVorbis" Version="0.10.5" />
+    <PackageVersion Include="Concentus" Version="2.2.2" />
   </ItemGroup>
 
   <!-- ===== Source generators / analyzers ===== -->

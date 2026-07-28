@@ -60,7 +60,7 @@ that owns its mixer pays.
 | `ISidechainEffect` | an effect that listens to one bus while processing another — how ducking is built |
 | `IAudioSampleProvider` | a clip, a stream, a live push source, or anything a caller can produce samples from |
 | `LiveSampleProvider` | frames pushed in as they arrive, for voice chat |
-| `IAudioStreamDecoder` | the seam a codec plugs into — `PcmStreamDecoder` needs none |
+| `IAudioStreamDecoder` | the seam a codec plugs into — `PcmStreamDecoder` needs none, `Vixen.Audio.Codecs` has Vorbis and Opus |
 | `AudioStreamPump` | the one thread that keeps every streaming voice fed |
 | `IAudioBackend` | what a platform implements. `NullAudioBackend` is here; OpenAL and WebAudio are under `Platform/` |
 | `Ecs/AudioSystem` | makes the mixer agree with the world, once a frame |
@@ -820,6 +820,18 @@ ADR-002 forbids and which does not survive trimming. They sit together in each e
 one makes the others obviously wrong, and a test walks every declared name through both accessors so
 drift is a failure rather than a surprise.
 
+## Compressed streams
+
+`PcmStreamDecoder` is the implementation that needs no codec, and it is what a clip too big for
+memory is streamed through at the cost of disk. [Vixen.Audio.Codecs](../Vixen.Audio.Codecs/README.md)
+is the one that makes a five-minute track a megabyte instead of fifty — Ogg Vorbis through NVorbis,
+and Opus through Concentus and an Ogg demuxer of our own.
+
+**It is a separate assembly so a game with no compressed audio links neither package**, which is the
+whole reason `IAudioStreamDecoder` is an interface. Both decoders are pure managed, so they publish
+under NativeAOT and run in a browser — a native `libvorbis` would have meant a binary per RID and a
+resolver like `OpenALLoader`'s, and the web has no answer for that.
+
 ## Buffer-level testing
 
 `NullAudioBackend` is in this assembly rather than under `Platform/` because it is not a backend, it
@@ -879,10 +891,6 @@ the transform they want is in `Dsp/Fft`.
 the mirror of the rest. A real-input transform is twice as fast for the same answer, and it doubles
 the index arithmetic — which is where a transform goes quietly wrong, so it is not taken until there
 is a profile that asks for it.
-
-**Codecs.** `IAudioStreamDecoder` is the seam and `PcmStreamDecoder` is the implementation that needs
-none, so the streaming path works today at the cost of disk. Ogg or Opus is what makes a five-minute
-track cost a megabyte instead of fifty, and it belongs with the content pipeline's half of Phase 8.
 
 **ADPCM**, which [doc 08](../../docs/plan/08-asset-pipeline-and-addressables.md) lists for effects.
 

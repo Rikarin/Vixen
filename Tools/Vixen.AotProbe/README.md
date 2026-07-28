@@ -30,6 +30,10 @@ Every `Core/` assembly, plus `Vixen.Platform`, `Vixen.Platform.Native`, `Vixen.P
 `Vixen.Audio.Backend.OpenAL`. All of them publish with **zero** trim or AOT warnings, and the
 resulting binary runs.
 
+`Vixen.Audio.Codecs` is in the list for a reason worth stating: NVorbis and Concentus are third-party
+decoders, and rooting them here is what makes "both are pure managed and survive trimming" a checked
+fact rather than a claim on a NuGet page.
+
 **The three Silk.NET-based backends are in the list only because none of them calls `GetApi()`.**
 That call builds Silk.NET's default context, which finds a native library by asking where its own
 managed assembly is on disk (`Assembly.Location`) and by reading the dependency manifest

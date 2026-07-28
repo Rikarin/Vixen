@@ -118,6 +118,8 @@ Core/
 ├── Vixen.Input.Tests/
 ├── Vixen.Audio/                        # ✅ software mixer, buses, effects, 3D, streaming, ECS
 ├── Vixen.Audio.Tests/
+├── Vixen.Audio.Codecs/                 # ✅ Ogg Vorbis + Opus behind IAudioStreamDecoder, both managed
+├── Vixen.Audio.Codecs.Tests/
 ├── Vixen.Physics/                      # Jolt integration
 ├── Vixen.Physics.Tests/
 ├── Vixen.Animation/                    # ✅ skeletal, blend trees, layers, IK, state machine
