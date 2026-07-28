@@ -21,7 +21,7 @@ Read from `Assets/PurrNet/Runtime/`:
 | **Delta compression + `BitPacker`** (`DeltaModule`, `DeltaMessager`, and a `DeltaPackerAnalysis` tool) | **Take.** Bit-level packing with per-field quantization, and *tooling to analyse it*. |
 | **`NetworkLOD`** — update rate degrades with distance/importance | **Take.** Cheap, and the difference between 20 and 200 players. |
 | **`ColliderRollback`** — server-side rewind of collider history for hit validation | **Take.** Lag compensation is not optional for anything with aiming. |
-| **Awaitable RPCs** returning `Task<T>` | **Take**, as `ValueTask<T>` with correlation IDs and timeouts. |
+| **Awaitable RPCs** returning `Task<T>` | **Take**, with correlation IDs and timeouts — and as `Task<T>` after all. `ValueTask<T>` earns its keep when a result is often already available; this one never is, since it is a network round trip, so the completion source is allocated either way and the wrapper buys nothing. What it would cost is real: a `ValueTask` may be consumed once, so asking three questions and awaiting them together becomes a hazard the compiler warns about. |
 | **Reconnect identity** (`Cookies`) | **Take.** Session resumption is always wanted and always retrofitted painfully. |
 | **Bandwidth profiler + telemetry** (`Profiler`, `Telemetry`, `ProfileBandwidth`) | **Take.** Folds into [13](13-diagnostics.md) rather than being a separate tool. |
 | Coroutine RPCs (`IEnumerator`) | **Reject.** Vixen has no coroutines by decision ([04](04-ecs-and-scripting.md)); `async`/`await` on a frame-synchronous scheduler covers it with a real debugger and real exceptions. |
