@@ -338,6 +338,32 @@ for the frame; the volumes are an array beside them in the per-frame block; and
 already fills — in the twelve bytes of padding std140 leaves after the light count, so the block is the
 size it always was. Nothing extra is bound per draw.
 
+**`SceneLighting` is what puts the probes in the array that index reaches.** For a while the index was
+written and the array was empty: the shader declared four cubes, the feature named one of them per
+object, and no code anywhere bound a probe — so every object pointed into descriptors nobody had
+written. It walks the scene's `EnvironmentLight`, its `ReflectionProbeSelector` and its sun into
+`SceneConstants.Parameters`, and two properties of it are load-bearing:
+
+- **The array's length is the shader's.** `ProbeCount` is a permutation that sizes a *binding*, so the
+  count comes off `Effect.Bindings` at bind time rather than out of a host's configuration. A variant
+  compiled with `UseReflectionProbe` off has no probe binding at all and gets nothing written for one.
+- **The order is the selector's.** The index in the per-object block is a *position in that list*, so
+  sorting the probes here — by weight, by priority, by anything — would leave both halves internally
+  consistent and every object reflecting somebody else's room. `SceneLightingTests` asserts the two
+  agree through the bytes one uploaded and the handle the other produced.
+
+Every slot is filled, including the ones no probe occupies: the shader samples
+`probes[clamp(probeIndex, 0, ProbeCount - 1)]` and only *then* weighs the result against zero, so a
+slot with no descriptor is read rather than skipped. The spare slots take the environment's own cube,
+which is the right answer as well as a valid one. `EffectBinding.Count` is what carries the array
+length to the runtime, and `EffectSetWriter` fills an array element by element under `probes[2]` —
+falling back to the bare `probes` for any element that names nothing, which is exactly the case a
+frame with two probes and four slots is.
+
+Probes the array cannot hold are dropped and **counted** (`SceneLighting.Dropped`), because the failure
+is invisible from the frame: an object that selected the fifth of four carries an index the shader
+clamps, so it reflects the wrong room rather than nothing.
+
 This section used to say per-object selection needed a descriptor set per probe bound per draw, and
 that `ForwardLightingRenderFeature` owning the per-draw set was the obstacle. Both halves were wrong.
 A set per probe bound per draw is a set per object in all but name — the cost the four-set convention
@@ -685,7 +711,18 @@ finds where `environment` goes.
 
 `EffectSetWriter` is that lookup, shared by both fillers, because the rule is one rule: a caller names
 a resource and `Effect.Bindings` says where it goes. Every binding or none, for the reason a material's
-set is all-or-nothing.
+set is all-or-nothing — and every *element* of an array binding, which is the same rule one level down.
+
+`SceneConstants.Lighting` is the hook that runs the extract, and it is here rather than in a host's
+frame loop for the reason the whole section is about: the probe array's length is the shader's, and the
+bind is where the shader is known. A host that had to size the array itself would be keeping the
+`ProbeCount` permutation in two places. Set it and a frame binds its own set 0 with nothing named by
+hand; leave it null and `SceneConstants` is what it was, a collection somebody fills.
+
+What set 0 still wants from elsewhere is the shadow map and its matrix, and the light and cluster
+buffers — handles a *frame* produced, held by the passes that produced them, where the environment and
+the probes are objects a *scene* holds. That split is why `SceneLighting` writes the second group and
+not the first.
 
 `MeshRenderFeature` binds set 0 where it binds set 1 — after the first pipeline, once per run. After,
 because `BindDescriptorSet` takes no pipeline layout and infers one from what is bound, so a set before

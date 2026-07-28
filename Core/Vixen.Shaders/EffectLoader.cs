@@ -69,7 +69,12 @@ public sealed class EffectLoader(IGraphicsDevice device) {
         var bindings = ImmutableArray.CreateBuilder<EffectBinding>(data.Bindings.Length);
 
         foreach (var binding in data.Bindings) {
-            bindings.Add(new(binding.Name, binding.Set, binding.Binding, binding.Kind) { Size = binding.Size });
+            bindings.Add(
+                new(binding.Name, binding.Set, binding.Binding, binding.Kind) {
+                    Size = binding.Size,
+                    Count = binding.Count
+                }
+            );
         }
 
         var permutations = ImmutableArray.CreateBuilder<ParameterKey>(data.Permutations.Length);
