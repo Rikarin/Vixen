@@ -1369,6 +1369,20 @@ sub-piece has its own gate.
   insurance**: a sabotage reversing it fails nothing, because compaction only runs on a set that
   already fitted, and several attempts to build one that repacks worse than it packed all fitted.
 
+- ✅ **`GlyphFieldCache`, the join a renderer talks to.** Ask where a glyph is; get an atlas region
+  and the quad to draw it in. Outline, field and packing are all behind it.
+
+  ⚠ **In ems, not pixels** — the atlas is size-independent on purpose, so its metadata has to be, and
+  a placement in pixels is right for one size and wrong for the next. ⚠ **A placement outlives its
+  pixels**: eviction takes the entry, and where a glyph sits relative to the pen came from the font.
+
+  Verified by sabotage: a placement in pixels fails 1, a quad cropped to the silhouette fails 1, an
+  unpadded field fails 2, dropping the font from the key fails 1, a screen-pixel range that ignores
+  the resolution fails 1. ⚠ Two needed sharper tests first — remembering that a glyph draws nothing
+  is invisible through the atlas, which an empty glyph never reaches; and reporting a remembered
+  placement beside a region the atlas no longer holds passes every assertion about the placement
+  while sampling whatever has since been packed at the origin.
+
 - Owed: the UI render feature that draws from the atlas. Also font fallback, rich-text runs,
   variable-font axes,
   `TextEditor` model with IME and caret affinity.
