@@ -277,6 +277,50 @@ public sealed class UiTest : IDisposable {
     public Vector2 PointerAt(int pointer) =>
         positions.TryGetValue(pointer, out var position) ? position : Vector2.Zero;
 
+    /// <summary>Drags from one point to another, in steps.</summary>
+    /// <param name="fromX">Where to press, in document pixels.</param>
+    /// <param name="fromY">Ditto.</param>
+    /// <param name="toX">Where to release.</param>
+    /// <param name="toY">Ditto.</param>
+    /// <param name="steps">How many moves to break it into.</param>
+    /// <returns>What the press landed on, or <c>null</c> if nothing was there.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one action that takes coordinates rather than an element</b>, and it exists
+    ///         because some things a player drags are not elements. A slider's thumb, a range
+    ///         slider's <i>low</i> thumb, a splitter's grip and a scrollbar's block are all drawn by
+    ///         a control rather than laid out by the cascade — so
+    ///         <see cref="UiSubject.DragTo(float, float)" />, which starts at an element's centre,
+    ///         can only ever grab whichever one happens to be nearest the middle.
+    ///     </para>
+    ///     <para>
+    ///         Broken into steps for the reason <see cref="UiSubject.DragTo(float, float)" /> is: a
+    ///         press, one jump and a release is a tap somewhere else as far as the gesture recogniser
+    ///         is concerned, and a control that tracks the pointer sees one move rather than a drag.
+    ///     </para>
+    /// </remarks>
+    public UiElement? Drag(float fromX, float fromY, float toX, float toY, int steps = 8) {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(steps);
+
+        var index = Log.Begin($"drag ({fromX:0.#}, {fromY:0.#}) → ({toX:0.#}, {toY:0.#})");
+
+        MovePointer(fromX, fromY);
+        var target = PressPointer();
+        Frame();
+
+        for (var step = 1; step <= steps; step++) {
+            var t = (float)step / steps;
+            MovePointer(fromX + ((toX - fromX) * t), fromY + ((toY - fromY) * t));
+            Frame();
+        }
+
+        ReleasePointer();
+        Frame();
+
+        Log.Complete(index, target is null ? "nothing" : Describe(target), 0);
+        return target;
+    }
+
     /// <summary>Turns a wheel where the pointer is.</summary>
     /// <param name="deltaX">How far sideways.</param>
     /// <param name="deltaY">How far down.</param>
