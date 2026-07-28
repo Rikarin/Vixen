@@ -3675,9 +3675,62 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
   And the same treatment for content determinism, which doc 12 wants on the same three legs and which
   has no corpus at all.
 
-> **Client-side prediction is explicitly *not* in this phase** — see [16](16-networking.md). PurrNet does
-> not have it either. The tick loop and snapshot APIs are shaped to accept it later (+2 EM), and the
-> ECS's chunk-copy world snapshots plus input-log replay are already the rollback primitives.
+- ✅ **Client-side prediction — the mechanism.** This note previously read *"explicitly not in this
+  phase … PurrNet does not have it either"*, and both halves of that have since stopped being true:
+  the comparison was corrected in [16](16-networking.md) when PurrDiction was found, and the feature
+  was asked for. 18 tests across two slices.
+
+  **The input pipeline first, because prediction is meaningless without it.** `IPredictedInput<T>` is
+  a game-defined struct with a `static abstract` codec. `InputLog<T>` sends the last several ticks in
+  every packet — a lost input is *not* a lost update the next packet supersedes, it is a tick the
+  server simulates differently from the client that predicted it, and nothing afterwards repairs the
+  divergence. There is a test that drops three consecutive packets and loses nothing, and one that
+  sets the redundancy to two and asserts it *does* lose something, because a constant is only
+  meaningful if exceeding it does what the number says. The log is trimmed by acknowledgement rather
+  than age, since it is both what goes on the wire and what a rollback replays from.
+
+  `InputBuffer<T>` is the server's jitter buffer, and its counters are a **control signal rather than
+  diagnostics**: depth against target is what a client steers its tick lead by. A starved tick repeats
+  the last input rather than zeroing, because zeroing stops a player dead for one tick on the server
+  while their own client predicts them still moving — a dropped packet turned into a guaranteed
+  correction.
+
+  **Then rollback, and the decision that made it small.** `PredictionHistory` records predicted
+  entities through the same `IComponentReplicator` the server writes with, so a frame of history and a
+  snapshot are the same bytes and comparing them is a span comparison. That settles what "predicted
+  state" *is* — exactly what is replicated, because a field the server never sends is a field no
+  snapshot can contradict — and it gets the tolerance right for free: a difference below the wire's
+  quantization encodes identically and causes no rollback, where a float comparison would roll back on
+  nearly every snapshot and the cost would look like the feature working.
+
+  Agreement is the common case and is a byte comparison and a copy, with no simulation.
+  `ResimulatedTickCount` is the price of the feature; `MispredictionCount` is the number that says
+  whether the game's predicted step is actually deterministic, since one that reads anything outside
+  the world and the input mispredicts on *every* snapshot with no packet loss at all — and looks like
+  jitter rather than like a bug.
+
+  **Two defects in the first draft, both found by tests rather than review.** The send window was
+  computed as `newest − redundancy`, which at the start of a session reaches past the beginning of the
+  log and sends ticks that never existed — and the server counts those as *late*, which is the signal
+  the client steers by, so the client would answer by running further ahead and paying input latency
+  for it permanently. It now walks back and stops at the first tick it does not hold. The capacity
+  floor was off by one.
+
+  **And one older defect this uncovered:** `NetworkPayload.TryUnwrap` bounded the kind byte against
+  `PayloadKind.Rpc` *by name*, which was the largest kind when it was written and stopped being so
+  when broadcasts were added — so every broadcast that went through the session layer was refused as
+  malformed, while the router's own tests passed because they never went through it. The bound is now
+  a `Last` member and a test enumerates the enum, so the next kind fails there rather than in a game.
+
+  `InputBuffer.TryReceive` is fuzzed as the tenth target — the second parser a client controls, and
+  the only one that arrives every tick.
+
+  **Owed, and this is the part [16](16-networking.md)'s own argument says matters most:** nothing
+  decides *what* is predicted (`Predicted` is a tag a game puts on, not wired to ownership or
+  `NetworkRules`); the tick lead is measured but not steered; a client cannot predict a *spawn*; the
+  predicted step is a delegate rather than a re-entrant run of the scheduler's fixed-step group; and
+  no system applies `OwnerSmoothing` to a correction. The mechanism is built and tested and the
+  ergonomics are not — a game can predict today by writing the wiring itself.
 
 ---
 

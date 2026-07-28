@@ -262,6 +262,43 @@ you do not need to". A starved tick **repeats the last input rather than zeroing
 holding forward would otherwise stop dead for one tick on the server while their own client predicted
 them still moving, which turns a dropped packet into a guaranteed correction.
 
+## Prediction
+
+Three lines a tick, and all the subtlety is in what they mean:
+
+```csharp
+prediction.Step(world, tick, input);          // record the input, simulate, record the result
+// … a snapshot for tick T arrives and ReplicationClient applies it …
+prediction.Reconcile(world, confirmed: T);    // agree and carry on, or replay from the server's state
+```
+
+**Predicted state is exactly replicated state**, and that is a definition rather than a limitation. A
+field the server never sends is a field no snapshot can contradict, so there is nothing to reconcile
+it against. `PredictionHistory` records through the same `IComponentReplicator` the server writes
+with, which means a frame of history and a snapshot are the same bytes describing the same thing, and
+comparing them is a span comparison rather than a per-component equality nobody wrote.
+
+**Comparing in the encoded domain gets the tolerance right for free.** A prediction that differs from
+the server in the last bit of a float is a difference below what the wire can express — the server's
+value arrived quantized — so the two encode identically and no rollback happens. Comparing floats
+instead would roll back on very nearly every snapshot, and the cost would look like the feature
+working. The flip side: a restore comes back through the codec, so it snaps the world onto the wire's
+lattice. Bounded by one quantization step, non-accumulating, and the same lattice the server is on.
+
+**Agreement is the common case and it is the cheap one** — a byte comparison and a copy, no
+simulation. `ResimulatedTickCount` is the price of the feature and should sit near zero on a
+connection that is behaving. `MispredictionCount` is the number that says whether the simulation is
+actually deterministic: a predicted step that reads anything outside the world and the input
+mispredicts on *every* snapshot even with no packet loss at all, and it looks like jitter rather than
+like a bug.
+
+**Disagreement replays from the server's state**, not from the guess. That is what makes the
+correction converge — nudging the present toward the server's value is the tempting alternative, and
+it does not, because the error it corrects was produced by ticks it is not redoing.
+
+Hiding the correction is a separate, presentation-layer problem with its own answer: `OwnerSmoothing`
+gives the error to the camera as an offset that decays while the simulation takes it at once.
+
 ## Remote calls
 
 The handler keeps its name; the sender gets its own, reached through a generated `Rpc` accessor:
