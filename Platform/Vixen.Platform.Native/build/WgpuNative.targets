@@ -1,0 +1,67 @@
+<Project>
+
+    <!--
+      Vixen — putting the restored wgpu-native beside an application that wants WebGPU.
+
+      Spec: docs/plan/10 § Native binaries, docs/plan/05 § Vixen.Graphics.WebGPU.
+
+      Nothing ships a WebGPU implementation. No desktop operating system has one, Silk.NET.WebGPU is
+      bindings only, and there is no NuGet package carrying the binaries for the RIDs the engine
+      targets — so unlike Vulkan, where the loader and the ICD come from the platform, the library
+      has to be acquired. `nuke RestoreNativeDeps` does that from the pin in
+      build/native-dependencies.json; this file is what makes the result reachable.
+
+      Copied into runtimes/<rid>/native/, which is the layout NuGet produces and `dotnet publish`
+      preserves — and the first place NativeSearch looks. So a project that imports this needs no
+      configuration, no environment variable and no code change to find it.
+
+      IMPORTED RATHER THAN INHERITED, which is the one awkward part. An Import does not flow across
+      a ProjectReference, so a project that wants the library in *its own* output has to import this
+      itself. Vixen.Graphics.WebGPU and its test project both do. The items below are `None` with
+      CopyToOutputDirectory, which does flow, so a head that references the backend gets the library
+      without importing anything.
+
+      ABSENCE IS ORDINARY HERE, unlike MoltenVK.targets, which errors. A developer who has not run
+      the restore should still be able to build and test everything else: the WebGPU tests skip
+      themselves when the library is missing, and NativeWebGpuBinding.TryCreate reporting failure is
+      backend selection working. So there is a condition and no <Error>.
+    -->
+
+    <PropertyGroup>
+        <VixenNativeDirectory Condition="'$(VixenNativeDirectory)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..', '..', 'artifacts', 'native'))</VixenNativeDirectory>
+
+        <!--
+          The RID to take the library from. RuntimeIdentifier when the build names one — a published
+          game, or a RID-specific test run — and the SDK's own otherwise, which is the host and is
+          what an ordinary `dotnet build` or `dotnet test` wants.
+
+          Both are set by the SDK's *top* import, so unlike MoltenVK.targets this can read them at
+          evaluation time rather than inside a target. That matters: an item added in a target after
+          the SDK has gathered its copy-to-output list does not flow across a ProjectReference.
+        -->
+        <VixenWgpuRid Condition="'$(VixenWgpuRid)' == ''">$(RuntimeIdentifier)</VixenWgpuRid>
+        <VixenWgpuRid Condition="'$(VixenWgpuRid)' == ''">$(NETCoreSdkRuntimeIdentifier)</VixenWgpuRid>
+
+        <VixenWgpuFileName Condition="'$(VixenWgpuFileName)' == '' And $(VixenWgpuRid.StartsWith('win'))">wgpu_native.dll</VixenWgpuFileName>
+        <VixenWgpuFileName Condition="'$(VixenWgpuFileName)' == '' And $(VixenWgpuRid.StartsWith('osx'))">libwgpu_native.dylib</VixenWgpuFileName>
+        <VixenWgpuFileName Condition="'$(VixenWgpuFileName)' == ''">libwgpu_native.so</VixenWgpuFileName>
+
+        <VixenWgpuLibrary>$(VixenNativeDirectory)$(VixenWgpuRid)/$(VixenWgpuFileName)</VixenWgpuLibrary>
+    </PropertyGroup>
+
+    <ItemGroup Condition="Exists('$(VixenWgpuLibrary)')">
+        <None Include="$(VixenWgpuLibrary)">
+            <Link>runtimes/$(VixenWgpuRid)/native/$(VixenWgpuFileName)</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+
+            <!--
+              Not packed. A NuGet package that carried this would be redistributing wgpu-native,
+              which is a licence obligation (NOTICE records it) and a 5 MB payload per RID in a
+              package whose whole point is that the binary is acquired rather than vendored.
+            -->
+            <Pack>false</Pack>
+            <Visible>false</Visible>
+        </None>
+    </ItemGroup>
+
+</Project>

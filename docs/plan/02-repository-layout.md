@@ -208,8 +208,10 @@ Platform/
 ├── Vixen.Graphics.Direct3D12.Tests/
 ├── Vixen.Graphics.OpenGL/              # GL 4.5 core (desktop) + GLES 3.0/3.2 (mobile) + WebGL2 (browser)
 ├── Vixen.Graphics.OpenGL.Tests/
-├── Vixen.Graphics.WebGPU/
+├── Vixen.Graphics.WebGPU/              # ✅ shared backend + the native Dawn/wgpu surface
 ├── Vixen.Graphics.WebGPU.Tests/
+├── Vixen.Graphics.WebGPU.Browser/      # ✅ net10.0-browser — navigator.gpu behind the same IWebGpuBinding
+│                                       #   NOT in Vixen.slnx — needs the wasm-tools workload
 ├── Vixen.Graphics.Null/                # ✅ headless: CI graphics tests AND the shipping dedicated-server backend (17)
 ├── Vixen.Graphics.Null.Tests/
 │
