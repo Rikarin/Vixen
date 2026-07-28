@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO.Pipes;
 using Vixen.Core;
 using Vixen.Core.IO;
+using Vixen.Core.Serialization;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets;
 

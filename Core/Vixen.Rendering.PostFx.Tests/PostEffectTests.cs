@@ -317,6 +317,89 @@ public class PostEffectTests : IDisposable {
         Assert.True(largest > 0.2f, $"the jitter never left the middle of the pixel ({largest})");
     }
 
+    // --- The document -------------------------------------------------------
+
+    /// <summary>
+    ///     A document naming the effect set's node kinds builds through the factory.
+    /// </summary>
+    /// <remarks>
+    ///     The other half of the seam, from the side that supplies it. <c>CompositorBuilder</c> cannot
+    ///     switch on these types — this project is downstream of it — so a document saying
+    ///     <c>!Bloom</c> reaches <see cref="PostEffectFactory" /> instead, and comes back a node with
+    ///     the device, the module cache and the allocators the file could not carry.
+    /// </remarks>
+    [Fact]
+    public void A_document_can_name_the_effect_sets_nodes() {
+        using var system = new RenderSystem();
+
+        var builder = new CompositorBuilder(system) {
+            Device = device,
+            Modules = describer,
+            Descriptors = allocator,
+            Samplers = samplers
+        };
+
+        builder.Factories.Add(new PostEffectFactory());
+
+        var compositor = builder.Build(
+            new() {
+                Version = CompositorBuilder.SupportedVersion,
+                Game = new SequenceAsset {
+                    Name = "Frame",
+                    Children = [
+                        new BloomAsset { Name = "Bloom", Source = "SceneColour", Output = "Bloom", Levels = 3 },
+                        new TonemapAsset { Name = "Tonemap", Source = "Bloom", Output = "Display", Exposure = 2f }
+                    ]
+                }
+            }
+        );
+
+        var sequence = Assert.IsType<SceneRendererSequence>(compositor.Game);
+
+        var bloom = Assert.IsType<BloomRenderer>(sequence.Children[0]);
+        Assert.Equal(3, bloom.Levels);
+        Assert.Same(samplers, bloom.Samplers);
+
+        var tonemap = Assert.IsType<TonemapRenderer>(sequence.Children[1]);
+        Assert.Equal(2f, tonemap.Exposure);
+        Assert.Same(allocator, tonemap.Allocator);
+
+        bloom.Dispose();
+        tonemap.Dispose();
+    }
+
+    /// <summary>
+    ///     Tonemapping without a grading table binds something valid where the table goes.
+    /// </summary>
+    /// <remarks>
+    ///     The shader declares the table in its default variant, so the binding exists whether or not
+    ///     a frame has one — and a descriptor set with a hole in it is a validation error rather than
+    ///     an unused slot. The source stands in, and <c>UseLut</c> is what stops it being read.
+    /// </remarks>
+    [Fact]
+    public void Tonemapping_without_a_table_still_fills_its_binding() {
+        using var effect = new TonemapRenderer { Source = "SceneColour", Output = "Display" };
+        using var h = Build(effect);
+
+        Frame(h);
+
+        Assert.False(effect.Pass.Parameters.Get(TonemapKeys.UseLut));
+
+        var table = effect.Pass.Descriptors.Bindings.Single(b => b.Binding == TonemapKeys.LutBinding);
+        Assert.Equal("SceneColour", table.Resource);
+
+        // And with one, the permutation turns on and the binding is the table.
+        using var graded = new TonemapRenderer { Source = "SceneColour", Lut = "Grade", Output = "Display" };
+        using var second = Build(graded);
+
+        second.Compositor.Imports["Grade"] = Colour("Grade");
+
+        Frame(second);
+
+        Assert.True(graded.Pass.Parameters.Get(TonemapKeys.UseLut));
+        Assert.Equal("Grade", graded.Pass.Descriptors.Bindings.Single(b => b.Binding == TonemapKeys.LutBinding).Resource);
+    }
+
     // --- The fixture --------------------------------------------------------
 
     static PostEffectRenderer Create(string shader) =>

@@ -21,6 +21,12 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Assets\Vixen.Assets.csproj" />
+        <!--
+          The effect set, whose node kinds a compositor document names. The asset model lives beside
+          the nodes that read it, so a document naming !Bloom is a document this project has to be
+          able to bake — see CompositorContentTests.
+        -->
+        <ProjectReference Include="..\Vixen.Rendering.PostFx\Vixen.Rendering.PostFx.csproj" />
 
         <!--
           The renderer, for the one test that a compositor is content: written into a bundle, loaded

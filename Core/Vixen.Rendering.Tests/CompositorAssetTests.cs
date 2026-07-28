@@ -560,12 +560,12 @@ public class CompositorAssetTests : IDisposable {
                   name: OpaqueDraw
                   view: Camera
                   stage: Opaque
-            - !Bloom
-              name: Bloom
-              source: SceneColour
-              output: BloomResult
-              levels: 3
-              threshold: 0.4
+            - !FullScreen
+              name: Blur
+              shader: Blur
+              colourTargets: [BloomResult]
+              reads: [SceneColour]
+              constantBinding: 2
             - !FullScreen
               name: Tonemap
               shader: Tonemap
@@ -587,10 +587,9 @@ public class CompositorAssetTests : IDisposable {
 
         var sequence = Assert.IsType<SequenceAsset>(asset.Game);
 
-        var bloom = Assert.IsType<BloomAsset>(sequence.Children[1]);
-        Assert.Equal("SceneColour", bloom.Source);
-        Assert.Equal(3, bloom.Levels);
-        Assert.Equal(0.4f, bloom.Threshold);
+        var blur = Assert.IsType<FullScreenAsset>(sequence.Children[1]);
+        Assert.Equal("SceneColour", blur.Reads[0]);
+        Assert.Equal("BloomResult", blur.ColourTargets[0]);
 
         var tonemap = Assert.IsType<FullScreenAsset>(sequence.Children[2]);
         Assert.Equal("Tonemap", tonemap.Shader);
@@ -624,10 +623,9 @@ public class CompositorAssetTests : IDisposable {
         var compositor = h.Builder.Build(asset);
         var sequence = Assert.IsType<SceneRendererSequence>(compositor.Game);
 
-        var bloom = Assert.IsType<BloomRenderer>(sequence.Children[1]);
-        Assert.Equal(3, bloom.Levels);
-        Assert.Same(samplers, bloom.Samplers);
-        Assert.Same(allocator, bloom.Descriptors);
+        var blur = Assert.IsType<FullScreenRenderer>(sequence.Children[1]);
+        Assert.Same(samplers, blur.Samplers);
+        Assert.Same(allocator, blur.Descriptors.Allocator);
 
         var tonemap = Assert.IsType<FullScreenRenderer>(sequence.Children[2]);
         Assert.Equal(2u, tonemap.ConstantBinding);
@@ -638,6 +636,71 @@ public class CompositorAssetTests : IDisposable {
         Assert.Equal(SamplerDescription.LinearClamp, tonemap.Descriptors.Bindings[1].Sampled);
     }
 
+    /// <summary>
+    ///     A node kind this assembly does not define is built by whoever does.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The seam the effect set needed and every game will: <c>Vixen.Rendering.PostFx</c> is
+    ///         downstream of this assembly, so a builder that switched on its asset types would be a
+    ///         cycle — and a document naming <c>!Bloom</c> would be a document only the engine could
+    ///         extend.
+    ///     </para>
+    ///     <para>
+    ///         The factory here is a fake rather than the real one, deliberately: what is under test
+    ///         is that an <em>unknown</em> kind reaches a registered factory and comes back a node,
+    ///         which a factory this project could not have referenced proves better than one it could.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_node_kind_the_builder_does_not_know_is_built_by_a_factory() {
+        using var h = Build();
+        var asset = new GraphicsCompositorAsset { Game = new StrangeAsset { Name = "Strange" } };
+
+        // Nothing registered: the exception names the type nobody could build, rather than producing
+        // a frame quietly missing a pass.
+        var error = Assert.Throws<CompositorBindingException>(() => h.Builder.Build(asset));
+        Assert.Contains(nameof(StrangeAsset), error.Message, StringComparison.Ordinal);
+
+        h.Builder.Factories.Add(new StrangeFactory());
+
+        var built = h.Builder.Build(asset);
+        Assert.Equal("Strange", Assert.IsType<SceneRendererSequence>(built.Game).Name);
+    }
+
+    /// <summary>A factory that does not recognise a kind lets the next one answer.</summary>
+    /// <remarks>
+    ///     Returning null rather than throwing is what lets several projects each contribute node
+    ///     kinds to one document — a game's effects beside the engine's, in any order.
+    /// </remarks>
+    [Fact]
+    public void A_factory_that_does_not_recognise_a_kind_defers() {
+        using var h = Build();
+
+        h.Builder.Factories.Add(new SilentFactory());
+        h.Builder.Factories.Add(new StrangeFactory());
+
+        var built = h.Builder.Build(new() { Game = new StrangeAsset { Name = "Strange" } });
+
+        Assert.NotNull(built.Game);
+    }
+
+    /// <summary>A node kind defined outside the assembly that builds documents.</summary>
+    sealed record StrangeAsset : ISceneRendererAsset {
+        public string Name { get; init; } = string.Empty;
+
+        public bool Enabled { get; init; } = true;
+    }
+
+    sealed class StrangeFactory : ISceneRendererFactory {
+        public SceneRenderer? Create(ISceneRendererAsset declared, CompositorBuilder builder) =>
+            declared is StrangeAsset strange ? new SceneRendererSequence { Name = strange.Name } : null;
+    }
+
+    sealed class SilentFactory : ISceneRendererFactory {
+        public SceneRenderer? Create(ISceneRendererAsset declared, CompositorBuilder builder) => null;
+    }
+
     /// <summary>A document with post nodes survives the baked binary form too.</summary>
     [Fact]
     public void The_baked_form_carries_the_post_chain() {
@@ -645,7 +708,7 @@ public class CompositorAssetTests : IDisposable {
         var reread = Serializer.Read<GraphicsCompositorAsset>(Serializer.ToBytes(original));
         var sequence = Assert.IsType<SequenceAsset>(reread.Game);
 
-        Assert.Equal(3, Assert.IsType<BloomAsset>(sequence.Children[1]).Levels);
+        Assert.Equal("Blur", Assert.IsType<FullScreenAsset>(sequence.Children[1]).Name);
 
         var tonemap = Assert.IsType<FullScreenAsset>(sequence.Children[2]);
 

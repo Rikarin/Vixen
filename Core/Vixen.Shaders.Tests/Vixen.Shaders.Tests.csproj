@@ -32,6 +32,14 @@
           this project.
         -->
         <ProjectReference Include="..\Vixen.Shaders.Generators\Vixen.Shaders.Generators.csproj" />
+
+        <!--
+          A device, for the one part of the effect chain that needs one: EffectLoader turns a baked
+          record into descriptor set layouts and a pipeline layout. The Null backend records what it
+          was asked for and creates nothing, which is exactly the question here — how many distinct
+          layouts a set of effects asks for is a property of the loader, not of a driver.
+        -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
     </ItemGroup>
 
     <ItemGroup>

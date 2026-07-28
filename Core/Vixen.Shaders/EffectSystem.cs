@@ -53,6 +53,7 @@ public sealed class EffectSystem {
     readonly ConcurrentDictionary<EffectKey, Effect> resolved = new();
     readonly List<IEffectProvider> providers = [];
     readonly ConcurrentDictionary<EffectKey, byte> misses = new();
+    readonly ConcurrentDictionary<EffectKey, byte> requests = new();
 
     /// <summary>How many distinct effects are in memory.</summary>
     public int Count => resolved.Count;
@@ -62,6 +63,30 @@ public sealed class EffectSystem {
 
     /// <summary>The keys no provider could satisfy, for a shipping-build assertion.</summary>
     public IEnumerable<EffectKey> Misses => misses.Keys;
+
+    /// <summary>
+    ///     Every distinct key anything has asked for, hit or miss.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The other half of the pre-generation problem. Doc 06 asks the content build to
+    ///         enumerate "permutations reachable from the project's materials and compositors", and
+    ///         the honest answer is that no static analysis of a scene knows which shading model a
+    ///         script will switch to on level three. What does know is a playthrough: run the game
+    ///         against a compiler, write this list out as an <see cref="EffectManifest" />, and the
+    ///         build has the exact set rather than a conservative superset.
+    ///     </para>
+    ///     <para>
+    ///         Distinct from <see cref="Misses" /> because the two answer different questions. A miss
+    ///         says the bundle is wrong; a request says what the bundle should contain — and after a
+    ///         good build every request is a hit, which is exactly when the miss list stops being
+    ///         able to tell you anything.
+    ///     </para>
+    /// </remarks>
+    public IEnumerable<EffectKey> Requests => requests.Keys;
+
+    /// <summary>How many distinct keys have been asked for.</summary>
+    public int RequestCount => requests.Count;
 
     /// <summary>Adds a provider. Providers are asked in the order they were added.</summary>
     /// <remarks>
@@ -85,6 +110,11 @@ public sealed class EffectSystem {
     /// <summary>The effect for a key, asking each provider in turn if it is not already in memory.</summary>
     /// <returns>The effect, or null when nothing could supply it.</returns>
     public Effect? Resolve(EffectKey key) {
+        // Recorded before the in-memory tier, not after it. What the build has to contain is what a
+        // run asks for, and a key asked for a thousand times and cached after the first would
+        // otherwise be recorded only if the frame it first appeared on happened to be sampled.
+        requests.TryAdd(key, 0);
+
         if (resolved.TryGetValue(key, out var cached)) {
             return cached;
         }
@@ -121,6 +151,15 @@ public sealed class EffectSystem {
         resolved.Clear();
         misses.Clear();
     }
+
+    /// <summary>Forgets what has been asked for, without forgetting anything resolved.</summary>
+    /// <remarks>
+    ///     For a capture that should cover one level rather than the whole session — reset at the
+    ///     load screen, dump at the end. Separate from <see cref="Invalidate()" /> because throwing
+    ///     away compiled effects to start a new capture would make the capture itself the thing that
+    ///     caused the stalls.
+    /// </remarks>
+    public void ClearRequests() => requests.Clear();
 
     /// <summary>Forgets one effect, for a reload that knows what changed.</summary>
     public bool Invalidate(EffectKey key) => resolved.TryRemove(key, out _);
