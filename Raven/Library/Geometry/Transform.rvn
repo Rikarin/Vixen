@@ -64,11 +64,20 @@ struct Transform {
 
     /// The view-space ray through a pixel, for a perspective camera.
     ///
-    /// Unnormalised on purpose: scaled by view-space depth it gives the position directly, which is
-    /// cheaper than the full inverse-projection multiply when a pass already has linear depth.
+    /// Unnormalised on purpose: scaled by the distance in front of the camera it gives the position
+    /// directly, which is cheaper than the full inverse-projection multiply when a pass already has
+    /// linear depth.
+    ///
+    /// **It points down −Z, because the engine's view space is right-handed.** `Matrix4x4.LookAt`
+    /// says so in as many words — the camera looks down −Z and its +Z axis points back at the viewer
+    /// — and `PerspectiveFieldOfView` agrees, taking `w` from `-z`. This returned `+1` and every
+    /// consumer inherited it: a cluster's box came out mirrored in z from the light positions tested
+    /// against it, so nearly nothing intersected and the clustered path lit a scene with the sun
+    /// alone. A handedness mistake produces an empty result rather than a wrong-looking one, which is
+    /// why it survived being written down twice.
     static func ViewRay(uv: float2, tanHalfFov: float2): float3 {
         val ndc = UvToNdc(uv)
-        return float3(ndc.x * tanHalfFov.x, ndc.y * tanHalfFov.y, 1f)
+        return float3(ndc.x * tanHalfFov.x, ndc.y * tanHalfFov.y, -1f)
     }
 
     /// The previous frame's UV for this pixel, for temporal reprojection.

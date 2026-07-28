@@ -791,6 +791,25 @@ its own inverse, since that is the property it was chosen for — a fragment fin
 logarithm rather than a search, and if the two derivations disagree a fragment reads a cluster the
 culler filled for somewhere else.
 
+**View space is right-handed, and the grid did not know it.** `Matrix4x4.LookAt` says it outright —
+the camera looks down −Z — and `PerspectiveFieldOfView` agrees, taking `w` from `-z`. But
+`Transform.ViewRay` returned `+1` for its z, so a cluster's box came out mirrored in z from the light
+positions `Touches` transformed into the same space. Nearly nothing intersected: **every cluster list
+came back empty and the clustered path lit a scene by the sun alone.** A handedness mistake produces
+an empty result rather than a wrong-looking one, which is how it survived being written down twice.
+
+`ClusterGrid.DepthOf` is now the one place the two conventions meet, on both sides, and
+`ClusterGrid.UvOf` is exactly the rasteriser's own NDC → UV — asserted against the projection matrix
+rather than against trigonometry repeated in the test, because two derivations of one quantity is the
+failure itself. The round trip is asserted too: the cluster a fragment computes for itself has to be
+the box the culler tested lights against. It was found by cross-checking the published half-tangents
+against `RenderCamera.Projection`, which is the sort of thing only a differential oracle finds.
+
+One of the tests reads shader *source* — the two lines where `ClusterCulling.rvn` and `Transform.rvn`
+state the convention. That is deliberate and narrow: the host's mirror is not what runs, and the bug
+was two sides disagreeing while each stayed internally consistent, so a test of either alone would
+have passed throughout.
+
 **Clustered lighting does no per-object work at all.** No selection, no block per object, no
 descriptor bound per draw — `ForwardLightingRenderFeature.Clustered` turns the whole per-object path
 off, and eight objects produce eight draws and nothing else. That is the point of the pipeline, and

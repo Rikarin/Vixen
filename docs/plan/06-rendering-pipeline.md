@@ -175,7 +175,12 @@ with clustered light lookup → transparent pass → post FX.
   The buffer is declared rather than imported, so a cull nothing consumes is dropped with its
   dispatch, and the node binds what it declared out of the per-frame descriptor allocator rather than
   through a host callback. Clustered lighting then costs **nothing per object** — no selection, no
-  per-draw block, no descriptor per draw. Falls back to tiled (2D) on GLES and to
+  per-draw block, no descriptor per draw. The grid is right-handed like the rest of the engine, which
+  it was not: `Transform.ViewRay` pointed down +Z while `Matrix4x4.LookAt` looks down −Z, so every
+  cluster's box was mirrored in z from the lights tested against it and every list came back empty —
+  a handedness mistake gives an empty result rather than a wrong-looking one. `ClusterGrid.DepthOf`
+  is now the single place the two conventions meet, on both sides, and a test holds the fragment's
+  own cluster against the box the culler built for it. Falls back to tiled (2D) on GLES and to
   per-object light lists (Stride's `ForwardLightingRenderFeature` approach, max N lights per draw) on
   WebGL2 where compute is absent.
 - **Why default:** MSAA works, transparency works, material variety is unconstrained, memory
