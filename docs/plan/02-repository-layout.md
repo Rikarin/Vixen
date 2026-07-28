@@ -117,11 +117,11 @@ Core/
 ├── Vixen.Input/                        # ✅ devices, actions, .vxinput, rebinding — doc 11 § Input
 ├── Vixen.Input.Generators/             # ── source generator: .vxinput → typed accessors ──
 ├── Vixen.Input.Tests/
-├── Vixen.Audio/                        # ✅ AudioClip only — the backend and mixer are Phase 6
+├── Vixen.Audio/                        # ✅ software mixer, buses, effects, 3D, streaming, ECS
 ├── Vixen.Audio.Tests/
 ├── Vixen.Physics/                      # Jolt integration
 ├── Vixen.Physics.Tests/
-├── Vixen.Animation/                    # skeletal, blend trees, IK, state machine
+├── Vixen.Animation/                    # ✅ skeletal, blend trees, layers, IK, state machine
 ├── Vixen.Animation.Tests/
 ├── Vixen.Vfx/                          # particles + node-graph VFX runtime
 ├── Vixen.Vfx.Tests/
@@ -204,8 +204,10 @@ Platform/
 ├── Vixen.Graphics.Null/                # ✅ headless: CI graphics tests AND the shipping dedicated-server backend (17)
 ├── Vixen.Graphics.Null.Tests/
 │
-├── Vixen.Audio.Backend.OpenAL/
-├── Vixen.Audio.Backend.WebAudio/
+├── Vixen.Audio.Backend.OpenAL/         # ✅ desktop + mobile: a sink for the software mixer
+├── Vixen.Audio.Backend.OpenAL.Tests/
+├── Vixen.Audio.Backend.WebAudio/       # ✅ net10.0-browser — scheduled AudioBufferSourceNode queue
+│                                       #   NOT in Vixen.slnx — needs the wasm-tools workload
 └── Vixen.Platform.Native/              # ✅ RID mapping, runtimes/ layout, DllImportResolver (acquisition owed)
 ```
 

@@ -135,19 +135,23 @@ static class BindingsEmitter {
 
         if (resources.Length > 0) {
             writer.AppendLine();
-            writer.AppendLine("    // --- Resource keys: what the descriptor set is filled from.");
+            writer.AppendLine("    // --- Resource keys: what the descriptor set is filled from, and where each one goes.");
 
             foreach (var (set, binding) in resources) {
                 if (ResourceType(binding.Type) is not { } type) {
                     continue;
                 }
 
+                var name = ShaderTypes.Identifier(binding.Name);
+
                 writer.AppendLine();
                 writer.AppendLine($"    /// <summary>set {set}, binding {binding.Index}{(binding.IsWritable ? ", writable" : string.Empty)}.</summary>");
                 writer.AppendLine(
-                    $"    public static readonly ParameterKey<{type}> {ShaderTypes.Identifier(binding.Name)} = "
+                    $"    public static readonly ParameterKey<{type}> {name} = "
                     + $"ParameterKeys.New<{type}>(\"{Escape(Qualified(shaderName, binding.Name))}\");"
                 );
+
+                EmitBindingConstants(writer, name, set, binding.Index, binding.Name);
             }
         }
 
@@ -157,9 +161,39 @@ static class BindingsEmitter {
             writer.AppendLine();
             writer.AppendLine($"    /// <summary>The uniform block's size in bytes — what to allocate.</summary>");
             writer.AppendLine($"    public const int ConstantBufferSize = {uniforms.Binding.Size};");
+
+            EmitBindingConstants(writer, "ConstantBuffer", uniforms.Set, uniforms.Binding.Index, "the uniform block");
         }
 
         writer.AppendLine("}");
+    }
+
+    /// <summary>
+    ///     Where one binding sits: the set index and the binding index within it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The numbers a host has to know and had no way to get. A descriptor write names a
+    ///         binding index, and the index is the <em>shader's</em> decision — Raven's
+    ///         <c>BindingPlan</c> assigns it from declaration order within a set — so a host that
+    ///         wrote one by hand was writing down a number it could not see and would not be told
+    ///         about when it changed. Adding a texture above another in the source silently
+    ///         renumbers it, and what a wrong index produces is a validation error at best and a
+    ///         shader sampling the wrong texture at worst.
+    ///     </para>
+    ///     <para>
+    ///         Constants rather than a lookup, because they are known at compile time and a host
+    ///         puts them straight into a <c>DescriptorWrite</c>. <c>uint</c> for the binding to match
+    ///         what that takes; <c>int</c> for the set, which is an enum's underlying value.
+    ///     </para>
+    /// </remarks>
+    static void EmitBindingConstants(StringBuilder writer, string name, int set, int binding, string described) {
+        writer.AppendLine();
+        writer.AppendLine($"    /// <summary>Which descriptor set holds <c>{Escape(described)}</c>.</summary>");
+        writer.AppendLine($"    public const int {name}Set = {set};");
+        writer.AppendLine();
+        writer.AppendLine($"    /// <summary>Which binding within set {set} <c>{Escape(described)}</c> occupies.</summary>");
+        writer.AppendLine($"    public const uint {name}Binding = {binding};");
     }
 
     /// <summary>

@@ -484,10 +484,17 @@ from, so a node taking one from anywhere else is how a frame ends up with a set 
 reject and a release driver mis-binds in silence. A host may still supply its own — a
 `RenderPassRenderer` has no effect of its own and must.
 
-The binding index itself still comes from the host rather than from reflection: Raven decides what
-`binding = 3` means, and nothing yet carries that per resource onto the effect. That is the seam, and
-it is a small one, because the alternative is a node reaching for a device handle it has no way to
-have.
+**The binding index is generated, not written down.** Raven assigns it from declaration order within
+a set, so adding a texture above another in a `.rvn` renumbers everything below it — and a host
+holding the old number gets a validation error at best and the wrong texture at worst, with nothing
+to tell it. `BloomKeys.SourceBinding` and its siblings come out of the shader's own reflection;
+`BloomRenderer`'s four were all wrong when they were guessed, which is the argument in one line.
+
+The reflection is checked in beside the shaders rather than compiled during the build, because the
+alternative is `Vixen.Rendering` depending on the compiler being built first, in a repository where
+the compiler is the larger of the two. `Vixen.Raven.Tests` regenerates and compares them, so they
+cannot drift from the shaders without a test saying so — the same arrangement as the checked-in
+generated bindings in `Vixen.Shaders.Tests`, for the same reason.
 
 ## Post-processing
 
@@ -579,11 +586,14 @@ A post-process node is built in code, not authored: `FullScreenRenderer` and `Bl
 entry in the compositor asset, for the same reason bindings do not — a binding index is a shader's
 decision and a sampler is a device handle. Closing the binding-plan gap closes both at once.
 
-A post node still interns its parameter keys from strings. The generator now emits a
-`ParameterKey` per value in a shader's uniform block, carrying the default the shader declared — but
-nothing yet runs it over `Raven/Library`, so `BloomRenderer` spells `"Bloom.texelSize"` by hand rather
-than naming `BloomKeys.TexelSize`. The names are the ones the generator would produce, which is the
-most that can be true until the library is part of a content build.
+The generated keys cover the shaders the engine names — `PostFx/Bloom` and `PostFx/Tonemap` — and
+nothing else. The list grows when a node starts binding a shader, not in anticipation, because every
+entry is a file somebody has to keep compiling.
+
+Reflection describes **one variant**, so a resource only a non-default variant reads gets no key at
+all. Bloom is exactly that shape — `previous` is read only by the upsample mode — and a test asserts
+it survives the default rather than leaving that to luck. A shader that failed it would generate a
+node that does not compile, with no hint as to why.
 
 Bloom has no lens flare and no light streak, and the tonemap pass has no grading LUT as an asset —
 the shader takes one, nothing loads one.

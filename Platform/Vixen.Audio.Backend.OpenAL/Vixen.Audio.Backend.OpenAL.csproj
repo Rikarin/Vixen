@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Audio.Backend.OpenAL</RootNamespace>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Description>
+            The audio backend for the three desktops, Android and iOS: OpenAL Soft as a sink for a
+            mixer Vixen already ran. Device enumeration, a queue of buffers on one source, and a
+            thread that keeps it full.
+        </Description>
+        <PackageTags>audio;openal;backend;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Audio\Vixen.Audio.csproj" />
+
+        <!-- The loader search: the application's own runtimes/<rid>/native/ layout, the RID chain and
+             the three names OpenAL ships under. See OpenALLoader, and VulkanLoader for the AOT
+             finding both of them are shaped by. -->
+        <ProjectReference Include="..\Vixen.Platform.Native\Vixen.Platform.Native.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+        <PackageReference Include="Silk.NET.OpenAL" />
+
+        <!-- ALC_ENUMERATE_ALL_EXT, so "which speakers?" is a list a settings screen can show. -->
+        <PackageReference Include="Silk.NET.OpenAL.Extensions.Enumeration" />
+
+        <!-- AL_EXT_FLOAT32. The mixer already works in float; where the driver takes float there is
+             no reason to quantise on the way out and back. -->
+        <PackageReference Include="Silk.NET.OpenAL.Extensions.EXT" />
+
+        <!--
+          The implementation itself. There is no OpenAL on a stock Windows or Linux box and macOS's
+          is a deprecated 1.1 shim, so unlike Vulkan the runtime has to travel with the game.
+        -->
+        <PackageReference Include="Silk.NET.OpenAL.Soft.Native" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Audio.Backend.OpenAL.Tests" />
+    </ItemGroup>
+
+</Project>

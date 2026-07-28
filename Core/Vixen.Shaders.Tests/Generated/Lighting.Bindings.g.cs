@@ -31,16 +31,34 @@ public static class LightingKeys {
         MaxLights,
     ];
 
-    // --- Resource keys: what the descriptor set is filled from.
+    // --- Resource keys: what the descriptor set is filled from, and where each one goes.
 
     /// <summary>set 2, binding 1.</summary>
     public static readonly ParameterKey<global::Vixen.Graphics.TextureViewHandle> Albedo = ParameterKeys.New<global::Vixen.Graphics.TextureViewHandle>("Lighting.albedo");
 
+    /// <summary>Which descriptor set holds <c>albedo</c>.</summary>
+    public const int AlbedoSet = 2;
+
+    /// <summary>Which binding within set 2 <c>albedo</c> occupies.</summary>
+    public const uint AlbedoBinding = 1;
+
     /// <summary>set 2, binding 2.</summary>
     public static readonly ParameterKey<global::Vixen.Graphics.SamplerHandle> Linear = ParameterKeys.New<global::Vixen.Graphics.SamplerHandle>("Lighting.linear");
 
+    /// <summary>Which descriptor set holds <c>linear</c>.</summary>
+    public const int LinearSet = 2;
+
+    /// <summary>Which binding within set 2 <c>linear</c> occupies.</summary>
+    public const uint LinearBinding = 2;
+
     /// <summary>set 2, binding 3.</summary>
     public static readonly ParameterKey<global::Vixen.Graphics.BufferHandle> Overflow = ParameterKeys.New<global::Vixen.Graphics.BufferHandle>("Lighting.overflow");
+
+    /// <summary>Which descriptor set holds <c>overflow</c>.</summary>
+    public const int OverflowSet = 2;
+
+    /// <summary>Which binding within set 2 <c>overflow</c> occupies.</summary>
+    public const uint OverflowBinding = 3;
 
     // --- Value keys: what a name-driven caller fills the block through.
 
@@ -64,6 +82,12 @@ public static class LightingKeys {
 
     /// <summary>The uniform block's size in bytes — what to allocate.</summary>
     public const int ConstantBufferSize = 336;
+
+    /// <summary>Which descriptor set holds <c>the uniform block</c>.</summary>
+    public const int ConstantBufferSet = 2;
+
+    /// <summary>Which binding within set 2 <c>the uniform block</c> occupies.</summary>
+    public const uint ConstantBufferBinding = 0;
 }
 
 /// <summary>
