@@ -28,6 +28,14 @@ shader ForwardPlus {
     /// The material's surface features, chosen per material.
     compose val surface: IMaterialSurface
 
+    /// What the surface does with a light, chosen per material.
+    ///
+    /// The second half of the same idea: `surface` decides what the point *is*, this decides how it
+    /// answers a light. Two slots rather than one because the two vary independently — a clear coat
+    /// over a metal-roughness base and over a specular-glossiness one is the same lobe — and folding
+    /// them together would be one shader per pair.
+    compose val shading: IShadingModel
+
     /// Whether to add image-based ambient. Off gives a pure punctual-lit look, and folds every IBL
     /// binding and its arithmetic out of the variant entirely.
     [Permutation] val UseImageBasedLighting: bool = true
@@ -148,19 +156,24 @@ shader ForwardPlus {
     }
 
     /// The directional light's contribution, shadowed.
+    ///
+    /// The BRDF is the shading model's and the cosine is inside it, so what is left here is the
+    /// light: its radiance, and whether this fragment can see it.
     func Direct(d: MaterialData, n: float3, v: float3, alpha: float): float3 {
         val light = Lighting.Directional(lightDirection, lightColor)
         val angles = ShadingAngles.Of(n, v, light.l)
 
-        if (angles.NdotL <= 0f) {
-            return float3(0f)
-        }
+        var s: ShadingVectors
+        s.n = n
+        s.v = v
+        s.l = light.l
 
-        val diffuse = DiffuseModels.Lambert(d.diffuseColor) * DiffuseModels.EnergyRemaining(d.f0, angles.NdotV)
-        val specular = SpecularModels.Ggx(d.f0, angles, alpha)
-        val visibility = UseShadows ? Shadow(n, angles.NdotL) : 1f
+        // Shadowed only where the surface faces the light. Not an early return any more, because a
+        // scattering material's whole contribution lives past the terminator — but the shadow lookup
+        // itself is still worth skipping, and a fragment facing away is in shadow by geometry.
+        val visibility = (UseShadows && angles.NdotL > 0f) ? Shadow(n, angles.NdotL) : 1f
 
-        return (diffuse + specular) * light.radiance * angles.NdotL * visibility
+        return shading.Shade(d, angles, s, alpha) * light.radiance * visibility
     }
 
     /// Every light this fragment has to consider, unshadowed.
@@ -226,18 +239,24 @@ shader ForwardPlus {
     }
 
     /// One light's contribution to this surface.
+    ///
+    /// The early-out asks the surface as well as the angle, and that is the price of scattering: a
+    /// material with no scatter colour is answered by every model here with zero once the cosine is
+    /// zero, so skipping it is free — and one that has one is brightest exactly there.
     func Contribution(light: PunctualLight, d: MaterialData, n: float3, v: float3, alpha: float): float3 {
         val sample = Lighting.Resolve(light, positionWS, alpha)
         val angles = ShadingAngles.Of(n, v, sample.l)
 
-        if (angles.NdotL <= 0f) {
+        if (angles.NdotL <= 0f && Math.MaxComponent(d.scatterColor) <= 0f) {
             return float3(0f)
         }
 
-        val lambert = DiffuseModels.Lambert(d.diffuseColor)
-        val diffuse = lambert * DiffuseModels.EnergyRemaining(d.f0, angles.NdotV)
-        val specular = SpecularModels.Ggx(d.f0, angles, sample.alphaPrime)
-        return (diffuse + specular) * sample.radiance * angles.NdotL
+        var s: ShadingVectors
+        s.n = n
+        s.v = v
+        s.l = sample.l
+
+        return shading.Shade(d, angles, s, sample.alphaPrime) * sample.radiance
     }
 
     /// The shadow term for this pixel, biased both ways — see `Lighting.ShadowBias`.

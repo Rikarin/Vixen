@@ -7,7 +7,8 @@ using System.Globalization;
 namespace Vixen.Shaders;
 
 /// <summary>
-///     A shader name plus the permutation values that select one variant of it.
+///     A shader name, the permutation values that select one variant of it, and the implementations
+///     filling its <c>compose</c> slots.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -30,6 +31,13 @@ namespace Vixen.Shaders;
 ///         Without it the cache would hold one entry per insertion order and hit almost never, which
 ///         is the sort of miss that shows up as a frame-time cliff rather than as a wrong image.
 ///     </para>
+///     <para>
+///         <strong>The composition is part of the key, and it has to be.</strong> A permutation
+///         changes which branch of one shader survives; a <see cref="ShaderComposition" /> changes
+///         which shaders the compilation contains at all. Two materials with the same name and the
+///         same permutations but different features are different code, and a key blind to that
+///         returns the first one compiled for both.
+///     </para>
 /// </remarks>
 public readonly struct EffectKey : IEquatable<EffectKey> {
     readonly ImmutableArray<KeyValuePair<string, string>> values;
@@ -41,9 +49,13 @@ public readonly struct EffectKey : IEquatable<EffectKey> {
     /// <summary>The permutation values, sorted by name.</summary>
     public ImmutableArray<KeyValuePair<string, string>> Values => values.IsDefault ? [] : values;
 
-    EffectKey(string shaderName, ImmutableArray<KeyValuePair<string, string>> sorted) {
+    /// <summary>What fills the shader's <c>compose</c> slots.</summary>
+    public ShaderComposition Composition { get; }
+
+    EffectKey(string shaderName, ImmutableArray<KeyValuePair<string, string>> sorted, ShaderComposition composition) {
         ShaderName = shaderName;
         values = sorted;
+        Composition = composition;
 
         var accumulated = new HashCode();
         accumulated.Add(shaderName, StringComparer.Ordinal);
@@ -53,14 +65,18 @@ public readonly struct EffectKey : IEquatable<EffectKey> {
             accumulated.Add(value, StringComparer.Ordinal);
         }
 
+        accumulated.Add(composition);
         hash = accumulated.ToHashCode();
     }
 
     /// <summary>The key for a shader with no permutations set.</summary>
     public static EffectKey Of(string shaderName) {
         ArgumentException.ThrowIfNullOrEmpty(shaderName);
-        return new(shaderName, []);
+        return new(shaderName, [], ShaderComposition.Empty);
     }
+
+    /// <summary>This key with <paramref name="composition" /> filling the shader's slots.</summary>
+    public EffectKey With(ShaderComposition composition) => new(ShaderName, Values, composition);
 
     /// <summary>
     ///     The key for a shader, taking from <paramref name="parameters" /> only the permutations
@@ -72,7 +88,15 @@ public readonly struct EffectKey : IEquatable<EffectKey> {
     ///     The permutation keys this shader's output actually depends on — Raven's
     ///     <c>UsedPermutationKeys</c>.
     /// </param>
-    public static EffectKey From(string shaderName, ParameterCollection parameters, IEnumerable<ParameterKey> used) {
+    /// <param name="composition">
+    ///     What fills the shader's <c>compose</c> slots, if any. Empty for a shader with none.
+    /// </param>
+    public static EffectKey From(
+        string shaderName,
+        ParameterCollection parameters,
+        IEnumerable<ParameterKey> used,
+        ShaderComposition composition = default
+    ) {
         ArgumentException.ThrowIfNullOrEmpty(shaderName);
         ArgumentNullException.ThrowIfNull(parameters);
         ArgumentNullException.ThrowIfNull(used);
@@ -94,7 +118,7 @@ public readonly struct EffectKey : IEquatable<EffectKey> {
         // Ordinal by name, so the same values set in a different order are the same key. Without
         // this the cache holds one entry per insertion order and hits almost never.
         builder.Sort(static (left, right) => string.CompareOrdinal(left.Key, right.Key));
-        return new(shaderName, builder.ToImmutable());
+        return new(shaderName, builder.ToImmutable(), composition);
     }
 
     /// <summary>One permutation's value, as the text the compiler's <c>--define</c> takes.</summary>
@@ -133,7 +157,8 @@ public readonly struct EffectKey : IEquatable<EffectKey> {
     public bool Equals(EffectKey other) {
         if (hash != other.hash
             || !string.Equals(ShaderName, other.ShaderName, StringComparison.Ordinal)
-            || Values.Length != other.Values.Length) {
+            || Values.Length != other.Values.Length
+            || Composition != other.Composition) {
             return false;
         }
 
@@ -160,8 +185,16 @@ public readonly struct EffectKey : IEquatable<EffectKey> {
     public static bool operator !=(EffectKey left, EffectKey right) => !left.Equals(right);
 
     /// <summary>The key as one stable string — a cache filename, a log line.</summary>
-    public override string ToString() =>
-        Values.IsEmpty
+    /// <remarks>
+    ///     Both halves are in it, in their normal forms, so that two keys with the same text are the
+    ///     same variant. An on-disk cache keyed by this string would otherwise share one entry
+    ///     between two materials.
+    /// </remarks>
+    public override string ToString() {
+        var permutations = Values.IsEmpty
             ? ShaderName
             : $"{ShaderName}[{string.Join(",", Values.Select(pair => $"{pair.Key}={pair.Value}"))}]";
+
+        return Composition.Count == 0 ? permutations : $"{permutations}{{{Composition}}}";
+    }
 }

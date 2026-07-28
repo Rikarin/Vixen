@@ -1,0 +1,198 @@
+package Vixen.Shaders.Material
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Shading
+import Vixen.Shaders.Geometry
+
+// How a surface answers one light — the second half of the material model.
+//
+// `IMaterialSurface` fills in what a point on the surface *is*; this decides what it *does* with the
+// light that reaches it. Both are `compose` slots on the pass, and the split is what keeps either set
+// small: five surface features and five shading models are ten shaders, where folding the lobes into
+// the features would be twenty-five.
+//
+// It is also the honest place for the difference between a clear coat and a normal map. A normal map
+// changes a value the standard BRDF already reads; a clear coat is a *second lobe*, and no value
+// written into `MaterialData` makes the standard model evaluate one. Before this slot existed the
+// library had the lobes — `ClearCoat.rvn`, `Sheen.rvn`, `Hair.rvn`, `Subsurface.rvn` — and nothing
+// called them, which is a BSDF library that compiles and does not shade.
+//
+// **What `Shade` returns includes the cosine.** A model returns the fraction of a light's radiance
+// this surface sends toward the viewer, so the pass multiplies by radiance and shadowing and nothing
+// else. Leaving `NdotL` to the pass would have made wrapped diffuse impossible to write: scattering
+// is defined by what happens *past* the terminator, and a pass that multiplies by a clamped cosine
+// has already zeroed it.
+
+/// The unit vectors a shading model needs beyond the cosines in `ShadingAngles`.
+///
+/// A struct rather than three parameters, so a model's signature stays inside the one line Raven
+/// allows — the same reason `ShadingAngles` exists.
+struct ShadingVectors {
+    /// The shading normal, world space, already faced toward the viewer.
+    var n: float3
+
+    /// Toward the eye.
+    var v: float3
+
+    /// Toward the light.
+    var l: float3
+}
+
+/// What a surface does with one light.
+protocol IShadingModel {
+    /// The fraction of `s.l`'s radiance reflected toward `s.v`, cosine included.
+    func Shade(d: MaterialData, a: ShadingAngles, s: ShadingVectors, alpha: float): float3
+}
+
+/// Lambert plus a GGX microfacet lobe: the default, and what every other model here is a change to.
+///
+/// Energy is conserved between the two by `DiffuseModels.EnergyRemaining` rather than by an ad-hoc
+/// `1 - metalness`: what the specular lobe reflects is exactly what the diffuse lobe does not get,
+/// and skipping that is why a naive PBR shader is brightest where it should be dimmest.
+shader StandardShading : IShadingModel {
+    func Shade(d: MaterialData, a: ShadingAngles, s: ShadingVectors, alpha: float): float3 {
+        val diffuse = DiffuseModels.Lambert(d.diffuseColor) * DiffuseModels.EnergyRemaining(d.f0, a.NdotV)
+        val specular = SpecularModels.Ggx(d.f0, a, alpha)
+        return (diffuse + specular) * a.NdotL
+    }
+}
+
+/// A GGX lobe stretched along the tangent: brushed metal, vinyl, satin.
+///
+/// The half vector is rotated into tangent space here rather than in `Brdf`, because the basis is the
+/// mesh's and the BRDF has no business knowing about tangent frames. `MaterialData.anisotropy` splits
+/// one alpha into two around it — Burley's remapping, the one Filament and glTF's anisotropy
+/// extension both use.
+shader AnisotropicShading : IShadingModel {
+    func Shade(d: MaterialData, a: ShadingAngles, s: ShadingVectors, alpha: float): float3 {
+        val h = Math.SafeNormalize(s.v + s.l)
+        val f = d.tangentFrame
+        val halfTs = float3(dot(h, f.tangent), dot(h, f.bitangent), dot(h, s.n))
+
+        val strength = clamp(d.anisotropy, -1f, 1f)
+        val alphaT = alpha * (1f + strength)
+        val alphaB = alpha * (1f - strength)
+
+        val diffuse = DiffuseModels.Lambert(d.diffuseColor) * DiffuseModels.EnergyRemaining(d.f0, a.NdotV)
+        val specular = SpecularModels.GgxAnisotropic(d.f0, halfTs, a, float2(alphaT, alphaB))
+        return (diffuse + specular) * a.NdotL
+    }
+}
+
+/// A second, smoother specular lobe over the base one: car paint, lacquered wood, wet surfaces.
+///
+/// The coat has its own normal, so it has its own angles — computing the lobe from the base's would
+/// make a scratched coat over smooth metal look like smooth coat over scratched metal, which is the
+/// one thing the feature exists to distinguish. `ClearCoat.Combine` attenuates what is underneath by
+/// what the coat reflected, twice, because light crosses the interface on the way in and on the way
+/// out.
+shader ClearCoatShading : IShadingModel {
+    func Shade(d: MaterialData, a: ShadingAngles, s: ShadingVectors, alpha: float): float3 {
+        val diffuse = DiffuseModels.Lambert(d.diffuseColor) * DiffuseModels.EnergyRemaining(d.f0, a.NdotV)
+        val specular = SpecularModels.Ggx(d.f0, a, alpha)
+
+        val coatNormal = Normals.FaceForward(Math.SafeNormalize(d.clearCoatNormalWS), s.v)
+        val coatAngles = ShadingAngles.Of(coatNormal, s.v, s.l)
+        val coat = ClearCoat.Lobe(coatAngles, d.clearCoatRoughness)
+
+        // The base's cosine and the coat's differ once the coat has its own normal, so each lobe is
+        // weighted by its own. Using one for both is what puts a highlight on a face the coat's
+        // normal points away from.
+        val under = (diffuse + specular) * a.NdotL
+        return ClearCoat.Combine(under, coat * coatAngles.NdotL, coatAngles, d.clearCoat)
+    }
+}
+
+/// A retroreflective rim over the base lobe: velvet, satin, brushed cloth.
+///
+/// The base gives up exactly what the sheen lobe takes — `Sheen.Attenuation` — because a fabric that
+/// is brighter at the rim than a white surface would be reads as glowing rather than as cloth.
+shader SheenShading : IShadingModel {
+    func Shade(d: MaterialData, a: ShadingAngles, s: ShadingVectors, alpha: float): float3 {
+        val diffuse = DiffuseModels.Lambert(d.diffuseColor) * DiffuseModels.EnergyRemaining(d.f0, a.NdotV)
+        val specular = SpecularModels.Ggx(d.f0, a, alpha)
+        val sheen = Sheen.Lobe(d.sheenColor, a, d.sheenRoughness)
+
+        return ((diffuse + specular) * Sheen.Attenuation(d.sheenColor) + sheen) * a.NdotL
+    }
+}
+
+/// Light that travels through the surface before it comes back out: skin, wax, leaves, thin cloth.
+///
+/// Two terms, and they answer different lights. Wrapped diffuse moves the terminator past ninety
+/// degrees, which is what makes an ear red where it should be black; `Subsurface.Transmission` is
+/// light arriving from *behind* thin geometry, which is what makes a leaf glow against the sun.
+/// Neither survives a pass that clamps the cosine, which is why `Shade` owns it.
+shader SubsurfaceShading : IShadingModel {
+    /// How far past the terminator light wraps, 0..1. Zero is Lambert.
+    var wrap: float = 0.5f
+
+    /// How tightly the back-lit lobe hugs the view direction. Higher is a narrower glow.
+    var transmissionPower: float = 4f
+
+    func Shade(d: MaterialData, a: ShadingAngles, s: ShadingVectors, alpha: float): float3 {
+        val NdotL = dot(s.n, s.l)
+        val diffuse = Subsurface.WrappedTinted(d.diffuseColor, d.scatterColor, NdotL, wrap)
+        val specular = SpecularModels.Ggx(d.f0, a, alpha) * a.NdotL
+
+        var back: BackLight
+        back.n = s.n
+        back.v = s.v
+        back.l = s.l
+
+        val through = Subsurface.Transmission(d.scatterColor, back, d.thickness, transmissionPower)
+        return diffuse + specular + through
+    }
+}
+
+/// Kajiya–Kay along a strand: hair, fur, anything shaded off a tangent rather than a normal.
+///
+/// The strand direction is `MaterialData.tangentFrame.tangent` — the mesh's tangent, which for hair
+/// cards runs along the card. A hair shader that used the normal would be shading a ribbon, and it
+/// looks exactly like one.
+shader HairShading : IShadingModel {
+    func Shade(d: MaterialData, a: ShadingAngles, s: ShadingVectors, alpha: float): float3 {
+        var sample: HairSample
+        sample.tangent = Math.SafeNormalize(d.tangentFrame.tangent)
+        sample.normal = s.n
+        sample.v = s.v
+        sample.l = s.l
+
+        // No cosine: Kajiya-Kay's diffuse is already a cylinder's, taken from the angle to the
+        // strand rather than to a normal, and multiplying it by `NdotL` darkens the one term the
+        // model exists to get right.
+        return Hair.Shade(d.diffuseColor, d.f0, sample, d.perceptualRoughness)
+    }
+}
+
+/// Banded light and a hard-edged highlight: the non-PBR case, and the proof the model admits one.
+///
+/// It is a shading model rather than a surface feature for the reason the whole slot exists — cel
+/// shading does not change what the surface *is*, it changes what lighting means. A material keeps
+/// its base colour, its normal map and its emission, and only the response is quantised.
+shader CelShading : IShadingModel {
+    /// How many bands the diffuse response has. Two is the classic light/shadow split.
+    var steps: float = 3f
+
+    /// Where the highlight switches on, in the GGX lobe's own units.
+    var specularThreshold: float = 0.4f
+
+    /// How soft the band edges are, as a fraction of a band. Zero is a hard step.
+    var softness: float = 0.02f
+
+    func Shade(d: MaterialData, a: ShadingAngles, s: ShadingVectors, alpha: float): float3 {
+        val count = max(steps, 1f)
+
+        // Quantised with a smooth step across the boundary rather than a `floor`, because a hard
+        // step aliases along every band edge and a cel shader is nothing but band edges.
+        val scaled = a.NdotL * count
+        val band = floor(scaled)
+        val edge = smoothstep(0f, max(softness * count, Const.Epsilon), scaled - band)
+        val quantised = (band + edge) / count
+
+        val lobe = Math.MaxComponent(SpecularModels.Ggx(d.f0, a, alpha))
+        val highlight = step(specularThreshold, lobe)
+
+        return d.diffuseColor * Const.InvPi * quantised + d.f0 * highlight * a.NdotL
+    }
+}

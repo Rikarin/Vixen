@@ -51,6 +51,43 @@ struct MaterialData {
     /// Coverage, for alpha blending or a cutout test.
     var alpha: float
 
+    /// How much the specular lobe is stretched along the tangent, -1..1. Zero is isotropic.
+    ///
+    /// Signed rather than 0..1 because the sign is which axis stretches: brushed metal along the
+    /// grain and across it are the same magnitude and opposite directions, and an unsigned parameter
+    /// makes one of the two unreachable.
+    var anisotropy: float
+
+    /// The clear coat's strength, 0..1. Zero is no coat, and costs nothing beyond a multiply.
+    var clearCoat: float
+
+    /// The coat's own perceptual roughness, independent of the base's.
+    var clearCoatRoughness: float
+
+    /// The coat's shading normal, world space.
+    ///
+    /// Separate from <c>normalWS</c> because a scratched coat over smooth metal — or smooth lacquer
+    /// over rough wood — is the reason the feature exists at all. Seeded with the geometric normal by
+    /// `MaterialDefaults.Begin`, so a coat with no normal map of its own follows the surface rather
+    /// than the base's normal map, which is the physically right default: the coat is a separate
+    /// interface and does not inherit the base's bumps.
+    var clearCoatNormalWS: float3
+
+    /// The sheen lobe's colour. Black is no sheen.
+    ///
+    /// A colour rather than a scalar because fabric sheen is usually a different hue from the base,
+    /// which is what makes shot silk look like shot silk.
+    var sheenColor: float3
+
+    /// The sheen lobe's roughness, which controls how wide the rim is.
+    var sheenRoughness: float
+
+    /// What colour light takes on when it scatters through the surface. Black is no scattering.
+    var scatterColor: float3
+
+    /// How far light has to travel through the surface, in metres, for back-lighting.
+    var thickness: float
+
     /// The interpolated tangent frame at this point, as the pass computed it.
     ///
     /// Geometry rather than material, and here for one reason: a normal map is authored in *tangent*
@@ -70,6 +107,45 @@ protocol IMaterialSurface {
     func Compute(inout d: MaterialData)
 }
 
+/// Blends two surfaces into one.
+///
+/// What layering needs and a feature chain cannot give: a chain composes contributions in sequence,
+/// where a layer is a whole surface that has to be weighed against another whole surface. Channels
+/// are blended rather than shading results, which is what a splat-mapped terrain does — one lobe over
+/// blended parameters, not two lobes averaged.
+struct MaterialBlend {
+    /// `over` mixed into `under` by `t`, per channel.
+    static func Mix(under: MaterialData, over: MaterialData, t: float): MaterialData {
+        val w = saturate(t)
+
+        var d = under
+        d.diffuseColor = lerp(under.diffuseColor, over.diffuseColor, w)
+        d.f0 = lerp(under.f0, over.f0, w)
+        d.perceptualRoughness = lerp(under.perceptualRoughness, over.perceptualRoughness, w)
+        d.occlusion = lerp(under.occlusion, over.occlusion, w)
+        d.emissive = lerp(under.emissive, over.emissive, w)
+        d.alpha = lerp(under.alpha, over.alpha, w)
+        d.anisotropy = lerp(under.anisotropy, over.anisotropy, w)
+        d.clearCoat = lerp(under.clearCoat, over.clearCoat, w)
+        d.clearCoatRoughness = lerp(under.clearCoatRoughness, over.clearCoatRoughness, w)
+        d.sheenColor = lerp(under.sheenColor, over.sheenColor, w)
+        d.sheenRoughness = lerp(under.sheenRoughness, over.sheenRoughness, w)
+        d.scatterColor = lerp(under.scatterColor, over.scatterColor, w)
+        d.thickness = lerp(under.thickness, over.thickness, w)
+
+        // Normals are directions, so the blend has to be renormalised — a linear mix of two unit
+        // vectors is shorter than one, and a shading normal that is not unit length is a lobe that
+        // is too bright by the length it lost.
+        d.normalWS = Math.SafeNormalize(lerp(under.normalWS, over.normalWS, w))
+        d.clearCoatNormalWS = Math.SafeNormalize(lerp(under.clearCoatNormalWS, over.clearCoatNormalWS, w))
+
+        // The tangent frame belongs to the mesh and the pass, not to either layer, so it is taken
+        // rather than blended — both layers were seeded with the same one.
+        d.tangentFrame = under.tangentFrame
+        return d
+    }
+}
+
 /// The values a feature starts from, so every implementation agrees on what "untouched" means.
 struct MaterialDefaults {
     /// A dielectric's reflectance at normal incidence — an index of refraction of 1.5.
@@ -83,6 +159,18 @@ struct MaterialDefaults {
         d.occlusion = 1f
         d.emissive = float3(0f)
         d.alpha = 1f
+
+        // Every optional lobe is off at its zero, so a material that never mentions one pays a
+        // multiply by zero at worst — and a shading model that reads a channel no feature wrote
+        // produces the unlayered result rather than a NaN.
+        d.anisotropy = 0f
+        d.clearCoat = 0f
+        d.clearCoatRoughness = 0.1f
+        d.clearCoatNormalWS = float3(0f, 0f, 1f)
+        d.sheenColor = float3(0f)
+        d.sheenRoughness = 0.3f
+        d.scatterColor = float3(0f)
+        d.thickness = 0f
 
         // The identity frame, so `Normals.ToWorld` is a no-op until a pass supplies a real one. A
         // zeroed frame would be worse than useless — it maps every normal to zero, and `SafeNormalize`
@@ -101,6 +189,11 @@ struct MaterialDefaults {
         Reset(d)
         d.tangentFrame = Normals.Frame(normalWS, tangentWS.xyz, tangentWS.w)
         d.normalWS = d.tangentFrame.normal
+
+        // The coat starts on the geometric normal rather than following the base's, so a normal-map
+        // feature later in the chain bends the base and leaves the coat flat — which is what a
+        // lacquered surface does. A coat that wants its own bumps has `ClearCoatNormalMapSurface`.
+        d.clearCoatNormalWS = d.tangentFrame.normal
     }
 }
 

@@ -257,6 +257,16 @@ The material model follows Stride's composable feature architecture (`IMaterialD
 `IMaterialSpecularModelFeature`, …), which is closer to Disney/Filament's principled model than
 Unity's fixed lit shader and is the correct shape for a shader-graph-backed system.
 
+✅ **Built, through `compose` rather than through a mixin resolver.** A pass declares two slots —
+`surface: IMaterialSurface` for what a point on the surface is, `shading: IShadingModel` for what it
+does with light — and each feature is a shader implementing one of them, resolved when the effect is
+compiled. So a material with no clear coat contains no clear-coat code, rather than a branch that is
+always false. `MaterialCompiler` (`Vixen.Rendering.Materials`) turns an authored tree into the
+composition that selects those shaders and the parameters that feed them, and the composition is part
+of the `EffectKey` — two materials differing only in features are two variants, which a key carrying
+only permutations could not express. Details, including the one constraint the whole shape is built
+around, are in [Vixen.Rendering's README](../../Core/Vixen.Rendering/README.md#materials).
+
 | Layer | Options |
 |---|---|
 | Diffuse | Lambert, Oren–Nayar, Burley (Disney), energy-conserving variants |

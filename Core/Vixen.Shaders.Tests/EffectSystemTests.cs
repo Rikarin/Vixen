@@ -107,6 +107,83 @@ public class EffectSystemTests {
         Assert.Equal("Lighting", EffectKey.Of("Lighting").ToString());
     }
 
+    // --- The composition ------------------------------------------------------
+
+    /// <summary>
+    ///     Two compositions of one shader are two keys.
+    /// </summary>
+    /// <remarks>
+    ///     The property the whole material system rests on. A composition decides which shaders the
+    ///     compilation contains, so two materials with the same name and the same permutations are
+    ///     different code — and a key blind to that returns the first one compiled for both, which is
+    ///     a metal-roughness object drawn with a specular-glossiness shader and nothing logged.
+    /// </remarks>
+    [Fact]
+    public void Two_compositions_of_one_shader_are_two_keys() {
+        var metal = ShaderComposition.Of([new("surface", "MetalRoughnessSurface")]);
+        var gloss = ShaderComposition.Of([new("surface", "SpecularGlossinessSurface")]);
+
+        Assert.NotEqual(
+            EffectKey.From("ForwardPlus", new(), [], metal),
+            EffectKey.From("ForwardPlus", new(), [], gloss)
+        );
+    }
+
+    /// <summary>The same slots filled in a different order are one key.</summary>
+    /// <remarks>
+    ///     The same normal form the permutation values have, and for the same reason: a material
+    ///     whose features were enumerated in a different order is the same material.
+    /// </remarks>
+    [Fact]
+    public void Order_does_not_change_a_composition() {
+        var first = ShaderComposition.Of([new("surface", "CompositeSurface"), new("shading", "CelShading")]);
+        var second = ShaderComposition.Of([new("shading", "CelShading"), new("surface", "CompositeSurface")]);
+
+        Assert.Equal(first, second);
+        Assert.Equal(
+            EffectKey.From("ForwardPlus", new(), [], first),
+            EffectKey.From("ForwardPlus", new(), [], second)
+        );
+    }
+
+    /// <summary>A slot bound twice takes the last binding, so defaults can be laid over.</summary>
+    [Fact]
+    public void A_slot_bound_twice_takes_the_last_one() {
+        var composition = ShaderComposition.Of([
+            new("surface", "IdentitySurface"),
+            new("surface", "MetalRoughnessSurface")
+        ]);
+
+        Assert.Equal("MetalRoughnessSurface", composition.Resolve("surface"));
+        Assert.Equal(1, composition.Count);
+    }
+
+    /// <summary>A shader with no slots is keyed exactly as it was before compositions existed.</summary>
+    /// <remarks>
+    ///     Every post effect and the depth-only pass are this shape, so an empty composition has to
+    ///     be free — in the key's text as well as its equality, because an on-disk cache is keyed by
+    ///     that text and a changed filename is a cache that misses on everything it already has.
+    /// </remarks>
+    [Fact]
+    public void A_shader_with_no_composition_is_unchanged() {
+        Assert.Equal(EffectKey.Of("Copy"), EffectKey.From("Copy", new(), []));
+        Assert.Equal("Copy", EffectKey.From("Copy", new(), []).ToString());
+    }
+
+    /// <summary>The composition is in the key's text, so a cache filename distinguishes them.</summary>
+    [Fact]
+    public void A_composed_key_reads_as_something_a_cache_filename_could_be() {
+        var composition = ShaderComposition.Of([
+            new("surface", "CompositeSurface"),
+            new("shading", "CelShading")
+        ]);
+
+        Assert.Equal(
+            "ForwardPlus{shading=CelShading,surface=CompositeSurface}",
+            EffectKey.From("ForwardPlus", new(), [], composition).ToString()
+        );
+    }
+
     // --- The system ---------------------------------------------------------
 
     [Fact]

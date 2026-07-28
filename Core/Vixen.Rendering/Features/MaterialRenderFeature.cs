@@ -224,7 +224,7 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
             }
 
             var id = new RenderObjectId(index);
-            var resolved = VariantOf(system, id, material, materials[material].ShaderName);
+            var resolved = VariantOf(system, id, material, materials[material].ShaderName, composes: true);
             variantIndex[index] = resolved;
 
             // Resolved here, in preparation, for the same reason the base variant is: a stage
@@ -232,8 +232,8 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
             // this object actually appears in, so a prepass costs nothing for an object that is not
             // in one.
             foreach (var stage in candidate.Stages.Indices()) {
-                if (stage < stageCount && system.Stages[stage].ShaderName is { Length: > 0 } shader) {
-                    Override(system, id, material, resolved, stage, shader);
+                if (stage < stageCount && system.Stages[stage] is { ShaderName: { Length: > 0 } shader } overriding) {
+                    Override(system, id, material, resolved, stage, shader, overriding.ShaderComposes);
                 }
             }
         }
@@ -291,7 +291,7 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
         return slot < overrides.Length && overrides[slot] > 0 ? overrides[slot] : index;
     }
 
-    int VariantOf(RenderSystem system, RenderObjectId id, int material, string shaderName) {
+    int VariantOf(RenderSystem system, RenderObjectId id, int material, string shaderName, bool composes) {
         var flags = FlagsOf(system, id);
 
         if (variantIndices.TryGetValue((material, flags, shaderName), out var existing)) {
@@ -307,7 +307,11 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
         scratch.Apply(source.Parameters);
         Contribute(system, id);
 
-        var key = EffectKey.From(shaderName, scratch, KeysFor(shaderName));
+        // The material's own shader was authored against its features, so it always takes them. A
+        // stage override is a different shader and says for itself — see RenderStage.ShaderComposes,
+        // which is what keeps a depth prepass to one variant rather than one per material.
+        var composition = composes ? source.Composition : ShaderComposition.Empty;
+        var key = EffectKey.From(shaderName, scratch, KeysFor(shaderName), composition);
 
         if (!groups.TryGetValue(key, out var group)) {
             // Dense and assigned in first-seen order. The value means nothing on its own — only that
@@ -324,14 +328,22 @@ public sealed class MaterialRenderFeature : SubRenderFeature {
     }
 
     /// <summary>Resolves and records what one variant becomes in a stage that overrides the shader.</summary>
-    void Override(RenderSystem system, RenderObjectId id, int material, int variant, int stage, string shader) {
+    void Override(
+        RenderSystem system,
+        RenderObjectId id,
+        int material,
+        int variant,
+        int stage,
+        string shader,
+        bool composes
+    ) {
         var slot = (variant * stageCount) + stage;
 
         if (slot < overrides.Length && overrides[slot] > 0) {
             return;
         }
 
-        var resolved = VariantOf(system, id, material, shader);
+        var resolved = VariantOf(system, id, material, shader, composes);
 
         // Sized after resolving rather than before: VariantOf may have added the override itself, and
         // the table has to be long enough for whichever of the two indices is larger.

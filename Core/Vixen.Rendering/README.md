@@ -133,6 +133,15 @@ turns a material's `ParameterCollection` into an `EffectKey`, resolves it, and r
 per object — so by recording time "which shader" is an array lookup. It resolves **per material, not
 per object**: ten thousand objects sharing twenty materials resolve twenty times.
 
+A material is more than its values, and the other half is its **composition**: which shader fills each
+of the pass's `compose` slots. It travels in the `EffectKey` beside the permutations, because two
+materials with the same shader name and the same permutations but different features are different
+code — a key blind to that hands the second material the first one's shader, which is a wrong image
+with nothing logged anywhere. A stage that overrides the shader says whether its own shader composes
+(`RenderStage.ShaderComposes`), which is false by default: `DepthOnly` declares no slot, so a prepass
+that carried the composition anyway would compile one byte-identical variant per material in the
+scene. See [Materials](#materials) for where a composition comes from.
+
 **The sort group comes from the resolved effect**, and that is what closes the loop. Objects that
 will bind the same pipeline get the same group, the key puts groups above depth, they land adjacent,
 and the mesh feature sees one run and binds once. Break any link and four objects sharing a material
@@ -183,6 +192,59 @@ retired, which is the backend's job precisely because a renderer cannot know whe
 grows the buffer mid-run and asserts the property rather than the mechanism — no set is written
 twice inside a window of `FramesInFlight` frames, growth frame included — and a second one pins that
 the ring settles at `FramesInFlight` sets and leaks no buffers.
+
+## Materials
+
+A material is a **tree of features**, not a fixed parameter block: a workflow, optionally a normal
+map, optionally a clear coat, and a shading model that says what the surface does with light.
+`MaterialCompiler` turns that tree into the two things the renderer already knew how to carry — a
+`ShaderComposition` naming the shader that implements each feature, and a `ParameterCollection` keyed
+by the names those shaders will have once composed.
+
+Doc 06 asks for Stride's composable model. What makes it composable here is Raven's `compose` rather
+than a mixin resolver: `ForwardPlus` declares `compose val surface: IMaterialSurface` and
+`compose val shading: IShadingModel`, each feature is a shader implementing one of those protocols,
+and resolution happens when the effect is compiled — so a material with no clear coat contains no
+clear-coat code at all, rather than a branch that is always false.
+
+**Two slots rather than one**, because the two vary independently: a clear coat over a
+metal-roughness base and over a specular-glossiness one is the same lobe. A surface feature writes
+channels into `MaterialData`; a shading model reads them and evaluates lobes. Five of each is ten
+shaders where folding them together would be twenty-five — and it is the only place cel shading can
+live, because a stylised material keeps its base colour and its normal map and changes only the
+response.
+
+**The chain, and why it is one shader and not five.** A pass has one `surface` slot and a material has
+several features, so `CompositeSurface` composes eight of them in order, each reading the surface as
+the previous one left it. Slots a material does not use take `IdentitySurface`, which contributes
+nothing. That shape is forced by two properties of `compose` worth knowing:
+
+- Every declared slot in a compilation must be bound, reachable or not (`RVN2073`). Chains of two
+  through six would make every material bind twenty slots it never calls.
+- A composed shader's parameters belong to its **type**, not to the slot it filled. A
+  `CompositeSurface` nested in a `CompositeSurface` would be one chain, not two.
+
+The same rule is the sharp edge in the whole model, and it is why the compiler refuses a material that
+uses one feature twice. Two slots bound to one shader compile perfectly, into a material where both
+read the same values — so a two-layer blend of one workflow is one layer drawn twice, and the artist
+who painted two colours sees one. That is a wrong image with no error anywhere, which is exactly the
+kind this codebase would rather fail on.
+
+**Layering is therefore two mechanisms.** `BlendSurface` composes two *different* surfaces and mixes
+their channels by a weight. `MaterialLayersSurface` is N layers of one workflow held in an array, with
+`LayerCount` as a permutation so the loop unrolls and a two-layer material's block holds two layers —
+which is the case terrain and decals actually want, and the one composition cannot express.
+
+**The parameter names are predicted, not read.** Raven qualifies a composed shader's parameters by the
+path of types they were reached through, so a base colour inside the chain is
+`CompositeSurface.MetalRoughnessSurface.baseColor`, and the engine qualifies every key by the shader
+that owns it, giving `ForwardPlus.CompositeSurface.MetalRoughnessSurface.baseColor`. The compiler
+works that out without a compiler in the process, because a material is authored and serialised on
+machines that never compile a shader and a shipping build must build the key that finds a baked effect
+without linking Raven at all. A rule written down twice is a rule that drifts, so
+`Raven/Library/Pipeline/ForwardPlus.reflect.json` is checked in — regenerated and compared on the
+compiler's side, and read back on this side by `MaterialReflectionTests`, which holds the prediction
+against it in both directions.
 
 ## Skinning and instancing, and three ways to reach per-draw data
 
@@ -639,6 +701,21 @@ is the caller's, and is what the ring above is for.
 
 Blend shapes and area lights. Punctual shadows are not cached — only the directional cascades are,
 and a spot light over static geometry has the same argument waiting for it.
+
+**Materials are values, not resources.** Every feature's parameters go into the constant buffer; a
+feature that samples a texture needs a descriptor, and which binding index it lands on is the compiled
+shader's decision — the same authoring gap the compositor's nodes have, and closed by the same thing:
+reflecting the binding plan onto `Effect`. Until then a textured material sets values and a host
+builds the descriptor set.
+
+Transmission has a surface feature's worth of channels and no shading model, deliberately: refraction
+needs either the scene colour or an environment sample, both of which belong to the pass rather than
+to the lobe, and inventing a `Shade` that could not reach them would be a feature that compiles and
+does nothing. Back-lit thin surfaces are covered — that is `SubsurfaceShading`.
+
+Indirect lighting does not go through the shading model. `Ambient` is the pass's, so a cel-shaded
+material still takes a physically-based IBL term, and a clear coat has no second lobe against the
+environment.
 
 Instance batching by locality: an instanced batch is culled as one object, so what goes in one is the
 caller's decision and there is nothing here to help make it.

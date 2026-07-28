@@ -114,6 +114,15 @@ settings in a different order are the same key; without that normal form the cac
 per insertion order and hits almost never — a miss that shows up as a frame-time cliff rather than a
 wrong image.
 
+A key carries a third thing, and it is not a permutation: the **`ShaderComposition`** — which shader
+fills each of the pass's `compose` slots. A permutation decides which branch of one shader survives; a
+composition decides which shaders the compilation contains at all, so two materials with the same name
+and the same permutations but different features are different code. A key blind to that returns the
+first one compiled for both, which is a metal-roughness object drawn with a specular-glossiness shader
+and nothing logged anywhere. Same normal form as the values, and empty for the shaders that declare no
+slots — every post effect and the depth-only pass — so their keys and their cache filenames are exactly
+what they were before compositions existed.
+
 `EffectSystem` resolves a key to an `Effect`, asking each `IEffectProvider` in turn and remembering
 the answer. That interface is the seam that makes **"zero runtime shader compilation" structural
 rather than aspirational**: a shipping build supplies a provider backed by the baked bundle and never
