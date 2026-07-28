@@ -563,16 +563,29 @@ public sealed class CompositorImageTests {
     ///         Sampling the second tile is what makes the mapping load-bearing.
     ///     </para>
     ///     <para>
-    ///         The picture is a plan view: the receiver derives a world position on <c>y = 0</c> from
-    ///         its own UV, so there is no camera and the shadow's position can be predicted from the
-    ///         light direction and the caster's height alone — which
-    ///         <see cref="AssertShadow" /> does, independently of any matrix the renderer built.
+    ///         <strong>The receiver picks its own cascade, from what the renderer published.</strong>
+    ///         <see cref="ShadowMapRenderer.Scene" /> writes <c>cascades[i].viewProjection</c> and
+    ///         <c>cascades[i].split</c> into the receiver's parameters, and the fragment runs the same
+    ///         search <c>ForwardPlus.CascadeOf</c> does. This fixture used to be <em>handed</em>
+    ///         cascade one's matrix and its tile by the test, which exercised
+    ///         <see cref="ShadowCascades.AtlasProjection" /> and nothing downstream of it — and could
+    ///         not test selection at all, there being one matrix to select.
     ///     </para>
     ///     <para>
-    ///         <strong>The caster's transform carries the cascade's view-projection</strong>, composed
-    ///         by the fixture between <c>Collect</c> and <c>Build</c>. That is not how an engine should
-    ///         do it — it is what has to be done while nothing binds per-view constants, which is a
-    ///         gap this fixture ran into rather than one it tests.
+    ///         <strong>What the picture can and cannot show about selection.</strong> Cascades
+    ///         deliberately overlap, so a fragment that picks a <em>farther</em> cascade than it should
+    ///         is still shadowed, at a coarser resolution — invisible here and not much of a bug. The
+    ///         failure that shows is the other direction: a far fragment sent to a near cascade
+    ///         projects outside that cascade's tile and comes back unshadowed. The whole ground plane
+    ///         here is beyond cascade zero, so a selection that reversed its comparison loses the
+    ///         shadow entirely, which is what <see cref="AssertShadow" /> reports.
+    ///     </para>
+    ///     <para>
+    ///         The picture is a plan view: the receiver derives a world position on <c>y = 0</c> from
+    ///         its own UV, so the shadow's position can be predicted from the light direction and the
+    ///         caster's height alone — which <see cref="AssertShadow" /> does, independently of any
+    ///         matrix the renderer built. The camera exists for the cascades to be fitted to and for
+    ///         the depth the selection is made on, not for the picture.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -585,7 +598,6 @@ public sealed class CompositorImageTests {
         var device = owned.Device;
 
         const int Tile = 256;
-        const int Cascades = 2;
 
         var display = owned.Owned("display", TextureUsage.ColourTarget | TextureUsage.CopySource);
 
@@ -711,17 +723,18 @@ public sealed class CompositorImageTests {
 
         shadows.Constants = viewConstants;
 
-        // The caster's transform is now its own placement and nothing else — the cascade's matrix
-        // reaches the shader through set 1, which is what ViewConstants exists for. Collect still runs
-        // first, because the receiver needs to be told which cascade to look in and that is only known
-        // once the cascades are fitted.
+        // What the receiver reads is what the renderer publishes, which is the whole of this fixture's
+        // second job. It used to be handed cascade one's matrix and its tile by the test — which
+        // exercised `AtlasProjection` and nothing downstream of it, and left the *selection* untested
+        // because there was only ever one matrix to select.
+        shadows.Scene = receiver.Parameters;
+        shadows.ShaderName = "ShadowReceive";
+
+        // The caster's transform is its own placement and nothing else — the cascade's matrix reaches
+        // the caster through set 1, which is what ViewConstants exists for.
         compositor.Collect();
 
-        var cascade = shadows.Cascades[1];
-        var (scale, offset) = ShadowCascades.AtlasTile(1, Cascades);
-
-        receiver.Parameters.Set(ShadowMatrix, cascade.ViewProjection);
-        receiver.Parameters.Set(Tile2, new Vector4(scale.X, scale.Y, offset.X, offset.Y));
+        receiver.Parameters.Set(View, camera.Camera!.Value.View);
 
         system.Objects.Data.Data(transforms.World)[caster.Index] = CasterWorld;
 
@@ -807,11 +820,36 @@ public sealed class CompositorImageTests {
     const float GroundMinZ = -35f;
     const float GroundSize = 20f;
 
-    static readonly ParameterKey<Matrix4x4> ShadowMatrix =
-        ParameterKeys.New<Matrix4x4>("ShadowReceive.shadowMatrix");
+    /// <summary>The receiver's view matrix, which is what the cascade is selected on.</summary>
+    static readonly ParameterKey<Matrix4x4> View = ParameterKeys.New<Matrix4x4>("ShadowReceive.view");
 
-    static readonly ParameterKey<Vector4> Tile2 = ParameterKeys.New<Vector4>("ShadowReceive.tile");
     static readonly ParameterKey<Vector4> Ground = ParameterKeys.New<Vector4>("ShadowReceive.ground");
+
+    /// <summary>How many cascades the fixture fits, and the shader's <c>CASCADES</c>.</summary>
+    /// <remarks>
+    ///     Two, because one proves nothing: with a single cascade the tile scale is (1,1) and the
+    ///     offset (0,0), so an atlas mapping that did nothing would pass — and there is no second
+    ///     cascade for a selection to choose wrongly.
+    /// </remarks>
+    const int Cascades = 2;
+
+    /// <summary>Where one cascade's slot starts in the block. Eighty bytes, from the shader.</summary>
+    const int CascadeStride = 80;
+
+    /// <summary>
+    ///     One cascade's slot in the receiver's block, named the way the renderer publishes it.
+    /// </summary>
+    /// <remarks>
+    ///     <c>ShadowReceive.cascades[1].split</c> and nothing else: <see cref="ShadowMapRenderer" />
+    ///     writes these, and a fixture composing its own would be testing the fixture. The layout is
+    ///     <c>ForwardPlus.rvn</c>'s — a <c>mat4</c> and a <c>float</c> under std140, so eighty bytes
+    ///     apart — which the compiled fixture shader agrees with because it declares the same struct.
+    /// </remarks>
+    static (ParameterKey<Matrix4x4> Matrix, ParameterKey<float> Split) CascadeKeys(int index) =>
+        (
+            ParameterKeys.New<Matrix4x4>($"ShadowReceive.cascades[{index}].viewProjection"),
+            ParameterKeys.New<float>($"ShadowReceive.cascades[{index}].split")
+        );
 
     /// <summary>The depth-only caster and the plan-view receiver.</summary>
     sealed class Shadowed : IEffectProvider {
@@ -864,9 +902,22 @@ public sealed class CompositorImageTests {
                 ],
                 SetLayouts = [default, default, set],
                 Layout = layout,
-                ConstantBufferSize = 96,
-                Parameters = [new(ShadowMatrix, 0, 64), new(Tile2, 64, 16), new(Ground, 80, 16)]
+                ConstantBufferSize = (Cascades * CascadeStride) + 80,
+                Parameters = [.. Members()]
             };
+        }
+
+        /// <summary>Where every value in the receiver's block sits, at the shader's own offsets.</summary>
+        static IEnumerable<EffectParameter> Members() {
+            for (var i = 0; i < Cascades; i++) {
+                var (matrix, split) = CascadeKeys(i);
+
+                yield return new(matrix, i * CascadeStride, 64);
+                yield return new(split, (i * CascadeStride) + 64, 4);
+            }
+
+            yield return new(View, Cascades * CascadeStride, 64);
+            yield return new(Ground, (Cascades * CascadeStride) + 64, 16);
         }
 
         /// <summary>

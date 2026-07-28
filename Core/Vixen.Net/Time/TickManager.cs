@@ -85,7 +85,26 @@ public sealed class TickManager {
     ///     half a round trip, plus a margin for jitter, plus one.
     /// </summary>
     public int LeadTicks =>
-        IsSynchronized ? Rate.ToTicks(RoundTrip.OneWay) + Rate.ToTicks(RoundTrip.Jitter * 2) + 1 : 0;
+        IsSynchronized ? Math.Max(0, Rate.ToTicks(RoundTrip.OneWay) + Rate.ToTicks(RoundTrip.Jitter * 2) + 1 + LeadBias)
+            : 0;
+
+    /// <summary>An adjustment to the lead, in ticks, for something that measured better than a guess.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The lead above is computed from a round trip this end estimated, and it is a good
+    ///         estimate of the wrong thing: what actually matters is whether the client's input is in
+    ///         the server's hands <i>before</i> the tick it is for, which only the server can see.
+    ///         <c>InputBuffer</c> measures it — depth, starvation, lateness — and
+    ///         <c>TickLeadController</c> is what turns those into this.
+    ///     </para>
+    ///     <para>
+    ///         <b>Kept separate from the estimate rather than replacing it.</b> The round trip is
+    ///         still the right starting point and the right answer when nothing is measuring; a bias
+    ///         is an adjustment somebody can inspect, reason about and clamp, where a lead written
+    ///         over wholesale is one nobody can tell from a broken estimator.
+    ///     </para>
+    /// </remarks>
+    public int LeadBias { get; set; }
 
     /// <summary>The tick the renderer should be interpolating towards — behind the server, not ahead.</summary>
     public Tick InterpolationTick => estimatedServerTick.Subtract(InterpolationDelayTicks);

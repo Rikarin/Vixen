@@ -37,6 +37,44 @@ public sealed class NetworkRulesTests {
         Assert.True(rules.MaySpawn(Object, PlayerId.None));
     }
 
+    /// <summary>Who may take an object and when it may be taken are two questions.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The pick-up rule cannot be spelled with an audience alone: <c>Everyone</c> lets anybody
+    ///         take a weapon out of somebody else's hands, and <c>Owner</c> means nobody can ever pick
+    ///         up a dropped one. Together with <see cref="OwnershipClaim.WhenUnowned" /> they say the
+    ///         thing a game actually means.
+    ///     </para>
+    ///     <para>
+    ///         This is why Vixen has no ownership-toggle component, which the reference implementation
+    ///         does have. The trigger that decides *when* to try is the game's; the policy that decides
+    ///         whether it is allowed is here, in the one record everything else already asks.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AClaimRuleIsTheOtherHalfOfTheOwnershipQuestion() {
+        rules.Default = new() { ChangeOwner = RuleAudience.Everyone, Claim = OwnershipClaim.WhenUnowned };
+
+        // Owned by somebody else: refused, however permissive the audience is.
+        Assert.False(rules.MayChangeOwner(Object, Stranger));
+
+        // Its own owner always may, which is what makes putting it down possible at all — releasing
+        // is a transfer to nobody, and a rule that refused it would make a dropped weapon undroppable.
+        Assert.True(rules.MayChangeOwner(Object, Owner));
+
+        ownership.Forget(Object);
+        Assert.True(rules.MayChangeOwner(Object, Stranger));
+
+        // And the server is never refused: this constrains clients taking things from each other, not
+        // a referee reassigning a vehicle.
+        ownership.SetOwner(Object, Owner);
+        Assert.True(rules.MayChangeOwner(Object, PlayerId.None));
+
+        // The default is unchanged behaviour: an audience that admits you admits you.
+        rules.Default = new() { ChangeOwner = RuleAudience.Everyone };
+        Assert.True(rules.MayChangeOwner(Object, Stranger));
+    }
+
     [Fact]
     public void AnOwnerAudienceAdmitsTheOwnerAndNobodyElse() {
         rules.Default = new() { ChangeOwner = RuleAudience.Owner };

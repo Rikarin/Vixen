@@ -85,8 +85,31 @@ public sealed class NetworkRulesRegistry {
     /// <param name="id">The object.</param>
     /// <param name="requester">Who is asking.</param>
     /// <returns>Whether they may.</returns>
-    public bool MayChangeOwner(NetworkId id, PlayerId requester) =>
-        NetworkRules.Allows(For(id).ChangeOwner, requester, ownership.IsOwnedBy(id, requester));
+    /// <remarks>
+    ///     <b>Two questions, and both have to say yes.</b> <see cref="NetworkRules.ChangeOwner" />
+    ///     says who may ask and <see cref="NetworkRules.Claim" /> says when — which together spell the
+    ///     pick-up rule that neither can on its own: <c>ChangeOwner = Everyone</c> with
+    ///     <c>Claim = WhenUnowned</c> is a dropped weapon anybody may take and nobody may steal.
+    /// </remarks>
+    public bool MayChangeOwner(NetworkId id, PlayerId requester) {
+        var rules = For(id);
+        var isOwner = ownership.IsOwnedBy(id, requester);
+
+        if (!NetworkRules.Allows(rules.ChangeOwner, requester, isOwner)) {
+            return false;
+        }
+
+        // The server is the authority and is never refused. A claim rule is a constraint on clients
+        // taking things from each other; a game that wants to move an owned object server-side — a
+        // referee reassigning a vehicle — is not the case this protects against.
+        if (!requester.IsValid || rules.Claim != OwnershipClaim.WhenUnowned) {
+            return true;
+        }
+
+        // Its own owner always may, which is what makes giving one up possible: releasing is a
+        // transfer to nobody, and a rule that refused it would make a dropped weapon undroppable.
+        return isOwner || !ownership.TryGetOwner(id, out var owner) || !owner.IsValid;
+    }
 
     /// <summary>Whether a client may ask the server to create one of these.</summary>
     /// <param name="id">The object, or the prefab standing in for one.</param>

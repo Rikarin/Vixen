@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Net.Audio</RootNamespace>
+        <Description>
+            Networked audio: whether a sound is playing, and how loud, sent instead of the sound.
+            A one-shot at a world position is an event and belongs on a broadcast; this is for the
+            sounds that have a state worth agreeing on.
+        </Description>
+        <PackageTags>audio;networking;multiplayer;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <!--
+        The same argument every Vixen.Net.* pairing makes: Vixen.Net and Vixen.Audio may not reference
+        each other, so the type that has to see a NetworkId and an AudioSource lives above both. A
+        game with networking and no audio must not carry a voice replicator.
+    -->
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Net\Vixen.Net.csproj" />
+        <ProjectReference Include="..\Vixen.Audio\Vixen.Audio.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          Named here because analyzers do not flow through a ProjectReference, and the serializer for
+          a component has to be generated in the assembly that declares it.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+</Project>

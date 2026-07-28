@@ -7,26 +7,30 @@ Spec: [docs/plan/16-networking.md](../../docs/plan/16-networking.md).
 
 ## What is here so far
 
-Everything from the wire up to the policy. Lag compensation is the one item of the phase that is not
-built, and it is blocked on Phase 8 rather than owed by this package; see the roadmap.
+Everything from the wire up to the policy, plus interest management and client-side prediction.
 
 ```
 Vixen.Net              Channel · ConnectionId · DisconnectReason · Tick
 Vixen.Net.Transport    ITransport · ITransportEvents · NetworkSimulation
 Vixen.Net.Messaging    PacketWriter · PacketReader · BitWriter · BitReader · QuantizeRange · MathCodec
+                       BroadcastRouter
 Vixen.Net.Time         TickRate · TickManager · RoundTripEstimator
 Vixen.Net.Sessions     NetworkSession · NetworkPlayer · PlayerId · ISessionAuthenticator
 Vixen.Net.Replication  NetworkId · [Replicated] · [Quantize] · ReplicationServer/Client
+                       NetworkSpawn · InterestChain · InterestGrid · IReplicationRate
 Vixen.Net.Rpc          [ServerRpc] · [ClientRpc] · RpcRouter · NetworkOwnership · RpcManifest
 Vixen.Net.Rules        NetworkRules · NetworkRulesRegistry
 Vixen.Net.Motion       NetworkTransform · SnapshotBuffer · OwnerSmoothing
+Vixen.Net.Prediction   IPredictedInput · InputLog · InputBuffer · ClientPrediction
+                       PredictionHistory · TickLeadController · PredictionSmoother
 Vixen.Net.Diagnostics  BandwidthLedger · SnapshotInspector · NetworkMetrics
 ```
 
 Plus the transports — `Local` (in-process), `Udp`, `WebSocket`, and `Composite` (several at once,
 so one server takes both desktop and browser clients) — the build half (`Vixen.Net.Generators`), the
-export half of the metrics (`Vixen.Net.Telemetry`), lag compensation (`Vixen.Net.Physics`), and the
-fuzz harness (`Vixen.Net.Fuzz`), each in their own package with their own README.
+export half of the metrics (`Vixen.Net.Telemetry`), lag compensation (`Vixen.Net.Physics`), the
+plug-and-play components (`Vixen.Net.Engine`, `Vixen.Net.Animation`, `Vixen.Net.Audio`), and the fuzz
+harness (`Vixen.Net.Fuzz`), each in their own package with their own README and its own **Owed**.
 
 **[`Samples/08-Multiplayer`](../../Samples/08-Multiplayer) is all of it at once** — eight players,
 server-authoritative movement and shooting, over either transport, ending in a convergence check that
@@ -236,6 +240,127 @@ Despawning needed nothing new at all: leaving the interest set already means "dr
 destruction and walking over the horizon are the same mechanism. The half that has to see a `Prefab`
 lives in `Vixen.Net.Engine`.
 
+## Interest
+
+Who is told about what. `InterestChain` is a **source** of candidates and a list of **rules** asked in
+order, where the first definite answer wins — which is what doc 16's "scene scope → explicit overrides
+→ distance grid" ordering has to mean for an override to be one.
+
+**Most rules say `Undecided` most of the time, and that is what makes a chain work.** A scene rule
+knows an object in a level you have not loaded is hidden; it knows nothing about whether one in a
+level you *have* loaded is close enough to matter. Saying so — rather than voting "observed" and
+forcing every later rule to be able to overrule it — is what lets rules be written independently.
+
+**The grid is a source, not a rule, and that is where the scaling is.** A rule filters what it is
+given, so a chain of rules over ten thousand objects and two hundred players is two million questions
+a tick whatever the rules then say. `InterestGrid` buckets the world once and answers each player from
+the cells around them. It reads exactly like a filter — "is this within range" — and writing it as one
+produces something that passes every test and scales like the thing it replaced.
+
+**It leaves with hysteresis, which is not polish.** Leaving the observed set and being destroyed are
+the same thing to a client, so an object at the boundary is not "flickering" — it is being destroyed
+and recreated, every tick, with whatever the game hangs off a spawn.
+
+The fallback is `Observed`, so a chain with no rules is what a new project already had, and adding a
+rule can only ever *hide* things — the direction in which mistakes get noticed rather than debugged.
+
+## Rate, which doc 16 puts in the chain and cannot go there
+
+That document lists the resolvers as "scene scope → explicit visibility overrides → distance grid →
+**LOD rate reduction**". The last is not a filter. Leaving the observed set means "drop this object",
+so an LOD written as a rule would despawn and respawn every distant object on every tick it skipped —
+a bug that looks like the feature working.
+
+So rate lives on `ReplicationServer.Rate`, where skipping a record already means "not this tick": it
+is the same thing the bandwidth budget does when it sheds, and it takes the same path out — nothing
+was acknowledged, so it goes in the next snapshot. `DistanceReplicationRate` is the banded
+implementation, phased **by object id** so distant objects spread across the ticks instead of arriving
+together on every fourth one. An object the connection does not hold yet is never rate-limited, so a
+reduced rate slows updates without delaying anything's appearance.
+
+## Predicted input
+
+The half of client-side prediction that has to exist first: a client's inputs reaching the server
+*before* the tick they are for. `IPredictedInput<T>` is a game-defined struct with a `static abstract`
+codec — the same shape `IBroadcast<T>` uses, and for the same reason: both ends get the same encoding
+at compile time and nothing reflects at run time.
+
+**Every packet carries the last several ticks.** A lost input is not a lost update that the next
+packet supersedes — it is a tick the server simulates differently from the client that predicted it,
+and nothing afterwards repairs the divergence. So `InputLog<T>` sends a short run rather than one
+input, which costs a few bytes and removes the failure entirely for any loss shorter than the
+redundancy. There is a test that drops three consecutive packets and asserts the server lost nothing,
+and one that sets the redundancy to two and asserts that it *does* lose something — because a
+constant is only meaningful if exceeding it does what the number says.
+
+**The log is trimmed by acknowledgement, not by age**, because it is two things at once: what goes on
+the wire, and what a rollback replays. Trimming by age would throw away exactly the inputs a slow
+acknowledgement still needs.
+
+`InputBuffer<T>` is the server's jitter buffer, and its counters are a control signal rather than
+diagnostics. `Depth` against `TargetDepth` is what the server reports back so a client can adjust how
+far ahead it runs — starving means "run further ahead", growing means "you are paying input latency
+you do not need to". A starved tick **repeats the last input rather than zeroing it**: a player
+holding forward would otherwise stop dead for one tick on the server while their own client predicted
+them still moving, which turns a dropped packet into a guaranteed correction.
+
+## Prediction
+
+Three lines a tick, and all the subtlety is in what they mean:
+
+```csharp
+prediction.Step(world, tick, input);          // record the input, simulate, record the result
+// … a snapshot for tick T arrives and ReplicationClient applies it …
+prediction.Reconcile(world, confirmed: T);    // agree and carry on, or replay from the server's state
+```
+
+**Predicted state is exactly replicated state**, and that is a definition rather than a limitation. A
+field the server never sends is a field no snapshot can contradict, so there is nothing to reconcile
+it against. `PredictionHistory` records through the same `IComponentReplicator` the server writes
+with, which means a frame of history and a snapshot are the same bytes describing the same thing, and
+comparing them is a span comparison rather than a per-component equality nobody wrote.
+
+**Comparing in the encoded domain gets the tolerance right for free.** A prediction that differs from
+the server in the last bit of a float is a difference below what the wire can express — the server's
+value arrived quantized — so the two encode identically and no rollback happens. Comparing floats
+instead would roll back on very nearly every snapshot, and the cost would look like the feature
+working. The flip side: a restore comes back through the codec, so it snaps the world onto the wire's
+lattice. Bounded by one quantization step, non-accumulating, and the same lattice the server is on.
+
+**Agreement is the common case and it is the cheap one** — a byte comparison and a copy, no
+simulation. `ResimulatedTickCount` is the price of the feature and should sit near zero on a
+connection that is behaving. `MispredictionCount` is the number that says whether the simulation is
+actually deterministic: a predicted step that reads anything outside the world and the input
+mispredicts on *every* snapshot even with no packet loss at all, and it looks like jitter rather than
+like a bug.
+
+**Disagreement replays from the server's state**, not from the guess. That is what makes the
+correction converge — nudging the present toward the server's value is the tempting alternative, and
+it does not, because the error it corrects was produced by ticks it is not redoing.
+
+**What is predicted comes from the rules**, not from a second notion of ownership. `PredictedOwnershipSystem`
+tags what `NetworkRules.Write` says this client may decide — the same question the rigid bodies and the
+animators ask — and untags it when somebody else takes it. Two notions of "mine" is how the two come to
+disagree, and the day they do, a client predicts something the server overrules on every tick. With no
+rules, nothing is predicted: predicting by default would mean a game that never configured this
+predicting the whole map against a server that overrules all of it.
+
+**How far ahead to run is the server's answer, not the client's.** A client can measure a round trip,
+and a round trip is a good estimate of the wrong thing — what matters is whether its input reached the
+server *before* the tick it was for, which is a fact about the server's buffer. `PredictionHealthReporter`
+sends that back as a broadcast (deltas, not lifetime totals, and every thirtieth tick rather than every
+tick), and `TickLeadController` turns it into `TickManager.LeadBias`. It moves **one tick at a time and
+never on one report**, because changing the lead moves every input not yet sent — and it is asymmetric
+on purpose: starvation is corrected quickly and depth given up slowly, because being too far ahead
+costs a little input latency and being too far behind costs corrections the player sees.
+
+**Hiding the correction is a presentation problem**, and `PredictionSmoother` is the wiring for it:
+`ClientPrediction.Corrections` reports what the last reconciliation moved, and the smoother keeps an
+`OwnerSmoothing` per object so a player and the vehicle they are driving can be corrected by different
+amounts. The simulation takes the correction at once and the picture catches up — blending the
+*simulation* instead would mean predicting on from a position the server has already disagreed with.
+Past a snap distance nothing is hidden, because the object did not drift, it was moved.
+
 ## Remote calls
 
 The handler keeps its name; the sender gets its own, reached through a generated `Rpc` accessor:
@@ -406,8 +531,9 @@ there against `Vixen.Net.Transport.Local` and against the simulation wrapped aro
 transport's test project inherits the same suite. A transport is substitutable or it is nothing, and
 the way to keep that true is to make the contract executable.
 
-The other executable claim is [`Vixen.Net.Fuzz`](../Vixen.Net.Fuzz): nine targets over every decode
-path a peer can reach, nine million cases on every build, holding each of them to three promises —
+The other executable claim is [`Vixen.Net.Fuzz`](../Vixen.Net.Fuzz): twelve targets over every decode
+path a peer can reach — down to the datagram and the HTTP upgrade, which are parsed before anything
+has authenticated — eleven million cases on every build, holding each of them to three promises —
 nothing throws, nothing amplifies, nothing is retained. It found four defects on its first run,
 including one packet that crashed a client and one that made it keep a player record per packet.
 
@@ -429,3 +555,34 @@ It pins a game's own components too, not only the engine's — including the reg
 gets, which is a function of the type *name*, because types are ordered by hashed id so that two
 builds agree without agreeing on start-up order. **Renaming a replicated component is a wire break**,
 and this is where that shows up.
+
+## Owed
+
+Where the other packages' `Owed` sections are about their own subject, these are the core's. Anything
+that belongs to a transport, to the generators, to lag compensation or to a plug-and-play component is
+in that package's README; the roadmap has the whole of Phase 9 in one place.
+
+- **Predicted spawns.** A client cannot predict an object into existence — a projectile it fired is
+  the case everybody hits first. It needs an id space a client may allocate in and a reconciliation
+  that matches its guess to the server's real spawn, which is the largest thing left in prediction.
+- **The predicted step is a delegate, not the scheduler.** `PredictedStep<T>` is a callback the game
+  supplies. What it should be is a re-entrant run of `SystemPhase.FixedUpdate`, so "what is simulated"
+  and "what is replayed" cannot drift apart — and that wants the scheduler to be re-entrant, which it
+  is not.
+- **`NetworkTransform` per-axis enable and parent-relative replication.** A door that only rotates
+  pays for a position; a crate on a moving ship replicates world coordinates that fight the ship's.
+  Both are on the component and neither is built.
+- **`ResendDelayTicks` should be the connection's measured round trip.** The session keeps a
+  `RoundTripEstimator` per player and `ReplicationServer` does not see it, so one figure stands in for
+  every connection. Measured on the soak: four ticks gave 137 kbit/s a client and five gave 80, which
+  is how much this is worth getting right per connection rather than once.
+- **A cost budget for rewinds.** The RPC rate limiter counts calls, and a lag-compensated hit claim
+  costs far more than an ordinary one. The limiter is the right place and it does not yet know that
+  some calls are dearer than others.
+- **Interest rules a game writes.** The chain takes any `IInterestRule`, and the team, room and
+  fog-of-war resolvers doc 16 names are deliberately not shipped — each is a game's own idea of who
+  may see what.
+- **Generated encoders in the bit-exactness corpus.** Their *source* is pinned by
+  `Vixen.Net.Generators.Tests` and every arithmetic primitive they emit is pinned by `Wire`, so what
+  is uncovered is the composition rather than either half. Closing it means referencing the generator
+  from that test project.

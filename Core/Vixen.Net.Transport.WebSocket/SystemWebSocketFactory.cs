@@ -50,11 +50,30 @@ public sealed class SystemWebSocketFactory : IWebSocketFactory {
 }
 
 sealed class SystemWebSocketListener : IWebSocketListener {
-    const string UpgradeGuid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+    /// <summary>How long a client has to finish its request before the socket is taken back.</summary>
+    /// <remarks>
+    ///     <b>Slowloris, and it had none.</b> A client that opened a socket and said nothing held a
+    ///     file descriptor and a pending task until the listener stopped, for the cost of a connect —
+    ///     the oldest denial of service there is. Five seconds is longer than any real request takes
+    ///     and shorter than anything a person would notice.
+    /// </remarks>
+    static readonly TimeSpan UpgradeTimeout = TimeSpan.FromSeconds(5);
+
+    /// <summary>How many half-finished upgrades may be in flight at once.</summary>
+    /// <remarks>
+    ///     The other half of the same problem: a timeout bounds how long each one lasts and this
+    ///     bounds how many there are, so the worst an attacker gets is this many sockets for five
+    ///     seconds rather than as many as they can open for as long as the process runs. Past it a
+    ///     connection is closed immediately, which is what a full accept queue looks like to a client
+    ///     and is a thing clients already handle.
+    /// </remarks>
+    const int MaxPendingUpgrades = 64;
 
     readonly TcpListener listener;
     readonly ConcurrentQueue<IWebSocketChannel> ready = new();
     readonly CancellationTokenSource stopping = new();
+
+    int pending;
 
     public Uri Address { get; }
 
@@ -102,17 +121,30 @@ sealed class SystemWebSocketListener : IWebSocketListener {
             }
 
             // Each upgrade on its own, so one client that opens a socket and says nothing cannot
-            // hold up everybody behind it in the accept queue.
+            // hold up everybody behind it in the accept queue — bounded, because "each on its own"
+            // with no ceiling is an invitation to open as many as a machine has descriptors for.
+            if (Interlocked.Increment(ref pending) > MaxPendingUpgrades) {
+                Interlocked.Decrement(ref pending);
+                client.Dispose();
+
+                continue;
+            }
+
             _ = Upgrade(client, token);
         }
     }
 
     async Task Upgrade(TcpClient client, CancellationToken token) {
+        // Its own deadline, linked to the listener's, so the socket comes back whether the client
+        // finished, went away, or is holding it open on purpose.
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+        deadline.CancelAfter(UpgradeTimeout);
+
         try {
             client.NoDelay = true;
 
             var stream = client.GetStream();
-            var key = await ReadKey(stream, token).ConfigureAwait(false);
+            var key = await ReadKey(stream, deadline.Token).ConfigureAwait(false);
 
             if (key is null) {
                 client.Dispose();
@@ -120,16 +152,7 @@ sealed class SystemWebSocketListener : IWebSocketListener {
                 return;
             }
 
-            var accept = Convert.ToBase64String(SHA1.HashData(Encoding.ASCII.GetBytes(key + UpgradeGuid)));
-
-            var response = Encoding.ASCII.GetBytes(
-                "HTTP/1.1 101 Switching Protocols\r\n"
-                + "Upgrade: websocket\r\n"
-                + "Connection: Upgrade\r\n"
-                + $"Sec-WebSocket-Accept: {accept}\r\n\r\n"
-            );
-
-            await stream.WriteAsync(response, token).ConfigureAwait(false);
+            await stream.WriteAsync(WebSocketUpgrade.Accept(key), deadline.Token).ConfigureAwait(false);
 
             var socket = System.Net.WebSockets.WebSocket.CreateFromStream(
                 stream,
@@ -137,40 +160,52 @@ sealed class SystemWebSocketListener : IWebSocketListener {
             );
 
             ready.Enqueue(SystemWebSocketChannel.Accepted(socket, client));
-        } catch (Exception exception) when (exception is IOException or WebSocketException or ObjectDisposedException) {
-            // A half-finished upgrade is a client that went away, which is not an error here.
+        } catch (Exception exception) when (exception is IOException
+                                                or WebSocketException
+                                                or OperationCanceledException
+                                                or ObjectDisposedException) {
+            // A half-finished upgrade is a client that went away or ran out of time, neither of which
+            // is an error here.
             client.Dispose();
+        } finally {
+            Interlocked.Decrement(ref pending);
         }
     }
 
+    /// <summary>Reads until the headers end, then finds the key in them.</summary>
+    /// <remarks>
+    ///     <b>Scanned from where the last read finished, not from the front.</b> Rescanning the whole
+    ///     buffer on every read is what made a client dribbling one byte at a time cost the server
+    ///     megabytes for kilobytes sent; the terminator can straddle a read boundary, so it steps back
+    ///     three bytes and no further.
+    /// </remarks>
     static async Task<string?> ReadKey(NetworkStream stream, CancellationToken token) {
-        var buffer = new byte[4096];
+        var buffer = WebSocketUpgrade.RentRequestBuffer();
         var read = 0;
 
-        while (read < buffer.Length) {
-            var got = await stream.ReadAsync(buffer.AsMemory(read), token).ConfigureAwait(false);
+        try {
+            while (read < WebSocketUpgrade.MaxRequestBytes) {
+                var got = await stream.ReadAsync(buffer.AsMemory(read, WebSocketUpgrade.MaxRequestBytes - read), token)
+                    .ConfigureAwait(false);
 
-            if (got == 0) {
-                return null;
-            }
-
-            read += got;
-            var text = Encoding.ASCII.GetString(buffer, 0, read);
-
-            if (!text.Contains("\r\n\r\n", StringComparison.Ordinal)) {
-                continue;
-            }
-
-            foreach (var line in text.Split("\r\n")) {
-                if (line.StartsWith("Sec-WebSocket-Key:", StringComparison.OrdinalIgnoreCase)) {
-                    return line["Sec-WebSocket-Key:".Length..].Trim();
+                if (got == 0) {
+                    return null;
                 }
+
+                var scanFrom = Math.Max(0, read - 3);
+                read += got;
+
+                if (!WebSocketUpgrade.IsComplete(buffer.AsSpan(0, read), scanFrom, out var length)) {
+                    continue;
+                }
+
+                return WebSocketUpgrade.TryReadKey(buffer.AsSpan(0, length), out var key) ? key : null;
             }
 
             return null;
+        } finally {
+            WebSocketUpgrade.ReturnRequestBuffer(buffer);
         }
-
-        return null;
     }
 }
 

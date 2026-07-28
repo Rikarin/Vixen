@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.Inspector</RootNamespace>
+        <Description>
+            The editor's property drawers: attribute-driven descriptors emitted by a generator,
+            drawers registered per type or per attribute, multi-object editing with mixed-value
+            indication, and every edit recorded as an undoable command on the document's stack.
+        </Description>
+        <PackageTags>editor;inspector;property-drawer;undo;multi-object;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The document model an edit is recorded against. Unlike Vixen.Editor.Ui, which is chrome
+            and deliberately knows nothing about projects, an inspector's entire job is to produce
+            IEditorCommands — "every edit produces a command" is only true by construction if the
+            thing building the editors is the thing that knows about the stack.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
+
+        <!--
+            ColorPicker and CurveEditor are two of the three controls doc 09 built the advanced set
+            for, and this is the consumer they were built for. Vixen.Ui.Controls arrives with it.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
+
+        <!--
+            The descriptors are generated, not reflected: doc 11 § Vixen.Editor.Inspector. Analyzers
+            do not flow transitively through a ProjectReference, so an assembly declaring
+            [Inspector] members of its own has to name this itself — the same wiring
+            Vixen.Core.Reflection.Generator needs.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Inspector.Generator\Vixen.Editor.Inspector.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.Inspector.Tests" />
+    </ItemGroup>
+
+</Project>

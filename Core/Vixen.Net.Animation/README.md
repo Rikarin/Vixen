@@ -56,11 +56,52 @@ as the animation being broken rather than as the network being wrong.
 subsystem — `rules.Set(character, NetworkRules.OwnerAuthoritative)` moves the animator and the body
 together, which is what anybody setting it would expect.
 
+## `NetworkBones` — the fallback, and it is meant to look expensive
+
+For the cases the determinism assumption does not cover: a ragdoll driven by the local solver, IK
+against local geometry, procedural motion with a random number generator in it. Every one of those
+produces a different pose on every machine from identical inputs, and no amount of care with
+parameters fixes it.
+
+Three things make it affordable enough to exist.
+
+**Rotations only, because a skeleton is rigid.** Bone lengths do not change, so a joint's translation
+is its bind pose and sending it would be sending a constant sixty times a second. Where the
+*character* is stays `NetworkTransform`'s answer, as it is for everything else.
+
+**A selected subset, not the skeleton.** A humanoid rig is sixty joints and a ragdoll is driven by
+about sixteen — the fingers follow the hand and nobody watching a corpse fall can tell.
+`NetworkBoneSelection` says which, and it is **not replicated**: it comes from the same content on
+both peers, the same argument the prefab id makes. `MaxBones` is 24, deliberately short of a whole
+humanoid rig, because a design that let you send sixty would make the expensive choice the easy one.
+
+**Stored packed, not as quaternions.** A bone that did not move is then *bit-identical* to last tick,
+so the delta codec spends one bit on it rather than comparing two floats that differ in their last
+place — and the component is a quarter of the size in a chunk. `MathCodec.PackRotation` is the
+32-bit smallest-three encoding as a value; `WriteRotation` is now written in terms of it, and the wire
+golden is what says the refactor changed no bytes.
+
+The cost, stated rather than discovered: **776 bits whole, about 15 kbit/s per character at twenty
+updates a second.** The delta takes most of that back for a pose that is partly still, and a ragdoll
+in free fall pays close to the full price. That is the trade, and it is why the animator replicates
+its inputs.
+
+Both systems run in `SystemPhase.LateUpdate` — after `AnimationSystem` has produced the pose and
+before `SkinningSystem` consumes it. That is an ordering *guarantee* rather than a hope about the
+dependency graph, because what they touch is a managed `Animator`'s pose and no declared component
+access describes it.
+
+There is **no crossfade**, unlike the animator's state correction. A state correction is rare and a
+visible cut is a bug; a pose arrives every tick, and blending each into the last would be a low-pass
+filter on the animation — a ragdoll that lands softly on every impact. Smoothing a pose belongs in
+`SnapshotBuffer`, at the layer that already knows about interpolation delay.
+
 ## Owed
 
-- **`NetworkBones`** — replicating the pose itself, for the cases the determinism assumption does not
-  cover: ragdolls, IK against local geometry, procedural motion. Expensive by nature, and it wants
-  the same quantisation treatment the rotation codec already has.
+- **Per-bone quantisation by importance.** Every bone gets ten bits a component today. A finger does
+  not need what a spine needs, and the selection is the natural place to say so.
+- **Interpolating a pose.** `SnapshotBuffer` interpolates a transform; a pose wants the same treatment
+  and does not have it, so a received pose is applied at whatever rate it arrives.
 - **Layers past the first.** Only the base layer's state is sent; additive and masked layers are
   driven by the parameters that are already on the wire. A game whose upper-body layer has its own
   machine driven by something *not* replicated would need those too.
