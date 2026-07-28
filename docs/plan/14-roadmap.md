@@ -2278,8 +2278,37 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   older one overwrite a newer and never be corrected. Both now have regression tests; the second is
   also why a duplicated snapshot is now counted rather than re-applied.
 
-  **Owed:** `SyncVar<T>`/`SyncList<T>`/`NetworkModule`, the behaviour-facing authoring style over the
-  same mechanism. `DeltaPackerAnalysis`'s other half — the tooling that says which field is costing
+  ✅ **`SyncVar<T>`/`SyncList<T>`/`NetworkModule`** — the behaviour-facing authoring style, in a new
+  package `Vixen.Net.Engine`. It is a package of its own because `Vixen.Net` and `Vixen.Engine` are
+  siblings and neither may reference the other: networking is optional and nothing below the engine
+  may depend on it, so a type that sees both a `Behavior` and a `NetworkId` lives above both. That is
+  the seam the `NetworkTransform` bridge has been owed since Phase 9 began, now built.
+
+  **A `SyncVar` gets the delta packer for nothing, which is the claim this design was chosen to
+  make.** A field declares its lanes, a module's lanes are its fields' lanes end to end, and a lane
+  layout is exactly what `DeltaCodec` needs — so `SyncStateReplicator<T>` is an ordinary
+  `IComponentReplicator` and behaviour state joins the pipeline where a `[Replicated]` struct does.
+  Delta encoding, per-connection baselines, priority shedding and per-field attribution, none of it
+  implemented twice. `NetworkModule` is the primitive and `SyncVar` is a field in one, per doc
+  [16](16-networking.md)'s instruction to build the built-ins out of the primitive users get.
+
+  **`SyncList` deliberately does not use it.** The packer rests on a fixed lane layout, so a
+  variable-length list fails the runtime check and falls back to whole records — correct, useless —
+  and lane-by-lane differencing is actively wrong for a list, since a front insert shifts every
+  element and would difference as "all of it changed". It replicates as an operation log instead:
+  append, insert, remove, replace, clear, travelling reliably and in order, which is what makes
+  per-connection differencing unnecessary. A late joiner gets it whole once. That is doc 16's
+  "reliable-eventual semantics" taken literally.
+
+  Two bugs the tests caught: a nested module's fields were prefixed with their path twice
+  (`Player.Player.Vitals.Health`), and a list removal reported a default item to its `Changed`
+  handler rather than the one it removed.
+
+  **Owed:** the system that marks dirty modules once a frame — `MarkChanged()` is called by hand
+  today and wants the engine's scheduler. `SyncList` ops are built and tested but not yet carried by
+  `ReplicationServer`, which needs a variable-length record kind beside the fixed-lane one — a
+  wire-format addition rather than a design question. And the `NetworkTransform` ↔ transform-hierarchy
+  system, which now has a package to live in. `DeltaPackerAnalysis`'s other half — the tooling that says which field is costing
   the bandwidth — which is the same work as the diagnostics item below. And packaging the generator
   into the `Vixen.Net` package the way `Vixen.Ui` carries its own; today a project takes it through a
   `ProjectReference`.
