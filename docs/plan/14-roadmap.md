@@ -3256,8 +3256,28 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   state every tick and nothing animates, which presents as the animation being broken rather than as
   the network being wrong, and therefore has a test rather than a comment.
 
-  **Owed:** `NetworkBones`, for the cases the determinism assumption does not cover. Expensive by
-  nature and wanting the same quantisation the rotation codec already has.
+  ✅ **`NetworkBones`** is the honest fallback, built rather than left owed: the pose itself, for a
+  ragdoll driven by the local solver, IK against local geometry, or procedural motion with a random
+  number generator in it. Three things make it affordable enough to exist — **rotations only**,
+  because a skeleton is rigid and a joint's translation is its bind pose; **a selected subset**, since
+  a ragdoll is driven by about sixteen joints of a sixty-joint rig and `NetworkBoneSelection` is not
+  replicated because it comes from the same content on both peers; and **stored packed rather than as
+  quaternions**, which makes a bone that did not move bit-identical to last tick so the delta codec
+  spends one bit on it, and makes the component a quarter of the size in a chunk.
+
+  `MathCodec.PackRotation`/`UnpackRotation` expose the existing 32-bit smallest-three encoding as a
+  value, and `WriteRotation` is now written in terms of them. **The wire golden is what says that
+  refactor changed no bytes** — which is precisely the regression the corpus was built to catch, and
+  the first time it has been used on a change to the codec rather than as a platform gate.
+
+  The cost is stated rather than discovered: 776 bits whole, about 15 kbit/s per character at twenty
+  updates a second, with the delta taking most of that back for a pose that is partly still. Both
+  systems run in `LateUpdate` — after the animation system produces the pose and before the skinning
+  system consumes it — which is an ordering *guarantee* rather than a hope about the dependency graph,
+  because what they touch is a managed `Animator`'s pose and no declared component access describes it.
+
+  **Owed:** per-bone quantisation by importance, since a finger does not need what a spine needs; and
+  interpolating a pose, which `SnapshotBuffer` does for a transform and not for this.
 - ✅ **Spawn, scenes and instance handling** — `NetworkSpawner`, `NetworkSpawnSystem` and
   `NetworkPrefabRegistry` in `Vixen.Net.Engine`, over a `NetworkSpawn` component in `Vixen.Net`.
   8 further tests here and 3 on the engine's `Prefab`.
