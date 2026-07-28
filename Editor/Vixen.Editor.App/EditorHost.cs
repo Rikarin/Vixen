@@ -8,6 +8,7 @@ using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Graphics.Vulkan;
 using Vixen.Platform;
+using Vixen.Rendering;
 using Vixen.Ui.Renderer;
 using Vixen.Ui.Rendering;
 using Vixen.Ui.Text;
@@ -39,6 +40,7 @@ sealed class EditorHost : IDisposable {
     readonly UiGeometryBuilder geometry = new();
     readonly GlyphFieldCache glyphs = new(new GlyphAtlas(1024, 1024));
 
+    ScenePresenter? scene;
     VulkanDevice? device;
     TransientResourcePool? pool;
     RenderGraph? graph;
@@ -216,14 +218,33 @@ sealed class EditorHost : IDisposable {
 
             // ⚠ Before the pass, not inside it. The atlas upload is a transfer and a layout
             // transition, and a render pass is the one place a Vulkan command list may not do
-            // either.
+            // either. The scene's lines are a buffer write and are here for the same reason.
             renderer!.Upload(commands, frame, glyphs.Atlas);
+
+            // ⚠ Declared before the interface's pass, so the graph orders the two from the read: the
+            // interface samples what the scene wrote, and the barrier between them is derived rather
+            // than placed by hand.
+            var sampled = default(GraphTexture);
+            var hasScene = false;
+
+            if (editor.Viewport is { } pane && scene is not null && scene.Resize(pane, renderer)) {
+                scene.Upload(editor.Scene, pane);
+                hasScene = scene.Declare(graph, pane, out sampled);
+            }
 
             graph.AddPass(
                 "ui",
                 pass => {
                     pass.ColourAttachment(backbuffer, LoadAction.Clear, new Color4(0.06f, 0.07f, 0.09f, 1f));
                     pass.SideEffect();
+
+                    // ⚠ The scene's target is sampled through a descriptor set, which the graph
+                    // cannot see. Saying so here is what orders the scene's pass before this one and
+                    // puts the layout transition between them — without it the target is still a
+                    // colour attachment when the fragment shader reads it.
+                    if (hasScene) {
+                        pass.Reads(sampled);
+                    }
 
                     // ⚠ The logical surface and the DPI scale, not the swapchain's size. The
                     // geometry is in device-independent units and the scissor comes out in
@@ -328,6 +349,19 @@ sealed class EditorHost : IDisposable {
             new Rendering.RenderOutput([swapChain.Format])
         );
 
+        // ⚠ A colour format the swapchain's is not. The scene is sampled by the interface rather
+        // than presented, so it wants a linear target — a UNorm-sRGB one would be decoded on the way
+        // in and encoded again on the way out, which is a scene visibly washed out next to the panels
+        // around it.
+        scene = new ScenePresenter(
+            device,
+            new LineShaders(
+                device.CreateShader(ShaderStage.Vertex, Module("line.vert.spv"), "line vertex"),
+                device.CreateShader(ShaderStage.Fragment, Module("line.frag.spv"), "line fragment")
+            ),
+            PixelFormat.Rgba8UNorm
+        );
+
         return true;
     }
 
@@ -356,11 +390,13 @@ sealed class EditorHost : IDisposable {
     void Release() {
         device?.WaitIdle();
 
+        scene?.Dispose();
         renderer?.Dispose();
         swapChain?.Dispose();
         pool?.Dispose();
         device?.Dispose();
 
+        scene = null;
         renderer = null;
         swapChain = null;
         graph = null;
