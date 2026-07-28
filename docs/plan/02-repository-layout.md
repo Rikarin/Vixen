@@ -126,7 +126,8 @@ Core/
 ├── Vixen.Physics.Tests/
 ├── Vixen.Animation/                    # ✅ skeletal, blend trees, layers, IK, state machine
 ├── Vixen.Animation.Tests/
-├── Vixen.Vfx/                          # particles + node-graph VFX runtime
+├── Vixen.Vfx/                          # 🟡 particles: SoA storage, compiled graph, CPU sim —
+│                                       #   renderers and the GPU path not yet
 ├── Vixen.Vfx.Tests/
 ├── Vixen.Navigation/                   # ✅ navmesh: bake, query, crowd — managed, no native dep
 ├── Vixen.Navigation.Tests/
