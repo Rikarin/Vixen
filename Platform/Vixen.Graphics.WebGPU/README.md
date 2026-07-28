@@ -105,17 +105,54 @@ renders on the web.
 
 **No timestamp queries.** The feature is requested where offered and nothing reads it yet.
 
-## Nothing ships Dawn
+## Nothing ships Dawn, so the binary is fetched
 
 Unlike Vulkan, no desktop operating system ships a WebGPU implementation, and `Silk.NET.WebGPU` is
-bindings only — there is no NuGet package carrying the binaries for the RIDs the engine targets. So
-the ordinary outcome of `NativeWebGpuBinding.TryCreate` on a developer's machine is **failure**, and
-that is backend selection working rather than an error. [`WebGpuLoader`](Native/WebGpuLoader.cs)
-reports where it looked, and `VIXEN_WEBGPU_PATH` points it somewhere else.
+bindings only — there is no NuGet package carrying the binaries for the RIDs the engine targets.
 
-It also does not call `WebGPU.GetApi()`, for the reason `VulkanLoader` gives: that builds Silk.NET's
-default context, which finds a native library through `Assembly.Location` and
-`DependencyContext.Default` — neither of which exists in a NativeAOT binary (R11).
+```bash
+./build.sh RestoreNativeDeps
+```
+
+That fetches the pinned, checksummed wgpu-native named in
+[`build/native-dependencies.json`](../../build/native-dependencies.json) into `artifacts/native/`,
+and [`WgpuNative.targets`](../Vixen.Platform.Native/build/WgpuNative.targets) copies it into
+`runtimes/<rid>/native/` — the first place `NativeSearch` looks. Without it,
+`NativeWebGpuBinding.TryCreate` reports failure, which is backend selection working rather than an
+error; `VIXEN_WEBGPU_PATH` points the search somewhere else.
+
+`WebGPU.GetApi()` is not called, for the reason `VulkanLoader` gives: it builds Silk.NET's default
+context, which finds a native library through `Assembly.Location` and `DependencyContext.Default` —
+neither of which exists in a NativeAOT binary (R11).
+
+## The version pin is not a preference, and it is not a version either
+
+**`Silk.NET.WebGPU` 2.23.0 matches no wgpu-native release.** Its function list is the one from before
+August 2024 — it declares `wgpuAdapterGetProperties`, `wgpuDeviceSetUncapturedErrorCallback` and
+`wgpuSurfaceGetPreferredFormat`, all three of which wgpu-native removed in v22.1.0.1 — while its
+`WGPURenderPassColorAttachment` carries the `depthSlice` field wgpu-native *added* in that same
+release. It is a Dawn binding, and there is no wgpu-native that agrees with it on both counts.
+
+So two things happen, and both are checked rather than assumed:
+
+- **v0.19.4.1 is pinned**, the last release that exports everything the binding calls, and
+  [`WebGpuLoader`](Native/WebGpuLoader.cs) refuses anything newer at load with a message naming the
+  missing entry points. Silk resolves them lazily through function pointers, so without that check a
+  newer library is not a link error — it is a null call some frames later, with a stack that names
+  nothing.
+- **One struct is written in the older layout**, in the one place it is built. Passing Silk's to
+  wgpu-native puts `resolveTarget`'s low half where `loadOp` belongs, and wgpu panics with `invalid
+  load op for render pass color attachment: 0` — a message that names neither the struct nor the
+  version. Told apart by `wgpuDevicePoll`, which is wgpu-native's own extension and which Dawn does
+  not export.
+
+`wgpuInstanceProcessEvents` is the other one. wgpu-native 0.19 declares it and does not implement it:
+calling it panics the Rust runtime, which aborts the process rather than raising anything .NET can
+catch. `wgpuDevicePoll` is used where it exists, and the specification's entry point only where it
+does not.
+
+Moving forward means moving `Silk.NET.WebGPU` forward first — and 2.23.0 is what
+`Directory.Packages.props` pins for every other Silk binding.
 
 ## The trap this backend is full of
 

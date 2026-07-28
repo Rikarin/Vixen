@@ -74,6 +74,16 @@ public sealed unsafe partial class NativeWebGpuBinding : IWebGpuBinding {
     readonly Surface* surface;
     readonly HashSet<WgpuFeatureName> features;
 
+    /// <summary>
+    ///     <c>wgpuDevicePoll</c>, or null on an implementation that does not have it.
+    /// </summary>
+    /// <remarks>
+    ///     A function pointer rather than a Silk method, because it is in <c>wgpu.h</c> rather than
+    ///     <c>webgpu.h</c> and Silk.NET binds only the latter. See <see cref="WebGpuLoader.DevicePoll" />
+    ///     for why it is needed at all.
+    /// </remarks>
+    readonly delegate* unmanaged[Cdecl]<Device*, uint, void*, uint> devicePoll;
+
     Texture* acquired;
     bool disposed;
 
@@ -95,6 +105,7 @@ public sealed unsafe partial class NativeWebGpuBinding : IWebGpuBinding {
         this.features = features;
 
         queue = api.DeviceGetQueue(device);
+        devicePoll = (delegate* unmanaged[Cdecl]<Device*, uint, void*, uint>)WebGpuLoader.DevicePoll;
         Limits = limits;
         AdapterInfo = info;
 
@@ -167,10 +178,11 @@ public sealed unsafe partial class NativeWebGpuBinding : IWebGpuBinding {
             return false;
         }
 
-        var limits = ReadLimits(api, adapter);
+        var supported = ReadSupportedLimits(api, adapter);
+        var limits = Describe(supported);
         var available = ReadFeatures(api, adapter);
         var wanted = WebGpuCapabilities.Wanted(available.Contains);
-        var device = RequestDevice(api, adapter, limits, wanted, out failure);
+        var device = RequestDevice(api, adapter, supported, wanted, out failure);
 
         if (device is null) {
             api.AdapterRelease(adapter);
@@ -492,12 +504,12 @@ public sealed unsafe partial class NativeWebGpuBinding : IWebGpuBinding {
             &status
         );
 
-        // The callback fires from inside ProcessEvents, on this thread. Bounded rather than a bare
-        // loop: an implementation that never completes the map would otherwise hang the process with
-        // no clue why, and a readback that has not finished after this many turns is a bug somewhere
+        // The callback fires from inside the poll, on this thread. Bounded rather than a bare loop:
+        // an implementation that never completes the map would otherwise hang the process with no
+        // clue why, and a readback that has not finished after this many turns is a bug somewhere
         // and not a slow GPU.
         for (var turn = 0; turn < 1024 && status == BufferMapAsyncStatus.Unknown; turn++) {
-            api.InstanceProcessEvents(instance);
+            Poll(true);
         }
 
         if (status != BufferMapAsyncStatus.Success) {
@@ -530,6 +542,13 @@ public sealed unsafe partial class NativeWebGpuBinding : IWebGpuBinding {
 
     /// <inheritdoc />
     public bool WaitIdle() {
+        // wgpu-native's poll takes a "wait" flag and blocks until the queue is empty, which is
+        // exactly what this method promises and is a great deal better than spinning on a callback.
+        if (devicePoll is not null) {
+            devicePoll(device, 1, null);
+            return true;
+        }
+
         var status = QueueWorkDoneStatus.Unknown;
 
         api.QueueOnSubmittedWorkDone(
@@ -542,11 +561,30 @@ public sealed unsafe partial class NativeWebGpuBinding : IWebGpuBinding {
             api.InstanceProcessEvents(instance);
         }
 
+
         return status != QueueWorkDoneStatus.Unknown;
     }
 
     /// <inheritdoc />
-    public void Tick() => api.InstanceProcessEvents(instance);
+    public void Tick() => Poll(false);
+
+    /// <summary>Turns the crank, by whichever means this implementation offers.</summary>
+    /// <param name="wait">Whether to block until the queue is empty.</param>
+    /// <remarks>
+    ///     <b>Only one of the two, never both.</b> wgpu-native 0.19 declares
+    ///     <c>wgpuInstanceProcessEvents</c> and does not implement it — calling it panics the Rust
+    ///     runtime with <c>not implemented</c>, which aborts the process rather than raising anything
+    ///     .NET can catch. So the extension is used where it exists and the specification's own entry
+    ///     point only where it does not.
+    /// </remarks>
+    void Poll(bool wait) {
+        if (devicePoll is not null) {
+            devicePoll(device, wait ? 1u : 0u, null);
+            return;
+        }
+
+        api.InstanceProcessEvents(instance);
+    }
 
     // ── Surface ─────────────────────────────────────────────────────────────────────────────
 
@@ -679,7 +717,9 @@ public sealed unsafe partial class NativeWebGpuBinding : IWebGpuBinding {
             &result
         );
 
-        for (var turn = 0; turn < 1024 && !result.Completed; turn++) {
+        // wgpu-native answers before returning; Dawn needs its instance pumped. Guarded because
+        // pumping wgpu-native is a panic rather than a no-op — see Poll.
+        for (var turn = 0; turn < 1024 && !result.Completed && !WebGpuLoader.IsWgpuNative; turn++) {
             api.InstanceProcessEvents(instance);
         }
 
@@ -702,35 +742,24 @@ public sealed unsafe partial class NativeWebGpuBinding : IWebGpuBinding {
     static Device* RequestDevice(
         Silk.NET.WebGPU.WebGPU api,
         Adapter* adapter,
-        in WebGpuLimits limits,
+        Limits supported,
         WgpuFeatureName[] wanted,
         out string? reason
     ) {
-        // Asked for explicitly rather than left to default. A device created with no required limits
-        // reports the specification's guaranteed floor whatever the hardware can do — an 8192 texture
-        // limit on a card that manages 16384 — and every one of those numbers reaches a renderer
-        // through GraphicsDeviceFeatures.
-        var required = new RequiredLimits {
-            Limits = new() {
-                MaxTextureDimension1D = (uint)limits.MaxTextureDimension2D,
-                MaxTextureDimension2D = (uint)limits.MaxTextureDimension2D,
-                MaxTextureDimension3D = (uint)limits.MaxTextureDimension3D,
-                MaxTextureArrayLayers = (uint)limits.MaxTextureArrayLayers,
-                MaxBindGroups = (uint)limits.MaxBindGroups,
-                MaxUniformBufferBindingSize = (ulong)limits.MaxUniformBufferBindingSize,
-                MinUniformBufferOffsetAlignment = (uint)limits.MinUniformBufferOffsetAlignment,
-                MaxVertexBuffers = (uint)limits.MaxVertexBuffers,
-                MaxBufferSize = (ulong)limits.MaxBufferSize,
-                MaxVertexAttributes = (uint)limits.MaxVertexAttributes,
-                MaxColorAttachments = (uint)limits.MaxColorAttachments,
-                MaxDynamicUniformBuffersPerPipelineLayout =
-                    (uint)limits.MaxDynamicUniformBuffersPerPipelineLayout,
-                MaxComputeWorkgroupSizeX = (uint)limits.MaxComputeWorkgroupSizeX,
-                MaxComputeWorkgroupSizeY = (uint)limits.MaxComputeWorkgroupSizeY,
-                MaxComputeWorkgroupSizeZ = (uint)limits.MaxComputeWorkgroupSizeZ
-            }
-        };
-
+        // The adapter's own limits, handed straight back.
+        //
+        // Asked for explicitly rather than left to default, because a device created with no
+        // required limits reports the specification's guaranteed floor whatever the hardware can do
+        // — an 8192 texture limit on a card that manages 16384 — and every one of those numbers
+        // reaches a renderer through GraphicsDeviceFeatures.
+        //
+        // Passed WHOLE rather than field by field, and that is not laziness. Most of WGPULimits is
+        // maximums, where asking for less is always legal; two of them — the buffer offset
+        // alignments — run the other way, where a *smaller* value is the stronger request and zero
+        // is not a weak request but an invalid one. Filling in the interesting fields and leaving
+        // the rest zeroed therefore fails device creation outright, with `Error` and not one word
+        // about which limit, which is precisely what it did.
+        var required = new RequiredLimits { Limits = supported };
         var features = stackalloc FeatureName[Math.Max(1, wanted.Length)];
 
         for (var index = 0; index < wanted.Length; index++) {
@@ -771,32 +800,60 @@ public sealed unsafe partial class NativeWebGpuBinding : IWebGpuBinding {
         }
     }
 
-    static WebGpuLimits ReadLimits(Silk.NET.WebGPU.WebGPU api, Adapter* adapter) {
+    /// <summary>What the adapter says it can do, in WebGPU's own struct.</summary>
+    /// <remarks>
+    ///     Kept as the C struct rather than converted straight into <see cref="WebGpuLimits" />,
+    ///     because it is handed back to <see cref="RequestDevice" /> unchanged — see the note there
+    ///     for why that matters.
+    /// </remarks>
+    static Limits ReadSupportedLimits(Silk.NET.WebGPU.WebGPU api, Adapter* adapter) {
         SupportedLimits supported = default;
 
-        if (!api.AdapterGetLimits(adapter, &supported)) {
-            return WebGpuLimits.Guaranteed;
+        if (api.AdapterGetLimits(adapter, &supported)) {
+            return supported.Limits;
         }
 
-        var limits = supported.Limits;
+        // The specification's floor, if the adapter will not say. Every field of it is a legal
+        // request, which is the property that matters here: a zeroed struct is not.
+        var floor = WebGpuLimits.Guaranteed;
 
         return new() {
-            MaxTextureDimension2D = (int)limits.MaxTextureDimension2D,
-            MaxTextureDimension3D = (int)limits.MaxTextureDimension3D,
-            MaxTextureArrayLayers = (int)limits.MaxTextureArrayLayers,
-            MaxBindGroups = (int)limits.MaxBindGroups,
-            MaxUniformBufferBindingSize = (long)limits.MaxUniformBufferBindingSize,
-            MinUniformBufferOffsetAlignment = (int)limits.MinUniformBufferOffsetAlignment,
-            MaxVertexBuffers = (int)limits.MaxVertexBuffers,
-            MaxBufferSize = (long)limits.MaxBufferSize,
-            MaxVertexAttributes = (int)limits.MaxVertexAttributes,
-            MaxColorAttachments = (int)limits.MaxColorAttachments,
-            MaxDynamicUniformBuffersPerPipelineLayout = (int)limits.MaxDynamicUniformBuffersPerPipelineLayout,
-            MaxComputeWorkgroupSizeX = (int)limits.MaxComputeWorkgroupSizeX,
-            MaxComputeWorkgroupSizeY = (int)limits.MaxComputeWorkgroupSizeY,
-            MaxComputeWorkgroupSizeZ = (int)limits.MaxComputeWorkgroupSizeZ
+            MaxTextureDimension1D = (uint)floor.MaxTextureDimension2D,
+            MaxTextureDimension2D = (uint)floor.MaxTextureDimension2D,
+            MaxTextureDimension3D = (uint)floor.MaxTextureDimension3D,
+            MaxTextureArrayLayers = (uint)floor.MaxTextureArrayLayers,
+            MaxBindGroups = (uint)floor.MaxBindGroups,
+            MaxUniformBufferBindingSize = (ulong)floor.MaxUniformBufferBindingSize,
+            MinUniformBufferOffsetAlignment = (uint)floor.MinUniformBufferOffsetAlignment,
+            MinStorageBufferOffsetAlignment = (uint)floor.MinUniformBufferOffsetAlignment,
+            MaxVertexBuffers = (uint)floor.MaxVertexBuffers,
+            MaxBufferSize = (ulong)floor.MaxBufferSize,
+            MaxVertexAttributes = (uint)floor.MaxVertexAttributes,
+            MaxColorAttachments = (uint)floor.MaxColorAttachments,
+            MaxDynamicUniformBuffersPerPipelineLayout = (uint)floor.MaxDynamicUniformBuffersPerPipelineLayout,
+            MaxComputeWorkgroupSizeX = (uint)floor.MaxComputeWorkgroupSizeX,
+            MaxComputeWorkgroupSizeY = (uint)floor.MaxComputeWorkgroupSizeY,
+            MaxComputeWorkgroupSizeZ = (uint)floor.MaxComputeWorkgroupSizeZ
         };
     }
+
+    /// <summary>The subset of them the RHI reports.</summary>
+    static WebGpuLimits Describe(in Limits limits) => new() {
+        MaxTextureDimension2D = (int)limits.MaxTextureDimension2D,
+        MaxTextureDimension3D = (int)limits.MaxTextureDimension3D,
+        MaxTextureArrayLayers = (int)limits.MaxTextureArrayLayers,
+        MaxBindGroups = (int)limits.MaxBindGroups,
+        MaxUniformBufferBindingSize = (long)limits.MaxUniformBufferBindingSize,
+        MinUniformBufferOffsetAlignment = (int)limits.MinUniformBufferOffsetAlignment,
+        MaxVertexBuffers = (int)limits.MaxVertexBuffers,
+        MaxBufferSize = (long)limits.MaxBufferSize,
+        MaxVertexAttributes = (int)limits.MaxVertexAttributes,
+        MaxColorAttachments = (int)limits.MaxColorAttachments,
+        MaxDynamicUniformBuffersPerPipelineLayout = (int)limits.MaxDynamicUniformBuffersPerPipelineLayout,
+        MaxComputeWorkgroupSizeX = (int)limits.MaxComputeWorkgroupSizeX,
+        MaxComputeWorkgroupSizeY = (int)limits.MaxComputeWorkgroupSizeY,
+        MaxComputeWorkgroupSizeZ = (int)limits.MaxComputeWorkgroupSizeZ
+    };
 
     static HashSet<WgpuFeatureName> ReadFeatures(Silk.NET.WebGPU.WebGPU api, Adapter* adapter) {
         var count = (int)api.AdapterEnumerateFeatures(adapter, null);

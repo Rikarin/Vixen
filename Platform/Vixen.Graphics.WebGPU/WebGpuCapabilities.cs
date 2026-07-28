@@ -57,15 +57,20 @@ public static class WebGpuCapabilities {
     public const int PushConstantSize = 128;
 
     /// <summary>What to report for a device with these limits and features.</summary>
-    /// <param name="limits">What the device reported.</param>
+    /// <param name="reported">What the device reported, unnormalised.</param>
     /// <param name="adapter">What kind of adapter it runs on.</param>
     /// <param name="hasFeature">Whether an optional feature is enabled.</param>
     public static GraphicsDeviceFeatures Describe(
-        in WebGpuLimits limits,
+        in WebGpuLimits reported,
         WgpuAdapterType adapter,
         Func<WgpuFeatureName, bool> hasFeature
     ) {
         ArgumentNullException.ThrowIfNull(hasFeature);
+
+        // Normalised first, and every backend that skipped this step has shipped a device that
+        // claimed it could not do something the specification guarantees. See
+        // WebGpuLimits.OrGuaranteed for the one that made the point.
+        var limits = reported.OrGuaranteed();
 
         return GraphicsDeviceFeatures.Minimum with {
             HasCompute = true,

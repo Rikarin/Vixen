@@ -222,6 +222,27 @@ layout the backend builds says "filterable float", and a shadow map bound throug
 that explanation. Sampling depth on WebGPU needs `DescriptorBinding` to grow a sample type — which
 every other backend would ignore.
 
+#### The implementation is fetched, and the pin is not a version
+
+Nothing ships a WebGPU implementation — no operating system has one, and `Silk.NET.WebGPU` is
+bindings only — so `nuke RestoreNativeDeps` fetches a pinned, checksummed wgpu-native, exactly as it
+does MoltenVK. Without it the backend reports itself unavailable, which is backend selection working.
+
+**`Silk.NET.WebGPU` 2.23.0 matches no wgpu-native release**, and finding that out is what running
+against a real implementation bought. Its function list predates August 2024 — three entry points it
+declares were removed in v22.1.0.1 — while its `WGPURenderPassColorAttachment` carries the
+`depthSlice` field added in that same release. It is a Dawn binding. So v0.19.4.1 is pinned, the
+loader refuses anything newer with a message naming the missing entry points, and one struct is
+written in the older layout for wgpu-native, told apart by an extension only it exports. Three
+further things were only findable this way: `wgpuInstanceProcessEvents` is declared and
+unimplemented and aborts the process rather than raising; a device created without asking for the
+adapter's own limits reports the specification's floor; and `maxColorAttachments` comes back as zero,
+so an unreported limit is normalised to the guaranteed floor rather than believed.
+
+This is what [12](12-build-ci-and-testing.md)'s cross-backend equivalence level is for, arriving a
+phase early: the same triangle, offscreen, read back and asserted on by position — centre covered,
+corners not, and exactly one winding surviving the cull.
+
 ## Shader interface
 
 `Vixen.Shaders` owns effects; the RHI only consumes bytecode + a reflection record:

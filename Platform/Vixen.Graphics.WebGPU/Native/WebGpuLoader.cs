@@ -39,6 +39,63 @@ static class WebGpuLoader {
     /// <summary>Where the library was found, for logging at boot.</summary>
     public static string? ResolvedPath { get; private set; }
 
+    /// <summary>
+    ///     <c>wgpuDevicePoll</c>, if the implementation is wgpu-native and exports it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Without this, nothing asynchronous ever completes.</b> WebGPU's buffer map and its
+    ///         submitted-work callback are promises, and something has to turn the crank; the C API's
+    ///         answer is <c>wgpuInstanceProcessEvents</c>, which wgpu-native 0.19 defines and does not
+    ///         implement. Its real one is <c>wgpuDevicePoll</c>, which lives in <c>wgpu.h</c> rather
+    ///         than <c>webgpu.h</c> — so it is an extension, Silk.NET does not bind it, and it is
+    ///         resolved here by name.
+    ///     </para>
+    ///     <para>
+    ///         Zero on Dawn, which implements <c>wgpuInstanceProcessEvents</c> properly and needs no
+    ///         extension. The binding calls whichever it has.
+    ///     </para>
+    /// </remarks>
+    public static nint DevicePoll { get; private set; }
+
+    /// <summary>Whether the loaded implementation is wgpu-native rather than Dawn.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This decides one struct's layout, and getting it wrong is a crash.</b>
+    ///         <c>Silk.NET.WebGPU</c> 2.23.0 binds a Dawn-shaped <c>webgpu.h</c>: its
+    ///         <c>WGPURenderPassColorAttachment</c> carries a <c>depthSlice</c> field that
+    ///         wgpu-native did not have until v22.1.0.1 — which is also the release that
+    ///         <em>removed</em> three entry points Silk still declares. There is therefore no
+    ///         wgpu-native release whose ABI matches this binding on both counts, and the last one
+    ///         that matches on functions is v0.19.4.1, which is what
+    ///         <c>build/native-dependencies.json</c> pins. See
+    ///         <c>NativeWebGpuBinding.BeginRenderPass</c> for the one place that differs.
+    ///     </para>
+    ///     <para>
+    ///         Told apart by <c>wgpuDevicePoll</c>, which is wgpu-native's own extension and which
+    ///         Dawn does not export. That is a fact about the library in front of us rather than a
+    ///         guess from a version string nobody publishes.
+    ///     </para>
+    /// </remarks>
+    public static bool IsWgpuNative { get; private set; }
+
+    /// <summary>
+    ///     Entry points <c>Silk.NET.WebGPU</c> declares that a newer implementation has removed.
+    /// </summary>
+    /// <remarks>
+    ///     Checked at load rather than discovered at the first call. Silk resolves entry points
+    ///     lazily through a function pointer, so a missing one is not a link error — it is a null
+    ///     pointer called some frames later, which on every platform is a segmentation fault with a
+    ///     stack that names nothing useful. Three names cost microseconds and turn that into a
+    ///     sentence.
+    /// </remarks>
+    static readonly string[] Required = [
+        "wgpuCreateInstance",
+        "wgpuAdapterGetProperties",
+        "wgpuDeviceSetUncapturedErrorCallback",
+        "wgpuSurfaceGetPreferredFormat"
+    ];
+
     /// <summary>Loads Dawn or wgpu-native, reporting failure rather than throwing.</summary>
     /// <param name="api">The API, when it loaded.</param>
     /// <param name="reason">Why it did not, when it did not.</param>
@@ -70,17 +127,26 @@ static class WebGpuLoader {
                     continue;
                 }
 
-                // Both implementations export this — it is webgpu.h's entry point for everything
-                // else — so finding it is what distinguishes "a library loaded" from "a library that
-                // happens to have the right name loaded".
-                if (!NativeLibrary.TryGetExport(handle, "wgpuCreateInstance", out _)) {
-                    continue;
+                var missing = Required.Where(name => !NativeLibrary.TryGetExport(handle, name, out _)).ToArray();
+
+                if (missing.Length > 0) {
+                    // Not `continue`: a library that loaded under the right name and exports the
+                    // wrong entry points is the version problem, not a search problem, and trying
+                    // the next candidate would report "not found" for something that was found.
+                    failure = TooNew(candidate, missing);
+                    api = null;
+                    reason = failure;
+
+                    return false;
                 }
 
                 loaded = FromHandle(handle);
                 ResolvedPath = candidate;
+                DevicePoll = NativeLibrary.TryGetExport(handle, "wgpuDevicePoll", out var poll) ? poll : 0;
+                IsWgpuNative = DevicePoll != 0;
                 api = loaded;
                 reason = null;
+
                 return true;
             }
 
@@ -141,6 +207,14 @@ static class WebGpuLoader {
             yield return "/usr/local/lib";
         }
     }
+
+    static string TooNew(string path, string[] missing) =>
+        $"'{path}' is a WebGPU implementation this binding cannot call: it does not export "
+        + $"{string.Join(", ", missing)}. Those entry points were removed from webgpu.h in 2024 and "
+        + "Silk.NET.WebGPU 2.23.0 still declares them, so a newer Dawn or wgpu-native is not "
+        + "loadable here — calling one would be a null function pointer rather than an error. "
+        + "build/native-dependencies.json pins the last release that works, and moving past it "
+        + "means moving Silk.NET.WebGPU first.";
 
     static string InstallHint() =>
         "No WebGPU implementation could be loaded. Silk.NET.WebGPU is bindings only and no desktop "

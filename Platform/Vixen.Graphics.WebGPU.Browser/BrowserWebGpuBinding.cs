@@ -741,35 +741,37 @@ public sealed class BrowserWebGpuBinding : IWebGpuBinding {
     };
 
     /// <summary>The device's limits, in <see cref="WebGpuLimits" />'s declaration order.</summary>
+    /// <remarks>
+    ///     Read raw and normalised once, rather than defaulted field by field: a browser reports
+    ///     zero for a limit it has not implemented, and <see cref="WebGpuLimits.OrGuaranteed" /> is
+    ///     where that is turned into the specification's floor — for both surfaces, in one place.
+    /// </remarks>
     static WebGpuLimits ReadLimits() {
         Span<byte> buffer = stackalloc byte[14 * sizeof(double)];
         WebGpuInterop.ReadLimits(buffer);
 
-        var guaranteed = WebGpuLimits.Guaranteed;
-
-        return new() {
-            MaxTextureDimension2D = At(buffer, 0, guaranteed.MaxTextureDimension2D),
-            MaxTextureDimension3D = At(buffer, 1, guaranteed.MaxTextureDimension3D),
-            MaxTextureArrayLayers = At(buffer, 2, guaranteed.MaxTextureArrayLayers),
-            MaxBindGroups = At(buffer, 3, guaranteed.MaxBindGroups),
-            MaxUniformBufferBindingSize = At(buffer, 4, (int)guaranteed.MaxUniformBufferBindingSize),
-            MinUniformBufferOffsetAlignment = At(buffer, 5, guaranteed.MinUniformBufferOffsetAlignment),
-            MaxVertexBuffers = At(buffer, 6, guaranteed.MaxVertexBuffers),
-            MaxBufferSize = At(buffer, 7, (int)guaranteed.MaxBufferSize),
-            MaxVertexAttributes = At(buffer, 8, guaranteed.MaxVertexAttributes),
-            MaxColorAttachments = At(buffer, 9, guaranteed.MaxColorAttachments),
-            MaxDynamicUniformBuffersPerPipelineLayout =
-                At(buffer, 10, guaranteed.MaxDynamicUniformBuffersPerPipelineLayout),
-            MaxComputeWorkgroupSizeX = At(buffer, 11, guaranteed.MaxComputeWorkgroupSizeX),
-            MaxComputeWorkgroupSizeY = At(buffer, 12, guaranteed.MaxComputeWorkgroupSizeY),
-            MaxComputeWorkgroupSizeZ = At(buffer, 13, guaranteed.MaxComputeWorkgroupSizeZ)
-        };
+        return new WebGpuLimits {
+            MaxTextureDimension2D = At(buffer, 0),
+            MaxTextureDimension3D = At(buffer, 1),
+            MaxTextureArrayLayers = At(buffer, 2),
+            MaxBindGroups = At(buffer, 3),
+            MaxUniformBufferBindingSize = At(buffer, 4),
+            MinUniformBufferOffsetAlignment = At(buffer, 5),
+            MaxVertexBuffers = At(buffer, 6),
+            MaxBufferSize = At(buffer, 7),
+            MaxVertexAttributes = At(buffer, 8),
+            MaxColorAttachments = At(buffer, 9),
+            MaxDynamicUniformBuffersPerPipelineLayout = At(buffer, 10),
+            MaxComputeWorkgroupSizeX = At(buffer, 11),
+            MaxComputeWorkgroupSizeY = At(buffer, 12),
+            MaxComputeWorkgroupSizeZ = At(buffer, 13)
+        }.OrGuaranteed();
     }
 
-    /// <summary>One limit, falling back to the specification's floor when the browser omits it.</summary>
-    static int At(ReadOnlySpan<byte> buffer, int index, int fallback) {
+    /// <summary>One limit, as the double it crossed as.</summary>
+    static int At(ReadOnlySpan<byte> buffer, int index) {
         var value = BinaryPrimitives.ReadDoubleLittleEndian(buffer[(index * sizeof(double))..]);
-        return value > 0 ? (int)value : fallback;
+        return value > int.MaxValue ? int.MaxValue : (int)value;
     }
 
     static HashSet<WgpuFeatureName> ReadFeatures() {

@@ -461,6 +461,55 @@ public readonly record struct WebGpuLimits {
     /// <summary>The largest compute workgroup, in Z.</summary>
     public int MaxComputeWorkgroupSizeZ { get; init; }
 
+    /// <summary>These limits, with anything unreported replaced by the specification's floor.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A limit of zero means "did not say", not "cannot do".</b> Every field here is
+    ///         either a maximum or an alignment, and neither has a meaningful zero: a device that
+    ///         could bind no colour attachments could not render, and an alignment of zero is not an
+    ///         alignment. So a zero is an implementation that has not filled the field in.
+    ///     </para>
+    ///     <para>
+    ///         That is not hypothetical. wgpu-native 0.19 reports <c>maxColorAttachments</c> as zero
+    ///         on every adapter — the limit was added to the specification and it never populated it
+    ///         — and a backend that believed it would report a device that cannot draw. Browsers do
+    ///         the same for limits they have not implemented yet.
+    ///     </para>
+    ///     <para>
+    ///         Substituting the guaranteed floor is the safe direction: it is what the specification
+    ///         says every conforming implementation supports, so a renderer built against it works
+    ///         everywhere, and the worst case is leaving headroom on a device that had more.
+    ///     </para>
+    /// </remarks>
+    public WebGpuLimits OrGuaranteed() {
+        var floor = Guaranteed;
+
+        return new() {
+            MaxTextureDimension2D = Math.Max(MaxTextureDimension2D, floor.MaxTextureDimension2D),
+            MaxTextureDimension3D = Math.Max(MaxTextureDimension3D, floor.MaxTextureDimension3D),
+            MaxTextureArrayLayers = Math.Max(MaxTextureArrayLayers, floor.MaxTextureArrayLayers),
+            MaxBindGroups = Math.Max(MaxBindGroups, floor.MaxBindGroups),
+            MaxUniformBufferBindingSize = Math.Max(MaxUniformBufferBindingSize, floor.MaxUniformBufferBindingSize),
+
+            // The one that runs the other way: a *smaller* alignment is the stronger guarantee, so
+            // the floor is a ceiling here and an unreported zero still has to become 256.
+            MinUniformBufferOffsetAlignment = MinUniformBufferOffsetAlignment > 0
+                ? MinUniformBufferOffsetAlignment
+                : floor.MinUniformBufferOffsetAlignment,
+            MaxVertexBuffers = Math.Max(MaxVertexBuffers, floor.MaxVertexBuffers),
+            MaxBufferSize = Math.Max(MaxBufferSize, floor.MaxBufferSize),
+            MaxVertexAttributes = Math.Max(MaxVertexAttributes, floor.MaxVertexAttributes),
+            MaxColorAttachments = Math.Max(MaxColorAttachments, floor.MaxColorAttachments),
+            MaxDynamicUniformBuffersPerPipelineLayout = Math.Max(
+                MaxDynamicUniformBuffersPerPipelineLayout,
+                floor.MaxDynamicUniformBuffersPerPipelineLayout
+            ),
+            MaxComputeWorkgroupSizeX = Math.Max(MaxComputeWorkgroupSizeX, floor.MaxComputeWorkgroupSizeX),
+            MaxComputeWorkgroupSizeY = Math.Max(MaxComputeWorkgroupSizeY, floor.MaxComputeWorkgroupSizeY),
+            MaxComputeWorkgroupSizeZ = Math.Max(MaxComputeWorkgroupSizeZ, floor.MaxComputeWorkgroupSizeZ)
+        };
+    }
+
     /// <summary>
     ///     What the WebGPU specification guarantees every implementation supports.
     /// </summary>

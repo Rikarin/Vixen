@@ -22,4 +22,11 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Graphics.WebGPU\Vixen.Graphics.WebGPU.csproj" />
     </ItemGroup>
+
+    <!--
+      Imported here as well as in the backend, because an Import does not flow across a
+      ProjectReference and this project's own output is where the tests look. Absence is ordinary:
+      WebGpuRequirement skips rather than fails, unless VIXEN_REQUIRE_WEBGPU says otherwise.
+    -->
+    <Import Project="..\Vixen.Platform.Native\build\WgpuNative.targets" />
 </Project>

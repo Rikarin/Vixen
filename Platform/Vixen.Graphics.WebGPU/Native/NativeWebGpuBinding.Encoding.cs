@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.InteropServices;
 using Silk.NET.Core.Native;
 using Silk.NET.WebGPU;
 // See NativeWebGpuBinding.cs for why every clashing name is aliased rather than left to resolve.
@@ -298,13 +299,31 @@ public sealed unsafe partial class NativeWebGpuBinding {
     /// <inheritdoc />
     public WebGpuObject BeginRenderPass(WebGpuObject encoder, in WgpuRenderPassDescriptor descriptor) {
         var label = SilkMarshal.StringToPtr(descriptor.Label, NativeStringEncoding.UTF8);
-        var colours = stackalloc RenderPassColorAttachment[Math.Max(1, descriptor.ColourAttachmentCount)];
+        var count = Math.Max(1, descriptor.ColourAttachmentCount);
+
+        // Two layouts, because the binding and the implementation disagree about one field. See
+        // WgpuColourAttachment below: this is the whole of the accommodation, and it is here rather
+        // than spread through the backend because it is the only struct the RHI reaches that differs.
+        var wide = stackalloc RenderPassColorAttachment[count];
+        var compact = stackalloc WgpuColourAttachment[count];
 
         try {
             for (var index = 0; index < descriptor.ColourAttachmentCount; index++) {
                 var source = descriptor.ColourAttachments[index];
 
-                colours[index] = new() {
+                if (WebGpuLoader.IsWgpuNative) {
+                    compact[index] = new() {
+                        View = (TextureView*)source.View.Value,
+                        ResolveTarget = (TextureView*)source.ResolveTarget.Value,
+                        LoadOp = (LoadOp)source.LoadOp,
+                        StoreOp = (StoreOp)source.StoreOp,
+                        ClearValue = new(source.ClearR, source.ClearG, source.ClearB, source.ClearA)
+                    };
+
+                    continue;
+                }
+
+                wide[index] = new() {
                     View = (TextureView*)source.View.Value,
                     ResolveTarget = (TextureView*)source.ResolveTarget.Value,
                     LoadOp = (LoadOp)source.LoadOp,
@@ -317,6 +336,8 @@ public sealed unsafe partial class NativeWebGpuBinding {
                     DepthSlice = WholeTexture
                 };
             }
+
+            var colours = WebGpuLoader.IsWgpuNative ? (RenderPassColorAttachment*)compact : wide;
 
             RenderPassDepthStencilAttachment depth = default;
 
@@ -558,6 +579,47 @@ public sealed unsafe partial class NativeWebGpuBinding {
 
     /// <summary>The whole of a texture, where WebGPU wants a slice index it does not use.</summary>
     const uint WholeTexture = 0;
+
+    /// <summary>
+    ///     A colour attachment as wgpu-native 0.19 lays it out — without <c>depthSlice</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one place the binding and the pinned implementation disagree.</b>
+    ///         <c>Silk.NET.WebGPU</c> 2.23.0's <c>RenderPassColorAttachment</c> carries a
+    ///         <c>depthSlice</c> between <c>view</c> and <c>resolveTarget</c>; wgpu-native did not
+    ///         add that field until v22.1.0.1, which is also the release that removed three entry
+    ///         points Silk still declares. There is no wgpu-native release that agrees with this
+    ///         binding on both, and <see cref="WebGpuLoader" /> refuses the ones that fail the
+    ///         second test — so a loaded wgpu-native is a 0.19-era one and wants this shape.
+    ///     </para>
+    ///     <para>
+    ///         Passing Silk's struct to it puts <c>resolveTarget</c>'s low half where
+    ///         <c>loadOp</c> belongs, and wgpu panics with <c>invalid load op for render pass color
+    ///         attachment: 0</c> — which is what it did, and which is worth writing down because the
+    ///         message names neither the struct nor the version.
+    ///     </para>
+    ///     <para>
+    ///         Dawn of the same vintage has the field, so it takes Silk's struct unchanged. Nothing
+    ///         else in <c>webgpu.h</c> differs between the two that the RHI reaches: the other two
+    ///         changed structs are <c>WGPUDeviceDescriptor</c>, which only gained a trailing field,
+    ///         and <c>WGPUSurfaceCapabilities</c>, which nothing here reads.
+    ///     </para>
+    /// </remarks>
+    [StructLayout(LayoutKind.Sequential)]
+    struct WgpuColourAttachment {
+        public ChainedStruct* NextInChain;
+
+        public TextureView* View;
+
+        public TextureView* ResolveTarget;
+
+        public LoadOp LoadOp;
+
+        public StoreOp StoreOp;
+
+        public Color ClearValue;
+    }
 
     static NativeStencilFaceState Face(in WgpuStencilFaceState face) => new() {
         Compare = (NativeCompareFunction)face.Compare,

@@ -3767,11 +3767,20 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
   around it at replay, and `ClampToBorder` becomes `ClampToEdge` — which the shadow sampler notices,
   and the backend's README says so.
 
+  **And it renders.** wgpu-native is pinned and checksummed in `build/native-dependencies.json` and
+  fetched by `nuke RestoreNativeDeps`, so the backend runs against a real implementation: a triangle
+  drawn offscreen and read back, asserted on by position, exactly one winding surviving the cull, a
+  push constant moving the picture, and a compute dispatch whose output comes back. That found five
+  things no recording fake could have — see [05](05-graphics-rhi.md), of which the largest is that
+  **`Silk.NET.WebGPU` 2.23.0 matches no wgpu-native release at all** and the pin therefore carries a
+  refusal and a struct override rather than just a version.
+
   **Owed:** a sampled depth texture and a comparison sampler are refused, because WebGPU needs a
   sample type declared in the bind group layout and `DescriptorBinding` carries none. That is a
   change to `Vixen.Graphics` — see [05](05-graphics-rhi.md) — and it is owed before a shadow map
-  renders on the web. Nothing has been rendered on a real implementation yet: no desktop OS ships
-  Dawn or wgpu-native, so the first picture waits on either a fetched binary or a browser head.
+  renders on the web. Owed too: the Linux CI leg, where wgpu-native would run on the lavapipe that
+  workflow already installs and would be a second implementation. macOS is gated; Linux is not,
+  because nobody has watched it come up there.
 - `Vixen.Platform.Web` completion: canvas, all input, IndexedDB providers, fetch provider with range
   requests, single-threaded job mode, size optimisation (trimming, SIMD, Brotli, lazy assemblies).
 - `Samples/02` running in Chrome/Firefox/Safari (WebGL2 path already verified — see

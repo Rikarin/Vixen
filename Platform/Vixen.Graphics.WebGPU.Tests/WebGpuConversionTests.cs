@@ -330,6 +330,44 @@ public class WebGpuConversionTests {
         Assert.False(features.SupportsSampleCount(8));
     }
 
+    /// <summary>
+    ///     A limit reported as zero means "did not say", and believing it produces a device that
+    ///     claims it cannot render.
+    /// </summary>
+    /// <remarks>
+    ///     Not hypothetical: wgpu-native 0.19 reports <c>maxColorAttachments</c> as zero on every
+    ///     adapter, and the backend duly reported a device with no colour attachments — on an M1 Max
+    ///     that had just told it about sixteen thousand texels and eight bind groups.
+    /// </remarks>
+    [Fact]
+    public void AnUnreportedLimitBecomesTheGuaranteedFloor() {
+        var reported = WebGpuLimits.Guaranteed with {
+            MaxTextureDimension2D = 16384,
+            MaxColorAttachments = 0,
+            MinUniformBufferOffsetAlignment = 0
+        };
+
+        var normalised = reported.OrGuaranteed();
+
+        Assert.Equal(8, normalised.MaxColorAttachments);
+        Assert.Equal(256, normalised.MinUniformBufferOffsetAlignment);
+
+        // And what was reported is kept, which is the other half: normalising must not clamp a
+        // device down to the floor it exceeded.
+        Assert.Equal(16384, normalised.MaxTextureDimension2D);
+    }
+
+    [Fact]
+    public void ADeviceReportingNothingAtAllStillLooksLikeWebGpu() {
+        var features = WebGpuCapabilities.Describe(default, WgpuAdapterType.Unknown, _ => false);
+
+        Assert.Equal(8192, features.MaxTextureSize);
+        Assert.Equal(4, features.MaxDescriptorSets);
+        Assert.Equal(8, features.MaxColourAttachments);
+        Assert.Equal(8, features.MaxVertexBuffers);
+        Assert.True(features.MaxComputeWorkgroupSize.X >= 256);
+    }
+
     [Fact]
     public void DepthClampFollowsTheDepthClipControlFeature() {
         var with = WebGpuCapabilities.Describe(

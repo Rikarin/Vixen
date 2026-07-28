@@ -46,4 +46,11 @@
         <InternalsVisibleTo Include="Vixen.Graphics.WebGPU.Browser" />
     </ItemGroup>
 
+    <!--
+      Puts the restored wgpu-native into runtimes/<rid>/native/, where NativeSearch looks first.
+      Silent when it has not been restored: that is the ordinary state of a clone, and the backend
+      reporting itself unavailable is backend selection working. See the targets file.
+    -->
+    <Import Project="..\Vixen.Platform.Native\build\WgpuNative.targets" />
+
 </Project>
