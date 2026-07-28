@@ -6,6 +6,34 @@ using Vixen.Core.Mathematics;
 
 namespace Vixen.Navigation.Baking;
 
+/// <summary>Where a tile sits and how much of what it voxelises actually belongs to it.</summary>
+/// <param name="Volume">The volume voxelised, which is the tile's own plus the margin on every side.</param>
+/// <param name="TileX">The tile's column in the mesh's tile grid.</param>
+/// <param name="TileZ">The tile's row.</param>
+/// <param name="Border">How many cells of margin were added, on each side.</param>
+/// <param name="InnerWidth">How many cells across the tile proper is.</param>
+/// <param name="InnerDepth">How many cells deep.</param>
+internal readonly record struct TilePlacement(BoundingBox Volume, int TileX, int TileZ, int Border, int InnerWidth, int InnerDepth) {
+    /// <summary>Works out the volume and the window for a tile covering some bounds.</summary>
+    public static TilePlacement For(BoundingBox bounds, NavMeshBuildSettings settings, int tileX, int tileZ, int border) {
+        var margin = border * settings.CellSize;
+
+        var volume = new BoundingBox(
+            new(bounds.Minimum.X - margin, bounds.Minimum.Y, bounds.Minimum.Z - margin),
+            new(bounds.Maximum.X + margin, bounds.Maximum.Y, bounds.Maximum.Z + margin)
+        );
+
+        return new(
+            volume,
+            tileX,
+            tileZ,
+            border,
+            (int)MathF.Round((bounds.Maximum.X - bounds.Minimum.X) / settings.CellSize),
+            (int)MathF.Round((bounds.Maximum.Z - bounds.Minimum.Z) / settings.CellSize)
+        );
+    }
+}
+
 /// <summary>A tiled bake: the tiles, and the grid they were laid out on.</summary>
 /// <param name="Params">The grid, ready to be handed to a <see cref="NavMesh" />.</param>
 /// <param name="Tiles">The tiles that produced any polygons. Empty ones are not in the list.</param>
@@ -186,14 +214,25 @@ public static class NavMeshBaker {
             return null;
         }
 
-        var margin = border * settings.CellSize;
+        var placement = TilePlacement.For(bounds, settings, tileX, tileZ, border);
+        var compact = BuildSurface(vertices, indices, in placement, settings);
 
-        var volume = new BoundingBox(
-            new(bounds.Minimum.X - margin, bounds.Minimum.Y, bounds.Minimum.Z - margin),
-            new(bounds.Maximum.X + margin, bounds.Maximum.Y, bounds.Maximum.Z + margin)
-        );
+        return BuildTile(compact, in placement, settings, volumes, connections);
+    }
 
-        var field = new Heightfield(volume, settings.CellSize, settings.CellHeight);
+    /// <summary>Voxelises geometry into the walkable surface, before anything decides its shape.</summary>
+    /// <remarks>
+    ///     Split out because this is the expensive half and the half an obstacle does not change. The
+    ///     surface an obstacle carves into is the same surface it was carved out of, so
+    ///     <see cref="NavTileCache" /> keeps this and replays only what follows it.
+    /// </remarks>
+    internal static CompactHeightfield BuildSurface(
+        ReadOnlySpan<Vector3> vertices,
+        ReadOnlySpan<int> indices,
+        ref readonly TilePlacement placement,
+        NavMeshBuildSettings settings
+    ) {
+        var field = new Heightfield(placement.Volume, settings.CellSize, settings.CellHeight);
         var areas = new byte[indices.Length / 3];
 
         Heightfield.MarkWalkableTriangles(settings.AgentMaxSlope, vertices, indices, areas, settings.WalkableArea);
@@ -203,19 +242,49 @@ public static class NavMeshBaker {
         field.FilterLedgeSpans(settings.WalkableHeightInCells, settings.WalkableClimbInCells);
         field.FilterWalkableLowHeightSpans(settings.WalkableHeightInCells);
 
-        var compact = CompactHeightfield.Build(field, settings.WalkableHeightInCells, settings.WalkableClimbInCells);
-        compact.ErodeWalkableArea(settings.WalkableRadiusInCells);
+        return CompactHeightfield.Build(field, settings.WalkableHeightInCells, settings.WalkableClimbInCells);
+    }
 
-        foreach (var area in volumes) {
-            compact.MarkArea(area);
+    /// <summary>Erodes, partitions, traces and polygonises an already-voxelised surface into a tile.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Erosion is inside this half, not before it</b>, and that is what lets an obstacle be
+    ///         carved correctly. Erosion is the promise that a point on the mesh is a place the agent's
+    ///         body fits, so anything that makes ground unwalkable has to be applied before it —
+    ///         carving after eroding would leave the mesh touching the obstacle and the agent clipping
+    ///         it.
+    ///     </para>
+    ///     <para>
+    ///         Volumes that stamp a <i>cost</i> are applied after, for the opposite reason: an area
+    ///         painted over ground the bake found unreachable should not resurrect it.
+    ///     </para>
+    ///     <para>
+    ///         <paramref name="compact" />'s areas are rewritten. A caller replaying this has to
+    ///         restore them first.
+    ///     </para>
+    /// </remarks>
+    internal static NavMeshTileData? BuildTile(
+        CompactHeightfield compact,
+        ref readonly TilePlacement placement,
+        NavMeshBuildSettings settings,
+        ReadOnlySpan<NavAreaVolume> volumes,
+        ReadOnlySpan<NavOffMeshConnectionData> connections
+    ) {
+        foreach (var volume in volumes) {
+            if (volume.Area == NavArea.Null) {
+                compact.MarkArea(volume);
+            }
         }
 
-        DiscardBorder(
-            compact,
-            border,
-            (int)MathF.Round((bounds.Maximum.X - bounds.Minimum.X) / settings.CellSize),
-            (int)MathF.Round((bounds.Maximum.Z - bounds.Minimum.Z) / settings.CellSize)
-        );
+        compact.ErodeWalkableArea(settings.WalkableRadiusInCells);
+
+        foreach (var volume in volumes) {
+            if (volume.Area != NavArea.Null) {
+                compact.MarkArea(volume);
+            }
+        }
+
+        DiscardBorder(compact, placement.Border, placement.InnerWidth, placement.InnerDepth);
 
         if (settings.Partitioning == NavMeshPartitioning.Monotone) {
             compact.BuildRegionsMonotone(settings.MinRegionArea, settings.MergeRegionArea);
@@ -238,7 +307,7 @@ public static class NavMeshBaker {
             settings.WalkableHeightInCells
         );
 
-        return ToTile(mesh, detail, volume, settings, connections, tileX, tileZ);
+        return ToTile(mesh, detail, placement.Volume, settings, connections, placement.TileX, placement.TileZ);
     }
 
     /// <summary>Marks the margin unwalkable, now that erosion has had the use of it.</summary>

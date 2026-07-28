@@ -88,6 +88,48 @@ public sealed class NavAreaVolume {
         return new([.. footprint], minimumY, maximumY, area);
     }
 
+    /// <summary>A volume shaped like an upright cylinder.</summary>
+    /// <param name="centre">The centre of its base.</param>
+    /// <param name="radius">How wide.</param>
+    /// <param name="height">How tall, upwards from the base.</param>
+    /// <param name="area">The area to stamp. <see cref="NavArea.Null" /> makes it an obstacle.</param>
+    /// <param name="segments">How many sides the polygon approximating the circle has.</param>
+    /// <returns>The volume.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The radius or height is not positive, or there are fewer than three segments.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         A polygon rather than a circle, so that there is one containment test rather than two.
+    ///         Twelve sides is within 3.5 % of the circle it approximates, which is a long way inside
+    ///         the cell size anything is going to be voxelised at — a smaller error than the grid can
+    ///         express is an error nobody can see.
+    ///     </para>
+    ///     <para>
+    ///         The polygon is drawn <i>outside</i> the circle rather than inside it, so a crate of a
+    ///         given radius is never narrower than asked for. Under-covering an obstacle is a hole in
+    ///         the wall; over-covering it is a few centimetres of floor nobody stands on.
+    ///     </para>
+    /// </remarks>
+    public static NavAreaVolume Cylinder(Vector3 centre, float radius, float height, byte area, int segments = 12) {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(radius);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
+        ArgumentOutOfRangeException.ThrowIfLessThan(segments, 3);
+
+        var outer = radius / MathF.Cos(MathF.PI / segments);
+        var footprint = new Vector3[segments];
+
+        for (var index = 0; index < segments; index++) {
+            var angle = index / (float)segments * MathF.Tau;
+
+            footprint[index] = new(
+                centre.X + (outer * MathF.Cos(angle)),
+                centre.Y,
+                centre.Z + (outer * MathF.Sin(angle))
+            );
+        }
+
+        return new(footprint, centre.Y, centre.Y + height, area);
+    }
+
     /// <summary>Whether a point on the surface is inside the volume.</summary>
     internal bool Contains(Vector3 point) =>
         point.Y >= MinimumY && point.Y <= MaximumY && NavGeometry.ContainsPoint2D(point, shape);

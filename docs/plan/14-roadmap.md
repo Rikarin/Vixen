@@ -2081,7 +2081,15 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   one-cell-height offset is *not* fixed — that is the voxelisation, not the polygon — and a test
   asserts it so it stays a decision.
 
-  **Owed:** dynamic obstacles, moving the sliced search onto a job, and baking from a *scene* rather
+  **Dynamic obstacles are in**, as `NavTileCache`: the voxelised level kept resident so that dropping
+  a crate rebuilds the tiles under it rather than the level. The cut is between the half of the bake
+  that turns triangles into a surface and the half that decides the surface's shape, because an
+  obstacle only changes the second. Carving happens *before* erosion and cost-stamping after, which is
+  the difference between a shape claim and a cost claim. Measured on an eighty-metre level: 0.75 ms to
+  rebuild a tile against 1.54 ms to bake one, four tiles dirtied by a crate, 2.2 MB resident — which
+  the cache reports itself, because the memory is the whole cost of the design.
+
+  **Owed:** moving the sliced search onto a job, and baking from a *scene* rather
   than from a named collision mesh — which waits on the scene compiler doc 08 splits out.
 - `Samples/05-PlatformerGame` — physics, input, animation, audio, VFX end to end on all platforms where
   it is in scope.

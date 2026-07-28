@@ -24,6 +24,7 @@ baking as a build step, agents, avoidance"*.
 | `Baking/PolyMeshDetail` | The ground under each polygon, sampled back off the heightfield and triangulated. |
 | `Baking/NavAreaVolume` | Boxes and convex prisms that stamp an area — water, road, mud — before the surface is partitioned. |
 | `Baking/NavMeshBaker` | The pipeline in order, single-tile and tiled, with the tile margin that makes tiles connect. |
+| `Baking/NavTileCache` | The voxelised level kept resident, so an obstacle rebuilds the tiles under it rather than the level. |
 | `NavMesh`, `NavMeshTileData` | Tiles that can be added and removed while agents stand on them; salted references; links across tile borders. |
 | `NavMeshAsset` | A whole baked mesh as one serialisable value — what a build writes and a player loads. |
 | `NavMeshQuery` | Nearest polygon, A\*, funnel string-pulling, surface raycast, move-along-surface — whole or sliced. |
@@ -262,6 +263,52 @@ inside it. The detail pass reads those same spans, so it removes the height erro
 uneven ground and leaves the constant exactly where it was. A test asserts the constant, so that it
 stays a decision rather than becoming a bug somebody fixes by accident.
 
+## A crate on the level, and where the bake is cut in half
+
+A bake is two halves. The first turns triangles into a walkable surface — rasterise, filter, compact,
+resolve the neighbours. The second decides what shape that surface is — erode, partition, trace,
+polygonise. **An obstacle only changes the second**: the ground under a crate is the same ground, it
+just is not walkable while the crate is there. `NavTileCache` keeps the first half per tile and replays
+the second.
+
+```csharp
+var cache = NavTileCache.Build(vertices, indices, bounds, settings, tileSize: 48);
+var mesh = cache.CreateNavMesh();
+
+var crate = cache.AddObstacle(NavAreaVolume.Cylinder(position, radius: 1f, height: 2f, NavArea.Null));
+
+// One tile a frame. The crate appears over a few frames rather than in one long one.
+cache.Update(mesh, maxTiles: 1);
+```
+
+**The carve happens before erosion, and that ordering is the feature.** Erosion is the promise that a
+point on the mesh is a place the agent's body fits; carving after it would leave the mesh flush against
+the crate and the agent standing half inside it. So a volume whose area is `NavArea.Null` is applied
+*before* erosion, and a volume that stamps a cost is applied *after* — for the opposite reason, that an
+area painted over ground the bake found unreachable should not resurrect it. One mechanism, two
+placements, and the difference is exactly the difference between a shape claim and a cost claim.
+
+**What it is worth, and what it costs.** Per tile, and a tile is the unit of a rebuild:
+
+| Level | Tiles | Cache build | Rebuild | Bake from geometry | Resident |
+|---|---|---|---|---|---|
+| 30 m, two rooms and a corridor | 4 × 4 of 32 cells | 13 ms | 0.46 ms | 0.60 ms | 0.44 MB |
+| 80 m, sixteen pillars | 6 × 6 of 48 cells | 55 ms | **0.75 ms** | 1.54 ms | 2.20 MB |
+
+Twice as fast per tile, not ten times — rasterisation is about half of a small tile's bake, so keeping
+it saves about half. **The larger win is the bound rather than the ratio**: a crate dirties the tiles
+its footprint touches and no others, so dropping one on an eighty-metre level is four tiles and three
+milliseconds instead of the level and fifty-five. `Update` takes a budget in tiles because that is the
+honest way to spend it — one a frame, and the obstacle appears over four.
+
+`ResidentBytes` is on the cache because the memory is the whole cost of the design and a project should
+be able to read it rather than find it. Recast's tile cache compresses its layers to avoid this; that
+is a thing to add when something has measured that it needs it.
+
+**A crate against a tile border dirties the tile next door.** The dirty rectangle is the obstacle's
+footprint widened by the agent radius, because the erosion around an obstacle reaches that far past the
+obstacle itself — without the widening, the mesh thins on one side of a border and not the other.
+
 ## A connection is a polygon with two vertices
 
 Ladders, jumps and drops are authored as `NavOffMeshConnectionData` on the tile, and the loaded tile
@@ -308,9 +355,9 @@ where the cost of a crowd actually is.
   in, and the far end is looked for in the tile that end falls in — so a jump across three tiles
   attaches at the near end and dangles at the far one, because the rebuild that would notice only
   visits the four neighbours.
-- **Dynamic obstacles.** A crate dropped on the floor means rebaking its tile. There is no tile cache
-  and no obstacle carving. Closing a route with `NavMesh.SetPolyFlags` is the cheap half and works
-  today.
+- **Compressed tile-cache layers.** `NavTileCache` keeps its voxels uncompressed — 2.2 MB for an
+  eighty-metre level. Recast compresses; that is worth adding when a project has measured that it
+  needs it, and inventing the requirement first would be picking a compressor for nobody.
 - **Pathfinding on another thread.** The queue slices the work but runs it on the caller's thread. A
   query per job through `Vixen.Core.Threading` is the next step and needs nothing new from the API —
   a request handle already hides where the work happened.
