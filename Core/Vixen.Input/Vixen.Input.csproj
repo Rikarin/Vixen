@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Input</RootNamespace>
+        <Description>
+            The action-map input system: Stride-shaped devices underneath, Unity-shaped actions on
+            top. Control paths, composites, processors, interactions, control schemes, the .vxinput
+            asset, and interactive rebinding with conflict detection.
+        </Description>
+        <PackageTags>input;actions;rebinding;gamepad;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+        <None Include="build\Vixen.Input.targets" Pack="true" PackagePath="build\" />
+    </ItemGroup>
+
+    <!--
+        The accessor generator travels inside the package, so a consumer that references Vixen.Input
+        gets `Input.Player.Move` for its own .vxinput files without knowing a generator exists.
+        Inside this repository a project has to name the generator itself, because analyzers are not
+        transitive through a ProjectReference.
+    -->
+    <PropertyGroup>
+        <TargetsForTfmSpecificContentInPackage>
+            $(TargetsForTfmSpecificContentInPackage);PackInputGenerator
+        </TargetsForTfmSpecificContentInPackage>
+    </PropertyGroup>
+
+    <!-- GetTargetPath, not Build — as in Vixen.Ui: asking for Build fails a no-build `dotnet pack`
+         with NETSDK1085, because NoBuild is a global property handed to the invoked project. -->
+    <Target Name="PackInputGenerator">
+        <MSBuild Projects="..\Vixen.Input.Generators\Vixen.Input.Generators.csproj"
+                 Targets="GetTargetPath"
+                 Properties="Configuration=$(Configuration)"
+                 RemoveProperties="TargetFramework">
+            <Output TaskParameter="TargetOutputs" ItemName="InputGeneratorAssembly" />
+        </MSBuild>
+
+        <ItemGroup>
+            <TfmSpecificPackageFile Include="@(InputGeneratorAssembly)" PackagePath="analyzers/dotnet/cs" />
+        </ItemGroup>
+    </Target>
+
+    <ItemGroup>
+        <!--
+            Vixen.Core for GameTime and the ServiceRegistry this is registered in; Mathematics for
+            Vector2, which is what a two-dimensional action reads as.
+
+            Deliberately *not* Vixen.Platform. This is a Core assembly and Platform sits above it —
+            CheckArchitecture enforces that — and the reason is Vixen.Ui, which consumes this and has
+            to stay usable with no platform backend at all. The twenty lines that turn a PlatformEvent
+            into a call on InputDeviceSet live in the host; see the README.
+        -->
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+
+        <!--
+            Built so that PackInputGenerator has something to pack, and so that a .vxinput in this
+            project would compile. Analyzer-only: no reference, nothing at run time.
+        -->
+        <ProjectReference Include="..\Vixen.Input.Generators\Vixen.Input.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Input.Tests" />
+    </ItemGroup>
+
+</Project>

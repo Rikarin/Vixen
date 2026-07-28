@@ -247,7 +247,14 @@ public sealed class VixenApplication : IDisposable {
         // Handed the *unscaled* delta and the scale separately, because that is what the loop's own
         // contract takes: the host has already applied the scale to `time`, and passing the scaled
         // value with the scale again would square it.
-        Services.Engine?.Frame(time.UnscaledElapsed, time.TimeScale);
+        if (Services.Engine is { } loop) {
+            loop.Frame(time.UnscaledElapsed, time.TimeScale);
+        } else {
+            // No engine, no SystemPhase.Input, so the host reads the actions itself — before
+            // OnUpdate, which is the same place the engine's own input phase sits relative to
+            // everything that reacts to it.
+            Services.Input.Update(time);
+        }
 
         game.OnUpdate(time);
         game.OnRender(time);
@@ -311,10 +318,19 @@ public sealed class VixenApplication : IDisposable {
     }
 
     void PumpEvents() {
+        // Before the drain, not after: this clears the frame's motion deltas, and a mouse delta
+        // cleared after the events that carried it would leave the camera reading zero every frame.
+        Services.Input.BeginFrame();
+
         foreach (var platformEvent in Services.Platform.PumpEvents()) {
             if (game.OnEvent(platformEvent)) {
                 continue;
             }
+
+            // After the game's own hook, so that an application intercepting an event also keeps the
+            // action system from seeing it — which is what "return true to stop the host acting on
+            // it" has to mean if it is to be usable for a modal dialog.
+            Services.Input.Devices.Submit(platformEvent, Services.Platform.Input);
 
             switch (platformEvent.Kind) {
                 case PlatformEventKind.WindowCloseRequested:
