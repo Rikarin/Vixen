@@ -54,6 +54,24 @@ public sealed class SceneConstants(IGraphicsDevice device, string name = "Scene"
     /// </remarks>
     public ParameterCollection Parameters { get; } = new();
 
+    /// <summary>
+    ///     The scene's lighting, written into <see cref="Parameters" /> on every bind.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Optional, and the reason it is here rather than in a host's frame loop is the effect:
+    ///         the probe array's length is the shader's, and this is where the shader is known.
+    ///         A host that would rather write the names itself leaves it null and nothing changes.
+    ///     </para>
+    ///     <para>
+    ///         On every bind rather than once, because it is the frame's answer to "where are the
+    ///         probes now" and a probe moves. It costs a comparison per value when nothing did —
+    ///         <see cref="ParameterCollection.Version" /> is what decides whether the block is
+    ///         re-uploaded, and re-asserting a value does not change it.
+    ///     </para>
+    /// </remarks>
+    public Lighting.SceneLighting? Lighting { get; set; }
+
     /// <summary>How many times the set has been written, which settles once the frame stops changing.</summary>
     public int WriteCount { get; private set; }
 
@@ -88,6 +106,10 @@ public sealed class SceneConstants(IGraphicsDevice device, string name = "Scene"
             IsComplete = false;
             return false;
         }
+
+        // Before the block is filled, because what it writes is half of what goes in it: the probe
+        // volumes are members of this block and the cubes beside them are bindings of this set.
+        Lighting?.Extract(Parameters, effect);
 
         // The block is the effect's own — its size and its member offsets come from the reflection —
         // so unlike a per-view block there is nothing for a host to declare.

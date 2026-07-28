@@ -56,11 +56,9 @@ public abstract partial class SelectBase : Control {
         Chevron.Geometry = ControlIcons.ChevronDown;
 
         // ⚠ On the root, not on this control. It is an overlay, and an overlay inside the thing it
-        // pops out of is an overlay that gets clipped. It is removed with this control by the
-        // subtree removal, because it is not this control's child — so it is not, and that is the
-        // one cost of the arrangement: a select taken out of the document leaves its list behind
-        // unless something takes it too. Removal is what OnRemoved would be for; there is no such
-        // hook yet, and it is owed.
+        // pops out of is an overlay that gets clipped. The cost of that arrangement is that the list
+        // is not this control's child, so the subtree removal does not take it — `OnRemoved` below
+        // is what pays it.
         List = Document.Root.Add<Popover>();
         List.AddClass("select-list");
         List.Placement = Placement.Bottom;
@@ -93,6 +91,17 @@ public abstract partial class SelectBase : Control {
                 Document.Focus(this);
             }
         };
+    }
+
+    /// <inheritdoc />
+    /// <remarks>The list is a root child, so the subtree removal does not reach it. See its creation.</remarks>
+    protected override void OnRemoved() {
+        if (List is { IsRemoved: false }) {
+            Document.Remove(List);
+            List = null!;
+        }
+
+        base.OnRemoved();
     }
 
     /// <summary>Adds a choice.</summary>
@@ -447,6 +456,17 @@ public sealed partial class ComboBox : Control {
 
         AddHandler<ClickEvent>(static (element, args) => ((ComboBox) element).Chosen(args));
         List.AddHandler<ClickEvent>((_, args) => Picked(args));
+    }
+
+    /// <inheritdoc />
+    /// <remarks>The list is a root child, so the subtree removal does not reach it. See its creation.</remarks>
+    protected override void OnRemoved() {
+        if (List is { IsRemoved: false }) {
+            Document.Remove(List);
+            List = null!;
+        }
+
+        base.OnRemoved();
     }
 
     /// <summary>Adds a suggestion.</summary>

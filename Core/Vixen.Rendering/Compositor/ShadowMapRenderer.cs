@@ -4,6 +4,7 @@
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
+using Vixen.Shaders;
 
 namespace Vixen.Rendering.Compositor;
 
@@ -53,6 +54,46 @@ public sealed class ShadowMapRenderer : SceneRenderer {
 
     /// <summary>The name of the atlas to render into.</summary>
     public string Atlas { get; set; } = string.Empty;
+
+    /// <summary>
+    ///     Where to publish what a shading pass needs to read the atlas, or null to publish nothing.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="SceneConstants" />' collection, normally — the shadow half of the frame's
+    ///         set. The <em>texture</em> is not written here: it is a frame resource, so the pass that
+    ///         declared it reads it is the one that may put it in front of a shader, and doing it from
+    ///         here would hand over a handle whose barrier nobody declared. What is written here is
+    ///         everything the atlas cannot supply about itself — the matrix, the texel size, the two
+    ///         biases and the sampler.
+    ///     </para>
+    ///     <para>
+    ///         <strong>Cascade zero only, because the shader has one matrix.</strong>
+    ///         <c>ForwardPlus.rvn</c> declares a single <c>lightViewProjection</c> and a single
+    ///         <c>shadowMap</c>, so a fragment beyond the nearest cascade's range projects outside its
+    ///         tile and is unshadowed rather than shadowed by the wrong slice. Selecting a cascade per
+    ///         fragment is shader work — an array of matrices and a view-depth comparison — and it is
+    ///         written down here rather than papered over, because publishing all four matrices into a
+    ///         shader that reads one would look like it worked.
+    ///     </para>
+    /// </remarks>
+    public ParameterCollection? Scene { get; set; }
+
+    /// <summary>Which pass's names to publish under.</summary>
+    public string ShaderName { get; set; } = "ForwardPlus";
+
+    /// <summary>Where the atlas's sampler comes from. Without one, no sampler is published.</summary>
+    /// <remarks>
+    ///     Shared rather than owned, for the reason every other node shares one: a sampler is pure
+    ///     state and a device caps how many exist.
+    /// </remarks>
+    public SamplerCache? Samplers { get; set; }
+
+    /// <summary>How far along the surface's normal a lookup is nudged, in depth units.</summary>
+    public float ConstantBias { get; set; } = 0.0005f;
+
+    /// <summary>How much more of that a surface gets as it turns away from the light.</summary>
+    public float SlopeBias { get; set; } = 0.002f;
 
     /// <summary>
     ///     The stage that draws casters which do not move, or null to redraw everything every frame.
@@ -272,6 +313,44 @@ public sealed class ShadowMapRenderer : SceneRenderer {
         }
 
         fittedCount = count;
+        Publish();
+    }
+
+    /// <summary>Hands a shading pass everything about the atlas that the atlas does not carry.</summary>
+    void Publish() {
+        if (Scene is not { } parameters || count == 0) {
+            return;
+        }
+
+        var atlas = AtlasSize;
+
+        // The tile folded in, not the cascade's own matrix. A shader with one atlas and one matrix
+        // addresses the whole texture, so the raw matrix would land every lookup a quarter of the way
+        // into somebody else's tile — and read a plausible depth from it.
+        parameters.Set(
+            ParameterKeys.New<Matrix4x4>($"{ShaderName}.lightViewProjection"),
+            ShadowCascades.AtlasProjection(cascades[0], 0, count)
+        );
+
+        // The atlas's texel, not a tile's: the PCF taps step in the coordinates the lookup produced,
+        // which the line above just made atlas-wide.
+        parameters.Set(
+            ParameterKeys.New<Vector2>($"{ShaderName}.shadowTexelSize"),
+            new(1f / atlas.X, 1f / atlas.Y)
+        );
+
+        parameters.Set(ParameterKeys.New<float>($"{ShaderName}.shadowConstantBias"), ConstantBias);
+        parameters.Set(ParameterKeys.New<float>($"{ShaderName}.shadowSlopeBias"), SlopeBias);
+
+        if (Samplers is { } samplers) {
+            // Clamped and linear. Clamped because a fragment outside the cascade projects outside the
+            // atlas, and a wrapped lookup would shadow it with whatever is on the opposite side —
+            // linear because the PCF kernel is taking its own taps and wants each one filtered.
+            parameters.Set(
+                ParameterKeys.New<SamplerHandle>($"{ShaderName}.shadowSampler"),
+                samplers.LinearClamp
+            );
+        }
     }
 
     /// <inheritdoc />

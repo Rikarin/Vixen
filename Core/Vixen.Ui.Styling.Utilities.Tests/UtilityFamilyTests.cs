@@ -24,6 +24,10 @@ public class UtilityFamilyTests {
     [InlineData("grow-0", "flex-grow: 0")]
     [InlineData("shrink", "flex-shrink: 1")]
     [InlineData("order-2", "order: 2")]
+    [InlineData("flex-1", "flex: 1 1 0%")]
+    [InlineData("flex-auto", "flex: 1 1 auto")]
+    [InlineData("flex-initial", "flex: 0 1 auto")]
+    [InlineData("flex-none", "flex: none")]
     // Spacing, against the theme's base of 4.
     [InlineData("p-4", "padding: 16px")]
     [InlineData("p-0", "padding: 0px")]
@@ -31,6 +35,10 @@ public class UtilityFamilyTests {
     [InlineData("m-2", "margin: 8px")]
     [InlineData("gap-2", "gap: 8px")]
     [InlineData("mt-1", "margin-top: 4px")]
+    [InlineData("ps-2", "padding-inline-start: 8px")]
+    [InlineData("pe-2", "padding-inline-end: 8px")]
+    [InlineData("ms-1", "margin-inline-start: 4px")]
+    [InlineData("me-1", "margin-inline-end: 4px")]
     // Sizing.
     [InlineData("w-full", "width: 100%")]
     [InlineData("w-4", "width: 16px")]
@@ -41,11 +49,17 @@ public class UtilityFamilyTests {
     [InlineData("absolute", "position: absolute")]
     [InlineData("z-10", "z-index: 10")]
     [InlineData("top-0", "top: 0px")]
+    [InlineData("start-0", "inset-inline-start: 0px")]
+    [InlineData("end-2", "inset-inline-end: 8px")]
+    [InlineData("box-border", "box-sizing: border-box")]
+    [InlineData("box-content", "box-sizing: content-box")]
     // Typography.
     [InlineData("text-lg", "font-size: 17px|line-height: 24px")]
     [InlineData("text-center", "text-align: center")]
     [InlineData("font-semibold", "font-weight: 600")]
     [InlineData("leading-5", "line-height: 20px")]
+    [InlineData("leading-none", "line-height: 1")]
+    [InlineData("leading-relaxed", "line-height: 1.625")]
     [InlineData("whitespace-nowrap", "white-space: nowrap")]
     // Colours.
     [InlineData("bg-surface-2", "background-color: #17171d")]
@@ -55,18 +69,34 @@ public class UtilityFamilyTests {
     // Borders.
     [InlineData("rounded-md", "border-radius: 4px")]
     [InlineData("border-accent", "border-color: #4f7cff")]
+    [InlineData("border-2", "border-width: 2px")]
+    [InlineData("border-t", "border-top-width: 1px")]
+    [InlineData("border-b-2", "border-bottom-width: 2px")]
+    [InlineData("border-x", "border-left-width: 1px|border-right-width: 1px")]
+    [InlineData("border-y-4", "border-top-width: 4px|border-bottom-width: 4px")]
+    [InlineData("border-s-2", "border-inline-start-width: 2px")]
+    [InlineData("border-t-accent", "border-top-color: #4f7cff")]
     // Effects.
     [InlineData("opacity-50", "opacity: 0.5")]
+    [InlineData("shadow", "box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3)")]
+    [InlineData("shadow-lg", "box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.45)")]
+    [InlineData("shadow-none", "box-shadow: none")]
     // Transitions.
     [InlineData("duration-200", "transition-duration: 200ms")]
     [InlineData("ease-in-out", "transition-timing-function: ease-in-out")]
     // Interactivity.
     [InlineData("cursor-pointer", "cursor: pointer")]
+    [InlineData("cursor-grabbing", "cursor: grabbing")]
+    [InlineData("cursor-col-resize", "cursor: col-resize")]
+    [InlineData("text-start", "text-align: start")]
+    [InlineData("text-end", "text-align: end")]
     [InlineData("select-none", "user-select: none")]
     [InlineData("overflow-hidden", "overflow: hidden")]
     [InlineData("pointer-events-none", "pointer-events: none")]
     // Aspect.
     [InlineData("aspect-1.5", "aspect-ratio: 1.5")]
+    [InlineData("aspect-square", "aspect-ratio: 1 / 1")]
+    [InlineData("aspect-video", "aspect-ratio: 16 / 9")]
     public void Each_family_emits_what_it_says(string candidate, string expected) {
         var fixture = new UtilityFixture();
         Assert.Equal(expected.Split('|'), fixture.Emits(candidate));
@@ -96,6 +126,22 @@ public class UtilityFamilyTests {
     }
 
     [Fact]
+    public void The_name_has_to_end_at_a_hyphen_or_the_short_families_would_eat_the_long_ones() {
+        // `p` and `ps` both exist, and so do `m`/`me` and `border`/`border-t`/`border-s`. Requiring
+        // the hyphen is what keeps `p-4` from being read as the family `ps`, and — the case that
+        // actually bites — leaves a colour called `surface-2` reachable through `border-`, whose
+        // front the family `border-s` would otherwise claim.
+        var fixture = new UtilityFixture();
+
+        Assert.Equal(["padding: 16px"], fixture.Emits("p-4"));
+        Assert.Equal(["padding-inline-start: 16px"], fixture.Emits("ps-4"));
+        Assert.Equal(["margin: 8px"], fixture.Emits("m-2"));
+        Assert.Equal(["margin-inline-end: 8px"], fixture.Emits("me-2"));
+        Assert.Equal(["border-color: #17171d"], fixture.Emits("border-surface-2"));
+        Assert.Equal(["border-inline-start-width: 1px"], fixture.Emits("border-s"));
+    }
+
+    [Fact]
     public void One_prefix_can_mean_three_properties_and_the_order_is_documented() {
         // `text-` is alignment, then font size, then colour. Stated as a test because the
         // consequence is real: a colour named `center` would be unreachable through `text-`, and
@@ -113,6 +159,77 @@ public class UtilityFamilyTests {
 
         Assert.Equal(["border-width: 1px"], fixture.Emits("border"));
         Assert.Equal(["border-color: #4f7cff"], fixture.Emits("border-accent"));
+    }
+
+    [Fact]
+    public void A_numbered_border_is_a_width_and_a_named_one_is_a_colour_on_every_edge() {
+        // The same one-prefix-three-properties problem `text-` has, and it applies nine times over
+        // because there is an edge family for each side. Unlike `text-` the order costs nothing: no
+        // colour is plausibly named `2`, so reading a number as a width shadows nothing reachable.
+        var fixture = new UtilityFixture();
+
+        Assert.Equal(["border-top-width: 1px"], fixture.Emits("border-t"));
+        Assert.Equal(["border-top-width: 2px"], fixture.Emits("border-t-2"));
+        Assert.Equal(["border-top-color: #4f7cff"], fixture.Emits("border-t-accent"));
+    }
+
+    [Fact]
+    public void A_border_width_is_pixels_where_padding_is_spacing_steps() {
+        // Worth stating because the two read identically and mean different scales. A border is a
+        // hairline or it is not; scaling it with the spacing base would mean a theme with a larger
+        // base silently thickened every rule in the editor.
+        var fixture = new UtilityFixture();
+
+        Assert.Equal(["padding: 8px"], fixture.Emits("p-2"));
+        Assert.Equal(["border-width: 2px"], fixture.Emits("border-2"));
+    }
+
+    [Fact]
+    public void An_arbitrary_border_value_is_read_by_its_shape() {
+        // `border-[3px]` and `border-[#f00]` are one utility with two meanings and nothing in the
+        // class name says which. A hex triple or a colour function is a colour; everything else,
+        // `var()` included, is a width — which is the reading that is right far more often.
+        var fixture = new UtilityFixture();
+
+        Assert.Equal(["border-width: 3px"], fixture.Emits("border-[3px]"));
+        Assert.Equal(["border-color: #ff0000"], fixture.Emits("border-[#ff0000]"));
+        Assert.Equal(["border-top-width: var(--hairline)"], fixture.Emits("border-t-[var(--hairline)]"));
+    }
+
+    [Fact]
+    public void A_leading_minus_negates_the_value_and_changes_nothing_else() {
+        // `-mt-4` sets exactly what `mt-4` sets, which is why the sign is stripped by the parser and
+        // applied to the result rather than registered as a family of its own.
+        var fixture = new UtilityFixture();
+
+        Assert.Equal(["margin-top: -16px"], fixture.Emits("-mt-4"));
+        Assert.Equal(["left: -8px", "right: -8px"], fixture.Emits("-inset-x-2"));
+        Assert.Equal(["order: -1"], fixture.Emits("-order-1"));
+        Assert.Equal(["margin-top: -3px"], fixture.Emits("-mt-[3px]"));
+    }
+
+    [Fact]
+    public void Only_a_number_can_be_negated() {
+        // A rule that silently means nothing is worse than no rule. `-w-full` is not a hundred per
+        // cent to the left, and `-bg-accent` is not a colour at all.
+        var fixture = new UtilityFixture();
+
+        Assert.Null(fixture.Declarations("-w-full"));
+        Assert.Null(fixture.Declarations("-bg-accent"));
+        Assert.Null(fixture.Declarations("-flex-col"));
+        Assert.Null(fixture.Declarations("-"));
+    }
+
+    [Fact]
+    public void The_logical_edges_are_their_own_longhands_and_not_left_and_right() {
+        // The layout reads `padding-inline-start` itself rather than resolving it to a side here,
+        // which is what makes a panel written with `ps-` mirror under `direction: rtl` without a
+        // second stylesheet. Emitting `padding-left` would have looked identical and not done that.
+        var fixture = new UtilityFixture();
+
+        Assert.Equal(["padding-inline-start: 8px"], fixture.Emits("ps-2"));
+        Assert.Equal(["margin-inline-end: 4px"], fixture.Emits("me-1"));
+        Assert.Equal(["inset-inline-start: 0px"], fixture.Emits("start-0"));
     }
 
     [Fact]

@@ -146,12 +146,70 @@ differently on every machine it runs on.
 
 ⚠ **The registry is not font *fallback*.** The list in a declaration is tried until a *registered*
 family is found; it is not tried per character until one with a glyph is found. A registered font
-missing the code point draws `.notdef`. Weight and style matching is not there either — a name is a
-face. Both owed, and said rather than half-implemented.
+missing the code point draws `.notdef`. Owed, and said rather than half-implemented.
+
+**A family is a set of variants, and a face's weight and slant are stated rather than sniffed.** They
+could be read from the file's `OS/2` table, and that would be the same mistake in miniature as
+walking the font directories: a shipped asset whose metadata disagrees with what the designer meant
+would silently pick the wrong face, and the fix would be editing a binary.
+
+**Matching is CSS Fonts 4 §5.2, not nearest-neighbour** — which is what everybody writes first and is
+wrong in the middle of the scale. The slant is settled before the weight, because an italic at the
+wrong weight answers `italic` better than an upright at the right one. Then: an exact weight wins;
+below 500 the search runs downwards before upwards and above 500 the other way; and ⚠ **400 checks
+500 first**, so a family with a 300 and a 500 answers `font-weight: normal` with the *500*. That last
+one is the asymmetry nearest-neighbour gets wrong half the time, and it has a test of its own.
+
+⚠ **`lighter` and `bolder` are not read** and fall through to regular. They are relative to the
+parent's *computed* weight, which this cascade does not have — it inherits specified values, so the
+parent's declaration might itself be `bolder` and the chain has no bottom. Owed with the
+computed-value stage, and left out rather than approximated as "one step from 400", which would be
+right only for an element whose parent said nothing.
 
 ⚠ **An element with text cannot have children**, and the layout tree is what says so: a node that
 measures itself and also has children has its size decided twice, by two rules that do not have to
 agree. So a text element is a leaf, full stop, and mixed content is what the owed run list is for.
+
+**`text-align` is an offset on the run's origin**, which works precisely because a run is one line:
+there is one origin to move and its width is already measured. It stops working the day text wraps,
+and at that point alignment belongs to whatever breaks the lines. `start` and `end` resolve against
+`direction`, the same property the layout resolves its logical edges with, so `text-end` and `pe-2`
+land on the same side of a mirrored panel. Negative slack is left alone — text wider than its box
+overflows from the start edge whatever the alignment says, because centring it would hide the
+beginning of the string, and the beginning is what a reader needs to see what was cut off.
+
+⚠ **`letter-spacing` is added per cluster, not per glyph.** A combining mark is its own glyph and the
+same cluster as the letter it sits on, so the per-glyph version spaces an accented `é` as two
+characters and pushes the accent off the letter. It is also invisible in Latin: against `AB` the two
+implementations agree exactly, which is why the test for it uses a Kannada syllable whose five code
+points shape to more glyphs than clusters. Tracking reaches the *measure* as well as the drawing, or
+an element sized from text it then drew wider would clip its own last letter.
+
+⚠ **Tracking is added after the last character too**, which is what CSS specifies and every browser
+does — so centred text with a wide tracking sits half a step left of true centre. Matched rather than
+corrected, on the grounds that a toolkit which quietly disagrees with the specification is harder to
+reason about than one that reproduces a known wart.
+
+**A line box is `line-height` tall and the glyphs sit in the middle of it.** CSS's *half-leading*:
+the text occupies ascender-plus-descender and the difference between that and the line box is split
+evenly above and below. Putting it all underneath is what makes a generous `line-height` look like a
+top margin, which then gets called a padding bug for a week. Half of a *negative* leading is negative
+and that is correct too — a line height smaller than the glyphs crops them evenly at both ends.
+
+## The cursor
+
+`UiDocument.Cursor` is what the pointer should look like where it is, resolved from the hovered
+element's computed style and read once a frame by whoever owns the window.
+
+**`UiCursor` rather than the platform's `CursorShape`,** because this assembly cannot see
+`Vixen.Platform` and should not — a UI tree that knew about windows would be a tree that could only
+be shown in one. The mapping is not one to one in either direction either: `col-resize` and
+`ew-resize` are one shape on every desktop and two different statements in a stylesheet.
+
+**No walk up the tree, because `cursor` inherits.** The hovered element's computed style already
+carries whatever its nearest ancestor with a declaration said. So an element covering its parent does
+*not* get the parent's cursor unless it inherited it — which is exactly the CSS rule, and is why a
+button inside a draggable panel can say `cursor: pointer` and be believed.
 
 ⚠ **The frame diff has to cover the side buffer.** A command names a *range* of the glyph array, so
 two frames whose text changed from one word to another of the same length hold byte-identical
@@ -286,10 +344,67 @@ four corners each with two, so the top-left horizontal one is taken and the rest
 every circular corner, wrong for an elliptical one; owed rather than approximated further, because a
 half-right rounded corner reads as a bug in the renderer rather than a gap in the model.
 
+**`opacity` is multiplied down the walk, not read from the cascade.** It does not inherit — it makes
+a group, and every descendant is in it whatever its own value says, so an element's alpha is the
+product of its ancestors' and its own. A fully transparent subtree is skipped entirely, which is the
+one case where the cheapest thing to do is also exactly right.
+
+⚠ **And it is applied per command rather than per group.** CSS composites an element and its
+descendants into a layer and fades that *once*, so two overlapping children of a half-transparent
+parent show the background through both together; here each command carries the multiplied alpha and
+the overlap is drawn twice, coming out darker than a browser would draw it. Doing it properly needs
+an offscreen target per element that has an opacity, which is a renderer feature rather than a
+builder one. Said plainly because the difference is invisible until something overlaps, and then it
+looks like a blending bug rather than a known limit.
+
+Fading is `alpha` on the colour and not `colour * alpha` — the operator scales all four components,
+which is right in premultiplied space and would darken towards black here.
+
+**A `box-shadow` is the same quad and the same distance field as a box**, with the one-pixel edge
+widened to a blur radius. The offset and the spread are folded into the command's rectangle and the
+spread into its radius, so what reaches the geometry is an ordinary rounded box that happens to be
+soft — which is why a shadow needs no fields on `DrawCommand` that a box does not have, and why it
+batches with its own background instead of splitting the frame.
+
+⚠ **The quad is grown by twice the blur.** Coverage reaches zero a blur out from the boundary, but
+the falloff is centred on it, so the visible tail runs a blur *beyond* where the edge sits. One blur
+of margin leaves a faint straight line where the quad ends, which reads as a crease in the shadow.
+
+⚠ **The command's thickness is half the CSS blur radius.** CSS's blur is the total distance the edge
+fades over and the shader's is the half-extent either side of it; passing the whole radius through
+makes every shadow twice as soft as it was asked to be, which reads as a blurry renderer rather than
+as a unit mistake.
+
+⚠ **One shadow, outer only, and not clipped to outside the border box.** CSS takes a comma-separated
+list and an `inset` keyword; a list would be a command each, which is easy, and `inset` is a
+different distance field, which is not — so both are refused rather than half-applied, because the
+first shadow of a list being drawn and the rest silently dropped looks like it worked. And CSS
+punches the box out of its own shadow, where here the blurred box is drawn whole with the background
+on top: visible only under a background that is not opaque.
+
 ## Input
 
 **Front to back means the last child first.** A later sibling is painted over an earlier one, so it
 is the one a click lands on; testing in document order returns whatever happens to be underneath.
+
+**`UiElement.PaintOrder` is the one place that order is decided**, read forwards by the draw list and
+backwards by hit testing. The two have to agree — an element drawn on top must be the one a click
+lands on — and the cheapest way to guarantee that is for neither of them to have its own opinion.
+Document order costs nothing: with no `z-index` among the children it *is* the children list, not a
+copy, and the sorted list is built only when some child has an index and cached until something
+changes. The sort is stable, so lifting one child leaves every other exactly where it was.
+
+⚠ **`z-index` orders siblings, and only siblings.** CSS lets a positioned descendant paint above an
+element that is not its parent's sibling — what a dropdown escaping its row relies on — and that
+needs stacking contexts, which needs the whole of CSS 2.1 Appendix E. Here a high index lifts a child
+above its brothers and no further, so an overlay that must cover the window belongs to a container
+near the root rather than to the row that opened it. The two models agree until the moment they
+matter, which is why this is written down rather than left to be discovered.
+
+⚠ **And it applies to every element, not only positioned ones.** The CSS restriction exists because a
+static element establishes no stacking context for the index to be measured in; sibling ordering
+needs no such thing, and demanding `position: relative` before `z-10` did anything would be a rule
+with no reason behind it here.
 
 ⚠ **Being outside an element is not a reason to skip its children.** `overflow: visible` is CSS's
 default and means precisely that a child may hang outside its parent and still be drawn — so it must
@@ -462,10 +577,29 @@ so `font-size` was removed from `InheritedProperties` and is inherited here in c
 An element that declares none simply keeps its parent's resolved pixel size, which is both what CSS
 means and simpler than what was there.
 
-The same gap stays open, narrowly, for the other inherited properties that take relative units —
-`line-height`, `letter-spacing`, `word-spacing`, `text-indent`. None of them feeds back into the unit
-it is written in, so the error is bounded at one level rather than growing. The general fix is a
-computed-value stage, recorded in doc 14.
+**`line-height` and `letter-spacing` have since joined it**, computed and inherited by the same
+mechanism — `UiElement.LineHeight` and `UiElement.LetterSpacing` are the resolved pixels, and an
+element that declares neither passes its parent's straight through. Both are read by the text layout,
+so the bounded one-level error they used to carry was one the renderer could see.
+
+⚠ **`line-height` is the one where computing is not simply resolving.** A *unitless* `1.5` inherits as
+the number and is multiplied by each descendant's own font size; `1.5em` and `150%` inherit as the
+length the ancestor resolved once. That distinction is the entire reason the unitless form exists, so
+the computed value carries which of the two it is rather than collapsing both to pixels. A 10px panel
+with a 30px label inside gives the label 45 from the first and 15 from the second.
+
+⚠ **And percentages are resolved here rather than by `LengthContext`**, which deliberately refuses
+them: there a percentage means the containing block, which only layout knows. On `line-height` it
+means the font size, which the pass has in its hand.
+
+⚠ **Changing them has to dirty the layout node by hand.** They are inherited outside the cascade, so
+a label whose *parent* changed `line-height` has an unchanged — and still reference-equal — computed
+style. The pass's usual test passes, `SetStyle` is never reached, and the label would keep measuring
+itself at the old height for the rest of its life. Only nodes that measure themselves are marked,
+which is what `MarkDirty` insists on and what having text means.
+
+The gap stays open for `word-spacing` and `text-indent`, which nothing reads yet. Computing a value
+no consumer looks at would be work with no way to be wrong.
 
 **And relative units belong in `StyleValue` after all.** They were deliberately left out, on the
 argument that resolving them needs a context that does not exist at parse time. That was right about

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Vixen.Input;
 using Vixen.Ui.Styling;
 using Xunit;
@@ -390,6 +391,85 @@ public class SelectionTests {
 
         Assert.Equal(["1", "…", "44", "45", "46", "…", "90"], labels);
     }
+
+    [Fact]
+    public void Pagination_is_the_same_width_on_every_page() {
+        using var fixture = new ControlFixture();
+
+        var pagination = fixture.Add<Pagination>();
+        pagination.PageCount = 12;
+        fixture.Update();
+
+        var rows = new List<string[]>();
+
+        for (var page = 0; page < 12; page++) {
+            pagination.CurrentPage = page;
+            fixture.Update();
+
+            rows.Add([.. Numbers(pagination)]);
+        }
+
+        // ⚠ Seven on every page, and it was four at the ends. A row that grows from four buttons to
+        // seven and back moves every number under the pointer on every click, so paging with the
+        // mouse means re-finding the button each time — the failure the arrows already avoid by
+        // staying disabled rather than disappearing.
+        Assert.All(rows, row => Assert.Equal(7, row.Length));
+
+        // ⚠ And a gap never stands for a single page: `1 … 3 4 5 … 12` spends a slot as wide as the
+        // number it replaced to conceal page 2.
+        foreach (var row in rows) {
+            for (var i = 1; i < row.Length - 1; i++) {
+                if (row[i] != "…") {
+                    continue;
+                }
+
+                var before = int.Parse(row[i - 1], CultureInfo.InvariantCulture);
+                var after = int.Parse(row[i + 1], CultureInfo.InvariantCulture);
+
+                Assert.True(after - before > 2, $"a gap hiding one page: {string.Join(" ", row)}");
+            }
+        }
+
+        Assert.Equal(["1", "2", "3", "4", "5", "…", "12"], rows[0]);
+        Assert.Equal(["1", "…", "4", "5", "6", "…", "12"], rows[4]);
+        Assert.Equal(["1", "…", "8", "9", "10", "11", "12"], rows[11]);
+    }
+
+    [Fact]
+    public void Pagination_shows_every_page_when_they_all_fit() {
+        using var fixture = new ControlFixture();
+
+        var pagination = fixture.Add<Pagination>();
+        pagination.PageCount = 5;
+        pagination.CurrentPage = 2;
+        fixture.Update();
+
+        // Five pages into seven slots: an ellipsis here would hide a page for nothing.
+        Assert.Equal(["1", "2", "3", "4", "5"], Numbers(pagination));
+    }
+
+    [Fact]
+    public void A_narrow_window_still_never_gaps_a_single_page() {
+        using var fixture = new ControlFixture();
+
+        var pagination = fixture.Add<Pagination>();
+        pagination.PageCount = 12;
+        pagination.Window = 0;
+        pagination.CurrentPage = 2;
+        fixture.Update();
+
+        // The boundary between "near the start" and "in the middle" is Window + 2 rather than
+        // 2 × Window + 1; the two agree at the default window of one and disagree here.
+        Assert.Equal(["1", "2", "3", "…", "12"], Numbers(pagination));
+    }
+
+    static List<string> Numbers(Pagination pagination) =>
+        [
+            .. pagination.Children
+                .OfType<PageButton>()
+                .Where(static button => !button.HasClass("page-arrow"))
+                .Select(static button => button.Label ?? string.Empty)
+        ];
 
     [Fact]
     public void The_arrows_at_the_ends_are_disabled_rather_than_absent() {

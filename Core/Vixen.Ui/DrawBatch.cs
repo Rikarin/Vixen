@@ -187,7 +187,10 @@ public static class DrawBatcher {
     /// </remarks>
     static (BatchKind Kind, int Font, PathFillRule Rule) KeyOf(in DrawCommand command) =>
         command.Kind switch {
-            DrawCommandKind.Rectangle or DrawCommandKind.Border => (BatchKind.Geometry, 0, default),
+            // A shadow is the box pipeline too — same quad, same distance field, a blur instead of a
+            // border — so it batches with its neighbours rather than breaking the run in two.
+            DrawCommandKind.Rectangle or DrawCommandKind.Border or DrawCommandKind.Shadow =>
+                (BatchKind.Geometry, 0, default),
             DrawCommandKind.Text => (BatchKind.Text, command.Font, default),
             DrawCommandKind.Path => (BatchKind.PathFill, 0, command.FillRule),
             DrawCommandKind.PathStroke => (BatchKind.PathStroke, 0, default),

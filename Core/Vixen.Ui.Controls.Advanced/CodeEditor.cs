@@ -212,13 +212,13 @@ public sealed partial class CodeEditor : Control {
 
     ComputedStyle? measured;
     float measuredFontSize = float.NaN;
+    float measuredLineHeight = float.NaN;
     float characterWidth = 8f;
     float lineHeight = 16f;
 
     int selectionColor;
     int caretColor;
     int currentLineColor;
-    int lineHeightId;
     bool editing;
 
     /// <summary>How many lines are realised above and below the viewport.</summary>
@@ -358,8 +358,16 @@ public sealed partial class CodeEditor : Control {
     /// <summary>Raised when a completion is accepted.</summary>
     public event Action<CodeEditor, CompletionItem>? CompletionAccepted;
 
-    /// <summary>How tall one line is, from <c>--line-height</c> or the font.</summary>
-    public float LineHeight {
+    /// <summary>How tall one row of the virtualiser is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Named for the row rather than for the line, because
+    ///     <see cref="UiElement.LineHeight" /> is the cascade's own and may be
+    ///     <see cref="float.NaN" />.</b> This is the resolved number the arithmetic needs: whatever
+    ///     <c>line-height</c> said if it said anything, and the font's own line height otherwise.
+    ///     The other virtualised controls in this assembly call the same thing <c>RowHeight</c>,
+    ///     which is what it is here too.
+    /// </remarks>
+    public float RowHeight {
         get {
             Measure();
             return lineHeight;
@@ -381,7 +389,6 @@ public sealed partial class CodeEditor : Control {
         selectionColor = Document.PropertyId("--selection-color");
         caretColor = Document.PropertyId("--caret-color");
         currentLineColor = Document.PropertyId("--current-line-color");
-        lineHeightId = Document.PropertyId("--line-height");
 
         Gutter = Part("code-gutter");
         Scroller = Part<ScrollView>();
@@ -429,20 +436,26 @@ public sealed partial class CodeEditor : Control {
     ///     </para>
     /// </remarks>
     void Measure() {
-        if (ReferenceEquals(measured, Style) && measuredFontSize.Equals(FontSize)) {
+        if (ReferenceEquals(measured, Style)
+            && measuredFontSize.Equals(FontSize)
+            && measuredLineHeight.Equals(LineHeight)) {
             return;
         }
 
         measured = Style;
         measuredFontSize = FontSize;
+        measuredLineHeight = LineHeight;
 
         if (Probe.Run() is { } run) {
             characterWidth = run.Width > 0f ? run.Width : characterWidth;
             lineHeight = run.Height > 0f ? run.Height : lineHeight;
         }
 
-        if (Document.LengthOf(Style, lineHeightId) is { } declared and > 0f) {
-            lineHeight = declared;
+        // The cascade's `line-height`, which resolves relative units against the right font size
+        // and is inherited in that form. NaN means "whatever the font recommends", which the run
+        // above has already answered.
+        if (!float.IsNaN(LineHeight) && LineHeight > 0f) {
+            lineHeight = LineHeight;
         }
     }
 
@@ -473,7 +486,7 @@ public sealed partial class CodeEditor : Control {
             }
         }
 
-        Scroller.Content.SetStyle("height", Inline.Px(rows.Count * LineHeight));
+        Scroller.Content.SetStyle("height", Inline.Px(rows.Count * RowHeight));
         Scroller.Content.SetStyle("width", Inline.Px((longest + 2) * CharacterWidth));
 
         // A pass before anything reads a size, for the reason `TreeView.Refresh` gives: the height
@@ -486,7 +499,7 @@ public sealed partial class CodeEditor : Control {
 
     void Realise() {
         var height = Scroller.Height;
-        var cell = LineHeight;
+        var cell = RowHeight;
 
         if (cell <= 0f) {
             return;
@@ -777,7 +790,7 @@ public sealed partial class CodeEditor : Control {
 
         return new Vector2(
             content.AbsoluteLeft + (position.Column * CharacterWidth),
-            content.AbsoluteTop + (Math.Max(row, 0) * LineHeight)
+            content.AbsoluteTop + (Math.Max(row, 0) * RowHeight)
         );
     }
 
@@ -788,7 +801,7 @@ public sealed partial class CodeEditor : Control {
     public TextPosition ToPosition(float x, float y) {
         var content = Scroller.Content;
 
-        var row = (int) MathF.Floor((y - content.AbsoluteTop) / LineHeight);
+        var row = (int) MathF.Floor((y - content.AbsoluteTop) / RowHeight);
         var line = rows.Count == 0 ? 0 : rows[Math.Clamp(row, 0, rows.Count - 1)];
 
         // ⚠ Rounded rather than floored, so a click on the right half of a character puts the caret
@@ -801,7 +814,7 @@ public sealed partial class CodeEditor : Control {
     // ── Drawing ──────────────────────────────────────────────────────────────
 
     internal void DrawSelection(DrawContext context) {
-        var cell = LineHeight;
+        var cell = RowHeight;
         var width = CharacterWidth;
         var content = Scroller.Content;
 
@@ -870,9 +883,9 @@ public sealed partial class CodeEditor : Control {
         context.FillRectangle(
             new Rectangle(
                 content.AbsoluteLeft + (Caret.Column * CharacterWidth),
-                content.AbsoluteTop + (row * LineHeight),
+                content.AbsoluteTop + (row * RowHeight),
                 MathF.Max(1f, CharacterWidth * 0.1f),
-                LineHeight
+                RowHeight
             ),
             Document.ColorOf(Style, caretColor) ?? Document.ForegroundOf(this)
         );
@@ -990,7 +1003,7 @@ public sealed partial class CodeEditor : Control {
             return;
         }
 
-        var cell = LineHeight;
+        var cell = RowHeight;
         var top = row * cell;
 
         if (top < Scroller.ScrollTop) {
@@ -1109,7 +1122,7 @@ public sealed partial class CodeEditor : Control {
         args.Handled = true;
     }
 
-    int VisibleRows => Math.Max(1, (int) (Scroller.Height / MathF.Max(1f, LineHeight)) - 1);
+    int VisibleRows => Math.Max(1, (int) (Scroller.Height / MathF.Max(1f, RowHeight)) - 1);
 
     /// <summary>Where Home goes: the first non-space, or column zero if it is already there.</summary>
     /// <remarks>
@@ -1289,7 +1302,7 @@ public sealed partial class CodeEditor : Control {
 
         Completion.RemoveClass("hidden");
         Completion.SetStyle("left", Inline.Px(caret.X - (prefix.Length * CharacterWidth) - AbsoluteLeft));
-        Completion.SetStyle("top", Inline.Px(caret.Y + LineHeight - AbsoluteTop));
+        Completion.SetStyle("top", Inline.Px(caret.Y + RowHeight - AbsoluteTop));
     }
 
     /// <summary>Takes the popup down.</summary>

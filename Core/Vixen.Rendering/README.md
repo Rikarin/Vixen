@@ -338,6 +338,32 @@ for the frame; the volumes are an array beside them in the per-frame block; and
 already fills — in the twelve bytes of padding std140 leaves after the light count, so the block is the
 size it always was. Nothing extra is bound per draw.
 
+**`SceneLighting` is what puts the probes in the array that index reaches.** For a while the index was
+written and the array was empty: the shader declared four cubes, the feature named one of them per
+object, and no code anywhere bound a probe — so every object pointed into descriptors nobody had
+written. It walks the scene's `EnvironmentLight`, its `ReflectionProbeSelector` and its sun into
+`SceneConstants.Parameters`, and two properties of it are load-bearing:
+
+- **The array's length is the shader's.** `ProbeCount` is a permutation that sizes a *binding*, so the
+  count comes off `Effect.Bindings` at bind time rather than out of a host's configuration. A variant
+  compiled with `UseReflectionProbe` off has no probe binding at all and gets nothing written for one.
+- **The order is the selector's.** The index in the per-object block is a *position in that list*, so
+  sorting the probes here — by weight, by priority, by anything — would leave both halves internally
+  consistent and every object reflecting somebody else's room. `SceneLightingTests` asserts the two
+  agree through the bytes one uploaded and the handle the other produced.
+
+Every slot is filled, including the ones no probe occupies: the shader samples
+`probes[clamp(probeIndex, 0, ProbeCount - 1)]` and only *then* weighs the result against zero, so a
+slot with no descriptor is read rather than skipped. The spare slots take the environment's own cube,
+which is the right answer as well as a valid one. `EffectBinding.Count` is what carries the array
+length to the runtime, and `EffectSetWriter` fills an array element by element under `probes[2]` —
+falling back to the bare `probes` for any element that names nothing, which is exactly the case a
+frame with two probes and four slots is.
+
+Probes the array cannot hold are dropped and **counted** (`SceneLighting.Dropped`), because the failure
+is invisible from the frame: an object that selected the fifth of four carries an index the shader
+clamps, so it reflects the wrong room rather than nothing.
+
 This section used to say per-object selection needed a descriptor set per probe bound per draw, and
 that `ForwardLightingRenderFeature` owning the per-draw set was the obstacle. Both halves were wrong.
 A set per probe bound per draw is a set per object in all but name — the cost the four-set convention
@@ -685,18 +711,60 @@ finds where `environment` goes.
 
 `EffectSetWriter` is that lookup, shared by both fillers, because the rule is one rule: a caller names
 a resource and `Effect.Bindings` says where it goes. Every binding or none, for the reason a material's
-set is all-or-nothing.
+set is all-or-nothing — and every *element* of an array binding, which is the same rule one level down.
+
+`SceneConstants.Lighting` is the hook that runs the extract, and it is here rather than in a host's
+frame loop for the reason the whole section is about: the probe array's length is the shader's, and the
+bind is where the shader is known. A host that had to size the array itself would be keeping the
+`ProbeCount` permutation in two places. Set it and a frame binds its own set 0 with nothing named by
+hand; leave it null and `SceneConstants` is what it was, a collection somebody fills.
+
+The rest of set 0 is handled the same way and by different owners, because the split is real: the
+environment and the probes are objects a *scene* holds, while an atlas and a cluster list are handles a
+*frame* produced and are only valid after the pass that produced them ran.
+
+| Binding | Published by | Why there |
+|---|---|---|
+| `environment`, `probes[i]`, `probeVolumes[i]`, the sun | `SceneLighting` | objects the scene holds |
+| `lightBuffer` | `ForwardLightingRenderFeature` | its own buffer, recreated whenever the scene outgrows it |
+| `shadowMap`, `clusters` | `RenderPassRenderer.SceneTextures` / `SceneBuffers` | frame resources — see below |
+| `lightViewProjection`, `shadowTexelSize`, both biases, `shadowSampler` | `ShadowMapRenderer` | everything the atlas cannot say about itself |
+| `tanHalfFov`, `nearPlane`, `farPlane` | `ClusterGrid.Apply`, through `SceneLighting.Camera` | the culler and the fragment must be given the same four |
+
+**The consuming pass publishes the frame resources, not the producing one.** A graph resource has no
+handle until the graph has placed it, so a producer that published its own output would be handing over
+a handle whose read barrier nobody declared. Naming one in `SceneTextures` *is* declaring the read —
+the two lists cannot disagree, because there is only one.
+
+`ShadowMapRenderer` publishes **cascade zero's** matrix, with its atlas tile folded into it by
+`ShadowCascades.AtlasProjection`. Both halves are load-bearing. The shader declares one
+`lightViewProjection` and one `shadowMap`, so a fragment past the nearest cascade is unshadowed rather
+than shadowed by the wrong slice — selecting a cascade per fragment is shader work that has not been
+done, and publishing four matrices into a shader that reads one would look like it worked. And the tile
+has to be in the matrix: `NdcToUv(cascade · p)` addresses the *whole* atlas, so with four tiles in it
+every lookup would land a quarter of the way into somebody else's and read a plausible depth from it.
+
+`ViewConstants` defaults to **144 bytes with `Vixen.View` at 80**, which is what `ForwardPlus.rvn`
+declares for set 1. That is not a coincidence to be tidied away: set 1 is a contract between shaders, so
+the engine's own pass defines it. It was 80 while the shader said 144 — a descriptor range shorter than
+the block it points at.
+
+`ForwardFrameTests` is the end-to-end assertion, and it builds its effect from
+`ForwardPlus.reflect.json` through the real `EffectLoader`: one frame, four sets bound, one draw, and a
+paired negative where a single hand-off is removed and set 0 goes unbound rather than half-written. A
+hand-written fake would only assert that the renderer agrees with itself.
 
 `MeshRenderFeature` binds set 0 where it binds set 1 — after the first pipeline, once per run. After,
 because `BindDescriptorSet` takes no pipeline layout and infers one from what is bound, so a set before
 the first pipeline is undefined and the Vulkan backend refuses it. Once, because the four-set convention
 makes every pipeline in a frame layout-compatible up to set 1, which covers set 0 with it.
 
-⚠ **The generator still emits keys for one block.** `BindingsEmitter` picks the first uniform block a
-shader has, which was every shader's only block until this pass had four — so `ForwardPlusKeys` covers
-set 0's values and names nothing in set 1, set 2 or set 3. Those parameters are reachable by
-`ParameterKeys.New<T>("ForwardPlus.view")` and not by a generated constant, which is the ergonomics
-rather than the correctness of it. Emitting per block is the same change one level out.
+The generator followed. `BindingsEmitter` used to pick the first uniform block a shader had, which was
+every shader's only block until this pass had four — so `ForwardPlusKeys` would have covered set 0 and
+named nothing in the other three. It now emits a key for every block, a `PerFrameBlockSize` /
+`PerDrawBlockSize` pair per set, and a writer struct per block (`ForwardPlusPerDrawConstants`). A
+shader with one block is untouched: `ConstantBufferSize` and `<Shader>Constants` are what every
+post-process pass names, and there is a test that says so.
 
 The shader half — `Library/Pipeline/ClusterCulling.rvn` binning lights into a froxel grid, and
 `ForwardPlus.rvn`'s `UseClusteredLights` permutation swapping its uniform-array loop for the cluster
@@ -722,6 +790,25 @@ by construction, and a test is what notices when they stop. The exponential slic
 its own inverse, since that is the property it was chosen for — a fragment finds its slice with a
 logarithm rather than a search, and if the two derivations disagree a fragment reads a cluster the
 culler filled for somewhere else.
+
+**View space is right-handed, and the grid did not know it.** `Matrix4x4.LookAt` says it outright —
+the camera looks down −Z — and `PerspectiveFieldOfView` agrees, taking `w` from `-z`. But
+`Transform.ViewRay` returned `+1` for its z, so a cluster's box came out mirrored in z from the light
+positions `Touches` transformed into the same space. Nearly nothing intersected: **every cluster list
+came back empty and the clustered path lit a scene by the sun alone.** A handedness mistake produces
+an empty result rather than a wrong-looking one, which is how it survived being written down twice.
+
+`ClusterGrid.DepthOf` is now the one place the two conventions meet, on both sides, and
+`ClusterGrid.UvOf` is exactly the rasteriser's own NDC → UV — asserted against the projection matrix
+rather than against trigonometry repeated in the test, because two derivations of one quantity is the
+failure itself. The round trip is asserted too: the cluster a fragment computes for itself has to be
+the box the culler tested lights against. It was found by cross-checking the published half-tangents
+against `RenderCamera.Projection`, which is the sort of thing only a differential oracle finds.
+
+One of the tests reads shader *source* — the two lines where `ClusterCulling.rvn` and `Transform.rvn`
+state the convention. That is deliberate and narrow: the host's mirror is not what runs, and the bug
+was two sides disagreeing while each stayed internally consistent, so a test of either alone would
+have passed throughout.
 
 **Clustered lighting does no per-object work at all.** No selection, no block per object, no
 descriptor bound per draw — `ForwardLightingRenderFeature.Clustered` turns the whole per-object path

@@ -195,7 +195,7 @@ public class CodeEditorTests {
         var before = editor.Pool.Count;
         var element = editor.Pool[0];
 
-        editor.Scroller.ScrollTop = editor.LineHeight * 500f;
+        editor.Scroller.ScrollTop = editor.RowHeight * 500f;
         fixture.Update();
 
         Assert.Equal(before, editor.Pool.Count);
@@ -478,8 +478,8 @@ public class CodeEditorTests {
         var point = editor.ToScreen(target);
 
         // Half a cell in, so the rounding lands on the character rather than on the boundary.
-        fixture.Press(point.X + (editor.CharacterWidth * 0.2f), point.Y + (editor.LineHeight * 0.5f));
-        fixture.Release(point.X + (editor.CharacterWidth * 0.2f), point.Y + (editor.LineHeight * 0.5f));
+        fixture.Press(point.X + (editor.CharacterWidth * 0.2f), point.Y + (editor.RowHeight * 0.5f));
+        fixture.Release(point.X + (editor.CharacterWidth * 0.2f), point.Y + (editor.RowHeight * 0.5f));
 
         Assert.Equal(target, editor.Caret);
     }
@@ -492,9 +492,9 @@ public class CodeEditorTests {
         var from = editor.ToScreen(new TextPosition(0, 2));
         var to = editor.ToScreen(new TextPosition(1, 3));
 
-        fixture.Press(from.X, from.Y + (editor.LineHeight * 0.5f));
-        fixture.Move(to.X, to.Y + (editor.LineHeight * 0.5f));
-        fixture.Release(to.X, to.Y + (editor.LineHeight * 0.5f));
+        fixture.Press(from.X, from.Y + (editor.RowHeight * 0.5f));
+        fixture.Move(to.X, to.Y + (editor.RowHeight * 0.5f));
+        fixture.Release(to.X, to.Y + (editor.RowHeight * 0.5f));
 
         Assert.Equal("cdefgh\nijk", editor.SelectedText);
     }

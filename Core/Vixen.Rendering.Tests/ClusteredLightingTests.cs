@@ -461,6 +461,200 @@ public class ClusteredLightingTests : IDisposable {
         Assert.Empty(device.Recorder!.OfKind(RecordedCommandKind.Dispatch));
     }
 
+    // --- The camera both passes are given ------------------------------------
+
+    /// <summary>
+    ///     The published half-tangents are the camera's own projection, derived another way.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The check that matters about <see cref="ClusterGrid.Apply" />, and the reason
+    ///         <c>ClusterCulling.rvn</c> divides by a tangent pair rather than multiplying by a
+    ///         projection matrix: the culler bins a light into a froxel from these numbers and a
+    ///         fragment finds its own froxel from them, so if they disagree with the matrix the
+    ///         geometry was projected with, every fragment reads the list that was culled for
+    ///         somewhere else.
+    ///     </para>
+    ///     <para>
+    ///         Asserted against the projection matrix rather than against trigonometry repeated here —
+    ///         two derivations of one quantity is exactly the failure, so the test has to use the
+    ///         other one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_published_tangents_agree_with_the_cameras_projection() {
+        var camera = new RenderCamera(Vector3.Zero, new(0f, 0f, 1f), new(0f, 1f, 0f), MathF.PI / 3f, 16f / 9f, 0.1f, 1000f);
+        var parameters = new ParameterCollection();
+
+        ClusterGrid.Apply(parameters, camera, "ClusterCulling");
+
+        var tangents = parameters.Get(ParameterKeys.New<Vector2>("ClusterCulling.tanHalfFov"));
+        var projection = camera.Projection;
+
+        foreach (var point in (Vector3[])[new(3f, 2f, -12f), new(-7f, 4f, -40f), new(0.5f, -1.5f, -3f)]) {
+            var clip = Matrix4x4.TransformVector4(new(point, 1f), projection);
+            var uv = ClusterGrid.UvOf(point, tangents);
+
+            // Exactly, sign included: the grid's coordinates are the rasteriser's. That is what makes
+            // "the cluster this fragment is in" mean the same thing as "the cluster over this pixel",
+            // and it only became true once the ray pointed the way the view matrix does.
+            Assert.Equal(((clip.X / clip.W) * 0.5f) + 0.5f, uv.X, 3);
+            Assert.Equal(((clip.Y / clip.W) * 0.5f) + 0.5f, uv.Y, 3);
+        }
+
+        Assert.Equal(camera.NearPlane, parameters.Get(ParameterKeys.New<float>("ClusterCulling.nearPlane")));
+        Assert.Equal(camera.FarPlane, parameters.Get(ParameterKeys.New<float>("ClusterCulling.farPlane")));
+    }
+
+    /// <summary>
+    ///     A fragment's cluster is the box the culler tested lights against.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The round trip the whole pass rests on, and the one that was broken.
+    ///         <c>Transform.ViewRay</c> pointed down <em>+Z</em> while the engine's view space is
+    ///         right-handed, so a cluster's box came out mirrored in z from the light positions
+    ///         <c>Touches</c> transformed into the same space. Nearly nothing intersected: every
+    ///         cluster list came back empty and the clustered path lit a scene by the sun alone.
+    ///     </para>
+    ///     <para>
+    ///         <strong>A handedness mistake produces an empty result, not a wrong-looking one</strong>,
+    ///         which is why it survived being written down on both sides. What catches it is asking
+    ///         the two halves the same question about the same point: the fragment says which cluster
+    ///         it is in, the culler says what that cluster contains, and a light at the fragment has
+    ///         to be inside it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_fragments_cluster_contains_the_fragment() {
+        const float near = 0.1f;
+        const float far = 1000f;
+
+        var camera = new RenderCamera(Vector3.Zero, new(0f, 0f, -1f), new(0f, 1f, 0f), MathF.PI / 3f, 16f / 9f, near, far);
+        var parameters = new ParameterCollection();
+
+        ClusterGrid.Apply(parameters, camera, "ClusterCulling");
+        var tangents = parameters.Get(ParameterKeys.New<Vector2>("ClusterCulling.tanHalfFov"));
+
+        foreach (var world in Spread()) {
+            // What the vertex stage hands the fragment: the world position through the view matrix.
+            var position = Matrix4x4.TransformPosition(world, camera.View);
+
+            // In front of the camera, which under a right-handed view space means a negative z. The
+            // rest of the test is meaningless if this is not true — the grid's depths are distances.
+            Assert.True(position.Z < 0f, $"{world} is not in front of the camera");
+
+            var cluster = ClusterGrid.Of(position, tangents, near, far);
+            var found = false;
+
+            for (var slice = 0; slice < ClusterGrid.Slices && !found; slice++) {
+                for (var y = 0; y < ClusterGrid.TilesY && !found; y++) {
+                    for (var x = 0; x < ClusterGrid.TilesX && !found; x++) {
+                        if (ClusterGrid.Index(x, y, slice) != cluster) {
+                            continue;
+                        }
+
+                        found = true;
+                        var bounds = ClusterGrid.Bounds(x, y, slice, tangents, near, far);
+
+                        // A hair of slack, because the fragment's tile comes from a floor and the
+                        // box from the tile's own corners: a point exactly on a boundary is in both.
+                        Assert.True(
+                            Contains(bounds, position, 1e-3f),
+                            $"{world} is in cluster ({x},{y},{slice}) and outside its bounds {bounds.Minimum}..{bounds.Maximum}"
+                        );
+                    }
+                }
+            }
+
+            Assert.True(found, $"cluster {cluster} is not in the grid");
+        }
+    }
+
+    /// <summary>
+    ///     Depth decides the slice, so two fragments a decade apart are not in the same cluster.
+    /// </summary>
+    /// <remarks>
+    ///     The other half of the same failure, and the one that would have survived a fix to the sign
+    ///     alone: with a positive-z reading of a negative-z position, every fragment's depth clamped
+    ///     to the near plane and the whole scene collapsed into slice zero — a grid of 3456 clusters
+    ///     using 144 of them.
+    /// </remarks>
+    [Fact]
+    public void Distance_moves_a_fragment_through_the_slices() {
+        const float near = 0.1f;
+        const float far = 1000f;
+
+        var tangents = new Vector2(1f, 0.5625f);
+        var seen = new HashSet<int>();
+
+        for (var distance = 1f; distance < far; distance *= 2f) {
+            seen.Add(ClusterGrid.Of(new(0f, 0f, -distance), tangents, near, far));
+        }
+
+        // Ten doublings, and the exponential split gives each of them its own slab.
+        Assert.Equal(10, seen.Count);
+    }
+
+    /// <summary>
+    ///     The shader still negates where the mirror does.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A test that reads shader source, which is worth defending. Everything above tests the
+    ///         <em>host's copy</em> of the grid — and the host's copy is not what runs. The bug it
+    ///         encodes was precisely two sides disagreeing about a sign while each was internally
+    ///         consistent, so a test of one side alone would have passed throughout.
+    ///     </para>
+    ///     <para>
+    ///         Narrow on purpose: two lines, each the single place its file states the convention.
+    ///         Anything broader would be a test of formatting.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_shader_reads_view_space_the_way_the_host_does() {
+        Assert.Contains(
+            "func DepthOf(positionVS: float3): float => -positionVS.z",
+            Source("Pipeline", "ClusterCulling.rvn"),
+            StringComparison.Ordinal
+        );
+
+        // The other end of the same convention: the ray the culler builds its boxes from points the
+        // way the view matrix does, so a box and a light land in the same half of the world.
+        Assert.Contains(
+            "return float3(ndc.x * tanHalfFov.x, ndc.y * tanHalfFov.y, -1f)",
+            Source("Geometry", "Transform.rvn"),
+            StringComparison.Ordinal
+        );
+    }
+
+    /// <summary>A shipped shader's source, found by walking up rather than by counting directories.</summary>
+    static string Source(string folder, string file) {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
+            var candidate = Path.Combine(directory.FullName, "Raven", "Library", folder, file);
+
+            if (File.Exists(candidate)) {
+                return File.ReadAllText(candidate);
+            }
+        }
+
+        throw new FileNotFoundException($"Raven/Library/{folder}/{file} was not found above '{AppContext.BaseDirectory}'.");
+    }
+
+    /// <summary>A spread of points in front of a camera looking down −Z.</summary>
+    static IEnumerable<Vector3> Spread() {
+        foreach (var depth in (float[])[0.5f, 3f, 17f, 120f, 800f]) {
+            yield return new(0f, 0f, -depth);
+            yield return new(depth * 0.4f, depth * 0.2f, -depth);
+            yield return new(-depth * 0.7f, -depth * 0.3f, -depth);
+        }
+    }
+
+    static bool Contains(in BoundingBox box, Vector3 point, float slack) =>
+        point.X >= box.Minimum.X - slack && point.X <= box.Maximum.X + slack
+        && point.Y >= box.Minimum.Y - slack && point.Y <= box.Maximum.Y + slack
+        && point.Z >= box.Minimum.Z - slack && point.Z <= box.Maximum.Z + slack;
+
     /// <summary>A compute node naming a buffer nothing bound is refused by name.</summary>
     [Fact]
     public void A_compute_node_naming_an_unbound_buffer_is_refused() {

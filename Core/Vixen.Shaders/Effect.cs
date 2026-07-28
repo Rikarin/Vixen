@@ -196,6 +196,25 @@ public readonly record struct EffectBinding(
     ///     be given set 2's size.
     /// </remarks>
     public int Size { get; init; }
+
+    /// <summary>How many descriptors the binding holds; one for all but an array binding.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="EffectLoader" /> already needed it to build a layout — <c>probes:
+    ///         TextureCube[ProbeCount]</c> is one binding of four descriptors — and it stopped there,
+    ///         so the plan a host <em>fills</em> the set from described the array as a single
+    ///         resource. Filling one element and leaving three unwritten is a validation error on
+    ///         Vulkan and a sampled nothing elsewhere, which is the failure this makes visible.
+    ///     </para>
+    ///     <para>
+    ///         An array is filled element by element, under the name the element has:
+    ///         <c>probes[2]</c>, in the same spelling <c>probeVolumes[2].radius</c> already uses for
+    ///         the block beside it. The <em>bare</em> name stands for every element that names
+    ///         nothing of its own — which is what a frame with two probes and four slots needs, since
+    ///         a slot with no descriptor is not a slot the shader may skip.
+    ///     </para>
+    /// </remarks>
+    public int Count { get; init; } = 1;
 }
 
 /// <summary>Where one parameter lives in an effect's constant buffer.</summary>

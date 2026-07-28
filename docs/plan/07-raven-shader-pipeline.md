@@ -1998,6 +1998,15 @@ the build-time permutation pre-generator ([06](06-rendering-pipeline.md)) can it
 `ParameterKey`/`PermutationKey` per parameter, resource and permutation) and a `…Constants` struct
 whose `Write(Span<byte>)` stores every value at the offset Raven computed.
 
+**A block per set, not "the" block.** Raven gathers a shader's loose uniforms into one block *per set*,
+and a shader that marks none of its bindings has one set — which is why "the uniform block" was a
+well-formed phrase for as long as it was. A pass that says where each binding belongs has up to four,
+and generating for the first left three sets' worth of values reachable only by spelling the name out.
+So: a key for every block's values, a `PerFrameBlockSize`/`PerDrawBlockSize` pair per set, and a writer
+struct per block (`ForwardPlusPerDrawConstants`). A shader with one block keeps `ConstantBufferSize`
+and `<Shader>Constants` unchanged, because that is every shader that marks no sets and every host that
+names one.
+
 **The offsets are copied, never recomputed** — which is the entire point. They come out of the same
 `ShaderLayout` pass that told the GLSL and SPIR-V emitters where to put things, so a host and a shader
 cannot disagree about `float3` padding. A second implementation of std140 on the engine side would
