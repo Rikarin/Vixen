@@ -9,6 +9,21 @@ using Xunit;
 namespace Vixen.Ecs.Tests;
 
 public sealed class SystemTests {
+    /// <summary>
+    ///     The systems below declare their access with <c>[Reads]</c> and <c>[Writes]</c>, and an
+    ///     attribute can only look a component id up — it names a <see cref="Type" />, which is not
+    ///     enough to close a generic and assign one. So the ids have to exist before any of these
+    ///     tests builds a graph. Left to chance they only exist when some earlier test in the class
+    ///     happened to name the type generically first, which makes every test here pass in a full
+    ///     run and fail on its own. xUnit builds a fresh instance per test, so this runs before each
+    ///     of them.
+    /// </summary>
+    public SystemTests() {
+        ComponentRegistry.Of<Position>();
+        ComponentRegistry.Of<Velocity>();
+        ComponentRegistry.Of<Health>();
+    }
+
     [Fact]
     public void SystemsRunInRegistrationOrderWhenNothingSaysOtherwise() {
         var log = new List<string>();

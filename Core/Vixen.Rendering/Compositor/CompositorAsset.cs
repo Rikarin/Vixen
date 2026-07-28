@@ -221,8 +221,290 @@ public sealed record RenderPassAsset : ISceneRendererAsset {
     /// <summary>The names of buffers this pass reads — a cluster list, a light list.</summary>
     public string[] BufferReads { get; init; } = [];
 
+    /// <summary>Which of the four conventional sets it binds.</summary>
+    /// <remarks>
+    ///     Per-view or lower for a pass, so the materials drawing into it rebind sets 2 and 3 without
+    ///     disturbing what the pass put down.
+    /// </remarks>
+    public DescriptorSetSlot Slot { get; init; } = DescriptorSetSlot.PerView;
+
+    /// <summary>What the pass binds once, before anything under it draws.</summary>
+    public ResourceBindingAsset[] Bindings { get; init; } = [];
+
     /// <summary>What draws into it.</summary>
     public ISceneRendererAsset[] Children { get; init; } = [];
+}
+
+/// <summary>One value in the per-view block, and where it sits.</summary>
+/// <remarks>
+///     Named by the parameter key a shader's bindings were generated under, so a document says
+///     <c>Vixen.ViewProjection</c> rather than an offset it would have to keep in step with a struct
+///     it cannot see. A name nothing has interned is a mistake the build reports rather than a value
+///     that silently never arrives.
+/// </remarks>
+[DataContract("ViewMember")]
+public sealed record ViewMemberAsset {
+    /// <summary>The parameter key's name.</summary>
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>Its byte offset within the block.</summary>
+    public int Offset { get; init; }
+
+    /// <summary>How many bytes it occupies.</summary>
+    public int Size { get; init; }
+}
+
+/// <summary>The uniform block every view in the frame shares — set 1.</summary>
+/// <remarks>
+///     <para>
+///         The one part of the four-set convention a document has a reason to describe. Sets 2 and 3
+///         belong to a material and a draw and follow from the shaders; set 1 is a contract
+///         <em>between</em> shaders — a descriptor set survives a pipeline change only if the layouts
+///         agree up to it — so the frame is the only thing that can state it.
+///     </para>
+///     <para>
+///         Declaring it with no members takes the standard block: the view-projection at 0 and the
+///         view position at 64, which is what <see cref="ViewConstants" /> writes for every view
+///         whether or not anybody asked.
+///     </para>
+/// </remarks>
+[DataContract("ViewBlock")]
+public sealed record ViewBlockAsset {
+    /// <summary>Which of the four conventional sets holds it.</summary>
+    public DescriptorSetSlot Set { get; init; } = DescriptorSetSlot.PerView;
+
+    /// <summary>Which binding within that set.</summary>
+    public uint Binding { get; init; }
+
+    /// <summary>How large the block is, in bytes.</summary>
+    public int Size { get; init; } = 80;
+
+    /// <summary>Which shader stages read it.</summary>
+    public ShaderStages Stages { get; init; } = ShaderStages.VertexAndPixel;
+
+    /// <summary>What is in it, or empty for the standard block.</summary>
+    public ViewMemberAsset[] Members { get; init; } = [];
+}
+
+/// <summary>Which stages a per-view block is visible to.</summary>
+/// <remarks>
+///     A small enum rather than <see cref="ShaderStage" /> itself, because a document should not have
+///     to spell a flags combination and the three that matter cover every shader that reads a camera.
+/// </remarks>
+public enum ShaderStages {
+    /// <summary>The vertex stage only — what a shadow caster needs.</summary>
+    Vertex,
+
+    /// <summary>The fragment stage only.</summary>
+    Pixel,
+
+    /// <summary>Both, which is what an ordinary material wants.</summary>
+    VertexAndPixel
+}
+
+/// <summary>The samplers a document may name, by what they are for.</summary>
+/// <remarks>
+///     A preset rather than the twelve fields of a <see cref="SamplerDescription" />, for the same
+///     reason <see cref="BlendPreset" /> is a preset: an author picks a behaviour, and a document full
+///     of address modes and LOD biases is one nobody can read. A project needing something else sets
+///     the binding's sampler in code, which is what the asset model always falls back to.
+/// </remarks>
+public enum SamplerPreset {
+    /// <summary>No sampler — what a binding that is not one has.</summary>
+    /// <remarks>
+    ///     A member rather than a nullable enum, because a <c>Nullable&lt;TEnum&gt;</c> has no
+    ///     generated serializer and "absent" is a perfectly good value for an enum to carry.
+    /// </remarks>
+    None,
+
+    /// <summary>Trilinear, clamped — what a full-screen pass reading a render target wants.</summary>
+    LinearClamp,
+
+    /// <summary>Unfiltered and clamped — a lookup where interpolation would be nonsense.</summary>
+    PointClamp,
+
+    /// <summary>Trilinear, repeating — an ordinary surface texture.</summary>
+    LinearRepeat,
+
+    /// <summary>Depth comparison, for a shadow map.</summary>
+    Shadow
+}
+
+/// <summary>One resource a node binds, as a document says it.</summary>
+/// <remarks>
+///     <para>
+///         <strong>Prefer <see cref="Name" /> to <see cref="Binding" />.</strong> A binding index is
+///         the shader's — Raven assigns it from declaration order within a set — so a document that
+///         writes one down is recording a number that changes when a resource is added above it.
+///         Naming the shader's own name for the resource resolves it against the effect's plan
+///         instead.
+///     </para>
+///     <para>
+///         The index remains for a shader whose provider reports no plan, which is every provider
+///         until the content build does.
+///     </para>
+/// </remarks>
+[DataContract("Binding")]
+public sealed record ResourceBindingAsset {
+    /// <summary>The shader's own name for this resource, resolved against its binding plan.</summary>
+    public string? Name { get; init; }
+
+    /// <summary>Its index within the set, when <see cref="Name" /> is absent or unknown.</summary>
+    public uint Binding { get; init; }
+
+    /// <summary>What it binds. Taken from the shader's plan when <see cref="Name" /> resolves.</summary>
+    public DescriptorKind Kind { get; init; } = DescriptorKind.SampledTexture;
+
+    /// <summary>The frame resource to bind, by the name the document gave it.</summary>
+    public string Resource { get; init; } = string.Empty;
+
+    /// <summary>The sampler, for a sampler binding.</summary>
+    public SamplerPreset Sampler { get; init; } = SamplerPreset.None;
+
+    /// <summary>Where in the buffer the binding starts.</summary>
+    public long Offset { get; init; }
+
+    /// <summary>How much of the buffer, or zero for the rest of it.</summary>
+    public long Size { get; init; }
+}
+
+/// <summary>One effect over the whole screen — a post-process pass.</summary>
+/// <remarks>
+///     What makes doc 06's "the frame is data the user edits" true of post-processing rather than only
+///     of geometry. Two things used to make it impossible: a binding index is a shader's decision and
+///     a sampler is a device handle. A binding may now name what the shader calls it, and a sampler is
+///     a preset, so neither is left.
+/// </remarks>
+[DataContract("FullScreen")]
+public sealed record FullScreenAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The shader to run.</summary>
+    public string Shader { get; init; } = string.Empty;
+
+    /// <summary>The colour attachments it writes.</summary>
+    public string[] ColourTargets { get; init; } = [];
+
+    /// <summary>The textures it samples.</summary>
+    public string[] Reads { get; init; } = [];
+
+    /// <summary>The buffers it reads.</summary>
+    public string[] BufferReads { get; init; } = [];
+
+    /// <summary>How its output combines with what is already there.</summary>
+    public BlendPreset Blend { get; init; } = BlendPreset.Opaque;
+
+    /// <summary>What happens to the attachments at the start of the pass.</summary>
+    /// <remarks>
+    ///     Discarded by default, because a full-screen pass writes every pixel and clearing first is a
+    ///     whole extra write — which on a tiler is a read of main memory the pass throws away.
+    /// </remarks>
+    public LoadAction Load { get; init; } = LoadAction.DontCare;
+
+    /// <summary>Which binding the uniform block occupies, or null for a shader with none.</summary>
+    public uint? ConstantBinding { get; init; }
+
+    /// <summary>Which of the four conventional sets it binds.</summary>
+    public DescriptorSetSlot Slot { get; init; } = DescriptorSetSlot.PerMaterial;
+
+    /// <summary>What it binds, and where.</summary>
+    public ResourceBindingAsset[] Bindings { get; init; } = [];
+}
+
+/// <summary>A compute dispatch, and the resources it declares.</summary>
+/// <remarks>
+///     The last node kind that was code-only. Its value over a hand-written dispatch is the two lists
+///     it declares: a pass that says it writes a buffer, beside one that says it reads it, is a pass
+///     the graph orders first and puts a barrier after — and a document can now say so.
+/// </remarks>
+[DataContract("Compute")]
+public sealed record ComputeAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The compute shader to run.</summary>
+    public string Shader { get; init; } = string.Empty;
+
+    /// <summary>The textures it samples.</summary>
+    public string[] Reads { get; init; } = [];
+
+    /// <summary>The textures it writes, as storage images.</summary>
+    public string[] Writes { get; init; } = [];
+
+    /// <summary>The buffers it reads.</summary>
+    public string[] BufferReads { get; init; } = [];
+
+    /// <summary>The buffers it writes.</summary>
+    public string[] BufferWrites { get; init; } = [];
+
+    /// <summary>How many workgroups to run, across each axis.</summary>
+    /// <remarks>
+    ///     Three numbers rather than one vector, because that is what reads well in a document and
+    ///     because a workgroup count is three independent decisions about a grid rather than a point
+    ///     in space.
+    /// </remarks>
+    public int GroupsX { get; init; } = 1;
+
+    /// <inheritdoc cref="GroupsX" />
+    public int GroupsY { get; init; } = 1;
+
+    /// <inheritdoc cref="GroupsX" />
+    public int GroupsZ { get; init; } = 1;
+
+    /// <summary>Which of the four conventional sets it binds.</summary>
+    public DescriptorSetSlot Slot { get; init; } = DescriptorSetSlot.PerMaterial;
+
+    /// <summary>What it binds, and where.</summary>
+    public ResourceBindingAsset[] Bindings { get; init; } = [];
+}
+
+/// <summary>The dual-filter bloom chain.</summary>
+/// <remarks>
+///     A node rather than a list of passes, because the chain's shape follows from its depth and the
+///     frame's size — nine passes and nine textures out of one line, and a document that spelled them
+///     out would have to be rewritten to change the resolution.
+/// </remarks>
+[DataContract("Bloom")]
+public sealed record BloomAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The shader to run, in its permuted modes.</summary>
+    public string Shader { get; init; } = "Bloom";
+
+    /// <summary>The texture the chain reads.</summary>
+    public string Source { get; init; } = string.Empty;
+
+    /// <summary>The name the result is published under.</summary>
+    public string Output { get; init; } = "Bloom";
+
+    /// <summary>How many levels the pyramid has, the first at half resolution.</summary>
+    public int Levels { get; init; } = 5;
+
+    /// <summary>The format every level has.</summary>
+    public PixelFormat Format { get; init; } = PixelFormat.Rgba16Float;
+
+    /// <summary>Luminance above which a pixel contributes.</summary>
+    public float Threshold { get; init; } = 1f;
+
+    /// <summary>How soft that threshold is.</summary>
+    public float Knee { get; init; } = 0.5f;
+
+    /// <summary>The upsample tent's radius in texels.</summary>
+    public float FilterRadius { get; init; } = 1f;
+
+    /// <summary>How much of each level is added on the way up.</summary>
+    public float Intensity { get; init; } = 1f;
 }
 
 /// <summary>One stage drawn from one view.</summary>
@@ -329,6 +611,9 @@ public sealed record GraphicsCompositorAsset {
 
     /// <summary>The transient buffers it declares.</summary>
     public RenderBufferAsset[] Buffers { get; init; } = [];
+
+    /// <summary>The per-view block every shader in the frame shares, or null for a frame with none.</summary>
+    public ViewBlockAsset? ViewBlock { get; init; }
 
     /// <summary>The root of the graph — the whole frame.</summary>
     public ISceneRendererAsset? Game { get; init; }

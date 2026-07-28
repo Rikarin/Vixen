@@ -47,6 +47,56 @@ public class ParserTests {
         Assert.Equal("Vixen.Ui.Controls", Assert.Single(document.Usings.Items()).Name.Text);
     }
 
+    [Fact]
+    public void A_namespace_directive_parses() {
+        var document = Vxml.ParseClean("""
+            @component Counter
+            @namespace Game.Screens
+            <panel />
+            """);
+
+        Assert.Equal("Game.Screens", document.Namespace!.Name.Text);
+    }
+
+    /// <summary>
+    ///     ⚠ <c>@namespace</c> and <c>@using</c> interleave freely. A header order nobody can
+    ///     remember is a diagnostic nobody wants.
+    /// </summary>
+    [Fact]
+    public void The_namespace_may_sit_anywhere_among_the_usings() {
+        var document = Vxml.ParseClean("""
+            @component Counter
+            @using System
+            @namespace Game.Screens
+            @using System.Text
+            <panel />
+            """);
+
+        Assert.Equal("Game.Screens", document.Namespace!.Name.Text);
+        Assert.Equal(["System", "System.Text"], document.Usings.Items().Select(one => one.Name.Text));
+    }
+
+    /// <summary>
+    ///     ⚠ A second one is rejected rather than silently replacing the first — and, like every
+    ///     other stray directive, its characters survive in the tree as trivia.
+    /// </summary>
+    [Fact]
+    public void A_second_namespace_directive_is_reported_and_the_first_stands() {
+        const string Source = """
+            @component Counter
+            @namespace Game.Screens
+            @namespace Somewhere.Else
+            <panel />
+            """;
+
+        var tree = Vxml.Parse(Source);
+        var document = tree.GetDocument();
+
+        Assert.NotEmpty(tree.Diagnostics);
+        Assert.Equal("Game.Screens", document.Namespace!.Name.Text);
+        Assert.Equal(Source, document.ToFullString());
+    }
+
     /// <summary>
     ///     The property everything else rests on. A tree that cannot reproduce its file cannot be
     ///     formatted, cannot be edited incrementally, and cannot map a span back to what the author

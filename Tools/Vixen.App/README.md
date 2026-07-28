@@ -56,6 +56,24 @@ The fixed-step accumulator itself is `Vixen.Engine`'s in Phase 2
 ([doc 03](../../docs/plan/03-core-foundation.md)); this loop is variable-step and calls the same
 hooks.
 
+## Input
+
+`Services.Input` is an `InputService` — the devices, and every `.vxinput` asset being read from them.
+The host clears the frame's motion deltas at the top of `PumpEvents`, offers each platform event to
+`Services.Input.Devices` as it drains, and lets `SystemPhase.Input` read the actions. Without an
+engine there is no such phase, so the host reads them itself before `OnUpdate`; either way it happens
+once a frame and before anything that reacts to it.
+
+**`PlatformInput` is the whole seam**, and it lives here rather than in `Vixen.Input` because
+`Vixen.Input` is a `Core/` assembly that must not reference `Vixen.Platform` — see
+[its README](../../Core/Vixen.Input/README.md). Events reach the device set only after
+`Game.OnEvent` has declined them, so an application intercepting an event also keeps the action
+system from seeing it, which is what a modal dialog needs "return true" to mean.
+
+Gamepads already plugged in when the process started are added at boot: they produced no
+`GamepadConnected` for anyone to hear, and an input layer built only from the event stream would see
+a controller that does nothing until it is unplugged and plugged back in.
+
 ## Build variants
 
 Building a game and a dedicated server from one project is written up in

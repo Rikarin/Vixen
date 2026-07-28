@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Vixen.Benchmarks.Navigation</RootNamespace>
+        <AssemblyName>Vixen.Benchmarks.Navigation</AssemblyName>
+        <IsPackable>false</IsPackable>
+
+        <!--
+          BenchmarkDotNet needs an optimised build to measure anything meaningful, and it says so
+          loudly if you forget. Debug builds of this project exist only so the IDE can load it.
+        -->
+        <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
+
+        <!-- A benchmark's fields are assigned by [GlobalSetup], which the analyzers cannot see. -->
+        <NoWarn>$(NoWarn);CA1822;CA1051</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="BenchmarkDotNet" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Navigation\Vixen.Navigation.csproj" />
+    </ItemGroup>
+
+</Project>

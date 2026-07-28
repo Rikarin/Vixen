@@ -33,13 +33,32 @@ namespace Vixen.Rendering;
 public sealed class EffectConstants(IGraphicsDevice device, string name = "Constants") : IDisposable {
     byte[] staging = [];
     BufferHandle buffer;
-    Effect? uploaded;
+    object? uploaded;
     int version = -1;
     int capacity;
+    int slot;
+    int slots = 1;
     bool disposed;
 
     /// <summary>The buffer the block lives in, invalid until something has been uploaded.</summary>
     public BufferHandle Buffer => buffer;
+
+    /// <summary>
+    ///     Where this frame's block starts, in bytes. Bind the buffer here rather than at zero.
+    /// </summary>
+    /// <remarks>
+    ///     The buffer holds one block per frame in flight, because a block whose values change is one
+    ///     rewritten while an unfinished frame may be reading it — and a uniform read half from one
+    ///     frame and half from another is a value that was never set anywhere. The same ring, and the
+    ///     same argument, as <see cref="DescriptorAllocator" />'s.
+    /// </remarks>
+    public long Offset => (long)slot * Stride;
+
+    /// <summary>How many bytes one frame's block occupies, including its alignment padding.</summary>
+    public long Stride { get; private set; }
+
+    /// <summary>What a uniform binding's offset must be a multiple of.</summary>
+    public int Alignment { get; set; } = 256;
 
     /// <summary>How many bytes the current block is.</summary>
     public int Size { get; private set; }
@@ -64,18 +83,49 @@ public sealed class EffectConstants(IGraphicsDevice device, string name = "Const
     /// <returns>False when the effect declares no constants, so there is nothing to bind.</returns>
     public bool Update(Effect effect, ParameterCollection parameters) {
         ArgumentNullException.ThrowIfNull(effect);
+        return Update(effect, effect.ConstantBufferSize, effect.Parameters.AsSpan(), parameters);
+    }
+
+    /// <summary>
+    ///     Fills and uploads a block whose layout does not come from an effect.
+    /// </summary>
+    /// <param name="layout">
+    ///     What identifies this layout. Compared by reference to decide whether the block's shape
+    ///     changed — an <see cref="Effect" /> for a material's block, and whatever owns the layout for
+    ///     a block shared across effects.
+    /// </param>
+    /// <param name="size">The block's size in bytes.</param>
+    /// <param name="members">Where each value goes.</param>
+    /// <param name="parameters">The values to fill it from.</param>
+    /// <remarks>
+    ///     A per-view block is the case this exists for: every shader in a frame reads the same one,
+    ///     so it belongs to no single effect — which is exactly what the four-set convention says
+    ///     about set 1.
+    /// </remarks>
+    public bool Update(
+        object layout,
+        int size,
+        ReadOnlySpan<EffectParameter> members,
+        ParameterCollection parameters
+    ) {
+        ArgumentNullException.ThrowIfNull(layout);
         ArgumentNullException.ThrowIfNull(parameters);
         ObjectDisposedException.ThrowIf(disposed, this);
 
-        if (effect.ConstantBufferSize <= 0) {
+        if (size <= 0) {
             return false;
         }
 
-        Size = effect.ConstantBufferSize;
+        Size = size;
 
-        if (ReferenceEquals(uploaded, effect) && version == parameters.Version && buffer.IsValid) {
+        if (ReferenceEquals(uploaded, layout) && version == parameters.Version && buffer.IsValid) {
             return true;
         }
+
+        // A new block goes in the next region rather than over the last one. Only when something
+        // changed: a frame that re-asserts the same values keeps reading the region it already has,
+        // which is what makes the ring cost nothing in the common case.
+        slot = slots <= 1 ? 0 : (slot + 1) % slots;
 
         if (staging.Length < Size) {
             staging = new byte[Size];
@@ -86,14 +136,14 @@ public sealed class EffectConstants(IGraphicsDevice device, string name = "Const
         // else entirely.
         Array.Clear(staging, 0, Size);
 
-        foreach (var parameter in effect.Parameters) {
+        foreach (var parameter in members) {
             Write(parameter);
         }
 
         Recreate();
-        device.Write(buffer, 0, staging.AsSpan(0, Size));
+        device.Write(buffer, Offset, staging.AsSpan(0, Size));
 
-        uploaded = effect;
+        uploaded = layout;
         version = parameters.Version;
         UploadCount++;
         return true;
@@ -122,7 +172,9 @@ public sealed class EffectConstants(IGraphicsDevice device, string name = "Const
     }
 
     void Recreate() {
-        if (buffer.IsValid && capacity >= Size) {
+        var wanted = Math.Max(1, device.FramesInFlight);
+
+        if (buffer.IsValid && capacity >= Size && slots == wanted) {
             return;
         }
 
@@ -131,7 +183,15 @@ public sealed class EffectConstants(IGraphicsDevice device, string name = "Const
         }
 
         capacity = Size;
-        buffer = device.CreateBuffer(new(Size, BufferUsage.Uniform, MemoryAccess.HostUpload, name));
+        slots = wanted;
+        slot = Math.Min(slot, slots - 1);
+
+        var alignment = Math.Max(1, Alignment);
+        Stride = (Size + alignment - 1) / alignment * alignment;
+
+        buffer = device.CreateBuffer(
+            new(Stride * slots, BufferUsage.Uniform, MemoryAccess.HostUpload, name)
+        );
     }
 
     /// <inheritdoc />

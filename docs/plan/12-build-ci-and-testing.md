@@ -29,7 +29,7 @@ Clean ──► Restore ──► Compile ──┬─► Test ─────�
 | Target | Does |
 |---|---|
 | `Clean` | wipes `artifacts/`, `**/bin`, `**/obj`, `Library/` in samples |
-| `RestoreNativeDeps` | downloads pinned native binaries (MoltenVK, Jolt, HarfBuzz, SPIRV-Cross, shaderc, astcenc, Recast) from checksummed URLs into `artifacts/native/<rid>/`; verifies SHA-256; emits a third-party licence manifest. Fails on checksum mismatch. |
+| `RestoreNativeDeps` | downloads pinned native binaries (MoltenVK, Jolt, HarfBuzz, SPIRV-Cross, shaderc, astcenc) from checksummed URLs into `artifacts/native/<rid>/`; verifies SHA-256; emits a third-party licence manifest. Fails on checksum mismatch. *Recast is no longer on this list: `Vixen.Navigation` is managed code and has no native half.* |
 | `Restore` | `dotnet restore Vixen.slnx` with locked mode in CI (`--locked-mode`) so a transitive version drift breaks the build instead of silently shipping |
 | `CompileShaderLibrary` | runs Raven over `Raven/Library/**/*.rvn` → `.rvnlib`; `spirv-val` on every module; fails on any diagnostic |
 | `Compile` | `dotnet build` with `-warnaserror`; the generator projects build first |

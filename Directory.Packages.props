@@ -162,6 +162,24 @@
     <PackageVersion Include="Concentus" Version="2.2.2" />
   </ItemGroup>
 
+  <!-- ===== Physics (docs/plan/01 § dependency register, docs/plan/14 § Phase 8) ===== -->
+  <ItemGroup Label="Physics">
+    <!--
+      Jolt, at the version doc 01 specifies. The managed binding is a thin one — a
+      handle struct per native type and no object model of its own — which is what
+      lets Vixen.Physics own the engine-facing API instead of re-exporting somebody
+      else's. JoltPhysics.Native comes along transitively and carries the compiled
+      library for win-x64/arm64, linux-x64/arm64, osx (universal) and the three
+      Android ABIs.
+
+      It does NOT carry an iOS slice, and iOS is NativeAOT-only where a dylib would
+      not be loadable anyway. That gap is recorded in README.md § Platforms; the
+      fix is a static libjoltc.a pinned the way MoltenVK already is, and it is not
+      this project's to make.
+    -->
+    <PackageVersion Include="JoltPhysicsSharp" Version="2.22.0" />
+  </ItemGroup>
+
   <!-- ===== Source generators / analyzers ===== -->
   <ItemGroup Label="Roslyn">
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" />

@@ -78,10 +78,10 @@ public sealed class StyleTree {
 
     /// <summary>How many slots removal has left behind.</summary>
     /// <remarks>
-    ///     ⚠ <b>Exposed because it only ever goes up.</b> A removed slot is tombstoned and never
-    ///     reused, so a document that builds and tears down a list every frame grows without bound,
-    ///     and this is the number that says so. Compaction is owed; see <see cref="Remove" /> for
-    ///     why reuse is not the obvious fix it looks like.
+    ///     ⚠ <b>Exposed because nothing reclaims it on its own.</b> A removed slot is tombstoned and
+    ///     never reused, so a document that builds and tears down a list every frame grows without
+    ///     bound until something calls <see cref="Compact" />. This is the number that decides when.
+    ///     See <see cref="Remove" /> for why reuse is not the obvious fix it looks like.
     /// </remarks>
     public int DeadCount => dead;
 
@@ -163,9 +163,10 @@ public sealed class StyleTree {
     ///         silently stops matching.
     ///     </para>
     ///     <para>
-    ///         So slots leak, and <see cref="DeadCount" /> says by how much. The fix is compaction
-    ///         rather than reuse: rebuilding the arrays without the dead slots preserves relative
-    ///         order, so all three invariants survive it, where reuse is exactly what does not. Owed.
+    ///         So slots leak until something calls <see cref="Compact" />, and <see cref="DeadCount" />
+    ///         says by how much. Compaction rather than reuse, because rebuilding the arrays without
+    ///         the dead slots <i>preserves relative order</i> — so all three invariants survive it,
+    ///         where reuse is exactly what does not.
     ///     </para>
     ///     <para>
     ///         The subtree goes with it. A child of a removed element is not an orphan to be
@@ -181,6 +182,151 @@ public sealed class StyleTree {
 
         Detach(index);
         Kill(index);
+    }
+
+    /// <summary>Rebuilds the store without the slots removal left behind.</summary>
+    /// <param name="remap">
+    ///     Filled with each old slot's new index, or <c>-1</c> where the slot was dead. Must be at
+    ///     least <see cref="Count" /> long.
+    /// </param>
+    /// <returns>How many slots the store now has, which is what <see cref="LiveCount" /> was.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every <see cref="StyleNodeId" /> outside this store becomes wrong</b>, which is
+    ///         why this hands back the mapping rather than quietly doing the right thing. A slot is an
+    ///         index; moving one moves everything that names it — <c>StyleUpdater</c>'s resolved
+    ///         styles, the <c>Animator</c>'s running transitions, and whatever element tree holds the
+    ///         id. None of those can be reached from here, and a compaction that did not say so would
+    ///         be a silent corruption rather than a leak.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Relative order is preserved, and that is the entire reason this exists rather
+    ///         than a free list.</b> Live slots come out in the order they went in, so a parent's
+    ///         index stays below its children's — the unwritten invariant three separate passes rest
+    ///         on, spelled out in <see cref="Remove" />. Handing a hole back out is what breaks it.
+    ///     </para>
+    ///     <para>
+    ///         The three arenas are rebuilt too, so this also reclaims the class runs of removed
+    ///         elements and the child runs <see cref="AppendChild" /> abandoned when it relocated one.
+    ///         Rebuilt into fresh lists rather than swept in place: a child run can sit <i>later</i> in
+    ///         the arena than a run belonging to a lower-numbered element, precisely because
+    ///         <see cref="AppendChild" /> moves a run to the end when something grows into the space
+    ///         behind it, so an in-place forward sweep would overwrite a run it had not read yet.
+    ///     </para>
+    /// </remarks>
+    public int Compact(Span<int> remap) {
+        if (remap.Length < count) {
+            throw new ArgumentException(
+                $"The remap needs room for {count} slots and has room for {remap.Length}.",
+                nameof(remap)
+            );
+        }
+
+        var live = 0;
+
+        for (var i = 0; i < count; i++) {
+            remap[i] = alive[i] ? live++ : -1;
+        }
+
+        if (live == count) {
+            // Nothing was removed, so nothing moves. The mapping is still filled in, because a caller
+            // that has to remap only sometimes is a caller that will get it wrong.
+            return count;
+        }
+
+        var newClasses = new List<int>(classArena.Count);
+        var newAttributes = new List<AttributeEntry>(attributeArena.Count);
+        var newChildren = new List<int>(childArena.Count);
+
+        for (var i = 0; i < count; i++) {
+            if (!alive[i]) {
+                continue;
+            }
+
+            // ⚠ Read into locals before writing, because the destination is the *same* array. It is
+            // never ahead of the source — a live slot's new index is at most its old one — so an
+            // in-place move is safe in that direction and only in that direction.
+            var to = remap[i];
+            var classRange = classes[i];
+            var attributeRange = attributes[i];
+            var link = links[i];
+
+            tags[to] = tags[i];
+            identifiers[to] = identifiers[i];
+            states[to] = states[i];
+            blooms[to] = blooms[i];
+            alive[to] = true;
+
+            var classStart = newClasses.Count;
+
+            for (var c = 0; c < classRange.Count; c++) {
+                newClasses.Add(classArena[classRange.Start + c]);
+            }
+
+            classes[to] = new ClassRange(classStart, classRange.Count);
+
+            var attributeStart = newAttributes.Count;
+
+            for (var a = 0; a < attributeRange.Count; a++) {
+                newAttributes.Add(attributeArena[attributeRange.Start + a]);
+            }
+
+            attributes[to] = new AttributeRange(attributeStart, attributeRange.Count);
+
+            var childStart = newChildren.Count;
+
+            for (var c = 0; c < link.ChildCount; c++) {
+                // ⚠ Every child of a live element is live. `Remove` detaches the element it was given
+                // from its parent's run, and `Kill` empties the run of everything below it — so a run
+                // holding a dead index would mean one of those two had missed a case, and the
+                // exception says which rather than writing a -1 into the tree.
+                var child = remap[childArena[link.ChildOffset + c]];
+
+                if (child < 0) {
+                    throw new InvalidOperationException(
+                        $"Element {i} lists a removed child, so removal left the tree inconsistent."
+                    );
+                }
+
+                newChildren.Add(child);
+            }
+
+            links[to] = new ElementLinks {
+                Parent = link.Parent < 0 ? NoParent : remap[link.Parent],
+                ChildOffset = link.ChildCount > 0 ? childStart : -1,
+                ChildCount = link.ChildCount,
+                ChildCapacity = link.ChildCount,
+                IndexInParent = link.IndexInParent
+            };
+        }
+
+        classArena.Clear();
+        classArena.AddRange(newClasses);
+        attributeArena.Clear();
+        attributeArena.AddRange(newAttributes);
+        childArena.Clear();
+        childArena.AddRange(newChildren);
+
+        // ⚠ The tail is cleared, and this is **insurance rather than a covered claim**. Nothing can
+        // currently see the difference: every getter validates against `Count`, which has just come
+        // down, and `CreateElement` writes every field of a slot before handing it out — so a
+        // sabotage that deleted this broke nothing, which is how it came to be labelled honestly.
+        // What it insures against is a getter that forgets to validate, or a field added to a slot
+        // that `CreateElement` forgets to write, and in both of those the stale value is one that
+        // describes a tree that no longer exists.
+        Array.Clear(tags, live, count - live);
+        Array.Clear(identifiers, live, count - live);
+        Array.Clear(states, live, count - live);
+        Array.Clear(classes, live, count - live);
+        Array.Clear(attributes, live, count - live);
+        Array.Clear(links, live, count - live);
+        Array.Clear(blooms, live, count - live);
+        Array.Clear(alive, live, count - live);
+
+        count = live;
+        dead = 0;
+
+        return live;
     }
 
     /// <summary>Moves an element to another position among its siblings.</summary>

@@ -1,0 +1,229 @@
+package Vixen.Shaders.Material
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Shading
+import Vixen.Shaders.Geometry
+
+// The optional surface features, and the chains that let a material have more than one of them.
+//
+// `MaterialSurface.rvn` holds the features every material needs to choose between — a workflow, a
+// normal map, emission, occlusion. These are the ones that switch on a lobe: a material without a
+// clear coat should not pay for one, and with composition it does not, because the feature that
+// writes `clearCoat` is not in its chain and the shading model that reads it is not bound.
+//
+// **A feature writes channels; a shading model reads them.** The split is what keeps the two sets
+// small: `ClearCoatSurface` says how strong the coat is at this point on the surface, and
+// `ClearCoatShading` (ShadingModels.rvn) says what a coat does to light. Parameters that vary over a
+// surface belong here; parameters that describe the model itself — a wrap width, a cel ramp's step
+// count — belong on the shading model, where there is one of them rather than one per texel.
+
+/// Stretches the specular lobe along the tangent: brushed metal, hair, vinyl, silk.
+///
+/// The tangent it stretches along is the mesh's, through `MaterialData.tangentFrame` — the same basis
+/// a normal map is rotated by. A material whose anisotropy runs at an angle to the UV grain needs a
+/// rotation, which is not here: it belongs with the tangent frame rather than with this scalar, and
+/// nothing yet authors one.
+shader AnisotropySurface : IMaterialSurface {
+    var anisotropy: float = 0f
+
+    func Compute(inout d: MaterialData) {
+        d.anisotropy = clamp(anisotropy, -1f, 1f)
+    }
+}
+
+/// Adds a clear coat: car paint, lacquered wood, a wet surface.
+shader ClearCoatSurface : IMaterialSurface {
+    var clearCoat: float = 1f
+    var clearCoatRoughness: float = 0.1f
+
+    func Compute(inout d: MaterialData) {
+        d.clearCoat = saturate(clearCoat)
+        d.clearCoatRoughness = saturate(clearCoatRoughness)
+    }
+}
+
+/// Bends the coat's normal without touching the base's — scratches in the lacquer.
+///
+/// Deliberately a second feature rather than two more parameters on `ClearCoatSurface`: a coat with
+/// its own normal map is the uncommon case, and folding it in would put the rotation's arithmetic in
+/// every material that has a plain coat.
+shader ClearCoatNormalMapSurface : IMaterialSurface {
+    var clearCoatNormalTS: float3 = float3(0f, 0f, 1f)
+    var clearCoatNormalStrength: float = 1f
+
+    func Compute(inout d: MaterialData) {
+        val s = clearCoatNormalStrength
+        val scaled = Math.SafeNormalize(float3(clearCoatNormalTS.x * s, clearCoatNormalTS.y * s, clearCoatNormalTS.z))
+        d.clearCoatNormalWS = Normals.ToWorld(d.tangentFrame, scaled)
+    }
+}
+
+/// Adds the retroreflective rim fabric has: velvet, satin, brushed cloth.
+shader SheenSurface : IMaterialSurface {
+    var sheenColor: float3 = float3(0f)
+    var sheenRoughness: float = 0.3f
+
+    func Compute(inout d: MaterialData) {
+        d.sheenColor = max(sheenColor, float3(0f))
+        d.sheenRoughness = saturate(sheenRoughness)
+    }
+}
+
+/// Lets light through the surface: skin, wax, leaves, thin cloth.
+///
+/// `thickness` is in metres and is what makes a leaf's veins read as thicker than its blade. It is a
+/// material channel rather than a shading-model parameter for exactly that reason — it varies over
+/// the surface, and the wrap width does not.
+shader SubsurfaceSurface : IMaterialSurface {
+    var scatterColor: float3 = float3(0f)
+    var thickness: float = 0f
+
+    func Compute(inout d: MaterialData) {
+        d.scatterColor = max(scatterColor, float3(0f))
+        d.thickness = max(thickness, 0f)
+    }
+}
+
+// --- The chain ---------------------------------------------------------------------------------
+//
+// A pass has one `surface` slot and a material has several features, so something has to turn the
+// second into the first. `CompositeSurface` does: it calls the features it composes, in order, each
+// reading the surface as the previous one left it.
+//
+// **One arity with a no-op filler, rather than one chain type per feature count.** Two properties of
+// `compose` decide that between them:
+//
+//   - Every declared slot in a compilation must be bound, whether or not anything reaches it
+//     (RVN2073). A library holding chains of two through six would make every material bind
+//     twenty slots it does not use, so the arities buy nothing.
+//   - A composed shader's parameters belong to its *type*, not to the slot it was bound into. A
+//     `CompositeSurface` nested inside a `CompositeSurface` would therefore be one chain and not
+//     two: both copies would resolve `first` to the same shader.
+//
+// So there is one chain, it is as long as a material can plausibly be, and the slots a material does
+// not need take `IdentitySurface`. An empty call is what a chain of three costs over a chain of two,
+// which is nothing a driver keeps.
+//
+// The per-type rule is also why a chain must not hold the same feature twice: two `EmissiveSurface`s
+// in one chain share `emissiveColor`, so the second is not a second layer of emission.
+// `MaterialCompiler` on the C# side rejects that rather than compiling a material whose parameters
+// silently alias.
+
+/// A feature that contributes nothing, for the slots a material does not use.
+///
+/// Not a placeholder for something unfinished: it is what makes one chain able to stand in for every
+/// length, and its `Compute` is the only correct implementation of "no feature here".
+shader IdentitySurface : IMaterialSurface {
+    func Compute(inout d: MaterialData) {
+    }
+}
+
+// --- Layering ----------------------------------------------------------------------------------
+//
+// Two shapes, because layering means two different things and one mechanism cannot serve both.
+//
+// `MaterialLayersSurface` is N layers of one workflow — rock under moss under snow, weighted by a
+// splat map. The layers differ in their *values*, not in their features, so they are an array and
+// `LayerCount` is a permutation: the loop is unrolled at compile time and a two-layer material does
+// not pay for four. This is the case terrain and decals actually want.
+//
+// `BlendSurface` is two *different* surfaces mixed by a weight — a metal-roughness base under a
+// specular-glossiness overlay, say. It composes, so each side can be any feature.
+//
+// ⚠ **Both sides of a `BlendSurface` must use different features.** A composed shader's parameters
+// belong to its type, so two layers that both bind `MetalRoughnessSurface` share one `baseColor` and
+// the second layer is not a second layer at all. That is what `MaterialLayersSurface` exists for, and
+// what `MaterialCompiler` refuses to compile rather than shipping a material whose two layers are
+// silently one.
+
+/// One layer's values.
+struct MaterialLayer {
+    var baseColor: float3
+    var metalness: float
+    var roughness: float
+
+    /// How much of this layer shows, before normalisation. A splat map's channel.
+    var weight: float
+}
+
+/// N metal-roughness layers, blended by weight.
+///
+/// The weights are normalised rather than assumed to sum to one, because a splat map painted by hand
+/// never quite does, and a material that dims where the artist was imprecise is a bug that gets
+/// blamed on the lighting.
+shader MaterialLayersSurface : IMaterialSurface {
+    /// How many layers this material has. A permutation, so the loop unrolls and an unused layer
+    /// costs neither a uniform nor an iteration.
+    [Permutation] val LayerCount: int = 2
+
+    var layers: MaterialLayer[LayerCount]
+
+    func Compute(inout d: MaterialData) {
+        var color = float3(0f)
+        var metalness = 0f
+        var roughness = 0f
+        var total = 0f
+
+        for (i in 0 .. LayerCount - 1) {
+            val weight = max(layers[i].weight, 0f)
+
+            color += layers[i].baseColor * weight
+            metalness += layers[i].metalness * weight
+            roughness += layers[i].roughness * weight
+            total += weight
+        }
+
+        val scale = 1f / max(total, Const.Epsilon)
+        val blended = color * scale
+        val metal = saturate(metalness * scale)
+
+        d.diffuseColor = blended * (1f - metal)
+        d.f0 = Brdf.F0FromMetalness(blended, metal, MaterialDefaults.DielectricF0)
+        d.perceptualRoughness = saturate(roughness * scale)
+    }
+}
+
+/// Two surfaces, mixed by a weight.
+shader BlendSurface : IMaterialSurface {
+    compose val under: IMaterialSurface
+    compose val over: IMaterialSurface
+
+    /// How much of `over` shows. Zero is `under` alone.
+    var blend: float = 0.5f
+
+    func Compute(inout d: MaterialData) {
+        // Both layers start from the surface as it reached the blend, rather than one starting from
+        // the other's result: a layer is a whole surface weighed against another whole surface, and
+        // running them in sequence would make `over` a contribution to `under` instead.
+        var a = d
+        var b = d
+
+        under.Compute(a)
+        over.Compute(b)
+
+        d = MaterialBlend.Mix(a, b, blend)
+    }
+}
+
+/// The features of one material, in the order they contribute.
+shader CompositeSurface : IMaterialSurface {
+    compose val first: IMaterialSurface
+    compose val second: IMaterialSurface
+    compose val third: IMaterialSurface
+    compose val fourth: IMaterialSurface
+    compose val fifth: IMaterialSurface
+    compose val sixth: IMaterialSurface
+    compose val seventh: IMaterialSurface
+    compose val eighth: IMaterialSurface
+
+    func Compute(inout d: MaterialData) {
+        first.Compute(d)
+        second.Compute(d)
+        third.Compute(d)
+        fourth.Compute(d)
+        fifth.Compute(d)
+        sixth.Compute(d)
+        seventh.Compute(d)
+        eighth.Compute(d)
+    }
+}

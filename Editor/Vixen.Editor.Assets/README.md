@@ -185,6 +185,39 @@ channels clips anything mastered near full scale.
 drops an `.ogg` in and finds it silently became an unplayable byte blob has learned nothing; failing
 with the name of what is missing is the more useful of the two silences.
 
+## `NavMeshImporter`, the first one whose output is computed rather than converted
+
+Every other importer here reads a file and turns it into engine data. This one reads a file that
+names *another* file, and produces something neither of them contains: a `.vxnavmesh` says which
+collision mesh a navmesh is for, its `.meta` says how finely and for what agent, and what comes out is
+a baked `NavMeshAsset` — voxelised, eroded, partitioned and polygonised by `Vixen.Navigation`.
+
+**The geometry is a declared dependency, which is the whole reason this is an importer.** A navmesh
+that quietly describes the level as it was last week is worse than no navmesh: nothing about it looks
+wrong until an agent walks into a wall that was added on Tuesday. Declaring the collision mesh means
+re-exporting it re-bakes the navmesh, through the same cache key that re-imports a material when its
+texture is replaced.
+
+**The bake parameters are settings rather than content**, so the per-target overrides the meta format
+already has do something useful: the same level bakes at a coarser cell size for a phone without a
+second asset and without a branch in anybody's build script.
+
+**`geometry` is a list of placed pieces, not just a path.** A level is a floor and thirty crates more
+often than it is one merged export, so each entry may carry a `position`, a `rotation` in degrees and
+a `scale`, and each is declared as a dependency of its own — moving a crate rebakes the navmesh, and
+re-exporting one building does not depend on the others being untouched. `geometry: floor.obj` still
+means one piece at the origin, because most levels really are that and writing a list for it would be
+ceremony.
+
+That is as close to baking *a scene* as this can get until there is a scene to read: nothing in the
+repo compiles `.vxscene` into anything — `NativeFormatImporter` claims the extension to scan it for
+dependencies and copies the source through unchanged, and its own comment says the compiler does not
+exist. When it does, this importer fills the same list of placements from it and the rest is unchanged.
+
+**Nothing walkable is a warning, not an error.** An author who has just set the agent radius wider
+than their corridors wants to be told; a level whose collision is genuinely all walls is a level with
+an empty navmesh rather than a broken build.
+
 ## The pipeline, and the key's chicken and egg
 
 `ImportPipeline` reads the sidecar, decides which importer claims the file, resolves the per-target

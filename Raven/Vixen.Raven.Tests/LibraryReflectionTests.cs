@@ -50,7 +50,44 @@ public class LibraryReflectionTests {
     /// </remarks>
     static readonly (string Package, string Shader)[] Published = [
         ("PostFx", "Bloom"),
-        ("PostFx", "Tonemap")
+        ("PostFx", "Tonemap"),
+        ("PostFx", "Fxaa"),
+        ("PostFx", "Sharpen"),
+        ("PostFx", "Vignette"),
+        ("PostFx", "Fog"),
+        ("PostFx", "Outline"),
+        ("PostFx", "Ssao"),
+        ("PostFx", "Taa"),
+        ("Pipeline", "ForwardPlus")
+    ];
+
+    /// <summary>
+    ///     The composition the published reflection is described under.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A composed shader has no single interface — its parameters are the ones its features
+    ///         brought, so <c>ForwardPlus</c> reflects differently for every material. This is the one
+    ///         the engine's own default descriptor produces: the feature chain, with a
+    ///         metal-roughness surface in its first slot and the standard shading model.
+    ///     </para>
+    ///     <para>
+    ///         <strong>Which makes this file an oracle rather than only a convenience.</strong>
+    ///         <c>MaterialCompiler</c> predicts these names without a compiler in the process — it has
+    ///         to, because a material is authored and serialised on machines that never compile a
+    ///         shader — and prediction is a rule written down twice. <c>MaterialReflectionTests</c> in
+    ///         <c>Vixen.Rendering.Tests</c> reads this file and holds the engine's prediction against
+    ///         it, so the two cannot drift without a test saying so.
+    ///     </para>
+    ///     <para>
+    ///         Qualified rather than bare for the chain's slot, because that is what the engine emits
+    ///         and the point is to describe what the engine asks for.
+    ///     </para>
+    /// </remarks>
+    static readonly (string Slot, string Shader)[] PublishedComposition = [
+        ("surface", "CompositeSurface"),
+        ("CompositeSurface.first", "MetalRoughnessSurface"),
+        ("shading", "StandardShading")
     ];
 
     static readonly JsonSerializerOptions Json = new() {
@@ -80,7 +117,7 @@ public class LibraryReflectionTests {
         var compilation = Compilation.Create(
             "Library",
             PermutationValues.Empty,
-            ComposeBindings.Create([new("surface", "MetalRoughnessSurface")]),
+            LibraryComposition.With(PublishedComposition),
             trees
         );
 

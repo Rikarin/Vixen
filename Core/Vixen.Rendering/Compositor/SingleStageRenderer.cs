@@ -27,6 +27,15 @@ public sealed class SingleStageRenderer : SceneRenderer {
     /// <summary>The stage to draw.</summary>
     public required RenderStage Stage { get; init; }
 
+    /// <summary>The per-view block to bind before drawing, if the frame has one.</summary>
+    /// <remarks>
+    ///     Bound here rather than by the render system, because a per-view set is a
+    ///     <em>descriptor</em> and the render system owns none — and rather than by the pass, because
+    ///     a pass may draw several views and the block is one of them. This node is the smallest
+    ///     thing that knows both which view and which command list.
+    /// </remarks>
+    public ViewConstants? Constants { get; set; }
+
     /// <inheritdoc />
     protected internal override void Collect(GraphicsCompositor compositor) {
         ArgumentNullException.ThrowIfNull(compositor);
@@ -40,7 +49,14 @@ public sealed class SingleStageRenderer : SceneRenderer {
         ArgumentNullException.ThrowIfNull(context);
 
         context.CommandList.PushDebugGroup(ToString());
+
+        // Handed to the context rather than bound here: a set is bound against a pipeline's layout, so
+        // it cannot go down before the first pipeline does. See RenderDrawContext.ViewConstants.
+        var previous = context.ViewConstants;
+        context.ViewConstants = Constants;
+
         compositor.System.Record(View, Stage, context);
+        context.ViewConstants = previous;
         context.CommandList.PopDebugGroup();
     }
 

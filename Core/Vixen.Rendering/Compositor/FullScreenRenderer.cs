@@ -100,6 +100,14 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
     /// <summary>Where shader modules come from. Set before the first frame that builds.</summary>
     public EffectPipelineDescriber? Modules { get; set; }
 
+    /// <summary>Where a described sampler comes from, for a binding that names one by value.</summary>
+    /// <remarks>
+    ///     Shared rather than owned, because a sampler is pure state and a device caps how many exist
+    ///     — a chain of post passes each making its own reaches that cap on drivers that allow four
+    ///     thousand.
+    /// </remarks>
+    public SamplerCache? Samplers { get; set; }
+
     /// <summary>The device its pipelines and its uniform block are created on.</summary>
     public IGraphicsDevice? Device { get; set; }
 
@@ -163,12 +171,21 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
         // between two draws.
         constants ??= new(device, $"{this}.Constants");
         var hasConstants = ConstantBinding is not null && constants.Update(effect, Parameters);
-        var bound = Descriptors.Resolve(ToString(), textures, buffers);
+        var bound = Descriptors.Resolve(ToString(), textures, buffers, effect, Samplers);
         var sampled = Reads.Select(name => textures[name]).ToArray();
         var consumed = BufferReads.Select(name => buffers[name]).ToArray();
 
+        // At the block's own offset, not at zero: the buffer holds one region per frame in flight so
+        // that changing a value does not overwrite what an unfinished frame is reading.
         var extra = hasConstants
-            ? new[] { DescriptorWrite.Uniform(ConstantBinding!.Value, constants.Buffer, 0, constants.Size) }
+            ? new[] {
+                DescriptorWrite.Uniform(
+                    ConstantBinding!.Value,
+                    constants.Buffer,
+                    constants.Offset,
+                    constants.Size
+                )
+            }
             : [];
 
         frame.Graph.AddPass(

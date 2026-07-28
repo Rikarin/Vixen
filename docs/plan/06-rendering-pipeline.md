@@ -236,10 +236,10 @@ Priority column: **P1** = required for the 1.0 renderer, **P2** = post-1.0.
 | Feature | Pri | Notes |
 |---|---|---|
 | Directional, point, spot | ✅ | `ForwardLightingRenderFeature`: per-object lists, one dynamic-offset uniform block per draw. Lights are selected against **objects, not the view frustum** — a lamp behind the camera lights what is in front of it, so frustum-culling lights would darken exactly what is on screen. Range is measured to the sphere's surface, and the ranking is the falloff the fragment will evaluate, so "the eight brightest" means the same on both sides |
-| Area lights (rect/disc/tube) | P1 | LTC-based |
-| Ambient / environment (IBL) | P1 | split-sum: prefiltered GGX cube + SH-9 irradiance |
-| Light probes (SH, tetrahedral interpolation) | P1 | Stride has this (`LightProbes`); it is the pragmatic indirect-diffuse answer |
-| Reflection probes (box/sphere projected, blended) | P1 | |
+| Area lights (rect/disc/tube) | ✅ | Sphere, tube and rectangle, through Karis's **representative point** rather than LTC: shade the point on the shape nearest the reflection ray and widen the lobe by the angle the shape subtends. A rectangle also takes its own cosine, which is what makes it a panel rather than a glowing slab. ⚠ **Not LTC, which this row asked for.** LTC replaces two approximations — a highlight with the right size and the wrong shape, and a diffuse term that treats a near light as a point on it — with a closed-form polygon integral, at the cost of a fitted 64×64 table that comes from an offline optimisation this repository cannot run. Adding it is adding that table and a second `Resolve`; nothing is in its way. The five kinds share one 80-byte record and one loop, so clustering and the per-object light list needed no second path |
+| Ambient / environment (IBL) | ✅ | Both halves, and the producers for them: `EnvironmentBaker` prefilters a cube per roughness by GGX importance sampling and `SphericalHarmonics` projects it into nine coefficients, on the CPU where a bake belongs and where closed forms can check it. Two defects fell out — the pass sampled the reflection at mip zero whatever the roughness said, so `Ibl.SpecularLod` and `environmentMipCount` were both dead; and the diffuse term fed it a *radiance* sample where irradiance belongs, which is where the missing `1/π` in `Ibl.Diffuse` was hiding |
+| Light probes (SH, tetrahedral interpolation) | P1 | Stride has this (`LightProbes`); it is the pragmatic indirect-diffuse answer. ⚠ **Attempted and withdrawn.** Bowyer–Watson over the probe positions is fifteen lines of idea and a wall of robustness: an oversized enclosing tetrahedron makes every circumsphere swallow the domain (four probes produced no cells at all), a grid of probes is *cospherical* so a strict in-sphere test finds no cavity, and even with both fixed a near-degenerate cell's circumsphere is large enough to eat the mesh. Doing it properly means exact predicates. The SH side it would feed — projection, linear blending, evaluation — is built and tested |
+| Reflection probes (box/sphere projected, blended) | ✅ | Parallax-corrected against a box or a sphere, faded against the environment over the probe's own blend distance, and selected by priority then volume so a cupboard inside a room wins inside the cupboard. ⚠ Blended against the **sky**, not against a second probe, and applied per group rather than per object: a probe's cube is a texture, so per-object selection needs a descriptor set per probe bound per draw, and the per-draw set is currently owned whole by `ForwardLightingRenderFeature`. Sharing it is the binding-plan work, not a detail of probes |
 | Shadow maps: CSM (directional) | ✅ | `ShadowMapRenderer` — **a cascade is a view**: four `RenderView`s over one stage, culled and sorted by machinery that knows nothing about shadows, into four tiles of one atlas in one pass. Crawl is fixed at its two sources: a *sphere* fit (so turning does not resize the cascade) and texel snapping (so sub-texel movement gives a bit-identical matrix) |
 | Shadow maps: cube (point), perspective (spot) | ✅ | `PunctualShadowRenderer`. Short where cascades are long, and the reason is worth stating: a punctual light *already is* a volume, so nothing has to be invented from the camera and nothing has to be stabilised. Six 90° frusta tile the sphere exactly — asserted over ten thousand directions, because a seam in a shadow cube is light through a wall along one line. A point light is six tiles and a spot is one, and a light that does not fit is dropped **whole** and counted |
 | Shadow filtering: PCF, PCSS, VSM option | P1 | PCF default, PCSS for soft area shadows |
@@ -256,6 +256,16 @@ Priority column: **P1** = required for the 1.0 renderer, **P2** = post-1.0.
 The material model follows Stride's composable feature architecture (`IMaterialDiffuseModelFeature`,
 `IMaterialSpecularModelFeature`, …), which is closer to Disney/Filament's principled model than
 Unity's fixed lit shader and is the correct shape for a shader-graph-backed system.
+
+✅ **Built, through `compose` rather than through a mixin resolver.** A pass declares two slots —
+`surface: IMaterialSurface` for what a point on the surface is, `shading: IShadingModel` for what it
+does with light — and each feature is a shader implementing one of them, resolved when the effect is
+compiled. So a material with no clear coat contains no clear-coat code, rather than a branch that is
+always false. `MaterialCompiler` (`Vixen.Rendering.Materials`) turns an authored tree into the
+composition that selects those shaders and the parameters that feed them, and the composition is part
+of the `EffectKey` — two materials differing only in features are two variants, which a key carrying
+only permutations could not express. Details, including the one constraint the whole shape is built
+around, are in [Vixen.Rendering's README](../../Core/Vixen.Rendering/README.md#materials).
 
 | Layer | Options |
 |---|---|
@@ -282,6 +292,21 @@ scRGB displays.
 
 Stride's `Images/` directory is essentially the complete list, and the set is right:
 
+✅ **`Vixen.Rendering.PostFx` is where they live**, as of the effects marked below. The project exists
+because the *set* is content-shaped — added, removed and reordered per project — where the compositor
+and the render graph are the engine's spine; a game that ships no outline should not link one. Its
+`PostEffectRenderer` holds what every effect has in common and a subclass answers four questions:
+which shader, which permutations, which textures on which bindings, and its own parameters.
+
+Adding it needed one thing from `Vixen.Rendering`: `SceneRenderer`'s three phase methods are
+`protected internal`, so a composite node *outside* that assembly could not drive a child — which
+would have made "a post effect is a node over a full-screen pass" a sentence only the engine could
+write, and a game's own effect impossible. `BuildChild` and its two siblings are that seam, and
+deliberately the only thing that widens.
+
+`BloomRenderer` and the tonemap pass stay in `Vixen.Rendering.Compositor` where they were written;
+moving them is a rename across the golden fixtures that bind them, and worth doing on its own.
+
 Every entry below is a `FullScreenRenderer` or a node built out of several. ✅ **The full-screen pass
 is the edge every one of them was waiting on**: everything else in the compositor draws *objects*, and
 a post effect has none. It draws three vertices generated from `SV_VertexID`, so there is no vertex
@@ -294,23 +319,23 @@ merely waste one.
 | Effect | Pri | Implementation note |
 |---|---|---|
 | Depth prepass / Z-prepass | ✅ | `RenderStage.ShaderName` is what makes it a prepass rather than a second shading pass: one stage draws the objects with `DepthOnly.rvn` while another draws them with their materials, off one extraction and one cull. The per-material set is bound only where the resolved effect declares one, so a depth-only pipeline is not handed a layout it does not have. Every object in the prepass resolves to the same variant, so the stage's sort collapses to pure front-to-back — which is what makes early-Z reject the most |
-| **TAA** | P1 | jittered projection, motion-vector reprojection, neighbourhood clamping, variance clipping. The default AA. |
-| FXAA | P1 | cheap fallback / mobile |
+| **TAA** | ✅ | `TemporalAntialiasingRenderer` in `Vixen.Rendering.PostFx`. It owns its history and alternates two textures, because a pass cannot read the target it writes — and they are *imports* rather than graph resources, since a transient dies at the end of the frame and a history that dies every frame is a history of nothing. The jitter sequence is exposed rather than applied: what it offsets is the projection, which belongs to the view |
+| FXAA | ✅ | `FxaaRenderer`. Needs no history, no motion vectors and no depth, which is why it is the fallback wherever the others cannot go |
 | SMAA | P1 | 1×/T2× for the no-TAA case |
 | MSAA (forward only) | P1 | 2/4/8×, with a custom depth resolve (Stride has `MSAADepthResolverShader`) |
 | Upscaling hook | P2 | a `IUpscaler` interface so FSR/XeSS/DLSS can be plugged; ship FSR1 (spatial, no licence friction) in-box |
-| SSAO / GTAO | P1 | GTAO with bent normals |
+| SSAO / GTAO | ✅ (SSAO) | `AmbientOcclusionRenderer` over `Ssao.rvn`, at half resolution by default — occlusion from a hemisphere is low frequency almost everywhere, so the cost halves twice and only contact edges notice. The march steps in the *depth buffer's* texel grid rather than its own half-size target's, which is the one thing about running it at a fraction that can be silently wrong. Bent normals are a permutation the shader has and nothing yet consumes; the full GTAO horizon integral is still to come |
 | SSR (screen-space reflections) | P1 | Stride's `LocalReflections`; hierarchical depth trace |
 | Bloom + lens flare + light streak | ✅ (bloom) | `BloomRenderer`: Jimenez's 13-tap downsample and 9-tap tent upsample, one shader in three permuted modes. The pyramid is **declared**, so nine textures and nine passes vanish when nothing reads the result. Each pass steps in its *source's* texel grid — taking it from the target makes a bloom that is subtly too soft and that no screenshot answers. Lens flare and light streak still to come |
 | Depth of field | P1 | bokeh, near/far, physical aperture params |
 | Motion blur | P2 | camera + per-object from motion vectors |
 | Tonemap + colour grading | P1 | `Tonemap.rvn` exists and `FullScreenRenderer` runs it; what is not wired is the grading LUT as an asset. ACES/AgX/Reinhard/Filmic, 3D LUT, curves, white balance, split toning |
 | Auto-exposure | P1 | histogram-based luminance in compute, with adaptation curve |
-| Fog (linear/exp/height) | P1 | |
-| Vignette, chromatic aberration, film grain, dithering | P1 | cheap, expected |
-| Outline | P1 | editor selection needs it; Stride has it |
+| Fog (linear/exp/height) | ✅ | `FogRenderer`. A post-process because fog depends on distance, which the depth buffer already holds for every pixel — putting it in every material would mean every material carrying its parameters and evaluating it whether it is on or not |
+| Vignette, chromatic aberration, film grain, dithering | ✅ (three of four) | `VignetteRenderer`: one pass, three permutations, because they are one look and each is one or two taps. Grain moves with a frame index — grain that does not is a texture stuck to the screen, which is worse than none. Dithering is not in it |
+| Outline | ✅ | `OutlineRenderer`, from depth and normal discontinuities. Screen space rather than geometry: the alternative needs adjacency the importer would have to build, and scales with the scene rather than the screen |
 | Subsurface-scattering blur | P2 | |
-| Sharpen (CAS) | P1 | |
+| Sharpen (CAS) | ✅ | `SharpenRenderer`, contrast-adaptive, to put back what antialiasing and upscaling took out |
 
 Each effect is an `ImageEffect` (Stride's `ImageEffectShader` model: a Raven shader + declared inputs
 + a parameter block), so the chain is data-driven and user-extensible, and each declares a

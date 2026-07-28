@@ -229,6 +229,73 @@ public class DepthPrepassTests : IDisposable {
         public Effect? TryGet(EffectKey key) => Compiled(key, material);
     }
 
+    /// <summary>
+    ///     A prepass does not compile a variant per material's features.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Two materials with different features are two forward variants and have to be —
+    ///         different features are different code. <c>DepthOnly</c> declares no <c>compose</c>
+    ///         slot, so for it they are the same shader, and a key that carried the composition
+    ///         anyway would compile one prepass per material in the scene for variants that are
+    ///         byte-identical.
+    ///     </para>
+    ///     <para>
+    ///         Which way round the default goes is the interesting part.
+    ///         <see cref="RenderStage.ShaderComposes" /> is false unless a stage says otherwise, so
+    ///         forgetting it on a G-buffer stage costs a wrong shader — loud — where the opposite
+    ///         default would have cost a silently bloated cache on every prepass anyone writes.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_prepass_does_not_split_its_cache_per_material_composition() {
+        using var h = Build();
+
+        var plain = AddMesh(h, Composed("MetalRoughnessSurface"));
+        var coated = AddMesh(h, Composed("ClearCoatSurface"), -12f);
+
+        Frame(h);
+
+        Assert.NotSame(
+            h.Materials.EffectOf(h.System, plain, h.Opaque),
+            h.Materials.EffectOf(h.System, coated, h.Opaque)
+        );
+
+        Assert.Same(
+            h.Materials.EffectOf(h.System, plain, h.Prepass),
+            h.Materials.EffectOf(h.System, coated, h.Prepass)
+        );
+    }
+
+    /// <summary>A stage that says it composes gets the material's features after all.</summary>
+    /// <remarks>
+    ///     The G-buffer case: <c>GBufferPass</c> does declare <c>surface</c>, so its variant depends
+    ///     on the material's features exactly as the forward pass's does. Same two materials, same
+    ///     override, opposite answer — which is what makes the flag a decision rather than a default
+    ///     nobody chose.
+    /// </remarks>
+    [Fact]
+    public void A_stage_that_composes_gets_a_variant_per_material() {
+        using var h = Build();
+        h.Prepass.ShaderComposes = true;
+
+        var plain = AddMesh(h, Composed("MetalRoughnessSurface"));
+        var coated = AddMesh(h, Composed("ClearCoatSurface"), -12f);
+
+        Frame(h);
+
+        Assert.NotSame(
+            h.Materials.EffectOf(h.System, plain, h.Prepass),
+            h.Materials.EffectOf(h.System, coated, h.Prepass)
+        );
+    }
+
+    Material Composed(string surface) =>
+        new("Lit") {
+            Descriptors = materialSet,
+            Composition = ShaderComposition.Of([new("surface", surface)])
+        };
+
     sealed class Harness : IDisposable {
         public required RenderSystem System { get; init; }
         public required GraphicsCompositor Compositor { get; init; }
@@ -313,7 +380,9 @@ public class DepthPrepassTests : IDisposable {
         };
     }
 
-    void AddMesh(Harness h, string material = "Lit", float z = -10f) {
+    void AddMesh(Harness h, string material = "Lit", float z = -10f) => AddMesh(h, Lit(material), z);
+
+    static RenderObjectId AddMesh(Harness h, Material material, float z = -10f) {
         var id = h.System.Objects.Add(
             new() {
                 Bounds = new(new Vector3(0f, 0f, z), 1f),
@@ -326,8 +395,9 @@ public class DepthPrepassTests : IDisposable {
             VertexBuffer = h.Vertices, Count = 3, InstanceCount = 1
         };
 
-        h.Materials.Assign(h.System, id, Lit(material));
+        h.Materials.Assign(h.System, id, material);
         h.Object = id;
+        return id;
     }
 
     Material Lit(string name) => new(name) { Descriptors = materialSet };

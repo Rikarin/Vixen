@@ -66,6 +66,80 @@ public sealed class ValidationCleanTests {
     }
 
     /// <summary>
+    ///     Destroying a resource the frame on the GPU is still reading says nothing.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The contract <see cref="IGraphicsDevice.Destroy(BufferHandle)" /> states and the whole
+    ///         reason a renderer may recreate a buffer mid-frame without waiting: the handle comes
+    ///         back here and the object is freed once no frame that could reference it is running.
+    ///         Freeing it immediately is undefined behaviour that a driver is entitled to execute
+    ///         silently, so the validation layers are the only witness there is.
+    ///     </para>
+    ///     <para>
+    ///         Written after a renderer's upload buffers were changed on the strength of a comment
+    ///         claiming this, rather than on the strength of anything asserting it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void DestroyingAResourceAFrameIsUsingProducesNoValidationMessages() {
+        VulkanRequirement.Available(VulkanInstance.ValidationLayerInstalled, "the validation layer is not installed");
+
+        VulkanRequirement.Available(
+            VulkanDevice.TryCreate(new(), out var device, out var reason),
+            reason ?? "no Vulkan"
+        );
+
+        using var owned = device!;
+
+        VulkanRequirement.Available(
+            owned.ValidationEnabled,
+            "the instance came up without validation, so there is nothing to assert"
+        );
+
+        VulkanDiagnostics.Reset();
+
+        // Grow the buffer every frame and hand the old one back while the frame that copied from it
+        // has been submitted and not waited on. That is exactly what an upload buffer reaching its
+        // high-water mark does.
+        var buffer = owned.CreateBuffer(new(256, BufferUsage.CopySource, MemoryAccess.HostUpload, "growing"));
+
+        for (var frame = 1; frame <= owned.FramesInFlight + 2; frame++) {
+            var destination = owned.CreateBuffer(
+                new(256, BufferUsage.CopyDestination, MemoryAccess.DeviceLocal, "sink")
+            );
+
+            owned.BeginFrame();
+
+            using (var commands = owned.BeginCommandList(QueueKind.Graphics, "retirement")) {
+                commands.CopyBuffer(buffer, 0, destination, 0, 256);
+                commands.Finish();
+                owned.GraphicsQueue.Submit([commands]);
+            }
+
+            // No WaitIdle: the point is that the frame may still be running.
+            owned.Destroy(buffer);
+            owned.Destroy(destination);
+            owned.EndFrame();
+
+            buffer = owned.CreateBuffer(
+                new(256 * (frame + 1), BufferUsage.CopySource, MemoryAccess.HostUpload, "growing")
+            );
+        }
+
+        owned.WaitIdle();
+        owned.Destroy(buffer);
+
+        Assert.True(
+            VulkanDiagnostics.ErrorCount == 0 && VulkanDiagnostics.WarningCount == 0,
+            $"The validation layers reported {VulkanDiagnostics.ErrorCount} error(s) and "
+            + $"{VulkanDiagnostics.WarningCount} warning(s):"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine + Environment.NewLine, VulkanDiagnostics.Messages)
+        );
+    }
+
+    /// <summary>
     ///     Device creation itself, which is where the dynamic-rendering dependency bug lived — after
     ///     the reset, so nothing else can be blamed for it.
     /// </summary>

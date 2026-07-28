@@ -133,6 +133,15 @@ turns a material's `ParameterCollection` into an `EffectKey`, resolves it, and r
 per object — so by recording time "which shader" is an array lookup. It resolves **per material, not
 per object**: ten thousand objects sharing twenty materials resolve twenty times.
 
+A material is more than its values, and the other half is its **composition**: which shader fills each
+of the pass's `compose` slots. It travels in the `EffectKey` beside the permutations, because two
+materials with the same shader name and the same permutations but different features are different
+code — a key blind to that hands the second material the first one's shader, which is a wrong image
+with nothing logged anywhere. A stage that overrides the shader says whether its own shader composes
+(`RenderStage.ShaderComposes`), which is false by default: `DepthOnly` declares no slot, so a prepass
+that carried the composition anyway would compile one byte-identical variant per material in the
+scene. See [Materials](#materials) for where a composition comes from.
+
 **The sort group comes from the resolved effect**, and that is what closes the loop. Objects that
 will bind the same pipeline get the same group, the key puts groups above depth, they land adjacent,
 and the mesh feature sees one run and binds once. Break any link and four objects sharing a material
@@ -183,6 +192,116 @@ retired, which is the backend's job precisely because a renderer cannot know whe
 grows the buffer mid-run and asserts the property rather than the mechanism — no set is written
 twice inside a window of `FramesInFlight` frames, growth frame included — and a second one pins that
 the ring settles at `FramesInFlight` sets and leaks no buffers.
+
+## Materials
+
+A material is a **tree of features**, not a fixed parameter block: a workflow, optionally a normal
+map, optionally a clear coat, and a shading model that says what the surface does with light.
+`MaterialCompiler` turns that tree into the two things the renderer already knew how to carry — a
+`ShaderComposition` naming the shader that implements each feature, and a `ParameterCollection` keyed
+by the names those shaders will have once composed.
+
+Doc 06 asks for Stride's composable model. What makes it composable here is Raven's `compose` rather
+than a mixin resolver: `ForwardPlus` declares `compose val surface: IMaterialSurface` and
+`compose val shading: IShadingModel`, each feature is a shader implementing one of those protocols,
+and resolution happens when the effect is compiled — so a material with no clear coat contains no
+clear-coat code at all, rather than a branch that is always false.
+
+**Two slots rather than one**, because the two vary independently: a clear coat over a
+metal-roughness base and over a specular-glossiness one is the same lobe. A surface feature writes
+channels into `MaterialData`; a shading model reads them and evaluates lobes. Five of each is ten
+shaders where folding them together would be twenty-five — and it is the only place cel shading can
+live, because a stylised material keeps its base colour and its normal map and changes only the
+response.
+
+**The chain, and why it is one shader and not five.** A pass has one `surface` slot and a material has
+several features, so `CompositeSurface` composes eight of them in order, each reading the surface as
+the previous one left it. Slots a material does not use take `IdentitySurface`, which contributes
+nothing. That shape is forced by two properties of `compose` worth knowing:
+
+- Every declared slot in a compilation must be bound, reachable or not (`RVN2073`). Chains of two
+  through six would make every material bind twenty slots it never calls.
+- A composed shader's parameters belong to its **type**, not to the slot it filled. A
+  `CompositeSurface` nested in a `CompositeSurface` would be one chain, not two.
+
+The same rule is the sharp edge in the whole model, and it is why the compiler refuses a material that
+uses one feature twice. Two slots bound to one shader compile perfectly, into a material where both
+read the same values — so a two-layer blend of one workflow is one layer drawn twice, and the artist
+who painted two colours sees one. That is a wrong image with no error anywhere, which is exactly the
+kind this codebase would rather fail on.
+
+**Layering is therefore two mechanisms.** `BlendSurface` composes two *different* surfaces and mixes
+their channels by a weight. `MaterialLayersSurface` is N layers of one workflow held in an array, with
+`LayerCount` as a permutation so the loop unrolls and a two-layer material's block holds two layers —
+which is the case terrain and decals actually want, and the one composition cannot express.
+
+**The parameter names are predicted, not read.** Raven qualifies a composed shader's parameters by the
+path of types they were reached through, so a base colour inside the chain is
+`CompositeSurface.MetalRoughnessSurface.baseColor`, and the engine qualifies every key by the shader
+that owns it, giving `ForwardPlus.CompositeSurface.MetalRoughnessSurface.baseColor`. The compiler
+works that out without a compiler in the process, because a material is authored and serialised on
+machines that never compile a shader and a shipping build must build the key that finds a baked effect
+without linking Raven at all. A rule written down twice is a rule that drifts, so
+`Raven/Library/Pipeline/ForwardPlus.reflect.json` is checked in — regenerated and compared on the
+compiler's side, and read back on this side by `MaterialReflectionTests`, which holds the prediction
+against it in both directions.
+
+## Image-based lighting
+
+The sky is a light, and `Lighting/` is what turns one into something a shader can evaluate. Karis's
+split-sum, with both halves produced on the CPU because a bake is a per-environment cost and closed
+forms can check it: `EnvironmentBaker` prefilters a cube per roughness by GGX importance sampling, and
+`SphericalHarmonics` projects it into nine coefficients per channel. What reaches a frame is a mip
+chain and twenty-seven floats.
+
+**The cube convention is not invented here.** `CubeMapping.Direction` unprojects
+`ShadowProjections.Cube` — the same matrix a point light renders its shadow cube with, already
+asserted to tile the sphere — so a probe and a shadow cannot disagree about which way `+Y` is. Its
+inverse is the major-axis rule, because a prefilter takes millions of samples and cannot afford six
+matrix multiplies each, and a test holds the two against each other over thousands of directions. It
+earned its place immediately: every face's horizontal axis was mirrored relative to the published D3D
+table, which the engine's look-at convention flips, and nothing else would have noticed — a mirrored
+environment is still an environment.
+
+Two defects came out of wiring it up, both of the kind that survive because they look like something
+else. **The pass sampled the reflection at mip zero whatever the roughness said**, so every surface
+mirrored the environment and `Ibl.SpecularLod` and `environmentMipCount` were dead code — a rough
+metal reflecting a sharp world reads as a material problem. And the diffuse term was fed a *radiance*
+sample where irradiance belongs, which is where a missing `1/π` was hiding: `Ibl.Diffuse` now applies
+the Lambert BRDF's own factor, so a white surface under a uniform white environment comes back exactly
+as bright as the environment. That one is stated in three places and tested in two, because the way it
+fails is a frame that is uniformly too bright, and the fix usually lands on the exposure.
+
+**Reflection probes** are the local version: a cube captured in a room, parallax-corrected against a
+box or a sphere so a floor reflects what is in front of it rather than what was above the probe, and
+faded against the sky over the probe's own blend distance. `ReflectionProbeSelector` decides which one
+applies — priority, then weight, then volume, so a cupboard inside a room wins inside the cupboard —
+and it decides it from positions alone, which is why it needs no device to test.
+
+⚠ A probe is applied per *group* rather than per object, and the reason is the binding plan again: a
+probe's cube is a texture, so per-object selection needs a descriptor set per probe bound per draw,
+and the per-draw set is currently owned whole by `ForwardLightingRenderFeature`. Sharing it between
+two features is a decision about the binding plan, not a detail of probes.
+
+## Area lights
+
+Five light kinds now share one eighty-byte record and one loop: directional, point, spot, tube and
+rectangle. Sharing matters more than it sounds — clustering, the per-object light list and the
+per-draw block all work on "a light", so two of the five being shapes cost no second path anywhere.
+The record grew by sixteen bytes rather than gaining a list of its own, and every area shape needs
+exactly two extents, so a rectangle's half-height is the field a sphere and a tube use for their
+radius.
+
+The shading is Karis's **representative point**: shade the point on the shape nearest the reflection
+ray, and widen the lobe by the angle the shape subtends. What that buys is a highlight in the right
+place and roughly the right size; what it does not buy is its shape — a tube seen edge-on should
+streak and gives a widened blob — and a large near light lights a surface as though all its energy
+came from one spot on it. Linearly transformed cosines are the upgrade doc 06 asks for, and they need
+a fitted table that comes from an offline optimisation this repository cannot run; nothing here is in
+their way.
+
+The cluster culler's reach now includes half a tube's length, for the reason its radius term already
+existed: a shaped light whose centre is out of range still reaches in from its end.
 
 ## Skinning and instancing, and three ways to reach per-draw data
 
@@ -319,6 +438,31 @@ six times the atlas. That is why the atlas is allocated in tile units: a spot li
 a point light that did not. When it runs out, lights are dropped **whole and counted**; a point light
 with four of six faces rendered is worse than one with none, because the two missing directions are
 lit as though nothing occludes them.
+
+### The camera, once
+
+A cascade fit needs a camera, and for a long time it held seven scalars describing one — a copy of
+something the frame already knew, which a host had to keep in step with the view it also set. Nothing
+checked that they agreed, and a cascade fitted to a field of view the camera no longer has puts the
+shadow distance somewhere the setting does not say. That shows up as shadows fading in at the wrong
+distance and gets attributed to the shadow distance.
+
+`RenderCamera` is that description once. A `RenderView` carrying one has its position, matrix and
+frustum derived from it, and `ShadowMapRenderer.Camera` points at the same view — so the thing the
+frame is drawn from and the thing the cascades are fitted to are the same object. The scalars remain
+for a test or a tool fitting cascades to a hypothetical camera, which has no view to point at.
+
+A view is still not a camera. Most views are not — a cascade, a probe face — and `Camera` is null on
+every one of them. What changed is that the one view that *is* a camera can say so.
+
+The sun is the same argument: `ISunSource` gives the shadow renderer the scene's brightest
+directional light, rather than a host copying its direction across every frame and one day
+forgetting, leaving a level lit from one direction and shadowed from another. An interface rather than
+a reference to the lighting feature, so a scripted or cinematic sun supplies it and nothing else
+changes.
+
+The golden fixture fits its cascades from a scene camera now, and produces the same reference image
+it did from the scalars.
 
 ### Caching a cascade
 
@@ -484,11 +628,20 @@ from, so a node taking one from anywhere else is how a frame ends up with a set 
 reject and a release driver mis-binds in silence. A host may still supply its own — a
 `RenderPassRenderer` has no effect of its own and must.
 
-**The binding index is generated, not written down.** Raven assigns it from declaration order within
-a set, so adding a texture above another in a `.rvn` renumbers everything below it — and a host
-holding the old number gets a validation error at best and the wrong texture at worst, with nothing
-to tell it. `BloomKeys.SourceBinding` and its siblings come out of the shader's own reflection;
-`BloomRenderer`'s four were all wrong when they were guessed, which is the argument in one line.
+**The binding index is never written down twice.** Raven assigns it from declaration order within a
+set, so adding a texture above another in a `.rvn` renumbers everything below it — and a host holding
+the old number gets a validation error at best and the wrong texture at worst, with nothing to tell
+it. `BloomRenderer`'s four were all wrong when they were guessed, which is the argument in one line.
+
+Two ways to avoid guessing, for two kinds of caller. Code that can reference generated code names
+`BloomKeys.SourceBinding`. Everything else — a compositor document, a shader loaded from a bundle at
+run time — sets `ResourceBinding.Name` to the shader's own name for the resource and the index comes
+off `Effect.Bindings`, which is the binding plan the reflection always had and the runtime never
+carried. An explicit index remains as the fallback, because a provider that reports no plan is the
+ordinary case until the content build does.
+
+Samplers are describable too: `SamplerDescription` is twelve fields and no device, so it survives
+being written in a document where a handle cannot, and it resolves through the shared `SamplerCache`.
 
 The reflection is checked in beside the shaders rather than compiled during the build, because the
 alternative is `Vixen.Rendering` depending on the compiler being built first, in a repository where
@@ -545,6 +698,40 @@ pure front-to-back, which is exactly what makes early-Z reject the most.
 
 It is the same fix a shadow-caster stage wants, for the same reason.
 
+### Authored
+
+`!FullScreen` and `!Bloom` are nodes a document declares, so a post chain is twenty lines of YAML
+that mention no binding index, no sampler handle and no pass count:
+
+```yaml
+- !Bloom
+  name: Bloom
+  source: SceneColour
+  output: BloomResult
+  levels: 3
+- !FullScreen
+  name: Tonemap
+  shader: Tonemap
+  colourTargets: [Display]
+  reads: [BloomResult]
+  bindings:
+    - name: source
+      resource: BloomResult
+    - kind: Sampler
+      binding: 1
+      sampler: LinearClamp
+```
+
+Two things had made that impossible and both are gone: `name: source` resolves against the shader's
+own binding plan, and `sampler: LinearClamp` is a preset the frame's `SamplerCache` turns into a
+description. What a file still cannot carry is a device, a module cache, a descriptor allocator or a
+sampler cache — so `CompositorBuilder` takes those four and hands them to every node it builds. The
+document says what; a running renderer supplies what only it has.
+
+Bloom is a node rather than a list of passes because its shape follows from its depth and the frame's
+size: nine passes and nine textures out of one line, where a document that spelled them out would need
+rewriting to change the resolution.
+
 ### Bloom
 
 The first effect that is more than one pass, and worth building early for that reason: a pyramid is
@@ -565,26 +752,132 @@ throws nothing, and no screenshot answers it, so it is asserted.
 The up-chain is one shorter than the down-chain, which is not an off-by-one — the smallest level is
 already its own upsample source, so there is nothing to add into it.
 
+**The first downsample is a mode of its own**, and that is what the Karis average is for. Weighting
+each tap by `1 / (1 + luma)` before summing makes the 13-tap kernel an average biased towards its
+darker taps, so a specular highlight sitting in one texel is pulled towards its neighbours instead of
+dragging the whole kernel up — which is what stops it flickering as it moves between texels, the most
+visible temporal artefact a bloom chain has. It belongs to that pass and no other: the prefilter takes
+a single tap, where the weight is a darkening rather than an average, and every level below the first
+has already been averaged, so applying it again would cost brightness and buy nothing. Nothing else in
+the shader distinguishes the first downsample from the rest of the chain, hence a fourth `Mode` value
+rather than a `FirstDownsample` flag — the chain asks for four variants either way, and the flag would
+be a key every pass carries in order to say nothing.
+
+## Set 1, and where a set can actually be bound
+
+`ViewConstants` is the per-view uniform block: one per `RenderView`, filled from the view's own
+matrix and position, bound before that view's work. Its absence was the largest hole in the renderer —
+`TransformRenderFeature` pushed a world matrix and nothing carried a view-projection, so a shadow
+caster could not be told which cascade it was drawing for.
+
+**The layout is shared across every shader in the frame, and that is what makes set 1 work at all.**
+A descriptor set survives a pipeline change only if the two layouts agree up to that set, so the
+members are configured once rather than taken from an effect: the block belongs to the frame, not to
+any shader in it. Which is also why a *document* declares it — sets 2 and 3 follow from the shaders,
+and set 1 is a contract between them that only the frame can state:
+
+```yaml
+viewBlock:
+  binding: 0
+  stages: Vertex
+```
+
+Declared with no members it takes the standard block — the view-projection at 0 and the view position
+at 64, which `ViewConstants` writes for every view whether or not anything asked. A member names the
+parameter key rather than an offset alone, so a document cannot drift from the block a shader reads
+without the build refusing it. The builder creates the descriptor set layout, which makes it the one
+piece of device state a build produces — and the caller owns it, because a builder outlives nothing.
+
+`RenderView.ViewProjection` had to exist first, and **setting it re-derives the frustum**. Two
+properties describing one volume is a bug waiting to be written — a view culled against last frame's
+planes and drawn with this frame's matrix drops geometry at the edges and reports nothing. The shadow
+renderer had exactly that shape: it built the frustum from a matrix it then discarded.
+
+**A set cannot be bound before the first pipeline**, which is where this stopped being a design
+question and became an API one. `ICommandList.BindDescriptorSet` takes no pipeline layout and infers
+one from what is bound, so binding set 1 at the start of a view — the obvious place — is undefined,
+and the Vulkan backend refuses it outright. So a compositor node says *what* through
+`RenderDrawContext.ViewConstants` and `MeshRenderFeature` says *when*, immediately after its first
+pipeline. Once per run is enough, because the convention makes every pipeline in a frame compatible
+up to set 1.
+
+The proof is the shadow golden fixture: it used to compose the cascade's matrix into the caster's
+world transform, and now the matrix arrives through set 1 — **against the same reference image**.
+
+## Writing to memory a frame is still reading
+
+The hazard that keeps reappearing, and the one no API reports. `Write` on a host-visible buffer is a
+memcpy into memory the GPU may still be reading for a frame that has not finished. Nothing validates
+it, nothing logs it, and the symptom is data that is briefly a blend of two frames — under load, on
+somebody else's machine.
+
+Three things had it. `ForwardLightingRenderFeature` rewrote one persistent descriptor set; that was
+fixed by moving it onto `DescriptorAllocator`. `UploadBuffer<T>` — which skinning, instancing and the
+scene light list all share — wrote every frame's records at offset zero. And `EffectConstants` wrote
+every changed block over the last one.
+
+All three now use the same shape: **one region per frame in flight, and the caller binds at an
+offset**. Offsets rather than shifted indices, deliberately, so that a push-constant base, a
+`firstInstance` and a shader indexing from zero all keep working without knowing the ring is there —
+the ring is a property of the binding, not of the data.
+
+`EffectConstants` moves only when a value actually changed, so a post pass whose parameters are the
+same every frame keeps reading the region it already has and the ring costs nothing.
+
+**Destroying is not the same problem, and it was already solved.** Growing one of these buffers hands
+the old handle back while the frame that used it may still be running — which is safe, because every
+`Destroy` on `IGraphicsDevice` is deferred by `FramesInFlight`. The contract is now stated on the
+interface rather than only in the Vulkan backend that implements it, and
+`ValidationCleanTests.DestroyingAResourceAFrameIsUsingProducesNoValidationMessages` asserts it against
+a driver.
+
+The two are easy to conflate and worth keeping apart: **the RHI defers handing a resource back, and
+nothing can defer overwriting one's contents.** The first is the backend's job and is done; the second
+is the caller's, and is what the ring above is for.
+
 ## What is not here yet
 
-Blend shapes and area lights. Punctual shadows are not cached — only the directional cascades are,
-and a spot light over static geometry has the same argument waiting for it.
+Blend shapes. Punctual shadows are not cached — only the directional cascades are, and a spot light
+over static geometry has the same argument waiting for it.
+
+**Light probes.** Doc 06 asks for spherical-harmonic probes interpolated tetrahedrally, and the SH
+half is here — projection, linear blending, evaluation, all tested — while the tetrahedralisation is
+not. Bowyer–Watson over probe positions is fifteen lines of idea and a wall of robustness: an
+enclosing tetrahedron sized generously makes every circumsphere swallow the domain, so four probes
+produce no cells at all; a grid of probes is *cospherical*, so a strict in-sphere test finds no cavity
+to re-triangulate; and with both of those fixed, a single near-degenerate cell still has a circumsphere
+large enough to eat the mesh on the next insertion. Doing it properly means exact predicates. It was
+written, found wrong by its own tests, and taken back out rather than shipped producing a mesh that is
+not Delaunay.
+
+**Materials are values, not resources.** Every feature's parameters go into the constant buffer; a
+feature that samples a texture needs a descriptor, and which binding index it lands on is the compiled
+shader's decision — the same authoring gap the compositor's nodes have, and closed by the same thing:
+reflecting the binding plan onto `Effect`. Until then a textured material sets values and a host
+builds the descriptor set.
+
+Transmission has a surface feature's worth of channels and no shading model, deliberately: refraction
+needs either the scene colour or an environment sample, both of which belong to the pass rather than
+to the lobe, and inventing a `Shade` that could not reach them would be a feature that compiles and
+does nothing. Back-lit thin surfaces are covered — that is `SubsurfaceShading`.
+
+Indirect lighting does not go through the shading model. `Ambient` is the pass's, so a cel-shaded
+material still takes a physically-based IBL term, and a clear coat has no second lobe against the
+environment.
 
 Instance batching by locality: an instanced batch is culled as one object, so what goes in one is the
 caller's decision and there is nothing here to help make it.
 
-The shadow renderers still take a light direction and a camera from a host rather than from the
-scene, and nothing yet resolves a compositor by *address* — the binary form is proven, the
-`AssetManager` lookup around it is not wired up here.
+A compositor **does** resolve by address: `Vixen.Assets.Tests.CompositorContentTests` writes one into
+a bundle, asks for it by address and builds a running frame from what comes back. It is asserted
+there rather than here because this assembly does not reference the content system and should not —
+which is why the claim stayed open so long. Nothing was missing; nothing had put the two halves in
+one room.
 
 A node's bindings are set in code, not in the compositor document. A binding index is a shader's
 decision and a sampler is a device handle, and the asset model can express neither — so a compositor
 loaded from disk declares its dependencies correctly and binds nothing until a host fills in
 `Descriptors`. Reflecting the binding plan onto `Effect` is what closes it.
-
-A post-process node is built in code, not authored: `FullScreenRenderer` and `BloomRenderer` have no
-entry in the compositor asset, for the same reason bindings do not — a binding index is a shader's
-decision and a sampler is a device handle. Closing the binding-plan gap closes both at once.
 
 The generated keys cover the shaders the engine names — `PostFx/Bloom` and `PostFx/Tonemap` — and
 nothing else. The list grows when a node starts binding a shader, not in anticipation, because every

@@ -43,6 +43,14 @@ public sealed class ShadowMapRenderer : SceneRenderer {
     /// <summary>The stage that draws depth-only casters.</summary>
     public required RenderStage CasterStage { get; init; }
 
+    /// <summary>The per-view block to bind before each cascade's casters.</summary>
+    /// <remarks>
+    ///     A cascade is a view, and this is how it tells a caster which projection it is being drawn
+    ///     for. Bound per cascade inside the pass rather than once for the node, because that is the
+    ///     whole distinction between the tiles: they differ by nothing except their view.
+    /// </remarks>
+    public ViewConstants? Constants { get; set; }
+
     /// <summary>The name of the atlas to render into.</summary>
     public string Atlas { get; set; } = string.Empty;
 
@@ -110,7 +118,36 @@ public sealed class ShadowMapRenderer : SceneRenderer {
     /// <summary>One cascade's side in texels.</summary>
     public int Resolution { get; set; } = 1024;
 
-    /// <summary>Where the camera is.</summary>
+    /// <summary>
+    ///     The view whose frustum the cascades are fitted to.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The camera taken from the frame rather than copied into this node. A view carrying a
+    ///         <see cref="RenderView.Camera" /> supplies every one of the seven scalars below, and
+    ///         they are then ignored — which is the point, because a host setting both is a host that
+    ///         can set them differently. A cascade fitted to a field of view the camera no longer has
+    ///         puts the shadow distance somewhere the setting does not say, and nothing reports it.
+    ///     </para>
+    ///     <para>
+    ///         Null, or a view with no camera, leaves the scalars in charge. A test fitting cascades
+    ///         to a hypothetical camera has no view to point at, and neither has a tool.
+    ///     </para>
+    /// </remarks>
+    public RenderView? Camera { get; set; }
+
+    /// <summary>
+    ///     Where the sun comes from, when it comes from the scene.
+    /// </summary>
+    /// <remarks>
+    ///     The other half of the same argument. A scene's brightest directional light is what casts
+    ///     its cascaded shadows, and a host copying that direction onto this node every frame is a host
+    ///     that will one day forget — leaving a level lit from one direction and shadowed from
+    ///     another. Null leaves <see cref="LightDirection" /> in charge.
+    /// </remarks>
+    public ISunSource? Sun { get; set; }
+
+    /// <summary>Where the camera is, when no <see cref="Camera" /> says.</summary>
     public Vector3 Eye { get; set; }
 
     /// <summary>Where it looks.</summary>
@@ -164,16 +201,29 @@ public sealed class ShadowMapRenderer : SceneRenderer {
         ArgumentNullException.ThrowIfNull(compositor);
 
         count = Math.Clamp(CascadeCount, 1, ShadowCascades.MaxCascades);
-        ShadowCascades.Split(NearPlane, ShadowDistance, SplitLambda, splits.AsSpan(0, count));
+        // The frame's camera and the frame's sun, when there are any. Read once here rather than
+        // per cascade, so that every cascade in a frame is fitted to the same description even if
+        // something changed the scene between them.
+        var camera = Camera?.Camera ?? new RenderCamera(Eye, Forward, Up, FieldOfView, AspectRatio, NearPlane, 0f);
+        var light = Sun?.Sun is { } sun ? sun.Direction : LightDirection;
+
+        ShadowCascades.Split(camera.NearPlane, ShadowDistance, SplitLambda, splits.AsSpan(0, count));
 
         while (views.Count < count) {
             views.Add(new($"{Name}[{views.Count}]"));
         }
 
-        var near = NearPlane;
+        var near = camera.NearPlane;
 
         for (var i = 0; i < count; i++) {
-            var (centre, radius) = ShadowCascades.Sphere(Eye, Forward, FieldOfView, AspectRatio, near, splits[i]);
+            var (centre, radius) = ShadowCascades.Sphere(
+                camera.Position,
+                camera.Forward,
+                camera.FieldOfView,
+                camera.AspectRatio,
+                near,
+                splits[i]
+            );
 
             // Kept when it still covers the slice. With no slack the cut is tight and this is almost
             // never true, which is correct — a cascade that no longer covers its slice would leave
@@ -182,12 +232,12 @@ public sealed class ShadowMapRenderer : SceneRenderer {
 
             if (refitted[i]) {
                 cascades[i] = ShadowCascades.Fit(
-                    Eye,
-                    Forward,
-                    Up,
-                    LightDirection,
-                    FieldOfView,
-                    AspectRatio,
+                    camera.Position,
+                    camera.Forward,
+                    camera.Up,
+                    light,
+                    camera.FieldOfView,
+                    camera.AspectRatio,
                     near,
                     splits[i],
                     Resolution,
@@ -197,12 +247,15 @@ public sealed class ShadowMapRenderer : SceneRenderer {
             }
 
             var view = views[i];
-            view.Frustum = new(cascades[i].ViewProjection);
+            // The matrix, which derives the frustum — not the frustum alone. A view whose planes
+            // came from a matrix it does not carry is one a shader cannot be told how to project
+            // into, which is what kept a caster from knowing its own cascade.
+            view.ViewProjection = cascades[i].ViewProjection;
 
             // The light's position, not the camera's. Sorting a shadow cascade front-to-back is
             // front-to-back *from the light*, which is what early-Z in a depth-only pass rewards —
             // measuring from the camera would order the casters by something the pass never tests.
-            view.Position = cascades[i].Centre - (Vector3.Normalize(LightDirection) * cascades[i].Radius);
+            view.Position = cascades[i].Centre - (Vector3.Normalize(light) * cascades[i].Radius);
 
             // No distance cutoff: the cascade's own frustum is already exactly as far as it reaches,
             // and a second limit measured from a synthetic light position would cut casters out of
@@ -328,6 +381,7 @@ public sealed class ShadowMapRenderer : SceneRenderer {
                             // a tile edge would otherwise write into the neighbouring cascade, and a
                             // shadow in a cascade it was never fitted for is the artefact nobody can
                             // attribute.
+                            context.ViewConstants = Constants;
                             compositor.System.Record(views[i], stage, context);
                         }
 

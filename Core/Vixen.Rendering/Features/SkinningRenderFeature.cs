@@ -56,6 +56,13 @@ public sealed class SkinningRenderFeature : SubRenderFeature, IDrawSubFeature, I
     /// <summary>The buffer every palette lives in, for a host binding it once a frame.</summary>
     public BufferHandle Buffer => palette.Buffer;
 
+    /// <summary>The byte offset this frame's palettes start at. Bind the buffer here, not at zero.</summary>
+    /// <remarks>
+    ///     The buffer holds one region per frame in flight, so a binding at zero reads whichever
+    ///     region another frame is writing. See <see cref="UploadBuffer{T}.Offset" />.
+    /// </remarks>
+    public long BufferOffset => palette.Offset;
+
     /// <summary>How many bone matrices this frame holds.</summary>
     public int BoneCount => palette.Count;
 

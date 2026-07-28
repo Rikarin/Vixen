@@ -52,6 +52,7 @@
         <ProjectReference Include="..\..\Core\Vixen.Ecs\Vixen.Ecs.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Engine\Vixen.Engine.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Physics\Vixen.Physics.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Ui.Layout\Vixen.Ui.Layout.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Ui.Reactive\Vixen.Ui.Reactive.csproj" />
@@ -91,6 +92,7 @@
         <TrimmerRootAssembly Include="Vixen.Graphics.Null" />
         <TrimmerRootAssembly Include="Vixen.Graphics.Vulkan" />
         <TrimmerRootAssembly Include="Vixen.Graphics.RenderGraph" />
+        <TrimmerRootAssembly Include="Vixen.Physics" />
         <TrimmerRootAssembly Include="Vixen.Platform" />
         <TrimmerRootAssembly Include="Vixen.Platform.Native" />
         <TrimmerRootAssembly Include="Vixen.Platform.Desktop" />

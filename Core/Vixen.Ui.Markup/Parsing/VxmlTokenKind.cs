@@ -76,6 +76,9 @@ enum VxmlTokenKind {
     /// <summary><c>@using</c>.</summary>
     UsingKeyword,
 
+    /// <summary><c>@namespace</c>.</summary>
+    NamespaceKeyword,
+
     /// <summary><c>@code</c>.</summary>
     CodeKeyword,
 

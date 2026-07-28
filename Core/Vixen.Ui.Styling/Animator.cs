@@ -365,6 +365,67 @@ public sealed class Animator {
         animations.Clear();
     }
 
+    /// <summary>Moves what is running to follow a compacted tree.</summary>
+    /// <param name="remap">The mapping <see cref="StyleTree.Compact" /> produced.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Remapped rather than cleared</b>, which is the whole reason this method exists —
+    ///         <see cref="Clear" /> was already available and would have been one line. Clearing
+    ///         restarts every fade and every animation on the frame a document happened to compact,
+    ///         so removing an item from a list would visibly jolt the ones that were mid-transition
+    ///         around it. That is a worse bug than the leak it is fixing, and a rarer one, which is
+    ///         the combination nobody finds.
+    ///     </para>
+    ///     <para>
+    ///         Anything running for a slot that did not survive is dropped: the element it belonged to
+    ///         is gone, so there is nothing left to animate.
+    ///     </para>
+    /// </remarks>
+    public void Compact(ReadOnlySpan<int> remap) {
+        // Rebuilt rather than updated in place, because a dictionary cannot be re-keyed while it is
+        // being walked and two slots can map onto one another's old keys.
+        var movedTransitions = new List<(int Element, int Property, RunningTransition Value)>(running.Count);
+
+        foreach (var ((element, property), transition) in running) {
+            var to = At(remap, element);
+
+            if (to >= 0) {
+                movedTransitions.Add((to, property, transition));
+            }
+        }
+
+        running.Clear();
+
+        foreach (var (element, property, transition) in movedTransitions) {
+            running[(element, property)] = transition;
+        }
+
+        var movedAnimations = new List<(int Element, (AnimationSpec Spec, float StartedAt) Value)>(animations.Count);
+
+        foreach (var (element, entry) in animations) {
+            var to = At(remap, element);
+
+            if (to >= 0) {
+                movedAnimations.Add((to, entry));
+            }
+        }
+
+        animations.Clear();
+
+        foreach (var (element, entry) in movedAnimations) {
+            animations[element] = entry;
+        }
+    }
+
+    /// <summary>Where a slot went, or -1 if it is past the end of the mapping.</summary>
+    /// <remarks>
+    ///     Past the end means created after the compaction was measured, which cannot happen from
+    ///     inside one pass — but reading off the end of a caller's span would be a much worse way to
+    ///     find that out than dropping the entry.
+    /// </remarks>
+    static int At(ReadOnlySpan<int> remap, int element) =>
+        (uint) element < (uint) remap.Length ? remap[element] : -1;
+
     /// <summary>Reads whichever form of <c>animation</c> the stylesheet produced.</summary>
     /// <returns>Whether the element animates anything.</returns>
     /// <remarks>

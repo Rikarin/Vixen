@@ -289,12 +289,142 @@ public class RemovalTests {
         document.Root.Children[0].Remove();
 
         // ⚠ Honest rather than tidy. The slot is tombstoned and never reused, so a document that
-        // builds and tears down a list every frame grows without bound — and this is the number that
-        // says so. Compaction is what fixes it, because rebuilding the arrays without the dead slots
-        // preserves relative order where reuse is exactly what does not.
+        // builds and tears down a list grows until something compacts — and this is the number that
+        // says so, and that decides when.
         Assert.Equal(before, tree.Count);
         Assert.Equal(1, tree.DeadCount);
         Assert.Equal(before - 1, tree.LiveCount);
+    }
+
+    /// <summary>
+    ///     ⚠ The whole claim in one test: a document that builds and tears down a list no longer
+    ///     grows without bound.
+    /// </summary>
+    [Fact]
+    public void Building_and_tearing_down_a_list_stops_growing() {
+        using var document = Rows(count: 0);
+
+        for (var round = 0; round < 20; round++) {
+            for (var i = 0; i < 30; i++) {
+                document.Root.Add("row");
+            }
+
+            document.Update();
+
+            while (document.Root.Children.Count > 0) {
+                document.Root.Children[^1].Remove();
+            }
+
+            document.Update();
+        }
+
+        // Six hundred elements came and went. Without compaction the store would be six hundred slots
+        // long; with it, the ceiling is what one round plus the floor can leave behind.
+        Assert.True(document.Styles.Tree.Count < 128, $"the store grew to {document.Styles.Tree.Count}");
+        Assert.True(document.StyleCompactions > 0, "nothing ever compacted");
+    }
+
+    /// <summary>
+    ///     ⚠ A slot is an index, so compacting moves every id in existence. The elements have to be
+    ///     told, and the test that says so is that the survivors keep their own heights — an element
+    ///     pointing at a neighbour's slot takes on that neighbour's style, which is a wrong interface
+    ///     made entirely of styles some element really has.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The removed run is in the middle, and the first version of this took it off the
+    ///     end.</b> Removing a tail moves nothing: every survivor keeps the slot it already had, so
+    ///     the mapping is the identity and deleting the remap broke nothing at all. A compaction test
+    ///     whose survivors do not move cannot see the only thing compaction does.
+    /// </remarks>
+    [Fact]
+    public void Compaction_leaves_every_surviving_element_styled_as_it_was() {
+        using var document = new UiDocument(200f, 4000f);
+
+        document.Load("""
+            root { width: 200px; height: 4000px; flex-direction: column; }
+            row { width: 200px; height: 10px; }
+            .tall { height: 40px; }
+        """);
+
+        var rows = new List<UiElement>();
+
+        for (var i = 0; i < 100; i++) {
+            var row = document.Root.Add("row");
+
+            if (i % 10 == 0) {
+                row.AddClass("tall");
+            }
+
+            rows.Add(row);
+        }
+
+        document.Update();
+
+        // Out of the middle, and enough of it that the next pass compacts: the tombstones have to
+        // outnumber what is left.
+        for (var i = 75; i >= 5; i--) {
+            rows[i].Remove();
+        }
+
+        var survivors = rows.Where((_, i) => i < 5 || i > 75).ToList();
+        var before = document.StyleCompactions;
+        document.Update();
+
+        Assert.Equal(before + 1, document.StyleCompactions);
+        Assert.Equal(0, document.Styles.Tree.DeadCount);
+        Assert.Equal(survivors.Count, document.Root.Children.Count);
+
+        // Every survivor kept its own height, and the tall ones are still the ones that were tall.
+        for (var i = 0; i < rows.Count; i++) {
+            if (i is >= 5 and <= 75) {
+                continue;
+            }
+
+            Assert.Equal(i % 10 == 0 ? 40f : 10f, rows[i].Height, Tolerance);
+        }
+
+        // ...and they are still stacked in the order they were in, which is what a parent link left
+        // pointing at the old slot would break.
+        var top = 0f;
+
+        foreach (var survivor in survivors) {
+            Assert.Equal(top, survivor.Top, Tolerance);
+            top += survivor.Height;
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ Not on every removal. Compaction is a walk of the whole tree, so doing it per removal
+    ///     would make tearing down a thousand-row list quadratic — which is the shape of the loop
+    ///     that produces the leak in the first place.
+    /// </summary>
+    [Fact]
+    public void A_few_removals_do_not_compact() {
+        using var document = Rows(count: 40);
+
+        for (var i = 39; i >= 30; i--) {
+            document.Root.Children[i].Remove();
+        }
+
+        document.Update();
+
+        Assert.Equal(0, document.StyleCompactions);
+        Assert.Equal(10, document.Styles.Tree.DeadCount);
+    }
+
+    [Fact]
+    public void Compacting_by_hand_works_whatever_the_heuristic_thinks() {
+        using var document = Rows(count: 4);
+
+        document.Root.Children[1].Remove();
+
+        Assert.True(document.CompactStyles());
+        Assert.Equal(0, document.Styles.Tree.DeadCount);
+        Assert.Equal(1, document.StyleCompactions);
+
+        // ...and there is nothing to do the second time.
+        Assert.False(document.CompactStyles());
+        Assert.Equal(1, document.StyleCompactions);
     }
 
     [Fact]

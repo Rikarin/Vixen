@@ -62,12 +62,24 @@ public readonly struct DrawContext {
     /// <param name="path">The path.</param>
     /// <param name="color">What to draw it in.</param>
     /// <param name="thickness">How wide, in device-independent pixels.</param>
+    /// <param name="join">How corners are turned.</param>
+    /// <param name="cap">How open ends are finished.</param>
+    /// <param name="miterLimit">
+    ///     How far a miter may reach, as a multiple of the half width. Zero takes the default of four.
+    /// </param>
     /// <remarks>
     ///     A separate command from <see cref="Fill" /> rather than a flag on one, so that a shape
     ///     that is both filled and stroked is two commands over the same range of the path buffer —
     ///     which is what a renderer wants anyway, since the two are different draws.
     /// </remarks>
-    public void Stroke(PathBuilder path, Color4 color, float thickness) {
+    public void Stroke(
+        PathBuilder path,
+        Color4 color,
+        float thickness,
+        LineJoin join = LineJoin.Miter,
+        LineCap cap = LineCap.Butt,
+        float miterLimit = 0f
+    ) {
         ArgumentNullException.ThrowIfNull(path);
 
         if (path.Count == 0 || thickness <= 0f) {
@@ -77,7 +89,10 @@ public readonly struct DrawContext {
         List.Add(
             new DrawCommand(DrawCommandKind.PathStroke, 0f, 0f, 0f, 0f, color, 0f, thickness) {
                 Offset = List.AddPath(path),
-                Length = path.Count
+                Length = path.Count,
+                Join = join,
+                Cap = cap,
+                MiterLimit = miterLimit
             }
         );
     }
@@ -103,5 +118,53 @@ public readonly struct DrawContext {
                 radius,
                 0f
             )
+        );
+
+    /// <summary>Fills a rectangle with per-corner radii, a gradient, or both.</summary>
+    /// <param name="rectangle">Where.</param>
+    /// <param name="color">Its colour — the near end of the gradient, if it has one.</param>
+    /// <param name="style">The corners and the gradient.</param>
+    /// <remarks>
+    ///     A separate overload rather than an optional parameter on the common one, because this is
+    ///     the path that costs a side-buffer entry and the other is not. A caller that wants one
+    ///     radius should not be paying for a record it filled with zeroes.
+    /// </remarks>
+    public void FillRectangle(Rectangle rectangle, Color4 color, BoxStyle style) =>
+        List.Add(
+            new DrawCommand(
+                DrawCommandKind.Rectangle,
+                rectangle.X,
+                rectangle.Y,
+                rectangle.Width,
+                rectangle.Height,
+                color,
+                0f,
+                0f
+            ) {
+                Offset = List.AddBox(style),
+                Length = 1
+            }
+        );
+
+    /// <summary>Draws a border inside a rectangle's edges, with per-corner radii.</summary>
+    /// <param name="rectangle">Where.</param>
+    /// <param name="color">What colour.</param>
+    /// <param name="thickness">How wide the band is, drawn inwards from the edge.</param>
+    /// <param name="style">The corners. A gradient on a border runs along the same axis as a fill's.</param>
+    public void StrokeRectangle(Rectangle rectangle, Color4 color, float thickness, BoxStyle style = default) =>
+        List.Add(
+            new DrawCommand(
+                DrawCommandKind.Border,
+                rectangle.X,
+                rectangle.Y,
+                rectangle.Width,
+                rectangle.Height,
+                color,
+                0f,
+                thickness
+            ) {
+                Offset = List.AddBox(style),
+                Length = 1
+            }
         );
 }

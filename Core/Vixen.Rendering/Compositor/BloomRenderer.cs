@@ -40,7 +40,7 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable {
     readonly List<FullScreenRenderer> passes = [];
     bool disposed;
 
-    /// <summary>The shader to run, in its three modes.</summary>
+    /// <summary>The shader to run, in its four modes.</summary>
     public string ShaderName { get; init; } = BloomKeys.ShaderName;
 
     /// <summary>The name of the texture the chain reads.</summary>
@@ -83,7 +83,13 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable {
     /// <summary>How much of each level is added on the way up.</summary>
     public float Intensity { get; set; } = 1f;
 
-    /// <summary>Whether the prefilter Karis-averages its taps, which stops highlight flicker.</summary>
+    /// <summary>Whether the first downsample Karis-averages its taps, which stops highlight flicker.</summary>
+    /// <remarks>
+    ///     The first downsample and no other, which is why that pass has a mode of its own. It is the
+    ///     first pass in the chain that averages more than one tap, so it is the one place a highlight
+    ///     occupying a single texel can be averaged away rather than carried down the pyramid — and
+    ///     carrying it down is what makes it flicker as it moves.
+    /// </remarks>
     public bool KarisAverage { get; set; } = true;
 
     /// <summary>Where shader modules come from.</summary>
@@ -152,14 +158,25 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable {
             Declare(frame, Up(i, levels), sizes[i]);
         }
 
+        if (levels == 1) {
+            // One level is the whole chain, so the prefilter's target *is* the result — and with no
+            // up-chain to declare, nothing would otherwise be published under Output at all. Found by
+            // a golden fixture reaching for a single-level bloom; a legitimate low-quality setting
+            // that produced a frame naming a resource nobody had declared.
+            frame.Add(Output, frame.Texture(ToString(), Down(0)), Format);
+        }
+
         var index = 0;
 
         // Prefilter: full-resolution source into the first half-resolution level, keeping what is
         // above the threshold. The one pass that reads outside the pyramid.
         Configure(index++, PrefilterMode, Source, null, Down(0), frame.Size);
 
+        // The first of these is its own mode: it is the one that Karis-averages, because it is the
+        // first pass that averages several taps at all and therefore the only place a highlight in a
+        // single texel can be flattened instead of carried the rest of the way down.
         for (var i = 1; i < levels; i++) {
-            Configure(index++, DownsampleMode, Down(i - 1), null, Down(i), sizes[i - 1]);
+            Configure(index++, i == 1 ? FirstDownsampleMode : DownsampleMode, Down(i - 1), null, Down(i), sizes[i - 1]);
         }
 
         // Downwards through the source levels but upwards through the pyramid: level i reads the
@@ -278,9 +295,15 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable {
 
     string NameFor(int mode, int index) => $"{this}.{Describe(mode)}{index}";
 
+    /// <remarks>
+    ///     The two downsample modes share a label, because the index already says which is which: the
+    ///     first downsample is always slot 1, whatever <see cref="Levels" /> is. That is also why
+    ///     sharing it costs <see cref="Configure" />'s recreate-on-rename nothing — a slot can move
+    ///     between prefilter, downsample and upsample, but never between the two downsamples.
+    /// </remarks>
     static string Describe(int mode) => mode switch {
         PrefilterMode => "Prefilter",
-        DownsampleMode => "Down",
+        FirstDownsampleMode or DownsampleMode => "Down",
         _ => "Up"
     };
 
@@ -299,16 +322,19 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable {
         passes.Clear();
     }
 
-    /// <summary>The three values <c>Bloom.rvn</c>'s <c>Mode</c> permutation takes.</summary>
+    /// <summary>The four values <c>Bloom.rvn</c>'s <c>Mode</c> permutation takes.</summary>
     /// <remarks>
     ///     Named here rather than generated, because a permutation's <em>meaning</em> is prose in the
-    ///     shader — "0 prefilter, 1 downsample, 2 upsample-and-combine" — and nothing in the
-    ///     reflection carries it. The key and its default are generated; what each number means is
-    ///     the one thing still copied by hand.
+    ///     shader — "0 prefilter, 1 first downsample, 2 downsample, 3 upsample-and-combine" — and
+    ///     nothing in the reflection carries it. The key and its default are generated; what each
+    ///     number means is the one thing still copied by hand.
     /// </remarks>
     const int PrefilterMode = 0;
 
-    const int DownsampleMode = 1;
+    /// <summary>The downsample that reads the prefiltered level, and the only one that Karis-averages.</summary>
+    const int FirstDownsampleMode = 1;
 
-    const int UpsampleMode = 2;
+    const int DownsampleMode = 2;
+
+    const int UpsampleMode = 3;
 }

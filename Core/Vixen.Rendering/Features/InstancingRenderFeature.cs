@@ -71,6 +71,13 @@ public sealed class InstancingRenderFeature
     /// <summary>The buffer every batch lives in, for a host binding it once a frame.</summary>
     public BufferHandle Buffer => transforms.Buffer;
 
+    /// <summary>The byte offset this frame's transforms start at. Bind the buffer here, not at zero.</summary>
+    /// <remarks>
+    ///     The buffer holds one region per frame in flight, so a binding at zero reads whichever
+    ///     region another frame is writing. See <see cref="UploadBuffer{T}.Offset" />.
+    /// </remarks>
+    public long BufferOffset => transforms.Offset;
+
     /// <summary>How many instance transforms this frame holds.</summary>
     public int TransformCount => transforms.Count;
 

@@ -114,19 +114,21 @@ Core/
 │
 ├── Vixen.Engine/                       # game loop, scenes, entities-as-facade, prefabs, Behavior
 ├── Vixen.Engine.Tests/
-├── Vixen.Input/                        # action-map input system
+├── Vixen.Input/                        # ✅ devices, actions, .vxinput, rebinding — doc 11 § Input
+├── Vixen.Input.Generators/             # ── source generator: .vxinput → typed accessors ──
 ├── Vixen.Input.Tests/
 ├── Vixen.Audio/                        # ✅ software mixer, buses, effects, 3D, streaming, ECS
 ├── Vixen.Audio.Tests/
 ├── Vixen.Audio.Codecs/                 # ✅ Ogg Vorbis + Opus behind IAudioStreamDecoder, both managed
 ├── Vixen.Audio.Codecs.Tests/
-├── Vixen.Physics/                      # Jolt integration
+├── Vixen.Physics/                      # ✅ Jolt integration — bodies, shapes, constraints,
+│                                       #   characters, queries, triggers, layers, CCD, ECS bridge
 ├── Vixen.Physics.Tests/
 ├── Vixen.Animation/                    # ✅ skeletal, blend trees, layers, IK, state machine
 ├── Vixen.Animation.Tests/
 ├── Vixen.Vfx/                          # particles + node-graph VFX runtime
 ├── Vixen.Vfx.Tests/
-├── Vixen.Navigation/                   # navmesh (Recast/Detour binding)
+├── Vixen.Navigation/                   # ✅ navmesh: bake, query, crowd — managed, no native dep
 ├── Vixen.Navigation.Tests/
 ├── Vixen.Net/                          # session, tick, channels, replication, rules — see 16
 ├── Vixen.Net.Generators/               # ── source generator: RPC senders, serializers, delta ──

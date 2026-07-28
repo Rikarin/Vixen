@@ -254,6 +254,21 @@ So `Vixen.Input`:
   the action model exists for and it must be in the 1.0 API.
 - **Editor**: the action-map editor, plus an input-debug panel showing live device state.
 
+> **As built** (see [`Core/Vixen.Input/README.md`](../../Core/Vixen.Input/README.md)). Everything
+> above is in except the two editor surfaces, which need an editor application shell that does not
+> exist yet, and the sensor/pen/MIDI/HID devices, which need a `Vixen.Platform` contract before they
+> can have an action-side one.
+>
+> One correction to this section and to [10](10-platforms.md)'s "`IInputSource` … feeds
+> `Vixen.Input`": it cannot, directly. `Vixen.Input` is a `Core/` assembly by
+> [02](02-repository-layout.md)'s layout, `Vixen.Platform` sits above it, and `CheckArchitecture`
+> refuses the reference — correctly, because `Vixen.Ui` consumes the action system and must stay
+> usable with no platform backend. So the device set is *fed* through a device-neutral submission
+> API, and the translation from `PlatformEvent` lives in the host (`Vixen.App.PlatformInput`). The
+> cost is that the key table exists twice, checked member by member by a test; the benefit is that
+> the whole action system is testable with no platform, which is also what a determinism replay from
+> a recorded input log needs.
+
 ## Editor testing
 
 Testing a GUI application is where most plans go quiet. Concretely:

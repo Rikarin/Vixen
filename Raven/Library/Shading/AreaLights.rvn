@@ -1,0 +1,119 @@
+package Vixen.Shaders.Shading
+
+import Vixen.Shaders.Core
+
+// Lights with a shape: a tube, a rectangle, a sphere.
+//
+// A punctual light is a fiction — nothing is a point — and the places it shows are the places that
+// look cheap: a highlight that is a dot rather than a strip, a shadow with no penumbra, a fluorescent
+// tube that lights a room like a bulb. What an area light needs is the integral of the BRDF over the
+// light's solid angle, which has no closed form for GGX.
+//
+// **The representative point is the approximation this library uses**, and it is worth being precise
+// about what it does: instead of integrating over the shape, it picks the single point on the shape
+// most responsible for the highlight — the one nearest the reflection ray — and shades a punctual
+// light there, widening the lobe to cover the angle the shape subtends. Karis's, from the 2013 course
+// notes, and what Unreal shipped with for years.
+//
+// ⚠ Two things it gets wrong, both worth knowing before reaching for it:
+//
+//   - The highlight has the right *position* and roughly the right *size*, and the wrong *shape*. A
+//     tube seen edge-on should streak; this gives a widened blob. Only a real integral fixes that.
+//   - The diffuse term uses the same point, so a large light very close to a surface lights it as
+//     though all its energy came from one spot on it.
+//
+// **Linearly transformed cosines are the upgrade**, and doc 06 specifies them. LTC replaces both
+// approximations with a closed-form polygon integral under a transformed cosine lobe, at the cost of
+// a fitted lookup table — two 64×64 float textures whose values come from an offline optimisation
+// this repository has no way to run. Adding LTC is adding that table and a second `Resolve`; nothing
+// here is in its way.
+
+struct AreaLights {
+    /// The point on a segment nearest a ray, as an offset from the ray's origin.
+    ///
+    /// The least-squares solution for the parameter along the segment, clamped to it. The denominator
+    /// vanishes when the ray is parallel to the segment, which is the case where every point is
+    /// equally close and the clamp picks an end — right, and the reason the epsilon is a `max` rather
+    /// than a branch.
+    static func ClosestOnSegment(start: float3, finish: float3, ray: float3): float3 {
+        val span = finish - start
+        val rayDotSpan = dot(ray, span)
+
+        val numerator = dot(ray, start) * rayDotSpan - dot(start, span)
+        val denominator = dot(span, span) - rayDotSpan * rayDotSpan
+
+        return start + span * saturate(numerator / max(denominator, Const.Epsilon))
+    }
+
+    /// The point on a sphere's surface nearest a ray, given its centre relative to the ray's origin.
+    ///
+    /// What turns "the light is over there" into "the light is over there, and *this* is the part of
+    /// it the highlight is made of". Sliding the centre toward the ray by at most the radius is the
+    /// whole trick: at radius zero it is the centre, which is a punctual light.
+    static func ClosestOnSphere(center: float3, radius: float, ray: float3): float3 {
+        val toRay = ray * dot(center, ray) - center
+        return center + toRay * saturate(radius / max(length(toRay), Const.Epsilon))
+    }
+
+    /// The point on a rectangle nearest a ray, as an offset from the ray's origin.
+    ///
+    /// The ray is intersected with the rectangle's plane and the hit clamped into its extent, which
+    /// is exact when the ray hits the plane in front of the surface and degrades to the nearest edge
+    /// when it does not. A ray parallel to the plane, or aimed away from it, falls back to the
+    /// centre — there is no reflection off the panel to speak of in either case.
+    static func ClosestOnRect(rect: RectLight, position: float3, ray: float3): float3 {
+        val center = rect.position - position
+        val facing = dot(ray, rect.normal)
+
+        // Behind the panel or parallel to it: no representative point exists, so shade from the
+        // centre and let the light's own cosine take it to zero.
+        if (abs(facing) < Const.Epsilon) {
+            return center
+        }
+
+        val travel = dot(center, rect.normal) / facing
+
+        if (travel < 0f) {
+            return center
+        }
+
+        val offset = ray * travel - center
+        val across = clamp(dot(offset, rect.tangent), -rect.halfWidth, rect.halfWidth)
+        val down = clamp(dot(offset, rect.bitangent), -rect.halfHeight, rect.halfHeight)
+
+        return center + rect.tangent * across + rect.bitangent * down
+    }
+
+    /// How much wider a shape of a given angular size makes the specular lobe.
+    ///
+    /// The lobe has to grow to cover what the light covers, or a large near light produces a highlight
+    /// the size of a pinprick. Saturated at one because a lobe wider than the hemisphere is not a
+    /// lobe, which is the case of a surface pressed against a light panel.
+    static func Widen(alpha: float, radius: float, distance: float): float {
+        val halfAngle = saturate(radius / max(distance, Const.Epsilon))
+        return saturate(alpha + halfAngle * 0.5f)
+    }
+
+    /// How much of a one-sided light's emission reaches a point in front of it.
+    ///
+    /// A rectangle emits from one face, which is what makes it a panel rather than a glowing slab —
+    /// and what makes a light hidden behind its own fixture stay hidden.
+    static func FrontFacing(normal: float3, toSurface: float3): float => saturate(dot(normal, toSurface))
+}
+
+/// A rectangle light's parameters, bundled so the closest-point search fits one line.
+struct RectLight {
+    var position: float3
+
+    /// The face it emits from, unit length.
+    var normal: float3
+
+    /// The width axis, unit length and perpendicular to the normal.
+    var tangent: float3
+
+    /// The height axis — the normal crossed with the tangent.
+    var bitangent: float3
+
+    var halfWidth: float
+    var halfHeight: float
+}
