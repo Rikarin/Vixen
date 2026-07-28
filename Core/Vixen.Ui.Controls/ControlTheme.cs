@@ -179,8 +179,8 @@ public static class ControlTheme {
         icon-button.size-sm { padding: 2px; }
         icon-button.size-lg { padding: 8px; }
 
-        button:hover, icon-button:hover, toggle-button:hover { background-color: var(--surface-sunken); }
-        button:active, icon-button:active, toggle-button:active { background-color: var(--track-color); }
+        button:hover:not(:disabled), icon-button:hover:not(:disabled), toggle-button:hover:not(:disabled) { background-color: var(--surface-sunken); }
+        button:active:not(:disabled), icon-button:active:not(:disabled), toggle-button:active:not(:disabled) { background-color: var(--track-color); }
 
         button.variant-primary {
             background-color: var(--accent);
@@ -218,7 +218,28 @@ public static class ControlTheme {
             border-color: var(--accent);
         }
 
-        :disabled { color: var(--text-muted); }
+        /* ── Disabled ───────────────────────────────────────────────────────────
+           Two halves, and the first one is the important half.
+
+           ⚠ Every `:hover` and `:active` rule above carries `:not(:disabled)`,
+           because otherwise a disabled control under the pointer lights up exactly
+           as a live one does and then does nothing when it is clicked. That is not
+           a styling nicety: hover feedback *is* the promise that something will
+           happen, and a control that makes it and then refuses is worse than one
+           that never looked interactive. The state was always right — the element
+           carries `ElementState.Disabled` — so nothing but a picture could see it.
+
+           ⚠ And the fade is `opacity` rather than a muted palette. A muted colour
+           has to be chosen against every background a control can sit on and
+           against every variant; `opacity` is one number that is correct on all of
+           them, including a primary button whose text is white on blue and whose
+           muted text colour is therefore almost exactly its unmuted one. The text
+           colour stays as well, for the controls whose background is transparent
+           and which the opacity alone barely touches. */
+        :disabled {
+            color: var(--text-muted);
+            opacity: 0.55;
+        }
 
         /* ── Toggles ────────────────────────────────────────────────────────── */
         checkbox, radio, switch {
@@ -378,7 +399,7 @@ public static class ControlTheme {
             color: var(--text-muted);
         }
 
-        tab:hover { color: var(--text); }
+        tab:hover:not(:disabled) { color: var(--text); }
         tab:checked { color: var(--text); border-color: var(--accent); }
 
         tab-panel { display: none; flex-direction: column; padding: 12px 0px; }
@@ -454,7 +475,7 @@ public static class ControlTheme {
             color: var(--text);
         }
 
-        menu-item:hover, option:hover, menu-item:focus, option:focus {
+        menu-item:hover:not(:disabled), option:hover:not(:disabled), menu-item:focus, option:focus {
             background-color: var(--surface-sunken);
         }
 
@@ -473,7 +494,7 @@ public static class ControlTheme {
             color: var(--text);
         }
 
-        menu-bar-item:hover, menu-bar-item:checked { background-color: var(--surface-sunken); }
+        menu-bar-item:hover:not(:disabled), menu-bar-item:checked { background-color: var(--surface-sunken); }
 
         /* ── Selects ────────────────────────────────────────────────────────── */
         select, multi-select, combo-box {
@@ -604,7 +625,7 @@ public static class ControlTheme {
             color: var(--text-muted);
         }
 
-        breadcrumb-item:hover { color: var(--text); }
+        breadcrumb-item:hover:not(:disabled) { color: var(--text); }
         breadcrumb-item:checked { color: var(--text); }
         .breadcrumb-separator { width: 10px; height: 10px; color: var(--text-muted); }
 
@@ -622,7 +643,7 @@ public static class ControlTheme {
             color: var(--text);
         }
 
-        page-button:hover { background-color: var(--surface-sunken); }
+        page-button:hover:not(:disabled) { background-color: var(--surface-sunken); }
         page-button:checked { background-color: var(--accent); color: var(--accent-text); }
         page-button.page-arrow label { display: none; }
         page-button.ellipsis { color: var(--text-muted); }
