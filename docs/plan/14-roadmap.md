@@ -2088,9 +2088,21 @@ sub-piece has its own gate.
   immediately after this. The note that stood here said the emitter's output was compiled against a
   written-out declaration of the contract and that nothing built an element; that was true when it
   was written and is not now. The gate compiles against the real assembly, loads it and runs it.
-  Still owed: incremental reparse (the `Blender` exists, but VXML's unit of reuse is not obvious — an element's green node
-  is reusable only if nothing about its *enclosing* content changed), `bind:` update events and
-  `@namespace`. The `IIncrementalGenerator` wrapper is built — see `Vixen.Ui.Markup.Generators`
+  ✅ **`@namespace`** — the file wins over the build. The generator offers the project's root
+  namespace plus the file's folders, which is right nearly always and is not right for a component
+  whose folder is not what its namespace should be; renaming the folder is not a fix a library can
+  rely on. It interleaves freely with `@using`, because a header order nobody can remember is a
+  diagnostic nobody wants, and a second one is rejected rather than replacing the first — falling
+  through to the same "unexpected" path every other stray directive takes, so its characters survive
+  in the tree as trivia. ⚠ Emitted **file-scoped**, whatever it came from: every `#line` span carries
+  a generated column computed from the emitter's depth, and a braced namespace shifts all of them by
+  four. Verified by sabotage: six, all landing — a braced namespace fails 4, the caller winning
+  fails 1, an unbound directive fails 2, a duplicate that replaces fails 1, a fixed header order
+  fails 1, and a keyword length wrong by one fails 6.
+
+  Still owed: incremental reparse (the `Blender` exists, but VXML's unit of reuse is not obvious — an
+  element's green node is reusable only if nothing about its *enclosing* content changed) and `bind:`
+  update events. The `IIncrementalGenerator` wrapper is built — see `Vixen.Ui.Markup.Generators`
   below, which also records the two bugs in *this* project that only a generator could find.
 - ✅ **`Vixen.Ui.HotReload` — three reload channels, and what each one is allowed to lose.**
 
@@ -2202,8 +2214,8 @@ sub-piece has its own gate.
   kept — the fallback discards arguments silently and has no contract — and is now labelled as
   insurance rather than as a covered claim.
 
-  Still owed: incremental reparse, an `@namespace` directive, and the `vixen` CLI path for a build
-  that wants the generated C# on disk.
+  Still owed: incremental reparse and the `vixen` CLI path for a build that wants the generated C#
+  on disk.
 - ✅ **UI render feature integrated into the renderer** — `Vixen.Ui.Renderer`, written up under 4c
   because it is the other end of the geometry builder. `UiRenderFeature` is a `RootRenderFeature`
   whose objects are surfaces; the stage it is drawn in has to sort `ByGroup`, because every other

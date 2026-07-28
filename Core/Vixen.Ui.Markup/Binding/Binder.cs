@@ -132,7 +132,20 @@ public sealed class Binder {
             Report(MarkupDiagnostics.EmptyComponent, directive.Identifier.Span, directive.Identifier.Text);
         }
 
-        return new(directive.Identifier.Text, usings.ToImmutable(), code.ToImmutable(), content, css, cssIsScoped);
+        // A missing name is a parse error that has already been reported; binding it as "no
+        // namespace asked for" keeps the emitter's fallback rather than declaring a class inside a
+        // namespace called nothing.
+        var @namespace = document.Namespace is { Name.IsMissing: false } named ? named.Name.Text : null;
+
+        return new(
+            directive.Identifier.Text,
+            @namespace,
+            usings.ToImmutable(),
+            code.ToImmutable(),
+            content,
+            css,
+            cssIsScoped
+        );
     }
 
     static bool BuildsAnything(ImmutableArray<BoundNode> content) {

@@ -186,8 +186,24 @@ sealed class VxmlParser : SyntaxParser {
     DocumentSyntax ParseDocument() {
         var component = At(VxmlTokenKind.ComponentKeyword) ? ParseComponentDirective() : null;
 
+        NamespaceDirectiveSyntax? @namespace = null;
         List<SyntaxNode?> usings = [];
-        while (At(VxmlTokenKind.UsingKeyword)) {
+
+        // ⚠ `@namespace` and `@using` interleave freely, because there is no reason for them not to
+        // and a header order nobody can remember is a diagnostic nobody wants. A *second*
+        // `@namespace` stops the loop rather than replacing the first, so it falls through to the
+        // content parser and gets the same "unexpected" diagnostic every other stray directive does —
+        // and, like them, survives in the tree as trivia.
+        while (At(VxmlTokenKind.UsingKeyword) || At(VxmlTokenKind.NamespaceKeyword)) {
+            if (At(VxmlTokenKind.NamespaceKeyword)) {
+                if (@namespace is not null) {
+                    break;
+                }
+
+                @namespace = ParseNamespaceDirective();
+                continue;
+            }
+
             usings.Add(ParseUsingDirective());
         }
 
@@ -206,6 +222,7 @@ sealed class VxmlParser : SyntaxParser {
 
         return SyntaxFactory.Document(
             component,
+            @namespace,
             new(SyntaxList.List([.. usings])),
             new(SyntaxList.List([.. content])),
             TokenAt(RawPosition, SyntaxKind.EndOfFileToken)
@@ -222,6 +239,12 @@ sealed class VxmlParser : SyntaxParser {
         var keyword = Take(SyntaxKind.UsingKeyword);
         var name = Expect(VxmlTokenKind.Name, SyntaxKind.NameToken);
         return SyntaxFactory.UsingDirective(keyword, name);
+    }
+
+    NamespaceDirectiveSyntax ParseNamespaceDirective() {
+        var keyword = Take(SyntaxKind.NamespaceKeyword);
+        var name = Expect(VxmlTokenKind.Name, SyntaxKind.NameToken);
+        return SyntaxFactory.NamespaceDirective(keyword, name);
     }
 
     // ================================================================== Content

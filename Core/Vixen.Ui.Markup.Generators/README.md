@@ -19,9 +19,12 @@ globs `**/*.vxml` into `AdditionalFiles` and makes two MSBuild properties visibl
 the analyzer travels in the same package. Set `EnableVixenMarkup=false` to turn the glob off.
 
 **The namespace is the root namespace plus the file's own folders** — the convention a hand-written
-`.cs` file in the same directory already follows. It comes from the build rather than from the
-markup, because a `.vxml` has no `@namespace` directive yet; the directive is owed, for the file
-that wants to disagree with its folder.
+`.cs` file in the same directory already follows. It comes from the build, so nothing has to be
+written down in the ordinary case.
+
+⚠ **And `@namespace` overrides it**, because the ordinary case is not every case: a component whose
+folder is not what its namespace should be has no other way to say so, and renaming the folder is
+not a fix a library can rely on. The file wins over the build.
 
 ## Why the front end is compiled twice
 
@@ -136,7 +139,7 @@ contract — and is now labelled as insurance rather than as a covered claim.
 ## Owed
 
 Incremental reparse, so a keystroke reuses the previous tree rather than re-lexing the file; the
-`Blender` exists and VXML's unit of reuse is the open question. An `@namespace` directive. And a
-`vixen` CLI path for the same compile, for a build that wants the generated C# on disk.
+`Blender` exists and VXML's unit of reuse is the open question. And a `vixen` CLI path for the same
+compile, for a build that wants the generated C# on disk.
 
 Licensed under Apache-2.0.
