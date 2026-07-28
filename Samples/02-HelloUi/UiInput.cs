@@ -32,9 +32,8 @@ static class UiInput {
     /// <summary>Sends one platform event to a document.</summary>
     /// <param name="document">The document.</param>
     /// <param name="platformEvent">What happened.</param>
-    /// <param name="scale">How many device-independent pixels a physical one is.</param>
     /// <returns>Whether the document did something with it.</returns>
-    public static bool Dispatch(UiDocument document, in PlatformEvent platformEvent, float scale) {
+    public static bool Dispatch(UiDocument document, in PlatformEvent platformEvent) {
         // ⚠ Stopwatch ticks, not milliseconds. The platform's clock is monotonic and its unit is
         // whatever the machine's high-resolution timer counts in — a hundred nanoseconds here, a
         // nanosecond there — so converting by the wrong constant gives a gesture recogniser whose
@@ -45,9 +44,7 @@ static class UiInput {
 
         switch (platformEvent.Kind) {
             case PlatformEventKind.MouseMoved:
-                document.Dispatch(
-                    Pointer(platformEvent, PointerAction.Moved, PointerButton.None, modifiers, when, scale)
-                );
+                document.Dispatch(Pointer(platformEvent, PointerAction.Moved, PointerButton.None, modifiers, when));
 
                 return true;
 
@@ -61,8 +58,7 @@ static class UiInput {
                             : PointerAction.Released,
                         Button(platformEvent.MouseButton),
                         modifiers,
-                        when,
-                        scale
+                        when
                     )
                 );
 
@@ -77,8 +73,8 @@ static class UiInput {
                 // one is the sample's, not the framework's.
                 document.Dispatch(
                     new WheelEvent {
-                        X = platformEvent.Position.X / scale,
-                        Y = platformEvent.Position.Y / scale,
+                        X = platformEvent.Position.X,
+                        Y = platformEvent.Position.Y,
                         DeltaX = -platformEvent.Delta.X * LineHeight,
                         DeltaY = -platformEvent.Delta.Y * LineHeight,
                         Timestamp = when
@@ -115,21 +111,25 @@ static class UiInput {
     /// <summary>How far one notch of the wheel scrolls, in device-independent pixels.</summary>
     const float LineHeight = 48f;
 
+    /// <remarks>
+    ///     ⚠ <b>Not scaled, and an earlier version of this divided by the DPI factor.</b> The
+    ///     platform reports pointer positions in <i>logical points</i> — the same space
+    ///     <c>IWindow.ClientSize</c> is in and the same space the document is laid out in — so there
+    ///     is nothing to convert. Dividing put every click at a fraction of where it was made, which
+    ///     showed up as hover highlighting the wrong control and read as a hit-testing bug in the
+    ///     framework rather than an arithmetic one in the host. The framebuffer is the only thing in
+    ///     physical pixels, and the only thing that needs the scale is the scissor.
+    /// </remarks>
     static PointerEvent Pointer(
         in PlatformEvent platformEvent,
         PointerAction action,
         PointerButton button,
         ModifierKeys modifiers,
-        TimeSpan when,
-        float scale
+        TimeSpan when
     ) =>
         new() {
-            // ⚠ Divided by the DPI scale. The window reports physical pixels and the document works
-            // in device-independent ones; feeding the first into the second puts every click at
-            // twice its position on a retina display, which looks like a hit-testing bug in the
-            // framework rather than a missing division in the host.
-            X = platformEvent.Position.X / scale,
-            Y = platformEvent.Position.Y / scale,
+            X = platformEvent.Position.X,
+            Y = platformEvent.Position.Y,
             Action = action,
             Button = button,
             Modifiers = modifiers,

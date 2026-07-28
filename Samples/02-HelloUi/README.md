@@ -103,6 +103,24 @@ These are the same four the golden-image fixture drives the renderer with, so th
 reference pictures cannot disagree about what the shaders do. Regenerating is
 `glslc Shaders/ui.vert -o Shaders/ui.vert.spv`.
 
+## Two spaces, and where they meet
+
+⚠ **The document is laid out in device-independent points; the framebuffer is physical pixels.** On
+this machine the window is 1280×800 points and 2560×1600 pixels, a DPI scale of two, and three things
+have to agree about which space they are in:
+
+| | |
+|---|---|
+| The document, the geometry and the pointer | **points** — `FramebufferSize / DpiScale`, and what SDL already reports positions in |
+| `UiRenderer.Record`'s `surface` | **points** — it is the extent the projection maps onto clip space |
+| `UiRenderer.Record`'s `scale` | how many pixels a point is — the scissor, and only the scissor, is in framebuffer pixels |
+
+Getting the first two wrong draws the whole interface into the top-left quarter of the window;
+getting the third wrong clips every scroll view to a quarter of its rectangle. Both did happen here,
+and the second is the one that has no visible cause: the pointer goes on hitting the controls where
+the *layout* says they are, so a mis-scaled projection reads as a renderer that is mysteriously
+small rather than as a unit mismatch. `UiImageTests.Scaled` is the picture that catches it.
+
 ## Known gaps
 
 - **`UiInput` lives here and should not.** `Vixen.Ui` is a `Core/` assembly and `Vixen.Platform` is

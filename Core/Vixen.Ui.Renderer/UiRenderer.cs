@@ -175,13 +175,38 @@ public sealed class UiRenderer : IDisposable {
     /// <summary>Records the frame. Called inside a render pass.</summary>
     /// <param name="commands">Where to record.</param>
     /// <param name="geometry">The frame's geometry, already uploaded.</param>
-    /// <param name="surface">The size of the target, in document pixels.</param>
-    public void Record(ICommandList commands, in UiGeometry geometry, Int2 surface) {
+    /// <param name="surface">
+    ///     The size of the target <b>in the geometry's own units</b> — the same rectangle the
+    ///     geometry was built against, not the framebuffer.
+    /// </param>
+    /// <param name="scale">
+    ///     How many framebuffer pixels one of those units is. One when the interface is laid out in
+    ///     physical pixels; the display's DPI scale when it is laid out in device-independent ones.
+    /// </param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two spaces, and they are only the same at 1:1.</b> The projection maps geometry
+    ///         units onto clip space and needs the geometry's extent; a scissor is submitted in
+    ///         framebuffer pixels and needs the framebuffer's. Handing the framebuffer size to a
+    ///         frame whose geometry is in device-independent units draws the whole interface into
+    ///         the top-left <c>1/scale</c> of the window — which reads as a renderer that is
+    ///         mysteriously small rather than as a unit mismatch, and takes the pointer with it,
+    ///         because hit testing is done against the layout and the layout is right.
+    ///     </para>
+    ///     <para>
+    ///         <b>The alternative was to scale the geometry instead</b>, and it is worse: the vertex
+    ///         positions are not the only thing in a geometry unit — the shape parameters a rounded
+    ///         box's signed distance is evaluated against are too — so scaling after the fact means
+    ///         scaling several things that must agree, in a builder that is otherwise a pure
+    ///         function of a draw list. Two numbers here cost one multiply per draw.
+    ///     </para>
+    /// </remarks>
+    public void Record(ICommandList commands, in UiGeometry geometry, Int2 surface, float scale = 1f) {
         ArgumentNullException.ThrowIfNull(commands);
 
         Draws = 0;
 
-        if (geometry.Indices.Count == 0 || surface.X <= 0 || surface.Y <= 0) {
+        if (geometry.Indices.Count == 0 || surface.X <= 0 || surface.Y <= 0 || scale <= 0f) {
             return;
         }
 
@@ -219,7 +244,7 @@ public sealed class UiRenderer : IDisposable {
                 shared = true;
             }
 
-            var scissor = Scissor(draw.Clip, surface);
+            var scissor = Scissor(draw.Clip, surface, scale);
 
             if (scissor.Width <= 0 || scissor.Height <= 0) {
                 // ⚠ Wholly clipped away — a panel scrolled off the edge, a tooltip for a window that
@@ -462,11 +487,36 @@ public sealed class UiRenderer : IDisposable {
     ///     past the surface — a panel scrolled half off the edge — and a scissor that does is a
     ///     validation error rather than a clamp on most drivers.
     /// </remarks>
-    static ScissorRect Scissor(Rectangle clip, Int2 surface) {
-        var left = Math.Clamp((int)MathF.Floor(clip.X), 0, surface.X);
-        var top = Math.Clamp((int)MathF.Floor(clip.Y), 0, surface.Y);
-        var right = Math.Clamp((int)MathF.Ceiling(clip.X + clip.Width), 0, surface.X);
-        var bottom = Math.Clamp((int)MathF.Ceiling(clip.Y + clip.Height), 0, surface.Y);
+    /// <summary>Turns a clip in geometry units into a scissor in framebuffer pixels.</summary>
+    /// <param name="clip">The clip, in the same units as the geometry.</param>
+    /// <param name="surface">The geometry's extent, in its own units.</param>
+    /// <param name="scale">How many framebuffer pixels one of those units is.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the one place the two spaces are not the same, which is why the scale is
+    ///         a parameter and not an assumption.</b> The projection above is a pure mapping from
+    ///         geometry units to clip space and does not care how big a pixel is; a scissor is
+    ///         submitted to Vulkan in <i>framebuffer</i> pixels and cares about nothing else. They
+    ///         are equal at 1:1 and only at 1:1 — so an interface laid out in device-independent
+    ///         units on a display that has two pixels per unit draws at the right size and clips to
+    ///         a quarter of the right rectangle, which looks like scroll views eating their content
+    ///         rather than like a DPI mistake.
+    ///     </para>
+    ///     <para>
+    ///         Outward, deliberately: floor the near edges and ceil the far ones <i>after</i>
+    ///         scaling. A scissor rounded inward on a fractional scale loses a pixel of the very
+    ///         edge it was asked to keep, and a UI is full of one-pixel borders sitting exactly on
+    ///         a clip boundary.
+    ///     </para>
+    /// </remarks>
+    static ScissorRect Scissor(Rectangle clip, Int2 surface, float scale) {
+        var width = (int)MathF.Ceiling(surface.X * scale);
+        var height = (int)MathF.Ceiling(surface.Y * scale);
+
+        var left = Math.Clamp((int)MathF.Floor(clip.X * scale), 0, width);
+        var top = Math.Clamp((int)MathF.Floor(clip.Y * scale), 0, height);
+        var right = Math.Clamp((int)MathF.Ceiling((clip.X + clip.Width) * scale), 0, width);
+        var bottom = Math.Clamp((int)MathF.Ceiling((clip.Y + clip.Height) * scale), 0, height);
 
         return new(left, top, right - left, bottom - top);
     }
