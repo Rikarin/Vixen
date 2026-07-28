@@ -116,6 +116,74 @@ public abstract partial class Control : UiElement {
         AddHandler<TextInputEvent>(static (element, args) => Refuse((Control) element, args), RoutingStrategy.Capture);
     }
 
+    Action<UiDocument>? resized;
+    float laidOutWidth = float.NaN;
+    float laidOutHeight = float.NaN;
+
+    /// <summary>Runs something after any layout pass in which this control's box changed size.</summary>
+    /// <param name="handler">What to run. Called with the new size already in <c>Width</c>/<c>Height</c>.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="handler" /> is null.</exception>
+    /// <exception cref="InvalidOperationException">This control is already watching its size.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What every virtualiser in the set needed and had to be asked for.</b> A row count is
+    ///         a fact about the viewport's height and a scroll range a fact about the content's, both
+    ///         results of the pass rather than inputs to it — so a control that realised in a property
+    ///         setter realised against the previous frame's boxes, and a resize with no other change
+    ///         left it stale until a caller thought to say <c>Refresh</c>. This is that caller.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Gated on the size, and that is the whole point of it rather than a nicety.</b>
+    ///         <see cref="UiDocument.LayoutFinished" /> is raised every frame that anything changed,
+    ///         and the refreshes hung on it are not free — <c>CodeEditor</c>'s walks every line in the
+    ///         buffer. Two float comparisons is what a control should cost in the frames where its box
+    ///         did not move, which is nearly all of them. A control whose refresh must run on every
+    ///         pass regardless — <c>ScrollView</c>, whose range depends on its content and not on
+    ///         itself — subscribes to the event directly and says so.
+    ///     </para>
+    ///     <para>
+    ///         The handler may change the document; that is what the settle loop is for. It may not
+    ///         call <see cref="UiDocument.Update" /> to see the result, and does not need to: a nested
+    ///         call is refused and the loop runs the pass and calls back.
+    ///     </para>
+    /// </remarks>
+    protected void WhenResized(Action handler) {
+        ArgumentNullException.ThrowIfNull(handler);
+
+        if (resized is not null) {
+            throw new InvalidOperationException(
+                "This control is already watching its size. One handler is enough — a second would run "
+                + "in an order nothing decides, and the two would disagree about which had realised."
+            );
+        }
+
+        resized = _ => {
+            // ⚠ Bit-for-bit rather than an epsilon. A box that moved by a thousandth of a pixel has
+            // not changed what a virtualiser realises, but a comparison with slack is one that stops
+            // firing while a splitter is dragged slowly, which is exactly when it is needed.
+            if (Width.Equals(laidOutWidth) && Height.Equals(laidOutHeight)) {
+                return;
+            }
+
+            laidOutWidth = Width;
+            laidOutHeight = Height;
+
+            handler();
+        };
+
+        Document.LayoutFinished += resized;
+    }
+
+    /// <inheritdoc />
+    protected override void OnRemoved() {
+        if (resized is not null) {
+            Document.LayoutFinished -= resized;
+            resized = null;
+        }
+
+        base.OnRemoved();
+    }
+
     /// <summary>Stops an event at a disabled control.</summary>
     /// <remarks>
     ///     ⚠ <b>Marked handled rather than dropped</b>, because the route continues either way — the

@@ -2494,8 +2494,11 @@ sub-piece has its own gate.
   elements. The grid half asserts multi-object writes, the mixed-value states, the numeric
   conversion back to a member's own type, and reset-to-default.
 
-  ⚠ **Still owed:** rows and scroll ranges are one layout pass behind a *resize* — `Refresh()` is
-  today's answer and a "layout finished" callback on `UiDocument` is the real one; floating groups
+  ⚠ **Still owed:** ~~rows and scroll ranges are one layout pass behind a *resize*~~ — closed by
+  `UiDocument.LayoutFinished` and `Control.WhenResized`, and the enabling piece turned out to be a
+  re-entrancy guard on `Update`: three of these controls run a pass inside their own `Refresh`, so
+  hanging that `Refresh` on the callback recursed into the settle loop from underneath itself and
+  reset the budget meant to bound it; floating groups
   float within the document rather than in an OS window of their own, which is `Vixen.Platform`'s
   half; `StyleTree.AppendChild` is O(children) per append, which virtualisation keeps every control
   here clear of and a `DataGrid` may not be; and nested struct members are shown read-only, because
@@ -2836,8 +2839,10 @@ the shipping projects; a `.rvn` edit reparsing incrementally; the differential o
   `Viewport` draws a real render target, which is what the editor's scene panel is; `CodeEditor` does
   not wrap and its caret does not blink, both for want of things the framework has not got yet;
   `OkLch.ToSrgb` clamps per
-  channel, which shifts the hue where real gamut mapping would walk the chroma down; and every one of
-  these controls is still one layout pass behind a resize, for the reason Phase 4e recorded.
+  channel, which shifts the hue where real gamut mapping would walk the chroma down; and ~~every one
+  of these controls is still one layout pass behind a resize~~ — all six are on
+  `UiDocument.LayoutFinished` now, five of them through `Control.WhenResized`, which gates on the box
+  having actually changed size because `CodeEditor.Refresh` walks every line in the buffer.
 - Asset editors: texture, model, material, scene, prefab, shader, UI, addressable groups, graphics
   compositor.
 - `Vixen.Editor.Profiler` + `.Debugger` (frame graph, frame debugger, memory view, remote inspector).

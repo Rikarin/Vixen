@@ -237,9 +237,13 @@ Each of these cost an afternoon and none of them shows up as an error:
 
 Said out loud rather than left to be discovered:
 
-- **Rows and scroll ranges are one layout pass behind a resize.** `Refresh()` is the answer today;
-  the real fix is a "layout finished" callback on `UiDocument`, which `ScrollView`, `TreeView`,
-  `DataGrid`, `CodeEditor`, `NodeCanvas` and `Viewport` all want for the same reason.
+- ~~**Rows and scroll ranges are one layout pass behind a resize.**~~ `UiDocument.LayoutFinished`
+  exists and all six controls are on it. `ScrollView` subscribes directly, because its range is a
+  fact about its content rather than about itself; `TreeView`, `DataGrid`, `CodeEditor`, `NodeCanvas`
+  and `Viewport` go through `Control.WhenResized`, which gates on the box actually having changed
+  size — `CodeEditor.Refresh` walks every line in the buffer, and a frame where nothing moved should
+  cost two float comparisons. `Refresh()` stays public on all of them for the caller who has just
+  filled a control and wants to read a box before the next pass.
 - **No undo, anywhere.** An undo stack inside a text control can only undo typing, and every
   application that has one wants it to cover more. `CodeBuffer.Changed`, `NodeGraph.Changed`,
   `AnimationCurve.Changed` and `Gradient.Changed` are the seams such a stack subscribes to.

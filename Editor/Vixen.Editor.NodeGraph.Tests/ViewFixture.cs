@@ -74,12 +74,6 @@ sealed class ViewFixture : IDisposable {
         View.Graph = graph;
 
         Update();
-
-        // ⚠ Twice, and the second is not superstition: NodeCanvas realises against the size it had
-        // when it last realised, and on the first pass through a fresh document that size is zero.
-        // The same gap TreeView and ScrollView have, and the same workaround.
-        Canvas.Refresh();
-        Update();
     }
 
     public void Update() {
