@@ -159,6 +159,7 @@ public sealed class Crowd {
         avoidance = new(avoidanceSettings);
         grid = new(4f);
         pathBuffer = new NavPolyRef[maxPathLength];
+        Paths = new(mesh, maximumPathLength: maxPathLength);
     }
 
     /// <summary>The mesh the agents walk on.</summary>
@@ -172,6 +173,25 @@ public sealed class Crowd {
 
     /// <summary>The longest corridor an agent may hold.</summary>
     public int MaxPathLength { get; }
+
+    /// <summary>Where the searches happen, a slice at a time.</summary>
+    /// <remarks>
+    ///     Exposed so a game can watch it — <see cref="NavPathQueue.PendingCount" /> is how many agents
+    ///     are waiting to be told where to go, which is a useful thing to put on a debug overlay when
+    ///     a crowd looks hesitant.
+    /// </remarks>
+    public NavPathQueue Paths { get; }
+
+    /// <summary>
+    ///     How many polygon expansions the queue may do per update, across every search in flight.
+    /// </summary>
+    /// <remarks>
+    ///     The frame budget for pathfinding, in the only unit that means anything: a polygon expansion
+    ///     is about a tenth of a microsecond, so the default is a few tens of microseconds a frame
+    ///     however many agents are asking. Raise it for a crowd that must react instantly; lower it
+    ///     for one that can afford to think.
+    /// </remarks>
+    public int PathIterationsPerUpdate { get; set; } = 256;
 
     /// <summary>How many agents there are.</summary>
     public int AgentCount => active.Count;
@@ -204,6 +224,7 @@ public sealed class Crowd {
 
         var agent = agents[slot];
         agent.Generation = nextGeneration++;
+        agent.Request = NavPathRequest.Null;
         agent.Active = true;
         agent.Params = parameters;
         agent.Position = point;
@@ -227,6 +248,8 @@ public sealed class Crowd {
             return false;
         }
 
+        Paths.Cancel(agent.Request);
+        agent.Request = NavPathRequest.Null;
         agent.Active = false;
         active.Remove(handle.Index);
         freeSlots.Add(handle.Index);
@@ -243,6 +266,10 @@ public sealed class Crowd {
             return false;
         }
 
+        // Whatever was being searched for is now the wrong question.
+        Paths.Cancel(agent.Request);
+        agent.Request = NavPathRequest.Null;
+
         agent.Target = target;
         agent.State = CrowdTargetState.Requested;
 
@@ -257,6 +284,8 @@ public sealed class Crowd {
             return false;
         }
 
+        Paths.Cancel(agent.Request);
+        agent.Request = NavPathRequest.Null;
         agent.State = CrowdTargetState.None;
         agent.Target = agent.Position;
         agent.OffMeshTotal = 0f;
@@ -391,6 +420,8 @@ public sealed class Crowd {
             return;
         }
 
+        Paths.Update(PathIterationsPerUpdate);
+
         Plan();
         Populate();
         Traverse(deltaTime);
@@ -461,10 +492,31 @@ public sealed class Crowd {
         }
     }
 
-    /// <summary>Gives a path to everybody who asked for one.</summary>
+    /// <summary>Submits the searches that are wanted, and collects the ones that are done.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         An agent that has asked for a path does not get one this update, and that is the point:
+    ///         the search goes into <see cref="Paths" /> and comes back a few updates later, so a
+    ///         crowd that is all given a new destination at once costs the frame a budget rather than
+    ///         a search per agent. Two hundred and fifty-six agents replanning together is three and a
+    ///         half milliseconds if it is done inline, which is more than everything else the crowd
+    ///         does put together.
+    ///     </para>
+    ///     <para>
+    ///         In the meantime the agent keeps walking the corridor it already had. That is the right
+    ///         behaviour and not a compromise: it was going somewhere sensible a moment ago, and
+    ///         stopping dead while it thinks is what makes a crowd look like a computer program.
+    ///     </para>
+    /// </remarks>
     void Plan() {
         foreach (var slot in active) {
             var agent = agents[slot];
+
+            if (!agent.Request.IsNull) {
+                Collect(agent);
+
+                continue;
+            }
 
             // An agent on a connection has a corridor that already starts at the far end. Replanning
             // from a position half-way up a ladder would search from the polygon it is about to land
@@ -480,20 +532,52 @@ public sealed class Crowd {
                 continue;
             }
 
-            var status = Query.FindPath(start, end, startPoint, endPoint, Filter, pathBuffer, out var count);
+            var request = Paths.Submit(start, end, startPoint, endPoint, Filter);
 
-            if (status == NavPathStatus.Failed || count == 0) {
-                agent.State = CrowdTargetState.Failed;
-
+            if (request.IsNull) {
+                // The queue is full. The agent keeps whatever corridor it has and asks again next
+                // update, which is what a refusal is for.
                 continue;
             }
 
-            agent.Position = startPoint;
-            agent.Poly = start;
-            agent.Corridor.Reset(start, startPoint);
-            agent.Corridor.SetPath(endPoint, pathBuffer.AsSpan(0, count));
-            agent.State = CrowdTargetState.Following;
+            agent.Request = request;
+            agent.RequestStart = start;
+            agent.RequestStartPosition = startPoint;
+            agent.RequestEndPosition = endPoint;
         }
+    }
+
+    /// <summary>Takes a finished search and turns it into the agent's corridor.</summary>
+    void Collect(Agent agent) {
+        if (Paths.GetState(agent.Request) != NavPathRequestState.Ready) {
+            return;
+        }
+
+        if (!Paths.TryTakeResult(agent.Request, pathBuffer, out var count, out var status)) {
+            agent.Request = NavPathRequest.Null;
+
+            return;
+        }
+
+        agent.Request = NavPathRequest.Null;
+
+        if (status == NavPathStatus.Failed || count == 0) {
+            agent.State = CrowdTargetState.Failed;
+
+            return;
+        }
+
+        // The corridor starts where the search did, which is where the agent was when it asked — and
+        // it has been walking since. So the corridor is walked up to where the agent actually is
+        // rather than the agent being put back where the corridor starts, which would yank it
+        // backwards by however far it got while the queue was busy.
+        agent.Corridor.Reset(agent.RequestStart, agent.RequestStartPosition);
+        agent.Corridor.SetPath(agent.RequestEndPosition, pathBuffer.AsSpan(0, count));
+        agent.Corridor.MovePosition(agent.Position, Query, Filter);
+
+        agent.Position = agent.Corridor.Position;
+        agent.Poly = agent.Corridor.FirstPoly;
+        agent.State = CrowdTargetState.Following;
     }
 
     /// <summary>Rebuilds the neighbour grid.</summary>
@@ -771,5 +855,13 @@ public sealed class Crowd {
         public Vector3 OffMeshEnd { get; set; }
 
         public uint OffMeshUserId { get; set; }
+
+        public NavPathRequest Request { get; set; } = NavPathRequest.Null;
+
+        public NavPolyRef RequestStart { get; set; }
+
+        public Vector3 RequestStartPosition { get; set; }
+
+        public Vector3 RequestEndPosition { get; set; }
     }
 }

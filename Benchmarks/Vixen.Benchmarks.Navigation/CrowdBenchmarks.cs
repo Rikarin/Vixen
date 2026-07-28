@@ -48,6 +48,13 @@ public class CrowdBenchmarks {
     [Params(true, false)]
     public bool Avoidance { get; set; }
 
+    /// <summary>
+    ///     How many polygon expansions the path queue may do per update. The large value is what
+    ///     planning inline used to cost, because it lets the queue answer everything at once.
+    /// </summary>
+    [Params(256, 1_000_000)]
+    public int PathBudget { get; set; }
+
     [GlobalSetup]
     public void Setup() {
         const float Size = 80f;
@@ -86,6 +93,28 @@ public class CrowdBenchmarks {
     /// <summary>One frame at sixty hertz.</summary>
     [Benchmark]
     public void Update() => Step();
+
+    /// <summary>
+    ///     The frame in which every agent is given a new destination at once — a door opening, an
+    ///     alarm, a player being spotted.
+    /// </summary>
+    /// <remarks>
+    ///     This is the frame `NavPathQueue` exists for, and the only one where it shows. Raise
+    ///     <see cref="Crowd.PathIterationsPerUpdate" /> far enough and the queue answers everything in
+    ///     the update that asked, which is what planning inline used to cost; leave it at the default
+    ///     and the same storm costs a budget.
+    /// </remarks>
+    [Benchmark]
+    public void RetargetStorm() {
+        crowd.PathIterationsPerUpdate = PathBudget;
+
+        foreach (var handle in handles) {
+            crowd.TryGetState(handle, out var state);
+            crowd.SetTarget(handle, state.Target == north ? south : north);
+        }
+
+        crowd.Update(1f / 60f);
+    }
 
     void Step() {
         crowd.Update(1f / 60f);

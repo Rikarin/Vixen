@@ -23,7 +23,8 @@ baking as a build step, agents, avoidance"*.
 | `Baking/NavMeshBaker` | The pipeline in order, single-tile and tiled, with the tile margin that makes tiles connect. |
 | `NavMesh`, `NavMeshTileData` | Tiles that can be added and removed while agents stand on them; salted references; links across tile borders. |
 | `NavMeshAsset` | A whole baked mesh as one serialisable value — what a build writes and a player loads. |
-| `NavMeshQuery` | Nearest polygon, A\*, funnel string-pulling, surface raycast, move-along-surface. |
+| `NavMeshQuery` | Nearest polygon, A\*, funnel string-pulling, surface raycast, move-along-surface — whole or sliced. |
+| `Agents/NavPathQueue` | Searches run a slice at a time against a frame budget, so a crowd changing its mind costs a budget rather than a search each. |
 | `NavQueryFilter` | Area costs and capability flags — the two independent questions a filter asks. |
 | `Agents/PathCorridor` | The polygons an agent is inside, trimmed as it moves and straightened by raycast. |
 | `Agents/LocalAvoidance` | Sampled reciprocal velocity obstacles. |
@@ -115,6 +116,34 @@ zero samples and zero weights returns the desired velocity unchanged, which look
 avoidance that has decided there is nothing to avoid. It cost an afternoon; the shape here cannot
 reproduce it.
 
+## One A\*, run either way
+
+A search across an eighty-metre level is about thirteen microseconds, which is fine — and 256 agents
+given a new destination in the same update is three and a half milliseconds, which is not. It is more
+than the entire rest of the crowd, it lands in one frame, and it lands exactly when something
+interesting has just happened in the game.
+
+So the search is an incremental one — `InitSlicedFindPath`, `UpdateSlicedFindPath(iterations)`,
+`FinalizeSlicedFindPath` — and `NavPathQueue` runs it against a budget shared between however many
+searches are in flight. `Crowd` plans through the queue: an agent that asks for a path gets one a few
+updates later and **keeps walking its old corridor in the meantime**, which is both cheaper and
+better-looking than stopping dead while it thinks.
+
+**There is one A\* here, not two.** `FindPath` is the sliced search run to completion, so the
+synchronous answer cannot drift from the sliced one — and a test asserts they produce the same
+corridor, polygon for polygon, when the same search is run four expansions at a time.
+
+**It is a budget, not a thread.** No job scheduling, no locks, and the same answer every run, which
+is what the content build and every test here depend on. A query per job is a change the queue can
+absorb later without a caller noticing, because what a caller sees is a request handle.
+
+**And it moved the bottleneck rather than removing it**, which the benchmark says plainly: 256 agents
+retargeting at once now costs about 480 µs whether the budget is 256 expansions or a million, because
+what the frame is spending its time on is the two `FindNearestPoly` calls each agent makes to resolve
+its own ends before it can even ask. 3.5 ms of searching became 0.5 ms of lookups. The next lever is
+those lookups — an agent already knows the polygon under it — and it is written down rather than
+done, because nothing yet needs it.
+
 ## Merging regions, and the number that says how much it was worth
 
 `RegionMerge` absorbs a region smaller than `MergeRegionArea` into the smallest neighbour that will
@@ -191,9 +220,9 @@ where the cost of a crowd actually is.
 - **Dynamic obstacles.** A crate dropped on the floor means rebaking its tile. There is no tile cache
   and no obstacle carving. Closing a route with `NavMesh.SetPolyFlags` is the cheap half and works
   today.
-- **Asynchronous pathfinding.** `NavMeshQuery` is one per thread and every search runs to completion
-  inside the frame that asked for it. A crowd of a few hundred is fine; a thousand agents replanning
-  in the same frame wants a sliced queue, which is where `Vixen.Core.Threading` comes in.
+- **Pathfinding on another thread.** The queue slices the work but runs it on the caller's thread. A
+  query per job through `Vixen.Core.Threading` is the next step and needs nothing new from the API —
+  a request handle already hides where the work happened.
 - **The scene is not a bake input.** The importer bakes the collision mesh a `.vxnavmesh` names. What
   it cannot yet do is bake *a scene* — every static collider in it, at its placed transform — because
   that needs the scene compiler doc 08 splits out and which does not exist. Naming a merged collision

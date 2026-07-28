@@ -66,6 +66,16 @@ public sealed class NavMeshQuery {
     readonly IndexedPriorityQueue<float> open = new();
     readonly List<Node> nodes = [];
 
+    NavQueryFilter searchFilter = NavQueryFilter.Default;
+    NavPolyRef searchStart;
+    NavPolyRef searchEnd;
+    Vector3 searchEndPosition;
+    NavPathStatus searchStatus = NavPathStatus.Failed;
+    int searchBest;
+    float searchBestHeuristic;
+    bool searchReached;
+    bool searchTrivial;
+
     /// <summary>Creates a query over a mesh.</summary>
     /// <param name="mesh">The mesh.</param>
     /// <exception cref="ArgumentNullException"><paramref name="mesh" /> is null.</exception>
@@ -228,23 +238,72 @@ public sealed class NavMeshQuery {
         Span<NavPolyRef> path,
         out int count
     ) {
-        ArgumentNullException.ThrowIfNull(filter);
-
         count = 0;
-        LastSearchNodes = 0;
 
-        if (!Mesh.IsValid(start) || !Mesh.IsValid(end) || path.IsEmpty) {
+        // The whole search, expressed as the sliced one run to completion. There is one A* here, not
+        // two: a second copy would be the one that quietly stopped agreeing with the first.
+        if (InitSlicedFindPath(start, end, startPosition, endPosition, filter) == NavPathStatus.Failed) {
             return NavPathStatus.Failed;
         }
 
+        UpdateSlicedFindPath(int.MaxValue, out _);
+
+        return FinalizeSlicedFindPath(path, out count);
+    }
+
+    /// <summary>Starts a search that can be run a little at a time.</summary>
+    /// <param name="start">The polygon to start on.</param>
+    /// <param name="end">The polygon to reach.</param>
+    /// <param name="startPosition">Where on the start polygon.</param>
+    /// <param name="endPosition">Where on the end polygon.</param>
+    /// <param name="filter">Which polygons may be crossed, and what crossing them costs.</param>
+    /// <returns><see cref="NavPathStatus.Failed" /> if there is nothing to search for.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         A search costs about as much as a frame can spare and a <i>crowd</i> of searches costs
+    ///         much more than that: two hundred and fifty-six agents replanning in the same update is
+    ///         three milliseconds of pathfinding at the measured cost per search, which is more than
+    ///         the rest of the crowd put together. Slicing turns that into a queue with a budget —
+    ///         see <see cref="Agents.NavPathQueue" />.
+    ///     </para>
+    ///     <para>
+    ///         One search at a time per query, as in Detour. The state is the node pool and the open
+    ///         list, and there is one of each; running two searches at once means two queries, which
+    ///         is what the queue holds.
+    ///     </para>
+    /// </remarks>
+    public NavPathStatus InitSlicedFindPath(
+        NavPolyRef start,
+        NavPolyRef end,
+        Vector3 startPosition,
+        Vector3 endPosition,
+        NavQueryFilter filter
+    ) {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        LastSearchNodes = 0;
+        searchFilter = filter;
+        searchEnd = end;
+        searchEndPosition = endPosition;
+        searchReached = false;
+        searchStart = start;
+
+        if (!Mesh.IsValid(start) || !Mesh.IsValid(end)) {
+            searchStatus = NavPathStatus.Failed;
+
+            return NavPathStatus.Failed;
+        }
+
+        ResetSearch();
+
         if (start == end) {
-            path[0] = start;
-            count = 1;
+            searchStatus = NavPathStatus.Complete;
+            searchTrivial = true;
 
             return NavPathStatus.Complete;
         }
 
-        ResetSearch();
+        searchTrivial = false;
 
         var startNode = CreateNode(start, startPosition, -1);
 
@@ -260,77 +319,74 @@ public sealed class NavMeshQuery {
 
         open.Enqueue(startNode, nodes[startNode].Total);
 
-        var lastBest = startNode;
-        var lastBestHeuristic = nodes[startNode].Total;
-        var reached = false;
+        searchBest = startNode;
+        searchBestHeuristic = nodes[startNode].Total;
+        searchStatus = NavPathStatus.Partial;
 
-        while (open.TryDequeue(out var current, out _)) {
-            var node = nodes[current];
+        return NavPathStatus.Partial;
+    }
+
+    /// <summary>Runs a started search for a while.</summary>
+    /// <param name="maximumIterations">How many polygons it may expand before returning.</param>
+    /// <param name="performed">How many it actually expanded.</param>
+    /// <returns>
+    ///     <see cref="NavPathStatus.Partial" /> while there is more to do, and <see cref="NavPathStatus.Complete" />
+    ///     or <see cref="NavPathStatus.Failed" /> once there is not.
+    /// </returns>
+    public NavPathStatus UpdateSlicedFindPath(int maximumIterations, out int performed) {
+        performed = 0;
+
+        if (searchStatus != NavPathStatus.Partial || searchTrivial) {
+            return searchStatus;
+        }
+
+        while (performed < maximumIterations && open.TryDequeue(out var current, out _)) {
+            performed++;
             LastSearchNodes++;
 
-            if (node.Poly == end) {
-                lastBest = current;
-                reached = true;
+            var node = nodes[current];
 
-                break;
+            if (node.Poly == searchEnd) {
+                searchBest = current;
+                searchReached = true;
+                searchStatus = NavPathStatus.Complete;
+
+                return searchStatus;
             }
 
-            var parentPoly = node.Parent >= 0 ? nodes[node.Parent].Poly : NavPolyRef.Null;
+            Expand(current, in node);
+        }
 
-            foreach (var neighbour in Mesh.Neighbours(node.Poly)) {
-                if (neighbour.Reference == parentPoly) {
-                    continue;
-                }
+        if (open.IsEmpty) {
+            // Everything reachable has been looked at and the destination was not among it. The
+            // answer is the polygon that got closest, which is a path an agent can usefully walk.
+            searchStatus = NavPathStatus.Complete;
+        }
 
-                if (!Mesh.TryGetPolyAttributes(neighbour.Reference, out var area, out var flags) || !filter.Passes(flags)) {
-                    continue;
-                }
+        return searchStatus;
+    }
 
-                var index = GetOrCreateNode(neighbour.Reference, node.Poly, current);
-                var neighbourNode = nodes[index];
+    /// <summary>Reads back the path a finished search found.</summary>
+    /// <param name="path">Where to write the polygons, start first.</param>
+    /// <param name="count">How many were written.</param>
+    /// <returns>How much of the path was found.</returns>
+    public NavPathStatus FinalizeSlicedFindPath(Span<NavPolyRef> path, out int count) {
+        count = 0;
 
-                float cost;
-                float heuristic;
+        if (searchStatus == NavPathStatus.Failed || path.IsEmpty) {
+            return NavPathStatus.Failed;
+        }
 
-                if (neighbour.Reference == end) {
-                    // The last step is measured to the actual destination rather than to the far
-                    // edge of the last polygon, or a path that ends in a large polygon would be
-                    // chosen by where its edge is rather than by where the caller is going.
-                    cost = node.Cost
-                        + (NavGeometry.Distance2D(node.Position, neighbourNode.Position) * filter.GetAreaCost(area))
-                        + (NavGeometry.Distance2D(neighbourNode.Position, endPosition) * filter.GetAreaCost(area));
+        if (searchTrivial) {
+            path[0] = searchStart;
+            count = 1;
 
-                    heuristic = 0f;
-                } else {
-                    cost = node.Cost + (NavGeometry.Distance2D(node.Position, neighbourNode.Position) * filter.GetAreaCost(area));
-                    heuristic = NavGeometry.Distance2D(neighbourNode.Position, endPosition) * HeuristicScale;
-                }
-
-                var total = cost + heuristic;
-
-                if (neighbourNode.Visited && total >= neighbourNode.Total) {
-                    continue;
-                }
-
-                nodes[index] = neighbourNode with {
-                    Cost = cost,
-                    Total = total,
-                    Parent = current,
-                    Visited = true
-                };
-
-                open.SetPriority(index, total);
-
-                if (heuristic < lastBestHeuristic) {
-                    lastBestHeuristic = heuristic;
-                    lastBest = index;
-                }
-            }
+            return NavPathStatus.Complete;
         }
 
         var length = 0;
 
-        for (var walk = lastBest; walk >= 0; walk = nodes[walk].Parent) {
+        for (var walk = searchBest; walk >= 0; walk = nodes[walk].Parent) {
             length++;
         }
 
@@ -343,7 +399,7 @@ public sealed class NavMeshQuery {
         var write = count - 1;
         var skip = length - count;
 
-        for (var walk = lastBest; walk >= 0; walk = nodes[walk].Parent) {
+        for (var walk = searchBest; walk >= 0; walk = nodes[walk].Parent) {
             if (skip-- > 0) {
                 continue;
             }
@@ -355,7 +411,7 @@ public sealed class NavMeshQuery {
             return NavPathStatus.Partial;
         }
 
-        return reached && nodes[lastBest].Poly == end ? NavPathStatus.Complete : NavPathStatus.Partial;
+        return searchReached && nodes[searchBest].Poly == searchEnd ? NavPathStatus.Complete : NavPathStatus.Partial;
     }
 
     /// <summary>Pulls a corridor of polygons straight, into the corners an agent turns at.</summary>
@@ -674,6 +730,61 @@ public sealed class NavMeshQuery {
         }
 
         return true;
+    }
+
+    /// <summary>Relaxes every neighbour of a polygon the search has just expanded.</summary>
+    void Expand(int current, ref readonly Node node) {
+        var parentPoly = node.Parent >= 0 ? nodes[node.Parent].Poly : NavPolyRef.Null;
+
+        foreach (var neighbour in Mesh.Neighbours(node.Poly)) {
+            if (neighbour.Reference == parentPoly) {
+                continue;
+            }
+
+            if (!Mesh.TryGetPolyAttributes(neighbour.Reference, out var area, out var flags) || !searchFilter.Passes(flags)) {
+                continue;
+            }
+
+            var index = GetOrCreateNode(neighbour.Reference, node.Poly, current);
+            var neighbourNode = nodes[index];
+
+            float cost;
+            float heuristic;
+
+            if (neighbour.Reference == searchEnd) {
+                // The last step is measured to the actual destination rather than to the far edge of
+                // the last polygon, or a path that ends in a large polygon would be chosen by where
+                // its edge is rather than by where the caller is going.
+                cost = node.Cost
+                    + (NavGeometry.Distance2D(node.Position, neighbourNode.Position) * searchFilter.GetAreaCost(area))
+                    + (NavGeometry.Distance2D(neighbourNode.Position, searchEndPosition) * searchFilter.GetAreaCost(area));
+
+                heuristic = 0f;
+            } else {
+                cost = node.Cost + (NavGeometry.Distance2D(node.Position, neighbourNode.Position) * searchFilter.GetAreaCost(area));
+                heuristic = NavGeometry.Distance2D(neighbourNode.Position, searchEndPosition) * HeuristicScale;
+            }
+
+            var total = cost + heuristic;
+
+            if (neighbourNode.Visited && total >= neighbourNode.Total) {
+                continue;
+            }
+
+            nodes[index] = neighbourNode with {
+                Cost = cost,
+                Total = total,
+                Parent = current,
+                Visited = true
+            };
+
+            open.SetPriority(index, total);
+
+            if (heuristic < searchBestHeuristic) {
+                searchBestHeuristic = heuristic;
+                searchBest = index;
+            }
+        }
     }
 
     static Vector3 ClosestPointOnPoly(ReadOnlySpan<Vector3> poly, Vector3 position) {

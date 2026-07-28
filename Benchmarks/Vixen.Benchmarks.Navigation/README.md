@@ -22,7 +22,7 @@ several times. A benchmark over an empty floor would measure a single polygon an
 |---|---|
 | `BakeBenchmarks` | The content-build cost, at two cell sizes and two level sizes, single-tile against tiled. This is the number that decides whether rebaking a tile is something an editor can do while somebody drags a crate about. |
 | `QueryBenchmarks` | Nearest-polygon, A\*, the funnel over its result, and a raycast across the level. One agent changing its mind costs a `FindPath`; one agent walking costs a `FindStraightPath` over a corridor it already has. |
-| `CrowdBenchmarks` | A whole frame for 16, 64 and 256 agents, with avoidance on and off — because avoidance is the term that scales with density rather than with population. |
+| `CrowdBenchmarks` | A whole frame for 16, 64 and 256 agents, with avoidance on and off — because avoidance is the term that scales with density rather than with population. `RetargetStorm` is the other frame that matters: the one where every agent is given a new destination at once. |
 
 **Allocated is the column to read first.** Every query and crowd case is expected to be **0 B**;
 `NavigationAllocationTests` is the gate that fails the build if it is not, and this is where the same
@@ -47,9 +47,17 @@ a background collection lands inside an iteration — and the mean follows it wh
 
 | Agents | Avoidance off | Avoidance on | Allocated |
 |---|---|---|---|
-| 16 | 12.7 µs | 33 µs | **0 B** |
-| 64 | 44 µs | 313 µs | **0 B** |
-| 256 | 255 µs | 1.59 ms | **0 B** |
+| 16 | 7 µs | 20 µs | **0 B** |
+| 64 | 55 µs | 206 µs | **0 B** |
+| 256 | 264 µs | 1.59 ms | **0 B** |
+
+**The frame where everybody is given a new destination at once**, on the 80 m level:
+
+| Agents | Budget 256 | Budget 1 000 000 | Allocated |
+|---|---|---|---|
+| 16 | 25 µs | 26 µs | **0 B** |
+| 64 | 108 µs | 107 µs | **0 B** |
+| 256 | 480 µs | 466 µs | **0 B** |
 
 **A bake**, which is a build step rather than a frame:
 
@@ -75,6 +83,19 @@ does, is a neighbour cap rather than fewer samples.
 should. A tile bake costs 20–40 % more than the same level in one piece, which is the margin each tile
 voxelises outside itself — and what it buys is that a rebuild after somebody moves a crate touches one
 tile instead of the level.
+
+**The retarget storm is no longer bounded by pathfinding, and the budget barely shows.** That is the
+interesting result, and it is not the one that was predicted. Two hundred and fifty-six agents
+retargeting at once costs 480 µs whether the queue may do 256 expansions or a million — because the
+searches are no longer what the frame is spending its time on. Two things now cap it: the queue holds
+64 outstanding requests, so only 64 searches can even be submitted in one update; and *before*
+submitting, each agent does two `FindNearestPoly` calls to resolve its ends, at ~0.9 µs each on this
+level. 256 × 2 × 0.9 µs ≈ 470 µs, which is the number in the table almost exactly.
+
+So the spike went from ~3.5 ms of A\* to ~0.5 ms of endpoint lookups, and the next lever is the
+lookups rather than the search: an agent already knows the polygon it is standing on, and the
+destination's polygon could be resolved once by whoever set the destination rather than once per
+retarget. Worth doing when something needs it; worth knowing now.
 
 **A raycast does not care how big the level is.** It walks polygons along a line, and the line in this
 test crosses about the same number of them either way; the search beside it is 4.5× slower on the

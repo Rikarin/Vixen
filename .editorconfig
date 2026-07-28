@@ -432,3 +432,18 @@ dotnet_diagnostic.CA1051.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Navigation/NavQueryFilter.cs]
 dotnet_diagnostic.CA1711.severity = none
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Navigation/Agents/NavPathQueue.cs
+#
+# CA1711 (identifiers should not have incorrect suffix). The rule reserves the
+# `Queue` suffix for types implementing IEnumerable. This one is a queue of
+# *requests* in the ordinary sense of the word — submit, wait, collect — and is
+# deliberately not enumerable: what it holds are slots with generations, and
+# handing them out as a sequence would invite iteration over results whose
+# lifetime is "until somebody takes them". Detour calls the same thing a path
+# queue, which is what anybody looking for it will search for.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Navigation/Agents/NavPathQueue.cs]
+dotnet_diagnostic.CA1711.severity = none

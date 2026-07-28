@@ -122,10 +122,20 @@ public sealed class NavigationAllocationTests {
     ///     and the move across the surface.
     /// </summary>
     /// <remarks>
-    ///     They walk a <i>route</i>, turning round at each end, rather than walking somewhere once.
-    ///     That is what makes the warm-up mean anything: a crowd sent somewhere new is still growing
-    ///     its node pool for as long as the paths keep getting longer, and measuring that would be
-    ///     measuring the warm-up rather than the steady state it settles into.
+    ///     <para>
+    ///         They walk a <i>route</i>, turning round at each end, rather than walking somewhere once.
+    ///         That is what makes the warm-up mean anything: a crowd sent somewhere new is still
+    ///         growing its node pool for as long as the paths keep getting longer, and measuring that
+    ///         would be measuring the warm-up rather than the steady state it settles into.
+    /// </para>
+    ///     <para>
+    ///         The warm-up is long because the crowd now plans through <c>NavPathQueue</c>, which holds
+    ///         four queries and hands each of them whichever request is next. Each has a node pool of
+    ///         its own, and the pools only stop growing once every query has run the longest search the
+    ///         route produces — which takes rather more than a few hundred frames to happen by
+    ///         rotation. Twelve thousand frames of warm-up reports zero; four thousand reported 72
+    ///         bytes, which was four pools still settling rather than anything leaking.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void ACrowdWalkingAllocatesNothingPerUpdate() {
@@ -147,7 +157,7 @@ public sealed class NavigationAllocationTests {
             crowd.SetTarget(handle, north);
         }
 
-        Assert.Equal(0, Measure(Frame, warmUp: 4_000));
+        Assert.Equal(0, Measure(Frame, warmUp: 12_000));
         Assert.True(arrivals > 0, "Nobody finished a leg, so no replan was measured.");
 
         return;

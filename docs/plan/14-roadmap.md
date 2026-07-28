@@ -2056,10 +2056,16 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   regions are long rather than small — and at a high one it is 23 % fewer polygons for an identical
   path, which is recorded in the README as a number rather than a hope.
 
+  **Pathfinding is sliced and queued.** A search across an eighty-metre level is 13 µs, so 256 agents
+  retargeting in one update is 3.5 ms in one frame — more than the whole crowd. `NavPathQueue` runs
+  searches a slice at a time against a shared budget and agents keep walking their old corridor while
+  they wait. There is one A\*: `FindPath` is the sliced search run to completion, and a test asserts
+  the two produce the same corridor polygon for polygon.
+
   **Owed:** watershed's other half (the distance field with flood-and-expand, plus hole merging in the
   contour tracer — a watershed region can enclose a pillar, and half a watershed is worse than none),
-  the height-detail pass (a floor sits up to one cell height high), dynamic obstacles, sliced
-  asynchronous pathfinding, and baking from a *scene* rather than from a named collision mesh — which
+  the height-detail pass (a floor sits up to one cell height high), dynamic obstacles, moving the
+  sliced search onto a job, and baking from a *scene* rather than from a named collision mesh — which
   waits on the scene compiler doc 08 splits out.
 - `Samples/05-PlatformerGame` — physics, input, animation, audio, VFX end to end on all platforms where
   it is in scope.
