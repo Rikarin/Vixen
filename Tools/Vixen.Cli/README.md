@@ -38,6 +38,15 @@ no addressable assets" does not belong in a failure summary.
 
 [`Vixen.Sdk`](../Vixen.Sdk/README.md) passes this flag. Nobody else needs to.
 
+## Where the work happens
+
+⚠ **The pipeline itself is `ContentPipeline`, in
+[`Vixen.Editor.Assets`](../../Editor/Vixen.Editor.Assets/README.md).** It moved there when the editor
+grew Import and Build commands of its own: two orchestrations over the same components drift, and
+this drift would appear as the editor and this tool producing different output for one project. What
+lives here is the console — exit codes, `--format msbuild`, the verbose line — and the worker pool,
+which is a command-line option rather than something an editor's background task starts unasked.
+
 ## `import`
 
 Scans, then imports every asset whose source, settings, importer version, target or declared

@@ -275,6 +275,32 @@ the settings, and the object was being built for every asset on every run to be 
 no safety: a record only exists because an import succeeded, so settings that still hash the same
 still bind.
 
+## `ProjectWorkspace` and `ContentPipeline` — the order the steps go in
+
+Every component here is a step; these two are the order. `ProjectWorkspace` opens the four stores
+that have to agree about which directory they are looking at — the GUID index, the artefact store,
+the import cache and the file provider — and `ContentPipeline` runs scan → import → plan → pack →
+write over them.
+
+⚠ **They are here rather than in the CLI, which is where they were**, because the editor grew Import
+and Build commands and two orchestrations over the same components drift. The way *this* drift would
+show up is the editor and `vixen content build` producing different output for one project, which
+reads as a machine problem for as long as it takes somebody to compare two catalogs by hand. What is
+left in `Vixen.Cli` is the console formatting and the worker pool.
+
+**Diagnostics are values, not console lines.** `ContentDiagnostic` carries a severity, a stage and a
+path; the CLI turns one into an MSBuild-parseable line and the editor turns a few into a
+notification. Neither owns the other's output format.
+
+⚠ **A build packs what the import produced, so the two are ordered and not alternatives.** The plan
+reads the import cache: a build over a project that has never been imported plans nothing and writes
+an empty catalog, which looks exactly like a build that worked. There is a test whose only job is to
+fail the day that changes.
+
+⚠ **A workspace never shares an editor's database.** `AssetDatabase.Scan` clears and repopulates its
+dictionaries, and an editor runs this on a background thread — so a panel enumerating `Entries`
+mid-scan gets an exception at best. The extra walk is the price of that being impossible.
+
 ## Planning a build
 
 `BuildPlanner` is the step between "every asset has been imported" and "there is a build". Imports

@@ -133,6 +133,31 @@ machines agree, rather than whichever file the filesystem handed over first.
 `ScanOptions.ReadOnly` reports all of it and changes nothing, because a build server asking "is this
 project clean?" wants the answer and not a working tree with edits in it.
 
+### `AssetTree` — the index as a browser sees it
+
+The database is a dictionary keyed by path and by GUID, which is the right shape for "what is this
+GUID" and the wrong one for "what is in this folder". `AssetTree.Build` is the difference: a flat
+`IReadOnlyCollection<AssetEntry>` in, an immutable tree out.
+
+It is here rather than beside the panel that shows it because **`Vixen.Editor.Core` does not
+reference the interface framework** — the same split `DockLayout` and `NodeGraph` make, and it means
+the ordering and the search can be asserted on without a document, a stylesheet or a font.
+
+⚠ **A folder with no entry is still a folder.** `ScanOptions.ReadOnly` creates no sidecars, so
+folders come back unindexed while the files inside them are still indexed by path. Requiring an entry
+per level would silently drop every asset under such a folder — a browser that is empty for a project
+that is not.
+
+⚠ **The order is imposed, not inherited.** `Entries` is a dictionary's values and says so. Folders
+sort before files, then by name case-insensitively, then ordinally — the last of those because
+ignoring case leaves `README` and `readme` equal, and equal means whichever the enumeration reached
+first, which is not an order.
+
+⚠ **A search keeps a folder for what is in it, not for what it is called.** Matching folder names and
+dropping the rest would hide every file in a folder whose name does not contain the search, which is
+the opposite of what typing a file name is for. A folder whose own name matches keeps its whole
+contents, because that is navigation rather than a search.
+
 ### The reference index is a grep, and that is deliberate
 
 `ReferenceIndex` scans text for `vx:` followed by thirty-two hex digits. That is sound *because of
