@@ -87,7 +87,12 @@ public partial class GoldenSpirvTests(ITestOutputHelper output) {
         }
 
         foreach (var unit in Compile(name)) {
-            var path = Path.Combine(Path.GetTempPath(), $"raven_{name}_{Suffix(unit)}.spv");
+            // The guid is not decoration. Without it the name is a pure function of the theory's
+            // arguments, so every process running this test picks the same path in one shared
+            // temporary directory — and the `finally` below deletes it. Two runs at once (a second
+            // worktree, an IDE alongside a terminal) and one deletes the file the other's spirv-dis
+            // is about to open. SpirvTestBase.Validate already writes its scratch file this way.
+            var path = Path.Combine(Path.GetTempPath(), $"raven_{name}_{Suffix(unit)}_{Guid.NewGuid():n}.spv");
             File.WriteAllBytes(path, unit.Binary!);
 
             try {

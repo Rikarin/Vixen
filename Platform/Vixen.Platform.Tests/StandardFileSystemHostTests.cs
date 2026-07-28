@@ -8,7 +8,29 @@ namespace Vixen.Platform.Tests;
 
 public sealed class StandardFileSystemHostTests : IDisposable {
     const string Organisation = "Vixen.Tests";
-    const string Application = "StandardFileSystemHost";
+
+    /// <summary>A different application name per instance, and it has to be.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Three of this host's four locations are derived rather than passed: data, cache and
+    ///         temporary come from the operating system's own folders, qualified by organisation and
+    ///         application. Only <see cref="applicationDirectory" /> is handed in. So a constant name
+    ///         here — which is what this was — put every process on the machine on the same three
+    ///         directories, and <see cref="Dispose" /> deletes all three recursively.
+    ///     </para>
+    ///     <para>
+    ///         That is not a statement about xunit's parallelism, which never runs one class's methods
+    ///         at once. It is about two <i>processes</i>: a second checkout of the tree, an IDE running
+    ///         the suite while a terminal does, or several agents each in their own worktree. Worktrees
+    ///         isolate the source and nothing else, and none of these paths is under it. Measured on
+    ///         macOS at 17 failures in 50 runs with two concurrent processes, in three different tests
+    ///         — a write refused because the other process held the file, a read of a file the other
+    ///         process had just deleted, and a directory asserted to exist that the other process
+    ///         removed after this one's constructor made it — against none at all when either ran
+    ///         alone.
+    ///     </para>
+    /// </remarks>
+    readonly string application = $"StandardFileSystemHost-{Guid.NewGuid():N}";
 
     readonly string applicationDirectory =
         Path.Combine(Path.GetTempPath(), $"vixen-app-{Guid.NewGuid():N}");
@@ -17,7 +39,7 @@ public sealed class StandardFileSystemHostTests : IDisposable {
 
     public StandardFileSystemHostTests() {
         Directory.CreateDirectory(applicationDirectory);
-        host = new(Organisation, Application, applicationDirectory);
+        host = new(Organisation, application, applicationDirectory);
     }
 
     /// <summary>
@@ -97,7 +119,7 @@ public sealed class StandardFileSystemHostTests : IDisposable {
 
     [Fact]
     public void AnEmptyNameIsRejectedRatherThanProducingAStrangePath() {
-        Assert.Throws<ArgumentException>(() => new StandardFileSystemHost(" ", Application));
+        Assert.Throws<ArgumentException>(() => new StandardFileSystemHost(" ", application));
         Assert.Throws<ArgumentException>(() => new StandardFileSystemHost(Organisation, string.Empty));
     }
 
@@ -132,7 +154,10 @@ public sealed class StandardFileSystemHostTests : IDisposable {
     /// </remarks>
     [Fact]
     public void EveryLocationIsAbsolute() {
-        var host = new StandardFileSystemHost("Vixen.Tests", "StandardFileSystemHost");
+        // The overload that derives the application directory too, so all four are the host's own
+        // work. The same qualifier as the field, so the three directories it creates are the three
+        // Dispose already removes rather than a fourth set nobody cleans up.
+        var host = new StandardFileSystemHost(Organisation, application);
 
         Assert.True(Path.IsPathRooted(host.DataDirectory), $"Data is relative: {host.DataDirectory}");
         Assert.True(Path.IsPathRooted(host.CacheDirectory), $"Cache is relative: {host.CacheDirectory}");
