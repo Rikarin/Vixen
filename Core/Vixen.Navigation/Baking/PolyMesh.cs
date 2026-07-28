@@ -231,34 +231,28 @@ internal sealed class PolyMesh {
     ///         in.
     ///     </para>
     ///     <para>
-    ///         A contour with no ear at all means it is not a simple polygon, which the monotone
-    ///         partitioning is supposed to make impossible. It returns false rather than producing
-    ///         nonsense: one region is dropped and the rest of the tile is still correct.
+    ///         <b>A contour that has had a hole merged into it is not a simple polygon</b>, and this
+    ///         is where that shows. The bridge is a slit of zero width, so the polygon touches itself
+    ///         along two coincident edges and at two pairs of coincident vertices. The strict
+    ///         diagonal test calls every ear near the slit blocked — correctly, by the letter of it —
+    ///         and would leave the whole region untriangulated. So there is a second pass with the
+    ///         test loosened to <i>proper</i> crossings only: touching is allowed, cutting is not.
+    ///         Recast reaches for the same fallback for the same reason.
+    ///     </para>
+    ///     <para>
+    ///         Even that can fail, on a contour that simplification has folded over itself. It
+    ///         returns false rather than producing nonsense: one region is dropped and the rest of
+    ///         the tile is still correct.
     ///     </para>
     /// </remarks>
     static bool Triangulate(Contour contour, List<int> indices, List<int> triangles) {
         var working = new List<int>(indices);
 
         while (working.Count > 3) {
-            var best = -1;
-            var bestLength = long.MaxValue;
+            var best = FindEar(contour, working, strict: true);
 
-            for (var index = 0; index < working.Count; index++) {
-                var previous = (index + working.Count - 1) % working.Count;
-                var next = (index + 1) % working.Count;
-
-                if (!IsDiagonal(contour, working, previous, next)) {
-                    continue;
-                }
-
-                long dx = VertexX(contour, working[next]) - VertexX(contour, working[previous]);
-                long dz = VertexZ(contour, working[next]) - VertexZ(contour, working[previous]);
-                var length = (dx * dx) + (dz * dz);
-
-                if (length < bestLength) {
-                    bestLength = length;
-                    best = index;
-                }
+            if (best < 0) {
+                best = FindEar(contour, working, strict: false);
             }
 
             if (best < 0) {
@@ -281,12 +275,38 @@ internal sealed class PolyMesh {
         return true;
     }
 
+    /// <summary>The vertex whose removal leaves the shortest new edge, or -1 if none may be removed.</summary>
+    static int FindEar(Contour contour, List<int> working, bool strict) {
+        var best = -1;
+        var bestLength = long.MaxValue;
+
+        for (var index = 0; index < working.Count; index++) {
+            var previous = (index + working.Count - 1) % working.Count;
+            var next = (index + 1) % working.Count;
+
+            if (!IsDiagonal(contour, working, previous, next, strict)) {
+                continue;
+            }
+
+            long dx = VertexX(contour, working[next]) - VertexX(contour, working[previous]);
+            long dz = VertexZ(contour, working[next]) - VertexZ(contour, working[previous]);
+            var length = (dx * dx) + (dz * dz);
+
+            if (length < bestLength) {
+                bestLength = length;
+                best = index;
+            }
+        }
+
+        return best;
+    }
+
     /// <summary>Whether the segment between two vertices of a polygon stays inside it.</summary>
-    static bool IsDiagonal(Contour contour, List<int> working, int from, int to) =>
-        IsInCone(contour, working, from, to) && IsClear(contour, working, from, to);
+    static bool IsDiagonal(Contour contour, List<int> working, int from, int to, bool strict) =>
+        IsInCone(contour, working, from, to, strict) && IsClear(contour, working, from, to, strict);
 
     /// <summary>Whether a diagonal leaves its start vertex through the polygon's interior.</summary>
-    static bool IsInCone(Contour contour, List<int> working, int from, int to) {
+    static bool IsInCone(Contour contour, List<int> working, int from, int to, bool strict) {
         var a = working[from];
         var b = working[to];
         var before = working[(from + working.Count - 1) % working.Count];
@@ -295,14 +315,16 @@ internal sealed class PolyMesh {
         // A convex corner opens outwards, so the diagonal has to be inside both of its edges. A
         // reflex corner opens inwards, and the test is the negation of the cone it does not open into.
         if (Area2(contour, a, after, before) >= 0) {
-            return Area2(contour, a, b, before) > 0 && Area2(contour, b, a, after) > 0;
+            return strict
+                ? Area2(contour, a, b, before) > 0 && Area2(contour, b, a, after) > 0
+                : Area2(contour, a, b, before) >= 0 && Area2(contour, b, a, after) >= 0;
         }
 
         return !(Area2(contour, a, b, after) >= 0 && Area2(contour, b, a, before) >= 0);
     }
 
     /// <summary>Whether a diagonal crosses any edge of the polygon.</summary>
-    static bool IsClear(Contour contour, List<int> working, int from, int to) {
+    static bool IsClear(Contour contour, List<int> working, int from, int to, bool strict) {
         var a = working[from];
         var b = working[to];
 
@@ -313,12 +335,38 @@ internal sealed class PolyMesh {
                 continue;
             }
 
-            if (Intersects(contour, a, b, working[index], working[next])) {
+            // By position, not by index. A merged contour holds the same corner twice — once for
+            // each side of the bridge — and an edge that merely ends where the diagonal does is
+            // touching it, whichever of the two copies it was written against.
+            if (Coincident(contour, a, working[index]) || Coincident(contour, b, working[index]) ||
+                Coincident(contour, a, working[next]) || Coincident(contour, b, working[next])) {
+                continue;
+            }
+
+            var crosses = strict
+                ? Intersects(contour, a, b, working[index], working[next])
+                : IntersectsProperly(contour, a, b, working[index], working[next]);
+
+            if (crosses) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    static bool Coincident(Contour contour, int a, int b) =>
+        VertexX(contour, a) == VertexX(contour, b) && VertexZ(contour, a) == VertexZ(contour, b);
+
+    /// <summary>Whether two segments cross at a point interior to both. Touching does not count.</summary>
+    static bool IntersectsProperly(Contour contour, int a, int b, int c, int d) {
+        if (Collinear(contour, a, b, c) || Collinear(contour, a, b, d) ||
+            Collinear(contour, c, d, a) || Collinear(contour, c, d, b)) {
+            return false;
+        }
+
+        return Area2(contour, a, b, c) > 0 != Area2(contour, a, b, d) > 0 &&
+            Area2(contour, c, d, a) > 0 != Area2(contour, c, d, b) > 0;
     }
 
     static bool Intersects(Contour contour, int a, int b, int c, int d) {

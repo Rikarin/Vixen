@@ -15,9 +15,11 @@ baking as a build step, agents, avoidance"*.
 | | |
 |---|---|
 | `Baking/Heightfield` | Triangle rasterisation into columns of solid voxels; the low-obstacle, ledge and low-ceiling filters. |
-| `Baking/CompactHeightfield` | The walkable surface with its neighbours resolved; erosion by the agent radius; authored areas; monotone region partitioning. |
+| `Baking/CompactHeightfield` | The walkable surface with its neighbours resolved; erosion by the agent radius; authored areas; the distance field; both partitioners. |
+| `Baking/Watershed` | Regions grown out from the ridges of the distance field, one water level at a time. |
 | `Baking/RegionMerge` | Absorbs regions too small to be worth their own polygons, and drops the groups that lead nowhere. |
 | `Baking/ContourSet` | Region outlines traced from the voxel grid and simplified within an error tolerance. |
+| `Baking/ContourHoles` | Bridges a region's holes into its outer outline, so a region that grew round a pillar is still a simple polygon. |
 | `Baking/PolyMesh` | Ear-clipping triangulation, convex merge to six-vertex polygons, adjacency by edge matching. |
 | `Baking/NavAreaVolume` | Boxes and convex prisms that stamp an area — water, road, mud — before the surface is partitioned. |
 | `Baking/NavMeshBaker` | The pipeline in order, single-tile and tiled, with the tile margin that makes tiles connect. |
@@ -152,9 +154,8 @@ rather than one at a time, because three slivers that only touch each other are 
 
 Two regions are only merged when each touches the other along **one** stretch of boundary, and never
 when one sits directly above the other. Two stretches means the pair encloses something, and merging
-them would produce a region with a hole — which the contour tracer would emit as a second,
-oppositely-wound outline and the polygoniser would turn into a solid polygon over the obstacle. That
-rule is the whole safety argument, and it is why this stage is hole-safe while watershed is not yet.
+them would produce a region with a hole. That rule is what makes this stage hole-safe without any help
+from the contour tracer; watershed is not, and the next section is about what that costs.
 
 **What it is worth, measured rather than assumed.** At Recast's default of 20 it does *nothing* on the
 levels here: a monotone sweep produces regions that are long rather than small, so almost none of them
@@ -162,6 +163,52 @@ are under any modest threshold. Turned up to 2 000 on a pillared eighty-metre le
 regions to 20 and 401 polygons to 310 — 23 % fewer — with the path across the level identical to the
 centimetre and no measured improvement in search time. So the default stays at Recast's, the knob is
 documented, and the claim in this paragraph is a number rather than a hope.
+
+## Watershed, and the measurement that decided the default
+
+`NavMeshPartitioning` picks how the walkable surface is cut up. **Watershed** builds a distance field —
+how far every cell is from the nearest wall — blurs it, and floods it from the top down: at each water
+level the regions that already exist grow outwards, and only what is left over seeds a region of its
+own. **Monotone** sweeps the surface row by row instead. Both give correct paths; what differs is the
+shape of the polygons.
+
+The blur is not cosmetic. An unsmoothed chamfer field has one-voxel local maxima scattered along every
+corridor and each of them seeds a region, so the partition comes out with several times as many
+regions as the level has rooms. Expanding before flooding is not cosmetic either: growing the existing
+regions first is what makes a newly-emerged strip beside a room join the room instead of becoming a
+region that has to be merged away afterwards.
+
+**A watershed region can enclose a pillar**, which a monotone region cannot, and that is the whole
+reason `ContourHoles` exists. The tracer emits such a region as two outlines — the outside, and the
+pillar wound the other way — and nothing downstream knows they belong together; ear clipping would
+take the second on its own terms and produce a solid polygon over the pillar. So the hole is bridged
+into the outline with a diagonal traversed in both directions, turning the annulus into one ring with
+a zero-width slit. **The ear clipper needed a second pass for it**: the slit makes the polygon touch
+itself, the strict diagonal test correctly calls every ear near it blocked, and without a fallback
+that allows touching but not crossing the entire region is dropped. That fallback is the difference
+between the pillar being an obstacle and the whole ring around it vanishing from the mesh.
+
+**What it is worth, measured rather than assumed.** Same level, same settings, one tile:
+
+| Level | Watershed polys | Monotone polys | Watershed nodes/search | Monotone nodes/search |
+|---|---|---|---|---|
+| 40 m room, 16 axis-aligned pillars | 86 | **65** | 30.5 | **24.8** |
+| 40 m room, axis-aligned side rooms | 76 | **57** | **7.3** | 10.7 |
+| Ring of blocks approximating a circle | **30** | 37 | **12.0** | 17.7 |
+| Empty 40 m room | 9 | 9 | 3.5 | 3.5 |
+| 45° corridor across the level | 127 | 127 | 26.5 | 26.5 |
+
+Watershed is not uniformly better, and it is 1.3–2× slower to bake. On an **axis-aligned** level the
+row sweep wins on polygon count outright, because a sweep whose direction agrees with the geometry
+produces straight boundaries while watershed's follow the medial axis and come out diagonal and
+staircase-shaped. On the round obstacle — the case a row sweep has no answer for — watershed is 19 %
+fewer polygons and **32 % fewer nodes expanded per search**, which is the number a frame pays.
+
+Path *length* barely moved either way: 40.10 m against 40.16 m on the pillars, 43.30 against 43.46 on
+the ring. So the case for watershed is search cost on geometry that is not aligned to an axis, and the
+case against it is bake time on geometry that is. It is the default because levels are not
+grids — and `Monotone` is one initialiser away for a tile being rebaked per frame, where the bake time
+is the number that matters and the shapes cannot go far wrong at that size.
 
 ## A connection is a polygon with two vertices
 
@@ -199,14 +246,6 @@ where the cost of a crowd actually is.
 
 ## What is not implemented, and why
 
-- **Watershed partitioning.** Regions are built by monotone sweep, which is hole-free by construction
-  and is what makes the contour tracer's life simple. Watershed gives rounder regions and therefore
-  fewer, fatter polygons; both give correct paths. **Half of it is now built** — the merge-and-filter
-  stage below is the half both partitions share — so what remains is the distance field with its
-  flood-and-expand, and hole merging in the contour tracer, which watershed needs and monotone does
-  not. That last part is why this is still not done: a watershed region can enclose a pillar, and a
-  contour tracer that emitted the hole as a second outline would hand the polygoniser a solid polygon
-  over the obstacle. Half a watershed is worse than none.
 - **Off-mesh links between areas an authored volume creates.** A volume stamps a *cost*; it cannot
   make ground walkable that the bake found unwalkable, and it cannot connect two surfaces that do not
   touch.

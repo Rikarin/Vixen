@@ -50,6 +50,14 @@ public sealed record NavMeshImportSettings : IImportSettings {
     /// <summary>The size below which a region is absorbed into a neighbour, in voxel columns.</summary>
     public int MergeRegionArea { get; init; } = 20;
 
+    /// <summary>How the walkable surface is cut into regions.</summary>
+    /// <remarks>
+    ///     Watershed follows the shape of the space and is the default; the monotone sweep is faster
+    ///     to bake and produces fewer polygons on a level built out of axis-aligned boxes. The
+    ///     navigation README has the measurements.
+    /// </remarks>
+    public NavMeshPartitioning Partitioning { get; init; } = NavMeshPartitioning.Watershed;
+
     /// <summary>How far a simplified contour may stray from the voxel outline, in voxels.</summary>
     public float MaxSimplificationError { get; init; } = 1.3f;
 
@@ -77,6 +85,7 @@ public sealed record NavMeshImportSettings : IImportSettings {
         AgentMaxSlope = AgentMaxSlope,
         MinRegionArea = MinRegionArea,
         MergeRegionArea = MergeRegionArea,
+        Partitioning = Partitioning,
         MaxSimplificationError = MaxSimplificationError,
         MaxEdgeLength = MaxEdgeLength
     };

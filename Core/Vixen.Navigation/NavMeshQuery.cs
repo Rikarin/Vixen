@@ -150,6 +150,19 @@ public sealed class NavMeshQuery {
 
                     var count = Mesh.GetPolyVertices(candidate, vertices);
                     var closest = ClosestPointOnPoly(vertices[..count], center);
+
+                    // The polygon's bounds reaching into the box is not the same as the polygon
+                    // doing so, and the difference is the whole answer for an L-shaped one: a wedge
+                    // of floor round the corner of a pillar has a bounding box covering the pillar,
+                    // and without this the middle of the pillar reports floor two metres away.
+                    var offset = closest - center;
+
+                    if (MathF.Abs(offset.X) > halfExtents.X ||
+                        MathF.Abs(offset.Y) > halfExtents.Y ||
+                        MathF.Abs(offset.Z) > halfExtents.Z) {
+                        continue;
+                    }
+
                     var distance = Vector3.DistanceSquared(center, closest);
 
                     if (distance < best) {

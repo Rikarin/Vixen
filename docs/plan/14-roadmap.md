@@ -2020,7 +2020,7 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
 - `Vixen.Input`: full device set + the Unity-style action system, `.vxinput` asset, generated accessors,
   runtime rebinding, action-map editor, input debug panel.
 - ✅ `Vixen.Navigation` — bake, query, agents and avoidance, **as Vixen's own managed code rather
-  than a Recast/Detour binding**. The voxel pipeline (rasterise → filter → erode → monotone regions →
+  than a Recast/Detour binding**. The voxel pipeline (rasterise → filter → erode → regions →
   contours → convex polygons), a tiled mesh whose tiles can be added and removed under live paths,
   `NavMeshQuery` (nearest polygon, A\*, funnel, surface raycast, move-along-surface), and a `Crowd`
   with path corridors, sampled reciprocal velocity obstacles and an ECS bridge. 40 tests.
@@ -2062,11 +2062,18 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   they wait. There is one A\*: `FindPath` is the sliced search run to completion, and a test asserts
   the two produce the same corridor polygon for polygon.
 
-  **Owed:** watershed's other half (the distance field with flood-and-expand, plus hole merging in the
-  contour tracer — a watershed region can enclose a pillar, and half a watershed is worse than none),
-  the height-detail pass (a floor sits up to one cell height high), dynamic obstacles, moving the
-  sliced search onto a job, and baking from a *scene* rather than from a named collision mesh — which
-  waits on the scene compiler doc 08 splits out.
+  **Watershed partitioning is in**, and with it the hole merging that makes it safe: a region that
+  grows round a pillar is traced as two outlines, and the second is bridged into the first with a
+  zero-width slit rather than handed to the polygoniser as a solid slab over the obstacle. The ear
+  clipper needed a fallback pass for that slit, because a polygon that touches itself has no strict
+  ear anywhere near it. **It is not uniformly better and the README says so with a table**: on an
+  axis-aligned level the row sweep produces 25 % fewer polygons and bakes in half the time, and on a
+  round obstacle watershed is 19 % fewer polygons and 32 % fewer nodes expanded per search. It is the
+  default because levels are not grids; `Monotone` stays for a tile being rebaked per frame.
+
+  **Owed:** the height-detail pass (a floor sits up to one cell height high), dynamic obstacles,
+  moving the sliced search onto a job, and baking from a *scene* rather than from a named collision
+  mesh — which waits on the scene compiler doc 08 splits out.
 - `Samples/05-PlatformerGame` — physics, input, animation, audio, VFX end to end on all platforms where
   it is in scope.
 

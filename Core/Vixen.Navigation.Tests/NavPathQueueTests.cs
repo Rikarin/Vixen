@@ -220,8 +220,12 @@ public sealed class NavPathQueueTests {
         foreach (var handle in handles) {
             crowd.TryGetState(handle, out var state);
 
+            // Five metres, not one. Twenty-four bodies of 0.4 m cannot stand on the same point: the
+            // pile they make is two metres across before the corner they are piling into pushes the
+            // outermost of them further out. What is being asserted is that everybody got there, not
+            // that everybody got to the exact spot, which is not a thing a crowd can do.
             Assert.True(
-                NavGeometry.Distance2D(state.Position, new(36, 0, 36)) < 4f,
+                NavGeometry.Distance2D(state.Position, new(36, 0, 36)) < 5f,
                 $"An agent finished at {state.Position}, which is not near where the crowd was sent."
             );
         }

@@ -3,6 +3,33 @@
 
 namespace Vixen.Navigation.Baking;
 
+/// <summary>How the walkable surface is cut into the regions that become polygons.</summary>
+/// <remarks>
+///     Both produce correct navmeshes. The difference is the <i>shape</i> of the polygons, which costs
+///     nothing to get wrong and something to get right: fewer, fatter polygons are fewer search nodes
+///     and fewer corners for the funnel to consider.
+/// </remarks>
+public enum NavMeshPartitioning {
+    /// <summary>Regions grow out from the ridges of a distance field. The better answer, and the default.</summary>
+    /// <remarks>
+    ///     Follows the shape of the space: a corridor is one region however it is angled, a room is one
+    ///     region. It is the slower of the two — a distance field, a blur, and a flood per water level
+    ///     — and it can produce a region with a hole in it, which is why the contour stage has a
+    ///     hole-merging pass at all.
+    /// </remarks>
+    Watershed,
+
+    /// <summary>Regions grow from runs of connected cells swept row by row. Faster, striped.</summary>
+    /// <remarks>
+    ///     A run joins the region above it only when it is the only run in its row touching that
+    ///     region, which is what makes a region with a hole impossible — and also what makes the
+    ///     regions long and thin wherever the geometry disagrees with the sweep direction. Worth having
+    ///     for a bake that is being run per frame, or for a tile small enough that the shapes cannot go
+    ///     far wrong.
+    /// </remarks>
+    Monotone
+}
+
 /// <summary>
 ///     What the bake is being asked for: how finely to voxelise, and what the agent that will walk
 ///     the result can do.
@@ -79,6 +106,9 @@ public readonly record struct NavMeshBuildSettings {
     ///     </para>
     /// </remarks>
     public int MergeRegionArea { get; init; } = 20;
+
+    /// <summary>How the walkable surface is cut into regions.</summary>
+    public NavMeshPartitioning Partitioning { get; init; } = NavMeshPartitioning.Watershed;
 
     /// <summary>How far a simplified contour may stray from the voxel outline, in voxels.</summary>
     public float MaxSimplificationError { get; init; } = 1.3f;

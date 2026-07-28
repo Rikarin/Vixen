@@ -217,7 +217,11 @@ public static class NavMeshBaker {
             (int)MathF.Round((bounds.Maximum.Z - bounds.Minimum.Z) / settings.CellSize)
         );
 
-        compact.BuildRegionsMonotone(settings.MinRegionArea, settings.MergeRegionArea);
+        if (settings.Partitioning == NavMeshPartitioning.Monotone) {
+            compact.BuildRegionsMonotone(settings.MinRegionArea, settings.MergeRegionArea);
+        } else {
+            compact.BuildRegionsWatershed(settings.MinRegionArea, settings.MergeRegionArea);
+        }
 
         var contours = ContourSet.Build(compact, settings.MaxSimplificationError, settings.MaxEdgeLength / settings.CellSize);
         var mesh = PolyMesh.Build(contours, settings.MaxVerticesPerPoly);

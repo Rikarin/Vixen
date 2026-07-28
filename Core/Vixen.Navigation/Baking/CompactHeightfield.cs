@@ -101,6 +101,15 @@ internal sealed class CompactHeightfield {
     /// <summary>How many regions the partition produced, counting the unassigned zero.</summary>
     public int RegionCount { get; private set; }
 
+    /// <summary>
+    ///     How far every span is from the edge of the walkable surface, in half-voxels, once
+    ///     <see cref="BuildDistanceField" /> has been called. Empty before that.
+    /// </summary>
+    public ushort[] Distances { get; private set; } = [];
+
+    /// <summary>The largest value in <see cref="Distances" />.</summary>
+    public ushort MaximumDistance { get; private set; }
+
     /// <summary>Reads one direction of a span's connections.</summary>
     /// <param name="span">The span.</param>
     /// <param name="direction">The direction, 0 to 3.</param>
@@ -255,6 +264,34 @@ internal sealed class CompactHeightfield {
         }
     }
 
+    /// <summary>Works out how far every span is from the edge of the walkable surface.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The same chamfer transform erosion uses, kept rather than thresholded away, and then
+    ///         blurred. Watershed partitioning reads it as a terrain: the ridges down the middle of a
+    ///         corridor are where regions are seeded, and the water runs downhill from there to the
+    ///         walls. That is the whole reason the regions come out round instead of striped.
+    ///     </para>
+    ///     <para>
+    ///         <b>The blur is not cosmetic.</b> An unsmoothed chamfer field has one-voxel local maxima
+    ///         scattered along every corridor, and each of them seeds a region of its own — the result
+    ///         is a partition with several times as many regions as the level has rooms, most of them
+    ///         then merged back together at some cost. A three-by-three box blur removes the noise
+    ///         while leaving the ridges, which is Recast's answer too.
+    ///     </para>
+    /// </remarks>
+    public void BuildDistanceField() {
+        var distance = BorderDistance();
+        ushort maximum = 0;
+
+        foreach (var value in distance) {
+            maximum = Math.Max(maximum, value);
+        }
+
+        MaximumDistance = maximum;
+        Distances = Blur(distance);
+    }
+
     /// <summary>
     ///     Partitions the walkable surface into regions by sweeping it row by row.
     /// </summary>
@@ -367,6 +404,40 @@ internal sealed class CompactHeightfield {
         }
     }
 
+    /// <summary>Partitions the walkable surface by letting regions grow out from its ridges.</summary>
+    /// <param name="minRegionArea">The smallest region to keep, in spans.</param>
+    /// <param name="mergeRegionArea">The size below which a region is absorbed into a neighbour that will take it.</param>
+    /// <remarks>
+    ///     <para>
+    ///         Watershed partitioning, Recast's default and the better of the two on anything shaped
+    ///         like a level. It reads <see cref="Distances" /> as a height map and floods it from the
+    ///         top down: at each level the regions that already exist grow outwards into whatever they
+    ///         can reach, and only then is anything left over allowed to seed a region of its own. What
+    ///         comes out follows the shape of the space rather than the direction of a sweep, so a
+    ///         corridor is one region however it is angled and a room is one region rather than a
+    ///         hundred strips of one.
+    ///     </para>
+    ///     <para>
+    ///         <b>It can produce a region with a hole in it</b>, which the monotone sweep is
+    ///         constructed never to do — a region can grow all the way round a pillar and meet itself.
+    ///         <see cref="ContourSet" /> merges those holes into their outer contour before anything
+    ///         tries to triangulate them, and that pass exists for this partitioner alone.
+    ///     </para>
+    /// </remarks>
+    public void BuildRegionsWatershed(int minRegionArea, int mergeRegionArea = 20) {
+        if (Distances.Length != Spans.Length) {
+            BuildDistanceField();
+        }
+
+        var regions = Watershed.Partition(this, out var identifier);
+
+        RegionCount = RegionMerge.Apply(this, regions, identifier, minRegionArea, mergeRegionArea);
+
+        for (var index = 0; index < Spans.Length; index++) {
+            Spans[index].Region = regions[index];
+        }
+    }
+
     /// <summary>Works out which spans an agent can step between.</summary>
     void Connect(int walkableHeight, int walkableClimb) {
         for (var z = 0; z < Depth; z++) {
@@ -416,9 +487,9 @@ internal sealed class CompactHeightfield {
     }
 
     /// <summary>The distance from every span to the nearest edge of the walkable surface, in half-voxels.</summary>
-    byte[] BorderDistance() {
-        var distance = new byte[Spans.Length];
-        Array.Fill(distance, byte.MaxValue);
+    ushort[] BorderDistance() {
+        var distance = new ushort[Spans.Length];
+        Array.Fill(distance, ushort.MaxValue);
 
         for (var z = 0; z < Depth; z++) {
             for (var x = 0; x < Width; x++) {
@@ -455,7 +526,7 @@ internal sealed class CompactHeightfield {
     }
 
     /// <summary>One pass of the chamfer distance transform.</summary>
-    void Sweep(byte[] distance, bool forward) {
+    void Sweep(ushort[] distance, bool forward) {
         // Each pass relaxes against the two directions it has already visited, plus the diagonal
         // reached through each of them — which is what makes two passes enough.
         var first = forward ? 0 : 2;
@@ -477,7 +548,7 @@ internal sealed class CompactHeightfield {
         }
     }
 
-    void Relax(byte[] distance, int index, int x, int z, int direction, int diagonal) {
+    void Relax(ushort[] distance, int index, int x, int z, int direction, int diagonal) {
         var neighbour = Neighbour(index, x, z, direction);
 
         if (neighbour < 0) {
@@ -485,14 +556,71 @@ internal sealed class CompactHeightfield {
         }
 
         if (distance[neighbour] + 2 < distance[index]) {
-            distance[index] = (byte)(distance[neighbour] + 2);
+            distance[index] = (ushort)(distance[neighbour] + 2);
         }
 
         var corner = Neighbour(neighbour, x + OffsetX[direction], z + OffsetZ[direction], diagonal);
 
         if (corner >= 0 && distance[corner] + 3 < distance[index]) {
-            distance[index] = (byte)(distance[corner] + 3);
+            distance[index] = (ushort)(distance[corner] + 3);
         }
+    }
+
+    /// <summary>A three-by-three box blur over the walkable surface, in place of the field's own grid.</summary>
+    /// <remarks>
+    ///     Over the <i>connectivity</i> rather than over the grid: the eight neighbours are the ones
+    ///     reachable through the connection graph, which is what keeps a wall between two floors from
+    ///     averaging one into the other. A span whose distance is already at the surface's edge is left
+    ///     alone, and so is a neighbour that is not there — it contributes the centre's own value, so
+    ///     the blur never pulls a value towards a place there is no surface.
+    /// </remarks>
+    ushort[] Blur(ushort[] distance) {
+        var blurred = new ushort[distance.Length];
+
+        for (var z = 0; z < Depth; z++) {
+            for (var x = 0; x < Width; x++) {
+                ref var cell = ref Cells[x + (z * Width)];
+
+                for (var index = cell.Index; index < cell.Index + cell.Count; index++) {
+                    var centre = distance[index];
+
+                    // The very edge is left exactly where it is. Smoothing a span that is already on
+                    // the boundary can only move the boundary, and the boundary is not noise.
+                    if (centre <= 1) {
+                        blurred[index] = centre;
+
+                        continue;
+                    }
+
+                    int total = centre;
+
+                    for (var direction = 0; direction < 4; direction++) {
+                        var neighbour = Neighbour(index, x, z, direction);
+
+                        if (neighbour < 0) {
+                            total += centre * 2;
+
+                            continue;
+                        }
+
+                        total += distance[neighbour];
+
+                        var diagonal = Neighbour(
+                            neighbour,
+                            x + OffsetX[direction],
+                            z + OffsetZ[direction],
+                            (direction + 1) & 3
+                        );
+
+                        total += diagonal >= 0 ? distance[diagonal] : centre;
+                    }
+
+                    blurred[index] = (ushort)((total + 5) / 9);
+                }
+            }
+        }
+
+        return blurred;
     }
 
     /// <summary>One run of connected spans in a row, while the sweep is deciding what it belongs to.</summary>

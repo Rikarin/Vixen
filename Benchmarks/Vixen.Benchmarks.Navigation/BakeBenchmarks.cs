@@ -36,7 +36,22 @@ public class BakeBenchmarks {
     [Params(0.2f, 0.3f)]
     public float CellSize { get; set; }
 
-    NavMeshBuildSettings Settings => new() { CellSize = CellSize, CellHeight = CellSize * 0.5f, AgentRadius = 0.6f };
+    /// <summary>How the surface is cut into regions — the distance-field flood, or the row sweep.</summary>
+    /// <remarks>
+    ///     Here because it is the one bake setting with a real trade in it rather than a quality dial:
+    ///     watershed costs bake time and buys polygon shape, and which way that comes out depends on
+    ///     whether the level is built out of axis-aligned boxes. The navigation README has the polygon
+    ///     counts to put beside these times.
+    /// </remarks>
+    [Params(NavMeshPartitioning.Watershed, NavMeshPartitioning.Monotone)]
+    public NavMeshPartitioning Partitioning { get; set; }
+
+    NavMeshBuildSettings Settings => new() {
+        CellSize = CellSize,
+        CellHeight = CellSize * 0.5f,
+        AgentRadius = 0.6f,
+        Partitioning = Partitioning
+    };
 
     [GlobalSetup]
     public void Setup() {

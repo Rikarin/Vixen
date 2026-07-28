@@ -149,6 +149,10 @@ internal sealed class ContourSet {
             }
         }
 
+        // A region that reaches round an obstacle has traced it as a second, oppositely-wound
+        // outline. Cut it into the first one before anybody tries to triangulate it separately.
+        ContourHoles.Merge(set.Contours);
+
         return set;
     }
 
