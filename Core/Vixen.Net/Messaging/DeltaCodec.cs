@@ -4,6 +4,10 @@
 namespace Vixen.Net.Messaging;
 
 /// <summary>One fixed-width field of an encoding, as the delta codec sees it.</summary>
+/// <param name="Name">
+///     What the field is called, for attribution. The codec never reads it; a bandwidth report does,
+///     and "which field is costing me thirty kilobits" is not answerable without it.
+/// </param>
 /// <param name="Bits">How wide it is.</param>
 /// <param name="Offset">
 ///     Whether the difference between two of these means anything. True for a quantized level or an
@@ -16,7 +20,7 @@ namespace Vixen.Net.Messaging;
 ///     arithmetic on them is meaningful. That is what lets one implementation serve every component
 ///     rather than one being generated per component.
 /// </remarks>
-public readonly record struct WireLane(int Bits, bool Offset);
+public readonly record struct WireLane(string Name, int Bits, bool Offset);
 
 /// <summary>Encodes one version of a value as its difference from the previous one.</summary>
 /// <remarks>
@@ -77,6 +81,18 @@ public static class DeltaCodec {
         return total;
     }
 
+    /// <summary>How many bits of offset a selector code stands for, on a lane of a given width.</summary>
+    /// <param name="selector">The code, as it appeared on the wire.</param>
+    /// <param name="bits">The lane's width.</param>
+    /// <returns>The width of what follows the selector.</returns>
+    /// <remarks>
+    ///     For whoever has to walk a difference without decoding it — the packet inspector, which
+    ///     wants to know what a record cost and cannot know what it means. Keeping it here rather than
+    ///     duplicating the table there is the point: there is one answer to "how wide is that field".
+    /// </remarks>
+    public static int OffsetWidth(uint selector, int bits) =>
+        selector >= WholeValue ? bits : OffsetWidths[(int)selector];
+
     /// <summary>The most a delta over these lanes could ever cost.</summary>
     /// <param name="lanes">The layout.</param>
     /// <returns>The worst case, in bits.</returns>
@@ -95,45 +111,59 @@ public static class DeltaCodec {
     /// <param name="previous">The encoding the far end already has.</param>
     /// <param name="current">The encoding it should end up with.</param>
     /// <param name="delta">Where the difference goes.</param>
+    /// <param name="costs">
+    ///     Filled in, lane by lane, with what each one cost in bits — including its own changed bit,
+    ///     so the entries add up to the whole. Leave it empty to skip the accounting; that is the
+    ///     usual call, and the only thing it costs is a length check per lane.
+    /// </param>
     /// <returns>Whether both inputs held what the layout said they would.</returns>
     public static bool TryEncode(
         ReadOnlySpan<WireLane> lanes,
         ref BitReader previous,
         ref BitReader current,
-        ref BitWriter delta
+        ref BitWriter delta,
+        Span<int> costs = default
     ) {
-        foreach (var lane in lanes) {
+        for (var i = 0; i < lanes.Length; i++) {
+            var lane = lanes[i];
+            var before = delta.BitsWritten;
+
             if (!previous.TryRead(lane.Bits, out var was) || !current.TryRead(lane.Bits, out var now)) {
                 return false;
             }
 
             if (was == now) {
                 delta.WriteBool(false);
-
-                continue;
-            }
-
-            delta.WriteBool(true);
-
-            if (!lane.Offset || lane.Bits < MinimumOffsetBits) {
-                delta.Write(now, lane.Bits);
-
-                continue;
-            }
-
-            var zigzag = ZigZag((long)now - was);
-            var selector = Selector(zigzag, lane.Bits);
-
-            delta.Write(selector, SelectorBits);
-
-            if (selector == WholeValue) {
-                delta.Write(now, lane.Bits);
             } else {
-                delta.Write((uint)zigzag, OffsetWidths[(int)selector]);
+                delta.WriteBool(true);
+                WriteChange(lane, was, now, ref delta);
+            }
+
+            if (i < costs.Length) {
+                costs[i] = delta.BitsWritten - before;
             }
         }
 
         return !delta.Overflowed;
+    }
+
+    static void WriteChange(in WireLane lane, uint was, uint now, ref BitWriter delta) {
+        if (!lane.Offset || lane.Bits < MinimumOffsetBits) {
+            delta.Write(now, lane.Bits);
+
+            return;
+        }
+
+        var zigzag = ZigZag((long)now - was);
+        var selector = Selector(zigzag, lane.Bits);
+
+        delta.Write(selector, SelectorBits);
+
+        if (selector == WholeValue) {
+            delta.Write(now, lane.Bits);
+        } else {
+            delta.Write((uint)zigzag, OffsetWidths[(int)selector]);
+        }
     }
 
     /// <summary>Rebuilds an encoding from the one before it and a difference.</summary>

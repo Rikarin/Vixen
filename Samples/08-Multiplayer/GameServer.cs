@@ -3,6 +3,7 @@
 
 using Vixen.Ecs;
 using Vixen.Net;
+using Vixen.Net.Diagnostics;
 using Vixen.Net.Generated;
 using Vixen.Net.Motion;
 using Vixen.Net.Replication;
@@ -45,6 +46,9 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
     readonly byte[] envelope = new byte[2049];
     readonly List<PlayerId> joining = [];
     readonly List<PlayerId> leaving = [];
+    readonly byte[] lastSnapshot = new byte[2048];
+
+    int lastSnapshotLength;
 
     /// <summary>The session, for whoever is driving this.</summary>
     public NetworkSession Session => session;
@@ -73,6 +77,12 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
     /// <summary>Records sent whole.</summary>
     public long WholeRecordCount => replication.WholeRecordCount;
 
+    /// <summary>Where the bandwidth went. Attached from the start, because it is nearly free.</summary>
+    public BandwidthLedger Ledger { get; } = new();
+
+    /// <summary>The component types, so a snapshot can be taken apart for a report.</summary>
+    public ReplicationRegistry Registry => registry;
+
     /// <summary>Payloads that arrived claiming to be a snapshot, which only a server sends.</summary>
     public long BogusPayloadCount { get; private set; }
 
@@ -98,6 +108,9 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
         router = new(manifest, new SessionRpcTransport(session), RpcRole.Server);
         arena = new(world, ids, replication, router, settings.TickRate);
         tickDuration = settings.TickRate.Duration;
+
+        replication.Ledger = Ledger;
+        router.Ledger = Ledger;
 
         session.PlayerJoined += player => joining.Add(player.Id);
         session.PlayerLeft += (player, _) => leaving.Add(player.Id);
@@ -147,6 +160,9 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
         }
     }
 
+    /// <summary>The last snapshot that went out, for taking apart.</summary>
+    public ReadOnlySpan<byte> LastSnapshot => lastSnapshot.AsSpan(0, lastSnapshotLength);
+
     /// <summary>Stops the session and the transport under it.</summary>
     public void Dispose() => session.Dispose();
 
@@ -166,6 +182,7 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
         leaving.Clear();
 
         arena.Step();
+        Ledger.Advance(tickDuration);
 
         // Once, whatever the player count. What each connection gets is a copy of these bits minus
         // what it has already acknowledged — fifty players cost fifty memcpys and one encode.
@@ -194,6 +211,11 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
             session.SendToPlayer(player.Id, wrapped, Channel.Unreliable);
             SnapshotCount++;
             SnapshotBytes += wrapped.Length;
+
+            // Kept so the report can take one apart. A packet inspector on a live connection is the
+            // same call on a copy of the bytes; there is nothing else to it.
+            lastSnapshotLength = bits.Length;
+            bits.CopyTo(lastSnapshot);
         }
     }
 }

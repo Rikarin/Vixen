@@ -160,56 +160,58 @@ static class WireCodec {
     public static bool TryLanes(in WireValue value, List<string> lanes) {
         switch (value.Kind) {
             case WireKind.Boolean:
-                lanes.Add(Lane(1, offset: false));
+                lanes.Add(Lane(value.Name, 1, offset: false));
 
                 return true;
 
             case WireKind.Byte or WireKind.SByte:
-                lanes.Add(Lane(8, offset: false));
+                lanes.Add(Lane(value.Name, 8, offset: false));
 
                 return true;
 
             case WireKind.Int16 or WireKind.UInt16:
-                lanes.Add(Lane(16, offset: true));
+                lanes.Add(Lane(value.Name, 16, offset: true));
 
                 return true;
 
             case WireKind.Int32 or WireKind.UInt32:
-                lanes.Add(Lane(32, offset: true));
+                lanes.Add(Lane(value.Name, 32, offset: true));
 
                 return true;
 
             // A float's bits are not a number you may subtract. Sent whole when it changes, which is
             // exactly what a component that wanted a difference should have declared a range for.
             case WireKind.Single:
-                lanes.Add(Lane(32, offset: false));
+                lanes.Add(Lane(value.Name, 32, offset: false));
 
                 return true;
 
             case WireKind.QuantizedSingle:
-                lanes.Add(Lane(value.Bits, offset: true));
+                lanes.Add(Lane(value.Name, value.Bits, offset: true));
 
                 return true;
 
             case WireKind.Vector3:
-                for (var i = 0; i < 3; i++) {
-                    lanes.Add(Lane(32, offset: false));
+                foreach (var axis in Axes) {
+                    lanes.Add(Lane($"{value.Name}.{axis}", 32, offset: false));
                 }
 
                 return true;
 
             case WireKind.QuantizedVector3:
-                for (var i = 0; i < 3; i++) {
-                    lanes.Add(Lane(value.Bits, offset: true));
+                foreach (var axis in Axes) {
+                    lanes.Add(Lane($"{value.Name}.{axis}", value.Bits, offset: true));
                 }
 
                 return true;
 
             case WireKind.Rotation:
-                lanes.Add(Lane(2, offset: false));
+                lanes.Add(Lane($"{value.Name}.Dropped", 2, offset: false));
 
-                for (var i = 0; i < 3; i++) {
-                    lanes.Add($"new(global::Vixen.Net.Messaging.MathCodec.RotationBits, true)");
+                foreach (var part in RotationParts) {
+                    lanes.Add(
+                        $"new(\"{value.Name}.{part}\", global::Vixen.Net.Messaging.MathCodec.RotationBits, true)"
+                    );
                 }
 
                 return true;
@@ -219,8 +221,11 @@ static class WireCodec {
         }
     }
 
-    static string Lane(int bits, bool offset) =>
-        $"new({bits.ToString(CultureInfo.InvariantCulture)}, {(offset ? "true" : "false")})";
+    static readonly string[] Axes = ["X", "Y", "Z"];
+    static readonly string[] RotationParts = ["A", "B", "C"];
+
+    static string Lane(string name, int bits, bool offset) =>
+        $"new(\"{name}\", {bits.ToString(CultureInfo.InvariantCulture)}, {(offset ? "true" : "false")})";
 
     /// <summary>The declaration of the <c>QuantizeRange</c> a value needs, if it needs one.</summary>
     /// <param name="value">The value.</param>

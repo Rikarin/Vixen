@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using Vixen.Core.Mathematics;
+using Vixen.Net.Diagnostics;
 using Vixen.Net.Motion;
 using Vixen.Net.Transport;
 using Vixen.Net.Transport.Local;
@@ -46,6 +47,10 @@ internal static class LocalMatch {
         // direction all the delta and acknowledgement machinery lives in, and the one a "tested
         // under packet loss" claim is about.
         using var server = new GameServer(Wrap(new LocalTransport(network), settings, 0, damage));
+
+        // Per-object attribution is off by default because its table grows with the world; eight
+        // fighters is not a world, and "which object is expensive" is half the question being asked.
+        server.Ledger.TrackObjects = true;
         server.StartServer();
 
         var clients = new List<GameClient>();
@@ -72,6 +77,7 @@ internal static class LocalMatch {
             Pump(server, clients, settings.SettleTicks);
 
             Report(server, clients, damage);
+            Attribution(server);
 
             return Converged(server, clients) ? 0 : 1;
         } finally {
@@ -192,6 +198,60 @@ internal static class LocalMatch {
                 + $"{client.BytesReceived / 1024d,9:N1} KiB  {client.HitsSeen,5:N0}  "
                 + $"{motion.Interpolated,6:N0}  {motion.Extrapolated,6:N0}  {motion.Snapped,4:N0}  {motion.Starved,7:N0}"
             );
+        }
+
+        Write("");
+    }
+
+    /// <summary>Where the bandwidth went, which is a different question from how much there was.</summary>
+    /// <remarks>
+    ///     "Thirty kilobits a second" is not actionable and "the rotation of a NetworkTransform is
+    ///     forty per cent of it" is. The ledger is attached from the start rather than behind a flag,
+    ///     because a profiler you have to turn on is one that is off when the surprise happens.
+    /// </remarks>
+    static void Attribution(GameServer server) {
+        var ledger = server.Ledger;
+
+        Write($"where it went — {ledger.KilobitsPerSecond:N1} kbit/s across every connection");
+        Write("");
+
+        Column("component", ledger.TopComponents(5));
+        Column("field", ledger.TopFields(8));
+        Column("remote call", ledger.TopCalls(5));
+        Column("object", ledger.TopObjects(4));
+        Column("connection", ledger.TopConnections(4));
+
+        // One packet, taken apart. A packet inspector on a live connection is this call against a
+        // copy of the bytes — there is nothing else to it, and nothing here applies anything.
+        var contents = SnapshotInspector.Inspect(server.Registry, server.LastSnapshot);
+
+        Write(
+            $"last snapshot — tick {contents.Tick.Value}, {contents.Bits / 8} B, "
+            + $"{contents.Records.Count} records, {contents.Removals.Count} removals"
+            + (contents.Complete ? "" : ", TRUNCATED")
+        );
+
+        foreach (var record in contents.Records) {
+            Write($"  {record}");
+        }
+
+        Write("");
+    }
+
+    static void Column(string heading, IReadOnlyList<BandwidthEntry> entries) {
+        if (entries.Count == 0) {
+            return;
+        }
+
+        Write($"  by {heading}");
+
+        foreach (var entry in entries) {
+            // The namespace is the same for everything in one report and is what makes the column
+            // too wide to read. It is in the type's own name if anybody needs it.
+            var name = entry.Name.Replace("Vixen.Net.", "", StringComparison.Ordinal)
+                .Replace("Vixen.Samples.Multiplayer.", "", StringComparison.Ordinal);
+
+            Write($"    {name,-40} {entry.Bytes / 1024d,8:N1} KiB  {entry.Count,8:N0} ×  {entry.MeanBits,6:N1} bits");
         }
 
         Write("");

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Net.Diagnostics;
 using Vixen.Net.Messaging;
 using Vixen.Net.Replication;
 using Vixen.Net.Rules;
@@ -110,6 +111,10 @@ public sealed class RpcRouter {
 
     /// <summary>How many objects have handlers registered.</summary>
     public int RegisteredCount => invokers.Count;
+
+    /// <summary>Where the bandwidth went, or null to not ask.</summary>
+    /// <remarks>The same ledger the replication server writes into, so one report covers both.</remarks>
+    public BandwidthLedger? Ledger { get; set; }
 
     /// <summary>Calls that ran.</summary>
     public long AcceptedCount { get; private set; }
@@ -292,6 +297,11 @@ public sealed class RpcRouter {
             return false;
         }
 
+        // Counted where the size is known and before the branch on who it goes to, so a call that
+        // fans out to forty observers is attributed once for what it cost to encode rather than
+        // forty times. The transport's own framing is the transport's to account for.
+        Ledger?.RecordCall(PlayerId.None, $"{method.DeclaringType}.{method.Signature}", writer.BitsWritten);
+
         if (method.Kind == RpcKind.Server) {
             if (!IsClient) {
                 // A server calling its own server RPC is a mistake worth noticing rather than
@@ -391,6 +401,7 @@ public sealed class RpcRouter {
         }
 
         AcceptedCount++;
+        Ledger?.RecordCall(from, $"{method!.DeclaringType}.{method.Signature}", payload.Length * 8);
 
         return true;
     }

@@ -66,7 +66,7 @@ public sealed class DeltaTests : IDisposable {
 
     [Fact]
     public void AValueThatDidNotChange_CostsOneBitAField() {
-        var lanes = new WireLane[] { new(16, true), new(16, true), new(16, true) };
+        var lanes = new WireLane[] { new("x", 16, true), new("y", 16, true), new("z", 16, true) };
         var same = RandomEncoding(new(4), lanes);
 
         Assert.True(TryRoundTrip(lanes, same, same, out var rebuilt, out var bits));
@@ -76,7 +76,7 @@ public sealed class DeltaTests : IDisposable {
 
     [Fact]
     public void AValueThatMovedALittle_CostsFarLessThanSendingIt() {
-        var lanes = new WireLane[] { new(16, true), new(16, true), new(16, true) };
+        var lanes = new WireLane[] { new("x", 16, true), new("y", 16, true), new("z", 16, true) };
         var previous = Encoding(lanes, [30000, 30000, 30000]);
         var current = Encoding(lanes, [30003, 29997, 30000]);
 
@@ -89,7 +89,7 @@ public sealed class DeltaTests : IDisposable {
 
     [Fact]
     public void AValueThatJumped_IsNeverWorseThanAFewBits() {
-        var lanes = new WireLane[] { new(16, true), new(16, true), new(16, true) };
+        var lanes = new WireLane[] { new("x", 16, true), new("y", 16, true), new("z", 16, true) };
         var previous = Encoding(lanes, [0, 0, 0]);
         var current = Encoding(lanes, [65535, 1, 40000]);
 
@@ -250,7 +250,7 @@ public sealed class DeltaTests : IDisposable {
         var lanes = new WireLane[1 + (int)((uint)random.NextUInt64() % 8)];
 
         for (var i = 0; i < lanes.Length; i++) {
-            lanes[i] = new(1 + (int)((uint)random.NextUInt64() % 32), (uint)random.NextUInt64() % 2 == 0);
+            lanes[i] = new($"lane{i}", 1 + (int)((uint)random.NextUInt64() % 32), (uint)random.NextUInt64() % 2 == 0);
         }
 
         return lanes;

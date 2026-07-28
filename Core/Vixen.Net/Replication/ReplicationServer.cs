@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Ecs;
+using Vixen.Net.Diagnostics;
 using Vixen.Net.Messaging;
 using Vixen.Net.Sessions;
 
@@ -71,11 +72,19 @@ public sealed class ReplicationServer {
     readonly List<uint> stamping = [];
     readonly byte[] encodeScratch = new byte[4096];
     readonly byte[] deltaScratch = new byte[4096];
+    readonly int[] laneScratch = new int[256];
 
     uint capturedVersion;
 
     /// <summary>How much each snapshot may cost.</summary>
     public BandwidthBudget Budget { get; set; } = new();
+
+    /// <summary>Where the bandwidth went, or null to not ask.</summary>
+    /// <remarks>
+    ///     Attached rather than owned, so a report can span the server and the RPC router and come out
+    ///     as one answer. Null costs a null check per record.
+    /// </remarks>
+    public BandwidthLedger? Ledger { get; set; }
 
     /// <summary>How many component values are being tracked across every entity.</summary>
     public int TrackedValueCount => current.Count;
@@ -214,7 +223,7 @@ public sealed class ReplicationServer {
         writer.WriteUInt32(tick.Value);
 
         var wrote = WriteRemovals(connection, ref writer, budget);
-        wrote |= WriteRecords(connection, tick, ref writer, budget);
+        wrote |= WriteRecords(player, connection, tick, ref writer, budget);
 
         writer.WriteBool(false); // no more records
 
@@ -324,11 +333,17 @@ public sealed class ReplicationServer {
         var now = new BitReader(newest.Bits);
         var delta = new BitWriter(deltaScratch);
 
-        if (!DeltaCodec.TryEncode(lanes, ref previous, ref now, ref delta)
+        // The per-field accounting is measured here, where it is free — the encoder is walking the
+        // lanes anyway, so it is a subtraction each rather than a second pass.
+        var costs = Ledger is null ? default : laneScratch.AsSpan(0, Math.Min(lanes.Length, laneScratch.Length));
+
+        if (!DeltaCodec.TryEncode(lanes, ref previous, ref now, ref delta, costs)
             || !delta.TryFinish(out var bits)
             || delta.BitsWritten >= newest.BitCount) {
             return default;
         }
+
+        Ledger?.RecordFields(replicator.TypeName, lanes, costs);
 
         bitCount = delta.BitsWritten;
         Remember(memoKey, bits, bitCount);
@@ -402,7 +417,7 @@ public sealed class ReplicationServer {
         return wrote;
     }
 
-    bool WriteRecords(Connection connection, Tick tick, ref BitWriter writer, int budget) {
+    bool WriteRecords(PlayerId player, Connection connection, Tick tick, ref BitWriter writer, int budget) {
         var wrote = false;
 
         foreach (var replicator in byPriority) {
@@ -475,6 +490,8 @@ public sealed class ReplicationServer {
                 } else {
                     WholeRecordCount++;
                 }
+
+                Ledger?.Record(player, new(id), replicator.TypeName, writer.BitsWritten - mark, asDelta);
 
                 connection.Baseline.RecordSent(tick, key, newest.Hash, newest.At);
                 connection.Holding.Add(id);

@@ -2325,7 +2325,31 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
 - **Server variant end to end** ([17](17-app-heads-and-shipping.md)): headless host on the `Null`
   backend, server content profile (no textures/audio/shader permutations), container image, metrics
   endpoint. Plus **out-of-process play mode** in the editor, which is what makes multiplayer testable.
-- Diagnostics: bandwidth attribution per object/type/RPC, packet inspector, editor network panel.
+- ✅ **Diagnostics** — bandwidth attribution and the packet inspector. `BandwidthLedger` answers
+  "what is eating my thirty kilobits" four ways: per component type, per **field**, per RPC, and per
+  connection, with per-object behind a flag because its table grows with the world rather than with
+  the number of declared types. Attached rather than owned, so one ledger covers the replication
+  server and the RPC router and comes out as a single report; off it is a null check, on it is a
+  dictionary increment per record. The same argument `Vixen.Core.Diagnostics`' profiler makes for
+  itself: a profiler you have to enable is one that is off when the surprise happens.
+
+  **The per-field breakdown costs nothing and is the one worth having.** It is measured inside the
+  delta encoder, which is already walking the lanes, so each field's cost is a subtraction — this is
+  the other half of `DeltaPackerAnalysis` that doc [16](16-networking.md) names. Run over
+  `Samples/08` it immediately says that the Y axis of every position and one component of every
+  rotation cost exactly their one "unchanged" bit, which is the report noticing that the arena is
+  flat and that `NetworkTransform` is carrying a dimension this game does not use.
+
+  `SnapshotInspector` takes a snapshot apart — which object, which component, whole or a difference,
+  which baseline, how many bits — and **applies none of it**, which is what makes it usable on a
+  recorded capture, on a snapshot the client refused, and on a live connection. A packet inspector is
+  that call plus somewhere to put the answer.
+
+  **Owed:** the editor network panel — connections, replicated objects, ownership, interest sets, a
+  live RPC log. It is the only part of this item not built and it is not blocked on networking:
+  `Editor/` is `Vixen.Editor.Assets` and `Vixen.Editor.Core` today, with no panel host to hang one
+  off. Everything a panel would show is already in these two types. Also owed: RTT/jitter/loss graphs
+  over time, which want a ring of samples rather than the running totals kept here.
 - ✅ **`Samples/08-Multiplayer`** — server-authoritative, 8 players, movement and shooting. Lag comp
   is the one thing it does not have, and it is the one thing it *measures the absence of*.
 
@@ -2350,11 +2374,11 @@ and content IDs (Phase 3), and physics for lag compensation (Phase 8).
   all. 41 B a snapshot clean against 79 B at 40 % loss. (Both figures are after field-level delta
   landed; the run that first produced them read 82 B and 110 B.)
 
-  **The hit rate falls from 49 % to 37 % between a clean run and one at 60 ms, and that is the
+  **The hit rate falls from 49 % to 35 % between a clean run and one at 60 ms, and that is the
   missing lag compensation.** The bot aims at where it last saw its target — half a round trip old —
-  and the server resolves the shot against where that target is when the call lands. Twelve points of
+  and the server resolves the shot against where that target is when the call lands. Fourteen points of
   hit rate is what the deferred item would give back, `Arena.Resolve` is the one method that would
-  change, and the sample now prints the size of the hole rather than describing it.
+  change, and the sample prints the size of the hole rather than describing it.
 
   Three things the sample had to get right that are stated nowhere else. The order inside a tick:
   joins are queued out of the session's event and applied *after* `AdvanceVersion`, because a player

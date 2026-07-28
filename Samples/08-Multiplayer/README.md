@@ -80,11 +80,34 @@ records again — and a connection far enough behind stops being sent difference
 value they would be measured from has fallen out of the history. Both effects are visible in the
 same two columns: fewer differences, larger snapshots.
 
-**Hit rate falls from 49 % to 37 %, and that is the missing lag compensation.** The bot aims at where
+**Hit rate falls from 49 % to 35 %, and that is the missing lag compensation.** The bot aims at where
 it last *saw* its target, which is half a round trip old; the server resolves the shot against where
-that target is when the call lands. Twelve points of hit rate is what lag compensation would give
+that target is when the call lands. Fourteen points of hit rate is what lag compensation would give
 back, and `Arena.Resolve` is the one method that would change. It is Phase 9's single deferred item
 — it rewinds colliders, and `Vixen.Physics` is Phase 8.
+
+## Where the bandwidth goes
+
+The run ends with a breakdown, because a total is not an answer:
+
+```
+  by field
+    Motion.NetworkTransform.Position.Z            4.2 KiB     5,027 ×     6.8 bits
+    Motion.NetworkTransform.Position.X            4.2 KiB     5,027 ×     6.8 bits
+    Motion.NetworkTransform.Rotation.C            2.0 KiB     5,027 ×     3.3 bits
+    Motion.NetworkTransform.Rotation.B            1.7 KiB     5,027 ×     2.7 bits
+    Motion.NetworkTransform.Rotation.Dropped      0.6 KiB     5,027 ×     1.0 bits
+    Motion.NetworkTransform.Position.Y            0.6 KiB     5,027 ×     1.0 bits
+    Motion.NetworkTransform.Rotation.A            0.6 KiB     5,027 ×     1.0 bits
+    Motion.NetworkTransform.TeleportCount         0.6 KiB     5,027 ×     1.0 bits
+```
+
+**Four of those eight fields cost exactly one bit each**, which is what a field that never changes
+costs — the arena is flat, so `Position.Y` never moves, and the fighters only turn about Y, so one
+component of the rotation never moves either. That is the report noticing that this game is using a
+general-purpose component for a two-dimensional problem, and it is the sort of thing nobody finds by
+reading the code. The same report breaks down by component, by remote call, by connection and by
+object, and finishes by taking one snapshot apart record by record.
 
 ## What it checks
 

@@ -67,14 +67,14 @@ public sealed class NetworkTransformReplicator : IComponentReplicator {
     // that this property is not allowed to hand out.
     static readonly WireLane[] Layout =
     [
-        new(PositionBits, true),
-        new(PositionBits, true),
-        new(PositionBits, true),
-        new(2, false),
-        new(MathCodec.RotationBits, true),
-        new(MathCodec.RotationBits, true),
-        new(MathCodec.RotationBits, true),
-        new(8, true)
+        new("Position.X", PositionBits, true),
+        new("Position.Y", PositionBits, true),
+        new("Position.Z", PositionBits, true),
+        new("Rotation.Dropped", 2, false),
+        new("Rotation.A", MathCodec.RotationBits, true),
+        new("Rotation.B", MathCodec.RotationBits, true),
+        new("Rotation.C", MathCodec.RotationBits, true),
+        new("TeleportCount", 8, true)
     ];
 
     /// <inheritdoc />

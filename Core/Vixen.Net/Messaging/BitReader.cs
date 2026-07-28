@@ -174,6 +174,33 @@ public ref struct BitReader {
         Failed = false;
     }
 
+    /// <summary>Steps over bits without looking at them.</summary>
+    /// <param name="count">How many.</param>
+    /// <returns>Whether they were there.</returns>
+    /// <remarks>
+    ///     For a reader that knows how long a field is and does not care what is in it — which is what
+    ///     an inspector walking a packet it cannot decode is doing.
+    /// </remarks>
+    public bool TryReadBitsOver(int count) {
+        if (count < 0) {
+            Failed = true;
+
+            return false;
+        }
+
+        while (count > 0) {
+            var take = Math.Min(32, count);
+
+            if (!TryRead(take, out _)) {
+                return false;
+            }
+
+            count -= take;
+        }
+
+        return true;
+    }
+
     /// <summary>Copies bits out of this reader into a writer, unchanged.</summary>
     /// <param name="destination">Where they go.</param>
     /// <param name="count">How many.</param>

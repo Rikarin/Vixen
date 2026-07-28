@@ -20,6 +20,7 @@ Vixen.Net.Replication  NetworkId · [Replicated] · [Quantize] · ReplicationSer
 Vixen.Net.Rpc          [ServerRpc] · [ClientRpc] · RpcRouter · NetworkOwnership · RpcManifest
 Vixen.Net.Rules        NetworkRules · NetworkRulesRegistry
 Vixen.Net.Motion       NetworkTransform · SnapshotBuffer · OwnerSmoothing
+Vixen.Net.Diagnostics  BandwidthLedger · SnapshotInspector
 ```
 
 Plus the transports (`Vixen.Net.Transport.Local`, `Vixen.Net.Transport.Udp`) and the build half
@@ -345,6 +346,33 @@ public void OnMessage(PlayerId from, Channel channel, ReadOnlySpan<byte> payload
 `SessionRpcTransport` is the sending half of that. It is a class of its own rather than the session
 implementing `IRpcTransport` directly, because wiring the two together without the marker would be a
 connection that looked right and mixed three streams into one.
+
+## Diagnostics
+
+"Thirty kilobits a second" is not an actionable number. `BandwidthLedger` answers the question that
+is — **what is eating it** — in four ways: which component type, which *field* of it, which remote
+call, and which connection. Attach one and it is a dictionary increment per record; leave it off and
+it is a null check.
+
+```csharp
+replication.Ledger = ledger;
+router.Ledger = ledger;      // one ledger, so one report covers state and calls together
+```
+
+The per-field breakdown is the one worth having, and it falls out of delta encoding rather than
+costing anything: the encoder is already walking the lanes, so each field's cost is a subtraction.
+It is what tells you a component is carrying a field your game never changes — in `Samples/08`, the
+Y axis of every position and one component of every rotation cost exactly their one "unchanged" bit,
+which is the report saying the arena is flat.
+
+`SnapshotInspector` is the other half: it takes a snapshot apart into its records — which object,
+which component, whole or a difference, which baseline, how many bits — and **applies none of it**.
+That is what makes it usable on a recorded capture, on a snapshot the client rejected, and on a live
+connection's traffic. A packet inspector is this call plus somewhere to put the answer.
+
+**Owed:** the editor panel — connections, replicated objects, ownership, interest sets, a live RPC
+log — which is [13](../../docs/plan/13-diagnostics.md)'s to host and has nothing to hang off yet.
+Everything it would show is in these two types.
 
 ## Testing
 
