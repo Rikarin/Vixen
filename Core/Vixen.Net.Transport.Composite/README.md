@@ -49,3 +49,15 @@ degenerate case and exactly the one to assert: everything the contract promises 
 wrapping, and any of it that does not is a bug in the wrapper. On top of that are the tests that need
 two genuinely different transports — that ids do not collide, that a reply goes back out the
 transport it came in on, and that the capabilities are the conservative ones.
+
+## Owed
+
+- **A relay, and the client half that would talk to it.** Doc [16](../../docs/plan/16-networking.md)
+  asks for "rendezvous + relay client", and a relay client with no relay server is untestable and
+  unshippable — so building it is a decision about scope rather than a piece of work waiting to be
+  done. Do we host one? Is it in-box, or an addon the way Steam and EOS are? That wants an answer
+  before code.
+- **Transport fallback**, which belongs with it. Start several, keep whichever answers. **This
+  package's client half is deliberately a single choice rather than a race**, and that is why: a race
+  is only worth having when there is something to race against, and today the two client transports go
+  to different kinds of server rather than to the same one by different routes.

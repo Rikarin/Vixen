@@ -43,6 +43,15 @@ Components currently in use:
     comes from the system. Recorded because a build that bundles libSDL2 carries
     the obligation, and the place to notice that is before the bundling happens.
 
+  wgpu-native
+    MIT OR Apache-2.0 — https://github.com/gfx-rs/wgpu-native
+    Not vendored: `nuke RestoreNativeDeps` fetches the pinned, checksummed release
+    named in build/native-dependencies.json into artifacts/, which git ignores.
+    Recorded here rather than generated from the archive because these releases
+    ship the headers and the libraries and no licence text — so unlike MoltenVK,
+    there is nothing to copy out. An application that ships the library carries
+    the obligation and has to include the upstream text itself.
+
 --------------------------------------------------------------------------------
 Reference material — read, not incorporated
 --------------------------------------------------------------------------------

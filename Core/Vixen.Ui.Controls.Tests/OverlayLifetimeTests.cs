@@ -104,4 +104,55 @@ public class OverlayLifetimeTests {
         var exception = Record.Exception(() => fixture.Type(InputKey.Escape));
         Assert.Null(exception);
     }
+
+    [Fact]
+    public void A_removed_tooltip_stops_listening_to_the_clock() {
+        using var fixture = new ControlFixture();
+
+        var target = fixture.Document.Root.Add<Button>();
+        var tooltip = fixture.Document.Root.Add<Tooltip>();
+
+        tooltip.Delay = TimeSpan.FromMilliseconds(100);
+        tooltip.Attach(target);
+        fixture.Document.Update();
+
+        fixture.MoveOver(target);
+        fixture.Document.Remove(tooltip);
+
+        // ⚠ **A subscription is a reference the document keeps**, which is the shape of leak the
+        // capture handlers above have and the reason a tick subscription needs the same treatment.
+        // A tooltip mid-delay when it was removed would be asked, half a second later, to open — and
+        // a removed element throws when asked for its document.
+        var exception = Record.Exception(() => fixture.Advance(TimeSpan.FromSeconds(1)));
+
+        Assert.Null(exception);
+        Assert.True(tooltip.IsRemoved);
+    }
+
+    [Fact]
+    public void A_removed_toast_host_stops_expiring_what_it_showed() {
+        using var fixture = new ControlFixture();
+
+        var host = fixture.Document.Root.Add<ToastHost>();
+        fixture.Document.Update();
+
+        // ⚠ **The clock has to be running before the toast is shown**, and this line cost a sabotage
+        // that failed to fail. `Show` stamps `Document.Now`, which is zero until something ticks —
+        // and a toast whose start is zero spends its first tick being started rather than expiring,
+        // so a leaked subscription would not be reached by one advance.
+        fixture.Advance(TimeSpan.FromMilliseconds(10));
+
+        host.Show("Saved", duration: TimeSpan.FromMilliseconds(100));
+        fixture.Document.Update();
+
+        var toast = Assert.Single(host.Live);
+        fixture.Document.Remove(host);
+
+        // The host's own removal takes the toast with it, so what would run here is a timer over a
+        // list of elements already gone. Removing one of those is what throws.
+        var exception = Record.Exception(() => fixture.Advance(TimeSpan.FromSeconds(1)));
+
+        Assert.Null(exception);
+        Assert.True(toast.IsRemoved);
+    }
 }

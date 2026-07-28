@@ -109,10 +109,12 @@ public class OutlineTests {
             }
         }
 
-        // A floor over the fourteen embedded fonts, not a tuned figure: they draw 2,066 glyphs
-        // between them today, and the number only matters as a guard against the comparison above
-        // going quiet.
-        Assert.Equal(14, fonts);
+        // A floor over the embedded fonts, not a tuned figure: they draw well over two thousand
+        // glyphs between them, and the number only matters as a guard against the comparison above
+        // going quiet. Eight of the twenty-two are the Consortium's variable faces, read here at
+        // their default instance — which is worth having, because a `gvar` reader that damaged the
+        // stored outline would show up in this comparison rather than in the variation suite.
+        Assert.Equal(22, fonts);
         Assert.True(total > 2000, $"only {total} glyphs produced an outline");
     }
 

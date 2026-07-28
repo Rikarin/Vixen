@@ -48,6 +48,12 @@ identifies its origin on sight.
 |---|---|---|---|
 | 2001 | Warning | The Vulkan validation layers were asked for and are not installed | 0.1.0 |
 | 2002 | Warning | The validation layer was found but would not load; the instance was created without it | 0.1.0 |
+| 2003 | Information | `Vulkan device created on '{Adapter}' ({Kind}, Vulkan {ApiVersion}) using {RenderPath}; validation {ValidationEnabled}.` | 0.1.0 |
+| 2100 | Information | `WebGPU device created on '{Adapter}' ({Kind}, {Driver}), {Mode}.` — on the web three of those four are "unknown", and knowing they are unknown rather than unlogged is the useful part | 0.1.0 |
+| 2101 | Warning | `WebGPU reported an error the backend could not attribute to a call: {Message}` — WebGPU has no return codes, so this callback is the only place a failure appears | 0.1.0 |
+| 2102 | Debug | `WaitIdle did nothing: this WebGPU surface cannot block on the queue.` — a browser tab has one thread and blocking on it is a deadlock | 0.1.0 |
+| 2103 | Warning | `wgpu-native or Dawn could not be loaded ({Reason})` — no desktop OS ships one, so this is ordinary and selection moves on | 0.1.0 |
+| 2104 | Warning | `WebGPU device lost ({Reason}). Everything has to be recreated.` | 0.1.0 |
 
 ### `Vixen.Ui.Reactive` — the signal graph
 
@@ -117,3 +123,11 @@ Vixen would show them the thing the analyzer forbids everywhere else.
 | 14002 | Error | `There is no window to present to.` — `Samples/01` needs a real display | 0.1.0 |
 | 14003 | Error | `The device was lost.` — recreation arrives in Phase 2 | 0.1.0 |
 | 14004 | Information | `The swapchain was out of date and has been rebuilt at {Width}×{Height}.` | 0.1.0 |
+| 14011 | Information | `Showing {Rows}×{Columns} materials on {Adapter} ({Kind}), rendering HDR at {Width}×{Height} and presenting {Format}.` | 0.1.0 |
+| 14012 | Error | `There is no window to present to.` — `Samples/03` needs a real display | 0.1.0 |
+| 14013 | Error | `The device was lost.` — recreation arrives in Phase 2 | 0.1.0 |
+| 14014 | Information | `The swapchain was out of date and has been rebuilt at {Width}×{Height}.` | 0.1.0 |
+
+Two of those read the same as 14002 and 14004 and are separate ids anyway. A shared id would make
+this register ambiguous the first time somebody greps for one in a support log, and the register is
+only useful if an id names exactly one call site.

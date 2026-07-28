@@ -862,13 +862,28 @@ handle until the graph has placed it, so a producer that published its own outpu
 a handle whose read barrier nobody declared. Naming one in `SceneTextures` *is* declaring the read —
 the two lists cannot disagree, because there is only one.
 
-`ShadowMapRenderer` publishes **cascade zero's** matrix, with its atlas tile folded into it by
-`ShadowCascades.AtlasProjection`. Both halves are load-bearing. The shader declares one
-`lightViewProjection` and one `shadowMap`, so a fragment past the nearest cascade is unshadowed rather
-than shadowed by the wrong slice — selecting a cascade per fragment is shader work that has not been
-done, and publishing four matrices into a shader that reads one would look like it worked. And the tile
-has to be in the matrix: `NdcToUv(cascade · p)` addresses the *whole* atlas, so with four tiles in it
-every lookup would land a quarter of the way into somebody else's and read a plausible depth from it.
+`ShadowMapRenderer` publishes **every cascade**, each with its own atlas tile folded into its own
+matrix by `ShadowCascades.AtlasProjection`, and the shader picks between them **per fragment**. That
+selection is what a cascade *is* — a fragment's own distance deciding the resolution it is shadowed
+at — and it was missing for a while: the shader read one matrix and one distance, so everything past
+the nearest slice projected outside its tile and came back unshadowed. The symptom is a shadow
+distance far shorter than the setting, which reads as a settings problem.
+
+Three things make it hold together:
+
+- **The matrix and its distance are one record.** `ShadowCascade` in `Lighting.rvn` is a `mat4` and a
+  `split`, so `cascades[i]` is self-describing. Two parallel arrays would be two things a host keeps in
+  step, and the failure — a matrix used past the distance it was fitted for — is a shadow that looks
+  like a shadow and is in the wrong place.
+- **The tile is in the matrix.** `NdcToUv(cascade · p)` addresses the *whole* atlas, so with four tiles
+  in it every lookup would land a quarter of the way into somebody else's and read a plausible depth.
+- **The last cascade's end is a ramp, not a line.** `Lighting.CascadeFade` existed unused for exactly
+  this; a shadow term that simply stops reads as a rendering error rather than as the shadow distance.
+
+`CascadeCount` is a permutation, because it sizes an array *in the block* — the same argument as
+`MaxLights`, one array along, and the same agreement required of the host. `ShadowCascades.CascadeOf`
+mirrors the shader's search so a test can assert the round trip: **the cascade a fragment selects is one
+whose projection contains that fragment.** Neither half can make that claim alone.
 
 `ViewConstants` defaults to **144 bytes with `Vixen.View` at 80**, which is what `ForwardPlus.rvn`
 declares for set 1. That is not a coincidence to be tidied away: set 1 is a contract between shaders, so
@@ -879,6 +894,12 @@ the block it points at.
 `ForwardPlus.reflect.json` through the real `EffectLoader`: one frame, four sets bound, one draw, and a
 paired negative where a single hand-off is removed and set 0 goes unbound rather than half-written. A
 hand-written fake would only assert that the renderer agrees with itself.
+
+It also asserts that **no name the frame publishes is one the shader does not have**, which is the
+general form of the failure this area keeps producing. Six types write into set 0 by string, and a typo
+in any of them is silent: the value is written, no binding claims it, and the surface is lit by whatever
+the shader declared as a default. The assertion is not that a particular name is right — it is that
+nothing is orphaned.
 
 `MeshRenderFeature` binds set 0 where it binds set 1 — after the first pipeline, once per run. After,
 because `BindDescriptorSet` takes no pipeline layout and infers one from what is bound, so a set before
@@ -904,6 +925,25 @@ the cluster buffer, next to one that says it reads it, is a pass the graph order
 barrier after. Its effect resolves through the ordinary `EffectSystem`, so a compute shader is
 permuted, cached and baked like a graphics one, and a shipping build cannot compile one for the same
 structural reason it cannot compile a vertex shader.
+
+**A contributed flag and a shader permutation are different names for the same thing**, and
+`PermutationSources` is what joins them. A sub-feature's key is the renderer's — `Vixen.Clustered`, so
+that one feature drives the flag across every shader that has it — and the shader's is its own,
+`ForwardPlus.UseClusteredLights`. The effect key is built from the keys registered for the shader, read
+out of a collection the sub-features wrote under *their* names, so registering the shader's key found
+nothing and took its default, and registering the renderer's key produced a define no compiler could
+match. Neither showed, because a test provider that answers every key alike cannot tell them apart —
+and what it meant in a shipping build is that **the clustered variant was never selected**: the culler
+filled its buffer and the shading pass read the uniform-array loop beside it.
+
+**A compute node fills its own uniform block**, through `ConstantBinding` and `Parameters`, at the
+offsets the effect's plan gives. That was missing until the culler was actually run: a node could
+declare the buffers and textures it read and wrote, and the *values* beside them — a camera, a count,
+a threshold — had to go through `OnBind`, which means a host building a buffer, filling it and writing
+a descriptor by hand. `ClusterCulling.rvn` takes four such values, so **the clustered path could not
+run in a composed frame at all** while every test of it passed. The block rides in the set
+`Descriptors` writes, which costs a compute pass nothing: one that binds no buffer and no storage
+image has nowhere to put its result.
 
 **The cluster buffer is declared, not imported**, and that is what makes the ordering test mean
 something: a cull whose result nothing reads is dropped along with its dispatch. The scene's light
@@ -935,6 +975,11 @@ One of the tests reads shader *source* — the two lines where `ClusterCulling.r
 state the convention. That is deliberate and narrow: the host's mirror is not what runs, and the bug
 was two sides disagreeing while each stayed internally consistent, so a test of either alone would
 have passed throughout.
+
+And one asks the GPU. `ClusterCullingDeviceTests` in `Platform/Vixen.Graphics.Golden.Tests` compiles
+`ClusterCulling.rvn` through the content build's own compiler, dispatches it, and reads every cluster
+list back to compare against `ClusterGrid.Bounds`. Reverting the handedness fix fails it with
+`expected [0], got []` — the original bug, verbatim, from hardware.
 
 **Clustered lighting does no per-object work at all.** No selection, no block per object, no
 descriptor bound per draw — `ForwardLightingRenderFeature.Clustered` turns the whole per-object path

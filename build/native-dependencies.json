@@ -72,6 +72,82 @@
           ]
         }
       ]
+    },
+    {
+      "id": "wgpu-native",
+      "name": "wgpu-native",
+      "version": "0.19.4.1",
+      "homepage": "https://github.com/gfx-rs/wgpu-native",
+      "licence": "MIT OR Apache-2.0",
+
+      // No licence text is extracted, and that is the archive's shape rather than an omission: these
+      // releases ship the two headers, the libraries and a commit sha, and nothing else. The
+      // obligation is recorded in NOTICE instead. Worth knowing before anything is redistributed.
+      "licenceFile": null,
+
+      // WHY 0.19.4.1 AND NOT SOMETHING NEWER, WHICH IS THE ONLY INTERESTING THING ABOUT THIS PIN.
+      //
+      // `Silk.NET.WebGPU` 2.23.0 binds a particular revision of webgpu.h, and the C API was still
+      // moving underneath it. Three entry points the backend calls — wgpuAdapterGetProperties,
+      // wgpuDeviceSetUncapturedErrorCallback and wgpuSurfaceGetPreferredFormat — were REMOVED by
+      // v22.1.0.1 (August 2024) in favour of wgpuAdapterGetInfo and friends. 0.19.4.1 is the last
+      // release that exports all of them, and it is therefore the newest wgpu-native this binding
+      // can load at all.
+      //
+      // That was measured, not guessed: `nm` over the dylib against the set of wgpu* entry points
+      // the backend's Native/ folder actually calls. WebGpuSymbolTests re-runs exactly that check
+      // against whatever has been restored, so a version bump that drops one is a red build rather
+      // than a null function pointer at the first draw.
+      //
+      // Moving forward means moving Silk.NET.WebGPU forward first, and 2.23.0 is what
+      // Directory.Packages.props pins for every other Silk binding.
+      "notes": "WebGPU over Vulkan, Metal or D3D12. Nothing ships this: no desktop OS has a WebGPU implementation, and Silk.NET.WebGPU is bindings only.",
+
+      "artifacts": [
+        // The dynamic library only. The static archive in the same zip is three to four times the
+        // size and nothing links it — WebGpuLoader loads at run time through NativeLibrary, the way
+        // VulkanLoader does, which is what keeps the AOT gate at zero diagnostics.
+        {
+          "rid": "osx-arm64",
+          "url": "https://github.com/gfx-rs/wgpu-native/releases/download/v0.19.4.1/wgpu-macos-aarch64-release.zip",
+          "sha256": "21cf8e69a4a775ea63f437f170a93e371df0f72c83119c81c25a668611c1771d",
+          "size": 10693758,
+          "files": [{ "from": "libwgpu_native.dylib", "to": "libwgpu_native.dylib" }]
+        },
+        {
+          "rid": "osx-x64",
+          "url": "https://github.com/gfx-rs/wgpu-native/releases/download/v0.19.4.1/wgpu-macos-x86_64-release.zip",
+          "sha256": "e41a35bf4f2b1c7dd87092cfcb932b7a96118971129a6213b7be240deb07e614",
+          "size": 10724388,
+          "files": [{ "from": "libwgpu_native.dylib", "to": "libwgpu_native.dylib" }]
+        },
+        {
+          "rid": "linux-x64",
+          "url": "https://github.com/gfx-rs/wgpu-native/releases/download/v0.19.4.1/wgpu-linux-x86_64-release.zip",
+          "sha256": "7d73bd7af2be60b632e5ab814996acb381d1b459975d6629f91c468049c8866a",
+          "size": 14190033,
+          "files": [{ "from": "libwgpu_native.so", "to": "libwgpu_native.so" }]
+        },
+        {
+          "rid": "linux-arm64",
+          "url": "https://github.com/gfx-rs/wgpu-native/releases/download/v0.19.4.1/wgpu-linux-aarch64-release.zip",
+          "sha256": "6e53aa3f0aec4b2b65cb0d7635000cf39bddd672bcb6138a593bf8cb8134f621",
+          "size": 14732180,
+          "files": [{ "from": "libwgpu_native.so", "to": "libwgpu_native.so" }]
+        },
+        {
+          "rid": "win-x64",
+          "url": "https://github.com/gfx-rs/wgpu-native/releases/download/v0.19.4.1/wgpu-windows-x86_64-release.zip",
+          "sha256": "9e1591d60c2d2ee20d6d4a63bc01c7c5eecf7734761673160aa639e550a1ba4d",
+          "size": 13630453,
+          "files": [{ "from": "wgpu_native.dll", "to": "wgpu_native.dll" }]
+        }
+
+        // win-arm64 is absent because 0.19.4.1 does not publish it — the first
+        // wgpu-windows-aarch64-msvc asset is v22.1.0.1, which this binding cannot load. A Windows on
+        // Arm machine therefore has no WebGPU backend and falls through to Vulkan, which is what
+        // backend selection is for.
+      ]
     }
   ]
 }

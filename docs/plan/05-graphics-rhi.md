@@ -168,7 +168,7 @@ signature generated from the four-set convention; descriptor heaps as ring alloc
 over committed heaps; **Enhanced Barriers** (Agility SDK), which is why the RHI's barrier model is
 specified against Vulkan `synchronization2` rather than legacy resource states.
 
-### `Vixen.Graphics.OpenGL` — **now the abstraction validator**
+### `Vixen.Graphics.OpenGL` — ✅ **built, and now the abstraction validator**
 
 One project, three profiles: GL 4.5 core (desktop), GLES 3.0/3.2 (Android), WebGL2 (browser), selected
 at construction. Shares the state-shadowing, pipeline-emulation, and barrier-elision logic; differs in
@@ -180,6 +180,27 @@ explicit barriers, and no multithreaded recording, so anything Vulkan-shaped tha
 abstraction shows up here immediately. Consequence: **GL must not also be deferred**, and its WebGL2
 profile is already verified working ([spikes/web-webgl2](spikes/web-webgl2/RESULT.md)).
 
+**What building it actually taught the RHI** is collected in
+[`docs/rhi-backend-mapping.md`](../rhi-backend-mapping.md), which is ADR-001's fourth measure. Three
+findings are worth naming here because they are about the *abstraction* rather than about GL:
+
+- **`ResourceState` has to stay a flags enum.** GL needs the `ShaderWrite` bit specifically, to
+  decide between "no call at all" and `glMemoryBarrier`. That the RHI's barrier model carries exactly
+  enough to make that distinction, on an API with no barriers, is the strongest evidence it is not a
+  Vulkan wrapper.
+- **The four-set convention pays for itself on a backend with no sets.** Ordering sets by change
+  frequency is what makes GL's flat binding indices stable across pipelines. Numbered arbitrarily it
+  would not work at all.
+- **`DescriptorWrite.Kind` is advisory; the layout is authoritative.** `DescriptorWrite.Uniform`
+  produces the non-dynamic kind and there is no helper for the other, so a backend that trusted the
+  write drops the dynamic offset of every caller who used the obvious one. Vulkan catches that only
+  because its validation layers check the write's type against the layout's.
+
+Every GL call goes through `IGlApi`, and the test assembly drives a recording implementation of it —
+so the translation layer is checked on every build rather than only on the CI leg that has Mesa. The
+Silk.NET binding is one file, is nothing but transcription, and is the only file the suite does not
+touch.
+
 Known concessions, documented up front so nobody is surprised:
 - No true multithreaded command recording. Command lists are recorded into a deferred, replayable
   command buffer in managed memory and replayed on the GL thread at submit. This preserves the RHI's
@@ -188,7 +209,7 @@ Known concessions, documented up front so nobody is surprised:
 - Uniform buffers only (no storage buffers on WebGL2 — compute is unavailable there entirely, which
   cascades into the post-FX chain having a non-compute fallback for every effect).
 
-### `Vixen.Graphics.WebGPU`
+### `Vixen.Graphics.WebGPU` — **built**
 
 `Silk.NET.WebGPU` binds native Dawn/wgpu. In the browser, WebGPU is reached through JS interop, not
 through the native binding — so `Vixen.Graphics.WebGPU` has two surface implementations (native
@@ -196,6 +217,52 @@ Dawn for desktop testing, `JSImport` for browser) behind one backend. WebGPU map
 (bind groups ≈ descriptor sets, render pipelines ≈ PSOs, explicit passes), which makes it a better
 long-term web story than WebGL2. It is sequenced after WebGL2 because browser availability, while good
 in 2026, still needs the WebGL2 floor.
+
+The seam between the two surfaces is `IWebGpuBinding`, and **it decides nothing**: it marshals and
+returns. Translation, validation, handle lifetime, deferred destruction, push-constant emulation and
+command replay all sit above it and run unchanged on both, which is what makes the *web* path
+testable — `Vixen.Graphics.WebGPU.Tests` drives all of it against a recording fake on a machine with
+no GPU, no Dawn and no browser. The browser half is `Vixen.Graphics.WebGPU.Browser`, out of
+`Vixen.slnx` for the reason `Vixen.Audio.Backend.WebAudio` is.
+
+Three things the RHI has that WebGPU does not, and what happens instead:
+
+- **Push constants.** Emulated as a dynamic uniform buffer bound at group
+  `PipelineLayoutDescription.Sets.Length` — where SPIRV-Cross puts a Vulkan push-constant block when
+  it emits WGSL ([07 § ADR-012](07-raven-shader-pipeline.md)). A layout that uses all four bind
+  groups *and* declares push constants is refused: WebGPU guarantees four and there is nowhere left.
+- **Compute outside a pass.** The RHI has render passes only; WebGPU has no dispatch outside a
+  compute pass, so replay opens one on demand and closes it when a render pass or a copy arrives.
+- **Border colours.** `ClampToBorder` becomes `ClampToEdge`, which `SamplerDescription.Shadow`
+  notices: outside a shadow map reads as the edge texel rather than as lit.
+
+**Owed, and it is a change to `Vixen.Graphics` rather than to the backend.** WebGPU requires a
+sampled texture's type and a sampler's comparison-ness to be declared in the bind group layout;
+`DescriptorBinding` carries a kind, some stages and a count and nothing about formats. So every
+layout the backend builds says "filterable float", and a shadow map bound through one is refused with
+that explanation. Sampling depth on WebGPU needs `DescriptorBinding` to grow a sample type — which
+every other backend would ignore.
+
+#### The implementation is fetched, and the pin is not a version
+
+Nothing ships a WebGPU implementation — no operating system has one, and `Silk.NET.WebGPU` is
+bindings only — so `nuke RestoreNativeDeps` fetches a pinned, checksummed wgpu-native, exactly as it
+does MoltenVK. Without it the backend reports itself unavailable, which is backend selection working.
+
+**`Silk.NET.WebGPU` 2.23.0 matches no wgpu-native release**, and finding that out is what running
+against a real implementation bought. Its function list predates August 2024 — three entry points it
+declares were removed in v22.1.0.1 — while its `WGPURenderPassColorAttachment` carries the
+`depthSlice` field added in that same release. It is a Dawn binding. So v0.19.4.1 is pinned, the
+loader refuses anything newer with a message naming the missing entry points, and one struct is
+written in the older layout for wgpu-native, told apart by an extension only it exports. Three
+further things were only findable this way: `wgpuInstanceProcessEvents` is declared and
+unimplemented and aborts the process rather than raising; a device created without asking for the
+adapter's own limits reports the specification's floor; and `maxColorAttachments` comes back as zero,
+so an unreported limit is normalised to the guaranteed floor rather than believed.
+
+This is what [12](12-build-ci-and-testing.md)'s cross-backend equivalence level is for, arriving a
+phase early: the same triangle, offscreen, read back and asserted on by position — centre covered,
+corners not, and exactly one winding surviving the cull.
 
 ## Shader interface
 
@@ -215,7 +282,7 @@ Raven produces both (see [07](07-raven-shader-pipeline.md)). The RHI never parse
 | Unit | Every RHI operation tested against `Null`, asserting the recorded command stream. Handle lifetime/generation tests. Allocator tests (fragmentation, alignment, OOM behaviour). |
 | Render graph | Property tests: random pass DAGs produce correct barrier placement, verified against an independent reference tracker; aliasing never overlaps live ranges |
 | Validation | Vulkan validation layers + `spirv-val` run in CI on Linux with **lavapipe** (Mesa software Vulkan) — a real Vulkan driver with no GPU, so full API conformance is CI-testable |
-| Golden image | `Samples/01-HelloTriangle` and a suite of ~40 rendering fixtures rendered headless on lavapipe, compared with a perceptual (not bitwise) diff and a tolerance per fixture. Bitwise comparison across drivers is a maintenance sinkhole; perceptual with an explicit threshold is the workable version. |
+| Golden image | ✅ `Samples/01-HelloTriangle` and a suite of **forty** rendering fixtures rendered headless on lavapipe, compared with a perceptual (not bitwise) diff and a tolerance per fixture. Bitwise comparison across drivers is a maintenance sinkhole; perceptual with an explicit threshold is the workable version. The bulk of the suite is one fixture per state bit a backend can silently ignore — which is the row below, made concrete. |
 | Cross-backend equivalence | The same fixture rendered on Vulkan/lavapipe and on GL/Mesa-softpipe must match within tolerance. This catches the class of bug where a backend silently ignores a state bit. |
 | Device loss | A fault-injection mode in `Null` and Vulkan (`VK_ERROR_DEVICE_LOST` on demand) proving the engine recreates the device and reloads resources rather than crashing — Android and driver-update reality make this mandatory |
 

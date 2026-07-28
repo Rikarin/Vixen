@@ -27,6 +27,8 @@ Read from `Assets/PurrNet/Runtime/`:
 | Coroutine RPCs (`IEnumerator`) | **Reject.** Vixen has no coroutines by decision ([04](04-ecs-and-scripting.md)); `async`/`await` on a frame-synchronous scheduler covers it with a real debugger and real exceptions. |
 | **`NetworkReflection`** — automatic property synchronisation driven by runtime reflection | **Reject, and the reason is the same family as the row below.** NativeAOT on iOS and trim-clean `Core/` assemblies are stated non-negotiables ([00](00-vision-and-principles.md) § Non-negotiables); a sync layer that reflects over properties at runtime either breaks under AOT or needs enough `DynamicDependency` annotations to defeat the point of it being automatic. What it buys — "I did not have to write any wiring" — Vixen buys at compile time instead: `[Replicated]` on a struct gets a generated replicator, and `SyncVar<T>`/`NetworkModule` cover behaviour-facing state. Same benefit, output you can read and step through, and it survives the platform the plan calls out as AOT-only. |
 | **`NetworkStateMachine`** — automatic networking of a state machine | **Take, in two halves that already exist.** A *game* state machine is `SyncVar<TState>` plus `NetworkRules`, and a component wrapping that would be thinner than the thing it wraps. An *animation* state machine falls out of `NetworkAnimator`: replicate the parameters and the current state, never the pose. |
+| **Ownership-toggle components** — give or take ownership when something enters a trigger | **Reject the component, take the policy it is standing in for.** The component bundles two separable things: a trigger that decides *when* to try, and a policy that decides whether it is allowed. The trigger is the game's — it is a collision, a button, a proximity check, and an engine guessing which is an engine getting it wrong. The policy belongs in `NetworkRules`, which already answers every other question of this kind, and the piece that was genuinely missing is `OwnershipClaim`: an audience says *who* may take an object and this says *when*, so `ChangeOwner = Everyone` with `Claim = WhenUnowned` is a dropped weapon anybody may pick up and nobody may steal. That could not be spelled with an audience alone, which is why it is a real gap and the component is not. |
+| **`NetworkAnimator`**, **`NetworkAudioSource`** and the rest of the plug-and-play components | **Take, one at a time and each on its own argument.** The general shape that emerged is worth stating: replicate the *inputs* where the receiver can reproduce the output, and the output only where it cannot. An animator sends parameters and a state-machine position; a pose (`NetworkBones`) is the expensive fallback for ragdolls and IK, where the determinism assumption is simply false. An audio source sends whether it is playing and how loud, and **not** the clip — the spawn already agreed which prefab this is. A one-shot at a world position is not one of these at all: it is an event, and replicated state means a player who joins five minutes later hears the explosion. |
 | **Mono.Cecil IL post-processing** (`Codegen/PostProcessor.cs`, `MonoCecilInstaller.cs`, `GenerateSerializersProcessor`, `GenerateRPCManifestProcessor`, …) | **Reject — banned by ADR-002.** This is the one structural thing we cannot copy, and it has a real API consequence. See below. |
 
 ## Client-side prediction, and a calibration this document got wrong
@@ -66,8 +68,52 @@ Vixen is unusually well placed to add it later:
   ([11](11-editor.md)).
 - Snapshot + input log + resimulate *is* rollback. The primitives arrive for other reasons.
 
-So client-side prediction is **P2, explicitly designed for, not implemented** — the tick loop and
-snapshot APIs are shaped to accept it without restructuring. Estimated +2 EM when wanted.
+So client-side prediction was **P2, explicitly designed for, not implemented** — the tick loop and
+snapshot APIs shaped to accept it without restructuring, at an estimated +2 EM when wanted.
+
+> **Started July 2026, at the point it was wanted.** The argument above still stands and is the reason
+> this is being built in stated halves rather than declared done: a game that predicts movement but not
+> the interactions movement causes feels *less* consistent than one that predicts nothing, so what is
+> and is not predicted has to be legible rather than assumed.
+>
+> **Built: the input pipeline** (`Vixen.Net/Prediction`). `IPredictedInput<T>` with a
+> `static abstract` codec, `InputLog<T>` on the client — redundant sends, acknowledgement-driven
+> trimming, and the same log a rollback replays from — and `InputBuffer<T>` on the server: a jitter
+> buffer whose depth, starvation, lateness and duplicate counts are the control signal a client steers
+> its tick lead by. Starvation repeats the last input rather than zeroing it, because zeroing turns a
+> dropped packet into a guaranteed correction. It is fuzzed alongside the RPC router, being the second
+> parser a client controls.
+>
+> **Built: rollback and resimulation.** `PredictionHistory` records predicted entities through the
+> same `IComponentReplicator` the server writes with, so a frame of history and a snapshot are the
+> same bytes describing the same thing and comparing them is a span comparison. That settles what
+> "predicted state" means — **exactly what is replicated**, since a field the server never sends is a
+> field no snapshot can contradict — and it gets the comparison tolerance right for free, because a
+> difference below the wire's quantization encodes identically and causes no rollback. `ClientPrediction`
+> is the loop: agree and restore the recorded present, or replay from the server's state with the
+> inputs that were used the first time. `ResimulatedTickCount` is the price of the feature and
+> `MispredictionCount` is the number that says whether the game's predicted step is actually
+> deterministic.
+>
+> **Still owed** — and this is the part the argument above says matters most, so it is listed rather
+> than glossed:
+>
+> - ✅ **What is predicted comes from the rules.** `PredictedOwnershipSystem` tags what
+>   `NetworkRules.Write` says this client may decide, and untags it when ownership moves. A second
+>   notion of "mine" beside the rules is how the two come to disagree.
+> - ✅ **The tick lead is steered by the server.** `PredictionHealthReporter` sends the buffer's depth,
+>   starvation and lateness back as a broadcast and `TickLeadController` turns it into
+>   `TickManager.LeadBias` — one tick at a time, never on one report, and asymmetric: starvation
+>   corrected quickly, depth given up slowly, because the two mistakes cost different things.
+> - ✅ **Corrections are smoothed.** `ClientPrediction.Corrections` reports what the last
+>   reconciliation moved and `PredictionSmoother` keeps an `OwnerSmoothing` per object, so a player and
+>   the vehicle they are driving can be corrected by different amounts.
+> - **Predicted spawns.** A client cannot predict an object into existence — a projectile it fired —
+>   which needs an id space a client may allocate in and a reconciliation that matches its guess to
+>   the server's real spawn. Still owed, and the largest of what is left.
+> - **The step is not the scheduler.** A predicted tick is a delegate the game supplies; running an
+>   actual `SystemPhase.FixedUpdate` group N times is what it should be, and that wants the scheduler
+>   to be re-entrant. Still owed.
 
 ## The IL-weaving problem, and a better answer
 
@@ -244,6 +290,29 @@ Composable resolvers, in evaluation order: scene scope → explicit visibility o
 → LOD rate reduction. Users can add resolvers (team-based, portal/room-based, fog-of-war). Default for a
 new project is "everything in the loaded scenes", so a prototype works before anyone thinks about it,
 which is a deliberate ergonomics choice.
+
+> **Corrected when it was built.** Two things in that sentence do not survive contact with the
+> replication server's own design.
+>
+> **LOD rate reduction is not a resolver and cannot be one.** Leaving the observed set means "drop this
+> object" — destruction and walking over the horizon are deliberately the same mechanism to a client —
+> so an LOD written as the fourth filter in this chain would despawn and respawn every distant object
+> on every tick it skipped, complete with whatever the game hangs off a spawn. Rate belongs where the
+> records are written, which is `ReplicationServer.Rate`; skipping a record there already means "not
+> this tick", because it is the same thing the bandwidth budget does when it sheds.
+>
+> **The distance grid is a *source*, not a filter.** A filter is asked about everything, so a chain of
+> filters over ten thousand objects and two hundred players is two million questions a tick whatever
+> the filters then say — which is the cost this feature exists to remove. `InterestGrid` buckets the
+> world once per tick and answers each player from the cells around them. It reads exactly like a
+> filter, and writing it as one produces something that passes every test and scales like the thing it
+> replaced.
+>
+> The rest stands, and the ordering is real: the rules give a three-valued verdict and the first
+> definite answer wins, which is what makes an explicit override placed before the grid something the
+> grid cannot argue with. Most rules answer `Undecided` most of the time — the scene rule hides what is
+> in a level you have not loaded and says nothing about the rest — and that is what lets the rules be
+> written independently.
 
 ### Motion: interpolation, extrapolation, smoothing
 

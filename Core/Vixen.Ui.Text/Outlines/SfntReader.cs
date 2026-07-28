@@ -57,4 +57,7 @@ internal ref struct SfntReader(ReadOnlySpan<byte> data) {
 
     /// <summary>An F2Dot14 fixed-point number, as a composite glyph's transform stores them.</summary>
     public float F2Dot14() => S16() / 16384f;
+
+    /// <summary>A 16.16 fixed-point number, as <c>fvar</c> stores an axis's range.</summary>
+    public float Fixed() => (int)U32() / 65536f;
 }

@@ -38,10 +38,22 @@ public static class TextShaper {
     /// <param name="font">The font to shape with.</param>
     /// <param name="text">The paragraph.</param>
     /// <param name="direction">Its base direction. Auto works it out from the first strong character.</param>
+    /// <param name="variation">Where along a variable font's axes to shape, or null for its defaults.</param>
     /// <returns>The glyphs, in the order they are drawn.</returns>
-    public static ShapedText Shape(FontFace font, string text, ParagraphDirection direction = ParagraphDirection.Auto) {
+    public static ShapedText Shape(
+        FontFace font,
+        string text,
+        ParagraphDirection direction = ParagraphDirection.Auto,
+        FontVariation? variation = null
+    ) {
         ArgumentNullException.ThrowIfNull(font);
         ArgumentNullException.ThrowIfNull(text);
+
+        // ⚠ Set on every call, including when nobody asked for an instance. The face's shaper is
+        // stateful, so a null here has to mean "back to the default" rather than "leave it as
+        // whoever shaped last left it" — otherwise a paragraph's advances depend on what was drawn
+        // before it, which is a bug that only appears once something animates an axis.
+        font.SetInstance(variation);
 
         var items = TextItemizer.Itemize(text, direction);
         if (items.Count == 0) {

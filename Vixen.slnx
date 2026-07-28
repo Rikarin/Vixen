@@ -12,6 +12,11 @@
   </Folder>
 
   <Folder Name="/docs/">
+    <!--
+      ADR-001 measure 4: every RHI concept against every backend, reviewed whenever the RHI surface
+      changes, so D3D12 mappability is checked by inspection rather than discovered when it lands.
+    -->
+    <File Path="docs/rhi-backend-mapping.md" />
     <File Path="docs/plan/README.md" />
     <File Path="docs/plan/00-vision-and-principles.md" />
     <File Path="docs/plan/01-technology-decisions.md" />
@@ -146,6 +151,8 @@
     <Project Path="Core/Vixen.Net.Engine.Tests/Vixen.Net.Engine.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Animation/Vixen.Net.Animation.csproj" />
     <Project Path="Core/Vixen.Net.Animation.Tests/Vixen.Net.Animation.Tests.csproj" />
+    <Project Path="Core/Vixen.Net.Audio/Vixen.Net.Audio.csproj" />
+    <Project Path="Core/Vixen.Net.Audio.Tests/Vixen.Net.Audio.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Physics/Vixen.Net.Physics.csproj" />
     <Project Path="Core/Vixen.Net.Physics.Tests/Vixen.Net.Physics.Tests.csproj" />
     <Project Path="Core/Vixen.Net.Telemetry/Vixen.Net.Telemetry.csproj" />
@@ -174,14 +181,36 @@
     <Project Path="Platform/Vixen.Graphics.Golden.Tests/Vixen.Graphics.Golden.Tests.csproj" />
     <Project Path="Platform/Vixen.Graphics.Vulkan/Vixen.Graphics.Vulkan.csproj" />
     <Project Path="Platform/Vixen.Graphics.Vulkan.Tests/Vixen.Graphics.Vulkan.Tests.csproj" />
+    <!--
+      The WebGPU backend's shared half and its native Dawn/wgpu surface. Its browser
+      surface — Vixen.Graphics.WebGPU.Browser — is absent for the reason below.
+    -->
+    <Project Path="Platform/Vixen.Graphics.WebGPU/Vixen.Graphics.WebGPU.csproj" />
+    <Project Path="Platform/Vixen.Graphics.WebGPU.Tests/Vixen.Graphics.WebGPU.Tests.csproj" />
+    <!--
+      The abstraction validator. ADR-001 postponed D3D12 past 1.0 and passed the job of proving the
+      RHI is API-neutral to OpenGL, which is a stricter test — no pipeline objects, no descriptor
+      sets, no explicit barriers, no multithreaded recording. Its test assembly drives a recording
+      IGlApi rather than a driver, so the translation layer is checked on every build and not only
+      on the CI leg that has Mesa.
+    -->
+    <Project Path="Platform/Vixen.Graphics.OpenGL/Vixen.Graphics.OpenGL.csproj" />
+    <Project Path="Platform/Vixen.Graphics.OpenGL.Tests/Vixen.Graphics.OpenGL.Tests.csproj" />
     <Project Path="Platform/Vixen.Vfx.Gpu.Tests/Vixen.Vfx.Gpu.Tests.csproj" />
     <!--
-      Vixen.Audio.Backend.WebAudio is deliberately absent, for the same reason
-      Vixen.Platform.Android and Vixen.Platform.iOS are: it targets net10.0-browser,
-      which needs the wasm-tools workload even to evaluate, and a solution that will
-      not restore on a machine without it is a solution nobody can open. It is built
-      by the web app head — Phase 10 — and by anyone who has the workload.
+      Vixen.Platform.Web, Vixen.Audio.Backend.WebAudio and Vixen.Graphics.WebGPU.Browser
+      are deliberately absent, for the same reason Vixen.Platform.Android and
+      Vixen.Platform.iOS are: they target net10.0-browser, which needs the wasm-tools
+      workload even to evaluate, and a solution that will not restore on a machine
+      without it is a solution nobody can open. They are built by the web app head and
+      by anyone who has the workload.
+
+      Vixen.Platform.Web.Tests *is* here, and is not a contradiction: it targets
+      net10.0 and links the platform-neutral half of that project as source rather than
+      referencing it, so the manifest reader — hand-written, and the thing most worth
+      testing — is covered on every push without a browser or a workload. See its csproj.
     -->
+    <Project Path="Platform/Vixen.Platform.Web.Tests/Vixen.Platform.Web.Tests.csproj" />
     <Project Path="Platform/Vixen.Audio.Backend.OpenAL/Vixen.Audio.Backend.OpenAL.csproj" />
     <Project Path="Platform/Vixen.Audio.Backend.OpenAL.Tests/Vixen.Audio.Backend.OpenAL.Tests.csproj" />
   </Folder>
@@ -195,6 +224,14 @@
     Vixen.Editor.NodeGraph is the framework the shader and VFX graphs are both built on,
     and references neither of those two: a graph is a document and a compiler, so the
     whole of it is testable with no shell either.
+
+    Vixen.Editor.Inspector and Vixen.Editor.SceneView are the two panels that are more
+    than chrome, and both reference Vixen.Editor.Core because both produce IEditorCommands
+    — "every edit produces a command" is only true by construction if the thing building
+    the editors knows about the stack. Neither references Vixen.Editor.Ui: an inspector is
+    a control and a viewport is arithmetic over an interface, so both are testable against
+    a bare UiDocument with no shell, and joining them to the docking workspace is
+    Vixen.Editor.App's job as it is for everything else.
   -->
   <Folder Name="/Editor/">
     <Project Path="Editor/Vixen.Editor.Core/Vixen.Editor.Core.csproj" />
@@ -208,6 +245,11 @@
     <Project Path="Editor/Vixen.Editor.ShaderGraph.Tests/Vixen.Editor.ShaderGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.VfxGraph/Vixen.Editor.VfxGraph.csproj" />
     <Project Path="Editor/Vixen.Editor.VfxGraph.Tests/Vixen.Editor.VfxGraph.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Inspector/Vixen.Editor.Inspector.csproj" />
+    <Project Path="Editor/Vixen.Editor.Inspector.Generator/Vixen.Editor.Inspector.Generator.csproj" />
+    <Project Path="Editor/Vixen.Editor.Inspector.Tests/Vixen.Editor.Inspector.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.SceneView/Vixen.Editor.SceneView.csproj" />
+    <Project Path="Editor/Vixen.Editor.SceneView.Tests/Vixen.Editor.SceneView.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Ui/Vixen.Editor.Ui.csproj" />
     <Project Path="Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.App/Vixen.Editor.App.csproj" />
@@ -274,6 +316,7 @@
   </Folder>
   <Project Path="Samples/01-HelloTriangle/HelloTriangle.csproj" />
   <Project Path="Samples/02-HelloUi/HelloUi.csproj" />
+  <Project Path="Samples/03-PbrShowcase/PbrShowcase.csproj" />
   <Project Path="Samples/04-EcsStressTest/EcsStressTest.csproj" />
   <Project Path="Samples/07-AddressablesRemote/AddressablesRemote.csproj" />
   <Project Path="Samples/08-Multiplayer/Multiplayer.csproj" />

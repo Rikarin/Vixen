@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Samples.PbrShowcase</RootNamespace>
+        <AssemblyName>PbrShowcase</AssemblyName>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Tools\Vixen.App\Vixen.App.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            SPIR-V, committed, for the same reason 01-HelloTriangle commits its own: the RHI never
+            parses shader source and Raven is not wired into the build yet (docs/plan/07). The GLSL
+            sits beside each module. Regenerating is `glslc Shaders/pbr.frag -o Shaders/pbr.frag.spv`.
+        -->
+        <EmbeddedResource Include="Shaders\*.spv" />
+    </ItemGroup>
+
+</Project>

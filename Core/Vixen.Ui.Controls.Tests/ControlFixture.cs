@@ -56,6 +56,20 @@ sealed class ControlFixture : IDisposable {
         Document.Draw();
     }
 
+    /// <summary>Moves the clock on and tells the document, the way a frame loop would.</summary>
+    /// <param name="by">How far.</param>
+    /// <remarks>
+    ///     One tick rather than a frame per step: nothing here is animating, and the timed behaviour
+    ///     this drives — a tooltip's delay, a toast's lifetime — asks how long it has been rather
+    ///     than how many frames. <c>UiTest.Advance</c> runs real frames, for the tests that need
+    ///     them.
+    /// </remarks>
+    public void Advance(TimeSpan by) {
+        clock += by;
+        Document.Tick(clock);
+        Update();
+    }
+
     /// <summary>Clicks in the middle of an element, the way a pointer would.</summary>
     /// <remarks>
     ///     ⚠ <b>A press and a release, not a synthesised tap.</b> The tap comes out of the gesture

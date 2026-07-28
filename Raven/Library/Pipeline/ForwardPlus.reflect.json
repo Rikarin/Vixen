@@ -91,7 +91,25 @@
               "DefaultValue": "1000"
             },
             {
-              "Name": "lightViewProjection",
+              "Name": "cascades",
+              "Type": {
+                "Scalar": "Struct",
+                "Rows": 1,
+                "Columns": 1,
+                "ArrayLength": 4,
+                "StructName": "ShadowCascade",
+                "IsMatrix": false,
+                "IsArray": true,
+                "IsStruct": true
+              },
+              "Offset": 48,
+              "Size": 320,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "cascades[].viewProjection",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 4,
@@ -102,9 +120,41 @@
               },
               "Offset": 48,
               "Size": 64,
-              "ArrayStride": 0,
+              "ArrayStride": 80,
               "MatrixStride": 16,
               "DefaultValue": ""
+            },
+            {
+              "Name": "cascades[].split",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 112,
+              "Size": 4,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "shadowFadeRange",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 368,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "10"
             },
             {
               "Name": "shadowTexelSize",
@@ -116,7 +166,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 112,
+              "Offset": 376,
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -132,7 +182,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 120,
+              "Offset": 384,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -148,7 +198,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 124,
+              "Offset": 388,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -164,7 +214,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 128,
+              "Offset": 392,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -180,7 +230,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 132,
+              "Offset": 396,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -198,7 +248,7 @@
                 "IsArray": true,
                 "IsStruct": true
               },
-              "Offset": 144,
+              "Offset": 400,
               "Size": 256,
               "ArrayStride": 64,
               "MatrixStride": 0,
@@ -215,7 +265,7 @@
                 "IsArray": false,
                 "IsStruct": true
               },
-              "Offset": 144,
+              "Offset": 400,
               "Size": 48,
               "ArrayStride": 64,
               "MatrixStride": 0,
@@ -231,7 +281,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 144,
+              "Offset": 400,
               "Size": 12,
               "ArrayStride": 64,
               "MatrixStride": 0,
@@ -247,7 +297,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 160,
+              "Offset": 416,
               "Size": 12,
               "ArrayStride": 64,
               "MatrixStride": 0,
@@ -263,7 +313,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 176,
+              "Offset": 432,
               "Size": 12,
               "ArrayStride": 64,
               "MatrixStride": 0,
@@ -279,7 +329,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 192,
+              "Offset": 448,
               "Size": 4,
               "ArrayStride": 64,
               "MatrixStride": 0,
@@ -295,7 +345,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 196,
+              "Offset": 452,
               "Size": 4,
               "ArrayStride": 64,
               "MatrixStride": 0,
@@ -312,7 +362,7 @@
                 "IsArray": false,
                 "IsStruct": true
               },
-              "Offset": 400,
+              "Offset": 656,
               "Size": 144,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -328,7 +378,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 400,
+              "Offset": 656,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -344,7 +394,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 416,
+              "Offset": 672,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -360,7 +410,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 432,
+              "Offset": 688,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -376,7 +426,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 448,
+              "Offset": 704,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -392,7 +442,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 464,
+              "Offset": 720,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -408,7 +458,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 480,
+              "Offset": 736,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -424,7 +474,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 496,
+              "Offset": 752,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -440,7 +490,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 512,
+              "Offset": 768,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -456,14 +506,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 528,
+              "Offset": 784,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
             }
           ],
-          "Size": 544,
+          "Size": 800,
           "IsWritable": false
         },
         {
@@ -1322,6 +1372,18 @@
       "DefaultValue": "16"
     },
     {
+      "Name": "CascadeCount",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "4"
+    },
+    {
       "Name": "UseReflectionProbe",
       "Type": {
         "Scalar": "Bool",
@@ -1439,7 +1501,7 @@
       "DefaultValue": "1000"
     },
     {
-      "Name": "lightViewProjection",
+      "Name": "cascades[].viewProjection",
       "Type": {
         "Scalar": "Float",
         "Rows": 4,
@@ -1452,9 +1514,45 @@
       "Binding": 0,
       "Offset": 48,
       "Size": 64,
-      "ArrayStride": 0,
+      "ArrayStride": 80,
       "MatrixStride": 16,
       "DefaultValue": ""
+    },
+    {
+      "Name": "cascades[].split",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 112,
+      "Size": 4,
+      "ArrayStride": 80,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "shadowFadeRange",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 368,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "10"
     },
     {
       "Name": "shadowTexelSize",
@@ -1468,7 +1566,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 112,
+      "Offset": 376,
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1486,7 +1584,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 120,
+      "Offset": 384,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1504,7 +1602,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 124,
+      "Offset": 388,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1522,7 +1620,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 128,
+      "Offset": 392,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1540,7 +1638,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 132,
+      "Offset": 396,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1558,7 +1656,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 144,
+      "Offset": 400,
       "Size": 12,
       "ArrayStride": 64,
       "MatrixStride": 0,
@@ -1576,7 +1674,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 160,
+      "Offset": 416,
       "Size": 12,
       "ArrayStride": 64,
       "MatrixStride": 0,
@@ -1594,7 +1692,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 176,
+      "Offset": 432,
       "Size": 12,
       "ArrayStride": 64,
       "MatrixStride": 0,
@@ -1612,7 +1710,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 192,
+      "Offset": 448,
       "Size": 4,
       "ArrayStride": 64,
       "MatrixStride": 0,
@@ -1630,7 +1728,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 196,
+      "Offset": 452,
       "Size": 4,
       "ArrayStride": 64,
       "MatrixStride": 0,
@@ -1648,7 +1746,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 400,
+      "Offset": 656,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1666,7 +1764,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 416,
+      "Offset": 672,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1684,7 +1782,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 432,
+      "Offset": 688,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1702,7 +1800,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 448,
+      "Offset": 704,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1720,7 +1818,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 464,
+      "Offset": 720,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1738,7 +1836,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 480,
+      "Offset": 736,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1756,7 +1854,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 496,
+      "Offset": 752,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1774,7 +1872,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 512,
+      "Offset": 768,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1792,7 +1890,7 @@
       },
       "Set": 0,
       "Binding": 0,
-      "Offset": 528,
+      "Offset": 784,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -2398,6 +2496,7 @@
     "TextureCube"
   ],
   "UsedPermutationKeys": [
+    "CascadeCount",
     "MaxLights",
     "ProbeCount",
     "UseClusteredLights",

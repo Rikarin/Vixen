@@ -114,6 +114,19 @@ Reversing halfway through a fade starts from where the element actually is, and 
 duration it has left rather than a full one — otherwise moving a pointer on and off a button
 repeatedly makes it drift further behind with every pass.
 
+**Several animations per element** run at once: `animation: spin 1s infinite, pulse 2s infinite` is
+two, and every `animation-*` longhand is a list matched by position against `animation-name` and
+*cycled* where it is shorter. One duration for two names gives both that duration; two for three
+gives the third the first one back. Where two animations set the same property, the one closer to
+the end of the list wins — and every animation is still asked, because one that says nothing about a
+property must not silence an earlier one that does. The running list is matched by *position*, so
+changing the second name leaves the first where it was in its cycle.
+
+⚠ **A bare `0` interpolates with a length and takes its unit.** CSS Values 4 makes a zero a valid
+length, and ExCSS serialises `0px` back out as `0` — so without that rule `from { width: 0 }` to
+`to { width: 100px }` has no midpoint and swaps at the halfway mark, which looks like an animation
+that does not run.
+
 Time is passed in, never read. The animator has no clock, which is what lets a test step through a
 fade deterministically and what lets the engine drive it from `Vixen.Engine`'s fixed step without
 this project knowing that exists.

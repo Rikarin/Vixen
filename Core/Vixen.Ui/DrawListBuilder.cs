@@ -206,7 +206,7 @@ public sealed class DrawListBuilder {
     ///     </para>
     /// </remarks>
     void EmitText(UiDocument document, UiElement element, DrawList into, float alpha) {
-        if (element.Run() is not { } run) {
+        if (element.Line() is not { } line) {
             return;
         }
 
@@ -227,35 +227,47 @@ public sealed class DrawListBuilder {
             - document.Layout.GetComputedBorder(element.LayoutNode, Edge.Right)
             - document.Layout.GetComputedPadding(element.LayoutNode, Edge.Right);
 
-        left += Indent(element, content - run.Width);
+        left += Indent(element, content - line.Width);
 
-        placed.Clear();
-        run.Place(placed);
+        var color = Fade(Color(element, textColor) ?? Color4.Black, alpha);
 
-        if (placed.Count == 0) {
-            return;
-        }
+        // ⚠ One command per run, because a command names one font. A line whose characters are not
+        // all in one face is several commands sharing a baseline — which is also why the run's own
+        // glyphs are placed from zero and the command carries the pen, rather than the whole line
+        // being placed once and sliced: a slice would put the second command's glyphs at coordinates
+        // relative to the first one's origin.
+        for (var i = 0; i < line.Runs.Length; i++) {
+            var run = line.Runs[i];
 
-        // The glyphs are placed relative to the start of the line and the command carries where that
-        // is, rather than each glyph carrying an absolute position. Two identical labels in different
-        // places then hold identical glyph runs, which is what will let the batcher notice.
-        into.Add(
-            new DrawCommand(
-                DrawCommandKind.Text,
-                left,
-                top + run.Baseline,
-                run.Width,
-                run.Height,
-                Fade(Color(element, textColor) ?? Color4.Black, alpha),
-                0f,
-                0f
-            ) {
-                Offset = into.AddGlyphs(placed),
-                Length = placed.Count,
-                Font = into.AddFont(run.Font),
-                FontSize = run.Size
+            placed.Clear();
+            run.Place(placed);
+
+            if (placed.Count == 0) {
+                continue;
             }
-        );
+
+            // The glyphs are placed relative to the start of the run and the command carries where
+            // that is, rather than each glyph carrying an absolute position. Two identical labels in
+            // different places then hold identical glyph runs, which is what will let the batcher
+            // notice.
+            into.Add(
+                new DrawCommand(
+                    DrawCommandKind.Text,
+                    left + line.PenOf(i),
+                    top + line.Baseline,
+                    run.Width,
+                    line.Height,
+                    color,
+                    0f,
+                    0f
+                ) {
+                    Offset = into.AddGlyphs(placed),
+                    Length = placed.Count,
+                    Font = into.AddFont(run.Font),
+                    FontSize = run.Size
+                }
+            );
+        }
     }
 
     /// <summary>Emits an element's <c>box-shadow</c>, if it has one this can read.</summary>

@@ -94,10 +94,28 @@ public sealed partial class ToastHost : Control {
     /// <summary>The toasts currently showing, newest first.</summary>
     public IReadOnlyList<Toast> Live => live;
 
+    Action<UiDocument, TimeSpan>? ticked;
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
         AddHandler<ClickEvent>(static (element, args) => ((ToastHost) element).Dismissed(args));
+
+        // The document's clock, which a host with a frame loop advances. Held in a field so that
+        // `OnRemoved` can take it off again: a host removed from its document must stop expiring
+        // toasts, and an event subscription is a reference the document would otherwise keep.
+        ticked = (_, now) => Tick(now);
+        Document.Ticked += ticked;
+    }
+
+    /// <inheritdoc />
+    protected override void OnRemoved() {
+        if (ticked is not null) {
+            Document.Ticked -= ticked;
+            ticked = null;
+        }
+
+        base.OnRemoved();
     }
 
     /// <summary>Shows a message.</summary>
@@ -113,6 +131,12 @@ public sealed partial class ToastHost : Control {
 
         Document.Move(toast, 0);
         live.Insert(0, toast);
+
+        // ⚠ Stamped now rather than at the next tick, which is a real difference and not tidiness: a
+        // toast shown just after a tick would otherwise be given the *following* frame's time and
+        // live a frame longer than the one shown just before it. `Tick` keeps its own fallback for a
+        // document whose clock has never been set, where this is still zero.
+        toast.Shown = Document.Now;
 
         return toast;
     }

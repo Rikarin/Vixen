@@ -42,6 +42,7 @@
             whose they are.
         -->
         <EmbeddedResource Include="Generated/ShapingConformance.data" />
+        <EmbeddedResource Include="Generated/VariationConformance.data" />
         <EmbeddedResource Include="Fonts/*.ttf" />
         <EmbeddedResource Include="Fonts/*.otf" />
     </ItemGroup>

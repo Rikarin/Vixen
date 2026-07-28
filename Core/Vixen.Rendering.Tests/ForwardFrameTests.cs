@@ -114,7 +114,7 @@ public sealed class ForwardFrameTests : IDisposable {
 
         return new() {
             ShaderName = "ForwardPlus",
-            ConstantBufferSize = 544,
+            ConstantBufferSize = bindings.First(b => b.Set == DescriptorSetSlot.PerFrame).Size,
             Bindings = [.. bindings],
             Parameters = [.. parameters],
             Stages = [
@@ -546,6 +546,125 @@ public sealed class ForwardFrameTests : IDisposable {
         // And the rest of the frame is unharmed: the other three sets have other owners.
         Assert.Contains((long)DescriptorSetSlot.PerMaterial, SetsBound(device));
         Assert.True(device.Recorder!.CountOf(RecordedCommandKind.Draw) > 0);
+    }
+
+    /// <summary>
+    ///     Every name the frame publishes is one the shader declares.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The general form of the failure this whole area keeps producing, asserted once for all
+    ///         of its publishers. Six different types write into set 0 by string —
+    ///         <see cref="SceneLighting" />, <see cref="EnvironmentLight.Apply" />,
+    ///         <see cref="ReflectionProbe.Apply" />, <see cref="ClusterGrid.Apply" />,
+    ///         <see cref="ShadowMapRenderer" /> and <see cref="ForwardLightingRenderFeature" /> — and
+    ///         a typo in any of them is <em>silent</em>: the value is written, no binding claims it,
+    ///         and the surface is lit by whatever the shader declared as a default.
+    ///     </para>
+    ///     <para>
+    ///         So the assertion is not that a particular name is right but that <em>no</em> name is
+    ///         orphaned. It notices a renamed uniform, an index written past an array's length, and a
+    ///         publisher that was never updated when the shader moved on.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Nothing_the_frame_publishes_is_a_name_the_shader_does_not_have() {
+        using var frame = Build();
+
+        Record(frame);
+
+        var declared = effect.Parameters
+            .Select(parameter => parameter.Key.Name)
+            .Concat(effect.Bindings.SelectMany(Names))
+            .ToHashSet(StringComparer.Ordinal);
+
+        var orphaned = frame.Scene.Parameters.Keys
+            .Select(key => key.Name)
+            .Where(name => !declared.Contains(name))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal([], orphaned);
+
+        // And the frame really did write something, so an empty collection cannot pass this.
+        Assert.True(frame.Scene.Parameters.Count > 20);
+    }
+
+    /// <summary>The names one binding can be filled through — its own, and its elements'.</summary>
+    static IEnumerable<string> Names(EffectBinding binding) {
+        yield return $"ForwardPlus.{binding.Name}";
+
+        for (var i = 0; i < binding.Count; i++) {
+            yield return $"ForwardPlus.{binding.Name}[{i}]";
+        }
+    }
+
+    /// <summary>
+    ///     Every cascade the atlas holds is filled, and the shader has an array that long.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="ShadowMapRenderer.CascadeCount" /> and the shader's <c>CascadeCount</c>
+    ///     permutation size the same array from opposite sides, and nothing connects them — the same
+    ///     shape as <c>MaxLights</c>, one array along. A host that fitted three into a block sized for
+    ///     four leaves the last one a matrix nobody wrote, and a fragment far enough away projects
+    ///     with it.
+    /// </remarks>
+    [Fact]
+    public void Every_cascade_the_shader_declares_is_filled() {
+        using var frame = Build();
+
+        Record(frame);
+
+        for (var i = 0; i < frame.Shadows.CascadeCount; i++) {
+            var matrix = ParameterKeys.New<Matrix4x4>($"ForwardPlus.cascades[{i}].viewProjection");
+            var split = ParameterKeys.New<float>($"ForwardPlus.cascades[{i}].split");
+
+            Assert.True(frame.Scene.Parameters.Has(matrix), $"cascade {i} has no matrix");
+            Assert.True(frame.Scene.Parameters.Has(split), $"cascade {i} has no split");
+
+            // Near first, which is the order the shader's search assumes.
+            if (i > 0) {
+                var previous = ParameterKeys.New<float>($"ForwardPlus.cascades[{i - 1}].split");
+                Assert.True(frame.Scene.Parameters.Get(split) > frame.Scene.Parameters.Get(previous));
+            }
+        }
+
+        // The array is exactly as long as the host fills, which is what stops a fragment projecting
+        // with a matrix nobody wrote.
+        Assert.False(
+            frame.Scene.Parameters.Has(
+                ParameterKeys.New<Matrix4x4>($"ForwardPlus.cascades[{frame.Shadows.CascadeCount}].viewProjection")
+            )
+        );
+
+        Assert.Equal(
+            frame.Shadows.CascadeCount,
+            effect.Parameters.Count(
+                p => p.Key.Name.StartsWith("ForwardPlus.cascades[", StringComparison.Ordinal)
+                    && p.Key.Name.EndsWith("].viewProjection", StringComparison.Ordinal)
+            )
+        );
+    }
+
+    /// <summary>
+    ///     The shader selects a cascade the way the host's mirror does.
+    /// </summary>
+    /// <remarks>
+    ///     A test that reads shader source, for what the reflection cannot see. Everything above binds
+    ///     the host's <em>names</em> to the shader's declared parameters, so a rename or a resize
+    ///     fails loudly — but the comparison itself is invisible to it, and
+    ///     <see cref="ShadowCascades.CascadeOf" /> is a copy of it. Reversed, the host would fit
+    ///     cascades for one set of distances and the shader would read them for another, which is a
+    ///     shadow at the wrong resolution rather than a missing one.
+    /// </remarks>
+    [Fact]
+    public void The_shader_picks_a_cascade_the_way_the_host_says_it_does() {
+        var source = File.ReadAllText(
+            ReflectionPath().Replace("ForwardPlus.reflect.json", "ForwardPlus.rvn", StringComparison.Ordinal)
+        );
+
+        Assert.Contains("if (viewDepth <= cascades[i].split) {", source, StringComparison.Ordinal);
+        Assert.Contains("var index = CascadeCount - 1", source, StringComparison.Ordinal);
     }
 
     /// <summary>
