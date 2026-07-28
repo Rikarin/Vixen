@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
+using Vixen.Shaders.Generated;
 
 namespace Vixen.Rendering;
 
@@ -30,7 +31,13 @@ namespace Vixen.Rendering;
 /// </remarks>
 public static class GpuCulling {
     /// <summary>The shader's name, and the effect key the group resolves.</summary>
-    public const string ShaderName = "Culling";
+    /// <remarks>
+    ///     From the generated keys rather than spelled here, which is the point of them: the name,
+    ///     the permutation and every binding index come from the reflection checked in beside the
+    ///     shader, so a rename in the <c>.rvn</c> is a compile error rather than a group that quietly
+    ///     stops finding its bindings and culls on the CPU for ever.
+    /// </remarks>
+    public const string ShaderName = CullingKeys.ShaderName;
 
     /// <summary>How many objects one word of the device's answer holds.</summary>
     /// <remarks>
@@ -71,13 +78,13 @@ public static class GpuCulling {
     public const float ClipEpsilon = 0.0001f;
 
     /// <summary>The name of the shader that builds the depth pyramid.</summary>
-    public const string ReduceShaderName = "HiZReduce";
+    public const string ReduceShaderName = HiZReduceKeys.ShaderName;
 
     /// <summary>The name of the shader that turns the bits into indirect draw arguments.</summary>
-    public const string ArgumentsShaderName = "DrawArguments";
+    public const string ArgumentsShaderName = DrawArgumentsKeys.ShaderName;
 
     /// <summary>The permutation key selecting the variant that tests against that pyramid.</summary>
-    public const string OcclusionKey = $"{ShaderName}.Occlusion";
+    public static string OcclusionKey => CullingKeys.Occlusion.Name;
 
     /// <summary>The workgroup size the reduction shader declares, in each of its two dimensions.</summary>
     public const int ReduceWorkgroupSize = 8;

@@ -13,6 +13,7 @@ using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Features;
 using Vixen.Shaders;
+using Vixen.Shaders.Generated;
 using Xunit;
 
 namespace Tests;
@@ -929,6 +930,44 @@ public class GpuVisibilityGroupTests : IDisposable {
         var thrown = Assert.Throws<InvalidOperationException>(() => arguments.Update(list, bits, 1, 8));
 
         Assert.Contains("Fill", thrown.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Every binding of every culling shader is in one set, which is what one dispatch can bind.
+    /// </summary>
+    /// <remarks>
+    ///     This used to be a runtime check inside each class, throwing when the reflection disagreed.
+    ///     It does not need to be: the indices are generated from the reflection checked in beside
+    ///     the shader, so the question is answered when the engine compiles rather than when a frame
+    ///     runs — and here is where an answer that stopped being true should fail.
+    /// </remarks>
+    [Fact]
+    public void Each_culling_shaders_bindings_share_a_set() {
+        Assert.Equal(CullingKeys.ObjectsSet, CullingKeys.ViewsSet);
+        Assert.Equal(CullingKeys.ObjectsSet, CullingKeys.VisibilitySet);
+        Assert.Equal(CullingKeys.ObjectsSet, CullingKeys.OccludersSet);
+
+        Assert.Equal(HiZReduceKeys.SourceSet, HiZReduceKeys.TargetSet);
+
+        Assert.Equal(DrawArgumentsKeys.TemplatesSet, DrawArgumentsKeys.VisibilitySet);
+        Assert.Equal(DrawArgumentsKeys.TemplatesSet, DrawArgumentsKeys.CommandsSet);
+    }
+
+    /// <summary>
+    ///     The names the host used to look up by hand are the ones the shaders declare.
+    /// </summary>
+    /// <remarks>
+    ///     The generated keys exist because a binding index is declaration order within a set, so
+    ///     adding a buffer above another renumbers it. A literal in C# survives that; a generated
+    ///     constant does not, which is the whole point — this test is what says the two shaders and
+    ///     the three classes are still describing the same interface.
+    /// </remarks>
+    [Fact]
+    public void The_shader_names_are_the_generated_ones() {
+        Assert.Equal(GpuCulling.ShaderName, CullingKeys.ShaderName);
+        Assert.Equal(GpuCulling.ReduceShaderName, HiZReduceKeys.ShaderName);
+        Assert.Equal(GpuCulling.ArgumentsShaderName, DrawArgumentsKeys.ShaderName);
+        Assert.Equal(GpuCulling.OcclusionKey, CullingKeys.Occlusion.Name);
     }
 
     /// <summary>A draw's arguments are twenty bytes, which is what the API's stride is.</summary>

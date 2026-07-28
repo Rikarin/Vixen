@@ -133,6 +133,13 @@ The host keeps a copy of the shader's arithmetic in `GpuCulling`, for the reason
 a copy of the froxel grid's: the two sides agree by construction or not at all, and a copy that runs
 on the CPU is what lets a test say they do without a GPU in the room.
 
+**The names and the binding indices are not a copy.** All three passes publish reflection beside the
+shader — `Culling.reflect.json` and its two siblings — and the host binds through the constants
+generated from it. A binding index is declaration order within a set, so adding a buffer above
+another renumbers it; a literal in C# survives that and a generated constant does not. It matters
+more here than elsewhere because of how this fails: a name the shader no longer has does not throw,
+it makes the group fall back to the CPU, on every frame, silently.
+
 ### And what the frustum cannot answer
 
 The frustum says what is in front of the camera; it says nothing about what is *behind a wall*. That

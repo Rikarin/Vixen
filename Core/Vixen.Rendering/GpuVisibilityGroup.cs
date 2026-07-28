@@ -7,6 +7,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
 using Vixen.Graphics;
 using Vixen.Shaders;
+using Vixen.Shaders.Generated;
 
 namespace Vixen.Rendering;
 
@@ -98,7 +99,9 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
     DescriptorSetHandle[] descriptors = [];
     int ring;
 
-    DescriptorSetSlot slot;
+    // From the reflection checked in beside the shader — see GpuCulling.ShaderName.
+    const DescriptorSetSlot Slot = (DescriptorSetSlot)CullingKeys.ObjectsSet;
+
     Effect? allocatedFor;
     PendingCull? pending;
     bool disposed;
@@ -283,42 +286,12 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
 
         var pipeline = Pipelines.GetOrCreate(effect);
 
-        if (!pipeline.IsValid
-            || effect.BindingOf("objects") is not { } objectBinding
-            || effect.BindingOf("views") is not { } viewBinding
-            || effect.BindingOf("visibility") is not { } outputBinding) {
-            return false;
-        }
-
-        // The variant that tests occlusion is the one that declares the texture, so a variant
-        // without the binding is one that will not read it — which is the permutation doing its job
-        // rather than something to fail on. The reverse is not survivable: a set with a binding
-        // nothing filled is a validation error on one backend and a sampled nothing on another, so a
-        // variant asking for a pyramid this group cannot supply is a frame the CPU takes.
-        // A binding the variant declares is one the set must fill, whether or not this frame reads
-        // it: a hole in a set is a validation error on one backend and a sampled nothing on another.
-        // And the variant declares it either way — the permutation removes the *sampling*, not the
-        // declaration, which a device found out and no host test could have. So a frame with no
-        // pyramid binds a texture that exists and says so in every view's flags instead.
-        var occluderBinding = effect.BindingOf("occluders");
-
-        if (occluderBinding is not null && !EnsureOccluders()) {
-            return false;
-        }
-
-        occlusion &= occluderBinding is not null;
-
-        if (objectBinding.Set != viewBinding.Set
-            || objectBinding.Set != outputBinding.Set
-            || (occluderBinding is { } bound && bound.Set != objectBinding.Set)) {
-            throw new InvalidOperationException(
-                $"'{GpuCulling.ShaderName}' declares its bindings across more than one descriptor "
-                + "set, and one dispatch binds one set. This is a change to the shader rather than "
-                + "something a frame can work around."
-            );
-        }
-
-        if (!TryAllocateSet(effect, objectBinding.Set)) {
+        // The occluder binding is filled whether or not this frame reads it: a hole in a set is a
+        // validation error on one backend and a sampled nothing on another, and *both* variants
+        // declare the texture — the permutation removes the sampling, not the declaration, which a
+        // device found out and no host test could have. So a frame with no pyramid binds a texture
+        // that exists, and says so in every view's flags instead.
+        if (!pipeline.IsValid || !EnsureOccluders() || !TryAllocateSet(effect)) {
             return false;
         }
 
@@ -333,7 +306,7 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         var tested = Upload(store, frameViews, objectCount, wordCount, occlusion);
 
         ring = descriptors.Length == 0 ? 0 : (ring + 1) % descriptors.Length;
-        Bind(objectBinding, viewBinding, outputBinding, occluderBinding, objectCount, frameViews.Count, bytes);
+        Bind(objectCount, frameViews.Count, bytes);
 
         if (ReadBack) {
             Dispatch(pipeline, wordCount, frameViews.Count, bytes);
@@ -465,40 +438,28 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
     ///         covering the ring's slack would tell it there were objects where there is only capacity.
     ///     </para>
     /// </remarks>
-    void Bind(
-        EffectBinding objectBinding,
-        EffectBinding viewBinding,
-        EffectBinding outputBinding,
-        EffectBinding? occluderBinding,
-        int objectCount,
-        int viewCount,
-        long bytes
-    ) {
+    void Bind(int objectCount, int viewCount, long bytes) {
         writes[0] = DescriptorWrite.Storage(
-            objectBinding.Binding,
+            CullingKeys.ObjectsBinding,
             objects.Buffer,
             objects.Offset,
             (long)objectCount * Unsafe.SizeOf<CullObject>()
         );
 
         writes[1] = DescriptorWrite.Storage(
-            viewBinding.Binding,
+            CullingKeys.ViewsBinding,
             views.Buffer,
             views.Offset,
             (long)viewCount * Unsafe.SizeOf<CullView>()
         );
 
-        writes[2] = DescriptorWrite.Storage(outputBinding.Binding, visibility, 0, bytes);
-        var written = 3;
+        writes[2] = DescriptorWrite.Storage(CullingKeys.VisibilityBinding, visibility, 0, bytes);
 
-        // Whenever the variant declares it, whether or not any view ends up testing against it: a
-        // binding the shader declares is one the set must fill, and a view that is not being
-        // occlusion tested says so through its own flag rather than by leaving a hole here.
-        if (occluderBinding is { } occluders) {
-            writes[written++] = DescriptorWrite.Texture(occluders.Binding, Occluding());
-        }
+        // Always, for the reason above: a view that is not being occlusion tested says so through
+        // its own flag rather than by leaving a hole in the set.
+        writes[3] = DescriptorWrite.Texture(CullingKeys.OccludersBinding, Occluding());
 
-        device.UpdateDescriptorSet(descriptors[ring], writes.AsSpan(0, written));
+        device.UpdateDescriptorSet(descriptors[ring], writes);
     }
 
     /// <summary>Records the dispatch and the copy out of it, submits, and waits.</summary>
@@ -529,7 +490,7 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
 
         list.Barrier(new([new(visibility, state, ResourceState.ShaderWrite)], []));
         list.BindPipeline(pipeline);
-        list.BindDescriptorSet(slot, descriptors[ring]);
+        list.BindDescriptorSet(Slot, descriptors[ring]);
         list.Dispatch(GpuCulling.Groups(wordCount), viewCount);
 
         list.Barrier(new([new(visibility, ResourceState.ShaderWrite, after)], []));
@@ -632,14 +593,14 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         return placeholderView.IsValid;
     }
 
-    bool TryAllocateSet(Effect effect, DescriptorSetSlot wanted) {
+    bool TryAllocateSet(Effect effect) {
         var slots = Math.Max(1, device.FramesInFlight);
 
         if (ReferenceEquals(allocatedFor, effect) && descriptors.Length == slots) {
             return true;
         }
 
-        if ((int)wanted >= effect.SetLayouts.Length || !effect.SetLayouts[(int)wanted].IsValid) {
+        if ((int)Slot >= effect.SetLayouts.Length || !effect.SetLayouts[(int)Slot].IsValid) {
             return false;
         }
 
@@ -647,14 +608,13 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         descriptors = new DescriptorSetHandle[slots];
 
         for (var index = 0; index < slots; index++) {
-            descriptors[index] = device.CreateDescriptorSet(effect.SetLayouts[(int)wanted], "Culling");
+            descriptors[index] = device.CreateDescriptorSet(effect.SetLayouts[(int)Slot], "Culling");
 
             if (!descriptors[index].IsValid) {
                 return false;
             }
         }
 
-        slot = wanted;
         ring = 0;
         allocatedFor = effect;
 

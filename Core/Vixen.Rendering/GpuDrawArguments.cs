@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Vixen.Graphics;
 using Vixen.Shaders;
+using Vixen.Shaders.Generated;
 
 namespace Vixen.Rendering;
 
@@ -92,7 +93,10 @@ public sealed class GpuDrawArguments : IDisposable {
     DescriptorSetHandle[] descriptors = [];
     int ring;
 
-    DescriptorSetSlot slot;
+    // From the reflection checked in beside the shader, not from a name looked up at run time —
+    // see GpuCulling.ShaderName for why the generated keys are the source of both.
+    const DescriptorSetSlot Slot = (DescriptorSetSlot)DrawArgumentsKeys.TemplatesSet;
+
     Effect? allocatedFor;
     bool disposed;
 
@@ -194,21 +198,7 @@ public sealed class GpuDrawArguments : IDisposable {
 
         var pipeline = Pipelines.GetOrCreate(effect);
 
-        if (!pipeline.IsValid
-            || effect.BindingOf("templates") is not { } templateBinding
-            || effect.BindingOf("visibility") is not { } visibilityBinding
-            || effect.BindingOf("commands") is not { } commandBinding) {
-            return false;
-        }
-
-        if (templateBinding.Set != visibilityBinding.Set || templateBinding.Set != commandBinding.Set) {
-            throw new InvalidOperationException(
-                $"'{GpuCulling.ArgumentsShaderName}' declares its three buffers across more than one "
-                + "descriptor set, and one dispatch binds one set."
-            );
-        }
-
-        if (!TryAllocateSet(effect, templateBinding.Set) || !EnsureCommands((long)viewCount * objectCount * Stride)) {
+        if (!pipeline.IsValid || !TryAllocateSet(effect) || !EnsureCommands((long)viewCount * objectCount * Stride)) {
             return false;
         }
 
@@ -229,7 +219,7 @@ public sealed class GpuDrawArguments : IDisposable {
         templates.Upload();
 
         writes[0] = DescriptorWrite.Storage(
-            templateBinding.Binding,
+            DrawArgumentsKeys.TemplatesBinding,
             templates.Buffer,
             templates.Offset,
             (long)objectCount * Unsafe.SizeOf<DrawCommand>()
@@ -238,19 +228,19 @@ public sealed class GpuDrawArguments : IDisposable {
         // The exact word count, because the shader derives the stride between views from the object
         // count and would read the next view's words if this said "the rest of the buffer".
         writes[1] = DescriptorWrite.Storage(
-            visibilityBinding.Binding,
+            DrawArgumentsKeys.VisibilityBinding,
             visibility,
             0,
             GpuCulling.BufferSize(viewCount, GpuCulling.WordsFor(objectCount))
         );
 
-        writes[2] = DescriptorWrite.Storage(commandBinding.Binding, commands, 0, (long)viewCount * objectCount * Stride);
+        writes[2] = DescriptorWrite.Storage(DrawArgumentsKeys.CommandsBinding, commands, 0, (long)viewCount * objectCount * Stride);
         ring = descriptors.Length == 0 ? 0 : (ring + 1) % descriptors.Length;
         device.UpdateDescriptorSet(descriptors[ring], writes);
 
         list.Barrier(new([new(commands, state, ResourceState.ShaderWrite)], []));
         list.BindPipeline(pipeline);
-        list.BindDescriptorSet(slot, descriptors[ring]);
+        list.BindDescriptorSet(Slot, descriptors[ring]);
 
         list.Dispatch(
             Math.Max(1, (objectCount + GpuCulling.WorkgroupSize - 1) / GpuCulling.WorkgroupSize),
@@ -264,14 +254,14 @@ public sealed class GpuDrawArguments : IDisposable {
         return true;
     }
 
-    bool TryAllocateSet(Effect effect, DescriptorSetSlot wanted) {
+    bool TryAllocateSet(Effect effect) {
         var slots = Math.Max(1, device.FramesInFlight);
 
         if (ReferenceEquals(allocatedFor, effect) && descriptors.Length == slots) {
             return true;
         }
 
-        if ((int)wanted >= effect.SetLayouts.Length || !effect.SetLayouts[(int)wanted].IsValid) {
+        if ((int)Slot >= effect.SetLayouts.Length || !effect.SetLayouts[(int)Slot].IsValid) {
             return false;
         }
 
@@ -279,14 +269,13 @@ public sealed class GpuDrawArguments : IDisposable {
         descriptors = new DescriptorSetHandle[slots];
 
         for (var index = 0; index < slots; index++) {
-            descriptors[index] = device.CreateDescriptorSet(effect.SetLayouts[(int)wanted], "DrawArguments");
+            descriptors[index] = device.CreateDescriptorSet(effect.SetLayouts[(int)Slot], "DrawArguments");
 
             if (!descriptors[index].IsValid) {
                 return false;
             }
         }
 
-        slot = wanted;
         ring = 0;
         allocatedFor = effect;
 
