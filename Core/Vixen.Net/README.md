@@ -334,8 +334,28 @@ like a bug.
 correction converge — nudging the present toward the server's value is the tempting alternative, and
 it does not, because the error it corrects was produced by ticks it is not redoing.
 
-Hiding the correction is a separate, presentation-layer problem with its own answer: `OwnerSmoothing`
-gives the error to the camera as an offset that decays while the simulation takes it at once.
+**What is predicted comes from the rules**, not from a second notion of ownership. `PredictedOwnershipSystem`
+tags what `NetworkRules.Write` says this client may decide — the same question the rigid bodies and the
+animators ask — and untags it when somebody else takes it. Two notions of "mine" is how the two come to
+disagree, and the day they do, a client predicts something the server overrules on every tick. With no
+rules, nothing is predicted: predicting by default would mean a game that never configured this
+predicting the whole map against a server that overrules all of it.
+
+**How far ahead to run is the server's answer, not the client's.** A client can measure a round trip,
+and a round trip is a good estimate of the wrong thing — what matters is whether its input reached the
+server *before* the tick it was for, which is a fact about the server's buffer. `PredictionHealthReporter`
+sends that back as a broadcast (deltas, not lifetime totals, and every thirtieth tick rather than every
+tick), and `TickLeadController` turns it into `TickManager.LeadBias`. It moves **one tick at a time and
+never on one report**, because changing the lead moves every input not yet sent — and it is asymmetric
+on purpose: starvation is corrected quickly and depth given up slowly, because being too far ahead
+costs a little input latency and being too far behind costs corrections the player sees.
+
+**Hiding the correction is a presentation problem**, and `PredictionSmoother` is the wiring for it:
+`ClientPrediction.Corrections` reports what the last reconciliation moved, and the smoother keeps an
+`OwnerSmoothing` per object so a player and the vehicle they are driving can be corrected by different
+amounts. The simulation takes the correction at once and the picture catches up — blending the
+*simulation* instead would mean predicting on from a position the server has already disagreed with.
+Past a snap distance nothing is hidden, because the object did not drift, it was moved.
 
 ## Remote calls
 

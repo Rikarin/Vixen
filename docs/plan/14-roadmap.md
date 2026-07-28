@@ -3824,12 +3824,42 @@ holds its bandwidth, CPU, and allocation budgets for 30 minutes.
   `InputBuffer.TryReceive` is fuzzed as the tenth target — the second parser a client controls, and
   the only one that arrives every tick.
 
-  **Owed, and this is the part [16](16-networking.md)'s own argument says matters most:** nothing
-  decides *what* is predicted (`Predicted` is a tag a game puts on, not wired to ownership or
-  `NetworkRules`); the tick lead is measured but not steered; a client cannot predict a *spawn*; the
-  predicted step is a delegate rather than a re-entrant run of the scheduler's fixed-step group; and
-  no system applies `OwnerSmoothing` to a correction. The mechanism is built and tested and the
-  ergonomics are not — a game can predict today by writing the wiring itself.
+  ✅ **And then the wiring**, which [16](16-networking.md)'s own argument says matters most — a game
+  that predicts movement but not the interactions movement causes feels *less* consistent than one
+  that predicts nothing, so what is and is not predicted has to be legible rather than assumed.
+  11 further tests.
+
+  **What is predicted comes from the rules.** `PredictedOwnershipSystem` tags what
+  `NetworkRules.Write` says this client may decide — the same question the rigid bodies and the
+  animators ask — and untags it when somebody else takes the object, because a predicted thing whose
+  prediction is never confirmed is a correction on every snapshot for as long as it lives. Inventing a
+  second notion of "mine" beside the rules is how the two come to disagree, and the day they do a
+  client predicts something the server overrules every tick. With no rules nothing is predicted, which
+  is the safe direction.
+
+  **How far ahead to run is the server's answer, not the client's.** A client can measure a round trip
+  and a round trip is a good estimate of the wrong thing: what matters is whether its input reached
+  the server *before* the tick it was for, which is a fact about the server's buffer and about nothing
+  the client can observe. `PredictionHealthReporter` sends it back as a broadcast — deltas rather than
+  lifetime totals, every thirtieth tick rather than every tick — and `TickLeadController` turns it into
+  `TickManager.LeadBias`, which is kept separate from the round-trip estimate rather than replacing
+  it, so an adjustment is something somebody can inspect and clamp. It moves **one tick at a time and
+  never on one report**, because changing the lead moves every input the client has not sent yet and a
+  controller reacting to a single starved tick spends its life oscillating — each oscillation being a
+  visible correction. Asymmetric on purpose: starvation corrected quickly, depth given up slowly,
+  because being too far ahead costs a little input latency and being too far behind costs corrections
+  a player sees.
+
+  **Corrections are hidden from the eye and not from the simulation.** `ClientPrediction.Corrections`
+  reports what the last reconciliation moved and `PredictionSmoother` keeps an `OwnerSmoothing` per
+  object — per object, because one shared error is wrong the moment a player and the vehicle they are
+  driving are corrected by different amounts, which is the normal case. Blending the *simulation*
+  instead would mean predicting on from a position the server has already disagreed with.
+
+  **Still owed:** predicted spawns — a client cannot predict an object into existence, which needs an
+  id space a client may allocate in and a reconciliation matching its guess to the server's real
+  spawn; and running the scheduler's fixed-step group rather than a delegate, which wants the
+  scheduler to be re-entrant.
 
 ---
 

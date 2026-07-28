@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
+using Vixen.Core.Mathematics;
 using Vixen.Ecs;
+using Vixen.Net.Motion;
 using Vixen.Net.Replication;
 
 namespace Vixen.Net.Prediction;
@@ -56,11 +59,32 @@ public delegate void PredictedStep<T>(World world, Tick tick, in T input) where 
 /// </remarks>
 /// <typeparam name="T">The game's input type.</typeparam>
 public sealed class ClientPrediction<T> where T : struct, IPredictedInput<T> {
+    static readonly QueryDescription Moving = new QueryDescription()
+        .RequireAll([ComponentType<NetworkId>.Id, ComponentType<Predicted>.Id, ComponentType<NetworkTransform>.Id]);
+
     readonly InputLog<T> log;
     readonly PredictedStep<T> step;
+    readonly Dictionary<uint, Vector3> beforeReplay = [];
+    readonly List<PredictionCorrection> corrections = [];
 
     /// <summary>What was predicted for each of the last few ticks.</summary>
     public PredictionHistory History { get; }
+
+    /// <summary>How far each predicted object moved in the last reconciliation, if any did.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Reported rather than smoothed here.</b> A rollback moves things, sometimes visibly,
+    ///         and hiding that is a presentation decision — how much to hide, over how long, and past
+    ///         what distance to stop trying. <c>OwnerSmoothing</c> is the answer and
+    ///         <c>PredictionSmoother</c> is the wiring; this is the fact both of them need.
+    ///     </para>
+    ///     <para>
+    ///         Emptied at the start of every <see cref="Reconcile" />, so it describes the last one and
+    ///         not a running total. A reconciliation that agreed leaves it empty, which is most of
+    ///         them.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<PredictionCorrection> Corrections => corrections;
 
     /// <summary>The newest tick simulated.</summary>
     public Tick Current { get; private set; }
@@ -143,6 +167,8 @@ public sealed class ClientPrediction<T> where T : struct, IPredictedInput<T> {
     public int Reconcile(World world, Tick confirmed) {
         ArgumentNullException.ThrowIfNull(world);
 
+        corrections.Clear();
+
         if (!HasSimulated || confirmed.IsAfter(Current)) {
             // A snapshot from the future of what this client has simulated. Nothing was guessed about
             // it, so there is nothing to check and the arriving state stands.
@@ -179,6 +205,7 @@ public sealed class ClientPrediction<T> where T : struct, IPredictedInput<T> {
         }
 
         MispredictionCount++;
+        Remember(world);
 
         var replayed = 0;
 
@@ -194,8 +221,46 @@ public sealed class ClientPrediction<T> where T : struct, IPredictedInput<T> {
         }
 
         ResimulatedTickCount += replayed;
+        Measure(world);
 
         return replayed;
+    }
+
+    /// <summary>Where the predicted objects were before the replay moved them.</summary>
+    void Remember(World world) {
+        beforeReplay.Clear();
+
+        foreach (var chunk in world.Chunks(Moving)) {
+            var ids = chunk.ReadValues<NetworkId>();
+            var transforms = chunk.ReadValues<NetworkTransform>();
+
+            for (var row = 0; row < chunk.Count; row++) {
+                beforeReplay[ids[row].Value] = transforms[row].Position;
+            }
+        }
+    }
+
+    /// <summary>And where they ended up.</summary>
+    void Measure(World world) {
+        foreach (var chunk in world.Chunks(Moving)) {
+            var ids = chunk.ReadValues<NetworkId>();
+            var transforms = chunk.ReadValues<NetworkTransform>();
+
+            for (var row = 0; row < chunk.Count; row++) {
+                if (!beforeReplay.TryGetValue(ids[row].Value, out var from)) {
+                    continue;
+                }
+
+                var to = transforms[row].Position;
+
+                // Only what actually moved. A mispredicted object is usually one of several
+                // predicted ones, and reporting the still ones would have a smoother working off a
+                // zero error for every object on every correction.
+                if (from != to) {
+                    corrections.Add(new(ids[row], from, to));
+                }
+            }
+        }
     }
 
     /// <summary>Forgets everything, for a client that is reconnecting into a fresh world.</summary>
@@ -205,3 +270,14 @@ public sealed class ClientPrediction<T> where T : struct, IPredictedInput<T> {
         Current = default;
     }
 }
+
+/// <summary>How far one object moved when a prediction was corrected.</summary>
+/// <param name="Id">Which object.</param>
+/// <param name="From">Where it was being drawn.</param>
+/// <param name="To">Where the corrected simulation says it is.</param>
+/// <remarks>
+///     <b>The simulation has already taken the correction</b> — this is what happened, not a proposal.
+///     What a presentation layer does with it is give the difference to the camera as an offset that
+///     decays, so what the player sees glides while what the server will judge is already right.
+/// </remarks>
+public readonly record struct PredictionCorrection(NetworkId Id, Vector3 From, Vector3 To);

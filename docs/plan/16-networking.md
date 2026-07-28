@@ -98,22 +98,22 @@ snapshot APIs shaped to accept it without restructuring, at an estimated +2 EM w
 > **Still owed** — and this is the part the argument above says matters most, so it is listed rather
 > than glossed:
 >
-> - **Nothing decides what is predicted.** `Predicted` is a tag a game puts on, and the natural policy
->   — predict what this player owns — is not wired to ownership or to `NetworkRules`.
-> - **The tick lead is not steered.** `InputBuffer` measures depth, starvation and lateness, and
->   `TickManager.LeadTicks` is the knob, and nothing carries the one to the other. Until it does, a
->   client's lead is whatever the tick estimator produced for interpolation.
+> - ✅ **What is predicted comes from the rules.** `PredictedOwnershipSystem` tags what
+>   `NetworkRules.Write` says this client may decide, and untags it when ownership moves. A second
+>   notion of "mine" beside the rules is how the two come to disagree.
+> - ✅ **The tick lead is steered by the server.** `PredictionHealthReporter` sends the buffer's depth,
+>   starvation and lateness back as a broadcast and `TickLeadController` turns it into
+>   `TickManager.LeadBias` — one tick at a time, never on one report, and asymmetric: starvation
+>   corrected quickly, depth given up slowly, because the two mistakes cost different things.
+> - ✅ **Corrections are smoothed.** `ClientPrediction.Corrections` reports what the last
+>   reconciliation moved and `PredictionSmoother` keeps an `OwnerSmoothing` per object, so a player and
+>   the vehicle they are driving can be corrected by different amounts.
 > - **Predicted spawns.** A client cannot predict an object into existence — a projectile it fired —
 >   which needs an id space a client may allocate in and a reconciliation that matches its guess to
->   the server's real spawn.
+>   the server's real spawn. Still owed, and the largest of what is left.
 > - **The step is not the scheduler.** A predicted tick is a delegate the game supplies; running an
 >   actual `SystemPhase.FixedUpdate` group N times is what it should be, and that wants the scheduler
->   to be re-entrant.
-> - **Nothing is smoothed automatically.** `OwnerSmoothing` exists and is the right answer; no system
->   applies it to a correction.
->
-> Which is to say: the mechanism is built and tested, and the ergonomics are not. A game can predict
-> today by writing the wiring itself.
+>   to be re-entrant. Still owed.
 
 ## The IL-weaving problem, and a better answer
 
