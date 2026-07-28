@@ -72,7 +72,28 @@ public enum VfxOpcode {
     SizeOverLife,
 
     /// <summary>Colour follows age. <c>A</c> is the colour at birth, <c>B</c> at death.</summary>
-    ColourOverLife
+    ColourOverLife,
+
+    /// <summary>
+    ///     Velocity is pulled towards a point, or pushed from it. <c>A.xyz</c> is the point,
+    ///     <c>A.w</c> the acceleration at the centre — negative repels — and <c>B.x</c> the radius
+    ///     beyond which it does nothing. A radius of zero or less reaches everywhere and does not
+    ///     fall off.
+    /// </summary>
+    Attract,
+
+    /// <summary>
+    ///     Velocity is turned about an axis. <c>A.xyz</c> is a point on the axis, <c>A.w</c> the
+    ///     acceleration, <c>B.xyz</c> the axis, and <c>B.w</c> the radius beyond which it does
+    ///     nothing.
+    /// </summary>
+    Vortex,
+
+    /// <summary>
+    ///     Velocity is pushed by curl noise. <c>A.xyz</c> is the frequency, <c>A.w</c> the
+    ///     acceleration, <c>B.x</c> how fast the field drifts, and <c>B.y</c> how many octaves.
+    /// </summary>
+    Turbulence
 }
 
 /// <summary>One operation, as the compiled graph stores it.</summary>
@@ -125,6 +146,12 @@ public static class VfxOpcodes {
         VfxOpcode.Drag => VfxAttribute.Velocity,
         VfxOpcode.Rotate => VfxAttribute.AngularVelocity,
         VfxOpcode.SizeOverLife or VfxOpcode.ColourOverLife => VfxAttribute.Age | VfxAttribute.Lifetime,
+
+        // A force reads where the particle is, which is the whole difference between it and gravity:
+        // gravity is the same everywhere and a field is not. That also means `Compile` refuses a
+        // graph whose initializers never place its particles, which is the right refusal — a field
+        // acting on particles all at the origin accelerates every one of them identically.
+        VfxOpcode.Attract or VfxOpcode.Vortex or VfxOpcode.Turbulence => VfxAttribute.Position,
         _ => VfxAttribute.None
     };
 
@@ -135,7 +162,8 @@ public static class VfxOpcodes {
         VfxOpcode.SetPosition or VfxOpcode.PositionInSphere or VfxOpcode.PositionInBox or VfxOpcode.Integrate =>
             VfxAttribute.Position,
         VfxOpcode.SetVelocity or VfxOpcode.VelocityRandomDirection or VfxOpcode.VelocityInCone
-            or VfxOpcode.Gravity or VfxOpcode.Drag => VfxAttribute.Velocity,
+            or VfxOpcode.Gravity or VfxOpcode.Drag
+            or VfxOpcode.Attract or VfxOpcode.Vortex or VfxOpcode.Turbulence => VfxAttribute.Velocity,
         VfxOpcode.SetLifetime => VfxAttribute.Lifetime,
         VfxOpcode.SetSize or VfxOpcode.SizeOverLife => VfxAttribute.Size,
         VfxOpcode.SetColour or VfxOpcode.ColourOverLife => VfxAttribute.Colour,
@@ -160,9 +188,25 @@ public static class VfxOpcodes {
         or VfxOpcode.Drag
         or VfxOpcode.Rotate
         or VfxOpcode.SizeOverLife
-        or VfxOpcode.ColourOverLife;
+        or VfxOpcode.ColourOverLife
+        or VfxOpcode.Attract
+        or VfxOpcode.Vortex
+        or VfxOpcode.Turbulence;
 
-    /// <summary>Whether an opcode draws on randomness, and so needs a salt of its own.</summary>
+    /// <summary>Whether an opcode needs a salt of its own, so two of them draw unrelated numbers.</summary>
+    /// <param name="opcode">The opcode.</param>
+    /// <returns><see langword="true" /> if it does.</returns>
+    /// <remarks>
+    ///     A superset of <see cref="IsRandom" />, and the two are worth keeping apart. A random
+    ///     initializer hashes the <i>particle</i>; a turbulence field hashes a <i>lattice corner</i>
+    ///     and never looks at which particle is sampling it. Both need a salt — two turbulence
+    ///     operations sharing one would be the same field twice, which is a wind that blows in
+    ///     lockstep — but only the first needs the identifier, and conflating them made the emitter
+    ///     bind a buffer nothing read.
+    /// </remarks>
+    public static bool NeedsSalt(VfxOpcode opcode) => IsRandom(opcode) || opcode is VfxOpcode.Turbulence;
+
+    /// <summary>Whether an opcode draws a random value per particle, and so hashes its identifier.</summary>
     /// <param name="opcode">The opcode.</param>
     /// <returns><see langword="true" /> if it does.</returns>
     public static bool IsRandom(VfxOpcode opcode) => opcode is VfxOpcode.PositionInSphere

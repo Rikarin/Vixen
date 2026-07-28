@@ -96,8 +96,10 @@ public sealed class VfxSystem : IDisposable {
         }
 
         // Update before spawn, so a particle born this step is not also aged this step. The other
-        // order gives every particle one step less of life than it asked for.
-        VfxSimulation.Update(Particles, Graph.Updaters, deltaTime);
+        // order gives every particle one step less of life than it asked for. The clock passed is
+        // the one at the *start* of the step, so a field's drift and a particle's motion are
+        // sampled at the same instant rather than half a frame apart.
+        VfxSimulation.Update(Particles, Graph.Updaters, deltaTime, Time);
 
         Time += deltaTime;
 

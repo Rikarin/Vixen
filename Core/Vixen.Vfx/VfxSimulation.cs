@@ -155,7 +155,7 @@ public static class VfxSimulation {
                 default: {
                     // An updater in the initializer list. The compiler does not refuse it, because
                     // "apply gravity once at birth" is a legitimate thing to author.
-                    Apply(buffer, operation, first, count, 0f);
+                    Apply(buffer, operation, first, count, 0f, 0f);
 
                     break;
                 }
@@ -171,12 +171,24 @@ public static class VfxSimulation {
     /// <param name="buffer">The particles.</param>
     /// <param name="operations">The graph's updaters.</param>
     /// <param name="deltaTime">How much time passed.</param>
+    /// <param name="time">
+    ///     How long the system has been running, at the start of this step. Only a field that drifts
+    ///     reads it.
+    /// </param>
     /// <remarks>
-    ///     Ageing happens first and reaping last, so a particle is updated on the step it dies and not
-    ///     after it. Doing it the other way round leaves one step of an effect drawn with a particle
-    ///     that should already have gone.
+    ///     <para>
+    ///         Ageing happens first and reaping last, so a particle is updated on the step it dies and
+    ///         not after it. Doing it the other way round leaves one step of an effect drawn with a
+    ///         particle that should already have gone.
+    ///     </para>
+    ///     <para>
+    ///         <b>The clock is handed in, never read.</b> A drifting noise field needs to know when it
+    ///         is, and the moment this function asked an ambient clock for that, two systems with the
+    ///         same seed and the same steps would stop being identical — which is the property the
+    ///         whole module is arranged around.
+    ///     </para>
     /// </remarks>
-    public static void Update(ParticleBuffer buffer, ReadOnlySpan<VfxOperation> operations, float deltaTime) {
+    public static void Update(ParticleBuffer buffer, ReadOnlySpan<VfxOperation> operations, float deltaTime, float time = 0f) {
         ArgumentNullException.ThrowIfNull(buffer);
 
         if (buffer.Count == 0 || deltaTime <= 0f) {
@@ -192,14 +204,14 @@ public static class VfxSimulation {
         }
 
         foreach (var operation in operations) {
-            Apply(buffer, operation, 0, buffer.Count, deltaTime);
+            Apply(buffer, operation, 0, buffer.Count, deltaTime, time);
         }
 
         buffer.Reap();
     }
 
     /// <summary>One updater over a run of particles.</summary>
-    static void Apply(ParticleBuffer buffer, VfxOperation operation, int first, int count, float deltaTime) {
+    static void Apply(ParticleBuffer buffer, VfxOperation operation, int first, int count, float deltaTime, float time = 0f) {
         switch (operation.Opcode) {
             case VfxOpcode.Integrate: {
                 var positions = buffer.Position;
@@ -272,12 +284,104 @@ public static class VfxSimulation {
                 break;
             }
 
+            case VfxOpcode.Attract: {
+                var centre = new Vector3(operation.A.X, operation.A.Y, operation.A.Z);
+                var strength = operation.A.W * deltaTime;
+                var radius = operation.B.X;
+                var positions = buffer.Position;
+                var velocities = buffer.Velocity;
+
+                for (var index = first; index < first + count; index++) {
+                    var offset = centre - positions[index];
+                    var distance = offset.Length();
+
+                    // A particle exactly at the centre has no direction to be pulled in, and
+                    // normalizing its zero offset is how a fountain fills with NaNs.
+                    if (distance <= 0f) {
+                        continue;
+                    }
+
+                    velocities[index] += offset / distance * strength * Falloff(distance, radius);
+                }
+
+                break;
+            }
+
+            case VfxOpcode.Vortex: {
+                var centre = new Vector3(operation.A.X, operation.A.Y, operation.A.Z);
+                var axis = Vector3.Normalize(new(operation.B.X, operation.B.Y, operation.B.Z));
+                var strength = operation.A.W * deltaTime;
+                var radius = operation.B.W;
+                var positions = buffer.Position;
+                var velocities = buffer.Velocity;
+
+                for (var index = first; index < first + count; index++) {
+                    var offset = positions[index] - centre;
+
+                    // The component along the axis contributes nothing to going round it, so it is
+                    // taken out before the cross product rather than after — otherwise the swirl
+                    // weakens with height above the centre for no reason anybody chose.
+                    var radial = offset - (axis * Vector3.Dot(offset, axis));
+                    var distance = radial.Length();
+
+                    if (distance <= 0f) {
+                        continue;
+                    }
+
+                    velocities[index] += Vector3.Cross(axis, radial / distance) * strength * Falloff(distance, radius);
+                }
+
+                break;
+            }
+
+            case VfxOpcode.Turbulence: {
+                var frequency = new Vector3(operation.A.X, operation.A.Y, operation.A.Z);
+                var strength = operation.A.W * deltaTime;
+                var drift = operation.B.X * time;
+                var octaves = Math.Clamp((int)operation.B.Y, 1, 4);
+                var positions = buffer.Position;
+                var velocities = buffer.Velocity;
+
+                for (var index = first; index < first + count; index++) {
+                    var sample = (positions[index] * frequency) + new Vector3(drift, drift, drift);
+
+                    velocities[index] += VfxNoise.Turbulence(sample, operation.Salt, octaves) * strength;
+                }
+
+                break;
+            }
+
             default: {
                 // An initializer in the updater list — "reset the colour every step" — which is
                 // legitimate and is handled by the initializer switch instead.
                 break;
             }
         }
+    }
+
+    /// <summary>How much of a field's strength reaches a particle this far from it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Linear to zero at the radius, and one everywhere when the radius is zero or less. Not
+    ///         inverse-square: a real attractor's strength goes to infinity at its centre, which on a
+    ///         particle that wanders close enough gives an acceleration large enough to throw it out
+    ///         of the scene in one step. An effect wants a region of influence rather than a physical
+    ///         law, and the falloff that ends is the one an author can reason about.
+    ///     </para>
+    ///     <para>
+    ///         Squared before the clamp so the edge of the region eases rather than creases — a linear
+    ///         falloff has a discontinuous derivative at the radius, and a stream of particles
+    ///         crossing it visibly kinks.
+    ///     </para>
+    /// </remarks>
+    static float Falloff(float distance, float radius) {
+        if (radius <= 0f) {
+            return 1f;
+        }
+
+        var remaining = 1f - Math.Clamp(distance / radius, 0f, 1f);
+
+        return remaining * remaining;
     }
 
     /// <summary>Fills a run of a scalar attribute from a uniform range.</summary>

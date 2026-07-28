@@ -185,7 +185,10 @@ public static class VfxShaderEmitter {
             .AppendLine("    var first: int")
             .AppendLine()
             .AppendLine("    /// How many it touches.")
-            .AppendLine("    var particleCount: int");
+            .AppendLine("    var particleCount: int")
+            .AppendLine()
+            .AppendLine("    /// How long the system has been running. Only a drifting field reads it.")
+            .AppendLine("    var time: float");
 
         foreach (var binding in bindings) {
             text.AppendLine()
@@ -193,9 +196,18 @@ public static class VfxShaderEmitter {
         }
 
         var random = graph.Initializers.Any(operation => VfxOpcodes.IsRandom(operation.Opcode));
+        var noise = Touches(graph, VfxOpcode.Turbulence);
+
+        // The hash is what the two of them share, and either alone is a reason to emit it: a random
+        // initializer hashes the particle's identifier, and a noise field hashes a lattice corner.
+        // Emitting it from inside `Random` was a graph with turbulence and nothing random calling a
+        // function that was not there.
+        if (random || noise) {
+            Hash(text);
+        }
 
         if (random) {
-            Random(text);
+            Draws(text);
         }
 
         if (graph.Initializers.Any(operation => operation.Opcode is VfxOpcode.PositionInSphere or VfxOpcode.VelocityRandomDirection)) {
@@ -210,7 +222,114 @@ public static class VfxShaderEmitter {
             Fraction(text);
         }
 
+        if (Touches(graph, VfxOpcode.Attract) || Touches(graph, VfxOpcode.Vortex)) {
+            Falloff(text);
+        }
+
+        if (Touches(graph, VfxOpcode.Turbulence)) {
+            Noise(text);
+        }
+
         text.AppendLine("}");
+    }
+
+    /// <summary>How much of a field's strength reaches a particle this far from it.</summary>
+    static void Falloff(StringBuilder text) {
+        text.AppendLine()
+            .AppendLine("    /// Squared, so the edge of the region eases rather than creases. A radius of")
+            .AppendLine("    /// zero or less reaches everywhere and does not fall off at all.")
+            .AppendLine("    func Falloff(distance: float, radius: float): float {")
+            .AppendLine("        if (radius <= 0f) {")
+            .AppendLine("            return 1f")
+            .AppendLine("        }")
+            .AppendLine()
+            .AppendLine("        val remaining = 1f - clamp(distance / radius, 0f, 1f)")
+            .AppendLine()
+            .AppendLine("        return remaining * remaining")
+            .AppendLine("    }");
+    }
+
+    /// <summary>Value noise over a lattice, and the curl of three of them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Transcribed from <see cref="VfxNoise" /> the same way the RNG is transcribed from
+    ///         <see cref="VfxRandom" />, and for the same reason: a shader cannot call into managed
+    ///         code, so the function that has to produce the same field twice is the function that
+    ///         exists twice. The lattice values come from the integer hash and agree exactly; the
+    ///         interpolation and the differences are float arithmetic and agree to the last bit or
+    ///         two.
+    ///     </para>
+    ///     <para>
+    ///         Value noise rather than gradient noise is what makes this transcribable at all — a
+    ///         Perlin gradient table would have to be uploaded, and an uploaded table is a way for the
+    ///         two sides to differ.
+    ///     </para>
+    /// </remarks>
+    static void Noise(StringBuilder text) {
+        text.AppendLine()
+            .AppendLine("    func Corner(x: int, y: int, z: int, field: uint): float {")
+            .AppendLine("        val mixed = Hash(Hash(Hash(uint(x)) ^ uint(y)) ^ uint(z))")
+            .AppendLine()
+            .AppendLine("        return float(Hash(Hash(mixed ^ field) ^ 0u) >> 8u) * (1f / 16777216f)")
+            .AppendLine("    }")
+            .AppendLine()
+            .AppendLine("    /// 3t^2 - 2t^3. The raw fraction leaves a crease at every cell boundary,")
+            .AppendLine("    /// which shows up in the motion long before it shows up in the noise.")
+            .AppendLine("    func Smooth(t: float): float => t * t * (3f - 2f * t)")
+            .AppendLine()
+            .AppendLine("    func Noise(point: float3, field: uint): float {")
+            .AppendLine("        val cell = int3(int(floor(point.x)), int(floor(point.y)), int(floor(point.z)))")
+            .AppendLine("        val fx = Smooth(point.x - float(cell.x))")
+            .AppendLine("        val fy = Smooth(point.y - float(cell.y))")
+            .AppendLine("        val fz = Smooth(point.z - float(cell.z))")
+            .AppendLine()
+            .AppendLine("        val x0y0 = Mix(Corner(cell.x, cell.y, cell.z, field), Corner(cell.x, cell.y, cell.z + 1, field), fz)")
+            .AppendLine("        val x0y1 = Mix(Corner(cell.x, cell.y + 1, cell.z, field), Corner(cell.x, cell.y + 1, cell.z + 1, field), fz)")
+            .AppendLine("        val x1y0 = Mix(Corner(cell.x + 1, cell.y, cell.z, field), Corner(cell.x + 1, cell.y, cell.z + 1, field), fz)")
+            .AppendLine("        val x1y1 = Mix(Corner(cell.x + 1, cell.y + 1, cell.z, field), Corner(cell.x + 1, cell.y + 1, cell.z + 1, field), fz)")
+            .AppendLine()
+            .AppendLine("        return Mix(Mix(x0y0, x0y1, fy), Mix(x1y0, x1y1, fy), fx)")
+            .AppendLine("    }")
+            .AppendLine()
+            .AppendLine("    /// a + (b - a) t, and not lerp: this is the arithmetic the CPU backend does.")
+            .AppendLine("    func Mix(a: float, b: float, t: float): float => a + (b - a) * t")
+            .AppendLine()
+            .AppendLine($"    func Slope(point: float3, field: uint, step: float3): float => (Noise(point + step, field) - Noise(point - step, field)) / {Float(2f * VfxNoise.Epsilon)}")
+            .AppendLine()
+            .AppendLine("    /// The curl of three noise fields, which has zero divergence identically — the")
+            .AppendLine("    /// property that makes it swirl rather than pile particles into its sinks.")
+            .AppendLine("    func Curl(point: float3, field: uint): float3 {")
+            .AppendLine($"        val ex = float3({Float(VfxNoise.Epsilon)}, 0f, 0f)")
+            .AppendLine($"        val ey = float3(0f, {Float(VfxNoise.Epsilon)}, 0f)")
+            .AppendLine($"        val ez = float3(0f, 0f, {Float(VfxNoise.Epsilon)})")
+            .AppendLine()
+            // One line, because a Raven statement ends where its line does — a wrapped argument list
+            // is a call followed by orphan expressions.
+            .AppendLine(
+                "        return float3(Slope(point, field + 2u, ey) - Slope(point, field + 1u, ez), "
+                + "Slope(point, field, ez) - Slope(point, field + 2u, ex), "
+                + "Slope(point, field + 1u, ex) - Slope(point, field, ey))"
+            )
+            .AppendLine("    }")
+            .AppendLine()
+            .AppendLine("    /// Octaves are what hide the lattice: one is visibly axis-aligned, three are not.")
+            .AppendLine("    func Turbulence(point: float3, field: uint, octaves: int): float3 {")
+            .AppendLine("        var total = float3(0f, 0f, 0f)")
+            .AppendLine("        var amplitude = 1f")
+            .AppendLine("        var frequency = 1f")
+            .AppendLine()
+            .AppendLine("        for (octave in 0 .. 3) {")
+            .AppendLine("            if (octave >= octaves) {")
+            .AppendLine("                break")
+            .AppendLine("            }")
+            .AppendLine()
+            .AppendLine("            total += Curl(point * frequency, field + uint(octave) * 3u) * amplitude")
+            .AppendLine("            amplitude *= 0.5f")
+            .AppendLine("            frequency *= 2f")
+            .AppendLine("        }")
+            .AppendLine()
+            .AppendLine("        return total")
+            .AppendLine("    }");
     }
 
     /// <summary>The hash, and the two things every random operation asks it for.</summary>
@@ -221,7 +340,7 @@ public static class VfxShaderEmitter {
     ///     that exists twice. Every step is a 32-bit multiply, xor or shift, all of which are defined
     ///     to the bit in SPIR-V, so "identical" here is a property rather than a hope.
     /// </remarks>
-    static void Random(StringBuilder text) {
+    static void Hash(StringBuilder text) {
         text.AppendLine()
             .AppendLine("    /// lowbias32, offset first because the mixer has a fixed point at zero.")
             .AppendLine("    func Hash(value: uint): uint {")
@@ -234,8 +353,12 @@ public static class VfxShaderEmitter {
             .AppendLine("        mixed = mixed ^ (mixed >> 16u)")
             .AppendLine()
             .AppendLine("        return mixed")
-            .AppendLine("    }")
-            .AppendLine()
+            .AppendLine("    }");
+    }
+
+    /// <summary>The two things every random operation asks the hash for.</summary>
+    static void Draws(StringBuilder text) {
+        text.AppendLine()
             .AppendLine("    /// One particle's one use of randomness: hashed in turn, never added together.")
             .AppendLine("    func Draw(particle: uint, salt: uint): uint => Hash(Hash(Hash(particle) ^ seed) ^ salt)")
             .AppendLine()
@@ -331,13 +454,14 @@ public static class VfxShaderEmitter {
                 .AppendLine("        val particle = identifier[slot]");
         }
 
-        foreach (var operation in graph.Initializers) {
+        for (var index = 0; index < graph.Initializers.Length; index++) {
+            var operation = graph.Initializers[index];
             text.AppendLine();
 
             if (VfxOpcodes.IsUpdater(operation.Opcode)) {
                 // An updater in the initializer list — "apply gravity once at birth" — which the CPU
                 // backend runs with a step of zero rather than refusing.
-                Apply(text, operation, "0f");
+                Apply(text, operation, "0f", index);
             } else {
                 Initialize(text, operation);
             }
@@ -359,9 +483,9 @@ public static class VfxShaderEmitter {
                 .AppendLine("        age[slot] = age[slot] + deltaTime");
         }
 
-        foreach (var operation in updaters) {
+        for (var index = 0; index < updaters.Length; index++) {
             text.AppendLine();
-            Apply(text, operation, "deltaTime");
+            Apply(text, updaters[index], "deltaTime", index);
         }
     }
 
@@ -477,7 +601,12 @@ public static class VfxShaderEmitter {
     ///     initializer one, which is the same distinction <see cref="VfxSimulation" /> draws by passing
     ///     a delta of zero.
     /// </param>
-    static void Apply(StringBuilder text, VfxOperation operation, string step) {
+    /// <param name="index">
+    ///     Where the operation sits in its list, which is what keeps two copies of one field from
+    ///     declaring the same local twice. A field needs a distance before it can use one, and a
+    ///     distance needs a name.
+    /// </param>
+    static void Apply(StringBuilder text, VfxOperation operation, string step, int index) {
         switch (operation.Opcode) {
             case VfxOpcode.Integrate: {
                 text.AppendLine($"        position[slot] = position[slot] + float4(velocity[slot].xyz * {step}, 0f)");
@@ -518,6 +647,59 @@ public static class VfxShaderEmitter {
                 text.AppendLine(
                     $"        colour[slot] = lerp({Colour(operation.A)}, {Colour(operation.B)}, "
                     + "Fraction(age[slot], lifetime[slot]))"
+                );
+
+                break;
+            }
+
+            case VfxOpcode.Attract: {
+                // The zero-distance guard is not optional: normalizing the offset of a particle
+                // sitting exactly on the centre is how an effect fills with NaNs, and one NaN in a
+                // position is a quad the rasteriser drops and a bounding box that swallows the scene.
+                text.AppendLine($"        val offset{index} = {Vector(operation.A)} - position[slot].xyz")
+                    .AppendLine($"        val distance{index} = length(offset{index})")
+                    .AppendLine()
+                    .AppendLine($"        if (distance{index} > 0f) {{")
+                    .AppendLine(
+                        $"            velocity[slot] = velocity[slot] + float4(offset{index} / distance{index} * "
+                        + $"{Float(operation.A.W)} * {step} * Falloff(distance{index}, {Float(operation.B.X)}), 0f)"
+                    )
+                    .AppendLine("        }");
+
+                break;
+            }
+
+            case VfxOpcode.Vortex: {
+                var axis = new Vector3(operation.B.X, operation.B.Y, operation.B.Z);
+
+                if (axis.LengthSquared() <= 0f) {
+                    throw new ArgumentException("A vortex about a zero axis has nothing to turn about.", nameof(operation));
+                }
+
+                // The component along the axis is taken out before the cross product, or the swirl
+                // weakens with height above the centre for no reason anybody chose.
+                text.AppendLine($"        val spin{index} = position[slot].xyz - {Vector(operation.A)}")
+                    .AppendLine($"        val axis{index} = {Vector(Vector3.Normalize(axis))}")
+                    .AppendLine($"        val radial{index} = spin{index} - axis{index} * dot(spin{index}, axis{index})")
+                    .AppendLine($"        val around{index} = length(radial{index})")
+                    .AppendLine()
+                    .AppendLine($"        if (around{index} > 0f) {{")
+                    .AppendLine(
+                        $"            velocity[slot] = velocity[slot] + float4(cross(axis{index}, radial{index} / around{index}) * "
+                        + $"{Float(operation.A.W)} * {step} * Falloff(around{index}, {Float(operation.B.W)}), 0f)"
+                    )
+                    .AppendLine("        }");
+
+                break;
+            }
+
+            case VfxOpcode.Turbulence: {
+                var octaves = Math.Clamp((int)operation.B.Y, 1, 4);
+                var drift = $"time * {Float(operation.B.X)}";
+
+                text.AppendLine(
+                    $"        velocity[slot] = velocity[slot] + float4(Turbulence(position[slot].xyz * {Vector(operation.A)} "
+                    + $"+ float3({drift}, {drift}, {drift}), {operation.Salt}u, {octaves}) * {Float(operation.A.W)} * {step}, 0f)"
                 );
 
                 break;

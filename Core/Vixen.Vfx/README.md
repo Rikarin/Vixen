@@ -32,6 +32,7 @@ system.Step(deltaTime);
 | `VfxCompiledGraph` | The artefact both backends read. Derives storage, assigns salts, refuses graphs that read what nothing writes. |
 | `VfxSimulation` | The CPU backend: one operation swept across every particle. |
 | `VfxRandom` | Stateless integer-only hashing, so a compute shader can reproduce a value exactly. |
+| `VfxNoise` | Value noise over a lattice, and the curl of three — the field turbulence samples. |
 | `VfxSystem` | One running instance: its particles, its clock, its seed, its spawner state. |
 | `VfxRenderer` | How particles are drawn — alignment, sorting — and which attributes that reads. |
 | `VfxGeometryBuilder` | Particles into camera-facing quads, and the draw order. |
@@ -118,6 +119,43 @@ recycling buffer to prove it does not.
 Uniform *by volume* and *by solid angle* where that matters: a position in a sphere takes the cube root
 of its radius fraction, or two thirds of the particles pile into the outer third and it reads as a
 shell; a direction samples `z` uniformly rather than the polar angle, or a burst pinches at the poles.
+
+## Force fields, and why the noise is the shape it is
+
+Gravity is the same everywhere and needs to know nothing. `Attract`, `Vortex` and `Turbulence` each
+read the *position*, which is what makes them fields — and what makes `Compile` refuse a graph whose
+initializers never place its particles, since a field acting on a thousand particles all at the origin
+accelerates every one of them identically.
+
+**Falloff is linear-squared to a radius, not inverse-square.** A real attractor's strength goes to
+infinity at its centre, so a particle that wanders close enough leaves the scene in one step. An effect
+wants a *region of influence*, which an author can reason about and place; squaring the remaining
+fraction eases the edge, because a linear falloff has a discontinuous derivative at the radius and a
+stream crossing it visibly kinks.
+
+**A vortex takes the axial component out before the cross product.** Crossing the axis with the whole
+offset gives a swirl that grows with height above the centre — a vortex that leans, for no reason
+anybody chose. There is a test with two particles at one radius and different heights.
+
+**Value noise, not Perlin or simplex.** Both of those need a gradient table, and a table is the one
+thing the GPU side would have to be *given* rather than compute: a uniform buffer, an upload, and a way
+for the two backends to disagree about its contents. Value noise needs only the hash that is already
+here — the corners of the unit cell hash to numbers and the point between them is an interpolation —
+so the whole field transcribes into the emitted shader as ordinary code.
+
+**Curl, because divergence-free is what makes it read as fluid.** Sampling noise straight into a
+velocity gives a field with sources and sinks: particles pile up where it points inward and thin out
+where it points out. No fluid does that and the eye knows. The curl of any vector field has zero
+divergence identically, which costs six extra samples per octave and buys smoke that swirls instead of
+smoke that clumps. There is a test that measures the divergence numerically rather than trusting the
+algebra, because the algebra is exact and the finite differences are not.
+
+**Octaves are what hide the lattice**, and the interpolant is smoothstep because a linear one leaves a
+crease at every cell boundary — visible in the *motion* long before it is visible in the noise.
+
+**The clock is handed in, never read.** A drifting field has to know when it is, and the moment the
+simulation asked an ambient clock for that, two systems with the same seed and the same steps would
+stop being identical.
 
 ## The other target
 
@@ -284,8 +322,9 @@ is two small arrays of spawner bookkeeping.
   written in code today.
 - **Custom attributes.** The attribute set is closed. Opening it means a name-to-slot mapping the
   compiled graph carries and both backends agree on, which is a design rather than an addition.
-- **Force fields, curl noise, collision, sub-emitters, trails.** Updaters doc 06 names and this does not
-  have. Each is an opcode and a sweep; collision is the one that needs something outside the module.
+- **Collision, sub-emitters, trails.** The updaters doc 06 names that this still does not have.
+  Collision is the one that needs something outside the module — a depth buffer or a physics query —
+  and is therefore the one that cannot be an opcode and a sweep like the rest.
 - **Parallel simulation.** The sweeps are single-threaded. They are the right shape for
   `IJobParallelFor` — a range of a dense array with no cross-particle dependency — and it is not worth
   scheduling until there is a particle count that needs it.

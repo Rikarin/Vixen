@@ -191,7 +191,7 @@ public sealed class VfxCompiledGraph {
         const uint Stride = 4;
 
         for (var index = 0; index < salted.Length; index++) {
-            if (salted[index].Salt == 0 && VfxOpcodes.IsRandom(salted[index].Opcode)) {
+            if (salted[index].Salt == 0 && VfxOpcodes.NeedsSalt(salted[index].Opcode)) {
                 salted[index] = salted[index] with { Salt = first + ((uint)index * Stride) };
             }
         }
