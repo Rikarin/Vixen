@@ -805,26 +805,82 @@ public sealed class StyleTree {
         return bloom;
     }
 
+    /// <summary>How many slots a parent's first child reserves.</summary>
+    /// <remarks>
+    ///     Four, because a control is a handful of parts — a switch is a track and a knob, a scroll
+    ///     view a viewport and two bars — so most parents never relocate at all, and a leaf wastes
+    ///     nothing because it never asks for a run.
+    /// </remarks>
+    const int InitialChildCapacity = 4;
+
+    /// <summary>Adds a child to a parent's run, relocating it only when it has outgrown its space.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This used to be O(children) per append whenever anything else had grown into the
+    ///         arena behind it, which makes building a wide parent quadratic.</b> The old version kept
+    ///         a run packed tight and had only one way to add a slot: if the run was not the last
+    ///         thing in the arena, copy the whole run to the end and append there. Building
+    ///         parent-then-children keeps the run at the end and hides it — which is why every control
+    ///         in the library is clear of it and why it survived — but the interleaved case is not
+    ///         exotic. Two panels filled a row at a time, a reconciler walking a keyed list, a
+    ///         <c>DataGrid</c> adding a cell to each of its columns: all of them alternate parents,
+    ///         and each of the n-th parent's appends copies n entries.
+    ///     </para>
+    ///     <para>
+    ///         The fix is the one every growable array uses and the field for it was already
+    ///         here — <c>ChildCapacity</c> existed, was set to zero, and was read by nothing. A run
+    ///         now reserves space beyond its count; an append with room writes in place, and one
+    ///         without relocates <i>and doubles</i>, so the copies fall off geometrically and the
+    ///         amortised cost is constant.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The reserved slots hold whatever was there before and nothing may read them.</b>
+    ///         Every reader — <c>GetChild</c>, <c>PreviousSibling</c>, <c>Detach</c>, <c>Move</c>,
+    ///         <c>Kill</c> — is bounded by <c>ChildCount</c> rather than by the arena's length, which
+    ///         is what makes reservation safe. <c>Compact</c> rebuilds runs tight, which is correct:
+    ///         a compacted tree is one nobody is mid-way through building.
+    ///     </para>
+    /// </remarks>
     void AppendChild(int parent, int child) {
         ref var parentLinks = ref links[parent];
+
         if (parentLinks.ChildOffset < 0) {
             parentLinks.ChildOffset = childArena.Count;
-            parentLinks.ChildCapacity = 0;
-        }
+            parentLinks.ChildCapacity = InitialChildCapacity;
 
-        if (parentLinks.ChildOffset + parentLinks.ChildCount != childArena.Count) {
-            // Another element has grown into the space after this one's run, so the run moves to the
-            // end. Elements are built parent-then-children in practice, which is why this is the
-            // uncommon path rather than the usual one.
-            var moved = childArena.Count;
-            for (var i = 0; i < parentLinks.ChildCount; i++) {
-                childArena.Add(childArena[parentLinks.ChildOffset + i]);
+            for (var i = 0; i < InitialChildCapacity; i++) {
+                childArena.Add(0);
             }
+        } else if (parentLinks.ChildCount == parentLinks.ChildCapacity) {
+            if (parentLinks.ChildOffset + parentLinks.ChildCapacity == childArena.Count) {
+                // The run is the last thing in the arena, so it can grow where it stands — no copy,
+                // whatever its size.
+                for (var i = 0; i < parentLinks.ChildCapacity; i++) {
+                    childArena.Add(0);
+                }
 
-            parentLinks.ChildOffset = moved;
+                parentLinks.ChildCapacity *= 2;
+            } else {
+                // Boxed in. Move to the end with twice the room, so the next several appends land in
+                // reserved space and this copy is paid once per doubling rather than once per child.
+                var moved = childArena.Count;
+
+                for (var i = 0; i < parentLinks.ChildCount; i++) {
+                    childArena.Add(childArena[parentLinks.ChildOffset + i]);
+                }
+
+                var capacity = parentLinks.ChildCapacity * 2;
+
+                for (var i = parentLinks.ChildCount; i < capacity; i++) {
+                    childArena.Add(0);
+                }
+
+                parentLinks.ChildOffset = moved;
+                parentLinks.ChildCapacity = capacity;
+            }
         }
 
-        childArena.Add(child);
+        childArena[parentLinks.ChildOffset + parentLinks.ChildCount] = child;
         parentLinks.ChildCount++;
     }
 
@@ -840,6 +896,16 @@ public sealed class StyleTree {
         Array.Resize(ref inlines, next);
         Array.Resize(ref alive, next);
     }
+
+    /// <summary>How many entries the child arena holds, reserved space included.</summary>
+    /// <remarks>
+    ///     Exposed for <c>ChildArenaTests</c>, which measures the growth policy by counting slots
+    ///     rather than by timing it — a copy appends a whole run again, so the number says directly
+    ///     whether appending is amortised, and it does not fail on a loaded machine the way a clock
+    ///     would. It is also the honest way to state the cost of reservation: the arena is bigger than
+    ///     the children in it, on purpose, and by how much is checkable.
+    /// </remarks>
+    public int ChildArenaLength => childArena.Count;
 
     readonly record struct ClassRange(int Start, int Count);
 
