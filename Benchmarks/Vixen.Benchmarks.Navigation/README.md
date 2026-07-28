@@ -52,13 +52,15 @@ a background collection lands inside an iteration — and the mean follows it wh
 | 64 | 55 µs | 206 µs | **0 B** |
 | 256 | 264 µs | 1.59 ms | **0 B** |
 
-**The frame where everybody is given a new destination at once**, on the 80 m level:
+**The frame where everybody is given a new destination at once**, on the 80 m level. Medians, avoidance
+off, default budget — and the budget is in the paragraph below rather than the table because it makes
+no difference:
 
-| Agents | Budget 256 | Budget 1 000 000 | Allocated |
+| Agents | Destination as a point | Destination as a polygon | Allocated |
 |---|---|---|---|
-| 16 | 25 µs | 26 µs | **0 B** |
-| 64 | 108 µs | 107 µs | **0 B** |
-| 256 | 480 µs | 466 µs | **0 B** |
+| 16 | 18.6 µs | **4.1 µs** | **0 B** |
+| 64 | 81.7 µs | **27.5 µs** | **0 B** |
+| 256 | 363.8 µs | **142.9 µs** | **0 B** |
 
 **Thirty-two searches**, submitted at once and driven to completion, on a machine with nine workers:
 
@@ -93,18 +95,21 @@ should. A tile bake costs 20–40 % more than the same level in one piece, which
 voxelises outside itself — and what it buys is that a rebuild after somebody moves a crate touches one
 tile instead of the level.
 
-**The retarget storm is no longer bounded by pathfinding, and the budget barely shows.** That is the
-interesting result, and it is not the one that was predicted. Two hundred and fifty-six agents
-retargeting at once costs 480 µs whether the queue may do 256 expansions or a million — because the
-searches are no longer what the frame is spending its time on. Two things now cap it: the queue holds
-64 outstanding requests, so only 64 searches can even be submitted in one update; and *before*
-submitting, each agent does two `FindNearestPoly` calls to resolve its ends, at ~0.9 µs each on this
-level. 256 × 2 × 0.9 µs ≈ 470 µs, which is the number in the table almost exactly.
+**The retarget storm has not been bounded by pathfinding for two rounds, and the budget still does not
+show.** 368 µs against 367 µs for a budget of 256 expansions against a million, at 256 agents. Once
+the searching was spread over frames, what the frame was spending its time on was the two
+`FindNearestPoly` calls each agent made to resolve its own ends before it could even ask — which is
+why both are now gone. The agent's own polygon is read off its corridor, and the destination's is
+resolved when the destination is set rather than once per plan.
 
-So the spike went from ~3.5 ms of A\* to ~0.5 ms of endpoint lookups, and the next lever is the
-lookups rather than the search: an agent already knows the polygon it is standing on, and the
-destination's polygon could be resolved once by whoever set the destination rather than once per
-retarget. Worth doing when something needs it; worth knowing now.
+`ResolvedTarget` is the second half of that: whether the destination is handed over as a polygon the
+caller already has, or as a point the crowd has to find. A patrol point or a rally marker is resolved
+once when the level loads; a destination picked from under a cursor is not. It is worth **2.5× at 256
+agents and 4.5× at 16**, which is the largest single thing left in this frame — and the difference
+between the two columns is exactly one nearest-polygon search per agent.
+
+Together the two changes take the 256-agent storm from 480 µs to 143 µs, and from 3.5 ms before there
+was a queue at all.
 
 **Running the searches on jobs is worth under 1.8×, and the reason is the barrier rather than the job
 system.** An update is a sequence of rounds, and a round advances every assigned query by its share

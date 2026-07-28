@@ -32,7 +32,7 @@ baking as a build step, agents, avoidance"*.
 | `NavQueryFilter` | Area costs and capability flags — the two independent questions a filter asks. |
 | `Agents/PathCorridor` | The polygons an agent is inside, trimmed as it moves and straightened by raycast. |
 | `Agents/LocalAvoidance` | Sampled reciprocal velocity obstacles. |
-| `Agents/Crowd` | Agents, targets, steering, avoidance, separation, and the move that keeps them on the mesh. |
+| `Agents/Crowd` | Agents, targets — as a point or as a polygon the caller already has — steering, avoidance, separation, and the move that keeps them on the mesh. |
 | `Ecs/` | `NavigationAgent`, `NavigationDestination`, `NavigationState` and the system that joins them to a crowd. |
 | `Diagnostics/NavMeshDebugDraw` | The mesh, a corridor, a path and a crowd, as lines into `DebugDraw`. |
 
@@ -167,12 +167,55 @@ free-run and pick up the next request itself would recover most of the rest, and
 property in the paragraph above. The barrier is what makes a scheduler an implementation detail, and
 that is worth more than the throughput it gives up.
 
-**And it moved the bottleneck rather than removing it**, which the benchmark says plainly: 256 agents
-retargeting at once now costs about 480 µs whether the budget is 256 expansions or a million, because
-what the frame is spending its time on is the two `FindNearestPoly` calls each agent makes to resolve
-its own ends before it can even ask. 3.5 ms of searching became 0.5 ms of lookups. The next lever is
-those lookups — an agent already knows the polygon under it — and it is written down rather than
-done, because nothing yet needs it.
+**It moved the bottleneck before it removed it.** Once the searching was spread over frames, 256
+agents retargeting at once cost the same whether the budget was 256 expansions or a million — because
+what the frame was spending its time on was the two `FindNearestPoly` calls each agent made to resolve
+its own ends before it could even ask. That is the next section.
+
+## The two lookups an agent did not need
+
+Planning began by searching for the polygon the agent was standing on and the polygon its destination
+was on. Neither search was necessary.
+
+**The start was already known.** An agent's `Poly` is its corridor's first polygon and every move has
+kept it current — that is what a corridor *is*. Searching for it again was asking the mesh a question
+the agent had the answer to.
+
+**The destination is asked once instead of once per plan.** It is resolved when the destination is set
+rather than when the search is submitted, because a destination is set once and planned for however
+many times it takes: a request the queue refused, a corridor gone bad, an agent knocked out of its
+own path. And for the caller that already has it — a patrol point resolved at load, a rally marker, a
+destination taken from another agent's `Poly` — there is `SetTarget(handle, poly, point)`, which skips
+the search entirely.
+
+**Both are cached and neither is trusted.** `IsUsable` checks that the reference still resolves *and*
+that the filter still accepts it, falling back to a search when either fails. Both halves earn their
+place: a rebuilt tile changes the salt of every reference into it, which is exactly what a remembered
+destination is holding; and a door closed with `SetPolyFlags` is a polygon that still exists and may
+not be used. Getting the second wrong would have an agent plan from ground it is not allowed to stand
+on.
+
+Two invariant breaks came out of writing it down: `AddAgent` and `ClearTarget` set the agent's target
+without setting the polygon it is on, so a **recycled agent slot inherited the previous occupant's
+destination** and a fresh agent with no orders would walk to it. A test covers that specifically.
+
+**What it was worth**, on the eighty-metre level, in the frame where everybody is given a new
+destination at once:
+
+| Agents | Destination as a point | Destination as a polygon |
+|---|---|---|
+| 16 | 18.6 µs | **4.1 µs** |
+| 64 | 81.7 µs | **27.5 µs** |
+| 256 | 363.8 µs | **142.9 µs** |
+
+The 256-agent storm was 480 µs before this. Dropping the start lookup alone takes it to 364 µs; giving
+the destination as a polygon takes it to 143 µs — **3.4× faster than where the previous round left
+it**, and 24× faster than the 3.5 ms it cost before there was a queue at all.
+
+**And the budget still does not show**, at any agent count: 368 µs against 367 µs for a budget of 256
+expansions against a million. The searching has not been the bound for two rounds now. What bounds it
+now is that the queue holds 64 outstanding requests, so 256 agents asking at once take four updates to
+be heard — which is the queue working, not a cost.
 
 ## Merging regions, and the number that says how much it was worth
 

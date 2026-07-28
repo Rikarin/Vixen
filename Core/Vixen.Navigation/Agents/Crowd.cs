@@ -232,6 +232,11 @@ public sealed class Crowd {
         agent.DesiredVelocity = Vector3.Zero;
         agent.Poly = poly;
         agent.Target = point;
+
+        // Where it stands is where it is going, until it is told otherwise. Cleared rather than left,
+        // because a slot is reused and the previous occupant's destination is still in it.
+        agent.TargetPoly = poly;
+        agent.TargetPoint = point;
         agent.State = CrowdTargetState.None;
         agent.Corridor.Reset(poly, point);
 
@@ -259,21 +264,65 @@ public sealed class Crowd {
 
     /// <summary>Tells an agent where to go.</summary>
     /// <param name="handle">The agent.</param>
-    /// <param name="target">Where. Snapped to the nearest point on the mesh when the path is planned.</param>
+    /// <param name="target">Where. Snapped to the nearest point on the mesh.</param>
     /// <returns><see langword="false" /> if the handle names no live agent.</returns>
+    /// <remarks>
+    ///     The destination's polygon is resolved here rather than when the search is submitted, because
+    ///     a destination is set once and planned for however many times it takes — a refused request, a
+    ///     corridor gone bad — and the lookup is the same answer every time. A caller that already has
+    ///     the polygon should use <see cref="SetTarget(CrowdAgentHandle, NavPolyRef, Vector3)" /> and
+    ///     skip it entirely.
+    /// </remarks>
     public bool SetTarget(CrowdAgentHandle handle, Vector3 target) {
         if (!TryGet(handle, out var agent)) {
             return false;
         }
 
+        var found = Query.FindNearestPoly(target, SearchExtents, Filter, out var poly, out var point);
+
+        Retarget(agent, found ? poly : NavPolyRef.Null, point, target);
+
+        return true;
+    }
+
+    /// <summary>Tells an agent to go to a polygon it has already been given.</summary>
+    /// <param name="handle">The agent.</param>
+    /// <param name="poly">The polygon the destination is on.</param>
+    /// <param name="point">The point on it.</param>
+    /// <returns><see langword="false" /> if the handle names no live agent.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         For the caller that knows. A patrol point resolved once when the level loaded, a
+    ///         destination taken from another agent's <see cref="CrowdAgentState.Poly" />, a waypoint
+    ///         the game already snapped — all of these have been through a nearest-polygon search
+    ///         already, and doing it again per agent per retarget is the single largest cost left in a
+    ///         crowd that changes its mind all at once.
+    ///     </para>
+    ///     <para>
+    ///         The reference is checked when the path is planned, not here, so a polygon whose tile is
+    ///         later unloaded or rebuilt falls back to a search rather than searching from nothing.
+    ///     </para>
+    /// </remarks>
+    public bool SetTarget(CrowdAgentHandle handle, NavPolyRef poly, Vector3 point) {
+        if (!TryGet(handle, out var agent)) {
+            return false;
+        }
+
+        Retarget(agent, poly, point, point);
+
+        return true;
+    }
+
+    /// <summary>Points an agent at a new destination, whichever way it was named.</summary>
+    void Retarget(Agent agent, NavPolyRef poly, Vector3 point, Vector3 target) {
         // Whatever was being searched for is now the wrong question.
         Paths.Cancel(agent.Request);
         agent.Request = NavPathRequest.Null;
 
         agent.Target = target;
+        agent.TargetPoly = poly;
+        agent.TargetPoint = point;
         agent.State = CrowdTargetState.Requested;
-
-        return true;
     }
 
     /// <summary>Tells an agent to stop.</summary>
@@ -288,6 +337,8 @@ public sealed class Crowd {
         agent.Request = NavPathRequest.Null;
         agent.State = CrowdTargetState.None;
         agent.Target = agent.Position;
+        agent.TargetPoly = agent.Poly;
+        agent.TargetPoint = agent.Position;
         agent.OffMeshTotal = 0f;
         agent.Corridor.Reset(agent.Poly, agent.Position);
 
@@ -525,12 +576,34 @@ public sealed class Crowd {
                 continue;
             }
 
-            if (!Query.FindNearestPoly(agent.Position, SearchExtents, Filter, out var start, out var startPoint) ||
-                !Query.FindNearestPoly(agent.Target, SearchExtents, Filter, out var end, out var endPoint)) {
+            // The agent is standing on the mesh and knows which polygon: that is what a corridor is,
+            // and it has been kept current by every move since. Searching for it again was the whole
+            // cost of a retarget storm — two lookups an agent, at about a microsecond each, which on
+            // an eighty-metre level came to more than the searches they were preparing for.
+            var start = agent.Poly;
+            var startPoint = agent.Position;
+
+            if (!IsUsable(start) && !Query.FindNearestPoly(startPoint, SearchExtents, Filter, out start, out startPoint)) {
                 agent.State = CrowdTargetState.Failed;
 
                 continue;
             }
+
+            var end = agent.TargetPoly;
+            var endPoint = agent.TargetPoint;
+
+            // The remembered destination, unless its tile has been unloaded or replaced under it —
+            // which a rebuilt tile does deliberately, by changing the salt every reference to it
+            // carries. The fallback is the old behaviour, so a destination set before its tile
+            // loaded still resolves the moment it can.
+            if (!IsUsable(end) && !Query.FindNearestPoly(agent.Target, SearchExtents, Filter, out end, out endPoint)) {
+                agent.State = CrowdTargetState.Failed;
+
+                continue;
+            }
+
+            agent.TargetPoly = end;
+            agent.TargetPoint = endPoint;
 
             var request = Paths.Submit(start, end, startPoint, endPoint, Filter);
 
@@ -546,6 +619,16 @@ public sealed class Crowd {
             agent.RequestEndPosition = endPoint;
         }
     }
+
+    /// <summary>Whether a remembered polygon can still be searched from or to.</summary>
+    /// <remarks>
+    ///     Both halves matter. The reference has to still name a polygon — a tile that was unloaded or
+    ///     rebuilt takes its polygons' salt with it, so a stale reference fails here rather than
+    ///     resolving to whatever now occupies the slot. And the filter has to still accept it, because
+    ///     a door that was closed with <see cref="NavMesh.SetPolyFlags" /> is a polygon that exists and
+    ///     may not be used.
+    /// </remarks>
+    bool IsUsable(NavPolyRef poly) => Mesh.TryGetPolyAttributes(poly, out _, out var flags) && Filter.Passes(flags);
 
     /// <summary>Takes a finished search and turns it into the agent's corridor.</summary>
     void Collect(Agent agent) {
@@ -843,6 +926,16 @@ public sealed class Crowd {
         public Vector3 Wanted { get; set; }
 
         public NavPolyRef Poly { get; set; }
+
+        /// <summary>The polygon <see cref="Target" /> is on, resolved when it was set.</summary>
+        /// <remarks>
+        ///     Remembered rather than looked up per plan, because a destination is set once and
+        ///     planned for repeatedly — every refused request, every replan after a corridor goes
+        ///     bad. Held with the point on it, because that is the other half of the same answer.
+        /// </remarks>
+        public NavPolyRef TargetPoly { get; set; }
+
+        public Vector3 TargetPoint { get; set; }
 
         public CrowdTargetState State { get; set; }
 

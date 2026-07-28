@@ -2107,6 +2107,16 @@ Raven equivalent (golden image). A VFX graph produces identical output on the CP
   through. Doc 08's `SceneCompiler` carries no "Built" marker. When it exists, this importer fills the
   same list of placements from it and nothing else changes.
 
+  **The two endpoint lookups a retarget did not need are gone.** Planning used to begin by searching
+  for the polygon the agent was standing on — which is its corridor's first polygon and has been kept
+  current by every move — and for the polygon its destination is on, once per plan attempt rather than
+  once per destination. The first is now read, the second is resolved when the destination is set, and
+  `SetTarget(handle, poly, point)` lets a caller that already has the answer skip it altogether. Both
+  remembered references are validated before use — the reference has to still resolve *and* the filter
+  has to still accept it — so a rebuilt tile or a closed door falls back to a search. Writing it down
+  found a real bug: `AddAgent` and `ClearTarget` set the target without its polygon, so a recycled
+  agent slot inherited the previous occupant's destination.
+
   **Owed:** reading placements from a compiled scene, once doc 08's scene compiler exists.
 - `Samples/05-PlatformerGame` — physics, input, animation, audio, VFX end to end on all platforms where
   it is in scope.
