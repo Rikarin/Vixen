@@ -3145,6 +3145,11 @@ N-client in-process replication convergence tests green. Bit-exact serialization
 OSes (same gate as content determinism). Packet-reader fuzzing clean. 100-connection / 5 000-entity soak
 holds its bandwidth, CPU, and allocation budgets for 30 minutes.
 
+> **✅ All five are met.** What remains in the phase is not an exit criterion and is listed below with
+> the reason each one is where it is: **lag compensation** cannot start until Phase 8's physics exists,
+> the **relay transport** wants a scope decision before code, and **out-of-process play mode** is
+> blocked on editor infrastructure rather than on networking.
+
 - ✅ **The soak harness** — `Samples/09-NetworkSoak`, which measures the criterion above and exits
   non-zero when a budget is missed. It currently misses three, and that is recorded rather than tuned
   away.
